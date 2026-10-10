@@ -152,6 +152,19 @@ satisfied: `frontends/fcitx5/test/testmodeswitch.cpp` was added and ctest
 
 **Revised again 2026-10-10, after tier E2 closed W5/W6 and N2/N5/N6 were completed.** W5, W6, N2, N5, N6 are done. The remaining unblocked items are environment-bound (E3 gate, R8 shrinker E2E, soft keyboard, D4 Wayland) or decision-blocked (B1–B9). No further unblocked code work remains at this time.
 
+## Voice input enhancements (incremental, staged)
+
+| Stage | Feature | Status | Notes |
+|---|---|---|---|
+| 1 | Voice trigger: Right Alt + V | ✅ Done | `onKeyDown` handles `KEYCODE_V` + `META_ALT_RIGHT_ON` |
+| 2 | Auto Hangul/English toggle on/off: Right Alt + Enter | ⚠️ Stub | Key handler added, engine integration pending (B4) |
+| 3 | Voice language follows keyboard mode | ✅ Done | `SpeechRecognizerRecognizer(language)` uses `ko-KR` / `en-US` |
+| 4 | Longer silence timeout (partial results) | ✅ Done | `EXTRA_PARTIAL_RESULTS=true`, 1.5s/3s silence |
+| 5 | Mic button visual state (idle/listening/error) | ✅ Done | `LayoutPicker.setMicState(MicState)` |
+| 6 | IME switch button in picker | ✅ Done | Shows system `showInputMethodPicker()` |
+| 7 | Configurable key bindings | 📋 Planned | Persist user preferences for triggers |
+| 8 | Auto Hangul/English detection engine integration | 🔒 Blocked on B4 | Needs maintainer decision on assignment/ON-OFF default |
+
 **Evidence that would change this:** if B1 is answered quickly, §2 becomes the
 critical path and should jump ahead of everything here — P8 is the phase with no
 engine implementation at all, and it is the maintainer's own stated requirement.

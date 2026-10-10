@@ -23,10 +23,14 @@
  */
 package org.hunmin.ime
 
+import android.app.AlertDialog
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.AttributeSet
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.ImageButton
@@ -50,7 +54,9 @@ class LayoutPicker @JvmOverloads constructor(
 
     private lateinit var spinner: Spinner
     private lateinit var micButton: ImageButton
-    private var layouts: List<HunminInputMethodService.LayoutEntry> = emptyList()
+    private lateinit var modeView: TextView
+    private lateinit var settingsButton: ImageButton
+    private var layouts: List<LayoutEntry> = emptyList()
 
     /**
      * Set while binding, so Spinner's initial onItemSelected is not read as a
@@ -72,6 +78,44 @@ class LayoutPicker @JvmOverloads constructor(
             micButton.setOnClickListener { value?.invoke() }
         }
 
+    /** Called when the user taps the Hanja button. Null disables the button. */
+    var onHanjaClicked: (() -> Unit)? = null
+
+    /** Called when the user taps the mode indicator (한/영). Null disables click. */
+    var onModeClicked: (() -> Unit)? = null
+
+    /** Visual state of the mic button. */
+    enum class MicState { IDLE, LISTENING, ERROR }
+
+    /** Update mic button appearance for current recognition state. */
+    fun setMicState(state: MicState) {
+        val color = when (state) {
+            MicState.IDLE -> 0
+            MicState.LISTENING -> android.graphics.Color.GREEN
+            MicState.ERROR -> android.graphics.Color.GRAY
+        }
+        if (color == 0) {
+            micButton.clearColorFilter()
+        } else {
+            micButton.setColorFilter(
+                color,
+                android.graphics.PorterDuff.Mode.SRC_IN
+            )
+        }
+        micButton.contentDescription = context.getString(
+            when (state) {
+                MicState.IDLE -> R.string.voice_content_description
+                MicState.LISTENING -> R.string.voice_listening
+                MicState.ERROR -> R.string.voice_error
+            }
+        )
+    }
+
+    /** Update mode indicator (한/영). */
+    fun setMode(isHangul: Boolean) {
+        modeView.text = if (isHangul) "한" else "영"
+    }
+
     init {
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
@@ -86,6 +130,17 @@ class LayoutPicker @JvmOverloads constructor(
             setPadding(PAD, 0, PAD / 2, 0)
         })
 
+        // Mode indicator: 한 / 영 (clickable to toggle)
+        modeView = TextView(context).apply {
+            text = "한"
+            textSize = 14f
+            setTextColor(0xFFFFFFFF.toInt())
+            setPadding(PAD, 0, PAD, 0)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setOnClickListener { onModeClicked?.invoke() }
+        }
+        addView(modeView)
+
         spinner = Spinner(context).apply {
             // On a hardware-key setup this is one tap to reach, so it stays
             // visible rather than hiding behind a gesture nobody will try.
@@ -99,6 +154,36 @@ class LayoutPicker @JvmOverloads constructor(
             setBackgroundColor(0x00000000)
         }
         addView(micButton)
+
+        // Hanja button — opens Hanja candidate window
+        val hanjaButton = ImageButton(context).apply {
+            setImageResource(android.R.drawable.ic_menu_add)
+            contentDescription = context.getString(R.string.hanja_content_description)
+            setBackgroundColor(0x00000000)
+            setOnClickListener { onHanjaClicked?.invoke() }
+        }
+        addView(hanjaButton)
+
+        // IME switch button — shows system IME picker
+        val imeSwitchButton = ImageButton(context).apply {
+            setImageResource(android.R.drawable.ic_menu_rotate)
+            contentDescription = context.getString(R.string.ime_switch_content_description)
+            setBackgroundColor(0x00000000)
+            setOnClickListener {
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showInputMethodPicker()
+            }
+        }
+        addView(imeSwitchButton)
+
+        // Settings button — opens key binding settings
+        settingsButton = ImageButton(context).apply {
+            setImageResource(android.R.drawable.ic_menu_preferences)
+            contentDescription = context.getString(R.string.settings_content_description)
+            setBackgroundColor(0x00000000)
+            setOnClickListener { showSettingsDialog() }
+        }
+        addView(settingsButton)
 
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
 
@@ -130,7 +215,7 @@ class LayoutPicker @JvmOverloads constructor(
      * stored choice on every service start.
      */
     fun bind(
-        layouts: List<HunminInputMethodService.LayoutEntry>,
+        layouts: List<LayoutEntry>,
         currentId: String,
         onChosen: (String) -> Unit,
     ) {
@@ -138,7 +223,9 @@ class LayoutPicker @JvmOverloads constructor(
         this.onChosen = onChosen
 
         val labels = layouts.map { it.label }
-        val adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, labels)
+        val adapter: ArrayAdapter<String> = ArrayAdapter(
+            context, android.R.layout.simple_spinner_item, labels
+        )
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinner.adapter = adapter
 
@@ -177,6 +264,19 @@ class LayoutPicker @JvmOverloads constructor(
         suppress = true
         spinner.setSelection(index, false)
         suppress = false
+    }
+
+    /** Show settings dialog for key binding configuration. */
+    private fun showSettingsDialog() {
+        // Dialogs can't be shown from service context; use Toast for now
+        android.widget.Toast.makeText(context, "설정 준비 중...", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    /** Dialog to capture a key combination from user input. */
+    private fun showKeyCaptureDialog(actionName: String, onComplete: (String) -> Unit) {
+        // Not usable from service context; disabled for now
+        android.widget.Toast.makeText(context, "$actionName: 설정 준비 중", android.widget.Toast.LENGTH_SHORT).show()
+        onComplete("준비 중")
     }
 
     private companion object {

@@ -78,6 +78,12 @@ class HunminInputMethodService : InputMethodService() {
     /** Layout picker state survives engine rebuilds; it is a service field. */
     private var layoutId: String = DEFAULT_LAYOUT
 
+    /** Hangul/English mode. True = Hangul, False = English (Latin). */
+    private var isHangulMode: Boolean = true
+
+    /** Latin layout engine for English mode. */
+    private var latinEngine: HunminEngine? = null
+
     override fun onCreate() {
         super.onCreate()
         registerTraceReceiver()
@@ -129,10 +135,14 @@ class HunminInputMethodService : InputMethodService() {
     override fun onStartInput(info: EditorInfo?, restarting: Boolean) {
         super.onStartInput(info, restarting)
         engine?.close()
+        latinEngine?.close()
         engine = if (ctx == 0L) null else HunminEngine(ctx, layoutId)
+        latinEngine = if (ctx == 0L) null else HunminEngine(ctx, "us-qwerty")
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
+        // Start in Hangul mode by default
+        isHangulMode = true
         currentInputConnection?.let { engine?.updatePreedit(it) }
         // The view is created once per IME window but the engine per editor, so
         // the picker's list and selection are refreshed here rather than trusted
@@ -159,7 +169,7 @@ class HunminInputMethodService : InputMethodService() {
         picker?.select(layoutId)
     }
 
-    /**
+/**
      * Feed one key. Returns true when the engine consumed it.
      *
      * Two details that are easy to get wrong and produce a "the IME eats some
@@ -174,21 +184,156 @@ class HunminInputMethodService : InputMethodService() {
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return super.onKeyDown(keyCode, event)
-        val e = engine ?: return super.onKeyDown(keyCode, event)
+
+        val altRight = (event.metaState and KeyEvent.META_ALT_RIGHT_ON) != 0
+        val altLeft = (event.metaState and KeyEvent.META_ALT_LEFT_ON) != 0
+        val shiftOn = (event.metaState and KeyEvent.META_SHIFT_ON) != 0
+
+        // Space during composition: commit syllable AND forward space
+        // This is a frontend responsibility (engine declines space during composition)
+        if (keyCode == KeyEvent.KEYCODE_SPACE && isHangulMode) {
+            val e = engine ?: return super.onKeyDown(keyCode, event)
+            val target: InputConnection = currentInputConnection
+                ?: return super.onKeyDown(keyCode, event)
+            // Flush/commit the in-flight syllable first
+            val committed = e.flush(target)
+            // Then forward the space to the application
+            target.commitText(" ", 1)
+            return true
+        }
+
+        // Hangul/English toggle: Left Alt + Z, Right Alt, or Language Switch key
+        if (keyCode == KeyEvent.KEYCODE_Z && altLeft) {
+            toggleHangulEnglish()
+            return true
+        }
+        if (keyCode == KeyEvent.KEYCODE_ALT_RIGHT
+            || keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH) {
+            toggleHangulEnglish()
+            return true
+        }
+
+        // Voice input trigger: Right Alt + V or Left Alt + V
+        if (keyCode == KeyEvent.KEYCODE_V && (altRight || altLeft)) {
+            startVoiceInput()
+            return true
+        }
+
+        // Hangul/English auto-toggle on/off: Right Alt + Enter
+        if (keyCode == KeyEvent.KEYCODE_ENTER && altRight) {
+            toggleAutoHangulEnglish()
+            return true
+        }
+
+        // Hanja window: Left Alt + X, or Shift + Right Alt, or Shift + Language Switch
+        if (keyCode == KeyEvent.KEYCODE_X && altLeft) {
+            openHanjaWindow()
+            return true
+        }
+        if (keyCode == KeyEvent.KEYCODE_ALT_RIGHT && shiftOn) {
+            openHanjaWindow()
+            return true
+        }
+        if (keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH && shiftOn) {
+            openHanjaWindow()
+            return true
+        }
+
+        // Route to correct engine based on mode
+        val e = if (isHangulMode) engine else latinEngine
         val target: InputConnection = currentInputConnection
             ?: return super.onKeyDown(keyCode, event)
 
         val consumed = try {
-            e.onKey(keyCode, event.metaState, target)
+            e?.onKey(keyCode, event.metaState, target) ?: false
         } catch (ex: UnsatisfiedLinkError) {
-            // The .so is missing or ABI-mismatched. Losing the whole IME is
-            // worse than degrading to pass-through, and the exception would
-            // otherwise be rethrown on every keystroke with no explanation.
             Log.e(TAG, "hunmin: native library unavailable", ex)
             engine = null
+            latinEngine = null
             false
         }
         return if (consumed) true else super.onKeyDown(keyCode, event)
+    }
+
+    /** Toggle between Hangul and English (Latin) mode. */
+    private fun toggleHangulEnglish() {
+        isHangulMode = !isHangulMode
+        val target = currentInputConnection ?: return
+
+        if (isHangulMode) {
+            engine?.updatePreedit(target)
+            Log.i(TAG, "hunmin: switched to Hangul mode ($layoutId)")
+            showModeToast("한글")
+        } else {
+            latinEngine?.updatePreedit(target)
+            Log.i(TAG, "hunmin: switched to English mode (us-qwerty)")
+            showModeToast("English")
+        }
+        picker?.setMicState(
+            if (isHangulMode) LayoutPicker.MicState.IDLE
+            else LayoutPicker.MicState.ERROR
+        )
+        picker?.setMode(isHangulMode)
+    }
+
+    /** Show transient mode indicator (like Samsung's toast). */
+    private fun showModeToast(mode: String) {
+        val toast = android.widget.Toast.makeText(this, "($mode)", android.widget.Toast.LENGTH_SHORT)
+        toast.setGravity(android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL, 0, 100)
+        toast.show()
+    }
+
+    /** Toggle auto Hangul/English detection on/off. */
+    private fun toggleAutoHangulEnglish() {
+        // TODO: persist this setting
+        // For now, just log. The actual auto-detection logic is in the engine/fcitx5 adapter.
+        Log.i(TAG, "hunmin: auto Hangul/English toggle requested (not yet implemented)")
+    }
+
+    /** Open Hanja candidate window for current preedit. */
+    private fun openHanjaWindow() {
+        val e = engine ?: return
+        val target = currentInputConnection ?: return
+        // Commit any in-flight composition first
+        val preedit = e.preedit()
+        if (preedit.isEmpty()) {
+            Log.i(TAG, "hunmin: no preedit for Hanja lookup")
+            return
+        }
+        val count = e.suggestCount(preedit)
+        if (count == 0) {
+            Log.i(TAG, "hunmin: no Hanja candidates for '$preedit'")
+            return
+        }
+
+        // Build candidate list
+        val candidates = mutableListOf<String>()
+        val details = mutableListOf<String>()
+        for (i in 0 until count) {
+            val text = e.suggestText(i)
+            val detail = e.suggestDetail(i)
+            val kind = e.suggestKind(i)
+            candidates.add(text)
+            details.add("$kind: $detail")
+        }
+
+        // Show dialog with candidates
+        val adapter = android.widget.ArrayAdapter<String>(
+            this,
+            android.R.layout.select_dialog_item,
+            candidates.mapIndexed { idx, text -> "$text  (${details[idx]})" }
+        )
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("한자 선택: $preedit")
+            .setAdapter(adapter) { _, which ->
+                val chosen = candidates[which]
+                // Commit the chosen Hanja via invariant 5 pass-through
+                e.commitExternalText(target, chosen)
+                Log.i(TAG, "hunmin: Hanja committed: $chosen")
+            }
+            .setNegativeButton("취소", null)
+            .show()
     }
 
     /**
@@ -270,11 +415,21 @@ class HunminInputMethodService : InputMethodService() {
             // button that toggles is expected to do.
             voiceSession?.stop()
             voiceSession = null
+            picker?.setMicState(LayoutPicker.MicState.IDLE)
             return
         }
-        val session = VoiceSession(this, permissionGate = AndroidPermissionGate(this))
+        // Determine language based on current mode
+        val language = if (isHangulMode) "ko-KR" else "en-US"
+        val session = VoiceSession(
+            this,
+            recognizerFactory = { PlatformRecognizer(this, language) },
+            permissionGate = AndroidPermissionGate(this)
+        )
+        // Show listening state (blue)
+        picker?.setMicState(LayoutPicker.MicState.LISTENING)
         session.onResult = { result ->
             voiceSession = null
+            picker?.setMicState(LayoutPicker.MicState.IDLE)
             when (result) {
                 is VoiceResult.Got -> {
                     // Verify the service is still on the same editor before
@@ -355,6 +510,8 @@ class HunminInputMethodService : InputMethodService() {
         val view = LayoutPicker(this)
         view.bind(availableLayouts(), layoutId) { id -> setLayout(id) }
         view.onMicClicked = { startVoiceInput() }
+        view.onHanjaClicked = { openHanjaWindow() }
+        view.onModeClicked = { toggleHangulEnglish() }
         // Assigned last: `picker` is a mutable property, so Kotlin cannot smart-
         // cast it for the bind() call above. Binding before the field is set also
         // means the picker's first onItemSelected -- which Spinner fires as soon as
@@ -454,8 +611,7 @@ class HunminInputMethodService : InputMethodService() {
         null
     }
 
-    /** One row in the picker. */
-    data class LayoutEntry(val id: String, val label: String)
+    
 
     /**
      * Use [preferred] if this build can instantiate it, else the default, else

@@ -58,6 +58,11 @@ class HunminEngine(
         fun reset(ic: Long)
         fun setOption(ic: Long, name: String, value: Int): Boolean
         fun commitText(ic: Long, text: String): String
+        // Hanja candidates (P3)
+        fun suggestCount(ctx: Long, hangul: String): Int
+        fun suggestText(ctx: Long, i: Int): String
+        fun suggestDetail(ctx: Long, i: Int): String
+        fun suggestKind(ctx: Long, i: Int): String
     }
 
     private object JniOps : NativeOps {
@@ -71,6 +76,11 @@ class HunminEngine(
         override fun setOption(ic: Long, name: String, value: Int) =
             HunminNative.nativeSetOption(ic, name, value)
         override fun commitText(ic: Long, text: String) = HunminNative.nativeCommitText(ic, text)
+        // Hanja candidates (P3)
+        override fun suggestCount(ctx: Long, hangul: String) = HunminNative.nativeSuggestCount(ctx, hangul)
+        override fun suggestText(ctx: Long, i: Int) = HunminNative.nativeSuggestText(ctx, i)
+        override fun suggestDetail(ctx: Long, i: Int) = HunminNative.nativeSuggestDetail(ctx, i)
+        override fun suggestKind(ctx: Long, i: Int) = HunminNative.nativeSuggestKind(ctx, i)
     }
 
     /** 0 when the layout id is unknown or unsupported — the engine declines. */
@@ -203,6 +213,23 @@ class HunminEngine(
         native.reset(ic)
         updatePreedit(ic_)
     }
+
+    // ------------------------------------------------------------ Hanja (P3)
+
+    /** Get the number of Hanja candidates for the given Hangul text. */
+    fun suggestCount(hangul: String): Int = native.suggestCount(ctx, hangul)
+
+    /** Get the Hanja candidate text at index [i]. */
+    fun suggestText(i: Int): String = native.suggestText(ctx, i)
+
+    /** Get the detail (meaning/pronunciation) for candidate [i]. */
+    fun suggestDetail(i: Int): String = native.suggestDetail(ctx, i)
+
+    /** Get the kind ("hanja" | "idiom" | "word") for candidate [i]. */
+    fun suggestKind(i: Int): String = native.suggestKind(ctx, i)
+
+    /** Get the current preedit text for this engine's input context. */
+    fun preedit(): String = if (ic != 0L) native.preedit(ic) else ""
 
     /**
      * Push the current preedit to the client.
