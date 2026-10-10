@@ -185,6 +185,28 @@ class HunminEngine(
         if (ic == 0L) return
         val s = native.flush(ic)
         if (s.isNotEmpty()) ic_.commitText(s, 1)
+        // flush() commits but does not clear the composing region on its own
+        // (see the preedit test in HunminEngineTest): a caller that stops here
+        // leaves the stale syllable on screen over the text it just committed.
+        updatePreedit(ic_)
+    }
+
+    /**
+     * Replace the in-flight composition with a Hanja chosen by the user.
+     *
+     * NOT [commitExternalText]: that one is invariant 5's pass-through for text
+     * from outside the keyboard (voice), and its contract is deliberately
+     * "the typed text followed by the spoken text". A Hanja conversion is the
+     * opposite -- the Hangul being composed IS the thing being converted, so it
+     * must be discarded, not committed before the Hanja. Flushing first and then
+     * committing produced "가恨" instead of "恨", which is what the
+     * composition-replacement test in HunminEngineTest asserts against; reset()
+     * drops the syllable without committing it, so only the Hanja lands.
+     */
+    fun commitHanja(ic_: InputConnection, hanja: String) {
+        if (ic == 0L) return
+        reset(ic_)
+        ic_.commitText(hanja, 1)
     }
 
     /**

@@ -590,7 +590,34 @@ Four layers, cheap→real:
   unmutated suite once before planting anything, because a checkout that is
   already red reports all nine as "caught" for the wrong reason; see
   `docs/ANDROID-MUTATION-SANDBOX.md` §4.2 for the measurement and §2–3 for
-  what its sandbox strategy costs.
+  the harness, and what its sandbox strategy costs.
+  **The 2026-10-11 character-loss trio** is asserted here, because every one of
+  the three bugs was invisible on the build machine and each lost text the user
+  had already typed. The 한/영 toggle lost the composing syllable (no flush);
+  a bare Alt — its own `ACTION_DOWN` before `Alt+X` for Hanja — reached
+  `HunminEngine.onKey`, whose modifier path flushed it; and the picked Hanja was
+  never committed at all, because an IME is a Service and receives no activity
+  result. The three tests in `HunminEngineTest` state the shared property —
+  *whatever interrupts a composition, the composing characters reach the client:
+  committed or still composing, never neither* — and they caught a real defect
+  while being written: the Hanja path went through `commitExternalText`, whose
+  contract is invariant 5's voice pass-through, so it appended the Hanja after
+  the Hangul (`가恨`) instead of replacing it. `HunminEngine.commitHanja` is the
+  replacement path, and the test that found the bug is the one that guards it.
+- **align-16k** ✅ (2026-10-11): `ctest align-16k`, `tools/check-align-16k.py`.
+  Android 15+ on 16KB-page devices refuses an install whose native libraries are
+  not 16KB-aligned, and the failure never appears on the build machine — it
+  compiles, links, packages, installs, and only the device complains. The bug it
+  was written for was a two-build-system split: `libhunmin.so` gets
+  `-Wl,-z,max/common-page-size=16384` from `cmake/android.toolchain.cmake`, but
+  `libhunjni.so` is built by AGP's `externalNativeBuild`, a separate CMake
+  project that does not inherit it, so the shim shipped at the 4KB default and
+  the runtime reported *both* libraries as unaligned. The check reads every
+  PT_LOAD `p_align` out of the APK's libraries **and** runs `zipalign -c -P 16`:
+  the ELF header align and the stored-offset align are separate mechanisms and
+  neither implies the other. Verified to fail by patching a real `libhunjni.so`
+  back to `p_align 0x1000`. rc 77 with no APK, so the inner loop stays green —
+  build `tools/build-android.sh <abi>` + `./gradlew assembleDebug` first.
 - **E2 emulator e2e** ✅ (2026-10-03, `ctest engine-android-e2e`,
   `tools/android-e2e.sh`): the real APK on the emulator, asserted end to end.
   Install → `ime enable` + `ime set` → focus a real `EditText` → inject real key

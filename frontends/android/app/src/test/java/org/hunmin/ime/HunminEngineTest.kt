@@ -264,6 +264,89 @@ class HunminEngineTest {
         engine.close()
     }
 
+    /*
+     * --- The 2026-10-11 Hangul/English and Hanja fixes, as invariants ---
+     *
+     * Three bugs, one shape. Every one of them lost characters the user had
+     * already typed, and every one of them was invisible on the build machine:
+     *
+     *   1. The Hangul/English toggle (한/영 key) did not flush, so the syllable
+     *      composing at the moment of the switch vanished into the engine's
+     *      buffer and reappeared only after switching back. Fixed by flushing
+     *      both engines in toggleHangulEnglish().
+     *   2. Alt alone -- delivered as its own ACTION_DOWN before Alt+X for Hanja
+     *      -- reached HunminEngine.onKey, whose isModifierChord path flushes.
+     *      The Hanja lookup then found an empty preedit. Fixed by not routing a
+     *      bare modifier to the engine at all.
+     *   3. The picked Hanja was never committed: OverlayActivity called
+     *      setResult(), but an IME is a Service and receives no activity result.
+     *      Fixed with an explicit-package broadcast the service commits.
+     *
+     * The shared property is what tier E1 can state, because flush() and
+     * commitExternalText() are adapter-level and the service wiring is tier E2:
+     *
+     *      whatever interrupts a composition, the composing characters must
+     *      reach the client -- either committed, or still composing, but never
+     *      neither.
+     *
+     * Each test below breaks that property in a specific way, so a regression
+     * in the flush contract fails here rather than on a device.
+     */
+
+    @Test
+    fun `a flush during composition commits it instead of dropping it`() {
+        // Bug 1's core. The service flushes on a mode switch; if flush did not
+        // commit what was composing, the typed syllable would be lost exactly
+        // as the user reported. flush() must also clear the preedit, or the
+        // stale composition stays on screen over the committed text.
+        val ic = RecordingInputConnection()
+        val engine = HunminEngine(ctx, "sin3-p2")
+        engine.typeChar('k', ic)
+        engine.typeChar('f', ic)
+        assertEquals("가", ic.composings.last())
+
+        engine.flush(ic)
+        assertEquals("the composing syllable must reach the client", "가", ic.text())
+        assertEquals("", ic.composings.last())
+        engine.close()
+    }
+
+    @Test
+    fun `a Hanja commit replaces the composition, never appends after it`() {
+        // Bug 3's core: the Hanja broadcast path commits through commitHanja.
+        // If it did not take the in-flight composition first, the Hangul would
+        // stay in the preedit and the Hanja would be committed after it --
+        // "한恨" instead of "恨". That is what commitExternalText would do,
+        // and it is why the Hanja path does not use it (see commitHanja's doc).
+        val ic = RecordingInputConnection()
+        val engine = HunminEngine(ctx, "sin3-p2")
+        engine.typeChar('k', ic)
+        engine.typeChar('f', ic)
+
+        engine.commitHanja(ic, "恨")
+        assertEquals("the Hangul must not survive alongside the Hanja", "恨", ic.text())
+        assertEquals("", ic.composings.last())
+        engine.close()
+    }
+
+    @Test
+    fun `a modifier chord does not silently swallow the composition`() {
+        // Bug 2's core, at the layer E1 owns. HunminEngine.onKey flushes on a
+        // modifier chord -- correct for the engine, which must not compose
+        // Ctrl/Alt -- but the flush must COMMIT, not discard. The service guard
+        // (do not route a bare modifier here at all) is tier E2; this asserts
+        // the engine half, which is what would have lost the syllable if the
+        // guard were the only change and flush were broken.
+        val ic = RecordingInputConnection()
+        val engine = HunminEngine(ctx, "sin3-p2")
+        engine.typeChar('k', ic)
+        engine.typeChar('f', ic)
+
+        engine.onKey(45 /* KEYCODE_X */, altOn, ic)
+        assertEquals("a modifier chord must commit, not drop", "가", ic.text())
+        engine.close()
+    }
+
     @Test
     fun `a four-key sequence commits and leaves the rest composing`() {
         // Invariant 2, the one tier A cannot see. Two commits here would mean

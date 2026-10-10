@@ -409,16 +409,24 @@ class HunminInputMethodService : InputMethodService() {
      * OverlayActivity is started with startActivity (not startActivityForResult)
      * and an IME is a Service, not an Activity, so it can never receive an
      * activity result. The dialog therefore broadcasts the choice back; this
-     * receiver commits it through commitExternalText so the selected Hanja
-     * replaces the Hangul composition. Explicit-package broadcast, so only
-     * this app hears it.
+     * receiver commits it through [HunminEngine.commitHanja], which flushes the
+     * composing Hangul first so the Hanja REPLACES it. commitExternalText would
+     * append after it ("한恨"), because that path is invariant 5's voice
+     * pass-through, not a conversion. Explicit-package broadcast, so only this
+     * app hears it.
      */
     private val hanjaReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action != OverlayActivity.ACTION_HANJA_SELECTED) return
             val selected = intent.getStringExtra(OverlayActivity.EXTRA_SELECTED_HANJA)
             if (selected.isNullOrEmpty()) return
-            val ok = commitExternalText(selected)
+            val target = currentInputConnection
+            val ok = if (target != null) {
+                engine?.commitHanja(target, selected)
+                true
+            } else {
+                false
+            }
             Log.i(TAG, "hunmin: Hanja selected '$selected' committed=$ok")
         }
     }

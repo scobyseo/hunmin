@@ -274,6 +274,20 @@ if(BUILD_TESTING AND Python3_FOUND)
   set_tests_properties(modes-corpus-selfcheck PROPERTIES
     LABELS "tier-G"
     SKIP_RETURN_CODE 77)
+  # Android 15+ on 16KB-page devices refuses an install whose native
+  # libraries are not 16KB-aligned, and the failure is invisible on the build
+  # machine (it compiles, links, packages, installs -- and only the device
+  # complains). libhunjni.so shipped at the 4KB default for exactly that
+  # reason: it is built by AGP's externalNativeBuild, which does not inherit
+  # cmake/android.toolchain.cmake's linker flags. Skips (77) when no APK has
+  # been built, so the inner loop stays green; run tools/build-android.sh +
+  # ./gradlew assembleDebug first to make it real.
+  add_test(NAME align-16k
+    COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check-align-16k.py)
+  set_tests_properties(align-16k PROPERTIES
+    LABELS "tier-E"
+    SKIP_RETURN_CODE 77)
   if(HUNMIN_HAS_LIBHANGUL AND HUNMIN_SH)
     add_test(NAME goldens-reproducible
       COMMAND ${HUNMIN_SH} ${CMAKE_CURRENT_SOURCE_DIR}/tools/regen-goldens.sh
