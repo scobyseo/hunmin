@@ -1,5 +1,9 @@
 name: ci
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 3 * * *'  # 03:00 UTC daily
 
 jobs:
   linux:
@@ -149,3 +153,74 @@ jobs:
       - uses: actions/checkout@v4
       - run: cmake -B build -A x64 -DBUILD_TESTING=OFF
       - run: cmake --build build --target hunmin --config RelWithDebInfo
+
+  # Tier E4: nightly soak / fuzz with LeakSanitizer
+  # Runs nightly at 03:00 UTC. Builds with LeakSanitizer, generates random
+  # HW-key streams via the existing mutation harness, and auto-files crashes
+  # as GitHub issues with reproduction steps.
+  nightly-fuzz:
+    name: nightly fuzz (LeakSanitizer)
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            cmake ninja-build pkg-config libhangul-dev python3 \
+            fcitx5-modules-dev libasan8 liblsan0
+
+      - name: Configure with LeakSanitizer
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DHUNMIN_TRACE_BUILD=ON \
+            -DCMAKE_C_FLAGS="-fsanitize=address,leak -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,leak -fno-omit-frame-pointer"
+
+      - name: Build with LeakSanitizer
+        run: cmake --build build -j16
+
+      - name: Run engine fuzz (random HW-key streams, 10000 iterations)
+        run: |
+          cd build
+          for i in $(seq 1 10000); do
+            # Generate random valid key sequence from the layout tables
+            python3 ../tools/fuzz-generate-keys.py --layout sin3-p2 --len 50 \
+              | ../build/hunmin-sim --data ../libhunmin/data --layout sin3-p2 --trace \
+              > /tmp/fuzz-$i.trace 2>&1 || {
+                echo "FAIL: fuzz iteration $i crashed"
+                cat /tmp/fuzz-$i.trace
+                # Create GitHub issue with reproduction steps
+                gh issue create --title "Fuzz crash: iteration $i" \
+                  --body "$(cat /tmp/fuzz-$i.trace)" \
+                  --label "fuzz,crash,auto-filed" || true
+                exit 1
+              }
+            # Check for LeakSanitizer reports in stderr
+            if grep -q "LeakSanitizer" /tmp/fuzz-$i.trace; then
+              echo "FAIL: LeakSanitizer reported leak in iteration $i"
+              cat /tmp/fuzz-$i.trace
+              gh issue create --title "LeakSanitizer leak: iteration $i" \
+                --body "$(cat /tmp/fuzz-$i.trace)" \
+                --label "fuzz,leak,auto-filed" || true
+              exit 1
+            fi
+          done
+
+      - name: Run Android mutation fuzz (LeakSanitizer)
+        if: false
+        run: |
+          # Disabled until Android emulator supports LeakSanitizer reliably
+          # export ASAN_OPTIONS=detect_leaks=1
+          # python3 tools/android-mutations.py --strategy sandbox
+
+      - name: Upload fuzz artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crash-artifacts
+          path: /tmp/fuzz-*.trace
+          retention-days: 30
