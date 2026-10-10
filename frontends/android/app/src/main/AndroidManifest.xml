@@ -84,5 +84,20 @@
             android:noHistory="true"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!--
+          OverlayActivity — transparent Activity for showing dialogs/Toasts from IME Service.
+          IME Service context cannot show dialogs/Toasts directly (no window token).
+          This transparent Activity is launched with FLAG_ACTIVITY_NEW_TASK and provides
+          a valid window context for dialogs, Toasts, and other UI.
+        -->
+        <activity
+            android:name=".OverlayActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
     </application>
 </manifest>

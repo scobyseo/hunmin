@@ -201,6 +201,7 @@ dependencies {
     // thing P5 must not do) or a compileSdk convenience that costs method count
     // for nothing.
     implementation("androidx.core:core:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.6.1")
 
     testImplementation("junit:junit:4.13.2")
 

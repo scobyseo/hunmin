@@ -268,13 +268,16 @@ class LayoutPicker @JvmOverloads constructor(
 
     /** Show settings dialog for key binding configuration. */
     private fun showSettingsDialog() {
-        // Dialogs can't be shown from service context; use Toast for now
-        android.widget.Toast.makeText(context, "설정 준비 중...", android.widget.Toast.LENGTH_SHORT).show()
+        val intent = android.content.Intent(context, OverlayActivity::class.java).apply {
+            action = OverlayActivity.ACTION_SHOW_SETTINGS
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
     }
 
     /** Dialog to capture a key combination from user input. */
     private fun showKeyCaptureDialog(actionName: String, onComplete: (String) -> Unit) {
-        // Not usable from service context; disabled for now
+        // For now, just show a toast and return a placeholder
         android.widget.Toast.makeText(context, "$actionName: 설정 준비 중", android.widget.Toast.LENGTH_SHORT).show()
         onComplete("준비 중")
     }

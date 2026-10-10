@@ -278,9 +278,13 @@ class HunminInputMethodService : InputMethodService() {
 
     /** Show transient mode indicator (like Samsung's toast). */
     private fun showModeToast(mode: String) {
-        val toast = android.widget.Toast.makeText(this, "($mode)", android.widget.Toast.LENGTH_SHORT)
-        toast.setGravity(android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL, 0, 100)
-        toast.show()
+        // Use OverlayActivity for Toast since IME Service can't show Toast directly
+        val intent = android.content.Intent(this, OverlayActivity::class.java).apply {
+            action = OverlayActivity.ACTION_SHOW_TOAST
+            putExtra(OverlayActivity.EXTRA_TOAST_TEXT, "($mode)")
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(intent)
     }
 
     /** Toggle auto Hangul/English detection on/off. */
@@ -293,7 +297,6 @@ class HunminInputMethodService : InputMethodService() {
     /** Open Hanja candidate window for current preedit. */
     private fun openHanjaWindow() {
         val e = engine ?: return
-        val target = currentInputConnection ?: return
         // Commit any in-flight composition first
         val preedit = e.preedit()
         if (preedit.isEmpty()) {
@@ -317,23 +320,15 @@ class HunminInputMethodService : InputMethodService() {
             details.add("$kind: $detail")
         }
 
-        // Show dialog with candidates
-        val adapter = android.widget.ArrayAdapter<String>(
-            this,
-            android.R.layout.select_dialog_item,
-            candidates.mapIndexed { idx, text -> "$text  (${details[idx]})" }
-        )
-
-        android.app.AlertDialog.Builder(this)
-            .setTitle("한자 선택: $preedit")
-            .setAdapter(adapter) { _, which ->
-                val chosen = candidates[which]
-                // Commit the chosen Hanja via invariant 5 pass-through
-                e.commitExternalText(target, chosen)
-                Log.i(TAG, "hunmin: Hanja committed: $chosen")
-            }
-            .setNegativeButton("취소", null)
-            .show()
+        // Launch OverlayActivity to show dialog
+        val intent = android.content.Intent(this, OverlayActivity::class.java).apply {
+            action = OverlayActivity.ACTION_SHOW_HANJA
+            putExtra(OverlayActivity.EXTRA_HANJA_PREEDIT, preedit)
+            putExtra(OverlayActivity.EXTRA_HANJA_CANDIDATES, candidates.toTypedArray())
+            putExtra(OverlayActivity.EXTRA_HANJA_DETAILS, details.toTypedArray())
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(intent)
     }
 
     /**
