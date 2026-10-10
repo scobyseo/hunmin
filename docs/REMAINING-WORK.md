@@ -381,8 +381,11 @@ The design properties that make it a guard rather than a comment:
 <!-- docs-lint: remaining-work -->
 # id | kind | target | expected | note
 # ----------------------------------------------------------------  still open
-W6 | grep | tests/manual-checklists/tier-e3-bt-keyboard.md:Tap the mic | present | the manual checklist still says "tap the mic"; no tier asserts the tap's effect
 # ----------------------------------------------------------------  closed this pass
+W6-CLOSED | grep | frontends/android/app/src/test/java/org/hunmin/ime/VoiceSessionTest.kt:decidePermission | present | tier E1 tests the voice permission decision logic (tap effect)
+W6-CLOSED | grep | tools/android-e2e.sh:input tap.*MICX.*MICY | present | tier E2 taps the mic button and verifies keyboard survival
+W6-CLOSED | grep | tests/manual-checklists/tier-e3-bt-keyboard.md:On emulator \(tier E2\) | present | manual checklist now notes E2 coverage
+N2-CLOSED | grep | .github/workflows/ci.yml:nightly | present | nightly fuzz job added 2026-10-10
 N2-CLOSED | grep | .github/workflows/ci.yml:nightly | present | nightly fuzz job added 2026-10-10
 N2-CLOSED | grep | .github/workflows/ci.yml:fuzz | present | fuzz job with LeakSanitizer added 2026-10-10
 N5-CLOSED | path-present | frontends/android/app/src/androidTest | present | Espresso assertions added 2026-10-10

@@ -100,13 +100,19 @@ inert and only proves nothing crashes. ☐
 
 ### 4. Voice button
 
-1. Tap the mic on the IME strip.
-2. Speak a Korean sentence.
-3. Confirm it lands **verbatim** and is not re-composed.
+**On device (this tier):** Tap the mic on the IME strip, speak a Korean sentence,
+confirm it lands **verbatim** and is not re-composed. If RECORD_AUDIO has not
+been granted the IME says so and keeps typing — that is the correct outcome,
+not a failure. An IME has no permission-request hook (FRONTEND-CONTRACT B5),
+so the grant happens in system settings. ☐
 
-If RECORD_AUDIO has not been granted the IME says so and keeps typing — that is
-the correct outcome, not a failure. An IME has no permission-request hook
-(FRONTEND-CONTRACT B5), so the grant happens in system settings. ☐
+**On emulator (tier E2):** `tools/android-e2e.sh` taps the mic button in both
+granted and revoked states, verifies the platform reports the permission state
+correctly, and asserts the keyboard still types after a denied tap. The voice
+result itself is unobservable on the emulator (no SpeechRecognizer service, and
+`pm revoke` puts the permission in AppOps `ignore` mode which is a silent
+deny), so the *effect* of the tap is verified at tier E1 via
+`VoiceLauncher.decidePermission` unit tests. ☐
 
 ### 5. One-tap IME switch, and back
 
