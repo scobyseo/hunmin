@@ -1,0 +1,334 @@
+# KCM for sebeolsik-final (Sebeolsik Final / 세벌식 최종)
+# Generated from libhunmin/data/layouts/sebeolsik-final.json
+# Layout engine: std
+
+type OVERLAY
+
+key 0 {
+    label: '0'
+    base: 'ᄏ'
+    shift: '~'
+    ctrl, alt, meta: none
+}
+
+key 1 {
+    label: '1'
+    base: 'ᇂ'
+    shift: 'ᆩ'
+    ctrl, alt, meta: none
+}
+
+key 2 {
+    label: '2'
+    base: 'ᆻ'
+    shift: 'ᆰ'
+    ctrl, alt, meta: none
+}
+
+key 3 {
+    label: '3'
+    base: 'ᆸ'
+    shift: 'ᆽ'
+    ctrl, alt, meta: none
+}
+
+key 4 {
+    label: '4'
+    base: 'ᅭ'
+    shift: 'ᆵ'
+    ctrl, alt, meta: none
+}
+
+key 5 {
+    label: '5'
+    base: 'ᅲ'
+    shift: 'ᆴ'
+    ctrl, alt, meta: none
+}
+
+key 6 {
+    label: '6'
+    base: 'ᅣ'
+    shift: '='
+    ctrl, alt, meta: none
+}
+
+key 7 {
+    label: '7'
+    base: 'ᅨ'
+    shift: '“'
+    ctrl, alt, meta: none
+}
+
+key 8 {
+    label: '8'
+    base: 'ᅴ'
+    shift: '”'
+    ctrl, alt, meta: none
+}
+
+key 9 {
+    label: '9'
+    base: 'ᅮ'
+    shift: '\''
+    ctrl, alt, meta: none
+}
+
+key A {
+    label: 'A'
+    base: 'ᆼ'
+    shift: 'ᆮ'
+    ctrl, alt, meta: none
+}
+
+key B {
+    label: 'B'
+    base: 'ᅮ'
+    shift: '?'
+    ctrl, alt, meta: none
+}
+
+key C {
+    label: 'C'
+    base: 'ᅦ'
+    shift: 'ᆿ'
+    ctrl, alt, meta: none
+}
+
+key D {
+    label: 'D'
+    base: 'ᅵ'
+    shift: 'ᆲ'
+    ctrl, alt, meta: none
+}
+
+key E {
+    label: 'E'
+    base: 'ᅧ'
+    shift: 'ᆬ'
+    ctrl, alt, meta: none
+}
+
+key F {
+    label: 'F'
+    base: 'ᅡ'
+    shift: 'ᆱ'
+    ctrl, alt, meta: none
+}
+
+key G {
+    label: 'G'
+    base: 'ᅳ'
+    shift: 'ᅤ'
+    ctrl, alt, meta: none
+}
+
+key H {
+    label: 'H'
+    base: 'ᄂ'
+    shift: '0'
+    ctrl, alt, meta: none
+}
+
+key I {
+    label: 'I'
+    base: 'ᄆ'
+    shift: '7'
+    ctrl, alt, meta: none
+}
+
+key J {
+    label: 'J'
+    base: 'ᄋ'
+    shift: '1'
+    ctrl, alt, meta: none
+}
+
+key K {
+    label: 'K'
+    base: 'ᄀ'
+    shift: '2'
+    ctrl, alt, meta: none
+}
+
+key L {
+    label: 'L'
+    base: 'ᄌ'
+    shift: '3'
+    ctrl, alt, meta: none
+}
+
+key M {
+    label: 'M'
+    base: 'ᄒ'
+    shift: '"'
+    ctrl, alt, meta: none
+}
+
+key N {
+    label: 'N'
+    base: 'ᄉ'
+    shift: '-'
+    ctrl, alt, meta: none
+}
+
+key O {
+    label: 'O'
+    base: 'ᄎ'
+    shift: '8'
+    ctrl, alt, meta: none
+}
+
+key P {
+    label: 'P'
+    base: 'ᄑ'
+    shift: '9'
+    ctrl, alt, meta: none
+}
+
+key Q {
+    label: 'Q'
+    base: 'ᆺ'
+    shift: 'ᇁ'
+    ctrl, alt, meta: none
+}
+
+key R {
+    label: 'R'
+    base: 'ᅢ'
+    shift: 'ᆶ'
+    ctrl, alt, meta: none
+}
+
+key S {
+    label: 'S'
+    base: 'ᆫ'
+    shift: 'ᆭ'
+    ctrl, alt, meta: none
+}
+
+key T {
+    label: 'T'
+    base: 'ᅥ'
+    shift: 'ᆳ'
+    ctrl, alt, meta: none
+}
+
+key U {
+    label: 'U'
+    base: 'ᄃ'
+    shift: '6'
+    ctrl, alt, meta: none
+}
+
+key V {
+    label: 'V'
+    base: 'ᅩ'
+    shift: 'ᆪ'
+    ctrl, alt, meta: none
+}
+
+key W {
+    label: 'W'
+    base: 'ᆯ'
+    shift: 'ᇀ'
+    ctrl, alt, meta: none
+}
+
+key X {
+    label: 'X'
+    base: 'ᆨ'
+    shift: 'ᆹ'
+    ctrl, alt, meta: none
+}
+
+key Y {
+    label: 'Y'
+    base: 'ᄅ'
+    shift: '5'
+    ctrl, alt, meta: none
+}
+
+key Z {
+    label: 'Z'
+    base: 'ᆷ'
+    shift: 'ᆾ'
+    ctrl, alt, meta: none
+}
+
+key COMMA {
+    label: ','
+    base: ','
+    shift: ','
+    ctrl, alt, meta: none
+}
+
+key PERIOD {
+    label: '.'
+    base: '.'
+    shift: '.'
+    ctrl, alt, meta: none
+}
+
+key GRAVE {
+    label: '`'
+    base: '*'
+    shift: '※'
+    ctrl, alt, meta: none
+}
+
+key MINUS {
+    label: '-'
+    base: ')'
+    shift: ';'
+    ctrl, alt, meta: none
+}
+
+key EQUALS {
+    label: '='
+    base: '>'
+    shift: '+'
+    ctrl, alt, meta: none
+}
+
+key LEFT_BRACKET {
+    label: '['
+    base: '('
+    shift: '%'
+    ctrl, alt, meta: none
+}
+
+key RIGHT_BRACKET {
+    label: ']'
+    base: '<'
+    shift: '/'
+    ctrl, alt, meta: none
+}
+
+key BACKSLASH {
+    label: '\'
+    base: ':'
+    shift: '\\'
+    ctrl, alt, meta: none
+}
+
+key SEMICOLON {
+    label: ';'
+    base: 'ᄇ'
+    shift: '4'
+    ctrl, alt, meta: none
+}
+
+key APOSTROPHE {
+    label: '''
+    base: 'ᄐ'
+    shift: '·'
+    ctrl, alt, meta: none
+}
+
+key SLASH {
+    label: '/'
+    base: 'ᅩ'
+    shift: '!'
+    ctrl, alt, meta: none
+}

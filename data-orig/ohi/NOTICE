@@ -1,0 +1,4 @@
+keyboard_table_combination.js from gitlab.com/3beol/3beol.gitlab.io (OHI online hangul
+input, engine GPL-2+, (c) Ho-Seok Ee). Vendored as a DATA-DERIVATION input for
+tools/ohi2compose.py: we transcribe only the combination rules (facts also
+documented in prose at pat.im/1136), not code. Generated JSON is committed.

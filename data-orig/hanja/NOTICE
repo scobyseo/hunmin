@@ -1,0 +1,19 @@
+Vendored converter inputs from libhangul 0.2.0 (data/hanja/), fetched from
+https://github.com/libhangul/libhangul, via the Debian package
+libhangul-data 0.2.0-1build1.
+
+  hanja.txt          BSD-3-Clause, (c) 2005-2006 Choe Hwanjin -- the candidates
+  freq-hanja.txt     the candidate frequency tables merge.py sorts by
+  freq-hanyaeo.txt
+  compat-table.txt   compatibility-character unification
+  merge.py           the upstream algorithm, reimplemented in
+                     tools/hanja2data.py (upstream is Python 2)
+
+Licence note: the dictionary is BSD-3, NOT the LGPL-2.1 that covers the rest
+of libhangul. See libhunmin/data/hanja/LICENSE.md for why that matters.
+
+The upstream tree is only reachable from the release tarball, so the version
+is pinned rather than tracked per-commit. sha256 of each file is in
+SHA256SUMS.
+
+Used by tools/hanja2data.py; see docs/SPEC-SCHEMA.md (Provenance).

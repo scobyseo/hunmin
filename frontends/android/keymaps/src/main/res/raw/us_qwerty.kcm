@@ -1,0 +1,334 @@
+# KCM for us-qwerty (US QWERTY (Latin, no composition) / 영어 모드 (qwerty 자판))
+# Generated from libhunmin/data/layouts/us-qwerty.json
+# Layout engine: std
+
+type OVERLAY
+
+key 0 {
+    label: '0'
+    base: '0'
+    shift: ')'
+    ctrl, alt, meta: none
+}
+
+key 1 {
+    label: '1'
+    base: '1'
+    shift: '!'
+    ctrl, alt, meta: none
+}
+
+key 2 {
+    label: '2'
+    base: '2'
+    shift: '@'
+    ctrl, alt, meta: none
+}
+
+key 3 {
+    label: '3'
+    base: '3'
+    shift: '#'
+    ctrl, alt, meta: none
+}
+
+key 4 {
+    label: '4'
+    base: '4'
+    shift: '$'
+    ctrl, alt, meta: none
+}
+
+key 5 {
+    label: '5'
+    base: '5'
+    shift: '%'
+    ctrl, alt, meta: none
+}
+
+key 6 {
+    label: '6'
+    base: '6'
+    shift: '^'
+    ctrl, alt, meta: none
+}
+
+key 7 {
+    label: '7'
+    base: '7'
+    shift: '&'
+    ctrl, alt, meta: none
+}
+
+key 8 {
+    label: '8'
+    base: '8'
+    shift: '*'
+    ctrl, alt, meta: none
+}
+
+key 9 {
+    label: '9'
+    base: '9'
+    shift: '('
+    ctrl, alt, meta: none
+}
+
+key A {
+    label: 'A'
+    base: 'a'
+    shift: 'A'
+    ctrl, alt, meta: none
+}
+
+key B {
+    label: 'B'
+    base: 'b'
+    shift: 'B'
+    ctrl, alt, meta: none
+}
+
+key C {
+    label: 'C'
+    base: 'c'
+    shift: 'C'
+    ctrl, alt, meta: none
+}
+
+key D {
+    label: 'D'
+    base: 'd'
+    shift: 'D'
+    ctrl, alt, meta: none
+}
+
+key E {
+    label: 'E'
+    base: 'e'
+    shift: 'E'
+    ctrl, alt, meta: none
+}
+
+key F {
+    label: 'F'
+    base: 'f'
+    shift: 'F'
+    ctrl, alt, meta: none
+}
+
+key G {
+    label: 'G'
+    base: 'g'
+    shift: 'G'
+    ctrl, alt, meta: none
+}
+
+key H {
+    label: 'H'
+    base: 'h'
+    shift: 'H'
+    ctrl, alt, meta: none
+}
+
+key I {
+    label: 'I'
+    base: 'i'
+    shift: 'I'
+    ctrl, alt, meta: none
+}
+
+key J {
+    label: 'J'
+    base: 'j'
+    shift: 'J'
+    ctrl, alt, meta: none
+}
+
+key K {
+    label: 'K'
+    base: 'k'
+    shift: 'K'
+    ctrl, alt, meta: none
+}
+
+key L {
+    label: 'L'
+    base: 'l'
+    shift: 'L'
+    ctrl, alt, meta: none
+}
+
+key M {
+    label: 'M'
+    base: 'm'
+    shift: 'M'
+    ctrl, alt, meta: none
+}
+
+key N {
+    label: 'N'
+    base: 'n'
+    shift: 'N'
+    ctrl, alt, meta: none
+}
+
+key O {
+    label: 'O'
+    base: 'o'
+    shift: 'O'
+    ctrl, alt, meta: none
+}
+
+key P {
+    label: 'P'
+    base: 'p'
+    shift: 'P'
+    ctrl, alt, meta: none
+}
+
+key Q {
+    label: 'Q'
+    base: 'q'
+    shift: 'Q'
+    ctrl, alt, meta: none
+}
+
+key R {
+    label: 'R'
+    base: 'r'
+    shift: 'R'
+    ctrl, alt, meta: none
+}
+
+key S {
+    label: 'S'
+    base: 's'
+    shift: 'S'
+    ctrl, alt, meta: none
+}
+
+key T {
+    label: 'T'
+    base: 't'
+    shift: 'T'
+    ctrl, alt, meta: none
+}
+
+key U {
+    label: 'U'
+    base: 'u'
+    shift: 'U'
+    ctrl, alt, meta: none
+}
+
+key V {
+    label: 'V'
+    base: 'v'
+    shift: 'V'
+    ctrl, alt, meta: none
+}
+
+key W {
+    label: 'W'
+    base: 'w'
+    shift: 'W'
+    ctrl, alt, meta: none
+}
+
+key X {
+    label: 'X'
+    base: 'x'
+    shift: 'X'
+    ctrl, alt, meta: none
+}
+
+key Y {
+    label: 'Y'
+    base: 'y'
+    shift: 'Y'
+    ctrl, alt, meta: none
+}
+
+key Z {
+    label: 'Z'
+    base: 'z'
+    shift: 'Z'
+    ctrl, alt, meta: none
+}
+
+key COMMA {
+    label: ','
+    base: ','
+    shift: '<'
+    ctrl, alt, meta: none
+}
+
+key PERIOD {
+    label: '.'
+    base: '.'
+    shift: '>'
+    ctrl, alt, meta: none
+}
+
+key GRAVE {
+    label: '`'
+    base: '`'
+    shift: '~'
+    ctrl, alt, meta: none
+}
+
+key MINUS {
+    label: '-'
+    base: '-'
+    shift: '_'
+    ctrl, alt, meta: none
+}
+
+key EQUALS {
+    label: '='
+    base: '='
+    shift: '+'
+    ctrl, alt, meta: none
+}
+
+key LEFT_BRACKET {
+    label: '['
+    base: '['
+    shift: '{'
+    ctrl, alt, meta: none
+}
+
+key RIGHT_BRACKET {
+    label: ']'
+    base: ']'
+    shift: '}'
+    ctrl, alt, meta: none
+}
+
+key BACKSLASH {
+    label: '\'
+    base: '\\'
+    shift: '|'
+    ctrl, alt, meta: none
+}
+
+key SEMICOLON {
+    label: ';'
+    base: ';'
+    shift: ':'
+    ctrl, alt, meta: none
+}
+
+key APOSTROPHE {
+    label: '''
+    base: '\''
+    shift: '"'
+    ctrl, alt, meta: none
+}
+
+key SLASH {
+    label: '/'
+    base: '/'
+    shift: '?'
+    ctrl, alt, meta: none
+}

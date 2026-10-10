@@ -1,0 +1,4 @@
+{"meta": {"platform": "x11", "layout": "sin3-p2-yet", "case": "kfq", "source": "manual-sin3-p2-yet.jsonl (manual)", "case_index": 5, "case_id": "manual-sin3-p2-yet#05"}}
+{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}
+{"in": {"keysym": 113, "mods": 0}, "commit": "", "preedit": "갓", "consumed": true}

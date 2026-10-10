@@ -1,0 +1,151 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      # fcitx5-modules-dev carries Fcitx5Utils/Fcitx5Module cmake configs, which
+      # the addon and tier C's trace emitter both need; without it the fcitx5
+      # frontend is silently dropped and 104 conformance tests never register,
+      # which reads as "green" while testing nothing.
+      - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev python3 fcitx5-modules-dev
+      - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
+      - run: cmake --build build
+      - run: ctest --test-dir build --output-on-failure
+
+  # P5's gate is "HW keyboard e2e on emulator CI", and until this job existed
+  # the Android tiers could only be reached by hand. It covers three of the four
+  # -- E0 (engine on device), E1 (adapter against the real engine) and E2 (the
+  # APK typed into with real key events) -- plus the mutation self-test that
+  # proves E1 can fail at all.
+  android:
+    name: android (emulator)
+    # A system-image download plus a boot, so it runs only for changes that can
+    # actually break it. A docs-only commit must not pay for an AVD -- and
+    # "only runs sometimes" is a property worth stating, because the P5 gate
+    # depends on this job running at all.
+    #
+    # frontends/android/   the adapter, JNI shim, manifest, assets
+    # tools/android-*.sh   E1/E2 harnesses
+    # tools/build-android.sh, cmake/   the cross-compile
+    # libhunmin/           the engine the APK packages
+    # .github/workflows/   this file
+    paths:
+      - 'frontends/android/**'
+      - 'tools/android-*.sh'
+      - 'tools/build-android.sh'
+      - 'tools/android-mutations/**'
+      - 'tools/apply-mutation.py'
+      - 'tools/android-golden-check.sh'
+      - 'tools/keymap-fixture.py'
+      - 'cmake/**'
+      - 'libhunmin/**'
+      - 'tests/golden/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/**'
+    # KVM is available on ubuntu runners, which is the difference between a
+    # 20 s boot and a 10-minute one.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Enable KVM
+        run: |
+          sudo usermod -aG kvm "$USER"
+          sudo chown "$USER" /dev/kvm
+          # The group change only applies to NEW logins, so validate by name.
+          if [ ! -e /dev/kvm ]; then echo "no /dev/kvm on this runner"; exit 1; fi
+
+      - name: Install the Android SDK
+        run: |
+          sdk_root="$HOME/Android/Sdk"
+          mkdir -p "$sdk_root/cmdline-tools"
+          # The pinned build number, so a runner image refresh cannot change the
+          # tools under a green build. This is the same one docs/ENVIRONMENT.md
+          # records as installed locally (cmdline-tools 19.0, build 13114758).
+          curl -fsSL -o tools.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+          unzip -q tools.zip -d "$sdk_root/cmdline-tools"
+          mv "$sdk_root/cmdline-tools/cmdline-tools" "$sdk_root/cmdline-tools/latest"
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "$sdk_root/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install \
+            "platform-tools" "emulator" \
+            "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" \
+            "ndk;27.3.13750724" \
+            "system-images;android-35;google_apis;x86_64"
+
+      - name: Create the AVD
+        run: |
+          # `pixel_6` matches the profile docs/ENVIRONMENT.md records locally, so
+          # the screen is the same size and any coordinates a test derives from a
+          # view hierarchy behave the same way here.
+          echo no | avdmanager create avd -n hunmin-ci \
+            -k "system-images;android-35;google_apis;x86_64" --device pixel_6
+          echo "HUNMIN_AVD=hunmin-ci" >> "$GITHUB_ENV"
+
+      - name: Cross-compile the engine and build the APK
+        run: |
+          echo "ANDROID_NDK=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
+          # BOTH ABIs: the APK declares arm64-v8a and x86_64 in abiFilters, and
+          # AGP's externalNativeBuild fails the packaging step if either ABI's
+          # libhunmin.so is missing -- so building one is not "half a job", it is
+          # a failed one.
+          ./tools/build-android.sh x86_64 24
+          ./tools/build-android.sh arm64-v8a 24
+          cd frontends/android
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Tier E0 + E1 (engine on device, adapter in the JVM)
+        # No emulator needed for either: E0 pushes the engine and the goldens
+        # over adb, and E1 is a JVM test. This step is what catches a broken
+        # build before the expensive boot below.
+        run: ctest --test-dir build -R "engine-android-goldens|engine-android-e1|android-mutations" --output-on-failure
+
+      - name: Boot the emulator
+        run: |
+          "$ANDROID_HOME/emulator/emulator" -avd hunmin-ci \
+            -no-window -no-audio -no-boot-anim \
+            -gpu swiftshader_indirect -no-snapshot &
+          adb wait-for-device
+          # Bounded wait: the script must not hang the job if the image is slow.
+          for _ in $(seq 1 60); do
+            [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ] && break
+            sleep 5
+          done
+          test "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1
+
+      - name: Tier E2 (the APK, typed into with real key events)
+        # The assertion is the committed text read out of a real EditText with
+        # uiautomator, not anything hunmin logged -- see docs/TESTING.md.
+        run: ./tools/android-e2e.sh x86_64
+
+      - name: Emulator log on failure
+        if: failure()
+        run: |
+          adb logcat -d 2>/dev/null | tail -300 || true
+
+  mingw:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build mingw-w64
+      - run: cmake -B build -G Ninja --toolchain cmake/toolchain-mingw-w64.cmake -DBUILD_TESTING=OFF
+      - run: cmake --build build --target hunmin
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -B build -A x64 -DBUILD_TESTING=OFF
+      - run: cmake --build build --target hunmin --config RelWithDebInfo

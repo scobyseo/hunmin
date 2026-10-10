@@ -1,0 +1,6 @@
+        if (isSettled) {
+            Log.w(TAG, "dropping a late second result: $r")
+            return
+        }
+---REPLACE---
+

@@ -1,0 +1,33 @@
+{"meta": {"source": "gate", "spec": "PLAN.md:85 / pat.im/1136", "layout": "sin3-p2", "note": "expected = pat.im section text or normative compose rows; meta cases pinned via replay"}}
+{"meta": {"case": "cq-initials"}}
+{"in": {"ch": "c"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "q"}, "commit": "ㄱ", "preedit": "ㅅ"}
+{"meta": {"case": "cQ-ssang-jong"}}
+{"in": {"ch": "c"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "Q"}, "commit": "", "preedit": "ㄳ"}
+{"meta": {"case": "gG-ssang-tie"}}
+{"in": {"ch": "g"}, "commit": "", "preedit": "ㄷ"}
+{"in": {"ch": "G"}, "commit": "", "preedit": "ㄸ"}
+{"meta": {"case": "eE-ssang-pie"}}
+{"in": {"ch": "e"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "E"}, "commit": "", "preedit": "ㅃ"}
+{"meta": {"case": "vV-ssang-jji"}}
+{"in": {"ch": "v"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "V"}, "commit": "", "preedit": "ㅉ"}
+{"meta": {"case": "gGe-time"}}
+{"in": {"ch": "g"}, "commit": "", "preedit": "ㄷ"}
+{"in": {"ch": "G"}, "commit": "", "preedit": "ㄸ"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "때"}
+{"meta": {"case": "uue-tte"}}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㄷ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㄸ"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "때"}
+{"meta": {"case": "ee-double-h0"}}
+{"in": {"ch": "e"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "e"}, "commit": "ㅂ", "preedit": "ㅂ"}
+{"meta": {"case": "gg-double-h0"}}
+{"in": {"ch": "g"}, "commit": "", "preedit": "ㄷ"}
+{"in": {"ch": "g"}, "commit": "ㄷ", "preedit": "ㄷ"}
+{"meta": {"case": "vv-double-h0"}}
+{"in": {"ch": "v"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "v"}, "commit": "ㅈ", "preedit": "ㅈ"}

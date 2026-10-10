@@ -1,0 +1,22 @@
+{"meta": {"source": "gate", "spec": "PLAN.md:85 / pat.im/1136", "layout": "sin3-p2-yet", "note": "expected = pat.im section text or normative compose rows; meta cases pinned via replay"}}
+{"meta": {"case": "caps-tier-blocked", "caps": 1}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ᅁᅠ"}
+{"in": {"ch": "1"}, "commit": "ᅁᅠ1", "preedit": ""}
+{"meta": {"case": "caps-tier-open", "caps": 0}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "1"}, "commit": "ㅇµ", "preedit": ""}
+{"meta": {"case": "caps-w0-tier-open", "caps": 1, "w": 0}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "1"}, "commit": "ㅇµ", "preedit": ""}
+{"meta": {"case": "caps-vowel", "caps": 1}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "ㄱ", "preedit": "ㅋ"}
+{"meta": {"case": "W-off-I", "W": 0, "caps": 0}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "I"}, "commit": "", "preedit": "ㅇ"}
+{"meta": {"case": "W-on-I", "W": 1, "caps": 0}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "I"}, "commit": "", "preedit": "ᅃᅠ"}

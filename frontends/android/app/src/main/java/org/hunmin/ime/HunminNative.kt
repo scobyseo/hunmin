@@ -1,0 +1,108 @@
+/*
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
+ * HunminNative — the external declarations for hunmin-jni.c.
+ *
+ * Split from HunminEngine on purpose: the engine holds logic worth unit-testing,
+ * this class holds none. Everything below is a one-line pass-through to a C
+ * function, so a mocked InputConnection test can construct the engine around it
+ * without a device, a .so, or a JNI environment.
+ *
+ * Two ABI details worth keeping, because both fail late and confusingly:
+ *
+ *  - @JvmStatic is load-bearing. Without it these compile to *instance* methods
+ *    on HunminNative.INSTANCE, and JNI then hands the C side a jobject where the
+ *    signature says jclass. Both are pointers to _jobject so nothing crashes,
+ *    and every function here ignores the parameter -- which is exactly why the
+ *    mistake would survive a full emulator run and only surface as a linker
+ *    warning about an undefined symbol the day someone reorders a parameter.
+ *
+ *  - System.loadLibrary searches the APK's lib/<abi>/, which is where
+ *    tools/build-android.sh's CMake output lands once AGP packages
+ *    build-android/<abi>/jniLibs as a jniLibs source dir. A missing .so throws
+ *    here, at first touch, which is the only point where the message can still
+ *    name the library; catching it later would hide an ABI mismatch behind "the
+ *    IME silently does nothing".
+ */
+package org.hunmin.ime
+
+object HunminNative {
+    init {
+        // HUNMIN_JNI_LIB lets tier E1 load a HOST build of the same shim from an
+        // absolute path. A JVM unit test cannot dlopen an Android .so -- the ELF
+        // machine type is wrong and there is no bionic -- so without this the
+        // only way to run the engine under test on a developer machine would be
+        // an emulator, and an emulator per unit test is a tier E2 cost paid for
+        // E1's assertions. The shim is the same C file either way; only the
+        // linker differs.
+        val explicit = System.getenv("HUNMIN_JNI_LIB")
+        if (explicit.isNullOrEmpty()) {
+            // "hunjni", NOT "hunmin". The engine is libhunmin.so and this shim is
+            // libhunjni.so; when both were called libhunmin.so the shim's build
+            // output collided with its own link input and the APK shipped the
+            // bare engine with no adapter. See app/src/main/cpp/CMakeLists.txt.
+            System.loadLibrary("hunjni")
+        } else {
+            System.load(explicit)
+        }
+    }
+
+    /** ctx = hunmin_ctx_new([dataDir]) — 0 on failure (no layout found). */
+    @JvmStatic external fun nativeCtxNew(dataDir: String): Long
+
+    @JvmStatic external fun nativeCtxFree(ctx: Long)
+
+    @JvmStatic external fun nativeLayoutCount(ctx: Long): Int
+
+    /** "" when [i] is out of range, never null. */
+    @JvmStatic external fun nativeLayoutId(ctx: Long, i: Int): String
+
+    @JvmStatic external fun nativeLayoutName(ctx: Long, i: Int, lang: String?): String
+
+    @JvmStatic external fun nativeLayoutSupported(ctx: Long, i: Int): Boolean
+
+    /** ic = hunmin_ic_new(ctx, layout) — 0 for an unknown or unsupported id. */
+    @JvmStatic external fun nativeIcNew(ctx: Long, layout: String): Long
+
+    @JvmStatic external fun nativeIcFree(ic: Long)
+
+    /** hunmin_ic_process — true when the engine consumed the key. */
+    @JvmStatic external fun nativeProcess(ic: Long, ch: Int): Boolean
+
+    /**
+     * hunmin_ic_commit — a DESTRUCTIVE read: the text is delivered exactly once
+     * and the buffer is cleared. Calling it twice for one keypress drops the
+     * second result; calling it and then hunmin_ic_flush double-emits. See
+     * docs/FRONTEND-CONTRACT.md §5 rules 1 and 2.
+     */
+    @JvmStatic external fun nativeCommit(ic: Long): String
+
+    /** hunmin_ic_preedit — non-destructive, safe to re-read every keystroke. */
+    @JvmStatic external fun nativePreedit(ic: Long): String
+
+    /** hunmin_ic_flush — commits the in-flight syllable AND the commit buffer. */
+    @JvmStatic external fun nativeFlush(ic: Long): String
+
+    @JvmStatic external fun nativeReset(ic: Long)
+
+    @JvmStatic external fun nativeSetOption(ic: Long, name: String, value: Int): Boolean
+
+    /**
+     * hunmin_ic_commit_text — invariant 5's external-text pass-through.
+     *
+     * Voice input goes here and nowhere else. The text is committed verbatim and
+     * never fed through the jamo pipeline; any in-flight composition is
+     * committed first so the two texts come out in the order the user produced
+     * them. Returns the whole string (typed composition + spoken text), or ""
+     * for malformed UTF-8.
+     */
+    @JvmStatic external fun nativeCommitText(ic: Long, text: String): String
+
+    @JvmStatic external fun nativeSuggestCount(ctx: Long, hangul: String): Int
+
+    @JvmStatic external fun nativeSuggestText(ctx: Long, i: Int): String
+
+    @JvmStatic external fun nativeSuggestDetail(ctx: Long, i: Int): String
+
+    @JvmStatic external fun nativeSuggestKind(ctx: Long, i: Int): String
+}

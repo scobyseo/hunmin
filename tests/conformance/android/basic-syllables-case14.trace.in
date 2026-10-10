@@ -1,0 +1,5 @@
+{"meta": {"platform": "android", "layout": "sin3-p2-basic", "case": "자주", "source": "p2-2-1-basic.jsonl (gate)", "case_index": 14, "case_id": "basic-syllables#14"}}
+{"in": {"keycode": 108, "mods": 0}, "commit": "", "preedit": "ㅈ", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "", "preedit": "자", "consumed": true}
+{"in": {"keycode": 108, "mods": 0}, "commit": "자", "preedit": "ㅈ", "consumed": true}
+{"in": {"keycode": 98, "mods": 0}, "commit": "", "preedit": "주", "consumed": true}

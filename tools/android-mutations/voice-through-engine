@@ -1,0 +1,3 @@
+        val out = native.commitText(ic, text)
+---REPLACE---
+        val out = text

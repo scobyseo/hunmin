@@ -1,0 +1,28 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure|triggered)
+        # Try to reload fcitx5 configuration via D-Bus (system bus as specified)
+        if command -v dbus-send >/dev/null 2>&1; then
+            dbus-send --system --dest=org.fcitx.Fcitx5 /org/fcitx/Fcitx5 org.fcitx.Fcitx5.ReloadConfig >/dev/null 2>&1 || true
+        fi
+
+        # Fallback: use fcitx5-configtool which handles bus detection internally
+        if command -v fcitx5-configtool >/dev/null 2>&1; then
+            fcitx5-configtool --reload >/dev/null 2>&1 || true
+        fi
+        ;;
+    
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+    
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "id": "dubeolsik-yet",
+  "name": {
+    "en": "Dubeolsik Yetgeul",
+    "ko": "두벌식 옛글"
+  },
+  "engine": "std",
+  "aliases": [
+    "2y"
+  ],
+  "source": "libhangul-0.2.0 data/keyboards/hangul-keyboard-2y.xml",
+  "libhangulType": "jamo-yet",
+  "compose": [
+    "modern-full"
+  ],
+  "keys": {
+    "a": {
+      "shift": "ᅀ",
+      "plain": "ᄆ"
+    },
+    "b": {
+      "shift": "ᅔ",
+      "plain": "ᅲ"
+    },
+    "c": {
+      "shift": "ᅎ",
+      "plain": "ᄎ"
+    },
+    "d": {
+      "shift": "ᅌ",
+      "plain": "ᄋ"
+    },
+    "e": {
+      "shift": "ᄄ",
+      "plain": "ᄃ"
+    },
+    "f": {
+      "shift": "ᄚ",
+      "plain": "ᄅ"
+    },
+    "g": {
+      "shift": "ᅙ",
+      "plain": "ᄒ"
+    },
+    "h": {
+      "shift": "ᆃ",
+      "plain": "ᅩ"
+    },
+    "i": {
+      "shift": "ᅣ",
+      "plain": "ᅣ"
+    },
+    "j": {
+      "shift": "ᅥ",
+      "plain": "ᅥ"
+    },
+    "k": {
+      "shift": "ᆞ",
+      "plain": "ᅡ"
+    },
+    "l": {
+      "shift": "ᆔ",
+      "plain": "ᅵ"
+    },
+    "m": {
+      "shift": "ᅳ",
+      "plain": "ᅳ"
+    },
+    "n": {
+      "shift": "ᅕ",
+      "plain": "ᅮ"
+    },
+    "o": {
+      "shift": "ᅤ",
+      "plain": "ᅢ"
+    },
+    "p": {
+      "shift": "ᅨ",
+      "plain": "ᅦ"
+    },
+    "q": {
+      "shift": "ᄈ",
+      "plain": "ᄇ"
+    },
+    "r": {
+      "shift": "ᄁ",
+      "plain": "ᄀ"
+    },
+    "s": {
+      "shift": "ᅝ",
+      "plain": "ᄂ"
+    },
+    "t": {
+      "shift": "ᄊ",
+      "plain": "ᄉ"
+    },
+    "u": {
+      "shift": "ᅧ",
+      "plain": "ᅧ"
+    },
+    "v": {
+      "shift": "ᅐ",
+      "plain": "ᄑ"
+    },
+    "w": {
+      "shift": "ᄍ",
+      "plain": "ᄌ"
+    },
+    "x": {
+      "shift": "ᄾ",
+      "plain": "ᄐ"
+    },
+    "y": {
+      "shift": "ᅭ",
+      "plain": "ᅭ"
+    },
+    "z": {
+      "shift": "ᄼ",
+      "plain": "ᄏ"
+    }
+  }
+}

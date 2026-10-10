@@ -1,0 +1,7 @@
+{"meta": {"source": "gate", "spec": "PLAN.md:85 / pat.im/1136", "layout": "sin3-p2", "note": "expected = pat.im section text or normative compose rows; meta cases pinned via replay"}}
+{"meta": {"case": "z1-oigu", "z": 1}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㅇ"}
+{"meta": {"case": "z0-oigu", "z": 0}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "k"}, "commit": "ㅇ", "preedit": "ㄱ"}

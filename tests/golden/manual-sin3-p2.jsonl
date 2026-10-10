@@ -1,0 +1,50 @@
+{"meta": {"source": "manual", "spec": "docs/SPEC-P2.md", "layout": "sin3-p2", "note": "formula-verified; cq→ㄱ,ㅅ vs cQ→ㄳ G-gate; tiers j→k=µ(B5), single-shot exit; qf fresh (basic table)"}}
+{"meta": {"case": "k", "caps": 0}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"meta": {"case": "kf", "caps": 0}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "가"}
+{"meta": {"case": "k/f", "caps": 0}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "과"}
+{"meta": {"case": ";f", "caps": 0}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "바"}
+{"meta": {"case": "kfq", "caps": 0}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "가"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "갓"}
+{"meta": {"case": "kfx", "caps": 0}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "가"}
+{"in": {"ch": "x"}, "commit": "", "preedit": "갔"}
+{"meta": {"case": "kfcq", "caps": 0}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "가"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "각"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "갃"}
+{"meta": {"case": "qf", "caps": 0}}
+{"in": {"ch": "q"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "f"}, "commit": "ㅅ", "preedit": "ㅍ"}
+{"meta": {"case": "id", "caps": 0}}
+{"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "미"}
+{"meta": {"case": "kd", "caps": 0}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "기"}
+{"meta": {"case": "cq", "caps": 0}}
+{"in": {"ch": "c"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "q"}, "commit": "ㄱ", "preedit": "ㅅ"}
+{"meta": {"case": "cQ", "caps": 0}}
+{"in": {"ch": "c"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "Q"}, "commit": "", "preedit": "ㄳ"}
+{"meta": {"case": "jk1", "caps": 0}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "1"}, "commit": "ㅇµ", "preedit": ""}
+{"meta": {"case": "jk11", "caps": 0}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "1"}, "commit": "ㅇµ", "preedit": ""}
+{"in": {"ch": "1"}, "commit": "1", "preedit": ""}

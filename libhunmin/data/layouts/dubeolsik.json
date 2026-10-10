@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "id": "dubeolsik",
+  "name": {
+    "en": "Dubeolsik",
+    "ko": "두벌식"
+  },
+  "engine": "std",
+  "aliases": [
+    "2"
+  ],
+  "source": "libhangul-0.2.0 data/keyboards/hangul-keyboard-2.xml",
+  "libhangulType": "jamo",
+  "compose": [
+    "modern"
+  ],
+  "keys": {
+    "a": {
+      "shift": "ᄆ",
+      "plain": "ᄆ"
+    },
+    "b": {
+      "shift": "ᅲ",
+      "plain": "ᅲ"
+    },
+    "c": {
+      "shift": "ᄎ",
+      "plain": "ᄎ"
+    },
+    "d": {
+      "shift": "ᄋ",
+      "plain": "ᄋ"
+    },
+    "e": {
+      "shift": "ᄄ",
+      "plain": "ᄃ"
+    },
+    "f": {
+      "shift": "ᄅ",
+      "plain": "ᄅ"
+    },
+    "g": {
+      "shift": "ᄒ",
+      "plain": "ᄒ"
+    },
+    "h": {
+      "shift": "ᅩ",
+      "plain": "ᅩ"
+    },
+    "i": {
+      "shift": "ᅣ",
+      "plain": "ᅣ"
+    },
+    "j": {
+      "shift": "ᅥ",
+      "plain": "ᅥ"
+    },
+    "k": {
+      "shift": "ᅡ",
+      "plain": "ᅡ"
+    },
+    "l": {
+      "shift": "ᅵ",
+      "plain": "ᅵ"
+    },
+    "m": {
+      "shift": "ᅳ",
+      "plain": "ᅳ"
+    },
+    "n": {
+      "shift": "ᅮ",
+      "plain": "ᅮ"
+    },
+    "o": {
+      "shift": "ᅤ",
+      "plain": "ᅢ"
+    },
+    "p": {
+      "shift": "ᅨ",
+      "plain": "ᅦ"
+    },
+    "q": {
+      "shift": "ᄈ",
+      "plain": "ᄇ"
+    },
+    "r": {
+      "shift": "ᄁ",
+      "plain": "ᄀ"
+    },
+    "s": {
+      "shift": "ᄂ",
+      "plain": "ᄂ"
+    },
+    "t": {
+      "shift": "ᄊ",
+      "plain": "ᄉ"
+    },
+    "u": {
+      "shift": "ᅧ",
+      "plain": "ᅧ"
+    },
+    "v": {
+      "shift": "ᄑ",
+      "plain": "ᄑ"
+    },
+    "w": {
+      "shift": "ᄍ",
+      "plain": "ᄌ"
+    },
+    "x": {
+      "shift": "ᄐ",
+      "plain": "ᄐ"
+    },
+    "y": {
+      "shift": "ᅭ",
+      "plain": "ᅭ"
+    },
+    "z": {
+      "shift": "ᄏ",
+      "plain": "ᄏ"
+    }
+  }
+}

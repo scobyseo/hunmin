@@ -1,0 +1,10 @@
+                onText = { raw ->
+                    val text = raw.trim()
+                    report(if (text.isEmpty()) VoiceResult.NothingHeard
+                           else VoiceResult.Got(text))
+                },
+---REPLACE---
+
+                onText = { raw ->
+                    report(VoiceResult.Got(raw))
+                },

@@ -1,0 +1,144 @@
+{"meta": {"layout": "sin3-p2-basic", "mode": "total", "note": "37 patim cases; 0 empty/none; traits-skipped: 아래아,아래어ᄒᆟᆫ,아래우ᄋᆠᆨ,아래애ᄌᆡᆸ,아,의"}}
+{"meta": {"case": "ㄲ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "k"}, "total": "ㄲ"}
+{"meta": {"case": "ㄱㄴ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "h"}, "total": "ㄴ"}
+{"meta": {"case": "ㄱㄱㄱ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "k"}, "total": "ㄲ"}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"meta": {"case": "ㅇㄱㄱ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "j"}, "total": "ㅇ"}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "k"}, "total": "ㄲ"}
+{"meta": {"case": "ㄴㄷ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "h"}, "total": "ㄴ"}
+{"in": {"ch": "u"}, "total": "ㄷ"}
+{"meta": {"case": "ㄸ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "u"}, "total": "ㄷ"}
+{"in": {"ch": "u"}, "total": "ㄸ"}
+{"meta": {"case": "ㅋㅋ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "/"}, "total": "ㅋ"}
+{"in": {"ch": "/"}, "total": "코"}
+{"meta": {"case": "ㅎㅎ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "m"}, "total": "ㅎ"}
+{"in": {"ch": "m"}, "total": "ㅎ"}
+{"meta": {"case": "ㅏ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "F"}, "total": "ㅏ"}
+{"meta": {"case": "ㅏᅡ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "F"}, "total": "ㅏ"}
+{"in": {"ch": "F"}, "total": "ㅏ"}
+{"meta": {"case": "ㅏㅓ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "F"}, "total": "ㅏ"}
+{"in": {"ch": "R"}, "total": "ㅓ"}
+{"meta": {"case": "ㅗㅏ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "V"}, "total": "ㅗ"}
+{"in": {"ch": "F"}, "total": "ㅏ"}
+{"meta": {"case": "ㅜㅓ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "B"}, "total": "ㅜ"}
+{"in": {"ch": "R"}, "total": "ㅓ"}
+{"meta": {"case": "ㅡㅣ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "G"}, "total": "ㅡ"}
+{"in": {"ch": "D"}, "total": "ㅣ"}
+{"meta": {"case": "아래아 ᄀᆞ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "z"}, "total": "ᄀᆞ"}
+{"meta": {"case": "아래아 ᄀᆞᆼ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "z"}, "total": "ᄀᆞ"}
+{"in": {"ch": "a"}, "total": "ᄀᆞᆼ"}
+{"meta": {"case": "ㄱ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "c"}, "total": "ㄱ"}
+{"meta": {"case": "ㄴ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "s"}, "total": "ㄴ"}
+{"meta": {"case": "ㄺ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "w"}, "total": "ㄹ"}
+{"in": {"ch": "c"}, "total": "ㄺ"}
+{"meta": {"case": "ㅄ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "e"}, "total": "ㅂ"}
+{"in": {"ch": "q"}, "total": "ㅄ"}
+{"meta": {"case": "가", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "f"}, "total": "가"}
+{"meta": {"case": "나", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "h"}, "total": "ㄴ"}
+{"in": {"ch": "r"}, "total": "너"}
+{"meta": {"case": "까", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "k"}, "total": "ㄲ"}
+{"in": {"ch": "f"}, "total": "까"}
+{"meta": {"case": "으ᅵ", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "j"}, "total": "ㅇ"}
+{"in": {"ch": "i"}, "total": "으"}
+{"in": {"ch": "d"}, "total": "의"}
+{"meta": {"case": "매", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "i"}, "total": "ㅁ"}
+{"in": {"ch": "e"}, "total": "매"}
+{"meta": {"case": "노래", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "h"}, "total": "ㄴ"}
+{"in": {"ch": "v"}, "total": "노"}
+{"in": {"ch": "y"}, "total": "ㄹ"}
+{"in": {"ch": "e"}, "total": "래"}
+{"meta": {"case": "뫄", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "i"}, "total": "ㅁ"}
+{"in": {"ch": "/"}, "total": "모"}
+{"in": {"ch": "f"}, "total": "뫄"}
+{"meta": {"case": "취", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "o"}, "total": "ㅊ"}
+{"in": {"ch": "o"}, "total": "추"}
+{"in": {"ch": "d"}, "total": "취"}
+{"meta": {"case": "강", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "f"}, "total": "가"}
+{"in": {"ch": "a"}, "total": "강"}
+{"meta": {"case": "공부", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "v"}, "total": "고"}
+{"in": {"ch": "a"}, "total": "공"}
+{"in": {"ch": ";"}, "total": "ㅂ"}
+{"in": {"ch": "b"}, "total": "부"}
+{"meta": {"case": "밖", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": ";"}, "total": "ㅂ"}
+{"in": {"ch": "f"}, "total": "바"}
+{"in": {"ch": "c"}, "total": "박"}
+{"in": {"ch": "c"}, "total": "밖"}
+{"meta": {"case": "세상", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "n"}, "total": "ㅅ"}
+{"in": {"ch": "c"}, "total": "세"}
+{"in": {"ch": "n"}, "total": "ㅅ"}
+{"in": {"ch": "f"}, "total": "사"}
+{"in": {"ch": "a"}, "total": "상"}
+{"meta": {"case": "서쪽", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "n"}, "total": "ㅅ"}
+{"in": {"ch": "r"}, "total": "서"}
+{"in": {"ch": "l"}, "total": "ㅈ"}
+{"in": {"ch": "l"}, "total": "ㅉ"}
+{"in": {"ch": "v"}, "total": "쪼"}
+{"in": {"ch": "c"}, "total": "쪽"}
+{"meta": {"case": "한때", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "m"}, "total": "ㅎ"}
+{"in": {"ch": "f"}, "total": "하"}
+{"in": {"ch": "s"}, "total": "한"}
+{"in": {"ch": "u"}, "total": "ㄷ"}
+{"in": {"ch": "u"}, "total": "ㄸ"}
+{"in": {"ch": "e"}, "total": "때"}
+{"meta": {"case": "없다", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "j"}, "total": "ㅇ"}
+{"in": {"ch": "r"}, "total": "어"}
+{"in": {"ch": "e"}, "total": "업"}
+{"in": {"ch": "q"}, "total": "없"}
+{"in": {"ch": "u"}, "total": "ㄷ"}
+{"in": {"ch": "f"}, "total": "다"}
+{"meta": {"case": "좋아", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "l"}, "total": "ㅈ"}
+{"in": {"ch": "v"}, "total": "조"}
+{"in": {"ch": "d"}, "total": "좋"}
+{"in": {"ch": "j"}, "total": "ㅇ"}
+{"in": {"ch": "f"}, "total": "아"}
+{"meta": {"case": "가←네", "layout": "sin3-p2-basic", "source": "patim Hangul3ShinP2Tests.swift (BSD-2, facts only)"}}
+{"in": {"ch": "k"}, "total": "ㄱ"}
+{"in": {"ch": "f"}, "total": "가"}
+{"in": {"ch": "h"}, "total": "ㄴ"}
+{"in": {"ch": "c"}, "total": "네"}

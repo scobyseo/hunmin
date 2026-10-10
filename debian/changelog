@@ -1,0 +1,8 @@
+hunmin (0.1.0) unstable; urgency=medium
+
+  * Initial release. libhunmin Hangul input engine (layouts as data,
+    libhangul parity sweep + golden vectors), 신세벌식 P2 support,
+    hunmin-sim trace tool, and the fcitx5 addon with an in-process
+    tier-D1 test.
+
+ -- Seo Bon Keun <scobyseo@gmail.com>  Thu, 01 Oct 2026 09:11:51 +0900

@@ -1,0 +1,41 @@
+{"meta": {"source": "gate", "spec": "PLAN.md:85 / pat.im/1136", "layout": "sin3-p2-yet", "note": "expected = pat.im section text or normative compose rows; meta cases pinned via replay"}}
+{"meta": {"case": "gs-banggih"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅿ"}
+{"meta": {"case": "gy-eng"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㆁ"}
+{"meta": {"case": "gh-ieung-ieung"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㆆ"}
+{"meta": {"case": "gh-h-ieung"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㆆ"}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ꥼᅠ"}
+{"meta": {"case": "js-sieot"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ᄼᅠ"}
+{"meta": {"case": "cs-sieot"}}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅊ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ᄾᅠ"}
+{"meta": {"case": "jd-digeut"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ᅎᅠ"}
+{"meta": {"case": "cd-digeut"}}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅊ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ᅔᅠ"}
+{"meta": {"case": "jg-giyeok"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ᅐᅠ"}
+{"meta": {"case": "cg-giyeok"}}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅊ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ᅕᅠ"}
+{"meta": {"case": "ns-p-gihyeok"}}
+{"in": {"ch": "q"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅟᅠᇫ"}
+{"meta": {"case": "ng-p-giyeok"}}
+{"in": {"ch": "c"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "f"}, "commit": "ㄱ", "preedit": "ㅍ"}
+{"meta": {"case": "nh-p-giyeok"}}
+{"in": {"ch": "d"}, "commit": "", "preedit": "ㅎ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅟᅠᇹ"}

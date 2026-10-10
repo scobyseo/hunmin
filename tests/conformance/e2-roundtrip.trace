@@ -1,0 +1,7 @@
+{"meta": {"platform": "android", "layout": "sin3-p2", "case": "e2-probe"}}
+{"in": {"keycode": 32, "mods": 0}, "char": "d", "commit": "", "preedit": "ㅎ", "consumed": true}
+{"in": {"keycode": 39, "mods": 0}, "char": "k", "commit": "ㅎ", "preedit": "ㄱ", "consumed": true}
+{"in": {"keycode": 47, "mods": 0}, "char": "s", "commit": "", "preedit": "계", "consumed": true}
+{"in": {"keycode": 47, "mods": 0}, "char": "s", "commit": "", "preedit": "곈", "consumed": true}
+{"in": {"keycode": 49, "mods": 0}, "char": "u", "commit": "곈", "preedit": "ㄷ", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "char": "d", "commit": "", "preedit": "디", "consumed": true}

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  P5's Android IME.
+
+  Two declarations carry the whole product:
+
+    1. The InputMethodService, with BIND_INPUT_METHOD. That permission is what
+       makes the platform allow this service to receive key events and talk to
+       an InputConnection; without it the service never starts at all.
+
+    2. No hardware-id permission. A hardware-keyboard IME that can read device
+       identifiers is a liability and nothing here needs one. Stated explicitly
+       because its absence is a decision, not an oversight: do not add one.
+
+  (Note: this comment deliberately contains no doubled hyphen. XML forbids one
+  inside a comment, and an earlier revision of this file failed to parse for
+  exactly that reason, in a way the error message does not explain.)
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      RECORD_AUDIO for speech input.
+
+      Declared and now REQUESTED at runtime. The runtime request cannot come
+      from the IME: InputMethodService has no permission-request hook
+      (javap on android.jar, API 35, re-measured 2026-10-09), so the prompt is
+      raised by PermissionRequestActivity below and the answer is read back with
+      checkSelfPermission, which is authoritative. An IME cannot be told its
+      permission changed, so nothing here caches an answer.
+
+      Still not REQUIRED: with it denied the keyboard types, which is the
+      property that matters. An IME that cannot work without a permission is a
+      keyboard people uninstall.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true">
+
+        <service
+            android:name=".HunminInputMethodService"
+            android:exported="true"
+            android:label="@string/ime_label"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
+        <!--
+          The permission prompt's host, and the only thing in the APK with no
+          user-visible surface of its own.
+
+          FIVE properties keep it invisible, and each one is load-bearing rather
+          than decoration:
+
+            theme             transparent, no title bar, no background draw. A
+                              normal activity would flash a window between the
+                              tap and the dialog, on a keyboard, mid-edit.
+            noHistory         leaving it must not leave it in the back stack.
+            excludeFromRecents  it must never appear as an app the user opened.
+            exported="false"  only this app starts it. It raises a permission
+                              dialog on the user's behalf, so nothing outside
+                              the APK may reach it.
+            (and in onCreate)  finish() immediately when the permission is
+                              already held, so a tap after the grant does not
+                              show a frame of an empty window.
+
+          FLAG_ACTIVITY_NEW_TASK in its own startActivity call is mandatory: a
+          Service has no task. See PermissionRequestActivity.kt for what this
+          class cannot do, which is most of what a permission host normally does.
+        -->
+        <activity
+            android:name=".PermissionRequestActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+    </application>
+</manifest>

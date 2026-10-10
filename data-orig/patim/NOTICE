@@ -1,0 +1,4 @@
+Hangul3ShinP2Tests.swift copied verbatim from github.com/soomtong/patim (BSD-2-Clause,
+(c) dp / soomtong). Used as a behavior oracle: tools/patim2golden.py
+transcribes the asserted key-sequence → composed-text facts (not code) into
+tests/golden/patim-sin3-p2.jsonl.

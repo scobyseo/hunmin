@@ -1,0 +1,4 @@
+{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "yeop", "source": "p2-3-swapped.jsonl (gate)", "case_index": 14, "case_id": "p2-3-swapped#14"}}
+{"in": {"keysym": 106, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"keysym": 116, "mods": 0}, "commit": "", "preedit": "여", "consumed": true}
+{"in": {"keysym": 101, "mods": 0}, "commit": "", "preedit": "엽", "consumed": true}

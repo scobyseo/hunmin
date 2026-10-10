@@ -1,0 +1,2372 @@
+{
+  "schemaVersion": 2,
+  "id": "sin3-p2",
+  "name": {
+    "en": "Shinsebeol P2 + 기호 확장",
+    "ko": "신세벌식 P2 + 기호 확장"
+  },
+  "engine": "h3",
+  "aliases": [
+    "3sin-p2"
+  ],
+  "source": "pat.im ist: sin3-p2.symbols.xml (normative; lifted by tools/ist2data.py)",
+  "compose": [
+    "sin3-p2-mix"
+  ],
+  "keys": {
+    "'": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": {
+            "noop": true
+          },
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": {
+                "noop": true
+              },
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": {
+                    "noop": true
+                  },
+                  "else": "=/"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉫",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=♪",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=♬",
+                  "else": "ᄐ"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    ",": {
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=、",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=〈",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=《",
+                  "else": "=,"
+                }
+              }
+            }
+          }
+        }
+      },
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=≤",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⊂",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⊄",
+                  "else": "=<"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "-": {
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=±",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=♂",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=☂",
+                  "else": "=-"
+                }
+              }
+            }
+          }
+        }
+      },
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅺ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₋",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁻",
+                  "else": "=_"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    ".": {
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=。",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=〉",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=》",
+                  "else": "=."
+                }
+              }
+            }
+          }
+        }
+      },
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=≥",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⊃",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⊅",
+                  "else": "=>"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉪",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=※",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=☠",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E&&!F",
+                      "then": {
+                        "j": "ᅩ",
+                        "variant": true
+                      },
+                      "else": "ᄏ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=√",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⤷",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⤶",
+                  "else": "=?"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "0": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅹ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₀",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁰",
+                  "else": "=)"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=§",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⑩",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⑳",
+                  "else": "=0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "1": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅰ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₁",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=¹",
+                  "else": "=!"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=µ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=①",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⑪",
+                  "else": "=1"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "2": {
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㎡",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=②",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⑫",
+                  "else": "=2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅱ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₂",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=²",
+                  "else": "=@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "3": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅲ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₃",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=³",
+                  "else": "=#"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㎥",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=③",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⑬",
+                  "else": "=3"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "4": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅳ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₄",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁴",
+                  "else": "=$"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=￦",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=④",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⑭",
+                  "else": "=4"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "5": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅴ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₅",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁵",
+                  "else": "=%"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=￥",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⑤",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⑮",
+                  "else": "=5"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "6": {
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ω",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⑥",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⑯",
+                  "else": "=6"
+                }
+              }
+            }
+          }
+        }
+      },
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅵ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₆",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁶",
+                  "else": "=^"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "7": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅶ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₇",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁷",
+                  "else": "=&"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=￡",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⑦",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⑰",
+                  "else": "=7"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "8": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅷ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₈",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁸",
+                  "else": "=*"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=€",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⑧",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⑱",
+                  "else": "=8"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "9": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅸ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₉",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁹",
+                  "else": "=("
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=￠",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⑨",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⑲",
+                  "else": "=9"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    ";": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=´",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↳",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⬎",
+                  "else": "=:"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉥",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↘",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⇘",
+                  "else": {
+                    "case": {
+                      "if": "z&&D == 0x110B&&!E&&!F",
+                      "then": {
+                        "tier": 103
+                      },
+                      "else": "ᄇ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "=": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=Ⅻ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₊",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁺",
+                  "else": "=+"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=≠",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=♀",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=☃",
+                  "else": "=="
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "[": {
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=【",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=〔",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=☀",
+                  "else": "=["
+                }
+              }
+            }
+          }
+        }
+      },
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": {
+            "noop": true
+          },
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₍",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁽",
+                  "else": "={"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "\\": {
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=≒",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=¶",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=¦",
+                  "else": "=\\"
+                }
+              }
+            }
+          }
+        }
+      },
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=∣",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∥",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∦",
+                  "else": "=|"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "]": {
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=】",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=〕",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=☁",
+                  "else": "=]"
+                }
+              }
+            }
+          }
+        }
+      },
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": {
+            "noop": true
+          },
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=₎",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⁾",
+                  "else": "=}"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "`": {
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=™",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=©",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=®",
+                  "else": "=`"
+                }
+              }
+            }
+          }
+        }
+      },
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=∼",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=≈",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∽",
+                  "else": "=~"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "a": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=α",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∀",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=Å",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᆼ"
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆪ",
+                          "else": "ᅲ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=◇",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=◈",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=◆",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E",
+                      "then": "ᅲ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 138",
+                          "then": "ᄋ",
+                          "else": "ᆼ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "b": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=β",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=≡",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=≅",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᆾ"
+                      },
+                      "else": "ᅮ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=÷",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=‰",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=‱",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E",
+                      "then": "ᅮ",
+                      "else": "ᆾ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "c": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=χ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↛",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⊗",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᆨ"
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆩ",
+                          "else": "ᅦ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=°",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=☎",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=♨",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E||E == 0x116E&&J",
+                      "then": "ᅦ",
+                      "else": {
+                        "case": {
+                          "if": "D&&!E",
+                          "then": "ᅭ",
+                          "else": "ᆨ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "d": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=δ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∆",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∇",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᇂ"
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆶ",
+                          "else": "ᅵ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=○",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=◉",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=●",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E||J",
+                      "then": "ᅵ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 185",
+                          "then": "ᄒ",
+                          "else": "ᇂ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "e": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=ε",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∃",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∄",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "case": {
+                          "if": "F == 0x11B8",
+                          "then": {
+                            "g": "ᄈ"
+                          },
+                          "else": {
+                            "g": "ᆸ"
+                          }
+                        }
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆲ",
+                          "else": "ᅢ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=△",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↑",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⇑",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E||E == 0x1169&&J",
+                      "then": "ᅢ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 0x11B8",
+                          "then": "ᄇ",
+                          "else": "ᆸ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "f": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=φ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=ϕ",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∅",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᇁ"
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆵ",
+                          "else": "ᅡ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=·",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=◦",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=•",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E||E == 0x1169&&J",
+                      "then": "ᅡ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 179",
+                          "then": "ᄑ",
+                          "else": "ᇁ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "g": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=γ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=Γ",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∫",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "case": {
+                          "if": "F == 0x11AE",
+                          "then": {
+                            "g": "ᄄ"
+                          },
+                          "else": {
+                            "g": "ᆮ"
+                          }
+                        }
+                      },
+                      "else": "ᅳ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=…",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=―",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=￣",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E",
+                      "then": "ᅳ",
+                      "else": "ᆮ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "h": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=η",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=☐",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=☑",
+                  "else": "=□"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉡",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=〃",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=✓",
+                  "else": "ᄂ"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "i": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=ι",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∩",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∞",
+                  "else": {
+                    "noop": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉤",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=℃",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=℉",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E&&!F",
+                      "then": {
+                        "j": "ᅳ",
+                        "variant": true
+                      },
+                      "else": "ᄆ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "j": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=◌",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∨",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∵",
+                  "else": "='"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉧",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=‘",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=“",
+                  "else": "ᄋ"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "k": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=κ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∧",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∴",
+                  "else": "=\""
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉠",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=’",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=”",
+                  "else": {
+                    "case": {
+                      "if": "z&&D == 0x110B&&!E&&!F",
+                      "then": {
+                        "tier": 101
+                      },
+                      "else": "ᄀ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "l": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=λ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↲",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⬐",
+                  "else": "=·"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉨",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↙",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⇙",
+                  "else": {
+                    "case": {
+                      "if": "z&&D == 0x110B&&!E&&!F",
+                      "then": {
+                        "tier": 102
+                      },
+                      "else": "ᄌ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "m": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=μ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⊇",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⊋",
+                  "else": "=…"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉭",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=」",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=』",
+                  "else": "ᄒ"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "n": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=ν",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⊆",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⊊",
+                  "else": "=―"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉦",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=「",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=『",
+                  "else": "ᄉ"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "o": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=ο",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↰",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⬑",
+                  "else": {
+                    "noop": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉩",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↖",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⇖",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E&&!F",
+                      "then": {
+                        "j": "ᅮ",
+                        "variant": true
+                      },
+                      "else": "ᄎ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "p": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=π",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↱",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⬏",
+                  "else": "=;"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉬",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↗",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⇗",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E&&!F",
+                      "then": {
+                        "j": "ᆞ",
+                        "variant": true
+                      },
+                      "else": "ᄑ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "q": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=θ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∈",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∉",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᆺ"
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆳ",
+                          "else": "ᅤ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=◁",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=←",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⇐",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E",
+                      "then": "ᅤ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 109",
+                          "then": "ᄉ",
+                          "else": "ᆺ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "r": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=ρ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=¬",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∂",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᇀ"
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆴ",
+                          "else": "ᅥ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=▷",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=→",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⇒",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E||E == 0x116E&&J",
+                      "then": "ᅥ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 177",
+                          "then": "ᄐ",
+                          "else": "ᇀ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "s": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=σ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∑",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∏",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᆫ"
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆭ",
+                          "else": "ᅨ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=□",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=▣",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=■",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E",
+                      "then": "ᅨ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 12",
+                          "then": "ᄂ",
+                          "else": "ᆫ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "t": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=τ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⊤",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⊥",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᆿ"
+                      },
+                      "else": "ᅧ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=ː",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↔",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⇔",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E",
+                      "then": "ᅧ",
+                      "else": "ᆿ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "u": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=υ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∪",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∝",
+                  "else": "=○"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉢",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=㈜",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=㉾",
+                  "else": "ᄃ"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "v": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=⋅",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∘",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∙",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "case": {
+                          "if": "F == 0x11BD",
+                          "then": {
+                            "g": "ᄍ"
+                          },
+                          "else": {
+                            "g": "ᆽ"
+                          }
+                        }
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆬ",
+                          "else": "ᅩ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=×",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=✕",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=✂",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E",
+                      "then": "ᅩ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 0x11BD",
+                          "then": "ᄌ",
+                          "else": "ᆽ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "w": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=ω",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=∋",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∌",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᆯ"
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆰ",
+                          "else": "ᅣ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=▽",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↓",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⇓",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E",
+                      "then": "ᅣ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 36",
+                          "then": "ᄅ",
+                          "else": "ᆯ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "x": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=ξ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↮",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⊕",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᆻ"
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆹ",
+                          "else": "ᅭ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=′",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=☆",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=★",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E",
+                      "then": "ᅭ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 118",
+                          "then": "ᄊ",
+                          "else": "ᆻ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "y": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=ψ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=⊢",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⊨",
+                  "else": "=×"
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=㉣",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↕",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=⇕",
+                  "else": "ᄅ"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "z": {
+      "shift": {
+        "case": {
+          "if": "T == 101",
+          "then": "=ζ",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=↚",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=∠",
+                  "else": {
+                    "case": {
+                      "if": "!D&&!E&&F",
+                      "then": {
+                        "g": "ᆷ"
+                      },
+                      "else": {
+                        "case": {
+                          "if": "J&&!F",
+                          "then": "ᆱ",
+                          "else": "ᆞ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "plain": {
+        "case": {
+          "if": "T == 101",
+          "then": "=″",
+          "else": {
+            "case": {
+              "if": "T == 102",
+              "then": "=♡",
+              "else": {
+                "case": {
+                  "if": "T == 103",
+                  "then": "=♥",
+                  "else": {
+                    "case": {
+                      "if": "D&&!E||E == 0x119E&&J",
+                      "then": "ᆞ",
+                      "else": {
+                        "case": {
+                          "if": "h&&F == 70",
+                          "then": "ᄆ",
+                          "else": "ᆷ"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "jongonlyFresh": true,
+  "flags": {
+    "z": 1,
+    "h": 0,
+    "H": 0
+  },
+  "x-notes": {
+    "inert-ids": [
+      "F==0x24",
+      "F==0x46",
+      "F==0x6d",
+      "F==0x76",
+      "F==0x8a",
+      "F==0xb1",
+      "F==0xb3",
+      "F==0xb9",
+      "F==0xc"
+    ],
+    "stripped": [
+      "T=…"
+    ]
+  }
+}

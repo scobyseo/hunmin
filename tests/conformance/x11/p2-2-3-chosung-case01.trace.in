@@ -1,0 +1,3 @@
+{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "cq-initials", "source": "p2-2-3-chosung.jsonl (gate)", "case_index": 1, "case_id": "p2-2-3-chosung#01"}}
+{"in": {"keysym": 99, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"keysym": 113, "mods": 0}, "commit": "ㄱ", "preedit": "ㅅ", "consumed": true}

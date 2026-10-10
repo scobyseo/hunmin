@@ -1,0 +1,13 @@
+permissionGranted -> VoicePermissionAction.PROCEED
+        alreadyAsked -> VoicePermissionAction.STOP
+        canAsk -> VoicePermissionAction.ASK
+        else -> VoicePermissionAction.STOP
+    }
+}
+---REPLACE---
+        permissionGranted -> VoicePermissionAction.PROCEED
+        alreadyAsked -> VoicePermissionAction.ASK
+        canAsk -> VoicePermissionAction.ASK
+        else -> VoicePermissionAction.PROCEED
+    }
+}

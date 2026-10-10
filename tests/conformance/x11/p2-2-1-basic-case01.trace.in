@@ -1,0 +1,3 @@
+{"meta": {"platform": "x11", "layout": "sin3-p2-basic", "case": "가", "source": "p2-2-1-basic.jsonl (gate)", "case_index": 1, "case_id": "p2-2-1-basic#01"}}
+{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}

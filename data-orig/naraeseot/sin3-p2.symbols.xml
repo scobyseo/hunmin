@@ -1,0 +1,211 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<InputEntry>
+	<InputSchemeSetting flag="0" remark="&#x01;[2016.8.6. 날개셋 ist 파일 만듦]&#x0D;&#x0A;[2018.4.10. 신세벌식 P2 기호 배열 고침]&#x0D;&#x0A;[2024.1.19. 초성체에 쓰이는 ㄸ · ㅃ · ㅉ을 조합할 수 있게 함]&#x0D;&#x0A;&#x0D;&#x0A;신세벌식 P2 자판은 신세벌식 P 자판에 바탕한 수정 배열입니다.&#x0D;&#x0A;&#x0D;&#x0A;신세벌식 P2 : 2016.8.6. (http://pat.im/1136)&#x0D;&#x0A;신세벌식 P : 2015.11.4. (http://pat.im/1110)&#x0D;&#x0A;기호 확장 배열 : 2016.4.25. (http://pat.im/1112)&#x0D;&#x0A;&#x0D;&#x0A;◉ '글쇠 배열 → 옵션 → 공통 전처리 수식 지정'에 들어간 수식(z=1, h=0, H=0)을 고치면 확장 입력 기능을 켜거나 끌 수 있습니다.&#x0D;&#x0A;&#x0D;&#x0A; • z : 기호 확장 배열&#x0D;&#x0A; • h : 같은 글쇠 눌러 겹받침 넣기&#x0D;&#x0A; • H : 윗글쇠 눌러 겹받침 넣기&#x0D;&#x0A;&#x0D;&#x0A; • z=1를 z=0으로 바꾸면, 기호 확장 배열 기능이 꺼집니다.&#x0D;&#x0A; • h=0를 h=1으로 바꾸면, 같은 글쇠를 거듭 눌러 겹받침을 넣는 기능이 켜집니다.&#x0D;&#x0A; • H=0를 H=1으로 바꾸면, 윗글쇠를 함께 눌러 겹받침을 넣는 기능이 켜집니다.&#x0D;&#x0A;&#x0D;&#x0A;◉ 기호 확장 배열 기능이 켜져 있다면 첫소리 ㅇ+ㄱ, ㅇ+ㅈ, ㅇ+ㅂ을 치고 나서 일반 글쇠를 눌러 기호 확장 배열의 기호들을 넣을 수 있습니다.&#x0D;&#x0A;&#x0D;&#x0A; • ㅇ+ㄱ+2 → ㎡&#x0D;&#x0A; • ㅇ+ㅈ+2 → ②&#x0D;&#x0A; • ㅇ+ㅂ+2 → ⑫&#x0D;&#x0A;&#x0D;&#x0A;◉ &quot;시스템 계층 → 한글 표현 방식 → 글자 계층&quot;에서 '호환용 한글 자모 사용'에 갈매기표하면, 받침 자리 글쇠로 초성체를 넣을 수 있습니다.&#x0D;&#x0A;&#x0D;&#x0A;◉ 홑받침을 넣은 다음에 윗글쇠와 받침 자리 글쇠를 더 누르면,  첫닿소리와 홀소리 없이 겹받침만 따로 넣을 수 있습니다." object="CBasicInputScheme">
+		<KeyTable name="신세벌식 P2 + 기호 확장" flag="PREFIX" from="33" to="126" before="z=1, h=0, H=0">
+			<Key at="0x21" value="T==101 ? 0x2160 : T==102 ? 0x2081 : T==103 ? 0xB9 : 0x21"/>
+			<Key at="0x22" value="T==101 ? 0 : T==102 ? 0 : T==103 ? 0 : 0x2F"/>
+			<Key at="0x23" value="T==101 ? 0x2162 : T==102 ? 0x2083 : T==103 ? 0xB3 : 0x23"/>
+			<Key at="0x24" value="T==101 ? 0x2163 : T==102 ? 0x2084 : T==103 ? 0x2074 : 0x24"/>
+			<Key at="0x25" value="T==101 ? 0x2164 : T==102 ? 0x2085 : T==103 ? 0x2075 : 0x25"/>
+			<Key at="0x26" value="T==101 ? 0x2166 : T==102 ? 0x2087 : T==103 ? 0x2077 : 0x26"/>
+			<Key at="0x27" value="T==101 ? 0x326B : T==102 ? 0x266A : T==103 ? 0x266C : H3|T_"/>
+			<Key at="0x28" value="T==101 ? 0x2168 : T==102 ? 0x2089 : T==103 ? 0x2079 : 0x28"/>
+			<Key at="0x29" value="T==101 ? 0x2169 : T==102 ? 0x2080 : T==103 ? 0x2070 : 0x29"/>
+			<Key at="0x2A" value="T==101 ? 0x2167 : T==102 ? 0x2088 : T==103 ? 0x2078 : 0x2A"/>
+			<Key at="0x2B" value="T==101 ? 0x216B : T==102 ? 0x208A : T==103 ? 0x207A : 0x2B"/>
+			<Key at="0x2C" value="T==101 ? 0x3001 : T==102 ? 0x3008 : T==103 ? 0x300A : 0x2C"/>
+			<Key at="0x2D" value="T==101 ? 0xB1 : T==102 ? 0x2642 : T==103 ? 0x2602 : 0x2D"/>
+			<Key at="0x2E" value="T==101 ? 0x3002 : T==102 ? 0x3009 : T==103 ? 0x300B : 0x2E"/>
+			<Key at="0x2F" value="T==101 ? 0x326A : T==102 ? 0x203B : T==103 ? 0x2620 : D&amp;&amp;!E&amp;&amp;!F ? H3|0x1F50000 : H3|K_"/>
+			<Key at="0x30" value="T==101 ? 0xA7 : T==102 ? 0x2469 : T==103 ? 0x2473 : 0x30"/>
+			<Key at="0x31" value="T==101 ? 0xB5 : T==102 ? 0x2460 : T==103 ? 0x246A : 0x31"/>
+			<Key at="0x32" value="T==101 ? 0x33A1 : T==102 ? 0x2461 : T==103 ? 0x246B : 0x32"/>
+			<Key at="0x33" value="T==101 ? 0x33A5 : T==102 ? 0x2462 : T==103 ? 0x246C : 0x33"/>
+			<Key at="0x34" value="T==101 ? 0xFFE6 : T==102 ? 0x2463 : T==103 ? 0x246D : 0x34"/>
+			<Key at="0x35" value="T==101 ? 0xFFE5 : T==102 ? 0x2464 : T==103 ? 0x246E : 0x35"/>
+			<Key at="0x36" value="T==101 ? 0x2126 : T==102 ? 0x2465 : T==103 ? 0x246F : 0x36"/>
+			<Key at="0x37" value="T==101 ? 0xFFE1 : T==102 ? 0x2466 : T==103 ? 0x2470 : 0x37"/>
+			<Key at="0x38" value="T==101 ? 0x20AC : T==102 ? 0x2467 : T==103 ? 0x2471 : 0x38"/>
+			<Key at="0x39" value="T==101 ? 0xFFE0 : T==102 ? 0x2468 : T==103 ? 0x2472 : 0x39"/>
+			<Key at="0x3A" value="T==101 ? 0xB4 : T==102 ? 0x21B3 : T==103 ? 0x2B0E : 0x3A"/>
+			<Key at="0x3B" value="T==101 ? 0x3265 : T==102 ? 0x2198 : T==103 ? 0x21D8 : z&amp;&amp;D==0x8A&amp;&amp;!E&amp;&amp;!F ? C1|103 : H3|B_"/>
+			<Key at="0x3C" value="T==101 ? 0x2264 : T==102 ? 0x2282 : T==103 ? 0x2284 : 0x3C"/>
+			<Key at="0x3D" value="T==101 ? 0x2260 : T==102 ? 0x2640 : T==103 ? 0x2603 : 0x3D"/>
+			<Key at="0x3E" value="T==101 ? 0x2265 : T==102 ? 0x2283 : T==103 ? 0x2285 : 0x3E"/>
+			<Key at="0x3F" value="T==101 ? 0x221A : T==102 ? 0x2937 : T==103 ? 0x2936 : 0x3F"/>
+			<Key at="0x40" value="T==101 ? 0x2161 : T==102 ? 0x2082 : T==103 ? 0xB2 : 0x40"/>
+			<Key at="0x41" value="T==101 ? 0x3B1 : T==102 ? 0x2200 : T==103 ? 0x212B : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_Q) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_GS : H3|YU"/>
+			<Key at="0x42" value="T==101 ? 0x3B2 : T==102 ? 0x2261 : T==103 ? 0x2245 : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_C) : H3|U_"/>
+			<Key at="0x43" value="T==101 ? 0x3C7 : T==102 ? 0x219B : T==103 ? 0x2297 : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_G) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_GG : H3|E_"/>
+			<Key at="0x44" value="T==101 ? 0x3B4 : T==102 ? 0x2206 : T==103 ? 0x2207 : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_H) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_RH : H3|I_"/>
+			<Key at="0x45" value="T==101 ? 0x3B5 : T==102 ? 0x2203 : T==103 ? 0x2204 : !D&amp;&amp;!E&amp;&amp;F ? F==86 ? (G=1, H3|0x29000000000) : (G=1, H3|_B) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_RB : H3|AE"/>
+			<Key at="0x46" value="T==101 ? 0x3C6 : T==102 ? 0x3D5 : T==103 ? 0x2205 : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_P) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_RP : H3|A_"/>
+			<Key at="0x47" value="T==101 ? 0x3B3 : T==102 ? 0x393 : T==103 ? 0x222B : !D&amp;&amp;!E&amp;&amp;F ? F==24 ? (G=1, H3|0x28D00000000) : (G=1, H3|_D) : H3|EU"/>
+			<Key at="0x48" value="T==101 ? 0x3B7 : T==102 ? 0x2610 : T==103 ? 0x2611 : 0x25A1"/>
+			<Key at="0x49" value="T==101 ? 0x3B9 : T==102 ? 0x2229 : T==103 ? 0x221E : 0"/>
+			<Key at="0x4A" value="T==101 ? 0x25CC : T==102 ? 0x2228 : T==103 ? 0x2235 : 0x27"/>
+			<Key at="0x4B" value="T==101 ? 0x3BA : T==102 ? 0x2227 : T==103 ? 0x2234 : 0x22"/>
+			<Key at="0x4C" value="T==101 ? 0x3BB : T==102 ? 0x21B2 : T==103 ? 0x2B10 : 0xB7"/>
+			<Key at="0x4D" value="T==101 ? 0x3BC : T==102 ? 0x2287 : T==103 ? 0x228B : 0x2026"/>
+			<Key at="0x4E" value="T==101 ? 0x3BD : T==102 ? 0x2286 : T==103 ? 0x228A : 0x2015"/>
+			<Key at="0x4F" value="T==101 ? 0x3BF : T==102 ? 0x21B0 : T==103 ? 0x2B11 : 0"/>
+			<Key at="0x50" value="T==101 ? 0x3C0 : T==102 ? 0x21B1 : T==103 ? 0x2B0F : 0x3B"/>
+			<Key at="0x51" value="T==101 ? 0x3B8 : T==102 ? 0x2208 : T==103 ? 0x2209 : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_S) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_RS : H3|YAE"/>
+			<Key at="0x52" value="T==101 ? 0x3C1 : T==102 ? 0xAC : T==103 ? 0x2202 : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_T) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_RT : H3|EO"/>
+			<Key at="0x53" value="T==101 ? 0x3C3 : T==102 ? 0x2211 : T==103 ? 0x220F : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_N) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_NH : H3|YE"/>
+			<Key at="0x54" value="T==101 ? 0x3C4 : T==102 ? 0x22A4 : T==103 ? 0x22A5 : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_K) : H3|YEO"/>
+			<Key at="0x55" value="T==101 ? 0x3C5 : T==102 ? 0x222A : T==103 ? 0x221D : 0x25CB"/>
+			<Key at="0x56" value="T==101 ? 0x22C5 : T==102 ? 0x2218 : T==103 ? 0x2219 : !D&amp;&amp;!E&amp;&amp;F ? F==161 ? (G=1, H3|0x29300000000) : (G=1, H3|_J) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_NJ : H3|O_"/>
+			<Key at="0x57" value="T==101 ? 0x3C9 : T==102 ? 0x220B : T==103 ? 0x220C : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_R) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_RG : H3|YA"/>
+			<Key at="0x58" value="T==101 ? 0x3BE : T==102 ? 0x21AE : T==103 ? 0x2295 : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_SS) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_BS : H3|YO"/>
+			<Key at="0x59" value="T==101 ? 0x3C8 : T==102 ? 0x22A2 : T==103 ? 0x22A8 : 0xD7"/>
+			<Key at="0x5A" value="T==101 ? 0x3B6 : T==102 ? 0x219A : T==103 ? 0x2220 : !D&amp;&amp;!E&amp;&amp;F ? (G=1, H3|_M) : H&amp;&amp;D&amp;&amp;E&amp;&amp;E&lt;0x1F4&amp;&amp;!F ? H3|_RM : H3|F_"/>
+			<Key at="0x5B" value="T==101 ? 0x3010 : T==102 ? 0x3014 : T==103 ? 0x2600 : 0x5B"/>
+			<Key at="0x5C" value="T==101 ? 0x2252 : T==102 ? 0xB6 : T==103 ? 0xA6 : 0x5C"/>
+			<Key at="0x5D" value="T==101 ? 0x3011 : T==102 ? 0x3015 : T==103 ? 0x2601 : 0x5D"/>
+			<Key at="0x5E" value="T==101 ? 0x2165 : T==102 ? 0x2086 : T==103 ? 0x2076 : 0x5E"/>
+			<Key at="0x5F" value="T==101 ? 0x216A : T==102 ? 0x208B : T==103 ? 0x207B : 0x5F"/>
+			<Key at="0x60" value="T==101 ? 0x2122 : T==102 ? 0xA9 : T==103 ? 0xAE : 0x60"/>
+			<Key at="0x61" value="T==101 ? 0x25C7 : T==102 ? 0x25C8 : T==103 ? 0x25C6 : D&amp;&amp;!E ? H3|YU : h&amp;&amp;F==0x8A ? H3|0x26000000000 : H3|_Q"/>
+			<Key at="0x62" value="T==101 ? 0xF7 : T==102 ? 0x2030 : T==103 ? 0x2031 : D&amp;&amp;!E ? H3|U_ : H3|_C"/>
+			<Key at="0x63" value="T==101 ? 0xB0 : T==102 ? 0x260E : T==103 ? 0x2668 : D&amp;&amp;!E || E==0x1F6 ? H3|E_ : D&amp;&amp;!E ? H3|YO : H3|_G"/>
+			<Key at="0x64" value="T==101 ? (T=0x65, 0x25CB) : T==102 ? 0x25C9 : T==103 ? 0x25CF : D&amp;&amp;!E || E&gt;=0x1F4&amp;&amp;(E&gt;=0x1F5&amp;&amp;E&lt;=0x1F8) ? H3|I_ : h&amp;&amp;F==0xB9 ? H3|0x26600000000 : H3|_H"/>
+			<Key at="0x65" value="T==101 ? 0x25B3 : T==102 ? 0x2191 : T==103 ? 0x21D1 : D&amp;&amp;!E || E==0x1F5 ? H3|AE : h&amp;&amp;F==0x56 ? H3|0x25E00000000 : H3|_B"/>
+			<Key at="0x66" value="T==101 ? 0xB7 : T==102 ? 0x25E6 : T==103 ? 0x2022 : D&amp;&amp;!E || E==0x1F5 ? H3|A_ : h&amp;&amp;F==0xB3 ? H3|0x26500000000 : H3|_P"/>
+			<Key at="0x67" value="T==101 ? 0x2026 : T==102 ? 0x2015 : T==103 ? 0xFFE3 : D&amp;&amp;!E ? H3|EU : H3|_D"/>
+			<Key at="0x68" value="T==101 ? 0x3261 : T==102 ? 0x3003 : T==103 ? 0x2713 : H3|N_"/>
+			<Key at="0x69" value="T==101 ? 0x3264 : T==102 ? 0x2103 : T==103 ? 0x2109 : D&amp;&amp;!E&amp;&amp;!F ? H3|0x1F70000 : H3|M_"/>
+			<Key at="0x6A" value="T==101 ? 0x3267 : T==102 ? 0x2018 : T==103 ? 0x201C : H3|Q_"/>
+			<Key at="0x6B" value="T==101 ? 0x3260 : T==102 ? 0x2019 : T==103 ? 0x201D : z&amp;&amp;D==0x8A&amp;&amp;!E&amp;&amp;!F ? C1|101 : H3|G_"/>
+			<Key at="0x6C" value="T==101 ? 0x3268 : T==102 ? 0x2199 : T==103 ? 0x21D9 : z&amp;&amp;D==0x8A&amp;&amp;!E&amp;&amp;!F ? C1|102 : H3|J_"/>
+			<Key at="0x6D" value="T==101 ? 0x326D : T==102 ? 0x300D : T==103 ? 0x300F : H3|H_"/>
+			<Key at="0x6E" value="T==101 ? 0x3266 : T==102 ? 0x300C : T==103 ? 0x300E : H3|S_"/>
+			<Key at="0x6F" value="T==101 ? 0x3269 : T==102 ? 0x2196 : T==103 ? 0x21D6 : D&amp;&amp;!E&amp;&amp;!F ? H3|0x1F60000 : H3|C_"/>
+			<Key at="0x70" value="T==101 ? 0x326C : T==102 ? 0x2197 : T==103 ? 0x21D7 : D&amp;&amp;!E&amp;&amp;!F ? H3|0x1F80000 : H3|P_"/>
+			<Key at="0x71" value="T==101 ? 0x25C1 : T==102 ? 0x2190 : T==103 ? 0x21D0 : D&amp;&amp;!E ? H3|YAE : h&amp;&amp;F==0x6D ? H3|0x25F00000000 : H3|_S"/>
+			<Key at="0x72" value="T==101 ? 0x25B7 : T==102 ? 0x2192 : T==103 ? 0x21D2 : D&amp;&amp;!E || E==0x1F6 ? H3|EO : h&amp;&amp;F==0xB1 ? H3|0x26400000000 : H3|_T"/>
+			<Key at="0x73" value="T==101 ? 0x25A1 : T==102 ? 0x25A3 : T==103 ? 0x25A0 : D&amp;&amp;!E ? H3|YE : h&amp;&amp;F==0xC ? H3|0x25A00000000 : H3|_N"/>
+			<Key at="0x74" value="T==101 ? 0x2D0 : T==102 ? 0x2194 : T==103 ? 0x21D4 : D&amp;&amp;!E ? H3|YEO : H3|_K"/>
+			<Key at="0x75" value="T==101 ? 0x3262 : T==102 ? 0x321C : T==103 ? 0x327E : H3|D_"/>
+			<Key at="0x76" value="T==101 ? 0xD7 : T==102 ? 0x2715 : T==103 ? 0x2702 : D&amp;&amp;!E ? H3|O_ : h&amp;&amp;F==0xA1 ? H3|0x26100000000 : H3|_J"/>
+			<Key at="0x77" value="T==101 ? 0x25BD : T==102 ? 0x2193 : T==103 ? 0x21D3 : D&amp;&amp;!E ? H3|YA : h&amp;&amp;F==0x24 ? H3|0x25C00000000 : H3|_R"/>
+			<Key at="0x78" value="T==101 ? 0x2032 : T==102 ? 0x2606 : T==103 ? 0x2605 : D&amp;&amp;!E ? H3|YO : h&amp;&amp;F==0x76 ? H3|0x26A00000000 : H3|_SS"/>
+			<Key at="0x79" value="T==101 ? 0x3263 : T==102 ? 0x2195 : T==103 ? 0x21D5 : H3|R_"/>
+			<Key at="0x7A" value="T==101 ? 0x2033 : T==102 ? 0x2661 : T==103 ? 0x2665 : D&amp;&amp;!E || E==0x1F8 ? H3|F_ : h&amp;&amp;F==0x46 ? H3|0x25D00000000 : H3|_M"/>
+			<Key at="0x7B" value="T==101 ? 0 : T==102 ? 0x208D : T==103 ? 0x207D : 0x7B"/>
+			<Key at="0x7C" value="T==101 ? 0x2223 : T==102 ? 0x2225 : T==103 ? 0x2226 : 0x7C"/>
+			<Key at="0x7D" value="T==101 ? 0 : T==102 ? 0x208E : T==103 ? 0x207E : 0x7D"/>
+			<Key at="0x7E" value="T==101 ? 0x223C : T==102 ? 0x2248 : T==103 ? 0x223D : 0x7E"/>
+		</KeyTable>
+	</InputSchemeSetting>
+	<GeneratorSetting flag="0" object="CNgsIme">
+		<UnitMixTable>
+			<UnitMix unit="CHO" a="G_" b="G_" to="GG"/>
+			<UnitMix unit="CHO" a="D_" b="D_" to="DD"/>
+			<UnitMix unit="CHO" a="B_" b="B_" to="BB"/>
+			<UnitMix unit="CHO" a="S_" b="S_" to="SS"/>
+			<UnitMix unit="CHO" a="J_" b="J_" to="JJ"/>
+			<UnitMix unit="JUNG" a="O_" b="A_" to="WA"/>
+			<UnitMix unit="JUNG" a="O_" b="AE" to="WAE"/>
+			<UnitMix unit="JUNG" a="O_" b="I_" to="OI"/>
+			<UnitMix unit="JUNG" a="U_" b="EO" to="UEO"/>
+			<UnitMix unit="JUNG" a="U_" b="E_" to="WE"/>
+			<UnitMix unit="JUNG" a="U_" b="I_" to="WI"/>
+			<UnitMix unit="JUNG" a="EU" b="I_" to="EUI"/>
+			<UnitMix unit="JUNG" a="F_" b="I_" to="FI"/>
+			<UnitMix unit="JUNG" a="F_" b="F_" to="FF"/>
+			<UnitMix unit="JUNG" a="501" b="A_" to="WA"/>
+			<UnitMix unit="JUNG" a="501" b="AE" to="WAE"/>
+			<UnitMix unit="JUNG" a="501" b="I_" to="OI"/>
+			<UnitMix unit="JUNG" a="502" b="EO" to="UEO"/>
+			<UnitMix unit="JUNG" a="502" b="E_" to="WE"/>
+			<UnitMix unit="JUNG" a="502" b="I_" to="WI"/>
+			<UnitMix unit="JUNG" a="503" b="I_" to="EUI"/>
+			<UnitMix unit="JUNG" a="504" b="I_" to="FI"/>
+			<UnitMix unit="JUNG" a="504" b="F_" to="FF"/>
+			<UnitMix unit="JUNG" a="504" b="504" to="FF"/>
+			<UnitMix unit="JONG" a="G_" b="G_" to="GG"/>
+			<UnitMix unit="JONG" a="G_" b="S_" to="GS"/>
+			<UnitMix unit="JONG" a="N_" b="J_" to="NJ"/>
+			<UnitMix unit="JONG" a="N_" b="H_" to="NH"/>
+			<UnitMix unit="JONG" a="N_" b="602" to="NH"/>
+			<UnitMix unit="JONG" a="D_" b="653" to="DD"/>
+			<UnitMix unit="JONG" a="R_" b="G_" to="RG"/>
+			<UnitMix unit="JONG" a="R_" b="M_" to="RM"/>
+			<UnitMix unit="JONG" a="R_" b="B_" to="RB"/>
+			<UnitMix unit="JONG" a="R_" b="S_" to="RS"/>
+			<UnitMix unit="JONG" a="R_" b="T_" to="RT"/>
+			<UnitMix unit="JONG" a="R_" b="P_" to="RP"/>
+			<UnitMix unit="JONG" a="R_" b="H_" to="RH"/>
+			<UnitMix unit="JONG" a="R_" b="604" to="RG"/>
+			<UnitMix unit="JONG" a="M_" b="605" to="RM"/>
+			<UnitMix unit="JONG" a="B_" b="S_" to="BS"/>
+			<UnitMix unit="JONG" a="B_" b="606" to="RB"/>
+			<UnitMix unit="JONG" a="B_" b="656" to="BB"/>
+			<UnitMix unit="JONG" a="S_" b="S_" to="SS"/>
+			<UnitMix unit="JONG" a="S_" b="607" to="RS"/>
+			<UnitMix unit="JONG" a="SS" b="618" to="BS"/>
+			<UnitMix unit="JONG" a="Q_" b="608" to="GS"/>
+			<UnitMix unit="JONG" a="J_" b="609" to="NJ"/>
+			<UnitMix unit="JONG" a="J_" b="659" to="JJ"/>
+			<UnitMix unit="JONG" a="C_" b="610" to="GS"/>
+			<UnitMix unit="JONG" a="T_" b="612" to="RT"/>
+			<UnitMix unit="JONG" a="P_" b="613" to="RP"/>
+			<UnitMix unit="JONG" a="H_" b="614" to="RH"/>
+		</UnitMixTable>
+		<VirtualUnitTable>
+			<VirtualUnit unit="CHO" from="401" to="G_"/>
+			<VirtualUnit unit="CHO" from="402" to="N_"/>
+			<VirtualUnit unit="CHO" from="403" to="D_"/>
+			<VirtualUnit unit="CHO" from="404" to="R_"/>
+			<VirtualUnit unit="CHO" from="405" to="M_"/>
+			<VirtualUnit unit="CHO" from="406" to="B_"/>
+			<VirtualUnit unit="CHO" from="407" to="S_"/>
+			<VirtualUnit unit="CHO" from="408" to="Q_"/>
+			<VirtualUnit unit="CHO" from="409" to="J_"/>
+			<VirtualUnit unit="CHO" from="410" to="C_"/>
+			<VirtualUnit unit="CHO" from="411" to="K_"/>
+			<VirtualUnit unit="CHO" from="412" to="T_"/>
+			<VirtualUnit unit="CHO" from="413" to="P_"/>
+			<VirtualUnit unit="CHO" from="414" to="H_"/>
+			<VirtualUnit unit="JUNG" from="501" to="O_"/>
+			<VirtualUnit unit="JUNG" from="502" to="U_"/>
+			<VirtualUnit unit="JUNG" from="503" to="EU"/>
+			<VirtualUnit unit="JUNG" from="504" to="F_"/>
+			<VirtualUnit unit="JONG" from="601" to="G_"/>
+			<VirtualUnit unit="JONG" from="602" to="N_"/>
+			<VirtualUnit unit="JONG" from="603" to="D_"/>
+			<VirtualUnit unit="JONG" from="604" to="R_"/>
+			<VirtualUnit unit="JONG" from="605" to="M_"/>
+			<VirtualUnit unit="JONG" from="606" to="B_"/>
+			<VirtualUnit unit="JONG" from="607" to="S_"/>
+			<VirtualUnit unit="JONG" from="608" to="Q_"/>
+			<VirtualUnit unit="JONG" from="609" to="J_"/>
+			<VirtualUnit unit="JONG" from="610" to="C_"/>
+			<VirtualUnit unit="JONG" from="611" to="K_"/>
+			<VirtualUnit unit="JONG" from="612" to="T_"/>
+			<VirtualUnit unit="JONG" from="613" to="P_"/>
+			<VirtualUnit unit="JONG" from="614" to="H_"/>
+			<VirtualUnit unit="JONG" from="618" to="SS"/>
+			<VirtualUnit unit="JONG" from="653" to="D_"/>
+			<VirtualUnit unit="JONG" from="656" to="B_"/>
+			<VirtualUnit unit="JONG" from="659" to="J_"/>
+		</VirtualUnitTable>
+		<UnitAbbrTable/>
+		<AutomataTable default="0">
+			<Automata state="0" value="A ? 1 : B ? 2 : C ? 3 : 0" default="0" remark="초기 상태"/>
+			<Automata state="1" value="A ? 1 : B ? 2 : C ? 3 : 0" default="0" remark="초성"/>
+			<Automata state="2" value="B ? 2 : C ? 3 : 0" default="0" remark="[초성] + 중성"/>
+			<Automata state="3" value="C&amp;&amp;(D || E || G)&amp;&amp;!(G=0) ? 3 : 0" default="0" remark="[초성] + [중성] + 종성 (G : 홑받침만 들어갔는지, 윗글쇠를 눌러 넣는 겹받침 호환 자모 처리) "/>
+			<Automata state="101" value="0" default="-9" remark="기호 확장 상태 1"/>
+			<Automata state="102" value="0" default="-9" remark="기호 확장 상태 2"/>
+			<Automata state="103" value="0" default="-9" remark="기호 확장 상태 3"/>
+		</AutomataTable>
+		<Extra>
+			<Bksp key="1" value1="0" value2="BySyllable" condition1="0" condition2="0"/>
+			<Bksp key="2" value1="0" value2="BySyllable" condition1="0" condition2="0"/>
+			<Bksp key="3" value1="0" value2="BySyllable" condition1="0" condition2="0"/>
+			<Bksp key="4" value1="0" value2="BySyllable" condition1="0" condition2="0"/>
+		</Extra>
+	</GeneratorSetting>
+</InputEntry>

@@ -1,0 +1,187 @@
+# KCM for dubeolsik-yet (Dubeolsik Yetgeul / 두벌식 옛글)
+# Generated from libhunmin/data/layouts/dubeolsik-yet.json
+# Layout engine: std
+
+type OVERLAY
+
+key A {
+    label: 'A'
+    base: 'ᄆ'
+    shift: 'ᅀ'
+    ctrl, alt, meta: none
+}
+
+key B {
+    label: 'B'
+    base: 'ᅲ'
+    shift: 'ᅔ'
+    ctrl, alt, meta: none
+}
+
+key C {
+    label: 'C'
+    base: 'ᄎ'
+    shift: 'ᅎ'
+    ctrl, alt, meta: none
+}
+
+key D {
+    label: 'D'
+    base: 'ᄋ'
+    shift: 'ᅌ'
+    ctrl, alt, meta: none
+}
+
+key E {
+    label: 'E'
+    base: 'ᄃ'
+    shift: 'ᄄ'
+    ctrl, alt, meta: none
+}
+
+key F {
+    label: 'F'
+    base: 'ᄅ'
+    shift: 'ᄚ'
+    ctrl, alt, meta: none
+}
+
+key G {
+    label: 'G'
+    base: 'ᄒ'
+    shift: 'ᅙ'
+    ctrl, alt, meta: none
+}
+
+key H {
+    label: 'H'
+    base: 'ᅩ'
+    shift: 'ᆃ'
+    ctrl, alt, meta: none
+}
+
+key I {
+    label: 'I'
+    base: 'ᅣ'
+    shift: 'ᅣ'
+    ctrl, alt, meta: none
+}
+
+key J {
+    label: 'J'
+    base: 'ᅥ'
+    shift: 'ᅥ'
+    ctrl, alt, meta: none
+}
+
+key K {
+    label: 'K'
+    base: 'ᅡ'
+    shift: 'ᆞ'
+    ctrl, alt, meta: none
+}
+
+key L {
+    label: 'L'
+    base: 'ᅵ'
+    shift: 'ᆔ'
+    ctrl, alt, meta: none
+}
+
+key M {
+    label: 'M'
+    base: 'ᅳ'
+    shift: 'ᅳ'
+    ctrl, alt, meta: none
+}
+
+key N {
+    label: 'N'
+    base: 'ᅮ'
+    shift: 'ᅕ'
+    ctrl, alt, meta: none
+}
+
+key O {
+    label: 'O'
+    base: 'ᅢ'
+    shift: 'ᅤ'
+    ctrl, alt, meta: none
+}
+
+key P {
+    label: 'P'
+    base: 'ᅦ'
+    shift: 'ᅨ'
+    ctrl, alt, meta: none
+}
+
+key Q {
+    label: 'Q'
+    base: 'ᄇ'
+    shift: 'ᄈ'
+    ctrl, alt, meta: none
+}
+
+key R {
+    label: 'R'
+    base: 'ᄀ'
+    shift: 'ᄁ'
+    ctrl, alt, meta: none
+}
+
+key S {
+    label: 'S'
+    base: 'ᄂ'
+    shift: 'ᅝ'
+    ctrl, alt, meta: none
+}
+
+key T {
+    label: 'T'
+    base: 'ᄉ'
+    shift: 'ᄊ'
+    ctrl, alt, meta: none
+}
+
+key U {
+    label: 'U'
+    base: 'ᅧ'
+    shift: 'ᅧ'
+    ctrl, alt, meta: none
+}
+
+key V {
+    label: 'V'
+    base: 'ᄑ'
+    shift: 'ᅐ'
+    ctrl, alt, meta: none
+}
+
+key W {
+    label: 'W'
+    base: 'ᄌ'
+    shift: 'ᄍ'
+    ctrl, alt, meta: none
+}
+
+key X {
+    label: 'X'
+    base: 'ᄐ'
+    shift: 'ᄾ'
+    ctrl, alt, meta: none
+}
+
+key Y {
+    label: 'Y'
+    base: 'ᅭ'
+    shift: 'ᅭ'
+    ctrl, alt, meta: none
+}
+
+key Z {
+    label: 'Z'
+    base: 'ᄏ'
+    shift: 'ᄼ'
+    ctrl, alt, meta: none
+}

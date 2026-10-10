@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  IME subtype metadata.
+
+  `android:isDefault` is absent on purpose: this build is not a replacement for
+  the user's existing keyboard, and claiming default on install is a hostile
+  default. (Verified against the platform's own declare-styleable InputMethod,
+  which is where `supportsSwitchingToNextInputMethod` below is defined; the
+  earlier revision of this file failed to parse because it contained a double
+  hyphen inside a comment, which XML forbids.)
+
+  The layout list is NOT declared here. Layouts are discovered at runtime from
+  the engine's own tables (hunmin_ctx_layout_count), not enumerated in the
+  manifest, so adding a layout is a data change and needs no code or manifest
+  edit.
+-->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:supportsSwitchingToNextInputMethod="true" />

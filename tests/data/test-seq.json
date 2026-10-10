@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "test-seq",
+  "name": {
+    "en": "Test layout for seq tier",
+    "ko": "seq 티어 테스트용 레이아웃"
+  },
+  "engine": "h3",
+  "libhangulType": "jamo",
+  "compose": [
+    "modern"
+  ],
+  "source": "Test layout for verifying seq tier implementation (N3). Not derived from any upstream source.",
+  "keys": {
+    "a": {
+      "plain": "ᄀ",
+      "shift": "ᄁ"
+    },
+    "=": {
+      "plain": "==",
+      "shift": {
+        "seq": ["\ud83c\uddf0", "\ud83c\uddf7"]
+      }
+    },
+    "-": {
+      "plain": "=-",
+      "shift": {
+        "case": {
+          "if": "D",
+          "then": {
+            "seq": ["\ud83c\uddf0", "\ud83c\uddf7"]
+          },
+          "else": "=_"
+        }
+      }
+    }
+  }
+}

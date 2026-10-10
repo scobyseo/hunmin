@@ -1,0 +1,7 @@
+신세벌식 P2 날개셋 ist XML files, downloaded 2026-09-27 from pat.im/1136
+(author 팥알, https://pat.im). Vendored unmodified as normative conversion input.
+Layout arrangements are published as freely reusable; files carry the original
+revision comments. See docs/SPEC-P2.md.
+sha256 0b22d9313e9324b79b0c36d11ae667c0713dd263bdcf10333f02bfcb13de4756  data-orig/naraeseot/sin3-p2.basic.xml
+sha256 3565401d53cd43209c9238ad4051cb65d1d2338d9013c1d4afbe2b35539890fc  data-orig/naraeseot/sin3-p2.symbols.xml
+sha256 67ffcbd263fa795a4cffb8a70bb73618ea49bd04ea63a74da5172836ec07f9ed  data-orig/naraeseot/sin3-p2.yethangul.xml

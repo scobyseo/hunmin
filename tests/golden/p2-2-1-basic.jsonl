@@ -1,0 +1,46 @@
+{"meta": {"source": "gate", "spec": "PLAN.md:85 / pat.im/1136", "layout": "sin3-p2-basic", "note": "expected = pat.im section text or normative compose rows; meta cases pinned via replay"}}
+{"meta": {"case": "가"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "가"}
+{"meta": {"case": "나"}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "나"}
+{"meta": {"case": "다"}}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㄷ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "다"}
+{"meta": {"case": "라"}}
+{"in": {"ch": "y"}, "commit": "", "preedit": "ㄹ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "라"}
+{"meta": {"case": "마"}}
+{"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "마"}
+{"meta": {"case": "바"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "바"}
+{"meta": {"case": "사"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "사"}
+{"meta": {"case": "자"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "자"}
+{"meta": {"case": "차"}}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅊ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "차"}
+{"meta": {"case": "하"}}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "하"}
+{"meta": {"case": "오"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "오"}
+{"meta": {"case": "소"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "소"}
+{"meta": {"case": "높"}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "노"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "높"}
+{"meta": {"case": "자주"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "자"}
+{"in": {"ch": "l"}, "commit": "자", "preedit": "ㅈ"}
+{"in": {"ch": "b"}, "commit": "", "preedit": "주"}

@@ -1,0 +1,333 @@
+# KCM for romaja (Romaja / 로마자)
+# Generated from libhunmin/data/layouts/romaja.json
+# Layout engine: romaja
+
+type OVERLAY
+
+key 0 {
+    label: '0'
+    base: '0'
+    shift: ')'
+    ctrl, alt, meta: none
+}
+
+key 1 {
+    label: '1'
+    base: '1'
+    shift: '!'
+    ctrl, alt, meta: none
+}
+
+key 2 {
+    label: '2'
+    base: '2'
+    shift: '@'
+    ctrl, alt, meta: none
+}
+
+key 3 {
+    label: '3'
+    base: '3'
+    shift: '#'
+    ctrl, alt, meta: none
+}
+
+key 4 {
+    label: '4'
+    base: '4'
+    shift: '$'
+    ctrl, alt, meta: none
+}
+
+key 5 {
+    label: '5'
+    base: '5'
+    shift: '%'
+    ctrl, alt, meta: none
+}
+
+key 6 {
+    label: '6'
+    base: '6'
+    shift: '^'
+    ctrl, alt, meta: none
+}
+
+key 7 {
+    label: '7'
+    base: '7'
+    shift: '&'
+    ctrl, alt, meta: none
+}
+
+key 8 {
+    label: '8'
+    base: '8'
+    shift: '*'
+    ctrl, alt, meta: none
+}
+
+key 9 {
+    label: '9'
+    base: '9'
+    shift: '('
+    ctrl, alt, meta: none
+}
+
+key A {
+    label: 'A'
+    base: 'ᅡ'
+    shift: 'ᅡ'
+    ctrl, alt, meta: none
+}
+
+key B {
+    label: 'B'
+    base: 'ᄇ'
+    shift: 'ᄇ'
+    ctrl, alt, meta: none
+}
+
+key C {
+    label: 'C'
+    base: 'ᄎ'
+    shift: 'ᄎ'
+    ctrl, alt, meta: none
+}
+
+key D {
+    label: 'D'
+    base: 'ᄃ'
+    shift: 'ᄃ'
+    ctrl, alt, meta: none
+}
+
+key E {
+    label: 'E'
+    base: 'ᅦ'
+    shift: 'ᅦ'
+    ctrl, alt, meta: none
+}
+
+key F {
+    label: 'F'
+    base: 'ᄑ'
+    shift: 'ᄑ'
+    ctrl, alt, meta: none
+}
+
+key G {
+    label: 'G'
+    base: 'ᄀ'
+    shift: 'ᄀ'
+    ctrl, alt, meta: none
+}
+
+key H {
+    label: 'H'
+    base: 'ᄒ'
+    shift: 'ᄒ'
+    ctrl, alt, meta: none
+}
+
+key I {
+    label: 'I'
+    base: 'ᅵ'
+    shift: 'ᅵ'
+    ctrl, alt, meta: none
+}
+
+key J {
+    label: 'J'
+    base: 'ᄌ'
+    shift: 'ᄌ'
+    ctrl, alt, meta: none
+}
+
+key K {
+    label: 'K'
+    base: 'ᄏ'
+    shift: 'ᄏ'
+    ctrl, alt, meta: none
+}
+
+key L {
+    label: 'L'
+    base: 'ᄅ'
+    shift: 'ᄅ'
+    ctrl, alt, meta: none
+}
+
+key M {
+    label: 'M'
+    base: 'ᄆ'
+    shift: 'ᄆ'
+    ctrl, alt, meta: none
+}
+
+key N {
+    label: 'N'
+    base: 'ᄂ'
+    shift: 'ᄂ'
+    ctrl, alt, meta: none
+}
+
+key O {
+    label: 'O'
+    base: 'ᅩ'
+    shift: 'ᅩ'
+    ctrl, alt, meta: none
+}
+
+key P {
+    label: 'P'
+    base: 'ᄑ'
+    shift: 'ᄑ'
+    ctrl, alt, meta: none
+}
+
+key Q {
+    label: 'Q'
+    base: 'ᄏ'
+    shift: 'ᄏ'
+    ctrl, alt, meta: none
+}
+
+key R {
+    label: 'R'
+    base: 'ᄅ'
+    shift: 'ᄅ'
+    ctrl, alt, meta: none
+}
+
+key S {
+    label: 'S'
+    base: 'ᄉ'
+    shift: 'ᄉ'
+    ctrl, alt, meta: none
+}
+
+key T {
+    label: 'T'
+    base: 'ᄐ'
+    shift: 'ᄐ'
+    ctrl, alt, meta: none
+}
+
+key U {
+    label: 'U'
+    base: 'ᅮ'
+    shift: 'ᅮ'
+    ctrl, alt, meta: none
+}
+
+key V {
+    label: 'V'
+    base: 'ᄇ'
+    shift: 'ᄇ'
+    ctrl, alt, meta: none
+}
+
+key W {
+    label: 'W'
+    base: 'ᅮ'
+    shift: 'ᅮ'
+    ctrl, alt, meta: none
+}
+
+key X {
+    label: 'X'
+    base: 'ᆪ'
+    shift: 'ᄌ'
+    ctrl, alt, meta: none
+}
+
+key Y {
+    label: 'Y'
+    base: 'ᅵ'
+    shift: 'ᅵ'
+    ctrl, alt, meta: none
+}
+
+key Z {
+    label: 'Z'
+    base: 'ᄌ'
+    shift: 'ᄌ'
+    ctrl, alt, meta: none
+}
+
+key COMMA {
+    label: ','
+    base: ','
+    shift: '<'
+    ctrl, alt, meta: none
+}
+
+key PERIOD {
+    label: '.'
+    base: '.'
+    shift: '>'
+    ctrl, alt, meta: none
+}
+
+key GRAVE {
+    label: '`'
+    base: '`'
+    shift: '~'
+    ctrl, alt, meta: none
+}
+
+key MINUS {
+    label: '-'
+    base: '-'
+    shift: '_'
+    ctrl, alt, meta: none
+}
+
+key EQUALS {
+    label: '='
+    base: '='
+    ctrl, alt, meta: none
+}
+
+key LEFT_BRACKET {
+    label: '['
+    base: '['
+    shift: '{'
+    ctrl, alt, meta: none
+}
+
+key RIGHT_BRACKET {
+    label: ']'
+    base: ']'
+    shift: '}'
+    ctrl, alt, meta: none
+}
+
+key BACKSLASH {
+    label: '\'
+    base: '\\'
+    shift: '|'
+    ctrl, alt, meta: none
+}
+
+key SEMICOLON {
+    label: ';'
+    base: ';'
+    shift: ':'
+    ctrl, alt, meta: none
+}
+
+key APOSTROPHE {
+    label: '''
+    base: '\''
+    shift: '"'
+    ctrl, alt, meta: none
+}
+
+key SLASH {
+    label: '/'
+    base: '/'
+    shift: '?'
+    ctrl, alt, meta: none
+}

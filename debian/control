@@ -1,0 +1,26 @@
+Source: hunmin
+Section: utils
+Priority: optional
+Maintainer: Seo Bon Keun <scobyseo@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               cmake (>= 3.22),
+               pkg-config,
+               python3,
+               libhangul-dev,
+               libfcitx5core-dev (>= 5.1.13),
+               fcitx5-modules-dev (>= 5.1.13),
+               fcitx5-modules
+Standards-Version: 4.6.2
+
+Package: hunmin
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, fcitx5
+Description: Korean input method engine (libhunmin core + fcitx5 addon)
+ libhunmin is a portable Hangul input engine where keyboard layouts are
+ data files rather than code. It matches libhangul behaviour for the
+ standard layouts (golden-vector and parity tests) and implements
+ 신세벌식 P2 (sin3-p2) including symbol tiers, 초성체 and 옛한글 rules.
+ .
+ This package ships the shared library, the hunmin-sim trace simulator,
+ the layout/compose data files, and the fcitx5 addon (addon and input
+ method name "hunmin", coexisting with fcitx5-hangul).

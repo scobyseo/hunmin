@@ -1,0 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: 2026 hunmin contributors
+ *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ */
+#ifndef _TEST_TESTDIR_H_
+#define _TEST_TESTDIR_H_
+
+#define TESTING_SOURCE_DIR "@CMAKE_SOURCE_DIR@"
+#define TESTING_BINARY_DIR "@CMAKE_BINARY_DIR@"
+#define TEST_ADDON_DIR "@CMAKE_BINARY_DIR@/fcitx5-addon"
+#define TEST_DATA_DIR "@CMAKE_CURRENT_BINARY_DIR@"
+
+#endif // _TEST_TESTDIR_H_

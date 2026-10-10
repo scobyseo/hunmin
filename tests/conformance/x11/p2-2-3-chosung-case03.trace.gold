@@ -1,0 +1,3 @@
+{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "gG-ssang-tie", "source": "p2-2-3-chosung.jsonl (gate)", "case_index": 3, "case_id": "p2-2-3-chosung#03"}}
+{"in": {"keysym": 103, "mods": 0}, "commit": "", "preedit": "ㄷ", "consumed": true}
+{"in": {"keysym": 71, "mods": 0}, "commit": "", "preedit": "ㄸ", "consumed": true}

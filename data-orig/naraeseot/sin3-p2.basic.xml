@@ -1,0 +1,159 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<InputEntry>
+	<InputSchemeSetting flag="1" remark="&#x01;[2016.8.6. 날개셋 ist 파일 만듦]&#x0D;&#x0A;[2018.4.10. 신세벌식 P2 기호 배열 고침]&#x0D;&#x0A;&#x0D;&#x0A;신세벌식 P2 자판은 신세벌식 P 자판에 바탕한 수정 배열입니다.&#x0D;&#x0A;&#x0D;&#x0A;신세벌식 P2 : 2016.8.6. (http://pat.im/1136)&#x0D;&#x0A;신세벌식 P : 2015.11.4. (http://pat.im/1110)&#x0D;&#x0A;&#x0D;&#x0A;확장 기능을 넣지 않은 기본 배열입니다." object="CBasicInputScheme">
+		<KeyTable name="신세벌식 P2" flag="0" from="33" to="126">
+			<Key at="0x21" value="0x21"/>
+			<Key at="0x22" value="0x2F"/>
+			<Key at="0x23" value="0x23"/>
+			<Key at="0x24" value="0x24"/>
+			<Key at="0x25" value="0x25"/>
+			<Key at="0x26" value="0x26"/>
+			<Key at="0x27" value="H3|T_"/>
+			<Key at="0x28" value="0x28"/>
+			<Key at="0x29" value="0x29"/>
+			<Key at="0x2A" value="0x2A"/>
+			<Key at="0x2B" value="0x2B"/>
+			<Key at="0x2C" value="0x2C"/>
+			<Key at="0x2D" value="0x2D"/>
+			<Key at="0x2E" value="0x2E"/>
+			<Key at="0x2F" value="D&amp;&amp;!E&amp;&amp;!F ? H3|0x1F50000 : H3|K_"/>
+			<Key at="0x30" value="0x30"/>
+			<Key at="0x31" value="0x31"/>
+			<Key at="0x32" value="0x32"/>
+			<Key at="0x33" value="0x33"/>
+			<Key at="0x34" value="0x34"/>
+			<Key at="0x35" value="0x35"/>
+			<Key at="0x36" value="0x36"/>
+			<Key at="0x37" value="0x37"/>
+			<Key at="0x38" value="0x38"/>
+			<Key at="0x39" value="0x39"/>
+			<Key at="0x3A" value="0x3A"/>
+			<Key at="0x3B" value="H3|B_"/>
+			<Key at="0x3C" value="0x3C"/>
+			<Key at="0x3D" value="0x3D"/>
+			<Key at="0x3E" value="0x3E"/>
+			<Key at="0x3F" value="0x3F"/>
+			<Key at="0x40" value="0x40"/>
+			<Key at="0x41" value="H3|YU"/>
+			<Key at="0x42" value="H3|U_"/>
+			<Key at="0x43" value="H3|E_"/>
+			<Key at="0x44" value="H3|I_"/>
+			<Key at="0x45" value="H3|AE"/>
+			<Key at="0x46" value="H3|A_"/>
+			<Key at="0x47" value="H3|EU"/>
+			<Key at="0x48" value="0x25A1"/>
+			<Key at="0x4A" value="0x27"/>
+			<Key at="0x4B" value="0x22"/>
+			<Key at="0x4C" value="0xB7"/>
+			<Key at="0x4D" value="0x2026"/>
+			<Key at="0x4E" value="0x2015"/>
+			<Key at="0x50" value="0x3B"/>
+			<Key at="0x51" value="H3|YAE"/>
+			<Key at="0x52" value="H3|EO"/>
+			<Key at="0x53" value="H3|YE"/>
+			<Key at="0x54" value="H3|YEO"/>
+			<Key at="0x55" value="0x25CB"/>
+			<Key at="0x56" value="H3|O_"/>
+			<Key at="0x57" value="H3|YA"/>
+			<Key at="0x58" value="H3|YO"/>
+			<Key at="0x59" value="0xD7"/>
+			<Key at="0x5A" value="H3|F_"/>
+			<Key at="0x5B" value="0x5B"/>
+			<Key at="0x5C" value="0x5C"/>
+			<Key at="0x5D" value="0x5D"/>
+			<Key at="0x5E" value="0x5E"/>
+			<Key at="0x5F" value="0x5F"/>
+			<Key at="0x60" value="0x60"/>
+			<Key at="0x61" value="D&amp;&amp;!E ? H3|YU : H3|_Q"/>
+			<Key at="0x62" value="D&amp;&amp;!E ? H3|U_ : H3|_C"/>
+			<Key at="0x63" value="D&amp;&amp;!E || E==0x1F6 ? H3|E_ : H3|_G"/>
+			<Key at="0x64" value="D&amp;&amp;!E || E&gt;=0x1F5&amp;&amp;(E&gt;=0x1F5&amp;&amp;E&lt;=0x1F8) ? H3|I_ : H3|_H"/>
+			<Key at="0x65" value="D&amp;&amp;!E || E==0x1F5 ? H3|AE : H3|_B"/>
+			<Key at="0x66" value="D&amp;&amp;!E || E==0x1F5 ? H3|A_ : H3|_P"/>
+			<Key at="0x67" value="D&amp;&amp;!E ? H3|EU : H3|_D"/>
+			<Key at="0x68" value="H3|N_"/>
+			<Key at="0x69" value="D&amp;&amp;!E&amp;&amp;!F ? H3|0x1F70000 : H3|M_"/>
+			<Key at="0x6A" value="H3|Q_"/>
+			<Key at="0x6B" value="H3|G_"/>
+			<Key at="0x6C" value="H3|J_"/>
+			<Key at="0x6D" value="H3|H_"/>
+			<Key at="0x6E" value="H3|S_"/>
+			<Key at="0x6F" value="D&amp;&amp;!E&amp;&amp;!F ? H3|0x1F60000 : H3|C_"/>
+			<Key at="0x70" value="D&amp;&amp;!E&amp;&amp;!F ? H3|0x1F80000 : H3|P_"/>
+			<Key at="0x71" value="D&amp;&amp;!E ? H3|YAE : H3|_S"/>
+			<Key at="0x72" value="D&amp;&amp;!E || E==0x1F6 ? H3|EO : H3|_T"/>
+			<Key at="0x73" value="D&amp;&amp;!E ? H3|YE : H3|_N"/>
+			<Key at="0x74" value="D&amp;&amp;!E ? H3|YEO : H3|_K"/>
+			<Key at="0x75" value="H3|D_"/>
+			<Key at="0x76" value="D&amp;&amp;!E ? H3|O_ : H3|_J"/>
+			<Key at="0x77" value="D&amp;&amp;!E ? H3|YA : H3|_R"/>
+			<Key at="0x78" value="D&amp;&amp;!E ? H3|YO : H3|_SS"/>
+			<Key at="0x79" value="H3|R_"/>
+			<Key at="0x7A" value="D&amp;&amp;!E || E==0x1F8 ? H3|F_ : H3|_M"/>
+			<Key at="0x7B" value="0x7B"/>
+			<Key at="0x7C" value="0x7C"/>
+			<Key at="0x7D" value="0x7D"/>
+			<Key at="0x7E" value="0x7E"/>
+		</KeyTable>
+	</InputSchemeSetting>
+	<GeneratorSetting flag="0" object="CNgsIme">
+		<UnitMixTable>
+			<UnitMix unit="CHO" a="G_" b="G_" to="GG"/>
+			<UnitMix unit="CHO" a="D_" b="D_" to="DD"/>
+			<UnitMix unit="CHO" a="B_" b="B_" to="BB"/>
+			<UnitMix unit="CHO" a="S_" b="S_" to="SS"/>
+			<UnitMix unit="CHO" a="J_" b="J_" to="JJ"/>
+			<UnitMix unit="JUNG" a="O_" b="A_" to="WA"/>
+			<UnitMix unit="JUNG" a="O_" b="AE" to="WAE"/>
+			<UnitMix unit="JUNG" a="O_" b="I_" to="OI"/>
+			<UnitMix unit="JUNG" a="U_" b="EO" to="UEO"/>
+			<UnitMix unit="JUNG" a="U_" b="E_" to="WE"/>
+			<UnitMix unit="JUNG" a="U_" b="I_" to="WI"/>
+			<UnitMix unit="JUNG" a="EU" b="I_" to="EUI"/>
+			<UnitMix unit="JUNG" a="F_" b="I_" to="FI"/>
+			<UnitMix unit="JUNG" a="F_" b="F_" to="FF"/>
+			<UnitMix unit="JUNG" a="501" b="A_" to="WA"/>
+			<UnitMix unit="JUNG" a="501" b="AE" to="WAE"/>
+			<UnitMix unit="JUNG" a="501" b="I_" to="OI"/>
+			<UnitMix unit="JUNG" a="502" b="EO" to="UEO"/>
+			<UnitMix unit="JUNG" a="502" b="E_" to="WE"/>
+			<UnitMix unit="JUNG" a="502" b="I_" to="WI"/>
+			<UnitMix unit="JUNG" a="503" b="I_" to="EUI"/>
+			<UnitMix unit="JUNG" a="504" b="I_" to="FI"/>
+			<UnitMix unit="JUNG" a="504" b="F_" to="FF"/>
+			<UnitMix unit="JUNG" a="504" b="503" to="FF"/>
+			<UnitMix unit="JONG" a="G_" b="G_" to="GG"/>
+			<UnitMix unit="JONG" a="G_" b="S_" to="GS"/>
+			<UnitMix unit="JONG" a="N_" b="J_" to="NJ"/>
+			<UnitMix unit="JONG" a="N_" b="H_" to="NH"/>
+			<UnitMix unit="JONG" a="R_" b="G_" to="RG"/>
+			<UnitMix unit="JONG" a="R_" b="M_" to="RM"/>
+			<UnitMix unit="JONG" a="R_" b="B_" to="RB"/>
+			<UnitMix unit="JONG" a="R_" b="S_" to="RS"/>
+			<UnitMix unit="JONG" a="R_" b="T_" to="RT"/>
+			<UnitMix unit="JONG" a="R_" b="P_" to="RP"/>
+			<UnitMix unit="JONG" a="R_" b="H_" to="RH"/>
+			<UnitMix unit="JONG" a="B_" b="S_" to="BS"/>
+			<UnitMix unit="JONG" a="S_" b="S_" to="SS"/>
+		</UnitMixTable>
+		<VirtualUnitTable>
+			<VirtualUnit unit="JUNG" from="501" to="O_"/>
+			<VirtualUnit unit="JUNG" from="502" to="U_"/>
+			<VirtualUnit unit="JUNG" from="503" to="EU"/>
+			<VirtualUnit unit="JUNG" from="504" to="F_"/>
+		</VirtualUnitTable>
+		<UnitAbbrTable/>
+		<AutomataTable default="0" predefined="SEQUENTIAL">
+			<Automata state="0" value="A ? 1 : B ? 2 : C ? 3 : 0" default="0" remark="초기 상태"/>
+			<Automata state="1" value="A ? 1 : B ? 2 : C ? 3 : 0" default="0" remark="초성"/>
+			<Automata state="2" value="B ? 2 : C ? 3 : 0" default="0" remark="[초성] + 중성"/>
+			<Automata state="3" value="C ? 3 : 0" default="0" remark="[초성] + [중성] + 종성"/>
+		</AutomataTable>
+		<Extra>
+			<Bksp key="1" value1="0" value2="BySyllable" condition1="0" condition2="0"/>
+			<Bksp key="2" value1="BySyllable" value2="ByUnitStep" condition1="0" condition2="0"/>
+			<Bksp key="3" value1="0" value2="BySyllable" condition1="0" condition2="0"/>
+			<Bksp key="4" value1="0" value2="BySyllable" condition1="0" condition2="0"/>
+		</Extra>
+	</GeneratorSetting>
+</InputEntry>

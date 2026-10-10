@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "id": "romaja",
+  "name": {
+    "en": "Romaja",
+    "ko": "로마자"
+  },
+  "engine": "romaja",
+  "aliases": [
+    "ro"
+  ],
+  "source": "libhangul-0.2.0 data/keyboards/hangul-keyboard-ro.xml",
+  "libhangulType": "romaja",
+  "compose": [
+    "romaja"
+  ],
+  "keys": {
+    "'": {
+      "shift": "=\"",
+      "plain": "='"
+    },
+    ",": {
+      "plain": "=,",
+      "shift": "=<"
+    },
+    "-": {
+      "plain": "=-",
+      "shift": "=_"
+    },
+    ".": {
+      "plain": "=.",
+      "shift": "=>"
+    },
+    "/": {
+      "plain": "=/",
+      "shift": "=?"
+    },
+    "0": {
+      "shift": "=)",
+      "plain": "=0"
+    },
+    "1": {
+      "shift": "=!",
+      "plain": "=1"
+    },
+    "2": {
+      "plain": "=2",
+      "shift": "=@"
+    },
+    "3": {
+      "shift": "=#",
+      "plain": "=3"
+    },
+    "4": {
+      "shift": "=$",
+      "plain": "=4"
+    },
+    "5": {
+      "shift": "=%",
+      "plain": "=5"
+    },
+    "6": {
+      "plain": "=6",
+      "shift": "=^"
+    },
+    "7": {
+      "shift": "=&",
+      "plain": "=7"
+    },
+    "8": {
+      "shift": "=*",
+      "plain": "=8"
+    },
+    "9": {
+      "shift": "=(",
+      "plain": "=9"
+    },
+    ";": {
+      "shift": "=:",
+      "plain": "=;"
+    },
+    "=": {
+      "shift": "=+",
+      "plain": "=="
+    },
+    "[": {
+      "plain": "=[",
+      "shift": "={"
+    },
+    "\\": {
+      "plain": "=\\",
+      "shift": "=|"
+    },
+    "]": {
+      "plain": "=]",
+      "shift": "=}"
+    },
+    "`": {
+      "plain": "=`",
+      "shift": "=~"
+    },
+    "a": {
+      "shift": "ᅡ",
+      "plain": "ᅡ"
+    },
+    "b": {
+      "shift": "ᄇ",
+      "plain": "ᄇ"
+    },
+    "c": {
+      "shift": "ᄎ",
+      "plain": "ᄎ"
+    },
+    "d": {
+      "shift": "ᄃ",
+      "plain": "ᄃ"
+    },
+    "e": {
+      "shift": "ᅦ",
+      "plain": "ᅦ"
+    },
+    "f": {
+      "shift": "ᄑ",
+      "plain": "ᄑ"
+    },
+    "g": {
+      "shift": "ᄀ",
+      "plain": "ᄀ"
+    },
+    "h": {
+      "shift": "ᄒ",
+      "plain": "ᄒ"
+    },
+    "i": {
+      "shift": "ᅵ",
+      "plain": "ᅵ"
+    },
+    "j": {
+      "shift": "ᄌ",
+      "plain": "ᄌ"
+    },
+    "k": {
+      "shift": "ᄏ",
+      "plain": "ᄏ"
+    },
+    "l": {
+      "shift": "ᄅ",
+      "plain": "ᄅ"
+    },
+    "m": {
+      "shift": "ᄆ",
+      "plain": "ᄆ"
+    },
+    "n": {
+      "shift": "ᄂ",
+      "plain": "ᄂ"
+    },
+    "o": {
+      "shift": "ᅩ",
+      "plain": "ᅩ"
+    },
+    "p": {
+      "shift": "ᄑ",
+      "plain": "ᄑ"
+    },
+    "q": {
+      "shift": "ᄏ",
+      "plain": "ᄏ"
+    },
+    "r": {
+      "shift": "ᄅ",
+      "plain": "ᄅ"
+    },
+    "s": {
+      "shift": "ᄉ",
+      "plain": "ᄉ"
+    },
+    "t": {
+      "shift": "ᄐ",
+      "plain": "ᄐ"
+    },
+    "u": {
+      "shift": "ᅮ",
+      "plain": "ᅮ"
+    },
+    "v": {
+      "shift": "ᄇ",
+      "plain": "ᄇ"
+    },
+    "w": {
+      "shift": "ᅮ",
+      "plain": "ᅮ"
+    },
+    "x": {
+      "shift": "ᄌ",
+      "plain": "ᆪ"
+    },
+    "y": {
+      "shift": "ᅵ",
+      "plain": "ᅵ"
+    },
+    "z": {
+      "shift": "ᄌ",
+      "plain": "ᄌ"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+        startInProcess()
+    }
+---REPLACE---
+        startInProcess()
+        startInProcess()
+    }

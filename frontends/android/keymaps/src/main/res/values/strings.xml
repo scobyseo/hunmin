@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Hunmin Keyboard Layouts</string>
+    <string name="keyboard_layouts_label">Hunmin (Korean)</string>
+
+    <!-- Layout labels -->
+    <string name="keyboard_layout_ahnmatmae_label">Ahnmatae (안마태)</string>
+    <string name="keyboard_layout_dubeolsik_label">Dubeolsik (두벌식)</string>
+    <string name="keyboard_layout_dubeolsik_yet_label">Dubeolsik Yetgeul (두벌식 옛글)</string>
+    <string name="keyboard_layout_romaja_label">Romaja (로마자)</string>
+    <string name="keyboard_layout_sebeolsik_3_2_label">Sebeolsik 3-2 (세벌식 3-2)</string>
+    <string name="keyboard_layout_sebeolsik_3_90_label">Sebeolsik 3-90 (세벌식 390)</string>
+    <string name="keyboard_layout_sebeolsik_final_label">Sebeolsik Final (세벌식 최종)</string>
+    <string name="keyboard_layout_sebeolsik_noshift_label">Sebeolsik Noshift (세벌식 노시프트)</string>
+    <string name="keyboard_layout_sebeolsik_yet_label">Sebeolsik Yetgeul (세벌식 옛글)</string>
+    <string name="keyboard_layout_sin3_p2_basic_label">Shinsebeol P2 Basic (신세벌식 P2 Basic)</string>
+    <string name="keyboard_layout_us_qwerty_label">US QWERTY (English)</string>
+</resources>

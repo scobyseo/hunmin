@@ -1,0 +1,11 @@
+Four-character Sino-Korean idioms (사자성어) with Hangul readings and
+meanings, from https://github.com/LiF-Lee/idioms (MIT, (c) 2021 EliF).
+2,318 entries, idioms.json verbatim.
+
+Vocabularily necessary and permissively licensed: hanja/ covers one syllable
+at a time, krdict/ covers words the National Institute dictionary happens to
+carry, and neither covers the common four-character idioms.
+
+Input for tools/idioms2data.py; see libhunmin/data/idioms/LICENSE.md for the
+extraction contract and the coverage limit. sha256 of idioms.json is in
+SHA256SUMS and is also recorded in the converted output's meta.

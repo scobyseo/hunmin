@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+export LC_ALL=C
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	# The addon installs alongside fcitx5's own modules; without this option
+	# Fcitx5UtilsConfig.cmake points FCITX_INSTALL_* at $(prefix)/lib/fcitx5
+	# instead of the multiarch path fcitx5 actually loads from.
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
+		-DFCITX_INSTALL_USE_FCITX_SYS_PATHS=On
+
+override_dh_auto_test:
+	cd obj-x86_64-linux-gnu && ctest --output-on-failure

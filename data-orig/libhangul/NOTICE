@@ -1,0 +1,5 @@
+Vendored converter inputs, unchanged, from libhangul 0.2.0 (LGPL-2.1,
+(c) Choe Hwanjin and libhangul contributors, https://github.com/libhangul/libhangul).
+Used by tools/kbd2data.py; see docs/SPEC-SCHEMA.md (Provenance).
+hangulctype.c copied verbatim from libhangul 0.2.0 (LGPL-2.1+) as extraction source for
+libhunmin/src/tables.{c,h} (see tools/extract_tables.py).

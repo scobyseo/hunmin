@@ -1,0 +1,10 @@
+        } catch (e: Exception) {
+            // Same argument one step later: a recogniser that throws from start()
+            // would otherwise propagate into the IME's key path, and a keyboard
+            // that dies because a microphone was busy is a broken keyboard.
+            Log.w(TAG, "recogniser start() failed", e)
+            report(VoiceResult.Failed(e.toString()))
+        }
+---REPLACE---
+
+        }

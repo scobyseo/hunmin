@@ -1,0 +1,3 @@
+        if (caps) native.setOption(ic, "caps", 1)
+---REPLACE---
+        if (false) native.setOption(ic, "caps", 1)

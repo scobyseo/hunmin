@@ -1,0 +1,18 @@
+{"meta": {"source": "gate", "spec": "PLAN.md:85 / pat.im/1136", "layout": "sin3-p2-yet", "note": "expected = pat.im section text or normative compose rows; meta cases pinned via replay"}}
+{"meta": {"case": "z1-tier", "z": 1}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "1"}, "commit": "ㅇµ", "preedit": ""}
+{"meta": {"case": "z0-tier", "z": 0}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ᅁᅠ"}
+{"in": {"ch": "1"}, "commit": "ᅁᅠ1", "preedit": ""}
+{"meta": {"case": "h0-e-b", "h": 0}}
+{"in": {"ch": "e"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "ᄈᅠᆸ"}
+{"meta": {"case": "h1-e-b", "h": 1}}
+{"in": {"ch": "e"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "ㄼ"}
+{"meta": {"case": "H-no-op", "H": 1, "h": 1}}
+{"in": {"ch": "c"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "q"}, "commit": "ㄱ", "preedit": "ㅅ"}

@@ -1,0 +1,60 @@
+/* internal structures shared by data.c / ic.c */
+#ifndef HUNMIN_INTERNAL_H
+#define HUNMIN_INTERNAL_H
+
+#include "hunmin.h"
+#include "tables.h"
+#include "expr.h"
+#include <stdlib.h>
+
+typedef enum {
+  HM_TYPE_JAMO, HM_TYPE_JAMO_YET,
+  HM_TYPE_JASO, HM_TYPE_JASO_YET,
+  HM_TYPE_ROMAJA
+} hm_engine_t;
+
+typedef struct { uint32_t ab; /* (a<<16)|b */ uint32_t r; uint8_t ssang; } hm_combo;
+
+typedef enum { HK_NONE = 0, HK_JAMO, HK_LIT, HK_CASE, HK_TIER, HK_NOOP, HK_SEQ } hm_kind;
+typedef struct hm_val {
+  hm_kind kind;
+  uint8_t g;          /* G-flag: shift-marked jong (state-3 composition gate) */
+  uint8_t variant;    /* right-side jung (only these chain-compose) */
+  uint32_t code;      /* HK_JAMO / HK_LIT / HK_TIER */
+  hm_expr *cond;      /* HK_CASE */
+  struct hm_val *then, *els;
+  uint32_t *seq;      /* HK_SEQ: array of codepoints, terminated by 0 */
+  size_t seqlen;
+} hm_val;
+
+static inline const hm_val *hm_resolvev(const hm_val *v, hm_state st) {
+  while (v && v->kind == HK_CASE)
+    v = hm_expr_eval(v->cond, st) ? v->then : v->els;
+  return v;
+}
+
+typedef struct {
+  int schema;
+  char id[64];
+  char name_en[128];
+  char name_ko[128];
+  hm_engine_t type;
+  bool supports_case;
+  bool jongonly_fresh;   /* modern ssang pairs need G after jong-only syllable (symbols/yethangul) */
+  bool supported;
+  int flags[128];          /* user flags from preprocessing defaults */
+  hm_val keys[128];   /* char -> resolved value (kind NONE = absent) */
+  hm_combo *combo;
+  size_t ncombo;
+} hm_layout;
+
+struct hunmin_ctx {
+  hm_layout *layouts;
+  int n;
+};
+
+/* data.c */
+hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs);
+void hm_data_free(hunmin_ctx *ctx);
+
+#endif

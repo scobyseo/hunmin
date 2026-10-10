@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<keyboard-layouts xmlns:android="http://schemas.android.com/apk/res/android">
+    <keyboard-layout android:name="keyboard_layout_ahnmatmae" android:label="@string/keyboard_layout_ahnmatmae_label" android:keyboardLayout="@raw/ahnmatmae" />
+    <keyboard-layout android:name="keyboard_layout_dubeolsik_yet" android:label="@string/keyboard_layout_dubeolsik_yet_label" android:keyboardLayout="@raw/dubeolsik_yet" />
+    <keyboard-layout android:name="keyboard_layout_dubeolsik" android:label="@string/keyboard_layout_dubeolsik_label" android:keyboardLayout="@raw/dubeolsik" />
+    <keyboard-layout android:name="keyboard_layout_romaja" android:label="@string/keyboard_layout_romaja_label" android:keyboardLayout="@raw/romaja" />
+    <keyboard-layout android:name="keyboard_layout_sebeolsik_3_2" android:label="@string/keyboard_layout_sebeolsik_3_2_label" android:keyboardLayout="@raw/sebeolsik_3_2" />
+    <keyboard-layout android:name="keyboard_layout_sebeolsik_3_90" android:label="@string/keyboard_layout_sebeolsik_3_90_label" android:keyboardLayout="@raw/sebeolsik_3_90" />
+    <keyboard-layout android:name="keyboard_layout_sebeolsik_final" android:label="@string/keyboard_layout_sebeolsik_final_label" android:keyboardLayout="@raw/sebeolsik_final" />
+    <keyboard-layout android:name="keyboard_layout_sebeolsik_noshift" android:label="@string/keyboard_layout_sebeolsik_noshift_label" android:keyboardLayout="@raw/sebeolsik_noshift" />
+    <keyboard-layout android:name="keyboard_layout_sebeolsik_yet" android:label="@string/keyboard_layout_sebeolsik_yet_label" android:keyboardLayout="@raw/sebeolsik_yet" />
+    <keyboard-layout android:name="keyboard_layout_sin3_p2_basic" android:label="@string/keyboard_layout_sin3_p2_basic_label" android:keyboardLayout="@raw/sin3_p2_basic" />
+    <keyboard-layout android:name="keyboard_layout_us_qwerty" android:label="@string/keyboard_layout_us_qwerty_label" android:keyboardLayout="@raw/us_qwerty" />
+</keyboard-layouts>

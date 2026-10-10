@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "id": "sebeolsik-final",
+  "name": {
+    "en": "Sebeolsik Final",
+    "ko": "세벌식 최종"
+  },
+  "engine": "std",
+  "aliases": [
+    "3f"
+  ],
+  "source": "libhangul-0.2.0 data/keyboards/hangul-keyboard-3f.xml",
+  "libhangulType": "jaso",
+  "compose": [
+    "modern"
+  ],
+  "keys": {
+    "'": {
+      "shift": "=·",
+      "plain": "ᄐ"
+    },
+    ",": {
+      "plain": "=,",
+      "shift": "=,"
+    },
+    "-": {
+      "plain": "=)",
+      "shift": "=;"
+    },
+    ".": {
+      "plain": "=.",
+      "shift": "=."
+    },
+    "/": {
+      "plain": "ᅩ",
+      "shift": "=!"
+    },
+    "0": {
+      "shift": "=~",
+      "plain": "ᄏ"
+    },
+    "1": {
+      "shift": "ᆩ",
+      "plain": "ᇂ"
+    },
+    "2": {
+      "plain": "ᆻ",
+      "shift": "ᆰ"
+    },
+    "3": {
+      "shift": "ᆽ",
+      "plain": "ᆸ"
+    },
+    "4": {
+      "shift": "ᆵ",
+      "plain": "ᅭ"
+    },
+    "5": {
+      "shift": "ᆴ",
+      "plain": "ᅲ"
+    },
+    "6": {
+      "plain": "ᅣ",
+      "shift": "=="
+    },
+    "7": {
+      "shift": "=“",
+      "plain": "ᅨ"
+    },
+    "8": {
+      "shift": "=”",
+      "plain": "ᅴ"
+    },
+    "9": {
+      "shift": "='",
+      "plain": "ᅮ"
+    },
+    ";": {
+      "shift": "=4",
+      "plain": "ᄇ"
+    },
+    "=": {
+      "shift": "=+",
+      "plain": "=>"
+    },
+    "[": {
+      "plain": "=(",
+      "shift": "=%"
+    },
+    "\\": {
+      "plain": "=:",
+      "shift": "=\\"
+    },
+    "]": {
+      "plain": "=<",
+      "shift": "=/"
+    },
+    "`": {
+      "plain": "=*",
+      "shift": "=※"
+    },
+    "a": {
+      "shift": "ᆮ",
+      "plain": "ᆼ"
+    },
+    "b": {
+      "shift": "=?",
+      "plain": "ᅮ"
+    },
+    "c": {
+      "shift": "ᆿ",
+      "plain": "ᅦ"
+    },
+    "d": {
+      "shift": "ᆲ",
+      "plain": "ᅵ"
+    },
+    "e": {
+      "shift": "ᆬ",
+      "plain": "ᅧ"
+    },
+    "f": {
+      "shift": "ᆱ",
+      "plain": "ᅡ"
+    },
+    "g": {
+      "shift": "ᅤ",
+      "plain": "ᅳ"
+    },
+    "h": {
+      "shift": "=0",
+      "plain": "ᄂ"
+    },
+    "i": {
+      "shift": "=7",
+      "plain": "ᄆ"
+    },
+    "j": {
+      "shift": "=1",
+      "plain": "ᄋ"
+    },
+    "k": {
+      "shift": "=2",
+      "plain": "ᄀ"
+    },
+    "l": {
+      "shift": "=3",
+      "plain": "ᄌ"
+    },
+    "m": {
+      "shift": "=\"",
+      "plain": "ᄒ"
+    },
+    "n": {
+      "shift": "=-",
+      "plain": "ᄉ"
+    },
+    "o": {
+      "shift": "=8",
+      "plain": "ᄎ"
+    },
+    "p": {
+      "shift": "=9",
+      "plain": "ᄑ"
+    },
+    "q": {
+      "shift": "ᇁ",
+      "plain": "ᆺ"
+    },
+    "r": {
+      "shift": "ᆶ",
+      "plain": "ᅢ"
+    },
+    "s": {
+      "shift": "ᆭ",
+      "plain": "ᆫ"
+    },
+    "t": {
+      "shift": "ᆳ",
+      "plain": "ᅥ"
+    },
+    "u": {
+      "shift": "=6",
+      "plain": "ᄃ"
+    },
+    "v": {
+      "shift": "ᆪ",
+      "plain": "ᅩ"
+    },
+    "w": {
+      "shift": "ᇀ",
+      "plain": "ᆯ"
+    },
+    "x": {
+      "shift": "ᆹ",
+      "plain": "ᆨ"
+    },
+    "y": {
+      "shift": "=5",
+      "plain": "ᄅ"
+    },
+    "z": {
+      "shift": "ᆾ",
+      "plain": "ᆷ"
+    }
+  }
+}

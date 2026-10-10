@@ -1,0 +1,19 @@
+{"meta": {"source": "gate", "spec": "PLAN.md:85 / pat.im/1136", "layout": "sin3-p2-yet", "note": "expected = pat.im section text or normative compose rows; meta cases pinned via replay"}}
+{"meta": {"case": "ng-g"}}
+{"in": {"ch": "a"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "ᅟᅠᇬ"}
+{"meta": {"case": "ng-m"}}
+{"in": {"ch": "a"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "ᅟᅠퟵ"}
+{"meta": {"case": "ng-s"}}
+{"in": {"ch": "a"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "ㆂ"}
+{"meta": {"case": "ng-ng"}}
+{"in": {"ch": "a"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "a"}, "commit": "", "preedit": "ᅟᅠᇮ"}
+{"meta": {"case": "ng-k"}}
+{"in": {"ch": "a"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "t"}, "commit": "", "preedit": "ᅟᅠᇯ"}
+{"meta": {"case": "ng-h"}}
+{"in": {"ch": "a"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "ᅟᅠퟶ"}

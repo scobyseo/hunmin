@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Layout strings. Kept in a resource rather than inline so the picker labels
+  are localisable, and so nothing in the code has to hardcode user-visible text.
+  No Korean here on purpose: the layout NAMES come from the engine's own tables
+  (hunmin_ctx_layout_name, "ko"), which are data, so they are already Korean and
+  need no translation entry.
+-->
+<resources>
+    <string name="app_name">hunmin</string>
+    <string name="ime_label">hunmin</string>
+    <!-- Spinner accessibility label: spoken by TalkBack, so it must say what
+         the control does, not what it currently shows. -->
+    <string name="picker_content_description">한글 입력 레이아웃 선택</string>
+    <string name="picker_label">배열</string>
+    <string name="voice_content_description">음성 입력</string>
+    <string name="voice_permission_rationale">음성 입력을 위해 마이크 권한이 필요합니다.</string>
+</resources>

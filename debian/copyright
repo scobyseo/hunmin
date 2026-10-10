@@ -1,0 +1,103 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: hunmin
+
+Files: *
+Copyright: 2026 Seo Bon Keun
+License: LGPL-2.1-or-later
+
+Files: libhunmin/data/*
+Copyright: 2026 Seo Bon Keun
+           2009-2016 Choe Hwanjin and libhangul contributors
+License: LGPL-2.1-or-later
+ Comment: Generated (tools/kbd2data.py, tools/ist2data.py) from vendored
+  libhangul 0.2.0 keyboard data under data-orig/ and from normative
+  신세벌식 ist.xml sources; see tools/*.py headers for provenance.
+  .
+  This stanza is a DEFAULT for the directory. Three subdirectories carry their
+  own terms and are staved separately below, because "Copyright: Seo Bon Keun
+  / LGPL" over a ShareAlike derivative of a government dictionary was a false
+  claim and would have shipped in every deb built from this file. Most specific
+  stanza wins.
+
+Files: libhunmin/data/hanja/*
+Copyright: 2005-2006 Choe Hwanjin
+License: BSD-3-Clause
+ Comment: From libhangul-data 0.2.0-1build1, data/hanja/hanja.txt. The LGPL in
+  libhangul's own copyright file covers the library, not this dictionary.
+  Provenance in full: libhunmin/data/hanja/LICENSE.md.
+
+Files: libhunmin/data/idioms/*
+License: MIT
+ Comment: Provenance in full: libhunmin/data/idioms/LICENSE.md.
+
+Files: libhunmin/data/krdict/*
+License: CC-BY-SA-2.0
+ Comment: The jurisdiction the National Institute of Korean Language publishes
+  under is the KR one, so the terms are CC-BY-SA 2.0 KR. Written as the bare
+  SPDX identifier because CC-BY-SA-2.0-KR could not be validated as one from
+  this host and an unrecognised licence name is worse than a coarser correct
+  one -- check it before shipping and tighten if a KR identifier exists.
+  .
+  Derived from 국립국어원 한국어기초사전 (Korean Basic Dictionary),
+  via the open-data dump spellcheck-ko/korean-dict-nikl. Only the extracted
+  Hanja-bearing table is shipped; the 368 MB source dump is not vendored.
+  Attribution required: "국립국어원 한국어기초사전".
+  Provenance, the ShareAlike analysis and the upstream exclusions are in
+  libhunmin/data/krdict/LICENSE.md.
+  .
+  PACKAGING GAP: the CC-BY-SA 2.0 KR text is NOT embedded below, and no copy
+  exists under /usr/share/common-licenses on this host. A redistributable deb
+  must ship the licence text for everything it redistributes, so this stanza
+  names the licence and the attribution but does not by itself discharge that
+  duty. Fetch the text and add it as a License: stanza before shipping.
+
+Files: libhunmin/src/tables.c libhunmin/src/tables.h
+Copyright: 2009-2016 Choe Hwanjin and libhangul contributors
+           2026 Seo Bon Keun
+License: LGPL-2.1-or-later
+ Comment: Extracted verbatim from libhangul 0.2.0 hangulctype.c with
+  symbols renamed hangul_* -> hm_* (tools/extract_tables.py).
+
+Files: data-orig/*
+Copyright: 2009-2016 Choe Hwanjin and libhangul contributors
+License: LGPL-2.1-or-later
+
+Files: third_party/cJSON/*
+Copyright: 2009-2017 Dave Gamble and cJSON contributors
+License: MIT
+ Comment: cJSON is distributed unmodified.
+
+License: LGPL-2.1-or-later
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 2.1 of the License, or (at your option) any later version.
+ .
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License version 2.1 can be found in
+ '/usr/share/common-licenses/LGPL-2.1'.
+
+License: MIT
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the
+ "Software"), to deal in the Software without restriction, including
+ without limitation the rights to use, copy, modify, merge, publish,
+ distribute, sublicense, and/or sell copies of the Software, and to
+ permit persons to whom the Software is furnished to do so, subject to
+ the following conditions:
+ .
+ The above copyright notice and this permission notice shall be
+ included in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

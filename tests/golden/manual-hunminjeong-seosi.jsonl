@@ -1,0 +1,15 @@
+{"meta": {"source": "훈민정음 언해본 세종 서문 (월인석보 1459)", "source_url": "https://m.blog.naver.com/pso164/222527368887", "layout": "sin3-p2-yet", "tool": "tools/type-hunminjeong.py", "method": "engine-measured per-slot probe (초성+vowel judge, 아래아 p/z gate, distinct 종성 code point, 현대 겹받침 key pairs); 어절 that type byte-exact are traced to events", "coverage": "1/8 어절 byte-exact; the rest need the compose chain across a syllable boundary (see the tool's TODO)", "reproduce": "python3 tools/type-hunminjeong.py --text-file <원문> --golden-out <this file>"}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "나"}
+{"in": {"ch": "y"}, "commit": "나", "preedit": "ㄹ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "라"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "랏"}
+{"in": {"ch": "i"}, "commit": "랏", "preedit": "ㅁ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "마"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "말"}
+{"in": {"ch": "n"}, "commit": "말", "preedit": "ㅅ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅆ"}
+{"in": {"ch": "p"}, "commit": "", "preedit": "ᄊᆞ"}
+{"in": {"ch": "i"}, "commit": "ᄊᆞ", "preedit": "ㅁ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "미"}
+{"in": {"ch": " "}, "commit": "미", "preedit": ""}

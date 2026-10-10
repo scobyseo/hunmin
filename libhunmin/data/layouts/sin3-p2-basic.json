@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 2,
+  "id": "sin3-p2-basic",
+  "name": {
+    "en": "Shinsebeol P2 (basic)",
+    "ko": "신세벌식 P2"
+  },
+  "engine": "h3",
+  "aliases": [
+    "3sin-p2-basic"
+  ],
+  "source": "pat.im ist: sin3-p2.basic.xml (normative; lifted by tools/ist2data.py)",
+  "compose": [
+    "sin3-p2-basic-mix"
+  ],
+  "keys": {
+    "'": {
+      "shift": "=/",
+      "plain": "ᄐ"
+    },
+    ",": {
+      "plain": "=,",
+      "shift": "=<"
+    },
+    "-": {
+      "plain": "=-",
+      "shift": "=_"
+    },
+    ".": {
+      "plain": "=.",
+      "shift": "=>"
+    },
+    "/": {
+      "plain": {
+        "case": {
+          "if": "D&&!E&&!F",
+          "then": {
+            "j": "ᅩ",
+            "variant": true
+          },
+          "else": "ᄏ"
+        }
+      },
+      "shift": "=?"
+    },
+    "0": {
+      "shift": "=)",
+      "plain": "=0"
+    },
+    "1": {
+      "shift": "=!",
+      "plain": "=1"
+    },
+    "2": {
+      "plain": "=2",
+      "shift": "=@"
+    },
+    "3": {
+      "shift": "=#",
+      "plain": "=3"
+    },
+    "4": {
+      "shift": "=$",
+      "plain": "=4"
+    },
+    "5": {
+      "shift": "=%",
+      "plain": "=5"
+    },
+    "6": {
+      "plain": "=6",
+      "shift": "=^"
+    },
+    "7": {
+      "shift": "=&",
+      "plain": "=7"
+    },
+    "8": {
+      "shift": "=*",
+      "plain": "=8"
+    },
+    "9": {
+      "shift": "=(",
+      "plain": "=9"
+    },
+    ";": {
+      "shift": "=:",
+      "plain": "ᄇ"
+    },
+    "=": {
+      "shift": "=+",
+      "plain": "=="
+    },
+    "[": {
+      "plain": "=[",
+      "shift": "={"
+    },
+    "\\": {
+      "plain": "=\\",
+      "shift": "=|"
+    },
+    "]": {
+      "plain": "=]",
+      "shift": "=}"
+    },
+    "`": {
+      "plain": "=`",
+      "shift": "=~"
+    },
+    "a": {
+      "shift": "ᅲ",
+      "plain": {
+        "case": {
+          "if": "D&&!E",
+          "then": "ᅲ",
+          "else": "ᆼ"
+        }
+      }
+    },
+    "b": {
+      "shift": "ᅮ",
+      "plain": {
+        "case": {
+          "if": "D&&!E",
+          "then": "ᅮ",
+          "else": "ᆾ"
+        }
+      }
+    },
+    "c": {
+      "shift": "ᅦ",
+      "plain": {
+        "case": {
+          "if": "D&&!E||E == 0x116E&&J",
+          "then": "ᅦ",
+          "else": "ᆨ"
+        }
+      }
+    },
+    "d": {
+      "shift": "ᅵ",
+      "plain": {
+        "case": {
+          "if": "D&&!E||J",
+          "then": "ᅵ",
+          "else": "ᇂ"
+        }
+      }
+    },
+    "e": {
+      "shift": "ᅢ",
+      "plain": {
+        "case": {
+          "if": "D&&!E||E == 0x1169&&J",
+          "then": "ᅢ",
+          "else": "ᆸ"
+        }
+      }
+    },
+    "f": {
+      "shift": "ᅡ",
+      "plain": {
+        "case": {
+          "if": "D&&!E||E == 0x1169&&J",
+          "then": "ᅡ",
+          "else": "ᇁ"
+        }
+      }
+    },
+    "g": {
+      "shift": "ᅳ",
+      "plain": {
+        "case": {
+          "if": "D&&!E",
+          "then": "ᅳ",
+          "else": "ᆮ"
+        }
+      }
+    },
+    "h": {
+      "shift": "=□",
+      "plain": "ᄂ"
+    },
+    "i": {
+      "plain": {
+        "case": {
+          "if": "D&&!E&&!F",
+          "then": {
+            "j": "ᅳ",
+            "variant": true
+          },
+          "else": "ᄆ"
+        }
+      }
+    },
+    "j": {
+      "shift": "='",
+      "plain": "ᄋ"
+    },
+    "k": {
+      "shift": "=\"",
+      "plain": "ᄀ"
+    },
+    "l": {
+      "shift": "=·",
+      "plain": "ᄌ"
+    },
+    "m": {
+      "shift": "=…",
+      "plain": "ᄒ"
+    },
+    "n": {
+      "shift": "=―",
+      "plain": "ᄉ"
+    },
+    "o": {
+      "plain": {
+        "case": {
+          "if": "D&&!E&&!F",
+          "then": {
+            "j": "ᅮ",
+            "variant": true
+          },
+          "else": "ᄎ"
+        }
+      }
+    },
+    "p": {
+      "shift": "=;",
+      "plain": {
+        "case": {
+          "if": "D&&!E&&!F",
+          "then": {
+            "j": "ᆞ",
+            "variant": true
+          },
+          "else": "ᄑ"
+        }
+      }
+    },
+    "q": {
+      "shift": "ᅤ",
+      "plain": {
+        "case": {
+          "if": "D&&!E",
+          "then": "ᅤ",
+          "else": "ᆺ"
+        }
+      }
+    },
+    "r": {
+      "shift": "ᅥ",
+      "plain": {
+        "case": {
+          "if": "D&&!E||E == 0x116E&&J",
+          "then": "ᅥ",
+          "else": "ᇀ"
+        }
+      }
+    },
+    "s": {
+      "shift": "ᅨ",
+      "plain": {
+        "case": {
+          "if": "D&&!E",
+          "then": "ᅨ",
+          "else": "ᆫ"
+        }
+      }
+    },
+    "t": {
+      "shift": "ᅧ",
+      "plain": {
+        "case": {
+          "if": "D&&!E",
+          "then": "ᅧ",
+          "else": "ᆿ"
+        }
+      }
+    },
+    "u": {
+      "shift": "=○",
+      "plain": "ᄃ"
+    },
+    "v": {
+      "shift": "ᅩ",
+      "plain": {
+        "case": {
+          "if": "D&&!E",
+          "then": "ᅩ",
+          "else": "ᆽ"
+        }
+      }
+    },
+    "w": {
+      "shift": "ᅣ",
+      "plain": {
+        "case": {
+          "if": "D&&!E",
+          "then": "ᅣ",
+          "else": "ᆯ"
+        }
+      }
+    },
+    "x": {
+      "shift": "ᅭ",
+      "plain": {
+        "case": {
+          "if": "D&&!E",
+          "then": "ᅭ",
+          "else": "ᆻ"
+        }
+      }
+    },
+    "y": {
+      "shift": "=×",
+      "plain": "ᄅ"
+    },
+    "z": {
+      "shift": "ᆞ",
+      "plain": {
+        "case": {
+          "if": "D&&!E||E == 0x119E&&J",
+          "then": "ᆞ",
+          "else": "ᆷ"
+        }
+      }
+    }
+  }
+}
