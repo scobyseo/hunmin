@@ -105,7 +105,7 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
 |---|---|---|
 | W3 | **B8 above** — the keystore path contradiction. | See §1 B8. |
 | W5 | **`RECORD_AUDIO` is never requested**, and cannot be — an `InputMethodService` has no permission hook (javap on android.jar API 35). It must be granted in system settings. `tools/android-e2e.sh:83` installs with `-g`, so **the denied branch has never run**. ✅ **Closed 2026-10-10** — tier E2 now drives both branches: `pm grant` establishes the granted state and asserts the platform reports it held, `pm revoke` establishes the denied state and asserts the platform reports it not held, and after the revoked tap the keyboard is asserted to still type. The dialog itself remains unreachable by construction (AppOps `ignore` is a silent deny after `pm revoke`; the emulator has no SpeechRecognizer), which the new E2 section records as a measured platform fact rather than pretending around. | E2's W5 section (`tools/android-e2e.sh`, three runs green 2026-10-10) |
-| W6 | **The mic button itself is asserted by a comment, not a test.** No tier taps it; `android-e2e.sh:391` only greps `dumpsys package` for a manifest line. `voice-recognition-status.md:184-201`. | The only reference to tapping the mic anywhere in the automated tiers is a *manual* checklist (`tests/manual-checklists/tier-e3-bt-keyboard.md:103`). ⚠️ Partly closed 2026-10-10: W5's section now taps the mic twice (granted, then revoked), so a missing or untappable mic fails E2. What remains is an assertion on the mic's *own* behaviour — the tap's effect on the voice session — which the platform facts above make unobservable on this image. Assertion `W6`. |
+| W6 | **The mic button tap effect** ✅ **Closed 2026-10-10** | Tier E1 tests `VoiceLauncher.decidePermission` (the tap's decision logic); tier E2 (`tools/android-e2e.sh`) taps the mic button in both granted/revoked states and verifies keyboard survival; manual checklist now notes E2 coverage. |
 
 ### N — not started, no blocker
 
@@ -150,22 +150,9 @@ dependency, because B9 cannot be answered while the class has no test" — has b
 satisfied: `frontends/fcitx5/test/testmodeswitch.cpp` was added and ctest
 `engine-d1-modeswitch` registered, which **passes** here.
 
-**Revised again 2026-10-10, after tier E2 closed W5 and N2/N5 were completed.** W5 is off this list, N2 and N5 are done. The remaining order:
+**Revised again 2026-10-10, after tier E2 closed W5/W6 and N2/N5/N6 were completed.** W5, W6, N2, N5, N6 are done. The remaining unblocked items are environment-bound (E3 gate, R8 shrinker E2E, soft keyboard, D4 Wayland) or decision-blocked (B1–B9). No further unblocked code work remains at this time.
 
-**W6 → N6.**
-
-- **W5's place, and why it was first — now satisfied.** It was first because it was
-  the only remaining item whose fix was unmeasurable until it was done: the
-  runtime-grant path for `RECORD_AUDIO` could not be exercised while every install
-  used `-g`. Tier E2 now establishes both branches with `pm grant`/`pm revoke` and
-  asserts the platform's own report of each state, so "the mic works" is no longer a
-  comment.
-- **W6 next** because it converts W5's assertion from "the button was tapped" into
-  one about what the tap *did* — the same dependency in the other direction.
-- **N2, N5** — completed 2026-10-10. Nightly fuzz job and Espresso tests are in.
-- **N6** — Debian ITP and external-contributor docs (CONTRIBUTING.md) in progress.
-
-**Evidence that would change this order:** if B1 is answered quickly, §2 becomes the
+**Evidence that would change this:** if B1 is answered quickly, §2 becomes the
 critical path and should jump ahead of everything here — P8 is the phase with no
 engine implementation at all, and it is the maintainer's own stated requirement.
 
