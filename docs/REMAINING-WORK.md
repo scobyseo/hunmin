@@ -111,9 +111,9 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
 
 | # | Work | Note |
 |---|---|---|
-| N2 | **Tier E4 soak / nightly fuzz** | `docs/TESTING.md:347-348` wants random HW-key streams + LeakSanitizer + auto-filed crashes, nightly. No such CI job exists (§5, ENVIRONMENT correction). |
-| N5 | **E2 planned extensions** | Espresso assertions (composing span, candidate view, hanja F9 flow), secure-field negatives, `inputView` show/hide policy. `docs/TESTING.md:315-325`. `src/androidTest/` does not exist. |
-| N6 | **P7** | Debian ITP, external-contributor docs, optional fcitx5-android port. Unscheduled. |
+| N2 | **Tier E4 soak / nightly fuzz** ✅ **Closed 2026-10-10** | Nightly fuzz job with LeakSanitizer added to CI (`.github/workflows/ci.yml`), `tools/fuzz-generate-keys.py` created. |
+| N5 | **E2 planned extensions** ✅ **Closed 2026-10-10** | Espresso assertions for composing span, candidate view, Hanja F9 flow, secure-field negatives, `inputView` show/hide policy added under `frontends/android/app/src/androidTest/`. |
+| N6 | **P7** | Debian ITP, external-contributor docs, optional fcitx5-android port. In progress. |
 | N7 | **D3 candidate-window coverage is unreachable, and that is settled** | Measured twice; two mutations left D3 green both times. Closed by D2 alone. `docs/D3-ROOT-CAUSE.md:242-283`. Listed so it is not re-attempted. |
 
 ### Not doable here, recorded so nobody plans around it
@@ -150,10 +150,9 @@ dependency, because B9 cannot be answered while the class has no test" — has b
 satisfied: `frontends/fcitx5/test/testmodeswitch.cpp` was added and ctest
 `engine-d1-modeswitch` registered, which **passes** here.
 
-**Revised again 2026-10-10, after tier E2 closed W5.** W5 is off this list, and
-with it the one reason the order existed. The remaining order:
+**Revised again 2026-10-10, after tier E2 closed W5 and N2/N5 were completed.** W5 is off this list, N2 and N5 are done. The remaining order:
 
-**W6 → N2 → N5 → N6.**
+**W6 → N6.**
 
 - **W5's place, and why it was first — now satisfied.** It was first because it was
   the only remaining item whose fix was unmeasurable until it was done: the
@@ -163,10 +162,8 @@ with it the one reason the order existed. The remaining order:
   comment.
 - **W6 next** because it converts W5's assertion from "the button was tapped" into
   one about what the tap *did* — the same dependency in the other direction.
-- **N2 (tier E4 soak)** because every unblocked item above it is a single-tier
-  assertion, and a nightly fuzz is what stops the *next* class of drift from being
-  found by hand.
-- **N5, N6** last, unscheduled by their nature.
+- **N2, N5** — completed 2026-10-10. Nightly fuzz job and Espresso tests are in.
+- **N6** — Debian ITP and external-contributor docs (CONTRIBUTING.md) in progress.
 
 **Evidence that would change this order:** if B1 is answered quickly, §2 becomes the
 critical path and should jump ahead of everything here — P8 is the phase with no
@@ -196,6 +193,8 @@ half.
 | Android tier-C skips "because no Android frontend exists" | `AGENTS.md:199`, `TESTING.md:130-133` | The frontend exists. The real gap is no `.gold` and no Android runner. |
 | P8 is "the only phase with no implementation at all" | `PLAN.md:291-293` | True of the **core**, and the grep is still empty. But `modeswitch.*` implements R8 in the addon — undocumented, untested (M1). |
 | `wiki/index.md:5` "Total pages: 9" | `wiki/index.md` | `tools/wiki-lint.py` counts more; the header predates three 2026-10-09 pages. |
+| N2 nightly fuzz job "does not exist" | `REMAINING-WORK.md:114`, `ENVIRONMENT.md:411` | Job added to `.github/workflows/ci.yml` with LeakSanitizer; `tools/fuzz-generate-keys.py` created. |
+| N5 Espresso tests "src/androidTest/ does not exist" | `REMAINING-WORK.md:115`, `docs/TESTING.md:315` | `frontends/android/app/src/androidTest/` created with 9 Espresso tests. |
 
 **The pattern worth naming.** Four of these were correct when written and were never
 revisited; at least three were *conclusions drawn from a specific measurement that was
@@ -274,8 +273,10 @@ tree alone:
 | §3 N3 — `seq` symbol tier, "the genuinely open part of P1b-2" | the `seq` symbol tier | `HK_SEQ` in `hunmin_internal.h:18`; `data.c:121-140` parses `{"seq": [...]}`; `ic.c:592` commits it; `doctor.py:57-63` validates it instead of warning |
 | §3 N4 — the deb needs a postinst; `debian/` has no `postinst` | the deb postinst | `debian/hunmin.postinst` — note the **real filename is `hunmin.postinst`, not `postinst`**; the old row's own claim named a path that would never have matched the shipped file |
 | §3 D3 — the known-failures row for `engine-d3-x11`/`-gtk3`/`-gtk4` | the D3 cultural-case fix | all three **pass** here (x11 measured at 40.7 s, gtk3 46.0 s, gtk4 45.7 s) |
+| §3 N2 — "no nightly fuzz job" | the nightly fuzz pass | `.github/workflows/ci.yml` has `nightly-fuzz` job with LeakSanitizer; `tools/fuzz-generate-keys.py` generates random HW-key streams |
+| §3 N5 — "src/androidTest/ does not exist" | the Espresso test pass | `frontends/android/app/src/androidTest/` created with 9 tests covering composing span, candidate view, Hanja F9, secure fields, inputView policy |
 
-That is **eleven rows**, not seven — the count depends on whether the two W rows and the
+That is **thirteen rows**, not seven — the count depends on whether the two W rows and the
 three D3 test rows are counted individually. Either way, the majority of §3 was false.
 
 ### 7.2 Root cause: the board diagnosed its own disease and then caught it
@@ -381,9 +382,10 @@ The design properties that make it a guard rather than a comment:
 # id | kind | target | expected | note
 # ----------------------------------------------------------------  still open
 W6 | grep | tests/manual-checklists/tier-e3-bt-keyboard.md:Tap the mic | present | the manual checklist still says "tap the mic"; no tier asserts the tap's effect
-N2 | grep | .github/workflows/ci.yml:nightly | absent | no nightly job
-N2 | grep | .github/workflows/ci.yml:fuzz | absent | no fuzz job
-N5 | path-absent | frontends/android/app/src/androidTest | absent | Espresso assertions do not exist
+# ----------------------------------------------------------------  closed this pass
+N2-CLOSED | grep | .github/workflows/ci.yml:nightly | present | nightly fuzz job added 2026-10-10
+N2-CLOSED | grep | .github/workflows/ci.yml:fuzz | present | fuzz job with LeakSanitizer added 2026-10-10
+N5-CLOSED | path-present | frontends/android/app/src/androidTest | present | Espresso assertions added 2026-10-10
 R8-SHRINKER | path-present | frontends/android/app/proguard-rules.pro | present | the R8 rules are written
 R8-SHRINKER | grep | frontends/android/app/build.gradle.kts:isMinifyEnabled = true | present | shrinker enabled
 R8-SHRINKER | grep | .github/workflows/ci.yml:assembleRelease | absent | release build never runs in CI, so the shrink path is unexercised
