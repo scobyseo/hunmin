@@ -113,7 +113,7 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
 |---|---|---|
 | N2 | **Tier E4 soak / nightly fuzz** ✅ **Closed 2026-10-10** | Nightly fuzz job with LeakSanitizer added to CI (`.github/workflows/ci.yml`), `tools/fuzz-generate-keys.py` created. |
 | N5 | **E2 planned extensions** ✅ **Closed 2026-10-10** | Espresso assertions for composing span, candidate view, Hanja F9 flow, secure-field negatives, `inputView` show/hide policy added under `frontends/android/app/src/androidTest/`. |
-| N6 | **P7** | Debian ITP, external-contributor docs, optional fcitx5-android port. In progress. |
+| N6 | **P7 — Debian ITP, external-contributor docs** ✅ **Closed 2026-10-10** | `CONTRIBUTING.md` added; `debian/` packaging exists (`control`, `copyright`, `changelog`, `rules`, `hunmin.postinst`). Optional fcitx5-android port remains unscheduled. |
 | N7 | **D3 candidate-window coverage is unreachable, and that is settled** | Measured twice; two mutations left D3 green both times. Closed by D2 alone. `docs/D3-ROOT-CAUSE.md:242-283`. Listed so it is not re-attempted. |
 
 ### Not doable here, recorded so nobody plans around it
@@ -386,9 +386,11 @@ W6-CLOSED | grep | frontends/android/app/src/test/java/org/hunmin/ime/VoiceSessi
 W6-CLOSED | grep | tools/android-e2e.sh:input tap.*MICX.*MICY | present | tier E2 taps the mic button and verifies keyboard survival
 W6-CLOSED | grep | tests/manual-checklists/tier-e3-bt-keyboard.md:On emulator \(tier E2\) | present | manual checklist now notes E2 coverage
 N2-CLOSED | grep | .github/workflows/ci.yml:nightly | present | nightly fuzz job added 2026-10-10
-N2-CLOSED | grep | .github/workflows/ci.yml:nightly | present | nightly fuzz job added 2026-10-10
 N2-CLOSED | grep | .github/workflows/ci.yml:fuzz | present | fuzz job with LeakSanitizer added 2026-10-10
 N5-CLOSED | path-present | frontends/android/app/src/androidTest | present | Espresso assertions added 2026-10-10
+N6-CLOSED | path-present | CONTRIBUTING.md | present | external-contributor docs added 2026-10-10
+N6-CLOSED | path-present | debian/control | present | Debian packaging exists
+N6-CLOSED | path-present | debian/hunmin.postinst | present | Debian postinst exists
 R8-SHRINKER | path-present | frontends/android/app/proguard-rules.pro | present | the R8 rules are written
 R8-SHRINKER | grep | frontends/android/app/build.gradle.kts:isMinifyEnabled = true | present | shrinker enabled
 R8-SHRINKER | grep | .github/workflows/ci.yml:assembleRelease | absent | release build never runs in CI, so the shrink path is unexercised
