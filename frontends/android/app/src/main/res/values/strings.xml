@@ -20,4 +20,5 @@
     <string name="ime_switch_content_description">입력기 전환</string>
     <string name="hanja_content_description">한자 입력</string>
     <string name="settings_content_description">설정</string>
+    <string name="mode_switch_content_description">한/영 전환</string>
 </resources>

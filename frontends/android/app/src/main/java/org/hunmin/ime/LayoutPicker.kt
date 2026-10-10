@@ -130,16 +130,34 @@ class LayoutPicker @JvmOverloads constructor(
             setPadding(PAD, 0, PAD / 2, 0)
         })
 
-        // Mode indicator: 한 / 영 (clickable to toggle)
+        // Mode indicator: clickable ImageButton with globe/keyboard icon + mode text
+        val modeContainer = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+val modeIcon = ImageButton(context).apply {
+            setImageResource(android.R.drawable.ic_menu_edit)
+            contentDescription = context.getString(R.string.mode_switch_content_description)
+            setBackgroundColor(0x00000000)
+            setOnClickListener { onModeClicked?.invoke() }
+            setPadding(BTN_PADDING, BTN_PADDING, 0, BTN_PADDING)
+        }
+        modeContainer.addView(modeIcon)
+
+        // Mode text with adaptive background for theme visibility
         modeView = TextView(context).apply {
             text = "한"
             textSize = 14f
-            setTextColor(0xFFFFFFFF.toInt())
-            setPadding(PAD, 0, PAD, 0)
+            setTextColor(0xFF000000.toInt())  // Black text
+            setBackgroundColor(0xFFFFFFFF.toInt())  // White background
+            setPadding(PAD / 2, 2, PAD, 2)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             setOnClickListener { onModeClicked?.invoke() }
         }
-        addView(modeView)
+        modeContainer.addView(modeView)
+
+        addView(modeContainer)
 
         spinner = Spinner(context).apply {
             // On a hardware-key setup this is one tap to reach, so it stays
@@ -152,15 +170,17 @@ class LayoutPicker @JvmOverloads constructor(
             setImageResource(android.R.drawable.ic_btn_speak_now)
             contentDescription = context.getString(R.string.voice_content_description)
             setBackgroundColor(0x00000000)
+            setPadding(BTN_PADDING, BTN_PADDING, BTN_PADDING, BTN_PADDING)
         }
         addView(micButton)
 
-        // Hanja button — opens Hanja candidate window
+// Hanja button — opens Hanja candidate window
         val hanjaButton = ImageButton(context).apply {
             setImageResource(android.R.drawable.ic_menu_add)
             contentDescription = context.getString(R.string.hanja_content_description)
             setBackgroundColor(0x00000000)
             setOnClickListener { onHanjaClicked?.invoke() }
+            setPadding(BTN_PADDING, BTN_PADDING, BTN_PADDING, BTN_PADDING)
         }
         addView(hanjaButton)
 
@@ -173,6 +193,7 @@ class LayoutPicker @JvmOverloads constructor(
                 val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.showInputMethodPicker()
             }
+            setPadding(BTN_PADDING, BTN_PADDING, BTN_PADDING, BTN_PADDING)
         }
         addView(imeSwitchButton)
 
@@ -284,5 +305,6 @@ class LayoutPicker @JvmOverloads constructor(
 
     private companion object {
         const val PAD = 16
+        const val BTN_PADDING = 24  // Extra padding for easier touch targets
     }
 }

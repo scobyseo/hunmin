@@ -189,6 +189,9 @@ class HunminInputMethodService : InputMethodService() {
         val altLeft = (event.metaState and KeyEvent.META_ALT_LEFT_ON) != 0
         val shiftOn = (event.metaState and KeyEvent.META_SHIFT_ON) != 0
 
+        // Debug logging for keycodes
+        Log.d(TAG, "onKeyDown: keyCode=$keyCode, metaState=${event.metaState}, altRight=$altRight, altLeft=$altLeft, shiftOn=$shiftOn")
+
         // Space during composition: commit syllable AND forward space
         // This is a frontend responsibility (engine declines space during composition)
         if (keyCode == KeyEvent.KEYCODE_SPACE && isHangulMode) {
@@ -207,8 +210,11 @@ class HunminInputMethodService : InputMethodService() {
             toggleHangulEnglish()
             return true
         }
+        // Hangul/English toggle: Right Alt, Language Switch, or Samsung 한/영 key (keyCode 218)
         if (keyCode == KeyEvent.KEYCODE_ALT_RIGHT
-            || keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH) {
+            || keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH
+            || keyCode == 218) {  // Samsung 한/영 key
+            Log.i(TAG, "Hangul/English toggle triggered by keyCode=$keyCode")
             toggleHangulEnglish()
             return true
         }
