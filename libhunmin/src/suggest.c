@@ -13,6 +13,7 @@
  * next call on this ctx.
  */
 #include "hunmin.h"
+#include "hunmin_internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -100,9 +101,14 @@ static char *slurp(const char *path, long cap, size_t *out_len) {
   return buf;
 }
 
-/* --- hanja/: {"entries": {"한": ["韓","漢",...]}} --- */
+/* --- hanja/: hunmin.hanja/2, {"entries":{"한":[{"v":"韓","ko":"…","en":"…"},…]}}
+ *
+ * detail is built as "ko | en" (+ " [JP]"/" [CN]" usage tag when assigned) so
+ * the frontend can render it verbatim without a new ABI symbol. Korean gloss
+ * first, English after the bar; the tag is omitted unless the converter could
+ * assign it without a false positive (docs/HANJA-GLOSS-DESIGN.md). --- */
 static int load_hanja(const char *path) {
-  char *buf = slurp(path, 2L << 20, NULL);
+  char *buf = slurp(path, 8L << 20, NULL);
   if (!buf) return -1;
   cJSON *root = cJSON_Parse(buf);
   free(buf);
@@ -112,22 +118,39 @@ static int load_hanja(const char *path) {
   const cJSON *ent = cJSON_GetObjectItemCaseSensitive(root, "entries");
   if (cJSON_IsObject(ent)) {
     table_free(&g_hanja);
-    /* cJSON stores a member's name in ->string (->valuestring is NULL for a
-     * member), and it does not box an array value: for {"한":["韓",...]},
-     * the object's ->child is the first array *element*, so k->child is
-     * already the first candidate and the candidates run from k->child via
-     * ->next. Testing k->child with cJSON_IsArray is therefore always false
-     * here, which is what silently emptied this table at first. */
     const cJSON *k = NULL;
     cJSON_ArrayForEach(k, ent) {
       if (!k->string) continue;
       for (const cJSON *c = k->child; c; c = c->next) {
-        if (!cJSON_IsString(c)) continue;
+        if (!cJSON_IsObject(c)) continue;
+        const cJSON *jv = cJSON_GetObjectItemCaseSensitive(c, "v");
+        if (!cJSON_IsString(jv) || !jv->valuestring) continue;
+        const cJSON *jko = cJSON_GetObjectItemCaseSensitive(c, "ko");
+        const cJSON *jen = cJSON_GetObjectItemCaseSensitive(c, "en");
+        const cJSON *jjp = cJSON_GetObjectItemCaseSensitive(c, "jp");
+        const cJSON *jcn = cJSON_GetObjectItemCaseSensitive(c, "cn");
+        const char *ko = cJSON_IsString(jko) ? jko->valuestring : "";
+        const char *en = cJSON_IsString(jen) ? jen->valuestring : "";
+        const char *tag = "";
+        if (cJSON_IsTrue(jjp)) tag = " [JP]";
+        else if (cJSON_IsTrue(jcn)) tag = " [CN]";
+
         sug_rec *r = table_push(&g_hanja);
         if (!r) goto done;
         r->key = dupn(k->string);
-        r->text = dupn(c->valuestring);
-        r->detail = dupn("");
+        r->text = dupn(jv->valuestring);
+        /* "ko | en [tag]" — drop an empty half and a dangling bar so a
+         * Korean-only or English-only candidate reads cleanly. */
+        char detail[1024];
+        if (*ko && *en)
+          snprintf(detail, sizeof detail, "%s | %s%s", ko, en, tag);
+        else if (*ko)
+          snprintf(detail, sizeof detail, "%s%s", ko, tag);
+        else if (*en)
+          snprintf(detail, sizeof detail, "%s%s", en, tag);
+        else
+          snprintf(detail, sizeof detail, "%s", *tag ? tag + 1 : "");
+        r->detail = dupn(detail);
         if (!r->key || !r->text || !r->detail) goto done;
         g_hanja.n++;
       }
@@ -249,12 +272,22 @@ static void list_reset(void) {
   g_list.n = 0; /* the buffer is reused; nothing to free */
 }
 
-/* The data dirs live on hm_data_load's stack frame, not on ctx, so this
- * resolves them the same way that function does. */
-static int resolve_dirs(const char *const **out) {
+/* Resolve the search dirs for the suggest tables. Prefers the dirs recorded
+ * on the context (see hunmin_ctx.data_dir); falls back to the env var / build
+ * default, which is how the fcitx5 addon and the test harness reach the data.
+ * Colon-separated, exactly as hm_data_load's caller spelled them. */
+static int resolve_dirs(const char *const **out, const hunmin_ctx *ctx) {
   static char envbuf[4096];
   static const char *mydirs[16];
-  const char *env = getenv("HUNMIN_DATA_PATH");
+  /* Prefer the directory the context was built from: a frontend that passes
+   * an explicit path (the Android IME, in an app sandbox with no
+   * HUNMIN_DATA_PATH) must get its Hanja/idiom/krdict tables from the same
+   * place as its layouts. Fall back to the env var / build default only when
+   * the context carries no explicit dir, so the fcitx5 addon and the test
+   * harness -- which set the env var -- keep their existing behaviour. */
+  const char *env = (ctx && ctx->data_dir && *ctx->data_dir)
+                      ? ctx->data_dir
+                      : getenv("HUNMIN_DATA_PATH");
   if (!env || !*env) {
 #ifdef HUNMIN_DEFAULT_DATA_DIR
     env = HUNMIN_DEFAULT_DATA_DIR;
@@ -288,14 +321,14 @@ static int syllables(const char *s) {
 
 int hunmin_suggest_count(hunmin_ctx *ctx, const char *hangul) {
   list_reset();
-  /* ctx is unused for the lookup itself -- the tables are process-wide -- but
-   * it is part of the contract, so a NULL one is a miss rather than a
-   * lookup: a frontend that has torn its context down should see no
-   * candidates, not a list served from the cache. */
+  /* ctx selects the data dirs (ctx->data_dir when set) and a NULL one is a
+   * miss rather than a lookup: a frontend that has torn its context down
+   * should see no candidates, not a list served from the cache. The tables
+   * themselves stay process-wide and are loaded on first use. */
   if (!ctx || !hangul || !*hangul) return 0;
 
   const char *const *dirs = NULL;
-  int n = resolve_dirs(&dirs);
+  int n = resolve_dirs(&dirs, ctx);
   if (n <= 0) return 0;
 
   /* Idioms first: a four-character idiom carries a meaning and should not be

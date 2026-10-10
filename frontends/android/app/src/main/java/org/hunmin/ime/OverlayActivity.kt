@@ -18,15 +18,17 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
 
-class OverlayActivity : Activity() {
+class OverlayActivity : AppCompatActivity() {
 
     private var dialog: AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Transparent, no title, no history
-        setTheme(android.R.style.Theme_Translucent_NoTitleBar)
+        // Theme comes from AndroidManifest (Theme.HunminOverlay, AppCompat-derived).
+        // Do NOT setTheme() to a platform theme here: the AppCompat AlertDialog
+        // path needs the AppCompat-derived theme to be in effect.
     }
 
     override fun onResume() {
@@ -65,14 +67,26 @@ class OverlayActivity : Activity() {
         Log.d(TAG, "showHanjaDialog preedit=$preedit, candidates=${candidates.size}")
 
         val items = candidates.mapIndexed { idx, text ->
-            "$text  (${details[idx]})"
+            // detail is the engine's "ko | en [tag]" gloss; drop the parens
+            // entirely when it is empty (a rare Hanja with neither gloss), so
+            // the candidate is not shown as a bare "字 ()".
+            val detail = details.getOrNull(idx)?.trim().orEmpty()
+            if (detail.isEmpty()) text else "$text  ($detail)"
         }.toTypedArray()
 
         dialog = AlertDialog.Builder(this)
             .setTitle("한자 선택: $preedit")
             .setItems(items) { _, which ->
                 val selected = candidates[which]
-                setResult(RESULT_HANJA_SELECTED, Intent().putExtra(EXTRA_SELECTED_HANJA, selected))
+                // An IME Service cannot receive an activity result, so the
+                // selection goes back over a broadcast the service listens for
+                // (see ACTION_HANJA_SELECTED and HanjaReceiver in
+                // HunminInputMethodService). setResult() alone is dead here.
+                val result = Intent(ACTION_HANJA_SELECTED).apply {
+                    setPackage(packageName)
+                    putExtra(EXTRA_SELECTED_HANJA, selected)
+                }
+                sendBroadcast(result)
                 finish()
             }
             .setNegativeButton("취소") { _, _ -> finish() }
@@ -163,6 +177,8 @@ private fun showSettingsDialog() {
         const val ACTION_SHOW_HANJA = "org.hunmin.ime.action.SHOW_HANJA"
         const val ACTION_SHOW_SETTINGS = "org.hunmin.ime.action.SHOW_SETTINGS"
         const val ACTION_SHOW_TOAST = "org.hunmin.ime.action.SHOW_TOAST"
+        /** Sent back to the IME when the user picks a Hanja candidate. */
+        const val ACTION_HANJA_SELECTED = "org.hunmin.ime.action.HANJA_SELECTED"
 
         const val EXTRA_HANJA_PREEDIT = "preedit"
         const val EXTRA_HANJA_CANDIDATES = "candidates"

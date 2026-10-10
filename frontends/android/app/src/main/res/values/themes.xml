@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  AppCompat-based translucent theme for OverlayActivity.
+
+  OverlayActivity uses androidx.appcompat.app.AlertDialog, which requires an
+  AppCompat-derived theme (it inflates AppCompat-internal layouts that do not
+  exist under the platform Theme.Translucent.NoTitleBar — on a physical device
+  that surfaces as Resources$NotFoundException: Resource ID #0x0).
+
+  Do NOT set android:theme="@android:style/Theme.Translucent.NoTitleBar" on
+  this activity: it is a platform theme, and the AppCompat dialog path breaks
+  under it on real hardware.
+-->
+<resources>
+    <style name="Theme.HunminOverlay" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+</resources>

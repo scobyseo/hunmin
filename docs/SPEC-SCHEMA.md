@@ -65,7 +65,7 @@ applied by the engine the same way libhangul applies its tables. Bundled v0:
 
 ## Hanja files (`data/hanja/`, `data/krdict/`, `data/idioms/`)
 
-Three separate schemas, each `{"version":1,"schema":"hunmin.<name>/1","entries":…,
+Three separate schemas, each `{"version":…,"schema":"hunmin.<name>/…","entries":…,
 "meta":{…}}`. They are **not** layout or compose files. Each carries its own licence, so each is
 its own directory; merging them would drag CC-BY-SA 2.0 KR (`krdict`) under the LGPL
 parts of the project.
@@ -85,15 +85,43 @@ and they are real words.
 
 | dir | schema | keyed by | licence |
 |---|---|---|---|
-| `hanja/` | `hunmin.hanja/1` | single syllable → ordered candidate list | BSD-3-Clause |
+| `hanja/` | `hunmin.hanja/2` | single syllable → ordered candidate objects | BSD-3 (Korean gloss) + Unicode v3 (English gloss, tags) |
 | `krdict/` | `hunmin.krdict/1` | whole word/phrase → Hanja + meaning | CC-BY-SA 2.0 KR |
 | `idioms/` | `hunmin.idioms/1` | four-character idiom → reading + meaning | MIT |
 
+### `hunmin.hanja/2` (was `/1`)
+
+Version 2 changed the candidate value from a bare Hanja string to an object so the
+gloss that libhangul already carried (and `hanja2data.py` used to drop) is shipped,
+plus an English gloss and a conservative usage tag from Unihan 18.0.0:
+
+```json
+{"한":[{"v":"韓","ko":"나라 이름 한, 한나라 한","en":"fence; surname; Korea"},
+       {"v":"仮","ko":"假의 略字","en":"falsehood","jp":true}, …]}
+```
+
+- `v` — the Hanja (required, single char).
+- `ko` — Korean gloss, from libhangul `hanja.txt` (may be `""`).
+- `en` — English gloss, from Unihan `kDefinition` (may be `""`).
+- `jp` / `cn` — usage tag, present only when the converter could assign it without
+  a false positive: `jp` = Japanese shinjitai (no variant fields + Joyo/Jinmeiyo +
+  not used in Korean); `cn` = simplified Chinese (`kTraditionalVariant` names
+  another Hanja + not used in Korean at all). `家`/`脚` are never tagged; `价`/`国`
+  /`学` are missed (Korea uses them in personal names) rather than mislabelled.
+  A wrong tag is worse than a missing one.
+
+`load_hanja` (`libhunmin/src/suggest.c`) builds `detail` as `"ko | en [tag]"`,
+dropping empty halves and the bar, so a frontend renders it verbatim with no new
+ABI symbol. The candidate `entries` key is still the sort key and upstream
+frequency order is unchanged. Coverage (top-64 window): 39% Korean gloss,
++42% English-only, ≈80% any gloss, up from 39%. Provenance (`input_sha256`, licence,
+Unihan version) is pinned in `meta`; see `docs/HANJA-GLOSS-DESIGN.md` for the
+measurement that chose this design and the options rejected.
+
 Order is meaningful in all three: it is upstream frequency order, reproduced rather than
 re-derived (`hanja/` reimplements libhangul's `merge.py`; see Provenance below).
-⚠️ `hunmin-doctor` does **not** lint these — `tools/doctor.py` globs only `compose/` and
-`layouts/`, so the "run in CI on every `data/` PR" gate in TESTING.md does not reach them,
-despite TESTING.md listing "hanja rules dangling" among its lints.
+⚠️ `hunmin-doctor` lints `hanja/`, `krdict/` and `idioms/` (`tools/doctor.py`
+`check_hanja`/`check_krdict`/`check_idioms`), so the CI data gate reaches them.
 
 ## Reference trace format (goldens / tier C)
 JSONL: line 1 `{"meta":{...}}`; then one line per event

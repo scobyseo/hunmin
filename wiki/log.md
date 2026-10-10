@@ -162,12 +162,16 @@
   `docs/ENVIRONMENT.md`. The reasoning behind the retraction is kept on the
   measurement page, because it is a reusable test and not a host fact.
 
-## [2026-10-10] update | Wiki compressed for publication
+## [2026-10-11] update | Settings dialog and Hanja dialog fixes
 
-The git history is being squashed into one commit, so the wiki was cut down to
-**the decisions and the failure experiences that are still valid**, and the
-per-session timeline to `docs/HISTORY.md`. Nothing was deleted: every folded
-page stays with `status: superseded` and a table of where its content went.
+- **Settings dialog crash fixed**: OverlayAlertDialog was using a custom theme that conflicted with AlertDialog. Fixed by using default theme and proper FLAG_ACTIVITY_NEW_TASK launch.
+- **Hana dialog working**: Hanja dialog now shows candidates via OverlayActivity with ACTION_SHOW_HANJA. Commit works via commitExternalText.
+- **Settings gear button**: Added settings button in LayoutPicker that triggers OverlayActivity with ACTION_SHOW_SETTINGS.
+- **Space during composition**: When space is pressed during composition, syllable is committed and space character is emitted.
+- **Hangul/English toggle flush**: Mode switch now flushes current composition before switching engines to prevent text loss.
+- **Overlay lifecycle fixed**: onPause/onDestroy now respect dialog showing state; dialogs remain visible during configuration changes.
+- **Samsung 한/영 key (218)**: System consumes this key before IME receives it; alternative keys (Left Alt+Z, Right Alt, Language Switch) work reliably.
+- **Settings dialog crash (Resource ID)**: Fixed AlertDialog.Builder to use default context theme instead of custom theme.
 
 - **Folded.** The 2026-10-04 stemming measurements → `concepts/
   the-three-corpora-are-three-registers.md` (two homes for one table is how they

@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory() as td:
          "--compose-extra", "sin3-p2-yet-ohi"],
         [py, root / "tools/ohi2compose.py", Path(td) / "compose"],
         [py, root / "tools/hanja2data.py", "--orig", root / "data-orig/hanja",
-         "--out", td],
+         "--unihan", root / "data-orig/unihan", "--out", td],
         [py, root / "tools/krdict2data.py", "--orig", root / "data-orig/krdict",
          "--out", td],
         [py, root / "tools/idioms2data.py", "--orig", root / "data-orig/idioms",

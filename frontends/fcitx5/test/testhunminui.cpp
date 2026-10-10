@@ -171,9 +171,11 @@ void scheduleEvent(Instance *instance) {
         // (FRONTEND-CONTRACT.md A11).
         //
         // 푸 is chosen because it is in hanja/ and in neither krdict nor
-        // idioms, so every candidate is a bare syllable: one Hanja each, and
-        // the comment carries the kind because there is no gloss to show.
-        // \uac00 would also carry a krdict gloss and lead the list with it.
+        // idioms, so every candidate is a bare syllable: one Hanja each.
+        // Since hanja/2 the comment carries the Unihan English gloss even when
+        // the Korean gloss is empty (the adapter falls back to the kind label
+        // only when *both* are empty), so U+4B0C's comment is its English
+        // definition rather than "hanja".
         tap(uuid, Key("p"));
         tap(uuid, Key("o"));
         FCITX_ASSERT(panelOf(ic).toString() == "\ud478");
@@ -184,9 +186,10 @@ void scheduleEvent(Instance *instance) {
 
         auto list = ic->inputPanel().candidateList();
         FCITX_ASSERT(list) << "F9 produced no candidate list";
-        FCITX_ASSERT(list->size() > 0) << "candidate list is empty for \ud478";
-        FCITX_ASSERT(list->candidate(0).comment().toString() == "hanja")
-            << "kind label is '" << list->candidate(0).comment().toString() << "'";
+        FCITX_ASSERT(list->size() > 0) << "candidate list is empty for the syllable";
+        FCITX_ASSERT(list->candidate(0).comment().toString() ==
+                     "the wind blows, blown by the wind")
+            << "gloss is '" << list->candidate(0).comment().toString() << "'";
         // 푸 has exactly one candidate in hanja.json, U+4B0C, and no
         // frequency data -- asserted from the file rather than remembered.
         FCITX_ASSERT(list->size() == 1) << list->size();

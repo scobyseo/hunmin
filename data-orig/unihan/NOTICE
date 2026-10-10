@@ -1,0 +1,17 @@
+# Vendored converter inputs from Unihan 18.0.0 (2026-07-31), fetched from
+# https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip
+#
+# Only the three files hunmin reads are kept:
+#   - Unihan_Readings.txt      kDefinition (English gloss per Hanja)
+#   - Unihan_Variants.txt      kTraditionalVariant (simplified-form detection)
+#   - Unihan_OtherMappings.txt kJoyoKanji, kJinmeiyoKanji (Japanese),
+#                               kKoreanEducationHanja, kKoreanName (Korean use)
+#
+# SHA256SUMS pins the exact bytes; tools/hanja2data.py records these hashes in
+# the generated hunmin.data meta so provenance cannot drift (the same rule the
+# libhangul inputs already follow). Do not hand-edit these files: regenerate by
+# re-downloading Unihan.zip and re-running hanja2data.py's selfcheck.
+#
+# Licence: Unicode Licence v3 (see LICENSE.md). Use, copy, modify and
+# distribute are permitted with the copyright notice retained; there is no
+# ShareAlike term, so it does not reach the rest of libhunmin/data.

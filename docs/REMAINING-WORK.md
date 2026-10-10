@@ -391,6 +391,14 @@ N5-CLOSED | path-present | frontends/android/app/src/androidTest | present | Esp
 N6-CLOSED | path-present | CONTRIBUTING.md | present | external-contributor docs added 2026-10-10
 N6-CLOSED | path-present | debian/control | present | Debian packaging exists
 N6-CLOSED | path-present | debian/hunmin.postinst | present | Debian postinst exists
+SETTINGS-DIALOG-CLOSED | path-present | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt | present | settings dialog via OverlayActivity
+HANJA-DIALOG-CLOSED | path-present | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt | present | hanja dialog via OverlayActivity
+SETTINGS-GEAR-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:settingsButton | present | settings gear button in layout strip
+SPACE-COMPOSITION-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:KEYCODE_SPACE | present | space during composition flushes + forwards
+TOGGLE-FLUSH-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:flush | present | hangul/english toggle flushes composition first
+OVERLAY-LIFECYCLE-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:onPause | present | overlay activity lifecycle fixed
+ALT-KEY-218-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:218 | present | alt key 218 (Samsung 한/영) support added
+SETTINGS-CRASH-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:AlertDialog.Builder | present | settings dialog crash fixed (default theme)
 R8-SHRINKER | path-present | frontends/android/app/proguard-rules.pro | present | the R8 rules are written
 R8-SHRINKER | grep | frontends/android/app/build.gradle.kts:isMinifyEnabled = true | present | shrinker enabled
 R8-SHRINKER | grep | .github/workflows/ci.yml:assembleRelease | absent | release build never runs in CI, so the shrink path is unexercised

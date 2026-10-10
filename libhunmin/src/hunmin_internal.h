@@ -51,6 +51,14 @@ typedef struct {
 struct hunmin_ctx {
   hm_layout *layouts;
   int n;
+  /* Data directory this context was created from, or NULL when the caller
+   * passed no explicit dirs (env HUNMIN_DATA_PATH / build default was used).
+   * The suggest layer prefers this over the env var so a frontend that hands
+   * the engine an explicit path -- the Android IME, which runs in an app
+   * sandbox where HUNMIN_DATA_PATH is not set -- gets Hanja/idiom/krdict
+   * tables from the same directory as its layouts. Copied, so the caller may
+   * free its buffer; NUL-terminated. */
+  char *data_dir;
 };
 
 /* data.c */

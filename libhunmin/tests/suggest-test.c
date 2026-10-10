@@ -51,9 +51,16 @@ int main(void) {
     if (!strcmp(hunmin_suggest_kind(ctx, i), "hanja")) { first_hanja = i; break; }
   check(first_hanja >= 0, "수 has a hanja candidate");
   if (first_hanja >= 0) {
-    expect(ctx, first_hanja, "hanja", "水", "");
-    expect(ctx, first_hanja + 1, "hanja", "手", "");
-    expect(ctx, first_hanja + 2, "hanja", "數", "");
+    /* v2: detail is "ko | en" built from the libhangul comment and the Unihan
+     * kDefinition; both are asserted so a converter regression that drops a
+     * gloss fails here (docs/HANJA-GLOSS-DESIGN.md). */
+    expect(ctx, first_hanja, "hanja", "水",
+           "물 수, 고를 수 | water, liquid, lotion, juice");
+    expect(ctx, first_hanja + 1, "hanja", "手",
+           "손 수, 잡을 수, 칠 수 | hand");
+    expect(ctx, first_hanja + 2, "hanja", "數",
+           "헤아릴 수, 수죄할 수, 몇 수, 이치 수, 자주 수 | "
+           "number; several; count; fate");
   }
 
   /* 한 leads with 韓 in hanja.json (verified: 韓 漢 寒 限 閑 恨). */
@@ -62,7 +69,9 @@ int main(void) {
   for (int i = 0; i < n; i++)
     if (!strcmp(hunmin_suggest_kind(ctx, i), "hanja")) { first_hanja = i; break; }
   check(first_hanja >= 0, "한 has a hanja candidate");
-  if (first_hanja >= 0) expect(ctx, first_hanja, "hanja", "韓", "");
+  if (first_hanja >= 0)
+    expect(ctx, first_hanja, "hanja", "韓",
+           "나라 이름 한, 한나라 한 | fence; surname; Korea");
 
   /* --- a word with a gloss: exactly what krdict.json says --- */
   n = hunmin_suggest_count(ctx, "가화만사성");

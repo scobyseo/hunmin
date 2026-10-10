@@ -33,7 +33,7 @@ object HunminData {
     private const val TAG = "HunminData"
 
     /** Subdirs libhunmin scans, in the order hm_data_load reads them. */
-    private val DATA_SUBDIRS = listOf("layouts", "compose")
+    private val DATA_SUBDIRS = listOf("layouts", "compose", "hanja", "idioms")
 
     /**
      * Where the tables live inside the APK.

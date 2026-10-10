@@ -87,6 +87,7 @@ class HunminInputMethodService : InputMethodService() {
     override fun onCreate() {
         super.onCreate()
         registerTraceReceiver()
+        registerHanjaReceiver()
         val dataDir = HunminData.install(this)
         if (dataDir == null) {
             // Without tables there is no layout and no Korean at all. Failing
@@ -114,6 +115,7 @@ class HunminInputMethodService : InputMethodService() {
         HunminTrace.close()
         traceReceiver?.let { runCatching { unregisterReceiver(it) } }
         traceReceiver = null
+        runCatching { unregisterReceiver(hanjaReceiver) }
         engine?.close()
         engine = null
         if (ctx != 0L) {
@@ -245,6 +247,24 @@ class HunminInputMethodService : InputMethodService() {
             return true
         }
 
+        // Modifier keys on their own (Alt, Ctrl, Meta/Super) must not reach the
+        // engine. A physical keyboard delivers the modifier as its own
+        // ACTION_DOWN before the chord key (Alt alone arrives first when the
+        // user presses Alt+X for Hanja). Feeding a bare modifier to the engine
+        // makes HunminEngine.onKey take its isModifierChord path and flush the
+        // in-flight syllable -- which is exactly what left the Hanja lookup
+        // with an empty preedit. Handled shortcuts above have already returned;
+        // anything reaching here is an unhandled modifier, so pass it through
+        // without touching the composition.
+        if (keyCode == KeyEvent.KEYCODE_ALT_LEFT
+            || keyCode == KeyEvent.KEYCODE_ALT_RIGHT
+            || keyCode == KeyEvent.KEYCODE_CTRL_LEFT
+            || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT
+            || keyCode == KeyEvent.KEYCODE_META_LEFT
+            || keyCode == KeyEvent.KEYCODE_META_RIGHT) {
+            return super.onKeyDown(keyCode, event)
+        }
+
         // Route to correct engine based on mode
         val e = if (isHangulMode) engine else latinEngine
         val target: InputConnection = currentInputConnection
@@ -267,10 +287,14 @@ class HunminInputMethodService : InputMethodService() {
         val target = currentInputConnection ?: return
 
         if (isHangulMode) {
+            // Switching to Hangul: flush any Latin composition first
+            latinEngine?.flush(target)
             engine?.updatePreedit(target)
             Log.i(TAG, "hunmin: switched to Hangul mode ($layoutId)")
             showModeToast("한글")
         } else {
+            // Switching to English: flush Hangul composition first
+            engine?.flush(target)
             latinEngine?.updatePreedit(target)
             Log.i(TAG, "hunmin: switched to English mode (us-qwerty)")
             showModeToast("English")
@@ -302,7 +326,11 @@ class HunminInputMethodService : InputMethodService() {
 
     /** Open Hanja candidate window for current preedit. */
     private fun openHanjaWindow() {
-        val e = engine ?: return
+        val e = engine
+        if (e == null) {
+            Log.w(TAG, "hunmin: Hanja window requested but engine is null")
+            return
+        }
         // Commit any in-flight composition first
         val preedit = e.preedit()
         if (preedit.isEmpty()) {
@@ -315,15 +343,17 @@ class HunminInputMethodService : InputMethodService() {
             return
         }
 
-        // Build candidate list
+        // Build candidate list. detail is the engine's "ko | en [tag]" gloss
+        // (hunmin.hanja/2); the kind label (hanja/word/idiom) is dropped —
+        // the gloss itself says what the candidate is, and a "hanja:" prefix
+        // in front of an already-glossed candidate was pure noise.
         val candidates = mutableListOf<String>()
         val details = mutableListOf<String>()
         for (i in 0 until count) {
             val text = e.suggestText(i)
             val detail = e.suggestDetail(i)
-            val kind = e.suggestKind(i)
             candidates.add(text)
-            details.add("$kind: $detail")
+            details.add(detail)
         }
 
         // Launch OverlayActivity to show dialog
@@ -372,6 +402,36 @@ class HunminInputMethodService : InputMethodService() {
     }
 
     private var traceReceiver: TraceReceiver? = null
+
+    /**
+     * Receive the Hanja picked in OverlayActivity and commit it.
+     *
+     * OverlayActivity is started with startActivity (not startActivityForResult)
+     * and an IME is a Service, not an Activity, so it can never receive an
+     * activity result. The dialog therefore broadcasts the choice back; this
+     * receiver commits it through commitExternalText so the selected Hanja
+     * replaces the Hangul composition. Explicit-package broadcast, so only
+     * this app hears it.
+     */
+    private val hanjaReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != OverlayActivity.ACTION_HANJA_SELECTED) return
+            val selected = intent.getStringExtra(OverlayActivity.EXTRA_SELECTED_HANJA)
+            if (selected.isNullOrEmpty()) return
+            val ok = commitExternalText(selected)
+            Log.i(TAG, "hunmin: Hanja selected '$selected' committed=$ok")
+        }
+    }
+
+    private fun registerHanjaReceiver() {
+        @Suppress("DEPRECATION")
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(hanjaReceiver, IntentFilter(OverlayActivity.ACTION_HANJA_SELECTED),
+                             Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(hanjaReceiver, IntentFilter(OverlayActivity.ACTION_HANJA_SELECTED))
+        }
+    }
 
     /**
      * Register the receiver only on a debuggable build.
