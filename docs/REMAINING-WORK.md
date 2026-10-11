@@ -426,6 +426,14 @@ The design properties that make it a guard rather than a comment:
 # id | kind | target | expected | note
 # ----------------------------------------------------------------  still open
 # ----------------------------------------------------------------  closed this pass
+DESIGN-REVIEW-TRACKED | path-present | docs/ANDROID-IME-REVIEW.md | present | review committed on task/android-design-review (e389970); issue #21 tracks it for the maintainer to weigh — no verdict recorded
+DESIGN-REVIEW-F5 | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:buildDock | absent | issue #21 verification: grep -n 'buildDock' frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt shows no call site (F5 evidence)
+DESIGN-REVIEW-F1-F2 | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:Color.parseColor | absent | issue #21 verification: grep Color.parseColor OverlayActivity.kt returns nothing (F1, F2 fills)
+DESIGN-REVIEW-F3-F10 | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:dialogWidth | present | issue #21 fill: dialog sized off window size class, not physical pixels (F10); HUD day/night pair shared via hunmin_hud_* tokens (F3)
+# ----------------------------------------------------------------  decision-blocked
+# B1..B9 are maintainer rulings, not tree facts. AGENTS.md: "네 멋대로 기각하지마."
+# They carry no assertion row, by construction, and their absence from this table
+# is deliberate rather than an oversight.
 W6-CLOSED | grep | frontends/android/app/src/test/java/org/hunmin/ime/VoiceSessionTest.kt:decidePermission | present | tier E1 tests the voice permission decision logic (tap effect)
 W6-CLOSED | grep | tools/android-e2e.sh:input tap.*MICX.*MICY | present | tier E2 taps the mic button and verifies keyboard survival
 W6-CLOSED | grep | tests/manual-checklists/tier-e3-bt-keyboard.md:On emulator \(tier E2\) | present | manual checklist now notes E2 coverage
