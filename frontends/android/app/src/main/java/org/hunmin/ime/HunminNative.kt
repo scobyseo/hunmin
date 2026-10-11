@@ -61,6 +61,9 @@ object HunminNative {
 
     @JvmStatic external fun nativeLayoutSupported(ctx: Long, i: Int): Boolean
 
+    /** "hangul" | "latin" — the layout JSON's `mode` (docs/SPEC-SCHEMA.md). */
+    @JvmStatic external fun nativeLayoutMode(ctx: Long, i: Int): String
+
     /** ic = hunmin_ic_new(ctx, layout) — 0 for an unknown or unsupported id. */
     @JvmStatic external fun nativeIcNew(ctx: Long, layout: String): Long
 

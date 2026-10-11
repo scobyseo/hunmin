@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The dock's colours, as Material 3 baseline tokens.
+
+  Named, not inlined in the toolbar, for two reasons: the dark values are the
+  real requirement (a dock is drawn over whatever the app is doing, and a light
+  pill on a dark keyboard is a flashlight), and the strip is the one place in
+  this IME where the platform theme is not behind us — an InputMethodService
+  gets the host app's configuration, not a keyboard theme of its own.
+-->
+<resources>
+    <color name="hunmin_surface">#F3EDF7</color>
+    <color name="hunmin_on_surface">#1D1B20</color>
+    <color name="hunmin_outline">#79747E</color>
+    <color name="hunmin_track">#E7E0EC</color>
+    <color name="hunmin_primary">#6750A4</color>
+    <color name="hunmin_on_primary">#FFFFFF</color>
+    <color name="hunmin_primary_soft">#EADDFF</color>
+    <!-- Green 600, per the voice state: dark enough to read white on. -->
+    <color name="hunmin_mic_active">#43A047</color>
+    <color name="hunmin_on_mic_active">#FFFFFF</color>
+</resources>

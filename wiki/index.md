@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-11 | Total pages: 22
+> Last updated: 2026-10-11 | Total pages: 24
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -89,6 +89,15 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   `slow` labels, the three designs not taken, and a silent defect that is not
   fixed: the Android tier-C runner fails on a cold host JNI shim because a build
   script prints to stdout.
+- [[2026-10-11-dock-and-the-zero-width-style]] — the floating dock the maintainer
+  specified (Views over Compose, measured; Phosphor glyphs, MIT, three files), and the
+  adjacent finding that style C rendered nothing at all: its rows were added to a vertical
+  LinearLayout with `width = 0, weight = 0`, which is zero pixels.
+- [[2026-10-11-key-settings-window]] — the Android key settings window, measured on
+  the emulator: the button that opens it was off-screen, the window could not receive a
+  key even when open (hardware keys go to the IME, not the activity), and the save was a
+  write-only sink. Plus the adjacent finding that N5's nine Espresso tests have never
+  compiled and no tier runs them.
 - [[2026-10-05-drift-audit]] — the transcript-versus-documents audit of
   2026-10-05: eight claims re-checked against the tree, what it could not
   determine, and why a document can be accurate about a feature with no code.

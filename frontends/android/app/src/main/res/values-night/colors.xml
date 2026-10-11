@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material 3 baseline, dark scheme. See values/colors.xml for why these exist. -->
+<resources>
+    <color name="hunmin_surface">#211F26</color>
+    <color name="hunmin_on_surface">#E6E0E9</color>
+    <color name="hunmin_outline">#938F99</color>
+    <color name="hunmin_track">#2B2930</color>
+    <color name="hunmin_primary">#D0BCFF</color>
+    <color name="hunmin_on_primary">#381E72</color>
+    <color name="hunmin_primary_soft">#4F378B</color>
+    <color name="hunmin_mic_active">#66BB6A</color>
+    <color name="hunmin_on_mic_active">#0A2E0C</color>
+</resources>

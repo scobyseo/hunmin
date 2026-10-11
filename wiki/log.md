@@ -252,3 +252,62 @@
   never-dispatched Task from the earlier session are reported in
   `docs/ORCHESTRATION.md` §5 and not reset.
 - `wiki/index.md` lists the page; total pages 22.
+## [2026-10-11] create | Key settings window measured and fixed; N5's tests found never compiled
+
+- **New measurement page:** `raw/measurements/2026-10-11-key-settings-window.md` — three
+  broken layers (gear button off-screen at 1140 px on a 1080 px screen; the window could
+  not receive a key because hardware keys are dispatched to the IME window while an IME
+  is current; the save wrote a key nothing read), the two platform facts that shaped the
+  harness (`input keyevent` has no `--meta`; `OverlayActivity` is correctly not exported),
+  and the numeric binding format with the reason.
+- **New durable artefacts:** `frontends/android/app/src/main/java/org/hunmin/ime/KeyBinding.kt`
+  and a tier-E2 section in `tools/android-e2e.sh` that drives the real window on the
+  emulator and cleans up after itself.
+- **Consequential, not wiki actions:** `docs/REMAINING-WORK.md` voice stage 7 (Planned →
+  Done) and two new §7.5 assertion rows that the tree can contradict.
+- **A finding, not a verdict:** N5's `frontends/android/app/src/androidTest/` does not
+  compile and no tier builds it; its board row asserts only that the directory is present.
+  Filed as its own issue; scope is the maintainer's.
+- `wiki/index.md` lists the page; total pages 23.
+
+## 2026-10-11 — the dock, and a style that measured nothing
+
+- **Measurements, not decisions:** the maintainer's specified toolbar (floating pill,
+  48 dp, status left / actions right) implemented as Views rather than Compose, because
+  the repository has no Compose dependency and adding one is a build, a startup cost and
+  an APK size rather than a rendering choice. Recorded, with the reasoning, in
+  `wiki/raw/measurements/2026-10-11-dock-and-the-zero-width-style.md`.
+- **Phosphor Icons, at the maintainer's choice**, for three glyphs; the mic is Duotone
+  because its 0.2-opacity silhouette is the listening state. MIT terms in
+  `debian/copyright`, upstream paths and the conversion in
+  `frontends/android/licences/phosphor-icons/README.md`.
+- **A finding:** style C rendered no content at all — `lp(0)` in a *vertical*
+  LinearLayout is zero pixels wide, not "take the leftover", which is what it means in a
+  horizontal one. Measured on the phone: the IME window's a11y tree had the rows and no
+  children, and a raw pixel of the band was the window background. Fixed with
+  `MATCH_PARENT`; styles A and B were never affected, which is why it survived the crash
+  fix that preceded it.
+- **A crash fixed and verified on the device** (SM-F971N, Android 17):
+  `IllegalStateException: The specified child already has a parent` on a style change,
+  because `rebuild()` left every button parented to the detached row. Style A is the
+  default and `applyStyle()` short-circuits, which is why it looked like "every other
+  style crashes" rather than "the rebuild crashes". Fresh views per rebuild now; the mic
+  key carries 漢 rather than `ic_menu_add`, which said "add something".
+- **Not settled, and not decided here:** whether style C earns its place now that the
+  dock exists, and whether Material Components is worth taking as a dependency for the
+  shapes this draws by hand.
+- `wiki/index.md` lists the page.
+- **A real defect, found by measurement and fixed:** the dock's `bind()` repainted
+  an `ImageView` never added to the view tree, so every mic state change was
+  invisible while the log said LISTENING. The a11y dump could not see it because
+  the session lasts ~5 s and a dump takes longer than that — the read landed after
+  the state had ended. Validated the replacement pixel gate against both states of
+  the same screenshot: `#43A047` listening, `#F3EDF7` idle.
+- **Tier E4 written** (`tools/android-voice-check.sh`, `tests/manual-checklists/tier-e4-voice.md`):
+  the script gates our half of the voice path and a person judges intelligibility,
+  because `SpeechRecognizer` cannot be replayed and an accuracy threshold would be
+  a network-day test. C turned out to already exist: `HunminEngineTest` gates
+  invariant 5 at E1, so E4 tests the path around it.
+- **Still missing:** a completed E4 run end to end. The script asks a person for a
+  focused editor by design and refuses otherwise; each of its state and pixel checks
+  has been measured by hand on SM-S938N, the loop has not.

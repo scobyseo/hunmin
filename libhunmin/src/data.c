@@ -419,6 +419,15 @@ static bool load_layout_file(hunmin_ctx *ctx, const char *path, int *idx) {
   l->type = HM_TYPE_JASO;
   l->supported = true;
 
+  /* "mode": "hangul" | "latin". Absent means hangul, which is what every
+   * layout was before the field existed and what all but us-qwerty still are.
+   * An unrecognised value ALSO means hangul rather than a rejected file: a
+   * typo in one layout should cost one mis-filed row in a settings list, not
+   * that layout entirely. tools/doctor.py is the check that makes the typo
+   * loud; see docs/SPEC-SCHEMA.md. */
+  j = cJSON_GetObjectItemCaseSensitive(root, "mode");
+  if (cJSON_IsString(j) && !strcmp(j->valuestring, "latin")) l->mode = HM_MODE_LATIN;
+
   const cJSON *fl = cJSON_GetObjectItemCaseSensitive(root, "flags");
   if (cJSON_IsObject(fl)) {
     const cJSON *f;

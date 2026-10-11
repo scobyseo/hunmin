@@ -14,6 +14,7 @@ All files are UTF-8 JSON, deterministically ordered, validated by `tools/doctor.
 | `name` | `{"en":..., "ko":...}` display names |
 | `aliases` | legacy ids (e.g. libhangul `"2"`, `"39"`) |
 | `engine` | `"std"` (libhangul-portable jamo composition), `"h3"` (std + `case` expression values, 날개셋 semantics), or `"romaja"` (sequence engine, P1+) |
+| `mode` | `"hangul"` or `"latin"` — which half of the two-mode IME this layout belongs to. **Required.** Read by the engine and exposed as `hunmin_ctx_layout_mode(ctx, i)`; the Android settings window splits its layout list on it (issue #12). Absent or unrecognised means `"hangul"` in the engine so a typo costs one mis-filed row rather than the layout — `tools/doctor.py` is what makes the typo fail instead. `romaja` is `hangul`: it is typed in Latin but composes Hangul, and the mode says what the layout *produces*. |
 | `libhangulType` | provenance for std engines: `jamo`, `jamo-yet`, `jaso`, `jaso-yet` — selects the exact algorithm ported from libhangul (defaults to `jaso` when absent) |
 | `source` | provenance string (normative origin of the arrangement) |
 | `compose` | ordered ids of `data/compose/` tables this layout uses |

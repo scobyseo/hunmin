@@ -14,6 +14,7 @@
 #include <hunmin.h>
 #include "modeswitch.h"
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -51,6 +52,44 @@ int main() {
     setupTestingEnvironmentPath(TESTING_BINARY_DIR, {}, {TEST_DATA_DIR});
     fcitx::Log::setLogRule("default=5,hunmin=5");
     setup();
+
+    /* 0. The layout metadata this adapter's judgement rests on.
+     *
+     * judgeWord() judges on a hardcoded "us-qwerty", and the layouts themselves
+     * now declare which half of the IME they belong to (`mode` in the layout
+     * JSON, docs/SPEC-SCHEMA.md). Asserting the two agree is what stops that
+     * string from quietly becoming a Hangul table: if a layout's mode moved, or
+     * a second latin layout appeared, this fails instead of the feature judging
+     * Korean text as if it were Latin.
+     */
+    {
+        const int count = hunmin_ctx_layout_count(g_ctx);
+        std::string latinId;
+        int latinCount = 0, hangulCount = 0;
+        for (int i = 0; i < count; i++) {
+            const char *mode = hunmin_ctx_layout_mode(g_ctx, i);
+            FCITX_ASSERT(mode != nullptr) << "layout " << i << " has no mode";
+            const char *id = hunmin_ctx_layout_id(g_ctx, i);
+            FCITX_ASSERT(id != nullptr);
+            if (!strcmp(mode, "latin")) {
+                latinId = id;
+                latinCount++;
+            } else {
+                FCITX_ASSERT(!strcmp(mode, "hangul"))
+                    << "layout " << id << " has mode '" << mode << "', which is neither";
+                hangulCount++;
+            }
+        }
+        FCITX_ASSERT(latinCount == 1)
+            << "expected exactly one latin layout, found " << latinCount;
+        FCITX_ASSERT(latinId == "us-qwerty")
+            << "the latin layout is '" << latinId << "', but this adapter judges on us-qwerty";
+        // No assertion on the ORDER the scanner yields: it walks the directory
+        // (ahnmatmae first), and the frontends sort by display name anyway. An
+        // assertion here would pin an implementation detail of opendir() to a
+        // test, which is how a harmless rescandir becomes a red build.
+        FCITX_ASSERT(hangulCount > 1) << "the hangul half is suspiciously small";
+    }
 
     /* 1. record() + judge() round-trip: feed "kbs" on sin3-p2, get "kbs" on us-qwerty */
     {

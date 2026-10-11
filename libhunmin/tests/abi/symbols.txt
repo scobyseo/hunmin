@@ -2,6 +2,7 @@ hunmin_abi_version
 hunmin_ctx_free
 hunmin_ctx_layout_count
 hunmin_ctx_layout_id
+hunmin_ctx_layout_mode
 hunmin_ctx_layout_name
 hunmin_ctx_layout_supported
 hunmin_ctx_new

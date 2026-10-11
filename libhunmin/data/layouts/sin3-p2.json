@@ -9,6 +9,7 @@
   "aliases": [
     "3sin-p2"
   ],
+  "mode": "hangul",
   "source": "pat.im ist: sin3-p2.symbols.xml (normative; lifted by tools/ist2data.py)",
   "compose": [
     "sin3-p2-mix"

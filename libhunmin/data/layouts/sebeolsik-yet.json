@@ -6,6 +6,7 @@
     "ko": "세벌식 옛글"
   },
   "engine": "std",
+  "mode": "hangul",
   "aliases": [
     "3y"
   ],

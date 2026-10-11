@@ -6,6 +6,7 @@
     "ko": "세벌식 390"
   },
   "engine": "std",
+  "mode": "hangul",
   "aliases": [
     "39"
   ],

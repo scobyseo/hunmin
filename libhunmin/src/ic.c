@@ -732,6 +732,10 @@ const char *hunmin_ctx_layout_name(const hunmin_ctx *ctx, int i, const char *lan
 bool hunmin_ctx_layout_supported(const hunmin_ctx *ctx, int i) {
   return ctx && i >= 0 && i < ctx->n ? ctx->layouts[i].supported : false;
 }
+const char *hunmin_ctx_layout_mode(const hunmin_ctx *ctx, int i) {
+  if (!ctx || i < 0 || i >= ctx->n) return NULL;
+  return ctx->layouts[i].mode == HM_MODE_LATIN ? "latin" : "hangul";
+}
 hunmin_ctx *hunmin_ctx_new(const char *const *dirs, int ndirs) {
   return hm_data_load(dirs, ndirs);
 }

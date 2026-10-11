@@ -42,6 +42,13 @@ class HunminInputMethodService : InputMethodService() {
          */
         const val DEFAULT_LAYOUT = "sin3-p2"
 
+        /**
+         * The Latin half's default. The only latin layout today
+         * (`docs/SPEC-SCHEMA.md`'s `mode` field), and what the service used to
+         * hardcode for `latinEngine`.
+         */
+        const val DEFAULT_LATIN_LAYOUT = "us-qwerty"
+
         /** Broadcast action that toggles the tier E3 trace sink. */
         const val ACTION_TRACE = "org.hunmin.ime.TRACE"
 
@@ -49,7 +56,15 @@ class HunminInputMethodService : InputMethodService() {
         const val TRACE_FILE = "e3.trace"
 
         private const val PREFS = "hunmin"
+        /**
+         * The pre-two-mode key. Read once for migration and never written
+         * again: a device that stored `layout = sin3-p2-yet` under the old
+         * single-layout scheme must not lose that choice to an upgrade.
+         */
         private const val KEY_LAYOUT = "layout"
+        private const val KEY_LAYOUT_HANGUL = "layout_hangul"
+        private const val KEY_LAYOUT_LATIN = "layout_latin"
+        private const val KEY_TOOLBAR_STYLE = "input_view_style"
     }
 
     /** One engine per InputConnection; rebuilt on every onStartInput. */
@@ -78,11 +93,33 @@ class HunminInputMethodService : InputMethodService() {
     /** Layout picker state survives engine rebuilds; it is a service field. */
     private var layoutId: String = DEFAULT_LAYOUT
 
+    /**
+     * The layout English mode composes with, chosen independently of [layoutId].
+     *
+     * Separate because the two are separate: a user who types 신세벌식 in Korean
+     * may type qwerty (or dvorak, once it exists) in English, and the old single
+     * `layoutId` forced one answer for both.
+     */
+    private var latinLayoutId: String = DEFAULT_LATIN_LAYOUT
+
     /** Hangul/English mode. True = Hangul, False = English (Latin). */
     private var isHangulMode: Boolean = true
 
     /** Latin layout engine for English mode. */
     private var latinEngine: HunminEngine? = null
+
+    /**
+     * The configurable key bindings, read from the window that writes them.
+     *
+     * One store for the process: `getSharedPreferences` caches its map, so this
+     * is a lookup per key event and not a disk read. It is a `by lazy` because
+     * the service context is not usable before `onCreate`.
+     */
+    private val keyBindings: KeyBindingStore by lazy { KeyBindings.from(this) }
+
+    /** Does this event fire [action]? Shorthand for the four checks below. */
+    private fun fires(action: KeyAction, keyCode: Int, metaState: Int): Boolean =
+        KeyBindings.matches(keyBindings, action, keyCode, metaState)
 
     override fun onCreate() {
         super.onCreate()
@@ -104,8 +141,24 @@ class HunminInputMethodService : InputMethodService() {
         // The stored choice wins over the default, but pickLayout() validates
         // it: a preference naming a layout this build cannot run must degrade to
         // the default rather than leave the IME with no engine.
-        layoutId = pickLayout(readStoredLayout() ?: DEFAULT_LAYOUT)
-        Log.i(TAG, "hunmin: ${HunminNative.nativeLayoutCount(ctx)} layouts, using $layoutId")
+        installSettingsBus()
+        // Two layouts, one per mode, each resolved against what THIS build can
+        // open. LayoutCatalog owns the fallback chain so it is testable without
+        // an engine -- see its KDoc for why the mode check is not optional.
+        val catalog = LayoutCatalog.sorted(availableLayouts())
+        layoutId = LayoutCatalog.resolve(
+            catalog, LayoutMode.HANGUL,
+            readStoredLayout(LayoutMode.HANGUL), DEFAULT_LAYOUT,
+        )
+        latinLayoutId = LayoutCatalog.resolve(
+            catalog, LayoutMode.LATIN,
+            readStoredLayout(LayoutMode.LATIN), DEFAULT_LATIN_LAYOUT,
+        )
+        Log.i(
+            TAG,
+            "hunmin: ${HunminNative.nativeLayoutCount(ctx)} layouts, " +
+                "using $layoutId (한글) and $latinLayoutId (영문)",
+        )
     }
 
     override fun onDestroy() {
@@ -139,7 +192,7 @@ class HunminInputMethodService : InputMethodService() {
         engine?.close()
         latinEngine?.close()
         engine = if (ctx == 0L) null else HunminEngine(ctx, layoutId)
-        latinEngine = if (ctx == 0L) null else HunminEngine(ctx, "us-qwerty")
+        latinEngine = if (ctx == 0L) null else HunminEngine(ctx, latinLayoutId)
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
@@ -149,7 +202,7 @@ class HunminInputMethodService : InputMethodService() {
         // The view is created once per IME window but the engine per editor, so
         // the picker's list and selection are refreshed here rather than trusted
         // to still match.
-        picker?.bind(availableLayouts(), layoutId) { id -> setLayout(id) }
+        refreshStrip()
         voiceFieldId = info?.fieldId ?: 0
     }
 
@@ -167,8 +220,25 @@ class HunminInputMethodService : InputMethodService() {
      * without this the spinner and the engine could disagree. Cheap, and it only
      * writes when the index actually differs.
      */
-    private fun syncPicker() {
-        picker?.select(layoutId)
+    /**
+     * Put the engine's layout list and the active one into the strip.
+     *
+     * The strip no longer CHOOSES (that is the settings window's job), so this is
+     * one-way: list in, label out.
+     */
+    private fun refreshStrip() {
+        picker?.applyStyle(toolbarStyle())
+        // The strip follows the SERVICE's mode, not its own last value.
+        // onStartInput restarts every session in Hangul mode, so a strip that
+        // only ever heard about toggles would keep showing the letter from the
+        // previous field while the IME had already switched back. Caught by tier
+        // E2 asserting the letter before a rebound keypress.
+        picker?.setMode(isHangulMode)
+        picker?.setLayouts(LayoutCatalog.sorted(availableLayouts()))
+        // The indicator shows the layout that is composing right now, so it is
+        // the English one in English mode — a strip that said "sin3-p2" while
+        // qwerty was composing would be showing the wrong name.
+        picker?.setActiveLayout(currentLayout())
     }
 
 /**
@@ -187,12 +257,16 @@ class HunminInputMethodService : InputMethodService() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return super.onKeyDown(keyCode, event)
 
-        val altRight = (event.metaState and KeyEvent.META_ALT_RIGHT_ON) != 0
-        val altLeft = (event.metaState and KeyEvent.META_ALT_LEFT_ON) != 0
-        val shiftOn = (event.metaState and KeyEvent.META_SHIFT_ON) != 0
+        // A key the settings window is capturing comes here first and nowhere
+        // else: while an IME is the current input method, hardware keys are
+        // dispatched to the IME window, so the activity on top of it never sees
+        // them. Checked before the space handling and the four bindings, or a
+        // chord being captured would also compose and fire its action.
+        if (KeyCaptureSession.feed(KeyEvent.ACTION_DOWN, keyCode, event.metaState)) return true
 
-        // Debug logging for keycodes
-        Log.d(TAG, "onKeyDown: keyCode=$keyCode, metaState=${event.metaState}, altRight=$altRight, altLeft=$altLeft, shiftOn=$shiftOn")
+        // Debug logging for keycodes. metaState is printed raw because the
+        // binding layer normalises it -- seeing the delivered bits is the point.
+        Log.d(TAG, "onKeyDown: keyCode=$keyCode, metaState=${event.metaState}")
 
         // Space during composition: commit syllable AND forward space
         // This is a frontend responsibility (engine declines space during composition)
@@ -207,50 +281,29 @@ class HunminInputMethodService : InputMethodService() {
             return true
         }
 
-        // Hangul/English toggle: Left Alt + Z, Right Alt, or Language Switch key
-        if (keyCode == KeyEvent.KEYCODE_Z && altLeft) {
-            toggleHangulEnglish()
-            return true
-        }
-        // Hangul/English toggle: Right Alt, Language Switch, or Samsung 한/영 key (keyCode 218)
-        if (keyCode == KeyEvent.KEYCODE_ALT_RIGHT
-            || keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH
-            || keyCode == 218) {  // Samsung 한/영 key
-            Log.i(TAG, "Hangul/English toggle triggered by keyCode=$keyCode")
-            toggleHangulEnglish()
-            return true
-        }
-
-        // Voice input trigger: Right Alt + V or Left Alt + V
-        if (keyCode == KeyEvent.KEYCODE_V && (altRight || altLeft)) {
-            startVoiceInput()
-            return true
-        }
-
-        // Hangul/English auto-toggle on/off: Right Alt + Enter
-        if (keyCode == KeyEvent.KEYCODE_ENTER && altRight) {
-            toggleAutoHangulEnglish()
-            return true
-        }
-
-        // Hanja window: Left Alt + X, or Shift + Right Alt, or Shift + Language Switch
-        if (keyCode == KeyEvent.KEYCODE_X && altLeft) {
-            openHanjaWindow()
-            return true
-        }
-        if (keyCode == KeyEvent.KEYCODE_ALT_RIGHT && shiftOn) {
-            openHanjaWindow()
-            return true
-        }
-        if (keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH && shiftOn) {
-            openHanjaWindow()
+        // The four configurable triggers, in KeyAction's declared precedence
+        // order. It is a loop, not four `if`s, because the order is also what the
+        // conflict warning reports: if two actions end up sharing a chord, the
+        // first one here is the one that keeps working, and saying otherwise
+        // would be a lie told by two files that disagree.
+        for (action in KeyAction.byPrecedence()) {
+            if (!fires(action, keyCode, event.metaState)) continue
+            when (action) {
+                KeyAction.HANGUL_ENG -> {
+                    Log.i(TAG, "Hangul/English toggle triggered by keyCode=$keyCode")
+                    toggleHangulEnglish()
+                }
+                KeyAction.VOICE -> startVoiceInput()
+                KeyAction.AUTO_TOGGLE -> toggleAutoHangulEnglish()
+                KeyAction.HANJA -> openHanjaWindow()
+            }
             return true
         }
 
         // Modifier keys on their own (Alt, Ctrl, Meta/Super) must not reach the
         // engine. A physical keyboard delivers the modifier as its own
         // ACTION_DOWN before the chord key (Alt alone arrives first when the
-        // user presses Alt+X for Hanja). Feeding a bare modifier to the engine
+        // user presses the Hanja chord's Shift). Feeding a bare modifier to the engine
         // makes HunminEngine.onKey take its isModifierChord path and flush the
         // in-flight syllable -- which is exactly what left the Hanja lookup
         // with an empty preedit. Handled shortcuts above have already returned;
@@ -281,6 +334,17 @@ class HunminInputMethodService : InputMethodService() {
         return if (consumed) true else super.onKeyDown(keyCode, event)
     }
 
+    /**
+     * Key *release*, fed to a waiting capture for one reason only: binding a bare
+     * modifier (Right Alt on its own) can only be decided on the release, because
+     * while the modifier is down the service cannot yet know whether a chord is
+     * coming. Everything else passes straight through.
+     */
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (KeyCaptureSession.feed(KeyEvent.ACTION_UP, keyCode, event.metaState)) return true
+        return super.onKeyUp(keyCode, event)
+    }
+
     /** Toggle between Hangul and English (Latin) mode. */
     private fun toggleHangulEnglish() {
         isHangulMode = !isHangulMode
@@ -296,14 +360,16 @@ class HunminInputMethodService : InputMethodService() {
             // Switching to English: flush Hangul composition first
             engine?.flush(target)
             latinEngine?.updatePreedit(target)
-            Log.i(TAG, "hunmin: switched to English mode (us-qwerty)")
+            Log.i(TAG, "hunmin: switched to English mode ($latinLayoutId)")
             showModeToast("English")
         }
         picker?.setMicState(
-            if (isHangulMode) LayoutPicker.MicState.IDLE
-            else LayoutPicker.MicState.ERROR
+            if (isHangulMode) VoiceState.IDLE
+            else VoiceState.ERROR
         )
         picker?.setMode(isHangulMode)
+        // The name follows the mode: 한 shows the 한글 array, 영 the 영문 one.
+        picker?.setActiveLayout(currentLayout())
     }
 
     /** Show transient mode indicator (like Samsung's toast). */
@@ -479,12 +545,13 @@ class HunminInputMethodService : InputMethodService() {
      * attempt that throws into the key path takes the whole keyboard with it.
      */
     fun startVoiceInput() {
+        Log.i(TAG, "voice: startVoiceInput (hangul=$isHangulMode, inFlight=${voiceSession != null})")
         if (voiceSession != null) {
             // Already listening; a second tap cancels, which is what a mic
             // button that toggles is expected to do.
             voiceSession?.stop()
             voiceSession = null
-            picker?.setMicState(LayoutPicker.MicState.IDLE)
+            picker?.setMicState(VoiceState.IDLE)
             return
         }
         // Determine language based on current mode
@@ -495,10 +562,10 @@ class HunminInputMethodService : InputMethodService() {
             permissionGate = AndroidPermissionGate(this)
         )
         // Show listening state (blue)
-        picker?.setMicState(LayoutPicker.MicState.LISTENING)
+        picker?.setMicState(VoiceState.LISTENING)
         session.onResult = { result ->
             voiceSession = null
-            picker?.setMicState(LayoutPicker.MicState.IDLE)
+            picker?.setMicState(VoiceState.IDLE)
             when (result) {
                 is VoiceResult.Got -> {
                     // Verify the service is still on the same editor before
@@ -577,7 +644,15 @@ class HunminInputMethodService : InputMethodService() {
      */
     override fun onCreateInputView(): View {
         val view = LayoutPicker(this)
-        view.bind(availableLayouts(), layoutId) { id -> setLayout(id) }
+        view.applyStyle(toolbarStyle())
+        view.setLayouts(LayoutCatalog.sorted(availableLayouts()))
+        view.setActiveLayout(currentLayout())
+        // The indicator opens the settings window AT the layout section rather
+        // than showing a dropdown: choosing a layout is a setting, and a second
+        // place to choose it would be a second source of truth for which one is
+        // active.
+        view.onLayoutClicked = { OverlayActivity.startSettings(this, OverlayActivity.SECTION_LAYOUT_HANGUL) }
+        view.onSettingsClicked = { OverlayActivity.startSettings(this) }
         view.onMicClicked = { startVoiceInput() }
         view.onHanjaClicked = { openHanjaWindow() }
         view.onModeClicked = { toggleHangulEnglish() }
@@ -618,7 +693,8 @@ class HunminInputMethodService : InputMethodService() {
             val id = HunminNative.nativeLayoutId(ctx, i)
             if (id.isEmpty()) continue
             val ko = HunminNative.nativeLayoutName(ctx, i, "ko")
-            out.add(LayoutEntry(id, ko.ifEmpty { id }))
+            val mode = LayoutMode.of(HunminNative.nativeLayoutMode(ctx, i))
+            out.add(LayoutEntry(id, ko.ifEmpty { id }, mode))
         }
         return out
     }
@@ -630,11 +706,21 @@ class HunminInputMethodService : InputMethodService() {
      * it should reach the app. This is the same call the fcitx5 addon's
      * `ensureIc` makes when the layout changes mid-composition.
      */
-    fun setLayout(id: String) {
-        val e = engine
-        if (e == null) { layoutId = id; return }
-        currentInputConnection?.let { e.flush(it) }
-        e.close()
+    /**
+     * Switch one half of the IME to [id].
+     *
+     * The other half is untouched: switching the 한글 layout while in English
+     * mode must not silently change what English mode composes with. The engine
+     * that is not being switched is left alone even when it is the live one.
+     */
+    fun setLayout(mode: LayoutMode, id: String) {
+        val current = if (mode == LayoutMode.LATIN) latinEngine else engine
+        if (current == null) {
+            if (mode == LayoutMode.LATIN) latinLayoutId = id else layoutId = id
+            return
+        }
+        currentInputConnection?.let { current.flush(it) }
+        current.close()
         val next = HunminEngine(ctx, id)
         if (!next.isUsable) {
             // Refuse rather than leave the IME with no engine: the user would
@@ -643,15 +729,72 @@ class HunminInputMethodService : InputMethodService() {
             next.close()
             return
         }
-        layoutId = id
-        engine = next
-        persistLayout(id)
-        syncPicker()
-        currentInputConnection?.let { next.updatePreedit(it) }
+        if (mode == LayoutMode.LATIN) {
+            latinLayoutId = id
+            latinEngine = next
+        } else {
+            layoutId = id
+            engine = next
+        }
+        persistLayout(mode, id)
+        refreshStrip()
+        // Only the engine that is composing right now needs the new preedit.
+        if (!isHangulMode == (mode == LayoutMode.LATIN)) {
+            currentInputConnection?.let { next.updatePreedit(it) }
+        }
     }
 
     /** The active layout id, for the picker UI and for tier E assertions. */
-    fun currentLayout(): String = layoutId
+    /**
+     * Let the settings window read and write what only this service knows.
+     *
+     * The layout list comes from the engine's context, which lives here and
+     * nowhere else; the strip style is stored here so the strip and the window
+     * cannot read different values. One writer, one notification path.
+     */
+    private fun installSettingsBus() {
+        ImeSettings.layoutsProvider = {
+            if (ctx == 0L) null else LayoutCatalog.sorted(availableLayouts())
+        }
+        ImeSettings.layoutChoice = { mode ->
+            when (mode) {
+                LayoutMode.LATIN -> if (ctx != 0L) latinLayoutId else null
+                LayoutMode.HANGUL -> if (ctx != 0L) layoutId else null
+            }
+        }
+        ImeSettings.onLayoutChosen = { mode, id -> setLayout(mode, id) }
+        ImeSettings.toolbarStyle = { readToolbarStyle() }
+        ImeSettings.onToolbarStyleChosen = { style ->
+            runCatching {
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                    .putString(KEY_TOOLBAR_STYLE, style.key).apply()
+            }.onFailure { Log.w(TAG, "hunmin: could not persist the input view style", it) }
+            // Re-render the strip now: a style the user just picked should not
+            // need a field change to appear.
+            picker?.applyStyle(style)
+        }
+    }
+
+    /** The strip style in force, defaulting to the compact one row. */
+    fun toolbarStyle(): ToolbarStyle =
+        ToolbarStyle.of(readToolbarStyleRaw())
+
+    private fun readToolbarStyleRaw(): String? = try {
+        getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_TOOLBAR_STYLE, null)
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun readToolbarStyle(): ToolbarStyle = ToolbarStyle.of(readToolbarStyleRaw())
+
+    /** The layout the IME is composing with RIGHT NOW, whichever mode that is. */
+    fun currentLayout(): String = if (isHangulMode) layoutId else latinLayoutId
+
+    /** The 한글 layout, whether or not it is the one composing at this moment. */
+    fun hangulLayoutId(): String = layoutId
+
+    /** The 영문 layout. */
+    fun latinLayoutId(): String = latinLayoutId
 
     /**
      * Remember the chosen layout across process death.
@@ -662,10 +805,11 @@ class HunminInputMethodService : InputMethodService() {
      * killed without warning and a synchronous disk write on the UI thread is
      * not worth the durability.
      */
-    private fun persistLayout(id: String) {
+    private fun persistLayout(mode: LayoutMode, id: String) {
+        val key = if (mode == LayoutMode.LATIN) KEY_LAYOUT_LATIN else KEY_LAYOUT_HANGUL
         try {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                .putString(KEY_LAYOUT, id).apply()
+                .putString(key, id).apply()
         } catch (e: Exception) {
             // A preference that cannot be written is a lost preference, not a
             // broken IME. Losing it means falling back to the default, which is
@@ -674,8 +818,21 @@ class HunminInputMethodService : InputMethodService() {
         }
     }
 
-    private fun readStoredLayout(): String? = try {
-        getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_LAYOUT, null)
+    /**
+     * The stored layout for [mode], or null when there is nothing usable.
+     *
+     * The 한글 row falls back to the pre-two-mode `layout` key once, so an
+     * upgrade keeps the layout the device already had instead of silently
+     * reverting to the default. That old key is never written again.
+     */
+    private fun readStoredLayout(mode: LayoutMode): String? = try {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (mode == LayoutMode.LATIN) {
+            prefs.getString(KEY_LAYOUT_LATIN, null)
+        } else {
+            prefs.getString(KEY_LAYOUT_HANGUL, null)
+                ?: prefs.getString(KEY_LAYOUT, null)
+        }
     } catch (e: Exception) {
         null
     }
@@ -683,32 +840,10 @@ class HunminInputMethodService : InputMethodService() {
     
 
     /**
-     * Use [preferred] if this build can instantiate it, else the default, else
-     * the first layout the engine does support.
-     *
-     * A stored preference pointing at a layout this build cannot run must
-     * degrade rather than brick the IME, because "I downgraded and now I can't
-     * type" is the worst failure this code can produce.
+     * The preference document note that used to sit here: a stored layout this
+     * build cannot run must degrade rather than brick the IME, because "I
+     * downgraded and now I can't type" is the worst failure this code can
+     * produce. That is LayoutCatalog.resolve()'s fallback chain now, and it has
+     * tier E1 tests where this loop had none.
      */
-    private fun pickLayout(preferred: String): String {
-        val n = HunminNative.nativeLayoutCount(ctx)
-        for (i in 0 until n) {
-            val id = HunminNative.nativeLayoutId(ctx, i)
-            if (id == preferred && HunminNative.nativeLayoutSupported(ctx, i)) return id
-        }
-        // Then the documented default, and only then anything at all: a stored
-        // preference for a layout this build cannot open should land on the
-        // layout the user is documented to get, not on whichever sorts first.
-        for (i in 0 until n) {
-            val id = HunminNative.nativeLayoutId(ctx, i)
-            if (id == DEFAULT_LAYOUT && HunminNative.nativeLayoutSupported(ctx, i)) return id
-        }
-        for (i in 0 until n) {
-            val id = HunminNative.nativeLayoutId(ctx, i)
-            if (HunminNative.nativeLayoutSupported(ctx, i)) return id
-        }
-        return preferred
-    }
 }
-
-

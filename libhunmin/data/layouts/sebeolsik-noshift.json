@@ -6,6 +6,7 @@
     "ko": "세벌식 순아래"
   },
   "engine": "std",
+  "mode": "hangul",
   "aliases": [
     "3s"
   ],

@@ -196,13 +196,13 @@ satisfied: `frontends/fcitx5/test/testmodeswitch.cpp` was added and ctest
 
 | Stage | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Voice trigger: Right Alt + V | ✅ Done | `onKeyDown` handles `KEYCODE_V` + `META_ALT_RIGHT_ON` |
+| 1 | Voice trigger | ✅ Done | **Shift + KANA**, by the maintainer's instruction 2026-10-11 (was Right Alt + V); it is now the configurable 기본값 for 음성 입력, so it lives in `KeyAction.VOICE` rather than in `onKeyDown` |
 | 2 | Auto Hangul/English toggle on/off: Right Alt + Enter | ⚠️ Stub | Key handler added, engine integration pending (B4) |
 | 3 | Voice language follows keyboard mode | ✅ Done | `SpeechRecognizerRecognizer(language)` uses `ko-KR` / `en-US` |
 | 4 | Longer silence timeout (partial results) | ✅ Done | `EXTRA_PARTIAL_RESULTS=true`, 1.5s/3s silence |
-| 5 | Mic button visual state (idle/listening/error) | ✅ Done | `LayoutPicker.setMicState(MicState)` |
+| 5 | Mic button visual state (idle/listening/error) | ✅ Done | `LayoutPicker.setMicState(VoiceState)`; the dock binds it as a green capsule (`res/drawable/toolbar_mic_active.xml`) and styles B and C as a coloured icon |
 | 6 | IME switch button in picker | ✅ Done | Shows system `showInputMethodPicker()` |
-| 7 | Configurable key bindings | 📋 Planned | Persist user preferences for triggers |
+| 7 | Configurable key bindings | ✅ Done 2026-10-11 | `KeyBinding.kt` + the key settings window. Stored as `v1:<keyCode>:<modifiers>` in `hunmin_keys`; the four triggers are read by `HunminInputMethodService.onKeyDown`. Measured by tier E2's settings-window section: a key captured in the window is persisted, displayed back, and fires in the running IME. GitHub issue #12. |
 | 8 | Auto Hangul/English detection engine integration | 🔒 Blocked on B4 | Assignment still open (B4). The ON/OFF default was ruled 2026-10-11: OFF until 0.3, feature enable-able only when its separately-distributed data is present — `wiki/decisions/2026-10-11-auto-switch-off-by-default.md` |
 
 **Evidence that would change this:** if B1 is answered quickly, §2 becomes the
@@ -308,7 +308,7 @@ tree alone:
 | §3 M5 — 29 pyright errors across `tools/*.py` | the measurement-hygiene pass | `pyright tools/` → **0 errors, 0 warnings** |
 | §3 W1 — 1 `.trace.in`, **no `.gold`**, no Android runner | the Android tier-C corpus | 14 `.in`/`.gold` pairs in `tests/conformance/android/`; `tools/android-trace-emit.sh`; `TraceEmit.kt`; per-case `engine-android-conformance-*` in `CMakeLists.txt:422` |
 | §3 W2 — no R8/proguard rules, `isMinifyEnabled = false` | the Android R8/mic/inset change | `frontends/android/app/proguard-rules.pro` (139 lines); `isMinifyEnabled = true` at `app/build.gradle.kts:86` |
-| §3 W4 — mic duplication + nav-bar inset | the Android R8/mic/inset change | mic is a `lateinit` field built in `LayoutPicker.init` (`LayoutPicker.kt:101`), not per-`bind()`; `ViewCompat.setOnApplyWindowInsets` applies the nav-bar inset |
+| §3 W4 — mic duplication + nav-bar inset | the Android R8/mic/inset change | one mic per style: style A's `DockToolbar` and styles B/C's `LayoutPicker` each build exactly one, and `bind()` repaints rather than re-creates; `ViewCompat.setOnApplyWindowInsets` applies the nav-bar inset |
 | §3 N1 — `tools/kcm_export.py` does not exist; no `kcm*` file anywhere | the keymaps exporter | `tools/kcm_export.py` (10,210 bytes) plus 16 files under `frontends/android/keymaps/` |
 | §3 N3 — `seq` symbol tier, "the genuinely open part of P1b-2" | the `seq` symbol tier | `HK_SEQ` in `hunmin_internal.h:18`; `data.c:121-140` parses `{"seq": [...]}`; `ic.c:592` commits it; `doctor.py:57-63` validates it instead of warning |
 | §3 N4 — the deb needs a postinst; `debian/` has no `postinst` | the deb postinst | `debian/hunmin.postinst` — note the **real filename is `hunmin.postinst`, not `postinst`**; the old row's own claim named a path that would never have matched the shipped file |
@@ -427,7 +427,9 @@ W6-CLOSED | grep | tools/android-e2e.sh:input tap.*MICX.*MICY | present | tier E
 W6-CLOSED | grep | tests/manual-checklists/tier-e3-bt-keyboard.md:On emulator \(tier E2\) | present | manual checklist now notes E2 coverage
 N2-CLOSED | grep | .github/workflows/ci.yml:nightly | present | nightly fuzz job added 2026-10-10
 N2-CLOSED | grep | .github/workflows/ci.yml:fuzz | present | fuzz job with LeakSanitizer added 2026-10-10
-N5-CLOSED | path-present | frontends/android/app/src/androidTest | present | Espresso assertions added 2026-10-10
+N5-CLOSED | path-present | frontends/android/app/src/androidTest | present | Espresso assertions added 2026-10-10 — **but they do not compile**; see the assertion below and issue #12
+KEYBINDINGS | grep | frontends/android/app/src/main/java/org/hunmin/ime/KeyBinding.kt:object KeyBinding | present | configurable key bindings, voice stage 7, 2026-10-11
+KEYBINDINGS | grep | tools/android-e2e.sh:the captured chord was persisted | present | tier E2 drives the settings window on the emulator
 N6-CLOSED | path-present | CONTRIBUTING.md | present | external-contributor docs added 2026-10-10
 N6-CLOSED | path-present | debian/control | present | Debian packaging exists
 N6-CLOSED | path-present | debian/hunmin.postinst | present | Debian postinst exists
@@ -437,7 +439,7 @@ SETTINGS-GEAR-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime
 SPACE-COMPOSITION-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:KEYCODE_SPACE | present | space during composition flushes + forwards
 TOGGLE-FLUSH-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:flush | present | hangul/english toggle flushes composition first
 OVERLAY-LIFECYCLE-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:onPause | present | overlay activity lifecycle fixed
-ALT-KEY-218-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:218 | present | alt key 218 (Samsung 한/영) support added
+ALT-KEY-218-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/KeyBinding.kt:218 | present | the Samsung 한/영 keycode is handled as a 한/영 platform alternate; moved out of HunminInputMethodService.kt on 2026-10-11 when the four triggers became KeyAction (issue #12), which is what made this assertion fail and point at the move
 SETTINGS-CRASH-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:AlertDialog.Builder | present | settings dialog crash fixed (default theme)
 R8-SHRINKER | path-present | frontends/android/app/proguard-rules.pro | present | the R8 rules are written
 R8-SHRINKER | grep | frontends/android/app/build.gradle.kts:isMinifyEnabled = true | present | shrinker enabled
@@ -454,7 +456,9 @@ M5-CLOSED | pyright | tools/ | clean | the measurement-hygiene pass; 29 errors -
 W1-CLOSED | path-present | tests/conformance/android/basic-syllables-case14.trace.gold | present | the Android tier-C corpus; 14 pairs now
 W1-CLOSED | path-present | tools/android-trace-emit.sh | present | the Android tier-C corpus added the runner
 W2-CLOSED | path-present | frontends/android/app/proguard-rules.pro | present | the Android R8/mic/inset change
-W4-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:lateinit var micButton | present | the Android R8/mic/inset change; mic is a field, not per-bind
+W4-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:private var micButton | present | the mic is a field on LayoutPicker and is never re-created per state change: a ToolbarState update calls bind(), which repaints the views the current style already has, and only a style change rebuilds them. The field became nullable on 2026-10-11 (issue #12) because rebuild() clears every reference first; that is what the phone crash was — a view still parented to the detached row |
+DOCK-PAINT-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/DockStyle.kt:also { micKey = it } | present | the dock's builder stores the view it adds. Without this, bind() repainted an ImageView that was never in the view tree: the mic reported LISTENING and the screen did not move (measured on SM-S938N, 2026-10-11). The chip and the mode segment were never affected because their fields ARE the views that get added — which is why 한/영 reacted and the mic did not |
+VOICE-E4-CLOSED | path-present | tools/android-voice-check.sh | present | the E4 voice check, a manual tier: the script gates our half of the voice path (key found, tap reaches it, LISTENING, the mic PAINTED while listening, return to idle, result committed, nothing died) and a person judges intelligibility. Recognition accuracy is not gated and cannot be — the transcript is the platform recogniser's and recorded audio cannot be replayed into it. Checklist: tests/manual-checklists/tier-e4-voice.md |
 N1-CLOSED | path-present | tools/kcm_export.py | present | the keymaps exporter; was listed open as "does not exist"
 N3-CLOSED | grep | libhunmin/src/hunmin_internal.h:HK_SEQ | present | the seq symbol tier
 N4-CLOSED | path-present | debian/hunmin.postinst | present | the deb postinst; the real filename is hunmin.postinst
