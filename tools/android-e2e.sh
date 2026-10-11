@@ -560,6 +560,132 @@ if [ "${HUNMIN_SKIP_TRACE:-0}" != "1" ]; then
       --es op disable "$PKG" >/dev/null 2>&1 || true
 fi
 
+# --- the key settings window: capture, save, and the IME honouring it -------
+#
+# WHY THIS SECTION. Every other part of tier E2 drives the IME with keys. The
+# settings window is the one part of the frontend whose whole job is to receive
+# keys and remember them, and nothing measured it: the window wrote
+# `key_<Korean label>` while it read `key_hanja`, nothing read those preferences
+# at all, the capture listener sat on a view that was never focused, and cancel
+# stored the literal string "취소됨" (issue #12). A window that looks right and
+# saves nothing is exactly the shape this suite exists to catch, so it gets
+# measured here -- through the platform's own view hierarchy, like every other
+# assertion in this script.
+#
+# F9 and F10, not chords. `input keyevent` on API 35 has no `--meta`, so adb
+# cannot send Alt+X; and the chord is not what is under test. What is under test
+# is that a key pressed while the capture dialog is up becomes a stored binding,
+# and that the IME then fires on that key. A bare key exercises the whole path.
+
+KEY_PREFS="shared_prefs/hunmin_keys.xml"
+
+# Any binding stored by an earlier run would make the defaults below a lie, and
+# would make this section pass for the wrong reason.
+"$ADB" shell run-as "$PKG" rm -f "$KEY_PREFS" >/dev/null 2>&1 || true
+
+# `--windows`, because the thing being tapped is often in the IME's own window
+# rather than the app's -- the same reason find_mic above needs it.
+dump_ui() {  # dump_ui <remote-path> -> the dump on stdout
+  "$ADB" shell uiautomator dump --windows "$1" >/dev/null 2>&1 || true
+  "$ADB" shell cat "$1" 2>/dev/null || true
+}
+
+# Tap the node whose text contains $1. Bounds come from the dump, never from
+# hardcoded pixels: a fixed coordinate is a test that passes on one image and
+# misses on another, and this suite runs on whatever AVD the host has.
+tap_node() {  # tap_node <text>
+  local node bounds x1 y1 x2 y2
+  node="$(dump_ui /sdcard/tap.xml | tr '>' '\n' | grep -m1 "text=\"[^\"]*$1" || true)"
+  [ -n "$node" ] || fail "no node with text matching '$1' in the current window"
+  bounds="$(printf '%s' "$node" | grep -o 'bounds="[^"]*"' | head -1 | tr -d '"')"
+  [ -n "$bounds" ] || fail "node '$1' carries no bounds: $node"
+  x1=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\1/')
+  y1=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\2/')
+  x2=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\3/')
+  y2=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\4/')
+  "$ADB" shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 )) >/dev/null 2>&1
+}
+
+# Open it the way a user does -- by tapping the gear in the IME's own view.
+# NOT `am start -n org.hunmin.ime/.OverlayActivity`, which is refused:
+# Permission Denial: ... not exported from uid (measured on the emulator). The
+# activity is deliberately not exported, so the only supported route in is from
+# inside the app, and exporting it to make a test reachable would be a security
+# regression bought for a test. The gear button is the same route.
+GEAR_DESC="설정"   # res/values/strings.xml settings_content_description
+GEAR_BOUNDS="$(dump_ui /sdcard/gear.xml | tr '>' '\n' \
+  | grep -F "content-desc=\"$GEAR_DESC\"" \
+  | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+if [ -z "$GEAR_BOUNDS" ]; then
+  restore_surface || true
+  sleep 1
+  GEAR_BOUNDS="$(dump_ui /sdcard/gear.xml | tr '>' '\n' \
+    | grep -F "content-desc=\"$GEAR_DESC\"" \
+    | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+fi
+[ -n "$GEAR_BOUNDS" ] || fail "no settings button (content-desc '$GEAR_DESC') in the IME view"
+set -- $(parse_bounds "$GEAR_BOUNDS")
+[ $# -eq 4 ] || fail "cannot parse the settings button bounds '$GEAR_BOUNDS'"
+"$ADB" shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )) >/dev/null 2>&1
+sleep 2
+
+LIST="$(dump_ui /sdcard/keys.xml)"
+for row in '한/영 전환: ALT_LEFT+Z' '한자 입력: ALT_LEFT+X' \
+           '음성 입력: ALT_LEFT+V' '자동 한/영 토글: ALT_RIGHT+ENTER'; do
+  printf '%s' "$LIST" | grep -q "$row" \
+    || fail "the settings window does not list '$row' -- the defaults are not being shown"
+done
+echo "the window lists all four actions with their defaults"
+
+# Capture 한/영 전환 = F9 (KEYCODE_F9 = 139, measured with javap on android.jar).
+tap_node '한/영 전환'
+sleep 1
+"$ADB" shell input keyevent KEYCODE_F9 >/dev/null 2>&1
+sleep 2
+
+STORED="$("$ADB" shell run-as "$PKG" cat "$KEY_PREFS" 2>/dev/null || true)"
+if ! printf '%s' "$STORED" | grep -q 'name="hangul_eng">v1:139:0<'; then
+  fail "한/영 전환 was not stored as F9; ${KEY_PREFS} holds: ${STORED:-nothing}"
+fi
+echo "the captured chord was persisted to $KEY_PREFS (hangul_eng = v1:139:0)"
+
+# And the window must now DISPLAY what it stored, read back through the same
+# path that decides whether a keystroke fires. A window that saved and still
+# shows the default would be the old bug in a new place.
+AFTER="$(dump_ui /sdcard/keys2.xml)"
+printf '%s' "$AFTER" | grep -q '한/영 전환: F9' \
+  || fail "after capturing F9 the list still does not show it: ${AFTER:0:400}"
+echo "the list shows 한/영 전환: F9 -- the save is readable by the code that fires it"
+
+# Now the half no unit test can cover: the IME itself must honour it. Back out
+# of the window, focus a real editor, and press the key the user just bound.
+"$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
+"$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
+sleep 1
+"$ADB" shell am start -n com.android.settings/.Settings >/dev/null 2>&1 || true
+sleep 2
+tap_node 'Search settings'
+sleep 2
+
+mode_is() {  # mode_is 한|영 -> 0 when the input view shows it
+  dump_ui /sdcard/mode.xml | tr '>' '\n' | grep -q "text=\"$1\""
+}
+
+mode_is '한' || fail "the IME is not showing 한 before the rebound key is pressed"
+"$ADB" shell input keyevent KEYCODE_F9 >/dev/null 2>&1
+sleep 2
+mode_is '영' || fail "F9 did not toggle 한/영 -- the IME is not reading the stored binding"
+echo "F9, bound through the settings window, toggles 한 -> 영 in the running IME"
+
+# Leave no trace: a stored binding would silently change every later run of this
+# tier, which is the same disease as a stale Settings search query above.
+"$ADB" shell run-as "$PKG" rm -f "$KEY_PREFS" >/dev/null 2>&1 || true
+if "$ADB" shell run-as "$PKG" test -f "$KEY_PREFS" 2>/dev/null; then
+  fail "the binding file survived the reset; this tier would poison its own next run"
+fi
+echo "the binding was removed again, so the tier is repeatable"
+
 echo "PASS: the APK installed, the IME was enabled, keys reached the engine," &&
      echo "      and '$EXPECTED' -- byte-identical to the tier A golden -- is" &&
-     echo "      in the field, read back from the platform's own view hierarchy"
+     echo "      in the field, read back from the platform's own view hierarchy," &&
+     echo "      and a key captured in the settings window is the key the IME fires"

@@ -124,10 +124,14 @@ class LayoutPicker @JvmOverloads constructor(
         setBackgroundColor(0x00000000)
 
         // A leading label saying what this control is. The active layout's name
-        // is in the Spinner, so this does not repeat it.
+        // is in the Spinner, so this does not repeat it. Its width is capped
+        // because the layout names are long (sin3-p2-yet and friends) and an
+        // unconstrained Spinner would push every button off the right edge.
         addView(TextView(context).apply {
             text = context.getString(R.string.picker_label)
             setPadding(PAD, 0, PAD / 2, 0)
+            maxWidth = LABEL_MAX_WIDTH
+            ellipsize = android.text.TextUtils.TruncateAt.END
         })
 
         // Mode indicator: clickable ImageButton with globe/keyboard icon + mode text
@@ -163,6 +167,20 @@ val modeIcon = ImageButton(context).apply {
             // On a hardware-key setup this is one tap to reach, so it stays
             // visible rather than hiding behind a gesture nobody will try.
             contentDescription = context.getString(R.string.picker_content_description)
+            // Width 0 + weight 1 is what makes the strip FIT: the label, the mode
+            // toggle, the spinner, the mic, the Hanja key, the IME switch and the
+            // settings key are laid out left to right, and only the spinner may
+            // give up space. Measured on the AVD (API 35, 1080 px): with every
+            // child WRAP_CONTENT the row was 1140 px wide, so the mic was clipped
+            // to 13 px at the right edge and the Hanja and settings buttons were
+            // laid out past the screen entirely -- absent from the accessibility
+            // tree, so nothing could reach the key settings window at all.
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+            // weight only hands out *excess* space; the row overflowed by 48 px
+            // with a weight alone, because a Spinner's suggested minimum width is
+            // its widest item ("sin3-p2-yet" and friends). Zero it, so the one
+            // child that is allowed to shrink does.
+            minimumWidth = 0
         }
         addView(spinner)
 
@@ -296,15 +314,19 @@ val modeIcon = ImageButton(context).apply {
         context.startActivity(intent)
     }
 
-    /** Dialog to capture a key combination from user input. */
-    private fun showKeyCaptureDialog(actionName: String, onComplete: (String) -> Unit) {
-        // For now, just show a toast and return a placeholder
-        android.widget.Toast.makeText(context, "$actionName: 설정 준비 중", android.widget.Toast.LENGTH_SHORT).show()
-        onComplete("준비 중")
-    }
-
     private companion object {
         const val PAD = 16
         const val BTN_PADDING = 24  // Extra padding for easier touch targets
+
+        /**
+         * Cap on the leading label, in pixels.
+         *
+         * A dp constant would scale with the display, which is the point of dp;
+         * this is a floor for the *narrowest* screen the strip is measured on
+         * (411 dp wide on the AVD) and a ceiling everywhere else. The buttons
+         * keep their own size -- a 24 dp tap target is what makes them usable --
+         * so the two flexible things are the label and the Spinner.
+         */
+        const val LABEL_MAX_WIDTH = 200
     }
 }

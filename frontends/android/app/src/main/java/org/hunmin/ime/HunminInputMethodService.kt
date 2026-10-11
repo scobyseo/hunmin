@@ -84,6 +84,19 @@ class HunminInputMethodService : InputMethodService() {
     /** Latin layout engine for English mode. */
     private var latinEngine: HunminEngine? = null
 
+    /**
+     * The configurable key bindings, read from the window that writes them.
+     *
+     * One store for the process: `getSharedPreferences` caches its map, so this
+     * is a lookup per key event and not a disk read. It is a `by lazy` because
+     * the service context is not usable before `onCreate`.
+     */
+    private val keyBindings: KeyBindingStore by lazy { KeyBindings.from(this) }
+
+    /** Does this event fire [action]? Shorthand for the four checks below. */
+    private fun fires(action: KeyAction, keyCode: Int, metaState: Int): Boolean =
+        KeyBindings.matches(keyBindings, action, keyCode, metaState)
+
     override fun onCreate() {
         super.onCreate()
         registerTraceReceiver()
@@ -187,12 +200,16 @@ class HunminInputMethodService : InputMethodService() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return super.onKeyDown(keyCode, event)
 
-        val altRight = (event.metaState and KeyEvent.META_ALT_RIGHT_ON) != 0
-        val altLeft = (event.metaState and KeyEvent.META_ALT_LEFT_ON) != 0
-        val shiftOn = (event.metaState and KeyEvent.META_SHIFT_ON) != 0
+        // A key the settings window is capturing comes here first and nowhere
+        // else: while an IME is the current input method, hardware keys are
+        // dispatched to the IME window, so the activity on top of it never sees
+        // them. Checked before the space handling and the four bindings, or a
+        // chord being captured would also compose and fire its action.
+        if (KeyCaptureSession.feed(KeyEvent.ACTION_DOWN, keyCode, event.metaState)) return true
 
-        // Debug logging for keycodes
-        Log.d(TAG, "onKeyDown: keyCode=$keyCode, metaState=${event.metaState}, altRight=$altRight, altLeft=$altLeft, shiftOn=$shiftOn")
+        // Debug logging for keycodes. metaState is printed raw because the
+        // binding layer normalises it -- seeing the delivered bits is the point.
+        Log.d(TAG, "onKeyDown: keyCode=$keyCode, metaState=${event.metaState}")
 
         // Space during composition: commit syllable AND forward space
         // This is a frontend responsibility (engine declines space during composition)
@@ -207,42 +224,33 @@ class HunminInputMethodService : InputMethodService() {
             return true
         }
 
-        // Hangul/English toggle: Left Alt + Z, Right Alt, or Language Switch key
-        if (keyCode == KeyEvent.KEYCODE_Z && altLeft) {
-            toggleHangulEnglish()
-            return true
-        }
-        // Hangul/English toggle: Right Alt, Language Switch, or Samsung 한/영 key (keyCode 218)
-        if (keyCode == KeyEvent.KEYCODE_ALT_RIGHT
-            || keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH
-            || keyCode == 218) {  // Samsung 한/영 key
+        // The four configurable triggers. Each carries its own defaults — the
+        // chords this accepted before the settings window could store anything —
+        // plus, for 한/영 and 한자, the platform alternates (bare Right Alt,
+        // KEYCODE_LANGUAGE_SWITCH, the Samsung keyCode 218, Shift+Right Alt).
+        // Those survive a rebinding: they are hardware conventions, not user
+        // preferences, and a keyboard whose physical 한/영 key stopped working
+        // because someone moved 한/영 to F9 would be broken. See KeyAction.
+        if (fires(KeyAction.HANGUL_ENG, keyCode, event.metaState)) {
             Log.i(TAG, "Hangul/English toggle triggered by keyCode=$keyCode")
             toggleHangulEnglish()
             return true
         }
 
-        // Voice input trigger: Right Alt + V or Left Alt + V
-        if (keyCode == KeyEvent.KEYCODE_V && (altRight || altLeft)) {
+        // Voice input trigger.
+        if (fires(KeyAction.VOICE, keyCode, event.metaState)) {
             startVoiceInput()
             return true
         }
 
-        // Hangul/English auto-toggle on/off: Right Alt + Enter
-        if (keyCode == KeyEvent.KEYCODE_ENTER && altRight) {
+        // Hangul/English auto-toggle on/off.
+        if (fires(KeyAction.AUTO_TOGGLE, keyCode, event.metaState)) {
             toggleAutoHangulEnglish()
             return true
         }
 
-        // Hanja window: Left Alt + X, or Shift + Right Alt, or Shift + Language Switch
-        if (keyCode == KeyEvent.KEYCODE_X && altLeft) {
-            openHanjaWindow()
-            return true
-        }
-        if (keyCode == KeyEvent.KEYCODE_ALT_RIGHT && shiftOn) {
-            openHanjaWindow()
-            return true
-        }
-        if (keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH && shiftOn) {
+        // Hanja window.
+        if (fires(KeyAction.HANJA, keyCode, event.metaState)) {
             openHanjaWindow()
             return true
         }
@@ -279,6 +287,17 @@ class HunminInputMethodService : InputMethodService() {
             false
         }
         return if (consumed) true else super.onKeyDown(keyCode, event)
+    }
+
+    /**
+     * Key *release*, fed to a waiting capture for one reason only: binding a bare
+     * modifier (Right Alt on its own) can only be decided on the release, because
+     * while the modifier is down the service cannot yet know whether a chord is
+     * coming. Everything else passes straight through.
+     */
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (KeyCaptureSession.feed(KeyEvent.ACTION_UP, keyCode, event.metaState)) return true
+        return super.onKeyUp(keyCode, event)
     }
 
     /** Toggle between Hangul and English (Latin) mode. */

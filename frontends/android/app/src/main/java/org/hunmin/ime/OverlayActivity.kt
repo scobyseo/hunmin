@@ -16,6 +16,7 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.Gravity
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -23,6 +24,30 @@ import androidx.appcompat.app.AppCompatActivity
 class OverlayActivity : AppCompatActivity() {
 
     private var dialog: AlertDialog? = null
+
+    /**
+     * Non-null exactly while a capture dialog is waiting for a chord.
+     *
+     * The flag [capturingDone] makes the two capture paths (the focused view's
+     * listener and the Activity's [dispatchKeyEvent]) mutually exclusive: the
+     * first to answer stores the chord, and the other returns without storing.
+     * Both exist because which one the platform routes a hardware key through is
+     * not something this code controls, and a settings window that silently
+     * captures nothing is worse than one that captures twice.
+     */
+    private var capturingAction: KeyAction? = null
+    private var capturingDone = false
+
+    /**
+     * The capture dialog, held separately from [dialog].
+     *
+     * It is replaced by the list dialog the moment a chord is stored, and
+     * dismissing a window that is already being torn down leaves Android logging
+     * `WindowLeaked: ... DecorView[OverlayActivity]` on destroy. Holding the
+     * reference lets onDestroy close both without depending on which one the
+     * shared field points at.
+     */
+    private var captureWindow: AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +79,12 @@ class OverlayActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        // A capture left installed would swallow the next keystroke the user
+        // types into an editor, with no window on screen to explain why.
+        KeyCaptureSession.clear()
+        capturingAction = null
+        captureWindow?.dismiss()
+        captureWindow = null
         dialog?.dismiss()
         dialog = null
         super.onDestroy()
@@ -95,75 +126,184 @@ class OverlayActivity : AppCompatActivity() {
             .show()
     }
 
-private fun showSettingsDialog() {
-        val prefs = getSharedPreferences("hunmin_keys", MODE_PRIVATE)
-        
-        // Build settings list
-        val currentBindings = mapOf(
-            "한/영 전환" to prefs.getString("key_hangul_eng", "ALT_LEFT+Z"),
-            "한자 입력" to prefs.getString("key_hanja", "ALT_LEFT+X"),
-            "음성 입력" to prefs.getString("key_voice", "ALT_LEFT+V"),
-            "자동 한/영 토글" to prefs.getString("key_auto_toggle", "ALT_RIGHT+ENTER"),
-        )
-        
-        val items = currentBindings.map { "${it.key}: ${it.value}" }.toTypedArray()
-        
-        // Use default AlertDialog - no custom theme to avoid Resource ID #0x0 crash
+/**
+     * The four configurable triggers, each showing the chord that is in force.
+     *
+     * Reads through [KeyBindings] rather than the raw preference, so a stored
+     * binding and the default it replaced are displayed by the same code path
+     * that decides whether a keystroke fires. That is the whole point of the
+     * rewrite: the window used to write `key_<Korean label>` and read
+     * `key_hanja`, so what it showed and what it saved had nothing to do with
+     * each other.
+     */
+    private fun showSettingsDialog() {
+        val store = KeyBindings.from(this)
+        val actions = KeyAction.values().toList()
+        val labels = actions.map { action ->
+            "${action.label}: ${describe(KeyBindings.combos(store, action).first())}"
+        }.toTypedArray()
+
+        dialog?.dismiss()
         dialog = AlertDialog.Builder(this)
             .setTitle("키 바인딩 설정")
-            .setItems(items) { _, which ->
-                val action = currentBindings.keys.elementAt(which)
-                showKeyCaptureDialog(action) { keyCombo ->
-                    val prefs = getSharedPreferences("hunmin_keys", MODE_PRIVATE)
-                    prefs.edit().putString("key_$action", keyCombo).apply()
-                    Toast.makeText(this, "$action: $keyCombo 로 설정됨", Toast.LENGTH_SHORT).show()
-                }
-            }
+            .setItems(labels) { _, which -> showKeyCaptureDialog(actions[which]) }
             .setNegativeButton("닫기") { _, _ -> finish() }
             .setOnCancelListener { finish() }
+            .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
             .show()
     }
 
-    private fun showKeyCaptureDialog(actionName: String, onComplete: (String) -> Unit) {
-        val dialogView = android.widget.TextView(this).apply {
-            text = "$actionName: 키를 누르세요..."
+    /**
+     * Wait for one key chord and store it.
+     *
+     * Two platform facts shape this, both measured on the emulator (issue #12):
+     *
+     *  - A bare `TextView` with a key listener never sees a keystroke. It is not
+     *    focusable and nothing focuses it; the dialog window takes the focus and
+     *    the listener is dead code. So the view is made focusable *and* focused,
+     *    and the Activity watches `dispatchKeyEvent` as a second path — whichever
+     *    the platform routes, the first one to answer wins and [captured] stops
+     *    the other from storing a second chord.
+     *  - Holding Alt delivers `KEYCODE_ALT_LEFT` before `KEYCODE_X`. Capturing
+     *    that first event would bind the action to a bare Left Alt, which is not
+     *    what anybody pressing Alt+X meant. Modifiers are therefore skipped while
+     *    down, and a modifier becomes the binding only on its *release*, when
+     *    nothing else followed it.
+     */
+    private fun showKeyCaptureDialog(action: KeyAction) {
+        val view = TextView(this).apply {
+            text = "${action.label}: 키를 누르세요\n(취소하려면 뒤로 가기)"
             textSize = 18f
-            gravity = android.view.Gravity.CENTER
+            gravity = Gravity.CENTER
             setPadding(48, 48, 48, 48)
+            isFocusable = true
+            isFocusableInTouchMode = true
         }
 
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("$actionName 키 설정")
-            .setView(dialogView)
+        dialog?.dismiss()
+        capturingAction = action
+        capturingDone = false
+
+        val captureDialog = AlertDialog.Builder(this)
+            .setTitle("${action.label} 키 설정")
+            .setView(view)
             .setCancelable(true)
-            .setOnCancelListener { onComplete("취소됨"); finish() }
-            .show()
-
-        dialogView.setOnKeyListener { _, keyCode, event ->
-            if (event.action == KeyEvent.ACTION_DOWN) {
-                val mods = event.metaState
-                val parts = mutableListOf<String>()
-                if ((mods and KeyEvent.META_SHIFT_ON) != 0) parts.add("SHIFT")
-                if ((mods and KeyEvent.META_ALT_LEFT_ON) != 0) parts.add("ALT_LEFT")
-                if ((mods and KeyEvent.META_ALT_RIGHT_ON) != 0) parts.add("ALT_RIGHT")
-                if ((mods and KeyEvent.META_CTRL_ON) != 0) parts.add("CTRL")
-                if ((mods and KeyEvent.META_META_ON) != 0) parts.add("META")
-
-                val keyName = KeyEvent.keyCodeToString(keyCode)
-                val combo = (parts + listOf(keyName)).joinToString("+")
-                dialogView.text = "설정됨: $combo"
-                
-                // Dismiss after a short delay
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    dialog.dismiss()
-                    onComplete(combo)
-                    finish()
-                }, 500)
-                true
-            } else {
-                false
+            .setOnCancelListener {
+                // Cancel stores nothing: the old one wrote the literal string
+                // "취소됨" into the preference and finished the window.
+                capturingAction = null
+                capturingDone = false
+                KeyCaptureSession.clear()
+                captureWindow?.dismiss()
+                captureWindow = null
+                dialog?.dismiss()
+                showSettingsDialog()
             }
+            .show()
+        // The service feeds the capture -- see KeyCaptureSession for why the
+        // activity cannot listen for itself. Installed before the dialog shows so
+        // a key pressed the moment it appears is not lost.
+        KeyCaptureSession.install { keyAction, keyCode, metaState ->
+            handleCaptureKey(keyAction, keyCode, metaState)
         }
+
+        dialog = captureDialog
+        captureWindow = captureDialog
+        // Attached immediately, NOT in onShow: measured on the AVD, a listener
+        // installed from onShow is too late — the dialog's decor view had already
+        // taken input focus and the key went to the activity window instead of
+        // the dialog, where nothing was listening.
+        val decor = captureDialog.window?.decorView
+        decor?.isFocusableInTouchMode = true
+        decor?.setOnKeyListener { _, _, event -> handleCaptureKey(event) }
+        decor?.requestFocus()
+        view.requestFocus()
+        captureDialog.setOnDismissListener {
+            if (!isChangingConfigurations) dialog = null
+        }
+
+        view.setOnKeyListener { _, keyCode, event ->
+            if (handleCaptureKey(event)) true else false
+        }
+    }
+
+    /**
+     * The one place a chord becomes a stored binding.
+     *
+     * Modifiers on their own are ignored while held: pressing Left Alt before X
+     * delivers `KEYCODE_ALT_LEFT` first, and storing that would bind 한/영 to a
+     * bare Left Alt. A modifier becomes the binding only on release, which is how
+     * "I want that key itself" is expressed.
+     */
+    private fun handleCaptureKey(keyAction: Int, keyCode: Int, metaState: Int): Boolean {
+        val action = capturingAction ?: return false
+        if (capturingDone) return true
+
+        val modifier = KeyBinding.isModifierKey(keyCode)
+        when (keyAction) {
+            KeyEvent.ACTION_DOWN -> if (!modifier) storeChord(action, keyCode, metaState)
+            KeyEvent.ACTION_UP -> if (modifier) storeChord(action, keyCode, 0)
+            else -> return false
+        }
+        return true
+    }
+
+    /** The Activity's own listener, for the case where no IME holds the keys. */
+    private fun handleCaptureKey(event: KeyEvent): Boolean =
+        handleCaptureKey(event.action, event.keyCode, event.metaState)
+
+    /** Store [combo] for [action] and return to the list, exactly once. */
+    private fun storeChord(action: KeyAction, keyCode: Int, metaState: Int) {
+        if (capturingDone) return
+        capturingDone = true
+        capturingAction = null
+        KeyCaptureSession.clear()
+        val combo = KeyCombo(keyCode, KeyBinding.normalise(metaState))
+        Log.d(TAG, "captured ${action.prefKey} = ${combo.keyCode}/${combo.modifiers}")
+        captureWindow?.dismiss()
+        captureWindow = null
+        KeyBindings.set(KeyBindings.from(this), action, combo)
+        Toast.makeText(this, "${action.label}: ${describe(combo)}", Toast.LENGTH_SHORT).show()
+        // Back to the list rather than finish(): one binding per visit made the
+        // window useless for the second key, and the new value has to be visible.
+        dialog?.dismiss()
+        showSettingsDialog()
+    }
+
+    /**
+     * Second capture path, for when the dialog's own view never gets focus.
+     *
+     * Only active while a capture dialog is up ([capturingAction] non-null), and
+     * only for a chord the user could plausibly mean: a modifier on its own is
+     * ignored here so a half-typed Alt+X does not bind the Alt.
+     */
+    /**
+     * Second capture path, for when the dialog's own view never gets focus.
+     *
+     * Returns true while a capture is pending so the chord never leaks to
+     * whatever is behind the dialog; before this, a captured key could fall
+     * through to the IME and type a character into the field the user was editing.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (capturingAction == null) return super.dispatchKeyEvent(event)
+        handleCaptureKey(event)
+        return true
+    }
+
+    /**
+     * A chord as the user reads it: `ALT_LEFT+X`, `ALT_RIGHT` on its own.
+     *
+     * The only place in the feature that needs the framework's name lookup —
+     * `KeyEvent.keyCodeToString` is a method, so it is unavailable to tier E1's
+     * JVM tests, which is part of why storage is numeric (KeyBinding's header).
+     */
+    private fun describe(combo: KeyCombo): String {
+        val parts = mutableListOf<String>()
+        if ((combo.modifiers and KeyBinding.META_ALT_LEFT) != 0) parts.add("ALT_LEFT")
+        if ((combo.modifiers and KeyBinding.META_ALT_RIGHT) != 0) parts.add("ALT_RIGHT")
+        if ((combo.modifiers and KeyBinding.META_SHIFT) != 0) parts.add("SHIFT")
+        parts.add(KeyEvent.keyCodeToString(combo.keyCode).removePrefix("KEYCODE_"))
+        return parts.joinToString("+")
     }
 
     private fun showToast() {
@@ -184,9 +324,6 @@ private fun showSettingsDialog() {
         const val EXTRA_HANJA_CANDIDATES = "candidates"
         const val EXTRA_HANJA_DETAILS = "details"
         const val EXTRA_TOAST_TEXT = "text"
-        const val EXTRA_SETTINGS_ACTION = "action"
-        const val EXTRA_SETTING_KEY = "key"
-        const val EXTRA_SETTING_VALUE = "value"
 
         const val RESULT_HANJA_SELECTED = 1
         const val EXTRA_SELECTED_HANJA = "selected_hanja"
