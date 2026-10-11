@@ -94,7 +94,11 @@ dpkg -i hunmin_0.1.0_amd64.deb     # see ~/work for the built artefact
 ```
 
 Android: `frontends/android/gradlew assembleDebug` after building the core for
-each ABI (`tools/build-android.sh`).
+each ABI (`tools/build-android.sh`). The APK's `versionName` is `0.1.0-p5` —
+the release is `0.1.0` (same as the .deb above) and the `-p5` is the Android
+build-phase label, not a different release; the keymaps APK carries
+`0.1.0-p5.5` for the same reason. The convention is recorded in
+`docs/MILESTONES.md` §0.1 (issue #9).
 
 **Known limitation (Android voice input):** recognition quality has no
 automated assertion — recorded audio cannot be replayed into the recogniser,
