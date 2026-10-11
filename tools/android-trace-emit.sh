@@ -81,7 +81,19 @@ export PATH="$JDK/bin:$PATH"
 # Host build of the JNI shim (same as android-unit.sh)
 SHIM="$ROOT/build/libhunjni-host.so"
 if [ ! -f "$SHIM" ]; then
-    "$ROOT/tools/build-host-jni.sh" || exit $?
+    # Build-log to stderr, stdout left clean.
+    #
+    # trace-check.py parses this script's ENTIRE stdout as JSONL (it feeds
+    # proc.stdout straight to load_text_as_records), so a single non-JSON line
+    # here fails the test. build-host-jni.sh prints its ldd proof and the
+    # output path to stdout for a human running it by hand, and on a cold
+    # build/ that text landed in front of TraceEmit's output and every one of
+    # the fourteen Android conformance tests failed deterministically.
+    #
+    # The build log is not discarded -- it goes to stderr, which trace-check.py
+    # prints only on failure. Fixing it at the call site rather than in
+    # build-host-jni.sh keeps that script useful when run directly.
+    "$ROOT/tools/build-host-jni.sh" >&2 || exit $?
 fi
 
 # --- classpath cache ------------------------------------------------------
@@ -138,5 +150,18 @@ CP="$(paste -sd: "$CACHE")"
 # HUNMIN_JNI_LIB / HUNMIN_REPO_ROOT were passed by the old Gradle task from
 # -P properties; TraceEmit reads them from the environment, which is simpler
 # and is what runTraceEmit ended up doing anyway (build.gradle.kts:241-242).
+#
+# The stdout encoding is pinned because the JVM does not inherit a UTF-8 locale
+# the way CPython does. Under debian/rules' `export LC_ALL=C` (measured in the
+# obj-x86_64-linux-gnu build tree, all 14 Android conformance cases) Java 17's
+# default stdout charset is US-ASCII and every Korean preedit became '?': the
+# JSON still parsed -- that half of the cold-build failure was build-host-jni.sh
+# leaking its ldd proof into stdout -- but the values were destroyed. Python
+# coerces the C locale to UTF-8 (PEP 540) and is why the x11 half passed in the
+# same run. Both properties: file.encoding covers older code paths,
+# stdout.encoding covers the PrintStream itself (18+ ignore sun.*, 17 knows only
+# sun.stdout.encoding -- set the pair that each version reads).
 HUNMIN_JNI_LIB="$SHIM" HUNMIN_REPO_ROOT="$ROOT" \
-    exec "$JDK/bin/java" -cp "$CP" org.hunmin.ime.TraceEmit "$TRACE_IN_ABS"
+    exec "$JDK/bin/java" -Dfile.encoding=UTF-8 \
+    -Dsun.stdout.encoding=UTF-8 -Dstdout.encoding=UTF-8 \
+    -cp "$CP" org.hunmin.ime.TraceEmit "$TRACE_IN_ABS"

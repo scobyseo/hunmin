@@ -143,6 +143,16 @@
   `cursorKeepInSamePage` is set (it is not), so Up/Down reaches every candidate; measured
   against a replica, not assumed, and the note in the code says which way the measurement cut.
   I8 budget 465 → 545 (reason recorded, not code shaved). D2 tier verifies.
+- **Android conformance cold-run failure, closed** (the "found, not fixed" item
+  in the 10-10 entry below) — two causes behind one red. First:
+  `tools/build-host-jni.sh`'s ldd proof entered the runner's stdout, which
+  `trace-check.py` parses entirely as JSON; the call site now routes it to
+  stderr. That fix exposed the second, which only `dpkg-buildpackage` shows:
+  its `export LC_ALL=C` makes Java's stdout charset US-ASCII, so every Korean
+  preedit became `?` while the JSON parsed fine — Python's PEP 540 coercion is
+  why the x11 half stayed green beside it. The runner pins UTF-8 by
+  declaration now. Both rules are in `docs/trace-spec.md`; deb build passes
+  end to end, 14/14 cold.
 
 ## [2026-10-10] create | D3 case coverage, mutation tiers, ctest labels
 
@@ -167,7 +177,9 @@
   cold `build/libhunjni-host.so`, because `tools/build-host-jni.sh` prints its
   `ldd` proof to stdout and `tools/trace-emit`'s consumer parses line 1 as
   JSON. Deterministic, 3/3 cold runs. Those harness files belong to the Android
-  work in another worktree.
+  work in another worktree. *(Fixed 2026-10-11, below. The record of how it
+  read on 10-10 stays because fixing it exposed a second cause behind the same
+  red, and that one was only visible from inside `dpkg-buildpackage`.)*
 
 ## [2026-10-10] update | Orca GUI probe, retracted same day
 

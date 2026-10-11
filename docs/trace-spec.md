@@ -124,6 +124,19 @@ mismatch, exit 77 to skip when the platform's frontend is not built. Exit 77 mat
 C is host-only and must not turn red on a machine that legitimately lacks the toolchain
 (docs/TESTING.md tier D3 uses the same convention for Xvfb).
 
+Two runner-channel rules, each learned from a deterministic 14-of-14 failure of the
+Android conformance suite inside `dpkg-buildpackage`, green in every local run:
+
+- **stdout is JSONL only.** `trace-check.py` parses the runner's *entire* stdout as
+  records; one progress line from a nested build step fails every case. A runner that
+  invokes another tool for setup must route that tool's human output to stderr
+  (`build-host-jni.sh`'s ldd proof, `tools/android-trace-emit.sh:84`).
+- **stdout is UTF-8 by declaration, not by locale.** The JVM does not follow Python's
+  PEP 540 coercion: under `LC_ALL=C` — which `debian/rules` exports — Java's default
+  stdout charset mangles every non-ASCII preedit into `?` while the JSON still parses.
+  The runner passes `-Dfile.encoding=UTF-8` and both stdout-encoding properties
+  (`sun.stdout.encoding` for Java 17, `stdout.encoding` for 18+).
+
 ## What is deliberately not here
 
 - **No timing, no focus events, no candidate-window geometry.** Those belong to tiers
