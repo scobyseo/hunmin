@@ -17,7 +17,12 @@ places"). Item ids (B1–B9, §2's items, W/N rows) are cited, never restated.
 | 0.1 | fcitx5 + Android first edition |
 | 0.2 | Windows TSF frontend (P6) |
 | 0.3 | 자동 한/영 전환 (the modeswitch feature, R8/E5) |
+| 0.4 | 소프트 키보드 — 두벌식 + QWERTY + 기호 입력 |
 | 1.0 | after a usage-polish pass |
+
+The 0.4 lane was added by the maintainer on 2026-10-11, after the first cut of this
+file recorded the soft keyboard as laneless. Its goal, stated by the maintainer:
+두벌식 + qwerty + 기호 입력 지원.
 
 **Lane assignment is a plan, and a plan can be re-cut.** Nothing here settles a
 blocked item; B1–B9 remain the maintainer's rulings wherever they are named.
@@ -79,11 +84,74 @@ This lane inherits **everything §2 of `REMAINING-WORK.md` holds hostage to B1**
   shippable when its own metrics have a number the maintainer set.
 - B4's key assignment lands here rather than in 0.1.
 
-One consequence worth naming: **soft keyboard sits with no lane.** The instruction
-places 사용성 개선 after 0.3, and `REMAINING-WORK.md` records the soft keyboard as
-having no assigned priority. Naming it explicitly: it has been assigned no priority
-by this re-cut either. Voice stage 7 (configurable key bindings) is the natural
-companion whenever that decision is made.
+One consequence worth naming, and then correcting: the first cut of this file found
+**soft keyboard with no lane** — `REMAINING-WORK.md` recorded it as having no
+assigned priority, and that re-cut did not assign one. On 2026-10-11 the maintainer
+gave it one: it is release **0.4**, below. Voice stage 7 (configurable key bindings)
+remains unplaced; whether it joins the 0.4 lane is the same decision the lane now
+makes concrete.
+
+## 0.4 — 소프트 키보드 (두벌식 + QWERTY + 기호)
+
+The maintainer's goal, verbatim: 두벌식 + qwerty + 기호 입력 지원. This was the
+item `REMAINING-WORK.md` §3 recorded as "no priority has been assigned to it by
+anyone" — the assignment is now made, and the board pointer at the top of that file
+reflects the plan, not the item rows (status claims stay there; this lane cites).
+
+**What already exists, measured against the tree:**
+
+- **Layouts as data.** `dubeolsik.json` (26 keys) and `us-qwerty.json` (47 keys)
+  are in `libhunmin/data/layouts/`, each key carrying a `plain` and a `shift`
+  layer. The engine maps a key event to jamo/literal; it does not care whether the
+  event came from hardware or a touch. AGENTS.md's one idea — layout behaviour is
+  data — is exactly what makes this lane mostly presentation work.
+- **The composition engine and eojeol buffer** already serve the hardware path on
+  Android (`LayoutPicker.kt` renders the layout strip today; it is a strip plus a
+  mic, not keys).
+- **Keymap export tooling** (`tools/kcm_export.py`, 16 files under
+  `frontends/android/keymaps/`) exists for hardware keymaps and is a candidate
+  source for key-cap labels — unverified whether it covers labels or only codes.
+
+**The design question the lane owns — and the data says it is real:**
+
+Three-goal support means **three layers per key** (plain / shift / 기호), but the
+layout JSON encodes only `plain` and `shift` (measured: 47/47 keys in `us-qwerty`
+carry both, nothing carries a third). So 기호 입력 needs a decision before any
+pixel is drawn, and the honest options are comparable:
+
+1. **A symbol layer in the layout data** — a third per-key entry (e.g. `alt` or
+   `symbol`), still data, still no engine change; the engine already takes key
+   primitives (`Literal | SlotJamo | Ambiguous | Sequence`). Cost: a schema change
+   to `docs/SPEC-SCHEMA.md` territory and `doctor.py` validation, and every layout
+   file grows.
+2. **A separate symbol layout/page in the frontend** — the keyboard shows a
+   symbol grid that sends ordinary key events or direct commit strings. Cost: the
+   symbol set lives in the frontend or a new data file, not in `data/layouts/`;
+   two homes for what "what symbols exist" means.
+3. **Hardware-convention emulation** (long-press on a key yields its shifted/symbol
+   variant, Android-style) on top of option 1.
+
+Which is the optimum is a design analysis for the lane to write, not a ruling here
+(AGENTS.md: analysis presents designs as comparable; the maintainer chooses). What
+the measurement above does settle is that **doing 0.4 as "just render the JSON" is
+not sufficient** — the third layer does not exist in the data today.
+
+**Scope boundaries implied by the goal:**
+
+- 두벌식 + QWERTY only, so 0.4 does not block on 세벌식/sin3-p2 key-grid ergonomics;
+  but because layouts are data, shipping more is a content decision, not a code one.
+- Android first (where "soft keyboard" names a real gap: the input view today).
+  Whether fcitx5 needs anything (onboard etc.) is out of scope unless named.
+- QWERTY means the Latin path through the engine must survive touch: `us-qwerty`
+  is marked "Latin, no composition" in its own name field — the commit path for
+  direct Latin text from touch needs at least one golden test.
+- Shift state, auto-capitals, and gesture (swipe) input are not in the stated goal;
+  they enter only if the lane's spec asks.
+
+**Prior-art note:** absence of prior art in this repo is a gap, not a verdict —
+Android IMEs universally ship a soft keyboard, so this lane closes a standard
+capability, and the interesting question is only which layer model the data should
+carry.
 
 ## 1.0 — after usage polish
 
