@@ -127,6 +127,23 @@
   `XMODIFIERS=@im=fcitx` routes GTK's XIM module to the same fcitx5.
 - Full record: [[2026-10-09-gtk-forward-path]].
 
+## [2026-10-11] update | Character-loss trio, 16K align, fcitx5 Hanja keyboard UX
+
+- **Character-loss trio** — three Android bugs invisible on this machine (hanja commit
+  appended; modifier-only `onKeyDown` reaching the engine flushed in-flight composition;
+  Android only copied `layouts`/`compose` and passed no `data_dir` to `hunmin_suggest_count`,
+  so `hanja.json` showed zero candidates). Guards now land in tier E1 (3 tests) and the
+  16K-alignment check script, and a modes-corpus inventory records that
+  `modes-corpus-selfcheck` is already SKIP-not-green because the corpus is not deployable.
+- **16K alignment** — `libhunjni.so` was 4KB-aligned from the separate AGP
+  `externalNativeBuild`; pinned `max-page-size=16384` in that CMake. The `${HUNMIN_DATA_PATH}`,
+  Korean-locale, and NDK-path facts are environment-local and do not belong in the repo.
+- **fcitx5 Hanja UX** — vertical layout hint, plus keyboard selection (Up/Down/PageUp/PageDown/
+  Return/Escape). `CommonCandidateList::moveCursor` rotates over `totalSize()` unless
+  `cursorKeepInSamePage` is set (it is not), so Up/Down reaches every candidate; measured
+  against a replica, not assumed, and the note in the code says which way the measurement cut.
+  I8 budget 465 → 545 (reason recorded, not code shaved). D2 tier verifies.
+
 ## [2026-10-10] create | D3 case coverage, mutation tiers, ctest labels
 
 - [[2026-10-10-d3-case-coverage]] — `engine-d3-x11` reported Passed in 5.01 s
