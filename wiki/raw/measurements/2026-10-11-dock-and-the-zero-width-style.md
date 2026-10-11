@@ -1,13 +1,16 @@
 ---
 title: The dock, and the style that measured zero pixels wide
 created: 2026-10-11
-updated: 2026-10-11
+updated: 2026-10-12
 type: measurement
-status: active
+status: superseded
 ingested: 2026-10-11
 tags: [android, ui, phosphor, measurements]
 sources:
-  - ../../../frontends/android/app/src/main/java/org/hunmin/ime/DockStyle.kt
+  # DockStyle.kt was removed with the whole unreachable DockToolbar
+  # (F5, maintainer ruling 2026-10-12, issue #33); citing a deleted file
+  # would fail lint, so the citation lives here as a comment and the
+  # body below is the record of the measurement as it was made.
   - ../../../frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt
   - ../../../frontends/android/licences/phosphor-icons/README.md
   - ../measurements/2026-10-11-key-settings-window.md
@@ -15,6 +18,13 @@ confidence: high
 ---
 
 # The dock, and the style that measured zero pixels wide
+
+> **Superseded 2026-10-12 — the dock is removed.** The maintainer ruled
+> "F5 -> remove!" (issue #33) and `DockStyle.kt`/`DockToolbar` — the
+> unreachable style A — is deleted. The measurement below stands as the
+> evidence of how the dock was built and measured while it lived, and of
+> the zero-width finding that still governs the flat strip's
+> `MATCH_PARENT` fix. Nothing here is a plan to bring it back.
 
 Two records. The first is a design the maintainer specified in full; the second is a
 measurement that has nothing to do with it and would not have been found without it.
@@ -114,5 +124,5 @@ an SM-S938N; the loop as a whole has not been run end to end.
 
 Whether style C earns its place now that the dock exists is a question for the
 maintainer; the measurement here is only that it rendered nothing and now renders two
-rows. See [[2026-10-11-key-settings-window]] for the strip this replaces, and
-[[decisions-belong-to-the-maintainer]] for why none of this is written down as a ruling.
+rows. See 2026-10-11-key-settings-window for the strip this replaces, and
+decisions-belong-to-the-maintainer for why none of this is written down as a ruling.

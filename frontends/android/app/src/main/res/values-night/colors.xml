@@ -9,5 +9,19 @@
     <color name="hunmin_on_primary">#381E72</color>
     <color name="hunmin_primary_soft">#4F378B</color>
     <color name="hunmin_mic_active">#66BB6A</color>
-    <color name="hunmin_on_mic_active">#0A2E0C</color>
+
+    <!--
+      The HUD tokens, night set — the dark slate the HUD always used, now as
+      the dark half of the day/night pair (review F3). Contrast on the
+      #1E1E24 panel: on-panel 14.9:1, secondary 5.1:1, accent 9.6:1,
+      confirmed 7.0:1, keycap text 12.5:1.
+    -->
+    <color name="hunmin_hud_panel">#1E1E24</color>
+    <color name="hunmin_hud_on_panel">#F2F2F7</color>
+    <color name="hunmin_hud_secondary">#8E8E93</color>
+    <color name="hunmin_hud_keycap">#2C2C2E</color>
+    <color name="hunmin_hud_keycap_outline">#48484A</color>
+    <color name="hunmin_hud_accent">#64D2FF</color>
+    <color name="hunmin_hud_accent_bg">#152D3D</color>
+    <color name="hunmin_hud_confirmed">#66BB6A</color>
 </resources>

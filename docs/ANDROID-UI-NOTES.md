@@ -19,25 +19,30 @@ product:
 
 | Family | Where | Palette source |
 |---|---|---|
-| **Dock** | one-line/two-line toolbar strip | `DockStyle.kt` + `@color/hunmin_*` in `res/values/colors.xml` |
-| **Compact HUD** | `OverlayActivity.kt` settings/inspector dialogs | `CompactTheme` object (Kotlin, in-file) |
+| **Strip** | one-line/two-line toolbar strip | `LayoutPicker.kt` + `@color/hunmin_*` in `res/values/colors.xml` |
+| **Compact HUD** | `OverlayActivity.kt` settings/inspector dialogs | `CompactTheme` cache over `@color/hunmin_hud_*` (same two files) |
 
-`CompactTheme` is a high-contrast dark-slate palette for a
-hardware-keyboard inspector: `BG_PANEL #1E1E24`, `TEXT_PRIMARY #F2F2F7`,
-`KEY_BG #2C2C2E` / `KEY_BORDER #48484A` keycaps, `ACCENT #64D2FF` electric
-cyan on `ACCENT_BG #152D3D`, `DIVIDER #2C2C2E`. The dialog shell
-(`res/drawable/dialog_background.xml`) fills with the *same* `#1E1E24` —
-see §4 for why that is not a free choice.
+Since 2026-10-12 (issue #33, ruling "F3 -> implement modes") both families
+are day/night pairs over the same two resource files: the HUD's day set is
+the M3 light surface family (panel `#F3EDF7`, secondary `#49454F`, accent
+`#006494`, confirmed `#106B21`, white keycaps) and the night set is the
+dark slate the HUD launched with (`BG_PANEL #1E1E24`, `TEXT_PRIMARY
+#F2F2F7`, `KEY_BG #2C2C2E` / `KEY_BORDER #48484A`, `ACCENT #64D2FF`
+electric cyan on `ACCENT_BG #152D3D`). The dialog shell
+(`res/drawable/dialog_background.xml`) fills with `@color/hunmin_hud_panel`
+— see §4 for why that fill is not a free choice.
 
 Row anatomy (settings list): 38dp rows, title left in
 `Typeface.DEFAULT_BOLD`, value **badge** right in `Typeface.MONOSPACE,
-BOLD` inside a cyan-outlined rounded track — the badge is meant to read
+BOLD` inside an accent-outlined rounded track — the badge is meant to read
 like a keycap, so monospace is the style, not a flourish. Titles get
 `layout_weight 1` + `ellipsize END`; the badge is `wrap_content`,
 `weight 0` + `ellipsize END`. Weighting the badge would compress the
 title column to nothing (§3).
 
-The window is `(widthPixels * 0.92)` via `dialog.window.setLayout()`.
+The window width is `dialogWidth()` (window size class: 92% of a compact
+window capped at 328dp, the 560dp M3 content column on expanded windows —
+issue #33, review F10).
 A settings list wants the width it asks for; wrap-content lists (§2)
 starve it.
 

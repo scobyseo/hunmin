@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Hanja conversion is running: the key is highlighted. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@color/hunmin_primary_soft" />
-    <corners android:radius="20dp" />
-</shape>

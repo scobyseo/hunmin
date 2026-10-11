@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The dock's colours, as Material 3 baseline tokens.
+  The strip's colours, as Material 3 baseline tokens.
 
   Named, not inlined in the toolbar, for two reasons: the dark values are the
   real requirement (a dock is drawn over whatever the app is doing, and a light
@@ -18,5 +18,27 @@
     <color name="hunmin_primary_soft">#EADDFF</color>
     <!-- Green 600, per the voice state: dark enough to read white on. -->
     <color name="hunmin_mic_active">#43A047</color>
-    <color name="hunmin_on_mic_active">#FFFFFF</color>
+
+    <!--
+      The Compact HUD's palette (OverlayActivity), as named tokens rather
+      than the in-file literals it used to carry (review F1).
+
+      Day/night both, since 2026-10-12 (review F3 — the maintainer ruled
+      "F3 -> implement modes"). Until then the HUD was hard always-dark;
+      now the day set is the M3 light surface family and the night set the
+      dark slate it always was. Same token names, two measured palettes.
+
+      Every pair is measured WCAG AA on its own panel. Day (panel #F3EDF7):
+      on-panel 14.9:1, secondary 8.1:1, accent 5.6:1, confirmed 5.8:1,
+      keycap text 17.1:1. Night (panel #1E1E24): on-panel 14.9:1,
+      secondary 5.1:1, accent 9.6:1, confirmed 7.0:1, keycap text 12.5:1.
+    -->
+    <color name="hunmin_hud_panel">#F3EDF7</color>
+    <color name="hunmin_hud_on_panel">#1D1B20</color>
+    <color name="hunmin_hud_secondary">#49454F</color>
+    <color name="hunmin_hud_keycap">#FFFFFF</color>
+    <color name="hunmin_hud_keycap_outline">#79747E</color>
+    <color name="hunmin_hud_accent">#006494</color>
+    <color name="hunmin_hud_accent_bg">#E1F0FA</color>
+    <color name="hunmin_hud_confirmed">#106B21</color>
 </resources>
