@@ -266,6 +266,12 @@ class LayoutPicker @JvmOverloads constructor(
  * The wrapper is unconditional on purpose: it is the answer to the width
  * where the gaps are already at their smallest and the buttons still do not
  * fit, and a view that does not need to scroll is invisible to the user.
+ *
+ * The row carries the dock's own pill (toolbar_dock, elevation) so the
+ * one-line strip is the same M3 surface as the two-line one and picks up the
+ * night variant through the colour tokens — review F4. The background sits
+ * on the scroll view, not the row, so it spans the full viewport however
+ * far the row is scrolled.
  */
 private fun oneLine(): View {
     val scroll = HorizontalScrollView(context).apply {
@@ -273,6 +279,10 @@ private fun oneLine(): View {
         isFillViewport = true
         isFocusable = false
         isFocusableInTouchMode = false
+        background = ContextCompat.getDrawable(context, R.drawable.toolbar_dock)
+        ViewCompat.setElevation(this, dp(4).toFloat())
+        minimumHeight = dp(48)
+        setPadding(dp(10), dp(4), dp(10), dp(4))
     }
     val row = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
@@ -355,14 +365,26 @@ private fun oneLine(): View {
             contentDescription = context.getString(R.string.picker_content_description)
         }
 
-    /** The 한/영 toggle: a pill with the mode letter, tappable. */
+    /**
+     * The 한/영 toggle: a pill with the mode letter, tappable.
+     *
+     * M3 roles, not hardcoded black on white — review F4. The active state
+     * is the FILLED half (primary background, on-primary text, selected),
+     * the same semantics as the dock's segment: `isSelected` is what the
+     * e2e suite and a screen reader read, so the strip's state stays
+     * colour-independent.
+     */
     private fun modePill(): View {
+        val onSurface = color(R.color.hunmin_on_surface)
+        val onPrimary = color(R.color.hunmin_on_primary)
         val label = TextView(context).also { modeView = it }.apply {
             textSize = 14f
             gravity = Gravity.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setBackgroundColor(0xFFFFFFFF.toInt())
-            setTextColor(0xFF000000.toInt())
+            setTextColor(if (modeIsHangul) onPrimary else onSurface)
+            background = ContextCompat.getDrawable(context,
+                if (modeIsHangul) R.drawable.toolbar_segment_active
+                else R.drawable.toolbar_segment_track)
             setPadding(PAD_DP, PILL_PAD_DP, PAD_DP, PILL_PAD_DP)
             contentDescription = context.getString(R.string.mode_switch_content_description)
             setOnClickListener { onModeClicked?.invoke() }
@@ -382,11 +404,15 @@ private fun oneLine(): View {
     /**
      * The Hanja key: 漢, a label rather than an icon.
      *
-     * It was `ic_menu_add` — a plus sign — which says "add something", not "make
-     * this Hangul into Hanja". The maintainer's words: "한자로 바꾼다는 게 눈에
+     * It was `ic_menu_add` — a plus sign — which says "add something", not
+     * "make this Hangul into Hanja". The maintainer's words: "한자로 바꾼다는 게 눈에
      * 띄었으면 좋겠는데". The dock's own design (DockStyle.kt) asks for [ 漢 ] for
      * the same reason, so B and C say it in the same character rather than
      * leaving two spellings of one key.
+     *
+     * on-surface on the strip's surface — a role pair, not white on black:
+     * at night the old hard pair put black 漢 on the dark dock (review F4,
+     * and the reason the flat styles need the token set at all).
      */
     private fun hanjaButton(): TextView =
         TextView(context).apply {
@@ -394,8 +420,8 @@ private fun oneLine(): View {
             textSize = 16f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setTextColor(0xFF000000.toInt())
-            setBackgroundColor(0xFFFFFFFF.toInt())
+            setTextColor(color(R.color.hunmin_on_surface))
+            background = ContextCompat.getDrawable(context, R.drawable.toolbar_chip)
             contentDescription = context.getString(R.string.hanja_content_description)
             setOnClickListener { onHanjaClicked?.invoke() }
             setPadding(HANJA_PAD_DP, HANJA_PAD_DP, HANJA_PAD_DP, HANJA_PAD_DP)
@@ -409,7 +435,7 @@ private fun oneLine(): View {
         ImageButton(context).also { micButton = it }.apply {
             setImageResource(R.drawable.ph_microphone)
             contentDescription = context.getString(R.string.voice_content_description)
-            setBackgroundColor(0x00000000)
+            background = ContextCompat.getDrawable(context, R.drawable.toolbar_chip)
             setOnClickListener { onMicClicked?.invoke() }
             setPadding(BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP)
             minimumWidth = TOUCH_DP
@@ -422,7 +448,7 @@ private fun oneLine(): View {
         ImageButton(context).also { settingsButton = it }.apply {
             setImageResource(R.drawable.ph_gear)
             contentDescription = context.getString(R.string.settings_content_description)
-            setBackgroundColor(0x00000000)
+            background = ContextCompat.getDrawable(context, R.drawable.toolbar_chip)
             setOnClickListener { onSettingsClicked?.invoke() }
             setPadding(BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP)
             minimumWidth = TOUCH_DP
@@ -443,6 +469,11 @@ private fun oneLine(): View {
     /**
      * B and C's mic colouring.
      *
+     * The tint is the RESOURCE colour, not a hardcoded literal, so the night
+     * palette's darker green applies at night — review F4b. The old literal
+     * `0xFF43A047` measured 3.30:1 on the light surface and stayed wrong in
+     * both modes.
+     *
      * The green capsule is the dock's business; a flat row has no pill to fill,
      * so the icon carries the state there, as it did before.
      */
@@ -450,7 +481,7 @@ private fun oneLine(): View {
         val button = micButton ?: return
         val color = when (voiceState) {
             VoiceState.IDLE -> 0
-            VoiceState.LISTENING -> 0xFF43A047.toInt()
+            VoiceState.LISTENING -> color(R.color.hunmin_mic_active)
             VoiceState.ERROR -> android.graphics.Color.GRAY
         }
         if (color == 0) button.clearColorFilter() else button.setColorFilter(color)
@@ -486,6 +517,8 @@ private fun oneLine(): View {
     private fun dp(value: Int): Int = TypedValue.applyDimension(
         TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics,
     ).toInt()
+
+    private fun color(id: Int): Int = ContextCompat.getColor(context, id)
 
     private fun installInsetsListener() {
         // A hardware-key IME has no keys to draw, but the strip still has to be

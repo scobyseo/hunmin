@@ -10,4 +10,18 @@
     <color name="hunmin_primary_soft">#4F378B</color>
     <color name="hunmin_mic_active">#66BB6A</color>
     <color name="hunmin_on_mic_active">#0A2E0C</color>
+
+    <!--
+      The HUD tokens, dark values in the night palette too (the HUD is
+      always dark — see values/colors.xml for the reasoning and the
+      measured contrast). Accent and confirmed follow the scheme.
+    -->
+    <color name="hunmin_hud_panel">#1E1E24</color>
+    <color name="hunmin_hud_on_panel">#F2F2F7</color>
+    <color name="hunmin_hud_secondary">#8E8E93</color>
+    <color name="hunmin_hud_keycap">#2C2C2E</color>
+    <color name="hunmin_hud_keycap_outline">#48484A</color>
+    <color name="hunmin_hud_accent">#64D2FF</color>
+    <color name="hunmin_hud_accent_bg">#152D3D</color>
+    <color name="hunmin_hud_confirmed">#66BB6A</color>
 </resources>

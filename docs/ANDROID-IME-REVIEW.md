@@ -82,6 +82,48 @@ recommendations to change code.
 | F11 | `KeyboardLayoutReceiver` logs at `.d` with full descriptor lists on every `ACTION_QUERY_KEYBOARD_LAYOUTS` broadcast | `keymaps/KeyboardLayoutReceiver.kt:30–37` | Not a design-guideline item; noted because it is the module's only unstructured logging |
 | F12 | The `keymaps` module (`R.xml.keyboard_layouts`) provides physical-keyboard layout descriptors to InputManagerService — a specialised Android mechanism, not part of the rubric | `keymaps/…` | No gap; documented as intended |
 
+**Gap fill record (issue #33, branch `task/android-design-review`, measured 2026-10-12).**
+F1, F2, F4, F4b and F7 are filled; each line cites what changed and the
+verification that covers it:
+
+- **F1 — filled.** The HUD palette is now `@color/hunmin_hud_*` tokens in
+  `values/colors.xml` and `values-night/colors.xml` (same dark values in
+  both: the HUD stays always-dark by design, ANDROID-UI-NOTES §4).
+  `CompactTheme` is a cache object reading the tokens (`CompactTheme.of()`
+  returning an immutable `Colors`), not a second palette;
+  `dialog_background.xml` reads `@color/hunmin_hud_panel` instead of a
+  literal. Verified: `assembleDebug` green; `CompactTheme` has zero
+  `Color.parseColor` left.
+- **F2 — filled.** All five inline literals replaced with tokens: preview
+  `#6750A4` (2.57:1) → `hunmin_hud_accent` (9.64:1), confirmed `#2E7D32`
+  (3.23:1) → `hunmin_hud_confirmed` (7.01:1, still green), sub `#79747E`
+  (3.64:1) → `hunmin_hud_secondary` (5.09:1), hint `#9E9E9E` → secondary.
+  Every replacement states its measured before/after ratio in a comment.
+  Verified: `grep Color.parseColor OverlayActivity.kt` returns nothing;
+  contrast computed with the WCAG formula.
+- **F4 — filled.** The flat strip now renders M3 roles: the one-line row
+  carries the dock's own `toolbar_dock` pill (surface + outline + elevation),
+  the mode pill is the filled `toolbar_segment_active` / track pair with
+  on-primary/on-surface text (the same selected-semantics as the dock's
+  segment, so the e2e `selected="true"` assertion keeps holding), and the
+  Hanja/mic/settings keys use the `toolbar_chip` background with
+  on-surface text. Night mode flows through the existing tokens — this also
+  fixes a real night bug: at night the old hard pair drew black 漢 on the
+  dark dock. Verified: `assembleDebug` green.
+- **F4b — filled.** The flat mic tint reads `@color/hunmin_mic_active`, so
+  the night palette's `#66BB6A` (7.01:1 on the dark dock) replaces the
+  single literal `0xFF43A047` (3.30:1 on light, and unchanged at night).
+- **F7 — filled.** `android:enableOnBackInvokedCallback="true"` on
+  `<application>`. Verified: manifest compiles (`assembleDebug` green).
+- **F5 — NOT filled, maintainer-gated.** `DockToolbar` removal is a
+  decision (374 lines of unreachable view code), not a gap fill; recorded
+  in issue #33.
+- **Verification for the whole fill**: `tools/android-unit.sh` → **PASS:
+  97/97 tier E1 tests ran and passed** (zero skips, the wrapper asserts
+  them); `assembleDebug` green for both ABIs; the emulator e2e
+  (`tools/android-e2e.sh`) is environment-bound and recorded as unrun in
+  issue #33.
+
 Additional guideline observations without row numbers:
 
 - **Gestures:** no touch gestures exist beyond button taps (hardware-keyboard

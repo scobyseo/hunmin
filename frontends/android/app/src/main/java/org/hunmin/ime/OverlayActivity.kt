@@ -60,16 +60,42 @@ class OverlayActivity : AppCompatActivity() {
     /**
      * High-contrast, compact color palette for HUD-style inspector UI.
      * Deep dark slate base with crisp cyan accents for hardware-keyboard environments.
+     *
+     * Every value is a named @color/hunmin_hud_* token (values/colors.xml and
+     * values-night/colors.xml carry the same dark values — the HUD is always
+     * dark by design). This object is the cache that keeps one `ContextCompat.
+     * getColor` lookup per colour per dialog build instead of one per row;
+     * the resource files are the single source of truth (review F1).
      */
     private object CompactTheme {
-        val BG_PANEL = Color.parseColor("#1E1E24")         // Deep dark slate
-        val TEXT_PRIMARY = Color.parseColor("#F2F2F7")     // High contrast white
-        val TEXT_SECONDARY = Color.parseColor("#8E8E93")   // Neutral grey
-        val KEY_BG = Color.parseColor("#2C2C2E")           // Keycap fill
-        val KEY_BORDER = Color.parseColor("#48484A")       // Crisp keycap stroke
-        val ACCENT = Color.parseColor("#64D2FF")           // Crisp electric cyan/blue
-        val ACCENT_BG = Color.parseColor("#152D3D")
-        val DIVIDER = Color.parseColor("#2C2C2E")
+        fun of(context: android.content.Context) = Colors(
+            bgPanel = color(context, R.color.hunmin_hud_panel),
+            textPrimary = color(context, R.color.hunmin_hud_on_panel),
+            textSecondary = color(context, R.color.hunmin_hud_secondary),
+            keyBg = color(context, R.color.hunmin_hud_keycap),
+            keyBorder = color(context, R.color.hunmin_hud_keycap_outline),
+            accent = color(context, R.color.hunmin_hud_accent),
+            accentBg = color(context, R.color.hunmin_hud_accent_bg),
+            divider = color(context, R.color.hunmin_hud_keycap),
+            confirmed = color(context, R.color.hunmin_hud_confirmed),
+        )
+
+        private fun color(context: android.content.Context, id: Int): Int =
+            androidx.core.content.ContextCompat.getColor(context, id)
+
+        /** The cached token values for one build of a dialog. */
+        data class Colors(
+            val bgPanel: Int,
+            val textPrimary: Int,
+            val textSecondary: Int,
+            val keyBg: Int,
+            val keyBorder: Int,
+            val accent: Int,
+            val accentBg: Int,
+            val divider: Int,
+            /** The "chord confirmed" green — 7.01:1 on the panel. */
+            val confirmed: Int,
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -154,6 +180,7 @@ class OverlayActivity : AppCompatActivity() {
      * High-contrast, hardware-keyboard-oriented inspector style.
      */
     private fun showSettingsDialog() {
+        val palette = CompactTheme.of(this)
         val entries = ImeSettings.layoutsProvider()
         val connected = ImeSettings.connected
 
@@ -190,7 +217,7 @@ class OverlayActivity : AppCompatActivity() {
             )
             setPadding(dp(14), dp(10), dp(14), dp(10))
             background = GradientDrawable().apply {
-                setColor(CompactTheme.BG_PANEL)
+                setColor(palette.bgPanel)
                 cornerRadius = dp(10).toFloat()
             }
         }
@@ -200,7 +227,7 @@ class OverlayActivity : AppCompatActivity() {
             text = "hunmin 설정"
             textSize = 14f
             setTypeface(Typeface.DEFAULT_BOLD)
-            setTextColor(CompactTheme.TEXT_PRIMARY)
+            setTextColor(palette.textPrimary)
             setPadding(dp(6), dp(4), dp(6), dp(8))
         })
 
@@ -225,7 +252,7 @@ class OverlayActivity : AppCompatActivity() {
                 text = item.title
                 textSize = 15f
                 setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(CompactTheme.TEXT_PRIMARY)
+                setTextColor(palette.textPrimary)
                 maxLines = 1
                 // The value is the variable-width half (a layout name can be long,
                 // a title never is), so the title takes its exact width and the
@@ -241,7 +268,7 @@ class OverlayActivity : AppCompatActivity() {
                 text = item.badge
                 textSize = 13f
                 setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
-                setTextColor(CompactTheme.ACCENT)
+                setTextColor(palette.accent)
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 gravity = Gravity.END
@@ -255,8 +282,8 @@ class OverlayActivity : AppCompatActivity() {
                 )
                 setPadding(dp(8), dp(4), dp(8), dp(4))
                 background = GradientDrawable().apply {
-                    setColor(CompactTheme.ACCENT_BG)
-                    setStroke(dp(1), CompactTheme.ACCENT)
+                    setColor(palette.accentBg)
+                    setStroke(dp(1), palette.accent)
                     cornerRadius = dp(6).toFloat()
                 }
             }
@@ -267,7 +294,7 @@ class OverlayActivity : AppCompatActivity() {
 
             if (index < rows.lastIndex) {
                 container.addView(View(this).apply {
-                    setBackgroundColor(CompactTheme.DIVIDER)
+                    setBackgroundColor(palette.divider)
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
                         setMargins(dp(6), 0, dp(6), 0)
                     }
@@ -364,6 +391,7 @@ class OverlayActivity : AppCompatActivity() {
      * Compact Keybinding List with crisp physical keycap aesthetics
      */
     private fun showKeyBindingSection() {
+        val palette = CompactTheme.of(this)
         val store = KeyBindings.from(this)
         val actions = KeyAction.values().toList()
 
@@ -377,7 +405,7 @@ class OverlayActivity : AppCompatActivity() {
             )
             setPadding(dp(14), dp(10), dp(14), dp(10))
             background = GradientDrawable().apply {
-                setColor(CompactTheme.BG_PANEL)
+                setColor(palette.bgPanel)
                 cornerRadius = dp(10).toFloat()
             }
         }
@@ -386,7 +414,7 @@ class OverlayActivity : AppCompatActivity() {
             text = "키 바인딩"
             textSize = 14f
             setTypeface(Typeface.DEFAULT_BOLD)
-            setTextColor(CompactTheme.TEXT_PRIMARY)
+            setTextColor(palette.textPrimary)
             setPadding(dp(6), dp(4), dp(6), dp(8))
         })
 
@@ -414,7 +442,7 @@ class OverlayActivity : AppCompatActivity() {
             val tvTitle = TextView(this).apply {
                 text = action.label
                 textSize = 13f
-                setTextColor(CompactTheme.TEXT_PRIMARY)
+                setTextColor(palette.textPrimary)
                 maxLines = 1
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -427,7 +455,7 @@ class OverlayActivity : AppCompatActivity() {
                 text = chordText
                 textSize = 12f
                 setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
-                setTextColor(if (isCustomized) CompactTheme.TEXT_PRIMARY else CompactTheme.TEXT_SECONDARY)
+                setTextColor(if (isCustomized) palette.textPrimary else palette.textSecondary)
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 gravity = Gravity.END
@@ -438,8 +466,8 @@ class OverlayActivity : AppCompatActivity() {
                 )
                 setPadding(dp(8), dp(4), dp(8), dp(4))
                 background = GradientDrawable().apply {
-                    setColor(if (isCustomized) CompactTheme.ACCENT_BG else CompactTheme.KEY_BG)
-                    setStroke(dp(1), if (isCustomized) CompactTheme.ACCENT else CompactTheme.KEY_BORDER)
+                    setColor(if (isCustomized) palette.accentBg else palette.keyBg)
+                    setStroke(dp(1), if (isCustomized) palette.accent else palette.keyBorder)
                     cornerRadius = dp(6).toFloat()
                 }
             }
@@ -450,7 +478,7 @@ class OverlayActivity : AppCompatActivity() {
 
             if (index < actions.lastIndex) {
                 container.addView(View(this).apply {
-                    setBackgroundColor(CompactTheme.DIVIDER)
+                    setBackgroundColor(palette.divider)
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
                         setMargins(dp(6), 0, dp(6), 0)
                     }
@@ -477,6 +505,7 @@ class OverlayActivity : AppCompatActivity() {
      * far render in the preview before the final key commits the binding.
      */
     private fun showKeyCaptureDialog(action: KeyAction) {
+        val palette = CompactTheme.of(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -488,14 +517,19 @@ class OverlayActivity : AppCompatActivity() {
         val tvSub = TextView(this).apply {
             text = "지정할 물리 키를 누르세요"
             textSize = 13f
-            setTextColor(Color.parseColor("#79747E"))
+            // Was #79747E inline (3.64:1 on the panel). The secondary token
+            // passes AA at 5.09:1 — review F2.
+            setTextColor(palette.textSecondary)
         }
 
         val tvPreview = TextView(this).apply {
             text = "키 입력 대기 중..."
             textSize = 18f
             typeface = Typeface.MONOSPACE
-            setTextColor(Color.parseColor("#6750A4"))
+            // Was #6750A4 inline — 2.57:1 on the panel, the worst contrast in
+            // the IME, on the text that is the capture UI's only live
+            // feedback. The HUD accent token is 9.64:1 — review F2.
+            setTextColor(palette.accent)
             gravity = Gravity.CENTER
             setPadding(0, dp(14), 0, dp(6))
         }
@@ -503,7 +537,9 @@ class OverlayActivity : AppCompatActivity() {
         val tvHint = TextView(this).apply {
             text = "수정자 키(Alt, Ctrl 등)와 조합할 수 있습니다\n(취소: Esc 또는 뒤로 가기)"
             textSize = 11f
-            setTextColor(Color.parseColor("#9E9E9E"))
+            // Was #9E9E9E inline (6.19:1 — already AA, but outside both
+            // palettes). The secondary token keeps it inside the scheme.
+            setTextColor(palette.textSecondary)
             gravity = Gravity.CENTER
         }
 
@@ -561,6 +597,7 @@ class OverlayActivity : AppCompatActivity() {
     /** 키를 누르고 있는 도중 시각적으로 조합 상태를 보여주는 헬퍼 */
     private fun updatePreviewUI(tv: TextView, action: Int, keyCode: Int, metaState: Int) {
         if (action == KeyEvent.ACTION_DOWN) {
+            val palette = CompactTheme.of(this)
             val parts = mutableListOf<String>()
             if ((metaState and KeyEvent.META_CTRL_ON) != 0) parts.add("CTRL")
             if ((metaState and KeyEvent.META_ALT_LEFT_ON) != 0) parts.add("ALT_LEFT")
@@ -571,11 +608,14 @@ class OverlayActivity : AppCompatActivity() {
                 val modName = KeyEvent.keyCodeToString(keyCode).removePrefix("KEYCODE_")
                 if (!parts.contains(modName)) parts.add(modName)
                 tv.text = parts.joinToString("+") + " + ..."
-                tv.setTextColor(Color.parseColor("#6750A4"))
+                // Was #6750A4 inline (2.57:1). The accent token is 9.64:1 — review F2.
+                tv.setTextColor(palette.accent)
             } else {
                 val keyName = KeyEvent.keyCodeToString(keyCode).removePrefix("KEYCODE_")
                 tv.text = (parts + listOf(keyName)).joinToString("+")
-                tv.setTextColor(Color.parseColor("#2E7D32")) // 녹색 확정 강조
+                // Was #2E7D32 inline (3.23:1, below AA). The confirmed token
+                // is 7.01:1 and stays green — review F2.
+                tv.setTextColor(palette.confirmed)
             }
         }
     }
