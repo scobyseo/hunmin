@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-12 | Total pages: 25
+> Last updated: 2026-10-12 | Total pages: 27
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -35,6 +35,10 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   Hangul/English switch is OFF by default until 0.3, and its additional data
   ships separately, the feature enable-able only where the data is present.
   What the ruling does *not* close (D1, E5's assignment, B2) is named.
+- [[2026-10-12-auto-toggle-disabled-by-default-in-0-1]] — B4's 0.1 half ruled:
+  the auto Hangul/English toggle ships inert in 0.1, by disabling the default
+  key composition — no default chord, the dispatch skips the action, the
+  settings row shows 미정 (0.3). The E5 assignment itself stays open for 0.3.
 - [[space-emission-ownership]] — **contested.** The measurement is not in
   dispute: the engine declines the space and every frontend forwards it. But
   the log and `docs/REMAINING-WORK.md` B5 record the *decision* as closed with
@@ -56,6 +60,10 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   maintainer's words, and why the second half of the sentence (the separate data
   package, enabled only when present) matters as much as the first: it replaces a
   date with a condition.
+- [[2026-10-12-b4-auto-toggle-inert-in-0-1]] — the B4 0.1 ruling session: the
+  measurement comment that framed inert-vs-working, the maintainer's two
+  sentences, and the three tree facts that make "inert" true — the chord is
+  the binding, not the row.
 - [[2026-10-02-working-practices]] — **superseded** → [[where-the-practices-came-from]].
 - [[2026-10-04-stemming-investigation]] — **superseded** →
   [[the-three-corpora-are-three-registers]], [[the-rules-keep-breaking]].
