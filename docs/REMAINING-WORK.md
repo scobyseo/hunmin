@@ -128,9 +128,13 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
   No device has been signed off."* Three device rows (One UI phone, One UI tablet, AOSP
   Pixel), all unchecked. A manual tier with no automation substitute; `PLAN.md`'s P5 gate
   stays open on this one line.
-- **Voice recognition quality.** Needs a microphone and Google's servers. *"Unanswerable in
-  this environment; nothing in this repo can measure it."* The AVD boots `-no-audio` and has
-  no offline ko-KR pack.
+- **Voice recognition quality.** ✅ **Measured on hardware 2026-10-12** (issue #11): the
+  tier E4 run passed once with the maintainer speaking the phrases; an unattended run is
+  not possible (person-in-loop tier — no speaker means no speech, so such runs fail
+  without measuring recognition). The record lives in
+  `tests/manual-checklists/tier-e4-voice.md`. Still not measurable *on this host* — the
+  AVD boots `-no-audio` and has no offline ko-KR pack — which is why it is a maintainer
+  session, not a ctest row.
 - **A soft keyboard.** The input view is a layout strip plus a mic, not keys. No priority has
   been assigned to it by anyone; that assignment is a maintainer call. **Assigned
   2026-10-11: it is release 0.4, goal 두벌식 + qwerty + 기호 입력 지원 — see
@@ -459,6 +463,7 @@ W2-CLOSED | path-present | frontends/android/app/proguard-rules.pro | present | 
 W4-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:private var micButton | present | the mic is a field on LayoutPicker and is never re-created per state change: a ToolbarState update calls bind(), which repaints the views the current style already has, and only a style change rebuilds them. The field became nullable on 2026-10-11 (issue #12) because rebuild() clears every reference first; that is what the phone crash was — a view still parented to the detached row |
 DOCK-PAINT-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/DockStyle.kt:also { micKey = it } | present | the dock's builder stores the view it adds. Without this, bind() repainted an ImageView that was never in the view tree: the mic reported LISTENING and the screen did not move (measured on SM-S938N, 2026-10-11). The chip and the mode segment were never affected because their fields ARE the views that get added — which is why 한/영 reacted and the mic did not |
 VOICE-E4-CLOSED | path-present | tools/android-voice-check.sh | present | the E4 voice check, a manual tier: the script gates our half of the voice path (key found, tap reaches it, LISTENING, the mic PAINTED while listening, return to idle, result committed, nothing died) and a person judges intelligibility. Recognition accuracy is not gated and cannot be — the transcript is the platform recogniser's and recorded audio cannot be replayed into it. Checklist: tests/manual-checklists/tier-e4-voice.md |
+VOICE-README | grep | README.md:Known limitation | present | the release-point statement issue #11 asks for: the unmeasured voice-recognition-quality limitation is stated in README §Install, not only in docs/MILESTONES.md §0.1. The measurement itself stays environment-bound (needs hardware; see §3) |
 N1-CLOSED | path-present | tools/kcm_export.py | present | the keymaps exporter; was listed open as "does not exist"
 N3-CLOSED | grep | libhunmin/src/hunmin_internal.h:HK_SEQ | present | the seq symbol tier
 N4-CLOSED | path-present | debian/hunmin.postinst | present | the deb postinst; the real filename is hunmin.postinst
