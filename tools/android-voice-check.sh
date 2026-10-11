@@ -140,9 +140,11 @@ wait_for_ime || {
 
 mic_bounds() {
   $ADB shell uiautomator dump --windows /sdcard/vc2.xml >/dev/null 2>&1
+  # The dump uses `package="org.hunmin.ime"` not `pkg=`.
   $ADB shell cat /sdcard/vc2.xml 2>/dev/null | tr '>' '\n' \
+    | grep -E 'package="org.hunmin.ime"' \
     | grep -m1 -F "content-desc=\"$MIC_DESC\"" \
-    | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1
+    | grep -o 'bounds="[^"]*"' | head -1
 }
 
 field_text() {
@@ -197,7 +199,7 @@ for row in "${PHRASES[@]}"; do
   bounds="$(mic_bounds || true)"
   [ -n "$bounds" ] || { fail "$id: no mic key (content-desc '$MIC_DESC') in the IME view"; continue; }
   # shellcheck disable=SC2086
-  set -- $(printf '%s' "$bounds" | sed 's/[^0-9,]/ /g' | tr -s ' ')
+  set -- $(printf '%s' "$bounds" | sed 's/[^0-9]/ /g' | tr -s ' ')
   [ $# -eq 4 ] || { fail "$id: cannot parse mic bounds '$bounds'"; continue; }
   mx=$(( ($1 + $3) / 2 )); my=$(( ($2 + $4) / 2 ))
 
