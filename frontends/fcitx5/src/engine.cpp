@@ -72,6 +72,34 @@ void traceEvent(const char *kind, const std::string &text) {
 } // namespace
 #endif
 
+class HunminState;
+
+/* A candidate that commits when chosen.
+ *
+ * DisplayOnlyCandidateWord would be wrong here: its select() is a no-op,
+ * which is correct for a window that only mirrors text but means a chosen
+ * Hanja would be silently dropped. fcitx5 calls select() with the input
+ * context, which is how the word reaches back to the HunminState that owns
+ * the window.
+ *
+ * select() is defined out of line, after HunminState, because it casts to
+ * HunminState and a dynamic_cast needs the complete type. */
+class HunminCandidateWord : public CandidateWord {
+public:
+    HunminCandidateWord(Text text, Text comment, HunminEngine *engine,
+                        InputContext *ic, std::string hanja);
+
+    void select(InputContext *inputContext) const override;
+
+    const std::string &hanja() const { return hanja_; }
+
+private:
+    HunminEngine *engine_;
+    InputContext *ic_;
+    std::string hanja_;
+};
+
+
 class HunminState : public InputContextProperty {
 public:
     HunminState(HunminEngine *engine, InputContext *ic)
@@ -193,6 +221,99 @@ public:
             updateUI();
             keyEvent.filterAndAccept();
             return;
+        }
+
+        /*
+         * Candidate-window keys, once a window is open.
+         *
+         * The window is ours, so these keys are ours: without this block an
+         * arrow key fell through to the `sym >= 0x20 && sym <= 0x7E` test
+         * below and reached the engine as a character (or flushed), which is
+         * why choosing a Hanja needed the mouse. fcitx5 does not intercept
+         * these on its own -- a CursorMovableCandidateList only provides
+         * prevCandidate()/nextCandidate(); calling them is the input method's
+         * job -- so each key is handled explicitly and consumed.
+         *
+         * Arrows move the cursor rather than the page: the list is one page
+         * (see updateCandidateList), so Up/Down is the whole motion and
+         * Left/Right mirror it for a horizontal habit. PageUp/PageDown exist
+         * because PageableCandidateList offers them and a user reaching for
+         * them should not get a character in the document.
+         */
+        if (candidateActive()) {
+            auto list = ic_->inputPanel().candidateList();
+            switch (sym) {
+            case FcitxKey_Up:
+            case FcitxKey_Left:
+            case FcitxKey_KP_Up:
+            case FcitxKey_KP_Left:
+                if (list && list->toCursorMovable()) {
+                    list->toCursorMovable()->prevCandidate();
+                }
+                updateUI();
+                keyEvent.filterAndAccept();
+                return;
+            case FcitxKey_Down:
+            case FcitxKey_Right:
+            case FcitxKey_KP_Down:
+            case FcitxKey_KP_Right:
+                if (list && list->toCursorMovable()) {
+                    list->toCursorMovable()->nextCandidate();
+                }
+                updateUI();
+                keyEvent.filterAndAccept();
+                return;
+            case FcitxKey_Page_Up:
+            case FcitxKey_KP_Page_Up:
+                if (list && list->toPageable() &&
+                    list->toPageable()->hasPrev()) {
+                    list->toPageable()->prev();
+                }
+                updateUI();
+                keyEvent.filterAndAccept();
+                return;
+            case FcitxKey_Page_Down:
+            case FcitxKey_KP_Page_Down:
+                if (list && list->toPageable() &&
+                    list->toPageable()->hasNext()) {
+                    list->toPageable()->next();
+                }
+                updateUI();
+                keyEvent.filterAndAccept();
+                return;
+            case FcitxKey_Return:
+            case FcitxKey_KP_Enter: {
+                // Commit whatever the cursor is on. The cursor starts at 0,
+                // which is the highest-frequency candidate, so a plain Return
+                // after F9 picks the best match -- the common case.
+                int idx = list ? list->cursorIndex() : 0;
+                if (idx < 0) {
+                    idx = 0;
+                }
+                if (list && idx < list->size()) {
+                    const CandidateWord &word = list->candidate(idx);
+                    auto *hanmin = dynamic_cast<HunminCandidateWord *>(
+                        const_cast<CandidateWord *>(&word));
+                    if (hanmin) {
+                        commitCandidate(hanmin->hanja());
+                    }
+                }
+                keyEvent.filterAndAccept();
+                return;
+            }
+            case FcitxKey_Escape:
+                closeCandidates();
+                updateUI();
+                keyEvent.filterAndAccept();
+                return;
+            default:
+                break;
+            }
+            // Any other key closes the window and falls through to the normal
+            // path below, so typing continues where the user left off instead
+            // of being swallowed by an invisible window.
+            closeCandidates();
+            updateUI();
         }
 
         // CapsLock. Note key() cannot be used here: Key::normalize() rebuilds
@@ -332,35 +453,21 @@ private:
     std::string candidateSource_;
 };
 
-/* A candidate that commits when chosen.
- *
- * DisplayOnlyCandidateWord would be wrong here: its select() is a no-op,
- * which is correct for a window that only mirrors text but means a chosen
- * Hanja would be silently dropped. fcitx5 calls select() with the input
- * context, which is how the word reaches back to the HunminState that owns
- * the window. */
-class HunminCandidateWord : public CandidateWord {
-public:
-    HunminCandidateWord(Text text, Text comment, HunminEngine *engine,
-                        InputContext *ic, std::string hanja)
-        : CandidateWord(std::move(text)), engine_(engine), ic_(ic),
-          hanja_(std::move(hanja)) {
-        setComment(std::move(comment));
-    }
+HunminCandidateWord::HunminCandidateWord(Text text, Text comment,
+                                         HunminEngine *engine,
+                                         InputContext *ic, std::string hanja)
+    : CandidateWord(std::move(text)), engine_(engine), ic_(ic),
+      hanja_(std::move(hanja)) {
+    setComment(std::move(comment));
+}
 
-    void select(InputContext *inputContext) const override {
-        auto *state = inputContext ? inputContext->property("hunminState")
-                                   : nullptr;
-        if (auto *hunmin = dynamic_cast<HunminState *>(state)) {
-            hunmin->commitCandidate(hanja_);
-        }
+void HunminCandidateWord::select(InputContext *inputContext) const {
+    auto *state = inputContext ? inputContext->property("hunminState")
+                               : nullptr;
+    if (auto *hunmin = dynamic_cast<HunminState *>(state)) {
+        hunmin->commitCandidate(hanja_);
     }
-
-private:
-    HunminEngine *engine_;
-    InputContext *ic_;
-    std::string hanja_;
-};
+}
 
 void HunminState::updateCandidateList() {
     /* CommonCandidateList is the concrete list fcitx5 documents for this
@@ -380,8 +487,28 @@ void HunminState::updateCandidateList() {
             text, Text(detail), engine_, ic_,
             hunmin_suggest_text(engine_->ctx(), i)));
     }
-    /* Multi-row so a 60-candidate syllable is not one unreadable line. */
-    list->setPageSize(8);
+    /*
+     * Vertical, one page holding every candidate, cursor on the first.
+     *
+     * A syllable can carry up to 64 candidates, and 간 resolves to 67 once the
+     * krdict word senses are prepended. Laid out horizontally they ran off the
+     * screen and the tail was unreachable without the mouse; the layout hint is
+     * the whole fix for that.
+     *
+     * The page size is the candidate count, not the default 5, so the whole list
+     * is drawn at once. It is NOT needed for cursor travel: moveCursor() rotates
+     * over totalSize() unless cursorKeepInSamePage is set (it is not), so Up/Down
+     * reaches every candidate either way -- measured, and the note is here
+     * because the opposite claim reads just as plausibly. What page size 5 would
+     * cost is the view: 5 rows on screen, the other 62 behind a PageDown.
+     *
+     * The cursor starts on the first candidate rather than unselected: after F9
+     * the user's intent is to pick one, and Return on an unselected cursor would
+     * have to guess.
+     */
+    list->setPageSize(candidateCount_);
+    list->setGlobalCursorIndex(0);
+    list->setLayoutHint(CandidateLayoutHint::Vertical);
     ic_->inputPanel().setCandidateList(std::move(list));
 }
 
