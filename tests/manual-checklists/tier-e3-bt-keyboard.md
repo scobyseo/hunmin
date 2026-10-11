@@ -9,6 +9,15 @@ a trace sink in the shipped APK and `tools/e3-trace.sh` to collect it — landed
 2026-10-04; the sessions themselves have not happened. PLAN.md's P5 gate
 ("tier-E suite + BT-keyboard manual matrix") is therefore still open.
 
+**Partial verification on device R5KL808WBPN (Galaxy S21+, Android 13):**
+- `hunmin-sim --layout sin3-p2 --keys dkssud` produces expected output: commits `ㅎ곈`, ends on preedit `디`
+- Trace mechanism works: `tools/e3-trace.sh start/stop/pull` captures key events with modifiers and IME response
+- Trace files written to `tests/conformance/` with meta + event JSON lines
+- Additional layouts (dubeolsik, kfcQ) also produce traceable output
+- Some compositions may differ slightly from sim due to `input text` vs hardware key mapping
+
+Sessions must still be run on physical devices with BT keyboards for full sign-off.
+
 ## Why a session must record a trace
 
 The point of E3 is not the pass/fail column. It is that **every session leaves
@@ -34,7 +43,7 @@ risk entry — Samsung's `SpeechRecognizer` availability varies).
 
 | # | Device | OS | AVD/serial | Result | Trace |
 |---|---|---|---|---|---|
-| 1 | One UI phone (Galaxy S/A series) | Android 13+ | — | ☐ | — |
+| 1 | One UI phone (Galaxy S/A series) | Android 13+ | R5KL808WBPN | ☐ | — |
 | 2 | One UI tablet (Tab S series) | Android 13+ | — | ☐ | — |
 | 3 | AOSP phone (Pixel) | Android 14+ | — | ☐ | — |
 
