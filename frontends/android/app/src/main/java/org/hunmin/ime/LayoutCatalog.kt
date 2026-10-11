@@ -126,17 +126,14 @@ enum class ToolbarStyle(
     val blurb: String,
 ) {
     /** One row: layout name left, mode and buttons right. */
-    COMPACT("A", "A — 한 줄", "배열 이름 왼쪽, 모드·버튼 오른쪽. 이름이 길면 잘립니다"),
-
-    /** One row of icons; the layout is an abbreviation. */
-    ICON_ROW("B", "B — 아이콘", "전부 아이콘. 배열 이름은 약호로만 보여줍니다"),
+    ONE_LINE("one_line", "한줄 모드", "배열 이름 왼쪽, 모드·버튼 오른쪽. 이름이 길면 잘립니다"),
 
     /** Two rows: status above, evenly spaced buttons below. */
-    TWO_ROW("C", "C — 두 줄", "상태 한 줄 + 버튼 한 줄. 높이를 가장 많이 씁니다");
+    TWO_LINE("two_line", "두줄 모드", "상태 한 줄 + 버튼 한 줄. 높이를 가장 많이 씁니다");
 
     companion object {
         fun of(raw: String?): ToolbarStyle =
-            values().firstOrNull { it.key == raw } ?: COMPACT
+            values().firstOrNull { it.key == raw } ?: ONE_LINE
     }
 }
 
@@ -167,7 +164,7 @@ object ImeSettings {
     var onLayoutChosen: (LayoutMode, String) -> Unit = { _, _ -> }
 
     /** The strip style in force. */
-    var toolbarStyle: () -> ToolbarStyle = { ToolbarStyle.COMPACT }
+    var toolbarStyle: () -> ToolbarStyle = { ToolbarStyle.ONE_LINE }
 
     /** Called when the window sets the strip style. */
     var onToolbarStyleChosen: (ToolbarStyle) -> Unit = {}

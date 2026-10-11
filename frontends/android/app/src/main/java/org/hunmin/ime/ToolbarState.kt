@@ -49,7 +49,7 @@ data class ToolbarState(
         fun of(
             layouts: List<LayoutEntry>,
             layoutId: String?,
-            abbreviated: Boolean,
+            abbreviated: Boolean = false,
             modeIsHangul: Boolean,
             voice: VoiceState,
             hanjaConverting: Boolean = false,

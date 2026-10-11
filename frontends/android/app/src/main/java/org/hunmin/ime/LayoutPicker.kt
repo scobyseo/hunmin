@@ -13,12 +13,11 @@
  * could not be reached at all.
  *
  * What is left is a toolbar, and it says so: [ToolbarStyle] is a user setting
- * with three shapes, because the maintainer's instruction was "설정에 A, B, C
+ * with two shapes, because the maintainer's instruction was "설정에 A, B, C
  * 중 선택할 수 있게 만들어도 좋아".
  *
- *   COMPACT  (style A) the floating dock — DockStyle.kt
- *   ICON_ROW (style B) one dense row, layout name abbreviated
- *   TWO_ROW  (style C) status above, actions below
+ *   ONE_LINE (한줄 모드) the floating dock — DockStyle.kt
+ *   TWO_LINE (두줄 모드) status above, actions below
  *
  * THE FIVE THINGS, IN EVERY STYLE
  * ------------------------------
@@ -57,14 +56,14 @@ class LayoutPicker @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : FrameLayout(context, attrs) {
 
-    private var style: ToolbarStyle = ToolbarStyle.COMPACT
+    private var style: ToolbarStyle = ToolbarStyle.ONE_LINE
 
     /** Every layout this build can run, for the indicator's label lookup. */
     private var layouts: List<LayoutEntry> = emptyList()
     private var activeLayoutId: String? = null
 
     /** Style B shows an abbreviation; A and C show the full name, cut off. */
-    private var layoutAbbreviated = false
+    
 
     private var modeIsHangul = true
     private var voiceState = VoiceState.IDLE
@@ -210,7 +209,6 @@ class LayoutPicker @JvmOverloads constructor(
     private fun stateForCurrentStyle(): ToolbarState = ToolbarState.of(
         layouts = layouts,
         layoutId = activeLayoutId,
-        abbreviated = layoutAbbreviated,
         modeIsHangul = modeIsHangul,
         voice = voiceState,
         hanjaConverting = hanjaConverting,
@@ -232,7 +230,6 @@ class LayoutPicker @JvmOverloads constructor(
         micButton = null
         hanjaButton = null
         settingsButton = null
-        layoutAbbreviated = false
         // MATCH_PARENT on the width, explicitly. The root is a FrameLayout, whose
         // generateDefaultLayoutParams() is WRAP_CONTENT — and a wrap-content
         // scroll view measures to nothing useful and clips its own row away, so
@@ -241,9 +238,8 @@ class LayoutPicker @JvmOverloads constructor(
         // is the same failure as the gear button being off-screen.
         val fill = FrameLayout.LayoutParams(MATCH_PARENT, WRAP)
         when (style) {
-            ToolbarStyle.COMPACT -> addView(buildDock(), fill)
-            ToolbarStyle.ICON_ROW -> addView(scrollingRow(iconOnlyLayout = true), fill)
-            ToolbarStyle.TWO_ROW -> addView(twoRows(), fill)
+            ToolbarStyle.ONE_LINE -> addView(oneLine(), fill)
+            ToolbarStyle.TWO_LINE -> addView(twoRows(), fill)
         }
         renderState()
     }
@@ -265,41 +261,40 @@ class LayoutPicker @JvmOverloads constructor(
         return toolbar.build()
     }
 
-    /**
-     * One row, wrapped in a scroll view that normally never scrolls.
-     *
-     * The wrapper is unconditional on purpose: it is the answer to the width
-     * where the gaps are already at their smallest and the buttons still do not
-     * fit, and a view that does not need to scroll is invisible to the user.
-     */
-    private fun scrollingRow(iconOnlyLayout: Boolean): View {
-        val scroll = HorizontalScrollView(context).apply {
-            isHorizontalScrollBarEnabled = false
-            isFillViewport = true
-            isFocusable = false
-            isFocusableInTouchMode = false
-        }
-        val row = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            isFocusable = false
-            isFocusableInTouchMode = false
-        }
-        val gap = gapDp()
-        // Only the indicator is elastic: width 0 + weight 1 means "take the
-        // leftover". Every other child is WRAP_CONTENT -- width 0 with weight 0
-        // is zero pixels wide, which is how the three buttons vanished from the
-        // strip on the first run of this.
-        row.addView(layoutIndicator(iconOnlyLayout), lp(0, weight = 1f, padEnd = gap))
-        row.addView(modePill(), lp(WRAP, padEnd = gap))
-        row.addView(hanjaButton(), lp(WRAP, padEnd = gap))
-        row.addView(micButton(), lp(WRAP, padEnd = gap))
-        row.addView(settingsButton(), lp(WRAP))
-        scroll.addView(row)
-        return scroll
+    /** One row, wrapped in a scroll view that normally never scrolls.
+ *
+ * The wrapper is unconditional on purpose: it is the answer to the width
+ * where the gaps are already at their smallest and the buttons still do not
+ * fit, and a view that does not need to scroll is invisible to the user.
+ */
+private fun oneLine(): View {
+    val scroll = HorizontalScrollView(context).apply {
+        isHorizontalScrollBarEnabled = false
+        isFillViewport = true
+        isFocusable = false
+        isFocusableInTouchMode = false
     }
+    val row = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        isFocusable = false
+        isFocusableInTouchMode = false
+    }
+    val gap = gapDp()
+    // Only the indicator is elastic: width 0 + weight 1 means "take the
+    // leftover". Every other child is WRAP_CONTENT -- width 0 with weight 0
+    // is zero pixels wide, which is how the three buttons vanished from the
+    // strip on the first run of this.
+    row.addView(layoutIndicator(), lp(0, weight = 1f, padEnd = gap))
+    row.addView(modePill(), lp(WRAP, padEnd = gap))
+    row.addView(hanjaButton(), lp(WRAP, padEnd = gap))
+    row.addView(micButton(), lp(WRAP, padEnd = gap))
+    row.addView(settingsButton(), lp(WRAP))
+    scroll.addView(row)
+    return scroll
+}
 
-    /** Status above, evenly spread buttons below. Costs about twice the height. */
+/** Two rows: status above, evenly spread buttons below. */
     private fun twoRows(): View {
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -313,19 +308,15 @@ class LayoutPicker @JvmOverloads constructor(
             isFocusableInTouchMode = false
         }
         val gap = gapDp()
-        status.addView(layoutIndicator(iconOnlyLayout = false), lp(0, weight = 1f, padEnd = gap))
+        status.addView(layoutIndicator(), lp(0, weight = 1f, padEnd = gap))
         status.addView(modePill(), lp(WRAP))
-        // MATCH width on the rows, and WRAP on the pill: lp(0) means "take the
-        // leftover" in a HORIZONTAL LinearLayout and "be zero pixels wide" in a
-        // vertical one. Style C is the vertical case, and it shipped rendering
-        // nothing at all — measured on the phone: the window dump showed the two
-        // rows and none of their children, and a pixel sample of the IME band was
-        // the window background, not a toolbar.
+        // MATCH width on the rows: lp(0) in a vertical LinearLayout would be
+        // zero pixels wide. Use MATCH_PARENT so the rows fill the width.
         column.addView(status, lp(MATCH_PARENT))
 
         // weight = 1 on each button, so they spread evenly and stay 48 dp even
         // on a narrow screen: two rows means the horizontal budget is twice as
-        // generous, which is the point of style C.
+        // generous.
         val buttons = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -339,7 +330,7 @@ class LayoutPicker @JvmOverloads constructor(
         return column
     }
 
-    private fun layoutIndicator(iconOnlyLayout: Boolean): TextView =
+    private fun layoutIndicator(): TextView =
         TextView(context).also { layoutIndicator = it }.apply {
             textSize = 14f
             gravity = Gravity.CENTER_VERTICAL
@@ -352,7 +343,6 @@ class LayoutPicker @JvmOverloads constructor(
             isClickable = onLayoutClicked != null
             isFocusable = false
             contentDescription = context.getString(R.string.picker_content_description)
-            layoutAbbreviated = iconOnlyLayout
         }
 
     /** The 한/영 toggle: a pill with the mode letter, tappable. */
