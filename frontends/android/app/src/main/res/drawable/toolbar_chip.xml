@@ -1,10 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The layout name, as an outlined chip with a caret: it looks like a menu. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@android:color/transparent" />
-    <stroke
-        android:width="1dp"
-        android:color="@color/hunmin_outline" />
-    <corners android:radius="12dp" />
-</shape>
+<!--
+  The Hanja/mic/settings chip (and the layout indicator's menu look).
+
+  A state list since issue #33 / review F6: the plain shape had no focused
+  state, so keyboard/D-pad focus — which the strip now allows — would have
+  been invisible. Focused draws the same chip with a primary outline ring;
+  unfocused stays the plain outlined chip.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/hunmin_surface" />
+            <stroke
+                android:width="2dp"
+                android:color="@color/hunmin_primary" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+            <stroke
+                android:width="1dp"
+                android:color="@color/hunmin_outline" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+</selector>

@@ -74,7 +74,7 @@ recommendations to change code.
 | F4 | Flat one-line/two-line strip (styles B/C) renders hard black-on-white pills (`0xFF000000`/`0xFFFFFFFF`) with no dark-mode variant and no Material container shape; only the dock path has the M3 theme | `LayoutPicker.kt:359–406` | M3 color + dark mode; the flat styles predate the dock and were never re-themed |
 | F4b | The flat strip's mic listening tint `0xFF43A047` over a white pill measures 3.30:1 — the color-only state signal in that style | `LayoutPicker.kt:452–456` | WCAG AA; contrast-as-state |
 | F5 | ~~The dock's `buildDock()` is dead code~~ **Removed 2026-10-12 (maintainer ruling "F5 -> remove!")**: `DockStyle.kt` (374 lines), `buildDock()`, the `dock` field and the Dock-only resources (`toolbar_hanja_active`, `toolbar_mic_active`, `ph_caret_down`, `hunmin_on_mic_active`, `mode_hangul`, `mode_latin`) are gone | was `LayoutPicker.kt:248–262` | The reachable code is now the only code; the shared drawables/colours stay (used by the re-themed strip) |
-| F6 | `modePill`/flat buttons have `isFocusable = false`, which is correct for the editor caret, but no `clickable`-gated focusable states for keyboard users; TalkBack can still reach them (measured, DockStyle header) | `LayoutPicker.kt:365–406` | Design-for-Android accessibility: switch/keyboard navigation |
+| F6 | ~~No `clickable`-gated focusable states for keyboard users~~ **Filled 2026-10-12**: the five interactive controls (layout indicator, mode pill, Hanja, mic, settings) now set `isFocusable = true, isFocusableInTouchMode = false` — D-pad/keyboard focus can enter the strip, touch focus still cannot steal from the editor — and `toolbar_chip` / `toolbar_segment_track` / `toolbar_segment_active` are state-list drawables with a visible `state_focused` ring | `LayoutPicker.kt` (5 sites), 3 drawables | Keyboard/switch navigation; focus must be visible, not just reachable. Visual confirmation on the emulator is the remaining environment-bound leg |
 | F7 | No predictive-back opt-in (`android:enableOnBackInvokedCallback` absent from the manifest) | `AndroidManifest.xml` | Codepath common-patterns "Predictive back". minSdk 24 to targetSdk 35: the flag is not required, but targetSdk 35 users on gesture nav get the legacy behavior |
 | F8 | Notifications are never used — all transient user feedback goes through Toasts launched via a full `OverlayActivity` start | `HunminInputMethodService.kt:376–384` | Codepath common-patterns "Notifications"; a mode-toggle toast does not need a notification, so this is a "does not apply" entry recorded for completeness |
 | F9 | `onEvaluateFullscreenMode() = false` and `onCreateExtractTextView() = null` are correct landscape choices for a hardware-keyboard IME | `HunminInputMethodService.kt:667–671` | No gap; listed as confirmed-correct |
@@ -132,6 +132,16 @@ verification that covers it:
   `screenWidthDp` is the window's own width class, so rotation and fold
   transitions re-derive it. Verified: `grep widthPixels` finds only the
   KDoc; `assembleDebug` green.
+- **F6 — filled.** The five interactive strip controls set
+  `isFocusable = true, isFocusableInTouchMode = false`: D-pad/keyboard
+  focus can enter the strip, touch focus still cannot steal from the
+  editor caret (the original reason for the `false` pair, preserved).
+  The chip and segment backgrounds are state-list drawables with a
+  `state_focused` ring (primary outline on the chip and unselected
+  segment, on-primary on the filled half), so focus is visible in both
+  palettes. Verified: `assembleDebug` green, tier E1 97/97. The visual
+  confirmation — arrow keys moving a visible ring — is the emulator leg,
+  environment-bound in issue #33.
 - **F7 — filled.** `android:enableOnBackInvokedCallback="true"` on
   `<application>`. Verified: manifest compiles (`assembleDebug` green).
 - **F5 — filled by removal (maintainer ruling, 2026-10-12).** The

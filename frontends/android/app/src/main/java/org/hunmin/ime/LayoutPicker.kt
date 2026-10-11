@@ -334,7 +334,11 @@ private fun oneLine(): View {
             layoutParams = lp(0, weight = 1f)
             setOnClickListener { onLayoutClicked?.invoke() }
             isClickable = onLayoutClicked != null
-            isFocusable = false
+            // F6: keyboard/D-pad focus is allowed, touch focus is not — a
+            // focusable-in-touch-mode view here would steal focus from the
+            // editor the strip is drawn over.
+            isFocusable = true
+            isFocusableInTouchMode = false
             contentDescription = context.getString(R.string.picker_content_description)
         }
 
@@ -361,7 +365,9 @@ private fun oneLine(): View {
             setPadding(PAD_DP, PILL_PAD_DP, PAD_DP, PILL_PAD_DP)
             contentDescription = context.getString(R.string.mode_switch_content_description)
             setOnClickListener { onModeClicked?.invoke() }
-            isFocusable = false
+            // F6: same split as the indicator — D-pad yes, touch no.
+            isFocusable = true
+            isFocusableInTouchMode = false
         }
         label.text = if (modeIsHangul) "한" else "영"
         // Selected as well as labelled: which mode is active has to be readable
@@ -396,10 +402,12 @@ private fun oneLine(): View {
             background = ContextCompat.getDrawable(context, R.drawable.toolbar_chip)
             contentDescription = context.getString(R.string.hanja_content_description)
             setOnClickListener { onHanjaClicked?.invoke() }
+            // F6: same split — keyboard focusable, not touch-focusable.
+            isFocusable = true
+            isFocusableInTouchMode = false
             setPadding(HANJA_PAD_DP, HANJA_PAD_DP, HANJA_PAD_DP, HANJA_PAD_DP)
             minimumWidth = TOUCH_DP
             minimumHeight = TOUCH_DP
-            isFocusable = false
             layoutParams = lp(WRAP)
         }
 
@@ -409,10 +417,12 @@ private fun oneLine(): View {
             contentDescription = context.getString(R.string.voice_content_description)
             background = ContextCompat.getDrawable(context, R.drawable.toolbar_chip)
             setOnClickListener { onMicClicked?.invoke() }
+            // F6: same split — keyboard focusable, not touch-focusable.
+            isFocusable = true
+            isFocusableInTouchMode = false
             setPadding(BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP)
             minimumWidth = TOUCH_DP
             minimumHeight = TOUCH_DP
-            isFocusable = false
             layoutParams = lp(WRAP)
         }
 
@@ -422,10 +432,12 @@ private fun oneLine(): View {
             contentDescription = context.getString(R.string.settings_content_description)
             background = ContextCompat.getDrawable(context, R.drawable.toolbar_chip)
             setOnClickListener { onSettingsClicked?.invoke() }
+            // F6: same split — keyboard focusable, not touch-focusable.
+            isFocusable = true
+            isFocusableInTouchMode = false
             setPadding(BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP)
             minimumWidth = TOUCH_DP
             minimumHeight = TOUCH_DP
-            isFocusable = false
             layoutParams = lp(WRAP)
         }
 
