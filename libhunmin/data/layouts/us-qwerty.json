@@ -10,6 +10,7 @@
   "qwerty"
  ],
  "engine": "std",
+ "mode": "latin",
  "libhangulType": "jamo",
  "compose": [
   "modern"

@@ -33,9 +33,15 @@ static inline const hm_val *hm_resolvev(const hm_val *v, hm_state st) {
   return v;
 }
 
+/* Which half of a two-mode IME a layout belongs to. Data, not code: the
+ * Android settings window splits its layout list on this (issue #12), and a
+ * front-end that guessed from the name would drift from the file. */
+typedef enum { HM_MODE_HANGUL = 0, HM_MODE_LATIN = 1 } hm_layout_mode;
+
 typedef struct {
   int schema;
   char id[64];
+  hm_layout_mode mode;
   char name_en[128];
   char name_ko[128];
   hm_engine_t type;

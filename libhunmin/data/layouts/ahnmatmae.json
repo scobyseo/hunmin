@@ -6,6 +6,7 @@
     "ko": "안마태"
   },
   "engine": "std",
+  "mode": "hangul",
   "aliases": [
     "ahn"
   ],

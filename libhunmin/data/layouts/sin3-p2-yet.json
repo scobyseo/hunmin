@@ -6,6 +6,7 @@
     "ko": "신세벌식 P2 옛한글 조합 + 기호 확장"
   },
   "engine": "h3",
+  "mode": "hangul",
   "aliases": [
     "3sin-p2-yet"
   ],

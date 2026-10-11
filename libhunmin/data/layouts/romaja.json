@@ -6,6 +6,7 @@
     "ko": "로마자"
   },
   "engine": "romaja",
+  "mode": "hangul",
   "aliases": [
     "ro"
   ],

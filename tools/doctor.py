@@ -14,6 +14,10 @@ import jamo
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
 MODS = {"plain", "shift", "ctrl", "alt"}
 ENGINES = {"std", "h3", "romaja"}
+# Which half of the two-mode IME a layout belongs to. The engine mirrors these
+# two strings (hm_layout_mode / hunmin_ctx_layout_mode); a third value here
+# would be one the engine has never heard of.
+LAYOUT_MODES = {"hangul", "latin"}
 REQUIRED_TOP = {"schemaVersion", "id", "name", "engine", "compose", "keys"}
 
 
@@ -139,6 +143,15 @@ def check_layout(path: Path, aliases: dict, compose_ids: set, vfile: V):
         aliases[a] = d["id"]
     if d["engine"] not in ENGINES:
         vfile.err(f"bad engine {d['engine']!r}")
+    # `mode` decides which half of the two-mode settings list a layout appears
+    # in (issue #12). The ENGINE defaults an absent or misspelt value to
+    # "hangul" so a typo costs one mis-filed row rather than the layout; this
+    # is what makes the typo loud instead. Required, because "which list does
+    # this belong in" has exactly one right answer and it is the file's.
+    if "mode" not in d:
+        vfile.err("missing 'mode' (\"hangul\" | \"latin\")")
+    elif d["mode"] not in LAYOUT_MODES:
+        vfile.err(f"bad mode {d['mode']!r}; expected one of {sorted(LAYOUT_MODES)}")
     for c in d["compose"]:
         if c not in compose_ids:
             vfile.err(f"compose {c!r} not found in data/compose")
