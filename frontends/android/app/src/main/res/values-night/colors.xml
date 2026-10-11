@@ -11,9 +11,10 @@
     <color name="hunmin_mic_active">#66BB6A</color>
 
     <!--
-      The HUD tokens, dark values in the night palette too (the HUD is
-      always dark — see values/colors.xml for the reasoning and the
-      measured contrast). Accent and confirmed follow the scheme.
+      The HUD tokens, night set — the dark slate the HUD always used, now as
+      the dark half of the day/night pair (review F3). Contrast on the
+      #1E1E24 panel: on-panel 14.9:1, secondary 5.1:1, accent 9.6:1,
+      confirmed 7.0:1, keycap text 12.5:1.
     -->
     <color name="hunmin_hud_panel">#1E1E24</color>
     <color name="hunmin_hud_on_panel">#F2F2F7</color>

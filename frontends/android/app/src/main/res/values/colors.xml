@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The dock's colours, as Material 3 baseline tokens.
+  The strip's colours, as Material 3 baseline tokens.
 
   Named, not inlined in the toolbar, for two reasons: the dark values are the
   real requirement (a dock is drawn over whatever the app is doing, and a light
@@ -23,27 +23,22 @@
       The Compact HUD's palette (OverlayActivity), as named tokens rather
       than the in-file literals it used to carry (review F1).
 
-      The HUD is ALWAYS DARK — a deliberate choice, not a missing night
-      variant: the settings window is a hardware-keyboard inspector drawn
-      over whatever the host app is doing, and ANDROID-UI-NOTES §4 records
-      that the shell and the rows must be the same dark canvas. So these
-      tokens exist in BOTH the light and the night palette with the same
-      dark values: the panel must not flip with the system theme, only the
-      accent and the greens track the scheme (cyan is the light-scheme
-      accent, the violet the dark-scheme one, matching the dock's primary
-      in each mode).
+      Day/night both, since 2026-10-12 (review F3 — the maintainer ruled
+      "F3 -> implement modes"). Until then the HUD was hard always-dark;
+      now the day set is the M3 light surface family and the night set the
+      dark slate it always was. Same token names, two measured palettes.
 
-      Contrast, measured with the WCAG formula on the #1E1E24 panel:
-      on_hud 14.86:1, hud_secondary 5.09:1, hud_accent 9.64:1,
-      hud_confirmed 7.01:1 (AA for text at every size in use).
+      Every pair is measured WCAG AA on its own panel. Day (panel #F3EDF7):
+      on-panel 14.9:1, secondary 8.1:1, accent 5.6:1, confirmed 5.8:1,
+      keycap text 17.1:1. Night (panel #1E1E24): on-panel 14.9:1,
+      secondary 5.1:1, accent 9.6:1, confirmed 7.0:1, keycap text 12.5:1.
     -->
-    <color name="hunmin_hud_panel">#1E1E24</color>
-    <color name="hunmin_hud_on_panel">#F2F2F7</color>
-    <color name="hunmin_hud_secondary">#8E8E93</color>
-    <color name="hunmin_hud_keycap">#2C2C2E</color>
-    <color name="hunmin_hud_keycap_outline">#48484A</color>
-    <color name="hunmin_hud_accent">#64D2FF</color>
-    <color name="hunmin_hud_accent_bg">#152D3D</color>
-    <!-- The dark-scheme mic green: the one green that passes AA on the panel. -->
-    <color name="hunmin_hud_confirmed">#66BB6A</color>
+    <color name="hunmin_hud_panel">#F3EDF7</color>
+    <color name="hunmin_hud_on_panel">#1D1B20</color>
+    <color name="hunmin_hud_secondary">#49454F</color>
+    <color name="hunmin_hud_keycap">#FFFFFF</color>
+    <color name="hunmin_hud_keycap_outline">#79747E</color>
+    <color name="hunmin_hud_accent">#006494</color>
+    <color name="hunmin_hud_accent_bg">#E1F0FA</color>
+    <color name="hunmin_hud_confirmed">#106B21</color>
 </resources>

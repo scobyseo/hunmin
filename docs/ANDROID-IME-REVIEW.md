@@ -70,7 +70,7 @@ recommendations to change code.
 |---|---|---|---|
 | F1 | Two unshared palettes: the dock uses M3 tokens, but `OverlayActivity`'s `CompactTheme` hardcodes a second palette in Kotlin (`#1E1E24` slate, `#64D2FF` cyan) | `OverlayActivity.kt:64–73` | M3 "one theme, one source of truth"; a second palette is a second thing to keep in sync with the night variant |
 | F2 | Five inline `Color.parseColor` literals in the capture dialog are outside both palettes: `#79747E` (tvSub, 3.64:1), `#6750A4` (preview, 2.57:1), `#2E7D32` (confirmed, 3.23:1), `#9E9E9E` (hint, 6.19:1) — computed against the `#1E1E24` panel | `OverlayActivity.kt:489–506`, `:574–578` | M3 color tokens; WCAG AA 4.5:1 for normal-size text. The preview and confirmed colours are the live feedback of the capture UI |
-| F3 | `values-night` exists but the Compact HUD / settings dialogs have no dark-mode variants — `CompactTheme` is one fixed dark palette regardless of system theme | `OverlayActivity.kt:64`, `themes.xml` | Design-for-Android dark-theme guidance. Deliberate HUD choice (`docs/ANDROID-UI-NOTES.md` §1), so recorded, not scored |
+| F3 | ~~No dark-mode variant for the HUD~~ **Filled 2026-10-12** (ruling "F3 -> implement modes"): the HUD tokens are a day/night pair — M3 light surface family by day, the dark slate by night — shared by the dialogs, the capture UI and the Compact HUD through the same `hunmin_hud_*` names | `values/colors.xml`, `values-night/colors.xml` | M3 color + Design-for-Android dark theme. All pairs measured AA in both palettes |
 | F4 | Flat one-line/two-line strip (styles B/C) renders hard black-on-white pills (`0xFF000000`/`0xFFFFFFFF`) with no dark-mode variant and no Material container shape; only the dock path has the M3 theme | `LayoutPicker.kt:359–406` | M3 color + dark mode; the flat styles predate the dock and were never re-themed |
 | F4b | The flat strip's mic listening tint `0xFF43A047` over a white pill measures 3.30:1 — the color-only state signal in that style | `LayoutPicker.kt:452–456` | WCAG AA; contrast-as-state |
 | F5 | ~~The dock's `buildDock()` is dead code~~ **Removed 2026-10-12 (maintainer ruling "F5 -> remove!")**: `DockStyle.kt` (374 lines), `buildDock()`, the `dock` field and the Dock-only resources (`toolbar_hanja_active`, `toolbar_mic_active`, `ph_caret_down`, `hunmin_on_mic_active`, `mode_hangul`, `mode_latin`) are gone | was `LayoutPicker.kt:248–262` | The reachable code is now the only code; the shared drawables/colours stay (used by the re-themed strip) |
@@ -78,7 +78,7 @@ recommendations to change code.
 | F7 | No predictive-back opt-in (`android:enableOnBackInvokedCallback` absent from the manifest) | `AndroidManifest.xml` | Codepath common-patterns "Predictive back". minSdk 24 to targetSdk 35: the flag is not required, but targetSdk 35 users on gesture nav get the legacy behavior |
 | F8 | Notifications are never used — all transient user feedback goes through Toasts launched via a full `OverlayActivity` start | `HunminInputMethodService.kt:376–384` | Codepath common-patterns "Notifications"; a mode-toggle toast does not need a notification, so this is a "does not apply" entry recorded for completeness |
 | F9 | `onEvaluateFullscreenMode() = false` and `onCreateExtractTextView() = null` are correct landscape choices for a hardware-keyboard IME | `HunminInputMethodService.kt:667–671` | No gap; listed as confirmed-correct |
-| F10 | `dialog.window.setLayout(widthPixels * 0.92, …)` sizes against the physical metrics rather than window-size classes | `OverlayActivity.kt:288–291`, `:470–473` | Adaptive guidance: fine for phones, untested on foldables/tablets |
+| F10 | ~~Dialog sized off physical pixels~~ **Filled 2026-10-12** (ruling "F10 -> make it adaptive"): `dialogWidth()` sizes by window size class — 92% of the window capped at 328dp on compact, the 560dp M3 content column on expanded — so tablets/foldables get a readable column instead of a full-width sheet | `OverlayActivity.kt dialogWidth()`, both `setLayout` sites | Adaptive layouts; `screenWidthDp` follows rotation and fold state |
 | F11 | `KeyboardLayoutReceiver` logs at `.d` with full descriptor lists on every `ACTION_QUERY_KEYBOARD_LAYOUTS` broadcast | `keymaps/KeyboardLayoutReceiver.kt:30–37` | Not a design-guideline item; noted because it is the module's only unstructured logging |
 | F12 | The `keymaps` module (`R.xml.keyboard_layouts`) provides physical-keyboard layout descriptors to InputManagerService — a specialised Android mechanism, not part of the rubric | `keymaps/…` | No gap; documented as intended |
 
@@ -88,7 +88,7 @@ verification that covers it:
 
 - **F1 — filled.** The HUD palette is now `@color/hunmin_hud_*` tokens in
   `values/colors.xml` and `values-night/colors.xml` (same dark values in
-  both: the HUD stays always-dark by design, ANDROID-UI-NOTES §4).
+  both — since 2026-10-12 they are a true day/night pair, review F3).
   `CompactTheme` is a cache object reading the tokens (`CompactTheme.of()`
   returning an immutable `Colors`), not a second palette;
   `dialog_background.xml` reads `@color/hunmin_hud_panel` instead of a
@@ -113,6 +113,25 @@ verification that covers it:
 - **F4b — filled.** The flat mic tint reads `@color/hunmin_mic_active`, so
   the night palette's `#66BB6A` (7.01:1 on the dark dock) replaces the
   single literal `0xFF43A047` (3.30:1 on light, and unchanged at night).
+- **F3 — filled (ruling "F3 -> implement modes", 2026-10-12).** The HUD
+  tokens are now a true day/night pair: the day set is the M3 light surface
+  family (panel `#F3EDF7`, secondary `#49454F`, accent `#006494`,
+  confirmed `#106B21`, white keycaps), the night set the dark slate the HUD
+  always had. Because F1 already routed every HUD surface through the
+  `hunmin_hud_*` token names — the dialogs, the capture UI, the
+  CompactTheme cache, the dialog drawable — the mode switch needed no code
+  change beyond the two resource files: every HUD element follows
+  automatically, which is the "common to other UI elements" the ruling
+  asked for. Measured: every pair AA in both palettes (day: on-panel
+  14.9:1, secondary 8.1:1, accent 5.6:1, confirmed 5.8:1; night: 14.9:1,
+  5.1:1, 9.6:1, 7.0:1).
+- **F10 — filled (ruling "F10 -> make it adaptive", 2026-10-12).** Both
+  `setLayout(widthPixels * 0.92)` sites call `dialogWidth()`: compact
+  windows get 92% of the window width capped at 328dp, expanded windows
+  (tablet, unfolded foldable) get the 560dp M3 content column.
+  `screenWidthDp` is the window's own width class, so rotation and fold
+  transitions re-derive it. Verified: `grep widthPixels` finds only the
+  KDoc; `assembleDebug` green.
 - **F7 — filled.** `android:enableOnBackInvokedCallback="true"` on
   `<application>`. Verified: manifest compiles (`assembleDebug` green).
 - **F5 — filled by removal (maintainer ruling, 2026-10-12).** The

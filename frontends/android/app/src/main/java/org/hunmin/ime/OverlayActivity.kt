@@ -309,11 +309,8 @@ class OverlayActivity : AppCompatActivity() {
             .setOnCancelListener { finish() }
             .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
             .show()
-        // The wrap_content card came out ~1/3 of the screen width on the AVD, which
-        // ellipsized every badge to two glyphs. A settings list wants the width it
-        // can have; the rows distribute it themselves.
         dialog?.window?.setLayout(
-            (resources.displayMetrics.widthPixels * 0.92).toInt(),
+            dialogWidth(),
             ViewGroup.LayoutParams.WRAP_CONTENT,
         )
 
@@ -496,7 +493,7 @@ class OverlayActivity : AppCompatActivity() {
             .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
             .show()
         dialog?.window?.setLayout(
-            (resources.displayMetrics.widthPixels * 0.92).toInt(),
+            dialogWidth(),
             ViewGroup.LayoutParams.WRAP_CONTENT,
         )
     }
@@ -728,8 +725,41 @@ class OverlayActivity : AppCompatActivity() {
     /** dp to px helper */
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+    /**
+     * Dialog width by window size class (review F10 — "make it adaptive"),
+     * not by physical pixels.
+     *
+     * The old `widthPixels * 0.92` happened to be right on phones and wrong
+     * everywhere else: on a tablet or an unfolded foldable it stretched the
+     * dialog to nearly the whole ~1600dp window and the dense text block
+     * became unreadably wide. M3 dialogs cap the content column
+     * (~560dp) and let the window take the rest.
+     *
+     * `screenWidthDp` is the window's own width class — it follows rotation
+     * and fold state, and it never counts the region a dialog cannot use.
+     */
+    private fun dialogWidth(): Int {
+        // The window's own width in dp — follows rotation and fold state, and
+        // never counts the region a dialog cannot occupy (cutouts).
+        val w = resources.configuration.screenWidthDp.takeIf { it > 0 } ?: 320
+        return when (w) {
+            // Phone portrait: 92% of the window, capped at the M3 fill width.
+            in 0..<COMPACT_DP -> minOf(dp(MIN_FILL_DP), (w * density() * 0.92f).toInt())
+            // Tablet / unfolded: the M3 content column, not the whole window.
+            else -> if (w >= MIN_FILL_DP + MAX_CONTENT_DP) dp(MAX_CONTENT_DP)
+                    else minOf(dp(w), dp(MAX_CONTENT_DP))
+        }
+    }
+
+    private fun density(): Float = resources.displayMetrics.density
+
     companion object {
         private const val TAG = "OverlayActivity"
+
+        // Window-size-class widths for dialogWidth() (review F10).
+        private const val COMPACT_DP = 600      // compact/medium boundary
+        private const val MIN_FILL_DP = 328     // the phone dialog width
+        private const val MAX_CONTENT_DP = 560  // M3 dialog content cap
 
         /** Shown for an action with no binding; the fixed keys still answer. */
         const val NOT_SET = "설정 안 됨 (고정 키 사용)"
