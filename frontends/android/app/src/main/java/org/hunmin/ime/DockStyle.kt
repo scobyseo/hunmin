@@ -34,6 +34,7 @@
 package org.hunmin.ime
 
 import android.content.Context
+import android.animation.ObjectAnimator
 import android.graphics.Typeface
 import android.text.TextUtils
 import android.util.TypedValue
@@ -76,12 +77,14 @@ internal class DockToolbar(
     private val onMicGreen = color(R.color.hunmin_on_mic_active)
     private val primary = color(R.color.hunmin_primary)
 
+    private var pulseAnimator: ObjectAnimator? = null
+
     private val chipLabel = TextView(context)
     private val hangulHalf = TextView(context)
     private val latinHalf = TextView(context)
     private val hanjaKey = TextView(context)
-    private val micKey = ImageView(context)
-    private val gearKey = ImageView(context)
+    private var micKey: ImageView? = null
+    private var gearKey: ImageView? = null
 
     /** The pill. Marginally transparent background so a shadow has something to sit on. */
     fun build(): View {
@@ -140,23 +143,29 @@ internal class DockToolbar(
         )
         hanjaKey.setTextColor(if (state.hanjaConverting) primary else onSurface)
 
+        val mic = micKey
         when (state.voice) {
             VoiceState.IDLE -> {
-                micKey.setBackgroundResource(0)
-                micKey.setColorFilter(onSurface)
+                mic?.setBackgroundResource(0)
+                mic?.clearColorFilter()
             }
-            // The green capsule IS the listening indicator; the icon going white
-            // on it is what makes it legible without an animation.
+            // Three signals, because one was not enough and the maintainer said
+            // so: the key turns into a green capsule, the glyph goes white on it,
+            // and the key breathes while the recogniser is running. The capsule
+            // says "this key is live"; the pulse says "and it is live NOW", which
+            // is the difference nobody can miss from across a desk.
             VoiceState.LISTENING -> {
-                micKey.setBackgroundResource(R.drawable.toolbar_mic_active)
-                micKey.setColorFilter(onMicGreen)
+                mic?.setBackgroundResource(R.drawable.toolbar_mic_active)
+                mic?.setColorFilter(onMicGreen)
+                pulse(mic)
             }
             VoiceState.ERROR -> {
-                micKey.setBackgroundResource(0)
-                micKey.setColorFilter(micGreen)
+                stopPulse(mic)
+                mic?.setBackgroundResource(0)
+                mic?.setColorFilter(micGreen)
             }
         }
-        micKey.contentDescription = context.getString(
+        mic?.contentDescription = context.getString(
             when (state.voice) {
                 VoiceState.IDLE -> R.string.voice_content_description
                 VoiceState.LISTENING -> R.string.voice_listening
@@ -274,17 +283,29 @@ internal class DockToolbar(
         setOnClickListener { actions.onHanjaClicked?.invoke() }
     }
 
+    /**
+     * `also { … }` is load-bearing, not decoration.
+     *
+     * These builders used to RETURN a fresh view while the same-named FIELD was
+     * a separate ImageView created at construction: bind() then repainted an
+     * object that was never in the view tree, so every state change to the mic
+     * was invisible while the log said LISTENING and the field was non-null.
+     * Measured on the phone: the content-desc stayed "음성 입력" through a whole
+     * session and the pixels did not move. The chip and the segment did not have
+     * this shape — their fields ARE the views that get added — which is exactly
+     * why 한/영 reacted and the mic did not.
+     */
     private fun micKey(): ImageView = icon(
         R.drawable.ph_microphone,
         R.string.voice_content_description,
         actions.onMicClicked,
-    )
+    ).also { micKey = it }
 
     private fun gearKey(): ImageView = icon(
         R.drawable.ph_gear,
         R.string.settings_content_description,
         actions.onSettingsClicked,
-    )
+    ).also { gearKey = it }
 
     private fun icon(drawable: Int, descRes: Int, onClick: (() -> Unit)?): ImageView =
         ImageView(context).apply {
@@ -299,6 +320,33 @@ internal class DockToolbar(
         }
 
     // ---------------------------------------------------------------- helpers
+
+    /**
+     * The listening pulse: 1.0 to 1.08 and back, 700 ms, forever, until stopped.
+     *
+     * Deliberately slow and deliberately small. A keyboard that pulses hard is
+     * a keyboard that draws the eye away from the text being typed into, and the
+     * whole point of this key is that it is at the edge of attention.
+     */
+    private fun pulse(mic: ImageView?) {
+        val view = mic ?: return
+        if (pulseAnimator?.target === view && pulseAnimator?.isRunning == true) return
+        pulseAnimator?.cancel()
+        pulseAnimator = ObjectAnimator.ofFloat(view, View.SCALE_X, 1f, 1.08f).apply {
+            duration = 700
+            repeatMode = ObjectAnimator.REVERSE
+            repeatCount = ObjectAnimator.INFINITE
+            addUpdateListener { view.scaleY = it.animatedValue as Float }
+            start()
+        }
+    }
+
+    private fun stopPulse(mic: ImageView?) {
+        pulseAnimator?.cancel()
+        pulseAnimator = null
+        mic?.scaleX = 1f
+        mic?.scaleY = 1f
+    }
 
     /** A tappable key that still refuses focus — the editor keeps the caret. */
     private fun View.clickable(canClick: Boolean) {

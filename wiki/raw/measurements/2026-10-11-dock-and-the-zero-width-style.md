@@ -62,6 +62,54 @@ strip whose buttons are off-screen produce the same missing node.
 
 Fix: `MATCH_PARENT` on the two rows, `WRAP` on the mode pill inside them.
 
+## The mic that listened and showed nothing
+
+The maintainer reported it as *"마이크 버튼을 눌러도 변화가 보이지 않네?"* — the
+button changes nothing when pressed. It did change: `startVoiceInput()` ran, the
+platform recogniser opened the audio stream (`PCM_RECORD` in logcat), and the
+state went LISTENING. The screen did not.
+
+`bind()` repainted an `ImageView` that was never added to the view tree. The
+builder method `micKey()` returned a fresh view while the same-named **field** was
+a separate `ImageView` created at construction, so every state write landed on an
+orphan. The chip and the 한/영 segment never had this shape — their fields ARE the
+views that get added — which is exactly why 한/영 reacted to a tap and the mic did
+not. Fixed by assigning what the builder adds (`.also { micKey = it }`).
+
+### The measurement that was wrong twice
+
+The session lasts about five seconds. `uiautomator dump` of the IME window takes
+longer than that, so every dump landed *after* the session ended and reported
+`IDLE` — a correct reading of a state that had already ended. A `screencap` in the
+same window returns in well under a second and shows the capsule.
+
+So for about a day this defect read as "not a defect": the state log said
+LISTENING, the a11y dump said nothing had changed, and the honest conclusion from
+those two together is contradictory rather than diagnostic. What settled it was
+sampling inside the window (screencap) and then confirming the view identity with
+an attachment check.
+
+The pixel gate that came out of it, validated against both states of the same
+screen: **(67, 160, 71) = `#43A047`** (Green 600) while listening, **(243, 237, 247)
+= `#F3EDF7`** (the dock's own surface) while idle. Tested for *greenness*, not for
+an exact colour, so the dark palette's `#66BB6A` passes the same test.
+
+## Tier E4, and why accuracy is not in it
+
+The maintainer approved splitting the voice tier: the script gates our contract,
+a person judges intelligibility. The constraint that forces the split is the
+platform, not taste — `SpeechRecognizer` is the recogniser, recorded audio cannot
+be replayed into it, and a percentage threshold would be a test that fails on a
+bad network day. The invariant-5 half (spoken Hangul must not be composed a second
+time) was found to be **already gated at E1** in `HunminEngineTest`, so E4 tests
+the path around it rather than repeating it.
+
+What E4 does not have yet: a completed end-to-end run. The script needs a focused
+editor and asks a person for one by design (the Settings search surface is an AVD
+fixture; OEMs ship different widgets), so a non-interactive run refuses rather
+than guessing. Its four state and pixel checks have each been measured by hand on
+an SM-S938N; the loop as a whole has not been run end to end.
+
 ## What this does not settle
 
 Whether style C earns its place now that the dock exists is a question for the

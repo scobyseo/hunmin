@@ -177,6 +177,7 @@ class LayoutPicker @JvmOverloads constructor(
 
     /** Update mic button appearance for current recognition state. */
     fun setMicState(state: VoiceState) {
+        android.util.Log.i("HunminIme", "mic state -> $state")
         voiceState = state
         renderState()
     }

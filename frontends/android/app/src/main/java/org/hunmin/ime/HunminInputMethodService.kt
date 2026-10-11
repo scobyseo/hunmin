@@ -545,6 +545,7 @@ class HunminInputMethodService : InputMethodService() {
      * attempt that throws into the key path takes the whole keyboard with it.
      */
     fun startVoiceInput() {
+        Log.i(TAG, "voice: startVoiceInput (hangul=$isHangulMode, inFlight=${voiceSession != null})")
         if (voiceSession != null) {
             // Already listening; a second tap cancels, which is what a mic
             // button that toggles is expected to do.

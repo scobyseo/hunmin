@@ -297,3 +297,17 @@
   dock exists, and whether Material Components is worth taking as a dependency for the
   shapes this draws by hand.
 - `wiki/index.md` lists the page.
+- **A real defect, found by measurement and fixed:** the dock's `bind()` repainted
+  an `ImageView` never added to the view tree, so every mic state change was
+  invisible while the log said LISTENING. The a11y dump could not see it because
+  the session lasts ~5 s and a dump takes longer than that — the read landed after
+  the state had ended. Validated the replacement pixel gate against both states of
+  the same screenshot: `#43A047` listening, `#F3EDF7` idle.
+- **Tier E4 written** (`tools/android-voice-check.sh`, `tests/manual-checklists/tier-e4-voice.md`):
+  the script gates our half of the voice path and a person judges intelligibility,
+  because `SpeechRecognizer` cannot be replayed and an accuracy threshold would be
+  a network-day test. C turned out to already exist: `HunminEngineTest` gates
+  invariant 5 at E1, so E4 tests the path around it.
+- **Still missing:** a completed E4 run end to end. The script asks a person for a
+  focused editor by design and refuses otherwise; each of its state and pixel checks
+  has been measured by hand on SM-S938N, the loop has not.
