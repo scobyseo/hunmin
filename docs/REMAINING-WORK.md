@@ -15,6 +15,11 @@ carrying the correct diagnosis of its own disease, and
 the guard now enforcing it. §7's assertion table is the load-bearing part: it is
 parsed and executed by `tools/docs-lint.py` check 6 on every run.
 
+**Release lanes (2026-10-11): 0.1 = fcitx5 + Android, 0.2 = Windows, 0.3 = 자동 한/영
+전환, then polish to 1.0.** Which of the items below belongs to which lane is
+[`MILESTONES.md`](MILESTONES.md) — a rearrangement of this board, not a second copy
+of it. Status claims stay here and nowhere else.
+
 **P6 (Windows TSF) is excluded by the maintainer's instruction**: there is no Windows
 environment on this host (`docs/ENVIRONMENT.md` batch 4, not installed) and no way to
 verify a TIP, so work on it could not be measured. Nothing below depends on it, and
