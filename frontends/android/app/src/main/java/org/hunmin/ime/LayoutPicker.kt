@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * LayoutPicker — the IME's input view: an indicator and four buttons.
+ * LayoutPicker — the IME's input view. Three shapes of one toolbar.
  *
  * WHY IT IS NOT A LAYOUT PICKER ANY MORE
  * -------------------------------------
@@ -16,22 +16,25 @@
  * with three shapes, because the maintainer's instruction was "설정에 A, B, C
  * 중 선택할 수 있게 만들어도 좋아".
  *
+ *   COMPACT  (style A) the floating dock — DockStyle.kt
+ *   ICON_ROW (style B) one dense row, layout name abbreviated
+ *   TWO_ROW  (style C) status above, actions below
+ *
  * THE FIVE THINGS, IN EVERY STYLE
  * ------------------------------
  *   the layout in use  ·  한/영 mode  ·  Hanja  ·  voice  ·  settings
  *
  * Only the LAYOUT NAME may be truncated, per the same instruction. That is the
- * reason it is the one child with weight: everything else keeps its 48 dp touch
+ * reason it is the one elastic child: everything else keeps its 48 dp touch
  * target on any screen, and the one elastic thing is the text the user already
  * knows they can go and read in full in the settings window.
  *
- * HOW IT FITS ANY SCREEN
- * ----------------------
- * Two mechanisms, because one is not enough. The gaps between buttons step
- * down (20 / 12 / 6 dp) as the screen narrows, which handles every ordinary
- * width. A HorizontalScrollView wraps the row anyway, which handles the width
- * where even the smallest gaps overflow: a scroll view that does not need to
- * scroll costs nothing, and a button the user cannot reach costs the feature.
+ * STATE LIVES HERE ONLY AS A VALUE
+ * --------------------------------
+ * Everything the strip shows arrives as a [ToolbarState] built in renderState()
+ * and pushed into whichever views the current style has. That is the whole of
+ * the crash fix: a rebuild that cannot lose the state it was holding, because
+ * the rebuild never held it.
  */
 package org.hunmin.ime
 
@@ -40,11 +43,13 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 
 class LayoutPicker @JvmOverloads constructor(
@@ -58,23 +63,52 @@ class LayoutPicker @JvmOverloads constructor(
     private var layouts: List<LayoutEntry> = emptyList()
     private var activeLayoutId: String? = null
 
-    private var layoutIndicator: TextView? = null
-
     /** Style B shows an abbreviation; A and C show the full name, cut off. */
     private var layoutAbbreviated = false
+
+    private var modeIsHangul = true
+    private var voiceState = VoiceState.IDLE
+    private var hanjaConverting = false
+
+    // The dock (style A) binds in place; the flat row and the column (B and C)
+    // keep their own references, because they were written before the dock was
+    // and reworking them is a separate piece of work.
+    private var dock: DockToolbar? = null
+    private var layoutIndicator: TextView? = null
     private var modeView: TextView? = null
     private var micButton: ImageButton? = null
     private var hanjaButton: TextView? = null
     private var settingsButton: ImageButton? = null
 
+    /**
+     * Every callback below re-renders on assignment, and that is a fix rather
+     * than a style choice: the style's views capture the callbacks when they are
+     * built, and the service builds the picker first and wires the callbacks
+     * afterwards — so a dock built at construction time had null everywhere and
+     * every key was inert. Measured: the gear's bounds were in the accessibility
+     * tree and the tap did nothing at all.
+     */
+
     /** Called when the user taps the mic. Null disables the button. */
     var onMicClicked: (() -> Unit)? = null
+        set(value) {
+            field = value
+            rebuild()
+        }
 
     /** Called when the user taps the Hanja button. Null disables the button. */
     var onHanjaClicked: (() -> Unit)? = null
+        set(value) {
+            field = value
+            rebuild()
+        }
 
     /** Called when the user taps the mode indicator (한/영). Null disables click. */
     var onModeClicked: (() -> Unit)? = null
+        set(value) {
+            field = value
+            rebuild()
+        }
 
     /**
      * Called when the settings button is tapped. Null disables the button.
@@ -86,7 +120,7 @@ class LayoutPicker @JvmOverloads constructor(
     var onSettingsClicked: (() -> Unit)? = null
         set(value) {
             field = value
-            settingsButton?.setOnClickListener { value?.invoke() }
+            rebuild()
         }
 
     /**
@@ -98,11 +132,10 @@ class LayoutPicker @JvmOverloads constructor(
      * layout is active.
      */
     var onLayoutClicked: (() -> Unit)? = null
-
-    /** Visual state of the mic button. */
-    enum class MicState { IDLE, LISTENING, ERROR }
-
-    private var micState: MicState = MicState.IDLE
+        set(value) {
+            field = value
+            rebuild()
+        }
 
     init {
         installInsetsListener()
@@ -121,7 +154,7 @@ class LayoutPicker @JvmOverloads constructor(
     /** The engine's layout list; the indicator resolves its label from this. */
     fun setLayouts(layouts: List<LayoutEntry>) {
         this.layouts = layouts
-        refreshLayoutIndicator()
+        renderState()
     }
 
     /**
@@ -133,39 +166,54 @@ class LayoutPicker @JvmOverloads constructor(
      */
     fun setActiveLayout(id: String) {
         activeLayoutId = id
-        refreshLayoutIndicator()
+        renderState()
     }
 
     /** Update mode indicator (한/영). */
     fun setMode(isHangul: Boolean) {
         modeIsHangul = isHangul
-        modeView?.text = if (isHangul) "한" else "영"
+        renderState()
     }
 
     /** Update mic button appearance for current recognition state. */
-    fun setMicState(state: MicState) {
-        micState = state
-        val button = micButton ?: return
-        val color = when (state) {
-            MicState.IDLE -> 0
-            MicState.LISTENING -> android.graphics.Color.GREEN
-            MicState.ERROR -> android.graphics.Color.GRAY
-        }
-        if (color == 0) {
-            button.clearColorFilter()
-        } else {
-            button.setColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN)
-        }
-        button.contentDescription = context.getString(
-            when (state) {
-                MicState.IDLE -> R.string.voice_content_description
-                MicState.LISTENING -> R.string.voice_listening
-                MicState.ERROR -> R.string.voice_error
-            }
-        )
+    fun setMicState(state: VoiceState) {
+        voiceState = state
+        renderState()
+    }
+
+    /**
+     * Whether a Hanja conversion is running.
+     *
+     * Nothing reports this yet — the Hanja window is an activity the IME starts
+     * and does not watch — so the dock's highlight stays off rather than being
+     * driven by a flag that means "somebody called the setter". It is wired to
+     * the same [ToolbarState.hanjaConverting] the dock renders, so turning the
+     * highlight on is one call away when there is a true source for it.
+     */
+    fun setHanjaConverting(converting: Boolean) {
+        hanjaConverting = converting
+        renderState()
     }
 
     // ------------------------------------------------------------- composition
+
+    /** The one place the strip's state is assembled, whichever style is up. */
+    private fun renderState() {
+        val state = stateForCurrentStyle()
+        dock?.bind(state)
+        layoutIndicator?.let { applyFlatState(it, state) }
+        modeView?.let { it.text = if (state.modeIsHangul) "한" else "영" }
+        applyFlatVoiceState()
+    }
+
+    private fun stateForCurrentStyle(): ToolbarState = ToolbarState.of(
+        layouts = layouts,
+        layoutId = activeLayoutId,
+        abbreviated = layoutAbbreviated,
+        modeIsHangul = modeIsHangul,
+        voice = voiceState,
+        hanjaConverting = hanjaConverting,
+    )
 
     private fun rebuild() {
         removeAllViews()
@@ -177,11 +225,13 @@ class LayoutPicker @JvmOverloads constructor(
         // addView() refuses a view that already has one. Style A never showed
         // it, because A is the default and applyStyle() short-circuits when the
         // style has not changed.
+        dock = null
         layoutIndicator = null
         modeView = null
         micButton = null
         hanjaButton = null
         settingsButton = null
+        layoutAbbreviated = false
         // MATCH_PARENT on the width, explicitly. The root is a FrameLayout, whose
         // generateDefaultLayoutParams() is WRAP_CONTENT — and a wrap-content
         // scroll view measures to nothing useful and clips its own row away, so
@@ -190,13 +240,28 @@ class LayoutPicker @JvmOverloads constructor(
         // is the same failure as the gear button being off-screen.
         val fill = FrameLayout.LayoutParams(MATCH_PARENT, WRAP)
         when (style) {
-            ToolbarStyle.COMPACT -> addView(scrollingRow(iconOnlyLayout = false), fill)
+            ToolbarStyle.COMPACT -> addView(buildDock(), fill)
             ToolbarStyle.ICON_ROW -> addView(scrollingRow(iconOnlyLayout = true), fill)
             ToolbarStyle.TWO_ROW -> addView(twoRows(), fill)
         }
-        // Re-apply the state the rebuild's fresh views do not know about.
-        setMicState(micState)
-        refreshLayoutIndicator()
+        renderState()
+    }
+
+    /** Style A: the floating pill. */
+    private fun buildDock(): View {
+        val toolbar = DockToolbar(
+            context = context,
+            state = stateForCurrentStyle(),
+            actions = DockToolbar.Actions(
+                onLayoutClicked = onLayoutClicked,
+                onModeClicked = onModeClicked,
+                onHanjaClicked = onHanjaClicked,
+                onMicClicked = onMicClicked,
+                onSettingsClicked = onSettingsClicked,
+            ),
+        )
+        dock = toolbar
+        return toolbar.build()
     }
 
     /**
@@ -210,10 +275,14 @@ class LayoutPicker @JvmOverloads constructor(
         val scroll = HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = false
             isFillViewport = true
+            isFocusable = false
+            isFocusableInTouchMode = false
         }
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            isFocusable = false
+            isFocusableInTouchMode = false
         }
         val gap = gapDp()
         // Only the indicator is elastic: width 0 + weight 1 means "take the
@@ -231,15 +300,27 @@ class LayoutPicker @JvmOverloads constructor(
 
     /** Status above, evenly spread buttons below. Costs about twice the height. */
     private fun twoRows(): View {
-        val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val column = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            isFocusable = false
+            isFocusableInTouchMode = false
+        }
         val status = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            isFocusable = false
+            isFocusableInTouchMode = false
         }
         val gap = gapDp()
         status.addView(layoutIndicator(iconOnlyLayout = false), lp(0, weight = 1f, padEnd = gap))
-        status.addView(modePill(), lp(0))
-        column.addView(status, lp(0))
+        status.addView(modePill(), lp(WRAP))
+        // MATCH width on the rows, and WRAP on the pill: lp(0) means "take the
+        // leftover" in a HORIZONTAL LinearLayout and "be zero pixels wide" in a
+        // vertical one. Style C is the vertical case, and it shipped rendering
+        // nothing at all — measured on the phone: the window dump showed the two
+        // rows and none of their children, and a pixel sample of the IME band was
+        // the window background, not a toolbar.
+        column.addView(status, lp(MATCH_PARENT))
 
         // weight = 1 on each button, so they spread evenly and stay 48 dp even
         // on a narrow screen: two rows means the horizontal budget is twice as
@@ -247,11 +328,13 @@ class LayoutPicker @JvmOverloads constructor(
         val buttons = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            isFocusable = false
+            isFocusableInTouchMode = false
         }
         buttons.addView(hanjaButton(), lp(0, weight = 1f, padEnd = gap))
         buttons.addView(micButton(), lp(0, weight = 1f, padEnd = gap))
         buttons.addView(settingsButton(), lp(0, weight = 1f))
-        column.addView(buttons, lp(0))
+        column.addView(buttons, lp(MATCH_PARENT))
         return column
     }
 
@@ -266,6 +349,7 @@ class LayoutPicker @JvmOverloads constructor(
             layoutParams = lp(0, weight = 1f)
             setOnClickListener { onLayoutClicked?.invoke() }
             isClickable = onLayoutClicked != null
+            isFocusable = false
             contentDescription = context.getString(R.string.picker_content_description)
             layoutAbbreviated = iconOnlyLayout
         }
@@ -281,8 +365,12 @@ class LayoutPicker @JvmOverloads constructor(
             setPadding(PAD_DP, PILL_PAD_DP, PAD_DP, PILL_PAD_DP)
             contentDescription = context.getString(R.string.mode_switch_content_description)
             setOnClickListener { onModeClicked?.invoke() }
+            isFocusable = false
         }
-        setMode(modeIsHangul)
+        label.text = if (modeIsHangul) "한" else "영"
+        // Selected as well as labelled: which mode is active has to be readable
+        // without reading the colour, which is what the dock's segment does.
+        label.isSelected = modeIsHangul
         return FrameLayout(context).apply {
             minimumWidth = TOUCH_DP
             minimumHeight = TOUCH_DP
@@ -290,23 +378,19 @@ class LayoutPicker @JvmOverloads constructor(
         }
     }
 
-    /** Survives a style rebuild, which recreates the pill. */
-    private var modeIsHangul = true
-
     /**
-     * The Hanja key: a LABEL, not an icon.
+     * The Hanja key: 漢, a label rather than an icon.
      *
      * It was `ic_menu_add` — a plus sign — which says "add something", not "make
      * this Hangul into Hanja". The maintainer's words: "한자로 바꾼다는 게 눈에
-     * 띄었으면 좋겠는데". There is no stock Android drawable that means that, and
-     * a plus next to a mic and a gear is a picture of nothing in particular, so
-     * the key says 한자 in words, the way the platform's own Korean keyboards do.
-     * A vector drawable is the better answer if this ever grows a real theme; a
-     * TextView needs none and is unambiguous today.
+     * 띄었으면 좋겠는데". The dock's own design (DockStyle.kt) asks for [ 漢 ] for
+     * the same reason, so B and C say it in the same character rather than
+     * leaving two spellings of one key.
      */
     private fun hanjaButton(): TextView =
         TextView(context).apply {
-            textSize = 13f
+            text = "漢"
+            textSize = 16f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setTextColor(0xFF000000.toInt())
@@ -316,48 +400,66 @@ class LayoutPicker @JvmOverloads constructor(
             setPadding(HANJA_PAD_DP, HANJA_PAD_DP, HANJA_PAD_DP, HANJA_PAD_DP)
             minimumWidth = TOUCH_DP
             minimumHeight = TOUCH_DP
+            isFocusable = false
             layoutParams = lp(WRAP)
         }
 
     private fun micButton(): ImageButton =
         ImageButton(context).also { micButton = it }.apply {
-            setImageResource(android.R.drawable.ic_btn_speak_now)
+            setImageResource(R.drawable.ph_microphone)
             contentDescription = context.getString(R.string.voice_content_description)
             setBackgroundColor(0x00000000)
             setOnClickListener { onMicClicked?.invoke() }
             setPadding(BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP)
             minimumWidth = TOUCH_DP
             minimumHeight = TOUCH_DP
+            isFocusable = false
             layoutParams = lp(WRAP)
         }
 
     private fun settingsButton(): ImageButton =
         ImageButton(context).also { settingsButton = it }.apply {
-            setImageResource(android.R.drawable.ic_menu_preferences)
+            setImageResource(R.drawable.ph_gear)
             contentDescription = context.getString(R.string.settings_content_description)
             setBackgroundColor(0x00000000)
             setOnClickListener { onSettingsClicked?.invoke() }
             setPadding(BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP)
             minimumWidth = TOUCH_DP
             minimumHeight = TOUCH_DP
+            isFocusable = false
             layoutParams = lp(WRAP)
         }
 
     // ----------------------------------------------------------------- helpers
 
-    private fun refreshLayoutIndicator() {
-        val view = layoutIndicator ?: return
-        val entry = layouts.firstOrNull { it.id == activeLayoutId }
-        view.text = when {
-            entry != null -> if (layoutAbbreviated) entry.shortLabel() else entry.label
-            activeLayoutId != null -> activeLayoutId
-            else -> "—"
+    /** B and C's label view: the same text and the same spoken name as the dock. */
+    private fun applyFlatState(view: TextView, state: ToolbarState) {
+        view.text = state.layoutLabel
+        view.contentDescription = state.layoutLabelFull
+            .let { context.getString(R.string.picker_content_description) + ": " + it }
+    }
+
+    /**
+     * B and C's mic colouring.
+     *
+     * The green capsule is the dock's business; a flat row has no pill to fill,
+     * so the icon carries the state there, as it did before.
+     */
+    private fun applyFlatVoiceState() {
+        val button = micButton ?: return
+        val color = when (voiceState) {
+            VoiceState.IDLE -> 0
+            VoiceState.LISTENING -> 0xFF43A047.toInt()
+            VoiceState.ERROR -> android.graphics.Color.GRAY
         }
-        // Spoken and long-press text is the FULL name even when the visible one
-        // is shortened or cut off: a truncated label is a display decision, not a
-        // loss of information.
-        view.contentDescription = entry?.let { context.getString(R.string.picker_content_description) + ": " + it.label }
-            ?: context.getString(R.string.picker_content_description)
+        if (color == 0) button.clearColorFilter() else button.setColorFilter(color)
+        button.contentDescription = context.getString(
+            when (voiceState) {
+                VoiceState.IDLE -> R.string.voice_content_description
+                VoiceState.LISTENING -> R.string.voice_listening
+                VoiceState.ERROR -> R.string.voice_error
+            },
+        )
     }
 
     /** 20 dp on a tablet-width window, 12 on a phone, 6 when it is tight. */
@@ -411,16 +513,7 @@ class LayoutPicker @JvmOverloads constructor(
 }
 
 /** Style B's abbreviation: the id's first token, uppercased, cut to 6 chars. */
-private fun LayoutEntry.shortLabel(): String {
+internal fun LayoutEntry.shortLabel(): String {
     val head = id.substringBefore('-').uppercase()
     return if (head.length <= 6) head else head.take(6)
 }
-
-/** Set by [LayoutPicker.layoutIndicator]; read by [LayoutPicker.refreshLayoutIndicator]. */
-private var TextView.layoutIndicatorText: Boolean
-    get() = tag == STYLE_B_TAG
-    set(value) {
-        tag = if (value) STYLE_B_TAG else null
-    }
-
-private const val STYLE_B_TAG = "hunmin:toolbar-style-b"

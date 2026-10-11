@@ -664,8 +664,22 @@ for row in '한/영 전환: 설정 안 됨 (고정 키 사용)' \
 done
 echo "the key bindings section lists all four actions; the two physical-key rows read as not set"
 
-mode_is() {  # mode_is 한|영 -> 0 when the input view shows it
-  dump_ui /sdcard/mode.xml | tr '>' '\n' | grep -q "text=\"$1\""
+# The input view says which mode is active — by SELECTION, not by label.
+# The dock's segment reads `[ 한 | A ]` (the maintainer's design, where Latin is
+# "A"), styles B and C read 한/영, and a label is a display choice that either
+# design may change. The filled half is the state, and it is what a screen reader
+# announces. Checking the text would have passed a keyboard whose toggle was
+# broken and failed a working one.
+mode_is() {  # mode_is 한|영 -> 0 when the input view shows that mode selected
+  local desc
+  case "$1" in
+    한) desc='한글 입력' ;;
+    영) desc='영문 입력' ;;
+    *)  desc="$1" ;;
+  esac
+  dump_ui /sdcard/mode.xml | tr '>' '\n' \
+    | grep -E "(text=\"$1\"|content-desc=\"$desc\")" \
+    | grep -q 'selected="true"'
 }
 
 # Capture 한/영 전환 = F9 (KEYCODE_F9 = 139, measured with javap on android.jar).

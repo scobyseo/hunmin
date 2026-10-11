@@ -269,3 +269,31 @@
   compile and no tier builds it; its board row asserts only that the directory is present.
   Filed as its own issue; scope is the maintainer's.
 - `wiki/index.md` lists the page; total pages 23.
+
+## 2026-10-11 — the dock, and a style that measured nothing
+
+- **Measurements, not decisions:** the maintainer's specified toolbar (floating pill,
+  48 dp, status left / actions right) implemented as Views rather than Compose, because
+  the repository has no Compose dependency and adding one is a build, a startup cost and
+  an APK size rather than a rendering choice. Recorded, with the reasoning, in
+  `wiki/raw/measurements/2026-10-11-dock-and-the-zero-width-style.md`.
+- **Phosphor Icons, at the maintainer's choice**, for three glyphs; the mic is Duotone
+  because its 0.2-opacity silhouette is the listening state. MIT terms in
+  `debian/copyright`, upstream paths and the conversion in
+  `frontends/android/licences/phosphor-icons/README.md`.
+- **A finding:** style C rendered no content at all — `lp(0)` in a *vertical*
+  LinearLayout is zero pixels wide, not "take the leftover", which is what it means in a
+  horizontal one. Measured on the phone: the IME window's a11y tree had the rows and no
+  children, and a raw pixel of the band was the window background. Fixed with
+  `MATCH_PARENT`; styles A and B were never affected, which is why it survived the crash
+  fix that preceded it.
+- **A crash fixed and verified on the device** (SM-F971N, Android 17):
+  `IllegalStateException: The specified child already has a parent` on a style change,
+  because `rebuild()` left every button parented to the detached row. Style A is the
+  default and `applyStyle()` short-circuits, which is why it looked like "every other
+  style crashes" rather than "the rebuild crashes". Fresh views per rebuild now; the mic
+  key carries 漢 rather than `ic_menu_add`, which said "add something".
+- **Not settled, and not decided here:** whether style C earns its place now that the
+  dock exists, and whether Material Components is worth taking as a dependency for the
+  shapes this draws by hand.
+- `wiki/index.md` lists the page.

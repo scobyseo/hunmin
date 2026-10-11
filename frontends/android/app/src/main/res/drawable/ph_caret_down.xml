@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Phosphor Icons "caret-down" (regular), 256x256, MIT.
+  https://github.com/phosphor-icons/core  @ 2.1.1
+  The layout chip's ▾. A text caret would have needed a font the IME does not
+  control; this is the same shape in the same weight as the rest of the strip.
+  Provenance and method: frontends/android/licences/phosphor-icons/README.md
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z" />
+</vector>

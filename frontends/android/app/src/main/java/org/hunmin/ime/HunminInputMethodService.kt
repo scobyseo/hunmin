@@ -364,8 +364,8 @@ class HunminInputMethodService : InputMethodService() {
             showModeToast("English")
         }
         picker?.setMicState(
-            if (isHangulMode) LayoutPicker.MicState.IDLE
-            else LayoutPicker.MicState.ERROR
+            if (isHangulMode) VoiceState.IDLE
+            else VoiceState.ERROR
         )
         picker?.setMode(isHangulMode)
         // The name follows the mode: 한 shows the 한글 array, 영 the 영문 one.
@@ -550,7 +550,7 @@ class HunminInputMethodService : InputMethodService() {
             // button that toggles is expected to do.
             voiceSession?.stop()
             voiceSession = null
-            picker?.setMicState(LayoutPicker.MicState.IDLE)
+            picker?.setMicState(VoiceState.IDLE)
             return
         }
         // Determine language based on current mode
@@ -561,10 +561,10 @@ class HunminInputMethodService : InputMethodService() {
             permissionGate = AndroidPermissionGate(this)
         )
         // Show listening state (blue)
-        picker?.setMicState(LayoutPicker.MicState.LISTENING)
+        picker?.setMicState(VoiceState.LISTENING)
         session.onResult = { result ->
             voiceSession = null
-            picker?.setMicState(LayoutPicker.MicState.IDLE)
+            picker?.setMicState(VoiceState.IDLE)
             when (result) {
                 is VoiceResult.Got -> {
                     // Verify the service is still on the same editor before
