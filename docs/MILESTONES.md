@@ -69,6 +69,15 @@ two measurements. No engine work is on the path.
 **Known limitation if shipped unmeasured:** voice recognition quality — no
 microphone on the AVD, nothing in the repo measures it.
 
+**Version-string convention (ruled 2026-10-12, issue #9):** the release is
+`0.1.0` everywhere — `CMakeLists.txt` and `debian/changelog` carry it bare.
+The Android `versionName` keeps its phase suffix (`0.1.0-p5`, and
+`0.1.0-p5.5` for the keymaps APK): the `-pN` label is the Android build phase
+(`docs/ENVIRONMENT.md` batch 2 — P5 the IME, P5.5 the KCM APK), not a
+different release. A user comparing an installed APK against the .deb reads
+the `0.1.0` part as the release and the `-pN` part as "built during phase N".
+The convention is restated in `wiki/decisions/2026-10-12-versionname-keeps-the-phase-suffix.md`.
+
 ## 0.2 — Windows TSF
 
 - The precondition is a **Windows environment**, which this host does not have
