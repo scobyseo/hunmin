@@ -221,3 +221,16 @@
   harness construction steps, and every session-message count.
 - **Commit hashes removed** from the wiki; prose names the change instead.
 - `tools/wiki-lint.py --strict` and `tools/docs-lint.py` both clean.
+## [2026-10-11] create | B3 ruled: auto-switch OFF by default, data-gated
+
+- **New decision.** `decisions/2026-10-11-auto-switch-off-by-default.md`: the
+  maintainer ruled B3 — automatic Hangul/English switch is OFF by default until
+  release 0.3, and its additional data ships as a separate distribution, the
+  feature enable-able only where that data is present. The ruling is quoted
+  verbatim in `raw/sessions/2026-10-11-b3-off-default-and-the-data-gate.md`.
+- **Consequential updates, not wiki actions:** `docs/SPEC-MODES.md` R13 and E5
+  (the default was undecided in two places; both updated in one pass, because
+  updating one is the two-homes defect §7 of `docs/REMAINING-WORK.md` describes)
+, `docs/REMAINING-WORK.md` B3 row and voice stage 8, `docs/MILESTONES.md` 0.1/0.3
+  lanes. D1, E5-assignment and B2 are named as NOT closed by this ruling.
+- `wiki/index.md` listed both pages; total pages 21.

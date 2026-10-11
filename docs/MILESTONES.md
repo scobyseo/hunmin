@@ -38,10 +38,10 @@ two measurements. No engine work is on the path.
 
 - **B8** — the keystore path contradiction in `build.gradle.kts`. A signed release
   APK cannot exist until the packaging decision names one truth. GitHub issue #1.
-- **B3** — ON or OFF by default. This one line decides whether the modeswitch
-  feature ships in 0.1 at all: **OFF by default moves R8 and everything under
-  `REMAINING-WORK.md` §2 out of the 0.1 lane**, which is what puts 자동 한/영
-  전환 in 0.3.
+- ~~**B3** — ON or OFF by default.~~ **DECIDED 2026-10-11: OFF by default until
+  0.3**, so the modeswitch feature and everything `REMAINING-WORK.md` §2 holds
+  hostage to B1 leave the 0.1 lane. The ruling and the separate-data-package
+  direction are in `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`.
 - **B4** — the 한/영 key (E5). Voice-input stage 2 (Right Alt + Enter auto-toggle)
   is a stub in the tree; 0.1 either ships it inert or ships it working. Either is
   shippable; silence is not.
@@ -75,7 +75,19 @@ microphone on the AVD, nothing in the repo measures it.
 
 ## 0.3 — 자동 한/영 전환
 
-This lane inherits **everything §2 of `REMAINING-WORK.md` holds hostage to B1**:
+The lane now has its shape from the 2026-10-11 ruling
+(`wiki/decisions/2026-10-11-auto-switch-off-by-default.md`): OFF by default, and
+**the feature's additional data ships as a separate distribution — the feature is
+enable-able only where that data is present.** That sentence is the lane's design
+direction; the mechanism is new work:
+
+- **Data-package distribution** — packaging, licence isolation (the krdict
+  CC-BY-SA precedent in `debian/copyright` and `libhunmin/data/krdict/LICENSE.md`
+  shows the pattern), and **presence detection**: how the engine/frontend learns
+  the data is installed. `hunmin_ic_set_option()` is the precedent for the on/off
+  option itself (`docs/SPEC-MODES.md` R13); nothing yet is the precedent for the
+  data gate.
+- The lane inherits **everything §2 of `REMAINING-WORK.md` holds hostage to B1**:
 
 - B1 (the hangul judgement source) is the root; §2's five items are its children
   (③-bis wrong-direction switch metric, E1 symmetry, E2/E3/E6/E7 thresholds,

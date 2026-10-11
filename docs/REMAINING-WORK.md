@@ -69,7 +69,7 @@ is a decision. These are the items an agent may measure but may not settle.
 |---|---|---|---|
 | B1 | **The hangul judgement source** — what R8's `hangul_valid` looks up | `wiki/decisions/the-outstanding-decisions.md:20-33`, `docs/MODES-DATA.md:652` | (a) corpus top-N rejected by measurement; (b) dictionary lookup weakened because the 45.42% coverage came from a hanja-filtered subset; (c) combination test provisionally adopted, but krdict is outside the 2026-10-05 scope boundary and **no replacement source inside the boundary has been chosen**. Everything in §2 inherits this. |
 | B2 | **Pass lines for all three metrics** | `docs/MODES-METRICS.md:118-122` | *"there is no **how much** … grading is impossible."* Not a measurement; a number only the maintainer can set. |
-| B3 | **ON or OFF by default** | `docs/SPEC-MODES.md:555-557` | Explicitly a usability call, *"not settled by guesswork."* |
+| B3 | **ON or OFF by default** ✅ **DECIDED 2026-10-11** | `docs/SPEC-MODES.md:555-557`, `docs/SPEC-MODES.md:701-708` | Maintainer: OFF by default until release 0.3; the feature's additional data ships separately and the feature enables only where that data is present. Ruling quoted verbatim in `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`. E5's *assignment* half remains open (see B4). |
 | B4 | **E5 — the 한/영 key** | `docs/SPEC-MODES.md:680-709`, `docs/MODES-ENGINE-RULES.md:77-81` | F9 is occupied by 전처리수식, and F9 has no `KEYCODE_F9` on Android (`docs/TESTING.md:112-114`). Needs the 날개셋 unit table. |
 | B5 | **Space emission is a frontend concern** ✅ | `wiki/log.md:111-112` | Measured 2026-10-09: engine declines space, flushes syllable; fcitx5 XIM/GTK 3/4, Android all forward the declined space. No engine change needed. |
 | B6 | **D3 — is a frequency list derived from AIHub 119 a reshaping?** | `the-outstanding-decisions.md:41-47` | Licence question. *"probably no, but it has not been settled and should not be assumed either way."* |
@@ -171,7 +171,7 @@ satisfied: `frontends/fcitx5/test/testmodeswitch.cpp` was added and ctest
 | 5 | Mic button visual state (idle/listening/error) | ✅ Done | `LayoutPicker.setMicState(MicState)` |
 | 6 | IME switch button in picker | ✅ Done | Shows system `showInputMethodPicker()` |
 | 7 | Configurable key bindings | 📋 Planned | Persist user preferences for triggers |
-| 8 | Auto Hangul/English detection engine integration | 🔒 Blocked on B4 | Needs maintainer decision on assignment/ON-OFF default |
+| 8 | Auto Hangul/English detection engine integration | 🔒 Blocked on B4 | Assignment still open (B4). The ON/OFF default was ruled 2026-10-11: OFF until 0.3, feature enable-able only when its separately-distributed data is present — `wiki/decisions/2026-10-11-auto-switch-off-by-default.md` |
 
 **Evidence that would change this:** if B1 is answered quickly, §2 becomes the
 critical path and should jump ahead of everything here — P8 is the phase with no

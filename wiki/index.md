@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-10 | Total pages: 19
+> Last updated: 2026-10-11 | Total pages: 21
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -31,6 +31,10 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
 - [[2026-10-05-closed-questions]] — the romaja registration is correct as it
   stands, and the coding corpus was curiosity; both closed by the maintainer,
   with the reasoning so neither is re-raised.
+- [[2026-10-11-auto-switch-off-by-default]] — B3 ruled: the automatic
+  Hangul/English switch is OFF by default until 0.3, and its additional data
+  ships separately, the feature enable-able only where the data is present.
+  What the ruling does *not* close (D1, E5's assignment, B2) is named.
 - [[space-emission-ownership]] — **contested.** The measurement is not in
   dispute: the engine declines the space and every frontend forwards it. But
   the log and `docs/REMAINING-WORK.md` B5 record the *decision* as closed with
@@ -48,6 +52,10 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   a red baseline reads as nine working mutations; the sandbox copy filter
   returned an empty copy reporting *0 MB, 100% saved*. The figures are in
   `docs/ANDROID-MUTATION-SANDBOX.md`; what generalises is here.
+- [[2026-10-11-b3-off-default-and-the-data-gate]] — the B3 ruling in the
+  maintainer's words, and why the second half of the sentence (the separate data
+  package, enabled only when present) matters as much as the first: it replaces a
+  date with a condition.
 - [[2026-10-02-working-practices]] — **superseded** → [[where-the-practices-came-from]].
 - [[2026-10-04-stemming-investigation]] — **superseded** →
   [[the-three-corpora-are-three-registers]], [[the-rules-keep-breaking]].

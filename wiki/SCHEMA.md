@@ -114,7 +114,7 @@ Add a tag here BEFORE using it.
 - **Frontend**: fcitx5, android, windows, e2e
 - **Practice**: measurement, licence, provenance, tooling, testing, postmortem
 - **Meta**: decision, question, contradiction, status
-- **Scope**: scope
+- **Scope**: scope, release-plan
   A boundary on what a thing may be *used for*, kept separate from `decision`
   because a scope boundary is recorded rather than chosen: it constrains future
   measurements instead of answering an open question.

@@ -552,9 +552,15 @@ the value:**
   knew it on its own, the three frontends would each advertise a different key.
 - **It has to be changeable** — allow the assignment to be changed in the UI
   (surface A; the engine reads it again at judgement time).
-- **Whether ON or OFF is the default is undecided** — kept as a separate item. It
-  is not a judgement made after reading down to the data list and measuring, so
-  this point is not settled by guesswork. (See "undecided" below)
+- **Whether ON or OFF is the default — DECIDED 2026-10-11: OFF, until release
+  0.3.** Maintainer: "B3 는 0.3 전까지 off를 기본으로 하자. 자동변환에 필요한
+  사전이든 뭐든 추가 데이터는 별도 배포를 가정하고 그 데이터가 있을때만 기능을 켤
+  수 있게 하면 transition이 용이할 거 같아." The feature's additional data ships
+  separately and the feature is only enable-able where that data is present.
+  Recorded with its reasoning in
+  `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`; the data-gate
+  mechanism is design work for 0.3, not settled here. (The assignment part of E5
+  remains undecided; see below.)
 
 ## Does this decision erase the earlier ones
 
@@ -698,15 +704,18 @@ actually works diverge, that is not allowed:
   advertise a different key (R13-정정).
 - Whether the assignment can be **changed** is undecided. If it can be changed, a
   key remap path is needed, and that is a feature hunmin does not have now.
-- **The ON/OFF default is also undecided** — whether being on is less
-  inconvenient for a first-time user, or being off is. It is not a judgement made
-  after reading down to the data list and measuring, so this point is not settled
-  by guesswork.
+- **The ON/OFF default is DECIDED 2026-10-11** — OFF by default until release
+  0.3, with the feature's additional data shipped separately and the feature
+  enable-able only where that data is present (maintainer's ruling, quoted in
+  `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`; see R13 above).
+  What remains undecided in E5 is the **assignment**, not the default.
 
 **What is a measurement:** the assignment itself is not a measurement target but
 a design decision. After confirming the Android/F9 constraint (documented), raise
-the status to `[D]`. The default is decided from the result of a usability
-evaluation.
+the status to `[D]`. ~~The default is decided from the result of a usability
+evaluation.~~ The default was ruled on 2026-10-11 (OFF until 0.3, data-gated; see
+E5's default bullet above and the wiki decision page) — no usability evaluation
+was needed for it, and none is owed for it.
 
 ## E6. Display method — the flicker (도깨비) [E]
 A risk the user pointed at directly.
