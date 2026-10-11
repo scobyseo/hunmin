@@ -64,7 +64,7 @@ class LayoutPicker @JvmOverloads constructor(
     private var layoutAbbreviated = false
     private var modeView: TextView? = null
     private var micButton: ImageButton? = null
-    private var hanjaButton: ImageButton? = null
+    private var hanjaButton: TextView? = null
     private var settingsButton: ImageButton? = null
 
     /** Called when the user taps the mic. Null disables the button. */
@@ -169,6 +169,19 @@ class LayoutPicker @JvmOverloads constructor(
 
     private fun rebuild() {
         removeAllViews()
+        // Fresh views every rebuild, NOT the cached ones. Measured crash on the
+        // phone (SM-F971N, Android 17): choosing style B or C threw
+        //   IllegalStateException: The specified child already has a parent.
+        // from ViewGroup.addViewInner, because removeAllViews() detaches the
+        // row but leaves each button parented to that detached row, and
+        // addView() refuses a view that already has one. Style A never showed
+        // it, because A is the default and applyStyle() short-circuits when the
+        // style has not changed.
+        layoutIndicator = null
+        modeView = null
+        micButton = null
+        hanjaButton = null
+        settingsButton = null
         // MATCH_PARENT on the width, explicitly. The root is a FrameLayout, whose
         // generateDefaultLayoutParams() is WRAP_CONTENT — and a wrap-content
         // scroll view measures to nothing useful and clips its own row away, so
@@ -243,7 +256,7 @@ class LayoutPicker @JvmOverloads constructor(
     }
 
     private fun layoutIndicator(iconOnlyLayout: Boolean): TextView =
-        (layoutIndicator ?: TextView(context).also { layoutIndicator = it }).apply {
+        TextView(context).also { layoutIndicator = it }.apply {
             textSize = 14f
             gravity = Gravity.CENTER_VERTICAL
             // One line, ellipsized: the maintainer's rule — the name may be cut,
@@ -259,7 +272,7 @@ class LayoutPicker @JvmOverloads constructor(
 
     /** The 한/영 toggle: a pill with the mode letter, tappable. */
     private fun modePill(): View {
-        val label = TextView(context).apply {
+        val label = TextView(context).also { modeView = it }.apply {
             textSize = 14f
             gravity = Gravity.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -269,7 +282,6 @@ class LayoutPicker @JvmOverloads constructor(
             contentDescription = context.getString(R.string.mode_switch_content_description)
             setOnClickListener { onModeClicked?.invoke() }
         }
-        modeView = label
         setMode(modeIsHangul)
         return FrameLayout(context).apply {
             minimumWidth = TOUCH_DP
@@ -281,20 +293,34 @@ class LayoutPicker @JvmOverloads constructor(
     /** Survives a style rebuild, which recreates the pill. */
     private var modeIsHangul = true
 
-    private fun hanjaButton(): ImageButton =
-        (hanjaButton ?: ImageButton(context).also { hanjaButton = it }).apply {
-            setImageResource(android.R.drawable.ic_menu_add)
+    /**
+     * The Hanja key: a LABEL, not an icon.
+     *
+     * It was `ic_menu_add` — a plus sign — which says "add something", not "make
+     * this Hangul into Hanja". The maintainer's words: "한자로 바꾼다는 게 눈에
+     * 띄었으면 좋겠는데". There is no stock Android drawable that means that, and
+     * a plus next to a mic and a gear is a picture of nothing in particular, so
+     * the key says 한자 in words, the way the platform's own Korean keyboards do.
+     * A vector drawable is the better answer if this ever grows a real theme; a
+     * TextView needs none and is unambiguous today.
+     */
+    private fun hanjaButton(): TextView =
+        TextView(context).apply {
+            textSize = 13f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(0xFF000000.toInt())
+            setBackgroundColor(0xFFFFFFFF.toInt())
             contentDescription = context.getString(R.string.hanja_content_description)
-            setBackgroundColor(0x00000000)
             setOnClickListener { onHanjaClicked?.invoke() }
-            setPadding(BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP, BTN_PADDING_DP)
+            setPadding(HANJA_PAD_DP, HANJA_PAD_DP, HANJA_PAD_DP, HANJA_PAD_DP)
             minimumWidth = TOUCH_DP
             minimumHeight = TOUCH_DP
             layoutParams = lp(WRAP)
         }
 
     private fun micButton(): ImageButton =
-        (micButton ?: ImageButton(context).also { micButton = it }).apply {
+        ImageButton(context).also { micButton = it }.apply {
             setImageResource(android.R.drawable.ic_btn_speak_now)
             contentDescription = context.getString(R.string.voice_content_description)
             setBackgroundColor(0x00000000)
@@ -306,7 +332,7 @@ class LayoutPicker @JvmOverloads constructor(
         }
 
     private fun settingsButton(): ImageButton =
-        (settingsButton ?: ImageButton(context).also { settingsButton = it }).apply {
+        ImageButton(context).also { settingsButton = it }.apply {
             setImageResource(android.R.drawable.ic_menu_preferences)
             contentDescription = context.getString(R.string.settings_content_description)
             setBackgroundColor(0x00000000)
@@ -379,6 +405,7 @@ class LayoutPicker @JvmOverloads constructor(
         const val PAD_DP = 8
         const val PILL_PAD_DP = 6
         const val BTN_PADDING_DP = 12
+        const val HANJA_PAD_DP = 10
         const val TOUCH_DP = 48
     }
 }

@@ -6,10 +6,10 @@
     "ko": "신세벌식 P2 옛한글 조합 + 기호 확장"
   },
   "engine": "h3",
-  "mode": "hangul",
   "aliases": [
     "3sin-p2-yet"
   ],
+  "mode": "hangul",
   "source": "pat.im ist: sin3-p2.yethangul.xml (normative; lifted by tools/ist2data.py)",
   "compose": [
     "sin3-p2-yet-mix",

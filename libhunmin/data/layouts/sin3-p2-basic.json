@@ -6,10 +6,10 @@
     "ko": "신세벌식 P2"
   },
   "engine": "h3",
-  "mode": "hangul",
   "aliases": [
     "3sin-p2-basic"
   ],
+  "mode": "hangul",
   "source": "pat.im ist: sin3-p2.basic.xml (normative; lifted by tools/ist2data.py)",
   "compose": [
     "sin3-p2-basic-mix"

@@ -44,6 +44,11 @@ HEADER = {
     },
     "aliases": ["us", "qwerty"],
     "engine": "std",
+    # The one Latin-outputting layout in the tree, and the whole reason the
+    # Android settings window has two array lists (docs/SPEC-SCHEMA.md,
+    # maintainer 2026-10-11). Every other layout composes Hangul, romaja
+    # included, so nothing else may say "latin".
+    "mode": "latin",
     "libhangulType": "jamo",
     "compose": ["modern"],
     "source": "US QWERTY as the physical key names in docs/SPEC-SCHEMA.md (Key ids); each key id is named by its unshifted character and each modifier emits that character directly. This is not copied from any implementation -- the mapping IS the US keyboard, and the key-id convention is this project's own (SPEC-SCHEMA.md 'Key ids').",
