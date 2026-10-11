@@ -138,14 +138,44 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
 - **D4 Wayland plumbing.** `weston --backend=headless` + `zwp_input_method_v2` harness.
   `docs/TESTING.md:247-249` marks it optional and not blocking P4; fcitx5's Wayland module
   is not our code.
-- **The R8 shrinker path end-to-end.** `proguard-rules.pro` (139 lines) is written
-  and `isMinifyEnabled = true` is set, but the change that added them records
-  *"Not measured: the release APK with R8 actually applied (needs a signed release
-  build and an emulator run)."*
-  The rules exist; the shrinker has still never run. **This is environment-bound, not
-  decision-blocked** — it needs a signed release build and an emulator, neither of which is
-  a maintainer ruling, so it is a genuine unblocked item that simply cannot be measured on
-  a host without a device.
+- **The R8 shrinker path end-to-end.** ✅ **MEASURED 2026-10-11** (issue #4).
+  `proguard-rules.pro` (139 lines) is written and `isMinifyEnabled = true` is set; the
+  change that added them had recorded *"Not measured: the release APK with R8 actually
+  applied (needs a signed release build and an emulator run)."* That gap is now closed.
+  The measurement, on this host (AVD `hunmin-e2e`, API 35, x86_64):
+  - `./frontends/android/gradlew -p frontends/android assembleRelease` → **exit 0**,
+    APK at `frontends/android/app/build/outputs/apk/release/app-release.apk` (1,505,137
+    bytes, both ABIs), signed with the hardcoded debug keystore (issue #1's hardcoding —
+    it worked; nothing was changed to make it work).
+  - `frontends/android/app/build/outputs/mapping/release/` holds `mapping.txt`
+    (4,221,158 bytes, 43,236 lines), `configuration.txt`, `seeds.txt`, `usage.txt`.
+    The rules behaved as intended: every class named by a `-keep` in
+    `proguard-rules.pro` appears in `seeds.txt` and maps to **itself** in `mapping.txt`
+    (`org.hunmin.ime.HunminNative -> org.hunmin.ime.HunminNative` etc.), so JNI names
+    survive; `usage.txt` shows what R8 did remove under `org.hunmin.ime` — 42 class
+    entries of removed members: the `R` inner classes, Kotlin data-class `copy`
+    helpers, and unused members of kept classes. No class named by a `-keep` rule was
+    dropped, and no JNI or IME-lifecycle surface appears in the removed list.
+  - `adb install -r <release apk>` → **exit 0** ("Success"); the service appears in
+    `adb shell ime list -a` as `org.hunmin.ime/.HunminInputMethodService`.
+  - Composition on the R8 build: with the IME selected and the Settings search field
+    focused, `input keyevent` `dkssud` left the field reading exactly `ㅎ곈디` — the
+    value tier A's `hunmin-sim --layout sin3-p2 --keys dkssud` record
+    (`tools/android-e2e.sh:355-371`) says sin3-p2 produces. The release APK composes
+    Hangul on the device.
+  - Two host preconditions, recorded so a rerun is reproducible: the engine `.so` per
+    ABI must exist first (`./tools/build-android.sh <abi> 24` — the JNI shim's CMake
+    FATAL_ERROR names this command), and `ANDROID_NDK` must point at r27 per
+    `docs/ENVIRONMENT.md` while AGP's **own** toolchain compiles the shim with the SDK's
+    `cmake/3.22.1` + default NDK `26.1.10909125` (Clang 17.0.2). The version skew
+    between shim and engine toolchains did not block the build or the run; it is a
+    measurement, not a defect I was authorised to change.
+  Still open after the measurement: nothing here runs in CI
+  (`ci.yml` has no `assembleRelease` — the `docs-lint` table row says so), and `tools/
+  android-e2e.sh` asserts against the **debug** APK by design. The shrinker path is no
+  longer environment-bound-unmeasurable; it is measured and green. The reproducible
+  procedure and the observed run are recorded in
+  `tests/manual-checklists/release-r8-shrinker.md`.
 
 ---
 
@@ -159,6 +189,8 @@ satisfied: `frontends/fcitx5/test/testmodeswitch.cpp` was added and ctest
 `engine-d1-modeswitch` registered, which **passes** here.
 
 **Revised again 2026-10-10, after tier E2 closed W5/W6 and N2/N5/N6 were completed.** W5, W6, N2, N5, N6 are done. The remaining unblocked items are environment-bound (E3 gate, R8 shrinker E2E, soft keyboard, D4 Wayland) or decision-blocked (B1–B9). No further unblocked code work remains at this time.
+
+**Revised again 2026-10-11: the R8 shrinker E2E is measured** (see the row above; Refs #4). It left the environment-bound list. Remaining environment-bound: the E3 gate (needs a physical device), the soft keyboard (release 0.4), D4 Wayland.
 
 ## Voice input enhancements (incremental, staged)
 
