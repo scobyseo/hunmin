@@ -196,7 +196,7 @@ satisfied: `frontends/fcitx5/test/testmodeswitch.cpp` was added and ctest
 
 | Stage | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Voice trigger: Right Alt + V | ✅ Done | `onKeyDown` handles `KEYCODE_V` + `META_ALT_RIGHT_ON` |
+| 1 | Voice trigger | ✅ Done | **Shift + KANA**, by the maintainer's instruction 2026-10-11 (was Right Alt + V); it is now the configurable 기본값 for 음성 입력, so it lives in `KeyAction.VOICE` rather than in `onKeyDown` |
 | 2 | Auto Hangul/English toggle on/off: Right Alt + Enter | ⚠️ Stub | Key handler added, engine integration pending (B4) |
 | 3 | Voice language follows keyboard mode | ✅ Done | `SpeechRecognizerRecognizer(language)` uses `ko-KR` / `en-US` |
 | 4 | Longer silence timeout (partial results) | ✅ Done | `EXTRA_PARTIAL_RESULTS=true`, 1.5s/3s silence |

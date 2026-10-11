@@ -140,7 +140,14 @@ class OverlayActivity : AppCompatActivity() {
         val store = KeyBindings.from(this)
         val actions = KeyAction.values().toList()
         val labels = actions.map { action ->
-            "${action.label}: ${describe(KeyBindings.combos(store, action).first())}"
+            // No default and nothing stored is a real state now: 한/영 전환 and
+            // 한자 입력 are bound to PHYSICAL keys on a Korean keyboard, so the
+            // row starts empty and the fixed keys still work. Printing the first
+            // default would either crash on an empty list or, worse, imply a
+            // chord the IME does not actually answer to.
+            val combos = KeyBindings.combos(store, action)
+            val shown = combos.firstOrNull()?.let { describe(it) } ?: NOT_SET
+            "${action.label}: $shown"
         }.toTypedArray()
 
         dialog?.dismiss()
@@ -166,7 +173,7 @@ class OverlayActivity : AppCompatActivity() {
      *    the other from storing a second chord.
      *  - Holding Alt delivers `KEYCODE_ALT_LEFT` before `KEYCODE_X`. Capturing
      *    that first event would bind the action to a bare Left Alt, which is not
-     *    what anybody pressing Alt+X meant. Modifiers are therefore skipped while
+     *    what anybody pressing Shift+한자 meant. Modifiers are skipped while
      *    down, and a modifier becomes the binding only on its *release*, when
      *    nothing else followed it.
      */
@@ -294,7 +301,7 @@ class OverlayActivity : AppCompatActivity() {
      *
      * Only active while a capture dialog is up ([capturingAction] non-null), and
      * only for a chord the user could plausibly mean: a modifier on its own is
-     * ignored here so a half-typed Alt+X does not bind the Alt.
+     * ignored here so a half-typed chord does not bind only its modifier.
      */
     /**
      * Second capture path, for when the dialog's own view never gets focus.
@@ -310,7 +317,7 @@ class OverlayActivity : AppCompatActivity() {
     }
 
     /**
-     * A chord as the user reads it: `ALT_LEFT+X`, `ALT_RIGHT` on its own.
+     * A chord as the user reads it: `SHIFT+EISU`, `ALT_RIGHT` on its own.
      *
      * The only place in the feature that needs the framework's name lookup —
      * `KeyEvent.keyCodeToString` is a method, so it is unavailable to tier E1's
@@ -333,6 +340,9 @@ class OverlayActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "OverlayActivity"
+
+        /** Shown for an action with no binding; the fixed keys still answer. */
+        const val NOT_SET = "설정 안 됨 (고정 키 사용)"
         const val ACTION_SHOW_HANJA = "org.hunmin.ime.action.SHOW_HANJA"
         const val ACTION_SHOW_SETTINGS = "org.hunmin.ime.action.SHOW_SETTINGS"
         const val ACTION_SHOW_TOAST = "org.hunmin.ime.action.SHOW_TOAST"

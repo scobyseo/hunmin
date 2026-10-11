@@ -145,26 +145,77 @@ class KeyBindingTest {
 
     @Test
     fun `a stored binding replaces the default`() {
+        // 음성 is the action that still has a default (Shift + KANA), so it is
+        // the one where "replaces" is a claim that can be wrong.
         val store = MapStore()
-        assertTrue("default Left Alt + X opens Hanja", KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_X, KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON))
-        KeyBindings.set(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_F9, 0))
-        assertFalse("after rebinding, the old chord must not fire", KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_X, KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON))
-        assertTrue(KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_F9, 0))
+        val shiftKana = KeyEvent.META_SHIFT_ON
+        assertTrue("Shift+KANA is the default 음성 trigger", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, shiftKana))
+        KeyBindings.set(store, KeyAction.VOICE, KeyCombo(KeyEvent.KEYCODE_F9, 0))
+        assertFalse("after rebinding, the old chord must not fire", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, shiftKana))
+        assertTrue(KeyBindings.matches(store, KeyAction.VOICE, KeyEvent.KEYCODE_F9, 0))
+    }
+
+    @Test
+    fun `an action with no default gains one when set`() {
+        val store = MapStore()
+        assertTrue(KeyBindings.combos(store, KeyAction.HANGUL_ENG).isEmpty())
+        KeyBindings.set(store, KeyAction.HANGUL_ENG, KeyCombo(KeyEvent.KEYCODE_F12, 0))
+        assertEquals(listOf(KeyCombo(KeyEvent.KEYCODE_F12, 0)), KeyBindings.combos(store, KeyAction.HANGUL_ENG))
+        // The fixed keys survive the binding; they are not defaults.
+        assertTrue(KeyBindings.matches(store, KeyAction.HANGUL_ENG, KANA_KEYCODE, 0))
     }
 
     // --- defaults are HEAD's behaviour, unchanged ----------------------------
 
     @Test
-    fun `defaults match what the service accepted before the window existed`() {
+    fun `with nothing stored the fixed keys answer and the old chord defaults do not`() {
+        // The maintainer's instruction 2026-10-11: 한/영 전환 and 한자 입력 have no
+        // default, because they are physical keys on a Korean keyboard. Alt+Z and
+        // Alt+X are therefore NOT triggers any more -- that is a behaviour change
+        // and this test is where it is pinned down rather than discovered.
         val store = MapStore()
         val altLeft = KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON
         val altRight = KeyEvent.META_ALT_ON or KeyEvent.META_ALT_RIGHT_ON
 
-        assertTrue(KeyBindings.matches(store, KeyAction.HANGUL_ENG, KeyEvent.KEYCODE_Z, altLeft))
-        assertTrue(KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_X, altLeft))
-        assertTrue(KeyBindings.matches(store, KeyAction.VOICE, KeyEvent.KEYCODE_V, altLeft))
-        assertTrue(KeyBindings.matches(store, KeyAction.VOICE, KeyEvent.KEYCODE_V, altRight))
-        assertTrue(KeyBindings.matches(store, KeyAction.AUTO_TOGGLE, KeyEvent.KEYCODE_ENTER, altRight))
+        assertTrue("KANA still toggles 한/영", KeyBindings.matches(store, KeyAction.HANGUL_ENG, KANA_KEYCODE, 0))
+        assertTrue("bare Right Alt still toggles 한/영", KeyBindings.matches(store, KeyAction.HANGUL_ENG, KeyEvent.KEYCODE_ALT_RIGHT, 0))
+        assertTrue("EISU still opens 한자", KeyBindings.matches(store, KeyAction.HANJA, EISU_KEYCODE, 0))
+        assertTrue("Shift+Right Alt still opens 한자", KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_ALT_RIGHT, KeyEvent.META_SHIFT_ON))
+
+        assertFalse("Alt+Z is no longer a 한/영 trigger", KeyBindings.matches(store, KeyAction.HANGUL_ENG, KeyEvent.KEYCODE_Z, altLeft))
+        assertFalse("Alt+X is no longer a 한자 trigger", KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_X, altLeft))
+        assertNull(KeyBindings.stored(store, KeyAction.HANGUL_ENG))
+        assertTrue(KeyBindings.combos(store, KeyAction.HANGUL_ENG).isEmpty())
+        assertTrue(KeyBindings.combos(store, KeyAction.HANJA).isEmpty())
+        // Unused locals kept readable: the assertions above are clearer with the
+        // chords spelled out than with a bare zero.
+        assertTrue(altLeft != altRight)
+    }
+
+    @Test
+    fun `voice defaults to Shift plus KANA`() {
+        val store = MapStore()
+        assertEquals(
+            listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_SHIFT)),
+            KeyBindings.combos(store, KeyAction.VOICE),
+        )
+        assertTrue(KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, KeyEvent.META_SHIFT_ON))
+        assertFalse("bare KANA is 한/영, not 음성", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, 0))
+    }
+
+    @Test
+    fun `the old Alt plus V defaults are gone`() {
+        val store = MapStore()
+        val altLeft = KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON
+        assertFalse(KeyBindings.matches(store, KeyAction.VOICE, KeyEvent.KEYCODE_V, altLeft))
+    }
+
+    @Test
+    fun `keycodes are the ones android jar declares`() {
+        // javap -constants on android.jar API 35: KANA = 218, EISU = 212. If the
+        // SDK ever renumbers them, the fixed keys would silently stop answering.
+        assertEquals(218, KANA_KEYCODE)
+        assertEquals(212, EISU_KEYCODE)
     }
 
     @Test
@@ -213,14 +264,13 @@ class KeyBindingTest {
     }
 
     @Test
-    fun `a chord another action's DEFAULT owns is reported`() {
-        // Nothing stored: 한자's default is Left Alt + X, which 한/영 is tested
-        // before, so binding 한/영 to it would break 한자 silently.
+    fun `a chord another action's FIXED key owns is reported`() {
+        // EISU is 한자's fixed 한자 입력 key. 한/영 is tested before 한자, so
+        // binding 한/영 to EISU would take the key away from 한자 entirely.
         val store = MapStore()
         assertEquals(
             KeyAction.HANJA,
-            KeyBindings.conflict(store, KeyAction.HANGUL_ENG,
-                KeyCombo(KeyEvent.KEYCODE_X, KeyBinding.META_ALT_LEFT)),
+            KeyBindings.conflict(store, KeyAction.HANGUL_ENG, KeyCombo(EISU_KEYCODE)),
         )
     }
 

@@ -246,7 +246,7 @@ class HunminInputMethodService : InputMethodService() {
         // Modifier keys on their own (Alt, Ctrl, Meta/Super) must not reach the
         // engine. A physical keyboard delivers the modifier as its own
         // ACTION_DOWN before the chord key (Alt alone arrives first when the
-        // user presses Alt+X for Hanja). Feeding a bare modifier to the engine
+        // user presses the Hanja chord's Shift). Feeding a bare modifier to the engine
         // makes HunminEngine.onKey take its isModifierChord path and flush the
         // in-flight syllable -- which is exactly what left the Hanja lookup
         // with an empty preedit. Handled shortcuts above have already returned;

@@ -640,12 +640,16 @@ open_settings() {  # put the key settings window on screen, the way a user does
 open_settings
 
 LIST="$(dump_ui /sdcard/keys.xml)"
-for row in '한/영 전환: ALT_LEFT+Z' '한자 입력: ALT_LEFT+X' \
-           '음성 입력: ALT_LEFT+V' '자동 한/영 토글: ALT_RIGHT+ENTER'; do
+# The two physical-key actions start EMPTY by the maintainer's instruction
+# 2026-10-11 (issue #12): the row says so, and the fixed keys still answer.
+for row in '한/영 전환: 설정 안 됨 (고정 키 사용)' \
+           '한자 입력: 설정 안 됨 (고정 키 사용)' \
+           '음성 입력: SHIFT+KANA' \
+           '자동 한/영 토글: ALT_RIGHT+ENTER'; do
   printf '%s' "$LIST" | grep -q "$row" \
-    || fail "the settings window does not list '$row' -- the defaults are not being shown"
+    || fail "the settings window does not list '$row' -- the stored/default state is not being shown"
 done
-echo "the window lists all four actions with their defaults"
+echo "the window lists all four actions; the two physical-key rows read as not set"
 
 mode_is() {  # mode_is 한|영 -> 0 when the input view shows it
   dump_ui /sdcard/mode.xml | tr '>' '\n' | grep -q "text=\"$1\""

@@ -594,7 +594,8 @@ Four layers, cheap→real:
   **The 2026-10-11 character-loss trio** is asserted here, because every one of
   the three bugs was invisible on the build machine and each lost text the user
   had already typed. The 한/영 toggle lost the composing syllable (no flush);
-  a bare Alt — its own `ACTION_DOWN` before `Alt+X` for Hanja — reached
+  a bare Alt — its own `ACTION_DOWN` before a Hanja chord (`Alt+X` at the time;
+  the fixed key is EISU since 2026-10-11, issue #12) — reached
   `HunminEngine.onKey`, whose modifier path flushed it; and the picked Hanja was
   never committed at all, because an IME is a Service and receives no activity
   result. The three tests in `HunminEngineTest` state the shared property —

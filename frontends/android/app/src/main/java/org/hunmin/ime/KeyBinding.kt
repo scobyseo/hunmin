@@ -46,6 +46,18 @@ data class KeyCombo(val keyCode: Int, val modifiers: Int = 0) {
     fun encode(): String = "${KeyBinding.VERSION}:$keyCode:$modifiers"
 }
 
+/**
+ * Keycodes with no `KeyEvent` constant of their own on the SDKs this builds
+ * against, measured with `javap -constants` on android.jar API 35.
+ *
+ * KANA (218) is the 한/영 key on Samsung keyboards; EISU (212) is AOSP's かな/한글
+ * key, and the maintainer named it the fixed 한자 입력 key on 2026-10-11. Both are
+ * named constants rather than bare literals because the service used to carry
+ * `218` inline, and a bare number in a precedence list is unreadable.
+ */
+const val KANA_KEYCODE = 218
+const val EISU_KEYCODE = 212
+
 object KeyBinding {
 
     /** Stored-format tag. Bumped only if the shape below ever changes. */
@@ -228,25 +240,30 @@ enum class KeyAction(
         prefKey = "hangul_eng",
         label = "한/영 전환",
         precedence = 0,
-        defaults = listOf(KeyCombo(KeyEvent.KEYCODE_Z, KeyBinding.META_ALT_LEFT)),
+        // No default, by the maintainer's instruction 2026-10-11: 한/영 is a
+        // PHYSICAL key on a Korean keyboard (KANA, LANGUAGE_SWITCH, bare Right
+        // Alt), and a chord default would be a second way to do something the
+        // hardware already does — and a way that does not exist at all on the
+        // keyboards that have no Alt row. What still works with nothing stored is
+        // [platformAlternates]; the window shows "not set" for this row, and a
+        // binding set here replaces nothing that is not already there.
+        defaults = emptyList(),
         platformAlternates = listOf(
             KeyCombo(KeyEvent.KEYCODE_ALT_RIGHT),
             KeyCombo(KeyEvent.KEYCODE_LANGUAGE_SWITCH),
-            KeyCombo(218),
+            KeyCombo(KANA_KEYCODE),
         ),
     ),
     VOICE(
         prefKey = "voice",
         label = "음성 입력",
         precedence = 1,
-        // Both Alt sides, which is what the service accepted before the window
-        // could store anything. The old window displayed only the left one and
-        // the voice table documents the right one; narrowing it here would be a
-        // behaviour change smuggled in as a refactor.
-        defaults = listOf(
-            KeyCombo(KeyEvent.KEYCODE_V, KeyBinding.META_ALT_LEFT),
-            KeyCombo(KeyEvent.KEYCODE_V, KeyBinding.META_ALT_RIGHT),
-        ),
+        // Shift + KANA, by the maintainer's instruction 2026-10-11 — the same
+        // physical 한/영 key the other two actions use, with a modifier to
+        // separate it. This replaces the old Alt+V default, which is also what
+        // `docs/REMAINING-WORK.md`'s voice table has to say now (its stage-1 row
+        // reads "Right Alt + V" and was describing the same chord).
+        defaults = listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_SHIFT)),
     ),
     AUTO_TOGGLE(
         prefKey = "auto_toggle",
@@ -258,8 +275,16 @@ enum class KeyAction(
         prefKey = "hanja",
         label = "한자 입력",
         precedence = 3,
-        defaults = listOf(KeyCombo(KeyEvent.KEYCODE_X, KeyBinding.META_ALT_LEFT)),
+        // Also no default: EISU is the fixed 한자 key (see [platformAlternates]),
+        // so a chord default would only ever shadow it.
+        defaults = emptyList(),
         platformAlternates = listOf(
+            // EISU — the maintainer's fixed 한자 입력 key, 2026-10-11. AOSP's
+            // かな/한글 toggle keycode; on keyboards that have it, 한자 is that
+            // key. It is an alternate and not a default precisely so that a
+            // keyboard without EISU can bind something else instead: the row is
+            // empty, the fixed key still works, and the user chooses.
+            KeyCombo(EISU_KEYCODE),
             KeyCombo(KeyEvent.KEYCODE_ALT_RIGHT, KeyBinding.META_SHIFT),
             KeyCombo(KeyEvent.KEYCODE_LANGUAGE_SWITCH, KeyBinding.META_SHIFT),
         ),
@@ -267,7 +292,9 @@ enum class KeyAction(
     ;
 
     companion object {
-        /** The order `onKeyDown` tests the actions in; the first match wins. */
+        /**
+         * The order `onKeyDown` tests the actions in; the first match wins.
+         */
         fun byPrecedence(): List<KeyAction> = values().sortedBy { it.precedence }
     }
 }
