@@ -659,12 +659,19 @@ LIST="$(dump_ui /sdcard/keys1b.xml)"
 # 2026-10-11 (issue #12): the row says so, and the fixed keys still answer.
 # Title and value are separate nodes since the HUD restyle, so each action's
 # label and its chord are checked as nodes, not as one "label: chord" string.
+#
+# 2026-10-12 (issue #2, B4 ruling): the auto-toggle's Right-Alt+Enter default
+# is GONE — the row shows 미정 (0.3). The old loop asserted a default chord
+# the ruling deliberately removed; the chord itself is still covered below by
+# the live capture-then-fire steps (F9), which is the stronger assertion.
 for row in '한/영 전환' '한자 입력' '음성 입력' '자동 한/영 토글' \
-           '설정 안 됨 (고정 키 사용)' 'SHIFT+KANA' 'ALT_RIGHT+ENTER'; do
+           '설정 안 됨 (고정 키 사용)'; do
   printf '%s' "$LIST" | grep -q "$row" \
     || fail "the key binding section does not list '$row' -- the stored/default state is not being shown"
 done
-echo "the key bindings section lists all four actions; the two physical-key rows read as not set"
+printf '%s' "$LIST" | grep -q '미정' \
+  || fail "the auto-toggle row does not read 미정 (0.3) -- the B4 disabled-by-default ruling is not shown"
+echo "the key bindings section lists all four actions; the auto-toggle row reads 미정 (0.3)"
 
 # The input view says which mode is active — by SELECTION, not by label.
 # The dock's segment reads `[ 한 | A ]` (the maintainer's design, where Latin is
