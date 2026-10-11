@@ -395,26 +395,42 @@ class OverlayActivity : AppCompatActivity() {
             val chordText = combos.firstOrNull()?.let { describe(it) } ?: NOT_SET
             val isCustomized = chordText != NOT_SET
 
+            // 자동 한/영 토글 is disabled by default in 0.1 (maintainer ruling
+            // 2026-10-12, issue #2): the row shows 미정, not a chord, and does
+            // not open the capture dialog -- advertising a binding whose action
+            // is a log-only stub would be exactly the R13-정정 divergence the
+            // spec forbids (what the screen says and what the key does). The
+            // row stays visible so the feature's existence is discoverable,
+            // with the 0.3 lane named as where an assignment can appear.
+            val disabled = action == KeyAction.AUTO_TOGGLE
+            val shownText = if (disabled) TBD_0_3 else chordText
+
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = dp(38) // Reduced height
                 setPadding(dp(8), dp(4), dp(8), dp(4))
-                isClickable = true
-                val outValue = TypedValue()
-                theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-                setBackgroundResource(outValue.resourceId)
+                isClickable = !disabled
+                if (!disabled) {
+                    val outValue = TypedValue()
+                    theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                    setBackgroundResource(outValue.resourceId)
 
-                setOnClickListener {
-                    dialog?.dismiss()
-                    showKeyCaptureDialog(action)
+                    setOnClickListener {
+                        dialog?.dismiss()
+                        showKeyCaptureDialog(action)
+                    }
                 }
             }
 
             val tvTitle = TextView(this).apply {
                 text = action.label
                 textSize = 13f
-                setTextColor(CompactTheme.TEXT_PRIMARY)
+                // A disabled row reads as disabled: dimmed, like the fixed-key
+                // badges rather than the primary text.
+                setTextColor(
+                    if (disabled) CompactTheme.TEXT_SECONDARY else CompactTheme.TEXT_PRIMARY
+                )
                 maxLines = 1
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -424,10 +440,10 @@ class OverlayActivity : AppCompatActivity() {
 
             // Keycap style box
             val tvBadge = TextView(this).apply {
-                text = chordText
+                text = shownText
                 textSize = 12f
                 setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
-                setTextColor(if (isCustomized) CompactTheme.TEXT_PRIMARY else CompactTheme.TEXT_SECONDARY)
+                setTextColor(if (isCustomized && !disabled) CompactTheme.TEXT_PRIMARY else CompactTheme.TEXT_SECONDARY)
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 gravity = Gravity.END
@@ -438,8 +454,8 @@ class OverlayActivity : AppCompatActivity() {
                 )
                 setPadding(dp(8), dp(4), dp(8), dp(4))
                 background = GradientDrawable().apply {
-                    setColor(if (isCustomized) CompactTheme.ACCENT_BG else CompactTheme.KEY_BG)
-                    setStroke(dp(1), if (isCustomized) CompactTheme.ACCENT else CompactTheme.KEY_BORDER)
+                    setColor(if (isCustomized && !disabled) CompactTheme.ACCENT_BG else CompactTheme.KEY_BG)
+                    setStroke(dp(1), if (isCustomized && !disabled) CompactTheme.ACCENT else CompactTheme.KEY_BORDER)
                     cornerRadius = dp(6).toFloat()
                 }
             }
@@ -693,6 +709,14 @@ class OverlayActivity : AppCompatActivity() {
 
         /** Shown for an action with no binding; the fixed keys still answer. */
         const val NOT_SET = "설정 안 됨 (고정 키 사용)"
+
+        /**
+         * The 자동 한/영 토글 row's badge while the feature is disabled by
+         * default in 0.1 (maintainer ruling 2026-10-12, issue #2): not a chord
+         * and not "not set" -- the assignment is undecided and the 0.3 lane is
+         * where it can appear, so that is what the badge says.
+         */
+        const val TBD_0_3 = "미정 (0.3)"
         const val ACTION_SHOW_HANJA = "org.hunmin.ime.action.SHOW_HANJA"
         const val ACTION_SHOW_SETTINGS = "org.hunmin.ime.action.SHOW_SETTINGS"
         const val ACTION_SHOW_TOAST = "org.hunmin.ime.action.SHOW_TOAST"

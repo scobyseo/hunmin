@@ -709,6 +709,14 @@ actually works diverge, that is not allowed:
   enable-able only where that data is present (maintainer's ruling, quoted in
   `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`; see R13 above).
   What remains undecided in E5 is the **assignment**, not the default.
+- **The 0.1 shipping state is DECIDED 2026-10-12** — the feature is **disabled
+  by default in 0.1, by disabling the default key composition** (maintainer's
+  ruling, issue #2, quoted in
+  `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`): the
+  Android `AUTO_TOGGLE` default chord (Right Alt + Enter) is removed, the
+  dispatch skips the action, and the settings row shows 미정 (0.3). This rules
+  the *shipping state*, not the assignment: **the assignment (single vs
+  compound) remains undecided** and stays a 0.3-lane question (`docs/MILESTONES.md`).
 
 **What is a measurement:** the assignment itself is not a measurement target but
 a design decision. After confirming the Android/F9 constraint (documented), raise

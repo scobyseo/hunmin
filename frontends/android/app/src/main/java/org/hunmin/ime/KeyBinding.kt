@@ -269,7 +269,15 @@ enum class KeyAction(
         prefKey = "auto_toggle",
         label = "자동 한/영 토글",
         precedence = 2,
-        defaults = listOf(KeyCombo(KeyEvent.KEYCODE_ENTER, KeyBinding.META_ALT_RIGHT)),
+        // No default, by the maintainer's ruling 2026-10-12 (issue #2): the
+        // feature is disabled by default in 0.1. Right Alt + Enter was the
+        // stage-2 stub's default chord; with no default and no stored binding,
+        // that chord is NOT consumed here -- Enter reaches the editor as
+        // Enter. The action stays in the enum because a stored binding must
+        // still win over the placeholder row (the window shows 미정 until
+        // something is set, exactly like 한/영 and 한자's empty defaults), and
+        // the precedence order / conflict warning keep working unchanged.
+        defaults = emptyList(),
     ),
     HANJA(
         prefKey = "hanja",

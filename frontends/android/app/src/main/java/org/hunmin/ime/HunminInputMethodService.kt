@@ -287,6 +287,15 @@ class HunminInputMethodService : InputMethodService() {
         // first one here is the one that keeps working, and saying otherwise
         // would be a lie told by two files that disagree.
         for (action in KeyAction.byPrecedence()) {
+            // AUTO_TOGGLE is disabled by default in 0.1 (maintainer ruling
+            // 2026-10-12, issue #2): no default chord, and a stored binding
+            // from a build where the feature was live would otherwise still
+            // swallow the chord -- e.g. Right Alt + Enter eating the user's
+            // Enter -- for a handler that only logs. Skipping the action (not
+            // the chord) keeps the enum, the precedence order and the conflict
+            // warning untouched, and the chord falls through to the engine
+            // like any unbound key.
+            if (action == KeyAction.AUTO_TOGGLE) continue
             if (!fires(action, keyCode, event.metaState)) continue
             when (action) {
                 KeyAction.HANGUL_ENG -> {
