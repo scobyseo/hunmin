@@ -189,6 +189,124 @@ checks all of that mechanically.
 measurements, not rulings, and see
 `wiki/decisions/decisions-belong-to-the-maintainer.md`.
 
+## GitHub issue tracking
+
+Use GitHub Issues as the working surface and external coordination point; PRs are
+the merge surface. The repository `scobyseo/hunmin` has hasIssuesEnabled:true,
+hasProjectsEnabled:true, hasWikiEnabled:false, no issue templates yet, and a
+`task` label for tracked work, so this section defines how work becomes an issue
+and how the status board stays auditable. **Issue counts do not belong here** —
+read them from GitHub; a number in this file is a second home for a fact that
+changes without a commit, which is the disease `docs/REMAINING-WORK.md` §7
+describes.
+
+**The one idea.** An issue carries a measurement or a request for a ruling, not a
+decision. GitHub is where work is assigned, claimed and closed; what this repo
+calls a verdict lives in `docs/` and the wiki, and only the maintainer makes it.
+
+**Scope of the policy.**
+
+- **Agent-measurable items** — ctest outcomes, golden/test paths, linter results,
+  data-format drift, docs counts. These become issues whose body states the
+  command and the expected tree fact, and they are closed only by the maintainer
+  after a PR that satisfies them.
+- **Maintainer-gated items.** Rulings, decisions and phase boundaries (the
+  outstanding B1–B9 set) are not agent-closable. They stay as issues only so a
+  reviewer can see what was requested and what was measured; the decision itself
+  is never recorded in an issue.
+- **Environment-bound items** — device tests, signed-release builds, emulator runs
+  with no CI substitute. Listed as environment-bound with the missing measurement
+  named; they are not "open" so much as "cannot be measured here".
+
+**Issue lifecycle and status.**
+
+| State | Meaning | Who closes |
+|---|---|---|
+| `open` | Claimed, work not started | assignee, or anyone |
+| `in progress` | Worktree checked out, branch active | assignee when done |
+| `blocked` | Decision-gated, environment-bound, or awaiting a measurement | assignee |
+| `closed` | Verification passed, decision rendered by the maintainer | maintainer |
+
+Use the existing label set (`bug`, `enhancement`, `documentation`, `question`,
+`help wanted`, `good first issue`, `duplicate`, `invalid`, `wontfix`) and add
+`task` for tracked work items. Do not invent a new label taxonomy — a label
+should match exactly one in-scope category.
+
+**Title format.**
+
+```
+[<scope>] <brief>
+```
+
+`<scope>` is `engine`, `layout`, `fcitx5`, `android`, `docs` or `ci`. Examples:
+`[engine] sin3-p2 dual-slot key missing compose test`, `[android] missing
+RECORD_AUDIO permission request`.
+
+**Issue ↔ worktree linkage (the handoff contract).**
+
+- A task's worktree, branch and issue exist together: `task/<id>-<slug>` on
+  `master`, issue `<scope>-...`, worktree at `~/work/hunmin-<task>`.
+- A PR closes at most one issue; the PR body states `Closes #N`.
+- Closing an issue is never part of a single "fix" commit — the commit sequence
+  is: worktree + branch + issue → work → PR → issue closed by the maintainer.
+  `Fixes #N` in the PR body links the PR to the issue; the issue itself is closed
+  only after verification has passed.
+
+**Evidence and audit.**
+
+- Every task issue carries a **Verification** checklist naming the command or
+  tree fact that would prove it, e.g. `ctest --test-dir build -j16 -LE slow`, or
+  `grep -n "HUNMIN_AVD" tools/android-e2e.sh`.
+- The in-repo status board `docs/REMAINING-WORK.md` keeps its machine-readable
+  assertion table; `tools/docs-lint.py` check 6 parses it. A claim in an issue
+  that has a tree-fact basis keeps a matching assertion row — don't write the
+  same item in both places with conflicting verdicts. That's the "no second home"
+  rule: issue ↔ board ↔ tree must agree, and the check is mechanical.
+- Commits on a task branch link to the issue (`Fixes #N` in the body, or the
+  branch name `task/<id>-<slug>` that the PR references). A PR closes at most one
+  issue.
+
+**Concurrency.**
+
+- One task, one worktree off `master`; branch `task/<id>-<slug>`. Never start a
+  second task in a tree that already has an open issue — a claim is not a task
+  until its branch and worktree exist.
+- A task's worktree is cleaned up only when the diff would leave `ctest` green
+  on master and nothing else is planned — the merge-if-master-can-take-it rule.
+  A dirty-but-unmergeable worktree is a finding, not a cleanup target.
+
+**Template.**
+
+- **task** — tracks work; body: scope, verification command, link to the branch.
+- **bug** — reproduction steps, expected vs actual, failing ctest label.
+- **question** — request for a ruling; body must quote the exact wording the
+  maintainer is asked to decide.
+
+**Where this comes from.** Results measured, not rulings. The section above is
+written so that no agent ever records a verdict it is not entitled to.
+
+## Orchestration — a second agent on this repository
+
+One agent per checkout is what the Worktrees rule below protects. When the
+session runs inside an Orca terminal, Orca's orchestration layer is how a second
+agent is made safe: it owns placement, authority and settlement, and it records
+which attempt is authoritative.
+
+- **`docs/ORCHESTRATION.md` is the procedure**; `tools/orchestrate.sh` is that
+  same sequence as a script, carrying this repository's defaults — branch
+  `task/<id>-<slug>`, `--base-branch master`, the issue number. Read the doc
+  before improvising a command; the flag surface is one
+  `orca agent-context --json` call away and guessing it is what costs turns.
+- **A Task spec names the acceptance command, not the topic.** "Fix the
+  keystore path" is not a task; "`grep -n storeFile …` shows only the
+  `local.properties` reference" is. Section "The task spec" of that doc maps a
+  kind of change to the command that settles it.
+- **The dispatch preamble already tells the worker to send `worker_done`.** Do
+  not repeat the settlement protocol in the spec; do correct the branch, the
+  issue and the acceptance command there.
+- **A worker never closes anything.** Not the issue, not the PR, not a decision
+  (Working rules). It reports; the maintainer disposes.
+
 ## Worktrees
 
 One task, one worktree off master, so concurrent sessions cannot collide.

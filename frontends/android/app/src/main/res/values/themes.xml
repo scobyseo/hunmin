@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  AppCompat-based translucent theme for OverlayActivity.
+
+  OverlayActivity uses androidx.appcompat.app.AlertDialog, which requires an
+  AppCompat-derived theme (it inflates AppCompat-internal layouts that do not
+  exist under the platform Theme.Translucent.NoTitleBar — on a physical device
+  that surfaces as Resources$NotFoundException: Resource ID #0x0).
+
+  Do NOT set android:theme="@android:style/Theme.Translucent.NoTitleBar" on
+  this activity: it is a platform theme, and the AppCompat dialog path breaks
+  under it on real hardware.
+
+  The color palette mirrors the dock's (DockStyle.kt) so the settings window
+  feels like the same product.
+-->
+<resources>
+    <!-- Base overlay theme: translucent, no title, no dim.
+
+         Parent is NoActionBar, NOT Dialog.Alert: with a Dialog parent the
+         activity's own window already draws the alert panel chrome, and the
+         AlertDialog shown inside it nests a second one — an "onion" of
+         rounded frames, each inset from the last, which is what starved the
+         rows to a 333px column no matter what setLayout asked for. -->
+    <style name="Theme.HunminOverlay" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+
+        <!-- AlertDialog customization -->
+        <item name="alertDialogTheme">@style/Theme.HunminOverlay.AlertDialog</item>
+    </style>
+
+    <!-- AlertDialog customization matching the dock -->
+    <style name="Theme.HunminOverlay.AlertDialog" parent="ThemeOverlay.AppCompat.Dialog.Alert">
+        <!-- Dialog background: the compact-HUD panel, dark slate.
+
+             This MUST be windowBackground, not android:background. As a theme
+             item, android:background leaks to every view that resolves the
+             overlay — parentPanel, customPanel, custom, the container — each
+             drawing the rounded stroke inset by its own padding: an onion of
+             frames, and the content column starved to a fraction of the
+             window width however wide setLayout() made the window. -->
+        <item name="android:windowBackground">@drawable/dialog_background</item>
+
+        <!-- Title -->
+        <item name="android:textAppearanceLarge">@style/TextAppearance.Hunmin.Dialog.Title</item>
+
+        <!-- Message -->
+        <item name="android:textAppearanceMedium">@style/TextAppearance.Hunmin.Dialog.Message</item>
+
+        <!-- Buttons -->
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Hunmin.Button.Dialog.Positive</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Hunmin.Button.Dialog.Negative</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Hunmin.Button.Dialog.Neutral</item>
+
+        <!-- List items (single/multi choice) -->
+        <item name="android:listPreferredItemHeight">56dp</item>
+    </style>
+
+    <!-- Dialog title text appearance -->
+    <style name="TextAppearance.Hunmin.Dialog.Title" parent="TextAppearance.AppCompat.Title">
+        <item name="android:textColor">@color/hunmin_on_surface</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- Dialog message text appearance -->
+    <style name="TextAppearance.Hunmin.Dialog.Message" parent="TextAppearance.AppCompat.Medium">
+        <item name="android:textColor">@color/hunmin_on_surface</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <!-- Positive button: primary background, on-primary text -->
+    <style name="Widget.Hunmin.Button.Dialog.Positive" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:background">@drawable/btn_primary_solid</item>
+        <item name="android:textColor">@color/hunmin_on_primary</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:paddingHorizontal">24dp</item>
+        <item name="android:paddingVertical">12dp</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- Negative/Neutral buttons: track background, on-surface text -->
+    <style name="Widget.Hunmin.Button.Dialog.Negative" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:background">@drawable/btn_track_solid</item>
+        <item name="android:textColor">@color/hunmin_on_surface</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:paddingHorizontal">24dp</item>
+        <item name="android:paddingVertical">12dp</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="Widget.Hunmin.Button.Dialog.Neutral" parent="Widget.Hunmin.Button.Dialog.Negative" />
+</resources>

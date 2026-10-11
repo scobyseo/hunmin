@@ -127,6 +127,33 @@
   `XMODIFIERS=@im=fcitx` routes GTK's XIM module to the same fcitx5.
 - Full record: [[2026-10-09-gtk-forward-path]].
 
+## [2026-10-11] update | Character-loss trio, 16K align, fcitx5 Hanja keyboard UX
+
+- **Character-loss trio** — three Android bugs invisible on this machine (hanja commit
+  appended; modifier-only `onKeyDown` reaching the engine flushed in-flight composition;
+  Android only copied `layouts`/`compose` and passed no `data_dir` to `hunmin_suggest_count`,
+  so `hanja.json` showed zero candidates). Guards now land in tier E1 (3 tests) and the
+  16K-alignment check script, and a modes-corpus inventory records that
+  `modes-corpus-selfcheck` is already SKIP-not-green because the corpus is not deployable.
+- **16K alignment** — `libhunjni.so` was 4KB-aligned from the separate AGP
+  `externalNativeBuild`; pinned `max-page-size=16384` in that CMake. The `${HUNMIN_DATA_PATH}`,
+  Korean-locale, and NDK-path facts are environment-local and do not belong in the repo.
+- **fcitx5 Hanja UX** — vertical layout hint, plus keyboard selection (Up/Down/PageUp/PageDown/
+  Return/Escape). `CommonCandidateList::moveCursor` rotates over `totalSize()` unless
+  `cursorKeepInSamePage` is set (it is not), so Up/Down reaches every candidate; measured
+  against a replica, not assumed, and the note in the code says which way the measurement cut.
+  I8 budget 465 → 545 (reason recorded, not code shaved). D2 tier verifies.
+- **Android conformance cold-run failure, closed** (the "found, not fixed" item
+  in the 10-10 entry below) — two causes behind one red. First:
+  `tools/build-host-jni.sh`'s ldd proof entered the runner's stdout, which
+  `trace-check.py` parses entirely as JSON; the call site now routes it to
+  stderr. That fix exposed the second, which only `dpkg-buildpackage` shows:
+  its `export LC_ALL=C` makes Java's stdout charset US-ASCII, so every Korean
+  preedit became `?` while the JSON parsed fine — Python's PEP 540 coercion is
+  why the x11 half stayed green beside it. The runner pins UTF-8 by
+  declaration now. Both rules are in `docs/trace-spec.md`; deb build passes
+  end to end, 14/14 cold.
+
 ## [2026-10-10] create | D3 case coverage, mutation tiers, ctest labels
 
 - [[2026-10-10-d3-case-coverage]] — `engine-d3-x11` reported Passed in 5.01 s
@@ -150,7 +177,9 @@
   cold `build/libhunjni-host.so`, because `tools/build-host-jni.sh` prints its
   `ldd` proof to stdout and `tools/trace-emit`'s consumer parses line 1 as
   JSON. Deterministic, 3/3 cold runs. Those harness files belong to the Android
-  work in another worktree.
+  work in another worktree. *(Fixed 2026-10-11, below. The record of how it
+  read on 10-10 stays because fixing it exposed a second cause behind the same
+  red, and that one was only visible from inside `dpkg-buildpackage`.)*
 
 ## [2026-10-10] update | Orca GUI probe, retracted same day
 
@@ -162,12 +191,16 @@
   `docs/ENVIRONMENT.md`. The reasoning behind the retraction is kept on the
   measurement page, because it is a reusable test and not a host fact.
 
-## [2026-10-10] update | Wiki compressed for publication
+## [2026-10-11] update | Settings dialog and Hanja dialog fixes
 
-The git history is being squashed into one commit, so the wiki was cut down to
-**the decisions and the failure experiences that are still valid**, and the
-per-session timeline to `docs/HISTORY.md`. Nothing was deleted: every folded
-page stays with `status: superseded` and a table of where its content went.
+- **Settings dialog crash fixed**: OverlayAlertDialog was using a custom theme that conflicted with AlertDialog. Fixed by using default theme and proper FLAG_ACTIVITY_NEW_TASK launch.
+- **Hana dialog working**: Hanja dialog now shows candidates via OverlayActivity with ACTION_SHOW_HANJA. Commit works via commitExternalText.
+- **Settings gear button**: Added settings button in LayoutPicker that triggers OverlayActivity with ACTION_SHOW_SETTINGS.
+- **Space during composition**: When space is pressed during composition, syllable is committed and space character is emitted.
+- **Hangul/English toggle flush**: Mode switch now flushes current composition before switching engines to prevent text loss.
+- **Overlay lifecycle fixed**: onPause/onDestroy now respect dialog showing state; dialogs remain visible during configuration changes.
+- **Samsung 한/영 key (218)**: System consumes this key before IME receives it; alternative keys (Left Alt+Z, Right Alt, Language Switch) work reliably.
+- **Settings dialog crash (Resource ID)**: Fixed AlertDialog.Builder to use default context theme instead of custom theme.
 
 - **Folded.** The 2026-10-04 stemming measurements → `concepts/
   the-three-corpora-are-three-registers.md` (two homes for one table is how they
@@ -188,3 +221,116 @@ page stays with `status: superseded` and a table of where its content went.
   harness construction steps, and every session-message count.
 - **Commit hashes removed** from the wiki; prose names the change instead.
 - `tools/wiki-lint.py --strict` and `tools/docs-lint.py` both clean.
+## [2026-10-11] create | B3 ruled: auto-switch OFF by default, data-gated
+
+- **New decision.** `decisions/2026-10-11-auto-switch-off-by-default.md`: the
+  maintainer ruled B3 — automatic Hangul/English switch is OFF by default until
+  release 0.3, and its additional data ships as a separate distribution, the
+  feature enable-able only where that data is present. The ruling is quoted
+  verbatim in `raw/sessions/2026-10-11-b3-off-default-and-the-data-gate.md`.
+- **Consequential updates, not wiki actions:** `docs/SPEC-MODES.md` R13 and E5
+  (the default was undecided in two places; both updated in one pass, because
+  updating one is the two-homes defect §7 of `docs/REMAINING-WORK.md` describes)
+, `docs/REMAINING-WORK.md` B3 row and voice stage 8, `docs/MILESTONES.md` 0.1/0.3
+  lanes. D1, E5-assignment and B2 are named as NOT closed by this ruling.
+- `wiki/index.md` listed both pages; total pages 21.
+## [2026-10-11] create | Orca orchestration path measured; playbook + script
+
+- **New session page:** `raw/sessions/2026-10-11-orca-orchestration-path.md` — the
+  ≈40-turn / two-accidental-Runs cost of guessing `orca orchestration` flags that one
+  `orca agent-context --json` answers, and the four places the documents were wrong
+  about what Orca does (nested placement, `scobyseo/` branch prefix, no `--issue` on
+  `worker-start`, worker's terminal absent from `worker-list`'s projection).
+  `docs/ENVIRONMENT.md` §Orca GUI is corrected on the branch-name claim.
+- **New durable artefact:** `docs/ORCHESTRATION.md` (procedure) and
+  `tools/orchestrate.sh` (the same sequence, with the branch/base/issue defaults,
+  validating every flag against the binary's own schema before use).
+- **Consequential, not wiki actions:** `AGENTS.md` gains an Orchestration section that
+  points at the procedure and states the rules (acceptance command in the spec, the
+  preamble owns `worker_done`, a worker never closes anything).
+- **Left for the maintainer, on purpose:** the two orphaned Runs and one
+  never-dispatched Task from the earlier session are reported in
+  `docs/ORCHESTRATION.md` §5 and not reset.
+- `wiki/index.md` lists the page; total pages 22.
+## [2026-10-11] create | Key settings window measured and fixed; N5's tests found never compiled
+
+- **New measurement page:** `raw/measurements/2026-10-11-key-settings-window.md` — three
+  broken layers (gear button off-screen at 1140 px on a 1080 px screen; the window could
+  not receive a key because hardware keys are dispatched to the IME window while an IME
+  is current; the save wrote a key nothing read), the two platform facts that shaped the
+  harness (`input keyevent` has no `--meta`; `OverlayActivity` is correctly not exported),
+  and the numeric binding format with the reason.
+- **New durable artefacts:** `frontends/android/app/src/main/java/org/hunmin/ime/KeyBinding.kt`
+  and a tier-E2 section in `tools/android-e2e.sh` that drives the real window on the
+  emulator and cleans up after itself.
+- **Consequential, not wiki actions:** `docs/REMAINING-WORK.md` voice stage 7 (Planned →
+  Done) and two new §7.5 assertion rows that the tree can contradict.
+- **A finding, not a verdict:** N5's `frontends/android/app/src/androidTest/` does not
+  compile and no tier builds it; its board row asserts only that the directory is present.
+  Filed as its own issue; scope is the maintainer's.
+- `wiki/index.md` lists the page; total pages 23.
+
+## 2026-10-11 — the dock, and a style that measured nothing
+
+- **Measurements, not decisions:** the maintainer's specified toolbar (floating pill,
+  48 dp, status left / actions right) implemented as Views rather than Compose, because
+  the repository has no Compose dependency and adding one is a build, a startup cost and
+  an APK size rather than a rendering choice. Recorded, with the reasoning, in
+  `wiki/raw/measurements/2026-10-11-dock-and-the-zero-width-style.md`.
+- **Phosphor Icons, at the maintainer's choice**, for three glyphs; the mic is Duotone
+  because its 0.2-opacity silhouette is the listening state. MIT terms in
+  `debian/copyright`, upstream paths and the conversion in
+  `frontends/android/licences/phosphor-icons/README.md`.
+- **A finding:** style C rendered no content at all — `lp(0)` in a *vertical*
+  LinearLayout is zero pixels wide, not "take the leftover", which is what it means in a
+  horizontal one. Measured on the phone: the IME window's a11y tree had the rows and no
+  children, and a raw pixel of the band was the window background. Fixed with
+  `MATCH_PARENT`; styles A and B were never affected, which is why it survived the crash
+  fix that preceded it.
+- **A crash fixed and verified on the device** (SM-F971N, Android 17):
+  `IllegalStateException: The specified child already has a parent` on a style change,
+  because `rebuild()` left every button parented to the detached row. Style A is the
+  default and `applyStyle()` short-circuits, which is why it looked like "every other
+  style crashes" rather than "the rebuild crashes". Fresh views per rebuild now; the mic
+  key carries 漢 rather than `ic_menu_add`, which said "add something".
+- **Not settled, and not decided here:** whether style C earns its place now that the
+  dock exists, and whether Material Components is worth taking as a dependency for the
+  shapes this draws by hand.
+- `wiki/index.md` lists the page.
+- **A real defect, found by measurement and fixed:** the dock's `bind()` repainted
+  an `ImageView` never added to the view tree, so every mic state change was
+  invisible while the log said LISTENING. The a11y dump could not see it because
+  the session lasts ~5 s and a dump takes longer than that — the read landed after
+  the state had ended. Validated the replacement pixel gate against both states of
+  the same screenshot: `#43A047` listening, `#F3EDF7` idle.
+- **Tier E4 written** (`tools/android-voice-check.sh`, `tests/manual-checklists/tier-e4-voice.md`):
+  the script gates our half of the voice path and a person judges intelligibility,
+  because `SpeechRecognizer` cannot be replayed and an accuracy threshold would be
+  a network-day test. C turned out to already exist: `HunminEngineTest` gates
+  invariant 5 at E1, so E4 tests the path around it.
+- **Still missing:** a completed E4 run end to end. The script asks a person for a
+  focused editor by design and refuses otherwise; each of its state and pixel checks
+  has been measured by hand on SM-S938N, the loop has not.
+
+## [2026-10-12] create | Compact HUD theme traps; Android UI notes
+
+- **Durable artefact is `docs/ANDROID-UI-NOTES.md`**, the Android analogue of
+  `docs/FCITX5-ADDON-NOTES.md`: the style system (dock palette vs `CompactTheme`,
+  row anatomy, 0.92-width window) and the traps that cost the restyle its time —
+  `AlertDialog.setView()` adopting the view's default `WRAP_CONTENT`
+  LayoutParams, `android:background` as a *theme item* leaking to every
+  inheriting view (the "onion" of rounded frames, and the starved column with
+  the same symptom from a different mechanism), a host activity themed
+  `Dialog.Alert` nesting a second alert chrome, and the badge-weight/compresses-
+  the-title failure that came first.
+- **On-device verification facts recorded so the next session does not
+  re-derive them:** production builds admit neither `adb root` nor `su`, so
+  `OverlayActivity` is reached by the gear tap only; wireless adb corrupts
+  `exec-out screencap` PNGs (capture to file, then `pull`); a dual-display
+  Samsung's default `screencap` display is not the one `uiautomator` sees
+  (`-d <display-id>`); stale stacked `OverlayActivity` windows make a correct
+  fix look wrong (force-stop before trusting a screenshot).
+- **`tools/android-e2e.sh` went red on a correct UI**: its combined-string
+  assertions matched the pre-restyle row shape, and the restyle split title
+  and badge into two TextViews. Updated in the same branch as the structure
+  they assert. See `wiki/raw/sessions/2026-10-12-compact-hud-theme-traps.md`.

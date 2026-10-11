@@ -446,6 +446,12 @@ def rw_rows() -> tuple[list[tuple[int, str, str, str, str]], list[str]]:
     return rows, problems
 
 
+def _pattern_is_regex(target: str) -> bool:
+    """Whether a `path:pattern` assertion target holds regex metacharacters."""
+    _, _, pat = target.partition(":")
+    return bool(pat) and bool(re.search(r"[\\^$.|?*+()\[\]{}]", pat))
+
+
 def rw_evaluate(kind: str, target: str) -> tuple[bool, str]:
     """The tree's answer for one assertion. Returns (done, evidence)."""
     if kind in ("path-absent", "path-present"):
@@ -474,6 +480,13 @@ def rw_evaluate(kind: str, target: str) -> tuple[bool, str]:
         tgt, _, pat = target.partition(":")
         if not pat:
             return False, f"{target} is not 'path:pattern'"
+        # The pattern is a REGEX, which the board does not say anywhere, and
+        # that cost this file's author an hour: an assertion written against a
+        # Kotlin field typed `ImageButton? = null` reads `?` as a quantifier and
+        # reports "absent" for a line that IS in the file. Some rows use the
+        # regex on purpose (`On emulator \(tier E2\)`), so a ban would be wrong;
+        # the hint below is the fix.
+        rx_pat = bool(re.search(r"[\\^$.|?*+()\[\]{}]", pat))
         full = os.path.normpath(os.path.join(ROOT, tgt))
         if not os.path.exists(full):
             return False, f"{tgt} does not exist"
@@ -531,6 +544,18 @@ def check_remaining_work() -> None:
             )
             continue
         done, evidence = rw_evaluate(kind, target)
+        # The grep pattern is a regex, which the board does not say anywhere and
+        # which cost this file's author an hour: a row written against a Kotlin
+        # field typed `ImageButton? = null` reads `?` as a quantifier and reports
+        # "absent" for a line that IS in the file. Some rows use the regex on
+        # purpose, so the fix is the hint at the end of the message, not a ban.
+        hint = ""
+        if kind == "grep" and not done and _pattern_is_regex(target):
+            hint = (
+                " Note: a grep pattern is a REGEX, so a character like '?' or "
+                "'.' is a quantifier rather than itself. If this row means a "
+                "literal substring, it is looking for the wrong text."
+            )
         if done != RW_DONE[expected]:
             err(
                 f"docs/REMAINING-WORK.md:{lineno}: {rid} claims "
@@ -539,7 +564,7 @@ def check_remaining_work() -> None:
                 f"Evidence: {evidence}. Either the item is done -- move it to "
                 f"the closed section with the commit that closed it -- or the "
                 f"assertion is wrong. Do not leave a board row the tree "
-                f"contradicts."
+                f"contradicts.{hint}"
             )
 
 

@@ -148,6 +148,13 @@ Java_org_hunmin_ime_HunminNative_nativeLayoutSupported(JNIEnv *env, jclass k, jl
   return (c && i >= 0 && hunmin_ctx_layout_supported(c, i)) ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jstring JNICALL
+Java_org_hunmin_ime_HunminNative_nativeLayoutMode(JNIEnv *env, jclass k, jlong ctx, jint i) {
+  (void)k;
+  hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
+  return str_or_empty(env, (c && i >= 0) ? hunmin_ctx_layout_mode(c, i) : NULL);
+}
+
 /* ===================== hunmin_ic ======================================== */
 
 JNIEXPORT jlong JNICALL

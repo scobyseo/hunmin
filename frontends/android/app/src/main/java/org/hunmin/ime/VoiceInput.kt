@@ -10,7 +10,7 @@
  * paths, and the hand-off into hunmin_ic_commit_text().
  *
  * WHY IT HAS AN INTERFACE. [Recognizer] is a seam with one real implementation
- * ([SpeechRecognizerRecognizer]) and a fake for tier E1. Without it, every test
+ * ([PlatformRecognizer]) and a fake for tier E1. Without it, every test
  * of "what happens when the user denies the microphone" has to install a
  * recogniser, and one of the most important behaviours of this class -- that a
  * failure leaves the IME usable -- would be untestable.
@@ -30,7 +30,7 @@
  * ⚠️ ALSO CORRECTED AGAINST THE PLATFORM (re-measured 2026-10-09).
  * `RecognizerIntent.LANGUAGE_MODEL_FREE_FORM` **does** exist on API 35 --
  * `javap -constants` shows it as `"free_form"` -- so the comment in
- * [SpeechRecognizerRecognizer.start] that says it is absent is wrong about the
+ * [PlatformRecognizer.start] that says it is absent is wrong about the
  * platform. The behaviour is unaffected: the code omits `EXTRA_LANGUAGE_MODEL`
  * and free-form is the default when it is unset, which is the mode the emulator
  * was measured running in. Left uncorrected in place because the constant is
@@ -166,7 +166,10 @@ interface Recognizer {
  * image and reported two services, which is why tier E2 can exercise a real
  * recogniser there rather than only the fallback.
  */
-class SpeechRecognizerRecognizer(private val context: Context) : Recognizer {
+class PlatformRecognizer(
+    private val context: Context,
+    private val language: String = "ko-KR"  // Default to Korean
+) : Recognizer {
 
     private var recognizer: SpeechRecognizer? = null
     private var onText: ((String) -> Unit)? = null
@@ -211,16 +214,16 @@ class SpeechRecognizerRecognizer(private val context: Context) : Recognizer {
                     ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     ?.firstOrNull()
                     .orEmpty()
-                val cb = this@SpeechRecognizerRecognizer.onText
-                this@SpeechRecognizerRecognizer.onText = null
-                this@SpeechRecognizerRecognizer.onFailure = null
+                val cb = this@PlatformRecognizer.onText
+                this@PlatformRecognizer.onText = null
+                this@PlatformRecognizer.onFailure = null
                 cb?.invoke(text)
             }
 
             override fun onError(error: Int) {
-                val cb = this@SpeechRecognizerRecognizer.onFailure
-                this@SpeechRecognizerRecognizer.onText = null
-                this@SpeechRecognizerRecognizer.onFailure = null
+                val cb = this@PlatformRecognizer.onFailure
+                this@PlatformRecognizer.onText = null
+                this@PlatformRecognizer.onFailure = null
                 cb?.invoke(errorName(error))
             }
         })
@@ -231,9 +234,19 @@ class SpeechRecognizerRecognizer(private val context: Context) : Recognizer {
             // extras in others; verified with javap against android.jar on
             // 2026-10-04, where it is absent from both. Free-form is the default
             // when the extra is unset, so naming it here would be a guess.
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            // Longer silence timeouts so brief pauses don't stop recognition.
+            // EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS:
+            //   "The amount of time that it should take after we stop hearing
+            //    speech to consider the input possibly complete" (default ~few sec).
+            // EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS:
+            //   "The amount of time that it should take after we stop hearing
+            //    speech to consider the input complete" (default ~few sec).
+            // Values measured in ms. 1500/3000 gives more breathing room.
+            putExtra("android.speech.extra.SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS", 1500)
+            putExtra("android.speech.extra.SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS", 3000)
         }
         try {
             r.startListening(intent)
@@ -308,7 +321,7 @@ object VoiceLauncher {
      * it is the path tier E2 can exercise on the emulator image.
      */
     fun pickLaunch(context: Context): VoicePath? = decide(
-        recognizerAvailable = SpeechRecognizerRecognizer.isAvailable(context),
+        recognizerAvailable = PlatformRecognizer.isAvailable(context),
         activityAvailable = hasVoiceInputActivity(context),
     )
 
@@ -424,7 +437,7 @@ class AndroidPermissionGate(private val context: Context) : PermissionGate {
 class VoiceSession(
     private val context: Context?,
     private val recognizerFactory: () -> Recognizer = {
-        SpeechRecognizerRecognizer(context ?: error("no Context: use forRecognizerOnly"))
+        PlatformRecognizer(context ?: error("no Context: use forRecognizerOnly"))
     },
     private val permissionGate: PermissionGate? = null,
 ) {

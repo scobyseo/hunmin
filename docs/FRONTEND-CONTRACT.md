@@ -41,17 +41,16 @@ composition logic, no per-layout knowledge, no jamo handling.
 per-file LOC counts, which rotted silently — they had drifted by 100+ lines with
 no test noticing, because a number in prose cannot fail. The budget is now
 invariant **I8** in `tools/check-frontend-invariants.py` (ctest
-`frontend-invariants`): it counts code lines in `engine.{h,cpp}`, comments and
-blanks excluded, and fails above **400**. Do not add counts back to this table;
+`frontend-invariants`): it counts code lines across every translation unit the
+adapter owns — `engine.{h,cpp}`, `config.h`, `modeswitch.{h,cpp}` — comments and
+blanks excluded, and fails above **545**. Do not add counts back to this table;
 add a rule to the checker instead. Reading the current number:
 
 ```sh
 python3 tools/check-frontend-invariants.py | grep I8
 ```
 
-240 at the last commit, so the headroom is for the candidate presentation P3
-will need (candidate list, F9 entry) — which is legitimately adapter work. What
-the budget exists to catch is *composition* logic or per-layout knowledge
+The budget exists to catch *composition* logic or per-layout knowledge
 appearing in the frontend, which is rule #4's actual failure mode.
 
 ## 2. The interfaces we expose
@@ -325,10 +324,19 @@ showed that a prose rule nobody can execute catches nothing. Run
    read it — the two code paths look identical once the override is discarded,
    so only a structural check catches it.
 8. **The adapter stays inside the thin-adapter budget (rule #4).**
-   Check: code lines in `engine.{h,cpp}` ≤ **400**, comments and blanks
-   excluded. This is a measurement, not a description — see §1. Exceeding it
-   means composition logic or per-layout knowledge has crept into the
-   frontend, which is the failure mode rule #4 exists to prevent.
+   Check: code lines across `engine.{h,cpp}`, `config.h`, `modeswitch.{h,cpp}`
+   ≤ **545**, comments and blanks excluded. This is a measurement, not a
+   description — see §1. Exceeding it means composition logic or per-layout
+   knowledge has crept into the frontend, which is the failure mode rule #4
+   exists to prevent. The count is of *every* translation unit the adapter
+   owns, not just `engine.{h,cpp}`, because splitting logic into a new file
+   would otherwise walk straight past the budget while the adapter grew. The
+   limit has moved twice, each time for work that is frontend by nature and
+   cannot live in the core: the F9/candidate presentation (400 → 465), and
+   keyboard selection in the candidate window (465 → 545, 2026-10-11), which
+   exists because fcitx5 does not intercept Up/Down/Return for a
+   `CursorMovableCandidateList` — it only offers `prevCandidate()`/
+   `nextCandidate()` and calling them is the input method's job.
 9. **The Hanja window never reads or rewrites surrounding text.**
    Check (I9): no `SurroundingText` / `getSurroundingText` /
    `deleteSurroundingText` / `setCursorPos` call anywhere in `engine.cpp`;

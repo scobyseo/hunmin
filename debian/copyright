@@ -67,6 +67,15 @@ Copyright: 2009-2017 Dave Gamble and cJSON contributors
 License: MIT
  Comment: cJSON is distributed unmodified.
 
+Files: frontends/android/app/src/main/res/drawable/ph_*.xml
+ frontends/android/licences/phosphor-icons/*
+Copyright: 2021 Phosphor Icons
+License: MIT
+ Comment: Vector drawables derived from Phosphor Icons 2.1.1 (microphone
+ duotone, gear and caret-down regular). Only the three glyphs the IME strip
+ uses; conversion method and upstream paths are recorded in
+ frontends/android/licences/phosphor-icons/README.md.
+
 License: LGPL-2.1-or-later
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public

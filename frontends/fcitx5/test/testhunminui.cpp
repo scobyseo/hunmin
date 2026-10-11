@@ -171,9 +171,11 @@ void scheduleEvent(Instance *instance) {
         // (FRONTEND-CONTRACT.md A11).
         //
         // 푸 is chosen because it is in hanja/ and in neither krdict nor
-        // idioms, so every candidate is a bare syllable: one Hanja each, and
-        // the comment carries the kind because there is no gloss to show.
-        // \uac00 would also carry a krdict gloss and lead the list with it.
+        // idioms, so every candidate is a bare syllable: one Hanja each.
+        // Since hanja/2 the comment carries the Unihan English gloss even when
+        // the Korean gloss is empty (the adapter falls back to the kind label
+        // only when *both* are empty), so U+4B0C's comment is its English
+        // definition rather than "hanja".
         tap(uuid, Key("p"));
         tap(uuid, Key("o"));
         FCITX_ASSERT(panelOf(ic).toString() == "\ud478");
@@ -184,9 +186,10 @@ void scheduleEvent(Instance *instance) {
 
         auto list = ic->inputPanel().candidateList();
         FCITX_ASSERT(list) << "F9 produced no candidate list";
-        FCITX_ASSERT(list->size() > 0) << "candidate list is empty for \ud478";
-        FCITX_ASSERT(list->candidate(0).comment().toString() == "hanja")
-            << "kind label is '" << list->candidate(0).comment().toString() << "'";
+        FCITX_ASSERT(list->size() > 0) << "candidate list is empty for the syllable";
+        FCITX_ASSERT(list->candidate(0).comment().toString() ==
+                     "the wind blows, blown by the wind")
+            << "gloss is '" << list->candidate(0).comment().toString() << "'";
         // 푸 has exactly one candidate in hanja.json, U+4B0C, and no
         // frequency data -- asserted from the file rather than remembered.
         FCITX_ASSERT(list->size() == 1) << list->size();
@@ -242,6 +245,7 @@ void scheduleEvent(Instance *instance) {
         FCITX_ASSERT(!accepted) << "F9 with an empty preedit must reach the client";
         FCITX_ASSERT(!ic->inputPanel().candidateList())
             << "a pass-through F9 must not open a window";
+
         /* Known gap: openCandidates() also early-returns on an *empty*
          * preedit, before it ever calls hunmin_suggest_count(). Dropping that
          * guard still lets the empty string resolve to zero candidates, so
@@ -356,6 +360,88 @@ void scheduleEvent(Instance *instance) {
                     << "picker offers '" << *id << "', which has no data file";
             }
         }
+
+        // --- Keyboard selection in the open candidate window (2026-10-11).
+        //
+        // Last in the flow, in its own input context: creating one switches the
+        // active IM, which flushes whatever the context above left composing,
+        // and nothing before this point may depend on that.
+        //
+        // The window is vertical and walked with the arrow keys, so a Hanja can
+        // be picked without the mouse. fcitx5 does none of this itself -- a
+        // CursorMovableCandidateList only exposes prevCandidate()/nextCandidate()
+        // and calling them is the input method's job -- and before this block an
+        // arrow key fell through to the printable-ASCII branch and reached the
+        // engine as a character.
+        //
+        // kfs composes 간 in sin3-p2, the group's layout. The engine returns 67
+        // candidates for it -- krdict word senses lead, then the syllable's Hanja
+        // -- in the order 刊 肝 間 間 干 ..., read out of the engine rather than
+        // out of hanja.json, whose own order differs.
+        auto kbUuid = tf->call<ITestFrontend::createInputContext>("kbapp");
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(
+            kbUuid, Key("Control+space"), false));
+        auto *kic = instance->inputContextManager().findByUUID(kbUuid);
+        FCITX_ASSERT(kic) << "no input context for the keyboard test";
+        FCITX_ASSERT(instance->inputMethod(kic) == "hunmin");
+        tap(kbUuid, Key("k"));
+        tap(kbUuid, Key("f"));
+        tap(kbUuid, Key("s"));
+        FCITX_ASSERT(panelOf(kic).toString() == "\uac04");
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_F9),
+                                                           false))
+            << "F9 on 간 must open the window";
+        auto hanList = kic->inputPanel().candidateList();
+        FCITX_ASSERT(hanList) << "no window for 간";
+        FCITX_ASSERT(hanList->layoutHint() == CandidateLayoutHint::Vertical)
+            << "the candidate window must be vertical, not "
+            << static_cast<int>(hanList->layoutHint());
+        FCITX_ASSERT(hanList->candidate(0).text().toString() == "\u520a")
+            << "first candidate is '"
+            << hanList->candidate(0).text().toString() << "', expected 刊";
+
+        // Down once moves the cursor to the second candidate, and the key is
+        // ours -- an arrow key that reached the engine would type a character.
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_Down),
+                                                           false))
+            << "Down must be consumed by the candidate window";
+        FCITX_ASSERT(hanList->cursorIndex() == 1)
+            << "Down did not move the cursor (index " << hanList->cursorIndex()
+            << ", size=" << hanList->size() << ")";
+        FCITX_ASSERT(hanList->candidate(hanList->cursorIndex()).text().toString()
+                     == "\u809d")
+            << "cursor is not on 肝";
+
+        // Return commits the candidate under the cursor and closes the window,
+        // and the source Hangul must not survive it.
+        tf->call<ITestFrontend::pushCommitExpectation>("\u809d");
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_Return),
+                                                           false))
+            << "Return must be consumed by the candidate window";
+        FCITX_ASSERT(!kic->inputPanel().candidateList())
+            << "choosing with Return did not close the window";
+        FCITX_ASSERT(panelOf(kic).toString().empty())
+            << "choosing with Return left the source Hangul in the preedit";
+
+        // Escape closes without committing anything, and leaves the composition
+        // exactly as it was -- which is what a cancel means.
+        tap(kbUuid, Key("k"));
+        tap(kbUuid, Key("f"));
+        tap(kbUuid, Key("s"));
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_F9),
+                                                           false));
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_Escape),
+                                                           false))
+            << "Escape must close the candidate window";
+        FCITX_ASSERT(!kic->inputPanel().candidateList())
+            << "Escape did not close the window";
+        FCITX_ASSERT(panelOf(kic).toString() == "\uac04")
+            << "Escape must leave the composition alone";
+
+        // deactivate() below flushes what is still composing, so 간 lands as a
+        // commit. Stated rather than absorbed: it is the IME handing the text
+        // back on focus loss, which is the correct behaviour.
+        tf->call<ITestFrontend::pushCommitExpectation>("\uac04");
 
         instance->deactivate();
     });

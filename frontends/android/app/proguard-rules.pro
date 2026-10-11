@@ -34,7 +34,7 @@
 
 # ──────────────────────────────────────────────────────────────────────
 # Voice path: VoiceInput.kt contains VoiceSession, VoiceLauncher, VoiceResult,
-# VoicePath, VoicePermissionAction, Recognizer, SpeechRecognizerRecognizer,
+# VoicePath, VoicePermissionAction, Recognizer, PlatformRecognizer,
 # VoiceSession, PermissionGate, AndroidPermissionGate
 # ──────────────────────────────────────────────────────────────────────
 -keep class org.hunmin.ime.VoiceInput {
@@ -58,7 +58,7 @@
 -keep class org.hunmin.ime.Recognizer {
     *;
 }
--keep class org.hunmin.ime.SpeechRecognizerRecognizer {
+-keep class org.hunmin.ime.PlatformRecognizer {
     *;
 }
 -keep class org.hunmin.ime.PermissionGate {

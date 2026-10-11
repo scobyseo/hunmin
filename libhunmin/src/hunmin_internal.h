@@ -33,9 +33,15 @@ static inline const hm_val *hm_resolvev(const hm_val *v, hm_state st) {
   return v;
 }
 
+/* Which half of a two-mode IME a layout belongs to. Data, not code: the
+ * Android settings window splits its layout list on this (issue #12), and a
+ * front-end that guessed from the name would drift from the file. */
+typedef enum { HM_MODE_HANGUL = 0, HM_MODE_LATIN = 1 } hm_layout_mode;
+
 typedef struct {
   int schema;
   char id[64];
+  hm_layout_mode mode;
   char name_en[128];
   char name_ko[128];
   hm_engine_t type;
@@ -51,6 +57,14 @@ typedef struct {
 struct hunmin_ctx {
   hm_layout *layouts;
   int n;
+  /* Data directory this context was created from, or NULL when the caller
+   * passed no explicit dirs (env HUNMIN_DATA_PATH / build default was used).
+   * The suggest layer prefers this over the env var so a frontend that hands
+   * the engine an explicit path -- the Android IME, which runs in an app
+   * sandbox where HUNMIN_DATA_PATH is not set -- gets Hanja/idiom/krdict
+   * tables from the same directory as its layouts. Copied, so the caller may
+   * free its buffer; NUL-terminated. */
+  char *data_dir;
 };
 
 /* data.c */

@@ -81,6 +81,18 @@ endif()
 # only when the composition comes out wrong on a device.
 target_link_libraries(hunjni PRIVATE ${HUNMIN_ENGINE_LIB})
 
+# 16KB page alignment. Android 15+ on 16KB-page devices rejects an install
+# whose native libraries are not 16KB-aligned, and that check covers EVERY
+# .so the process loads -- the engine (built by tools/build-android.sh via
+# cmake/android.toolchain.cmake, which already sets these flags) AND this
+# shim. This project is built by AGP's own NDK toolchain and does NOT inherit
+# android.toolchain.cmake, so without these flags libhunjni.so links at the
+# default 4KB page size and the runtime reports both libraries as unaligned.
+# Mirrors android.toolchain.cmake exactly so the two agree.
+target_link_options(hunjni PRIVATE
+  -Wl,-z,max-page-size=16384
+  -Wl,-z,common-page-size=16384)
+
 # No C++ runtime, no exceptions, no RTTI: the shim is C, links libhunmin (also
 # C, and it uses libc's malloc not a C++ allocator), and needs nothing else.
 # ANDROID_STL=none is set in build.gradle.kts to match.

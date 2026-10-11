@@ -110,6 +110,7 @@ each ABI (`tools/build-android.sh`).
 | [`docs/D3-PERFORMANCE.md`](docs/D3-PERFORMANCE.md) | where tier D3's wall clock goes, and the case-count defect it hid |
 | [`docs/MUTATION-TIER-OPTIONS.md`](docs/MUTATION-TIER-OPTIONS.md) | what the mutation self-tests cost and what each way of cutting that loses |
 | [`docs/REMAINING-WORK.md`](docs/REMAINING-WORK.md) | what is left, what is blocked on whom, and the assertions that keep it honest |
+| [`docs/MILESTONES.md`](docs/MILESTONES.md) | the release plan (0.1 / 0.2 / 0.3 / 0.4 / 1.0) and which lane each open item sits in |
 | [`wiki/`](wiki/) | how we got here: session records, overturned verdicts, open decisions |
 
 ## Design notes

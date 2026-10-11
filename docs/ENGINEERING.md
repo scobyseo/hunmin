@@ -200,7 +200,8 @@ them is what stops the next session from re-deriving them.
 
 **Put knowledge where it will be looked up.** Host quirks go in
 `docs/ENVIRONMENT.md`; third-party API semantics in
-`docs/FCITX5-ADDON-NOTES.md`; verification structure in
+`docs/FCITX5-ADDON-NOTES.md`; Android presentation-structure traps in
+`docs/ANDROID-UI-NOTES.md`; verification structure in
 `docs/TESTING.md`. Cross-link from `AGENTS.md`.
 
 **Refresh status lines when reality moves.** `PLAN.md` phases and

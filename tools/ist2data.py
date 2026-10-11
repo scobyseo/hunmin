@@ -354,6 +354,9 @@ def convert(ist_path, name, out_dir, alias, extra_compose):
                  "Shinsebeol P2 옛한글 조합 + 기호 확장",
                  "ko": table.get("name", name) if table is not None else name},
         "engine": "h3", "aliases": [alias],
+        # 신세벌식 composes Hangul, so it belongs to the 한글 half of the
+        # two-mode IME (docs/SPEC-SCHEMA.md, maintainer 2026-10-11).
+        "mode": "hangul",
         "source": f"pat.im ist: {ist_path.name} (normative; lifted by tools/ist2data.py)",
         "compose": ([f"{name}-mix"] if citems else []) + list(extra_compose),
         "keys": {k: keys[k] for k in sorted(keys)},

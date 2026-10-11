@@ -14,6 +14,10 @@ import jamo
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
 MODS = {"plain", "shift", "ctrl", "alt"}
 ENGINES = {"std", "h3", "romaja"}
+# Which half of the two-mode IME a layout belongs to. The engine mirrors these
+# two strings (hm_layout_mode / hunmin_ctx_layout_mode); a third value here
+# would be one the engine has never heard of.
+LAYOUT_MODES = {"hangul", "latin"}
 REQUIRED_TOP = {"schemaVersion", "id", "name", "engine", "compose", "keys"}
 
 
@@ -139,6 +143,15 @@ def check_layout(path: Path, aliases: dict, compose_ids: set, vfile: V):
         aliases[a] = d["id"]
     if d["engine"] not in ENGINES:
         vfile.err(f"bad engine {d['engine']!r}")
+    # `mode` decides which half of the two-mode settings list a layout appears
+    # in (issue #12). The ENGINE defaults an absent or misspelt value to
+    # "hangul" so a typo costs one mis-filed row rather than the layout; this
+    # is what makes the typo loud instead. Required, because "which list does
+    # this belong in" has exactly one right answer and it is the file's.
+    if "mode" not in d:
+        vfile.err("missing 'mode' (\"hangul\" | \"latin\")")
+    elif d["mode"] not in LAYOUT_MODES:
+        vfile.err(f"bad mode {d['mode']!r}; expected one of {sorted(LAYOUT_MODES)}")
     for c in d["compose"]:
         if c not in compose_ids:
             vfile.err(f"compose {c!r} not found in data/compose")
@@ -201,9 +214,9 @@ def check_hanja(path: Path, vfile: V):
         vfile.err(f"invalid JSON: {e}")
         return
     vfile.data = path.name
-    if d.get("schema") != "hunmin.hanja/1":
+    if d.get("schema") != "hunmin.hanja/2":
         vfile.err(f"bad schema {d.get('schema')!r}")
-    if d.get("version") != 1:
+    if d.get("version") != 2:
         vfile.err(f"bad version {d.get('version')!r}")
     entries = d.get("entries")
     if not isinstance(entries, dict):
@@ -218,11 +231,23 @@ def check_hanja(path: Path, vfile: V):
             vfile.err(f"reading {reading!r}: value must be list")
             continue
         for i, h in enumerate(hanja_list):
-            if not isinstance(h, str) or len(h) != 1:
-                vfile.err(f"reading {reading!r}[{i}]: must be single char")
-            cp = ord(h) if isinstance(h, str) and len(h) == 1 else None
+            # v2: each candidate is {"v": <hanja>, "ko"/"en": <gloss>,
+            # optional "jp"/"cn": true}
+            if not isinstance(h, dict) or not isinstance(h.get("v"), str):
+                vfile.err(f"reading {reading!r}[{i}]: must be an object with str 'v'")
+                continue
+            hv = h["v"]
+            if len(hv) != 1:
+                vfile.err(f"reading {reading!r}[{i}]: 'v' must be single char")
+            for gloss_key in ("ko", "en"):
+                if gloss_key in h and not isinstance(h[gloss_key], str):
+                    vfile.err(f"reading {reading!r}[{i}]: '{gloss_key}' must be str")
+            for tag_key in ("jp", "cn"):
+                if tag_key in h and h[tag_key] is not True:
+                    vfile.err(f"reading {reading!r}[{i}]: '{tag_key}' must be true")
+            cp = ord(hv) if len(hv) == 1 else None
             if cp is not None and not (0x3400 <= cp <= 0x4DBF or 0x4E00 <= cp <= 0x9FFF or 0xF900 <= cp <= 0xFAFF or 0x20000 <= cp <= 0x2A6DF or 0x2A700 <= cp <= 0x2B73F or 0x2B740 <= cp <= 0x2B81F or 0x2B820 <= cp <= 0x2CEAF):
-                vfile.warnings.append(f"reading {reading!r}[{i}]: {h!r} not in CJK Unified Ideographs blocks")
+                vfile.warnings.append(f"reading {reading!r}[{i}]: {hv!r} not in CJK Unified Ideographs blocks")
 
 
 def check_idioms(path: Path, vfile: V):

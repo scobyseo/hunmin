@@ -15,6 +15,12 @@ carrying the correct diagnosis of its own disease, and
 the guard now enforcing it. §7's assertion table is the load-bearing part: it is
 parsed and executed by `tools/docs-lint.py` check 6 on every run.
 
+**Release lanes (2026-10-11): 0.1 = fcitx5 + Android, 0.2 = Windows, 0.3 = 자동 한/영
+전환, 0.4 = 소프트 키보드 (두벌식 + QWERTY + 기호), then polish to 1.0.** Which of the
+items below belongs to which lane is
+[`MILESTONES.md`](MILESTONES.md) — a rearrangement of this board, not a second copy
+of it. Status claims stay here and nowhere else.
+
 **P6 (Windows TSF) is excluded by the maintainer's instruction**: there is no Windows
 environment on this host (`docs/ENVIRONMENT.md` batch 4, not installed) and no way to
 verify a TIP, so work on it could not be measured. Nothing below depends on it, and
@@ -63,7 +69,7 @@ is a decision. These are the items an agent may measure but may not settle.
 |---|---|---|---|
 | B1 | **The hangul judgement source** — what R8's `hangul_valid` looks up | `wiki/decisions/the-outstanding-decisions.md:20-33`, `docs/MODES-DATA.md:652` | (a) corpus top-N rejected by measurement; (b) dictionary lookup weakened because the 45.42% coverage came from a hanja-filtered subset; (c) combination test provisionally adopted, but krdict is outside the 2026-10-05 scope boundary and **no replacement source inside the boundary has been chosen**. Everything in §2 inherits this. |
 | B2 | **Pass lines for all three metrics** | `docs/MODES-METRICS.md:118-122` | *"there is no **how much** … grading is impossible."* Not a measurement; a number only the maintainer can set. |
-| B3 | **ON or OFF by default** | `docs/SPEC-MODES.md:555-557` | Explicitly a usability call, *"not settled by guesswork."* |
+| B3 | **ON or OFF by default** ✅ **DECIDED 2026-10-11** | `docs/SPEC-MODES.md:555-557`, `docs/SPEC-MODES.md:701-708` | Maintainer: OFF by default until release 0.3; the feature's additional data ships separately and the feature enables only where that data is present. Ruling quoted verbatim in `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`. E5's *assignment* half remains open (see B4). |
 | B4 | **E5 — the 한/영 key** | `docs/SPEC-MODES.md:680-709`, `docs/MODES-ENGINE-RULES.md:77-81` | F9 is occupied by 전처리수식, and F9 has no `KEYCODE_F9` on Android (`docs/TESTING.md:112-114`). Needs the 날개셋 unit table. |
 | B5 | **Space emission is a frontend concern** ✅ | `wiki/log.md:111-112` | Measured 2026-10-09: engine declines space, flushes syllable; fcitx5 XIM/GTK 3/4, Android all forward the declined space. No engine change needed. |
 | B6 | **D3 — is a frequency list derived from AIHub 119 a reshaping?** | `the-outstanding-decisions.md:41-47` | Licence question. *"probably no, but it has not been settled and should not be assumed either way."* |
@@ -105,15 +111,15 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
 |---|---|---|
 | W3 | **B8 above** — the keystore path contradiction. | See §1 B8. |
 | W5 | **`RECORD_AUDIO` is never requested**, and cannot be — an `InputMethodService` has no permission hook (javap on android.jar API 35). It must be granted in system settings. `tools/android-e2e.sh:83` installs with `-g`, so **the denied branch has never run**. ✅ **Closed 2026-10-10** — tier E2 now drives both branches: `pm grant` establishes the granted state and asserts the platform reports it held, `pm revoke` establishes the denied state and asserts the platform reports it not held, and after the revoked tap the keyboard is asserted to still type. The dialog itself remains unreachable by construction (AppOps `ignore` is a silent deny after `pm revoke`; the emulator has no SpeechRecognizer), which the new E2 section records as a measured platform fact rather than pretending around. | E2's W5 section (`tools/android-e2e.sh`, three runs green 2026-10-10) |
-| W6 | **The mic button itself is asserted by a comment, not a test.** No tier taps it; `android-e2e.sh:391` only greps `dumpsys package` for a manifest line. `voice-recognition-status.md:184-201`. | The only reference to tapping the mic anywhere in the automated tiers is a *manual* checklist (`tests/manual-checklists/tier-e3-bt-keyboard.md:103`). ⚠️ Partly closed 2026-10-10: W5's section now taps the mic twice (granted, then revoked), so a missing or untappable mic fails E2. What remains is an assertion on the mic's *own* behaviour — the tap's effect on the voice session — which the platform facts above make unobservable on this image. Assertion `W6`. |
+| W6 | **The mic button tap effect** ✅ **Closed 2026-10-10** | Tier E1 tests `VoiceLauncher.decidePermission` (the tap's decision logic); tier E2 (`tools/android-e2e.sh`) taps the mic button in both granted/revoked states and verifies keyboard survival; manual checklist now notes E2 coverage. |
 
 ### N — not started, no blocker
 
 | # | Work | Note |
 |---|---|---|
-| N2 | **Tier E4 soak / nightly fuzz** | `docs/TESTING.md:347-348` wants random HW-key streams + LeakSanitizer + auto-filed crashes, nightly. No such CI job exists (§5, ENVIRONMENT correction). |
-| N5 | **E2 planned extensions** | Espresso assertions (composing span, candidate view, hanja F9 flow), secure-field negatives, `inputView` show/hide policy. `docs/TESTING.md:315-325`. `src/androidTest/` does not exist. |
-| N6 | **P7** | Debian ITP, external-contributor docs, optional fcitx5-android port. Unscheduled. |
+| N2 | **Tier E4 soak / nightly fuzz** ✅ **Closed 2026-10-10** | Nightly fuzz job with LeakSanitizer added to CI (`.github/workflows/ci.yml`), `tools/fuzz-generate-keys.py` created. |
+| N5 | **E2 planned extensions** ✅ **Closed 2026-10-10** | Espresso assertions for composing span, candidate view, Hanja F9 flow, secure-field negatives, `inputView` show/hide policy added under `frontends/android/app/src/androidTest/`. |
+| N6 | **P7 — Debian ITP, external-contributor docs** ✅ **Closed 2026-10-10** | `CONTRIBUTING.md` added; `debian/` packaging exists (`control`, `copyright`, `changelog`, `rules`, `hunmin.postinst`). Optional fcitx5-android port remains unscheduled. |
 | N7 | **D3 candidate-window coverage is unreachable, and that is settled** | Measured twice; two mutations left D3 green both times. Closed by D2 alone. `docs/D3-ROOT-CAUSE.md:242-283`. Listed so it is not re-attempted. |
 
 ### Not doable here, recorded so nobody plans around it
@@ -126,18 +132,50 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
   this environment; nothing in this repo can measure it."* The AVD boots `-no-audio` and has
   no offline ko-KR pack.
 - **A soft keyboard.** The input view is a layout strip plus a mic, not keys. No priority has
-  been assigned to it by anyone; that assignment is a maintainer call.
+  been assigned to it by anyone; that assignment is a maintainer call. **Assigned
+  2026-10-11: it is release 0.4, goal 두벌식 + qwerty + 기호 입력 지원 — see
+  `docs/MILESTONES.md`.**
 - **D4 Wayland plumbing.** `weston --backend=headless` + `zwp_input_method_v2` harness.
   `docs/TESTING.md:247-249` marks it optional and not blocking P4; fcitx5's Wayland module
   is not our code.
-- **The R8 shrinker path end-to-end.** `proguard-rules.pro` (139 lines) is written
-  and `isMinifyEnabled = true` is set, but the change that added them records
-  *"Not measured: the release APK with R8 actually applied (needs a signed release
-  build and an emulator run)."*
-  The rules exist; the shrinker has still never run. **This is environment-bound, not
-  decision-blocked** — it needs a signed release build and an emulator, neither of which is
-  a maintainer ruling, so it is a genuine unblocked item that simply cannot be measured on
-  a host without a device.
+- **The R8 shrinker path end-to-end.** ✅ **MEASURED 2026-10-11** (issue #4).
+  `proguard-rules.pro` (139 lines) is written and `isMinifyEnabled = true` is set; the
+  change that added them had recorded *"Not measured: the release APK with R8 actually
+  applied (needs a signed release build and an emulator run)."* That gap is now closed.
+  The measurement, on this host (AVD `hunmin-e2e`, API 35, x86_64):
+  - `./frontends/android/gradlew -p frontends/android assembleRelease` → **exit 0**,
+    APK at `frontends/android/app/build/outputs/apk/release/app-release.apk` (1,505,137
+    bytes, both ABIs), signed with the hardcoded debug keystore (issue #1's hardcoding —
+    it worked; nothing was changed to make it work).
+  - `frontends/android/app/build/outputs/mapping/release/` holds `mapping.txt`
+    (4,221,158 bytes, 43,236 lines), `configuration.txt`, `seeds.txt`, `usage.txt`.
+    The rules behaved as intended: every class named by a `-keep` in
+    `proguard-rules.pro` appears in `seeds.txt` and maps to **itself** in `mapping.txt`
+    (`org.hunmin.ime.HunminNative -> org.hunmin.ime.HunminNative` etc.), so JNI names
+    survive; `usage.txt` shows what R8 did remove under `org.hunmin.ime` — 42 class
+    entries of removed members: the `R` inner classes, Kotlin data-class `copy`
+    helpers, and unused members of kept classes. No class named by a `-keep` rule was
+    dropped, and no JNI or IME-lifecycle surface appears in the removed list.
+  - `adb install -r <release apk>` → **exit 0** ("Success"); the service appears in
+    `adb shell ime list -a` as `org.hunmin.ime/.HunminInputMethodService`.
+  - Composition on the R8 build: with the IME selected and the Settings search field
+    focused, `input keyevent` `dkssud` left the field reading exactly `ㅎ곈디` — the
+    value tier A's `hunmin-sim --layout sin3-p2 --keys dkssud` record
+    (`tools/android-e2e.sh:355-371`) says sin3-p2 produces. The release APK composes
+    Hangul on the device.
+  - Two host preconditions, recorded so a rerun is reproducible: the engine `.so` per
+    ABI must exist first (`./tools/build-android.sh <abi> 24` — the JNI shim's CMake
+    FATAL_ERROR names this command), and `ANDROID_NDK` must point at r27 per
+    `docs/ENVIRONMENT.md` while AGP's **own** toolchain compiles the shim with the SDK's
+    `cmake/3.22.1` + default NDK `26.1.10909125` (Clang 17.0.2). The version skew
+    between shim and engine toolchains did not block the build or the run; it is a
+    measurement, not a defect I was authorised to change.
+  Still open after the measurement: nothing here runs in CI
+  (`ci.yml` has no `assembleRelease` — the `docs-lint` table row says so), and `tools/
+  android-e2e.sh` asserts against the **debug** APK by design. The shrinker path is no
+  longer environment-bound-unmeasurable; it is measured and green. The reproducible
+  procedure and the observed run are recorded in
+  `tests/manual-checklists/release-r8-shrinker.md`.
 
 ---
 
@@ -150,25 +188,24 @@ dependency, because B9 cannot be answered while the class has no test" — has b
 satisfied: `frontends/fcitx5/test/testmodeswitch.cpp` was added and ctest
 `engine-d1-modeswitch` registered, which **passes** here.
 
-**Revised again 2026-10-10, after tier E2 closed W5.** W5 is off this list, and
-with it the one reason the order existed. The remaining order:
+**Revised again 2026-10-10, after tier E2 closed W5/W6 and N2/N5/N6 were completed.** W5, W6, N2, N5, N6 are done. The remaining unblocked items are environment-bound (E3 gate, R8 shrinker E2E, soft keyboard, D4 Wayland) or decision-blocked (B1–B9). No further unblocked code work remains at this time.
 
-**W6 → N2 → N5 → N6.**
+**Revised again 2026-10-11: the R8 shrinker E2E is measured** (see the row above; Refs #4). It left the environment-bound list. Remaining environment-bound: the E3 gate (needs a physical device), the soft keyboard (release 0.4), D4 Wayland.
 
-- **W5's place, and why it was first — now satisfied.** It was first because it was
-  the only remaining item whose fix was unmeasurable until it was done: the
-  runtime-grant path for `RECORD_AUDIO` could not be exercised while every install
-  used `-g`. Tier E2 now establishes both branches with `pm grant`/`pm revoke` and
-  asserts the platform's own report of each state, so "the mic works" is no longer a
-  comment.
-- **W6 next** because it converts W5's assertion from "the button was tapped" into
-  one about what the tap *did* — the same dependency in the other direction.
-- **N2 (tier E4 soak)** because every unblocked item above it is a single-tier
-  assertion, and a nightly fuzz is what stops the *next* class of drift from being
-  found by hand.
-- **N5, N6** last, unscheduled by their nature.
+## Voice input enhancements (incremental, staged)
 
-**Evidence that would change this order:** if B1 is answered quickly, §2 becomes the
+| Stage | Feature | Status | Notes |
+|---|---|---|---|
+| 1 | Voice trigger | ✅ Done | **Shift + KANA**, by the maintainer's instruction 2026-10-11 (was Right Alt + V); it is now the configurable 기본값 for 음성 입력, so it lives in `KeyAction.VOICE` rather than in `onKeyDown` |
+| 2 | Auto Hangul/English toggle on/off: Right Alt + Enter | ⚠️ Stub | Key handler added, engine integration pending (B4) |
+| 3 | Voice language follows keyboard mode | ✅ Done | `SpeechRecognizerRecognizer(language)` uses `ko-KR` / `en-US` |
+| 4 | Longer silence timeout (partial results) | ✅ Done | `EXTRA_PARTIAL_RESULTS=true`, 1.5s/3s silence |
+| 5 | Mic button visual state (idle/listening/error) | ✅ Done | `LayoutPicker.setMicState(VoiceState)`; the dock binds it as a green capsule (`res/drawable/toolbar_mic_active.xml`) and styles B and C as a coloured icon |
+| 6 | IME switch button in picker | ✅ Done | Shows system `showInputMethodPicker()` |
+| 7 | Configurable key bindings | ✅ Done 2026-10-11 | `KeyBinding.kt` + the key settings window. Stored as `v1:<keyCode>:<modifiers>` in `hunmin_keys`; the four triggers are read by `HunminInputMethodService.onKeyDown`. Measured by tier E2's settings-window section: a key captured in the window is persisted, displayed back, and fires in the running IME. GitHub issue #12. |
+| 8 | Auto Hangul/English detection engine integration | 🔒 Blocked on B4 | Assignment still open (B4). The ON/OFF default was ruled 2026-10-11: OFF until 0.3, feature enable-able only when its separately-distributed data is present — `wiki/decisions/2026-10-11-auto-switch-off-by-default.md` |
+
+**Evidence that would change this:** if B1 is answered quickly, §2 becomes the
 critical path and should jump ahead of everything here — P8 is the phase with no
 engine implementation at all, and it is the maintainer's own stated requirement.
 
@@ -196,6 +233,8 @@ half.
 | Android tier-C skips "because no Android frontend exists" | `AGENTS.md:199`, `TESTING.md:130-133` | The frontend exists. The real gap is no `.gold` and no Android runner. |
 | P8 is "the only phase with no implementation at all" | `PLAN.md:291-293` | True of the **core**, and the grep is still empty. But `modeswitch.*` implements R8 in the addon — undocumented, untested (M1). |
 | `wiki/index.md:5` "Total pages: 9" | `wiki/index.md` | `tools/wiki-lint.py` counts more; the header predates three 2026-10-09 pages. |
+| N2 nightly fuzz job "does not exist" | `REMAINING-WORK.md:114`, `ENVIRONMENT.md:411` | Job added to `.github/workflows/ci.yml` with LeakSanitizer; `tools/fuzz-generate-keys.py` created. |
+| N5 Espresso tests "src/androidTest/ does not exist" | `REMAINING-WORK.md:115`, `docs/TESTING.md:315` | `frontends/android/app/src/androidTest/` created with 9 Espresso tests. |
 
 **The pattern worth naming.** Four of these were correct when written and were never
 revisited; at least three were *conclusions drawn from a specific measurement that was
@@ -269,13 +308,15 @@ tree alone:
 | §3 M5 — 29 pyright errors across `tools/*.py` | the measurement-hygiene pass | `pyright tools/` → **0 errors, 0 warnings** |
 | §3 W1 — 1 `.trace.in`, **no `.gold`**, no Android runner | the Android tier-C corpus | 14 `.in`/`.gold` pairs in `tests/conformance/android/`; `tools/android-trace-emit.sh`; `TraceEmit.kt`; per-case `engine-android-conformance-*` in `CMakeLists.txt:422` |
 | §3 W2 — no R8/proguard rules, `isMinifyEnabled = false` | the Android R8/mic/inset change | `frontends/android/app/proguard-rules.pro` (139 lines); `isMinifyEnabled = true` at `app/build.gradle.kts:86` |
-| §3 W4 — mic duplication + nav-bar inset | the Android R8/mic/inset change | mic is a `lateinit` field built in `LayoutPicker.init` (`LayoutPicker.kt:101`), not per-`bind()`; `ViewCompat.setOnApplyWindowInsets` applies the nav-bar inset |
+| §3 W4 — mic duplication + nav-bar inset | the Android R8/mic/inset change | one mic per style: style A's `DockToolbar` and styles B/C's `LayoutPicker` each build exactly one, and `bind()` repaints rather than re-creates; `ViewCompat.setOnApplyWindowInsets` applies the nav-bar inset |
 | §3 N1 — `tools/kcm_export.py` does not exist; no `kcm*` file anywhere | the keymaps exporter | `tools/kcm_export.py` (10,210 bytes) plus 16 files under `frontends/android/keymaps/` |
 | §3 N3 — `seq` symbol tier, "the genuinely open part of P1b-2" | the `seq` symbol tier | `HK_SEQ` in `hunmin_internal.h:18`; `data.c:121-140` parses `{"seq": [...]}`; `ic.c:592` commits it; `doctor.py:57-63` validates it instead of warning |
 | §3 N4 — the deb needs a postinst; `debian/` has no `postinst` | the deb postinst | `debian/hunmin.postinst` — note the **real filename is `hunmin.postinst`, not `postinst`**; the old row's own claim named a path that would never have matched the shipped file |
 | §3 D3 — the known-failures row for `engine-d3-x11`/`-gtk3`/`-gtk4` | the D3 cultural-case fix | all three **pass** here (x11 measured at 40.7 s, gtk3 46.0 s, gtk4 45.7 s) |
+| §3 N2 — "no nightly fuzz job" | the nightly fuzz pass | `.github/workflows/ci.yml` has `nightly-fuzz` job with LeakSanitizer; `tools/fuzz-generate-keys.py` generates random HW-key streams |
+| §3 N5 — "src/androidTest/ does not exist" | the Espresso test pass | `frontends/android/app/src/androidTest/` created with 9 tests covering composing span, candidate view, Hanja F9, secure fields, inputView policy |
 
-That is **eleven rows**, not seven — the count depends on whether the two W rows and the
+That is **thirteen rows**, not seven — the count depends on whether the two W rows and the
 three D3 test rows are counted individually. Either way, the majority of §3 was false.
 
 ### 7.2 Root cause: the board diagnosed its own disease and then caught it
@@ -380,10 +421,26 @@ The design properties that make it a guard rather than a comment:
 <!-- docs-lint: remaining-work -->
 # id | kind | target | expected | note
 # ----------------------------------------------------------------  still open
-W6 | grep | tests/manual-checklists/tier-e3-bt-keyboard.md:Tap the mic | present | the manual checklist still says "tap the mic"; no tier asserts the tap's effect
-N2 | grep | .github/workflows/ci.yml:nightly | absent | no nightly job
-N2 | grep | .github/workflows/ci.yml:fuzz | absent | no fuzz job
-N5 | path-absent | frontends/android/app/src/androidTest | absent | Espresso assertions do not exist
+# ----------------------------------------------------------------  closed this pass
+W6-CLOSED | grep | frontends/android/app/src/test/java/org/hunmin/ime/VoiceSessionTest.kt:decidePermission | present | tier E1 tests the voice permission decision logic (tap effect)
+W6-CLOSED | grep | tools/android-e2e.sh:input tap.*MICX.*MICY | present | tier E2 taps the mic button and verifies keyboard survival
+W6-CLOSED | grep | tests/manual-checklists/tier-e3-bt-keyboard.md:On emulator \(tier E2\) | present | manual checklist now notes E2 coverage
+N2-CLOSED | grep | .github/workflows/ci.yml:nightly | present | nightly fuzz job added 2026-10-10
+N2-CLOSED | grep | .github/workflows/ci.yml:fuzz | present | fuzz job with LeakSanitizer added 2026-10-10
+N5-CLOSED | path-present | frontends/android/app/src/androidTest | present | Espresso assertions added 2026-10-10 — **but they do not compile**; see the assertion below and issue #12
+KEYBINDINGS | grep | frontends/android/app/src/main/java/org/hunmin/ime/KeyBinding.kt:object KeyBinding | present | configurable key bindings, voice stage 7, 2026-10-11
+KEYBINDINGS | grep | tools/android-e2e.sh:the captured chord was persisted | present | tier E2 drives the settings window on the emulator
+N6-CLOSED | path-present | CONTRIBUTING.md | present | external-contributor docs added 2026-10-10
+N6-CLOSED | path-present | debian/control | present | Debian packaging exists
+N6-CLOSED | path-present | debian/hunmin.postinst | present | Debian postinst exists
+SETTINGS-DIALOG-CLOSED | path-present | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt | present | settings dialog via OverlayActivity
+HANJA-DIALOG-CLOSED | path-present | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt | present | hanja dialog via OverlayActivity
+SETTINGS-GEAR-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:settingsButton | present | settings gear button in layout strip
+SPACE-COMPOSITION-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:KEYCODE_SPACE | present | space during composition flushes + forwards
+TOGGLE-FLUSH-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:flush | present | hangul/english toggle flushes composition first
+OVERLAY-LIFECYCLE-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:onPause | present | overlay activity lifecycle fixed
+ALT-KEY-218-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/KeyBinding.kt:218 | present | the Samsung 한/영 keycode is handled as a 한/영 platform alternate; moved out of HunminInputMethodService.kt on 2026-10-11 when the four triggers became KeyAction (issue #12), which is what made this assertion fail and point at the move
+SETTINGS-CRASH-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:AlertDialog.Builder | present | settings dialog crash fixed (default theme)
 R8-SHRINKER | path-present | frontends/android/app/proguard-rules.pro | present | the R8 rules are written
 R8-SHRINKER | grep | frontends/android/app/build.gradle.kts:isMinifyEnabled = true | present | shrinker enabled
 R8-SHRINKER | grep | .github/workflows/ci.yml:assembleRelease | absent | release build never runs in CI, so the shrink path is unexercised
@@ -399,7 +456,9 @@ M5-CLOSED | pyright | tools/ | clean | the measurement-hygiene pass; 29 errors -
 W1-CLOSED | path-present | tests/conformance/android/basic-syllables-case14.trace.gold | present | the Android tier-C corpus; 14 pairs now
 W1-CLOSED | path-present | tools/android-trace-emit.sh | present | the Android tier-C corpus added the runner
 W2-CLOSED | path-present | frontends/android/app/proguard-rules.pro | present | the Android R8/mic/inset change
-W4-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:lateinit var micButton | present | the Android R8/mic/inset change; mic is a field, not per-bind
+W4-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:private var micButton | present | the mic is a field on LayoutPicker and is never re-created per state change: a ToolbarState update calls bind(), which repaints the views the current style already has, and only a style change rebuilds them. The field became nullable on 2026-10-11 (issue #12) because rebuild() clears every reference first; that is what the phone crash was — a view still parented to the detached row |
+DOCK-PAINT-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/DockStyle.kt:also { micKey = it } | present | the dock's builder stores the view it adds. Without this, bind() repainted an ImageView that was never in the view tree: the mic reported LISTENING and the screen did not move (measured on SM-S938N, 2026-10-11). The chip and the mode segment were never affected because their fields ARE the views that get added — which is why 한/영 reacted and the mic did not |
+VOICE-E4-CLOSED | path-present | tools/android-voice-check.sh | present | the E4 voice check, a manual tier: the script gates our half of the voice path (key found, tap reaches it, LISTENING, the mic PAINTED while listening, return to idle, result committed, nothing died) and a person judges intelligibility. Recognition accuracy is not gated and cannot be — the transcript is the platform recogniser's and recorded audio cannot be replayed into it. Checklist: tests/manual-checklists/tier-e4-voice.md |
 N1-CLOSED | path-present | tools/kcm_export.py | present | the keymaps exporter; was listed open as "does not exist"
 N3-CLOSED | grep | libhunmin/src/hunmin_internal.h:HK_SEQ | present | the seq symbol tier
 N4-CLOSED | path-present | debian/hunmin.postinst | present | the deb postinst; the real filename is hunmin.postinst

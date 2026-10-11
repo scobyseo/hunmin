@@ -6,6 +6,7 @@
     "ko": "세벌식 두벌자판"
   },
   "engine": "std",
+  "mode": "hangul",
   "aliases": [
     "32"
   ],

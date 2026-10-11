@@ -85,3 +85,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/jniLibs/${ANDROID_ABI}")
 # loader's HUNMIN_DEFAULT_DATA_DIR branch compiles out and hunmin_ctx_new()
 # finds no layouts on a device.
 add_compile_definitions(__ANDROID__=1)
+
+# 16KB page alignment for native libraries (Android requirement for
+# extractNativeLibs=false / mmap from APK). Both max-page-size and
+# common-page-size must be 16384 (16KB) so the .so is page-aligned in the APK.
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384")
+set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384")

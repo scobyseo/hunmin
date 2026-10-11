@@ -6,6 +6,7 @@
     "ko": "두벌식"
   },
   "engine": "std",
+  "mode": "hangul",
   "aliases": [
     "2"
   ],

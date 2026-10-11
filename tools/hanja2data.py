@@ -37,7 +37,105 @@ from pathlib import Path
 # 99th percentile is 8, so this only trims the extreme tail.
 MAX_CANDIDATES = 64
 
-SCHEMA = "hunmin.hanja/1"
+SCHEMA = "hunmin.hanja/2"
+
+
+def unihan_pins(unihan_dir: Path) -> dict[str, str]:
+    """sha256 of the vendored Unihan inputs, prefixed so they cannot collide
+    with the libhangul input names in the merged meta map."""
+    import hashlib
+    out = {}
+    for p in sorted(unihan_dir.glob("Unihan_*.txt")):
+        if p.is_file():
+            out[f"unihan/{p.name}"] = hashlib.sha256(p.read_bytes()).hexdigest()
+    return out
+
+
+def load_unihan(unihan_dir: Path, warn) -> dict:
+    """kDefinition (English gloss), variant and usage signals from vendored Unihan.
+
+    Returns {hanja: {"en": str, "jp": bool, "cn": bool}}. Conservative: a usage
+    tag is set only when it cannot be a false positive (see docs/HANJA-GLOSS-DESIGN.md).
+    - jp (Japanese shinjitai): no variant fields + (Joyo or Jinmeiyo) + not used
+      in Korean text/education/name. 收/価/図/桜 label, 家/脚/價 never do.
+    - cn (simplified Chinese): kTraditionalVariant names a Hanja other than
+      itself + not used in Korean at all. 汉 labels; 价/国/学 are suppressed
+      because Korea uses them in personal names (a missed label, not a wrong one).
+    """
+    out: dict[str, dict] = {}
+
+    def hanja_of(cp: str) -> str | None:
+        if not cp.startswith("U+"):
+            return None
+        try:
+            return chr(int(cp[2:], 16))
+        except ValueError:
+            return None
+
+    kdef: dict[str, str] = {}
+    ktrad: dict[str, set[str]] = {}
+    joyo: set[str] = set()
+    jinmei: set[str] = set()
+    koredu: set[str] = set()
+    korename: set[str] = set()
+
+    readings = unihan_dir / "Unihan_Readings.txt"
+    variants = unihan_dir / "Unihan_Variants.txt"
+    other = unihan_dir / "Unihan_OtherMappings.txt"
+    if not readings.is_file() or not variants.is_file() or not other.is_file():
+        warn(f"Unihan inputs incomplete under {unihan_dir}; English gloss and "
+             f"usage tags omitted")
+        return out
+
+    for line in readings.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        ch = hanja_of(parts[0])
+        if ch and parts[1] == "kDefinition":
+            kdef[ch] = parts[2]
+    for line in variants.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        ch = hanja_of(parts[0])
+        if ch and parts[1] == "kTraditionalVariant":
+            ktrad.setdefault(ch, set()).update(parts[2].split())
+    for line in other.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        cp = parts[0]
+        field = parts[1]
+        if field == "kJoyoKanji":
+            joyo.add(cp)
+        elif field == "kJinmeiyoKanji":
+            jinmei.add(cp)
+        elif field == "kKoreanEducationHanja":
+            koredu.add(cp)
+        elif field == "kKoreanName":
+            korename.add(cp)
+
+    for ch in set(kdef) | set(ktrad):
+        cp = f"U+{ord(ch):04X}"
+        trad_others = {c for c in ktrad.get(ch, set())
+                       if hanja_of(c) not in (None, ch)}
+        korean_any = cp in koredu or cp in korename
+        japanese = cp in joyo or cp in jinmei
+        rec = out.setdefault(ch, {})
+        if ch in kdef:
+            rec["en"] = kdef[ch]
+        if japanese and not korean_any and not trad_others:
+            rec["jp"] = True
+        if trad_others and not korean_any:
+            rec["cn"] = True
+    return out
 
 
 
@@ -106,10 +204,12 @@ def unify(text: str, compat: dict[str, str]) -> str:
     return "".join(compat.get(ch, ch) for ch in text)
 
 
-def build(orig: Path, warn) -> dict:
+def build(orig: Path, unihan_dir: Path, warn) -> dict:
     src = orig / "hanja.txt"
     if not src.is_file():
         raise SystemExit(f"hanja2data: missing {src}")
+
+    unihan = load_unihan(unihan_dir, warn)
 
     compat = load_compat(orig / "compat-table.txt", warn)
     freq = load_frequencies(orig, warn)
@@ -154,9 +254,10 @@ def build(orig: Path, warn) -> dict:
         warn(f"merged {dup_merged} duplicate candidate(s)")
 
     order = sorted(table)
-    entries: dict[str, list[str]] = {}
+    entries: dict[str, list[dict]] = {}
     dropped = 0
     ranked = 0
+    n_ko = n_en = n_jp = n_cn = 0
     for key in order:
         # Python's sort is stable, so equal frequencies keep source order --
         # which is what merge.py's comparator does too.
@@ -164,14 +265,31 @@ def build(orig: Path, warn) -> dict:
         ranked += sum(1 for e in bucket if e["freq"] > 0)
         if len(bucket) > MAX_CANDIDATES:
             dropped += len(bucket) - MAX_CANDIDATES
-        entries[key] = [e["value"] for e in bucket[:MAX_CANDIDATES]]
+        cands = []
+        for e in bucket[:MAX_CANDIDATES]:
+            u = unihan.get(e["value"], {})
+            ko = e["comment"]
+            en = u.get("en", "")
+            rec = {"v": e["value"], "ko": ko, "en": en}
+            if u.get("jp"):
+                rec["jp"] = True
+                n_jp += 1
+            if u.get("cn"):
+                rec["cn"] = True
+                n_cn += 1
+            if ko:
+                n_ko += 1
+            if en:
+                n_en += 1
+            cands.append(rec)
+        entries[key] = cands
 
     if dropped:
         warn(f"{dropped} candidate(s) beyond the {MAX_CANDIDATES} cap were dropped")
 
     n_cands = sum(len(v) for v in entries.values())
     return {
-        "version": 1,
+        "version": 2,
         "schema": SCHEMA,
         "entries": entries,
         "meta": {
@@ -181,10 +299,21 @@ def build(orig: Path, warn) -> dict:
                 "order": "libhangul data/hanja/merge.py frequency pipeline "
                          "(freq-hanja + freq-hanyaeo, compat-table unification, "
                          "stable descending sort)",
-                "input_sha256": input_pins(orig),
+                "gloss_en": "Unihan 18.0.0 kDefinition",
+                "gloss_en_licence": "Unicode Licence v3",
+                "usage_tags": "Unihan 18.0.0 kTraditionalVariant / kJoyoKanji / "
+                              "kJinmeiyoKanji / kKoreanEducationHanja / "
+                              "kKoreanName (conservative; see "
+                              "docs/HANJA-GLOSS-DESIGN.md)",
+                "input_sha256": {**input_pins(orig),
+                                 **unihan_pins(unihan_dir)},
             },
             "keys": len(order),
             "candidates": n_cands,
+            "candidates_with_ko_gloss": n_ko,
+            "candidates_with_en_gloss": n_en,
+            "candidates_tagged_jp": n_jp,
+            "candidates_tagged_cn": n_cn,
             "max_candidates_per_key": max(len(v) for v in entries.values()),
             "max_candidates_cap": MAX_CANDIDATES,
             "dropped_beyond_cap": dropped,
@@ -198,6 +327,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--orig", type=Path, required=True,
                     help="data-orig/hanja (hanja.txt, freq-*.txt, compat-table.txt)")
+    ap.add_argument("--unihan", type=Path, required=True,
+                    help="data-orig/unihan (Unihan_Readings/Variants/OtherMappings.txt)")
     ap.add_argument("--out", type=Path, required=True, help="libhunmin/data")
     ap.add_argument("--name", default="hanja", help="output file stem")
     args = ap.parse_args()
@@ -206,7 +337,7 @@ def main() -> int:
     def warn(msg: str) -> None:
         warnings.append(msg)
 
-    table = build(args.orig, warn)
+    table = build(args.orig, args.unihan, warn)
     for w in warnings:
         print(f"hanja2data: {w}", file=sys.stderr)
 
@@ -219,6 +350,9 @@ def main() -> int:
     m = table["meta"]
     print(f"hanja2data: {m['keys']} keys, {m['candidates']} candidates "
           f"({m['candidates_with_nonzero_frequency']} with frequency data), "
+          f"{m['candidates_with_ko_gloss']} ko-gloss, "
+          f"{m['candidates_with_en_gloss']} en-gloss, "
+          f"{m['candidates_tagged_jp']} jp, {m['candidates_tagged_cn']} cn, "
           f"max {m['max_candidates_per_key']}/key -> {dst}")
     return 0
 

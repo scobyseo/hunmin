@@ -32,6 +32,12 @@ const char *hunmin_ctx_layout_name(const hunmin_ctx *ctx, int i,
                                    const char *lang);
 /* true when this build's engine can instantiate the layout. */
 bool hunmin_ctx_layout_supported(const hunmin_ctx *ctx, int i);
+/* "hangul" | "latin" — which half of a two-mode IME this layout belongs to,
+ * read from the layout JSON's "mode" field (docs/SPEC-SCHEMA.md). NULL for an
+ * out-of-range index. A layout without the field reports "hangul", and so does
+ * one whose value is not one of the two; tools/doctor.py is what makes a
+ * misspelling fail the build instead. */
+const char *hunmin_ctx_layout_mode(const hunmin_ctx *ctx, int i);
 
 /* Returns NULL for unknown id or unsupported engine (e.g. romaja until P1b+). */
 hunmin_ic *hunmin_ic_new(hunmin_ctx *ctx, const char *layout_id);

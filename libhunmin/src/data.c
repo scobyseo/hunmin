@@ -419,6 +419,15 @@ static bool load_layout_file(hunmin_ctx *ctx, const char *path, int *idx) {
   l->type = HM_TYPE_JASO;
   l->supported = true;
 
+  /* "mode": "hangul" | "latin". Absent means hangul, which is what every
+   * layout was before the field existed and what all but us-qwerty still are.
+   * An unrecognised value ALSO means hangul rather than a rejected file: a
+   * typo in one layout should cost one mis-filed row in a settings list, not
+   * that layout entirely. tools/doctor.py is the check that makes the typo
+   * loud; see docs/SPEC-SCHEMA.md. */
+  j = cJSON_GetObjectItemCaseSensitive(root, "mode");
+  if (cJSON_IsString(j) && !strcmp(j->valuestring, "latin")) l->mode = HM_MODE_LATIN;
+
   const cJSON *fl = cJSON_GetObjectItemCaseSensitive(root, "flags");
   if (cJSON_IsObject(fl)) {
     const cJSON *f;
@@ -485,6 +494,22 @@ hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs) {
   ctx->layouts = calloc(MAX_LAYOUTS, sizeof *ctx->layouts);
   if (!ctx->layouts) { free(ctx); return NULL; }
 
+  /* Record the search dirs (colon-joined, the same form resolve_dirs parses)
+   * so the suggest layer can find hanja/idioms/krdict from the same place as
+   * the layouts, without relying on HUNMIN_DATA_PATH being set in-process. */
+  {
+    size_t cap = 1;
+    for (int d = 0; d < ndirs; d++) cap += strlen(dirs[d]) + 1;
+    ctx->data_dir = malloc(cap);
+    if (ctx->data_dir) {
+      ctx->data_dir[0] = '\0';
+      for (int d = 0; d < ndirs; d++) {
+        if (d) strncat(ctx->data_dir, ":", cap - strlen(ctx->data_dir) - 1);
+        strncat(ctx->data_dir, dirs[d], cap - strlen(ctx->data_dir) - 1);
+      }
+    }
+  }
+
   static char names[MAX_FILES][MAX_LINE];
   for (int d = 0; d < ndirs; d++) {
     char path[4608];
@@ -517,5 +542,6 @@ void hm_data_free(hunmin_ctx *ctx) {
     for (int k = 0; k < KEYSPACE; k++) hm_val_clear(&ctx->layouts[i].keys[k]);
   }
   free(ctx->layouts);
+  free(ctx->data_dir);
   free(ctx);
 }
