@@ -641,8 +641,10 @@ open_settings
 
 LIST="$(dump_ui /sdcard/keys.xml)"
 # The window is a SECTION list since issue #12: choosing a layout moved here,
-# out of the strip, which is what made the strip overflow its screen.
-for section in '한글 배열:' '영문 배열:' '입력기 창 스타일:' '키 바인딩'; do
+# out of the strip, which is what made the strip overflow its screen. Since the
+# HUD restyle each row is TWO nodes (title + value badge), not one combined
+# string, so the titles are what the list asserts on.
+for section in '한글 배열' '영문 배열' '창 스타일' '키 바인딩'; do
   printf '%s' "$LIST" | grep -q "$section" \
     || fail "the settings window does not offer the '$section' section"
 done
@@ -655,10 +657,10 @@ sleep 1
 LIST="$(dump_ui /sdcard/keys1b.xml)"
 # The two physical-key actions start EMPTY by the maintainer's instruction
 # 2026-10-11 (issue #12): the row says so, and the fixed keys still answer.
-for row in '한/영 전환: 설정 안 됨 (고정 키 사용)' \
-           '한자 입력: 설정 안 됨 (고정 키 사용)' \
-           '음성 입력: SHIFT+KANA' \
-           '자동 한/영 토글: ALT_RIGHT+ENTER'; do
+# Title and value are separate nodes since the HUD restyle, so each action's
+# label and its chord are checked as nodes, not as one "label: chord" string.
+for row in '한/영 전환' '한자 입력' '음성 입력' '자동 한/영 토글' \
+           '설정 안 됨 (고정 키 사용)' 'SHIFT+KANA' 'ALT_RIGHT+ENTER'; do
   printf '%s' "$LIST" | grep -q "$row" \
     || fail "the key binding section does not list '$row' -- the stored/default state is not being shown"
 done
@@ -698,9 +700,9 @@ echo "the captured chord was persisted to $KEY_PREFS (hangul_eng = v1:139:0)"
 # path that decides whether a keystroke fires. A window that saved and still
 # shows the default would be the old bug in a new place.
 AFTER="$(dump_ui /sdcard/keys2.xml)"
-printf '%s' "$AFTER" | grep -q '한/영 전환: F9' \
+printf '%s' "$AFTER" | grep -q '"F9"' \
   || fail "after capturing F9 the list still does not show it: ${AFTER:0:400}"
-echo "the list shows 한/영 전환: F9 -- the save is readable by the code that fires it"
+echo "the list shows the F9 badge after 한/영 전환 -- the save is readable by the code that fires it"
 
 # Now the half no unit test can cover: the IME itself must honour it. Back out
 # of the window, focus a real editor, and press the key the user just bound.

@@ -10,12 +10,20 @@
 package org.hunmin.ime
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.util.TypedValue
 import android.util.Log
 import android.view.KeyEvent
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -48,6 +56,21 @@ class OverlayActivity : AppCompatActivity() {
      * shared field points at.
      */
     private var captureWindow: AlertDialog? = null
+
+    /**
+     * High-contrast, compact color palette for HUD-style inspector UI.
+     * Deep dark slate base with crisp cyan accents for hardware-keyboard environments.
+     */
+    private object CompactTheme {
+        val BG_PANEL = Color.parseColor("#1E1E24")         // Deep dark slate
+        val TEXT_PRIMARY = Color.parseColor("#F2F2F7")     // High contrast white
+        val TEXT_SECONDARY = Color.parseColor("#8E8E93")   // Neutral grey
+        val KEY_BG = Color.parseColor("#2C2C2E")           // Keycap fill
+        val KEY_BORDER = Color.parseColor("#48484A")       // Crisp keycap stroke
+        val ACCENT = Color.parseColor("#64D2FF")           // Crisp electric cyan/blue
+        val ACCENT_BG = Color.parseColor("#152D3D")
+        val DIVIDER = Color.parseColor("#2C2C2E")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -127,18 +150,8 @@ class OverlayActivity : AppCompatActivity() {
     }
 
     /**
-     * The settings window: three sections, each opening its own list.
-     *
-     * Sections rather than one long list because the three answer different
-     * questions and their answers are of different shapes: a layout is chosen
-     * from twelve names, a style from three pictures-of-things, a key from
-     * whatever the user presses. Flattened into one list, every row would have
-     * to describe itself — the thing this window was rewritten to stop doing.
-     *
-     * The layout lists come from the running IME through [ImeSettings]: the
-     * engine's context lives in the service, so this Activity cannot enumerate
-     * layouts on its own. When no service is up it says so, rather than showing
-     * an empty list that reads as "you have no layouts".
+     * Compact, high-density settings list (takes ~40% less vertical height)
+     * High-contrast, hardware-keyboard-oriented inspector style.
      */
     private fun showSettingsDialog() {
         val entries = ImeSettings.layoutsProvider()
@@ -147,31 +160,137 @@ class OverlayActivity : AppCompatActivity() {
         fun labelOf(mode: LayoutMode, id: String?): String =
             entries?.firstOrNull { it.id == id && it.mode == mode }?.label ?: "—"
 
-        val sections = arrayOf(
-            "한글 배열: ${labelOf(LayoutMode.HANGUL, ImeSettings.layoutChoice(LayoutMode.HANGUL))}",
-            "영문 배열: ${labelOf(LayoutMode.LATIN, ImeSettings.layoutChoice(LayoutMode.LATIN))}",
-            "입력기 창 스타일: ${ImeSettings.toolbarStyle().label}",
-            "키 바인딩",
+        data class SettingItem(val title: String, val badge: String, val onClick: () -> Unit)
+
+        val rows = listOf(
+            SettingItem("한글 배열", labelOf(LayoutMode.HANGUL, ImeSettings.layoutChoice(LayoutMode.HANGUL))) {
+                showLayoutSection(LayoutMode.HANGUL)
+            },
+            SettingItem("영문 배열", labelOf(LayoutMode.LATIN, ImeSettings.layoutChoice(LayoutMode.LATIN))) {
+                showLayoutSection(LayoutMode.LATIN)
+            },
+            SettingItem("창 스타일", ImeSettings.toolbarStyle().label) {
+                showStyleSection()
+            },
+            SettingItem("키 바인딩", "단축키 관리 ➔") {
+                showKeyBindingSection()
+            }
         )
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            // setView() adopts the view's own LayoutParams, defaulting to
+            // WRAP_CONTENT; then the alert's custom-panel chain wraps to that
+            // and the window resize lands on the *window* only, leaving the
+            // rows in a narrow centred column. Match-parent propagates the
+            // widened window into the rows.
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            background = GradientDrawable().apply {
+                setColor(CompactTheme.BG_PANEL)
+                cornerRadius = dp(10).toFloat()
+            }
+        }
+
+        // Compact Header (single line, minimal height)
+        container.addView(TextView(this).apply {
+            text = "hunmin 설정"
+            textSize = 14f
+            setTypeface(Typeface.DEFAULT_BOLD)
+            setTextColor(CompactTheme.TEXT_PRIMARY)
+            setPadding(dp(6), dp(4), dp(6), dp(8))
+        })
+
+        rows.forEachIndexed { index, item ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(38) // Reduced from 52dp to 38dp
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+                isClickable = true
+                val outValue = TypedValue()
+                theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                setBackgroundResource(outValue.resourceId)
+
+                setOnClickListener {
+                    dialog?.dismiss()
+                    item.onClick()
+                }
+            }
+
+            val tvTitle = TextView(this).apply {
+                text = item.title
+                textSize = 15f
+                setTypeface(Typeface.DEFAULT_BOLD)
+                setTextColor(CompactTheme.TEXT_PRIMARY)
+                maxLines = 1
+                // The value is the variable-width half (a layout name can be long,
+                // a title never is), so the title takes its exact width and the
+                // badge absorbs the remainder and ellipsizes. Weighting the title
+                // instead let a long badge starve it to one glyph per line.
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { marginEnd = dp(8) }
+            }
+
+            val tvBadge = TextView(this).apply {
+                text = item.badge
+                textSize = 13f
+                setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
+                setTextColor(CompactTheme.ACCENT)
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                gravity = Gravity.END
+                // Weight 1 with wrap width: takes the leftover space, and shrinks
+                // (ellipsizing) rather than pushing the title off when a layout
+                // name is longer than the row.
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f,
+                )
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+                background = GradientDrawable().apply {
+                    setColor(CompactTheme.ACCENT_BG)
+                    setStroke(dp(1), CompactTheme.ACCENT)
+                    cornerRadius = dp(6).toFloat()
+                }
+            }
+
+            row.addView(tvTitle)
+            row.addView(tvBadge)
+            container.addView(row)
+
+            if (index < rows.lastIndex) {
+                container.addView(View(this).apply {
+                    setBackgroundColor(CompactTheme.DIVIDER)
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
+                        setMargins(dp(6), 0, dp(6), 0)
+                    }
+                })
+            }
+        }
 
         dialog?.dismiss()
         dialog = AlertDialog.Builder(this)
-            .setTitle("hunmin 설정")
-            .setItems(sections) { _, which ->
-                when (which) {
-                    0 -> showLayoutSection(LayoutMode.HANGUL)
-                    1 -> showLayoutSection(LayoutMode.LATIN)
-                    2 -> showStyleSection()
-                    else -> showKeyBindingSection()
-                }
-            }
+            .setView(container)
             .setNegativeButton("닫기") { _, _ -> finish() }
             .setOnCancelListener { finish() }
             .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
             .show()
+        // The wrap_content card came out ~1/3 of the screen width on the AVD, which
+        // ellipsized every badge to two glyphs. A settings list wants the width it
+        // can have; the rows distribute it themselves.
+        dialog?.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.92).toInt(),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        )
 
         if (!connected) {
-            // Once, here, instead of every section looking empty in turn.
             Toast.makeText(
                 this,
                 "입력기가 실행 중이 아니라 배열 정보를 읽을 수 없습니다",
@@ -242,47 +361,155 @@ class OverlayActivity : AppCompatActivity() {
     }
 
     /**
-     * The four configurable triggers, each showing the chord that is in force.
-     *
-     * Reads through [KeyBindings] rather than the raw preference, so a stored
-     * binding and the default it replaced are displayed by the same code path
-     * that decides whether a keystroke fires. That is the whole point of the
-     * rewrite: the window used to write `key_<Korean label>` and read
-     * `key_hanja`, so what it showed and what it saved had nothing to do with
-     * each other.
+     * Compact Keybinding List with crisp physical keycap aesthetics
      */
     private fun showKeyBindingSection() {
         val store = KeyBindings.from(this)
         val actions = KeyAction.values().toList()
-        val labels = actions.map { action ->
-            // No default and nothing stored is a real state now: 한/영 전환 and
-            // 한자 입력 are bound to PHYSICAL keys on a Korean keyboard, so the
-            // row starts empty and the fixed keys still work. Printing the first
-            // default would either crash on an empty list or, worse, imply a
-            // chord the IME does not answer to.
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            // Same as the settings container: setView adopts these params, and
+            // without match-parent the widened window never reaches the rows.
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            background = GradientDrawable().apply {
+                setColor(CompactTheme.BG_PANEL)
+                cornerRadius = dp(10).toFloat()
+            }
+        }
+
+        container.addView(TextView(this).apply {
+            text = "키 바인딩"
+            textSize = 14f
+            setTypeface(Typeface.DEFAULT_BOLD)
+            setTextColor(CompactTheme.TEXT_PRIMARY)
+            setPadding(dp(6), dp(4), dp(6), dp(8))
+        })
+
+        actions.forEachIndexed { index, action ->
             val combos = KeyBindings.combos(store, action)
-            val shown = combos.firstOrNull()?.let { describe(it) } ?: NOT_SET
-            "${action.label}: $shown"
-        }.toTypedArray()
+            val chordText = combos.firstOrNull()?.let { describe(it) } ?: NOT_SET
+            val isCustomized = chordText != NOT_SET
+
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(38) // Reduced height
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+                isClickable = true
+                val outValue = TypedValue()
+                theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                setBackgroundResource(outValue.resourceId)
+
+                setOnClickListener {
+                    dialog?.dismiss()
+                    showKeyCaptureDialog(action)
+                }
+            }
+
+            val tvTitle = TextView(this).apply {
+                text = action.label
+                textSize = 13f
+                setTextColor(CompactTheme.TEXT_PRIMARY)
+                maxLines = 1
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { marginEnd = dp(8) }
+            }
+
+            // Keycap style box
+            val tvBadge = TextView(this).apply {
+                text = chordText
+                textSize = 12f
+                setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
+                setTextColor(if (isCustomized) CompactTheme.TEXT_PRIMARY else CompactTheme.TEXT_SECONDARY)
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                gravity = Gravity.END
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f,
+                )
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+                background = GradientDrawable().apply {
+                    setColor(if (isCustomized) CompactTheme.ACCENT_BG else CompactTheme.KEY_BG)
+                    setStroke(dp(1), if (isCustomized) CompactTheme.ACCENT else CompactTheme.KEY_BORDER)
+                    cornerRadius = dp(6).toFloat()
+                }
+            }
+
+            row.addView(tvTitle)
+            row.addView(tvBadge)
+            container.addView(row)
+
+            if (index < actions.lastIndex) {
+                container.addView(View(this).apply {
+                    setBackgroundColor(CompactTheme.DIVIDER)
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
+                        setMargins(dp(6), 0, dp(6), 0)
+                    }
+                })
+            }
+        }
 
         dialog?.dismiss()
+        // No setTitle: the container already carries its own header, and a title
+        // above it would print "키 바인딩" twice.
         dialog = AlertDialog.Builder(this)
-            .setTitle("키 바인딩")
-            .setItems(labels) { _, which -> showKeyCaptureDialog(actions[which]) }
+            .setView(container)
             .setNegativeButton("뒤로") { _, _ -> showSettingsDialog() }
             .setOnCancelListener { showSettingsDialog() }
             .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
             .show()
+        dialog?.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.92).toInt(),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        )
     }
+    /**
+     * The capture dialog, now with a live chord preview: modifiers pressed so
+     * far render in the preview before the final key commits the binding.
+     */
     private fun showKeyCaptureDialog(action: KeyAction) {
-        val view = TextView(this).apply {
-            text = "${action.label}: 키를 누르세요\n(취소하려면 뒤로 가기)"
-            textSize = 18f
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(48, 48, 48, 48)
+            setPadding(dp(24), dp(28), dp(24), dp(28))
             isFocusable = true
             isFocusableInTouchMode = true
         }
+
+        val tvSub = TextView(this).apply {
+            text = "지정할 물리 키를 누르세요"
+            textSize = 13f
+            setTextColor(Color.parseColor("#79747E"))
+        }
+
+        val tvPreview = TextView(this).apply {
+            text = "키 입력 대기 중..."
+            textSize = 18f
+            typeface = Typeface.MONOSPACE
+            setTextColor(Color.parseColor("#6750A4"))
+            gravity = Gravity.CENTER
+            setPadding(0, dp(14), 0, dp(6))
+        }
+
+        val tvHint = TextView(this).apply {
+            text = "수정자 키(Alt, Ctrl 등)와 조합할 수 있습니다\n(취소: Esc 또는 뒤로 가기)"
+            textSize = 11f
+            setTextColor(Color.parseColor("#9E9E9E"))
+            gravity = Gravity.CENTER
+        }
+
+        root.addView(tvSub)
+        root.addView(tvPreview)
+        root.addView(tvHint)
 
         dialog?.dismiss()
         capturingAction = action
@@ -290,11 +517,9 @@ class OverlayActivity : AppCompatActivity() {
 
         val captureDialog = AlertDialog.Builder(this)
             .setTitle("${action.label} 키 설정")
-            .setView(view)
+            .setView(root)
             .setCancelable(true)
-            .setOnCancelListener {
-                // Cancel stores nothing: the old one wrote the literal string
-                // "취소됨" into the preference and finished the window.
+            .setNegativeButton("취소") { _, _ ->
                 capturingAction = null
                 capturingDone = false
                 KeyCaptureSession.clear()
@@ -304,30 +529,54 @@ class OverlayActivity : AppCompatActivity() {
                 showKeyBindingSection()
             }
             .show()
-        // The service feeds the capture -- see KeyCaptureSession for why the
-        // activity cannot listen for itself. Installed before the dialog shows so
-        // a key pressed the moment it appears is not lost.
-        KeyCaptureSession.install { keyAction, keyCode, metaState ->
-            handleCaptureKey(keyAction, keyCode, metaState)
+
+        // 수정자 키 단독 누름 시 실시간 피드백 갱신 콜백 연결
+        KeyCaptureSession.install { act, keyCode, metaState ->
+            updatePreviewUI(tvPreview, act, keyCode, metaState)
+            handleCaptureKey(act, keyCode, metaState)
         }
 
         dialog = captureDialog
         captureWindow = captureDialog
-        // Attached immediately, NOT in onShow: measured on the AVD, a listener
-        // installed from onShow is too late — the dialog's decor view had already
-        // taken input focus and the key went to the activity window instead of
-        // the dialog, where nothing was listening.
+
         val decor = captureDialog.window?.decorView
         decor?.isFocusableInTouchMode = true
-        decor?.setOnKeyListener { _, _, event -> handleCaptureKey(event) }
+        decor?.setOnKeyListener { _, _, event ->
+            updatePreviewUI(tvPreview, event.action, event.keyCode, event.metaState)
+            handleCaptureKey(event)
+        }
         decor?.requestFocus()
-        view.requestFocus()
+        root.requestFocus()
+
         captureDialog.setOnDismissListener {
             if (!isChangingConfigurations) dialog = null
         }
 
-        view.setOnKeyListener { _, keyCode, event ->
-            if (handleCaptureKey(event)) true else false
+        root.setOnKeyListener { _, _, event ->
+            updatePreviewUI(tvPreview, event.action, event.keyCode, event.metaState)
+            handleCaptureKey(event)
+        }
+    }
+
+    /** 키를 누르고 있는 도중 시각적으로 조합 상태를 보여주는 헬퍼 */
+    private fun updatePreviewUI(tv: TextView, action: Int, keyCode: Int, metaState: Int) {
+        if (action == KeyEvent.ACTION_DOWN) {
+            val parts = mutableListOf<String>()
+            if ((metaState and KeyEvent.META_CTRL_ON) != 0) parts.add("CTRL")
+            if ((metaState and KeyEvent.META_ALT_LEFT_ON) != 0) parts.add("ALT_LEFT")
+            if ((metaState and KeyEvent.META_ALT_RIGHT_ON) != 0) parts.add("ALT_RIGHT")
+            if ((metaState and KeyEvent.META_SHIFT_ON) != 0) parts.add("SHIFT")
+
+            if (KeyBinding.isModifierKey(keyCode)) {
+                val modName = KeyEvent.keyCodeToString(keyCode).removePrefix("KEYCODE_")
+                if (!parts.contains(modName)) parts.add(modName)
+                tv.text = parts.joinToString("+") + " + ..."
+                tv.setTextColor(Color.parseColor("#6750A4"))
+            } else {
+                val keyName = KeyEvent.keyCodeToString(keyCode).removePrefix("KEYCODE_")
+                tv.text = (parts + listOf(keyName)).joinToString("+")
+                tv.setTextColor(Color.parseColor("#2E7D32")) // 녹색 확정 강조
+            }
         }
     }
 
@@ -435,6 +684,9 @@ class OverlayActivity : AppCompatActivity() {
         Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
         finish()
     }
+
+    /** dp to px helper */
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
     companion object {
         private const val TAG = "OverlayActivity"

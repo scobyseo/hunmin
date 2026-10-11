@@ -17,8 +17,14 @@
   feels like the same product.
 -->
 <resources>
-    <!-- Base overlay theme: translucent, no title, no dim. -->
-    <style name="Theme.HunminOverlay" parent="Theme.AppCompat.Dialog.Alert">
+    <!-- Base overlay theme: translucent, no title, no dim.
+
+         Parent is NoActionBar, NOT Dialog.Alert: with a Dialog parent the
+         activity's own window already draws the alert panel chrome, and the
+         AlertDialog shown inside it nests a second one — an "onion" of
+         rounded frames, each inset from the last, which is what starved the
+         rows to a 333px column no matter what setLayout asked for. -->
+    <style name="Theme.HunminOverlay" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowContentOverlay">@null</item>
@@ -32,8 +38,15 @@
 
     <!-- AlertDialog customization matching the dock -->
     <style name="Theme.HunminOverlay.AlertDialog" parent="ThemeOverlay.AppCompat.Dialog.Alert">
-        <!-- Dialog background: surface with outline stroke -->
-        <item name="android:background">@drawable/dialog_background</item>
+        <!-- Dialog background: the compact-HUD panel, dark slate.
+
+             This MUST be windowBackground, not android:background. As a theme
+             item, android:background leaks to every view that resolves the
+             overlay — parentPanel, customPanel, custom, the container — each
+             drawing the rounded stroke inset by its own padding: an onion of
+             frames, and the content column starved to a fraction of the
+             window width however wide setLayout() made the window. -->
+        <item name="android:windowBackground">@drawable/dialog_background</item>
 
         <!-- Title -->
         <item name="android:textAppearanceLarge">@style/TextAppearance.Hunmin.Dialog.Title</item>
