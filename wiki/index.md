@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-11 | Total pages: 21
+> Last updated: 2026-10-11 | Total pages: 22
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -62,6 +62,10 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   Keeps only the grep that settled "commercial software does it this way".
 - [[2026-10-10-orca-probe]] — **superseded** → `docs/ENVIRONMENT.md` §Orca GUI.
   A host toolchain fact, not a wiki topic.
+- [[2026-10-11-orca-orchestration-path]] — the orchestration layer measured end to
+  end: ≈40 turns and two accidental Runs bought by guessing flags that one
+  `orca agent-context --json` answers, and the four places the documents were wrong
+  about what Orca actually does. Durable artefact: `docs/ORCHESTRATION.md`.
 
 ## Raw — measurements
 
