@@ -73,7 +73,7 @@ recommendations to change code.
 | F3 | `values-night` exists but the Compact HUD / settings dialogs have no dark-mode variants — `CompactTheme` is one fixed dark palette regardless of system theme | `OverlayActivity.kt:64`, `themes.xml` | Design-for-Android dark-theme guidance. Deliberate HUD choice (`docs/ANDROID-UI-NOTES.md` §1), so recorded, not scored |
 | F4 | Flat one-line/two-line strip (styles B/C) renders hard black-on-white pills (`0xFF000000`/`0xFFFFFFFF`) with no dark-mode variant and no Material container shape; only the dock path has the M3 theme | `LayoutPicker.kt:359–406` | M3 color + dark mode; the flat styles predate the dock and were never re-themed |
 | F4b | The flat strip's mic listening tint `0xFF43A047` over a white pill measures 3.30:1 — the color-only state signal in that style | `LayoutPicker.kt:452–456` | WCAG AA; contrast-as-state |
-| F5 | The dock's `buildDock()` is dead code — nothing calls it; `rebuild()` routes to `oneLine()`/`twoRows()`, so the M3-themed dock (DockStyle.kt, 374 lines) is unreachable from production. The shipped strip is the flat style | `LayoutPicker.kt:248–262` vs `:241–242` | Effectively F4 is the *only* shipped strip; the M3-styled one is not reachable |
+| F5 | ~~The dock's `buildDock()` is dead code~~ **Removed 2026-10-12 (maintainer ruling "F5 -> remove!")**: `DockStyle.kt` (374 lines), `buildDock()`, the `dock` field and the Dock-only resources (`toolbar_hanja_active`, `toolbar_mic_active`, `ph_caret_down`, `hunmin_on_mic_active`, `mode_hangul`, `mode_latin`) are gone | was `LayoutPicker.kt:248–262` | The reachable code is now the only code; the shared drawables/colours stay (used by the re-themed strip) |
 | F6 | `modePill`/flat buttons have `isFocusable = false`, which is correct for the editor caret, but no `clickable`-gated focusable states for keyboard users; TalkBack can still reach them (measured, DockStyle header) | `LayoutPicker.kt:365–406` | Design-for-Android accessibility: switch/keyboard navigation |
 | F7 | No predictive-back opt-in (`android:enableOnBackInvokedCallback` absent from the manifest) | `AndroidManifest.xml` | Codepath common-patterns "Predictive back". minSdk 24 to targetSdk 35: the flag is not required, but targetSdk 35 users on gesture nav get the legacy behavior |
 | F8 | Notifications are never used — all transient user feedback goes through Toasts launched via a full `OverlayActivity` start | `HunminInputMethodService.kt:376–384` | Codepath common-patterns "Notifications"; a mode-toggle toast does not need a notification, so this is a "does not apply" entry recorded for completeness |
@@ -115,9 +115,11 @@ verification that covers it:
   single literal `0xFF43A047` (3.30:1 on light, and unchanged at night).
 - **F7 — filled.** `android:enableOnBackInvokedCallback="true"` on
   `<application>`. Verified: manifest compiles (`assembleDebug` green).
-- **F5 — NOT filled, maintainer-gated.** `DockToolbar` removal is a
-  decision (374 lines of unreachable view code), not a gap fill; recorded
-  in issue #33.
+- **F5 — filled by removal (maintainer ruling, 2026-10-12).** The
+  unreachable `DockToolbar` and its Dock-only resources are deleted;
+  `ToolbarState` stays (a test-covered value type used by the flat strip's
+  state assembly). Verified: `assembleDebug` green after the deletion,
+  `grep DockToolbar` returns nothing.
 - **Verification for the whole fill**: `tools/android-unit.sh` → **PASS:
   97/97 tier E1 tests ran and passed** (zero skips, the wrapper asserts
   them); `assembleDebug` green for both ABIs; the emulator e2e
@@ -139,10 +141,11 @@ a self-built IME strip — named roles, night variant, 48 dp targets,
 selection-as-state, per-state spoken labels, measured inset handling. The
 gaps concentrate in (a) the settings/HUD surfaces, which carry an unshared
 second palette with sub-AA inline colours in the capture dialog, and (b) the
-flat strip styles, which never received the dock's theme and — per F5 — are
-the only strip the code actually reaches. The two presentation families
-already documented in `docs/ANDROID-UI-NOTES.md` §1 are therefore three
-families in code: M3 dock (dead), flat strip (shipped), Compact HUD (shipped).
+flat strip styles, which never received the dock's theme — and were, per F5
+(removed 2026-10-12), the only strip the code actually reaches. The two
+presentation families already documented in `docs/ANDROID-UI-NOTES.md` §1
+are therefore two families in code after the removal: flat strip (shipped,
+re-themed to the M3 roles per F4), Compact HUD (shipped).
 
 ## Part 2 — SRP / dependency analysis
 
@@ -152,8 +155,8 @@ families in code: M3 dock (dead), flat strip (shipped), Compact HUD (shipped).
 |---|---|---|---|---|
 | `HunminInputMethodService` | 849 | IME lifecycle + key routing + layout selection + voice orchestration + hanja trigger + prefs + settings-bus install + receivers | HunminData, HunminNative, HunminEngine, LayoutCatalog, LayoutPicker, OverlayActivity, KeyBindings/KeyCaptureSession, VoiceSession/PlatformRecognizer/AndroidPermissionGate, ImeSettings, HunminTrace | **Wide.** The documented reason (frontends stay thin; AGENTS.md ~700-line smell) is being exceeded: 849 lines and 11 collaborator types |
 | `OverlayActivity` | 750 | Transparent overlay host for: hanja dialog, settings dialog, settings sub-sections, style picker, keybinding list, key capture, toast | ImeSettings, LayoutCatalog, KeyBindings, KeyCaptureSession, CompactTheme (in-file) | **Wide.** Six dialog responsibilities in one activity; one-man-band class |
-| `LayoutPicker` | 519 | The IME strip view: two style variants + state rendering + insets + rebuild | ToolbarState, LayoutEntry, DockToolbar (dead), ToolbarStyle, VoiceState | Mixed: view + style-switching + partial dead code |
-| `DockToolbar` (DockStyle.kt) | 374 | Dock view builder/binder | ToolbarState, VoiceState, resources | Clean, but **unreachable** (F5) |
+| `LayoutPicker` | 519 | The IME strip view: two style variants + state rendering + insets + rebuild | ToolbarState, LayoutEntry, ToolbarStyle, VoiceState | View + style-switching; re-themed to M3 roles (F4) after the review |
+| `DockToolbar` (DockStyle.kt) | ~~374~~ | ~~Dock view builder/binder~~ | — | Removed 2026-10-12 (F5, maintainer ruling); row kept as the record |
 | `KeyBinding.kt` (4 types) | 426 | Key binding data + storage + matching + capture session singleton | KeyEvent constants only | Clean; pure logic, JVM-testable, documented |
 | `VoiceInput.kt` (7 types) | 460 | Voice path: enum, results, launcher (pure decisions), recogniser, permission gate, session | PermissionRequestActivity (canRaise/raise), SpeechRecognizer | Clean layers with seams for testing; `VoiceLauncher`→`PermissionRequestActivity` is a UI-to-UI dependency justified by the B5 constraint (no channel from a service) |
 | `HunminEngine` | 283 | Engine adapter: key→char→process→commit/preedit | HunminKeys, HunminTrace, NativeOps (injected) | Clean; `NativeOps` seam keeps it JVM-testable |
@@ -208,7 +211,8 @@ HunminData → (filesDir) HunminInputMethodService
   ordering property nothing enforces. `KeyCaptureSession`'s own header
   documents why (keys reach the IME window, not the activity). Recorded as
   the measured cost of the IME constraint, not a flaw to fix silently.
-- **S4 — dead code**: `buildDock()`/`DockToolbar` unreachable (F5);
+- **S4 — dead code**: `buildDock()`/`DockToolbar` unreachable (F5) —
+  **removed 2026-10-12**;
   `OverlayActivity.startHanja`/`showToast` helpers, `RESULT_HANJA_SELECTED`,
   `LayoutCatalog.choose` (test-only), `setHanjaConverting` (no caller),
   `HunminEngine.suggestKind` and `IME_FLAG_NO_PERSONALIZED_LEARNING` (no
@@ -241,9 +245,9 @@ HunminData → (filesDir) HunminInputMethodService
   lifecycle hosts that also own routing/dialog logic, and they depend on
   nearly everything. Their width is measured above (S1, S2); whether to split
   is a maintainer decision (an extra singleton seam is the cost).
-- The hidden dependencies are the two singletons' install-order (S3), and the
-  dead `DockToolbar` (S4/F5) which currently pads the dependency graph
-  without being reachable.
+- The hidden dependencies are the two singletons' install-order (S3). The
+  dead `DockToolbar` (S4/F5) that padded the dependency graph is gone
+  (removed 2026-10-12).
 
 ## Verification
 

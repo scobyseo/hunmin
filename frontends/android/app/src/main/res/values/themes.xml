@@ -13,7 +13,7 @@
   this activity: it is a platform theme, and the AppCompat dialog path breaks
   under it on real hardware.
 
-  The color palette mirrors the dock's (DockStyle.kt) so the settings window
+  The color palette mirrors the strip's (LayoutPicker) so the settings window
   feels like the same product.
 -->
 <resources>

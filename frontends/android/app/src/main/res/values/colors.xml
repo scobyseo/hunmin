@@ -18,7 +18,6 @@
     <color name="hunmin_primary_soft">#EADDFF</color>
     <!-- Green 600, per the voice state: dark enough to read white on. -->
     <color name="hunmin_mic_active">#43A047</color>
-    <color name="hunmin_on_mic_active">#FFFFFF</color>
 
     <!--
       The Compact HUD's palette (OverlayActivity), as named tokens rather

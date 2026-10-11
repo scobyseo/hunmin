@@ -334,3 +334,10 @@
   assertions matched the pre-restyle row shape, and the restyle split title
   and badge into two TextViews. Updated in the same branch as the structure
   they assert. See `wiki/raw/sessions/2026-10-12-compact-hud-theme-traps.md`.
+
+- **2026-10-12** — `2026-10-11-dock-and-the-zero-width-style` marked
+  **superseded**: the maintainer ruled "F5 -> remove!" and the unreachable
+  `DockToolbar`/`DockStyle.kt` is deleted (issue #33, branch
+  `task/android-design-review`). The page keeps the measurement as
+  evidence; its outgoing wikilinks were unlinked so no active page cites a
+  retracted one.

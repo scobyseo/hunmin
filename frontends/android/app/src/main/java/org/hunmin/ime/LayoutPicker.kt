@@ -16,7 +16,6 @@
  * with two shapes, because the maintainer's instruction was "설정에 A, B, C
  * 중 선택할 수 있게 만들어도 좋아".
  *
- *   ONE_LINE (한줄 모드) the floating dock — DockStyle.kt
  *   TWO_LINE (두줄 모드) status above, actions below
  *
  * THE FIVE THINGS, IN EVERY STYLE
@@ -62,17 +61,11 @@ class LayoutPicker @JvmOverloads constructor(
     private var layouts: List<LayoutEntry> = emptyList()
     private var activeLayoutId: String? = null
 
-    /** Style B shows an abbreviation; A and C show the full name, cut off. */
-    
-
+    /** Style B shows an abbreviation; C shows the full name, cut off. */
     private var modeIsHangul = true
     private var voiceState = VoiceState.IDLE
     private var hanjaConverting = false
 
-    // The dock (style A) binds in place; the flat row and the column (B and C)
-    // keep their own references, because they were written before the dock was
-    // and reworking them is a separate piece of work.
-    private var dock: DockToolbar? = null
     private var layoutIndicator: TextView? = null
     private var modeView: TextView? = null
     private var micButton: ImageButton? = null
@@ -83,7 +76,7 @@ class LayoutPicker @JvmOverloads constructor(
      * Every callback below re-renders on assignment, and that is a fix rather
      * than a style choice: the style's views capture the callbacks when they are
      * built, and the service builds the picker first and wires the callbacks
-     * afterwards — so a dock built at construction time had null everywhere and
+     * afterwards — so a strip built at construction time had null everywhere and
      * every key was inert. Measured: the gear's bounds were in the accessibility
      * tree and the tap did nothing at all.
      */
@@ -185,9 +178,9 @@ class LayoutPicker @JvmOverloads constructor(
      * Whether a Hanja conversion is running.
      *
      * Nothing reports this yet — the Hanja window is an activity the IME starts
-     * and does not watch — so the dock's highlight stays off rather than being
+     * and does not watch — so the strip's highlight stays off rather than being
      * driven by a flag that means "somebody called the setter". It is wired to
-     * the same [ToolbarState.hanjaConverting] the dock renders, so turning the
+     * the same [ToolbarState.hanjaConverting] the strip renders, so turning the
      * highlight on is one call away when there is a true source for it.
      */
     fun setHanjaConverting(converting: Boolean) {
@@ -200,7 +193,6 @@ class LayoutPicker @JvmOverloads constructor(
     /** The one place the strip's state is assembled, whichever style is up. */
     private fun renderState() {
         val state = stateForCurrentStyle()
-        dock?.bind(state)
         layoutIndicator?.let { applyFlatState(it, state) }
         modeView?.let { it.text = if (state.modeIsHangul) "한" else "영" }
         applyFlatVoiceState()
@@ -217,14 +209,11 @@ class LayoutPicker @JvmOverloads constructor(
     private fun rebuild() {
         removeAllViews()
         // Fresh views every rebuild, NOT the cached ones. Measured crash on the
-        // phone (SM-F971N, Android 17): choosing style B or C threw
+        // phone (SM-F971N, Android 17): switching styles threw
         //   IllegalStateException: The specified child already has a parent.
         // from ViewGroup.addViewInner, because removeAllViews() detaches the
         // row but leaves each button parented to that detached row, and
-        // addView() refuses a view that already has one. Style A never showed
-        // it, because A is the default and applyStyle() short-circuits when the
-        // style has not changed.
-        dock = null
+        // addView() refuses a view that already has one.
         layoutIndicator = null
         modeView = null
         micButton = null
@@ -244,22 +233,6 @@ class LayoutPicker @JvmOverloads constructor(
         renderState()
     }
 
-    /** Style A: the floating pill. */
-    private fun buildDock(): View {
-        val toolbar = DockToolbar(
-            context = context,
-            state = stateForCurrentStyle(),
-            actions = DockToolbar.Actions(
-                onLayoutClicked = onLayoutClicked,
-                onModeClicked = onModeClicked,
-                onHanjaClicked = onHanjaClicked,
-                onMicClicked = onMicClicked,
-                onSettingsClicked = onSettingsClicked,
-            ),
-        )
-        dock = toolbar
-        return toolbar.build()
-    }
 
     /** One row, wrapped in a scroll view that normally never scrolls.
  *
@@ -267,7 +240,7 @@ class LayoutPicker @JvmOverloads constructor(
  * where the gaps are already at their smallest and the buttons still do not
  * fit, and a view that does not need to scroll is invisible to the user.
  *
- * The row carries the dock's own pill (toolbar_dock, elevation) so the
+ * The row carries the dock pill (toolbar_dock, elevation) so the
  * one-line strip is the same M3 surface as the two-line one and picks up the
  * night variant through the colour tokens — review F4. The background sits
  * on the scroll view, not the row, so it spans the full viewport however
@@ -370,7 +343,7 @@ private fun oneLine(): View {
      *
      * M3 roles, not hardcoded black on white — review F4. The active state
      * is the FILLED half (primary background, on-primary text, selected),
-     * the same semantics as the dock's segment: `isSelected` is what the
+     * the same semantics as the segment: `isSelected` is what the
      * e2e suite and a screen reader read, so the strip's state stays
      * colour-independent.
      */
@@ -392,7 +365,7 @@ private fun oneLine(): View {
         }
         label.text = if (modeIsHangul) "한" else "영"
         // Selected as well as labelled: which mode is active has to be readable
-        // without reading the colour, which is what the dock's segment does.
+        // without reading the colour, which is what the segment does.
         label.isSelected = modeIsHangul
         return FrameLayout(context).apply {
             minimumWidth = TOUCH_DP
@@ -406,12 +379,11 @@ private fun oneLine(): View {
      *
      * It was `ic_menu_add` — a plus sign — which says "add something", not
      * "make this Hangul into Hanja". The maintainer's words: "한자로 바꾼다는 게 눈에
-     * 띄었으면 좋겠는데". The dock's own design (DockStyle.kt) asks for [ 漢 ] for
-     * the same reason, so B and C say it in the same character rather than
-     * leaving two spellings of one key.
+     * 띄었으면 좋겠는데". So the strip says it in the character rather than an
+     * icon that reads as "add something".
      *
      * on-surface on the strip's surface — a role pair, not white on black:
-     * at night the old hard pair put black 漢 on the dark dock (review F4,
+     * at night the old hard pair put black 漢 on the dark strip (review F4,
      * and the reason the flat styles need the token set at all).
      */
     private fun hanjaButton(): TextView =
@@ -459,7 +431,7 @@ private fun oneLine(): View {
 
     // ----------------------------------------------------------------- helpers
 
-    /** B and C's label view: the same text and the same spoken name as the dock. */
+    /** The label view: same text and same spoken name across styles. */
     private fun applyFlatState(view: TextView, state: ToolbarState) {
         view.text = state.layoutLabel
         view.contentDescription = state.layoutLabelFull
@@ -475,7 +447,7 @@ private fun oneLine(): View {
      * both modes.
      *
      * The green capsule is the dock's business; a flat row has no pill to fill,
-     * so the icon carries the state there, as it did before.
+     * so the icon carries the state.
      */
     private fun applyFlatVoiceState() {
         val button = micButton ?: return
