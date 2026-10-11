@@ -295,19 +295,25 @@ private fun oneLine(): View {
 }
 
 /** Two rows: status above, evenly spread buttons below. */
+    /** Two rows: status above, evenly spread buttons below. Same dock theme as oneLine. */
     private fun twoRows(): View {
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             isFocusable = false
             isFocusableInTouchMode = false
         }
+        val gap = gapDp()
+        // Status row: same dock background + rounded corners + elevation
         val status = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(48)
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            background = ContextCompat.getDrawable(context, R.drawable.toolbar_dock)
+            ViewCompat.setElevation(this, dp(4).toFloat())
             isFocusable = false
             isFocusableInTouchMode = false
         }
-        val gap = gapDp()
         status.addView(layoutIndicator(), lp(0, weight = 1f, padEnd = gap))
         status.addView(modePill(), lp(WRAP))
         // MATCH width on the rows: lp(0) in a vertical LinearLayout would be
@@ -320,6 +326,10 @@ private fun oneLine(): View {
         val buttons = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(48)
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            background = ContextCompat.getDrawable(context, R.drawable.toolbar_dock)
+            ViewCompat.setElevation(this, dp(4).toFloat())
             isFocusable = false
             isFocusableInTouchMode = false
         }

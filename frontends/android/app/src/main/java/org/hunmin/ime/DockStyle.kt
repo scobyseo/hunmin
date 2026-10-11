@@ -79,10 +79,11 @@ internal class DockToolbar(
 
     private var pulseAnimator: ObjectAnimator? = null
 
+    // View fields — these are the instances that go into the view tree
     private val chipLabel = TextView(context)
     private val hangulHalf = TextView(context)
     private val latinHalf = TextView(context)
-    private val hanjaKey = TextView(context)
+    private var hanjaKey: TextView? = null
     private var micKey: ImageView? = null
     private var gearKey: ImageView? = null
 
@@ -97,19 +98,12 @@ internal class DockToolbar(
             ViewCompat.setElevation(this, dp(4).toFloat())
             isFocusable = false
             isFocusableInTouchMode = false
-            isFocusableInTouchMode = false
         }
         dock.layoutParams = FrameLayout.LayoutParams(MATCH, WRAP).apply {
             setMargins(dp(10), dp(4), dp(10), dp(4))
         }
-        dock.addView(layoutChip(), lp(0, weight = 1f, padEnd = dp(8)))
-        // Sized HERE, once. A child that sets its own layoutParams and is then
-        // added with addView(child, params) gets those params overwritten — and
-        // the row measured 1080x2209 on the emulator with the divider filling it,
-        // because a WRAP-sized View with no intrinsic size is not "wrap", it is
-        // whatever the parent feels like. Measured: the keys were laid out at
-        // x = 1253, 1389, 1525 on a 1080 px window, i.e. off-screen, and every one
-        // of them was visible: false in the accessibility tree.
+        // Layout chip: WRAP so it takes only its content width; spacer takes the rest
+        dock.addView(layoutChip(), lp(WRAP, padEnd = dp(8)))
         dock.addView(divider(), LinearLayout.LayoutParams(dp(1), dp(14)).apply { marginEnd = dp(8) })
         dock.addView(modeSegment(), lp(WRAP))
         dock.addView(Space(context), lp(0, weight = 1f))
@@ -124,7 +118,6 @@ internal class DockToolbar(
             addView(dock, FrameLayout.LayoutParams(MATCH, WRAP))
             isFocusable = false
             isFocusableInTouchMode = false
-            isFocusableInTouchMode = false
         }
     }
 
@@ -138,14 +131,17 @@ internal class DockToolbar(
         segmentHalf(hangulHalf, "한", hangulOn, R.string.mode_hangul)
         segmentHalf(latinHalf, "A", !hangulOn, R.string.mode_latin)
 
-        hanjaKey.setBackgroundResource(
-            if (state.hanjaConverting) R.drawable.toolbar_hanja_active else 0,
-        )
-        hanjaKey.setTextColor(if (state.hanjaConverting) primary else onSurface)
+        hanjaKey?.let {
+            it.setBackgroundResource(
+                if (state.hanjaConverting) R.drawable.toolbar_hanja_active else 0,
+            )
+            it.setTextColor(if (state.hanjaConverting) primary else onSurface)
+        }
 
         val mic = micKey
         when (state.voice) {
             VoiceState.IDLE -> {
+                stopPulse(mic)
                 mic?.setBackgroundResource(0)
                 mic?.clearColorFilter()
             }
@@ -174,6 +170,14 @@ internal class DockToolbar(
         )
     }
 
+    /**
+     * Call when the dock view is detached from the window to avoid leaking
+     * the pulse animator.
+     */
+    fun release() {
+        stopPulse(micKey)
+    }
+
     // ------------------------------------------------------------------ parts
 
     /**
@@ -193,7 +197,6 @@ internal class DockToolbar(
         setPadding(dp(12), 0, dp(10), 0)
         background = ContextCompat.getDrawable(context, R.drawable.toolbar_chip)
         isFocusable = false
-            isFocusableInTouchMode = false
         isFocusableInTouchMode = false
         clickable(actions.onLayoutClicked != null)
         setOnClickListener { actions.onLayoutClicked?.invoke() }
@@ -203,7 +206,7 @@ internal class DockToolbar(
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(onSurface)
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            layoutParams = lp(0, weight = 1f)
+            layoutParams = lp(WRAP)
         }
         addView(chipLabel)
         addView(ImageView(context).apply {
@@ -230,7 +233,6 @@ internal class DockToolbar(
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         isFocusable = false
-            isFocusableInTouchMode = false
         isFocusableInTouchMode = false
         clickable(actions.onModeClicked != null)
         setOnClickListener { actions.onModeClicked?.invoke() }
@@ -269,7 +271,7 @@ internal class DockToolbar(
      * 48 dp key in an IME strip has room for one character and the character
      * is what Korean keyboards have always used for this key.
      */
-    private fun hanjaKey(): TextView = TextView(context).apply {
+    private fun hanjaKey(): TextView = TextView(context).also { hanjaKey = it }.apply {
         text = "漢"
         textSize = 18f
         typeface = Typeface.DEFAULT_BOLD
