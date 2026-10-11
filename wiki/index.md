@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-11 | Total pages: 24
+> Last updated: 2026-10-12 | Total pages: 25
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -66,6 +66,11 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   end: ≈40 turns and two accidental Runs bought by guessing flags that one
   `orca agent-context --json` answers, and the four places the documents were wrong
   about what Orca actually does. Durable artefact: `docs/ORCHESTRATION.md`.
+- [[2026-10-12-compact-hud-theme-traps]] — the Compact HUD restyle's four theme
+  traps in the order found (badge weight, missing LayoutParams on `setView`,
+  `android:background` as a theme item, a Dialog-parented host activity), and an
+  E2E assertion that failed on a correct UI. Durable artefact:
+  `docs/ANDROID-UI-NOTES.md`.
 
 ## Raw — measurements
 

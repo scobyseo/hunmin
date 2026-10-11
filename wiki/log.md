@@ -311,3 +311,26 @@
 - **Still missing:** a completed E4 run end to end. The script asks a person for a
   focused editor by design and refuses otherwise; each of its state and pixel checks
   has been measured by hand on SM-S938N, the loop has not.
+
+## [2026-10-12] create | Compact HUD theme traps; Android UI notes
+
+- **Durable artefact is `docs/ANDROID-UI-NOTES.md`**, the Android analogue of
+  `docs/FCITX5-ADDON-NOTES.md`: the style system (dock palette vs `CompactTheme`,
+  row anatomy, 0.92-width window) and the traps that cost the restyle its time —
+  `AlertDialog.setView()` adopting the view's default `WRAP_CONTENT`
+  LayoutParams, `android:background` as a *theme item* leaking to every
+  inheriting view (the "onion" of rounded frames, and the starved column with
+  the same symptom from a different mechanism), a host activity themed
+  `Dialog.Alert` nesting a second alert chrome, and the badge-weight/compresses-
+  the-title failure that came first.
+- **On-device verification facts recorded so the next session does not
+  re-derive them:** production builds admit neither `adb root` nor `su`, so
+  `OverlayActivity` is reached by the gear tap only; wireless adb corrupts
+  `exec-out screencap` PNGs (capture to file, then `pull`); a dual-display
+  Samsung's default `screencap` display is not the one `uiautomator` sees
+  (`-d <display-id>`); stale stacked `OverlayActivity` windows make a correct
+  fix look wrong (force-stop before trusting a screenshot).
+- **`tools/android-e2e.sh` went red on a correct UI**: its combined-string
+  assertions matched the pre-restyle row shape, and the restyle split title
+  and badge into two TextViews. Updated in the same branch as the structure
+  they assert. See `wiki/raw/sessions/2026-10-12-compact-hud-theme-traps.md`.
