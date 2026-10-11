@@ -96,12 +96,14 @@ dpkg -i hunmin_0.1.0_amd64.deb     # see ~/work for the built artefact
 Android: `frontends/android/gradlew assembleDebug` after building the core for
 each ABI (`tools/build-android.sh`).
 
-**Known limitation (Android voice input):** recognition quality is unmeasured —
-the AVD this repo tests on has no microphone and no offline `ko-KR` pack, and
-nothing in the repo asserts anything about what the recogniser returns. The
-permission path and the key-path survival are tested (tier E2); the audio is
-not. `docs/MILESTONES.md` §0.1 records the same limitation; a hardware run
-records the measurement wherever the tier that produced it lives (issue #11).
+**Known limitation (Android voice input):** recognition quality has no
+automated assertion — recorded audio cannot be replayed into the recogniser,
+so the judgement is a person's (tier E4 design). Measured once on hardware
+2026-10-12, by the maintainer, speaking the tier E4 phrases: the run passed.
+Unattended runs are not possible — no speaker means no speech. The permission
+path and key-path survival are tested (tier E2). `docs/MILESTONES.md` §0.1
+names the limitation if shipped unmeasured; the measurement record lives in
+`tests/manual-checklists/tier-e4-voice.md` (issue #11).
 
 ## Documentation
 

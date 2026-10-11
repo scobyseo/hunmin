@@ -128,9 +128,13 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
   No device has been signed off."* Three device rows (One UI phone, One UI tablet, AOSP
   Pixel), all unchecked. A manual tier with no automation substitute; `PLAN.md`'s P5 gate
   stays open on this one line.
-- **Voice recognition quality.** Needs a microphone and Google's servers. *"Unanswerable in
-  this environment; nothing in this repo can measure it."* The AVD boots `-no-audio` and has
-  no offline ko-KR pack.
+- **Voice recognition quality.** ✅ **Measured on hardware 2026-10-12** (issue #11): the
+  tier E4 run passed once with the maintainer speaking the phrases; an unattended run is
+  not possible (person-in-loop tier — no speaker means no speech, so such runs fail
+  without measuring recognition). The record lives in
+  `tests/manual-checklists/tier-e4-voice.md`. Still not measurable *on this host* — the
+  AVD boots `-no-audio` and has no offline ko-KR pack — which is why it is a maintainer
+  session, not a ctest row.
 - **A soft keyboard.** The input view is a layout strip plus a mic, not keys. No priority has
   been assigned to it by anyone; that assignment is a maintainer call. **Assigned
   2026-10-11: it is release 0.4, goal 두벌식 + qwerty + 기호 입력 지원 — see
