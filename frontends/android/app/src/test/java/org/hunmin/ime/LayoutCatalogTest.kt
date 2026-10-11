@@ -134,6 +134,62 @@ class LayoutCatalogTest {
         )
     }
 
+    // --- the fallback chain the service used to carry as an untested loop ----
+
+    @Test
+    fun `resolve keeps a stored layout that this build offers`() {
+        assertEquals(
+            "sebeolsik-final",
+            LayoutCatalog.resolve(scanned, LayoutMode.HANGUL, "sebeolsik-final", "sin3-p2"),
+        )
+    }
+
+    @Test
+    fun `resolve refuses a stored layout from the OTHER mode`() {
+        // The failure this mode check exists for: us-qwerty "validates" fine if
+        // you only ask whether the id is openable, and a Korean IME would then
+        // be composing with qwerty.
+        assertEquals(
+            "sin3-p2",
+            LayoutCatalog.resolve(scanned, LayoutMode.HANGUL, "us-qwerty", "sin3-p2"),
+        )
+        assertEquals(
+            "us-qwerty",
+            LayoutCatalog.resolve(scanned, LayoutMode.LATIN, "sin3-p2", "us-qwerty"),
+        )
+    }
+
+    @Test
+    fun `resolve falls back to the mode default when the stored one is gone`() {
+        assertEquals(
+            "sin3-p2",
+            LayoutCatalog.resolve(scanned, LayoutMode.HANGUL, "removed-in-this-build", "sin3-p2"),
+        )
+    }
+
+    @Test
+    fun `resolve falls back to any layout of the mode when there is no default`() {
+        val noDefaults = scanned.filter { it.id != "sin3-p2" }
+        assertEquals(
+            "dubeolsik",
+            LayoutCatalog.resolve(noDefaults, LayoutMode.HANGUL, null, "sin3-p2"),
+        )
+    }
+
+    @Test
+    fun `resolve says what was asked for when the mode is empty`() {
+        // No layout in this mode at all: keep the stored id so the log names it,
+        // and the documented default when there was nothing stored.
+        assertEquals(
+            "asked-for",
+            LayoutCatalog.resolve(emptyList(), LayoutMode.LATIN, "asked-for", "us-qwerty"),
+        )
+        assertEquals(
+            "us-qwerty",
+            LayoutCatalog.resolve(emptyList(), LayoutMode.LATIN, null, "us-qwerty"),
+        )
+    }
+
     @Test
     fun `choose returns something when there is nothing to choose from`() {
         assertEquals("fallback", LayoutCatalog.choose(emptyList(), LayoutMode.LATIN, null, "fallback"))

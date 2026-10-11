@@ -456,7 +456,7 @@ M5-CLOSED | pyright | tools/ | clean | the measurement-hygiene pass; 29 errors -
 W1-CLOSED | path-present | tests/conformance/android/basic-syllables-case14.trace.gold | present | the Android tier-C corpus; 14 pairs now
 W1-CLOSED | path-present | tools/android-trace-emit.sh | present | the Android tier-C corpus added the runner
 W2-CLOSED | path-present | frontends/android/app/proguard-rules.pro | present | the Android R8/mic/inset change
-W4-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:lateinit var micButton | present | the Android R8/mic/inset change; mic is a field, not per-bind
+W4-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:private var micButton | present | the mic button is built once and cached, not per-bind — the field became nullable on 2026-10-11 (issue #12) because the strip rebuilds itself when the style setting changes, and the button has to survive that; it still does, which is what this row checks
 N1-CLOSED | path-present | tools/kcm_export.py | present | the keymaps exporter; was listed open as "does not exist"
 N3-CLOSED | grep | libhunmin/src/hunmin_internal.h:HK_SEQ | present | the seq symbol tier
 N4-CLOSED | path-present | debian/hunmin.postinst | present | the deb postinst; the real filename is hunmin.postinst

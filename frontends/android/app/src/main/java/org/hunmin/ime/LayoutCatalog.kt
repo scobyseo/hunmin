@@ -45,6 +45,38 @@ enum class LayoutMode {
 object LayoutCatalog {
 
     /**
+     * The layout [mode] should actually run, out of what this build offers.
+     *
+     * Three steps, in order: the stored choice if it is here AND belongs to this
+     * mode, then the mode's documented default, then anything in the same mode.
+     *
+     * The mode check is the part that is easy to lose. A stored 한글 preference
+     * naming a Latin layout "validates" perfectly well if you only ask "is this
+     * id openable", and lands in the English engine — the failure is invisible
+     * until someone notices their Korean input became qwerty.
+     *
+     * Pure, so the fallback chain is testable without an engine: the service
+     * used to carry this as a loop over the native context and nothing could
+     * check it.
+     */
+    fun resolve(
+        entries: List<LayoutEntry>,
+        mode: LayoutMode,
+        stored: String?,
+        defaultId: String,
+    ): String {
+        val offered = byMode(entries, mode)
+        return offered.firstOrNull { it.id == stored }?.id
+            ?: offered.firstOrNull { it.id == defaultId }?.id
+            ?: offered.firstOrNull()?.id
+            // Nothing in this mode is openable. Keep the stored id when there was
+            // one so the log names what was asked for; the engine path reports
+            // the real failure when it cannot instantiate it.
+            ?: stored
+            ?: defaultId
+    }
+
+    /**
      * 가나다순. See the file header for why this is code-point order and not a
      * Collator; the id tie-break is what makes it a total order.
      */
@@ -73,4 +105,73 @@ object LayoutCatalog {
             ?: activeId
             ?: byMode(entries, mode).firstOrNull()?.id
             ?: fallback
+}
+/**
+ * The three shapes the input view can take.
+ *
+ * A setting rather than a decision, by the maintainer's instruction
+ * 2026-10-11: "설정에 A, B, C 중 선택할 수 있게 만들어도 좋아". The blurb is
+ * what the settings window shows under each name — an enum whose members a
+ * user cannot picture is a setting nobody changes, it is a constant with extra
+ * steps.
+ *
+ * All three show the same five things: the layout in use, the 한/영 mode, the
+ * Hanja key, the voice key, and settings. Only the arrangement differs, and the
+ * only one that may truncate is the layout NAME (the maintainer's rule, and the
+ * reason A is listed first: with nothing to truncate, nothing is lost).
+ */
+enum class ToolbarStyle(
+    val key: String,
+    val label: String,
+    val blurb: String,
+) {
+    /** One row: layout name left, mode and buttons right. */
+    COMPACT("A", "A — 한 줄", "배열 이름 왼쪽, 모드·버튼 오른쪽. 이름이 길면 잘립니다"),
+
+    /** One row of icons; the layout is an abbreviation. */
+    ICON_ROW("B", "B — 아이콘", "전부 아이콘. 배열 이름은 약호로만 보여줍니다"),
+
+    /** Two rows: status above, evenly spaced buttons below. */
+    TWO_ROW("C", "C — 두 줄", "상태 한 줄 + 버튼 한 줄. 높이를 가장 많이 씁니다");
+
+    companion object {
+        fun of(raw: String?): ToolbarStyle =
+            values().firstOrNull { it.key == raw } ?: COMPACT
+    }
+}
+
+/**
+ * The settings window's way into the running IME.
+ *
+ * The window is an Activity and the state it edits lives in an
+ * InputMethodService; there is no bound reference between them, and the
+ * key-binding capture already had this exact problem (see KeyCaptureSession:
+ * while an IME is the current input method, keys reach the service and nothing
+ * else). So the service installs these callbacks and the window uses them —
+ * one writer for every setting, rather than the Activity writing preferences
+ * behind the service's back and hoping it re-reads them.
+ *
+ * Every accessor is nullable because the window can be opened when no IME is
+ * running at all. The window then says so instead of showing an empty list that
+ * looks like "you have no layouts".
+ */
+object ImeSettings {
+
+    /** Every layout this build can run, with its mode and display name. */
+    var layoutsProvider: () -> List<LayoutEntry>? = { null }
+
+    /** The layout currently chosen for a mode, null when the IME is not up. */
+    var layoutChoice: (LayoutMode) -> String? = { null }
+
+    /** Called when the window sets a mode's layout. */
+    var onLayoutChosen: (LayoutMode, String) -> Unit = { _, _ -> }
+
+    /** The strip style in force. */
+    var toolbarStyle: () -> ToolbarStyle = { ToolbarStyle.COMPACT }
+
+    /** Called when the window sets the strip style. */
+    var onToolbarStyleChosen: (ToolbarStyle) -> Unit = {}
+
+    /** Whether a service is there to talk to at all. */
+    val connected: Boolean get() = layoutsProvider() != null
 }

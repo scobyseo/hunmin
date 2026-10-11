@@ -64,7 +64,7 @@ class OverlayActivity : AppCompatActivity() {
 
         when (action) {
             ACTION_SHOW_HANJA -> showHanjaDialog()
-            ACTION_SHOW_SETTINGS -> showSettingsDialog()
+            ACTION_SHOW_SETTINGS -> openRequestedSection()
             ACTION_SHOW_TOAST -> showToast()
             else -> finish()
         }
@@ -126,7 +126,122 @@ class OverlayActivity : AppCompatActivity() {
             .show()
     }
 
-/**
+    /**
+     * The settings window: three sections, each opening its own list.
+     *
+     * Sections rather than one long list because the three answer different
+     * questions and their answers are of different shapes: a layout is chosen
+     * from twelve names, a style from three pictures-of-things, a key from
+     * whatever the user presses. Flattened into one list, every row would have
+     * to describe itself — the thing this window was rewritten to stop doing.
+     *
+     * The layout lists come from the running IME through [ImeSettings]: the
+     * engine's context lives in the service, so this Activity cannot enumerate
+     * layouts on its own. When no service is up it says so, rather than showing
+     * an empty list that reads as "you have no layouts".
+     */
+    private fun showSettingsDialog() {
+        val entries = ImeSettings.layoutsProvider()
+        val connected = ImeSettings.connected
+
+        fun labelOf(mode: LayoutMode, id: String?): String =
+            entries?.firstOrNull { it.id == id && it.mode == mode }?.label ?: "—"
+
+        val sections = arrayOf(
+            "한글 배열: ${labelOf(LayoutMode.HANGUL, ImeSettings.layoutChoice(LayoutMode.HANGUL))}",
+            "영문 배열: ${labelOf(LayoutMode.LATIN, ImeSettings.layoutChoice(LayoutMode.LATIN))}",
+            "입력기 창 스타일: ${ImeSettings.toolbarStyle().label}",
+            "키 바인딩",
+        )
+
+        dialog?.dismiss()
+        dialog = AlertDialog.Builder(this)
+            .setTitle("hunmin 설정")
+            .setItems(sections) { _, which ->
+                when (which) {
+                    0 -> showLayoutSection(LayoutMode.HANGUL)
+                    1 -> showLayoutSection(LayoutMode.LATIN)
+                    2 -> showStyleSection()
+                    else -> showKeyBindingSection()
+                }
+            }
+            .setNegativeButton("닫기") { _, _ -> finish() }
+            .setOnCancelListener { finish() }
+            .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
+            .show()
+
+        if (!connected) {
+            // Once, here, instead of every section looking empty in turn.
+            Toast.makeText(
+                this,
+                "입력기가 실행 중이 아니라 배열 정보를 읽을 수 없습니다",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+
+    /**
+     * The layouts of one mode, in 가나다순, with the current one ticked.
+     *
+     * Sorted by [LayoutCatalog], never by whatever the engine's directory scan
+     * produced — the maintainer's rule, and the scan order is opendir()'s.
+     */
+    /** Open whichever section the intent asked for, or the top level. */
+    private fun openRequestedSection() {
+        when (intent?.getStringExtra(EXTRA_SETTINGS_SECTION)) {
+            SECTION_LAYOUT_HANGUL -> showLayoutSection(LayoutMode.HANGUL)
+            SECTION_LAYOUT_LATIN -> showLayoutSection(LayoutMode.LATIN)
+            SECTION_STYLE -> showStyleSection()
+            SECTION_KEYS -> showKeyBindingSection()
+            else -> showSettingsDialog()
+        }
+    }
+
+    private fun showLayoutSection(mode: LayoutMode) {
+        val entries = LayoutCatalog.byMode(ImeSettings.layoutsProvider().orEmpty(), mode)
+        if (entries.isEmpty()) {
+            Toast.makeText(this, "사용할 수 있는 배열이 없습니다", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val checked = entries.indexOfFirst { it.id == ImeSettings.layoutChoice(mode) }
+        dialog?.dismiss()
+        dialog = AlertDialog.Builder(this)
+            .setTitle(if (mode == LayoutMode.LATIN) "영문 배열" else "한글 배열")
+            .setSingleChoiceItems(
+                entries.map { it.label }.toTypedArray(),
+                checked,
+            ) { d, which ->
+                d.dismiss()
+                ImeSettings.onLayoutChosen(mode, entries[which].id)
+                showSettingsDialog()
+            }
+            .setNegativeButton("뒤로") { _, _ -> showSettingsDialog() }
+            .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
+            .show()
+    }
+
+    /**
+     * The three input-view shapes, each with what it costs: the choice is only
+     * meaningful if the difference is visible before it is made, not after.
+     */
+    private fun showStyleSection() {
+        val styles = ToolbarStyle.values()
+        val checked = styles.indexOf(ImeSettings.toolbarStyle())
+        val labels = styles.map { "${it.label}\n${it.blurb}" }.toTypedArray()
+        dialog?.dismiss()
+        dialog = AlertDialog.Builder(this)
+            .setTitle("입력기 창 스타일")
+            .setSingleChoiceItems(labels, checked) { d, which ->
+                d.dismiss()
+                ImeSettings.onToolbarStyleChosen(styles[which])
+                showSettingsDialog()
+            }
+            .setNegativeButton("뒤로") { _, _ -> showSettingsDialog() }
+            .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
+            .show()
+    }
+
+    /**
      * The four configurable triggers, each showing the chord that is in force.
      *
      * Reads through [KeyBindings] rather than the raw preference, so a stored
@@ -136,7 +251,7 @@ class OverlayActivity : AppCompatActivity() {
      * `key_hanja`, so what it showed and what it saved had nothing to do with
      * each other.
      */
-    private fun showSettingsDialog() {
+    private fun showKeyBindingSection() {
         val store = KeyBindings.from(this)
         val actions = KeyAction.values().toList()
         val labels = actions.map { action ->
@@ -144,7 +259,7 @@ class OverlayActivity : AppCompatActivity() {
             // 한자 입력 are bound to PHYSICAL keys on a Korean keyboard, so the
             // row starts empty and the fixed keys still work. Printing the first
             // default would either crash on an empty list or, worse, imply a
-            // chord the IME does not actually answer to.
+            // chord the IME does not answer to.
             val combos = KeyBindings.combos(store, action)
             val shown = combos.firstOrNull()?.let { describe(it) } ?: NOT_SET
             "${action.label}: $shown"
@@ -152,31 +267,13 @@ class OverlayActivity : AppCompatActivity() {
 
         dialog?.dismiss()
         dialog = AlertDialog.Builder(this)
-            .setTitle("키 바인딩 설정")
+            .setTitle("키 바인딩")
             .setItems(labels) { _, which -> showKeyCaptureDialog(actions[which]) }
-            .setNegativeButton("닫기") { _, _ -> finish() }
-            .setOnCancelListener { finish() }
+            .setNegativeButton("뒤로") { _, _ -> showSettingsDialog() }
+            .setOnCancelListener { showSettingsDialog() }
             .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
             .show()
     }
-
-    /**
-     * Wait for one key chord and store it.
-     *
-     * Two platform facts shape this, both measured on the emulator (issue #12):
-     *
-     *  - A bare `TextView` with a key listener never sees a keystroke. It is not
-     *    focusable and nothing focuses it; the dialog window takes the focus and
-     *    the listener is dead code. So the view is made focusable *and* focused,
-     *    and the Activity watches `dispatchKeyEvent` as a second path — whichever
-     *    the platform routes, the first one to answer wins and [captured] stops
-     *    the other from storing a second chord.
-     *  - Holding Alt delivers `KEYCODE_ALT_LEFT` before `KEYCODE_X`. Capturing
-     *    that first event would bind the action to a bare Left Alt, which is not
-     *    what anybody pressing Shift+한자 meant. Modifiers are skipped while
-     *    down, and a modifier becomes the binding only on its *release*, when
-     *    nothing else followed it.
-     */
     private fun showKeyCaptureDialog(action: KeyAction) {
         val view = TextView(this).apply {
             text = "${action.label}: 키를 누르세요\n(취소하려면 뒤로 가기)"
@@ -204,7 +301,7 @@ class OverlayActivity : AppCompatActivity() {
                 captureWindow?.dismiss()
                 captureWindow = null
                 dialog?.dismiss()
-                showSettingsDialog()
+                showKeyBindingSection()
             }
             .show()
         // The service feeds the capture -- see KeyCaptureSession for why the
@@ -290,10 +387,11 @@ class OverlayActivity : AppCompatActivity() {
         } else {
             Toast.makeText(this, "${action.label}: ${describe(combo)}", Toast.LENGTH_SHORT).show()
         }
-        // Back to the list rather than finish(): one binding per visit made the
-        // window useless for the second key, and the new value has to be visible.
+        // Back to the key list rather than finish(): one binding per visit made
+        // the window useless for the second key, and the new value has to be
+        // visible on the row it belongs to.
         dialog?.dismiss()
-        showSettingsDialog()
+        showKeyBindingSection()
     }
 
     /**
@@ -354,6 +452,15 @@ class OverlayActivity : AppCompatActivity() {
         const val EXTRA_HANJA_DETAILS = "details"
         const val EXTRA_TOAST_TEXT = "text"
 
+        // Section to open on, when the caller wants somewhere deeper than the
+        // top level. String ids rather than ordinals: an ordinal would make an
+        // old APK misread a new one.
+        const val EXTRA_SETTINGS_SECTION = "section"
+        const val SECTION_LAYOUT_HANGUL = "layout-hangul"
+        const val SECTION_LAYOUT_LATIN = "layout-latin"
+        const val SECTION_STYLE = "style"
+        const val SECTION_KEYS = "keys"
+
         const val RESULT_HANJA_SELECTED = 1
         const val EXTRA_SELECTED_HANJA = "selected_hanja"
 
@@ -368,12 +475,16 @@ class OverlayActivity : AppCompatActivity() {
             activity.startActivity(intent)
         }
 
-        fun startSettings(activity: Activity) {
-            val intent = Intent(activity, OverlayActivity::class.java).apply {
+        /** Open the settings window, optionally straight at one section. */
+        fun startSettings(context: android.content.Context, section: String? = null) {
+            val intent = Intent(context, OverlayActivity::class.java).apply {
                 action = ACTION_SHOW_SETTINGS
+                if (section != null) putExtra(EXTRA_SETTINGS_SECTION, section)
+                // NEW_TASK because the caller is an InputMethodService: a
+                // Service has no task of its own.
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            activity.startActivity(intent)
+            context.startActivity(intent)
         }
 
         fun showToast(activity: Activity, text: String) {
