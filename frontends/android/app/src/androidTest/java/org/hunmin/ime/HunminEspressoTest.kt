@@ -15,8 +15,6 @@ package org.hunmin.ime
 
 import android.view.KeyEvent
 import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.Espresso.pressBack
-import androidx.test.espresso.Espresso.pressKey
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.swipeLeft
 import androidx.test.espresso.action.ViewActions.typeText
@@ -25,11 +23,9 @@ import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.isFocused
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
-import androidx.test.espresso.matcher.ViewMatchers.not
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.ActivityTestRule
-import org.hamcrest.CoreMatchers.is
 import org.hamcrest.CoreMatchers.not
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -70,7 +66,7 @@ class HunminEspressoTest {
 
         // Launch a dummy activity to hold the input connection
         val activity = activityRule.launchActivity(android.content.Intent())
-        activity.waitForIdle()
+        instrumentation.waitForIdleSync()
 
         // Wait for the IME to be ready
         Thread.sleep(500)
@@ -244,22 +240,26 @@ class HunminEspressoTest {
     private fun typeKeys(vararg keys: Char) {
         for (k in keys) {
             val (code, meta) = keyForChar(k)
-            val down = KeyEvent(KeyEvent.ACTION_DOWN, code, meta)
-            InstrumentationRegistry.getInstrumentation().sendKeySync(down)
+            sendKey(KeyEvent.ACTION_DOWN, code, meta)
             Thread.sleep(50)
-            val up = KeyEvent(KeyEvent.ACTION_UP, code, meta)
-            InstrumentationRegistry.getInstrumentation().sendKeySync(up)
+            sendKey(KeyEvent.ACTION_UP, code, meta)
             Thread.sleep(50)
         }
     }
 
     private fun pressKey(keyCode: Int, meta: Int = 0) {
-        val down = KeyEvent(KeyEvent.ACTION_DOWN, keyCode, meta)
-        InstrumentationRegistry.getInstrumentation().sendKeySync(down)
+        sendKey(KeyEvent.ACTION_DOWN, keyCode, meta)
         Thread.sleep(20)
-        val up = KeyEvent(KeyEvent.ACTION_UP, keyCode, meta)
-        InstrumentationRegistry.getInstrumentation().sendKeySync(up)
+        sendKey(KeyEvent.ACTION_UP, keyCode, meta)
         Thread.sleep(20)
+    }
+
+    /** KeyEvent has no (action, code, meta) constructor; the 6-arg overload is the
+     *  shortest that carries metaState (needed for shifted keys). */
+    private fun sendKey(action: Int, keyCode: Int, meta: Int) {
+        val time = android.os.SystemClock.uptimeMillis()
+        val event = KeyEvent(time, time, action, keyCode, 0, meta)
+        InstrumentationRegistry.getInstrumentation().sendKeySync(event)
     }
 
     private fun keyForChar(ch: Char): Pair<Int, Int> {
