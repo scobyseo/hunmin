@@ -234,3 +234,21 @@
 , `docs/REMAINING-WORK.md` B3 row and voice stage 8, `docs/MILESTONES.md` 0.1/0.3
   lanes. D1, E5-assignment and B2 are named as NOT closed by this ruling.
 - `wiki/index.md` listed both pages; total pages 21.
+## [2026-10-11] create | Orca orchestration path measured; playbook + script
+
+- **New session page:** `raw/sessions/2026-10-11-orca-orchestration-path.md` — the
+  ≈40-turn / two-accidental-Runs cost of guessing `orca orchestration` flags that one
+  `orca agent-context --json` answers, and the four places the documents were wrong
+  about what Orca does (nested placement, `scobyseo/` branch prefix, no `--issue` on
+  `worker-start`, worker's terminal absent from `worker-list`'s projection).
+  `docs/ENVIRONMENT.md` §Orca GUI is corrected on the branch-name claim.
+- **New durable artefact:** `docs/ORCHESTRATION.md` (procedure) and
+  `tools/orchestrate.sh` (the same sequence, with the branch/base/issue defaults,
+  validating every flag against the binary's own schema before use).
+- **Consequential, not wiki actions:** `AGENTS.md` gains an Orchestration section that
+  points at the procedure and states the rules (acceptance command in the spec, the
+  preamble owns `worker_done`, a worker never closes anything).
+- **Left for the maintainer, on purpose:** the two orphaned Runs and one
+  never-dispatched Task from the earlier session are reported in
+  `docs/ORCHESTRATION.md` §5 and not reset.
+- `wiki/index.md` lists the page; total pages 22.

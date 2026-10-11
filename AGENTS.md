@@ -285,6 +285,28 @@ RECORD_AUDIO permission request`.
 **Where this comes from.** Results measured, not rulings. The section above is
 written so that no agent ever records a verdict it is not entitled to.
 
+## Orchestration — a second agent on this repository
+
+One agent per checkout is what the Worktrees rule below protects. When the
+session runs inside an Orca terminal, Orca's orchestration layer is how a second
+agent is made safe: it owns placement, authority and settlement, and it records
+which attempt is authoritative.
+
+- **`docs/ORCHESTRATION.md` is the procedure**; `tools/orchestrate.sh` is that
+  same sequence as a script, carrying this repository's defaults — branch
+  `task/<id>-<slug>`, `--base-branch master`, the issue number. Read the doc
+  before improvising a command; the flag surface is one
+  `orca agent-context --json` call away and guessing it is what costs turns.
+- **A Task spec names the acceptance command, not the topic.** "Fix the
+  keystore path" is not a task; "`grep -n storeFile …` shows only the
+  `local.properties` reference" is. Section "The task spec" of that doc maps a
+  kind of change to the command that settles it.
+- **The dispatch preamble already tells the worker to send `worker_done`.** Do
+  not repeat the settlement protocol in the spec; do correct the branch, the
+  issue and the acceptance command there.
+- **A worker never closes anything.** Not the issue, not the PR, not a decision
+  (Working rules). It reports; the maintainer disposes.
+
 ## Worktrees
 
 One task, one worktree off master, so concurrent sessions cannot collide.

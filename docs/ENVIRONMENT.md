@@ -486,6 +486,28 @@ master. Measured 2026-10-10:
   `--name task-<id>-<slug>` (`--name` is also the branch name, so this keeps
   the `task/…` convention).
 
+### `worker-start` is not `worktree create` — the branch name is prefixed
+
+Measured 2026-10-11 with Orca **1.4.219**, through the orchestration path
+(`orca orchestration worker-start --worktree new-child --name task/4-r8-shrinker
+--base-branch master`):
+
+- **The branch came out `refs/heads/scobyseo/task-4-r8-shrinker`**, not
+  `refs/heads/task-4-r8-shrinker`. Orca prefixes the repository owner. The
+  `task/<id>-<slug>` convention in `AGENTS.md` is therefore **not** preserved by
+  this path; the coordinator has to read the real branch back
+  (`git -C <worktree> branch --show-current`) and tell the worker.
+- The nested location behaved exactly as measured on 2026-10-10:
+  `/home/scoby/work/hunmin/task-4-r8-shrinker`, and `?? task-4-r8-shrinker/`
+  in the main checkout's `git status`.
+- `--issue` is **not** a `worker-start` flag (`orca worktree create` has one), so
+  Orca's own `linkedIssue` stays `null` when the link rides in the Task spec.
+
+The 2026-10-10 bullet above was measured with `orca worktree create`, a
+different command, and is **not** restated here as corrected: whether
+`worktree create` prefixes the branch the same way is **not measured**.
+The full picture is `docs/ORCHESTRATION.md` §5.
+
 Whether a nested worktree breaks any tool that walks the tree (a glob that
 would now descend into `orca-probe/`) has **not** been measured. `orca worktree
 rm --force` cleans up both the git entry and the directory — no `rm -rf`.
