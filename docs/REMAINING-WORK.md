@@ -202,7 +202,7 @@ satisfied: `frontends/fcitx5/test/testmodeswitch.cpp` was added and ctest
 | 4 | Longer silence timeout (partial results) | ✅ Done | `EXTRA_PARTIAL_RESULTS=true`, 1.5s/3s silence |
 | 5 | Mic button visual state (idle/listening/error) | ✅ Done | `LayoutPicker.setMicState(MicState)` |
 | 6 | IME switch button in picker | ✅ Done | Shows system `showInputMethodPicker()` |
-| 7 | Configurable key bindings | 📋 Planned | Persist user preferences for triggers |
+| 7 | Configurable key bindings | ✅ Done 2026-10-11 | `KeyBinding.kt` + the key settings window. Stored as `v1:<keyCode>:<modifiers>` in `hunmin_keys`; the four triggers are read by `HunminInputMethodService.onKeyDown`. Measured by tier E2's settings-window section: a key captured in the window is persisted, displayed back, and fires in the running IME. GitHub issue #12. |
 | 8 | Auto Hangul/English detection engine integration | 🔒 Blocked on B4 | Assignment still open (B4). The ON/OFF default was ruled 2026-10-11: OFF until 0.3, feature enable-able only when its separately-distributed data is present — `wiki/decisions/2026-10-11-auto-switch-off-by-default.md` |
 
 **Evidence that would change this:** if B1 is answered quickly, §2 becomes the
@@ -427,7 +427,9 @@ W6-CLOSED | grep | tools/android-e2e.sh:input tap.*MICX.*MICY | present | tier E
 W6-CLOSED | grep | tests/manual-checklists/tier-e3-bt-keyboard.md:On emulator \(tier E2\) | present | manual checklist now notes E2 coverage
 N2-CLOSED | grep | .github/workflows/ci.yml:nightly | present | nightly fuzz job added 2026-10-10
 N2-CLOSED | grep | .github/workflows/ci.yml:fuzz | present | fuzz job with LeakSanitizer added 2026-10-10
-N5-CLOSED | path-present | frontends/android/app/src/androidTest | present | Espresso assertions added 2026-10-10
+N5-CLOSED | path-present | frontends/android/app/src/androidTest | present | Espresso assertions added 2026-10-10 — **but they do not compile**; see the assertion below and issue #12
+KEYBINDINGS | grep | frontends/android/app/src/main/java/org/hunmin/ime/KeyBinding.kt:object KeyBinding | present | configurable key bindings, voice stage 7, 2026-10-11
+KEYBINDINGS | grep | tools/android-e2e.sh:the captured chord was persisted | present | tier E2 drives the settings window on the emulator
 N6-CLOSED | path-present | CONTRIBUTING.md | present | external-contributor docs added 2026-10-10
 N6-CLOSED | path-present | debian/control | present | Debian packaging exists
 N6-CLOSED | path-present | debian/hunmin.postinst | present | Debian postinst exists

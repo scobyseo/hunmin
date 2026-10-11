@@ -252,3 +252,20 @@
   never-dispatched Task from the earlier session are reported in
   `docs/ORCHESTRATION.md` §5 and not reset.
 - `wiki/index.md` lists the page; total pages 22.
+## [2026-10-11] create | Key settings window measured and fixed; N5's tests found never compiled
+
+- **New measurement page:** `raw/measurements/2026-10-11-key-settings-window.md` — three
+  broken layers (gear button off-screen at 1140 px on a 1080 px screen; the window could
+  not receive a key because hardware keys are dispatched to the IME window while an IME
+  is current; the save wrote a key nothing read), the two platform facts that shaped the
+  harness (`input keyevent` has no `--meta`; `OverlayActivity` is correctly not exported),
+  and the numeric binding format with the reason.
+- **New durable artefacts:** `frontends/android/app/src/main/java/org/hunmin/ime/KeyBinding.kt`
+  and a tier-E2 section in `tools/android-e2e.sh` that drives the real window on the
+  emulator and cleans up after itself.
+- **Consequential, not wiki actions:** `docs/REMAINING-WORK.md` voice stage 7 (Planned →
+  Done) and two new §7.5 assertion rows that the tree can contradict.
+- **A finding, not a verdict:** N5's `frontends/android/app/src/androidTest/` does not
+  compile and no tier builds it; its board row asserts only that the directory is present.
+  Filed as its own issue; scope is the maintainer's.
+- `wiki/index.md` lists the page; total pages 23.
