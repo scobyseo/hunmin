@@ -186,6 +186,94 @@ class KeyBindingTest {
         assertTrue(KeyBinding.matches(KeyCombo(KeyEvent.KEYCODE_ALT_RIGHT).encode(), KeyEvent.KEYCODE_ALT_RIGHT, 0))
     }
 
+    // --- conflicting bindings -------------------------------------------------
+
+    @Test
+    fun `no conflict when the chord is free`() {
+        val store = MapStore()
+        assertNull(KeyBindings.conflict(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_F9)))
+    }
+
+    @Test
+    fun `an action never conflicts with itself`() {
+        val store = MapStore()
+        KeyBindings.set(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_F9))
+        assertNull(KeyBindings.conflict(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_F9)))
+    }
+
+    @Test
+    fun `a chord another action already owns is reported`() {
+        // 한/영 owns F9 now, and 한자 is tested after it, so 한자 would never fire.
+        val store = MapStore()
+        KeyBindings.set(store, KeyAction.HANGUL_ENG, KeyCombo(KeyEvent.KEYCODE_F9))
+        assertEquals(
+            KeyAction.HANGUL_ENG,
+            KeyBindings.conflict(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_F9)),
+        )
+    }
+
+    @Test
+    fun `a chord another action's DEFAULT owns is reported`() {
+        // Nothing stored: 한자's default is Left Alt + X, which 한/영 is tested
+        // before, so binding 한/영 to it would break 한자 silently.
+        val store = MapStore()
+        assertEquals(
+            KeyAction.HANJA,
+            KeyBindings.conflict(store, KeyAction.HANGUL_ENG,
+                KeyCombo(KeyEvent.KEYCODE_X, KeyBinding.META_ALT_LEFT)),
+        )
+    }
+
+    @Test
+    fun `the conflict is reported whichever side binds second`() {
+        // Earlier action bound second: the new binding is the one that is dead.
+        val store = MapStore()
+        KeyBindings.set(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_F9))
+        assertEquals(
+            KeyAction.HANJA,
+            KeyBindings.conflict(store, KeyAction.HANGUL_ENG, KeyCombo(KeyEvent.KEYCODE_F9)),
+        )
+        assertTrue("한/영 is tested first, so it is the one that survives",
+            KeyAction.HANGUL_ENG.precedence < KeyAction.HANJA.precedence)
+    }
+
+    @Test
+    fun `a platform alternate counts as owned`() {
+        // Bare Right Alt is 한/영's hardware convention; binding 한자 to it really
+        // does lose, because 한/영 is tested first.
+        val store = MapStore()
+        assertEquals(
+            KeyAction.HANGUL_ENG,
+            KeyBindings.conflict(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_ALT_RIGHT)),
+        )
+    }
+
+    @Test
+    fun `the reported winner is the one the service tests first`() {
+        // If the service's order and the warning's order disagree, the warning is
+        // a lie. This is what ties them together.
+        assertEquals(
+            listOf(KeyAction.HANGUL_ENG, KeyAction.VOICE, KeyAction.AUTO_TOGGLE, KeyAction.HANJA),
+            KeyAction.byPrecedence(),
+        )
+    }
+
+    @Test
+    fun `both bindings are stored even when they clash`() {
+        // Rebinding is not a lockout: the user asked to be warned, not blocked.
+        val store = MapStore()
+        KeyBindings.set(store, KeyAction.HANGUL_ENG, KeyCombo(KeyEvent.KEYCODE_F9))
+        assertEquals(
+            KeyAction.HANGUL_ENG,
+            KeyBindings.conflict(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_F9)),
+        )
+        KeyBindings.set(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_F9))
+        assertEquals(KeyCombo(KeyEvent.KEYCODE_F9), KeyBindings.stored(store, KeyAction.HANJA))
+        assertEquals(KeyCombo(KeyEvent.KEYCODE_F9), KeyBindings.stored(store, KeyAction.HANGUL_ENG))
+        // ...and 한/영 keeps the chord, because it is tested first.
+        assertTrue(KeyBindings.matches(store, KeyAction.HANGUL_ENG, KeyEvent.KEYCODE_F9, 0))
+    }
+
     @Test
     fun `modifier keys are recognised so a chord is not captured as its modifier`() {
         // Holding Left Alt delivers KEYCODE_ALT_LEFT first; capturing that would

@@ -224,34 +224,22 @@ class HunminInputMethodService : InputMethodService() {
             return true
         }
 
-        // The four configurable triggers. Each carries its own defaults — the
-        // chords this accepted before the settings window could store anything —
-        // plus, for 한/영 and 한자, the platform alternates (bare Right Alt,
-        // KEYCODE_LANGUAGE_SWITCH, the Samsung keyCode 218, Shift+Right Alt).
-        // Those survive a rebinding: they are hardware conventions, not user
-        // preferences, and a keyboard whose physical 한/영 key stopped working
-        // because someone moved 한/영 to F9 would be broken. See KeyAction.
-        if (fires(KeyAction.HANGUL_ENG, keyCode, event.metaState)) {
-            Log.i(TAG, "Hangul/English toggle triggered by keyCode=$keyCode")
-            toggleHangulEnglish()
-            return true
-        }
-
-        // Voice input trigger.
-        if (fires(KeyAction.VOICE, keyCode, event.metaState)) {
-            startVoiceInput()
-            return true
-        }
-
-        // Hangul/English auto-toggle on/off.
-        if (fires(KeyAction.AUTO_TOGGLE, keyCode, event.metaState)) {
-            toggleAutoHangulEnglish()
-            return true
-        }
-
-        // Hanja window.
-        if (fires(KeyAction.HANJA, keyCode, event.metaState)) {
-            openHanjaWindow()
+        // The four configurable triggers, in KeyAction's declared precedence
+        // order. It is a loop, not four `if`s, because the order is also what the
+        // conflict warning reports: if two actions end up sharing a chord, the
+        // first one here is the one that keeps working, and saying otherwise
+        // would be a lie told by two files that disagree.
+        for (action in KeyAction.byPrecedence()) {
+            if (!fires(action, keyCode, event.metaState)) continue
+            when (action) {
+                KeyAction.HANGUL_ENG -> {
+                    Log.i(TAG, "Hangul/English toggle triggered by keyCode=$keyCode")
+                    toggleHangulEnglish()
+                }
+                KeyAction.VOICE -> startVoiceInput()
+                KeyAction.AUTO_TOGGLE -> toggleAutoHangulEnglish()
+                KeyAction.HANJA -> openHanjaWindow()
+            }
             return true
         }
 

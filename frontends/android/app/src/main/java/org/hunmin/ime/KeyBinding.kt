@@ -206,42 +206,70 @@ enum class KeyAction(
     val prefKey: String,
     val label: String,
     val defaults: List<KeyCombo>,
+    /**
+     * Which trigger the service tests first.
+     *
+     * This lives here rather than as the order of four `if`s in the service,
+     * because two things need it and neither may guess: the service, which must
+     * test in this order, and the conflict warning, which must say honestly which
+     * of two actions sharing a chord will actually fire. If the two orders ever
+     * disagreed, the warning would be a lie told by code that looks like it knows.
+     */
+    val precedence: Int,
+    /**
+     * Android and hardware conventions that apply whatever the binding says —
+     * bare Right Alt, `KEYCODE_LANGUAGE_SWITCH`, the Samsung 한/영 keycode 218.
+     * A user rebinding 한/영 must not end up with a keyboard whose physical 한/영
+     * key does nothing.
+     */
     val platformAlternates: List<KeyCombo> = emptyList(),
 ) {
     HANGUL_ENG(
-        "hangul_eng",
-        "한/영 전환",
-        listOf(KeyCombo(KeyEvent.KEYCODE_Z, KeyBinding.META_ALT_LEFT)),
-        // HunminInputMethodService.kt: bare Right Alt, LANGUAGE_SWITCH, Samsung 218.
-        listOf(
+        prefKey = "hangul_eng",
+        label = "한/영 전환",
+        precedence = 0,
+        defaults = listOf(KeyCombo(KeyEvent.KEYCODE_Z, KeyBinding.META_ALT_LEFT)),
+        platformAlternates = listOf(
             KeyCombo(KeyEvent.KEYCODE_ALT_RIGHT),
             KeyCombo(KeyEvent.KEYCODE_LANGUAGE_SWITCH),
             KeyCombo(218),
         ),
     ),
-    HANJA(
-        "hanja",
-        "한자 입력",
-        listOf(KeyCombo(KeyEvent.KEYCODE_X, KeyBinding.META_ALT_LEFT)),
-        // HunminInputMethodService.kt: Shift+Right Alt, Shift+LANGUAGE_SWITCH.
-        listOf(
-            KeyCombo(KeyEvent.KEYCODE_ALT_RIGHT, KeyBinding.META_SHIFT),
-            KeyCombo(KeyEvent.KEYCODE_LANGUAGE_SWITCH, KeyBinding.META_SHIFT),
-        ),
-    ),
     VOICE(
-        "voice",
-        "음성 입력",
-        listOf(
+        prefKey = "voice",
+        label = "음성 입력",
+        precedence = 1,
+        // Both Alt sides, which is what the service accepted before the window
+        // could store anything. The old window displayed only the left one and
+        // the voice table documents the right one; narrowing it here would be a
+        // behaviour change smuggled in as a refactor.
+        defaults = listOf(
             KeyCombo(KeyEvent.KEYCODE_V, KeyBinding.META_ALT_LEFT),
             KeyCombo(KeyEvent.KEYCODE_V, KeyBinding.META_ALT_RIGHT),
         ),
     ),
     AUTO_TOGGLE(
-        "auto_toggle",
-        "자동 한/영 토글",
-        listOf(KeyCombo(KeyEvent.KEYCODE_ENTER, KeyBinding.META_ALT_RIGHT)),
+        prefKey = "auto_toggle",
+        label = "자동 한/영 토글",
+        precedence = 2,
+        defaults = listOf(KeyCombo(KeyEvent.KEYCODE_ENTER, KeyBinding.META_ALT_RIGHT)),
     ),
+    HANJA(
+        prefKey = "hanja",
+        label = "한자 입력",
+        precedence = 3,
+        defaults = listOf(KeyCombo(KeyEvent.KEYCODE_X, KeyBinding.META_ALT_LEFT)),
+        platformAlternates = listOf(
+            KeyCombo(KeyEvent.KEYCODE_ALT_RIGHT, KeyBinding.META_SHIFT),
+            KeyCombo(KeyEvent.KEYCODE_LANGUAGE_SWITCH, KeyBinding.META_SHIFT),
+        ),
+    ),
+    ;
+
+    companion object {
+        /** The order `onKeyDown` tests the actions in; the first match wins. */
+        fun byPrecedence(): List<KeyAction> = values().sortedBy { it.precedence }
+    }
 }
 
 /**
@@ -283,6 +311,30 @@ object KeyBindings {
     fun set(store: KeyBindingStore, action: KeyAction, combo: KeyCombo) {
         store.write(action.prefKey, combo.encode())
     }
+
+    /**
+     * Another action that already claims [combo], whichever of the two wins.
+     *
+     * Two actions can legitimately end up with the same chord — the window
+     * allows it on purpose, rebinding is not a lockout — but the service tests in
+     * precedence order, so exactly one of them keeps working and the other goes
+     * quiet with no message. Naming the other action is what lets the window say
+     * which one it was.
+     *
+     * The direction matters and is not symmetric. Binding a *later* action to a
+     * chord an *earlier* one owns makes the new binding dead; binding an *earlier*
+     * action to a chord a later one owns kills the existing one instead. Both are
+     * conflicts and the caller has to know which side is which, so the winner is
+     * `min(precedence)` of the pair and the caller compares.
+     *
+     * Platform alternates count: binding 한자 to a bare Right Alt really does
+     * conflict, because 한/영 owns that chord as a hardware convention.
+     */
+    fun conflict(store: KeyBindingStore, action: KeyAction, combo: KeyCombo): KeyAction? =
+        KeyAction.byPrecedence().firstOrNull { other ->
+            other != action &&
+                (combos(store, other) + other.platformAlternates).any { it == combo }
+        }
 
     /**
      * Does this key event fire [action]?

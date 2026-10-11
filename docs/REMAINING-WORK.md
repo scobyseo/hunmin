@@ -439,7 +439,7 @@ SETTINGS-GEAR-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime
 SPACE-COMPOSITION-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:KEYCODE_SPACE | present | space during composition flushes + forwards
 TOGGLE-FLUSH-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:flush | present | hangul/english toggle flushes composition first
 OVERLAY-LIFECYCLE-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:onPause | present | overlay activity lifecycle fixed
-ALT-KEY-218-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/HunminInputMethodService.kt:218 | present | alt key 218 (Samsung 한/영) support added
+ALT-KEY-218-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/KeyBinding.kt:218 | present | the Samsung 한/영 keycode is handled as a 한/영 platform alternate; moved out of HunminInputMethodService.kt on 2026-10-11 when the four triggers became KeyAction (issue #12), which is what made this assertion fail and point at the move
 SETTINGS-CRASH-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:AlertDialog.Builder | present | settings dialog crash fixed (default theme)
 R8-SHRINKER | path-present | frontends/android/app/proguard-rules.pro | present | the R8 rules are written
 R8-SHRINKER | grep | frontends/android/app/build.gradle.kts:isMinifyEnabled = true | present | shrinker enabled

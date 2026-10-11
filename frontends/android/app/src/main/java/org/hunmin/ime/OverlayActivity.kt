@@ -262,8 +262,27 @@ class OverlayActivity : AppCompatActivity() {
         Log.d(TAG, "captured ${action.prefKey} = ${combo.keyCode}/${combo.modifiers}")
         captureWindow?.dismiss()
         captureWindow = null
-        KeyBindings.set(KeyBindings.from(this), action, combo)
-        Toast.makeText(this, "${action.label}: ${describe(combo)}", Toast.LENGTH_SHORT).show()
+        val store = KeyBindings.from(this)
+        // Warn BEFORE writing, against the state that is in force right now —
+        // otherwise a chord already claimed by another action reads as "no
+        // conflict" because this action's own new row is what is being compared.
+        val clash = KeyBindings.conflict(store, action, combo)
+        KeyBindings.set(store, action, combo)
+        if (clash != null) {
+            // The binding is stored anyway — a user who wants the same key on two
+            // actions gets both — but which of the two actually fires is decided
+            // by precedence, and saying so is the whole point of the warning. The
+            // loser is named, because "이미 사용 중" without that would be a
+            // warning the reader cannot act on.
+            val text = if (clash.precedence < action.precedence) {
+                "${clash.label} 가 먼저 처리됩니다 — 방금 설정한 ${action.label} 는 동작하지 않습니다"
+            } else {
+                "${clash.label} 는 동작하지 않게 됩니다 — 방금 설정한 ${action.label} 가 먼저 처리됩니다"
+            }
+            Toast.makeText(this, "$text\n($combo)", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(this, "${action.label}: ${describe(combo)}", Toast.LENGTH_SHORT).show()
+        }
         // Back to the list rather than finish(): one binding per visit made the
         // window useless for the second key, and the new value has to be visible.
         dialog?.dismiss()

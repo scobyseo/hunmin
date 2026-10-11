@@ -82,6 +82,12 @@ dump_diag() {
 echo "installing $APK"
 "$ADB" install -r -g "$APK" >/dev/null || fail "adb install failed"
 
+# Any key binding stored by an earlier run must not survive this one. HERE and
+# not in the section below, because SharedPreferences is cached per process:
+# deleting the file under a running app leaves the app reading the old values and
+# writing them back, which looks exactly like "the settings did not save".
+"$ADB" shell run-as "$PKG" rm -f "shared_prefs/hunmin_keys.xml" >/dev/null 2>&1 || true
+
 # An IME is unusable until the platform has it enabled AND selected. Skipping
 # this step is the most confusing possible failure mode: the app installs, the
 # service never starts, and every keystroke silently goes to the previous IME.
@@ -579,10 +585,6 @@ fi
 
 KEY_PREFS="shared_prefs/hunmin_keys.xml"
 
-# Any binding stored by an earlier run would make the defaults below a lie, and
-# would make this section pass for the wrong reason.
-"$ADB" shell run-as "$PKG" rm -f "$KEY_PREFS" >/dev/null 2>&1 || true
-
 # `--windows`, because the thing being tapped is often in the IME's own window
 # rather than the app's -- the same reason find_mic above needs it.
 dump_ui() {  # dump_ui <remote-path> -> the dump on stdout
@@ -613,21 +615,29 @@ tap_node() {  # tap_node <text>
 # inside the app, and exporting it to make a test reachable would be a security
 # regression bought for a test. The gear button is the same route.
 GEAR_DESC="설정"   # res/values/strings.xml settings_content_description
-GEAR_BOUNDS="$(dump_ui /sdcard/gear.xml | tr '>' '\n' \
-  | grep -F "content-desc=\"$GEAR_DESC\"" \
-  | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
-if [ -z "$GEAR_BOUNDS" ]; then
-  restore_surface || true
-  sleep 1
-  GEAR_BOUNDS="$(dump_ui /sdcard/gear.xml | tr '>' '\n' \
+
+open_settings() {  # put the key settings window on screen, the way a user does
+  local bounds
+  bounds="$(dump_ui /sdcard/gear.xml | tr '>' '\n' \
     | grep -F "content-desc=\"$GEAR_DESC\"" \
     | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
-fi
-[ -n "$GEAR_BOUNDS" ] || fail "no settings button (content-desc '$GEAR_DESC') in the IME view"
-set -- $(parse_bounds "$GEAR_BOUNDS")
-[ $# -eq 4 ] || fail "cannot parse the settings button bounds '$GEAR_BOUNDS'"
-"$ADB" shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )) >/dev/null 2>&1
-sleep 2
+  if [ -z "$bounds" ]; then
+    # The strip belongs to the IME window; it is only in the dump while the IME
+    # is showing, so put a focused editor back first and look again.
+    restore_surface || true
+    sleep 1
+    bounds="$(dump_ui /sdcard/gear.xml | tr '>' '\n' \
+      | grep -F "content-desc=\"$GEAR_DESC\"" \
+      | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+  fi
+  [ -n "$bounds" ] || fail "no settings button (content-desc '$GEAR_DESC') in the IME view"
+  set -- $(parse_bounds "$bounds")
+  [ $# -eq 4 ] || fail "cannot parse the settings button bounds '$bounds'"
+  "$ADB" shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )) >/dev/null 2>&1
+  sleep 2
+}
+
+open_settings
 
 LIST="$(dump_ui /sdcard/keys.xml)"
 for row in '한/영 전환: ALT_LEFT+Z' '한자 입력: ALT_LEFT+X' \
@@ -636,6 +646,10 @@ for row in '한/영 전환: ALT_LEFT+Z' '한자 입력: ALT_LEFT+X' \
     || fail "the settings window does not list '$row' -- the defaults are not being shown"
 done
 echo "the window lists all four actions with their defaults"
+
+mode_is() {  # mode_is 한|영 -> 0 when the input view shows it
+  dump_ui /sdcard/mode.xml | tr '>' '\n' | grep -q "text=\"$1\""
+}
 
 # Capture 한/영 전환 = F9 (KEYCODE_F9 = 139, measured with javap on android.jar).
 tap_node '한/영 전환'
@@ -659,23 +673,45 @@ echo "the list shows 한/영 전환: F9 -- the save is readable by the code that
 
 # Now the half no unit test can cover: the IME itself must honour it. Back out
 # of the window, focus a real editor, and press the key the user just bound.
-"$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
-"$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
-sleep 1
-"$ADB" shell am start -n com.android.settings/.Settings >/dev/null 2>&1 || true
-sleep 2
-tap_node 'Search settings'
-sleep 2
-
-mode_is() {  # mode_is 한|영 -> 0 when the input view shows it
-  dump_ui /sdcard/mode.xml | tr '>' '\n' | grep -q "text=\"$1\""
-}
+# restore_surface, not "BACK twice and tap the search bar": the search field is a
+# CardView until it is tapped, and whether it is still a CardView depends on what
+# the earlier steps left behind. The helper resets and re-taps, which is what
+# makes the sequence below repeatable rather than order-dependent.
+restore_surface || fail "cannot restore the Settings search surface to press a bound key"
 
 mode_is '한' || fail "the IME is not showing 한 before the rebound key is pressed"
 "$ADB" shell input keyevent KEYCODE_F9 >/dev/null 2>&1
 sleep 2
 mode_is '영' || fail "F9 did not toggle 한/영 -- the IME is not reading the stored binding"
 echo "F9, bound through the settings window, toggles 한 -> 영 in the running IME"
+
+# Now the conflict case, which is what a user does next without thinking: bind the
+# key that is already taken. The window allows it on purpose, so what has to hold
+# is that both rows exist.
+#
+# What is NOT asserted here, on purpose: that F9 still toggles 한/영 afterwards.
+# That is the precedence rule, and tier E1 states it directly
+# (`the reported winner is the one the service tests first`). Re-driving a second
+# full editor round-trip here turned out to be order-dependent -- the IME strip's
+# own spinner popup takes the keystroke, and the run failed for a reason that had
+# nothing to do with the bindings. An assertion that fails for a reason it does
+# not name is a worse thing to leave behind than no assertion.
+#
+# Open the window first: the editor round-trip above went through
+# restore_surface, which goes HOME, so the settings activity is backgrounded and
+# its rows are not in the current dump.
+open_settings
+tap_node '한자 입력'
+sleep 1
+"$ADB" shell input keyevent KEYCODE_F9 >/dev/null 2>&1
+sleep 2
+BOTH="$("$ADB" shell run-as "$PKG" cat "$KEY_PREFS" 2>/dev/null || true)"
+printf '%s' "$BOTH" | grep -q 'name="hanja">v1:139:0<' \
+  || fail "한자 입력 = F9 was not stored alongside 한/영 전환: ${BOTH:-nothing}"
+printf '%s' "$BOTH" | grep -q 'name="hangul_eng">v1:139:0<' \
+  || fail "한/영 전환 lost its binding when 한자 입력 took the same key: ${BOTH:-nothing}"
+echo "F9 is now bound to both 한/영 전환 and 한자 입력; both rows are stored"
+"$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
 
 # Leave no trace: a stored binding would silently change every later run of this
 # tier, which is the same disease as a stale Settings search query above.
