@@ -42,9 +42,16 @@ two measurements. No engine work is on the path.
   0.3**, so the modeswitch feature and everything `REMAINING-WORK.md` §2 holds
   hostage to B1 leave the 0.1 lane. The ruling and the separate-data-package
   direction are in `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`.
-- **B4** — the 한/영 key (E5). Voice-input stage 2 (Right Alt + Enter auto-toggle)
-  is a stub in the tree; 0.1 either ships it inert or ships it working. Either is
-  shippable; silence is not.
+- ~~**B4** — the 한/영 key (E5). Voice-input stage 2 (Right Alt + Enter
+  auto-toggle) is a stub in the tree; 0.1 either ships it inert or ships it
+  working. Either is shippable; silence is not.~~ **DECIDED 2026-10-12: 0.1
+  ships it inert, by disabling the default key composition** — no default chord
+  (Right Alt + Enter is unbound; Enter reaches the editor), the service skips the
+  `AUTO_TOGGLE` action even against a stale stored binding, and the settings row
+  shows 미정 (0.3), disabled. Ruling quoted in
+  `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`.
+  The **E5 assignment itself** (single vs compound meaning) is not decided by
+  this and lands here in 0.3 as before.
 - **B9** — the R8/R3 documentation contradiction. A release must not ship two
   documents describing two architectures as one.
 
@@ -61,6 +68,15 @@ two measurements. No engine work is on the path.
 
 **Known limitation if shipped unmeasured:** voice recognition quality — no
 microphone on the AVD, nothing in the repo measures it.
+
+**Version-string convention (ruled 2026-10-12, issue #9):** the release is
+`0.1.0` everywhere — `CMakeLists.txt` and `debian/changelog` carry it bare.
+The Android `versionName` keeps its phase suffix (`0.1.0-p5`, and
+`0.1.0-p5.5` for the keymaps APK): the `-pN` label is the Android build phase
+(`docs/ENVIRONMENT.md` batch 2 — P5 the IME, P5.5 the KCM APK), not a
+different release. A user comparing an installed APK against the .deb reads
+the `0.1.0` part as the release and the `-pN` part as "built during phase N".
+The convention is restated in `wiki/decisions/2026-10-12-versionname-keeps-the-phase-suffix.md`.
 
 ## 0.2 — Windows TSF
 

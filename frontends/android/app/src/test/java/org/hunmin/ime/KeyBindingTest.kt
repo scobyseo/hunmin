@@ -211,6 +211,25 @@ class KeyBindingTest {
     }
 
     @Test
+    fun `auto toggle has no default and a stored binding is inert`() {
+        // The maintainer's ruling 2026-10-12 (issue #2): the feature is disabled
+        // by default in 0.1. The old default chord Right Alt + Enter must not
+        // fire with nothing stored -- that is the ruling's mechanism, "disable
+        // the default key composition". A stored binding (from a build where the
+        // row was live, or a stale preference) still matches here: the SERVICE
+        // skips the action, so the chord is not consumed -- pinned in the
+        // service's own dispatch, not here.
+        val store = MapStore()
+        val altRightEnter = KeyEvent.META_ALT_ON or KeyEvent.META_ALT_RIGHT_ON
+        assertTrue(KeyBindings.combos(store, KeyAction.AUTO_TOGGLE).isEmpty())
+        assertFalse("Right Alt + Enter is not the default any more", KeyBindings.matches(store, KeyAction.AUTO_TOGGLE, KeyEvent.KEYCODE_ENTER, altRightEnter))
+        assertNull(KeyBindings.stored(store, KeyAction.AUTO_TOGGLE))
+
+        KeyBindings.set(store, KeyAction.AUTO_TOGGLE, KeyCombo(KeyEvent.KEYCODE_ENTER, KeyBinding.META_ALT_RIGHT))
+        assertTrue("a stored binding still matches in the binding layer", KeyBindings.matches(store, KeyAction.AUTO_TOGGLE, KeyEvent.KEYCODE_ENTER, altRightEnter))
+    }
+
+    @Test
     fun `keycodes are the ones android jar declares`() {
         // javap -constants on android.jar API 35: KANA = 218, EISU = 212. If the
         // SDK ever renumbers them, the fixed keys would silently stop answering.

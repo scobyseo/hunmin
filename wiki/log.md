@@ -341,3 +341,45 @@
   `task/android-design-review`). The page keeps the measurement as
   evidence; its outgoing wikilinks were unlinked so no active page cites a
   retracted one.
+
+## [2026-10-12] create | Issue #9 ruled: versionName keeps the phase suffix
+
+- **New decision.** `decisions/2026-10-12-versionname-keeps-the-phase-suffix.md`:
+  the maintainer ruled, answering issue #9, that release 0.1's Android
+  `versionName` stays `0.1.0-p5` — `0.1.0` is the release (agreeing with
+  `CMakeLists.txt` and `debian/changelog`), and `-pN` is the Android
+  build-phase label (P5 the IME, P5.5 the keymaps APK; `docs/ENVIRONMENT.md`
+  batch 2). The ruling was given in the worktree session that implemented it,
+  not in a separate session record, so the issue is the surviving source.
+- **Consequential updates, not wiki actions:** `docs/MILESTONES.md` §0.1 now
+  records the convention (the issue's second verification checkbox), and
+  `README.md` §Install says which string is the release and which is the
+  phase (the issue's "keeps the phase marker" branch). No version string
+  changed — the ruling is to keep them.
+- **NOT closed by the ruling, named so it is not re-derived:** `versionCode = 1`
+  has never been incremented, and no tag or GitHub release exists yet; both
+  are release-time acts, not documentation.
+- `wiki/index.md` listed the page; total pages 26.
+
+## [2026-10-12] create | B4's 0.1 half ruled: auto toggle inert, default key composition disabled
+
+- **New decision.** `decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`:
+  the maintainer ruled the 0.1 shipping half of B4 (issue #2) — the auto
+  Hangul/English toggle is disabled by default in 0.1, and the named mechanism
+  is "disable the default key composition". In the tree: `AUTO_TOGGLE` gets no
+  default chord (Right Alt + Enter unbound; Enter reaches the editor), the
+  service dispatch skips the action so a stale stored binding cannot swallow
+  the chord, and the settings row renders disabled with badge 미정 (0.3) —
+  the R13-정정 divergence (screen advertising a chord whose action logs "not
+  yet implemented") removed. The ruling is quoted verbatim in
+  `raw/sessions/2026-10-12-b4-auto-toggle-inert-in-0-1.md`.
+- **What it does not close:** the E5 assignment itself (single vs compound),
+  B1/D1, B2 — all named on the decision page; the assignment stays a 0.3-lane
+  item per `docs/MILESTONES.md`.
+- **Consequential updates, not wiki actions:** `docs/SPEC-MODES.md` E5 (0.1
+  shipping-state bullet), `docs/REMAINING-WORK.md` B4 row, voice stage 2 and
+  stage 8, `docs/MILESTONES.md` 0.1 lane; `KeyBindingTest` pins the binding-layer
+  behaviour (no default, stored binding still matches, dispatch skip is the
+  service's).
+- `wiki/index.md` listed both pages; total pages 28.
+

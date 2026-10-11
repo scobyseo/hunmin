@@ -70,7 +70,7 @@ is a decision. These are the items an agent may measure but may not settle.
 | B1 | **The hangul judgement source** — what R8's `hangul_valid` looks up | `wiki/decisions/the-outstanding-decisions.md:20-33`, `docs/MODES-DATA.md:652` | (a) corpus top-N rejected by measurement; (b) dictionary lookup weakened because the 45.42% coverage came from a hanja-filtered subset; (c) combination test provisionally adopted, but krdict is outside the 2026-10-05 scope boundary and **no replacement source inside the boundary has been chosen**. Everything in §2 inherits this. |
 | B2 | **Pass lines for all three metrics** | `docs/MODES-METRICS.md:118-122` | *"there is no **how much** … grading is impossible."* Not a measurement; a number only the maintainer can set. |
 | B3 | **ON or OFF by default** ✅ **DECIDED 2026-10-11** | `docs/SPEC-MODES.md:555-557`, `docs/SPEC-MODES.md:701-708` | Maintainer: OFF by default until release 0.3; the feature's additional data ships separately and the feature enables only where that data is present. Ruling quoted verbatim in `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`. E5's *assignment* half remains open (see B4). |
-| B4 | **E5 — the 한/영 key** | `docs/SPEC-MODES.md:680-709`, `docs/MODES-ENGINE-RULES.md:77-81` | F9 is occupied by 전처리수식, and F9 has no `KEYCODE_F9` on Android (`docs/TESTING.md:112-114`). Needs the 날개셋 unit table. |
+| B4 | **E5 — the 한/영 key** ✅ **DECIDED 2026-10-12 (0.1 half)** | `docs/SPEC-MODES.md:680-709`, `docs/MODES-ENGINE-RULES.md:77-81` | Maintainer: **the feature is disabled by default in 0.1, by disabling the default key composition** — the AUTO_TOGGLE default chord (Right Alt + Enter) is removed, the dispatch skips the action, and the settings row shows 미정 (0.3). Ruling quoted in `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`. What remains open is the **E5 assignment itself** (single vs compound meaning), which lands in the 0.3 lane per `docs/MILESTONES.md`. The F9 constraint (occupied by 전처리수식, no `KEYCODE_F9` on Android — `docs/TESTING.md:280-281`) still applies to that future assignment. |
 | B5 | **Space emission is a frontend concern** ✅ | `wiki/log.md:111-112` | Measured 2026-10-09: engine declines space, flushes syllable; fcitx5 XIM/GTK 3/4, Android all forward the declined space. No engine change needed. |
 | B6 | **D3 — is a frequency list derived from AIHub 119 a reshaping?** | `the-outstanding-decisions.md:41-47` | Licence question. *"probably no, but it has not been settled and should not be assumed either way."* |
 | B7 | **D4 — does the wiki stay?** | `the-outstanding-decisions.md:49-60`, `status: active`, `contested: true` | Adopted *"to be re-evaluated later"*, against three named criteria. |
@@ -128,9 +128,13 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
   No device has been signed off."* Three device rows (One UI phone, One UI tablet, AOSP
   Pixel), all unchecked. A manual tier with no automation substitute; `PLAN.md`'s P5 gate
   stays open on this one line.
-- **Voice recognition quality.** Needs a microphone and Google's servers. *"Unanswerable in
-  this environment; nothing in this repo can measure it."* The AVD boots `-no-audio` and has
-  no offline ko-KR pack.
+- **Voice recognition quality.** ✅ **Measured on hardware 2026-10-12** (issue #11): the
+  tier E4 run passed once with the maintainer speaking the phrases; an unattended run is
+  not possible (person-in-loop tier — no speaker means no speech, so such runs fail
+  without measuring recognition). The record lives in
+  `tests/manual-checklists/tier-e4-voice.md`. Still not measurable *on this host* — the
+  AVD boots `-no-audio` and has no offline ko-KR pack — which is why it is a maintainer
+  session, not a ctest row.
 - **A soft keyboard.** The input view is a layout strip plus a mic, not keys. No priority has
   been assigned to it by anyone; that assignment is a maintainer call. **Assigned
   2026-10-11: it is release 0.4, goal 두벌식 + qwerty + 기호 입력 지원 — see
@@ -197,13 +201,13 @@ satisfied: `frontends/fcitx5/test/testmodeswitch.cpp` was added and ctest
 | Stage | Feature | Status | Notes |
 |---|---|---|---|
 | 1 | Voice trigger | ✅ Done | **Shift + KANA**, by the maintainer's instruction 2026-10-11 (was Right Alt + V); it is now the configurable 기본값 for 음성 입력, so it lives in `KeyAction.VOICE` rather than in `onKeyDown` |
-| 2 | Auto Hangul/English toggle on/off: Right Alt + Enter | ⚠️ Stub | Key handler added, engine integration pending (B4) |
+| 2 | Auto Hangul/English toggle on/off: Right Alt + Enter | ✅ Done 2026-10-12 — **disabled by default (inert)** | Maintainer ruling (issue #2): the feature ships inert in 0.1 by disabling the default key composition — no default chord (Right Alt + Enter is unbound, Enter reaches the editor), the service skips the `AUTO_TOGGLE` action even when a stale binding is stored, and the settings row shows 미정 (0.3), disabled. The handler stub remains for the 0.3 lane. |
 | 3 | Voice language follows keyboard mode | ✅ Done | `SpeechRecognizerRecognizer(language)` uses `ko-KR` / `en-US` |
 | 4 | Longer silence timeout (partial results) | ✅ Done | `EXTRA_PARTIAL_RESULTS=true`, 1.5s/3s silence |
 | 5 | Mic button visual state (idle/listening/error) | ✅ Done | `LayoutPicker.setMicState(VoiceState)`; the dock binds it as a green capsule (`res/drawable/toolbar_mic_active.xml`) and styles B and C as a coloured icon |
 | 6 | IME switch button in picker | ✅ Done | Shows system `showInputMethodPicker()` |
 | 7 | Configurable key bindings | ✅ Done 2026-10-11 | `KeyBinding.kt` + the key settings window. Stored as `v1:<keyCode>:<modifiers>` in `hunmin_keys`; the four triggers are read by `HunminInputMethodService.onKeyDown`. Measured by tier E2's settings-window section: a key captured in the window is persisted, displayed back, and fires in the running IME. GitHub issue #12. |
-| 8 | Auto Hangul/English detection engine integration | 🔒 Blocked on B4 | Assignment still open (B4). The ON/OFF default was ruled 2026-10-11: OFF until 0.3, feature enable-able only when its separately-distributed data is present — `wiki/decisions/2026-10-11-auto-switch-off-by-default.md` |
+| 8 | Auto Hangul/English detection engine integration | 🔒 Blocked on B1 | The 0.1 half of B4 was decided 2026-10-12: the feature ships inert in 0.1 (default key composition disabled — `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`). What remains is the engine integration itself, gated on B1 as before, and the E5 key assignment, which lands in the 0.3 lane. The ON/OFF default was ruled 2026-10-11: OFF until 0.3, feature enable-able only when its separately-distributed data is present — `wiki/decisions/2026-10-11-auto-switch-off-by-default.md` |
 
 **Evidence that would change this:** if B1 is answered quickly, §2 becomes the
 critical path and should jump ahead of everything here — P8 is the phase with no
@@ -459,6 +463,8 @@ W2-CLOSED | path-present | frontends/android/app/proguard-rules.pro | present | 
 W4-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:private var micButton | present | the mic is a field on LayoutPicker and is never re-created per state change: a ToolbarState update calls bind(), which repaints the views the current style already has, and only a style change rebuilds them. The field became nullable on 2026-10-11 (issue #12) because rebuild() clears every reference first; that is what the phone crash was — a view still parented to the detached row |
 DOCK-PAINT-CLOSED | path-absent | frontends/android/app/src/main/java/org/hunmin/ime/DockStyle.kt | absent | the dock builder (with its 2026-10-11 micKey fix, SM-S938N) is removed with the whole unreachable DockToolbar (F5, maintainer ruling 2026-10-12, issue #33). The flat strip keeps the mic-paint lesson: its micButton is a field, never re-created per state change |
 VOICE-E4-CLOSED | path-present | tools/android-voice-check.sh | present | the E4 voice check, a manual tier: the script gates our half of the voice path (key found, tap reaches it, LISTENING, the mic PAINTED while listening, return to idle, result committed, nothing died) and a person judges intelligibility. Recognition accuracy is not gated and cannot be — the transcript is the platform recogniser's and recorded audio cannot be replayed into it. Checklist: tests/manual-checklists/tier-e4-voice.md |
+VOICE-README | grep | README.md:Known limitation | present | the release-point statement issue #11 asks for: the unmeasured voice-recognition-quality limitation is stated in README §Install, not only in docs/MILESTONES.md §0.1. The measurement itself stays environment-bound (needs hardware; see §3) |
+VERSION-CONVENTION | grep | README.md:versionName. is .0\.1\.0-p5 | present | issue #9 ruled 2026-10-12: the release is 0.1.0 and the -pN suffix is the Android build phase (P5 the IME, P5.5 the keymaps APK); README §Install says which string is the release and which is the phase, docs/MILESTONES.md §0.1 records the convention. Ruled value also visible at frontends/android/app/build.gradle.kts:53 (unchanged — the ruling was to keep it). NOT closed by the ruling: versionCode = 1 was never incremented, no tag exists |
 N1-CLOSED | path-present | tools/kcm_export.py | present | the keymaps exporter; was listed open as "does not exist"
 N3-CLOSED | grep | libhunmin/src/hunmin_internal.h:HK_SEQ | present | the seq symbol tier
 N4-CLOSED | path-present | debian/hunmin.postinst | present | the deb postinst; the real filename is hunmin.postinst

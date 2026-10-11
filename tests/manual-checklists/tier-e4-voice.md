@@ -90,6 +90,11 @@ writes (default `/tmp/hunmin-voice-check-<timestamp>.txt`) to the issue.
 - Bluetooth/headset routing; the E3 checklist covers input paths, not audio paths.
 - The Hanja, mode and settings keys: tier E2 owns those.
 
-**Status: the script exists (2026-10-11); a signed-off run per device is a
-maintainer session, like E3.** Devices seen so far: SM-S938N (Android 16),
-SM-F971N (Android 17).
+**Status: measured on hardware 2026-10-12 (issue #11).** The maintainer ran
+the phrases and the run **passed once, with the maintainer speaking** — the
+intelligibility half is person-in-loop by design, and an unattended run is
+not possible: no speaker means no speech, so runs without the person fail
+without measuring recognition. This host still cannot produce that run (the
+AVD boots `-no-audio` and has no offline `ko-KR` pack), which is why the
+measurement is a maintainer session rather than a ctest row. Devices seen
+so far: SM-S938N (Android 16), SM-F971N (Android 17).
