@@ -65,6 +65,7 @@ class HunminInputMethodService : InputMethodService() {
         private const val KEY_LAYOUT_HANGUL = "layout_hangul"
         private const val KEY_LAYOUT_LATIN = "layout_latin"
         private const val KEY_TOOLBAR_STYLE = "input_view_style"
+        private const val KEY_HANGUL_MODE = "hangul_mode"
     }
 
     /** One engine per InputConnection; rebuilt on every onStartInput. */
@@ -107,6 +108,20 @@ class HunminInputMethodService : InputMethodService() {
 
     /** Latin layout engine for English mode. */
     private var latinEngine: HunminEngine? = null
+
+    /**
+     * Where the Hangul/English mode choice is remembered across process
+     * restarts. `by lazy` for the same reason as [keyBindings]: the service
+     * context is not usable before `onCreate`, and `onStartInput` is the
+     * first place that reads it back.
+     */
+    private val modeStore: HangulModeStore by lazy {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        HangulModeStore(
+            read = { key, default -> prefs.getBoolean(key, default) },
+            write = { key, value -> prefs.edit().putBoolean(key, value).apply() },
+        )
+    }
 
     /**
      * The configurable key bindings, read from the window that writes them.
@@ -196,8 +211,10 @@ class HunminInputMethodService : InputMethodService() {
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
-        // Start in Hangul mode by default
-        isHangulMode = true
+        // Restore the last-used Hangul/English mode from prefs (Android's
+        // InputMethodService is killed and recreated often), falling back
+        // to Hangul when there is no stored value (first install).
+        isHangulMode = modeStore.recall(KEY_HANGUL_MODE)
         currentInputConnection?.let { engine?.updatePreedit(it) }
         // The view is created once per IME window but the engine per editor, so
         // the picker's list and selection are refreshed here rather than trusted
@@ -357,6 +374,7 @@ class HunminInputMethodService : InputMethodService() {
     /** Toggle between Hangul and English (Latin) mode. */
     private fun toggleHangulEnglish() {
         isHangulMode = !isHangulMode
+        modeStore.remember(KEY_HANGUL_MODE, isHangulMode)
         val target = currentInputConnection ?: return
 
         if (isHangulMode) {
