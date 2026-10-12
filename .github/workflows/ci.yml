@@ -14,6 +14,17 @@ jobs:
       # the addon and tier C's trace emitter both need; without it the fcitx5
       # frontend is silently dropped and 104 conformance tests never register,
       # which reads as "green" while testing nothing.
+      #
+      # MEASURED 2026-10-13 (issue #8): every CI run since the initial public
+      # commit failed at configure, not on a workflow-file error -- the "Invalid
+      # workflow file" reading was a symptom and quoting `if: failure()` alone
+      # did NOT fix it. Ubuntu 24.04's fcitx5-modules-dev is 5.1.7; the addon
+      # calls add_fcitx5_addon, which ships only in Fcitx5Macros.cmake from
+      # fcitx5 >= 5.1.19, so cmake died at frontends/fcitx5/src/CMakeLists.txt:1
+      # ("Unknown CMake command"). The addon now defines that macro locally when
+      # the distro's 5.1.7 lacks it (frontends/fcitx5/CMakeLists.txt) -- a
+      # build-tooling fallback, since the C++ uses only long-stable 4.x APIs --
+      # so this job installs the distro package and needs no source build.
       - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev python3 fcitx5-modules-dev
       - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
       - run: cmake --build build

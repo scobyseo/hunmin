@@ -62,7 +62,11 @@ install(TARGETS hunmin hunmin-sim
 # (tier D1; skipped when Fcitx5Core is unavailable)
 option(HUNMIN_FCITX5 "Build the fcitx5 addon" ON)
 if(HUNMIN_FCITX5)
-  find_package(Fcitx5Core 5.1.13 QUIET)
+  # 5.1.7 = Ubuntu 24.04 LTS's fcitx5 (issue #8, 2026-10-13). The addon's
+  # build-tooling gap on 5.1.7 (add_fcitx5_addon missing) is handled by a local
+  # fallback in frontends/fcitx5/CMakeLists.txt, so the version floor here is
+  # the API floor, not the packaging floor.
+  find_package(Fcitx5Core 5.1.7 QUIET)
   find_package(Fcitx5Module QUIET COMPONENTS TestFrontend)
   if(Fcitx5Core_FOUND)
     add_subdirectory(frontends/fcitx5)
