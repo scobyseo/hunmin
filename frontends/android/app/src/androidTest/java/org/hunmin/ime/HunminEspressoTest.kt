@@ -31,7 +31,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.ActivityTestRule
 import org.hamcrest.CoreMatchers.is
 import org.hamcrest.CoreMatchers.not
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -202,6 +204,39 @@ class HunminEspressoTest {
         // IME should remain visible but change mode (no candidates, no composing)
         onView(withId(R.id.passwordInput))
             .check(matches(isFocused()))
+    }
+
+    // ------------------------------------------------------------ Hangul/English mode persistence
+
+    @Test
+    fun `mode choice persists across a real SharedPreferences restart`() {
+        // Tier E1 proves the store's contract against a plain map; this proves
+        // the same contract holds on the device's real SharedPreferences — the
+        // half E1 cannot see. A store wired to the actual prefs, toggled to
+        // English and recalled by a "restarted" store, must still say English.
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs = ctx.getSharedPreferences("hunmin", android.content.Context.MODE_PRIVATE)
+
+        fun wired() = HangulModeStore(
+            read = { k, d -> prefs.getBoolean(k, d) },
+            write = { k, v -> prefs.edit().putBoolean(k, v).apply() },
+        )
+
+        prefs.edit().remove("hangul_mode").apply()   // first-install state
+        val first = wired()
+        assertTrue("a wiped prefs must recall Hangul", first.recall("hangul_mode"))
+
+        first.remember("hangul_mode", false)         // switch to English
+        // apply() is async; commit() blocks until it is on disk.
+        assertTrue("the write must reach disk", prefs.edit().putBoolean("hangul_mode", false).commit())
+
+        val restarted = wired()                      // a new process
+        assertFalse("English must survive a restart on real prefs",
+            restarted.recall("hangul_mode"))
+
+        // Leave the prefs as a first-install device would have it, so this
+        // test does not order-depend on the mode the next test starts in.
+        prefs.edit().remove("hangul_mode").apply()
     }
 
     // ------------------------------------------------------------ Helpers
