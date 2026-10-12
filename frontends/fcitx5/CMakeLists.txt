@@ -2,18 +2,20 @@
 # Built from the root project when Fcitx5Core is available; the D1
 # test links the fcitx5 TestFrontend module (docs/TESTING.md).
 #
-# 5.1.7 is the fcitx5 in Ubuntu 24.04 LTS. It was 5.1.13 until 2026-10-13
-# (issue #8), which made "supports Ubuntu 24.04" false in two independent ways:
-#   1. build-time: add_fcitx5_addon lives in Fcitx5Macros.cmake, packaged only
-#      from 5.1.19, so configure died on 5.1.7. Fixed by the local macro
-#      fallback below.
-#   2. run-time: this value is written into hunmin-addon.conf's
-#      [Addon/Dependencies] core:<version>, which is fcitx5's load-time gate.
-#      Set above the running fcitx5, it refuses to load the addon at all. A
-#      .deb that installs cleanly but never activates is not support.
-# The addon's C++ uses only long-stable 4.x/5.0 APIs, so 5.1.7 is the honest
-# floor, not a guess. Raise it only against a measured API need.
-set(REQUIRED_FCITX_VERSION 5.1.7)
+# 5.1.13 is the REAL API floor, measured from upstream tags 2026-10-13
+# (issue #8): FCITX_ADDON_FACTORY_V2 (engine.cpp:619) first appears in 5.1.13,
+# and setComment (engine.cpp:461) in 5.1.9. Ubuntu 24.04 LTS ships 5.1.7, which
+# has NEITHER, so the addon cannot compile against the distro package -- this is
+# a genuine API gap, not just the build-macro gap. "Supports Ubuntu 24.04"
+# therefore means: CI builds fcitx5 from source and the .deb requires >= 5.1.13;
+# a 24.04 user needs that newer fcitx5 too (the source build is the install
+# path), not the distro's 5.1.7.
+#
+# Do not lower this below 5.1.13 without removing the FCITX_ADDON_FACTORY_V2
+# usage. An earlier attempt set it to 5.1.7 on the theory that only the cmake
+# macro was missing; CI's compile error (setComment / FCITX_ADDON_FACTORY_V2
+# undeclared) disproved that and the value was restored.
+set(REQUIRED_FCITX_VERSION 5.1.13)
 
 # root project is C-only; the addon and its test are C++
 enable_language(CXX)

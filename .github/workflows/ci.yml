@@ -37,17 +37,39 @@ jobs:
       # frontend is silently dropped and 104 conformance tests never register,
       # which reads as "green" while testing nothing.
       #
-      # MEASURED 2026-10-13 (issue #8): every CI run since the initial public
-      # commit failed at configure, not on a workflow-file error -- the "Invalid
-      # workflow file" reading was a symptom and quoting `if: failure()` alone
-      # did NOT fix it. Ubuntu 24.04's fcitx5-modules-dev is 5.1.7; the addon
-      # calls add_fcitx5_addon, which ships only in Fcitx5Macros.cmake from
-      # fcitx5 >= 5.1.19, so cmake died at frontends/fcitx5/src/CMakeLists.txt:1
-      # ("Unknown CMake command"). The addon now defines that macro locally when
-      # the distro's 5.1.7 lacks it (frontends/fcitx5/CMakeLists.txt) -- a
-      # build-tooling fallback, since the C++ uses only long-stable 4.x APIs --
-      # so this job installs the distro package and needs no source build.
-      - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev python3 fcitx5-modules-dev
+      # MEASURED 2026-10-13 (issue #8), two separate findings:
+      #
+      # 1. The workflow file itself was invalid -- the android job carried a
+      #    job-level `paths:` (a trigger filter, not a job property), so GitHub
+      #    rejected the whole file and NO job ever ran on any commit. Fixed by
+      #    moving the filter under on.push. (The `if: failure()` quoting fixed
+      #    alongside was a real but separate latent YAML-1.1 boolean bug.)
+      #
+      # 2. The addon needs fcitx5 >= 5.1.13 (FCITX_ADDON_FACTORY_V2 at
+      #    engine.cpp:619, setComment at :461 -- both measured present from 5.1.13
+      #    upstream). Ubuntu 24.04's fcitx5-modules-dev is 5.1.7, below the floor,
+      #    so it neither configures nor compiles. This job therefore builds
+      #    fcitx5 5.1.13 from source -- the same route the host took
+      #    (docs/ENVIRONMENT.md) -- because there is no distro package for it.
+      #    The shipped .deb requires >= 5.1.13 too, so a 24.04 user installs this
+      #    source-built fcitx5, not the distro's.
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
+            python3 extra-cmake-modules gettext \
+            libxkbcommon-dev libxcb1-dev libxcb-keysyms1-dev libxcb-xkb-dev \
+            libwayland-dev wayland-protocols libxdo-dev libjson-c-dev \
+            libevent-dev libfmt-dev libuv1-dev libdbus-1-dev libglib2.0-dev
+      - name: Build fcitx5 5.1.13 from source (distro ships 5.1.7, below the floor)
+        run: |
+          git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
+          cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
+            -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
+            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=OFF -DENABLE_ENCHANT=OFF \
+            > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
+          sudo cmake --build /tmp/fcitx5/build --target install
       - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
       - run: cmake --build build
       - run: ctest --test-dir build --output-on-failure
@@ -182,6 +204,11 @@ jobs:
   # (debian/rules override_dh_auto_test) rather than skipping it, because the
   # issue's own verification says a packaging job must not skip the suite.
   #
+  # It builds fcitx5 5.1.13 from source first, same as the linux job: the .deb
+  # builds the addon, which needs >= 5.1.13 (FCITX_ADDON_FACTORY_V2 /
+  # setComment), and Ubuntu 24.04's distro 5.1.7 is below the floor. Without
+  # this, debian/rules fails at the addon configure/compile.
+  #
   # The failure mode to expect first: data-selfcheck is red in a fresh checkout
   # without the gitignored krdict dump (REMAINING-WORK.md §0 names it). That is
   # a defect in the test's skip/fail behaviour on a missing input, recorded
@@ -193,7 +220,23 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev python3 fcitx5-modules-dev debhelper fakeroot
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
+            python3 debhelper fakeroot extra-cmake-modules gettext \
+            libxkbcommon-dev libxcb1-dev libxcb-keysyms1-dev libxcb-xkb-dev \
+            libwayland-dev wayland-protocols libxdo-dev libjson-c-dev \
+            libevent-dev libfmt-dev libuv1-dev libdbus-1-dev libglib2.0-dev
+      - name: Build fcitx5 5.1.13 from source (the .deb's addon needs >= 5.1.13)
+        run: |
+          git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
+          cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
+            -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
+            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=OFF -DENABLE_ENCHANT=OFF \
+            > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
+          sudo cmake --build /tmp/fcitx5/build --target install
       - name: Build the .deb
         # -us -uc unsigned: a key is not required to build the artefact, and
         # requiring one would make it unbuildable on a machine without one --
