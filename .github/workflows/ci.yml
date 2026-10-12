@@ -241,6 +241,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
+            build-essential \
             python3 debhelper fakeroot extra-cmake-modules gettext \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
@@ -273,7 +274,15 @@ jobs:
         # requiring one would make it unbuildable on a machine without one --
         # the exact "only one machine can produce the release" property the
         # issue is about. -b binary-only, same path as the local run.
-        run: dpkg-buildpackage -us -uc -b
+        #
+        # -d (ignore build-deps): fcitx5 was built from source into /usr above
+        # (no .deb package), so dpkg-checkbuilddeps sees no libfcitx5core-dev
+        # package and would abort with "Unmet build dependencies" -- measured on
+        # CI 2026-10-13. The dependency is genuinely satisfied (the headers and
+        # cmake configs are installed); -d tells dpkg to trust the source build
+        # rather than package metadata. Safe here because the source-build step
+        # above is the one that provides it.
+        run: dpkg-buildpackage -us -uc -b -d
       - name: What the package contains
         run: |
           deb="$(ls ../hunmin_*_*.deb)"
