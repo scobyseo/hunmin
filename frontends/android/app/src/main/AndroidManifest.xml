@@ -88,6 +88,20 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!--
+          TestActivity — the Espresso tier's host editor (tier E2, issue #13).
+
+          An IME test needs a real editor with a real InputConnection, and the
+          simplest one that exists is a declared activity holding two
+          EditTexts (res/layout/activity_main.xml): a plain text field and a
+          password field, which are the two editor states the secure-field
+          negatives assert against. It is debug-only (androidTest has its own
+          manifest below) and never appears in a release APK.
+        -->
+        <activity
+            android:name=".TestActivity"
+            android:exported="false" />
+
+        <!--
           OverlayActivity — transparent Activity for showing dialogs/Toasts from IME Service.
           IME Service context cannot show dialogs/Toasts directly (no window token).
           This transparent Activity is launched with FLAG_ACTIVITY_NEW_TASK and provides
