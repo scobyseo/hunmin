@@ -67,7 +67,7 @@ jobs:
           cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
             -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
-            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=OFF -DENABLE_ENCHANT=OFF \
+            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
             > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
           sudo cmake --build /tmp/fcitx5/build --target install
       - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
@@ -234,7 +234,7 @@ jobs:
           cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
             -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
-            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=OFF -DENABLE_ENCHANT=OFF \
+            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
             > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
           sudo cmake --build /tmp/fcitx5/build --target install
       - name: Build the .deb
