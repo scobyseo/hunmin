@@ -1,6 +1,28 @@
 name: ci
 on:
   push:
+    # Path filter for the android (emulator) job only. It belongs HERE, under
+    # the trigger, not on the job -- see the note at the android job. A job-level
+    # `paths:` is not a valid job property and makes GitHub reject the whole file
+    # (issue #8, measured 2026-10-13: zero jobs on every run since the initial
+    # public commit). This gates the whole workflow on these paths, which is a
+    # coarser scope than the android job alone; the linux/deb/mingw/windows jobs
+    # would also be skipped for a paths-excluded push. A per-job path filter is
+    # not a GitHub feature, so the alternative is duplicating the filter as a
+    # job-level `if:` -- recorded here rather than done silently.
+    paths:
+      - 'frontends/android/**'
+      - 'tools/android-*.sh'
+      - 'tools/build-android.sh'
+      - 'tools/android-mutations/**'
+      - 'tools/apply-mutation.py'
+      - 'tools/android-golden-check.sh'
+      - 'tools/keymap-fixture.py'
+      - 'cmake/**'
+      - 'libhunmin/**'
+      - 'tests/golden/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/**'
   pull_request:
   schedule:
     - cron: '0 3 * * *'  # 03:00 UTC daily
@@ -42,24 +64,20 @@ jobs:
     # "only runs sometimes" is a property worth stating, because the P5 gate
     # depends on this job running at all.
     #
+    # The path filter that scopes this job lives under on.push.paths (top of
+    # file), NOT here. It was written as a job-level `paths:` until 2026-10-13
+    # (issue #8): `paths` is a trigger filter, not a job property, and a
+    # job-level `paths` makes GitHub reject the WHOLE workflow file -- which is
+    # why every CI run since the initial public commit reported "Invalid
+    # workflow file" with zero jobs. `if:` cannot reproduce it because a job's
+    # own `if` still registers the job; a bad `paths` fails at file parse. The
+    # comment listing the paths stays with the filter up there.
+    #
     # frontends/android/   the adapter, JNI shim, manifest, assets
     # tools/android-*.sh   E1/E2 harnesses
     # tools/build-android.sh, cmake/   the cross-compile
     # libhunmin/           the engine the APK packages
     # .github/workflows/   this file
-    paths:
-      - 'frontends/android/**'
-      - 'tools/android-*.sh'
-      - 'tools/build-android.sh'
-      - 'tools/android-mutations/**'
-      - 'tools/apply-mutation.py'
-      - 'tools/android-golden-check.sh'
-      - 'tools/keymap-fixture.py'
-      - 'cmake/**'
-      - 'libhunmin/**'
-      - 'tests/golden/**'
-      - 'CMakeLists.txt'
-      - '.github/workflows/**'
     # KVM is available on ubuntu runners, which is the difference between a
     # 20 s boot and a 10-minute one.
     runs-on: ubuntu-24.04
