@@ -98,6 +98,27 @@ one run each, `ctest -j16`:
 | … plus `ANDROID_NDK` and `adb`, which register tier E0 and E2 | 60 |
 | … plus `-DHUNMIN_TRACE_BUILD=ON` (all of the above) | 178 |
 
+This branch adds **one** registration, `engine-android-espresso`
+(`tools/android-espresso.sh`), and it appears only where the Android toolchain
+is present — measured 0 occurrences in a no-toolchain configure, so it is
+inside the `ANDROID_NDK` + `adb` guard with E0/E2 as intended.
+
+Re-measured 2026-10-13 in a clean `env -i`, master then this branch:
+
+| configuration | master | this branch |
+|---|---|---|
+| default (no Android toolchain) | 56 | 59 |
+| `JAVA_HOME` + `ANDROID_HOME` | 58 | 58 |
+| … plus `ANDROID_NDK` and `adb` | 62 | 63 |
+| … plus `-DHUNMIN_TRACE_BUILD=ON` | 180 | 181 |
+
+**The first row's +3 is not this change's** — `engine-android-espresso` does
+not register there at all. It is master's own drift since the table above was
+written, and it is left un-attributed here rather than claimed either way. What
+this branch owns is the last row: +1, the Espresso registration. The table's
+original numbers are kept as master measured them so the two stays of drift
+stay separable.
+
 Per-label, in the 58-test configuration. No test fails in this configuration:
 `data-selfcheck` reports **Skipped** in a fresh worktree, because the gitignored
 krdict dump is absent (`docs/REMAINING-WORK.md` §0, issue #46), so its wall
@@ -651,6 +672,59 @@ Four layers, cheap→real:
   until tapped; there is no `EditText` on the first dump.
   ⚠️ `pm clear com.android.settings` is destructive to that app's saved state.
   Fine on the disposable `hunmin-e2e` AVD, **not** on real hardware.
+- **E2 Espresso instrumentation** ✅ (2026-10-13, `ctest engine-android-espresso`,
+  `tools/android-espresso.sh`): the suite under `app/src/androidTest/`, run through
+  `am instrument` on the AVD. It is registered because of issue #13: the suite
+  existed, the board's N5 row read "present" — a fact about a *directory* — and no
+  tier ever compiled it. `docs-lint` check 6 verifies paths, not builds, so the
+  claim was unfalsifiable; `grep -rn connectedAndroidTest` found nothing outside
+  the file that names the command, so the tier did not exist even as a command.
+  **The harness drives the IME the way the platform does**, which is the part the
+  original nine tests got wrong: `setUp` used
+  `targetContext.startService(...) as HunminInputMethodService`, and an
+  `InputMethodService` is *bound* with `BIND_INPUT_METHOD`, never startable — the
+  cast has no path to succeeding, and a service started that way is not *the*
+  IME. The suite instead enables and selects the IME from inside the test process
+  with `UiAutomation.executeShellCommand()` (the same shell command
+  `adb shell ime set` runs), focuses a real `EditText` in `TestActivity`, and
+  sends keys with `Instrumentation.sendKeySync()` — the path a hardware keyboard
+  takes, which `ViewActions.typeText()` is not.
+  **Measured on the AVD, 2026-10-13: 12 of 12 tests execute and pass.**
+  The tier found a real adapter defect on its first full run, which is the reason
+  it exists: `secure_field_does_not_compose_Hangul` sent `p,a,s,s` into a
+  password editor and the field read `퓬ㄴ` with `ime-target=true` — the keys
+  reached the bound IME and the IME composed Hangul in an editor where the user
+  cannot see it. `HunminInputMethodService.onStartInput` never inspected the
+  `EditorInfo`, so a password field was treated exactly like a plain one. Fixed
+  by an `isSecureEditor` guard set per-editor in `onStartInput` from
+  `isSecureEditorInputType()`, which routes password-editor keys through
+  `super.onKeyDown()` — the platform's own insertion path — instead of through
+  either engine. Guarded at tier E1 by `SecureEditorTest`, so a regression is a
+  JVM failure on every commit rather than only a device one.
+  **Two constants were got wrong once and are now verified against android.jar
+  (API 35) with `javap -p -v -constants`: `TYPE_MASK_VARIATION` is 0xff0 (4080),
+  not 0xfff, and the two password variations are 0x80 and 0x90.** The 0xfff mask
+  was caught by SecureEditorTest failing on "0x80 must survive the mask" — the
+  guard as first written would have mis-read a password editor as plain in the
+  field, i.e. the fix would have shipped broken.
+  The runner distinguishes three outcomes and only the first is a failure:
+  **0 tests executed → FAIL** (the suite ran nothing — the exact shape issue #13
+  records, and the reason the script counts tests rather than trusting
+  `am instrument`'s exit code); **tests executed, none failed → PASS**;
+  **tests executed, some failed → PASS WITH FAILURES**, printed to stderr,
+  because the assertions did their job and the failure is the product's.
+  Two measured host facts are encoded in the runner. A physical device attached
+  alongside the AVD is *ignored*: on a Samsung Galaxy Z Fold (API 37) every
+  `Espresso.onView()` died in `setUp` with
+  `NoSuchMethodException: android.hardware.input.InputManager.getInstance []`,
+  the reflective resolution Espresso's event injector needs, so a "whatever is
+  attached" default would install the APK on the maintainer's own phone and fail
+  seven times. And the previous `default_input_method` is snapshotted and
+  restored on exit, because `ime set` is a Secure-setting write that survives
+  reboot.
+  **Not covered, and not claimed anywhere:** the candidate-view, Hanja-F9 and
+  `inputView` show/hide assertions from the original nine were never reachable
+  and remain unwritten.
 - **E4 voice check, with a person in the loop** 🧑🎙 (`tools/android-voice-check.sh`,
   `tests/manual-checklists/tier-e4-voice.md`): the voice path on real hardware, with
   the accuracy judgement left to a human and the *contract* left to the script.
