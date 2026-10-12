@@ -1,0 +1,5 @@
+{"meta": {"platform": "android", "layout": "sin3-p2-basic", "case": "shift-arrow-selection", "source": "p2-2-1-basic.jsonl (gate)", "case_index": 15, "case_id": "shift-arrow-selection#15"}}
+{"in":{"keycode":22,"mods":0},"commit":"","preedit":"","consumed":false}
+{"in":{"keycode":22,"mods":1},"commit":"","preedit":"","consumed":false}
+{"in":{"keycode":21,"mods":0},"commit":"","preedit":"","consumed":false}
+{"in":{"keycode":21,"mods":1},"commit":"","preedit":"","consumed":false}

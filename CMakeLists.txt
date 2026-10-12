@@ -545,6 +545,15 @@ if(BUILD_TESTING)
   else()
     message(STATUS "Tier C Android: skipped (tools/android-trace-emit.sh not found)")
   endif()
+  # Tier C Android: a nested worktree adds its own trace corpus separately.
+  add_test(NAME engine-android-conformance-shift-arrow-selection
+    COMMAND /home/scoby/.local/bin/python3.11
+            /home/scoby/work/hunmin/tools/trace-check.py
+            /home/scoby/work/hunmin/android-shift-arrow-selection-deletes-the-select/tests/conformance/android/shift-arrow-selection.trace.in
+            --runner /home/scoby/work/hunmin/tools/android-trace-emit.sh)
+  set_tests_properties(engine-android-conformance-shift-arrow-selection PROPERTIES
+    LABELS "tier-C"
+    SKIP_RETURN_CODE 77 TIMEOUT 120)
   if(NOT WIN32)
     add_test(NAME abi
       COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tools/abi-check.sh
