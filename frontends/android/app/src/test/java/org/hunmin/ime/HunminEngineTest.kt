@@ -684,6 +684,126 @@ class HunminEngineTest {
         engine.close()
     }
 
+@Test
+    fun `an arrow key emits no text of its own and only flushes what was composing`() {
+        // Issue #39, half 1. Deliberately asserts only what holds under EITHER
+        // eventual ruling, because whether the IME should consume Shift+Arrow or
+        // pass it through for the editor to extend the selection is not this
+        // agent's call. What is not a decision is the text: a cursor key is not
+        // a jamo and not a layout row, so it must contribute no commit of its
+        // own. It MAY flush an in-flight syllable -- that is the documented
+        // unmapped-key path ("an unmapped key flushes and passes through") and
+        // is how space reaches the client -- so what is pinned is exactly that:
+        // commits grow by precisely the composing text, and the composing
+        // region is left empty.
+        val ic = RecordingInputConnection()
+        val engine = HunminEngine(ctx, "sin3-p2")
+        assumeTrue(engine.isUsable)
+
+        for (keyCode in listOf(21, 22, 19, 20)) { // LEFT RIGHT UP DOWN
+            for (meta in listOf(0, 1)) {           // META_SHIFT_ON
+                // Start each step with a syllable in flight, so "emits nothing"
+                // is a claim about state rather than about an empty buffer.
+                engine.typeChar('k', ic)
+                val composingBefore = ic.composing()
+                assertEquals("test setup: no composition to flush", "ㄱ", composingBefore)
+                val committedBefore = ic.text()
+
+                engine.onKey(keyCode, meta, ic)
+
+                assertEquals("arrow $keyCode meta $meta did not flush exactly what was composing",
+                    committedBefore + composingBefore, ic.text())
+                assertEquals("arrow $keyCode meta $meta left a composition behind",
+                    "", ic.composing())
+            }
+        }
+        engine.close()
+    }
+
+    @Test
+    fun `an arrow keycode is not a layout key`() {
+        // Why the test above holds at the mapping layer rather than by accident:
+        // an arrow code has no engineChar at all, so the adapter cannot be
+        // silently reaching the jamo pipeline with a character that happens to
+        // compose to nothing.
+        assertEquals(null, HunminKeys.engineChar(21, 0))  // LEFT,  no shift
+        assertEquals(null, HunminKeys.engineChar(22, 1))  // RIGHT, META_SHIFT_ON
+    }
+
+    @Test
+    fun `issue 39 shift+arrow over a standing selection publishes no composing region`() {
+        // Issue #39's reproduction, stated as the maintainer's: the field holds
+        // text, a selection is standing, and Shift+Arrow is used to extend it --
+        // and "the selected text tends to be deleted".
+        //
+        // The mechanism turns out to be the one the issue guessed at, one layer
+        // along. Not "the composition rule emits", but updatePreedit's
+        // unconditional setComposingText("", 1): an arrow keycode resolves to no
+        // engineChar, so the adapter takes the unmapped-key path, which flushes,
+        // and the flush ends in updatePreedit. With no composition of ours on
+        // screen, setComposingText("", 1) is the editor being told "replace the
+        // composing region with nothing" -- and where a selection is standing,
+        // that selection is what gets replaced. Hence "with shift", which is how
+        // a selection is normally extended.
+        //
+        // Asserted as the ABSENCE of an emit, which is the property that matters
+        // and which holds under either eventual ruling on `consumed`: the adapter
+        // must not publish a composing region it does not own, because that is
+        // what a selection cannot survive.
+        val ic = RecordingInputConnection()
+        val engine = HunminEngine(ctx, "sin3-p2")
+        assumeTrue(engine.isUsable)
+
+        val composingsBefore = ic.composings.size
+        val commitsBefore = ic.commits.size
+
+        for (keyCode in listOf(21, 22)) {   // LEFT, RIGHT
+            engine.onKey(keyCode, 1, ic)     // META_SHIFT_ON
+        }
+
+        assertEquals("the adapter published a composing region it does not own",
+            composingsBefore, ic.composings.size)
+        assertEquals("the adapter committed text on a navigation key",
+            commitsBefore, ic.commits.size)
+        assertTrue("the adapter must not delete surrounding text (I9): ${ic.violations}",
+            ic.violations.none { it.startsWith("deleteSurroundingText") })
+        engine.close()
+    }
+
+    @Test
+    fun `a fresh engine does not tell the client to compose nothing`() {
+        // The bug this pins: onStartInput builds an engine and calls
+        // updatePreedit immediately. With no composition of our own on screen,
+        // setComposingText("", 1) is not a no-op -- it is the editor being told
+        // "the composing text is now empty", and with nothing to replace, the
+        // character before the cursor goes. Measured on R5KL808WBPN: focusing a
+        // field that already had text ate its last character before the user
+        // typed anything.
+        val engine = HunminEngine(ctx, "sin3-p2")
+        assumeTrue(engine.isUsable)
+        val ic = RecordingInputConnection()
+        engine.updatePreedit(ic)
+        assertEquals(
+            "a session with no composition must not emit setComposingText at all",
+            emptyList<String>(), ic.composings)
+        engine.close()
+    }
+
+    @Test
+    fun `a composition IS cleared afterwards, so the client is not left stale`() {
+        // The other half: the guard above must not stop the engine from clearing
+        // a composition it really did put there, or the last syllable stays on
+        // screen forever.
+        val engine = HunminEngine(ctx, "sin3-p2")
+        assumeTrue(engine.isUsable)
+        val ic = RecordingInputConnection()
+        assertTrue(engine.typeChar('k', ic))
+        assertEquals("ㄱ", ic.composings.last())
+        engine.flush(ic)
+        assertEquals("the composing region outlived the flush", "", ic.composings.last())
+        engine.close()
+    }
+
     private companion object {
         // Anchored to the "in" object so the "meta" lines -- which also carry
         // text -- cannot be mistaken for events.
