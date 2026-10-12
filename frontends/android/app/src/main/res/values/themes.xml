@@ -2,28 +2,65 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1-or-later
 
-  AppCompat-based translucent theme for OverlayActivity.
+  The theme the settings window's AlertDialogs are built in.
 
-  OverlayActivity uses androidx.appcompat.app.AlertDialog, which requires an
-  AppCompat-derived theme (it inflates AppCompat-internal layouts that do not
-  exist under the platform Theme.Translucent.NoTitleBar — on a physical device
-  that surfaces as Resources$NotFoundException: Resource ID #0x0).
+  WHY THE STOCK OVERLAY WAS NOT ENOUGH
+  ====================================
+  The layout list (한글 배열 / 영문 배열) is a stock AlertDialog:
+  .setTitle() plus setSingleChoiceItems(). AppCompat builds that from
+  select_dialog_singlechoice_material.xml, whose rows are CheckedTextViews
+  resolving android:textColor="?attr/textColorAlertDialogListItem" — and the
+  app theme is Theme.AppCompat.NoActionBar, which is AppCompat's DARK family
+  (appcompat 1.6.1 values.xml:54 -> #FFFFFF, applied at :694). The dialog's own
+  windowBackground was already overridden to @drawable/dialog_background, which
+  is @color/hunmin_hud_panel — and since the 2026-10-12 day/night pair (review
+  F3) that is #F3EDF7 in the day palette, not the dark slate it used to be.
 
-  Do NOT set android:theme="@android:style/Theme.Translucent.NoTitleBar" on
-  this activity: it is a platform theme, and the AppCompat dialog path breaks
-  under it on real hardware.
+  Measured consequence: every row's name was #FFFFFF on #F3EDF7. The list was
+  on screen and read as blank. The same defect reached the title
+  (TextAppearance.AppCompat.Title -> ?android:textColorPrimary -> #FFFFFF), the
+  radio-button tint (colorControlNormal -> textColorSecondary -> #B3FFFFFF) and
+  the 뒤로 / 취소 buttons (abc_btn_colored_borderless_text_material ->
+  colorAccent -> #FF80CBC4, teal on light).
 
-  The color palette mirrors the strip's (LayoutPicker) so the settings window
-  feels like the same product.
+  The one-line fix is not a colour in Kotlin: each of those is a THEME
+  attribute, so overriding the theme attributes reaches every surface the
+  dialog builds — list rows, title, buttons, radio rings — in both palettes,
+  with no second copy of a colour anywhere.
+
+  WHAT THIS DELIBERATELY DOES NOT TOUCH
+  =====================================
+  The settings/keybinding/capture dialogs that carry their own LinearLayout
+  view already set every TextView's colour explicitly from the HUD tokens, so
+  they are correct in both palettes without this overlay. This theme is for
+  the stock AlertDialog surfaces: the layout lists, the style list, the hanja
+  candidate list, and their titles and buttons.
+
+  PROVENANCE
+  ===========
+  AppCompat values.xml lines above are from appcompat 1.6.1
+  (appcompat-1.6.1.aar res/values/values.xml), read on this host at
+  ~/.gradle/caches/modules-2/files-2.1/androidx.appcompat/appcompat/1.6.1/.
+  Contrast ratios below were computed with the WCAG formula against the panel
+  each token pairs with, per the same method docs/ANDROID-IME-REVIEW.md F2
+  uses.
 -->
 <resources>
-    <!-- Base overlay theme: translucent, no title, no dim.
 
-         Parent is NoActionBar, NOT Dialog.Alert: with a Dialog parent the
-         activity's own window already draws the alert panel chrome, and the
-         AlertDialog shown inside it nests a second one — an "onion" of
-         rounded frames, each inset from the last, which is what starved the
-         rows to a 333px column no matter what setLayout asked for. -->
+    <!--
+      Base overlay theme: translucent, no title, no dim.
+
+      Parent is NoActionBar, NOT Dialog.Alert: with a Dialog parent the
+      activity's own window already draws the alert panel chrome, and the
+      AlertDialog shown inside it nests a second one — an "onion" of
+      rounded frames, each inset from the last, which is what starved the
+      rows to a 333px column no matter what setLayout asked for.
+
+      AppCompat's NoActionBar family is the DARK one, which is the root of the
+      defect this file's header describes: every dialog surface that resolves a
+      theme attribute gets AppCompat's dark default. The overlay below
+      overrides those attributes, so the theme's own darkness is never seen.
+    -->
     <style name="Theme.HunminOverlay" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
@@ -36,25 +73,37 @@
         <item name="alertDialogTheme">@style/Theme.HunminOverlay.AlertDialog</item>
     </style>
 
-    <!-- AlertDialog customization matching the dock -->
-    <style name="Theme.HunminOverlay.AlertDialog" parent="ThemeOverlay.AppCompat.Dialog.Alert">
-        <!-- Dialog background: the compact-HUD panel, dark slate.
+    <!--
+      The dialog theme, layered over the activity's own theme.
 
-             This MUST be windowBackground, not android:background. As a theme
-             item, android:background leaks to every view that resolves the
-             overlay — parentPanel, customPanel, custom, the container — each
-             drawing the rounded stroke inset by its own padding: an onion of
-             frames, and the content column starved to a fraction of the
-             window width however wide setLayout() made the window. -->
-        <item name="android:windowBackground">@drawable/dialog_background</item>
+      Parent is the same ThemeOverlay.AppCompat.Dialog.Alert it was before;
+      this adds the HUD token roles the overlay leaves at AppCompat's dark
+      defaults. An overlay is the right mechanism because the dialogs are
+      built with AlertDialog.Builder(this) — the activity's context — and
+      alertDialogTheme is read from it.
+    -->
+    <style name="Theme.HunminOverlay.AlertDialog"
+        parent="ThemeOverlay.AppCompat.Dialog.Alert">
 
-        <!-- Title -->
+        <!-- Title: on-panel, not #FFFFFF. 14.9:1 day, 14.9:1 night. -->
         <item name="android:textAppearanceLarge">@style/TextAppearance.Hunmin.Dialog.Title</item>
 
-        <!-- Message -->
+        <!-- Message / list body: the AA secondary, not #B3FFFFFF. 8.1:1 day,
+             5.1:1 night — both above 4.5:1. -->
         <item name="android:textAppearanceMedium">@style/TextAppearance.Hunmin.Dialog.Message</item>
 
-        <!-- Buttons -->
+        <!-- THE FIX. The layout list's rows resolve this attribute; without it
+             they were #FFFFFF on the #F3EDF7 day panel. -->
+        <item name="android:textColorAlertDialogListItem">@color/hunmin_hud_on_panel</item>
+
+        <!-- The radio ring and the radio fill, so a row's state is visible on
+             the light panel instead of #B3FFFFFF. -->
+        <item name="colorControlNormal">@color/hunmin_hud_secondary</item>
+        <item name="colorControlActivated">@color/hunmin_hud_accent</item>
+
+        <!-- Behind / dismiss buttons: on-surface rather than AppCompat's
+             #FF80CBC4 teal, which was a colour-only signal on light. -->
+        <item name="android:buttonBarButtonStyle">@style/Widget.Hunmin.Button.Dialog</item>
         <item name="buttonBarPositiveButtonStyle">@style/Widget.Hunmin.Button.Dialog.Positive</item>
         <item name="buttonBarNegativeButtonStyle">@style/Widget.Hunmin.Button.Dialog.Negative</item>
         <item name="buttonBarNeutralButtonStyle">@style/Widget.Hunmin.Button.Dialog.Neutral</item>
@@ -63,39 +112,61 @@
         <item name="android:listPreferredItemHeight">56dp</item>
     </style>
 
-    <!-- Dialog title text appearance -->
-    <style name="TextAppearance.Hunmin.Dialog.Title" parent="TextAppearance.AppCompat.Title">
-        <item name="android:textColor">@color/hunmin_on_surface</item>
+    <!--
+      Dialog title text appearance: on-panel, 14.9:1 on both panels.
+
+      Replaces ?android:textColorPrimary, which AppCompat's dark family
+      resolves to #FFFFFF — the same defect as the list rows, one attribute up.
+    -->
+    <style name="TextAppearance.Hunmin.Dialog.Title"
+        parent="TextAppearance.AppCompat.Title">
+        <item name="android:textColor">@color/hunmin_hud_on_panel</item>
         <item name="android:textSize">20sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
-    <!-- Dialog message text appearance -->
-    <style name="TextAppearance.Hunmin.Dialog.Message" parent="TextAppearance.AppCompat.Medium">
-        <item name="android:textColor">@color/hunmin_on_surface</item>
+    <!--
+      Dialog message / list body: the secondary token, AA in both palettes
+      (8.1:1 day, 5.1:1 night — measured, see F2's method).
+    -->
+    <style name="TextAppearance.Hunmin.Dialog.Message"
+        parent="TextAppearance.AppCompat.Medium">
+        <item name="android:textColor">@color/hunmin_hud_secondary</item>
         <item name="android:textSize">16sp</item>
     </style>
 
-    <!-- Positive button: primary background, on-primary text -->
-    <style name="Widget.Hunmin.Button.Dialog.Positive" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
-        <item name="android:background">@drawable/btn_primary_solid</item>
-        <item name="android:textColor">@color/hunmin_on_primary</item>
-        <item name="android:textAllCaps">false</item>
-        <item name="android:paddingHorizontal">24dp</item>
-        <item name="android:paddingVertical">12dp</item>
-        <item name="android:textSize">14sp</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-    </style>
+    <!--
+      Dialog buttons, on the panel rather than AppCompat's teal-on-light.
 
-    <!-- Negative/Neutral buttons: track background, on-surface text -->
-    <style name="Widget.Hunmin.Button.Dialog.Negative" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+      One shape for all three roles; the text colour is what distinguishes
+      them, so a dialog's 닫기 / 뒤로 / 취소 all read as the same family of
+      control instead of three different colours.
+    -->
+    <style name="Widget.Hunmin.Button.Dialog"
+        parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
         <item name="android:background">@drawable/btn_track_solid</item>
         <item name="android:textColor">@color/hunmin_on_surface</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:paddingHorizontal">24dp</item>
         <item name="android:paddingVertical">12dp</item>
         <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
-    <style name="Widget.Hunmin.Button.Dialog.Neutral" parent="Widget.Hunmin.Button.Dialog.Negative" />
+    <!--
+      The confirm-side button keeps its filled primary treatment — it is the
+      one action in these dialogs that commits something. on-primary text on
+      primary: 6.44:1 day, 7.71:1 night (both measured, F4's method).
+    -->
+    <style name="Widget.Hunmin.Button.Dialog.Positive"
+        parent="Widget.Hunmin.Button.Dialog">
+        <item name="android:background">@drawable/btn_primary_solid</item>
+        <item name="android:textColor">@color/hunmin_on_primary</item>
+    </style>
+
+    <!-- Neutral and negative share the track button; only the name differs. -->
+    <style name="Widget.Hunmin.Button.Dialog.Negative"
+        parent="Widget.Hunmin.Button.Dialog" />
+    <style name="Widget.Hunmin.Button.Dialog.Neutral"
+        parent="Widget.Hunmin.Button.Dialog" />
 </resources>
