@@ -546,14 +546,22 @@ if(BUILD_TESTING)
     message(STATUS "Tier C Android: skipped (tools/android-trace-emit.sh not found)")
   endif()
   # Tier C Android: a nested worktree adds its own trace corpus separately.
-  add_test(NAME engine-android-conformance-shift-arrow-selection
-    COMMAND /home/scoby/.local/bin/python3.11
-            /home/scoby/work/hunmin/tools/trace-check.py
-            /home/scoby/work/hunmin/android-shift-arrow-selection-deletes-the-select/tests/conformance/android/shift-arrow-selection.trace.in
-            --runner /home/scoby/work/hunmin/tools/android-trace-emit.sh)
-  set_tests_properties(engine-android-conformance-shift-arrow-selection PROPERTIES
-    LABELS "tier-C"
-    SKIP_RETURN_CODE 77 TIMEOUT 120)
+  # Paths are derived, never hardcoded: an absolute path to another worktree
+  # (/home/scoby/work/hunmin/android-.../) was committed here once and made this
+  # test red in every other checkout (measured 2026-10-13, issue #8's deb build
+  # ran it and it failed with FileNotFoundError). The corpus lives in THIS tree.
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/android/shift-arrow-selection.trace.in")
+    add_test(NAME engine-android-conformance-shift-arrow-selection
+      COMMAND ${Python3_EXECUTABLE}
+              ${CMAKE_CURRENT_SOURCE_DIR}/tools/trace-check.py
+              ${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/android/shift-arrow-selection.trace.in
+              --runner ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-trace-emit.sh)
+    set_tests_properties(engine-android-conformance-shift-arrow-selection PROPERTIES
+      LABELS "tier-C"
+      SKIP_RETURN_CODE 77 TIMEOUT 120)
+  else()
+    message(STATUS "Tier C Android: shift-arrow-selection corpus not in this tree")
+  endif()
   if(NOT WIN32)
     add_test(NAME abi
       COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tools/abi-check.sh

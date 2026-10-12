@@ -88,7 +88,7 @@ diffs.
 
 ```sh
 # engine + fcitx5 addon
-dpkg -i hunmin_0.1.0_amd64.deb     # see ~/work for the built artefact
+dpkg -i hunmin_0.1.0_amd64.deb     # build it: tools/build-release.sh deb
 
 # or build the PPA package yourself — see PLAN.md, gate is the tier-D suite
 ```
@@ -99,6 +99,16 @@ the release is `0.1.0` (same as the .deb above) and the `-p5` is the Android
 build-phase label, not a different release; the keymaps APK carries
 `0.1.0-p5.5` for the same reason. The convention is recorded in
 `docs/MILESTONES.md` §0.1 (issue #9).
+
+**Where the release artefacts come from (issue #8):** CI now builds both —
+job `deb` produces the `.deb` and job `android-release` produces the release
+APK, each uploaded as a run artefact. The same sequence runs locally with
+`tools/build-release.sh` (`deb` / `apk` / `all`). One caveat recorded rather
+than hidden: the release APK from CI signs with a generated throwaway keystore,
+because the real keystore path is still undecided (issue #1) — a CI-built
+release APK proves the release *build*, not a release *signature*. Whether 0.1
+requires CI-built artefacts at all, or a local build suffices, is the ruling
+issue #8 asks the maintainer for.
 
 **Known limitation (Android voice input):** recognition quality has no
 automated assertion — recorded audio cannot be replayed into the recogniser,

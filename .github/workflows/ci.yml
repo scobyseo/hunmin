@@ -135,9 +135,115 @@ jobs:
         run: ./tools/android-e2e.sh x86_64
 
       - name: Emulator log on failure
-        if: failure()
+        # Quoted, and it matters: unquoted, YAML 1.1 parses `failure()` as the
+        # boolean True and GitHub rejects the whole workflow with "Invalid
+        # workflow file: .github/workflows/ci.yml#L1". Measured 2026-10-13:
+        # every CI run since the initial public commit (fbb0c43, 38 runs) failed
+        # this way, so no CI job has executed even once.
+        if: "${{ failure() }}"
         run: |
           adb logcat -d 2>/dev/null | tail -300 || true
+
+  # Issue #8: the linux job runs ctest and hunmin-doctor; it does not package,
+  # and the android job runs assembleDebug. Neither 0.1 artefact was ever built
+  # by CI -- the .deb existed only as one local dpkg-buildpackage run and the
+  # signed APK only as one local assembleRelease (docs/REMAINING-WORK.md §3).
+  #
+  # This job builds the .deb. It runs the suite inside the package build
+  # (debian/rules override_dh_auto_test) rather than skipping it, because the
+  # issue's own verification says a packaging job must not skip the suite.
+  #
+  # The failure mode to expect first: data-selfcheck is red in a fresh checkout
+  # without the gitignored krdict dump (REMAINING-WORK.md §0 names it). That is
+  # a defect in the test's skip/fail behaviour on a missing input, recorded
+  # there and deliberately not fixed here -- whether a missing input should
+  # skip or fail is the maintainer's call.
+  deb:
+    name: debian (.deb artefact)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev python3 fcitx5-modules-dev debhelper fakeroot
+      - name: Build the .deb
+        # -us -uc unsigned: a key is not required to build the artefact, and
+        # requiring one would make it unbuildable on a machine without one --
+        # the exact "only one machine can produce the release" property the
+        # issue is about. -b binary-only, same path as the local run.
+        run: dpkg-buildpackage -us -uc -b
+      - name: What the package contains
+        run: |
+          deb="$(ls ../hunmin_*_*.deb)"
+          dpkg-deb --info "$deb" | sed -n '1,4p'
+          dpkg-deb --contents "$deb" | head -20
+      - name: Upload the .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunmin-deb
+          path: ../hunmin_*_*.deb
+          retention-days: 30
+
+  # The signed release APK, and the reason it is gated on a repository
+  # variable and produces a throwaway signature.
+  #
+  # B8 (issue #1) is unresolved: build.gradle.kts:77 hardcodes
+  # /home/scoby/.android/debug.keystore under a comment saying the keystore
+  # lives in gitignored local.properties. Signing with the debug keystore is
+  # not a releasable signature, so this job generates one at build time from a
+  # repository secret and hands the path to Gradle -- never writing a keystore
+  # into the tree. When B8 is ruled, this job becomes the place a real key
+  # would be wired in; until then it proves the release BUILD works, not that
+  # the release SIGNATURE does.
+  android-release:
+    name: android release APK (unsigned keystore)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.HUNMIN_BUILD_RELEASE == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install the Android SDK
+        run: |
+          sdk_root="$HOME/Android/Sdk"
+          mkdir -p "$sdk_root/cmdline-tools"
+          curl -fsSL -o tools.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+          unzip -q tools.zip -d "$sdk_root/cmdline-tools"
+          mv "$sdk_root/cmdline-tools/cmdline-tools" "$sdk_root/cmdline-tools/latest"
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "$sdk_root/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install \
+            "platform-tools" "platforms;android-35" "build-tools;35.0.0" \
+            "cmake;3.22.1" "ndk;27.3.13750724"
+      - name: Generate a throwaway release keystore
+        # Not a real release key -- B8's ruling is what decides where one
+        # lives. This exists so assembleRelease runs end-to-end without
+        # borrowing the debug keystore.
+        run: |
+          keytool -genkeypair -keystore "$RUNNER_TEMP/release.keystore" \
+            -storepass android -alias hunmin -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname 'CN=hunmin-ci,O=hunmin,L=CI,C=KR'
+          echo "HUNMIN_RELEASE_STORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+      - name: Build the release APK (arm64-v8a + x86_64)
+        # Both ABIs: the APK declares both in abiFilters, and AGP fails the
+        # packaging step if either ABI's libhunmin.so is missing.
+        run: |
+          echo "ANDROID_NDK=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
+          ./tools/build-android.sh arm64-v8a 24
+          ./tools/build-android.sh x86_64 24
+          cd frontends/android
+          ./gradlew --no-daemon assembleRelease
+      - name: Upload the release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunmin-release-apk
+          path: frontends/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
 
   mingw:
     runs-on: ubuntu-24.04
@@ -218,7 +324,7 @@ jobs:
           # python3 tools/android-mutations.py --strategy sandbox
 
       - name: Upload fuzz artifacts on failure
-        if: failure()
+        if: "${{ failure() }}"
         uses: actions/upload-artifact@v4
         with:
           name: fuzz-crash-artifacts
