@@ -33,8 +33,46 @@ import android.view.inputmethod.InputConnection
 
 class HunminInputMethodService : InputMethodService() {
 
-    private companion object {
-        const val TAG = "HunminIme"
+    companion object {
+        private const val TAG = "HunminIme"
+
+        /**
+         * Whether an EditorInfo's inputType marks a password editor.
+         *
+         * Extracted from onStartInput as a pure function for two reasons. It is
+         * the whole secure-editor policy in one place, and it is testable from
+         * a plain JVM: an InputMethodService cannot be constructed there, so an
+         * inline check in onStartInput could only ever be exercised on a device.
+         *
+         * TYPE_NULL and TYPE_CLASS_TEXT with a password *class* are
+         * deliberately NOT matched. Guessing at those produces a plain editor
+         * that silently stops composing, which is a worse failure than the one
+         * being fixed; the two variations below are what the platform actually
+         * sets for a password field.
+         *
+         * The constants are spelled out because android.view.inputmethod
+         * .EditorInfo cannot be touched from a unit test without a device
+         * runtime, and the values are fixed by the framework. Verified with
+         * `javap -p -v -constants` against android.jar (API 35, 2026-10-13):
+         *   TYPE_MASK_VARIATION                    = 4080   (0xff0)
+         *   TYPE_TEXT_VARIATION_PASSWORD           = 128    (0x80)
+         *   TYPE_TEXT_VARIATION_VISIBLE_PASSWORD   = 144    (0x90)
+         *
+         * NOTE THE MASK IS 0xff0, NOT 0xfff. The variation field occupies bits
+         * 4..11 and the mask covers exactly those; a 0xfff mask also takes bit
+         * 3. Writing 0xfff here was measured wrong: SecureEditorTest failed on
+         * "0x80 must survive the mask", and the production guard would have
+         * mis-read a password editor as plain in the field.
+         */
+        private const val TYPE_MASK_VARIATION = 0xff0
+        private const val VARIATION_PASSWORD = 0x80
+        private const val VARIATION_VISIBLE_PASSWORD = 0x90
+
+        internal fun isSecureEditorInputType(inputType: Int): Boolean {
+            val variation = inputType and TYPE_MASK_VARIATION
+            return variation == VARIATION_PASSWORD ||
+                variation == VARIATION_VISIBLE_PASSWORD
+        }
 
         /**
          * The layout to start in. Matches the fcitx5 addon's default so the two
@@ -108,6 +146,21 @@ class HunminInputMethodService : InputMethodService() {
 
     /** Latin layout engine for English mode. */
     private var latinEngine: HunminEngine? = null
+
+    /**
+     * True when the current editor is a password field.
+     *
+     * An IME must not compose into an editor the user cannot see: a password
+     * field renders dots, so a composing span is invisible and the Hangul the
+     * engine would produce is unrecoverable text. Measured 2026-10-13 on the
+     * AVD (issue #13): with no guard, `p,a,s,s` on sin3-p2 in a password
+     * EditText composed 퓬ㄴ instead of committing `pass`.
+     *
+     * Set per-editor in [onStartInput] from the EditorInfo, not once at
+     * startup: the same IME session serves a plain editor and a password one
+     * in turn, and the mode follows the editor.
+     */
+    private var isSecureEditor: Boolean = false
 
     /**
      * Where the Hangul/English mode choice is remembered across process
@@ -211,9 +264,18 @@ class HunminInputMethodService : InputMethodService() {
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
+        // A password editor gets no composition at all -- see isSecureEditor.
+        // Both the PASSWORD variation and the VISIBLE_PASSWORD one: the field
+        // masks its content either way, and the IME cannot tell the user what
+        // it composed.
+        val wasSecure = isSecureEditor
+        isSecureEditor = isSecureEditorInputType(info?.inputType ?: 0)
+        if (isSecureEditor != wasSecure) {
+            Log.i(TAG, "hunmin: secure editor=$isSecureEditor")
+        }
         // Restore the last-used Hangul/English mode from prefs (Android's
-        // InputMethodService is killed and recreated often), falling back
-        // to Hangul when there is no stored value (first install).
+        // InputMethodService is killed and recreated often), falling back to
+        // Hangul when there is no stored value (first install).
         isHangulMode = modeStore.recall(KEY_HANGUL_MODE)
         currentInputConnection?.let { engine?.updatePreedit(it) }
         // The view is created once per IME window but the engine per editor, so
@@ -286,8 +348,11 @@ class HunminInputMethodService : InputMethodService() {
         Log.d(TAG, "onKeyDown: keyCode=$keyCode, metaState=${event.metaState}")
 
         // Space during composition: commit syllable AND forward space
-        // This is a frontend responsibility (engine declines space during composition)
-        if (keyCode == KeyEvent.KEYCODE_SPACE && isHangulMode) {
+        // This is a frontend responsibility (engine declines space during composition).
+        // Not in a password editor: there is no composition to flush, and the
+        // secure-editor guard below would return the key anyway -- handled here
+        // first so the branch reads as one policy rather than two.
+        if (keyCode == KeyEvent.KEYCODE_SPACE && isHangulMode && !isSecureEditor) {
             val e = engine ?: return super.onKeyDown(keyCode, event)
             val target: InputConnection = currentInputConnection
                 ?: return super.onKeyDown(keyCode, event)
@@ -344,7 +409,17 @@ class HunminInputMethodService : InputMethodService() {
             return super.onKeyDown(keyCode, event)
         }
 
-        // Route to correct engine based on mode
+        // Route to correct engine based on mode.
+        //
+        // A password editor bypasses both engines entirely: every key falls
+        // through to super.onKeyDown(), which is the platform's own
+        // insertion path, so the field receives the literal character. An IME
+        // composing Hangul into a masked field produces text the user cannot
+        // read (measured 2026-10-13, issue #13). Checked before the engines
+        // rather than inside them: HunminEngine is layout-agnostic core code
+        // with no notion of an editor, and the policy belongs to the adapter.
+        if (isSecureEditor) return super.onKeyDown(keyCode, event)
+
         val e = if (isHangulMode) engine else latinEngine
         val target: InputConnection = currentInputConnection
             ?: return super.onKeyDown(keyCode, event)
