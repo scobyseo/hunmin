@@ -78,6 +78,15 @@ jobs:
             -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
             > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
           sudo cmake --build /tmp/fcitx5/build --target install
+      - name: Install pyright (docs-lint asserts tools/ is clean)
+        # The M5-CLOSED assertion row runs `pyright tools/` inside docs-lint;
+        # without the tool it fails with FileNotFoundError (measured on CI
+        # 2026-10-13), not a code defect. Install it so the assertion is real.
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          export PATH="$HOME/.local/bin:$PATH"
+          uv tool install pyright
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
       - run: cmake --build build
       - run: ctest --test-dir build --output-on-failure
@@ -245,6 +254,12 @@ jobs:
             -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
             > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
           sudo cmake --build /tmp/fcitx5/build --target install
+      - name: Install pyright (debian/rules runs docs-lint, which asserts tools/ is clean)
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          export PATH="$HOME/.local/bin:$PATH"
+          uv tool install pyright
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Build the .deb
         # -us -uc unsigned: a key is not required to build the artefact, and
         # requiring one would make it unbuildable on a machine without one --
