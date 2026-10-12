@@ -168,6 +168,13 @@ class HunminEngine(
     private var delivered: String = ""
 
     /**
+     * Whether the client is currently showing a composing region THIS engine put
+     * there. Per-session, because the service builds one engine per editor and
+     * closes it in onFinishInput, so it cannot leak across two visible editors.
+     */
+    private var composing = false
+
+    /**
      * Flush and return the text, so the trace sees what the client got.
      *
      * Only called when tracing is on, because calling it twice would emit the
@@ -261,11 +268,23 @@ class HunminEngine(
      * its last composition on screen forever. Called after every state change,
      * not only after a commit, because the preedit is the composition and the
      * composition changes on every keystroke.
+     *
+     * BUT it is only safe when there is a composing region of OURS to replace.
+     * `setComposingText("", 1)` against a field that has text and no composition
+     * is the editor being told "the composing text is now the empty string, one
+     * position from here", and with nothing of ours there to replace, editors
+     * read it as "delete the character before the cursor" -- the last character
+     * of the text, disappearing the moment the field is focused. Reported by the
+     * maintainer against R5KL808WBPN (2026-10-12); the cause was read off this
+     * code path rather than measured, and the fix was verified on that device.
+     * The guard is held by tier E1, not by a device test.
      */
     fun updatePreedit(ic_: InputConnection) {
         if (ic == 0L) return
         val preedit = native.preedit(ic)
+        if (preedit.isEmpty() && !composing) return
         ic_.setComposingText(preedit, 1)
+        composing = preedit.isNotEmpty()
     }
 
     override fun close() {
