@@ -203,6 +203,16 @@ jobs:
         # uiautomator, not anything hunmin logged -- see docs/TESTING.md.
         run: ./tools/android-e2e.sh x86_64
 
+      - name: Tier E2, the Espresso half (issue #13)
+        # The instrumentation suite under app/src/androidTest/. It was never
+        # compiled before issue #13, so this step is the first CI runner the
+        # suite has ever had: it fails if zero tests executed, which is the
+        # "green having measured nothing" shape the issue records.
+        #
+        # On the runner there is no previously-selected IME worth restoring
+        # (a fresh AVD), so the script's snapshot/restore is a no-op here.
+        run: ./tools/android-espresso.sh
+
       - name: Emulator log on failure
         # Quoted, and it matters: unquoted, YAML 1.1 parses `failure()` as the
         # boolean True and GitHub rejects the whole workflow with "Invalid
