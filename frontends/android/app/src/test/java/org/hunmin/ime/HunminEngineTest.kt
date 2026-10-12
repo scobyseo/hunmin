@@ -731,6 +731,46 @@ class HunminEngineTest {
     }
 
     @Test
+    fun `issue 39 shift+arrow over a standing selection publishes no composing region`() {
+        // Issue #39's reproduction, stated as the maintainer's: the field holds
+        // text, a selection is standing, and Shift+Arrow is used to extend it --
+        // and "the selected text tends to be deleted".
+        //
+        // The mechanism turns out to be the one the issue guessed at, one layer
+        // along. Not "the composition rule emits", but updatePreedit's
+        // unconditional setComposingText("", 1): an arrow keycode resolves to no
+        // engineChar, so the adapter takes the unmapped-key path, which flushes,
+        // and the flush ends in updatePreedit. With no composition of ours on
+        // screen, setComposingText("", 1) is the editor being told "replace the
+        // composing region with nothing" -- and where a selection is standing,
+        // that selection is what gets replaced. Hence "with shift", which is how
+        // a selection is normally extended.
+        //
+        // Asserted as the ABSENCE of an emit, which is the property that matters
+        // and which holds under either eventual ruling on `consumed`: the adapter
+        // must not publish a composing region it does not own, because that is
+        // what a selection cannot survive.
+        val ic = RecordingInputConnection()
+        val engine = HunminEngine(ctx, "sin3-p2")
+        assumeTrue(engine.isUsable)
+
+        val composingsBefore = ic.composings.size
+        val commitsBefore = ic.commits.size
+
+        for (keyCode in listOf(21, 22)) {   // LEFT, RIGHT
+            engine.onKey(keyCode, 1, ic)     // META_SHIFT_ON
+        }
+
+        assertEquals("the adapter published a composing region it does not own",
+            composingsBefore, ic.composings.size)
+        assertEquals("the adapter committed text on a navigation key",
+            commitsBefore, ic.commits.size)
+        assertTrue("the adapter must not delete surrounding text (I9): ${ic.violations}",
+            ic.violations.none { it.startsWith("deleteSurroundingText") })
+        engine.close()
+    }
+
+    @Test
     fun `a fresh engine does not tell the client to compose nothing`() {
         // The bug this pins: onStartInput builds an engine and calls
         // updatePreedit immediately. With no composition of our own on screen,
