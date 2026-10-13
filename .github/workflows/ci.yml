@@ -150,6 +150,7 @@ jobs:
           echo no | avdmanager create avd -n hunmin-ci \
             -k "system-images;android-35;google_apis;x86_64" --device pixel_6
           echo "HUNMIN_AVD=hunmin-ci" >> "$GITHUB_ENV"
+          echo "ANDROID_AVD_HOME=$HOME/.config/.android/avd" >> "$GITHUB_ENV"
 
       - name: Configure host build (for engine tests)
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
@@ -177,6 +178,7 @@ jobs:
       - name: Boot the emulator
         run: |
           export PATH="$HOME/Android/Sdk/platform-tools:$HOME/Android/Sdk/emulator:$PATH"
+          export ANDROID_AVD_HOME="$HOME/.config/.android/avd"
           echo "Listing AVDs:"
           avdmanager list avd
           "$ANDROID_HOME/emulator/emulator" -avd hunmin-ci \
