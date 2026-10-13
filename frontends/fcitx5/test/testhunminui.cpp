@@ -27,6 +27,7 @@
 #include <fcitx-utils/log.h>
 #include <fcitx-utils/testing.h>
 #include <fcitx/addonmanager.h>
+#include <fcitx/candidatelist.h>
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputcontextmanager.h>
 #include <fcitx/inputmethodengine.h>
@@ -36,6 +37,7 @@
 #include <fcitx/instance.h>
 #include <filesystem>
 #include <system_error>
+#include <algorithm>
 #include <cstdlib>
 
 using namespace fcitx;
@@ -399,6 +401,46 @@ void scheduleEvent(Instance *instance) {
         FCITX_ASSERT(hanList->candidate(0).text().toString() == "\u520a")
             << "first candidate is '"
             << hanList->candidate(0).text().toString() << "', expected 刊";
+
+        /* THE PAGE SIZE MUST NOT EXCEED FCITX5'S LABEL CEILING (issue #45).
+         *
+         * Before the cap, this same window asked fcitx5 to draw all 67
+         * candidates at once and fcitx5 ABORTED: classicui reads one label per
+         * candidate on the page
+         * (fcitx5-5.1.19 src/ui/classic/inputwindow.cpp:392-405) and
+         * CommonCandidateList::label() throws past the label vector, which
+         * fillLabels() pads only to `regularLabelSize = 10`
+         * (src/lib/fcitx/candidatelist.cpp:28-41, 556-565). Nothing catches
+         * it. Measured threshold: 10 candidates survive, 11 abort, 67 abort,
+         * and 67 candidates at the default page size of 5 do not.
+         *
+         * WHY THIS TIER AND NOT A NEW ONE: testfrontend loads no UI addon, so
+         * this process never calls label() and would NOT crash even without the
+         * cap -- it goes green either way. What it CAN assert is the tree fact
+         * that keeps the crash out of the tier that can crash: the page size.
+         * Dropping the cap makes this line red (67 > 10) even though the
+         * process survives. The end-to-end abort is settled by
+         * tools/repro-f9-candidates.sh, which is a full fcitx5 with classicui
+         * under Xvfb -- no ctest tier is that. See
+         * wiki/raw/measurements/2026-10-13-f9-candidate-window-abort.md.
+         */
+        {
+            auto *common = dynamic_cast<CommonCandidateList *>(hanList.get());
+            FCITX_ASSERT(common)
+                << "the F9 window must be a CommonCandidateList, not "
+                << (hanList ? "something else" : "null");
+            FCITX_ASSERT(common->pageSize() <= 10)
+                << "page size is " << common->pageSize() << ", above fcitx5's "
+                << "label ceiling of 10; classicui will call label(10) and "
+                << "fcitx5 will abort";
+            // Exact, so the cap cannot silently shrink a list that already
+            // fits: the page is the whole list when it fits, the ceiling when
+            // it does not. 67 -> 10, and 푸's 1 -> 1.
+            FCITX_ASSERT(common->pageSize() ==
+                         std::min(common->totalSize(), 10))
+                << "page size " << common->pageSize() << " for a list of "
+                << common->totalSize();
+        }
 
         // Down once moves the cursor to the second candidate, and the key is
         // ours -- an arrow key that reached the engine would type a character.

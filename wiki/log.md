@@ -383,3 +383,37 @@
   service's).
 - `wiki/index.md` listed both pages; total pages 28.
 
+- **New measurement.** `raw/measurements/2026-10-13-f9-candidate-window-abort.md`
+  (issue #45): F9 on a syllable with 11 or more candidates aborts fcitx5 with
+  `CommonCandidateList: invalid label idx` (SIGABRT, exit 134). The page size is
+  set to the candidate count (`frontends/fcitx5/src/engine.cpp:509`) and
+  classicui reads one label per candidate on the page, while a
+  `CommonCandidateList` carries 10 labels unless `setLabels()` is called.
+  Threshold measured, not remembered: 10 candidates survive, 11 abort; 67
+  candidates with the default page size 5 do not abort. The vertical layout hint
+  is a bystander (Horizontal throws at the same index). Not local: the installed
+  0.1.0 addon against `/usr/share/hunmin` aborts identically. The issue's
+  `hunmin_suggest_text` reading is refuted — it is a bounded read that does not
+  rebuild — and a separate cross-context clobbering of the process-wide
+  candidate list is recorded alongside it. **No ruling:** what the page size
+  should be, or whether labels should be supplied, is the maintainer's.
+- **New procedure.** `tools/repro-f9-candidates.sh`: the full stack under Xvfb
+  with classicui enabled, which no ctest tier is. It carries the two findings
+  that cost time here: `XK_F9` is 0xFFC6 (0xFFC2 is F5), and `FCITX_LOG_RULE` is
+  not read by fcitx5 — the rule is `--verbose`, and `tests/e2e/run-d3.sh`'s
+  export of it has never had any effect.
+- `wiki/index.md` listed the new page; total pages 29.
+- **Ruling applied (issue #45).** The maintainer ruled the F9 candidate page is
+  **capped at 10** — fcitx5's label ceiling — rather than holding the whole
+  list on one page with `setLabels()`. In the tree:
+  `frontends/fcitx5/src/engine.cpp` carries a named `kMaxCandidatePageSize = 10`
+  (named because the number is fcitx5's `regularLabelSize`, not a preference),
+  and `frontends/fcitx5/test/testhunminui.cpp` asserts
+  `pageSize == min(totalSize, 10)` — measured red with the cap reverted
+  ("page size is 67"), green with it. Verified end to end with classicui
+  enabled: 낙(11) and 간(67) no longer abort, and Page_Down reaches pages 2 and
+  3 with the cursor on the first candidate of each, Up wraps to the last, so
+  the cap made nothing unreachable. **Not closed by the cap:** no ctest tier
+  draws the F9 window, so the abort still cannot regress through `ctest` alone
+  and `tools/repro-f9-candidates.sh` runs in no CI job. Recorded in the
+  measurement page's "What it did not close".
