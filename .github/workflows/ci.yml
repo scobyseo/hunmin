@@ -176,6 +176,9 @@ jobs:
 
       - name: Boot the emulator
         run: |
+          export PATH="$HOME/Android/Sdk/platform-tools:$HOME/Android/Sdk/emulator:$PATH"
+          echo "Listing AVDs:"
+          avdmanager list avd
           "$ANDROID_HOME/emulator/emulator" -avd hunmin-ci \
             -no-window -no-audio -no-boot-anim \
             -gpu swiftshader_indirect -no-snapshot &
