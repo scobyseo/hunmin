@@ -459,9 +459,12 @@
   on linux-gcc, mingw and MSVC". All three are corrected, and
   `docs/MUTATION-TIER-OPTIONS.md` §6.1's "four jobs, no nightly" is corrected
   with them. While the job is disabled, **no job compiles the core with `cl`**.
-- **Not done, deliberately:** issue #51 item 1 — whether the F9 window gets a
-  ctest tier, a CI job, or neither — is a tier-design decision, so its board row
-  is untouched and still asserts `absent`. See
+- **Not done, deliberately, and tracked elsewhere:** whether the F9 candidate
+  window gets a ctest tier, a CI job, or neither is a tier-design decision. It
+  was item 1 of issue #51; at the maintainer's instruction — "F9 테스트는 별도
+  이슈로 등록하고 이 작업 범위에서 제외." — it is now **issue #53**, and its
+  board row is untouched and still asserts `absent`. #51 keeps only the windows
+  job, and its title says so. See
   [[2026-10-13-f9-candidate-window-abort]] for what the cap did not close, and
   [[decisions-belong-to-the-maintainer]] for why one of these two is recorded as
   a ruling and the other as a measurement.
