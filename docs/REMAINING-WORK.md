@@ -40,23 +40,35 @@ version listed `engine-d3-x11` (and the two GTK variants) as failing on
 |---|---|---|
 | `docs-lint` | 3 errors: "156 ctest tests" | **passes** — the bare count was dropped |
 | `engine-d1-fcitx5` | rc 134 abort, CapsLock `J K 1` | **passes** |
-| `data-selfcheck` | us-qwerty.json format drift | **still fails**, but for a different reason — see below |
+| `data-selfcheck` | us-qwerty.json format drift | **fixed 2026-10-13 (issue #46)** — skips (rc 77) when the gitignored krdict dump is absent; see below |
 | `engine-d3-x11` | `ㅎ\|곈` instead of `안\|녕` | **passes** (goldens regenerated) |
 | `engine-d3-gtk3` / `-gtk4` | same | **both pass** |
 
-**`data-selfcheck` is red in a fresh worktree and green in the main tree.** The
-failure is `krdict2data: no *.xml under …/data-orig/krdict` — the 368 MB 국립국어원
-dump is gitignored and absent from a new worktree. The test does not skip on a
-missing input; it fails. That is the *opposite* of the 2026-10-09 diagnosis, which
-recorded a `diff -r` whitespace divergence in `us-qwerty.json`. Both statements were
-true of their own tree at their own time, and neither is a claim about this tree.
-**This is the same class of defect as the board itself**: a status line carried
-forward past the commit that invalidated it.
+**`data-selfcheck` no longer fails in a fresh worktree (2026-10-13, issue #46).**
+It used to fail on `krdict2data: no *.xml under …/data-orig/krdict` — the 368 MB
+국립국어원 dump is gitignored and absent from a new worktree, and the test did
+not skip on a missing input; it failed. Now, with no `*.xml` under
+`data-orig/krdict/`, `tools/selfcheck.py` skips that one converter step, copies
+the committed table across so `diff -r` cannot report it missing, and exits 77
+(`SKIP_RETURN_CODE`), so ctest reports the test **Skipped** instead of red. In
+the maintainer's primary tree, where the dump is present, every step runs
+exactly as before. The earlier 2026-10-09 diagnosis (a `diff -r` whitespace
+divergence in `us-qwerty.json`) and the 2026-10-10 diagnosis (krdict) were both
+true of their own tree at their own time; the current state is the skip.
+
+The self-contained guard for the converter's *logic* is ctest test
+`krdict-fixture` (tier-B): a committed synthetic fixture under
+`tests/fixtures/krdict/` converted into a temp dir and diffed byte-identically
+against a committed expected `krdict.json`. The dump-dependent full-dump
+determinism run is the maintainer-only `tools/selfcheck-krdict.sh`, which is
+deliberately **not** registered with ctest — a run that needs 368 MB cannot
+live on the repo's test surface.
 
 `ctest` is green on a worktree configured `-DHUNMIN_TRACE_BUILD=ON`; the main
 tree here is configured without it, which registers fewer, so a bare count in
-prose is only meaningful next to the configuration it came from. The one test
-red in a fresh worktree is `data-selfcheck` — see §0 above.
+prose is only meaningful next to the configuration it came from. No test is red
+in a fresh worktree: `data-selfcheck` reports Skipped where the gitignored
+krdict dump is absent — see §0 above.
 
 ---
 
@@ -200,7 +212,7 @@ workflow file never reaches a job whose result anyone checks.
 | # | Work | Verification |
 |---|---|---|
 | C1 | **CI builds neither 0.1 artefact** — `assembleDebug` only, no `.deb` job. | The issue's own grep. Closed 2026-10-13 as a tree fact: `.github/workflows/ci.yml` now has job `deb` (`dpkg-buildpackage -us -uc -b` + artefact upload) and job `android-release` (`assembleRelease`, both ABIs, artefact upload, gated on `vars.HUNMIN_BUILD_RELEASE='true'`). `tools/build-release.sh` is the same sequence locally. **The ruling the issue asks for is still open**: whether 0.1 *requires* CI-built artefacts or a local run suffices is the maintainer's call — these jobs make both answers cheap, they do not make one. |
-| C2 | **The `deb` job's suite, measured on CI.** | Run 38328467052 (commit c91906a): the deb build reaches the full suite, and the only test red is `data-selfcheck` — the documented §0 gitignored-krdict defect (the D3 desktop tests skip on CI, no X display). Two packaging-tree defects were fixed to get here: the engine `.so` lives in `obj-x86_64-linux-gnu` not `build/` (the Android-tier scripts now read `HUNMIN_BUILD_DIR`, which `debian/rules` exports), and the Gradle wrapper cannot create `/root/.gradle/.../*.lck` under fakeroot (`debian/rules` points `HOME` at a writable dir, recipe-scoped). The `linux` job likewise has only `data-selfcheck` red. The `.deb` artifact upload is gated behind a green suite, so it stays skipped until `data-selfcheck` is resolved — whether a missing input should skip or fail is the maintainer's call (§0, §7.4), not changed here. |
+| C2 | **The `deb` job's suite, measured on CI.** | Run 38328467052 (commit c91906a): the deb build reaches the full suite, and the only test red is `data-selfcheck` — the documented §0 gitignored-krdict defect (the D3 desktop tests skip on CI, no X display). Two packaging-tree defects were fixed to get here: the engine `.so` lives in `obj-x86_64-linux-gnu` not `build/` (the Android-tier scripts now read `HUNMIN_BUILD_DIR`, which `debian/rules` exports), and the Gradle wrapper cannot create `/root/.gradle/.../*.lck` under fakeroot (`debian/rules` points `HOME` at a writable dir, recipe-scoped). The `linux` job likewise has only `data-selfcheck` red. The `.deb` artifact upload is gated behind a green suite, so it stays skipped until `data-selfcheck` is resolved — whether a missing input should skip or fail is the maintainer's call (§0, §7.4), not changed here. **Resolved 2026-10-13 (issue #46):** the ruling was made and implemented — `data-selfcheck` now skips (rc 77) without the dump, so this measurement's only red test is gone on both jobs. |
 | C3 | **CI had never run — three independent root causes, all measured.** | (a) The workflow file was invalid: the android job carried a job-level `paths:` (a trigger filter, not a job property), so GitHub rejected the whole file and **no job ran on any commit since the initial public one**. The `if: failure()` quoting fixed alongside was a real but separate latent YAML-1.1 boolean bug. The android path filter is now a **job-level `if:`** over `github.event.head_commit.modified` — a per-job `paths:` is not a GitHub feature, and an intermediate `on.push.paths` version gated the *whole* workflow on Android paths (a `debian/rules`/`tools/*.py` change skipped every job), which was measured and reverted. (b) The addon needs fcitx5 >= 5.1.13 (`FCITX_ADDON_FACTORY_V2` engine.cpp:619, `setComment` :461 — both first present in 5.1.13, measured across upstream tags 5.1.7/5.1.9/5.1.13). Ubuntu 24.04's distro fcitx5 is 5.1.7, below the floor, so CI now builds fcitx5 5.1.13 from source (linux + deb jobs) and the `.deb` requires >= 5.1.13. **Consequence for supporting Ubuntu 24.04:** the distro's 5.1.7 is NOT supported — a 24.04 user installs the source-built 5.1.13+. An earlier attempt lowered the floor to 5.1.7 on the theory that only the cmake macro was missing; CI's compile error (`setComment`/`FCITX_ADDON_FACTORY_V2` undeclared) disproved it and the floor was restored to 5.1.13. The local `add_fcitx5_addon` macro fallback (frontends/fcitx5/CMakeLists.txt) still helps a bare 5.1.7 configure but cannot bridge the API gap. |
 
 ---
@@ -437,10 +449,14 @@ The design properties that make it a guard rather than a comment:
   directions.
 - **Two items with the same label.** §2 and §3 both use M1–M5. The guard does not detect
   the collision; renaming is a maintainer decision (see §2).
-- **`data-selfcheck` in a fresh worktree.** It fails on the gitignored 국립국어원 dump
-  rather than skipping (see §0). That is a real defect in `data-selfcheck`, not in this
-  board, and it is recorded here rather than fixed here because changing a test's
-  skip/fail behaviour on a missing input is a maintainer call.
+- ~~**`data-selfcheck` in a fresh worktree.**~~ **Fixed 2026-10-13 (issue #46).**
+  It used to fail on the gitignored 국립국어원 dump rather than skipping (§0).
+  It now skips (rc 77) when no `*.xml` exists under `data-orig/krdict/`, the
+  self-contained guard is ctest `krdict-fixture`, and the dump-dependent run is
+  the maintainer-only `tools/selfcheck-krdict.sh`. The earlier judgement —
+  "changing a test's skip/fail behaviour on a missing input is a maintainer
+  call" — held at the time it was written; the maintainer ruled the change in
+  (issue #46), so this line records the ruling's implementation, not a new one.
 
 ### 7.5 Assertions — parsed and verified by `tools/docs-lint.py` check 6
 
@@ -502,7 +518,7 @@ VERSION-CONVENTION | grep | README.md:versionName. is .0\.1\.0-p5 | present | is
 N1-CLOSED | path-present | tools/kcm_export.py | present | the keymaps exporter; was listed open as "does not exist"
 N3-CLOSED | grep | libhunmin/src/hunmin_internal.h:HK_SEQ | present | the seq symbol tier
 N4-CLOSED | path-present | debian/hunmin.postinst | present | the deb postinst; the real filename is hunmin.postinst
-CI-DEB-JOB | grep | .github/workflows/ci.yml:dpkg-buildpackage | present | issue #8: CI builds the .deb now (job deb, 2026-10-13). The suite runs inside the package build (debian/rules override_dh_auto_test), not skipped -- the issue's verification requires that. Expected failure mode on a fresh checkout: data-selfcheck (§0), plus the tier-C Android rows when no Android build tree exists
+CI-DEB-JOB | grep | .github/workflows/ci.yml:dpkg-buildpackage | present | issue #8: CI builds the .deb now (job deb, 2026-10-13). The suite runs inside the package build (debian/rules override_dh_auto_test), not skipped -- the issue's verification requires that. Expected failure mode on a fresh checkout: data-selfcheck (§0), plus the tier-C Android rows when no Android build tree exists. **Updated 2026-10-13 (issue #46):** data-selfcheck now reports Skipped without the gitignored krdict dump, so the tier-C Android rows are the only expected non-pass on a fresh checkout
 CI-DEB-JOB | grep | .github/workflows/ci.yml:upload-artifact | present | the .deb is uploaded as a run artefact, so CI is a second place the artefact can be produced -- the ruling issue #8 asks for is whether that is REQUIRED for 0.1 or sufficient alongside a local build, and this row asserts only that the job exists
 RELEASE-SCRIPT | path-present | tools/build-release.sh | present | issue #8: the 0.1 artefacts (deb + release APK) are buildable by anyone with the same sequence; it existed only as one local run before. The APK signs with a generated throwaway keystore (HUNMIN_RELEASE_STORE) -- B8's ruling (issue #1) is what would make it release-grade
 CI-WORKFLOW-VALID | grep | .github/workflows/ci.yml:\$\{\{ failure\(\) \}\} | present | issue #8 exposed this: an unquoted `if: failure()` parsed as YAML boolean True made GitHub reject the workflow with "Invalid workflow file: ci.yml#L1", so all 38 CI runs since the initial public commit (fbb0c43, 2026-10-10) failed before any job ran -- no CI job had ever executed. Both occurrences are now quoted. A workflow whose file is rejected reports no jobs, which is why the failure read as a file issue and not a step failure
@@ -516,4 +532,9 @@ CI-WORKFLOW-VALID | grep | .github/workflows/ci.yml:\$\{\{ failure\(\) \}\} | pr
 # grant needed "an emulator, which this host does not have". False twice: tier E2
 # drove both permission branches on this host's AVD, and the AVD is what
 # tools/android-e2e.sh already uses.)
+DATASELFCHECK-46 | grep | tools/selfcheck.py:KR_ABSENT | present | issue #46: data-selfcheck skips (rc 77) when the gitignored 368 MB krdict dump is absent instead of failing, so a fresh worktree and CI are green. Two other rows carry the rest: krdict-fixture is the self-contained determinism guard (committed fixture under tests/fixtures/krdict/, expected output diffed byte-identically), and the dump-dependent full run is tools/selfcheck-krdict.sh, which is deliberately NOT registered with ctest
+DATASELFCHECK-46 | grep | CMakeLists.txt:set_tests_properties\(data-selfcheck PROPERTIES | present | issue #46: data-selfcheck carries SKIP_RETURN_CODE 77, so the skip is reported as Skipped by ctest rather than silently passed
+DATASELFCHECK-46 | path-present | tests/fixtures/krdict/01.xml | present | issue #46: the committed synthetic fixture exercises every krdict2data.py branch (Hanja/no-origin skipped, `/`-separated readings -> hanja_alt, Hanja-free readings dropped, pos/level/category, meanings absent, (ko,hanja) dedup counted in meta) with no 368 MB dump present
+DATASELFCHECK-46 | path-present | tools/selfcheck-krdict.sh | present | issue #46: the maintainer-only full-dump determinism run; not a ctest test, so the ctest surface stays self-contained
+DATASELFCHECK-46 | path-absent | CMakeLists.txt:selfcheck-krdict | absent | issue #46: selfcheck-krdict.sh must NOT appear in the ctest registration — a dump-dependent run cannot live on the ctest surface
 <!-- end docs-lint -->

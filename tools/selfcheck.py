@@ -12,6 +12,15 @@ py = sys.executable
 DATA = root / "libhunmin/data"
 IST = root / "data-orig/naraeseot"
 
+# data-orig/krdict/ is a 368 MB gitignored dump (tools/fetch-krdict.sh), so the
+# krdict converter cannot run in a fresh worktree. The repo's tests must be
+# self-contained, so this step SKIPS (77) when the dump is absent rather than
+# failing — the self-contained guard is the ctest test krdict-fixture against
+# tests/fixtures/krdict/, and the dump-dependent full run is the maintainer-only
+# tools/selfcheck-krdict.sh. In the maintainer's primary tree, where the dump
+# is present, this step runs exactly as before.
+KR_ABSENT = not any((root / "data-orig/krdict").glob("*.xml"))
+
 
 def run(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -46,7 +55,19 @@ with tempfile.TemporaryDirectory() as td:
         [py, root / "tools/gen-us-qwerty.py", "--out", str(Path(td) / "layouts/us-qwerty.json")],
     ]
     for s in steps:
+        if KR_ABSENT and s[1].name == "krdict2data.py":
+            continue
         run(s)
+    # The committed krdict table is a converter output, but its converter input
+    # is the gitignored dump; copy it across rather than letting diff -r report
+    # it as missing in a tree without the dump.
+    if KR_ABSENT:
+        src = DATA / "krdict"
+        if src.is_dir():
+            for f in src.iterdir():
+                dst = Path(td) / f.relative_to(DATA)
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(f.read_bytes())
     # Provenance docs are committed but are not converter output, so copy them
     # across rather than letting diff -r report them as missing.
     for lic in DATA.rglob("LICENSE.md"):
@@ -63,4 +84,13 @@ with tempfile.TemporaryDirectory() as td:
                  "  python3 tools/ist2data.py --ist data-orig/naraeseot/sin3-p2.yethangul.xml "
                  "--out libhunmin/data --name sin3-p2-yet --alias 3sin-p2-yet "
                  "--compose-extra sin3-p2-yet-ohi\n  python3 tools/ohi2compose.py")
-sys.exit(subprocess.run([py, root / "tools/doctor.py", DATA]).returncode)
+rc = subprocess.run([py, root / "tools/doctor.py", DATA]).returncode
+if rc == 0 and KR_ABSENT:
+    # Not a failure and not a pass: the krdict determinism step was skipped
+    # because the gitignored 368 MB dump is absent. SKIP_RETURN_CODE 77, so
+    # ctest reports Skipped. The self-contained guard is ctest krdict-fixture.
+    print("selfcheck: krdict step skipped — no *.xml under data-orig/krdict "
+          "(368 MB gitignored dump; see tools/fetch-krdict.sh and the ctest "
+          "test krdict-fixture)", file=sys.stderr)
+    sys.exit(77)
+sys.exit(rc)

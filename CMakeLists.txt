@@ -116,7 +116,12 @@ if(BUILD_TESTING AND Python3_FOUND)
   add_test(NAME data-selfcheck
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/selfcheck.py
             ${CMAKE_CURRENT_SOURCE_DIR})
-  set_tests_properties(data-selfcheck PROPERTIES LABELS "tier-B")
+  # SKIP (rc 77) when the gitignored 368 MB krdict dump is absent — a fresh
+  # worktree has no data-orig/krdict/, and the repo's tests must be
+  # self-contained. krdict-fixture below is the self-contained guard; the
+  # dump-dependent full run is the maintainer-only tools/selfcheck-krdict.sh.
+  set_tests_properties(data-selfcheck PROPERTIES
+    LABELS "tier-B" SKIP_RETURN_CODE 77)
   add_executable(expr-test tools/expr_test.c)
   target_include_directories(expr-test PRIVATE libhunmin/src)
   target_sources(expr-test PRIVATE libhunmin/src/expr.c)
@@ -253,6 +258,17 @@ if(BUILD_TESTING AND Python3_FOUND)
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/doctor.py
             ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data)
   set_tests_properties(schema-contract PROPERTIES LABELS "tier-B")
+  # krdict-fixture: self-contained determinism check for tools/krdict2data.py.
+  # The real 국립국어원 dump is 368 MB and gitignored (tools/fetch-krdict.sh),
+  # so data-selfcheck cannot run the krdict converter in a fresh worktree; the
+  # dump-dependent full run is tools/selfcheck-krdict.sh (maintainer-only, NOT
+  # a ctest test). This test converts the committed fixture
+  # tests/fixtures/krdict/01.xml into a temp dir and diffs it byte-identically
+  # against the committed expected output — proving the converter's logic with
+  # no dump present. Any diff means the converter or its expected output moved.
+  add_test(NAME krdict-fixture
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/krdict-fixture-check.py)
+  set_tests_properties(krdict-fixture PROPERTIES LABELS "tier-B")
   # docs-lint: mechanical check for figure-in-prose drift (test/trace counts,
   # makefile commands, wiki sources, index count). Runs against the build dir
   # so the ctest count check is meaningful.
