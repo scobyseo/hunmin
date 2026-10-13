@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-13 | Total pages: 29
+> Last updated: 2026-10-13 | Total pages: 30
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -44,6 +44,9 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   the auto Hangul/English toggle ships inert in 0.1, by disabling the default
   key composition — no default chord, the dispatch skips the action, the
   settings row shows 미정 (0.3). The E5 assignment itself stays open for 0.3.
+- [[2026-10-13-r8-mode-guessing-is-adaptor-owned]] — R8 mode guessing is
+  adaptor-owned; the engine stays ABI-clean and the adaptor (`modeswitch.*`)
+  keeps the cross-frontend validity judgement.
 - [[space-emission-ownership]] — **contested.** The measurement is not in
   dispute: the engine declines the space and every frontend forwards it. But
   the log and `docs/REMAINING-WORK.md` B5 record the *decision* as closed with
