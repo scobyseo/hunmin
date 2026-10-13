@@ -372,8 +372,12 @@ missing tooling installed in phase-scoped batches (clang/libFuzzer, xvfb, python
 → P0–P4; JDK+SDK/NDK+emulator → P5; mingw-w64 for local cross-build smoke → tier B).
 A **Windows VM is first needed at P6** only (Win11 eval on existing qemu + swtpm, VS2022
 C++/ATL + TAT; USB BT dongle passthrough for keyboard checks). Wine is explicitly excluded
-(TSF support invalid as a test signal). GitHub Actions (ubuntu / windows-latest / mingw /
-android-emulator jobs) is the standing second environment from day one. Details and exact
+(TSF support invalid as a test signal). GitHub Actions (ubuntu / mingw /
+android-emulator jobs) is the standing second environment from day one; the
+`windows-latest` job that used to sit in that list is **disabled** (issue #51:
+"for windows, it is not scope of this version. so in the issue we will disable
+windows test."), so MSVC compiles nothing in CI for now — a Windows VM stays a
+P6 need either way. Details and exact
 install batches: **`docs/ENVIRONMENT.md`**.
 
 ## Verification
