@@ -151,6 +151,9 @@ jobs:
             -k "system-images;android-35;google_apis;x86_64" --device pixel_6
           echo "HUNMIN_AVD=hunmin-ci" >> "$GITHUB_ENV"
 
+      - name: Configure host build (for engine tests)
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
+
       - name: Cross-compile the engine and build the APK
         run: |
           echo "ANDROID_NDK=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
