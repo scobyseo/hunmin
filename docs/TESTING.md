@@ -103,23 +103,31 @@ This branch adds **one** registration, `engine-android-espresso`
 is present — measured 0 occurrences in a no-toolchain configure, so it is
 inside the `ANDROID_NDK` + `adb` guard with E0/E2 as intended.
 
-Re-measured 2026-10-13 in a clean `env -i`, master then this branch:
+Re-measured 2026-10-13 in a clean `env -i`, master then this branch, `ctest -N`
+on a freshly configured tree:
 
 | configuration | master | this branch |
 |---|---|---|
-| default (no Android toolchain) | 56 | 59 |
-| `JAVA_HOME` + `ANDROID_HOME` | 58 | 58 |
-| … plus `ANDROID_NDK` and `adb` | 62 | 63 |
-| … plus `-DHUNMIN_TRACE_BUILD=ON` | 180 | 181 |
+| default (no Android toolchain) | 59 | 59 |
+| `JAVA_HOME` + `ANDROID_HOME` | 61 | 61 |
+| … plus `ANDROID_NDK` and `adb` | 63 | 64 |
+| … plus `-DHUNMIN_TRACE_BUILD=ON` | 181 | 182 |
 
-**The first row's +3 is not this change's** — `engine-android-espresso` does
-not register there at all. It is master's own drift since the table above was
-written, and it is left un-attributed here rather than claimed either way. What
-this branch owns is the last row: +1, the Espresso registration. The table's
-original numbers are kept as master measured them so the two stays of drift
-stay separable.
+**The first two rows are not this change's** — `engine-android-espresso` does
+not register there at all, so its only row is the third: +1, and only where the
+Android toolchain is present. Rows 1 and 2 carry master's own drift since the
+table above was written (+3 each); rows 3 and 4 drifted +1 each on master. The
+drift is left un-attributed here rather than claimed either way.
 
-Per-label, in the 58-test configuration. No test fails in this configuration:
+**Re-measured again 2026-10-13, after the registration was actually added.** The
+first measurement of this table was taken when the branch had no `add_test` at
+all — only `tools/android-espresso.sh` and the CI step — so its branch column read
+63/181 one lower than the branch's real count. A table that credits a
+registration the tree does not contain is the defect issue #13 records, one
+level down from the directory it started as; the numbers above come from
+`ctest -N` on a freshly configured tree, `env -i` with only the row's variables.
+
+Per-label, in the 59-test configuration. No test fails in this configuration:
 `data-selfcheck` reports **Skipped** in a fresh worktree, because the gitignored
 krdict dump is absent (`docs/REMAINING-WORK.md` §0, issue #46), so its wall
 clock here is not its real cost — the maintainer's host measures it at 8.45 s.

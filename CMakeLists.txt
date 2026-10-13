@@ -235,6 +235,22 @@ if(BUILD_TESTING AND Python3_FOUND)
     set_tests_properties(engine-android-e2e PROPERTIES
       LABELS "tier-E2"
       SKIP_RETURN_CODE 77 TIMEOUT 1200 RUN_SERIAL TRUE)
+    # Tier E2, Espresso half: the instrumentation suite under
+    # frontends/android/app/src/androidTest/, run through `am instrument`
+    # against the device. It needs adb and a JDK; the NDK is in the guard for
+    # consistency with the tiers above, not because it builds anything here.
+    #
+    # Registered in CMakeLists.txt and not only in .github/workflows/ci.yml,
+    # which is what the first version of this did: the script existed, the
+    # board named `engine-android-espresso`, and `ctest -N` listed no test by
+    # that name (measured 2026-10-13). A tier named in three documents and
+    # reachable from no `ctest -R` is the "green having measured nothing"
+    # shape issue #13 records.
+    add_test(NAME engine-android-espresso
+      COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-espresso.sh)
+    set_tests_properties(engine-android-espresso PROPERTIES
+      LABELS "tier-E2"
+      SKIP_RETURN_CODE 77 TIMEOUT 1800 RUN_SERIAL TRUE)
   endif()
   # The mutation tier used to be RUN_SERIAL because it planted a deliberately
   # broken engine.cpp in the working tree and rebuilt the shared build/, so
