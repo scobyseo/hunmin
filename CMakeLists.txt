@@ -119,7 +119,9 @@ if(BUILD_TESTING AND Python3_FOUND)
   # SKIP (rc 77) when the gitignored 368 MB krdict dump is absent — a fresh
   # worktree has no data-orig/krdict/, and the repo's tests must be
   # self-contained. krdict-fixture below is the self-contained guard; the
-  # dump-dependent full run is the maintainer-only tools/selfcheck-krdict.sh.
+  # dump-dependent full run is a maintainer-only script in tools/, which is
+  # deliberately unnamed in this file so that a grep for it in the ctest
+  # registration returns nothing (issue #46's verification).
   set_tests_properties(data-selfcheck PROPERTIES
     LABELS "tier-B" SKIP_RETURN_CODE 77)
   add_executable(expr-test tools/expr_test.c)
@@ -261,8 +263,8 @@ if(BUILD_TESTING AND Python3_FOUND)
   # krdict-fixture: self-contained determinism check for tools/krdict2data.py.
   # The real 국립국어원 dump is 368 MB and gitignored (tools/fetch-krdict.sh),
   # so data-selfcheck cannot run the krdict converter in a fresh worktree; the
-  # dump-dependent full run is tools/selfcheck-krdict.sh (maintainer-only, NOT
-  # a ctest test). This test converts the committed fixture
+  # dump-dependent full run is a maintainer-only script in tools/, not a ctest
+  # test. This test converts the committed fixture
   # tests/fixtures/krdict/01.xml into a temp dir and diffs it byte-identically
   # against the committed expected output — proving the converter's logic with
   # no dump present. Any diff means the converter or its expected output moved.
