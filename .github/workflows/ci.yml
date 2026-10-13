@@ -129,7 +129,7 @@ jobs:
           unzip -q tools.zip -d "$sdk_root/cmdline-tools"
           mv "$sdk_root/cmdline-tools/cmdline-tools" "$sdk_root/cmdline-tools/latest"
           echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
-          export PATH="$sdk_root/cmdline-tools/latest/bin:$PATH"
+          export PATH="$sdk_root/cmdline-tools/latest/bin:$sdk_root/platform-tools:$PATH"
 
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager --install \
@@ -334,7 +334,7 @@ jobs:
           unzip -q tools.zip -d "$sdk_root/cmdline-tools"
           mv "$sdk_root/cmdline-tools/cmdline-tools" "$sdk_root/cmdline-tools/latest"
           echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
-          export PATH="$sdk_root/cmdline-tools/latest/bin:$PATH"
+          export PATH="$sdk_root/cmdline-tools/latest/bin:$sdk_root/platform-tools:$PATH"
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager --install \
             "platform-tools" "platforms;android-35" "build-tools;35.0.0" \
