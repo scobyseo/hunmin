@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 import org.gradle.api.tasks.testing.Test
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -71,13 +72,75 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // release signing (P6): keystore lives in local.properties (gitignored)
+    // release signing (P6): the keystore lives in local.properties
+    // (gitignored), and that file is the single truth. Nothing in the build
+    // script names a keystore -- hardcoding a host path here (which an earlier
+    // revision did, at issue #1) makes the tree a config of one machine, and
+    // a fresh worktree or a CI box would have to edit a committed file to
+    // build at all. The AGENTS.md rule is the same one it uses for corpora:
+    // no host path in a committed file.
+    //
+    // Two loaders, one truth, in order:
+    //  1. local.properties keys -- storeFile / storePassword / keyPassword /
+    //     keyAlias -- as the documented place. storeFile may be absolute or
+    //     relative to this module (projectDir is the app dir, so ".." is
+    //     frontends/android, where local.properties lives).
+    //  2. The platform's DEFAULT debug keystore ($HOME/.android/debug.keystore,
+    //     password "android", alias androiddebugkey) -- only so a fresh
+    //     worktree with no local.properties still builds the release it was
+    //     measured with (REMAINING-WORK.md: a 1.5 MB APK signed with the
+    //     debug keystore). This is the same convention as the fallback AGP
+    //     itself applies to debug builds; it is written here explicitly
+    //     because a fallback that is not written is a fallback nobody knows
+    //     is there. Set all four keys in local.properties to override it.
+    //
+    // Passwords have no sane default: a keystore with no password is not a
+    // keystore we can read, so the password never falls back -- if the file
+    // names a keystore it must name its password, or the build fails saying
+    // which key is missing.
+    val localProps = Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.isFile) f.inputStream().use { load(it) }
+    }
+    fun prop(name: String): String? =
+        (project.findProperty(name) as String?)?.takeIf { it.isNotBlank() }
+            ?: localProps.getProperty(name)?.takeIf { it.isNotBlank() }
+
+    val signStoreFile = prop("storeFile")?.let { file(it) }
+        ?: file("${System.getProperty("user.home")}/.android/debug.keystore")
+    val signStorePassword = prop("storePassword")
+    val signKeyPassword = prop("keyPassword") ?: signStorePassword
+    val signKeyAlias = prop("keyAlias") ?: "androiddebugkey"
+
+    if (!signStoreFile.isFile) {
+        throw GradleException(
+            "release signing: keystore not found at ${signStoreFile}. " +
+                "Set storeFile/storePassword/keyPassword/keyAlias in " +
+                "frontends/android/local.properties (gitignored), or point " +
+                "storeFile at the keystore to sign with."
+        )
+    }
+    if (signStorePassword == null) {
+        throw GradleException(
+            "release signing: keystore ${signStoreFile} has no storePassword " +
+                "(resolved via " +
+                (if (prop("storeFile") != null) {
+                    "local.properties"
+                } else {
+                    "the default debug-keystore fallback"
+                }) +
+                "). A keystore password is never guessed -- set storePassword " +
+                "(and keyPassword if the key differs) in " +
+                "frontends/android/local.properties."
+        )
+    }
+
     signingConfigs {
         create("release") {
-            storeFile = file("/home/scoby/.android/debug.keystore")
-            storePassword = "android"
-            keyPassword = "android"
-            keyAlias = "androiddebugkey"
+            storeFile = signStoreFile
+            storePassword = signStorePassword
+            keyPassword = signKeyPassword
+            keyAlias = signKeyAlias
         }
     }
 
