@@ -93,33 +93,13 @@ jobs:
     #     "green CI is compatible with a broken release build" failure the issue
     #     is about. (Measured: two commits touching tools/android-mutations.py
     #     and debian/rules triggered no run at all.)
-    # A job-level `if:` scopes the skip to this job alone and lets every other
-    # job always run. `paths-ignore` on the trigger cannot do this -- it is also
-    # workflow-wide.
-    #
-    # frontends/android/   the adapter, JNI shim, manifest, assets
-    # tools/android-*.sh   E1/E2 harnesses
-    # tools/build-android.sh, cmake/   the cross-compile
-    # libhunmin/           the engine the APK packages
-    # .github/workflows/   this file
-    #
-    # KVM is available on ubuntu runners, which is the difference between a
-    # 20 s boot and a 10-minute one.
+    # Runs on every push. The Espresso E2 tier depends on this job. The
+    # '[skip android]' escape is kept so a docs-only push pays nothing for the
+    # AVD.
     if: >-
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
-      (!cancelled() && !contains(github.event.head_commit.message, '[skip android]') &&
-       (contains(github.event.head_commit.modified, 'frontends/android/') ||
-        contains(github.event.head_commit.modified, 'tools/android-') ||
-        contains(github.event.head_commit.modified, 'tools/build-android.sh') ||
-        contains(github.event.head_commit.modified, 'tools/apply-mutation.py') ||
-        contains(github.event.head_commit.modified, 'tools/android-golden-check.sh') ||
-        contains(github.event.head_commit.modified, 'tools/keymap-fixture.py') ||
-        contains(github.event.head_commit.modified, 'cmake/') ||
-        contains(github.event.head_commit.modified, 'libhunmin/') ||
-        contains(github.event.head_commit.modified, 'tests/golden/') ||
-        contains(github.event.head_commit.modified, 'CMakeLists.txt') ||
-        contains(github.event.head_commit.modified, '.github/workflows/')))
+      (!cancelled() && !contains(github.event.head_commit.message, '[skip android]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
