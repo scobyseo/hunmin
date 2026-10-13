@@ -1,4 +1,5 @@
 build*/
+artifacts/
 *.tmp
 __pycache__/
 .cache/

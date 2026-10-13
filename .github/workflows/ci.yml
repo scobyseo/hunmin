@@ -288,12 +288,29 @@ jobs:
         run: |
           deb="$(ls ../hunmin_*_*.deb)"
           dpkg-deb --info "$deb" | sed -n '1,4p'
-          dpkg-deb --contents "$deb" | head -20
+          # Through a file, not a pipe into head: closing the pipe early makes
+          # tar die on EPIPE and dpkg-deb print "tar subprocess returned error
+          # exit status 2" (measured 2026-10-13), which reads like a broken
+          # package. The file also gives the step a real exit status -- piped
+          # into head, the status was head's, so an unreadable .deb passed.
+          dpkg-deb --contents "$deb" > /tmp/hunmin-deb-contents.txt
+          head -20 /tmp/hunmin-deb-contents.txt
+      - name: Stage the .deb inside the workspace
+        # upload-artifact@v4 refuses any pattern containing `..`, measured on
+        # this job: "Invalid pattern '../hunmin_*_*.deb'. Relative pathing '.'
+        # and '..' is not allowed." dpkg-buildpackage always writes one level
+        # above the source tree, so the file is copied in rather than reached
+        # at. This was the step that failed once the shlibdeps fix let the
+        # build finish.
+        run: |
+          mkdir -p artifacts
+          cp ../hunmin_*_*.deb artifacts/
+          ls -la artifacts/
       - name: Upload the .deb
         uses: actions/upload-artifact@v4
         with:
           name: hunmin-deb
-          path: ../hunmin_*_*.deb
+          path: artifacts/hunmin_*.deb
           retention-days: 30
 
   # The signed release APK, and the reason it is gated on a repository
@@ -366,7 +383,35 @@ jobs:
       - run: cmake -B build -G Ninja --toolchain cmake/toolchain-mingw-w64.cmake -DBUILD_TESTING=OFF
       - run: cmake --build build --target hunmin
 
+  # DISABLED -- issue #51, the maintainer's words:
+  #
+  #   "for windows, it is not scope of this version. so in the issue we will
+  #    disable windows test."
+  #
+  # There is no Windows frontend to test: `ls frontends/` is `android fcitx5`,
+  # and AGENTS.md says a Windows TSF frontend "is planned and does not exist
+  # yet". The fcitx5 addon is not built here either -- it prints "Fcitx5Core not
+  # found: fcitx5 addon disabled" -- so this job asserts one thing only: that
+  # the core shared library compiles under MSVC. That is not a shipped 0.1
+  # artefact, which is what the ruling scopes out.
+  #
+  # It was red on master before this, unconditionally and since at least 0d046bc:
+  #
+  #   cl : command line error D8021: invalid numeric argument '/Wextra'
+  #     [D:\a\hunmin\hunmin\build\hunmin.vcxproj]
+  #
+  # because CMakeLists.txt:10 `add_compile_options(-Wall -Wextra)` is passed to
+  # cl, which has no -Wextra, so the job dies before compiling a line. The
+  # `mingw` job builds the same --target hunmin under GCC and passes.
+  #
+  # `if: false` and not a deleted block: a deleted job cannot answer "was
+  # Windows ever built here, and why did it stop". The /Wextra flag is
+  # deliberately NOT guarded with if(NOT MSVC) -- that would turn the job
+  # green, which is a different decision from the one that was ruled; if MSVC
+  # support is wanted later it is its own issue with its own measurement. No
+  # other job references this one, so nothing here depends on it.
   windows:
+    if: false
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

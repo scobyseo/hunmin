@@ -203,12 +203,15 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   The failing `abi` test prints this command, so CI hands it to whoever broke it.
   Header compiles as C99/C11/C++17 `-Werror` on gcc/clang/**MSVC/MinGW/NDK-clang** matrix
   (portability is a tested claim, not a hope).
-  ⚠️ Partly aspirational: CI builds the core on linux-gcc, mingw and MSVC, but there is no
+  ⚠️ Partly aspirational: CI builds the core on linux-gcc and mingw, and there is no
   C99/C11/C++17 `-Werror` header compile. The toolchains do get real coverage; the
   language-standard matrix is not tested. *(Corrected 2026-10-09: this used to also claim
   "no NDK-clang job at all" on the evidence of `grep -c android .github/workflows/ci.yml`
   = 0. That grep is 19, and the `android` job installs NDK 27.3.13750724 and cross-compiles
   the core with its clang — so the NDK half of the claim was already false.)*
+  *(Corrected again 2026-10-13: the MSVC half is now false too — the `windows` job is
+  disabled per issue #51, so no job compiles the core with `cl`. The bold "MSVC" in the
+  claim above still stands as the intent, not as coverage.)*
 - **`hunmin-doctor`** (data-file gate for external contributors): JSON-schema validation +
   semantic lints — duplicate triggers, unreachable modifier combos, symbol-tier key
   collisions, rule tables referencing unknown jamo ids, hanja rules dangling. Nonzero exit

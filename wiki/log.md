@@ -383,6 +383,8 @@
   service's).
 - `wiki/index.md` listed both pages; total pages 28.
 
+## [2026-10-13] update | F9 candidate window measured, then capped (issue #45)
+
 - **New measurement.** `raw/measurements/2026-10-13-f9-candidate-window-abort.md`
   (issue #45): F9 on a syllable with 11 or more candidates aborts fcitx5 with
   `CommonCandidateList: invalid label idx` (SIGABRT, exit 134). The page size is
@@ -417,3 +419,64 @@
   draws the F9 window, so the abort still cannot regress through `ctest` alone
   and `tools/repro-f9-candidates.sh` runs in no CI job. Recorded in the
   measurement page's "What it did not close".
+
+## [2026-10-13] update | The deb job's last mile (dpkg-shlibdeps) measured; windows job disabled
+
+- **Two CI jobs red, and the causes are unrelated.** Measured on run 38398739533,
+  and the same two on `master`: `debian (.deb artefact)` died at `dh_shlibdeps`
+  *after* all 63 tests had passed inside the package build —
+  `no dependency information found for
+  /lib/x86_64-linux-gnu/libFcitx5Core.so.7 (used by .../fcitx5/libhunmin.so)` —
+  while `windows` died before compiling a line,
+  `cl : command line error D8021: invalid numeric argument '/Wextra'`.
+- **The deb cause was measured, not guessed.** dpkg answers that question with
+  `dpkg -S <library-file>` plus the owning package's `.symbols`/`.shlibs`, and the
+  CI job installs fcitx5 5.1.13 **from source** into /usr: the dependency is
+  satisfied, the package metadata does not exist. It is the same fact the job
+  already encodes by passing `-d` to `dpkg-buildpackage`.
+- **The fix was chosen by measurement, before it was committed.** The CI shape
+  reproduces locally with `--admindir` pointing at an empty dpkg database:
+  identical error, nonzero exit; `--ignore-missing-info` → rc 0.
+  `debian/shlibs.local` does not apply — still fails, in both the soname and the
+  absolute-path form the man page allows. So `debian/rules` gained one
+  `override_dh_shlibdeps` line and one comment recording what it does not assert.
+  It is not a blanket waiver: the flag skips only what cannot be *resolved*, and
+  building the .deb on this host (fcitx5 packaged) still produces
+  `Depends: ... libfcitx5core7 (>= 5.1.19) ...`. Only on a source-built host do
+  those three drop out, leaving `Depends: fcitx5` — unversioned, where the addon
+  needs >= 5.1.13. That gap is a packaging decision and is left open.
+- **A second deb failure, invisible until the first was fixed.** With
+  `dh_shlibdeps` past, the build ran all 63 tests and wrote
+  `../hunmin_0.1.0_amd64.deb` — and the *next* step failed:
+  `Invalid pattern '../hunmin_*_*.deb'. Relative pathing '.' and '..' is not
+  allowed.` `upload-artifact@v4` refuses a pattern reaching above the
+  workspace, so the package is now copied into `artifacts/` before the upload.
+  Worth writing down for the reason it is a finding rather than a nuisance: a
+  job cannot report a second failure until the first one is gone, so "the job
+  is nearly green" is a claim about the order defects appear in. The same step
+  also printed `tar subprocess returned error exit status 2` — that was EPIPE
+  from `dpkg-deb --contents | head`, not a broken package, and it masked the
+  step's exit status into the bargain; it now goes through a file.
+- **Ruling applied (issue #51, item 2).** "for windows, it is not scope of this
+  version. so in the issue we will disable windows test." The job carries
+  `if: false` with the ruling quoted beside it, and the block is kept rather than
+  deleted so "was Windows ever built here, and why did it stop" stays
+  answerable. The `/Wextra` flag is deliberately **not** guarded with
+  `if(NOT MSVC)`: that would turn the job green, which is a different decision
+  from the one ruled. No other job in the workflow depends on it.
+- **Where the matrix is now narrower, stated where it had been claimed otherwise.**
+  `docs/ENVIRONMENT.md` said the `windows-latest` job "covers the MSVC matrix"
+  and that "CI carries the burden from day one" for P6; its job table was two
+  jobs out of date. `docs/TESTING.md`'s ABI bullet claimed "CI builds the core
+  on linux-gcc, mingw and MSVC". All three are corrected, and
+  `docs/MUTATION-TIER-OPTIONS.md` §6.1's "four jobs, no nightly" is corrected
+  with them. While the job is disabled, **no job compiles the core with `cl`**.
+- **Not done, deliberately, and tracked elsewhere:** whether the F9 candidate
+  window gets a ctest tier, a CI job, or neither is a tier-design decision. It
+  was item 1 of issue #51; at the maintainer's instruction — "F9 테스트는 별도
+  이슈로 등록하고 이 작업 범위에서 제외." — it is now **issue #53**, and its
+  board row is untouched and still asserts `absent`. #51 keeps only the windows
+  job, and its title says so. See
+  [[2026-10-13-f9-candidate-window-abort]] for what the cap did not close, and
+  [[decisions-belong-to-the-maintainer]] for why one of these two is recorded as
+  a ruling and the other as a measurement.
