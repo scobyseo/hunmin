@@ -153,6 +153,8 @@ jobs:
 
       - name: Configure host build (for engine tests)
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
+      - name: Build host engine (for engine tests)
+        run: cmake --build build --target hunmin
 
       - name: Cross-compile the engine and build the APK
         run: |
