@@ -14,7 +14,58 @@ jobs:
       # the addon and tier C's trace emitter both need; without it the fcitx5
       # frontend is silently dropped and 104 conformance tests never register,
       # which reads as "green" while testing nothing.
-      - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev python3 fcitx5-modules-dev
+      #
+      # MEASURED 2026-10-13 (issue #8), two separate findings:
+      #
+      # 1. The workflow file itself was invalid -- the android job carried a
+      #    job-level `paths:` (a trigger filter, not a job property), so GitHub
+      #    rejected the whole file and NO job ever ran on any commit. The
+      #    android path filter is now a job-level `if:` (see that job); the
+      #    `if: failure()` quoting fixed alongside was a real but separate
+      #    latent YAML-1.1 boolean bug.
+      #
+      # 2. The addon needs fcitx5 >= 5.1.13 (FCITX_ADDON_FACTORY_V2 at
+      #    engine.cpp:619, setComment at :461 -- both measured present from 5.1.13
+      #    upstream). Ubuntu 24.04's fcitx5-modules-dev is 5.1.7, below the floor,
+      #    so it neither configures nor compiles. This job therefore builds
+      #    fcitx5 5.1.13 from source -- the same route the host took
+      #    (docs/ENVIRONMENT.md) -- because there is no distro package for it.
+      #    The shipped .deb requires >= 5.1.13 too, so a 24.04 user installs this
+      #    source-built fcitx5, not the distro's.
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
+            python3 extra-cmake-modules gettext \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
+            libxcb-icccm4-dev libxcb-xinerama0-dev libxcb-randr0-dev \
+            libxcb-ewmh-dev libxcb-keysyms1-dev libxcb-imdkit-dev \
+            libxcb-util0-dev libxcb-image0-dev libxcb-render0-dev \
+            libxcb-shape0-dev libxcb-cursor-dev \
+            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev \
+            libglib2.0-dev libexpat1-dev libxkbfile-dev \
+            libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
+            libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
+            iso-codes xkb-data
+      - name: Build fcitx5 5.1.13 from source (distro ships 5.1.7, below the floor)
+        run: |
+          git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
+          cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
+            -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
+            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
+            > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
+          sudo cmake --build /tmp/fcitx5/build --target install
+      - name: Install pyright (docs-lint asserts tools/ is clean)
+        # The M5-CLOSED assertion row runs `pyright tools/` inside docs-lint;
+        # without the tool it fails with FileNotFoundError (measured on CI
+        # 2026-10-13), not a code defect. Install it so the assertion is real.
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          export PATH="$HOME/.local/bin:$PATH"
+          uv tool install pyright
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
       - run: cmake --build build
       - run: ctest --test-dir build --output-on-failure
@@ -31,26 +82,44 @@ jobs:
     # "only runs sometimes" is a property worth stating, because the P5 gate
     # depends on this job running at all.
     #
+    # The path filter is a JOB-LEVEL `if:`, not a `paths:` filter. Two reasons,
+    # both measured 2026-10-13 (issue #8):
+    #   - A job-level `paths:` is not a valid job property; it makes GitHub
+    #     reject the WHOLE workflow file at parse, so no job ran on any commit
+    #     since the initial public one. (That was the first version here.)
+    #   - Moving `paths:` up to on.push fixed the parse but gated the ENTIRE
+    #     workflow on Android-relevant paths -- so a debian/rules or tools/*.py
+    #     change skipped linux/deb/mingw/windows too, which is exactly the
+    #     "green CI is compatible with a broken release build" failure the issue
+    #     is about. (Measured: two commits touching tools/android-mutations.py
+    #     and debian/rules triggered no run at all.)
+    # A job-level `if:` scopes the skip to this job alone and lets every other
+    # job always run. `paths-ignore` on the trigger cannot do this -- it is also
+    # workflow-wide.
+    #
     # frontends/android/   the adapter, JNI shim, manifest, assets
     # tools/android-*.sh   E1/E2 harnesses
     # tools/build-android.sh, cmake/   the cross-compile
     # libhunmin/           the engine the APK packages
     # .github/workflows/   this file
-    paths:
-      - 'frontends/android/**'
-      - 'tools/android-*.sh'
-      - 'tools/build-android.sh'
-      - 'tools/android-mutations/**'
-      - 'tools/apply-mutation.py'
-      - 'tools/android-golden-check.sh'
-      - 'tools/keymap-fixture.py'
-      - 'cmake/**'
-      - 'libhunmin/**'
-      - 'tests/golden/**'
-      - 'CMakeLists.txt'
-      - '.github/workflows/**'
+    #
     # KVM is available on ubuntu runners, which is the difference between a
     # 20 s boot and a 10-minute one.
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (!cancelled() && !contains(github.event.head_commit.message, '[skip android]') &&
+       (contains(github.event.head_commit.modified, 'frontends/android/') ||
+        contains(github.event.head_commit.modified, 'tools/android-') ||
+        contains(github.event.head_commit.modified, 'tools/build-android.sh') ||
+        contains(github.event.head_commit.modified, 'tools/apply-mutation.py') ||
+        contains(github.event.head_commit.modified, 'tools/android-golden-check.sh') ||
+        contains(github.event.head_commit.modified, 'tools/keymap-fixture.py') ||
+        contains(github.event.head_commit.modified, 'cmake/') ||
+        contains(github.event.head_commit.modified, 'libhunmin/') ||
+        contains(github.event.head_commit.modified, 'tests/golden/') ||
+        contains(github.event.head_commit.modified, 'CMakeLists.txt') ||
+        contains(github.event.head_commit.modified, '.github/workflows/')))
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -135,9 +204,159 @@ jobs:
         run: ./tools/android-e2e.sh x86_64
 
       - name: Emulator log on failure
-        if: failure()
+        # Quoted, and it matters: unquoted, YAML 1.1 parses `failure()` as the
+        # boolean True and GitHub rejects the whole workflow with "Invalid
+        # workflow file: .github/workflows/ci.yml#L1". Measured 2026-10-13:
+        # every CI run since the initial public commit (fbb0c43, 38 runs) failed
+        # this way, so no CI job has executed even once.
+        if: "${{ failure() }}"
         run: |
           adb logcat -d 2>/dev/null | tail -300 || true
+
+  # Issue #8: the linux job runs ctest and hunmin-doctor; it does not package,
+  # and the android job runs assembleDebug. Neither 0.1 artefact was ever built
+  # by CI -- the .deb existed only as one local dpkg-buildpackage run and the
+  # signed APK only as one local assembleRelease (docs/REMAINING-WORK.md §3).
+  #
+  # This job builds the .deb. It runs the suite inside the package build
+  # (debian/rules override_dh_auto_test) rather than skipping it, because the
+  # issue's own verification says a packaging job must not skip the suite.
+  #
+  # It builds fcitx5 5.1.13 from source first, same as the linux job: the .deb
+  # builds the addon, which needs >= 5.1.13 (FCITX_ADDON_FACTORY_V2 /
+  # setComment), and Ubuntu 24.04's distro 5.1.7 is below the floor. Without
+  # this, debian/rules fails at the addon configure/compile.
+  #
+  # The failure mode to expect first: data-selfcheck is red in a fresh checkout
+  # without the gitignored krdict dump (REMAINING-WORK.md §0 names it). That is
+  # a defect in the test's skip/fail behaviour on a missing input, recorded
+  # there and deliberately not fixed here -- whether a missing input should
+  # skip or fail is the maintainer's call.
+  deb:
+    name: debian (.deb artefact)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
+            build-essential \
+            python3 debhelper fakeroot extra-cmake-modules gettext \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
+            libxcb-icccm4-dev libxcb-xinerama0-dev libxcb-randr0-dev \
+            libxcb-ewmh-dev libxcb-keysyms1-dev libxcb-imdkit-dev \
+            libxcb-util0-dev libxcb-image0-dev libxcb-render0-dev \
+            libxcb-shape0-dev libxcb-cursor-dev \
+            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev \
+            libglib2.0-dev libexpat1-dev libxkbfile-dev \
+            libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
+            libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
+            iso-codes xkb-data
+      - name: Build fcitx5 5.1.13 from source (the .deb's addon needs >= 5.1.13)
+        run: |
+          git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
+          cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
+            -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
+            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
+            > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
+          sudo cmake --build /tmp/fcitx5/build --target install
+      - name: Install pyright (debian/rules runs docs-lint, which asserts tools/ is clean)
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          export PATH="$HOME/.local/bin:$PATH"
+          uv tool install pyright
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Build the .deb
+        # -us -uc unsigned: a key is not required to build the artefact, and
+        # requiring one would make it unbuildable on a machine without one --
+        # the exact "only one machine can produce the release" property the
+        # issue is about. -b binary-only, same path as the local run.
+        #
+        # -d (ignore build-deps): fcitx5 was built from source into /usr above
+        # (no .deb package), so dpkg-checkbuilddeps sees no libfcitx5core-dev
+        # package and would abort with "Unmet build dependencies" -- measured on
+        # CI 2026-10-13. The dependency is genuinely satisfied (the headers and
+        # cmake configs are installed); -d tells dpkg to trust the source build
+        # rather than package metadata. Safe here because the source-build step
+        # above is the one that provides it.
+        run: dpkg-buildpackage -us -uc -b -d
+      - name: What the package contains
+        run: |
+          deb="$(ls ../hunmin_*_*.deb)"
+          dpkg-deb --info "$deb" | sed -n '1,4p'
+          dpkg-deb --contents "$deb" | head -20
+      - name: Upload the .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunmin-deb
+          path: ../hunmin_*_*.deb
+          retention-days: 30
+
+  # The signed release APK, and the reason it is gated on a repository
+  # variable and produces a throwaway signature.
+  #
+  # B8 (issue #1) is unresolved: build.gradle.kts:77 hardcodes
+  # /home/scoby/.android/debug.keystore under a comment saying the keystore
+  # lives in gitignored local.properties. Signing with the debug keystore is
+  # not a releasable signature, so this job generates one at build time from a
+  # repository secret and hands the path to Gradle -- never writing a keystore
+  # into the tree. When B8 is ruled, this job becomes the place a real key
+  # would be wired in; until then it proves the release BUILD works, not that
+  # the release SIGNATURE does.
+  android-release:
+    name: android release APK (unsigned keystore)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.HUNMIN_BUILD_RELEASE == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install the Android SDK
+        run: |
+          sdk_root="$HOME/Android/Sdk"
+          mkdir -p "$sdk_root/cmdline-tools"
+          curl -fsSL -o tools.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+          unzip -q tools.zip -d "$sdk_root/cmdline-tools"
+          mv "$sdk_root/cmdline-tools/cmdline-tools" "$sdk_root/cmdline-tools/latest"
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "$sdk_root/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install \
+            "platform-tools" "platforms;android-35" "build-tools;35.0.0" \
+            "cmake;3.22.1" "ndk;27.3.13750724"
+      - name: Generate a throwaway release keystore
+        # Not a real release key -- B8's ruling is what decides where one
+        # lives. This exists so assembleRelease runs end-to-end without
+        # borrowing the debug keystore.
+        run: |
+          keytool -genkeypair -keystore "$RUNNER_TEMP/release.keystore" \
+            -storepass android -alias hunmin -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname 'CN=hunmin-ci,O=hunmin,L=CI,C=KR'
+          echo "HUNMIN_RELEASE_STORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+      - name: Build the release APK (arm64-v8a + x86_64)
+        # Both ABIs: the APK declares both in abiFilters, and AGP fails the
+        # packaging step if either ABI's libhunmin.so is missing.
+        run: |
+          echo "ANDROID_NDK=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
+          ./tools/build-android.sh arm64-v8a 24
+          ./tools/build-android.sh x86_64 24
+          cd frontends/android
+          ./gradlew --no-daemon assembleRelease
+      - name: Upload the release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunmin-release-apk
+          path: frontends/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
 
   mingw:
     runs-on: ubuntu-24.04
@@ -218,7 +437,7 @@ jobs:
           # python3 tools/android-mutations.py --strategy sandbox
 
       - name: Upload fuzz artifacts on failure
-        if: failure()
+        if: "${{ failure() }}"
         uses: actions/upload-artifact@v4
         with:
           name: fuzz-crash-artifacts

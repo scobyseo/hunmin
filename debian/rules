@@ -2,6 +2,7 @@
 export LC_ALL=C
 
 %:
+
 	dh $@
 
 override_dh_auto_configure:
@@ -11,5 +12,24 @@ override_dh_auto_configure:
 	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
 		-DFCITX_INSTALL_USE_FCITX_SYS_PATHS=On
 
+# override_dh_auto_test runs ctest, which reaches the Android-tier scripts
+# (android-unit.sh, android-trace-emit.sh, build-host-jni.sh). Two packaging-tree
+# facts, both measured on CI 2026-10-13 (issue #8), are handled by the exports
+# inside the recipe below, scoped there so no other debian/rules target sees
+# them:
+#
+# 1. HUNMIN_BUILD_DIR: the engine .so and host JNI shim live in
+#    obj-x86_64-linux-gnu, not build/. The scripts default to build/ (correct
+#    for a plain `cmake -B build` and the linux CI job) and without this fail
+#    with "libhunmin.so missing" even though the engine is built.
+#
+# 2. HOME: dpkg-buildpackage builds under fakeroot (uid 0), and the Gradle
+#    wrapper refuses to create /root/.gradle/.../*.lck as uid 0. Point HOME at
+#    a writable dir so engine-android-e1 / android-mutations can run under the
+#    fake root.
 override_dh_auto_test:
-	cd obj-x86_64-linux-gnu && ctest --output-on-failure
+	mkdir -p $(CURDIR)/.deb-test-home
+	cd obj-x86_64-linux-gnu && \
+		HUNMIN_BUILD_DIR=$(CURDIR)/obj-x86_64-linux-gnu \
+		HOME=$(CURDIR)/.deb-test-home \
+		ctest --output-on-failure

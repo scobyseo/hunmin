@@ -62,6 +62,11 @@ install(TARGETS hunmin hunmin-sim
 # (tier D1; skipped when Fcitx5Core is unavailable)
 option(HUNMIN_FCITX5 "Build the fcitx5 addon" ON)
 if(HUNMIN_FCITX5)
+  # 5.1.13 is the real API floor (FCITX_ADDON_FACTORY_V2, engine.cpp:619),
+  # measured from upstream tags 2026-10-13 (issue #8). Ubuntu 24.04's distro
+  # 5.1.7 is below it, so CI builds fcitx5 from source; the addon's build-time
+  # macro gap on a bare 5.1.7 is still handled by the local fallback in
+  # frontends/fcitx5/CMakeLists.txt, but that does not bridge the API gap.
   find_package(Fcitx5Core 5.1.13 QUIET)
   find_package(Fcitx5Module QUIET COMPONENTS TestFrontend)
   if(Fcitx5Core_FOUND)
@@ -546,14 +551,22 @@ if(BUILD_TESTING)
     message(STATUS "Tier C Android: skipped (tools/android-trace-emit.sh not found)")
   endif()
   # Tier C Android: a nested worktree adds its own trace corpus separately.
-  add_test(NAME engine-android-conformance-shift-arrow-selection
-    COMMAND /home/scoby/.local/bin/python3.11
-            /home/scoby/work/hunmin/tools/trace-check.py
-            /home/scoby/work/hunmin/android-shift-arrow-selection-deletes-the-select/tests/conformance/android/shift-arrow-selection.trace.in
-            --runner /home/scoby/work/hunmin/tools/android-trace-emit.sh)
-  set_tests_properties(engine-android-conformance-shift-arrow-selection PROPERTIES
-    LABELS "tier-C"
-    SKIP_RETURN_CODE 77 TIMEOUT 120)
+  # Paths are derived, never hardcoded: an absolute path to another worktree
+  # (/home/scoby/work/hunmin/android-.../) was committed here once and made this
+  # test red in every other checkout (measured 2026-10-13, issue #8's deb build
+  # ran it and it failed with FileNotFoundError). The corpus lives in THIS tree.
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/android/shift-arrow-selection.trace.in")
+    add_test(NAME engine-android-conformance-shift-arrow-selection
+      COMMAND ${Python3_EXECUTABLE}
+              ${CMAKE_CURRENT_SOURCE_DIR}/tools/trace-check.py
+              ${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/android/shift-arrow-selection.trace.in
+              --runner ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-trace-emit.sh)
+    set_tests_properties(engine-android-conformance-shift-arrow-selection PROPERTIES
+      LABELS "tier-C"
+      SKIP_RETURN_CODE 77 TIMEOUT 120)
+  else()
+    message(STATUS "Tier C Android: shift-arrow-selection corpus not in this tree")
+  endif()
   if(NOT WIN32)
     add_test(NAME abi
       COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tools/abi-check.sh

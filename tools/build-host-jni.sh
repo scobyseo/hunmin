@@ -21,9 +21,17 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/build/libhunjni-host.so"
+# The engine .so lives in whatever build dir CMake was given. The default
+# build/ is what the linux CI job and a local `cmake -B build` use, so this
+# stays correct there. A packaging build (debian/rules) configures into
+# obj-x86_64-linux-gnu instead, and HUNMIN_BUILD_DIR points this script at it
+# -- without the override the deb build's tier E1 fails with "libhunmin.so
+# missing" even though the engine is built, just in the other directory
+# (measured on CI 2026-10-13, issue #8).
+BUILD_DIR="${HUNMIN_BUILD_DIR:-$ROOT/build}"
+OUT="$BUILD_DIR/libhunjni-host.so"
 SRC="$ROOT/frontends/android/app/src/main/cpp/hunmin-jni.c"
-ENGINE="$ROOT/build/libhunmin.so"
+ENGINE="$BUILD_DIR/libhunmin.so"
 
 if [ ! -f "$ENGINE" ]; then
   echo "  $ENGINE missing -- run 'cmake -B build && cmake --build build' first" >&2
@@ -50,8 +58,8 @@ cc -shared -fPIC -O1 -g -Wall -Wextra \
   -I"$JNI_INC" -I"$JNI_MD" \
   -I"$ROOT/libhunmin/include" \
   -o "$OUT" "$SRC" \
-  -L"$ROOT/build" -lhunmin \
-  -Wl,-rpath,"$ROOT/build"
+  -L"$BUILD_DIR" -lhunmin \
+  -Wl,-rpath,"$BUILD_DIR"
 
 # Proof it is a loadable library for this JVM and not merely a file: ldd shows
 # the engine it actually resolved, which is the thing that silently differs if

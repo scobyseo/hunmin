@@ -174,12 +174,34 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
     `cmake/3.22.1` + default NDK `26.1.10909125` (Clang 17.0.2). The version skew
     between shim and engine toolchains did not block the build or the run; it is a
     measurement, not a defect I was authorised to change.
-  Still open after the measurement: nothing here runs in CI
-  (`ci.yml` has no `assembleRelease` — the `docs-lint` table row says so), and `tools/
-  android-e2e.sh` asserts against the **debug** APK by design. The shrinker path is no
-  longer environment-bound-unmeasurable; it is measured and green. The reproducible
-  procedure and the observed run are recorded in
+  Still open after the measurement: `tools/android-e2e.sh` asserts against the
+  **debug** APK by design, and no CI job does an `adb install` of the release
+  build — so the release APK is built in CI (job `android-release`, added
+  2026-10-13 for issue #8) but never typed into there. The shrinker path itself
+  is measured and green on this host. The reproducible procedure and the
+  observed run are recorded in
   `tests/manual-checklists/release-r8-shrinker.md`.
+
+**CI itself had never run, and that was measured 2026-10-13 (issue #8).** While
+adding the packaging jobs, every CI run on this repository — 38 of them, from
+the initial public commit `fbb0c43` (2026-10-10) — was found to have failed with
+"This run likely failed because of a workflow file issue". Cause: an unquoted
+`if: failure()` (`.github/workflows/ci.yml:138`, and the same at :226), which
+YAML 1.1 parses as the boolean `True`; GitHub rejects the whole file. A rejected
+workflow file registers no jobs at all, so the failure reads as a file error
+rather than a step error, and **no CI job had ever executed once**. Both
+occurrences are now quoted (`if: "${{ failure() }}"`). This is the same shape as
+the board's own disease: a status line ("CI is green") carried forward past the
+commit that invalidated it, and nothing mechanical caught it because a rejected
+workflow file never reaches a job whose result anyone checks.
+
+### C — CI coverage of the 0.1 artefacts (issue #8)
+
+| # | Work | Verification |
+|---|---|---|
+| C1 | **CI builds neither 0.1 artefact** — `assembleDebug` only, no `.deb` job. | The issue's own grep. Closed 2026-10-13 as a tree fact: `.github/workflows/ci.yml` now has job `deb` (`dpkg-buildpackage -us -uc -b` + artefact upload) and job `android-release` (`assembleRelease`, both ABIs, artefact upload, gated on `vars.HUNMIN_BUILD_RELEASE='true'`). `tools/build-release.sh` is the same sequence locally. **The ruling the issue asks for is still open**: whether 0.1 *requires* CI-built artefacts or a local run suffices is the maintainer's call — these jobs make both answers cheap, they do not make one. |
+| C2 | **The `deb` job's suite, measured on CI.** | Run 38328467052 (commit c91906a): the deb build reaches the full suite, and the only test red is `data-selfcheck` — the documented §0 gitignored-krdict defect (the D3 desktop tests skip on CI, no X display). Two packaging-tree defects were fixed to get here: the engine `.so` lives in `obj-x86_64-linux-gnu` not `build/` (the Android-tier scripts now read `HUNMIN_BUILD_DIR`, which `debian/rules` exports), and the Gradle wrapper cannot create `/root/.gradle/.../*.lck` under fakeroot (`debian/rules` points `HOME` at a writable dir, recipe-scoped). The `linux` job likewise has only `data-selfcheck` red. The `.deb` artifact upload is gated behind a green suite, so it stays skipped until `data-selfcheck` is resolved — whether a missing input should skip or fail is the maintainer's call (§0, §7.4), not changed here. |
+| C3 | **CI had never run — three independent root causes, all measured.** | (a) The workflow file was invalid: the android job carried a job-level `paths:` (a trigger filter, not a job property), so GitHub rejected the whole file and **no job ran on any commit since the initial public one**. The `if: failure()` quoting fixed alongside was a real but separate latent YAML-1.1 boolean bug. The android path filter is now a **job-level `if:`** over `github.event.head_commit.modified` — a per-job `paths:` is not a GitHub feature, and an intermediate `on.push.paths` version gated the *whole* workflow on Android paths (a `debian/rules`/`tools/*.py` change skipped every job), which was measured and reverted. (b) The addon needs fcitx5 >= 5.1.13 (`FCITX_ADDON_FACTORY_V2` engine.cpp:619, `setComment` :461 — both first present in 5.1.13, measured across upstream tags 5.1.7/5.1.9/5.1.13). Ubuntu 24.04's distro fcitx5 is 5.1.7, below the floor, so CI now builds fcitx5 5.1.13 from source (linux + deb jobs) and the `.deb` requires >= 5.1.13. **Consequence for supporting Ubuntu 24.04:** the distro's 5.1.7 is NOT supported — a 24.04 user installs the source-built 5.1.13+. An earlier attempt lowered the floor to 5.1.7 on the theory that only the cmake macro was missing; CI's compile error (`setComment`/`FCITX_ADDON_FACTORY_V2` undeclared) disproved it and the floor was restored to 5.1.13. The local `add_fcitx5_addon` macro fallback (frontends/fcitx5/CMakeLists.txt) still helps a bare 5.1.7 configure but cannot bridge the API gap. |
 
 ---
 
@@ -455,7 +477,7 @@ ALT-KEY-218-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/K
 SETTINGS-CRASH-CLOSED | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:AlertDialog.Builder | present | settings dialog crash fixed (default theme)
 R8-SHRINKER | path-present | frontends/android/app/proguard-rules.pro | present | the R8 rules are written
 R8-SHRINKER | grep | frontends/android/app/build.gradle.kts:isMinifyEnabled = true | present | shrinker enabled
-R8-SHRINKER | grep | .github/workflows/ci.yml:assembleRelease | absent | release build never runs in CI, so the shrink path is unexercised
+R8-SHRINKER | grep | .github/workflows/ci.yml:assembleRelease | present | the release build RUNS in CI now (job android-release, added 2026-10-13 for issue #8): assembleRelease + both ABIs + an artefact upload. The assertion changed from absent to present because the tree changed; the job is gated on vars.HUNMIN_BUILD_RELEASE='true' on master and signs with a generated throwaway keystore (B8 unresolved, issue #1), so it proves the release BUILD, not a release SIGNATURE. tools/build-release.sh is the same sequence locally. Still not asserted: the release APK is never installed or typed into in CI -- android-e2e.sh drives the debug APK by design, and no job does an adb install of the release build. That gap is a measurement nobody has taken and it is recorded here rather than closed
 W5-CLOSED | grep | tools/android-e2e.sh:pm revoke | present | W5 closed 2026-10-10: E2 drives both permission branches
 W5-CLOSED | grep | tools/android-e2e.sh:perm_granted | present | the granted/denied state is read from the platform, not from a log line
 W5-CLOSED | grep | tools/android-e2e.sh:still types after a denied mic tap | present | the property that matters: a voice failure must not reach the key path
@@ -480,6 +502,10 @@ VERSION-CONVENTION | grep | README.md:versionName. is .0\.1\.0-p5 | present | is
 N1-CLOSED | path-present | tools/kcm_export.py | present | the keymaps exporter; was listed open as "does not exist"
 N3-CLOSED | grep | libhunmin/src/hunmin_internal.h:HK_SEQ | present | the seq symbol tier
 N4-CLOSED | path-present | debian/hunmin.postinst | present | the deb postinst; the real filename is hunmin.postinst
+CI-DEB-JOB | grep | .github/workflows/ci.yml:dpkg-buildpackage | present | issue #8: CI builds the .deb now (job deb, 2026-10-13). The suite runs inside the package build (debian/rules override_dh_auto_test), not skipped -- the issue's verification requires that. Expected failure mode on a fresh checkout: data-selfcheck (§0), plus the tier-C Android rows when no Android build tree exists
+CI-DEB-JOB | grep | .github/workflows/ci.yml:upload-artifact | present | the .deb is uploaded as a run artefact, so CI is a second place the artefact can be produced -- the ruling issue #8 asks for is whether that is REQUIRED for 0.1 or sufficient alongside a local build, and this row asserts only that the job exists
+RELEASE-SCRIPT | path-present | tools/build-release.sh | present | issue #8: the 0.1 artefacts (deb + release APK) are buildable by anyone with the same sequence; it existed only as one local run before. The APK signs with a generated throwaway keystore (HUNMIN_RELEASE_STORE) -- B8's ruling (issue #1) is what would make it release-grade
+CI-WORKFLOW-VALID | grep | .github/workflows/ci.yml:\$\{\{ failure\(\) \}\} | present | issue #8 exposed this: an unquoted `if: failure()` parsed as YAML boolean True made GitHub reject the workflow with "Invalid workflow file: ci.yml#L1", so all 38 CI runs since the initial public commit (fbb0c43, 2026-10-10) failed before any job ran -- no CI job had ever executed. Both occurrences are now quoted. A workflow whose file is rejected reports no jobs, which is why the failure read as a file issue and not a step failure
 # ----------------------------------------------------------------  decision-blocked
 # B1..B9 are maintainer rulings, not tree facts. AGENTS.md: "네 멋대로 기각하지마."
 # They carry no assertion row, by construction, and their absence from this table

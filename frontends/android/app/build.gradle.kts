@@ -72,12 +72,29 @@ android {
     }
 
     // release signing (P6): keystore lives in local.properties (gitignored)
+    //
+    // B8 is UNRESOLVED (issue #1): the hardcoded /home/scoby/.android/debug.keystore
+    // below sits under a comment saying the keystore lives in gitignored
+    // local.properties, and the two contradict. This line does NOT pick a side.
+    // It reads HUNMIN_RELEASE_STORE from the environment when set -- which is how
+    // the CI release job (ci.yml, android-release) and tools/build-release.sh
+    // point at a throwaway keystore -- and otherwise keeps the existing behaviour
+    // exactly, so the 2026-10-11 local assembleRelease measurement still
+    // reproduces. When B8 is ruled, the else-branch is what changes.
     signingConfigs {
         create("release") {
-            storeFile = file("/home/scoby/.android/debug.keystore")
-            storePassword = "android"
-            keyPassword = "android"
-            keyAlias = "androiddebugkey"
+            val releaseStore = System.getenv("HUNMIN_RELEASE_STORE")
+            if (releaseStore != null) {
+                storeFile = file(releaseStore)
+                storePassword = "android"
+                keyPassword = "android"
+                keyAlias = "hunmin"
+            } else {
+                storeFile = file("/home/scoby/.android/debug.keystore")
+                storePassword = "android"
+                keyPassword = "android"
+                keyAlias = "androiddebugkey"
+            }
         }
     }
 

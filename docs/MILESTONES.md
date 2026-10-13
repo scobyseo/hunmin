@@ -60,8 +60,11 @@ two measurements. No engine work is on the path.
 - ~~The **R8 shrinker path end-to-end** (`assembleRelease` + emulator run).~~ **Measured
   2026-10-11** — green; see the row in `REMAINING-WORK.md` §3 and
   `tests/manual-checklists/release-r8-shrinker.md` (issue #4, merged). It left this lane.
-  What remains true of it: nothing runs `assembleRelease` in CI, and the release
-  `signingConfig` still hardcodes a keystore (#1) — both tracked (#8, #1).
+  What remains true of it: `tools/android-e2e.sh` drives the **debug** APK by design and
+  no CI job does an `adb install` of the release build — the release APK is built in CI
+  (job `android-release`, issue #8) but never typed into there — and the release
+  `signingConfig` still hardcodes a keystore (#1), so a CI release build proves the build,
+  not a releasable signature (both tracked: #8, #1).
 - The **tier E3 physical-device sign-off** (three rows,
   `tests/manual-checklists/tier-e3-bt-keyboard.md`). This is the last open line of the
   P5 gate.
