@@ -233,7 +233,12 @@ class Sandbox(Strategy):
         # the whole tree is: a file another process is rewriting under us is
         # worse than one we took a copy of. See _verify_shim_isolated for what
         # this does and does not guarantee.
-        chain = _engine_chain(REPO / "build")
+        #
+        # HUNMIN_BUILD_DIR defaults to build/ (plain `cmake -B build`, the linux
+        # CI job); a packaging build (debian/rules) exports it to obj-x86_64-
+        # linux-gnu, where the engine actually is -- issue #8, measured 2026-10-13.
+        build_dir = pathlib.Path(os.environ.get("HUNMIN_BUILD_DIR", REPO / "build"))
+        chain = _engine_chain(build_dir)
         out = self.src / "build"
         out.mkdir(exist_ok=True)
         for name, real in chain.items():
