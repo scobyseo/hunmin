@@ -33,3 +33,51 @@ override_dh_auto_test:
 		HUNMIN_BUILD_DIR=$(CURDIR)/obj-x86_64-linux-gnu \
 		HOME=$(CURDIR)/.deb-test-home \
 		ctest --output-on-failure
+
+# The .deb job's last failure before this: dh_shlibdeps, measured on CI
+# 2026-10-13 (issue #8's job, run 38398739533) after the whole 63-test suite
+# passed inside the package build:
+#
+#   dpkg-shlibdeps: error: no dependency information found for
+#   /lib/x86_64-linux-gnu/libFcitx5Core.so.7
+#   (used by debian/hunmin/usr/lib/x86_64-linux-gnu/fcitx5/libhunmin.so)
+#   Hint: check if the library actually comes from a package.
+#   make: *** [debian/rules:6: binary] Error 25
+#
+# dpkg answers that question by running `dpkg -S <library-file>` and reading the
+# owning package's /var/lib/dpkg/info/*.symbols or *.shlibs. A source-built
+# fcitx5 has no owning package: the CI job installs fcitx5 5.1.13 from source
+# into /usr (docs/ENVIRONMENT.md records the same route on this host), so the
+# headers and cmake configs are there and the addon compiles and links, while
+# nothing in dpkg's database describes those .so files. It is the same fact the
+# CI step already records by passing -d to dpkg-buildpackage: the dependency is
+# satisfied, only the package metadata is missing.
+#
+# --ignore-missing-info is dpkg-shlibdeps(1)'s documented answer to exactly this
+# ("Do not fail if dependency information can't be found for a shared library").
+# It was measured before being committed here rather than assumed: pointed at the
+# real addon with an empty --admindir -- the same shape as "no package owns the
+# library", this host's dpkg 1.23.7 -- the run prints the error above and exits
+# nonzero, and exits 0 with the flag (the exit code differs by dpkg version:
+# 1 here, 25 on the CI runner's 1.22.5). debian/shlibs.local was tried first, in
+# both the soname and the absolute-path form the man page allows, and does not
+# apply: still nonzero, still no shlibs:Depends.
+#
+# WHAT THIS DOES NOT ASSERT:
+# - Measured on a host where fcitx5 IS packaged (this one, any Debian machine),
+#   the flag costs nothing at all: the .deb still comes out with
+#   libfcitx5core7 (>= 5.1.19), libfcitx5config6 (>= ...) and libfcitx5utils2
+#   (>= ...) in shlibs:Depends, because --ignore-missing-info only skips what
+#   cannot be resolved, not what can. It is on a source-built fcitx5 -- i.e. CI
+#   -- that those three drop out of the dependency set, and that
+#   debian/control's hand-written `Depends: fcitx5` is then the whole of it.
+# - So a CI-built .deb declares fcitx5 UNVERSIONED while the addon needs
+#   >= 5.1.13 (FCITX_ADDON_FACTORY_V2 at frontends/fcitx5/src/engine.cpp). That
+#   gap is a packaging decision about what the 0.1 .deb promises, and is
+#   deliberately not decided here.
+# - The flag also stops the BUILD HOST from failing on any unowned NEEDED
+#   library, not only fcitx5's. On such a host that check is gone; a build
+#   where fcitx5 is packaged (via tools/build-release.sh) still resolves every
+#   dependency and is where a missing one still shows up.
+override_dh_shlibdeps:
+	dh_shlibdeps -- --ignore-missing-info
