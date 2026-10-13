@@ -9,7 +9,6 @@ sources:
   - ../../docs/REMAINING-WORK.md
   - ../../frontends/android/app/build.gradle.kts
   - ../../frontends/android/keymaps/build.gradle.kts
-  - ../../frontends/android/local.properties
 confidence: high
 ---
 

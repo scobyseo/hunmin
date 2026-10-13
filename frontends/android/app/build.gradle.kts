@@ -122,27 +122,36 @@ android {
                 if (ksDir != null && !ksDir.exists()) {
                     ksDir.mkdirs()
                 }
-                var generated = false
-                try {
-                    val pb = ProcessBuilder(
-                        "keytool", "-genkeypair",
-                        "-keystore", ks.absolutePath,
-                        "-storepass", "android", "-alias", "hunmin",
-                        "-keypass", "android", "-keyalg", "RSA", "-keysize", "2048",
-                        "-validity", "10000",
-                        "-dname", "CN=hunmin-CI,O=hunmin,L=CI,C=KR"
-                    ).redirectErrorStream(true)
-                    val process = pb.start()
-                    val output = BufferedInputStream(process.inputStream).reader().readText()
-                    if (process.waitFor() != 0) {
-                        throw GradleException("keytool failed: $output")
+                // Both modules (app, keymaps) resolve to the SAME keystore path,
+                // and both signingConfigs blocks are evaluated during
+                // configuration -- before any task runs. Generating
+                // unconditionally made the second module's keytool fail with
+                // "alias <hunmin> already exists" (CI run 38416072671). A
+                // keystore already on disk is reused: the passwords and alias
+                // below are fixed, so reuse is safe.
+                if (!ks.exists()) {
+                    var generated = false
+                    try {
+                        val pb = ProcessBuilder(
+                            "keytool", "-genkeypair",
+                            "-keystore", ks.absolutePath,
+                            "-storepass", "android", "-alias", "hunmin",
+                            "-keypass", "android", "-keyalg", "RSA", "-keysize", "2048",
+                            "-validity", "10000",
+                            "-dname", "CN=hunmin-CI,O=hunmin,L=CI,C=KR"
+                        ).redirectErrorStream(true)
+                        val process = pb.start()
+                        val output = BufferedInputStream(process.inputStream).reader().readText()
+                        if (process.waitFor() != 0) {
+                            throw GradleException("keytool failed: $output")
+                        }
+                        generated = true
+                    } catch (e: Exception) {
+                        throw GradleException("cannot generate throwaway keystore: ${e.message}", e)
                     }
-                    generated = true
-                } catch (e: Exception) {
-                    throw GradleException("cannot generate throwaway keystore: ${e.message}", e)
-                }
-                if (!generated) {
-                    throw GradleException("keytool unavailable; set HUNMIN_RELEASE_STORE or local.properties")
+                    if (!generated) {
+                        throw GradleException("keytool unavailable; set HUNMIN_RELEASE_STORE or local.properties")
+                    }
                 }
                 storeFile = ks
                 storePassword = "android"
