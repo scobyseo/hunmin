@@ -46,7 +46,12 @@ skip() { echo "skip: $*" >&2; exit 77; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # --- prerequisites ---------------------------------------------------------
-: "${ANDROID_HOME:=$HOME/Android/Sdk}"
+# Exported, not merely defaulted: `: "${VAR:=...}"` leaves an unset-in-the-
+# environment variable unexported, so a local run that relied on the default
+# handed Gradle no SDK at all and failed with "SDK location not found"
+# (measured 2026-10-13). CI never saw it -- the job exports ANDROID_HOME -- so
+# the default looked like it worked while only working where it was redundant.
+export ANDROID_HOME="${ANDROID_HOME:=$HOME/Android/Sdk}"
 # ADB_BIN is the binary; the serial is applied by the adb() wrapper below. Do
 # not fold the two into one variable -- see the note where adb() is defined.
 ADB_BIN="$ANDROID_HOME/platform-tools/adb"
