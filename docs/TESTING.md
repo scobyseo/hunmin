@@ -22,6 +22,16 @@ every test in this repo carries at least one. **Labels are for the local loop,
 never for a gate**: `.github/workflows/ci.yml` runs the plain unfiltered
 `ctest`, because a filtered run cannot prove what it left out.
 
+**What that costs, measured 2026-10-14 for issue #59: 269 s of the linux job's
+8 m 24 s, and 402 s of the deb job's 13 m 30 s.** The per-job figures are in
+`docs/CI-TIMING.md`; the short version is that three tests are 252 of the
+linux job's 269 test-seconds and 386 of the deb job's 402, so the unfiltered
+run and a 1–2 minute job are not currently compatible. The property above is
+unchanged by that measurement — a label-selected CI run cannot prove what it
+left out — but "labels are not a gate" is now a costed decision rather than an
+unexamined one, and the choice of what to do about it is the maintainer's
+(`docs/CI-TIMING.md` §"Options").
+
 ### Why labels rather than a `-R` regex over names
 
 Test names are partly machine-generated. The Android tier-C registrations are

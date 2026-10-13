@@ -126,3 +126,39 @@ pasting private sessions into it.
 
 **What is still open is in `docs/REMAINING-WORK.md`**, including the items that
 are blocked on the maintainer rather than on code.
+
+## 2026-10-14 — CI wall time, measured rather than argued
+
+Issue #59 asked what the 8 m 24 s linux job costs and where. The answer is now
+a measurement record, `docs/CI-TIMING.md`, with the per-job segment tables
+parsed from the run's own job logs rather than re-estimated.
+
+**Measured.** Three tests are 252 of the linux job's 269 test-seconds and 386
+of the deb job's 402 — `engine-android-e1`, `android-mutations` and
+`frontend-mutations` in all three jobs that run them. The deb job is
+13 m 30 s, longer than the linux job the issue names, and it builds fcitx5
+5.1.13 from source a second time (326 s) with nothing shared. The Android tiers
+land in the linux job at all because the runner image ships an Android SDK the
+workflow never installs — `ANDROID_HOME=/usr/local/lib/android/sdk` and the
+exact NDK this repo pins are in the image, so the `CMakeLists.txt` guard fires
+on every run and the android job re-runs the same two tests at `ci.yml:166`.
+Cold Gradle is most of tier E1: 126 s against a 23 s warm, measured by
+emptying `GRADLE_USER_HOME`, and there is no `actions/cache` in the workflow.
+`ctest -j` is real and cheap — 190 → 48 s on the host — but cannot reach the
+1–2 minute target alone, because `engine-android-e1` is `RUN_SERIAL` and
+`android-mutations` is nine sequential Gradle runs.
+
+**Not done, deliberately.** No lever was applied. The issue says "the choice
+between them is not made here" and AGENTS.md reserves the ruling for the
+maintainer; `docs/CI-TIMING.md` §"Options" compares all five with their
+coverage cost and what evidence would change the order. One duplication is
+recorded as an open tree fact with a `REMAINING-WORK.md` assertion row rather
+than deleted: `ctest -N` registers 16 Android conformance tests against 15
+corpus files, and removing the stale block at `CMakeLists.txt:592-603` is a
+maintainer call, not a cleanup.
+
+**Cost of one existing decision, now costed.** "Labels are not a gate" —
+`.github/workflows/ci.yml` runs the unfiltered suite — is what makes 386 of
+the deb job's 402 test-seconds the price of every .deb build. The property
+stands, and `docs/TESTING.md` and `CMakeLists.txt` now both say what it costs
+rather than leaving it unexamined.

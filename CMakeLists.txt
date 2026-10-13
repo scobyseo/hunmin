@@ -107,6 +107,12 @@ endif()
 # a person can run "just the tier I touched"; the selection must be visible,
 # so every invocation in docs/TESTING.md and AGENTS.md names what it left out.
 #
+# What that costs, measured 2026-10-14 for issue #59: the linux job's ctest is
+# 269 s and the deb job's is 402 s, and three tests are 252 and 386 of those
+# respectively (docs/CI-TIMING.md §1). "Labels are not a gate" is therefore a
+# costed decision and not an unexamined one; whether to keep paying it is the
+# maintainer's call, and docs/CI-TIMING.md §"Options" is the comparison.
+#
 # NOTE: LABELS is a test PROPERTY, not an add_test() keyword. `add_test(NAME
 # x COMMAND y LABELS a)` does not error -- CMake appends "LABELS" and "a" to
 # the command line as two more argv entries, `ctest -N` still reports the same
@@ -589,6 +595,20 @@ if(BUILD_TESTING)
   # (/home/scoby/work/hunmin/android-.../) was committed here once and made this
   # test red in every other checkout (measured 2026-10-13, issue #8's deb build
   # ran it and it failed with FileNotFoundError). The corpus lives in THIS tree.
+  #
+  # MEASURED 2026-10-14, issue #59: this block is now a DUPLICATE, not a
+  # worktree bridge. The glob above already registers shift-arrow-selection
+  # from the same file, under the derived name
+  # `engine-android-conformance-tests_conformance_android_shift-arrow-selection.trace.in`
+  # -- `ctest -N` reports 16 engine-android-conformance-* tests against the 15
+  # files under tests/conformance/android/. The nested worktree it was written
+  # for is gone. Cost today is one extra java invocation, 0.15 s, with the
+  # Gradle classpath already materialised by its fifteen siblings; the cost that
+  # matters is that `ctest -N` no longer agrees with `ls` over the corpus
+  # directory. The android job's `ctest -R` at ci.yml:186 matches neither name,
+  # so the corpus is registered three times and selected by none of them.
+  # Removing the block restores 15 == 15; that is a maintainer call and is left
+  # open, with the measurement in docs/CI-TIMING.md §"Duplication, measured".
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/android/shift-arrow-selection.trace.in")
     add_test(NAME engine-android-conformance-shift-arrow-selection
       COMMAND ${Python3_EXECUTABLE}
