@@ -137,6 +137,7 @@ jobs:
             "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" \
             "ndk;27.3.13750724" \
             "system-images;android-35;google_apis;x86_64"
+          echo "$sdk_root/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
 
       - name: Create the AVD
@@ -144,7 +145,7 @@ jobs:
           # `pixel_6` matches the profile docs/ENVIRONMENT.md records locally, so
           # the screen is the same size and any coordinates a test derives from a
           # view hierarchy behave the same way here.
-          export PATH="$HOME/Android/Sdk/platform-tools:$PATH"
+          export PATH="$HOME/Android/Sdk/cmdline-tools/latest/bin:$PATH"
           echo no | avdmanager create avd -n hunmin-ci \
             -k "system-images;android-35;google_apis;x86_64" --device pixel_6
           echo "HUNMIN_AVD=hunmin-ci" >> "$GITHUB_ENV"
