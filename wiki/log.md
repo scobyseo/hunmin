@@ -445,6 +445,18 @@
   `Depends: ... libfcitx5core7 (>= 5.1.19) ...`. Only on a source-built host do
   those three drop out, leaving `Depends: fcitx5` — unversioned, where the addon
   needs >= 5.1.13. That gap is a packaging decision and is left open.
+- **A second deb failure, invisible until the first was fixed.** With
+  `dh_shlibdeps` past, the build ran all 63 tests and wrote
+  `../hunmin_0.1.0_amd64.deb` — and the *next* step failed:
+  `Invalid pattern '../hunmin_*_*.deb'. Relative pathing '.' and '..' is not
+  allowed.` `upload-artifact@v4` refuses a pattern reaching above the
+  workspace, so the package is now copied into `artifacts/` before the upload.
+  Worth writing down for the reason it is a finding rather than a nuisance: a
+  job cannot report a second failure until the first one is gone, so "the job
+  is nearly green" is a claim about the order defects appear in. The same step
+  also printed `tar subprocess returned error exit status 2` — that was EPIPE
+  from `dpkg-deb --contents | head`, not a broken package, and it masked the
+  step's exit status into the bargain; it now goes through a file.
 - **Ruling applied (issue #51, item 2).** "for windows, it is not scope of this
   version. so in the issue we will disable windows test." The job carries
   `if: false` with the ruling quoted beside it, and the block is kept rather than

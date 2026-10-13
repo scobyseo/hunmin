@@ -288,12 +288,29 @@ jobs:
         run: |
           deb="$(ls ../hunmin_*_*.deb)"
           dpkg-deb --info "$deb" | sed -n '1,4p'
-          dpkg-deb --contents "$deb" | head -20
+          # Through a file, not a pipe into head: closing the pipe early makes
+          # tar die on EPIPE and dpkg-deb print "tar subprocess returned error
+          # exit status 2" (measured 2026-10-13), which reads like a broken
+          # package. The file also gives the step a real exit status -- piped
+          # into head, the status was head's, so an unreadable .deb passed.
+          dpkg-deb --contents "$deb" > /tmp/hunmin-deb-contents.txt
+          head -20 /tmp/hunmin-deb-contents.txt
+      - name: Stage the .deb inside the workspace
+        # upload-artifact@v4 refuses any pattern containing `..`, measured on
+        # this job: "Invalid pattern '../hunmin_*_*.deb'. Relative pathing '.'
+        # and '..' is not allowed." dpkg-buildpackage always writes one level
+        # above the source tree, so the file is copied in rather than reached
+        # at. This was the step that failed once the shlibdeps fix let the
+        # build finish.
+        run: |
+          mkdir -p artifacts
+          cp ../hunmin_*_*.deb artifacts/
+          ls -la artifacts/
       - name: Upload the .deb
         uses: actions/upload-artifact@v4
         with:
           name: hunmin-deb
-          path: ../hunmin_*_*.deb
+          path: artifacts/hunmin_*.deb
           retention-days: 30
 
   # The signed release APK, and the reason it is gated on a repository
