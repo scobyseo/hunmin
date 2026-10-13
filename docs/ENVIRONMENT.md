@@ -257,7 +257,14 @@ sudo apt install -y mingw-w64
 cmake --toolchain x86_64-w64-mingw32 ...   # builds libhunmin.dll + run conformance traces
 ```
 
-MSVC proper is **not** needed locally — the `windows-latest` CI job covers the MSVC matrix.
+MSVC proper is **not** needed locally, but the honest reason changed 2026-10-13:
+the `windows-latest` CI job is **disabled** (issue #51 — "for windows, it is not
+scope of this version. so in the issue we will disable windows test."), so there
+is **no MSVC coverage in CI at all** right now. `mingw` (same core target, GCC)
+is what runs. If MSVC support comes back it is its own issue, with its own
+measurement — the job was red before it was disabled, on
+`cl : command line error D8021: invalid numeric argument '/Wextra'` from
+`add_compile_options(-Wall -Wextra)` in `CMakeLists.txt:10`.
 Wine is deliberately excluded (TSF support incomplete → invalid test signal).
 
 ## Batch 4 — P6 (Windows TSF TIP) — first real Windows need
@@ -274,8 +281,12 @@ sudo apt install -y swtpm ovmf virt-manager    # Win11 needs TPM2.0+vTPM: swtpm 
   Windows SDK extras) and Python + `pywinauto` for F2 UIA assertions
 - Physical BT keyboard checks (F3): pass a USB BT dongle through to the VM
   (`-device usb-host`); otherwise fall back to injected keys (automatable but less real)
-- CI carries the burden from day one: `windows-latest` builds core + TIP and runs the
-  tier-C conformance trace; the VM is only for debugging and the 🧑 release checklist
+- ⚠️ CI does **not** carry this burden yet. As of 2026-10-13 the `windows-latest`
+  job is disabled (`if: false`, issue #51 — Windows is out of scope for this
+  version), and it only ever built the core library: the addon is skipped there
+  ("Fcitx5Core not found") and no TIP exists to build. So "MSVC builds core + TIP
+  and runs the tier-C trace" was already an overstatement of the job, and with the
+  job disabled nothing of it runs. Whatever comes after P6 has to carry it.
 
 ## LSP — off by default, one word to turn it on
 
@@ -404,21 +415,28 @@ clean baseline was believed.
 
 ## CI (from P0) — the "second environment" so no dual-boot is ever required
 
-**What CI actually does, verified against `.github/workflows/ci.yml` on 2026-10-09.**
-Four jobs: `linux`, `android`, `mingw`, `windows`. The table below is corrected to
-match; the previous version of it described five jobs including a `nightly`, and
-described `core` where the file says `linux`.
+**What CI actually does, re-verified against `.github/workflows/ci.yml` on
+2026-10-13.** The 2026-10-09 version of this table listed four jobs and named a
+`nightly` that did not exist; both are corrected below. Seven job blocks, one of
+them disabled:
 
 | Job | Runner | Contents |
 |---|---|---|
-| linux | ubuntu | ctest A+B+C, hunmin-doctor |
-| android | ubuntu + emulator | NDK 27.3.13750724 cross-build, goldens replayed on the AVD, E1/E2 |
-| mingw | ubuntu | cross-build `libhunmin.dll` (`-DBUILD_TESTING=OFF`) |
-| windows | windows-latest | MSVC core build (`-DBUILD_TESTING=OFF`) |
+| linux | ubuntu-24.04 | full `ctest` (tiers A–G), `-DHUNMIN_TRACE_BUILD=ON` |
+| android | ubuntu-24.04 + AVD | NDK 27.3.13750724 cross-build (both ABIs), goldens replayed on the AVD, E0/E1/E2 |
+| deb | ubuntu-24.04 | `dpkg-buildpackage -us -uc -b -d`, uploads the `.deb`; the suite runs inside the package build |
+| android-release | ubuntu-24.04 | `assembleRelease`, throwaway keystore; **gated** on `vars.HUNMIN_BUILD_RELEASE == 'true'` and a push to `master` |
+| mingw | ubuntu-24.04 | cross-build `libhunmin.dll` (`-DBUILD_TESTING=OFF`) |
+| windows | windows-latest | **disabled** (`if: false`, issue #51) — kept in the file so "was Windows built here, and why did it stop" stays answerable |
+| nightly-fuzz | ubuntu-24.04 | LeakSanitizer build + a random-key sweep; `schedule` only (03:00 UTC) |
 
-**Listed here but not implemented — do not plan work assuming they exist:** the
-`nightly` job (libFuzzer 8h, differential-vs-libhangul 1h, tier-E4 soak), the deb build
-via `dpkg-buildpackage`, and any TIP/TAT step (that is P6, and P6 has not started).
+**Listed here but still not implemented — do not plan work assuming they exist:**
+the libFuzzer 8h and differential-vs-libhangul 1h jobs (the `nightly-fuzz` job
+above is a different, much smaller thing), and any TIP/TAT step (that is P6, and
+P6 has not started).
+
+**MSVC is not in the matrix at all.** No job compiles the core with `cl` while
+the `windows` job is disabled; `mingw` covers the same target under GCC.
 
 ## Sequencing rule
 

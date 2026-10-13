@@ -366,7 +366,35 @@ jobs:
       - run: cmake -B build -G Ninja --toolchain cmake/toolchain-mingw-w64.cmake -DBUILD_TESTING=OFF
       - run: cmake --build build --target hunmin
 
+  # DISABLED -- issue #51, the maintainer's words:
+  #
+  #   "for windows, it is not scope of this version. so in the issue we will
+  #    disable windows test."
+  #
+  # There is no Windows frontend to test: `ls frontends/` is `android fcitx5`,
+  # and AGENTS.md says a Windows TSF frontend "is planned and does not exist
+  # yet". The fcitx5 addon is not built here either -- it prints "Fcitx5Core not
+  # found: fcitx5 addon disabled" -- so this job asserts one thing only: that
+  # the core shared library compiles under MSVC. That is not a shipped 0.1
+  # artefact, which is what the ruling scopes out.
+  #
+  # It was red on master before this, unconditionally and since at least 0d046bc:
+  #
+  #   cl : command line error D8021: invalid numeric argument '/Wextra'
+  #     [D:\a\hunmin\hunmin\build\hunmin.vcxproj]
+  #
+  # because CMakeLists.txt:10 `add_compile_options(-Wall -Wextra)` is passed to
+  # cl, which has no -Wextra, so the job dies before compiling a line. The
+  # `mingw` job builds the same --target hunmin under GCC and passes.
+  #
+  # `if: false` and not a deleted block: a deleted job cannot answer "was
+  # Windows ever built here, and why did it stop". The /Wextra flag is
+  # deliberately NOT guarded with if(NOT MSVC) -- that would turn the job
+  # green, which is a different decision from the one that was ruled; if MSVC
+  # support is wanted later it is its own issue with its own measurement. No
+  # other job references this one, so nothing here depends on it.
   windows:
+    if: false
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

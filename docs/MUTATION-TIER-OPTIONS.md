@@ -348,11 +348,15 @@ at 51.63 s.
 
 ### 6.1 What exists today
 
-`.github/workflows/ci.yml` defines **four** jobs — `linux`, `android`, `mingw`,
-`windows`. `on: [push, pull_request]`. There is **no** `nightly` job and **no**
-`fuzz` job; `docs/ENVIRONMENT.md:405-413` records that the earlier claim of
-five jobs including a nightly was corrected on 2026-10-09. `docs/REMAINING-WORK.md`
-item **N2** proposes a nightly/fuzz tier and is listed as not started.
+`.github/workflows/ci.yml` defines **seven** job blocks as of 2026-10-13 —
+`linux`, `android`, `deb`, `android-release`, `mingw`, `windows` (disabled,
+`if: false`, issue #51) and `nightly-fuzz` — on `push`, `pull_request` and a
+daily `schedule`. `docs/ENVIRONMENT.md` §CI carries the table; an earlier
+version of this file listed four jobs and claimed there was no nightly job,
+which was already false before the fuzz job existed. `docs/REMAINING-WORK.md`
+item **N2** proposes a nightly/fuzz tier and is listed as not started: the
+`nightly-fuzz` job is a LeakSanitizer sweep, not the libFuzzer 8h tier N2 asks
+for.
 
 No ctest test in this project carries a `LABELS` property — `grep` over
 `CMakeLists.txt` finds none, so a label-based exclusion would be the first.
