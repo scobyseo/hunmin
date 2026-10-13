@@ -126,22 +126,26 @@ the number of times a person has to intervene and press on/off** (R7-정정).
   (`docs/FCITX5-ADDON-NOTES.md` §11c-ter).
 
 ## R3. Mode guessing is an engine rule [D]
+
 > 모드 추측은 엔진 규칙. 안드로이드에서도 윈도우에서도 사용할 수 있어야 함.
 > 마찬가지로 자동변환 기능을 켜고 끄는 기능도 모든 환경에서 동일한
 > 방법으로 지원해야 한다.
 
-This is a decisive structural decision:
+This is the *requirement*: a single judgement rule, owned by **one component**
+and delivered identically in fcitx5, Android, and (planned) Windows. Two
+frontends must never answer differently on the same word.
 
-- Guessing is decided **inside `libhunmin`, not by the adapter.** If the frontend
-  holds the guessing logic, two or more frontends can give different answers, and
-  that difference makes the whole claim of "the same engine" a lie.
-- Consequently **there are only two frontends** — fcitx5, Android (Windows to be
-  added).
-- This decision erased other conclusions from the earlier discussion: **no new
-  data schema is needed for mode/guessing.** (AGENTS.md "Layouts are data" is a
-  convention about layouts, composition and assembly tables, not about guessing.
-  The word list itself is data, and that problem was split off into
-  `docs/MODES-DATA.md`.)
+**The owner and the mechanism are not requirements — they are a design
+decision.** The current implementation is an *adaptor*: `frontends/fcitx5/src/modeswitch.*`
+keeps a shadow `hunmin_ctx` on the Latin layout and replays the buffered word
+at the judgement boundary. An engine-owned variant is the alternative. Both
+satisfy the requirement above. Which one wins is recorded in the R8
+architecture decision, not in this document.
+
+The three design facts that came out of the earlier discussion are moved to
+`docs/architecture.md` **§3**: no per-frontend settings store, one state
+(`hunmin_ic_set_option(autoswitch)`), and no new data schema needed for
+mode/guessing.
 
 ## R4. Judgement moment — the end of the composition buffer [D]
 > "조합이 끝나면 해도 돼. 스페이스바, 기호 등을 사용할 때."
