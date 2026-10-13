@@ -144,6 +144,7 @@ jobs:
           # `pixel_6` matches the profile docs/ENVIRONMENT.md records locally, so
           # the screen is the same size and any coordinates a test derives from a
           # view hierarchy behave the same way here.
+          export PATH="$HOME/Android/Sdk/platform-tools:$PATH"
           echo no | avdmanager create avd -n hunmin-ci \
             -k "system-images;android-35;google_apis;x86_64" --device pixel_6
           echo "HUNMIN_AVD=hunmin-ci" >> "$GITHUB_ENV"
