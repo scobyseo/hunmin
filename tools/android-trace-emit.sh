@@ -43,6 +43,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Build dir holding the engine .so and the host JNI shim. Defaults to build/
+# (linux CI job, local `cmake -B build`); a packaging build (debian/rules)
+# exports HUNMIN_BUILD_DIR to its own obj-* dir -- issue #8, 2026-10-13.
+HUNMIN_BUILD_DIR="${HUNMIN_BUILD_DIR:-$ROOT/build}"
 # Convert trace file to absolute path before changing directory
 TRACE_IN_ABS="$(realpath "$1")"
 cd "$ROOT/frontends/android"
@@ -78,8 +82,10 @@ fi
 export JAVA_HOME="$JDK"
 export PATH="$JDK/bin:$PATH"
 
-# Host build of the JNI shim (same as android-unit.sh)
-SHIM="$ROOT/build/libhunjni-host.so"
+# Host build of the JNI shim (same as android-unit.sh). HUNMIN_BUILD_DIR
+# defaults to build/ and is set by a packaging build (debian/rules) to its own
+# dir -- issue #8, measured 2026-10-13.
+SHIM="$HUNMIN_BUILD_DIR/libhunjni-host.so"
 if [ ! -f "$SHIM" ]; then
     # Build-log to stderr, stdout left clean.
     #
@@ -99,8 +105,8 @@ fi
 # --- classpath cache ------------------------------------------------------
 # Outside app/build on purpose: `gradlew clean` or a `--rerun-tasks` storm wipes
 # that tree, and a cache that lives inside it would be invalidated constantly.
-CACHE="$ROOT/build/android-trace-emit-classpath.txt"
-LOCK="$ROOT/build/android-trace-emit-classpath.lock"
+CACHE="$HUNMIN_BUILD_DIR/android-trace-emit-classpath.txt"
+LOCK="$HUNMIN_BUILD_DIR/android-trace-emit-classpath.lock"
 mkdir -p "$(dirname "$CACHE")"
 
 # Newest mtime over everything whose change can invalidate the classpath.

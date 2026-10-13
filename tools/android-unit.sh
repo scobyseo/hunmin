@@ -21,6 +21,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Build dir holding the engine .so and host JNI shim. Defaults to build/; a
+# packaging build (debian/rules) exports HUNMIN_BUILD_DIR -- issue #8, 2026-10-13.
+HUNMIN_BUILD_DIR="${HUNMIN_BUILD_DIR:-$ROOT/build}"
 cd "$ROOT/frontends/android"
 
 : "${ANDROID_HOME:=$HOME/Android/Sdk}"
@@ -36,7 +39,7 @@ export PATH="$JDK/bin:$PATH"
 
 # The host build of the same JNI shim the APK ships, linked against the same
 # host libhunmin.so the rest of the suite uses.
-SHIM="$ROOT/build/libhunjni-host.so"
+SHIM="$HUNMIN_BUILD_DIR/libhunjni-host.so"
 if [ ! -f "$SHIM" ]; then
   "$ROOT/tools/build-host-jni.sh" || exit $?
 fi

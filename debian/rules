@@ -13,3 +13,11 @@ override_dh_auto_configure:
 
 override_dh_auto_test:
 	cd obj-x86_64-linux-gnu && ctest --output-on-failure
+
+# The engine .so and host JNI shim live in obj-x86_64-linux-gnu, not build/.
+# The Android-tier test scripts (android-unit.sh, android-trace-emit.sh,
+# build-host-jni.sh) default HUNMIN_BUILD_DIR to build/, which is correct for a
+# plain `cmake -B build` but wrong for this packaging tree -- without this
+# export they fail with "libhunmin.so missing" even though the engine is built
+# (measured on CI 2026-10-13, issue #8). Point them at the real build dir.
+export HUNMIN_BUILD_DIR=$(CURDIR)/obj-x86_64-linux-gnu
