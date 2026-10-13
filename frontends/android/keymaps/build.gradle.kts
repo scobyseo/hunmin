@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
+import org.gradle.api.tasks.testing.Test
+
+import java.io.BufferedInputStream
+import java.io.File
+import java.util.Properties
+
+import org.gradle.api.GradleException
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -22,12 +30,75 @@ android {
         // No test runner needed - no code to test
     }
 
+    // release signing (P5.5): the keystore config lives in gitignored
+    // local.properties (frontends/android/local.properties); nothing here
+    // hardcodes a host path. Same pattern as app/build.gradle.kts.
     signingConfigs {
         create("release") {
-            storeFile = file("/home/scoby/.android/debug.keystore")
-            storePassword = "android"
-            keyPassword = "android"
-            keyAlias = "androiddebugkey"
+            // rootProject.projectDir is frontends/android/ (settings.gradle.kts
+            // lives there), so "local.properties" resolves to the shared file
+            // regardless of the module working directory.
+            val localPropertiesFile = rootProject.file("local.properties")
+            val localProperties = Properties().apply {
+                if (localPropertiesFile.exists()) {
+                    localPropertiesFile.inputStream().use { load(it) }
+                }
+            }
+            // Values read from local.properties (all default to empty).
+            var configuredStoreFile = localProperties.getProperty("storeFile") ?: ""
+            var configuredStorePassword = localProperties.getProperty("storePassword") ?: ""
+            var configuredKeyPassword = localProperties.getProperty("keyPassword") ?: ""
+            var configuredKeyAlias = localProperties.getProperty("keyAlias") ?: ""
+
+            // CI/script override: a generated keystore is handed to Gradle via
+            // the environment (tools/build-release.sh).
+            val ciStore = System.getenv("HUNMIN_RELEASE_STORE")
+            if (ciStore != null && File(ciStore).exists()) {
+                storeFile = file(ciStore)
+                storePassword = "android"
+                keyPassword = "android"
+                keyAlias = "hunmin"
+            } else if (configuredStoreFile.isNotBlank() && File(configuredStoreFile).exists()) {
+                storeFile = file(configuredStoreFile)
+                storePassword = configuredStorePassword
+                keyPassword = configuredKeyPassword
+                keyAlias = configuredKeyAlias
+            } else {
+                // No keystore available: generate a throwaway release key so
+                // assembleRelease runs end-to-end locally and in CI (build only,
+                // not a releasable signature).
+                val ks = rootProject.file("build/release-ci.keystore")
+                val ksDir = ks.parentFile
+                if (ksDir != null && !ksDir.exists()) {
+                    ksDir.mkdirs()
+                }
+                var generated = false
+                try {
+                    val pb = ProcessBuilder(
+                        "keytool", "-genkeypair",
+                        "-keystore", ks.absolutePath,
+                        "-storepass", "android", "-alias", "hunmin",
+                        "-keypass", "android", "-keyalg", "RSA", "-keysize", "2048",
+                        "-validity", "10000",
+                        "-dname", "CN=hunmin-CI,O=hunmin,L=CI,C=KR"
+                    ).redirectErrorStream(true)
+                    val process = pb.start()
+                    val output = BufferedInputStream(process.inputStream).reader().readText()
+                    if (process.waitFor() != 0) {
+                        throw GradleException("keytool failed: $output")
+                    }
+                    generated = true
+                } catch (e: Exception) {
+                    throw GradleException("cannot generate throwaway keystore: ${e.message}", e)
+                }
+                if (!generated) {
+                    throw GradleException("keytool unavailable; set HUNMIN_RELEASE_STORE or local.properties")
+                }
+                storeFile = ks
+                storePassword = "android"
+                keyPassword = "android"
+                keyAlias = "hunmin"
+            }
         }
     }
 

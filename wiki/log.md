@@ -480,3 +480,17 @@
   [[2026-10-13-f9-candidate-window-abort]] for what the cap did not close, and
   [[decisions-belong-to-the-maintainer]] for why one of these two is recorded as
   a ruling and the other as a measurement.
+
+## [2026-10-13] rule | B8 keystore path contradiction resolved (issue #1)
+
+- **Ruling applied (issue #1 / B8).** The maintainer ruled the
+  keystore config lives in gitignored `local.properties`
+  (`frontends/android/local.properties`); nothing in committed build config
+  hardcodes a host path. Both `app` and `keymaps` resolve
+  `storeFile`/`storePassword`/`keyPassword`/`keyAlias` from `local.properties`,
+  honor the `HUNMIN_RELEASE_STORE` env override (CI `android-release` job +
+  `tools/build-release.sh`), and generate a throwaway release key at build time
+  when no keystore is present. Verified: `grep -rn "/home/scoby"`
+  across `frontends/android/*.kts` -> `NONE`; both modules parse under Gradle.
+  Ruling recorded in `wiki/decisions/2026-10-13-b8-keystore-path-resolved.md`.
+- `wiki/index.md` listed the page; total pages 29.

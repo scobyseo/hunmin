@@ -2,6 +2,12 @@
 
 import org.gradle.api.tasks.testing.Test
 
+import java.io.BufferedInputStream
+import java.io.File
+import java.util.Properties
+
+import org.gradle.api.GradleException
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -71,29 +77,77 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // release signing (P6): keystore lives in local.properties (gitignored)
-    //
-    // B8 is UNRESOLVED (issue #1): the hardcoded /home/scoby/.android/debug.keystore
-    // below sits under a comment saying the keystore lives in gitignored
-    // local.properties, and the two contradict. This line does NOT pick a side.
-    // It reads HUNMIN_RELEASE_STORE from the environment when set -- which is how
-    // the CI release job (ci.yml, android-release) and tools/build-release.sh
-    // point at a throwaway keystore -- and otherwise keeps the existing behaviour
-    // exactly, so the 2026-10-11 local assembleRelease measurement still
-    // reproduces. When B8 is ruled, the else-branch is what changes.
+    // release signing (P6): the keystore config lives in gitignored
+    // local.properties (frontends/android/local.properties); nothing in this
+    // file hardcodes a host path. When local.properties is absent (e.g. a
+    // fresh clone) a throwaway release keystore is generated at build time,
+    // the same route tools/build-release.sh and the CI android-release job
+    // take. B8 (issue #1) is resolved: no host path in this file.
     signingConfigs {
         create("release") {
-            val releaseStore = System.getenv("HUNMIN_RELEASE_STORE")
-            if (releaseStore != null) {
-                storeFile = file(releaseStore)
+            // rootProject.projectDir is frontends/android/ (settings.gradle.kts
+            // lives there), so "local.properties" resolves to the shared file
+            // regardless of the module working directory.
+            val localPropertiesFile = rootProject.file("local.properties")
+            val localProperties = Properties().apply {
+                if (localPropertiesFile.exists()) {
+                    localPropertiesFile.inputStream().use { load(it) }
+                }
+            }
+            // Values read from local.properties (all default to empty).
+            var configuredStoreFile = localProperties.getProperty("storeFile") ?: ""
+            var configuredStorePassword = localProperties.getProperty("storePassword") ?: ""
+            var configuredKeyPassword = localProperties.getProperty("keyPassword") ?: ""
+            var configuredKeyAlias = localProperties.getProperty("keyAlias") ?: ""
+
+            // CI/script override: a generated keystore is handed to Gradle via
+            // the environment (ci.yml android-release, tools/build-release.sh).
+            val ciStore = System.getenv("HUNMIN_RELEASE_STORE")
+            if (ciStore != null && File(ciStore).exists()) {
+                storeFile = file(ciStore)
                 storePassword = "android"
                 keyPassword = "android"
                 keyAlias = "hunmin"
+            } else if (configuredStoreFile.isNotBlank() && File(configuredStoreFile).exists()) {
+                storeFile = file(configuredStoreFile)
+                storePassword = configuredStorePassword
+                keyPassword = configuredKeyPassword
+                keyAlias = configuredKeyAlias
             } else {
-                storeFile = file("/home/scoby/.android/debug.keystore")
+                // No keystore available: generate a throwaway release key so
+                // assembleRelease runs end-to-end locally and in CI (build only,
+                // not a releasable signature).
+                val ks = rootProject.file("build/release-ci.keystore")
+                val ksDir = ks.parentFile
+                if (ksDir != null && !ksDir.exists()) {
+                    ksDir.mkdirs()
+                }
+                var generated = false
+                try {
+                    val pb = ProcessBuilder(
+                        "keytool", "-genkeypair",
+                        "-keystore", ks.absolutePath,
+                        "-storepass", "android", "-alias", "hunmin",
+                        "-keypass", "android", "-keyalg", "RSA", "-keysize", "2048",
+                        "-validity", "10000",
+                        "-dname", "CN=hunmin-CI,O=hunmin,L=CI,C=KR"
+                    ).redirectErrorStream(true)
+                    val process = pb.start()
+                    val output = BufferedInputStream(process.inputStream).reader().readText()
+                    if (process.waitFor() != 0) {
+                        throw GradleException("keytool failed: $output")
+                    }
+                    generated = true
+                } catch (e: Exception) {
+                    throw GradleException("cannot generate throwaway keystore: ${e.message}", e)
+                }
+                if (!generated) {
+                    throw GradleException("keytool unavailable; set HUNMIN_RELEASE_STORE or local.properties")
+                }
+                storeFile = ks
                 storePassword = "android"
                 keyPassword = "android"
-                keyAlias = "androiddebugkey"
+                keyAlias = "hunmin"
             }
         }
     }

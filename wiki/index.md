@@ -44,6 +44,14 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   the auto Hangul/English toggle ships inert in 0.1, by disabling the default
   key composition — no default chord, the dispatch skips the action, the
   settings row shows 미정 (0.3). The E5 assignment itself stays open for 0.3.
+- [[2026-10-13-b8-keystore-path-resolved]] — issue #1 (B8) ruled:
+  the keystore config lives in gitignored `local.properties`
+  (`frontends/android/local.properties`); nothing in committed build config
+  hardcodes a host path. Both `app` and `keymaps` resolve
+  `storeFile`/`storePassword`/`keyPassword`/`keyAlias` from `local.properties`,
+  honor the `HUNMIN_RELEASE_STORE` env override (CI `android-release` job +
+  `tools/build-release.sh`), and generate a throwaway release key at build time
+  when no keystore is present.
 - [[space-emission-ownership]] — **contested.** The measurement is not in
   dispute: the engine declines the space and every frontend forwards it. But
   the log and `docs/REMAINING-WORK.md` B5 record the *decision* as closed with
