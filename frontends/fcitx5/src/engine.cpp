@@ -469,6 +469,23 @@ void HunminCandidateWord::select(InputContext *inputContext) const {
     }
 }
 
+/* The largest page the F9 candidate window will ask fcitx5 to draw.
+ *
+ * NOT ours to choose freely: it is fcitx5's label ceiling. A
+ * CommonCandidateList that never calls setLabels() holds exactly
+ * `regularLabelSize = 10` labels (fcitx5-5.1.19
+ * src/lib/fcitx/candidatelist.cpp:28-41), classicui reads one label per
+ * candidate on the page (src/ui/classic/inputwindow.cpp:392-405), and
+ * CommonCandidateList::label() throws std::invalid_argument past the end
+ * (:556-565). Nothing catches it, so exceeding this aborts fcitx5.
+ *
+ * Ruled by the maintainer 2026-10-13 (issue #45): cap the page, rather than
+ * keep the full list on one page and supply labels. Exceeding it was measured:
+ * 10 candidates survive F9, 11 abort, 67 abort. If fcitx5's ceiling ever moves,
+ * this constant is where to look, and tools/repro-f9-candidates.sh is what
+ * settles it. */
+constexpr int kMaxCandidatePageSize = 10;
+
 void HunminState::updateCandidateList() {
     /* CommonCandidateList is the concrete list fcitx5 documents for this
      * ("a common simple candidate list that serves most of the purpose");
@@ -488,25 +505,44 @@ void HunminState::updateCandidateList() {
             hunmin_suggest_text(engine_->ctx(), i)));
     }
     /*
-     * Vertical, one page holding every candidate, cursor on the first.
+     * Vertical, cursor on the first, and a page that never exceeds
+     * kMaxCandidatePageSize.
      *
-     * A syllable can carry up to 64 candidates, and 간 resolves to 67 once the
+     * A syllable can carry up to 64 Hanja, and 간 resolves to 67 once the
      * krdict word senses are prepended. Laid out horizontally they ran off the
      * screen and the tail was unreachable without the mouse; the layout hint is
      * the whole fix for that.
      *
-     * The page size is the candidate count, not the default 5, so the whole list
-     * is drawn at once. It is NOT needed for cursor travel: moveCursor() rotates
-     * over totalSize() unless cursorKeepInSamePage is set (it is not), so Up/Down
-     * reaches every candidate either way -- measured, and the note is here
-     * because the opposite claim reads just as plausibly. What page size 5 would
-     * cost is the view: 5 rows on screen, the other 62 behind a PageDown.
+     * The page size used to be the whole candidate count, "so the whole list is
+     * drawn at once". That aborted fcitx5 on any syllable with 11 or more
+     * candidates: classicui reads one label per candidate on the page
+     * (fcitx5-5.1.19 src/ui/classic/inputwindow.cpp:392-405) and
+     * CommonCandidateList::label() throws past the label vector, which
+     * fillLabels() pads only to `regularLabelSize = 10`
+     * (src/lib/fcitx/candidatelist.cpp:28-41, 556-565). The exception is
+     * uncaught, so the whole input method died with SIGABRT. Measured, not
+     * assumed: 10 candidates survive, 11 abort, 67 abort, and 67 candidates at
+     * fcitx5's default page size of 5 do not -- so the page size is the trigger
+     * and the layout hint is not (Horizontal throws at the same index).
+     * tools/repro-f9-candidates.sh reproduces it; no ctest tier could, because
+     * engine-d2-ui loads no UI addon and engine-d3-* disables classicui. See
+     * wiki/raw/measurements/2026-10-13-f9-candidate-window-abort.md.
+     *
+     * Capping costs nothing that was working: moveCursor() rotates over
+     * totalSize() unless cursorKeepInSamePage is set (it is not), so Up/Down
+     * still reaches every candidate -- measured, and the note is here because
+     * the opposite claim reads just as plausibly. What the cap does give up is
+     * the whole list in one column, which did not fit on a display anyway:
+     * 10 candidates measured 336x334, so 67 rows would be roughly 2000px tall
+     * against a 1024px screen. PageDown reaches the rest.
      *
      * The cursor starts on the first candidate rather than unselected: after F9
      * the user's intent is to pick one, and Return on an unselected cursor would
      * have to guess.
      */
-    list->setPageSize(candidateCount_);
+    list->setPageSize(candidateCount_ < kMaxCandidatePageSize
+                          ? candidateCount_
+                          : kMaxCandidatePageSize);
     list->setGlobalCursorIndex(0);
     list->setLayoutHint(CandidateLayoutHint::Vertical);
     ic_->inputPanel().setCandidateList(std::move(list));

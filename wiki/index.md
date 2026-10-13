@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-12 | Total pages: 28
+> Last updated: 2026-10-13 | Total pages: 29
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -87,6 +87,12 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
 
 ## Raw — measurements
 
+- [[2026-10-13-f9-candidate-window-abort]] — F9 with 11 or more candidates aborts
+  fcitx5 with `CommonCandidateList: invalid label idx`: the page size is set to the
+  candidate count and classicui reads a label per candidate, but a
+  `CommonCandidateList` only carries 10 unless `setLabels()` is called. The
+  vertical hint is a bystander; the installed addon aborts the same way; and the
+  two tiers that cover this path are each structurally unable to see it.
 - [[2026-10-10-d3-case-coverage]] — `engine-d3-x11` reported Passed in 5.01s
   having run **one** of its eight cases: the XIM harness drained the runner's
   case list off stdin. It hid a second defect — XIM harness reuse carries a
