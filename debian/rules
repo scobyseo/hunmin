@@ -27,12 +27,33 @@ override_dh_auto_configure:
 #    wrapper refuses to create /root/.gradle/.../*.lck as uid 0. Point HOME at
 #    a writable dir so engine-android-e1 / android-mutations can run under the
 #    fake root.
+#
+# MEASURED 2026-10-14, issue #59: this recipe is 402 s of a 460 s package
+# build, and 386 of those seconds are engine-android-e1 (185.68 s),
+# android-mutations (138.45 s) and frontend-mutations (61.86 s). Two of the
+# three are the Android adapter's, which the .deb does not ship and which
+# nothing in the package build exercises: the .deb contains the engine, the
+# addon and the fcitx5 integration, and the adapter's own gate is the `android`
+# job at ci.yml:166. So the tier-E1 labels are excluded here, visibly.
+#
+# -j4: same suite on the same host measures 189.76 s serial and 47.82 s at
+# -j16, and the three heavyweight tests cap the gain for the reason given in
+# ci.yml -- RUN_SERIAL on engine-android-e1, nine sequential Gradle runs in
+# android-mutations. -j4 is what this job's runner has.
+#
+# The exclusion is written as -LE 'tier-E1', not as a list of test names, for
+# the reason docs/TESTING.md gives: a label is declared once next to the test
+# that earns it and does not move when the corpus does, whereas a name list
+# silently stops matching the moment a test is renamed. The property the
+# CMakeLists.txt:105 comment states -- a filtered run cannot prove what it
+# left out — is what the comment above this recipe is for: it names what is
+# left out and why, in the one place a reader of the package build will look.
 override_dh_auto_test:
 	mkdir -p $(CURDIR)/.deb-test-home
 	cd obj-x86_64-linux-gnu && \
 		HUNMIN_BUILD_DIR=$(CURDIR)/obj-x86_64-linux-gnu \
 		HOME=$(CURDIR)/.deb-test-home \
-		ctest --output-on-failure
+		ctest -j4 --output-on-failure -LE 'tier-E1'
 
 # The .deb job's last failure before this: dh_shlibdeps, measured on CI
 # 2026-10-13 (issue #8's job, run 38398739533) after the whole 63-test suite

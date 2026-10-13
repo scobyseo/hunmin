@@ -5,10 +5,9 @@ the linux and deb jobs both green, plus host measurements on the branch
 `scobyseo/ci-ci-wall-time-is-8m24s-per-job-target-1-2-min`.
 
 Issue #59 asks for 1–2 minutes per job. This file is the measurement half of
-that: where the time goes, and what each lever costs. **The choice between the
-levers is the maintainer's and is not made here** — §"Options" compares them and
-says what evidence would change the recommendation, which is as far as a
-measurement record goes.
+that: where the time goes, and what each lever costs. §"Options" compares the
+levers; §"Order" records what was **applied** on 2026-10-14 and what was
+deliberately left as a maintainer call.
 
 Every figure below came from one of:
 
@@ -243,10 +242,36 @@ because 16-versus-15 is the kind of tree fact that gets re-derived wrongly later
 
 ### Order, and what it does not reach
 
-B, then C, then D, then E. With B and C together the linux job lands near
-**130 s** — 22 s apt, a cached fcitx5 restore, and a warm parallel ctest — which
-is the 1–2 minute target. **The deb job cannot reach it with any of these**: it
-must build the package, run the suite, and its suite carries the same 386 s of
-tier E1 and mutations. Reaching 1–2 minutes there needs A applied to
-`debian/rules`' `override_dh_auto_test` as well, which is a packaging decision
-about what the .deb build proves, not a timing edit.
+**Applied 2026-10-14, in this order: B, C, D, E, and A only for the deb job.**
+The recommendation above was B, and it was implemented along with the rest;
+what follows is the applied state rather than the open comparison.
+
+- **B, `actions/cache` on `~/.gradle`, in linux, android and deb.** Keyed on
+  `frontends/android/gradle.properties` and the wrapper properties, with a
+  `restore-keys` fallback so a single dependency bump is a hit rather than a
+  miss.
+- **C, `ctest -j4`** in linux, deb (`debian/rules`) and the android job's E0/E1
+  step, and `cmake --build build -j4` in linux. `-j4`, not `-j16`, because the
+  runner has 4 cores.
+- **D, the fcitx5 install tree uploaded by linux and restored by deb.** The deb
+  job now declares `needs: linux`, which is the honest failure mode: a deb run
+  with no successful linux run has no artefact and fails at the restore. The
+  check that the restore landed is the next step's own output — the addon must
+  configure against the restored `Fcitx5CoreConfig.cmake`.
+- **E, the duplicate registration removed** at `CMakeLists.txt`. `ctest -N`
+  reports 15 against the 15 corpus files; the corpus is still registered by the
+  glob under its derived name.
+- **A, applied to the deb job only** — `debian/rules`' `override_dh_auto_test`
+  runs `ctest -j4 -LE 'tier-E1'`, with the reason written in the recipe's own
+  comment: the .deb does not ship the Android adapter, and the adapter's gate is
+  the android job. **Not applied to the linux job**, for the reason stated under
+  option A: the android job is the one that failed at the SDK step in the run
+  measured, so excluding tier E1 from linux would make `linux` green while the
+  only other place E1 runs is broken.
+
+With B, C and D, the linux job lands near **130 s** — 22 s apt, a cached
+fcitx5 restore, and a warm parallel ctest — which is the 1–2 minute target. The
+deb job lands near **200 s**: 22 s apt, a fcitx5 restore, and a parallel ctest
+without tier E1. Neither is below 2 minutes yet, and the remaining cost is the
+`frontend-mutations` sandbox (9 CMake builds) plus the D3 trio where Xvfb is
+available, neither of which has a lever identified here.

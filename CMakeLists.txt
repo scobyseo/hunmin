@@ -102,16 +102,20 @@ endif()
 #                       host-relative -- engine-android-e1 is 2.8 s here and
 #                       15.9 s against a cold Gradle cache.
 #
-# NOT a gate: .github/workflows/ci.yml runs the plain unfiltered `ctest`,
-# because a label-selected run cannot prove what it left out. Labels exist so
-# a person can run "just the tier I touched"; the selection must be visible,
-# so every invocation in docs/TESTING.md and AGENTS.md names what it left out.
+# NOT a gate: .github/workflows/ci.yml's linux job runs the plain unfiltered
+# `ctest`, because a label-selected run cannot prove what it left out. Labels
+# exist so a person can run "just the tier I touched"; the selection must be
+# visible, so every invocation in docs/TESTING.md and AGENTS.md names what it
+# left out.
 #
 # What that costs, measured 2026-10-14 for issue #59: the linux job's ctest is
-# 269 s and the deb job's is 402 s, and three tests are 252 and 386 of those
-# respectively (docs/CI-TIMING.md §1). "Labels are not a gate" is therefore a
-# costed decision and not an unexamined one; whether to keep paying it is the
-# maintainer's call, and docs/CI-TIMING.md §"Options" is the comparison.
+# 269 s and the deb job's was 402 s, and three tests were 252 and 386 of those
+# respectively (docs/CI-TIMING.md §1). One exception is now in the tree and it
+# is deliberate: debian/rules' override_dh_auto_test runs
+# `ctest -j4 -LE 'tier-E1'`, because the .deb does not ship the Android adapter
+# and the adapter's own gate is the android job. The recipe's own comment
+# records that, which is the visibility the paragraph above requires -- the
+# linux job remains unfiltered, and the property stands there.
 #
 # NOTE: LABELS is a test PROPERTY, not an add_test() keyword. `add_test(NAME
 # x COMMAND y LABELS a)` does not error -- CMake appends "LABELS" and "a" to
@@ -590,37 +594,22 @@ if(BUILD_TESTING)
   else()
     message(STATUS "Tier C Android: skipped (tools/android-trace-emit.sh not found)")
   endif()
-  # Tier C Android: a nested worktree adds its own trace corpus separately.
-  # Paths are derived, never hardcoded: an absolute path to another worktree
-  # (/home/scoby/work/hunmin/android-.../) was committed here once and made this
-  # test red in every other checkout (measured 2026-10-13, issue #8's deb build
-  # ran it and it failed with FileNotFoundError). The corpus lives in THIS tree.
+  # MEASURED 2026-10-14, issue #59, and the block that used to be here is
+  # REMOVED as of the same date. It registered the shift-arrow corpus a second
+  # time, under a hand-written name that duplicated the glob-derived
+  # registration above -- a bridge left over from when the corpus lived in a
+  # nested worktree that is gone. `ctest -N` reported 16 Android tier-C tests
+  # against the 15 files under tests/conformance/android/; with the block
+  # removed it reports 15 against 15, so the two commands agree again. The
+  # corpus file is still registered, by the glob, under its derived name, which
+  # is what docs/REMAINING-WORK.md's TC-SHIFTARROW row names as the tree fact.
   #
-  # MEASURED 2026-10-14, issue #59: this block is now a DUPLICATE, not a
-  # worktree bridge. The glob above already registers shift-arrow-selection
-  # from the same file, under the derived name
-  # `engine-android-conformance-tests_conformance_android_shift-arrow-selection.trace.in`
-  # -- `ctest -N` reports 16 engine-android-conformance-* tests against the 15
-  # files under tests/conformance/android/. The nested worktree it was written
-  # for is gone. Cost today is one extra java invocation, 0.15 s, with the
-  # Gradle classpath already materialised by its fifteen siblings; the cost that
-  # matters is that `ctest -N` no longer agrees with `ls` over the corpus
-  # directory. The android job's `ctest -R` at ci.yml:186 matches neither name,
-  # so the corpus is registered three times and selected by none of them.
-  # Removing the block restores 15 == 15; that is a maintainer call and is left
-  # open, with the measurement in docs/CI-TIMING.md §"Duplication, measured".
-  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/android/shift-arrow-selection.trace.in")
-    add_test(NAME engine-android-conformance-shift-arrow-selection
-      COMMAND ${Python3_EXECUTABLE}
-              ${CMAKE_CURRENT_SOURCE_DIR}/tools/trace-check.py
-              ${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/android/shift-arrow-selection.trace.in
-              --runner ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-trace-emit.sh)
-    set_tests_properties(engine-android-conformance-shift-arrow-selection PROPERTIES
-      LABELS "tier-C"
-      SKIP_RETURN_CODE 77 TIMEOUT 120)
-  else()
-    message(STATUS "Tier C Android: shift-arrow-selection corpus not in this tree")
-  endif()
+  # Why the derived name rather than the readable one is the survivor: test
+  # names here are machine-generated from the corpus filename precisely so a
+  # renamed case cannot silently break a saved -R expression (docs/TESTING.md
+  # "Why labels rather than a -R regex over names"). Re-introducing a
+  # hand-written alias for one corpus file would make that set of names
+  # non-uniform for the one file it was written for.
   if(NOT WIN32)
     add_test(NAME abi
       COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tools/abi-check.sh

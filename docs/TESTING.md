@@ -26,11 +26,19 @@ never for a gate**: `.github/workflows/ci.yml` runs the plain unfiltered
 8 m 24 s, and 402 s of the deb job's 13 m 30 s.** The per-job figures are in
 `docs/CI-TIMING.md`; the short version is that three tests are 252 of the
 linux job's 269 test-seconds and 386 of the deb job's 402, so the unfiltered
-run and a 1–2 minute job are not currently compatible. The property above is
-unchanged by that measurement — a label-selected CI run cannot prove what it
-left out — but "labels are not a gate" is now a costed decision rather than an
-unexamined one, and the choice of what to do about it is the maintainer's
-(`docs/CI-TIMING.md` §"Options").
+run and a 1–2 minute job are not currently compatible.
+
+**The deb job is now the one exception, and it says so where it runs.**
+`debian/rules`' `override_dh_auto_test` runs `ctest -j4 -LE 'tier-E1'`, because
+the .deb does not ship the Android adapter and the adapter's own gate is the
+`android` job. That is a filtered run inside a package build, which is exactly
+the shape the paragraph above warns about, so the exclusion is written as a
+label rather than a name list and the reason is recorded in the recipe's own
+comment — the one place a reader of the package build will look. The linux job
+still runs the plain unfiltered `ctest`, and the property above is unchanged
+there: a label-selected run cannot prove what it left out, which is why the
+exception is one recipe with its reason attached rather than a workflow-wide
+`-LE`.
 
 ### Why labels rather than a `-R` regex over names
 

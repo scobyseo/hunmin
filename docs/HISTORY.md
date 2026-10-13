@@ -162,3 +162,26 @@ maintainer call, not a cleanup.
 the deb job's 402 test-seconds the price of every .deb build. The property
 stands, and `docs/TESTING.md` and `CMakeLists.txt` now both say what it costs
 rather than leaving it unexamined.
+
+**And the levers were applied, in the order the measurement named.** The
+`docs/CI-TIMING.md` record ended at "the choice is the maintainer's"; the
+follow-up commit implements four of its five levers and the fifth for the deb
+job only. `actions/cache` on `~/.gradle` in linux, android and deb (the one
+lever with no coverage trade — E1 is 126 s cold against 23 s warm, measured by
+emptying `GRADLE_USER_HOME`); `ctest -j4` in linux, deb and the android job's
+E0/E1 step, `-j4` rather than `-j16` because the runner has 4 cores and this
+repo has been bitten by oversubscription before; the fcitx5 5.1.13 install tree
+uploaded by linux and restored by deb, which makes `deb` declare
+`needs: linux` and turns 523 s of duplicated source build into one build plus
+one restore; and the duplicate conformance registration removed, so `ctest -N`
+reports 15 against the 15 corpus files instead of 16 against 15.
+
+**The one lever NOT applied to linux, and why.** `ctest -LE 'tier-E1'` in the
+linux job would take it to ~130 s and past the 1–2 minute target. It is applied
+to `debian/rules` only, because the .deb does not ship the Android adapter. It
+is not applied to the linux job because the android job — the only other place
+tier E1 runs — is the one that failed at the SDK step in the run measured, and
+excluding E1 from linux in that state makes `linux` green while the only job
+that measures E1 is broken. That is a maintainer call about what `linux`
+asserts, and it is recorded in `docs/CI-TIMING.md` §"Options" rather than
+settled here.

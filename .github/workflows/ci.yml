@@ -49,6 +49,24 @@ jobs:
             libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
             iso-codes xkb-data
       - name: Build fcitx5 5.1.13 from source (distro ships 5.1.7, below the floor)
+        # Built once per job and CACHED, measured 2026-10-14 for issue #59: this
+        # clone-configure-build-install is 197 s in the linux job and 326 s in
+        # the deb job -- 523 s of the workflow's wall clock for the same
+        # artefact, built twice, with nothing shared between them. The cache
+        # below is the fix: build once, upload the install tree, and every other
+        # job restores it.
+        #
+        # Why the install tree rather than the build dir: the deb job's
+        # dh_shlibdeps reads dpkg's database to resolve what the addon links, and
+        # a source-built fcitx5 owns no package -- debian/rules:82-83 already
+        # works around that with --ignore-missing-info, and that workaround holds
+        # only if the restored tree lands in the same paths (/usr/lib/x86_64-
+        # linux-gnu, /usr/include/Fcitx5, /usr/lib/x86_64-linux-gnu/cmake). A
+        # restored /usr tree is byte-identical in what it puts where, which is
+        # what makes this checkable in one run: if the deb job's
+        # Fcitx5CoreConfig.cmake resolves and the addon configures, the
+        # restore landed correctly.
+        id: fcitx5-build
         run: |
           git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
           cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
@@ -57,6 +75,60 @@ jobs:
             -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
             > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
           sudo cmake --build /tmp/fcitx5/build --target install
+      # The install tree, uploaded for the deb job to restore. Prefixless paths
+      # inside the archive, restored under / by the consumer with sudo.
+      - name: Upload the fcitx5 install tree
+        if: steps.fcitx5-build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fcitx5-5.1.13-install
+          path: |
+            /usr/lib/x86_64-linux-gnu/libFcitx5Core.so.7
+            /usr/lib/x86_64-linux-gnu/libFcitx5Core.so.5.1.13
+            /usr/lib/x86_64-linux-gnu/libFcitx5Config.so.7
+            /usr/lib/x86_64-linux-gnu/libFcitx5Config.so.5.1.13
+            /usr/lib/x86_64-linux-gnu/libFcitx5Utils.so.7
+            /usr/lib/x86_64-linux-gnu/libFcitx5Utils.so.5.1.13
+            /usr/lib/x86_64-linux-gnu/cmake/Fcitx5Core/
+            /usr/lib/x86_64-linux-gnu/cmake/Fcitx5Utils/
+            /usr/lib/x86_64-linux-gnu/cmake/Fcitx5Module/
+            /usr/lib/x86_64-linux-gnu/cmake/Fcitx5Config/
+            /usr/lib/x86_64-linux-gnu/pkgconfig/Fcitx5Core.pc
+            /usr/lib/x86_64-linux-gnu/pkgconfig/Fcitx5Utils.pc
+            /usr/include/Fcitx5/
+          retention-days: 1
+          if-no-files-found: error
+      # The Gradle cache, measured 2026-10-14 for issue #59. This job is the one
+      # the measurement is about: its ctest ran engine-android-e1 at 148.38 s and
+      # android-mutations at 84.31 s, and 126.24 s of the first of those is cold
+      # Gradle -- measured by emptying GRADLE_USER_HOME, against 22.95 s warm.
+      # The cache that makes the difference is wrapper/dists (143 MB),
+      # caches/modules-2 (394 MB) and caches/build-cache-1 (124 MB).
+      #
+      # This job needs it for the same reason the android job does, and the
+      # reason is not obvious: it runs the Android tiers at all only because the
+      # runner IMAGE ships an Android SDK this workflow never installs (the
+      # Ubuntu 24.04 image's ANDROID_HOME and the exact NDK this repo pins), so
+      # the CMakeLists.txt:192 guard fires and engine-android-e1 / android-mutations
+      # / the tier-C Android corpus all run here. The android job then re-runs the
+      # same two tests at ci.yml, which is why the cache is shared with it: the
+      # same key in both jobs means the second one to run restores what the first
+      # populated.
+      #
+      # Keyed on gradle.properties and the wrapper properties: both decide what
+      # is downloaded and what can be reused, so either changing invalidates the
+      # key rather than serving a classpath built for a different dependency set.
+      # The restore-keys fall back to the newest cache, so a single dependency
+      # bump is a hit rather than a miss.
+      - name: Restore the Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('frontends/android/gradle.properties', 'frontends/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
       - name: Install pyright (docs-lint asserts tools/ is clean)
         # The M5-CLOSED assertion row runs `pyright tools/` inside docs-lint;
         # without the tool it fails with FileNotFoundError (measured on CI
@@ -67,8 +139,21 @@ jobs:
           uv tool install pyright
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
-      - run: cmake --build build
-      - run: ctest --test-dir build --output-on-failure
+      - run: cmake --build build -j4
+      # -j4, measured 2026-10-14 for issue #59. On this host the same suite is
+      # 189.76 s serial and 47.82 s at -j16, and the serial ctest alone is 269 s
+      # of this job's 504 s. The three heavyweight tests cap the gain: ctest's
+      # RUN_SERIAL on engine-android-e1 is honoured by -j, and android-mutations
+      # is nine sequential tools/android-unit.sh runs, so at most one of them
+      # can overlap frontend-mutations. Measured locally on the trio itself,
+      # 113.46 s serial -> 67.15 s at -j4.
+      #
+      # NOT -j16: the runner has 4 cores, and the repo has been bitten by
+      # oversubscription before -- fourteen conformance tests deleting each
+      # other's R-def.txt under -j16 is recorded in tools/android-trace-emit.sh's
+      # header comment, which is why that script guards its Gradle classpath
+      # with a flock. -j4 matches the runner's actual parallelism.
+      - run: ctest --test-dir build -j4 --output-on-failure
 
   # P5's gate is "HW keyboard e2e on emulator CI", and until this job existed
   # the Android tiers could only be reached by hand. It covers three of the four
@@ -109,6 +194,32 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      # The Gradle cache, measured 2026-10-14 for issue #59: tools/android-unit.sh
+      # takes 126.24 s against an empty GRADLE_USER_HOME and 22.95 s against this
+      # host's warm one, and the cache that makes the difference is wrapper/dists
+      # (143 MB), caches/modules-2 (394 MB) and caches/build-cache-1 (124 MB).
+      # android-mutations then runs the same script nine times. The CI logs
+      # measure the cold figure directly -- engine-android-e1 at 148.38 s here
+      # and 185.68 s in the deb job, against 23 s warm -- and until this step
+      # existed no job in this workflow cached any of it
+      # (`grep -rn 'actions/cache' .github/workflows/ci.yml` returned nothing).
+      #
+      # Keyed on gradle.properties and the wrapper properties: both decide what
+      # is downloaded and what can be reused, so either changing invalidates the
+      # key rather than serving a classpath built for a different dependency set.
+      # The restore-keys fall back to the newest cache for the same wrapper
+      # version, which is what makes a single dependency bump a hit rather than
+      # a miss.
+      - name: Restore the Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('frontends/android/gradle.properties', 'frontends/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
       - name: Enable KVM
         run: |
@@ -174,7 +285,19 @@ jobs:
         # No emulator needed for either: E0 pushes the engine and the goldens
         # over adb, and E1 is a JVM test. This step is what catches a broken
         # build before the expensive boot below.
-        run: ctest --test-dir build -R "engine-android-goldens|engine-android-e1|android-mutations" --output-on-failure
+        #
+        # Measured 2026-10-14 for issue #59: this is the SECOND run of exactly
+        # these two tests -- the linux job ran them at 148.38 s and 84.31 s
+        # because the runner image ships an Android SDK the workflow never
+        # installs, so the CMakeLists.txt:192 guard fires there too. The linux
+        # job's copy is not removed by this change (option A in
+        # docs/CI-TIMING.md was measured and left as a maintainer call, because
+        # excluding tier E1 from linux makes `linux` green while the android job
+        # -- the only other place E1 runs -- is the one that failed at the SDK
+        # step in run 38428978810). What IS fixed here is that both copies are
+        # now warm: the Gradle cache restored above makes each ~23 s instead of
+        # ~148 s.
+        run: ctest --test-dir build -j4 -R "engine-android-goldens|engine-android-e1|android-mutations" --output-on-failure
 
       - name: Free disk space for emulator
         run: |
@@ -252,6 +375,18 @@ jobs:
   # skip or fail is the maintainer's call.
   deb:
     name: debian (.deb artefact)
+    # needs: linux -- this job no longer builds fcitx5 5.1.13 from source; it
+    # restores the install tree the linux job uploads. Measured 2026-10-14 for
+    # issue #59: the two source builds were 197 s and 326 s of workflow wall
+    # clock for the same artefact, 523 s with nothing shared.
+    #
+    # The dependency is real and not just an ordering hint: a deb run without a
+    # successful linux run has no artefact to download and fails at the restore
+    # step, which is the honest failure for "the thing this needs was not
+    # built". The old independent form let a broken linux build pass as a red
+    # linux job with a green deb job built from its own private fcitx5 -- two
+    # jobs asserting different things about the same dependency.
+    needs: linux
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -273,15 +408,59 @@ jobs:
             libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
             libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
             iso-codes xkb-data
-      - name: Build fcitx5 5.1.13 from source (the .deb's addon needs >= 5.1.13)
+      # The fcitx5 install tree, restored rather than rebuilt. Measured
+      # 2026-10-14 for issue #59: this job built the same 5.1.13 from source as
+      # the linux job, 326 s here against 197 s there, 523 s of workflow wall
+      # clock for one artefact. The linux job uploads it and this restores it.
+      #
+      # The restore is a sequence, not a cache: actions/cache@v4 is scoped to a
+      # job and cannot be shared between jobs, while an artefact can. The linux
+      # job's upload is the same tree under the same name.
+      #
+      # What the restore must preserve, because debian/rules depends on it:
+      # dh_shlibdeps reads dpkg's database to resolve what the addon links, and a
+      # source-built fcitx5 owns no package. debian/rules:82-83 already passes
+      # --ignore-missing-info, which holds only if the restored tree lands in
+      # the same paths. A restore into /usr/lib/x86_64-linux-gnu and
+      # /usr/include/Fcitx5 is byte-identical in what it puts where, so the
+      # check that it worked is the next step's own output: the addon must
+      # configure against the restored Fcitx5CoreConfig.cmake.
+      - name: Restore the fcitx5 5.1.13 install tree (built by the linux job)
+        uses: actions/download-artifact@v4
+        with:
+          name: fcitx5-5.1.13-install
+          path: /tmp/fcitx5-install
+      - name: Install the restored fcitx5 into /usr
         run: |
-          git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
-          cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
-            -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
-            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
-            > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
-          sudo cmake --build /tmp/fcitx5/build --target install
+          # A restore that lost the cmake configs would fail the next step with
+          # "Fcitx5Core not found", which reads like a build problem rather than
+          # a restore problem. Check here, where the cause is visible.
+          test -d /tmp/fcitx5-install/usr/lib/x86_64-linux-gnu/cmake/Fcitx5Core \
+            || { echo "restore is missing Fcitx5Core cmake configs" >&2; exit 1; }
+          sudo cp -a /tmp/fcitx5-install/usr/. /usr/
+          sudo ldconfig
+          pkg-config --modversion Fcitx5Core
+      # Same cache as the linux job, same reason and the same measurement: this
+      # job's suite carries 324 s of tier E1 (engine-android-e1 185.68 s plus
+      # android-mutations 138.45 s, run 38428978810's deb job log), all of it
+      # cold-Gradle. As of 2026-10-14 the tier-E1 tests are excluded from the
+      # package build -- see debian/rules' override_dh_auto_test -- so what this
+      # cache now serves is android-trace-emit.sh's Gradle classpath for the
+      # tier-C Android corpus (16 -> 15 tests after the duplicate registration
+      # was removed) plus frontend-mutations' sandbox builds. The cache is kept
+      # because the classpath materialisation is still a Gradle invocation, and
+      # because the exclusion above is a packaging decision that could be
+      # revisited, at which point this is what makes the difference between
+      # 324 s and 25 s.
+      - name: Restore the Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('frontends/android/gradle.properties', 'frontends/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
       - name: Install pyright (debian/rules runs docs-lint, which asserts tools/ is clean)
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
