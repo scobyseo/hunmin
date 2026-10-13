@@ -39,9 +39,10 @@ compose syllables and buffer an eojeol; it does not know what a keyboard is.
   normative source. Do not hand-edit `data/layouts/sin3-p2.json`; change
   `tools/ist2data.py` and re-run its selfcheck.
 - **Commits keep `ctest` green**, and data changes must pass `tools/doctor.py`
-  (which is also ctest `schema-contract`). One test is red in a fresh worktree
-  regardless of your change — `data-selfcheck` needs the gitignored
-  국립국어원 dump — so check the baseline before believing you caused it.
+  (which is also ctest `schema-contract`). No test is red in a fresh worktree
+  by design: `data-selfcheck` reports Skipped where the gitignored
+  국립국어원 dump is absent (issue #46), and its self-contained guard is ctest
+  `krdict-fixture`. Check the baseline anyway before believing you caused it.
 
 ## Guidelines
 

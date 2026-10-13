@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon entryCount="7" languageCode="ko">
+    <feat att="languageIdentifier" val="ko"/>
+    <!-- No origin at all: Korean-origin word, not what a hanja mode shows. -->
+    <LexicalEntry>
+      <feat att="writtenForm" val="순우리말"/>
+      <Sense>
+        <feat att="definition" val="우리말로 된 말."/>
+        <feat att="partOfSpeech" val="명사"/>
+      </Sense>
+    </LexicalEntry>
+    <!-- Origin with no Hanja anywhere in it: also skipped. -->
+    <LexicalEntry>
+      <feat att="writtenForm" val="노선"/>
+      <feat att="origin" val="bus 노선"/>
+      <Sense>
+        <feat att="definition" val="다니는 길."/>
+        <feat att="partOfSpeech" val="명사"/>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry>
+      <feat att="writtenForm" val="價"/>
+      <feat att="origin" val="價"/>
+      <Sense>
+        <feat att="definition" val="‘값’의 뜻을 더하는 접미사."/>
+        <feat att="partOfSpeech" val="접사"/>
+        <feat att="vocabularyLevel" val="고급"/>
+        <feat att="semanticCategory" val="경제 생활 &gt; 경제 수단"/>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry>
+      <feat att="writtenForm" val="가감"/>
+      <feat att="origin" val="加減/加減하다"/>
+      <Sense>
+        <feat att="definition" val="‘덜거나 더함’의 뜻을 더하는 말."/>
+        <feat att="partOfSpeech" val="명사"/>
+        <feat att="vocabularyLevel" val="중급"/>
+        <feat att="semanticCategory" val="생활 &gt; 주거"/>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry>
+      <feat att="writtenForm" val="요금"/>
+      <feat att="origin" val="gas料金/bus 노선"/>
+      <Sense>
+        <feat att="definition" val="값을 치르는 돈."/>
+        <feat att="partOfSpeech" val="명사"/>
+      </Sense>
+    </LexicalEntry>
+    <!-- Same (ko, hanja) as the 料金 entry below, so meta.distinct_word_hanja
+         counts one fewer than entries. Senses carry no definition here, so
+         meanings stays empty. -->
+    <LexicalEntry>
+      <feat att="writtenForm" val="요금"/>
+      <feat att="origin" val="料金"/>
+      <Sense>
+        <feat att="partOfSpeech" val="명사"/>
+      </Sense>
+    </LexicalEntry>
+    <LexicalEntry>
+      <feat att="writtenForm" val="요금"/>
+      <feat att="origin" val="料金"/>
+      <Sense>
+        <feat att="definition" val="값을 치르는 돈 (둘째 감각)."/>
+        <feat att="partOfSpeech" val="명사"/>
+        <feat att="vocabularyLevel" val="초급"/>
+      </Sense>
+      <Sense>
+        <feat att="definition" val="둘째 감각은 쓰이지 않는다."/>
+      </Sense>
+    </LexicalEntry>
+  </Lexicon>
+</LexicalResource>

@@ -93,16 +93,18 @@ one run each, `ctest -j16`:
 
 | configuration | tests |
 |---|---|
-| default (no Android toolchain in the environment) | 55 |
-| `JAVA_HOME` + `ANDROID_HOME` exported — **the row below** | 57 |
-| … plus `ANDROID_NDK` and `adb`, which register tier E0 and E2 | 59 |
-| … plus `-DHUNMIN_TRACE_BUILD=ON` (all of the above) | 177 |
+| default (no Android toolchain in the environment) | 56 |
+| `JAVA_HOME` + `ANDROID_HOME` exported — **the row below** | 58 |
+| … plus `ANDROID_NDK` and `adb`, which register tier E0 and E2 | 60 |
+| … plus `-DHUNMIN_TRACE_BUILD=ON` (all of the above) | 178 |
 
-Per-label, in the 57-test configuration. The single failure in every row is
-`data-selfcheck`, which is red in a fresh worktree for a documented reason
-(`docs/REMAINING-WORK.md` §0: the gitignored krdict dump is absent), so its
-wall clock here is not its real cost — the maintainer's host measures it at
-8.45 s.
+Per-label, in the 58-test configuration. No test fails in this configuration:
+`data-selfcheck` reports **Skipped** in a fresh worktree, because the gitignored
+krdict dump is absent (`docs/REMAINING-WORK.md` §0, issue #46), so its wall
+clock here is not its real cost — the maintainer's host measures it at 8.45 s.
+The self-contained guard for the krdict converter is `krdict-fixture`
+(`tests/fixtures/krdict/`); the dump-dependent full run is the maintainer-only
+`tools/selfcheck-krdict.sh`.
 
 | Selection | Tests | Wall clock, `ctest -j16` |
 |---|---|---|
