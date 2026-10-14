@@ -120,7 +120,7 @@ sleep 3
 "$ADB" shell am force-stop com.android.settings 2>/dev/null || true
 "$ADB" shell pm clear com.android.settings >/dev/null 2>&1 || true
 "$ADB" shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
-sleep 3
+sleep 5
 "$ADB" shell am start -n com.android.settings/.Settings >/dev/null 2>&1 \
   || "$ADB" shell am start -a android.settings.SETTINGS >/dev/null 2>&1 \
   || skip "cannot open Settings to obtain a focused text field"
@@ -138,7 +138,7 @@ sleep 3
 # So: tap the search bar by RESOURCE-ID (a stable platform id, unlike a
 # content-description string that varies by build and locale), then re-dump and
 # take the EditText that now exists.
-sleep 3
+sleep 5
 # Parse "[x1,y1][x2,y2]" into four numbers.
 #
 # NOT `grep -o '[0-9]*'`, which was tried and is wrong twice over: the '*' form
@@ -593,12 +593,13 @@ KEY_PREFS="shared_prefs/hunmin_keys.xml"
 # rather than the app's -- the same reason find_mic above needs it.
 dump_ui() {  # dump_ui <remote-path> -> the dump on stdout
   local i dump
-  for i in 1 2 3; do
+  for i in 1 2 3 4 5; do
     "$ADB" shell uiautomator dump --windows "$1" >/dev/null 2>&1 || true
     dump="$("$ADB" shell cat "$1" 2>/dev/null || true)"
     [ -n "$dump" ] && [ "$(printf '%s' "$dump" | wc -l)" -gt 5 ] && { printf '%s' "$dump"; return 0; }
-    sleep 1
+    sleep 2
   done
+  echo "dump_ui: failed to get valid dump from $1 after 5 attempts" >&2
   return 1
 }
 
