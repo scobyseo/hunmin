@@ -82,6 +82,10 @@ dump_diag() {
 echo "installing $APK"
 "$ADB" install -r -g "$APK" >/dev/null || fail "adb install failed"
 
+# Give the system time to parse the manifest and register the IME
+sleep 3
+"$ADB" shell pm list packages "$PKG" >/dev/null || fail "package not found after install"
+
 # Any key binding stored by an earlier run must not survive this one. HERE and
 # not in the section below, because SharedPreferences is cached per process:
 # deleting the file under a running app leaves the app reading the old values and
