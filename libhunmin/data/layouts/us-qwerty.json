@@ -1,10 +1,10 @@
 {
  "schemaVersion": 1,
  "id": "us-qwerty",
- "name": {
-  "en": "US QWERTY (Latin, no composition)",
-  "ko": "영어 모드 (qwerty 자판)"
- },
+"name": {
+   "en": "US QWERTY (Latin, no composition)",
+   "ko": "QWERTY (영어)"
+  },
  "aliases": [
   "us",
   "qwerty"

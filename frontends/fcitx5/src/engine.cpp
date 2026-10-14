@@ -401,7 +401,7 @@ private:
         // per-item profile layout wins; empty means "no override", in which
         // case the addon-wide default from conf/hunmin.conf applies.
         const std::string &want =
-            layout.empty() ? *engine_->config().layout : layout;
+            layout.empty() ? *engine_->config().hangulLayout : layout;
         if (hunminIc_ && want == layout_) {
             return;
         }
@@ -595,9 +595,15 @@ void HunminEngine::keyEvent(const InputMethodEntry &entry,
 }
 
 std::string HunminEngine::layoutFor(const InputMethodEntry &entry) const {
-    return instance_->inputMethodManager()
+    std::string layout = instance_->inputMethodManager()
         .currentGroup()
         .layoutFor(entry.uniqueName());
+    // Per-profile layout wins; empty means "no override", so use the global
+    // hangulLayout config as the default Hangul layout.
+    if (layout.empty()) {
+        layout = *config_.hangulLayout;
+    }
+    return layout;
 }
 
 void HunminEngine::reset(const InputMethodEntry &, InputContextEvent &event) {
@@ -611,25 +617,32 @@ void HunminEngine::refreshLayoutList() {
     if (!ctx_) {
         return;
     }
-    std::vector<std::pair<std::string, std::string>> layouts;
+    std::vector<std::pair<std::string, std::string>> hangulLayouts;
+    std::vector<std::pair<std::string, std::string>> latinLayouts;
     const int count = hunmin_ctx_layout_count(ctx_);
-    layouts.reserve(static_cast<size_t>(count));
+    hangulLayouts.reserve(static_cast<size_t>(count));
+    latinLayouts.reserve(static_cast<size_t>(count));
     for (int i = 0; i < count; i++) {
         const char *id = hunmin_ctx_layout_id(ctx_, i);
         if (!id) {
             continue;
         }
-        // The ko name is the picker label: every layout carries one in its
-        // JSON (SPEC-SCHEMA.md) and doctor.py warns when either is missing.
-        // Skip only what the build genuinely cannot open -- an engine kind we
-        // do not implement would be a row that fails at keystroke time.
+        // Skip unsupported engine kinds.
         if (!hunmin_ctx_layout_supported(ctx_, i)) {
             continue;
         }
         const char *ko = hunmin_ctx_layout_name(ctx_, i, "ko");
-        layouts.emplace_back(id, ko ? ko : id);
+        const char *mode = hunmin_ctx_layout_mode(ctx_, i);
+        std::string label = ko ? ko : id;
+        if (mode && std::string(mode) == "latin") {
+            latinLayouts.emplace_back(id, label);
+        } else {
+            // Default to hangul for layouts without mode or unknown mode.
+            hangulLayouts.emplace_back(id, label);
+        }
     }
-    config_.layout.annotation().setLayouts(std::move(layouts));
+    config_.hangulLayout.annotation().setLayouts(std::move(hangulLayouts));
+    config_.latinLayout.annotation().setLayouts(std::move(latinLayouts));
 }
 
 void HunminEngine::reloadConfig() {
