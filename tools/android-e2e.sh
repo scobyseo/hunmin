@@ -151,24 +151,17 @@ sleep 5
 # missing operand.
 parse_bounds() {
   # Extract the four numbers from a bounds string.
-  #
-  # `grep -o '[0-9]\+'` and nothing cleverer. The variants that were tried and
-  # measured against bounds="[42,591][1038,728]":
-  #   tr -dc '0-9\n'            -> "425911038728"  (newlines stripped, digits fused)
-  #   sed 's/[^0-9]*/ /g'        -> " 4 2 5 9 1 1 ..." (one char per token)
-  #   grep -o 'bounds=..[0-9]*'  -> matched nothing, rc=1 (the `*` cannot match
-  #                                 across the `]` it needs to skip)
-  # grep -o is the only one of the four that returns four whole numbers, and it
-  # needs no backslash-quoting inside "$( )" beyond the \+ itself.
-  printf '%s' "$1" | grep -o '[0-9][0-9]*' | tr '\n' ' '
+  local nums
+  nums="$(printf '%s' "$1" | grep -o '[0-9][0-9]*' | tr '\n' ' ' || true)"
+  [ -n "$nums" ] && printf '%s' "$nums"
 }
 
 tap_resource_id() {
   local rid="$1"
   local node="" bounds="" nums="" cx="" cy=""
-  "$ADB" shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
-  node="$("$ADB" shell cat /sdcard/ui.xml 2>/dev/null | tr '>' '\n' \
-          | grep -m1 "resource-id=\"$rid\"" || true)"
+  local dump
+  dump="$(dump_ui /sdcard/ui.xml)" || return 1
+  node="$(printf '%s' "$dump" | tr '>' '\n' | grep -m1 "resource-id=\"$rid\"" || true)"
   [ -n "$node" ] || return 1
   # The pattern is QUOTE-FREE and contains no backslashes, both deliberately.
   #
