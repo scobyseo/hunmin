@@ -196,14 +196,15 @@ jobs:
           avdmanager list avd
           "$ANDROID_HOME/emulator/emulator" -avd hunmin-ci \
             -no-window -no-audio -no-boot-anim \
-            -gpu swiftshader_indirect -no-snapshot -memory 1536 -no-quickboot &
+            -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -memory 1536 &
+          EMULATOR_PID=$!
           adb wait-for-device
           # Bounded wait: the script must not hang the job if the image is slow.
           for _ in $(seq 1 60); do
             [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ] && break
             sleep 5
           done
-          test "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1
+          test "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 || { echo "Emulator failed to boot"; kill $EMULATOR_PID 2>/dev/null; exit 1; }
 
       - name: Tier E2 (the APK, typed into with real key events)
         # The assertion is the committed text read out of a real EditText with
