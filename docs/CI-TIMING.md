@@ -275,3 +275,51 @@ deb job lands near **200 s**: 22 s apt, a fcitx5 restore, and a parallel ctest
 without tier E1. Neither is below 2 minutes yet, and the remaining cost is the
 `frontend-mutations` sandbox (9 CMake builds) plus the D3 trio where Xvfb is
 available, neither of which has a lever identified here.
+
+---
+
+## 4. What the first CI run of the changes showed
+
+The levers above were pushed and the run measured on 2026-10-14
+(run 38486460380). Three findings, and the third is the one worth keeping.
+
+**1. The cache missed on first run, as expected.** `Cache not found for input
+keys: Linux-gradle-5afa40c5…` — there was nothing to restore. The saving starts
+on the *second* run, which is what the restore-keys fallback is for.
+
+**2. `engine-android-e1` and `android-mutations` now run in parallel with the
+rest of the suite instead of ahead of it, and that exposed a latent defect.**
+Run 38428978810 had them first (tests #8 and #9), so a full Gradle configure
+ran before any tier-C Android test. With `-j4` they overlap, and the
+`engine-android-conformance-*` tier ran on a tree where `~/.gradle` had never
+been configured:
+
+```
+[CXX1101] NDK at /usr/local/lib/android/sdk/ndk/26.1.10909125
+  did not have a source.properties file
+```
+
+11 tests failed, 456 s of test time. The cause is that **`build.gradle.kts` did
+not pin an NDK version**, so AGP scanned `$ANDROID_HOME/ndk/*` and took
+directory order. The ubuntu-24.04 image carries both `27.3.13750724` (what this
+repo builds against) and an unversioned `26.1.10909125`. It passed before only
+because another test's Gradle run happened to configure the project first.
+
+**3. The first fix for it was wrong in a way nothing reported.** Putting
+`version = "27.3.13750724"` inside the `ndk { }` block under `defaultConfig` is
+silently accepted: `./gradlew :app:properties` prints `version:
+27.3.13750724`, and the toolchain handed to CMake is still
+`ndk/26.1.10909125/…/android.toolchain.cmake`. The build model at
+`build/intermediates/cxx/*/logs/*/build_model.json` reports
+`"ndkVersion": null`. The property `externalNativeBuild` resolves is
+**`android.ndkVersion`**, at the `android { }` level. Verified locally, with
+`ANDROID_NDK` deliberately unset, `-DCMAKE_TOOLCHAIN_FILE` now resolves to the
+27.3 toolchain, and `ctest -j4` is green over 176 tests.
+
+**What this changes in the analysis.** The failure was not caused by the timing
+levers — the unpinned NDK was a defect in the tree before them. But it was
+*exposed* by them, and it is the reason the run's wall time is not yet the
+projected ~130 s: `Total Test time (real) = 456.23` against 269 s before, with
+11 tests each burning a 120 s timeout. **A run that made the suite faster and
+slower at once**, which is the shape worth expecting from parallelising a suite
+whose ordering was load-bearing.

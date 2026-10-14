@@ -47,6 +47,40 @@ android {
     namespace = "org.hunmin.ime"
     compileSdk = 35
 
+    // THE NDK VERSION, PINNED AT THE `android` LEVEL, NOT INSIDE defaultConfig.
+    //
+    // AGP with no ndkVersion scans $ANDROID_HOME/ndk/* and takes what it finds.
+    // On a GitHub ubuntu-24.04 runner that directory holds BOTH
+    // 27.3.13750724 (what this repo builds against -- tools/build-android.sh,
+    // docs/ENVIRONMENT.md) and 26.1.10909125. Which one AGP hands the NDK
+    // toolchain file is directory order, not configuration.
+    //
+    // Measured 2026-10-14, issue #59's CI run: the linux job's tier-C Android
+    // conformance tests failed with
+    //   [CXX1101] NDK at /usr/local/lib/android/sdk/ndk/26.1.10909125
+    //   did not have a source.properties file
+    // -- 11 tests, 456 s of test time, all engine-android-conformance-*. They
+    // had passed in the run before it, and what changed is that they now run on
+    // a job where engine-android-e1 (a full Gradle configure) does not populate
+    // ~/.gradle first.
+    //
+    // The placement is load-bearing, and getting it wrong is silent. A first
+    // attempt put `version = "27.3.13750724"` inside the `ndk { }` block under
+    // defaultConfig. That reads as correct and is not: measured on this host,
+    // `./gradlew :app:properties` reports `version: 27.3.13750724`, so the DSL
+    // property is accepted, while the CXX build model
+    // (build/intermediates/cxx/*/logs/*/build_model.json) reports
+    // `"ndkVersion": null` and `--info` shows
+    // `-DCMAKE_TOOLCHAIN_FILE=…/ndk/26.1.10909125/build/cmake/android.toolchain.cmake`
+    // regardless of whether ANDROID_NDK is exported. `android.ndkVersion` is
+    // the property externalNativeBuild actually resolves.
+    //
+    // Deliberately NOT left to the ANDROID_NDK environment variable, which
+    // tools/build-android.sh and the android-release job export: a build that
+    // depends on an exported variable is green in the job that exports it and
+    // broken in the one that does not, which is exactly the failure above.
+    ndkVersion = "27.3.13750724"
+
     defaultConfig {
         applicationId = "org.hunmin.ime"
         // minSdk 24, not 21: tools/build-android.sh has cross-compiled the core
