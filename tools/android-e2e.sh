@@ -82,6 +82,10 @@ dump_diag() {
 echo "installing $APK"
 "$ADB" install -r -g "$APK" >/dev/null || fail "adb install failed"
 
+# Give the system time to parse the manifest and register the IME
+sleep 3
+"$ADB" shell pm list packages "$PKG" >/dev/null || fail "package not found after install"
+
 # Any key binding stored by an earlier run must not survive this one. HERE and
 # not in the section below, because SharedPreferences is cached per process:
 # deleting the file under a running app leaves the app reading the old values and
@@ -116,7 +120,7 @@ echo "installing $APK"
 "$ADB" shell am force-stop com.android.settings 2>/dev/null || true
 "$ADB" shell pm clear com.android.settings >/dev/null 2>&1 || true
 "$ADB" shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
-sleep 1
+sleep 5
 "$ADB" shell am start -n com.android.settings/.Settings >/dev/null 2>&1 \
   || "$ADB" shell am start -a android.settings.SETTINGS >/dev/null 2>&1 \
   || skip "cannot open Settings to obtain a focused text field"
@@ -134,7 +138,7 @@ sleep 1
 # So: tap the search bar by RESOURCE-ID (a stable platform id, unlike a
 # content-description string that varies by build and locale), then re-dump and
 # take the EditText that now exists.
-sleep 2
+sleep 5
 # Parse "[x1,y1][x2,y2]" into four numbers.
 #
 # NOT `grep -o '[0-9]*'`, which was tried and is wrong twice over: the '*' form
@@ -147,24 +151,17 @@ sleep 2
 # missing operand.
 parse_bounds() {
   # Extract the four numbers from a bounds string.
-  #
-  # `grep -o '[0-9]\+'` and nothing cleverer. The variants that were tried and
-  # measured against bounds="[42,591][1038,728]":
-  #   tr -dc '0-9\n'            -> "425911038728"  (newlines stripped, digits fused)
-  #   sed 's/[^0-9]*/ /g'        -> " 4 2 5 9 1 1 ..." (one char per token)
-  #   grep -o 'bounds=..[0-9]*'  -> matched nothing, rc=1 (the `*` cannot match
-  #                                 across the `]` it needs to skip)
-  # grep -o is the only one of the four that returns four whole numbers, and it
-  # needs no backslash-quoting inside "$( )" beyond the \+ itself.
-  printf '%s' "$1" | grep -o '[0-9][0-9]*' | tr '\n' ' '
+  local nums
+  nums="$(printf '%s' "$1" | grep -o '[0-9][0-9]*' | tr '\n' ' ' || true)"
+  [ -n "$nums" ] && printf '%s' "$nums"
 }
 
 tap_resource_id() {
   local rid="$1"
   local node="" bounds="" nums="" cx="" cy=""
-  "$ADB" shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
-  node="$("$ADB" shell cat /sdcard/ui.xml 2>/dev/null | tr '>' '\n' \
-          | grep -m1 "resource-id=\"$rid\"" || true)"
+  local dump
+  dump="$(dump_ui /sdcard/ui.xml)" || return 1
+  node="$(printf '%s' "$dump" | tr '>' '\n' | grep -m1 "resource-id=\"$rid\"" || true)"
   [ -n "$node" ] || return 1
   # The pattern is QUOTE-FREE and contains no backslashes, both deliberately.
   #
@@ -588,8 +585,15 @@ KEY_PREFS="shared_prefs/hunmin_keys.xml"
 # `--windows`, because the thing being tapped is often in the IME's own window
 # rather than the app's -- the same reason find_mic above needs it.
 dump_ui() {  # dump_ui <remote-path> -> the dump on stdout
-  "$ADB" shell uiautomator dump --windows "$1" >/dev/null 2>&1 || true
-  "$ADB" shell cat "$1" 2>/dev/null || true
+  local i dump
+  for i in 1 2 3 4 5; do
+    "$ADB" shell uiautomator dump --windows "$1" >/dev/null 2>&1 || true
+    dump="$("$ADB" shell cat "$1" 2>/dev/null || true)"
+    [ -n "$dump" ] && [ "$(printf '%s' "$dump" | wc -l)" -gt 5 ] && { printf '%s' "$dump"; return 0; }
+    sleep 2
+  done
+  echo "dump_ui: failed to get valid dump from $1 after 5 attempts" >&2
+  return 1
 }
 
 # Tap the node whose text contains $1. Bounds come from the dump, never from
