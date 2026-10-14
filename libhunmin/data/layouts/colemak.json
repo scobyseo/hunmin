@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "id": "colemak",
+  "name": {
+    "en": "Colemak (Latin, no composition)",
+    "ko": "COLEMAK (영어)"
+  },
+  "aliases": [
+    "cm"
+  ],
+  "engine": "std",
+  "mode": "latin",
+  "compose": [
+    "modern"
+  ],
+  "source": "ANSI Colemak keyboard layout; key ids are US-QWERTY physical positions named by their unshifted character (docs/SPEC-SCHEMA.md 'Key ids'). Each key id maps to the character that physical key produces in Colemak.",
+  "x-notes": {
+    "why": "SPEC-MODES R2 requires an English mode that selects qwerty/dvorak/colemak. This adds Colemak as a selectable Latin layout.",
+    "composition": "There is none, by design. A literal value is not a jamo, so process_jamo() takes the ic.c:170 branch and commits it directly, leaving the buffer empty. That is what makes R6's 'commit per character' fall out rather than be special-cased.",
+    "not_a_layout_choice": "This is a data addition required to measure R8, not a decision to ship colemak as the English mode. The maintainer decides which Latin layouts English mode offers."
+  },
+  "keys": {
+    "`": {
+      "plain": "=`",
+      "shift": "=~"
+    },
+    "1": {
+      "plain": "=1",
+      "shift": "=!"
+    },
+    "2": {
+      "plain": "=2",
+      "shift": "=@"
+    },
+    "3": {
+      "plain": "=3",
+      "shift": "=#"
+    },
+    "4": {
+      "plain": "=4",
+      "shift": "=$"
+    },
+    "5": {
+      "plain": "=5",
+      "shift": "=%"
+    },
+    "6": {
+      "plain": "=6",
+      "shift": "=^"
+    },
+    "7": {
+      "plain": "=7",
+      "shift": "=&"
+    },
+    "8": {
+      "plain": "=8",
+      "shift": "=*"
+    },
+    "9": {
+      "plain": "=9",
+      "shift": "=("
+    },
+    "0": {
+      "plain": "=0",
+      "shift": "=)"
+    },
+    "-": {
+      "plain": "=-",
+      "shift": "=_"
+    },
+    "=": {
+      "plain": "==",
+      "shift": "=+"
+    },
+    "\\": {
+      "plain": "=\\",
+      "shift": "=|"
+    },
+    "q": {
+      "plain": "=q",
+      "shift": "=Q"
+    },
+    "w": {
+      "plain": "=w",
+      "shift": "=W"
+    },
+    "e": {
+      "plain": "=f",
+      "shift": "=F"
+    },
+    "r": {
+      "plain": "=p",
+      "shift": "=P"
+    },
+    "t": {
+      "plain": "=g",
+      "shift": "=G"
+    },
+    "y": {
+      "plain": "=j",
+      "shift": "=J"
+    },
+    "u": {
+      "plain": "=l",
+      "shift": "=L"
+    },
+    "i": {
+      "plain": "=u",
+      "shift": "=U"
+    },
+    "o": {
+      "plain": "=y",
+      "shift": "=Y"
+    },
+    "p": {
+      "plain": "=;",
+      "shift": "=:"
+    },
+    "[": {
+      "plain": "=[",
+      "shift": "={"
+    },
+    "]": {
+      "plain": "=]",
+      "shift": "=}"
+    },
+    "a": {
+      "plain": "=a",
+      "shift": "=A"
+    },
+    "s": {
+      "plain": "=r",
+      "shift": "=R"
+    },
+    "d": {
+      "plain": "=s",
+      "shift": "=S"
+    },
+    "f": {
+      "plain": "=t",
+      "shift": "=T"
+    },
+    "g": {
+      "plain": "=d",
+      "shift": "=D"
+    },
+    "h": {
+      "plain": "=h",
+      "shift": "=H"
+    },
+    "j": {
+      "plain": "=n",
+      "shift": "=N"
+    },
+    "k": {
+      "plain": "=e",
+      "shift": "=E"
+    },
+    "l": {
+      "plain": "=i",
+      "shift": "=I"
+    },
+    ";": {
+      "plain": "=o",
+      "shift": "=O"
+    },
+    "'": {
+      "plain": "='",
+      "shift": "=\""
+    },
+    "z": {
+      "plain": "=z",
+      "shift": "=Z"
+    },
+    "x": {
+      "plain": "=x",
+      "shift": "=X"
+    },
+    "c": {
+      "plain": "=c",
+      "shift": "=C"
+    },
+    "v": {
+      "plain": "=v",
+      "shift": "=V"
+    },
+    "b": {
+      "plain": "=b",
+      "shift": "=B"
+    },
+    "n": {
+      "plain": "=k",
+      "shift": "=K"
+    },
+    "m": {
+      "plain": "=m",
+      "shift": "=M"
+    },
+    ",": {
+      "plain": "=,",
+      "shift": "=<"
+    },
+    ".": {
+      "plain": "=.",
+      "shift": "=>"
+    },
+    "/": {
+      "plain": "=/",
+      "shift": "=?"
+    }
+  }
+}

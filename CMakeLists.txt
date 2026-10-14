@@ -349,7 +349,7 @@ if(BUILD_TESTING)
   # tier A: engine must reproduce every reference trace byte-exactly
   set(HUNMIN_STD_LAYOUTS dubeolsik dubeolsik-yet sebeolsik-3-2 sebeolsik-3-90
       sebeolsik-final sebeolsik-noshift sebeolsik-yet
-      romaja)
+      romaja dvorak colemak)
   foreach(l IN LISTS HUNMIN_STD_LAYOUTS)
     add_test(NAME engine-golden-${l}
       COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
