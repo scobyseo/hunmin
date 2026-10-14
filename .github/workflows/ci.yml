@@ -176,6 +176,18 @@ jobs:
         # build before the expensive boot below.
         run: ctest --test-dir build -R "engine-android-goldens|engine-android-e1|android-mutations" --output-on-failure
 
+      - name: Free disk space for emulator
+        run: |
+          echo "=== Disk usage before cleanup ==="
+          df -h /home/runner
+          # Remove unnecessary packages
+          sudo apt-get clean
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/lib/android/sdk/emulator/qemu/linux-x86_64/qemu-system-i386* 2>/dev/null || true
+          # Remove docker images if any
+          docker system prune -af --volumes 2>/dev/null || true
+          echo "=== Disk usage after cleanup ==="
+          df -h /home/runner
+
       - name: Boot the emulator
         run: |
           export PATH="$HOME/Android/Sdk/platform-tools:$HOME/Android/Sdk/emulator:$PATH"
@@ -184,7 +196,7 @@ jobs:
           avdmanager list avd
           "$ANDROID_HOME/emulator/emulator" -avd hunmin-ci \
             -no-window -no-audio -no-boot-anim \
-            -gpu swiftshader_indirect -no-snapshot &
+            -gpu swiftshader_indirect -no-snapshot -memory 1536 -no-quickboot &
           adb wait-for-device
           # Bounded wait: the script must not hang the job if the image is slow.
           for _ in $(seq 1 60); do
