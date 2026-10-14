@@ -309,12 +309,28 @@ because another test's Gradle run happened to configure the project first.
 `version = "27.3.13750724"` inside the `ndk { }` block under `defaultConfig` is
 silently accepted: `./gradlew :app:properties` prints `version:
 27.3.13750724`, and the toolchain handed to CMake is still
-`ndk/26.1.10909125/…/android.toolchain.cmake`. The build model at
-`build/intermediates/cxx/*/logs/*/build_model.json` reports
-`"ndkVersion": null`. The property `externalNativeBuild` resolves is
-**`android.ndkVersion`**, at the `android { }` level. Verified locally, with
-`ANDROID_NDK` deliberately unset, `-DCMAKE_TOOLCHAIN_FILE` now resolves to the
-27.3 toolchain, and `ctest -j4` is green over 176 tests.
+`ndk/26.1.10909125/…/android.toolchain.cmake`. The property
+`externalNativeBuild` resolves is **`android.ndkVersion`**, at the `android { }`
+level. Verified locally, with `ANDROID_NDK` deliberately unset,
+`-DCMAKE_TOOLCHAIN_FILE` now resolves to the 27.3 toolchain, and `ctest -j4` is
+green over the suite.
+
+Two details worth recording, because both were got wrong on the way here. AGP
+parses *every* installed NDK's `package.xml` during discovery, so the string
+`ndk/26.1.10909125` appears in a `--info` log whether or not it is in use —
+checking for its presence proves nothing; what matters is
+`-DCMAKE_TOOLCHAIN_FILE`. And AGP 8.6's `build_model.json` carries **no
+`ndkVersion` key at all**, so reading it reports `None` regardless of the pin;
+the file's `configurationArguments` holds the real CMake invocation and is what
+should be asserted.
+
+**4. The counts below are configuration-dependent, and `docs-lint` check 1
+enforces it.** This host measures 176 registered with no Android toolchain in
+the environment; CI's runner image ships one, so the same tree there registers
+181. The first version of this section wrote "176 tests" next to a CI figure
+and check 1 failed the run for it — which is the check doing its job, since a
+bare count next to another job's numbers is the drift the rule exists to stop.
+Every count below now names its configuration.
 
 **What this changes in the analysis.** The failure was not caused by the timing
 levers — the unpinned NDK was a defect in the tree before them. But it was
