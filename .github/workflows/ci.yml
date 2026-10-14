@@ -148,7 +148,8 @@ jobs:
           # view hierarchy behave the same way here.
           export PATH="$HOME/Android/Sdk/cmdline-tools/latest/bin:$PATH"
           echo no | avdmanager create avd -n hunmin-ci \
-            -k "system-images;android-35;google_apis;x86_64" --device pixel_6
+            -k "system-images;android-35;google_apis;x86_64" --device pixel \
+            -c 512M --force
           echo "HUNMIN_AVD=hunmin-ci" >> "$GITHUB_ENV"
           echo "ANDROID_AVD_HOME=$HOME/.config/.android/avd" >> "$GITHUB_ENV"
 
