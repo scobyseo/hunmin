@@ -2,7 +2,10 @@
 # release-0.1.sh — publish hunmin 0.1.0 as a GitHub Release with the .deb artifact.
 #
 # Method (a clean machine can reproduce this from the commit):
-#   1. Build the .deb:     dpkg-buildpackage -us -uc -b   (unsigned binary only)
+#   1. Build the .deb:     tools/build-release.sh deb   (unsigned binary only;
+#                             this is the same script docs/REMAINING-WORK.md §7.5
+#                             asserts, and it runs dpkg-buildpackage -us -uc -b
+#                             with the suite inside debian/rules override_dh_auto_test)
 #   2. Create git tag:     0.1.0   (project version, no 'v' prefix — versionname
 #                             ruling in docs/MILESTONES.md §0.1 names the release
 #                             "0.1.0" bare, per issue #9)
@@ -10,6 +13,10 @@
 #                              --notes-file docs/release-notes/0.1.md
 #   4. Upload artifact:    gh release upload 0.1.0 hunmin_0.1.0_amd64.deb
 #
+# Why step 1 delegates rather than repeating the command: the build path lives in
+# one place. build-release.sh carries the worktree/krdict failure explanation that
+# `data-selfcheck` needs in a fresh checkout, and a second dpkg-buildpackage call
+# here would drift from it. This script owns tag + release + upload only.
 # The .deb is produced the same way that produced the local artefact measured on
 # 2026-10-11: `debian/` already carries changelog (hunmin (0.1.0) unstable),
 # control, rules, postinst and copyright. No key signing is needed for a
@@ -38,6 +45,9 @@ TAG="0.1.0"
 ARTIFACT="hunmin_${VERSION}_amd64.deb"
 DRY_RUN=0
 FORCE_TAG=0
+# Derived from this script's own location, never a hardcoded path (AGENTS.md).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_RELEASE="${SCRIPT_DIR}/build-release.sh"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -63,6 +73,7 @@ usage_exit() { echo "usage: $0 [--yes|--dry-run|--force-tag] [--skip-build PATH]
 command -v gh >/dev/null 2>&1 || { echo "gh not found (needed for GitHub Release)" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "git not found" >&2; exit 1; }
 command -v dpkg-buildpackage >/dev/null 2>&1 || { echo "dpkg-buildpackage not found (Debian build)" >&2; exit 1; }
+[[ -x "$BUILD_RELEASE" ]] || { echo "not executable: $BUILD_RELEASE" >&2; exit 1; }
 
 # --- 0. Sanity: current branch is where 0.1.0 should land ---------------------
 BRANCH="$(git branch --show-current 2>/dev/null || true)"
@@ -77,11 +88,11 @@ esac
 
 # --- 1. Build the .deb -------------------------------------------------------
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
-  echo "==> Step 1: building ${ARTIFACT} (dpkg-buildpackage -us -uc -b)"
+  echo "==> Step 1: building ${ARTIFACT} (via tools/build-release.sh deb)"
   if [[ $DRY_RUN -eq 1 ]]; then
-    echo "  dpkg-buildpackage -us -uc -b"
+    echo "  tools/build-release.sh deb"
   else
-    dpkg-buildpackage -us -uc -b
+    "$BUILD_RELEASE" deb
     if [[ ! -f "$ARTIFACT" ]]; then
       echo "ERROR: ${ARTIFACT} not produced" >&2; exit 1
     fi

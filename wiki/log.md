@@ -510,3 +510,11 @@
   disposition is the maintainer's to confirm or overturn; see
   [[decisions-belong-to-the-maintainer]].
 - `wiki/index.md` listed the page under Raw — measurements.
+- `wiki/decisions/2026-10-16-0-1-distribution-channel-github-release.md` — the
+  channel ruling issue #7 asked for: a GitHub Release on tag `0.1.0` with the
+  `.deb` attached. Records the cost of the three options the issue named as
+  comparable, and what the ruling does not close — no tag or release exists, so
+  the channel is still unverified from a clean machine; the `.deb` is unsigned;
+  the signed APK stays blocked on issue #1. The procedure lives in
+  `docs/MILESTONES.md` §0.1, not here.
+- `wiki/index.md` listed the page under Decisions.

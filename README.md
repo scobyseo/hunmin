@@ -88,9 +88,9 @@ diffs.
 
 ```sh
 # engine + fcitx5 addon
-cmake -B build && cmake --build build
-ctest --test-dir build -N                 # full suite, gate is tier-D
-dpkg-buildpackage -us -uc -b              # hunmin_0.1.0_amd64.deb
+dpkg -i hunmin_0.1.0_amd64.deb     # build it: tools/build-release.sh deb
+
+# or build the PPA package yourself — see PLAN.md, gate is the tier-D suite
 ```
 
 Android: `frontends/android/gradlew assembleDebug` after building the core for
@@ -99,26 +99,23 @@ the release is `0.1.0` and the `-p5` is the Android build-phase label, not a
 different release; the keymaps APK carries `0.1.0-p5.5` for the same reason.
 The convention is recorded in `docs/MILESTONES.md` §0.1 (issue #9).
 
-**Where the release artefacts come from (issue #8):** 0.1.0 ships no prebuilt
-`.deb` and has no GitHub Release yet; the artefact used for local testing was
-built on the maintainer's host and has been deleted. Build from source instead
-(clean checkout, gate is the tier-D suite) and publish to GitHub Release on tag
-`0.1.0` per docs/MILESTONES.md §0.1:
+**Where the release artefacts come from (issue #8):** CI now builds both —
+job `deb` produces the `.deb` and job `android-release` produces the release
+APK, each uploaded as a run artefact. The same sequence runs locally with
+`tools/build-release.sh` (`deb` / `apk` / `all`). One caveat recorded rather
+than hidden: the release APK from CI signs with a generated throwaway keystore,
+because the real keystore path is still undecided (issue #1) — a CI-built
+release APK proves the release *build*, not a release *signature*. Whether 0.1
+requires CI-built artefacts at all, or a local build suffices, is the ruling
+issue #8 asks the maintainer for.
 
-```sh
-cmake -B build && cmake --build build      # engine + hunmin-sim + fcitx5 addon
-ctest --test-dir build -N                 # full suite, gate is tier-D
-dpkg-buildpackage -us -uc -b              # hunmin_0.1.0_amd64.deb
-git tag 0.1.0
-gh release create 0.1.0 --title "hunmin 0.1.0" --notes-file docs/release-notes/0.1.md
-gh release upload 0.1.0 hunmin_0.1.0_amd64.deb
-```
-
-One caveat recorded rather than hidden: the release APK from CI signs with a
-generated throwaway keystore, because the real keystore path is still undecided
-(issue #1) — a CI-built release APK proves the release *build*, not a release
-*signature*. Whether 0.1 requires CI-built artefacts at all, or a local build
-suffices, is the ruling issue #8 asks the maintainer for.
+**Where a 0.1 user gets them (issue #7):** the channel is a **GitHub Release on
+tag `0.1.0`**, with `hunmin_0.1.0_amd64.deb` attached — recorded in
+`docs/MILESTONES.md` §0.1, scripted in `tools/release-0.1.sh`. No such release
+exists yet: `git tag` holds no `0.1.0`, so today the only way to obtain the
+artefacts is the CI run artefact or a local `tools/build-release.sh`. Publishing
+is `tools/release-0.1.sh --yes`, after the tier-D gate passes. The `.deb` is
+unsigned, so `dpkg -i` warns; the signed release APK stays blocked on issue #1.
 
 **Known limitation (Android voice input):** recognition quality has no
 automated assertion — recorded audio cannot be replayed into the recogniser,
