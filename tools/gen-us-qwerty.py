@@ -40,7 +40,7 @@ HEADER = {
     "id": "us-qwerty",
     "name": {
         "en": "US QWERTY (Latin, no composition)",
-        "ko": "영어 모드 (qwerty 자판)",
+        "ko": "QWERTY (영어)",
     },
     "aliases": ["us", "qwerty"],
     "engine": "std",
@@ -98,7 +98,7 @@ def main():
         return 0
 
     a.out.parent.mkdir(parents=True, exist_ok=True)
-    a.out.write_text(json.dumps(want, ensure_ascii=False, indent=1) + "\n",
+    a.out.write_text(json.dumps(want, ensure_ascii=False, indent=2) + "\n",
                      encoding="utf-8")
     print(f"wrote {len(want['keys'])} key ids to {a.out}")
     return 0

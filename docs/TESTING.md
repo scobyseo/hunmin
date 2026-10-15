@@ -126,10 +126,19 @@ on a freshly configured tree:
 
 | configuration | master | this branch |
 |---|---|---|
-| default (no Android toolchain) | 59 | 59 |
+| default (no Android toolchain) | 60 | 61 |
 | `JAVA_HOME` + `ANDROID_HOME` | 61 | 61 |
 | … plus `ANDROID_NDK` and `adb` | 63 | 64 |
 | … plus `-DHUNMIN_TRACE_BUILD=ON` | 181 | 182 |
+
+**The first row was re-measured 2026-10-15 (issue #53):** master now
+configures 60 tests, this branch 61 — the +1 is `engine-d3-candidate`, the F9
+candidate-window tier (see tier-D3-candidate below). Only the default-config
+row was re-measured on this host; the three Android/trace rows above are the
+2026-10-13 figures and were **not** re-measured here (no Android toolchain in
+this environment), so they are carried forward, not re-verified. A later
+measurement with the toolchain present should re-check them rather than trust
+this line.
 
 **The first two rows are not this change's** — `engine-android-espresso` does
 not register there at all, so its only row is the third: +1, and only where the
@@ -459,17 +468,20 @@ Four layers, cheap→real:
   not `xim`.
   Full account with measurements: `docs/D3-ROOT-CAUSE.md`. The wrong turns are
   kept in `docs/FCITX5-ADDON-NOTES.md` §11b–§11d so they are not repeated.
-  ⏳ **Still not covered:** the candidate window. The F9 case that would cover it is
-  not absent by oversight. An F9 case was added here and removed after
-  measurement: two mutations of the adapter (dropping `filterAndAccept()`,
-  flushing inside `openCandidates()`) both left D3 green and both turned D2
-  red. Its distinguishing property is *consumption*, which the F9 keycode
-  reaches the client either way, so the case would pass regardless. D2's
-  `sendKeyEvent` return value remains the only place consumption is asserted.
-  Also not covered *here*: every non-XIM client. A declined key becomes text on
+  ⏳ **Still not covered:** every non-XIM client. A declined key becomes text on
   the GTK path too (D3-GTK below, measured 2026-10-09) but by a different
   mechanism in each module, and the `FORWARD:` line above is a statement about
   fcitx5's XIM server only — it does not transfer to Qt or to Wayland.
+  **The candidate window is now covered — by `engine-d3-candidate`, not here.**
+  See the tier-D3-candidate section below; the F9 window was drawn for the
+  first time in any ctest tier there (2026-10-15, issue #53). What remains
+  true here: an F9 *consumption* case does not belong in this XIM run. An F9
+  case was added to the ordinary D3 corpus and removed after measurement: two
+  mutations of the adapter (dropping `filterAndAccept()`, flushing inside
+  `openCandidates()`) both left the ordinary D3 green and both turned D2 red,
+  because its distinguishing property is *consumption* and the F9 keycode
+  reaches the client either way, so the case would pass regardless. D2's
+  `sendKeyEvent` return value remains the only place consumption is asserted.
 
   **Correction, 2026-10-09 — this paragraph previously said consumption was
   "unobservable from an XIM client at any level", on the grounds that "a
@@ -597,6 +609,64 @@ Four layers, cheap→real:
   stand in for it, and D4 stands unchanged — and Qt
   (`fcitx5-frontend-qt5`/`-qt6`, a third fallback implementation).
   Measurements: `wiki/raw/measurements/2026-10-09-gtk-forward-path.md`.
+
+- **D3-CANDIDATE — the F9 candidate window, drawn for real** ✅ (2026-10-15,
+  issue #53, ctest `engine-d3-candidate`): the tier no other one could be.
+  `run-d3.sh` with `HUNMIN_D3_CLIENT=candidate` reuses the whole XIM stack —
+  private bus, staged addon, XTEST injection, `xwininfo` oracle — with **one**
+  difference: `classicui` is loaded, so the F9 candidate window is actually
+  drawn. The abort in #45 lives exactly here: `classicui` calls `label()` once
+  per candidate on the page, and a `CommonCandidateList` that never calls
+  `setLabels()` holds 10 — past that, `label()` throws `std::invalid_argument`,
+  nothing catches it, and fcitx5 SIGABRTs. `engine-d2-ui` loads no UI addon at
+  all and the ordinary D3 lists `DisabledAddons=classicui`, so both were
+  structurally incapable of the crash; the tree fact (page size ≤ 10) was
+  asserted by D2 while the failure it prevents was not.
+  **Per case it asserts three things:** fcitx5 survives the keystrokes
+  (`kill -0` — the abort oracle, checked before the window so a dead fcitx5
+  reports as a death and not as a missing window); the input window is drawn
+  (`xwininfo -root -children` finds `Fcitx5 Input Window` — a one-character
+  preedit is ~27px, a candidate column 300–700px, so "is there a window at
+  all" is answerable from geometry); and the expected COMMIT text, where the
+  case carries one. **Measured red with the cap reverted (2026-10-15):**
+  `kMaxCandidatePageSize` set to 1000 makes the deep case fail with
+  `CommonCandidateList: invalid label idx` and a core dump — the #45 abort,
+  reproduced by a ctest tier for the first time. Green with the cap.
+  **Two injector facts, both measured.** `tests/e2e/xtest-type.py` gained
+  `{F9}`/`{Return}`/`{Down}` named-keysym tokens (XK_F9 = 0xFFC6, not F5 — an
+  earlier run sent F5 and the transcript read "F9 committed the syllable").
+  Named keys must be braced: a bare `Return` is six Latin characters, and
+  `kfs{F9}Return` committed `간|ᅟᅥᆸ|ㅋ|더` instead of `刊` until it was
+  `kfs{F9}{Return}`. And F9 opens the window **asynchronously**, so the
+  injector settles 0.8s after it: a `Return` at the default 40ms arrives
+  before `candidateActive()` is true, is not handled as a candidate key,
+  flushes the source syllable to the client, and the rest lands as Latin
+  garbage. The case file `tests/e2e/cases-candidate.tsv` carries a
+  hand-written expected-commit column (the sim cannot type `{F9}`, so a
+  sim-derived expectation would be a fiction); the expectations were verified
+  against `tools/repro-f9-candidates.sh` on the same build. Skips rc 77 like
+  every D3 variant and shares the `reserve_display` reservation, so it cannot
+  collide with a concurrent `engine-d3-x11` run.
+  ⚠️ **What this test costs, measured 2026-10-15, and it is not free.**
+  `engine-d3-candidate` is **16.41 s** on a 16-core host, serial (`ctest -j1`).
+  The D3 tier goes from 143.53 s (x11 46.43 + gtk3 48.47 + gtk4 48.63) to
+  **159.94 s — +16.41 s, +11.4%**. Stated plainly rather than buried: this
+  change makes the suite measurably slower, and the reason it was accepted is
+  that no other tier can fail on the #45 abort at all, not that the cost is
+  small. Where the 16.41 s goes: one fcitx5 start (~2.6 s, same as every D3
+  variant), one XIM harness start, and **~9 s of fixed settle** — the
+  injector's 0.8 s after F9 plus the runner's 1.5 s, over four cases. The
+  settle is the compressible part and it is the next thing to attack if the
+  `slow` budget needs room; the fcitx5 start is not.
+  **And the budget this lands in was already over.** The `slow` tier is
+  **184.84 s** against the 60 s budget AGENTS.md sets — a 3× overrun that
+  predates this test, because the three GTK/X11 D3 runs are ~48 s each. This
+  test did not create the overrun and did not fit inside it; see
+  `docs/CI-TIMING.md` and `tools/ci-time-budget.sh`, which is where the
+  overrun is measured rather than argued about. The honest summary: tier D3
+  as a whole needs a structural decision (fewer cases, shared fcitx5 across
+  the four variants, or a `slow` budget that matches reality), and this test
+  is one more reason to have it.
 
 - **D4 Wayland plumbing (optional, later)**: `weston --backend=headless` + minimal
   `zwp_input_method_v2`/text-input-v3 client harness. Not blocking P4; fcitx5's Wayland

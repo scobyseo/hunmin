@@ -1,214 +1,214 @@
 {
- "schemaVersion": 1,
- "id": "us-qwerty",
-"name": {
-   "en": "US QWERTY (Latin, no composition)",
-   "ko": "QWERTY (영어)"
+  "schemaVersion": 1,
+  "id": "us-qwerty",
+  "name": {
+    "en": "US QWERTY (Latin, no composition)",
+    "ko": "QWERTY (영어)"
   },
- "aliases": [
-  "us",
-  "qwerty"
- ],
- "engine": "std",
- "mode": "latin",
- "libhangulType": "jamo",
- "compose": [
-  "modern"
- ],
- "source": "US QWERTY as the physical key names in docs/SPEC-SCHEMA.md (Key ids); each key id is named by its unshifted character and each modifier emits that character directly. This is not copied from any implementation -- the mapping IS the US keyboard, and the key-id convention is this project's own (SPEC-SCHEMA.md 'Key ids').",
- "x-notes": {
-  "why": "SPEC-MODES R2 requires an English mode that selects qwerty/dvorak, and R6's OFF+English behaviour requires 'English mode has to be a Latin layout rather than a Hangul layout -- since a Latin key produces a Latin letter there is nothing to compose'. No such layout existed in libhunmin/data/layouts/, so R2's English arm was unmeasurable. This adds it.",
-  "composition": "There is none, by design. A literal value is not a jamo, so process_jamo() takes the ic.c:170 branch and commits it directly, leaving the buffer empty. That is what makes R6's 'commit per character' fall out rather than be special-cased.",
-  "not_a_layout_choice": "This is a data addition required to measure R8, not a decision to ship qwerty as the English mode. The maintainer decides which Latin layouts English mode offers."
- },
- "keys": {
-  "a": {
-   "plain": "=a",
-   "shift": "=A"
+  "aliases": [
+    "us",
+    "qwerty"
+  ],
+  "engine": "std",
+  "mode": "latin",
+  "libhangulType": "jamo",
+  "compose": [
+    "modern"
+  ],
+  "source": "US QWERTY as the physical key names in docs/SPEC-SCHEMA.md (Key ids); each key id is named by its unshifted character and each modifier emits that character directly. This is not copied from any implementation -- the mapping IS the US keyboard, and the key-id convention is this project's own (SPEC-SCHEMA.md 'Key ids').",
+  "x-notes": {
+    "why": "SPEC-MODES R2 requires an English mode that selects qwerty/dvorak, and R6's OFF+English behaviour requires 'English mode has to be a Latin layout rather than a Hangul layout -- since a Latin key produces a Latin letter there is nothing to compose'. No such layout existed in libhunmin/data/layouts/, so R2's English arm was unmeasurable. This adds it.",
+    "composition": "There is none, by design. A literal value is not a jamo, so process_jamo() takes the ic.c:170 branch and commits it directly, leaving the buffer empty. That is what makes R6's 'commit per character' fall out rather than be special-cased.",
+    "not_a_layout_choice": "This is a data addition required to measure R8, not a decision to ship qwerty as the English mode. The maintainer decides which Latin layouts English mode offers."
   },
-  "b": {
-   "plain": "=b",
-   "shift": "=B"
-  },
-  "c": {
-   "plain": "=c",
-   "shift": "=C"
-  },
-  "d": {
-   "plain": "=d",
-   "shift": "=D"
-  },
-  "e": {
-   "plain": "=e",
-   "shift": "=E"
-  },
-  "f": {
-   "plain": "=f",
-   "shift": "=F"
-  },
-  "g": {
-   "plain": "=g",
-   "shift": "=G"
-  },
-  "h": {
-   "plain": "=h",
-   "shift": "=H"
-  },
-  "i": {
-   "plain": "=i",
-   "shift": "=I"
-  },
-  "j": {
-   "plain": "=j",
-   "shift": "=J"
-  },
-  "k": {
-   "plain": "=k",
-   "shift": "=K"
-  },
-  "l": {
-   "plain": "=l",
-   "shift": "=L"
-  },
-  "m": {
-   "plain": "=m",
-   "shift": "=M"
-  },
-  "n": {
-   "plain": "=n",
-   "shift": "=N"
-  },
-  "o": {
-   "plain": "=o",
-   "shift": "=O"
-  },
-  "p": {
-   "plain": "=p",
-   "shift": "=P"
-  },
-  "q": {
-   "plain": "=q",
-   "shift": "=Q"
-  },
-  "r": {
-   "plain": "=r",
-   "shift": "=R"
-  },
-  "s": {
-   "plain": "=s",
-   "shift": "=S"
-  },
-  "t": {
-   "plain": "=t",
-   "shift": "=T"
-  },
-  "u": {
-   "plain": "=u",
-   "shift": "=U"
-  },
-  "v": {
-   "plain": "=v",
-   "shift": "=V"
-  },
-  "w": {
-   "plain": "=w",
-   "shift": "=W"
-  },
-  "x": {
-   "plain": "=x",
-   "shift": "=X"
-  },
-  "y": {
-   "plain": "=y",
-   "shift": "=Y"
-  },
-  "z": {
-   "plain": "=z",
-   "shift": "=Z"
-  },
-  "0": {
-   "plain": "=0",
-   "shift": "=)"
-  },
-  "1": {
-   "plain": "=1",
-   "shift": "=!"
-  },
-  "2": {
-   "plain": "=2",
-   "shift": "=@"
-  },
-  "3": {
-   "plain": "=3",
-   "shift": "=#"
-  },
-  "4": {
-   "plain": "=4",
-   "shift": "=$"
-  },
-  "5": {
-   "plain": "=5",
-   "shift": "=%"
-  },
-  "6": {
-   "plain": "=6",
-   "shift": "=^"
-  },
-  "7": {
-   "plain": "=7",
-   "shift": "=&"
-  },
-  "8": {
-   "plain": "=8",
-   "shift": "=*"
-  },
-  "9": {
-   "plain": "=9",
-   "shift": "=("
-  },
-  "`": {
-   "plain": "=`",
-   "shift": "=~"
-  },
-  "-": {
-   "plain": "=-",
-   "shift": "=_"
-  },
-  "=": {
-   "plain": "==",
-   "shift": "=+"
-  },
-  "[": {
-   "plain": "=[",
-   "shift": "={"
-  },
-  "]": {
-   "plain": "=]",
-   "shift": "=}"
-  },
-  "\\": {
-   "plain": "=\\",
-   "shift": "=|"
-  },
-  ";": {
-   "plain": "=;",
-   "shift": "=:"
-  },
-  "'": {
-   "plain": "='",
-   "shift": "=\""
-  },
-  ",": {
-   "plain": "=,",
-   "shift": "=<"
-  },
-  ".": {
-   "plain": "=.",
-   "shift": "=>"
-  },
-  "/": {
-   "plain": "=/",
-   "shift": "=?"
+  "keys": {
+    "a": {
+      "plain": "=a",
+      "shift": "=A"
+    },
+    "b": {
+      "plain": "=b",
+      "shift": "=B"
+    },
+    "c": {
+      "plain": "=c",
+      "shift": "=C"
+    },
+    "d": {
+      "plain": "=d",
+      "shift": "=D"
+    },
+    "e": {
+      "plain": "=e",
+      "shift": "=E"
+    },
+    "f": {
+      "plain": "=f",
+      "shift": "=F"
+    },
+    "g": {
+      "plain": "=g",
+      "shift": "=G"
+    },
+    "h": {
+      "plain": "=h",
+      "shift": "=H"
+    },
+    "i": {
+      "plain": "=i",
+      "shift": "=I"
+    },
+    "j": {
+      "plain": "=j",
+      "shift": "=J"
+    },
+    "k": {
+      "plain": "=k",
+      "shift": "=K"
+    },
+    "l": {
+      "plain": "=l",
+      "shift": "=L"
+    },
+    "m": {
+      "plain": "=m",
+      "shift": "=M"
+    },
+    "n": {
+      "plain": "=n",
+      "shift": "=N"
+    },
+    "o": {
+      "plain": "=o",
+      "shift": "=O"
+    },
+    "p": {
+      "plain": "=p",
+      "shift": "=P"
+    },
+    "q": {
+      "plain": "=q",
+      "shift": "=Q"
+    },
+    "r": {
+      "plain": "=r",
+      "shift": "=R"
+    },
+    "s": {
+      "plain": "=s",
+      "shift": "=S"
+    },
+    "t": {
+      "plain": "=t",
+      "shift": "=T"
+    },
+    "u": {
+      "plain": "=u",
+      "shift": "=U"
+    },
+    "v": {
+      "plain": "=v",
+      "shift": "=V"
+    },
+    "w": {
+      "plain": "=w",
+      "shift": "=W"
+    },
+    "x": {
+      "plain": "=x",
+      "shift": "=X"
+    },
+    "y": {
+      "plain": "=y",
+      "shift": "=Y"
+    },
+    "z": {
+      "plain": "=z",
+      "shift": "=Z"
+    },
+    "0": {
+      "plain": "=0",
+      "shift": "=)"
+    },
+    "1": {
+      "plain": "=1",
+      "shift": "=!"
+    },
+    "2": {
+      "plain": "=2",
+      "shift": "=@"
+    },
+    "3": {
+      "plain": "=3",
+      "shift": "=#"
+    },
+    "4": {
+      "plain": "=4",
+      "shift": "=$"
+    },
+    "5": {
+      "plain": "=5",
+      "shift": "=%"
+    },
+    "6": {
+      "plain": "=6",
+      "shift": "=^"
+    },
+    "7": {
+      "plain": "=7",
+      "shift": "=&"
+    },
+    "8": {
+      "plain": "=8",
+      "shift": "=*"
+    },
+    "9": {
+      "plain": "=9",
+      "shift": "=("
+    },
+    "`": {
+      "plain": "=`",
+      "shift": "=~"
+    },
+    "-": {
+      "plain": "=-",
+      "shift": "=_"
+    },
+    "=": {
+      "plain": "==",
+      "shift": "=+"
+    },
+    "[": {
+      "plain": "=[",
+      "shift": "={"
+    },
+    "]": {
+      "plain": "=]",
+      "shift": "=}"
+    },
+    "\\": {
+      "plain": "=\\",
+      "shift": "=|"
+    },
+    ";": {
+      "plain": "=;",
+      "shift": "=:"
+    },
+    "'": {
+      "plain": "='",
+      "shift": "=\""
+    },
+    ",": {
+      "plain": "=,",
+      "shift": "=<"
+    },
+    ".": {
+      "plain": "=.",
+      "shift": "=>"
+    },
+    "/": {
+      "plain": "=/",
+      "shift": "=?"
+    }
   }
- }
 }

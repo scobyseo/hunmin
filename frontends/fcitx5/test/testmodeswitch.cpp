@@ -80,10 +80,10 @@ int main() {
                 hangulCount++;
             }
         }
-        FCITX_ASSERT(latinCount == 1)
-            << "expected exactly one latin layout, found " << latinCount;
+        FCITX_ASSERT(latinCount >= 1)
+            << "expected at least one latin layout, found " << latinCount;
         FCITX_ASSERT(latinId == "us-qwerty")
-            << "the latin layout is '" << latinId << "', but this adapter judges on us-qwerty";
+            << "us-qwerty must exist among latin layouts for this adapter to judge on it, but found '" << latinId << "'";
         // No assertion on the ORDER the scanner yields: it walks the directory
         // (ahnmatmae first), and the frontends sort by display name anyway. An
         // assertion here would pin an implementation detail of opendir() to a

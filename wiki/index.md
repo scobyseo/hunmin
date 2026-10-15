@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-13 | Total pages: 31
+> Last updated: 2026-10-15 | Total pages: 32
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -98,6 +98,17 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
 
 ## Raw — measurements
 
+- [[2026-10-15-f9-candidate-ctest-tier]] — issue #53's option A, built and
+  measured: `engine-d3-candidate` draws the F9 candidate window for the first
+  time in any ctest tier (classicui enabled in `run-d3.sh`'s candidate mode),
+  and with the #45 cap reverted it fails with the exact abort —
+  `CommonCandidateList: invalid label idx`, fcitx5 SIGABRT. Records the three
+  per-case assertions (survival, window-drawn geometry, expected commit), the
+  the two injector facts (named keys must be braced; F9 opens the window
+  asynchronously), and why `Down` and `Page_Down` both commit 肝 after 간 —
+  not a drift but a coincidence: 肝 sits at index 1 (a krdict word sense) and
+  index 10 (a hanja), so cursor-move and page-move land on the same
+  character. Dumping the indices is what separates the two.
 - [[2026-10-13-f9-candidate-window-abort]] — F9 with 11 or more candidates aborts
   fcitx5 with `CommonCandidateList: invalid label idx`: the page size is set to the
   candidate count and classicui reads a label per candidate, but a

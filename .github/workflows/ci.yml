@@ -8,6 +8,26 @@ on:
 jobs:
   linux:
     runs-on: ubuntu-24.04
+    # 3 minutes, set 2026-10-15. The job measured 8 m 24 s before this
+    # (docs/CI-TIMING.md §1); the 5-minute ceiling set the same day was met by
+    # excluding tier E1 (ctest 269 s -> ~37 s), and 3 minutes is met by ALSO
+    # caching the fcitx5 5.1.13 install tree, which was the remaining 197 s
+    # segment and ran on every commit with nothing cached.
+    #
+    # The budget with both levers: apt install 22 s + cache restore ~10 s +
+    # cmake/build 9 s + ctest ~37 s + snapshot 0.14 s (measured, not guessed --
+    # tools/ci-env-snapshot.sh on a 16-core host) = ~78 s against 180 s of
+    # allowance, so the ceiling has real headroom rather than being a number
+    # the job barely fits. On a cache MISS the fcitx5 build returns (197 s) and
+    # the job cannot fit -- that is the cold path, paid once per tag bump, and
+    # it will show as a timeout rather than a silent slow run. If that happens,
+    # the fix is to let the cold build finish and cache it, not to raise the
+    # number.
+    #
+    # CI minutes are a cost, and a job with no ceiling is a job whose cost is
+    # unbounded -- the same overspend shape that got CI usage suspended, one
+    # level down.
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
       # fcitx5-modules-dev carries Fcitx5Utils/Fcitx5Module cmake configs, which
@@ -48,6 +68,37 @@ jobs:
             libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
             libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
             iso-codes xkb-data
+      # fcitx5 5.1.13, CACHED as its install tree.
+      #
+      # MEASURED 2026-10-15: this build is 197 s and was the single largest
+      # segment of the job, run on every commit with nothing cached -- the job
+      # could not fit the 3-minute ceiling (set the same day) without it. The
+      # ceiling is 180 s and the un-cached build alone is 197 s, so the cache
+      # is not an optimisation here, it is the precondition for the limit.
+      #
+      # Cached as the INSTALL TREE, not the build dir, for two reasons. The deb
+      # job restores this same tree as an artefact and depends on its paths:
+      # its dh_shlibdeps reads dpkg's database to resolve what the addon links,
+      # and a source-built fcitx5 owns no package -- debian/rules:82-83 works
+      # around that with --ignore-missing-info, which holds only if the restored
+      # tree lands in the same paths (/usr/lib/x86_64-linux-gnu,
+      # /usr/include/Fcitx5, /usr/lib/x86_64-linux-gnu/cmake). A cached tree
+      # that is byte-identical to the uploaded one keeps both consumers honest.
+      # And a build dir cache would key on the build path, which differs between
+      # the restore job and this one, so it would miss.
+      #
+      # Keyed on the pinned tag only: the build inputs are `git clone --depth 1
+      # --branch 5.1.13` plus the flags below, so a tag bump is the only thing
+      # that should invalidate it. restore-keys fall back to the newest cache,
+      # so an fcitx5 upgrade is a hit on the old tree rather than a cold build.
+      - name: Restore the fcitx5 5.1.13 install tree
+        id: fcitx5-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/fcitx5-install
+          key: ${{ runner.os }}-fcitx5-5.1.13-install-v1
+          restore-keys: |
+            ${{ runner.os }}-fcitx5-5.1.13-install-
       - name: Build fcitx5 5.1.13 from source (distro ships 5.1.7, below the floor)
         # Built once per job and CACHED, measured 2026-10-14 for issue #59: this
         # clone-configure-build-install is 197 s in the linux job and 326 s in
@@ -67,35 +118,56 @@ jobs:
         # Fcitx5CoreConfig.cmake resolves and the addon configures, the
         # restore landed correctly.
         id: fcitx5-build
+        if: steps.fcitx5-cache.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
           cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
-            -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/tmp/fcitx5-install -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
             -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
             > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
-          sudo cmake --build /tmp/fcitx5/build --target install
+          cmake --build /tmp/fcitx5/build --target install
+      - name: Install fcitx5 into /usr
+        # From the cache when it hit, from the build above when it did not. The
+        # install is what the addon and the D3 harness link against, so it has
+        # to be in /usr either way -- the cache only removes the 197 s build.
+        #
+        # The guard is a real check, not a formality: a cache entry that
+        # restored an empty or partial tree would otherwise fail later at
+        # "Fcitx5Core not found", which reads as a build problem rather than a
+        # restore problem.
+        run: |
+          test -f /tmp/fcitx5-install/usr/lib/x86_64-linux-gnu/libFcitx5Core.so.7 \
+            || { echo "fcitx5 install tree is missing libFcitx5Core.so.7" >&2; exit 1; }
+          sudo cp -a /tmp/fcitx5-install/usr/. /usr/
+          sudo ldconfig
+          pkg-config --modversion Fcitx5Core
       # The install tree, uploaded for the deb job to restore. Prefixless paths
       # inside the archive, restored under / by the consumer with sudo.
+      #
+      # The `root:` below is load-bearing, and it fixes a latent bug that
+      # predates the cache. Before this line the upload listed absolute
+      # `/usr/lib/...` and `/usr/include/...` paths; upload-artifact@v4 strips
+      # their least common ancestor (`/usr`), so the archive held `lib/` and
+      # `include/` at its root. The deb job restores into `/tmp/fcitx5-install`
+      # and then copies `/tmp/fcitx5-install/usr/.` into `/usr/` -- a `usr/`
+      # level the archive never contained -- so its `test -d .../usr/lib/.../
+      # cmake/Fcitx5Core` guard would fail, and fail with "restore is missing
+      # Fcitx5Core cmake configs", which reads as a restore problem while the
+      # cause is the upload's layout. Naming `root:` makes the layout explicit
+      # instead of implied by which paths happen to be listed, so the guard
+      # checks the thing it names.
+      #
+      # Not re-measured on CI: no run has executed since. The first deb run
+      # after this lands is the confirmation, and docs/CI-TIMING.md records the
+      # same caveat.
       - name: Upload the fcitx5 install tree
-        if: steps.fcitx5-build.outcome == 'success'
+        if: steps.fcitx5-build.outcome == 'success' || steps.fcitx5-cache.outputs.cache-hit == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: fcitx5-5.1.13-install
-          path: |
-            /usr/lib/x86_64-linux-gnu/libFcitx5Core.so.7
-            /usr/lib/x86_64-linux-gnu/libFcitx5Core.so.5.1.13
-            /usr/lib/x86_64-linux-gnu/libFcitx5Config.so.7
-            /usr/lib/x86_64-linux-gnu/libFcitx5Config.so.5.1.13
-            /usr/lib/x86_64-linux-gnu/libFcitx5Utils.so.7
-            /usr/lib/x86_64-linux-gnu/libFcitx5Utils.so.5.1.13
-            /usr/lib/x86_64-linux-gnu/cmake/Fcitx5Core/
-            /usr/lib/x86_64-linux-gnu/cmake/Fcitx5Utils/
-            /usr/lib/x86_64-linux-gnu/cmake/Fcitx5Module/
-            /usr/lib/x86_64-linux-gnu/cmake/Fcitx5Config/
-            /usr/lib/x86_64-linux-gnu/pkgconfig/Fcitx5Core.pc
-            /usr/lib/x86_64-linux-gnu/pkgconfig/Fcitx5Utils.pc
-            /usr/include/Fcitx5/
+          root: /tmp/fcitx5-install/usr
+          path: .
           retention-days: 1
           if-no-files-found: error
       # The Gradle cache, measured 2026-10-14 for issue #59. This job is the one
@@ -140,6 +212,23 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
       - run: cmake --build build -j4
+      # The environment snapshot, taken BEFORE ctest and unconditionally.
+      #
+      # WHY FIRST. A red run whose cause is environmental -- a tier that did
+      # not register, a tool the runner image lacks, a data input that is
+      # absent -- cannot be reproduced locally without knowing what the runner
+      # actually had, and finding out by re-running CI is a CI minute spent on
+      # diagnosis. Two measured instances of exactly that: tier D3 is Skipped
+      # here because the image ships no xvfb, and tier E1 registers only
+      # because the image ships an Android SDK the workflow never installs
+      # (docs/CI-TIMING.md §1). Neither is visible in a pass/fail summary.
+      #
+      # Unconditional rather than `if: failure()`, so the snapshot survives a
+      # hard abort that skips later steps, and so a green run's snapshot can
+      # be diffed against a red one. tools/ci-env-snapshot.sh is the local
+      # equivalent -- run it here and the two outputs are directly comparable.
+      - name: Snapshot the environment (before ctest, always)
+        run: ./tools/ci-env-snapshot.sh build | tee ci-env-snapshot.txt
       # -j4, measured 2026-10-14 for issue #59. On this host the same suite is
       # 189.76 s serial and 47.82 s at -j16, and the serial ctest alone is 269 s
       # of this job's 504 s. The three heavyweight tests cap the gain: ctest's
@@ -153,7 +242,33 @@ jobs:
       # other's R-def.txt under -j16 is recorded in tools/android-trace-emit.sh's
       # header comment, which is why that script guards its Gradle classpath
       # with a flock. -j4 matches the runner's actual parallelism.
-      - run: ctest --test-dir build -j4 --output-on-failure
+      #
+      # -LE 'tier-E1', added 2026-10-15 to fit the 5-minute ceiling above.
+      # Option A of docs/CI-TIMING.md §3, measured there: linux's ctest goes
+      # from 269 s to about 37 s and the job from 504 s to about 235 s.
+      # What it costs is stated in that section and not repeated here: the
+      # linux job stops being a second place the Android adapter is proved to
+      # pass, which matters only while the android job is the red one. The
+      # android job runs exactly `engine-android-goldens|engine-android-e1|
+      # android-mutations` at its "Tier E0 + E1" step, so the coverage is not
+      # lost, it is de-duplicated. The tier-C Android corpus is NOT excluded
+      # -- it registers under `tier-C`, and this job is where it runs.
+      - run: ctest --test-dir build -j4 --output-on-failure -LE 'tier-E1'
+      # On failure, keep the evidence. The snapshot above says WHAT the runner
+      # had; this keeps it together with the per-test output, so a local
+      # reproduction starts from both instead of from a re-run. Uploaded as an
+      # artefact rather than printed, because the log is where the failure
+      # detail already is and the artefact is what survives to be downloaded.
+      - name: Upload the failure evidence
+        if: "failure()"
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-failure-evidence
+          path: |
+            ci-env-snapshot.txt
+            build/Testing/Temporary/LastTest.log
+          retention-days: 7
+          if-no-files-found: warn
 
   # P5's gate is "HW keyboard e2e on emulator CI", and until this job existed
   # the Android tiers could only be reached by hand. It covers three of the four
@@ -186,6 +301,12 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (!cancelled() && !contains(github.event.head_commit.message, '[skip android]'))
     runs-on: ubuntu-24.04
+    # NOT 5 minutes: this job downloads the Android SDK, creates an AVD, boots
+    # an emulator and runs two instrumentation suites inside it. The SDK install
+    # alone is a multi-minute network step that no caching removes. A 5-minute
+    # ceiling would kill the job before the emulator boots, and the P5 gate
+    # ("HW keyboard e2e on emulator CI") is exactly what this job exists for.
+    # 45 minutes is the measured budget for that whole sequence.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -388,6 +509,17 @@ jobs:
     # jobs asserting different things about the same dependency.
     needs: linux
     runs-on: ubuntu-24.04
+    # NOT 5 minutes, and the reason is measured rather than cautious. This job
+    # took 13 m 30 s in run 38428978810 (docs/CI-TIMING.md §1): fcitx5 source
+    # build 326 s + dpkg-buildpackage 460 s + apt 23 s. A 5-minute ceiling here
+    # would not constrain the job, it would kill it -- which is a different
+    # failure from a slow one and would read as a packaging regression.
+    #
+    # The path to 5 minutes is the 326 s duplicate fcitx5 build: it already
+    # restores the linux job's install tree as an artefact (see the restore
+    # step below), so that 326 s is paid only on a cache miss, and the 460 s
+    # dpkg-buildpackage is the real floor. 45 minutes stays until that floor is
+    # measured again on the cached path; the number is a budget, not a target.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -525,6 +657,11 @@ jobs:
     name: android release APK (unsigned keystore)
     if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.HUNMIN_BUILD_RELEASE == 'true'
     runs-on: ubuntu-24.04
+    # NOT 5 minutes: installs the Android SDK and NDK from the network, then
+    # builds a release APK for two ABIs through Gradle. Same shape as the
+    # android job's SDK step -- an unbounded-by-cache network download. Gated
+    # on master + an opt-in variable, so it does not run on a PR at all; the
+    # ceiling exists so a hung Gradle cannot bill indefinitely.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -577,6 +714,11 @@ jobs:
 
   mingw:
     runs-on: ubuntu-24.04
+    # 3 minutes, matching the linux job's ceiling. This job cross-compiles one
+    # target (`--target hunmin`) and builds no tests, so it has no ctest step to
+    # bound; the ceiling is here so a hung compiler cannot bill indefinitely,
+    # not to make it fit.
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build mingw-w64
@@ -626,6 +768,12 @@ jobs:
     name: nightly fuzz (LeakSanitizer)
     if: github.event_name == 'schedule'
     runs-on: ubuntu-24.04
+    # NOT 5 minutes, and structurally cannot be: the loop below runs 10,000
+    # fuzz iterations, each a hunmin-sim invocation. This is a nightly soak, not
+    # a PR gate -- `if: github.event_name == 'schedule'` means a push pays
+    # nothing for it, so the cost concern that bounds the other jobs does not
+    # apply here in the same way. The ceiling is a runaway guard: without one,
+    # a hang in iteration 1 bills until GitHub kills it.
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
