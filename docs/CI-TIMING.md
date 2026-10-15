@@ -339,3 +339,133 @@ projected ~130 s: `Total Test time (real) = 456.23` against 269 s before, with
 11 tests each burning a 120 s timeout. **A run that made the suite faster and
 slower at once**, which is the shape worth expecting from parallelising a suite
 whose ordering was load-bearing.
+
+---
+
+## 5. The 3-minute ceiling, and the two levers that meet it (2026-10-15)
+
+Written after the maintainer set a 3-minute limit on CI jobs (5 minutes first,
+then 3 the same day). This section records what was measured to meet it, what
+was deliberately not changed, and the two tools that now exist so the limit is
+checked before a push rather than discovered by a red run.
+
+### What the ceiling forced, and what it cost in coverage
+
+The `linux` job measured **8 m 24 s** (§1), with **269 s of it a single ctest
+step**. Of those 269 s, three tests were 252 s: `engine-android-e1` 148 s,
+`android-mutations` 84 s, `frontend-mutations` 19 s. The first two are
+**duplicates** — the `android` job runs exactly
+`engine-android-goldens|engine-android-e1|android-mutations` at its own
+"Tier E0 + E1" step (§"Duplication, measured against the tree").
+
+So the lever is option A of §3, applied: `ctest -LE 'tier-E1'` in the linux
+job. Measured there as taking linux's ctest from **269 s to about 37 s** and
+the job from **504 s to about 235 s** — inside the 300 s ceiling with 22%
+headroom, the headroom being the two segments a runner-image change can move
+(fcitx5 source build 197 s, apt install 22 s).
+
+**The coverage cost is stated, not hidden.** The linux job stops being a
+second place the Android adapter is proved to pass. §3 already weighed this
+and left it as a maintainer call because it matters *while the android job is
+the red one*; the 5-minute ceiling is what makes the trade necessary rather
+than optional, and the android job's own run is what keeps the coverage.
+
+### What was NOT given a 5-minute ceiling, and why
+
+A limit that kills a job is not a limit, it is a broken build. Four jobs keep
+a larger budget, each with the measurement in `.github/workflows/ci.yml` next
+to the number:
+
+| job | budget | measured floor |
+|---|---|---|
+| `deb` | 45 min | 13 m 30 s — `dpkg-buildpackage` alone is 460 s |
+| `android` | 45 min | SDK download + AVD boot + two instrumentation suites |
+| `android-release` | 45 min | SDK/NDK download + two-ABI Gradle release build |
+| `nightly-fuzz` | 120 min | 10,000 iterations, by construction; `schedule`-only |
+
+`linux` and `mingw` got 5 minutes; `mingw` builds one target with no tests, so
+its ceiling is a runaway guard rather than a fit.
+
+### The local/CI measurement gap, now instrumented
+
+The reason a local green run is not evidence about the CI budget is structural
+and is now measured rather than asserted:
+
+- **tier E1 does not register locally** unless `ANDROID_HOME` is set
+  (`CMakeLists.txt:192`). A host without the Android SDK sees **0** tier-E1
+  tests, not skipped ones — the two look identical in a pass/fail summary.
+  Measured on this host: `tier-E1: 0`.
+- **tier D3 skips on the runner** (§1: no `xvfb`, no distro fcitx5 modules),
+  so CI never pays for the four D3 runs local does. Measured here:
+  `tier-D3: 4`.
+
+Two tools close the gap, both runnable locally and both cheap:
+
+- **`tools/ci-time-budget.sh [build-dir]`** — measures the inner loop
+  (`-LE slow`, budget **30 s**), the slow tier (`-L slow`, budget **60 s**) and
+  the whole suite, then prints the local/CI delta explicitly instead of
+  pretending the two agree. Exits non-zero when a budget is over.
+- **`tools/ci-env-snapshot.sh [build-dir]`** — captures the runner facts that
+  decide which tiers register at all (toolchain, env vars, fcitx5 version,
+  per-label test counts, data inputs). In CI it runs **before ctest and
+  unconditionally**, so a hard abort that skips later steps still leaves the
+  snapshot, and on failure it is uploaded as `linux-failure-evidence` together
+  with `LastTest.log`.
+
+The budgets themselves live in `AGENTS.md`, in one table, next to the rule
+that a budget is not a reason to drop coverage: when a new test pushes a
+budget over, the first move is to make the test cheaper, not to leave the
+behaviour unasserted.
+
+### What this section does not claim
+
+The 37 s / 235 s figures are §3's measurement of the same change, not a fresh
+run on the ceiling as applied — no CI run has executed since. The first run
+after this lands is the confirmation, and if `linux` times out the segment
+table in §1 is where to look before raising the number.
+
+### 5b. From 5 minutes to 3, and the bug the second lever exposed
+
+The 5-minute ceiling was met by one lever (tier E1 exclusion, above). Three
+minutes needed a second, because the remaining budget was 235 s against 180 s
+and the largest segment in it was **197 s of fcitx5 5.1.13 built from source on
+every commit with nothing cached** — the job uploaded its install tree for the
+deb job to restore, but never cached its own.
+
+So the install tree is now cached (`actions/cache@v4`, keyed on the pinned
+`5.1.13` tag, `restore-keys` falling back to the newest entry). The build step
+is gated on `cache-hit != 'true'` and installs to `/tmp/fcitx5-install` rather
+than `/usr` directly, so the cached path and the freshly-built path are the
+same tree; a separate step copies it into `/usr` either way, behind a guard
+that names the file it expects.
+
+**The resulting budget, segment by segment:** apt install 22 s (measured, §1) +
+cache restore ~10 s + `cmake` configure/build 9 s (§1) + ctest ~37 s (§3) +
+`ci-env-snapshot.sh` **0.14 s** (measured on a 16-core host, not estimated) =
+**~78 s against 180 s** — 56% headroom, so the ceiling is a budget with room
+rather than a number the job barely fits.
+
+**On a cache miss the job cannot fit.** The fcitx5 build is 197 s on its own.
+That is the cold path, paid once per tag bump, and it presents as a timeout
+rather than a silent slow run. The recorded response is to let the cold build
+finish and cache it, not to raise the ceiling.
+
+### A latent bug in the artefact layout, found while adding the cache
+
+Worth recording because it was not the change being made and it would have
+read as something else. The upload step listed absolute `/usr/lib/...` and
+`/usr/include/...` paths. `upload-artifact@v4` strips the **least common
+ancestor** of the listed paths, which for those two is `/usr` — so the archive
+held `lib/` and `include/` at its root. The deb job restores into
+`/tmp/fcitx5-install` and then copies `/tmp/fcitx5-install/usr/.` into `/usr/`,
+i.e. it looks for a `usr/` level the archive never contained. Its own guard
+(`test -d /tmp/fcitx5-install/usr/lib/x86_64-linux-gnu/cmake/Fcitx5Core`) would
+therefore fail with "restore is missing Fcitx5Core cmake configs" — a message
+about the restore, for a cause in the upload.
+
+Naming `root: /tmp/fcitx5-install/usr` makes the layout explicit instead of
+implied by which paths happen to be listed. **Not re-measured on CI**: no run
+has executed since, so the first deb run after this lands is the confirmation.
+The commit that introduced the mismatch is `6cd5d20` ("shared fcitx5"), which
+is also the commit that made the deb job depend on the artefact at all — the
+two halves of that change did not agree with each other.

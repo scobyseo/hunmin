@@ -72,14 +72,14 @@ static const Text &clientPanelOf(InputContext *ic) {
     return ic->inputPanel().clientPreedit();
 }
 
-/* Return the valueByPath prefix under which the Layout option's description
+/* Return the valueByPath prefix under which the layout picker option's description
  * lives, walking the dump to find it.
  *
  * Finding the prefix by walking rather than hardcoding one is the point: a
  * wrong prefix makes every count below zero, and zero rows still satisfies a
  * "<= 12" style check, so the test would pass while asserting nothing. */
-static std::string walkDump(const fcitx::RawConfig &c, const std::string &path,
-                            std::string *layoutPrefix) {
+static void walkDump(const fcitx::RawConfig &c, const std::string &path,
+                     std::string *hangulPrefix, std::string *latinPrefix) {
     for (auto name : c.subItems()) {
         auto sub = c.get(name);
         if (!sub) {
@@ -87,12 +87,14 @@ static std::string walkDump(const fcitx::RawConfig &c, const std::string &path,
         }
         const std::string here =
             path.empty() ? name : path + "/" + std::string(name);
-        if (name == "Layout") {
-            *layoutPrefix = here;
+        if (name == "HangulLayout" && hangulPrefix->empty()) {
+            *hangulPrefix = here;
         }
-        walkDump(*sub, here, layoutPrefix);
+        if (name == "LatinLayout" && latinPrefix->empty()) {
+            *latinPrefix = here;
+        }
+        walkDump(*sub, here, hangulPrefix, latinPrefix);
     }
-    return {};
 }
 
 void scheduleEvent(Instance *instance) {
@@ -281,17 +283,17 @@ void scheduleEvent(Instance *instance) {
             // against a guessed one: a wrong prefix yields zero rows, and zero
             // rows still satisfies every count below, so the test would pass
             // while asserting nothing.
-            std::string base;
-            walkDump(desc, "", &base);
-            FCITX_ASSERT(!base.empty())
-                << "no Layout option in the description dump";
+            std::string hangulBase, latinBase;
+            walkDump(desc, "", &hangulBase, &latinBase);
+            FCITX_ASSERT(!hangulBase.empty() || !latinBase.empty())
+                << "no HangulLayout or LatinLayout option in the description dump";
 
             // The VALUE, not just the key. `valueByPath` returns a pointer for
             // any existing key, so asserting presence passed with IsEnum set to
             // "False" -- measured, by planting exactly that. configtool branches
             // on the value (optionwidget.cpp:546), so only "True" gives the
             // combobox.
-            const std::string *isEnum = desc.valueByPath(base + "/IsEnum");
+            const std::string *isEnum = desc.valueByPath(hangulBase.empty() ? latinBase + "/IsEnum" : hangulBase + "/IsEnum");
             FCITX_ASSERT(isEnum && *isEnum == "True")
                 << "Layout IsEnum is "
                 << (isEnum ? *isEnum : std::string("(absent)"))
@@ -326,11 +328,15 @@ void scheduleEvent(Instance *instance) {
             FCITX_ASSERT(shipped > 0) << "no layout files found";
 
             int rows = 0;
-            for (int i = 0;; i++) {
-                if (!desc.valueByPath(base + "/Enum/" + std::to_string(i))) {
-                    break;
+            for (const std::string *b : {hangulBase.empty() ? nullptr : &hangulBase,
+                                          latinBase.empty() ? nullptr : &latinBase}) {
+                if (!b) continue;
+                for (int i = 0;; i++) {
+                    if (!desc.valueByPath(*b + "/Enum/" + std::to_string(i))) {
+                        break;
+                    }
+                    rows++;
                 }
-                rows++;
             }
             // Equality, not ">=": the picker must offer exactly the layouts the
             // data ships. A row the core cannot open is a row that fails at
@@ -348,18 +354,22 @@ void scheduleEvent(Instance *instance) {
             // configtool would be the place, and D3 does not run one. If a
             // layout is ever added while fcitx5 is running, that is the gap
             // that would let the picker go stale.
-
+            //
             // And every id offered has a file behind it -- a stale row would
             // otherwise survive the count.
-            for (int i = 0; i < rows; i++) {
-                const std::string *id =
-                    desc.valueByPath(base + "/Enum/" + std::to_string(i));
-                const std::string file = std::string(TESTING_SOURCE_DIR) +
-                                         "/libhunmin/data/layouts/" + *id +
-                                         ".json";
-                std::error_code ec;
-                FCITX_ASSERT(std::filesystem::exists(file, ec))
-                    << "picker offers '" << *id << "', which has no data file";
+            for (const std::string *b : {hangulBase.empty() ? nullptr : &hangulBase,
+                                          latinBase.empty() ? nullptr : &latinBase}) {
+                if (!b) continue;
+                for (int i = 0;; i++) {
+                    const std::string *id = desc.valueByPath(*b + "/Enum/" + std::to_string(i));
+                    if (!id) break;
+                    const std::string file = std::string(TESTING_SOURCE_DIR) +
+                                             "/libhunmin/data/layouts/" + *id +
+                                             ".json";
+                    std::error_code ec;
+                    FCITX_ASSERT(std::filesystem::exists(file, ec))
+                        << "picker offers '" << *id << "', which has no data file";
+                }
             }
         }
 

@@ -23,6 +23,12 @@
 # engine declined, and only the client half differs.
 #   xim (default) tests/e2e/xim-harness.c   -- COMMIT:/FORWARD: lines
 #   gtk           tests/e2e/gtk-harness.py   -- TEXT:<buffer> lines
+#   candidate     tests/e2e/xim-harness.c   -- the F9 candidate window,
+#                  with classicui ENABLED (issue #53). Same XIM client, but
+#                  the run's purpose is the window: fcitx5 must survive the
+#                  keystrokes and classicui must actually draw the window.
+#                  It reads tests/e2e/cases-candidate.tsv, whose third column
+#                  is a hand-written expected commit, not a derived one.
 # The GTK client additionally needs GTK_IM_MODULE=fcitx5; XMODIFIERS=@im=fcitx
 # is an XIM-only setting and does not select a GTK input method module.
 #
@@ -96,6 +102,15 @@ print(sys.version.split()[0])' 2>/dev/null))"
 else
     HARNESS_CMD=("$HARNESS")
 fi
+if [ "$CLIENT" = "candidate" ]; then
+    # classicui is the addon that draws the window; every other D3 mode
+    # disables it. The empty value is substituted verbatim into the
+    # DisabledAddons line, leaving classicui enabled.
+    CANDIDATE_CLASSICUI=""
+else
+    CANDIDATE_CLASSICUI="DisabledAddons=classicui"
+fi
+export CANDIDATE_CLASSICUI
 
 for tool in Xvfb xwininfo xprop fcitx5 python3 dbus-run-session; do
     command -v "$tool" >/dev/null 2>&1 || {
@@ -375,6 +390,11 @@ EOF
 # that pipe open long after this script exits. ctest blocks forever waiting
 # for EOF and never applies the TIMEOUT property. Disable them so the bus
 # stays free of fd-inheriting children.
+# classicui is the ONE exception and only in candidate mode: it is the addon
+# that draws the candidate window, and tier D3 is otherwise the tier that
+# can never draw it. CANDIDATE_CLASSICUI is substituted verbatim into the
+# line above, so an empty value means "leave classicui enabled" and the
+# default (unset) keeps it disabled for every other mode.
 # The context is only activated on focus-in when resetStateWhenFocusIn is not
 # the default PropertyPropagatePolicy::No — Instance's InputContextFocusIn
 # watcher (instance.cpp:1060) only calls activate()/deactivate() inside that
@@ -388,7 +408,7 @@ cat >"$STAGE/config/config" <<EOF
 [Behavior]
 ActiveByDefault=True
 ResetStateWhenFocusIn=All
-DisabledAddons=classicui
+${CANDIDATE_CLASSICUI:-DisabledAddons=classicui}
 DisabledAddons=kimpanel
 DisabledAddons=virtualkeyboard
 DisabledAddons=notificationitem
@@ -819,6 +839,123 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_commits)
     fi
 }
 
+# ------------------------------------------------- a candidate-window case
+# CANDIDATE MODE: the F9 path, measured where it actually draws. This is the
+# tier D3 could not be: classicui loaded, so the candidate window is really
+# drawn, and the abort in issue #45 -- classicui calling label() past the
+# CommonCandidateList's 10-label vector -- is reachable here. Every other
+# tier goes green with the cap reverted; this one must not.
+#
+# WHAT IS ASSERTED, and why each piece:
+#   1. fcitx5 survives the keystrokes. This is the #45 abort: a page past the
+#      label ceiling aborts fcitx5 with "CommonCandidateList: invalid label
+#      idx" (SIGABRT). kill -0 after injection is the whole oracle for that.
+#   2. The input window EXISTS and is drawn. A composition without a candidate
+#      list is a one-character preedit window (measured ~27px tall); the F9
+#      window with candidates is a tall column (measured 300-706px). The
+#      geometry check is what makes "fcitx5 survived" mean "the window opened",
+#      rather than "nothing crashed because nothing was drawn".
+#   3. The client transcript matches the expectation, when the case carries
+#      one. The candidate window's behaviour after opening -- Return commits
+#      the selected Hanja, Page_Down pages, Escape closes -- is the same
+#      COMMIT stream the ordinary D3 expectation describes, so an expectation
+#      column in the candidate case file is compared exactly as in the XIM
+#      cases. Absent expectation = geometry + survival only.
+#
+# The expectation is derived from hunmin-sim like every D3 case, BUT the
+# candidate file's keys include {F9} and the sim does not know F9. So the
+# expectation column must be written by the case author against the intended
+# commit, and the injection derives nothing: the file's own mode column
+# selects whether an expectation is checked. This is deliberate -- a sim
+# trace for a sequence the sim cannot type would be a fiction.
+run_candidate_case() { # $1=layout $2=keys $3=expectation text or empty
+    local layout=$1 keys=$2 expect=${3:-}
+    local hpid i window actual case_id=$CASE_SEQ
+    CASE_SEQ=$((CASE_SEQ + 1))
+
+    for _ in 1 2 3; do
+        "${HARNESS_CMD[@]}" </dev/null >"$STAGE/commits.log" 2>"$STAGE/harness.log" &
+        hpid=$!
+        for i in $(seq 1 50); do
+            grep -q READY "$STAGE/commits.log" 2>/dev/null && break
+            kill -0 "$hpid" 2>/dev/null || break
+            sleep 0.1
+        done
+        grep -q READY "$STAGE/commits.log" 2>/dev/null && break
+        kill "$hpid" 2>/dev/null
+        wait "$hpid" 2>/dev/null
+        sleep 0.3
+        hpid=""
+    done
+    if [ -z "$hpid" ]; then
+        echo "FAIL [candidate/$layout/$keys]: harness never became ready"
+        fail=1
+        return
+    fi
+    sleep 0.4
+
+    if ! python3 "$TYPER" "$DISP" "$keys" </dev/null; then
+        echo "FAIL [candidate/$layout/$keys]: key injection failed"
+        kill "$hpid" 2>/dev/null
+        wait "$hpid" 2>/dev/null
+        fail=1
+        return
+    fi
+    # F9 opens the window asynchronously (fcitx5 -> addon -> libhunmin ->
+    # classicui draws); give it the same settle the repro script measured.
+    sleep 1.5
+
+    # The window geometry oracle: xwininfo -root -children lists every
+    # toplevel, and classicui's window is named "Fcitx5 Input Window".
+    # One-character preedit vs. a candidate column differ by an order of
+    # magnitude in height, so "is there a window at all" is answerable.
+    window=$(xwininfo -root -children -display "$DISP" 2>/dev/null |
+        grep -o '"[^"]*Input Window[^"]*"[^+]*' | head -1 || true)
+
+    # THE ABORT ORACLE. With the #45 cap reverted and a page past the label
+    # ceiling, fcitx5 has already died by this point: classicui called
+    # label() past the vector, std::invalid_argument went uncaught, SIGABRT.
+    # kill -0 is therefore the assertion the whole tier exists for, and it is
+    # checked BEFORE anything reads the window: a dead fcitx5 has torn down
+    # its X connection, so xwininfo reports nothing either way.
+    if ! kill -0 "$FCITX_PID" 2>/dev/null; then
+        echo "FAIL [candidate/$layout/$keys]: fcitx5 DIED during the F9 path"
+        echo "  --- fcitx5.log tail ---"
+        tail -30 "$STAGE/fcitx5.log" 2>/dev/null | sed 's/^/  /'
+        wait "$hpid" 2>/dev/null
+        fail=1
+        return
+    fi
+
+    if [ -z "$window" ]; then
+        echo "FAIL [candidate/$layout/$keys]: fcitx5 is alive but no input"
+        echo "  window was drawn after the candidate keys -- the window is the"
+        echo "  thing this tier exists to draw, so 'alive but nothing drawn'"
+        echo "  means the F9 path was not exercised."
+        echo "  --- fcitx5.log tail ---"
+        tail -30 "$STAGE/fcitx5.log" 2>/dev/null | sed 's/^/  /'
+        kill "$hpid" 2>/dev/null
+        wait "$hpid" 2>/dev/null
+        fail=1
+        return
+    fi
+
+    kill -TERM "$hpid" 2>/dev/null
+    wait "$hpid" 2>/dev/null
+    actual=$(grep -E '^(COMMIT|FORWARD):' "$STAGE/commits.log" || true)
+
+    if [ -n "$expect" ]; then
+        if [ "$actual" != "$expect" ]; then
+            echo "FAIL [candidate/$layout/$keys]"
+            echo "  expected: $(printf '%s' "$expect" | paste -sd'|')"
+            echo "  actual:   $(printf '%s' "$actual" | paste -sd'|')"
+            fail=1
+            return
+        fi
+    fi
+    echo "ok: [candidate/$layout/$keys] window drawn ($window), fcitx5 alive${actual:+ -> $(printf '%s' "$actual" | paste -sd'|')}"
+}
+
 # ---------------------------------------------------------------- run
 cur_layout=""
 HPID=""          # live GTK harness pid for the current layout group; empty = none
@@ -840,6 +977,30 @@ CASE_SEQ=0       # monotonic case id, used as the harness marker
 # bytes at a time, and cases.tsv was on stdin because the loop redirected it
 # there. See xim-harness.c and the harness note in gtk-harness.py.
 exec 3<"$CASES"
+if [ "$CLIENT" = "candidate" ]; then
+    # CANDIDATE MODE: a dedicated case file, because its columns are not the
+    # ordinary ones -- the keys contain {F9} (which hunmin-sim cannot type,
+    # so no expectation is derived), the third column is the EXPECTED COMMIT
+    # text written by hand against the intended behaviour, and an empty
+    # expectation means "geometry + survival only".
+    while IFS=$'\t' read -r -u 3 layout keys expect _; do
+        case "$layout" in '' | \#*) continue ;; esac
+        if [ "$layout" != "$cur_layout" ]; then
+            stop_fcitx
+            if ! start_fcitx "$layout"; then
+                fail=1
+                exec 3<&-
+                exit 1
+            fi
+            cur_layout="$layout"
+            sleep 1.0
+        fi
+        run_candidate_case "$layout" "$keys" "$expect"
+    done
+    exec 3<&-
+    stop_fcitx
+    exit "$fail"
+fi
 while IFS=$'\t' read -r -u 3 layout keys mode _; do
     case "$layout" in '' | \#*) continue ;; esac
     if [ "$layout" != "$cur_layout" ]; then

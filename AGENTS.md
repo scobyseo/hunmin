@@ -69,6 +69,50 @@ ctest --test-dir build -j16 -LE slow           # the inner loop: everything chea
 ctest --test-dir build -j16 -LE mutation       # nothing that rewrites your tree
 tools/ctest-select.sh -L tier-D                # prints what it runs AND what it
                                                # will not, then runs it
+tools/ci-time-budget.sh build                  # measure the suite against the
+                                               # time budgets, BEFORE pushing
+
+## Time budgets, and why they are rules
+
+CI minutes are a cost, and a job with no ceiling is a job whose cost is
+unbounded — the same overspend shape that got CI usage suspended, one level
+down. So the budgets are enforced, not aspirational:
+
+| What | Budget | Where |
+|---|---|---|
+| inner loop `ctest -j16 -LE slow` | **30 s** | here |
+| slow tier `ctest -j16 -L slow` | **60 s** | here |
+| the `linux` CI job, wall clock | **3 min** | `.github/workflows/ci.yml` |
+
+The 3-minute job ceiling is met by two levers, both measured in
+`docs/CI-TIMING.md` §5: excluding tier E1 from the linux job's suite (ctest
+269 s → ~37 s, because the `android` job already runs those tests) and caching
+the fcitx5 5.1.13 install tree (197 s on every commit with nothing cached →
+~10 s on a cache hit). Together the job is ~78 s against 180 s.
+
+**On a cache MISS the job cannot fit** — the fcitx5 build alone is 197 s. That
+is the cold path, paid once per tag bump, and it surfaces as a timeout rather
+than a silent slow run. The fix then is to let the cold build finish and cache
+it, not to raise the number.
+
+`tools/ci-time-budget.sh` measures all three and fails when one is over. Run
+it before pushing anything that **adds a test**, because that is the change
+that spends the budget and the one whose cost is invisible until CI is red.
+
+**A budget is not a reason to drop coverage.** When a new test pushes a budget
+over, the first move is to make the test cheaper — fewer fixed sleeps, fewer
+cases, a tighter selection — not to leave the behaviour unasserted. A bug fix
+whose regression test cannot be afforded is a fix that will regress again. If
+the test genuinely cannot be made cheap, it belongs in the `slow` tier and the
+budget line moves with a measurement recorded next to it, not by feel.
+
+**Local and CI do not measure the same suite, and the script says so rather
+than hiding it.** tier E1 registers only where `ANDROID_HOME` is set, so a
+host without the Android SDK never sees its ~232 s; tier D3 skips on the
+runner image, so CI never pays for what local runs. A green local run is
+therefore not by itself evidence about the CI budget — read the delta the
+script prints.
+
 
 ./build/hunmin-sim --data libhunmin/data --layout dubeolsik --keys 'dkssud ' [--trace]
 ./build/hunmin-sim --data libhunmin/data --check tests/golden/ref-dubeolsik.jsonl

@@ -494,3 +494,19 @@
   across `frontends/android/*.kts` -> `NONE`; both modules parse under Gradle.
   Ruling recorded in `wiki/decisions/2026-10-13-b8-keystore-path-resolved.md`.
 - `wiki/index.md` listed the page; total pages 29.
+
+## [2026-10-15] create | F9 candidate window gets a ctest tier (issue #53)
+
+- **New measurement.** `raw/measurements/2026-10-15-f9-candidate-ctest-tier.md`
+  (issue #53): built the option-A disposition — `engine-d3-candidate`, a
+  tier-D3 variant with classicui enabled, so the F9 candidate window is drawn
+  for real and the #45 abort is reachable from `ctest`. Measured red with the
+  cap reverted: `CommonCandidateList: invalid label idx`, fcitx5 SIGABRT
+  (core dumped). Records the three per-case assertions, the two injector
+  facts (named keys must be braced — a bare `Return` is six Latin keys; F9
+  opens the window asynchronously — a Return at 40ms lands before
+  `candidateActive()`), and a Down/Page_Down drift between the #45 wiki
+  sentence and the engine's arrow handler, recorded not adjudicated. The
+  disposition is the maintainer's to confirm or overturn; see
+  [[decisions-belong-to-the-maintainer]].
+- `wiki/index.md` listed the page under Raw — measurements.

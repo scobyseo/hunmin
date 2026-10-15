@@ -1,0 +1,41 @@
+# Tier-D3 CANDIDATE cases (HUNMIN_D3_CLIENT=candidate, issue #53): the F9
+# candidate window, drawn for real. Columns are NOT the ordinary D3 ones:
+#
+#   <layout>TAB<keys>TAB<expected commit text>TAB<note>
+#
+# keys use {F9} (and optionally other {NAMED} tokens) -- xtest-type.py sends
+# the keysym. The expected-commit column is written BY HAND, against the
+# intended behaviour, because the sim cannot type {F9}: a sim-derived
+# expectation for a sequence the sim cannot run would be a fiction, so this
+# file names the outcome a person verified and the test checks it.
+# An EMPTY third column means "geometry + survival only" -- no commit is
+# asserted, which is the right expectation for a case whose point is that
+# fcitx5 did not abort.
+#
+# WHY THIS FILE EXISTS: no ctest tier drew the F9 window before this one.
+# engine-d2-ui has no UI addon; the ordinary D3 disables classicui
+# (run-d3.sh's DisabledAddons). The #45 abort lived exactly between them.
+# With kMaxCandidatePageSize reverted, the deep case below MUST fail --
+# that is the coverage claim, and the repro is tools/repro-f9-candidates.sh.
+#
+# Expectations measured 2026-10-15 with the repro script
+# (tools/repro-f9-candidates.sh) on the same build, not derived from the sim:
+# 간 = sin3-p2 `kfs` resolves to 67 candidates; Return picks the cursor's
+# candidate (刊); Down steps the cursor and Return picks 肝. A case with no
+# trailing space leaves 간 in the preedit, so F9 opens over it and only the
+# explicit Return commits.
+# NOTE: `Down,Return` and `Page_Down,Return` both commit 肝, and that is NOT
+# the two keys doing the same thing -- 肝 sits at candidate index 1 (a krdict
+# word sense) and index 10 (a hanja), so cursor-move and page-move land on the
+# same character by coincidence. `Down,Down,Return` -> 間 (index 2) and
+# `Page_Down,Page_Down,Return` -> 竿 (index 20) are what distinguish them. See
+# wiki/raw/measurements/2026-10-15-f9-candidate-ctest-tier.md.
+#
+# The deep case: 67 candidates, the page that aborted fcitx5 uncapped.
+sin3-p2	kfs{F9}
+# Return picks the first candidate of the capped page.
+sin3-p2	kfs{F9}{Return}	COMMIT:刊
+# Down steps the cursor to index 1, then Return picks the candidate there.
+sin3-p2	kfs{F9}{Down},{Return}	COMMIT:肝
+# 낙: an 11-candidate syllable, one past the pre-cap abort edge.
+sin3-p2	hfc{F9}

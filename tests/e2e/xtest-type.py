@@ -10,11 +10,32 @@ client. See docs/TESTING.md tier D3.
 usage: xtest-type.py DISPLAY 'KEYS' [DELAY_MS]
 KEYS: printable ASCII; uppercase implies Shift (US Xvfb layout).
       ^  prefix sends Control+space (fcitx5 trigger key).
+      {NAME} sends the X keysym for a function/navigation key, e.g.
+      {F9} -- the Hanja window trigger the engine consumes. Used by the
+      tier-D3 candidate variant, which is the only tier that actually
+      draws the window; see run-d3.sh's candidate mode.
 """
 import ctypes
 import ctypes.util
+import re
 import sys
 import time
+
+# Named keysyms, XK_* values. {F9} in a case file is what opens the candidate
+# window; the rest exist so the same case file can drive navigation and the
+# keys a case needs to settle the window's behaviour after it opens.
+# XK_F9 = 0xFFC6 -- not 0xFFC2 (F5): sending F5 was measured to commit the
+# syllable instead of opening the window, because the engine declines it as an
+# unmapped keysym (tools/repro-f9-candidates.sh header, 2026-10-15).
+NAMED_KEYSYMS = {
+    "F9": 0xFFC6,
+    "Return": 0xFF0D,
+    "Escape": 0xFF1B,
+    "Down": 0xFF54,
+    "Up": 0xFF52,
+    "Page_Down": 0xFF56,
+    "Page_Up": 0xFF55,
+}
 
 
 def main() -> int:
@@ -68,6 +89,42 @@ def main() -> int:
 
     i = 0
     while i < len(keys):
+        # {NAME} keysym token: scan it out before the single-character cases,
+        # so a case file can spell `kfs{F9}` or `{F9},Return`.
+        if keys[i] == "{":
+            end = keys.find("}", i)
+            if end < 0:
+                print(f"xtest-type: unterminated '{{' in key sequence", file=sys.stderr)
+                return 2
+            name = keys[i + 1 : end]
+            sym = NAMED_KEYSYMS.get(name)
+            if sym is None:
+                print(f"xtest-type: unknown named key {{{name}}}", file=sys.stderr)
+                return 2
+            code = x11.XKeysymToKeycode(dpy, sym)
+            if not code:
+                print(f"xtest-type: no keycode for {{{name}}}", file=sys.stderr)
+                return 2
+            send(code, True)
+            send(code, False)
+            i = end + 1
+            # A `,` separator between named tokens: purely cosmetic, so
+            # `{F9},Return` reads like the repro script's AFTER argument.
+            if i < len(keys) and keys[i] == ",":
+                i += 1
+            # F9 opens the candidate window ASYNCHRONOUSLY: the key is
+            # consumed, then fcitx5 -> addon -> libhunmin -> classicui draws
+            # the window on the event loop. A Return injected 40ms later
+            # arrives before candidateActive() is true, so it is NOT handled
+            # as a candidate key -- it flushes the source syllable to the
+            # client and the rest of the sequence lands as Latin garbage.
+            # Measured 2026-10-15: `kfs{F9}Return` at 40ms committed
+            # 간|ᅟᅥᆸ|ㅋ|더 instead of 刊. The repro script settles 1.5s after
+            # F9 for exactly this reason; a shorter, still-generous pause
+            # keeps the case file readable without a 1.5s per-token cost.
+            if name == "F9":
+                time.sleep(0.8)
+            continue
         ch = keys[i]
         if ch == '^' and i + 1 < len(keys) and keys[i + 1] == ' ':
             send_ctrl_space()

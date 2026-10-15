@@ -74,6 +74,15 @@ with tempfile.TemporaryDirectory() as td:
         dst = Path(td) / lic.relative_to(DATA)
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(lic.read_bytes())
+    # Non-converter-generated layout files (colemak, dvorak) are committed data
+    # but not produced by any generator; copy them so diff -r doesn't report them
+    # as missing in the regenerated tree.
+    for layout in ("colemak.json", "dvorak.json"):
+        src = DATA / "layouts" / layout
+        if src.is_file():
+            dst = Path(td) / "layouts" / layout
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_bytes(src.read_bytes())
     d = subprocess.run(["diff", "-r", str(DATA), td], capture_output=True, text=True)
     if d.returncode:
         print(d.stdout, file=sys.stderr)
