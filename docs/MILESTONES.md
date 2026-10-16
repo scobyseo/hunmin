@@ -81,6 +81,25 @@ different release. A user comparing an installed APK against the .deb reads
 the `0.1.0` part as the release and the `-pN` part as "built during phase N".
 The convention is restated in `wiki/decisions/2026-10-12-versionname-keeps-the-phase-suffix.md`.
 
+**Distribution channel for 0.1 (decided 2026-10-12, issue #7):**
+GitHub Release on tag `0.1.0` with `hunmin_0.1.0_amd64.deb` attached. The
+reproducible method is:
+
+```sh
+# clean checkout, gate is the tier-D ctest suite (PLAN.md:156)
+cmake -B build && cmake --build build
+ctest --test-dir build -N
+dpkg-buildpackage -us -uc -b     # hunmin_0.1.0_amd64.deb
+git tag 0.1.0
+gh release create 0.1.0 --title "hunmin 0.1.0" --notes-file docs/release-notes/0.1.md
+gh release upload 0.1.0 hunmin_0.1.0_amd64.deb
+```
+
+The procedure is scripted in `tools/release-0.1.sh` (dry-run with `--dry-run`,
+or `--yes` to build/tag/release/upload). The `.deb` is unsigned (`-us -uc`) and
+is only published after the tier-D gate passes; the signed, minified release
+APK remains blocked on issue #1 (B8 keystore path).
+
 ## 0.2 — Windows TSF
 
 - The precondition is a **Windows environment**, which this host does not have

@@ -447,8 +447,17 @@ def rw_rows() -> tuple[list[tuple[int, str, str, str, str]], list[str]]:
 
 
 def _pattern_is_regex(target: str) -> bool:
-    """Whether a `path:pattern` assertion target holds regex metacharacters."""
+    """Whether a `path:pattern` assertion target holds regex metacharacters.
+
+    In this board, a grep pattern that starts with `` ** `` is literal markdown
+    bold (the board author wrote ``**Found`` to mean the text "Found", not a
+    regex quantifier), so it must not be compiled as regex -- Python's re raises
+    "nothing to repeat" for a pattern beginning with ``**``. A pattern is only a
+    regex if it contains real metacharacters and does not start with literal bold.
+    """
     _, _, pat = target.partition(":")
+    if pat.startswith("**"):
+        return False
     return bool(pat) and bool(re.search(r"[\\^$.|?*+()\[\]{}]", pat))
 
 

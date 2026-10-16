@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-15 | Total pages: 32
+> Last updated: 2026-10-16 | Total pages: 33
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -40,6 +40,11 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   `0.1.0-p5.5`) — `0.1.0` is the release, `-pN` the build phase. What the
   ruling does *not* close: `versionCode = 1` was never incremented, and no
   tag exists yet.
+- [[2026-10-16-0-1-distribution-channel-github-release]] — issue #7 ruled: a 0.1
+  user gets the `.deb` and the APK from a **GitHub Release on tag `0.1.0`**,
+  scripted in `tools/release-0.1.sh`. What the ruling does *not* close: no tag or
+  release exists yet, so the channel is still unverified from a clean machine;
+  the `.deb` is unsigned; the signed release APK stays blocked on issue #1.
 - [[2026-10-12-auto-toggle-disabled-by-default-in-0-1]] — B4's 0.1 half ruled:
   the auto Hangul/English toggle ships inert in 0.1, by disabling the default
   key composition — no default chord, the dispatch skips the action, the

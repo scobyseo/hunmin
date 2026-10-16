@@ -95,10 +95,9 @@ dpkg -i hunmin_0.1.0_amd64.deb     # build it: tools/build-release.sh deb
 
 Android: `frontends/android/gradlew assembleDebug` after building the core for
 each ABI (`tools/build-android.sh`). The APK's `versionName` is `0.1.0-p5` —
-the release is `0.1.0` (same as the .deb above) and the `-p5` is the Android
-build-phase label, not a different release; the keymaps APK carries
-`0.1.0-p5.5` for the same reason. The convention is recorded in
-`docs/MILESTONES.md` §0.1 (issue #9).
+the release is `0.1.0` and the `-p5` is the Android build-phase label, not a
+different release; the keymaps APK carries `0.1.0-p5.5` for the same reason.
+The convention is recorded in `docs/MILESTONES.md` §0.1 (issue #9).
 
 **Where the release artefacts come from (issue #8):** CI now builds both —
 job `deb` produces the `.deb` and job `android-release` produces the release
@@ -109,6 +108,14 @@ because the real keystore path is still undecided (issue #1) — a CI-built
 release APK proves the release *build*, not a release *signature*. Whether 0.1
 requires CI-built artefacts at all, or a local build suffices, is the ruling
 issue #8 asks the maintainer for.
+
+**Where a 0.1 user gets them (issue #7):** the channel is a **GitHub Release on
+tag `0.1.0`**, with `hunmin_0.1.0_amd64.deb` attached — recorded in
+`docs/MILESTONES.md` §0.1, scripted in `tools/release-0.1.sh`. No such release
+exists yet: `git tag` holds no `0.1.0`, so today the only way to obtain the
+artefacts is the CI run artefact or a local `tools/build-release.sh`. Publishing
+is `tools/release-0.1.sh --yes`, after the tier-D gate passes. The `.deb` is
+unsigned, so `dpkg -i` warns; the signed release APK stays blocked on issue #1.
 
 **Known limitation (Android voice input):** recognition quality has no
 automated assertion — recorded audio cannot be replayed into the recogniser,
