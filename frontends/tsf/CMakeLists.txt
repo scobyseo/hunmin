@@ -23,7 +23,6 @@ if(NOT HUNMIN_LIB)
 endif()
 target_link_libraries(hunmin-tsf PRIVATE
     ${HUNMIN_LIB}
-    msctf
     ole32
     user32
 )
