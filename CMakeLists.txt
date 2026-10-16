@@ -105,6 +105,10 @@ if(HUNMIN_FCITX5)
   find_package(Fcitx5Module QUIET COMPONENTS TestFrontend)
   if(Fcitx5Core_FOUND)
     add_subdirectory(frontends/fcitx5)
+    # frontend-mutations (tier D1/D2) mutates frontends/fcitx5/src/engine.cpp
+    # and caught by testhunmin/testhunminui -- fcitx5 targets; record that the
+    # tier exists so its registration far below can follow this fact.
+    set(HUNMIN_HAS_FCITX5 TRUE)
   else()
     message(STATUS "Fcitx5Core not found: fcitx5 addon disabled")
   endif()
@@ -225,7 +229,12 @@ if(BUILD_TESTING AND Python3_FOUND)
   add_test(NAME keymap-fixture
     COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/keymap-fixture.py)
-  set_tests_properties(keymap-fixture PROPERTIES LABELS "tier-C")
+  set_tests_properties(keymap-fixture PROPERTIES LABELS "tier-C"
+    # The tool's own skip contract: without android.jar (Android keycodes
+    # unverified) or without an XKB/X11 keysym header (authoritative values
+    # unverified), it exits 77 and the tier records the gap the CI job covers
+    # instead of a red that says "wrong table".
+    SKIP_RETURN_CODE 77)
   # Tier E groundwork: the engine's output must not depend on the libc it was
   # linked against. It did -- compose-table dedup ran after an unstable qsort --
   # and no host-only tier could see it, because glibc and bionic disagree about
@@ -405,6 +414,14 @@ if(BUILD_TESTING AND Python3_FOUND)
   # than left to the environment so CI is deterministic; a person wanting the
   # faster in-tree path runs tools/frontend-mutations.py by hand, where the
   # exclusivity requirement is theirs to honour.
+  # Registered only where the frontend it mutates exists: the mutation targets
+  # (testhunmin/testhunminui, frontends/fcitx5/test/) are built from
+  # frontends/fcitx5/test/CMakeLists.txt, which is entered only when
+  # Fcitx5Core was found. On a host without them the sandbox could not even
+  # build its targets, and a mutation harness with nothing to mutate would be
+  # red by construction -- measured "sandbox: initial build failed" on the
+  # llvm-mingw host, where Fcitx5Core is not installed.
+  if(HUNMIN_HAS_FCITX5)
   add_test(NAME frontend-mutations
     COMMAND ${CMAKE_COMMAND} -E env HUNMIN_MUTATION_STRATEGY=sandbox
             ${Python3_EXECUTABLE}
@@ -417,6 +434,7 @@ if(BUILD_TESTING AND Python3_FOUND)
   set_tests_properties(frontend-mutations PROPERTIES
     LABELS "tier-D1;tier-D2;mutation;slow"
     TIMEOUT 900)
+  endif()
   add_test(NAME schema-contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/doctor.py
             ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data)

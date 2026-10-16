@@ -298,6 +298,36 @@ class InTree(Strategy):
 class Sandbox(Strategy):
     name = "sandbox"
 
+    @staticmethod
+    def _parent_toolchain() -> list[str]:
+        """The sandbox must configure like the parent tree did. A bare
+        `cmake -B build` picks the platform default generator -- Visual Studio
+        on a Windows host, which cannot build this POSIX-shaped tree -- and
+        the build fails before the first mutation lands (measured: "sandbox:
+        initial build failed" on the llvm-mingw host). The parent's
+        CMakeCache is the truthful record of what this host actually can
+        build with; reuse its generator, platform and compilers verbatim. No
+        cache (the CI layout configures into build/) behaves as before."""
+        import re
+        overrides: list[str] = []
+        for cache in REPO.glob("build*/CMakeCache.txt"):
+            vals: dict[str, str] = {}
+            for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+                if ":INTERNAL=" in line or ":FILEPATH=" in line:
+                    key, _, val = line.partition("=")
+                    vals[key] = val
+            if not vals.get("CMAKE_GENERATOR:INTERNAL"):
+                continue
+            overrides = ["-G", vals["CMAKE_GENERATOR:INTERNAL"].strip()]
+            if vals.get("CMAKE_GENERATOR_PLATFORM:INTERNAL"):
+                overrides += ["-A", vals["CMAKE_GENERATOR_PLATFORM:INTERNAL"].strip()]
+            for key, opt in (("CMAKE_C_COMPILER:FILEPATH", "-DCMAKE_C_COMPILER="),
+                             ("CMAKE_CXX_COMPILER:FILEPATH", "-DCMAKE_CXX_COMPILER=")):
+                if vals.get(key):
+                    overrides.append(opt + vals[key].strip())
+            break
+        return overrides
+
     def __enter__(self) -> pathlib.Path:
         self.dir = pathlib.Path(tempfile.mkdtemp(prefix="hunmin-mut-sandbox."))
         src = self.dir / "src"
@@ -306,7 +336,8 @@ class Sandbox(Strategy):
                         ignore_dangling_symlinks=True)
         _check_copy(REPO, src)
         self._backup = (src / ENGINE_REL).read_text()
-        rc = _run(["cmake", "-B", "build", f"-DCMAKE_BUILD_TYPE={self._build_type()}"],
+        rc = _run(["cmake", "-B", "build", *self._parent_toolchain(),
+                   f"-DCMAKE_BUILD_TYPE={self._build_type()}"],
                   cwd=src)
         if rc != 0:
             raise SystemExit("sandbox: cmake configure failed")
