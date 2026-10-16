@@ -37,9 +37,18 @@
 #   tools/release-0.1.sh --skip-build ARTIFACT_PATH
 #                                   # assume the .deb is already at ARTIFACT_PATH
 #
-# Idempotency: running --yes twice recomputes the tag (git fails on an existing
-# tag, so it reports and stops unless --force-tag is also passed) and re-uploads
-# the artifact (gh release upload overwrites by default).
+# Idempotency, corrected 2026-10-16 after a release that needed it. Running
+# --yes twice: the tag is kept when it already points at HEAD (see step 2), and
+# `gh release upload` does NOT overwrite -- it fails with "asset under the same
+# name already exists". The header used to claim it overwrote; measured, it does
+# not, and the asset has to be deleted first:
+#
+#   gh release delete-asset <tag> <asset> -y && gh release upload <tag> <file>
+#
+# Re-uploading an asset for an already-cut release is also NOT something this
+# script does from a later HEAD: step 2 refuses when HEAD is ahead of the tag,
+# which is correct -- the replacement has to be built FROM the tag, not from a
+# newer commit.
 #
 set -euo pipefail
 
