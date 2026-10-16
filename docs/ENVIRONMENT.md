@@ -288,6 +288,12 @@ sudo apt install -y swtpm ovmf virt-manager    # Win11 needs TPM2.0+vTPM: swtpm 
   and runs the tier-C trace" was already an overstatement of the job, and with the
   job disabled nothing of it runs. Whatever comes after P6 has to carry it.
 
+- **2026-10-16 (issue #64):** a minimal TSF frontend scaffold now exists under
+  `frontends/tsf/` (COM text-service stubs, CMake wiring, `tools/build-msvc.bat`
+  wrapper). The core library and the TSF DLL both build natively with MSVC via
+  VS2022 BuildTools 14.44 + Windows SDK 10.0.26100 on this host. No composition
+  behaviour is implemented yet — the TIP is registration-only.
+
 ## LSP — off by default, one word to turn it on
 
 opencode's LSP is **disabled unless configured**, and it is not hot-reloaded, so the
