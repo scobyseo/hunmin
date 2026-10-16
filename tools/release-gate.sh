@@ -94,6 +94,18 @@ SELFTEST=0
 # name <TAB> reason. Kept as a function rather than a parsed table so a reason
 # containing spaces, | or : cannot break the read -- the board's assertion
 # grammar learned that lesson the hard way (docs-lint's regex note).
+# Membership in a SPACE-separated word list. `grep -x` is wrong here: the list is
+# one line, so -x can never match, and `printf | grep -q` is wrong too under
+# `set -o pipefail` (grep -q exits early, printf takes SIGPIPE, the pipeline
+# returns 141 and the test inverts). Both mistakes were made here and caught by
+# --selftest. `case` on a padded string has neither problem.
+in_list() { # in_list <space-list> <word>
+    case " $1 " in
+        *" $2 "*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 exception_reason() {
     case "$1" in
         data-selfcheck)
@@ -176,18 +188,25 @@ fi
 # "all good" case passed while the parser was matching nothing.
 if [ "$SELFTEST" -eq 1 ]; then
     fail=0
-    check() { # name expected-rc verdict-log
+    check() { # name expected-rc verdict-log [registered-list]
         local name="$1" want="$2" log="$3"
+        # Default: every declared exception IS registered, so the stale rule stays
+        # quiet and the fixture tests the skip logic alone.
+        REGISTERED="${4:-$(printf '%s\n' $EXCEPTIONS)}"
         printf '  %-34s ' "$name"
-        SKIPPED="$(parse_skipped "$log" | tr '\n' ' ')"
-        UNEXPECTED=""; STALE=""; RERUN_RESOLVED=""
+        SKIPPED="$(parse_skipped "$log")"
+        UNEXPECTED=""; STALE=""; RERUN_RESOLVED=""; NO_LONGER_NEEDED=""
+
         for s in $SKIPPED; do
-            exception_reason "$s" >/dev/null 2>&1 && printf '%s\n' $EXCEPTIONS | grep -qx "$s" \
+            exception_reason "$s" >/dev/null 2>&1 && in_list "$EXCEPTIONS" "$s" \
                 && continue
             UNEXPECTED="$UNEXPECTED $s"
         done
+        # Same rule as the real flow: stale means NOT REGISTERED, not "did not
+        # skip". Kept in step deliberately -- it was a duplicate of the old rule
+        # and the selftest caught it disagreeing with the fix.
         for e in $EXCEPTIONS; do
-            printf '%s\n' $SKIPPED | grep -qx "$e" || STALE="$STALE $e"
+            grep -qx "$e" <<<"$REGISTERED" || STALE="$STALE $e"
         done
         local rc=0
         [ -n "$UNEXPECTED" ] && rc=1
@@ -206,11 +225,15 @@ if [ "$SELFTEST" -eq 1 ]; then
     printf 'The following tests did not run:\n\t  1 - data-selfcheck (Skipped)\n\t 42 - something-new (Skipped)\n' > "$d/undeclared"
     printf '100%% tests passed, 0 tests failed out of 184\n' > "$d/clean"
     echo "release-gate.sh --selftest (verdict logic only, no suite is run)"
+    # With REGISTERED naming none of the exceptions, every one of them is stale --
+    # which is the case rule 3 exists for, and the reason it is checked against
+    # the registration list rather than the skip list.
+    check "exceptions absent from the tree" 1 "$d/clean" "some-other-test"
     check "declared exceptions only"  0 "$d/declared"
     check "one undeclared skip"        1 "$d/undeclared"
-    check "no skips at all"            1 "$d/clean"
+    check "no skips at all"            0 "$d/clean"
     rm -rf "$d"
-    [ "$fail" -eq 0 ] && echo "selftest: 3/3 verdicts as intended" || echo "selftest FAILED"
+    [ "$fail" -eq 0 ] && echo "selftest: 4/4 verdicts as intended" || echo "selftest FAILED"
     exit "$fail"
 fi
 
@@ -221,7 +244,13 @@ echo "==> release gate: ctest --test-dir $BUILD_DIR $JOBS"
 ctest --test-dir "$BUILD_DIR" $JOBS --output-on-failure | tee /tmp/hunmin-release-gate.log
 CTEST_RC="${PIPESTATUS[0]}"
 
-SKIPPED="$(parse_skipped /tmp/hunmin-release-gate.log | tr '\n' ' ')"
+# NEWLINE-separated, and that is load-bearing: the membership tests below are
+# `grep -qx`, which matches a WHOLE line. An earlier version folded this into one
+# space-joined string, where `grep -x` can never match -- so every declared
+# exception read as "undeclared" and the gate failed on a clean tree. Found by
+# --selftest; the same trap as the SIGPIPE one, opposite direction: the check
+# was not silently wrong, it was loudly wrong, which is the better failure.
+SKIPPED="$(parse_skipped /tmp/hunmin-release-gate.log)"
 
 # A tier that was never REGISTERED is invisible to every check above: ctest does
 # not run it, so it cannot fail, and it does not appear in the skip list either.
@@ -242,13 +271,14 @@ SKIPPED="$(parse_skipped /tmp/hunmin-release-gate.log | tr '\n' ' ')"
 # So: when the environment declares a toolchain, the tests that depend on it MUST
 # be registered. The condition is the same variables CMake used, so the check
 # cannot disagree with the build about why they are missing.
+REGISTERED="$(ctest --test-dir "$BUILD_DIR" -N 2>/dev/null \
+             | grep -oE "Test +#[0-9]+: [^ ]+" | sed 's/.*: //')"
+
 missing_registration=""
 if [ -n "${ANDROID_NDK:-}" ] && [ -d "${ANDROID_NDK}" ] \
    && [ -x "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb" ]; then
-    REGISTERED="$(ctest --test-dir "$BUILD_DIR" -N 2>/dev/null \
-                 | grep -oE "Test +#[0-9]+: [^ ]+" | sed 's/.*: //')"
     for req in engine-android-goldens engine-android-e2e engine-android-espresso; do
-        printf '%s\n' "$REGISTERED" | grep -qx "$req" \
+        grep -qx "$req" <<<"$REGISTERED" \
             || missing_registration="$missing_registration $req"
     done
 fi
@@ -257,7 +287,7 @@ fi
 # run on its own, and only a skip that survives an uncontended run is a skip.
 RERUN_RESOLVED=""
 for r in $RERUN_ALONE; do
-    printf '%s\n' $SKIPPED | grep -qx "$r" || continue
+    grep -qx "$r" <<<"$SKIPPED" || continue
     echo
     echo "==> $r skipped under the run above; re-running it alone (contention, not environment)"
     if ctest --test-dir "$BUILD_DIR" -R "^${r}$" --output-on-failure; then
@@ -270,13 +300,31 @@ done
 UNEXPECTED=""
 STALE=""
 for s in $SKIPPED; do
-    if exception_reason "$s" >/dev/null 2>&1 && printf '%s\n' $EXCEPTIONS | grep -qx "$s"; then
+    if exception_reason "$s" >/dev/null 2>&1 && in_list "$EXCEPTIONS" "$s"; then
         continue
     fi
     UNEXPECTED="$UNEXPECTED $s"
 done
+# A declared exception is stale when its test is no longer REGISTERED -- renamed
+# away or deleted -- because then the gate is honouring a name that no longer
+# exists, and nothing would ever notice.
+#
+# It is NOT stale when it RAN and passed. Measured 2026-10-16: on the maintainer's
+# primary tree the 368 MB krdict dump is present, so data-selfcheck runs and
+# passes in 10.2 s, and a "did not skip" rule failed the gate there. That is the
+# rule being wrong rather than the tree: the exception exists because the corpus
+# is absent, so a machine that HAS the corpus verifies more, not less.
+#
+# The first version of this said "did not skip" and misfired in exactly that
+# second environment. Both are recorded in wiki/decisions/
+# 2026-10-16-release-gate-all-tests-pass.md.
 for e in $EXCEPTIONS; do
-    printf '%s\n' $SKIPPED | grep -qx "$e" || STALE="$STALE $e"
+    grep -qx "$e" <<<"$REGISTERED" || STALE="$STALE $e"
+done
+NO_LONGER_NEEDED=""
+for e in $EXCEPTIONS; do
+    if grep -qx "$e" <<<"$SKIPPED"; then continue; fi
+    grep -qx "$e" <<<"$REGISTERED" && NO_LONGER_NEEDED="$NO_LONGER_NEEDED $e"
 done
 
 rc=0
@@ -307,14 +355,19 @@ if [ -n "$missing_registration" ]; then
 fi
 if [ -n "$STALE" ]; then
     echo
-    echo "GATE FAILED: declared exception(s) that did NOT skip:$STALE"
-    echo "  These are expected to skip. If one now passes, the exception is"
-    echo "  stale and the gate is no longer measuring what it claims to."
+    echo "GATE FAILED: declared exception(s) whose test is NOT REGISTERED:$STALE"
+    echo "  The gate is honouring a name that no longer exists in this tree, so"
+    echo "  nothing would ever notice. The test was renamed or deleted -- either"
+    echo "  restore it, or drop it from the exception table."
     rc=1
 fi
 
 echo
 if [ "$rc" -eq 0 ]; then
+    if [ -n "$NO_LONGER_NEEDED" ]; then
+        echo "Declared exceptions this machine did not need (their input is"
+        echo "present, so they ran and passed):$NO_LONGER_NEEDED"
+    fi
     if [ -n "$RERUN_RESOLVED" ]; then
         echo "Passed on a re-run alone (skipped only under contention):$RERUN_RESOLVED"
     fi
