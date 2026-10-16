@@ -757,7 +757,15 @@ if(BUILD_TESTING)
                   --runner ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-trace-emit.sh)
         set_tests_properties(engine-android-conformance-${name} PROPERTIES
           LABELS "tier-C"
-          SKIP_RETURN_CODE 77 TIMEOUT 120)
+          SKIP_RETURN_CODE 77 TIMEOUT 120
+          # The runner defaults HUNMIN_BUILD_DIR to "$ROOT/build", which is the
+          # linux CI layout; every host must point it at its own build tree
+          # (debian already did by export, which this property must not undo --
+          # obj-x86_64-linux-gnu IS the deb build's CMAKE_BINARY_DIR). Without
+          # it the shim and classpath cache are looked up in build/ on other
+          # hosts and the test degrades to "engine missing" instead of using
+          # what was actually configured (measured on the llvm-mingw host).
+          ENVIRONMENT "HUNMIN_BUILD_DIR=${CMAKE_BINARY_DIR}")
       endforeach()
     else()
       message(STATUS "Tier C Android: no trace files found")

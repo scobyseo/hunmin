@@ -29,9 +29,32 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # missing" even though the engine is built, just in the other directory
 # (measured on CI 2026-10-13, issue #8).
 BUILD_DIR="${HUNMIN_BUILD_DIR:-$ROOT/build}"
-OUT="$BUILD_DIR/libhunjni-host.so"
 SRC="$ROOT/frontends/android/app/src/main/cpp/hunmin-jni.c"
-ENGINE="$BUILD_DIR/libhunmin.so"
+# Convert per-host differences once: llvm-mingw keeps the lib/ prefix on
+# Windows shared libraries (measured: build-mingw/ holds libhunmin.dll +
+# libhunmin.dll.a); Linux keeps libhunmin.so. MSVC can exist only as the
+# hunmin.lib import, which the TIP links -- this script is a mingw/POSIX
+# path, documented as such at the no-compiler exit below.
+HOSTOS=posix
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) HOSTOS=windows ;;
+esac
+if [ "$HOSTOS" = windows ]; then
+    ENGINE=""
+    for e in "$BUILD_DIR/libhunmin.dll" "$BUILD_DIR/hunmin.dll"; do
+        if [ -f "$e" ]; then ENGINE="$e"; break; fi
+    done
+    OUT="$BUILD_DIR/libhunjni-host.dll"
+    JNI_MD_ARCH=win32
+else
+    ENGINE="$BUILD_DIR/libhunmin.so"
+    OUT="$BUILD_DIR/libhunjni-host.so"
+    case "$(uname -m)" in
+        x86_64) JNI_MD_ARCH=linux ;;
+        aarch64) JNI_MD_ARCH=aarch64 ;;
+        *) JNI_MD_ARCH="$(uname -m | sed 's/^x86-/x86_/')" ;;
+    esac
+fi
 
 if [ ! -f "$ENGINE" ]; then
   echo "  $ENGINE missing -- run 'cmake -B build && cmake --build build' first" >&2
@@ -39,34 +62,67 @@ if [ ! -f "$ENGINE" ]; then
 fi
 
 JDK="${JAVA_HOME:-$HOME/toolchains/jdk-17.0.20.1+1}"
-if [ ! -x "$JDK/bin/javac" ] && [ ! -x "$JDK/bin/java" ]; then
+# JDK probe: POSIX java lives as java (needs -x), Windows as java.exe (-f).
+if [ -f "$JDK/bin/java.exe" ]; then
+    JAVA_OK=1
+elif [ -x "$JDK/bin/java" ]; then
+    JAVA_OK=1
+else
+    JAVA_OK=0
+fi
+if [ "$JAVA_OK" != 1 ]; then
   echo "skip: no JDK (export JAVA_HOME); tier E1 needs one to compile JNI headers" >&2
   exit 77
 fi
 
-# The JNI headers ship with the JDK. jni_md.h lives in a per-arch subdir on
-# Linux, hence the second include path.
+# The JNI headers ship with the JDK.
 JNI_INC="$JDK/include"
-case "$(uname -m)" in
-  x86_64) JNI_MD="$JDK/include/linux" ;;
-  aarch64) JNI_MD="$JDK/include/aarch64" ;;
-  *) JNI_MD="$JDK/include/$(uname -m | sed 's/^x86-/x86_/')" ;;
-esac
+JNI_MD="$JDK/include/$JNI_MD_ARCH"
+
+# Host C compiler. Honour CC first; the common names next. A host without
+# one gets the documented skip, not a red test.
+CC_BIN="${CC:-}"
+if [ -z "$CC_BIN" ]; then
+    for c in cc clang gcc; do
+        if command -v "$c" >/dev/null 2>&1; then CC_BIN="$(command -v "$c")"; break; fi
+    done
+fi
+if [ -z "$CC_BIN" ]; then
+  echo "skip: no C compiler on PATH (export CC); the host JNI shim needs one" >&2
+  exit 77
+fi
 
 mkdir -p "$(dirname "$OUT")"
-cc -shared -fPIC -O1 -g -Wall -Wextra \
+LINK_FLAGS=(-shared -O1 -g -Wall -Wextra)
+if [ "$HOSTOS" = posix ]; then
+    # -fPIC and rpath are ELF-side; Windows DLLs need neither, and lld on
+    # mingw does not take -Wl,-rpath.
+    LINK_FLAGS+=(-fPIC -Wl,-rpath,"$BUILD_DIR")
+fi
+"$CC_BIN" "${LINK_FLAGS[@]}" \
   -I"$JNI_INC" -I"$JNI_MD" \
   -I"$ROOT/libhunmin/include" \
   -o "$OUT" "$SRC" \
-  -L"$BUILD_DIR" -lhunmin \
-  -Wl,-rpath,"$BUILD_DIR"
+  -L"$BUILD_DIR" -lhunmin
 
-# Proof it is a loadable library for this JVM and not merely a file: ldd shows
-# the engine it actually resolved, which is the thing that silently differs if
-# the -L path is wrong.
-if ! ldd "$OUT" | grep -q libhunmin; then
-  echo "  the shim did not link libhunmin -- tier E1 would test nothing" >&2
-  exit 1
+# Proof it is a loadable library for this JVM and not merely a file: the
+# dependency it actually resolved, which is the thing that silently differs if
+# the -L path is wrong. ldd on ELF hosts; objdump on Windows DLLs.
+if [ "$HOSTOS" = windows ]; then
+    if command -v objdump >/dev/null 2>&1; then
+        if ! objdump -p "$OUT" | grep -qi "DLL Name:.*hunmin"; then
+            echo "  the shim did not link libhunmin -- tier E1 would test nothing" >&2
+            exit 1
+        fi
+        printf '  engine: %s\n' "$(objdump -p "$OUT" | grep -i "DLL Name" | head -n 1 | tr -s ' ' | sed 's/^ *//')"
+    else
+        echo "  note: no objdump on PATH; the dependency proof is skipped" >&2
+    fi
+else
+    if ! ldd "$OUT" | grep -q libhunmin; then
+        echo "  the shim did not link libhunmin -- tier E1 would test nothing" >&2
+        exit 1
+    fi
+    printf '  engine: %s\n' "$(ldd "$OUT" | grep libhunmin | tr -s ' ' | sed 's/^ *//')"
 fi
-printf '  engine: %s\n' "$(ldd "$OUT" | grep libhunmin | tr -s ' ' | sed 's/^ *//')"
 echo "  -> $OUT"
