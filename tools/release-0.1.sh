@@ -46,7 +46,7 @@ set -euo pipefail
 REPO="${REPO:-scobyseo/hunmin}"
 VERSION="0.1.0"
 TAG="0.1.0"
-ARTIFACT="hunmin_${VERSION}_amd64.deb"
+ARTIFACT_NAME="hunmin_${VERSION}_amd64.deb"
 # Default is the SAFE one. This was 0 on 2026-10-16, which contradicted the
 # usage line directly above ("tools/release-0.1.sh  # dry run: prints every
 # command, changes nothing"): the bare command took the real path end to end —
@@ -60,7 +60,16 @@ DRY_RUN=1
 FORCE_TAG=0
 # Derived from this script's own location, never a hardcoded path (AGENTS.md).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BUILD_RELEASE="${SCRIPT_DIR}/build-release.sh"
+# dpkg-buildpackage writes the .deb ONE LEVEL ABOVE the source tree -- the fact
+# build-release.sh honours with `ls -t ../hunmin_*_*.deb`. This script used a bare
+# relative name, i.e. the CURRENT directory, and on 2026-10-16 that published the
+# wrong bytes: a .deb from an earlier build sat in the repo root, satisfied the
+# existence check, and was uploaded while the build that had just run wrote its
+# output to the parent. Measured: published 1,253,210 bytes from 09:00; the build
+# that ran was 1,252,740 bytes at 11:36.
+ARTIFACT="${ROOT}/../${ARTIFACT_NAME}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -69,7 +78,7 @@ while [[ $# -gt 0 ]]; do
     --force-tag) FORCE_TAG=1 ;;
     --skip-build)
       shift
-      ARTIFACT="${1:-hunmin_${VERSION}_amd64.deb}"
+      ARTIFACT="${1:-${ARTIFACT_NAME}}"
       SKIP_BUILD=1
       ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
@@ -105,10 +114,26 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   if [[ $DRY_RUN -eq 1 ]]; then
     echo "  tools/build-release.sh deb"
   else
+    # Fingerprint before and after. dpkg overwrites the path, so "the file is
+    # there" is not evidence that THIS build produced it -- which is exactly how
+    # the 2026-10-16 release published an hour-old .deb. If the bytes are
+    # unchanged the build wrote no artefact and the upload must not happen.
+    PRE_SHA="none"
+    [[ -f "$ARTIFACT" ]] && PRE_SHA="$(sha256sum "$ARTIFACT" | cut -d' ' -f1)"
     "$BUILD_RELEASE" deb
     if [[ ! -f "$ARTIFACT" ]]; then
-      echo "ERROR: ${ARTIFACT} not produced" >&2; exit 1
+      echo "ERROR: ${ARTIFACT} not produced -- looked one level above the source" >&2
+      echo "       tree, which is where dpkg-buildpackage writes" >&2
+      exit 1
     fi
+    POST_SHA="$(sha256sum "$ARTIFACT" | cut -d' ' -f1)"
+    if [[ "$PRE_SHA" == "$POST_SHA" ]]; then
+      echo "ERROR: the build left ${ARTIFACT} byte-identical (sha256 ${POST_SHA})." >&2
+      echo "       Refusing to upload an artefact this run did not produce." >&2
+      exit 1
+    fi
+    echo "  built ${ARTIFACT}"
+    echo "  sha256 ${POST_SHA}"
   fi
 fi
 
@@ -117,8 +142,15 @@ if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
   if [[ $FORCE_TAG -eq 1 ]]; then
     echo "==> Step 2: tag ${TAG} already exists; force-updating it"
     git tag -d "$TAG" && git tag "$TAG"
+  elif [[ "$(git rev-list -n1 "$TAG")" == "$(git rev-parse HEAD)" ]]; then
+    # Already tagged at HEAD: a re-run to fix or re-upload the artefact must not
+    # be forced to move the tag. Measured 2026-10-16 -- the first release had to be
+    # re-run to publish the right bytes with the tag already correct, and
+    # aborting here would have meant --force-tag, moving a published tag.
+    echo "==> Step 2: tag ${TAG} already exists and points at HEAD; keeping it"
   else
-    echo "==> Step 2: tag ${TAG} already exists (use --force-tag to overwrite)" >&2
+    echo "==> Step 2: tag ${TAG} already exists at a DIFFERENT commit." >&2
+    echo "        Refusing to move a published tag without --force-tag." >&2
     exit 1
   fi
 else
@@ -153,6 +185,8 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
     echo "  gh release upload ${TAG} ${ARTIFACT}"
   else
     gh release upload "$TAG" "$ARTIFACT"
+    echo "  uploaded ${ARTIFACT}"
+    echo "  sha256 $(sha256sum "$ARTIFACT" | cut -d' ' -f1)"
   fi
 fi
 
