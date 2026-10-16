@@ -662,6 +662,20 @@ and costs a debugging round for nothing.
   pre-emptively widen the split.
 - The measured path-form rules below are **bash-side rules** (MSYS conversion);
   they do not apply inside PowerShell/cmd, which is native-Windows all through.
+- **Path composition follows the same split.** Two failure modes, not one:
+  variables missing in the wrong environment, and a correct white path composed
+  in the wrong FORM. The forms (each with the red run that proves it — full
+  list in the pitfalls section below):
+
+  | composed where | becomes what | correct form | measured failure otherwise |
+  |---|---|---|---|
+  | bash → program argument (clang, cmake, java.exe, python) | a filesystem path the exe opens directly | `C:/...` mixed (`cygpath -m`) | llvm-mingw clang: "no such file or directory: /c/...hunmin-jni.c"; WindowsApps python3 globbed zero XML and reported "zero tests ran" while every result said PASS |
+  | bash → `PATH` list entry | an MSYS-converted list for the Windows loader | `/c/...` (`cygpath -u`) | a `C:/...` entry is re-split at the drive colon; the JNI shim's engine resolved to a STALE `libhunmin.dll` from another build tree instead of the intended one |
+  | data-dir list (`hm_split_dirs`, `HUNMIN_DATA_PATH`) | strings strtok-split on `:` | drive letter kept: the `:` after an ASCII drive char survives | `"C:/Workspace/…"` split into `C` + `/Workspace/…` → "no layouts loaded" (fixed in `data.c`/`suggest.c`) |
+  | `frontends/android/local.properties` `sdk.dir` | parsed by java `Properties.load` after bash `\` escaping | forward slashes | `C\:\Users\...` parses to `C:Users...` → AGP `SdkLocator` IOException, "file name syntax is incorrect" |
+  | gradle `-cp` assembled in bash (from the classpath cache) | a `;`-joined list for the Windows JVM | strip `\r` from gradle's CRLF output | a surviving CR is part of the path: `ClassNotFoundException: TraceEmit` |
+  | a committed `.sh` referenced as a ctest command or `subprocess.run` target | an executable | invoke via `bash <path>` on Windows hosts | CMake "BAD_COMMAND"; mutation runner's WinError 193 |
+
 - TSF work and Android work therefore do not share an environment: TSF is the
   PowerShell half (see *Windows 0.2 development environment* below), Android
   is the bash half (this section).
