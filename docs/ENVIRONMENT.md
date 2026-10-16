@@ -638,3 +638,82 @@ Effective 0.2 toolchain (measured, this host):
 - Build the TSF DLL through `vcvars64.bat` + the Ninja cache under `frontends/tsf/build-msvc/` (gitignored), or `cmake -G "Visual Studio 17 2022" -A x64`.
 - Native portable build with llvm-mingw (`C:/llvm-mingw-20261006-msvcrt-x86_64`), Ninja; `hunmin-sim` + tests build and run there.
 - `gh` CLI authenticated as `scobyseo`; Python 3.13 for data/lint scripts.
+
+## Android dev environment (this Windows host, measured 2026-10-17, issue #75)
+
+The Batch 2 stack from the Linux host is installed here too, **without admin**,
+at the same versions, under `C:/Users/pc`:
+
+| what | version | path |
+|---|---|---|
+| JDK | Temurin 17.0.20.1+1 (same pin as the Linux table above) | `~/toolchains/jdk-17.0.20.1+1` |
+| cmdline-tools | 19.0 (build 13114758, Google zip) | `~/Android/Sdk/cmdline-tools/latest` |
+| platform-tools / adb | 1.0.41 (r37.0.1) | `~/Android/Sdk/platform-tools` |
+| platforms;android-35 / build-tools;35.0.0 / cmake;3.22.1 | sdkmanager | `~/Android/Sdk` |
+| ndk | 27.3.13750724 | `~/Android/Sdk/ndk/27.3.13750724` |
+| emulator | installed | `~/Android/Sdk/emulator` |
+| system-images;android-35;google_apis;x86_64 | sdkmanager | `~/Android/Sdk/system-images` |
+| AVD | `hunmin-e2e` (pixel_6, API 35, x86_64) | `~/.android/avd` |
+
+`~/.bashrc` exports `JAVA_HOME` / `ANDROID_HOME` / `ANDROID_NDK` as native
+`C:/...` strings (see the measured pitfall below), and
+`frontends/android/local.properties` carries `sdk.dir` with **forward** slashes
+(a single-backslash form is destroyed by `Properties.load`: `C\:\Users\...`
+parses to `C:Users...`, and AGP then fails configure with a garbled
+"file name syntax is incorrect" IOException out of `SdkLocator`).
+
+Verified 2026-10-17 in the `android-buffer-preedit-until-word-completion-as`
+worktree, from a clean tree:
+
+- `tools/build-android.sh arm64-v8a 24` and `x86_64 24` — both engine .so
+  cross-build with the pinned NDK clang, `llvm-readelf` machine lines correct.
+- `./gradlew :app:assembleDebug` in `frontends/android` — `app-debug.apk`
+  (4.1 MB) builds; the JNI shim's POST_BUILD symbol guard passes.
+- `ctest -L tier-C` with `ANDROID_HOME` set — 16/16, including all 14
+  `engine-android-conformance-*` traces via the host JVM runner.
+- `ctest -j16 -LE slow` — 50/54; tier-A 26/26. The four failures are
+  environment-absence, not regressions (below).
+
+### Host-absent pieces (do not optimise around them silently)
+
+- **Emulator acceleration**: no hypervisor driver and no WHPX
+  (`emulator -accel-check` → "Android Emulator hypervisor driver is not
+  installed"). tier E1/E2 (AVD boot, Espresso) cannot run until Android
+  Emulator Hypervisor Driver or WHPX is installed (admin) or a Hyper-V
+  feature is enabled.
+- **`builds-android` and the tier E0/E2 script tests fail here** for two
+  mechanically distinct reasons: CMake runs the committed `.sh` test commands
+  directly (no shebang exec on Windows → `BAD_COMMAND`), and `builds-android`
+  invokes `./gradlew` as a program (same class). The Linux CI job carries them.
+- `tools/android-e2e.sh` skips cleanly with no adb device, which is the
+  expected behaviour on this host.
+
+### Measured Windows pitfalls fixed on this pass (see the diffs)
+
+Every one of these reproduced as a red run first; they are recorded so the
+next host does not rediscover them:
+
+1. **`hm_data_load` / suggest's `resolve_dirs` split the data-dir list on `:`
+   (`strtok`)** — a Windows absolute path "C:/Workspace/…" split into "C" and
+   "/Workspace/…" and *every* data load failed: "no layouts loaded". Fixed with
+   the drive-letter-aware `hm_split_dirs` (`libhunmin/src/data.c`), used by
+   both sites. POSIX tokenisation is unchanged.
+2. **MSYS `/c/...` arguments into native Windows programs** (llvm-mingw
+   clang, gradle's `ProcessBuilder("keytool")`): path conversions
+   (`build-host-jni.sh`, `.bashrc` exports) now produce `C:/...`.
+   `PATH` for child processes stays MSYS-form — a `C:/...` entry inside PATH
+   is re-split at the drive colon when converted, which pointed the JNI
+   shim's engine dependency at a *stale* `libhunmin.dll` from another build
+   tree (measured via the trace-emit runner).
+3. **`cmake/android.toolchain.cmake` hardcoded `prebuilt/linux-x86_64`** and
+   the extensionless `clang` name: the prebuilt tag is now detected by
+   directory existence and `clang.exe` appended on Windows hosts.
+4. **`tools/build-android.sh`** gained the same tag detection and a
+   `cygpath -m` for its cmake/ninja arguments.
+5. **The JNI shim's POST_BUILD symbol check was a `sh -c … | grep` pipeline**,
+   unparseable under cmd.exe (AGP drives POST_BUILD through it): replaced by
+   CMake script mode (`check-jni-shim.cmake`).
+6. **Gradle's Windows-CRLF classpath cache** broke `-cp` assembly in
+   `android-trace-emit.sh` (`ClassNotFoundException: TraceEmit`): the
+   runner strips the `\r` on Windows now.
+

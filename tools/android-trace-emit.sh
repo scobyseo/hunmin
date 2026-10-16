@@ -43,6 +43,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# The JVM receiving HUNMIN_REPO_ROOT is a native Windows program: an MSYS
+# /c/... value fails its existence check (measured: "data not found at
+# \c\Workspace\..."). All program arguments below come from ROOT/CACHE, so
+# convert ROOT once, here; POSIX hosts are unaffected.
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) ROOT="$(cygpath -m "$ROOT")" ;;
+esac
 # Build dir holding the engine .so and the host JNI shim. Defaults to build/
 # (linux CI job, local `cmake -B build`); a packaging build (debian/rules)
 # exports HUNMIN_BUILD_DIR to its own obj-* dir -- issue #8, 2026-10-13.
@@ -190,10 +197,18 @@ fi
 # for the dependent DLL); POSIX keeps :.
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*)
-        CP="$(paste -sd';' "$CACHE")"
+        # Gradle (a Windows JVM) ends each line CRLF, and a CR that survives
+        # into a -cp entry is part of the path for the loader -- measured as
+        # ClassNotFoundException: org.hunmin.ime.TraceEmit. Strip it here;
+        # POSIX keeps the plain paste.
+        CP="$(tr -d '\r' < "$CACHE" | paste -sd';')"
         # The JVM loader must resolve the shim's dependent engine DLL; putting
-        # the build dir on PATH does that for a native child of this bash.
-        export PATH="$HUNMIN_BUILD_DIR:$PATH"
+        # the build dir on PATH does that for a native child of this bash. The
+        # entry must be the MSYS form: a C:/... entry in PATH is re-split at the
+        # drive colon when the list is converted for the child, and the engine
+        # then resolves from whatever other PATH dir happens to carry a stale
+        # libhunmin.dll (measured 2026-10-17).
+        export PATH="$(cygpath -u "$HUNMIN_BUILD_DIR"):$PATH"
         ;;
     *)
         CP="$(paste -sd: "$CACHE")"

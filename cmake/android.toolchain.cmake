@@ -64,13 +64,37 @@ endif()
 # the malformed form is not rejected as such -- clang parses "x86_6424" as the
 # architecture and reports `unknown target triple 'x86_6424-unknown-linux-
 # android'`, which reads like a mangled message rather than a misplaced field.
-set(CMAKE_C_COMPILER "${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang")
+# The prebuilt tag is host-specific AND varies across NDK releases, so detect
+# it by directory existence instead of guessing from uname: whatever tag's
+# prebuilt tree actually exists is the one to point at.
+file(TO_CMAKE_PATH "${ANDROID_NDK}/toolchains/llvm/prebuilt" _hunmin_prebuilt)
+# CMake's foreach restores its loop variable after endforeach, so copy the hit
+# into the persistent name inside the loop.
+foreach(_hunmin_tag IN ITEMS windows-x86_64 linux-x86_64 darwin-x86_64)
+  if(EXISTS "${_hunmin_prebuilt}/${_hunmin_tag}")
+    set(_hunmin_host_tag "${_hunmin_tag}")
+    break()
+  endif()
+endforeach()
+if(NOT _hunmin_host_tag)
+  message(FATAL_ERROR "no NDK prebuilt tree under ${_hunmin_prebuilt}")
+endif()
+# Windows prebuilts name the driver clang.exe; CMake does not append the
+# extension to an explicitly given path, and "clang" without it fails as
+# "not a full path to an existing compiler tool".
+if(_hunmin_host_tag MATCHES "^windows")
+  set(_hunmin_clang "clang.exe")
+else()
+  set(_hunmin_clang "clang")
+endif()
+
+set(CMAKE_C_COMPILER "${_hunmin_prebuilt}/${_hunmin_host_tag}/bin/${_hunmin_clang}")
 set(CMAKE_C_COMPILER_TARGET "${_hunmin_arch}-linux-android${ANDROID_API}")
 set(CMAKE_C_COMPILER_WORKS TRUE)
 set(CMAKE_C_COMPILER_ID_RUN TRUE)
 set(CMAKE_C_COMPILER_ID Clang)
 
-set(CMAKE_FIND_ROOT_PATH "${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/sysroot")
+set(CMAKE_FIND_ROOT_PATH "${_hunmin_prebuilt}/${_hunmin_host_tag}/sysroot")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

@@ -585,6 +585,42 @@ out:
   return ok;
 }
 
+/* Split a colon-joined dir list, keeping Windows drive letters intact: the
+ * ':' in "C:/x" marks the drive, not a separator. Positional rule -- a ':'
+ * directly after the token's first character, when that character is an
+ * ASCII letter and the next char is '/' or '\\', is part of the token.
+ * Paths joined with '/' (data.c's snprintf "%s/layouts") still re-split
+ * identically, so ctx->data_dir round-trips. Measured failure without it:
+ * "C:/Workspace/..." split into "C" and "/Workspace/...", and every
+ * opendir("C") failed -- "no layouts loaded" on Windows. */
+int hm_split_dirs(const char *env, char *buf, size_t bufsz,
+                  const char *dirs[], int max) {
+  if (!env || !*env || !buf || bufsz == 0 || !dirs || max <= 0) return 0;
+  snprintf(buf, bufsz, "%s", env);
+  size_t len = strlen(buf);
+  if (len >= bufsz) return 0; /* truncated; a dir would end mid-character */
+  int n = 0;
+  const char *p = buf;
+  while (*p && n < max) {
+    const char *tok = p;
+    dirs[n++] = tok;
+    for (;;) {
+      char c = *p;
+      if (c == ':' && p == tok + 1 &&
+          ((tok[0] >= 'A' && tok[0] <= 'Z') ||
+           (tok[0] >= 'a' && tok[0] <= 'z')) &&
+          (p[1] == '/' || p[1] == '\\')) {
+        p++; /* drive letter, keep scanning this token */
+        continue;
+      }
+      if (c == ':' || c == '\0') break;
+      p++;
+    }
+    if (*p == ':') *((char *)p++) = '\0'; /* end this token, start next */
+  }
+  return n;
+}
+
 hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs) {
   const char *mydirs[16];
   char envbuf[4096];
@@ -597,9 +633,7 @@ hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs) {
       env = "./libhunmin/data";
 #endif
     snprintf(envbuf, sizeof envbuf, "%s", env);
-    ndirs = 0;
-    for (char *tok = strtok(envbuf, ":"); tok && ndirs < 16; tok = strtok(NULL, ":"))
-      mydirs[ndirs++] = tok;
+    ndirs = hm_split_dirs(env, envbuf, sizeof envbuf, mydirs, 16);
     dirs = mydirs;
   }
 

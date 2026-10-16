@@ -92,6 +92,22 @@ if [ -z "$CC_BIN" ]; then
   exit 77
 fi
 
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        # The compiler and the JVM here are native Windows programs and reject
+        # /c/... arguments (measured: "no such file or directory:
+        # /c/...hunmin-jni.c" from llvm-mingw clang); cygpath -m gives the
+        # C:/... form both accept. POSIX hosts are untouched by the branch.
+        ROOT="$(cygpath -m "$ROOT")"
+        BUILD_DIR="$(cygpath -m "$BUILD_DIR")"
+        [ -n "$ENGINE" ] && { ENGINE="$(cygpath -m "$ENGINE")" || true; }
+        OUT="$(cygpath -m "$OUT")"
+        SRC="$(cygpath -m "$SRC")"
+        JNI_INC="$(cygpath -m "$JNI_INC")"
+        JNI_MD="$(cygpath -m "$JNI_MD")"
+        ;;
+esac
+
 mkdir -p "$(dirname "$OUT")"
 LINK_FLAGS=(-shared -O1 -g -Wall -Wextra)
 if [ "$HOSTOS" = posix ]; then

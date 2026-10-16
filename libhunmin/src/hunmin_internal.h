@@ -84,4 +84,16 @@ struct hunmin_ctx {
 hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs);
 void hm_data_free(hunmin_ctx *ctx);
 
+/* Split a colon-joined data-dir list without strtok, and Windows-drive-aware:
+ * the ':' in "C:/x" is a drive marker, not a separator, so "C:/a" must never
+ * split into "" and "/a". The rule is positional -- a ':' right after the
+ * token's first character when that character is an ASCII letter and the next
+ * char is '/' or '\\' is kept, every other ':' separates. Used by both
+ * hm_data_load (data.c) and the suggest layer's resolve_dirs (suggest.c);
+ * the recorded ctx->data_dir rejoins with ':' and re-parses consistently.
+ * Returns the number of dirs (0..max); buffer must be writable and is NUL-
+ * terminated in place. */
+int hm_split_dirs(const char *env, char *buf, size_t bufsz,
+                  const char *dirs[], int max);
+
 #endif
