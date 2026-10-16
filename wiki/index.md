@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-16 | Total pages: 35
+> Last updated: 2026-10-16 | Total pages: 36
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -49,9 +49,15 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   AVD for want of a focusable Settings field.
 - [[2026-10-16-0-1-distribution-channel-github-release]] — issue #7 ruled: a 0.1
   user gets the `.deb` and the APK from a **GitHub Release on tag `0.1.0`**,
-  scripted in `tools/release-0.1.sh`. What the ruling does *not* close: no tag or
-  release exists yet, so the channel is still unverified from a clean machine;
-  the `.deb` is unsigned; the signed release APK stays blocked on issue #1.
+  scripted in `tools/release-0.1.sh`. The release and its `.deb` are published
+  (2026-10-16). What the ruling does *not* close: the `.deb` is unsigned, the
+  signed release APK stays blocked on issue #1, and reachability is a separate
+  question — see [[2026-10-16-the-repository-is-private-until-after-0.2]].
+- [[2026-10-16-the-repository-is-private-until-after-0.2]] — the maintainer
+  ruled `scobyseo/hunmin` stays private through 0.1 and goes public after 0.2, so
+  every artefact up to 0.1 is account-gated (asset URL and release page both 404
+  unauthenticated). Issue #7 therefore stays open: the channel is published and
+  its bytes are correct, but not anonymously reachable.
 - [[2026-10-12-auto-toggle-disabled-by-default-in-0-1]] — B4's 0.1 half ruled:
   the auto Hangul/English toggle ships inert in 0.1, by disabling the default
   key composition — no default chord, the dispatch skips the action, the

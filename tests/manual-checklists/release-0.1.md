@@ -209,9 +209,18 @@ re-type its steps here; that is how two copies of a release procedure drift.
 and states its own rules for what does not go in (no commit hashes, no
 every-commit listing, nothing that reads as a boast). The release-notes file is
 the *user-facing* document; `HISTORY.md` is the record of what we learned, and
-neither is a copy of the other. `versionCode` is still `1` and no tag exists —
-`docs/REMAINING-WORK.md` §7.5 records that as not closed by the version
-convention.
+neither is a copy of the other. Tag `0.1.0` exists and points at `35d20bb`;
+`versionCode` is still `1` — `docs/REMAINING-WORK.md` §7.5 records the version
+convention as not closing that.
+
+**Step 6 verifies reachability, and it is not the same as "the upload worked."**
+The repository is private until after 0.2, so on 2026-10-16 the published 0.1
+asset returned 404 to any unauthenticated client while being the correct,
+correctly-fingerprinted `.deb`. `tools/release-0.1.sh` fetches the asset URL
+with no credentials and compares the status against the repository's real
+visibility; it fails when a public repository does not serve 200, and when a
+private repository's documents do not say so. Verify it by re-running the
+script's step, not by re-running the upload:
 
 ---
 
@@ -236,7 +245,7 @@ Cited, not restated — each carries its own content and its own state.
 | #3 — B9, the R8/R3 contradiction | shipping one architecture description | **Closed 2026-10-14.** Ruling: `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md`; see also `docs/architecture.md` |
 | #4 — the R8 shrinker path end-to-end | release-build confidence | **Closed**; measured 2026-10-11, procedure in §3.2's pointer |
 | #5 — tier E3 device sign-off | the P5 gate | **Closed 2026-10-11**; the device rows remain unticked (§4) |
-| #7 — the 0.1 distribution channel | how a user gets 0.1 | **Closed.** GitHub Release on tag `0.1.0`, scripted in `tools/release-0.1.sh` |
+| #7 — the 0.1 distribution channel | how a user gets 0.1 | **Open.** The channel is ruled and live — a GitHub Release on tag `0.1.0`, published 2026-10-16, scripted in `tools/release-0.1.sh`. Its third verification item (reachable from a clean machine with one command) **fails**: the repository is private until after 0.2, so the asset URL returns 404 unauthenticated. See `wiki/decisions/2026-10-16-the-repository-is-private-until-after-0.2.md` |
 | #8 — CI builds neither 0.1 artefact | artefact reproducibility | **Closed 2026-10-13**: jobs `deb` and `android-release`. The ruling it asked for — must a release use the CI artefacts — is still open; see §1 on whether CI is running at all |
 
 Issue #10's body named #1, #2, #3 and #5 as "still open". All four have since

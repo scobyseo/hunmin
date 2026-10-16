@@ -96,7 +96,8 @@ diffs.
 
 ```sh
 # engine + fcitx5 addon
-dpkg -i hunmin_0.1.0_amd64.deb     # build it: tools/build-release.sh deb
+gh release download 0.1.0 --repo scobyseo/hunmin   # needs repo access; see below
+dpkg -i hunmin_0.1.0_amd64.deb     # or build it: tools/build-release.sh deb
 
 # or build the PPA package yourself — see PLAN.md, gate is the tier-D suite
 ```
@@ -120,11 +121,16 @@ issue #8 asks the maintainer for.
 
 **Where a 0.1 user gets them (issue #7):** the channel is a **GitHub Release on
 tag `0.1.0`**, with `hunmin_0.1.0_amd64.deb` attached — recorded in
-`docs/MILESTONES.md` §0.1, scripted in `tools/release-0.1.sh`. No such release
-exists yet: `git tag` holds no `0.1.0`, so today the only way to obtain the
-artefacts is the CI run artefact or a local `tools/build-release.sh`. Publishing
-is `tools/release-0.1.sh --yes`, after the tier-D gate passes. The `.deb` is
-unsigned, so `dpkg -i` warns; the signed release APK stays blocked on issue #1.
+`docs/MILESTONES.md` §0.1, scripted in `tools/release-0.1.sh`. The release is
+published and its attached `.deb` is the artefact from that release run, not the
+stale earlier build (verified by download and `dpkg -c`, 1,252,740 bytes). **But
+this repository is private until after 0.2** (maintainer ruling 2026-10-16), so
+the channel is account-gated: `curl` on the download URL returns 404
+unauthenticated, and a user without repo access cannot fetch 0.1 at all. That is
+the recorded state, not a defect — but it is why issue #7 is still open, whose
+third verification item asks whether the channel is reachable from a clean
+machine. The `.deb` is unsigned, so `dpkg -i` warns; the signed release APK stays
+blocked on issue #1.
 
 **Known limitation (Android voice input):** recognition quality has no
 automated assertion — recorded audio cannot be replayed into the recogniser,
