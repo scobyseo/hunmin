@@ -8,7 +8,11 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 # TU is parsed with guessed flags. gitignored, so nothing is committed.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(GNUInstallDirs)
-add_compile_options(-Wall -Wextra)
+if(MSVC)
+    add_compile_options(/std:c11 /W4)
+else()
+    add_compile_options(-Wall -Wextra)
+endif()
 option(BUILD_TESTING "" ON)
 include(CTest)
 find_package(PkgConfig QUIET)
@@ -53,12 +57,20 @@ if(HUNMIN_HAS_LIBHANGUL AND HUNMIN_SH)
 endif()
 
 # --------------------------------------------------------------------- sim
-add_executable(hunmin-sim tools/sim.c)
-target_include_directories(hunmin-sim PRIVATE third_party/cJSON)
-target_link_libraries(hunmin-sim PRIVATE hunmin)
-install(TARGETS hunmin hunmin-sim
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+if(NOT MSVC)
+    add_executable(hunmin-sim tools/sim.c)
+    target_include_directories(hunmin-sim PRIVATE third_party/cJSON)
+    target_link_libraries(hunmin-sim PRIVATE hunmin)
+endif()
+if(NOT MSVC)
+    install(TARGETS hunmin hunmin-sim
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+else()
+    install(TARGETS hunmin
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
 
 # --------------------------------------------------------- fcitx5 frontend
 # (tier D1; skipped when Fcitx5Core is unavailable)
