@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * HangulModeStore — where the Hangul/English mode choice is remembered.
+ * HangulModeRepository — where the Hangul/English mode choice is remembered.
  *
  * Android's InputMethodService is killed and recreated often (memory pressure,
  * a configuration change, an IME switch), and `isHangulMode` is ordinary
@@ -28,7 +28,7 @@ package org.hunmin.ime
  * store stays independent of how they are spelled; only the shape of the
  * remember/recall contract lives here.
  */
-class HangulModeStore(
+class HangulModeRepository(
     private val read: (key: String, default: Boolean) -> Boolean,
     private val write: (key: String, value: Boolean) -> Unit,
 ) {

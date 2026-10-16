@@ -28,7 +28,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class HangulModeStoreTest {
+class HangulModeRepositoryTest {
 
     /** An in-memory stand-in for SharedPreferences. */
     private class FakePrefs {
@@ -48,7 +48,7 @@ class HangulModeStoreTest {
         }
     }
 
-    private fun storeOf(prefs: FakePrefs) = HangulModeStore(
+    private fun storeOf(prefs: FakePrefs) = HangulModeRepository(
         read = { key, default -> prefs.read(key, default) },
         write = { key, value -> prefs.write(key, value) },
     )

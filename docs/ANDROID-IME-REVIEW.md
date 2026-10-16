@@ -182,18 +182,18 @@ re-themed to the M3 roles per F4), Compact HUD (shipped).
 
 | Class (file) | LOC | Responsibility (as built) | Depends on (Kotlin types) | SRP verdict |
 |---|---|---|---|---|
-| `HunminInputMethodService` | 849 | IME lifecycle + key routing + layout selection + voice orchestration + hanja trigger + prefs + settings-bus install + receivers | HunminData, HunminNative, HunminEngine, LayoutCatalog, LayoutPicker, OverlayActivity, KeyBindings/KeyCaptureSession, VoiceSession/PlatformRecognizer/AndroidPermissionGate, ImeSettings, HunminTrace | **Wide.** The documented reason (frontends stay thin; AGENTS.md ~700-line smell) is being exceeded: 849 lines and 11 collaborator types |
-| `OverlayActivity` | 750 | Transparent overlay host for: hanja dialog, settings dialog, settings sub-sections, style picker, keybinding list, key capture, toast | ImeSettings, LayoutCatalog, KeyBindings, KeyCaptureSession, CompactTheme (in-file) | **Wide.** Six dialog responsibilities in one activity; one-man-band class |
+| `HunminInputMethodService` | 849 | IME lifecycle + key routing + layout selection + voice orchestration + hanja trigger + prefs + settings-bus install + receivers | HunminDataInstaller, HunminNativeBridge, HunminAdapter, LayoutRegistry, LayoutPicker, OverlayActivity, KeyBindings/KeyCaptureSession, VoiceSession/PlatformRecognizer/AndroidPermissionGate, ImeSettings, HunminTraceRecorder | **Wide.** The documented reason (frontends stay thin; AGENTS.md ~700-line smell) is being exceeded: 849 lines and 11 collaborator types |
+| `OverlayActivity` | 750 | Transparent overlay host for: hanja dialog, settings dialog, settings sub-sections, style picker, keybinding list, key capture, toast | ImeSettings, LayoutRegistry, KeyBindings, KeyCaptureSession, CompactTheme (in-file) | **Wide.** Six dialog responsibilities in one activity; one-man-band class |
 | `LayoutPicker` | 519 | The IME strip view: two style variants + state rendering + insets + rebuild | ToolbarState, LayoutEntry, ToolbarStyle, VoiceState | View + style-switching; re-themed to M3 roles (F4) after the review |
 | `DockToolbar` (DockStyle.kt) | ~~374~~ | ~~Dock view builder/binder~~ | — | Removed 2026-10-12 (F5, maintainer ruling); row kept as the record |
 | `KeyBinding.kt` (4 types) | 426 | Key binding data + storage + matching + capture session singleton | KeyEvent constants only | Clean; pure logic, JVM-testable, documented |
 | `VoiceInput.kt` (7 types) | 460 | Voice path: enum, results, launcher (pure decisions), recogniser, permission gate, session | PermissionRequestActivity (canRaise/raise), SpeechRecognizer | Clean layers with seams for testing; `VoiceLauncher`→`PermissionRequestActivity` is a UI-to-UI dependency justified by the B5 constraint (no channel from a service) |
-| `HunminEngine` | 283 | Engine adapter: key→char→process→commit/preedit | HunminKeys, HunminTrace, NativeOps (injected) | Clean; `NativeOps` seam keeps it JVM-testable |
-| `HunminKeys` | 220 | KEYCODE→engine-char table + chord mask | none (data only) | Clean; the doc's own "tables are data" idea |
-| `HunminNative` | 111 | JNI declarations | none | Clean; pass-through by design |
-| `HunminData` | 151 | Asset extraction/stamping | none | Clean |
-| `HunminTrace` | 138 | Trace sink | none | Clean |
-| `LayoutCatalog`/`LayoutEntry`/`ToolbarState`/`LayoutMode`/`ToolbarStyle`/`ImeSettings` (LayoutCatalog.kt) | 174 | Layout list logic + mode enum + strip-state value + settings bus | none | Fine, but the file holds five responsibilities — a "kitchen-drawer" file |
+| `HunminAdapter` | 283 | Engine adapter: key→char→process→commit/preedit | HunminKeyRegistry, HunminTraceRecorder, NativeOps (injected) | Clean; `NativeOps` seam keeps it JVM-testable |
+| `HunminKeyRegistry` | 220 | KEYCODE→engine-char table + chord mask | none (data only) | Clean; the doc's own "tables are data" idea |
+| `HunminNativeBridge` | 111 | JNI declarations | none | Clean; pass-through by design |
+| `HunminDataInstaller` | 151 | Asset extraction/stamping | none | Clean |
+| `HunminTraceRecorder` | 138 | Trace sink | none | Clean |
+| `LayoutRegistry`/`LayoutEntry`/`ToolbarState`/`LayoutMode`/`ToolbarStyle`/`ImeSettings` (LayoutRegistry.kt) | 174 | Layout list logic + mode enum + strip-state value + settings bus | none | Fine, but the file holds five responsibilities — a "kitchen-drawer" file |
 | `PermissionRequestActivity` | 145 | Permission host | VoiceLauncher.hasPermission | Clean; single-purpose |
 | `KeyboardLayoutReceiver` | 101 | Keyboard-layout XML broadcast | none | Clean |
 | `TestActivity`/espresso | — | test-only | — | — |
@@ -201,17 +201,17 @@ re-themed to the M3 roles per F4), Compact HUD (shipped).
 ### Dependency graph (mechanical, non-test, non-JNI-receiver)
 
 ```
-HunminNative ← HunminEngine ← HunminInputMethodService
+HunminNativeBridge ← HunminAdapter ← HunminInputMethodService
                                    │ (installed bus: ImeSettings callbacks)
         ┌──────────────────────────┼───────────────────────────┐
    LayoutPicker              OverlayActivity                 VoiceInput family
         │                        │                              (VoiceSession,
    DockToolbar (dead)     KeyBindings, KeyCaptureSession        PlatformRecognizer,
-        │                  LayoutCatalog, ImeSettings           AndroidPermissionGate→
+        │                  LayoutRegistry, ImeSettings           AndroidPermissionGate→
    ToolbarState          CompactTheme (in-file)                 PermissionRequestActivity)
-HunminKeys ← HunminEngine
-HunminTrace ← HunminEngine
-HunminData → (filesDir) HunminInputMethodService
+HunminKeyRegistry ← HunminAdapter
+HunminTraceRecorder ← HunminAdapter
+HunminDataInstaller → (filesDir) HunminInputMethodService
 ```
 
 ### Findings
@@ -243,19 +243,19 @@ HunminData → (filesDir) HunminInputMethodService
 - **S4 — dead code**: `buildDock()`/`DockToolbar` unreachable (F5) —
   **removed 2026-10-12**;
   `OverlayActivity.startHanja`/`showToast` helpers, `RESULT_HANJA_SELECTED`,
-  `LayoutCatalog.choose` (test-only), `setHanjaConverting` (no caller),
-  `HunminEngine.suggestKind` and `IME_FLAG_NO_PERSONALIZED_LEARNING` (no
-  caller), `HunminTrace`'s `caseLabel`/`source` set externally only via the
+  `LayoutRegistry.choose` (test-only), `setHanjaConverting` (no caller),
+  `HunminAdapter.suggestKind` and `IME_FLAG_NO_PERSONALIZED_LEARNING` (no
+  caller), `HunminTraceRecorder`'s `caseLabel`/`source` set externally only via the
   trace receiver. 374 lines of unreachable view code plus ~9 unused members.
   AGENTS.md forbids drive-by refactors, so these are recorded, not removed.
-- **S5 — file cohesion issue, not class issue:** `LayoutCatalog.kt` holds
-  `LayoutCatalog`, `LayoutMode`, `LayoutEntry` (adjacent), `ToolbarStyle`,
+- **S5 — file cohesion issue, not class issue:** `LayoutRegistry.kt` holds
+  `LayoutRegistry`, `LayoutMode`, `LayoutEntry` (adjacent), `ToolbarStyle`,
   `ImeSettings` — five types, three concerns (layout logic, strip style,
   service-bus). The classes themselves are cohesive; the file is not.
 - **S6 — the pure-layer discipline is the strong result.** `KeyBinding`,
-  `HunminKeys`, `LayoutCatalog`, `VoiceLauncher.decide/decidePermission`,
+  `HunminKeyRegistry`, `LayoutRegistry`, `VoiceLauncher.decide/decidePermission`,
   `ToolbarState` are framework-free and JVM-testable, which is what makes the
-  tier E1 suite possible without Robolectric. `HunminEngine` reaches the
+  tier E1 suite possible without Robolectric. `HunminAdapter` reaches the
   framework only through two injected seams (`NativeOps`, `InputConnection`
   recording fake). Minimal-dependency question asked of each class: **yes for
   13 of 16 production types; the two wide classes (service, overlay) and the
@@ -263,11 +263,11 @@ HunminData → (filesDir) HunminInputMethodService
 
 ### Minimal-dependency answer (the direct question)
 
-- All leaf/pure classes (`HunminKeys`, `HunminData`, `HunminTrace`,
-  `HunminNative`, `KeyBinding`'s pure half, `LayoutCatalog`, `ToolbarState`,
+- All leaf/pure classes (`HunminKeyRegistry`, `HunminDataInstaller`, `HunminTraceRecorder`,
+  `HunminNativeBridge`, `KeyBinding`'s pure half, `LayoutRegistry`, `ToolbarState`,
   `LayoutEntry`, `VoiceLauncher` decisions) have **zero** framework or
   cross-class dependencies beyond Android constants — minimal.
-- The engine adapter (`HunminEngine`) has two injected dependencies
+- The engine adapter (`HunminAdapter`) has two injected dependencies
   (`NativeOps`, `InputConnection`) — minimal, and the injection is what the
   tests use.
 - The two activity/service classes are the honest exceptions: they are

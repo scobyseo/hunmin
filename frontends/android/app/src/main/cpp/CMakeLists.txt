@@ -29,7 +29,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # no adapter. Every build reported success. `jniLibs` then also had two
 # libhunmin.so for the same ABI, and the engine's srcDir won the merge.
 #
-# Hence libhunjni.so, loaded by System.loadLibrary("hunjni") in HunminNative.kt.
+# Hence libhunjni.so, loaded by System.loadLibrary("hunjni") in HunminNativeBridge.kt.
 # The name is asserted below so a rename on one side fails the build rather than
 # producing an UnsatisfiedLinkError at the first keystroke on a device.
 add_library(hunjni SHARED hunmin-jni.c)

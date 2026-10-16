@@ -16,7 +16,7 @@
  * for a rule this small.
  *
  * The invariant-5 assertions -- that spoken text never reaches
- * hunmin_ic_process -- live in HunminEngineTest, where the real engine is.
+ * hunmin_ic_process -- live in HunminAdapterTest, where the real engine is.
  */
 package org.hunmin.ime
 

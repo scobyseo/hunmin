@@ -4,7 +4,7 @@
 #
 #   tools/build-host-jni.sh            -> build/libhunjni-host.so
 #
-# Why this exists: HunminNative is one C file (frontends/android/app/src/main/
+# Why this exists: HunminNativeBridge is one C file (frontends/android/app/src/main/
 # cpp/hunmin-jni.c) that does nothing but convert between JNI and libhunmin. The
 # APK's CMake build compiles it with the NDK clang; this compiles the SAME file
 # with the host compiler and links the SAME host build/libhunmin.so the rest of

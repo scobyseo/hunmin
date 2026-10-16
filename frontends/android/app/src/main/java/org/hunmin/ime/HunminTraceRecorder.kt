@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * HunminTrace — the shipped IME's key trace sink, for tier E3.
+ * HunminTraceRecorder — the shipped IME's key trace sink, for tier E3.
  *
  * WHY THIS IS IN THE SHIPPED APP AND NOT ONLY IN A TEST BUILD. docs/TESTING.md
  * tier E3 says every manual session on a physical keyboard records a tier-C
@@ -25,9 +25,9 @@ package org.hunmin.ime
 import android.util.Log
 import java.io.File
 
-object HunminTrace {
+object HunminTraceRecorder {
 
-    private const val TAG = "HunminTrace"
+    private const val TAG = "HunminTraceRecorder"
 
     @Volatile private var sink: File? = null
 

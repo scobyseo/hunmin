@@ -1,12 +1,12 @@
         if (tracing) {
-            HunminTrace.event(keyCode, metaState, tracedChar, delivered,
-                              native.preedit(ic), used)
+            HunminTraceRecorder.event(keyCode, metaState, tracedChar, delivered,
+                              preedit(), used)
         }
         return used
 ---REPLACE---
 
         if (tracing) {
-            HunminTrace.event(keyCode, metaState, tracedChar, delivered,
-                              native.preedit(ic), used)
+            HunminTraceRecorder.event(keyCode, metaState, tracedChar, delivered,
+                              preedit(), used)
         }
         return true

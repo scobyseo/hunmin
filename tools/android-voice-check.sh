@@ -77,7 +77,7 @@ note() { echo "$*"; }
 # The phrase list. Chosen for what OUR half does with the text, not for how well
 # the model hears it: a phrase whose characters would compose differently if they
 # reached the engine as keystrokes is worth speaking, because invariant 5 says they
-# must not. See HunminEngineTest's `external text bypasses the jamo pipeline`.
+# must not. See HunminAdapterTest's `external text bypasses the jamo pipeline`.
 #
 # id | mode  | phrase            | what it is for
 PHRASES=(

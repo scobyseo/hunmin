@@ -126,7 +126,7 @@ joined (word-sense distortion).
   (`entries` key), candidate order unchanged.
 - `libhunmin/tests/suggest-test.c` — detail expectations currently assert `""`
   for Hanja (`expect(ctx, …, "hanja", "水", "")`); update to the real glosses.
-- Android `HunminData.DATA_SUBDIRS` already includes `hanja`, so the regenerated
+- Android `HunminDataInstaller.DATA_SUBDIRS` already includes `hanja`, so the regenerated
   file ships; confirm the APK size budget (English glosses add ~size).
 - `frontends/android/…/OverlayActivity.kt` — render `ko | en [tag]`.
 

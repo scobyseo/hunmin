@@ -18,7 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** In-memory store, the shape RecordingInputConnection uses for the same reason. */
-private class MapStore : KeyBindingStore {
+private class MapStore : KeyBindingRepository {
     val values = mutableMapOf<String, String>()
     override fun read(key: String): String? = values[key]
     override fun write(key: String, value: String) {

@@ -28,7 +28,7 @@ places the wiki is imprecise.
 
 | File | Role |
 |---|---|
-| `src/engine.h` | addon entry surface: `HunminEngine : InputMethodEngine`, config struct, `HunminEngineFactory`, the `hunmin_ctx*` handle |
+| `src/engine.h` | addon entry surface: `HunminEngine : InputMethodEngine`, config struct, `HunminAdapterFactory`, the `hunmin_ctx*` handle |
 | `src/engine.cpp` | the whole adapter: key mapping, per-context state property, preedit/c commit presentation |
 | `src/hunmin.conf.in` | `inputmethod/hunmin.conf` template → IM registration (`Addon=hunmin`) |
 | `src/hunmin-addon.conf.in.in` | `addon/hunmin.conf` template → addon registration (`Library=libhunmin`, `OnDemand=True`) |
@@ -391,9 +391,9 @@ Four files, and the split is the same one the fcitx5 addon makes:
 | File | Role | Code lines |
 |---|---|---|
 | `HunminInputMethodService.kt` | lifecycle, key dispatch, external-text door | ~230 |
-| `HunminEngine.kt` | the adapter proper: keycode → engine char, commit/preedit | ~190 |
-| `HunminKeys.kt` | the AOSP keycode table and the chord mask | ~200 |
-| `HunminData.kt` | extract the layout tables out of the APK into filesDir | ~120 |
+| `HunminAdapter.kt` | the adapter proper: keycode → engine char, commit/preedit | ~190 |
+| `HunminKeyRegistry.kt` | the AOSP keycode table and the chord mask | ~200 |
+| `HunminDataInstaller.kt` | extract the layout tables out of the APK into filesDir | ~120 |
 | `cpp/hunmin-jni.c` | handle conversion and UTF-8 marshalling, nothing else | ~230 |
 
 ### A1'. The key convention is US-QWERTY, and the OS layout is deliberately NOT consulted
@@ -412,7 +412,7 @@ adapter's A1, for the same reason, and inherits the same stated cost.
 was first written as fcitx5's `0xf0000000` `KeyState` range, which matches *no
 AOSP bit at all* — Ctrl+key was never recognised as a chord and every Ctrl
 combination reached the engine as a plain letter. The correct values are read
-from `android.jar` with `javap -constants` and written out in `HunminKeys.kt`:
+from `android.jar` with `javap -constants` and written out in `HunminKeyRegistry.kt`:
 
 ```
 META_SHIFT_ON = 0x1   META_ALT_ON = 0x2      META_CTRL_ON = 0x1000
@@ -498,7 +498,7 @@ TESTING.md tier E2 for the list and the measurements.
    engine, not a guarantee — but no test can hold it, and
    `tools/android-mutations.py` names the omission rather than hiding it.
 2. **Commit reaches the client exactly once per keystroke.** Asserted on the
-   call *count* (`HunminEngineTest`), because the concatenated text is
+   call *count* (`HunminAdapterTest`), because the concatenated text is
    identical when doubled.
 3. **Consumption follows the engine's answer, never the keycode table's.**
    Space, unmapped keys and modifier chords must reach the application;

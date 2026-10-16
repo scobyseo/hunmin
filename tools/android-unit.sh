@@ -40,10 +40,30 @@ export PATH="$JDK/bin:$PATH"
 # The host build of the same JNI shim the APK ships, linked against the same
 # host libhunmin.so the rest of the suite uses.
 SHIM="$HUNMIN_BUILD_DIR/libhunjni-host.so"
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        # build-host-jni.sh produces the DLL name on Windows (it also keeps the
+        # lib prefix there); without this branch the check below re-runs the
+        # builder and then points HUNMIN_JNI_LIB at a file that was never made,
+        # which the tier's assumeTrue turns into a full-suite skip -- the exact
+        # "green report that measured nothing" this script exists to prevent.
+        SHIM="$(cygpath -m "$SHIM" 2>/dev/null || echo "$SHIM")"
+        SHIM="${SHIM%.so}.dll"
+        ;;
+esac
 if [ ! -f "$SHIM" ]; then
   "$ROOT/tools/build-host-jni.sh" || exit $?
 fi
 export HUNMIN_JNI_LIB="$SHIM"
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        # The shim's dependent libhunmin.dll must be resolvable from the Gradle
+        # test JVM. PATH is the DLL search fallback and the MSYS form is what
+        # survives the env conversion (a C:/ entry is re-split at the drive
+        # colon, measured 2026-10-17).
+        export PATH="$(cygpath -u "$HUNMIN_BUILD_DIR"):$PATH"
+        ;;
+esac
 
 # --rerun-tasks is load-bearing, not hygiene. Gradle keys the test task on the
 # test *classes*, so changing only an environment variable -- which is how this
@@ -56,6 +76,14 @@ echo "== gradlew :app:testDebugUnitTest (forced)"
 
 # --- the part that matters: did anything actually run? ----------------------
 RESULTS="$ROOT/frontends/android/app/build/test-results/testDebugUnitTest"
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        # python3 on Windows is a native exe: an MSYS /c/... result dir globs
+        # zero files and the run reports "zero tests" while every XML says PASS
+        # (measured 2026-10-17). Convert once, here.
+        RESULTS="$(cygpath -m "$RESULTS")"
+        ;;
+esac
 [ -d "$RESULTS" ] || { echo "FAIL: no test results at $RESULTS" >&2; exit 1; }
 
 python3 - "$RESULTS" <<'PY'

@@ -61,7 +61,7 @@ stop)
   ;;
 status)
   if "$ADB" shell dumpsys activity services "$PKG" 2>/dev/null \
-       | grep -q "HunminTrace"; then
+       | grep -q "HunminTraceRecorder"; then
     echo "a trace sink appears active"
   else
     echo "no trace sink visible in dumpsys (it is off unless enabled)"

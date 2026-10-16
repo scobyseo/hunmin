@@ -794,7 +794,7 @@ Four layers, cheap→real:
   and compares nonsense. `ctest android-mutations` plants nine defects and
   requires all nine to be caught; a tenth candidate is deliberately NOT planted
   because it was measured to be unobservable, and is documented as such in both
-  `HunminEngineTest` and `tools/android-mutations.py`. The tier runs the
+  `HunminAdapterTest` and `tools/android-mutations.py`. The tier runs the
   unmutated suite once before planting anything, because a checkout that is
   already red reports all nine as "caught" for the wrong reason; see
   `docs/ANDROID-MUTATION-SANDBOX.md` §4.2 for the measurement and §2–3 for
@@ -804,14 +804,14 @@ Four layers, cheap→real:
   had already typed. The 한/영 toggle lost the composing syllable (no flush);
   a bare Alt — its own `ACTION_DOWN` before a Hanja chord (`Alt+X` at the time;
   the fixed key is EISU since 2026-10-11, issue #12) — reached
-  `HunminEngine.onKey`, whose modifier path flushed it; and the picked Hanja was
+  `HunminAdapter.onKey`, whose modifier path flushed it; and the picked Hanja was
   never committed at all, because an IME is a Service and receives no activity
-  result. The three tests in `HunminEngineTest` state the shared property —
+  result. The three tests in `HunminAdapterTest` state the shared property —
   *whatever interrupts a composition, the composing characters reach the client:
   committed or still composing, never neither* — and they caught a real defect
   while being written: the Hanja path went through `commitExternalText`, whose
   contract is invariant 5's voice pass-through, so it appended the Hanja after
-  the Hangul (`가恨`) instead of replacing it. `HunminEngine.commitHanja` is the
+  the Hangul (`가恨`) instead of replacing it. `HunminAdapter.commitHanja` is the
   replacement path, and the test that found the bug is the one that guards it.
 - **align-16k** ✅ (2026-10-11): `ctest align-16k`, `tools/check-align-16k.py`.
   Android 15+ on 16KB-page devices refuses an install whose native libraries are
@@ -944,7 +944,7 @@ Four layers, cheap→real:
   voice, one-tap IME switch and back, focus change mid-composition. Expectations are
   `hunmin-sim` invocations, not remembered answers.
   ✅ **The trace capture it depends on works, and is not just claimed.** A tier-C
-  trace sink in the **shipped** APK (`HunminTrace`) — a test-only sink would capture a
+  trace sink in the **shipped** APK (`HunminTraceRecorder`) — a test-only sink would capture a
   different adapter than the one a person holds, the mistake FRONTEND-CONTRACT §3
   already records for fcitx5. It is inert unless a broadcast opens it, and only on a
   debuggable build, so a release IME cannot be made to write files. `tools/e3-trace.sh`

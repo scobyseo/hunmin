@@ -314,12 +314,12 @@ enum class KeyAction(
  * with a map instead of the platform's SharedPreferences — the same shape
  * RecordingInputConnection uses for the InputConnection.
  */
-interface KeyBindingStore {
+interface KeyBindingRepository {
     fun read(key: String): String?
     fun write(key: String, value: String)
 }
 
-class SharedPrefsStore(private val prefs: android.content.SharedPreferences) : KeyBindingStore {
+class SharedPrefsKeyBindingRepository(private val prefs: android.content.SharedPreferences) : KeyBindingRepository {
     override fun read(key: String): String? = prefs.getString(key, null)
     override fun write(key: String, value: String) {
         prefs.edit().putString(key, value).apply()
@@ -330,20 +330,20 @@ object KeyBindings {
 
     const val PREFS_NAME = "hunmin_keys"
 
-    fun from(context: android.content.Context): KeyBindingStore =
-        SharedPrefsStore(context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE))
+    fun from(context: android.content.Context): KeyBindingRepository =
+        SharedPrefsKeyBindingRepository(context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE))
 
     /** The stored chord for [action], or null when the default is in force. */
-    fun stored(store: KeyBindingStore, action: KeyAction): KeyCombo? =
+    fun stored(store: KeyBindingRepository, action: KeyAction): KeyCombo? =
         KeyBinding.decode(store.read(action.prefKey))
 
     /** Every chord that fires [action]: the stored one, else the defaults. */
-    fun combos(store: KeyBindingStore, action: KeyAction): List<KeyCombo> =
+    fun combos(store: KeyBindingRepository, action: KeyAction): List<KeyCombo> =
         listOfNotNull(stored(store, action)) + action.defaults.takeIf {
             store.read(action.prefKey) == null
         }.orEmpty()
 
-    fun set(store: KeyBindingStore, action: KeyAction, combo: KeyCombo) {
+    fun set(store: KeyBindingRepository, action: KeyAction, combo: KeyCombo) {
         store.write(action.prefKey, combo.encode())
     }
 
@@ -365,7 +365,7 @@ object KeyBindings {
      * Platform alternates count: binding 한자 to a bare Right Alt really does
      * conflict, because 한/영 owns that chord as a hardware convention.
      */
-    fun conflict(store: KeyBindingStore, action: KeyAction, combo: KeyCombo): KeyAction? =
+    fun conflict(store: KeyBindingRepository, action: KeyAction, combo: KeyCombo): KeyAction? =
         KeyAction.byPrecedence().firstOrNull { other ->
             other != action &&
                 (combos(store, other) + other.platformAlternates).any { it == combo }
@@ -378,7 +378,7 @@ object KeyBindings {
      * a platform alternate — in that order, and the store is read once per call so
      * an event never costs more than one lookup.
      */
-    fun matches(store: KeyBindingStore, action: KeyAction, keyCode: Int, metaState: Int): Boolean {
+    fun matches(store: KeyBindingRepository, action: KeyAction, keyCode: Int, metaState: Int): Boolean {
         val raw = store.read(action.prefKey)
         val m = KeyBinding.normalise(metaState)
         if (raw != null) {

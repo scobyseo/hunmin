@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * LayoutCatalog — the layout list the settings window shows, split by mode and
+ * LayoutRegistry — the layout list the settings window shows, split by mode and
  * in the order it shows them.
  *
  * WHY THE SORT IS CODE-POINT ORDER AND NOT A COLLATOR
@@ -42,7 +42,7 @@ enum class LayoutMode {
     }
 }
 
-object LayoutCatalog {
+object LayoutRegistry {
 
     /**
      * The layout [mode] should actually run, out of what this build offers.

@@ -4,7 +4,7 @@
  * TraceEmit — tier C trace emitter for the Android frontend.
  *
  * Reads a platform-native trace (docs/trace-spec.md, Android dialect) from a file,
- * replays it through the real Android adapter (HunminEngine + host JNI shim),
+ * replays it through the real Android adapter (HunminAdapter + host JNI shim),
  * and emits the observed trace in the same JSONL format.
  *
  * Usage: TraceEmit <trace.in>
@@ -83,18 +83,18 @@ object TraceEmit {
         }
 
         // Create engine context
-        val ctx = HunminNative.nativeCtxNew(dataDir.absolutePath)
+        val ctx = HunminNativeBridge.nativeCtxNew(dataDir.absolutePath)
         if (ctx == 0L) {
             System.err.println("trace-emit: hunmin_ctx_new found no layout in ${dataDir.absolutePath}")
             System.exit(2)
         }
 
         // Check layout is supported
-        val n = HunminNative.nativeLayoutCount(ctx)
+        val n = HunminNativeBridge.nativeLayoutCount(ctx)
         var layoutSupported = false
         for (i in 0 until n) {
-            if (HunminNative.nativeLayoutSupported(ctx, i) &&
-                HunminNative.nativeLayoutId(ctx, i) == layout) {
+            if (HunminNativeBridge.nativeLayoutSupported(ctx, i) &&
+                HunminNativeBridge.nativeLayoutId(ctx, i) == layout) {
                 layoutSupported = true
                 break
             }
@@ -105,7 +105,7 @@ object TraceEmit {
         }
 
         // Create input context
-        val ic = HunminNative.nativeIcNew(ctx, layout)
+        val ic = HunminNativeBridge.nativeIcNew(ctx, layout)
         if (ic == 0L) {
             System.err.println("trace-emit: hunmin_ic_new failed for layout '$layout'")
             System.exit(2)
@@ -140,24 +140,24 @@ object TraceEmit {
             val mods = (inObj["mods"] as? Number)?.toInt() ?: 0
 
             // Feed key to engine
-            val used = HunminNative.nativeProcess(ic, keyCode)
+            val used = HunminNativeBridge.nativeProcess(ic, keyCode)
 
             var actualCommit = ""
             var preedit = ""
 
             if (used) {
                 // Read commit (destructive)
-                actualCommit = HunminNative.nativeCommit(ic) ?: ""
+                actualCommit = HunminNativeBridge.nativeCommit(ic) ?: ""
                 if (actualCommit.isNotEmpty()) {
                     // In real IME this would go to InputConnection.commitText
                 }
             } else {
                 // Engine declined: flush (destructive read of commit + preedit)
-                actualCommit = HunminNative.nativeFlush(ic) ?: ""
+                actualCommit = HunminNativeBridge.nativeFlush(ic) ?: ""
             }
 
             // Read preedit (non-destructive)
-            preedit = HunminNative.nativePreedit(ic) ?: ""
+            preedit = HunminNativeBridge.nativePreedit(ic) ?: ""
 
             // Validate against expected commit (like fcitx5 TestFrontend does)
             val expected = if (emitted < expectedCommits.size) expectedCommits[emitted] else ""
@@ -190,15 +190,15 @@ object TraceEmit {
         // Teardown: validate any remaining composition is flushed (like fcitx5 TestFrontend does)
         // But do NOT output it as a trace line - trace has one line per input event
         if (previousPreedit.isNotEmpty()) {
-            val tail = HunminNative.nativeFlush(ic) ?: ""
+            val tail = HunminNativeBridge.nativeFlush(ic) ?: ""
             if (tail.isNotEmpty()) {
                 // Validate tail commit matches what would be expected if there were another event
                 // The trace file doesn't record this, so we just validate it doesn't crash
             }
         }
 
-        HunminNative.nativeIcFree(ic)
-        HunminNative.nativeCtxFree(ctx)
+        HunminNativeBridge.nativeIcFree(ic)
+        HunminNativeBridge.nativeCtxFree(ctx)
     }
 
     /** Minimal JSON parser for the exact trace format. */

@@ -33,7 +33,7 @@
  * started for result, and B5 records that an IME could not receive one anyway.
  * So the answer is read back by whoever asked — `Context.checkSelfPermission`,
  * which is authoritative — and never by a flag written here. That is why this
- * class writes nothing, and why `HunminTrace`'s sink stays the only thing in the
+ * class writes nothing, and why `HunminTraceRecorder`'s sink stays the only thing in the
  * app that writes a file.
  *
  * ⚠️ WHAT NO TEST HERE CAN REACH, stated so no reader mistakes silence for a
