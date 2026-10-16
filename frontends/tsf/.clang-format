@@ -1,0 +1,15 @@
+---
+# C++ frontend style (Windows TSF): 4-space, as written in this directory.
+# Same normalisation intent as the root config (see its header): no
+# re-wrapping, no include re-sorting, no alignment ripple. clang-format picks
+# this config automatically for files in this directory tree; there is no
+# reference beyond indentation to the fcitx5 frontend or vice versa.
+BasedOnStyle: LLVM
+Language: Cpp
+IndentWidth: 4
+ColumnLimit: 0
+SortIncludes: Never
+ReflowComments: false
+AlignTrailingComments: false
+DerivePointerAlignment: false
+PointerAlignment: Right
