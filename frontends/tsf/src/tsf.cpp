@@ -1,14 +1,52 @@
 #include "hunmin.h"
 #include <cstdio>
+#include <cstring>
 #include <cwchar>
 #include <msctf.h>
 #include <richedit.h>
 #include <shlwapi.h>
+#include <string>
 #include <windows.h>
 #pragma comment(lib, "Shlwapi.lib")
 
+/* Debug logs land next to the DLL (build-msvc/Release inside the checkout),
+ * not at a drive root: the registered InprocServer32 path is absolute, so the
+ * DLL's own directory is the one clone-independent location every host
+ * process can resolve, and it stays inside the workspace. Set
+ * HUNMIN_TSF_LOG_DIR to override when that directory is read-only. */
+bool hunmin_tsf_log_path(const char *fname, char *out, size_t cap) {
+    wchar_t dirW[MAX_PATH];
+    wchar_t envW[MAX_PATH];
+    DWORD envAttr;
+    if (GetEnvironmentVariableW(L"HUNMIN_TSF_LOG_DIR", envW, MAX_PATH) > 0 &&
+        (envAttr = GetFileAttributesW(envW)) != INVALID_FILE_ATTRIBUTES &&
+        (envAttr & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+        lstrcpynW(dirW, envW, MAX_PATH);
+    } else {
+        HMODULE hMod = nullptr;
+        if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                (LPCWSTR)(const void *)&hunmin_tsf_log_path, &hMod) || !hMod)
+            return false;
+        if (GetModuleFileNameW(hMod, dirW, MAX_PATH) == 0)
+            return false;
+        if (!PathRemoveFileSpecW(dirW))
+            return false;
+    }
+    char dirA[MAX_PATH * 3];
+    if (WideCharToMultiByte(CP_ACP, 0, dirW, -1, dirA, sizeof(dirA), nullptr, nullptr) == 0)
+        return false;
+    int n = snprintf(out, cap, "%s\\%s", dirA, fname);
+    return n > 0 && (size_t)n < cap;
+}
+static FILE *tsf_log_open(const char *fname, const char *mode = "a") {
+    char path[MAX_PATH];
+    if (!hunmin_tsf_log_path(fname, path, sizeof(path)))
+        return nullptr;
+    return fopen(path, mode);
+}
+
 static void HMLOG(const char *fmt, ...) {
-    FILE *f = fopen("C:\\\\hunmin-tsf-debug.log", "a");
+    FILE *f = tsf_log_open("hunmin-tsf-debug.log");
     if (!f)
         return;
     va_list ap;
@@ -24,7 +62,7 @@ static hunmin_ctx *hunmin_ctx_from_module() {
     char dirs[8][MAX_PATH * 3];
     char *argv[8];
     int argc = 0;
-    FILE *dbg0 = fopen("C:\\hunmin-tsf-debug.log", "a");
+    FILE *dbg0 = tsf_log_open("hunmin-tsf-debug.log");
 
     if (GetEnvironmentVariableW(L"HUNMIN_DATA_DIR", envW, MAX_PATH) > 0 &&
         (GetFileAttributesW(envW) & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
@@ -177,7 +215,7 @@ class CTextService : public ITfTextInputProcessor,
         clientId_ = tid;
         if (ptm)
             ptm->AddRef();
-        FILE *dbg = fopen("C:\\hunmin-tsf-debug.log", "a");
+        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
         if (dbg) {
             fprintf(dbg, "Activate pid=%lu tid=%u\n", (unsigned long)GetCurrentProcessId(), (unsigned)tid);
             fflush(dbg);
@@ -185,7 +223,7 @@ class CTextService : public ITfTextInputProcessor,
         }
         if (ptm) {
             ITfKeystrokeMgr *pks = nullptr;
-            FILE *dbg2 = fopen("C:\\\\hunmin-tsf-debug.log", "a");
+            FILE *dbg2 = tsf_log_open("hunmin-tsf-debug.log");
             if (dbg2)
                 fprintf(dbg2, "Advise threadmgr attempt\n"), fflush(dbg2);
             ITfSource *src = nullptr;
@@ -218,7 +256,7 @@ class CTextService : public ITfTextInputProcessor,
                 fclose(dbg2);
         }
         ctx_ = hunmin_ctx_from_module();
-        FILE *dbg3 = fopen("C:\\hunmin-tsf-debug.log", "a");
+        FILE *dbg3 = tsf_log_open("hunmin-tsf-debug.log");
         if (dbg3) {
             fprintf(dbg3, "  ctx_=%p\n", (void *)ctx_);
             fflush(dbg3);
@@ -247,15 +285,23 @@ class CTextService : public ITfTextInputProcessor,
             threadMgr_ = nullptr;
         }
         if (lastCtx_ && ic_) {
-            const char *pre = hunmin_ic_preedit(ic_);
-            if (pre && *pre) {
-                const char *flushed = hunmin_ic_flush(ic_);
-                if (flushed && flushed[0]) {
-                    int wlen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
-                    if (wlen > 1) {
-                        wchar_t *wbuf = new wchar_t[wlen];
-                        MultiByteToWideChar(CP_UTF8, 0, flushed, -1, wbuf, wlen);
-                        class DeactSession : public ITfEditSession {
+            const char *flushed = hunmin_ic_flush(ic_);
+            if (flushed && flushed[0]) {
+                int flen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
+                if (flen > 1) {
+                    size_t old = wordbuf_.size();
+                    /* flen counts the NUL terminator; text only, as above. */
+                    wordbuf_.resize(old + flen - 1);
+                    MultiByteToWideChar(CP_UTF8, 0, flushed, -1, &wordbuf_[old], flen);
+                }
+            }
+        }
+        if (!wordbuf_.empty() && lastCtx_) {
+            int wlen = (int)wordbuf_.size() + 1;
+            wchar_t *wbuf = new wchar_t[wlen];
+            wordbuf_.copy(wbuf, wordbuf_.size());
+            wbuf[wordbuf_.size()] = 0;
+            class DeactSession : public ITfEditSession {
                           public:
                             DeactSession(ITfContext *ctx, TfClientId cid, const wchar_t *t)
                                 : ref_(1), ctx_(ctx), cid_(cid), t_(t) {}
@@ -300,11 +346,9 @@ class CTextService : public ITfTextInputProcessor,
                         lastCtx_->RequestEditSession(clientId_, ds, TF_ES_SYNC | TF_ES_READWRITE, &hrS);
                         ds->Release();
                         delete[] wbuf;
-                    }
-                }
-            }
-            HideOverlay();
         }
+        wordbuf_.clear();
+        HideOverlay();
         if (ic_) {
             hunmin_ic_free(ic_);
             ic_ = nullptr;
@@ -330,7 +374,7 @@ class CTextService : public ITfTextInputProcessor,
         return S_OK;
     }
     STDMETHOD(OnSetFocus)(ITfDocumentMgr *pdmFocus, ITfDocumentMgr *pdmPrevFocus) override {
-        FILE *dbg = fopen("C:\\\\hunmin-tsf-debug.log", "a");
+        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
         if (dbg) {
             fprintf(dbg, "TM-OnSetFocus pdmFocus=%p pdmPrev=%p modePid=%lu\n", (void *)pdmFocus, (void *)pdmPrevFocus,
                     (unsigned long)GetCurrentProcessId());
@@ -359,7 +403,7 @@ class CTextService : public ITfTextInputProcessor,
 
     // ITfKeyEventSink
     STDMETHOD(OnSetFocus)(BOOL fFocus) override {
-        FILE *dbg = fopen("C:\\\\hunmin-tsf-debug.log", "a");
+        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
         if (dbg) {
             fprintf(dbg, "KS-OnSetFocus fFocus=%d modePid=%lu\n", (int)fFocus, (unsigned long)GetCurrentProcessId());
             fflush(dbg);
@@ -371,7 +415,7 @@ class CTextService : public ITfTextInputProcessor,
     STDMETHOD(OnTestKeyDown)(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) override {
         (void)pic;
         (void)lParam;
-        FILE *dbg = fopen("C:\\\\hunmin-tsf-debug.log", "a");
+        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
         BOOL eat = FALSE;
         if (wParam == VK_CAPITAL)
             eat = TRUE;
@@ -397,7 +441,7 @@ class CTextService : public ITfTextInputProcessor,
             if (lastCtx_)
                 lastCtx_->AddRef();
         }
-        FILE *dbg = fopen("C:\\hunmin-tsf-debug.log", "a");
+        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
         if (dbg) {
             fprintf(dbg, "OnKeyDown wParam=%lu ic=%p\n", (unsigned long)wParam, (void *)ic_);
             fflush(dbg);
@@ -505,142 +549,59 @@ class CTextService : public ITfTextInputProcessor,
         }
         bool consumed = hunmin_ic_process(ic_, (uint32_t)ch);
         if (consumed) {
-            if (dbg) {
-                fprintf(dbg, " consumed, preedit=%s\n", hunmin_ic_preedit(ic_));
-                fflush(dbg);
-            }
+            /* Word buffering (issue #73, adapter-side; no libhunmin change):
+             * hunmin_ic_commit() is a destructive read of every syllable the
+             * engine finalised so far, so the adapter accumulates it instead
+             * of inserting per syllable. Insertion happens exactly once, on
+             * the first boundary key (declined path below). */
             const char *commit = hunmin_ic_commit(ic_);
             if (commit && commit[0]) {
-                int wlen = MultiByteToWideChar(CP_UTF8, 0, commit, -1, nullptr, 0);
-                if (wlen > 1) {
-                    wchar_t *wbuf = new wchar_t[wlen];
-                    MultiByteToWideChar(CP_UTF8, 0, commit, -1, wbuf, wlen);
-                    class EditSession : public ITfEditSession {
-                      public:
-                        EditSession(ITfContext *ctx, CTextService *svc, TfClientId cid, const wchar_t *t)
-                            : ref_(1), ctx_(ctx), svc_(svc), cid_(cid), t_(t) {}
-                        STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
-                            if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
-                                *ppv = this;
-                                AddRef();
-                                return S_OK;
-                            }
-                            *ppv = nullptr;
-                            return E_NOINTERFACE;
-                        }
-                        STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
-                        STDMETHOD_(ULONG, Release)() override {
-                            ULONG r = (ULONG)InterlockedDecrement(&ref_);
-                            if (r == 0)
-                                delete this;
-                            return r;
-                        }
-                        STDMETHOD(DoEditSession)(TfEditCookie ec) override {
-                            TF_SELECTION sel;
-                            ULONG fetched = 0;
-                            HRESULT hr = E_NOINTERFACE;
-                            if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) &&
-                                fetched == 1 && sel.range) {
-                                sel.range->SetText(ec, 0, t_, -1);
-                                sel.range->Collapse(ec, TF_ANCHOR_END);
-                                TF_SELECTION ns = sel;
-                                ctx_->SetSelection(ec, 1, &ns);
-                                sel.range->Release();
-                                hr = S_OK;
-                            }
-                            HMLOG("commit: insert hr=0x%lX\n", (unsigned long)hr);
-                            return S_OK;
-                        }
-
-                      private:
-                        LONG ref_;
-                        ITfContext *ctx_;
-                        CTextService *svc_;
-                        TfClientId cid_;
-                        const wchar_t *t_;
-                    };
-                    EditSession *es = new EditSession(pic, this, clientId_, wbuf);
-                    HRESULT hrSess = S_OK;
-                    pic->RequestEditSession(clientId_, es, TF_ES_SYNC | TF_ES_READWRITE, &hrSess);
-                    if (dbg) {
-                        fprintf(dbg, " commit edit hr=0x%lX commit=%s\n", (unsigned long)hrSess, commit);
-                        fflush(dbg);
-                    }
-                    es->Release();
-                    delete[] wbuf;
-                    UpdateOverlay(pic);
+                int clen = MultiByteToWideChar(CP_UTF8, 0, commit, -1, nullptr, 0);
+                if (clen > 1) {
+                    size_t old = wordbuf_.size();
+                    /* clen counts the NUL terminator; the buffer holds text
+                     * only, or every later insert/overlay would stop at the
+                     * embedded NUL after the first syllable. */
+                    wordbuf_.resize(old + clen - 1);
+                    MultiByteToWideChar(CP_UTF8, 0, commit, -1, &wordbuf_[old], clen);
                 }
+            }
+            if (dbg) {
+                fprintf(dbg, " consumed, word len=%zu preedit=%s\n", wordbuf_.size(), hunmin_ic_preedit(ic_));
+                fflush(dbg);
             }
             UpdateOverlay(pic);
             if (pfEat)
                 *pfEat = TRUE;
         } else {
-            // Engine declined (space, empty backspace, unmapped): hunmin_ic_process
-            // already saved the in-flight syllable into the commit buffer, but only
-            // via save_commit. Flush reads it out so the frontend can deliver it,
-            // then re-render the now-empty preedit. The original key is NOT eaten
-            // (pfEat stays FALSE) and the client processes it -- matching the
-            // fcitx/android "used=FALSE => passthrough" contract.
+            /* Engine declined (space, empty backspace, unmapped): a word
+             * boundary for the buffering adapter (issue #73). The engine has
+             * already saved the in-flight syllable via save_commit; flush
+             * reads it, the adapter appends whatever word it has been
+             * holding, and the whole word is inserted exactly once before
+             * the boundary key passes through (pfEat stays FALSE) --
+             * matching the fcitx/android "used=FALSE => passthrough"
+             * contract. */
             const char *flushed = hunmin_ic_flush(ic_);
+            if (flushed && flushed[0]) {
+                int flen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
+                if (flen > 1) {
+                    size_t old = wordbuf_.size();
+                    /* flen counts the NUL terminator; text only, as above. */
+                    wordbuf_.resize(old + flen - 1);
+                    MultiByteToWideChar(CP_UTF8, 0, flushed, -1, &wordbuf_[old], flen);
+                }
+            }
             if (dbg) {
-                fprintf(dbg, " declined, flushed=%s preedit=%s\n", flushed ? flushed : "", hunmin_ic_preedit(ic_));
+                fprintf(dbg, " boundary, word len=%zu preedit=%s\n", wordbuf_.size(), hunmin_ic_preedit(ic_));
                 fflush(dbg);
             }
-            if (flushed && flushed[0]) {
-                int wlen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
-                if (wlen > 1) {
-                    wchar_t *wbuf = new wchar_t[wlen];
-                    MultiByteToWideChar(CP_UTF8, 0, flushed, -1, wbuf, wlen);
-                    class FlushSession : public ITfEditSession {
-                      public:
-                        FlushSession(ITfContext *ctx, CTextService *svc, TfClientId cid, const wchar_t *t)
-                            : ref_(1), ctx_(ctx), svc_(svc), cid_(cid), t_(t) {}
-                        STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
-                            if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
-                                *ppv = this;
-                                AddRef();
-                                return S_OK;
-                            }
-                            *ppv = nullptr;
-                            return E_NOINTERFACE;
-                        }
-                        STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
-                        STDMETHOD_(ULONG, Release)() override {
-                            ULONG r = (ULONG)InterlockedDecrement(&ref_);
-                            if (r == 0)
-                                delete this;
-                            return r;
-                        }
-                        STDMETHOD(DoEditSession)(TfEditCookie ec) override {
-                            TF_SELECTION sel;
-                            ULONG fetched = 0;
-                            HRESULT hr = E_NOINTERFACE;
-                            if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) &&
-                                fetched == 1 && sel.range) {
-                                sel.range->SetText(ec, 0, t_, -1);
-                                sel.range->Collapse(ec, TF_ANCHOR_END);
-                                TF_SELECTION ns = sel;
-                                ctx_->SetSelection(ec, 1, &ns);
-                                sel.range->Release();
-                                hr = S_OK;
-                            }
-                            HMLOG("flush: insert hr=0x%lX\n", (unsigned long)hr);
-                            return S_OK;
-                        }
-
-                      private:
-                        LONG ref_;
-                        ITfContext *ctx_;
-                        CTextService *svc_;
-                        TfClientId cid_;
-                        const wchar_t *t_;
-                    };
-                    FlushSession *fs = new FlushSession(pic, this, clientId_, wbuf);
-                    HRESULT hrFlush = S_OK;
-                    pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
-                    fs->Release();
-                    delete[] wbuf;
-                }
+            if (!wordbuf_.empty()) {
+                FlushSession *fs = new FlushSession(pic, this, clientId_, wordbuf_.c_str());
+                HRESULT hrFlush = S_OK;
+                pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
+                fs->Release();
+                wordbuf_.clear();
             }
             UpdateOverlay(pic);
         }
@@ -689,17 +650,19 @@ class CTextService : public ITfTextInputProcessor,
             return;
         }
         const char *pre = hunmin_ic_preedit(ic_);
-        if (!pre || !*pre) {
-            HideOverlay();
-            return;
-        }
+        /* Overlay shows the whole buffered word (issue #73): accumulated
+         * finalised syllables plus the in-flight preedit. */
+        size_t wword = wordbuf_.size();
         int wlen = MultiByteToWideChar(CP_UTF8, 0, pre, -1, nullptr, 0);
-        if (wlen <= 1) {
+        if (wlen < 0)
+            wlen = 0;
+        if (wword + (size_t)wlen <= 1) {
             HideOverlay();
             return;
         }
-        wchar_t *wbuf = new wchar_t[wlen];
-        MultiByteToWideChar(CP_UTF8, 0, pre, -1, wbuf, wlen);
+        wchar_t *wbuf = new wchar_t[wword + (size_t)wlen];
+        memcpy(wbuf, wordbuf_.c_str(), wword * sizeof(wchar_t));
+        MultiByteToWideChar(CP_UTF8, 0, pre, -1, wbuf + wword, wlen);
 
         hasPreeditRect_ = false;
         class RectSession : public ITfEditSession {
@@ -862,6 +825,10 @@ class CTextService : public ITfTextInputProcessor,
     bool hasPreeditRect_;
     ITfContext *lastCtx_;
 
+    /* Finalised syllables held for insertion at the next boundary key
+     * (issue #73); drained destructively by hunmin_ic_commit(). */
+    std::wstring wordbuf_;
+
     // Helper used both for declined/pass-through keys to flush the pending
     // composition exactly once, deleting the already-present composed text.
     class FlushSession : public ITfEditSession {
@@ -913,7 +880,7 @@ extern "C" HINSTANCE g_hunmin_hinst;
 /* placeholder */
 extern "C" BOOL DllRegisterServer() {
     // logging
-    FILE *dbg = fopen("C:\\hunmin-reg-debug.log", "w");
+    FILE *dbg = tsf_log_open("hunmin-reg-debug.log", "w");
     wchar_t guidStr[64];
     StringFromGUID2(CLSID_HunminTSF, guidStr, 64);
     if (dbg) {
@@ -1003,10 +970,63 @@ extern "C" BOOL DllRegisterServer() {
             fwprintf(dbg, L"pProfile->EnableLanguageProfile hr=0x%lX\n", (unsigned long)enableHr);
             fflush(dbg);
         }
-        HRESULT activateHr = pProfile->ActivateLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid);
+        /* Activation has to be asked for on the modern interface.
+         *
+         * ITfInputProcessorProfiles::ActivateLanguageProfile returns S_OK
+         * while activating nothing beyond the calling process: measured on
+         * this machine, GetActiveLanguageProfile then still answered S_FALSE
+         * for hunmin AND for the Microsoft IME, and a fresh Notepad loaded
+         * MSCTF.dll but never hunmin-tsf.dll -- no Activate(), no key sink.
+         *
+         * Measured for ITfInputProcessorProfileMgr::ActivateProfile: neither
+         * TF_IPPMF_FORSESSION nor TF_IPPMF_FORSYSTEMALL (both with
+         * TF_IPPMF_ENABLEPROFILE) persists past the registering process --
+         * a fresh process still reports the Microsoft IME as active. What
+         * they do record is the enablement/profile entry, so the profile is
+         * selectable; selecting it (Win+Space) then loads and activates the
+         * TIP in the focused process, measured end to end. The CTF default
+         * assembly (HKCU ...CTF SortOrder index 0 / Assemblies Default) is
+         * Windows Settings' store and is deliberately not written here.
+         */
+        ITfInputProcessorProfileMgr *pProfileMgr = nullptr;
+        HRESULT mgrHr = pProfile->QueryInterface(IID_ITfInputProcessorProfileMgr, (LPVOID *)&pProfileMgr);
         if (dbg) {
-            fwprintf(dbg, L"pProfile->ActivateLanguageProfile hr=0x%lX\n", (unsigned long)activateHr);
+            fwprintf(dbg, L"pProfile QI(ITfInputProcessorProfileMgr) hr=0x%lX\n", (unsigned long)mgrHr);
             fflush(dbg);
+        }
+        if (SUCCEEDED(mgrHr) && pProfileMgr) {
+            HRESULT actHr =
+                pProfileMgr->ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, 0x0412, CLSID_HunminTSF, profileGuid,
+                                             nullptr, TF_IPPMF_FORSYSTEMALL | TF_IPPMF_ENABLEPROFILE);
+            if (dbg) {
+                fwprintf(dbg, L"pProfileMgr->ActivateProfile hr=0x%lX\n", (unsigned long)actHr);
+                fflush(dbg);
+            }
+            TF_INPUTPROCESSORPROFILE active;
+            ZeroMemory(&active, sizeof(active));
+            HRESULT getHr = pProfileMgr->GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD, &active);
+            if (dbg) {
+                fwprintf(dbg, L"pProfileMgr->GetActiveProfile hr=0x%lX active.clsid={%08lX} active.profile=%08lX\n",
+                         (unsigned long)getHr, (unsigned long)active.clsid.Data1,
+                         (unsigned long)active.guidProfile.Data1);
+                fflush(dbg);
+            }
+            if (FAILED(getHr) || !IsEqualGUID(active.clsid, CLSID_HunminTSF)) {
+                /* Pre-Vista hosts, or a profile the session refused: the
+                 * legacy call is the only thing left to try. */
+                HRESULT legacyHr = pProfile->ActivateLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid);
+                if (dbg) {
+                    fwprintf(dbg, L"fallback ActivateLanguageProfile hr=0x%lX\n", (unsigned long)legacyHr);
+                    fflush(dbg);
+                }
+            }
+            pProfileMgr->Release();
+        } else {
+            HRESULT legacyHr = pProfile->ActivateLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid);
+            if (dbg) {
+                fwprintf(dbg, L"ActivateLanguageProfile (no ProfileMgr) hr=0x%lX\n", (unsigned long)legacyHr);
+                fflush(dbg);
+            }
         }
         pProfile->Release();
     }
@@ -1081,7 +1101,7 @@ class CClassFactory : public IClassFactory {
 };
 
 extern "C" HRESULT DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv) {
-    FILE *dbg = fopen("C:\\hunmin-tsf-debug.log", "a");
+    FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
     wchar_t str[64];
     StringFromGUID2(rclsid, str, 64);
     if (dbg) {

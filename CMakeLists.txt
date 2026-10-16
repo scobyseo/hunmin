@@ -19,7 +19,15 @@ find_package(PkgConfig QUIET)
 find_package(Python3 QUIET COMPONENTS Interpreter)
 
 # ---------------------------------------------------------------- libhunmin
-add_library(hunmin SHARED
+# One source list, two library kinds: the shared library for the POSIX
+# frontends and tests, and a static archive for the Windows TSF TIP.
+#
+# The TSF DLL is loaded by the registry's InprocServer32 path with no
+# controlled search path, so its dependencies are resolved against the
+# application's search order -- the DLL's own directory is NOT searched for
+# them (measured: ERROR_MOD_NOT_FOUND with hunmin.dll beside it). Linking
+# the engine in is what makes the registered path self-contained.
+set(HUNMIN_CORE_SOURCES
   libhunmin/src/version.c
   libhunmin/src/tables.c
   libhunmin/src/data.c
@@ -27,6 +35,8 @@ add_library(hunmin SHARED
   libhunmin/src/ic.c
   libhunmin/src/suggest.c
   third_party/cJSON/cJSON.c)
+
+add_library(hunmin SHARED ${HUNMIN_CORE_SOURCES})
 target_include_directories(hunmin PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/include)
 target_include_directories(hunmin PRIVATE third_party/cJSON libhunmin/src)
 set_target_properties(hunmin PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 0
@@ -34,6 +44,16 @@ set_target_properties(hunmin PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 0
 target_compile_definitions(hunmin PRIVATE
   HUNMIN_DEFAULT_DATA_DIR=\"${CMAKE_INSTALL_FULL_DATADIR}/hunmin\")
 target_link_options(hunmin PRIVATE -Wl,--export-all-symbols)
+
+add_library(hunmin_static STATIC ${HUNMIN_CORE_SOURCES})
+target_include_directories(hunmin_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/include)
+target_include_directories(hunmin_static PRIVATE third_party/cJSON libhunmin/src)
+set_target_properties(hunmin_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(hunmin_static PRIVATE
+  HUNMIN_DEFAULT_DATA_DIR=\"${CMAKE_INSTALL_FULL_DATADIR}/hunmin\")
+# The static archive is an intermediate for in-tree consumers (frontends/tsf),
+# not an installed artifact: the shipped Windows form is the TIP DLL, which
+# carries the engine with it.
 
 install(FILES libhunmin/include/hunmin.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(DIRECTORY libhunmin/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin)
