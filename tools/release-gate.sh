@@ -223,6 +223,36 @@ CTEST_RC="${PIPESTATUS[0]}"
 
 SKIPPED="$(parse_skipped /tmp/hunmin-release-gate.log | tr '\n' ' ')"
 
+# A tier that was never REGISTERED is invisible to every check above: ctest does
+# not run it, so it cannot fail, and it does not appear in the skip list either.
+# The suite then reads "100% tests passed" over fewer tests, which is the exact
+# shape of the defects this gate exists to catch -- measured 2026-10-16, and it
+# happened to the gate's own author.
+#
+# How it happens, measured the same day: CMakeLists.txt guards the adb/NDK-gated
+# Android tiers on `if(ADB_EXECUTABLE AND EXISTS "$ENV{ANDROID_NDK}")`. The
+# first half is a cached find_program, the second reads the ENVIRONMENT at
+# configure time. Re-running `cmake -B build` in a shell that has JAVA_HOME and
+# ANDROID_HOME exported but not ANDROID_NDK therefore drops engine-android-e2e,
+# engine-android-goldens and engine-android-espresso from the build, with no
+# warning, and every later run is green over a suite that cannot see them.
+# AGENTS.md already warns that these must be exported at CONFIGURE time; what it
+# does not say is that getting it wrong is invisible, which is what this checks.
+#
+# So: when the environment declares a toolchain, the tests that depend on it MUST
+# be registered. The condition is the same variables CMake used, so the check
+# cannot disagree with the build about why they are missing.
+missing_registration=""
+if [ -n "${ANDROID_NDK:-}" ] && [ -d "${ANDROID_NDK}" ] \
+   && [ -x "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb" ]; then
+    REGISTERED="$(ctest --test-dir "$BUILD_DIR" -N 2>/dev/null \
+                 | grep -oE "Test +#[0-9]+: [^ ]+" | sed 's/.*: //')"
+    for req in engine-android-goldens engine-android-e2e engine-android-espresso; do
+        printf '%s\n' "$REGISTERED" | grep -qx "$req" \
+            || missing_registration="$missing_registration $req"
+    done
+fi
+
 # Contention is not an excuse: a test in RERUN_ALONE that skipped under -j gets
 # run on its own, and only a skip that survives an uncontended run is a skip.
 RERUN_RESOLVED=""
@@ -261,6 +291,18 @@ if [ -n "$UNEXPECTED" ]; then
     echo "  A release gate passes on tests that RAN. Either run them, or find"
     echo "  out why they skipped and record it as an exception here, with the"
     echo "  measurement that says so."
+    rc=1
+fi
+if [ -n "$missing_registration" ]; then
+    echo
+    echo "GATE FAILED: tier(s) NOT REGISTERED despite a declared toolchain:$missing_registration"
+    echo "  A tier that was never registered cannot fail and does not appear as a"
+    echo "  skip, so the suite reads green over fewer tests. The cause is almost"
+    echo "  always a build tree configured without the toolchain in the"
+    echo "  environment: CMakeLists.txt gates these on ANDROID_NDK at CONFIGURE"
+    echo "  time, and re-running cmake without the export drops them silently."
+    echo "  Fix: export JAVA_HOME, ANDROID_HOME and ANDROID_NDK, then"
+    echo "    rm -rf $BUILD_DIR && cmake -B $BUILD_DIR -DHUNMIN_TRACE_BUILD=ON"
     rc=1
 fi
 if [ -n "$STALE" ]; then
