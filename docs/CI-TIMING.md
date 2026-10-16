@@ -469,3 +469,33 @@ has executed since, so the first deb run after this lands is the confirmation.
 The commit that introduced the mismatch is `6cd5d20` ("shared fcitx5"), which
 is also the commit that made the deb job depend on the artefact at all — the
 two halves of that change did not agree with each other.
+
+---
+
+## 6. None of this can currently be re-measured (2026-10-16)
+
+Every figure above came from runs that executed. **No CI job has run since
+2026-10-13**: every run reports zero steps, and the maintainer's answer to why
+is an account one, not a tree one — *"current failures are on payment issue.
+i'll maintain free account policy, and wait for the limitation unlocked."*
+Measured evidence and the resolution: `docs/REMAINING-WORK.md` §3.
+
+Three consequences, stated here because each one invalidates a thing this
+document would otherwise be used for:
+
+1. **The budgets in §5 are the last measured ones, not current ones.** The
+   3-minute `linux` ceiling and the ~78 s projection were measured against runs
+   that did execute. Nothing here says they still hold; nothing here can say so
+   until a run does.
+2. **The PR-versus-nightly split is deferred, not rejected.** It was raised on
+   2026-10-16 and the objections are recorded (per-job trigger scoping, because
+   `android-release` is gated on `push`; tier E1 is the tier that proves the
+   adapter's `onKeyDown` path, so moving it to nightly is a coverage decision
+   rather than a saving). It cannot be costed against runs that never execute,
+   so the decision waits for the limitation to lift and is re-opened then.
+3. **The local gate is the gate meanwhile.** `tools/release-gate.sh` — 184
+   registered tests on this host at `-j4`, 2 declared skips, and a verdict on
+   both. It is the local stand-in for §5's budget, and it is what a release is
+   checked against until CI runs again. Its own numbers are local, and CI-TIMING
+   §2 is the standing warning that local and CI do not measure the same suite —
+   which is now the whole comparison, since only the local side is available.

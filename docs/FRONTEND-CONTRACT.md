@@ -167,7 +167,7 @@ the other branch is not covered by any test today.
 
 ### A7. Layout changes are lazy
 
-`ensureIc()` compares `config().layout` against the cached `layout_` and only
+`ensureIc()` compares `config().hangulLayout` against the cached `layout_` and only
 rebuilds the `hunmin_ic` on a key event. `setConfig` therefore only calls
 `reset()` on live contexts and comments that the swap happens "lazily on the
 next key".
@@ -265,7 +265,7 @@ mutations compiled, passed D1, and slipped past every written invariant:
 
 ### Per-item `Layout=` (defect, found and fixed 2026-10-02)
 
-`engine.cpp` used to read only `config().layout`, the addon-wide
+`engine.cpp` used to read only `config().hangulLayout`, the addon-wide
 `conf/hunmin.conf` option, so a `Layout=` beside an IM in the user's profile
 had no effect.
 
@@ -318,11 +318,14 @@ showed that a prose rule nobody can execute catches nothing. Run
    Check: no `hunmin_ic` field anywhere outside `HunminState`.
 
 7. **The per-item profile `Layout` wins over the addon-wide default.**
-   Check: `layout.empty() ? *engine_->config().layout : layout` is present
+   Check: `layout.empty() ? *engine_->config().hangulLayout : layout` is present
    and reaches `keyEvent` via `layoutFor(entry)`. Added after finding that
    fcitx5 writes the per-item value back to the profile but the addon never
    read it — the two code paths look identical once the override is discarded,
-   so only a structural check catches it.
+   so only a structural check catches it. The accessor was renamed
+   `config().layout` → `config().hangulLayout` by `1521fad` (separate
+   Hangul/Latin pickers); this check and `tools/frontend-mutations.py`'s
+   `I5-layout-override-ignored` anchor name it, so both move with it.
 8. **The adapter stays inside the thin-adapter budget (rule #4).**
    Check: code lines across `engine.{h,cpp}`, `config.h`, `modeswitch.{h,cpp}`
    ≤ **545**, comments and blanks excluded. This is a measurement, not a

@@ -9,9 +9,13 @@
 #   2. Create git tag:     0.1.0   (project version, no 'v' prefix — versionname
 #                             ruling in docs/MILESTONES.md §0.1 names the release
 #                             "0.1.0" bare, per issue #9)
-#   3. Create GitHub Release:  gh release create 0.1.0 --title "hunmin 0.1.0" \
-#                              --notes-file docs/release-notes/0.1.md
-#   4. Upload artifact:    gh release upload 0.1.0 hunmin_0.1.0_amd64.deb
+#   3. Push the tag:      git push origin 0.1.0
+#   4. Create GitHub Release:  gh release create 0.1.0 --title "hunmin 0.1.0" \
+#                              --notes-file docs/release-notes/0.1.0.md
+#   5. Upload artifact:    gh release upload 0.1.0 hunmin_0.1.0_amd64.deb
+#
+# Steps 3-5 are the irreversible ones, which is why the bare invocation prints
+# them instead of running them (see DRY_RUN below).
 #
 # Why step 1 delegates rather than repeating the command: the build path lives in
 # one place. build-release.sh carries the worktree/krdict failure explanation that
@@ -43,7 +47,16 @@ REPO="${REPO:-scobyseo/hunmin}"
 VERSION="0.1.0"
 TAG="0.1.0"
 ARTIFACT="hunmin_${VERSION}_amd64.deb"
-DRY_RUN=0
+# Default is the SAFE one. This was 0 on 2026-10-16, which contradicted the
+# usage line directly above ("tools/release-0.1.sh  # dry run: prints every
+# command, changes nothing"): the bare command took the real path end to end —
+# dpkg-buildpackage, git tag, git push, gh release create, gh release upload.
+# Measured: running it bare started a real dpkg-buildpackage; the run was cut
+# short by a closed pipe, and no tag and no release existed afterwards, so
+# nothing was published — but nothing in the script prevented it. A script that
+# publishes must default to printing, because the published thing is the
+# irreversible step (a tag push and a public release), not the build.
+DRY_RUN=1
 FORCE_TAG=0
 # Derived from this script's own location, never a hardcoded path (AGENTS.md).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -143,4 +156,10 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   fi
 fi
 
-echo "==> Done. GitHub Release: https://github.com/${REPO}/releases/tag/${TAG}"
+if [[ $DRY_RUN -eq 1 ]]; then
+  echo
+  echo "==> Dry run finished. Nothing was built, tagged, pushed, published or uploaded."
+  echo "==> To do it for real: tools/release-0.1.sh --yes"
+else
+  echo "==> Done. GitHub Release: https://github.com/${REPO}/releases/tag/${TAG}"
+fi

@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-16 | Total pages: 33
+> Last updated: 2026-10-16 | Total pages: 35
 
 **`docs/` stays authoritative** for specifications, contracts and citable
 figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
@@ -40,6 +40,13 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   `0.1.0-p5.5`) — `0.1.0` is the release, `-pN` the build phase. What the
   ruling does *not* close: `versionCode = 1` was never incremented, and no
   tag exists yet.
+- [[2026-10-16-release-gate-all-tests-pass]] — the release gate, as the
+  maintainer ruled it on 2026-10-16: "on release, all TCs in this repo should
+  pass, except data-selfcheck which cannot pass". Encoded in
+  `tools/release-gate.sh`. What the measurement added: the tree has **three**
+  skips on this host, not one — `modes-corpus-selfcheck` is the same
+  corpus-outside-the-repo class, and `engine-android-e2e` skips on the attached
+  AVD for want of a focusable Settings field.
 - [[2026-10-16-0-1-distribution-channel-github-release]] — issue #7 ruled: a 0.1
   user gets the `.deb` and the APK from a **GitHub Release on tag `0.1.0`**,
   scripted in `tools/release-0.1.sh`. What the ruling does *not* close: no tag or
@@ -102,6 +109,16 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   `docs/ANDROID-UI-NOTES.md`.
 
 ## Raw — measurements
+
+- [[2026-10-16-android-e2e-keys-bypass-the-ime]] — **two findings.** Closed:
+  tier E2 had been asserting nothing, because `dump_ui` was defined below its
+  first call *and* its validity check (`wc -l` on a single-line XML dump) could
+  never pass — every tap and every read failed, and a skip is exit 77, so the
+  tier reported 100% passed over zero assertions. Fixed; E2 then ran to
+  completion twice (108 s each). Open and **not root-caused**: injected keys now
+  reach the field as literal ASCII while dumpsys says the IME is current,
+  connected, bound, shown and visible. Five hypotheses tested and refuted, each
+  recorded.
 
 - [[2026-10-15-f9-candidate-ctest-tier]] — issue #53's option A, built and
   measured: `engine-d3-candidate` draws the F9 candidate window for the first

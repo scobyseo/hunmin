@@ -87,7 +87,7 @@ is a decision. These are the items an agent may measure but may not settle.
 | B6 | **D3 — is a frequency list derived from AIHub 119 a reshaping?** | `the-outstanding-decisions.md:41-47` | Licence question. *"probably no, but it has not been settled and should not be assumed either way."* |
 | B7 | **D4 — does the wiki stay?** | `the-outstanding-decisions.md:49-60`, `status: active`, `contested: true` | Adopted *"to be re-evaluated later"*, against three named criteria. |
 | B8 | **The keystore path in `build.gradle.kts:77`** | §3 W3 | ✅ **DECIDED 2026-10-13** | Maintainer: the keystore config lives in gitignored `local.properties` (`frontends/android/local.properties`); nothing in committed build config hardcodes a host path. `app` and `keymaps` both resolve `storeFile`/`storePassword`/`keyPassword`/`keyAlias` from `local.properties`, honor the `HUNMIN_RELEASE_STORE` env override (CI `android-release` job + `tools/build-release.sh`), and generate a throwaway release key at build time when no keystore is present. Ruling quoted in `wiki/decisions/2026-10-13-b8-keystore-path-resolved.md`. What remains: the maintainer picks whether `local.properties` is the permanent canonical keystore and whether to keep the throwaway-key fallback. |
-| B9 | **The R8 adapter's structural divergence from R3** | §3 M1 | R3 `[D]` puts guessing in the engine; `modeswitch.*` puts it in the fcitx5 addon. One of the two documents is wrong. Not an agent's call. |
+| B9 | **The R8 adapter's structural divergence from R3** | §3 M1 | ✅ **DECIDED 2026-10-14** | R3 `[D]` put guessing in the engine while `modeswitch.*` put it in the fcitx5 addon. The maintainer's ruling: **R8 is adaptor-owned** — the requirement is one judgement rule owned by one component and identical on every frontend; the owner and the mechanism are a design decision, not a requirement. Ruling quoted in `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md`; `docs/SPEC-MODES.md` R3 rewritten requirement-only and `docs/architecture.md` added. Landed in `a5c46dc`, closed as issue #3. **Not decided by this:** R8's own engine integration stays blocked on B1, and §2's M1–M5 with it — the ruling settled *which component owns the judgement*, not the data it judges from. |
 
 ---
 
@@ -206,6 +206,32 @@ occurrences are now quoted (`if: "${{ failure() }}"`). This is the same shape as
 the board's own disease: a status line ("CI is green") carried forward past the
 commit that invalidated it, and nothing mechanical caught it because a rejected
 workflow file never reaches a job whose result anyone checks.
+
+**And CI executes nothing as of 2026-10-16 — measured, and the cause is NOT this
+repository.** The maintainer, same day: *"current failures are on payment issue.
+i'll maintain free account policy, and wait for the limitation unlocked. until
+then, we should rely on local tests."* Run `38824471508` on `e953ae8` reports
+**zero steps for every job**:
+`linux`, `android` and `mingw` conclude `failure`; `deb`, `android-release`,
+`windows` (`if: false`) and `nightly-fuzz` conclude `skipped`; all seven start
+and finish within three seconds of each other. `gh api …/actions/jobs/<id>/logs`
+returns 404 (no log blob, consistent with jobs that never started), the
+repository's Actions settings read `enabled: true, allowed_actions: all`, and the
+local `ci.yml` parses as YAML with both `if: failure()` occurrences inside
+comments. The API alone did not distinguish a rejected workflow file from jobs
+that are never scheduled; the maintainer's billing answer does, and it agrees
+with the tree being clean. Every master run the API lists since 2026-10-13
+concludes `failure`, so the fix recorded above did not restore a green run
+either — and this paragraph is the board's own example of the disease it exists
+to prevent, since until today it carried "cause not determined" where the cause
+was an account setting.
+
+**What this means operationally, until the limitation lifts:** the release gate
+is **`tools/release-gate.sh`, run locally** (184 tests, this host, -j4), and
+`tests/manual-checklists/release-0.1.md` §2 is the same sequence by hand. The
+PR-versus-nightly split raised on 2026-10-16 is **deferred, not rejected** — it
+cannot be costed against runs that never execute. Nothing here is a tree defect
+to fix, which is why it carries no assertion row.
 
 ### C — CI coverage of the 0.1 artefacts (issue #8)
 
@@ -524,6 +550,9 @@ CI-DUP-CONFORMANCE-CLOSED | grep | CMakeLists.txt:engine-android-conformance-shi
 CI-DEB-JOB | grep | .github/workflows/ci.yml:dpkg-buildpackage | present | issue #8: CI builds the .deb now (job deb, 2026-10-13). The suite runs inside the package build (debian/rules override_dh_auto_test), not skipped -- the issue's verification requires that. Expected failure mode on a fresh checkout: data-selfcheck (§0), plus the tier-C Android rows when no Android build tree exists. **Updated 2026-10-13 (issue #46):** data-selfcheck now reports Skipped without the gitignored krdict dump, so the tier-C Android rows are the only expected non-pass on a fresh checkout
 CI-DEB-JOB | grep | .github/workflows/ci.yml:upload-artifact | present | the .deb is uploaded as a run artefact, so CI is a second place the artefact can be produced -- the ruling issue #8 asks for is whether that is REQUIRED for 0.1 or sufficient alongside a local build, and this row asserts only that the job exists. **Measured 2026-10-13 (PR #54):** the upload step was red until the artefact was staged INTO the workspace first -- upload-artifact@v4 rejects any pattern containing `..` ("Relative pathing '.' and '..' is not allowed") and dpkg-buildpackage always writes one level above the source tree. It only surfaced once the dh_shlibdeps failure (row CI-DEB-SHLIBDEPS) stopped the build earlier
 RELEASE-SCRIPT | path-present | tools/build-release.sh | present | issue #8: the 0.1 artefacts (deb + release APK) are buildable by anyone with the same sequence; it existed only as one local run before. The APK signs with a generated throwaway keystore (HUNMIN_RELEASE_STORE) -- B8's ruling (issue #1) is what would make it release-grade
+RELEASE-PUBLISH-SCRIPT | path-present | tools/release-0.1.sh | present | issue #7 (distribution channel: a GitHub Release on tag 0.1.0). It owns tag + push + release + upload and delegates the build to build-release.sh, so the build path lives in one place
+RELEASE-PUBLISH-SCRIPT | grep | tools/release-0.1.sh:DRY_RUN=1 | present | **the bare invocation must print, not publish.** Measured 2026-10-16: DRY_RUN defaulted to 0 while the usage line said "dry run: prints every command, changes nothing", so `tools/release-0.1.sh` with no arguments took the real path end to end -- dpkg-buildpackage, git tag, git push, gh release create, gh release upload. The run observed was cut short by a closed pipe and no tag or release existed afterwards, but nothing in the script prevented publishing. A script that publishes defaults to printing, because the irreversible step is the tag push and the public release, not the build
+RELEASE-PUBLISH-SCRIPT | path-present | docs/release-notes/0.1.0.md | present | the --notes-file the script uploads, and it is DERIVED from $TAG, so it must be named for the tag. Measured 2026-10-16: the file was committed as docs/release-notes/0.1.md while tools/release-0.1.sh ran --notes-file docs/release-notes/${TAG}.md, i.e. 0.1.0.md, which did not exist -- `--yes` would have built, tagged AND PUSHED, then failed at step 4, leaving a pushed tag that a re-run reports as already existing. Renamed to 0.1.0.md so the derivation is correct and the next release needs no code change. This row is the guard: a rename or a version bump without the notes file breaks --yes after the push
 CI-WORKFLOW-VALID | grep | .github/workflows/ci.yml:\$\{\{ failure\(\) \}\} | present | issue #8 exposed this: an unquoted `if: failure()` parsed as YAML boolean True made GitHub reject the workflow with "Invalid workflow file: ci.yml#L1", so all 38 CI runs since the initial public commit (fbb0c43, 2026-10-10) failed before any job ran -- no CI job had ever executed. Both occurrences are now quoted. A workflow whose file is rejected reports no jobs, which is why the failure read as a file issue and not a step failure
 # ----------------------------------------------------------------  decision-blocked
 # B1..B9 are maintainer rulings, not tree facts. AGENTS.md: "네 멋대로 기각하지마."

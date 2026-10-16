@@ -6,19 +6,21 @@
 #   tools/build-release.sh apk          # signed release APK only
 #   tools/build-release.sh apk x86_64   # emulator ABI (arm64-v8a is the other)
 #
-# Why this exists (issue #8): CI builds neither 0.1 artefact. The .deb exists
-# only as one maintainer's local dpkg-buildpackage run, and the signed release
-# APK only as one local assembleRelease run (docs/REMAINING-WORK.md §3, measured
-# 2026-10-11). This script is the same sequence, runnable by anyone, so the
-# artefacts stop depending on one machine. It does NOT make a release a CI
-# product — that is the ruling issue #8 asks the maintainer for.
+# Why this exists (issue #8): the 0.1 artefacts used to exist only as one
+# maintainer's local dpkg-buildpackage run and one local assembleRelease run
+# (docs/REMAINING-WORK.md §3, measured 2026-10-11), so they depended on one
+# machine. CI now builds both — job `deb` and job `android-release` — and this
+# script is the same sequence, runnable by anyone. Whether a release REQUIRES
+# the CI artefacts is the ruling issue #8 still asks the maintainer for.
 #
 # What it does not do:
 #
-# - It does not produce a SHIP-GRADE signed APK. A real release key lives in a
-#   gitignored local.properties (issue #1's direction); this script generates a
-#   throwaway key for the CI-style release build and documents that choice in
-#   the APK name. Signing with the debug keystore (the pre-2026-10-12 state of
+# - It does not produce a SHIP-GRADE signed APK. The keystore path was decided
+#   2026-10-13 (issue #1): HUNMIN_RELEASE_STORE, else a gitignored
+#   local.properties, else a throwaway key. This script takes the middle and
+#   last routes -- it exports HUNMIN_RELEASE_STORE pointing at a generated
+#   throwaway key so the choice is visible in the output, and says so on every
+#   run. Signing with the debug keystore (the pre-2026-10-12 state of
 #   build.gradle.kts:77) is not an option this script takes.
 # - It does not bump versionCode (still 1; no tag exists — see the
 #   VERSION-CONVENTION assertion in docs/REMAINING-WORK.md §7.5).
@@ -47,19 +49,21 @@ build_deb() {
     # the maintainer's 2026-10-11 run did.
     #
     # The suite runs inside the build (debian/rules override_dh_auto_test) and
-    # data-selfcheck is red in a worktree without the gitignored krdict dump
-    # (REMAINING-WORK.md §0) — so the exit code is captured, the failures are
-    # printed, and the caller decides. A packaging job that skips the suite is
-    # what issue #8's verification asks NOT to do.
+    # a red test fails the packaging — that is the design, not a side effect:
+    # issue #8's verification asks NOT for a packaging job that skips the
+    # suite. So the exit code is captured, the failures are printed, and the
+    # caller decides.
     set +e
     dpkg-buildpackage -us -uc -b 2>&1 | tee /tmp/hunmin-deb-build.log
     local rc=${PIPESTATUS[0]}
     set -e
     if [ "$rc" -ne 0 ]; then
         echo
-        echo "deb: BUILD FAILED (rc=$rc). The suite's verdict is above;"
-        echo "REMAINING-WORK.md §0 names the one test red in a fresh worktree"
-        echo "(data-selfcheck: krdict2data finds no *.xml under data-orig/krdict)."
+        echo "deb: BUILD FAILED (rc=$rc). The suite's verdict is above — read the"
+        echo "FAILED list there rather than this hint. Skipped is not red: on a"
+        echo "fresh clone data-selfcheck, modes-corpus-selfcheck and"
+        echo "engine-android-goldens report Skipped without the gitignored corpora"
+        echo "(REMAINING-WORK.md §0), which is by design."
         exit "$rc"
     fi
     local deb
@@ -73,13 +77,14 @@ build_deb() {
 }
 build_apk() {
     log "apk: release APK for $ABI, signed with a generated throwaway key"
-    # The keystore. Issue #1 (B8) is unresolved: build.gradle.kts:77 hardcodes
-    # /home/scoby/.android/debug.keystore under a comment saying the keystore
-    # lives in gitignored local.properties. This script does not pick a side --
-    # it needs SOME storeFile to run assembleRelease at all, and a generated
-    # throwaway key keeps the build honest: an APK signed with it installs and
-    # runs, and it is not a releasable signature. When B8 is ruled, delete the
-    # generation below and read the key from wherever the ruling points.
+    # The keystore. Issue #1 (B8) was decided 2026-10-13: build.gradle.kts reads
+    # HUNMIN_RELEASE_STORE, else local.properties, else generates a throwaway
+    # key. This script takes the first route with a GENERATED throwaway key --
+    # it needs SOME storeFile to run assembleRelease at all, and a generated one
+    # keeps the build honest: an APK signed with it installs and runs, and it
+    # is not a releasable signature. To sign with a real key instead, put it in
+    # local.properties (or point HUNMIN_RELEASE_STORE at it before calling); the
+    # keystore is then read, not generated, and this block is unused.
     local ks="$ROOT/build/release-ci.keystore"
     mkdir -p "$ROOT/build"
     if [ ! -f "$ks" ]; then
