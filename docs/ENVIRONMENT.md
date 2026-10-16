@@ -443,6 +443,70 @@ the `windows` job is disabled; `mingw` covers the same target under GCC.
 No Windows environment blocks any work before P6; no Android environment blocks anything
 before P5. Install each batch when its phase starts.
 
+## Windows development environment (this host, measured 2026-10-16)
+
+This host is Windows 11 (user `pc`, no administrator). The toolchain is split
+between what pip/winget can install without admin and what requires it.
+
+**Installed without admin (measured working):**
+
+| Tool | Version | Install method | Verify |
+|---|---|---|---|
+| CMake | 4.4.4 | `pip install cmake` | `cmake --version` |
+| Ninja | 1.13.2 | `pip install ninja` | `ninja --version` |
+| Meson | 1.12.1 | `pip install meson` | `meson --version` |
+| LLVM (clang, clang-cl) | 23.1.3 | `winget install LLVM.LLVM` | `clang --version` |
+| MinGW-w64 (gcc, g++) | 16.2.0 | `winget install BrechtSanders.WinLibs.POSIX.UCRT` | `gcc --version` |
+| Python | 3.13.14 | Windows store | `python3 --version` |
+| .NET SDK | — | pre-installed | `dotnet --version` |
+
+PATH entries to add (per-user, no admin):
+```
+C:\Program Files\LLVM\bin
+C:\Users\pc\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_...\Scripts
+C:\Users\pc\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_...\mingw64\bin
+```
+
+**Requires administrator (NOT installed):**
+
+| Tool | Why needed | Blocker |
+|---|---|---|
+| Visual Studio Build Tools 2022 (VC workload) | MSVC `cl.exe` + ATL for TSF TIP | winget install runs but produces no compiler; admin required |
+| Windows 11 SDK | `tsf.h`, `msctf.h`, TSF interfaces, `winspool.lib` etc. | winget has only 10.0.17134/10.0.18362 (too old for TSF); admin required |
+| TAT (TSF Accommodation Tool) | TSF test harness | Windows SDK extras, admin required |
+
+Admin install script: `C:\Users\pc\tools\setup-windows-dev.ps1` (run in elevated PowerShell).
+It installs VS Build Tools 2022 + Windows 11 SDK and verifies `cl.exe` / `link.exe`.
+
+**Measured build results (2026-10-16, MinGW + CMake + Ninja):**
+
+- `cmake -B build-win -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPiler=g++` — configure succeeds.
+- `cmake --build build-win --target hunmin` — `libhunmin.dll` + `libhunmin.dll.a` build successfully.
+- `expr-test` — builds and **passes** (`expr vectors: OK`).
+- `suggest-test`, `commit-text-test` — **link fails**: `libhunmin.dll.a` has no symbols.
+- `hunmin-sim` — **compile fails**: `getline` is POSIX, not in MinGW's libc.
+
+**Root cause of the link failure:** `libhunmin` has no Windows export macros
+(`HUNMIN_EXPORT`, `__declspec(dllexport)`). On Linux/gcc, default visibility
+exports everything; on Windows, nothing is exported without an explicit marker.
+This is a known gap, not a regression — the library was written for Linux CI.
+
+**What works on this host:** engine code compiles, CMake configures, MinGW
+toolchain is fully functional. The engine is platform-independent C99.
+
+**What does not work:** linking tests against the DLL (no exports), building
+`hunmin-sim` (POSIX `getline`), anything needing Windows SDK headers or ATL.
+
+**Path to a working Windows build (two options):**
+
+| Option | What it costs | What it gives |
+|---|---|---|
+| **A: Add export macros to `libhunmin`** | Modify `hunmin.h`/`hunmin.c` to add `HUNMIN_EXPORT` (`__declspec(dllexport)` on Windows, `__attribute__((visibility("default")))` on Linux). ABI policy is append-only; this is a source change, not an ABI change. | Tests link, `hunmin-sim` builds (with `_GNU_SOURCE` for `getline`), full MinGW build green |
+| **B: Install VS Build Tools + SDK (admin)** | Run the admin script; 20-30 min download | MSVC + ATL + Windows SDK; enables actual TSF TIP development (P6) |
+
+Option A is the immediate path to a green Windows CI build. Option B is
+required for P6 (TSF TIP) regardless.
+
 ## Orca GUI (installed terminal/editor — worktree orchestration)
 
 **Installed.** Orca 1.4.219 (`/opt/Orca/orca-ide`, Electron, Wayland) with its
@@ -529,3 +593,23 @@ The full picture is `docs/ORCHESTRATION.md` §5.
 Whether a nested worktree breaks any tool that walks the tree (a glob that
 would now descend into `orca-probe/`) has **not** been measured. `orca worktree
 rm --force` cleans up both the git entry and the directory — no `rm -rf`.
+
+## Windows 0.2 development environment — not present on this host
+
+Per `docs/REMAINING-WORK.md`, **P6/Windows TSF is intentionally excluded**:
+this host has no Windows environment and no way to verify a TIP locally
+(ENVIRONMENT.md 2026-10-09 batch 4, JDK/Android SDK still missing, and no
+Windows VM provisioned despite `/dev/kvm`). Until a Windows host is
+available (physical machine, bootable VM, or a remote runner with signing
+access), all 0.2 work must be planned and reasoned-before-executed, then
+verified on a Windows target.
+
+Recommended minimum toolchain for the 0.2 milestones:
+- Windows 10/11 SDK + MSVC or LLVM-MinGW x64 (TSF COM / DLL registration)
+- CMake with Visual Studio or Ninja generator
+- Python 3.11+ for data/lint scripts (inside `tools/.venv`)
+- `gh` auth for issue tracking (host side already has `gh` CLI, missing token)
+
+Open items: obtain or document a Windows dev host/VM for measurability;
+until then treat Windows milestones as blocked per AGENTS.md §1 "do not start
+these unmeasured."

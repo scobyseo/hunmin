@@ -12,8 +12,24 @@ extern "C" {
 
 #define HUNMIN_ABI_VERSION 1
 
-const char *hunmin_version_string(void);
-int hunmin_abi_version(void);
+/* Export macros for shared library visibility.
+ * On Windows, symbols are NOT exported by default — an explicit
+ * __declspec(dllexport) is required when building the DLL and
+ * __declspec(dllimport) when consuming it. On Linux/gcc, default
+ * visibility already exports everything, but the attribute makes
+ * the intent explicit and survives a -fvisibility=hidden build. */
+#if defined(_WIN32) || defined(__CYGWIN__)
+  #ifdef HUNMIN_BUILDING_DLL
+    #define HUNMIN_EXPORT __declspec(dllexport)
+  #else
+    #define HUNMIN_EXPORT __declspec(dllimport)
+  #endif
+#else
+  #define HUNMIN_EXPORT __attribute__((visibility("default")))
+#endif
+
+HUNMIN_EXPORT const char *hunmin_version_string(void);
+HUNMIN_EXPORT int hunmin_abi_version(void);
 
 typedef struct hunmin_ctx hunmin_ctx;
 typedef struct hunmin_ic  hunmin_ic;

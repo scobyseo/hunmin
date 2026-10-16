@@ -3,6 +3,12 @@
  *   hunmin-sim --data DIR --check tests/golden/ref-dubeolsik.jsonl
  * --check drives the engine with each event's "in" and compares commit and
  * preedit exactly (tier A parity gate). */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -95,7 +101,7 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
   int line = 0, fails = 0;
   hunmin_ic *ic = NULL;
 
-  for (char *s = strtok_r(txt, "\n", &save); s; s = strtok_r(NULL, "\n", &save)) {
+  for (char *s = strtok(txt, "\n"); s; s = strtok(NULL, "\n")) {
     line++;
     if (!*s) continue;
     cJSON *j = cJSON_Parse(s);
@@ -216,13 +222,14 @@ int main(int argc, char **argv) {
      * loaded once; each line gets a fresh ic so lines cannot influence each
      * other, and an empty line resets. */
     if (!layout) { fprintf(stderr, "need --layout for --batch\n"); return 2; }
-    char *line = NULL;
-    size_t cap = 0;
-    ssize_t n;
-    while ((n = getline(&line, &cap, stdin)) > 0) {
+    char linebuf[4096];
+    char *line = linebuf;
+    size_t n;
+    while (fgets(line, (int)sizeof(linebuf), stdin)) {
+      n = strlen(line);
       while (n > 0 && (line[n-1] == '\n' || line[n-1] == '\r')) line[--n] = 0;
       hunmin_ic *bic = hunmin_ic_new(ctx, layout);
-      if (!bic) { fprintf(stderr, "layout %s unavailable\n", layout); free(line); return 2; }
+      if (!bic) { fprintf(stderr, "layout %s unavailable\n", layout); return 2; }
       if (caps) hunmin_ic_set_option(bic, "caps", 1);
       /* Accumulate the commit after EVERY key, not once at the end:
        * hunmin_ic_process() clears ic->commit on entry, so reading it once

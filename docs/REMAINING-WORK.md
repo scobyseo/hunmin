@@ -578,3 +578,14 @@ F9-WINDOW-TIER | ctest | engine-d3-candidate | registered | issue #53 (split out
 CI-WINDOWS-OUT-OF-SCOPE | grep | .github/workflows/ci.yml:issue #51 | present | issue #51, item 2, the maintainer's ruling acted on 2026-10-13: "for windows, it is not scope of this version. so in the issue we will disable windows test." The `windows` job now carries `if: false` and a comment quoting that sentence; the block is kept rather than deleted so "was Windows ever built here, and why did it stop" stays answerable. It was red on master since at least 0d046bc with `cl : D8021 invalid numeric argument '/Wextra'` (CMakeLists.txt:10 passes GCC flags to MSVC), and the flag was deliberately NOT guarded with if(NOT MSVC) -- that would turn the job green, which is a different decision from the one ruled. What this row does NOT check: that `if: false` is what changed. A comment citing the issue passes it, which is the known weakness the row was written with (the assertion grammar cannot express "a job that runs nothing" against a `windows-latest` line that stays in the file). No job in the workflow depends on this one. Coverage lost while it is disabled: no job compiles the core with MSVC; docs/ENVIRONMENT.md §CI and docs/TESTING.md's ABI bullet were corrected to say so
 CI-DEB-SHLIBDEPS | grep | debian/rules:ignore-missing-info | present | issue #8's `deb` job, measured red 2026-10-13 (run 38398739533) at dh_shlibdeps, after the 63-test suite passed inside the package build: `no dependency information found for /lib/x86_64-linux-gnu/libFcitx5Core.so.7 (used by .../fcitx5/libhunmin.so)`, exit 25. Cause: the CI job installs fcitx5 5.1.13 from source into /usr, so no package owns those .so files and dpkg has no *.symbols/*.shlibs for them -- the same fact the job already records by passing -d to dpkg-buildpackage. Fixed with dpkg-shlibdeps(1)'s documented `--ignore-missing-info`, measured before it was committed: against the real addon with an empty --admindir the error reproduces and the flag makes it rc 0; debian/shlibs.local does not apply (both forms tried). NOT a blanket waiver: measured on this host, where fcitx5 is packaged, the resulting .deb still carries libfcitx5core7 (>= 5.1.19) and friends in shlibs:Depends -- the flag skips only what cannot be resolved. What the row does NOT check: that the CI build succeeds (`run` is vetoed by the assertion grammar), and the remaining gap is that a CI-built .deb declares `Depends: fcitx5` unversioned where the addon needs >= 5.1.13 -- a packaging decision this row leaves open
 <!-- end docs-lint -->
+
+---
+
+## Windows IME (0.2) milestones — draft
+
+- A — TSF frontend scaffold — #64
+- B — core input integration — #65
+- C — layout wiring+data — #66
+- D — candidate & edit-mode UX — #67
+- E — packaging/installer — #68
+- F — conformance tests — #69

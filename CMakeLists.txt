@@ -3,6 +3,7 @@ project(hunmin LANGUAGES C VERSION 0.1.0)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 # clangd (and any editor) needs a compilation database; without it every
 # TU is parsed with guessed flags. gitignored, so nothing is committed.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -27,7 +28,8 @@ target_include_directories(hunmin PRIVATE third_party/cJSON libhunmin/src)
 set_target_properties(hunmin PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 0
     POSITION_INDEPENDENT_CODE ON)
 target_compile_definitions(hunmin PRIVATE
-  HUNMIN_DEFAULT_DATA_DIR="${CMAKE_INSTALL_FULL_DATADIR}/hunmin")
+  HUNMIN_DEFAULT_DATA_DIR=\"${CMAKE_INSTALL_FULL_DATADIR}/hunmin\")
+target_link_options(hunmin PRIVATE -Wl,--export-all-symbols)
 
 install(FILES libhunmin/include/hunmin.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(DIRECTORY libhunmin/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin)
@@ -152,7 +154,11 @@ if(BUILD_TESTING AND Python3_FOUND)
   # pass-through P5's voice path needs. Its interesting assertions are the
   # negative ones -- that the text is NOT put through the jamo pipeline.
   add_executable(commit-text-test libhunmin/tests/commit-text-test.c)
-  target_link_libraries(commit-text-test PRIVATE hunmin)
+  target_include_directories(commit-text-test PRIVATE libhunmin/include libhunmin/src third_party/cJSON)
+  target_sources(commit-text-test PRIVATE
+    libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/data.c
+    libhunmin/src/expr.c libhunmin/src/ic.c libhunmin/src/suggest.c
+    third_party/cJSON/cJSON.c)
   add_test(NAME engine-commit-text COMMAND commit-text-test)
   set_tests_properties(engine-commit-text PROPERTIES
     LABELS "tier-A"
