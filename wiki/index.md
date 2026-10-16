@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-17 | Total pages: 38
+> Last updated: 2026-10-17 | Total pages: 39
 
 ## Concepts
 
@@ -119,6 +119,13 @@
   `ColumnLimit: 0` (1491 → 1673 → 853 `-w` lines), the `--style=file:<path>`
   trap, and the split-config + ignore-file landing with 51/51 inner-loop
   ctest and pass-level idempotence.
+- [[2026-10-17-issue-72-buffering-docs-closure]] — issue #72's doc work
+  finished at the direction to add no new issue: the four `TSF-BUFFERING-72`
+  assertion rows the board was missing (it carried zero rows naming #72), and
+  the design-doc drift corrected on the way — the shipped adapter inserts via
+  `RequestEditSession` + `ITfRange::SetText`, never `ITfInsertAtSelection`,
+  and never opens an inline composition. What the pass did NOT establish:
+  TAT and a ctest TSF tier, still open under milestone B (#65).
 
 ## Raw — measurements
 

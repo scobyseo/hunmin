@@ -526,6 +526,18 @@
   documents are read by a stranger, and the 0.1 `.deb` already ships a
   `README.md.gz` claiming no release existed. `tools/release-0.1.sh` now verifies
   reachability unauthenticated against actual repository visibility.
+- `wiki/raw/sessions/2026-10-17-issue-72-buffering-docs-closure.md` — issue #72's
+  doc work completed on the maintainer's direction to add no new issue: the
+  four `TSF-BUFFERING-72` assertion rows (the board named #72 nowhere while the
+  issue's own REMAINING-WORK deliverable was open), and the design-doc drift
+  correction — `docs/WINDOWS-TSF-BUFFERING.md` claimed `ITfInsertAtSelection`
+  and `EndComposition`, but the shipped adapter inserts via a synchronous
+  edit session's `ITfRange::SetText` (`FlushSession`, `DeactSession`) and never
+  opens an inline composition; the doc now describes the shipped mechanism.
+  TAT measurement and a ctest TSF tier remain open under milestone B (#65),
+  recorded on the row, not hidden. The issue close itself is left to the
+  maintainer.
+- `wiki/index.md` listed the page under Raw — sessions.
 - `wiki/raw/sessions/2026-10-17-tsf-scaffold-milestone-a-verification.md` — the
   pre-close verification pass over issue #64: the milestone-A branch was a
   rebase no-op because master had already absorbed the scaffold (plus the
