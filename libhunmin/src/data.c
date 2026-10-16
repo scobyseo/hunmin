@@ -8,6 +8,7 @@
 
 #if defined(_WIN32)
 #include <direct.h>
+#include <windows.h>
 #define HM_DIRSEP '\\'
 #else
 #include <dirent.h>
@@ -185,7 +186,27 @@ static int ends_json(const char *n) {
 
 static int list_json(const char *dir, char names[MAX_FILES][MAX_LINE]) {
 #if defined(_WIN32)
-  (void)dir; (void)names; return -1; /* P6: FindFirstFile */
+  WIN32_FIND_DATAA fd;
+  char pattern[MAX_LINE];
+  snprintf(pattern, sizeof(pattern), "%s\\*.json", dir);
+  HANDLE h = FindFirstFileA(pattern, &fd);
+  if (h == INVALID_HANDLE_VALUE) return -1;
+  int n = 0;
+  do {
+    if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+      if (ends_json(fd.cFileName) && n < MAX_FILES) {
+        snprintf(names[n], MAX_LINE, "%s", fd.cFileName);
+        n++;
+      }
+    }
+  } while (FindNextFileA(h, &fd) && n < MAX_FILES);
+  FindClose(h);
+  for (int i = 0; i < n; i++)
+    for (int j = i + 1; j < n; j++)
+      if (strcmp(names[j], names[i]) < 0) {
+        char t[MAX_LINE]; strcpy(t, names[i]); strcpy(names[i], names[j]); strcpy(names[j], t);
+      }
+  return n;
 #else
   DIR *d = opendir(dir);
   if (!d) return -1;
