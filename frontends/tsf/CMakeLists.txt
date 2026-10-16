@@ -30,4 +30,7 @@ target_link_libraries(hunmin-tsf PRIVATE
     ole32
     user32
 )
-set_target_properties(hunmin-tsf PROPERTIES SUFFIX ".dll")
+# Use module definition file for explicit exports.
+set_target_properties(hunmin-tsf PROPERTIES
+    SUFFIX ".dll"
+    LINK_OPTIONS "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/src/hunmin-tsf.def")
