@@ -641,6 +641,31 @@ Effective 0.2 toolchain (measured, this host):
 
 ## Android dev environment (this Windows host, measured 2026-10-17, issue #75)
 
+### Which environment runs which part (bash vs PowerShell, this host)
+
+The host has two live environments and they own disjoint halves. Read this
+BEFORE running anything Android-side; the wrong environment reports an
+unset-variable or unknown-command error that reads like a broken toolchain
+and costs a debugging round for nothing.
+
+| part | env | why |
+|---|---|---|
+| All Android tiers: `tools/build-android.sh`, gradle, `android-unit.sh`, tier C/E1, sdkmanager | **bash** (git-bash / MSYS, i.e. the Hermes terminal) | every repo tool for Android is POSIX shell; the env vars live in `~/.bashrc` |
+| VS BuildTools, MSVC `cl.exe`, TSF/TIP builds | **PowerShell / VS2022 prompt** | MSVC toolchain environment (`vcvars64.bat`, `HUNMIN_VS2022_ROOT`) is cmd/PowerShell-native |
+| Admin installs (AEHD/WHPX when they are needed, `setup-windows-dev.ps1` pattern) | **elevated PowerShell** | driver/feature installs need admin; they are one-off, not part of any tier run |
+
+- The Android env vars exist **only in bash** (`.bashrc` exports). A
+  PowerShell session sees neither `JAVA_HOME` nor `ANDROID_HOME` — that is
+  the intended split, not an omission: no repo tool needs them outside bash.
+  If PowerShell must call `adb`/`emulator.exe` by hand, export them per-host
+  (`setx ANDROID_HOME C:\Users\pc\Android\Sdk`) at that point — do not
+  pre-emptively widen the split.
+- The measured path-form rules below are **bash-side rules** (MSYS conversion);
+  they do not apply inside PowerShell/cmd, which is native-Windows all through.
+- TSF work and Android work therefore do not share an environment: TSF is the
+  PowerShell half (see *Windows 0.2 development environment* below), Android
+  is the bash half (this section).
+
 The Batch 2 stack from the Linux host is installed here too, **without admin**,
 at the same versions, under `C:/Users/pc`:
 
