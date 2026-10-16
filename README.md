@@ -15,7 +15,7 @@ frontends/      fcitx5 addon (C++), Android IME (Kotlin + JNI)
 
 ## Status
 
-**P0–P5 implemented; P6 (Windows TSF) not started.** `ctest`: **green**.
+**P0–P5 implemented; P6 (Windows TSF) in progress.** Milestone A (TSF frontend scaffold, #64) is done — `hunmin-tsf.dll` builds natively on the Windows 11 host and registration was verified end-to-end in Notepad. Milestone B (core input integration, #65) is open. `ctest`: **green**.
 
 | | |
 |---|---|
@@ -28,7 +28,7 @@ frontends/      fcitx5 addon (C++), Android IME (Kotlin + JNI)
 | Romaja | ported and parity-verified against libhangul |
 | fcitx5 addon | tier C/D green, packaged as a `.deb` |
 | Android IME | `InputMethodService` + JNI; 4 ctest tiers, verified on an emulator |
-| Windows TSF | **not started** |
+| Windows TSF | milestone A done (#64); milestone B (#65) open |
 
 Not done, explicitly: a soft keyboard (the input view is a layout strip, not
 keys); the E3 manual session on a real Bluetooth keyboard, so no device is
