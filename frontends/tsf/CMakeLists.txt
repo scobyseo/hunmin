@@ -6,6 +6,10 @@ add_library(hunmin-tsf MODULE
     src/tsf.cpp
 )
 
+if(NOT DEFINED ENV{HUNMIN_VS2022_ROOT})
+  message(WARNING "HUNMIN_VS2022_ROOT is not set; set it to your Visual Studio 2022 BuildTools root (e.g. C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools)")
+endif()
+
 # Export registration helpers via DEF file eventually.
 target_compile_definitions(hunmin-tsf PRIVATE UNICODE _UNICODE)
 target_include_directories(hunmin-tsf PRIVATE
@@ -26,4 +30,7 @@ target_link_libraries(hunmin-tsf PRIVATE
     ole32
     user32
 )
-set_target_properties(hunmin-tsf PROPERTIES SUFFIX ".dll")
+# Use module definition file for explicit exports.
+set_target_properties(hunmin-tsf PROPERTIES
+    SUFFIX ".dll"
+    LINK_OPTIONS "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/src/hunmin-tsf.def")

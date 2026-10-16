@@ -611,7 +611,7 @@ access), all 0.2 work must be planned and reasoned-before-executed, then
 verified on a Windows target.
 
 Recommended minimum toolchain for the 0.2 milestones:
-- Windows 10/11 SDK + MSVC or LLVM-MinGW x64 (TSF COM / DLL registration)
+- VS BuildTools 2022 install root should be exposed via the `HUNMIN_VS2022_ROOT` environment variable (e.g. `C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools`). Load via `vsdevcmd.bat` (or configure with `cmake -G "Visual Studio 17 2022" -A x64`) to build `frontends/tsf`. This keeps machine-specific paths out of the repository.
 - CMake with Visual Studio or Ninja generator
 - Python 3.11+ for data/lint scripts (inside `tools/.venv`)
 - `gh` auth for issue tracking (host side already has `gh` CLI, missing token)
