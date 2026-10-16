@@ -6,6 +6,14 @@
 #include <shlwapi.h>
 #pragma comment(lib, "Shlwapi.lib")
 
+static void HMLOG(const char* fmt, ...) {
+    FILE* f = fopen("C:\\\\hunmin-tsf-debug.log", "a");
+    if (!f) return;
+    va_list ap; va_start(ap, fmt);
+    vfprintf(f, fmt, ap);
+    va_end(ap);
+    fflush(f); fclose(f);
+}
 static hunmin_ctx* hunmin_ctx_from_module() {
     wchar_t envW[MAX_PATH];
     wchar_t cand[MAX_PATH];
@@ -34,8 +42,8 @@ static hunmin_ctx* hunmin_ctx_from_module() {
         wchar_t candLocal[MAX_PATH];
         PathCombineW(candLocal, modDir, L"data");
         DWORD attrLocal = GetFileAttributesW(candLocal);
-        if (dbg0) { fprintf(dbg0, "candLocal=%ls attr=0x%08lX dir=%d\\n", candLocal, (unsigned long)attrLocal, (attrLocal & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY); fflush(dbg0); }
-        if ((attrLocal & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+        if (dbg0) { fprintf(dbg0, "candLocal=%ls attr=0x%08lX dir=%d\\n", candLocal, (unsigned long)attrLocal, (attrLocal != INVALID_FILE_ATTRIBUTES) && ((attrLocal & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)); fflush(dbg0); }
+        if (attrLocal != INVALID_FILE_ATTRIBUTES && (attrLocal & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
             WideCharToMultiByte(CP_UTF8, 0, candLocal, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
             argv[argc] = dirs[argc];
             ++argc;
@@ -46,8 +54,8 @@ static hunmin_ctx* hunmin_ctx_from_module() {
         for (int i = 0; i < 4; ++i) PathRemoveFileSpecW(repo);
         PathCombineW(cand, repo, L"libhunmin\\data");
         DWORD attrRepo = GetFileAttributesW(cand);
-        if (dbg0) { fprintf(dbg0, "cand=%ls attr=0x%08lX dir=%d\\n", cand, (unsigned long)attrRepo, (attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY); fflush(dbg0); }
-        if ((attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+        if (dbg0) { fprintf(dbg0, "cand=%ls attr=0x%08lX dir=%d\\n", cand, (unsigned long)attrRepo, (attrRepo != INVALID_FILE_ATTRIBUTES) && ((attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)); fflush(dbg0); }
+        if (attrRepo != INVALID_FILE_ATTRIBUTES && (attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
             WideCharToMultiByte(CP_UTF8, 0, cand, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
             argv[argc] = dirs[argc];
             ++argc;
@@ -151,7 +159,7 @@ public:
         FILE* dbg3 = fopen("C:\\hunmin-tsf-debug.log", "a");
         if (dbg3) { fprintf(dbg3, "  ctx_=%p\\n", (void*)ctx_); fflush(dbg3); }
 
-        if (ctx_) ic_ = hunmin_ic_new(ctx_, "dubeolsik");
+        if (ctx_) ic_ = hunmin_ic_new(ctx_, "sin3-p2");
         if (dbg3) { fprintf(dbg3, "  ic_=%p after new (layout dubeolsik)\\n", (void*)ic_); fflush(dbg3); if (ctx_) fprintf(dbg3, "  layout_count=%d\\n", hunmin_ctx_layout_count(ctx_)); fflush(dbg3); fclose(dbg3); }
         return S_OK;
     }
@@ -213,7 +221,7 @@ public:
         if (wParam == VK_CAPITAL) {
             hangulMode_ = !hangulMode_;
             if (ic_) { hunmin_ic_free(ic_); ic_ = nullptr; }
-            if (ctx_) ic_ = hunmin_ic_new(ctx_, hangulMode_ ? "dubeolsik" : "us-qwerty");
+            if (ctx_) ic_ = hunmin_ic_new(ctx_, hangulMode_ ? "sin3-p2" : "us-qwerty");
             if (pfEat) *pfEat = TRUE;
             if (dbg) { fprintf(dbg, " mode toggle -> %s\\n", hangulMode_ ? "hangul" : "english"); fclose(dbg); }
             return S_OK;
@@ -229,12 +237,28 @@ public:
             ch = ' ';
         } else if (wParam == VK_BACK) {
             ch = 0x08;
+        } else if (wParam >= 0x20 && wParam <= 0x7E) {
+            ch = (char)wParam;
         }
-        if (!ch) return S_OK;
+        // When ch == 0 (punctuation / any key no layout row covers), fall through
+        // with the Zero entry: hunmin_ic_process -> save_commit -> false, so the
+        // declined branch below flushes the pending syllable and passes the key.
+        // Modifier keys (Shift/Ctrl/Alt/Win, Caps) are not text: never flush/passthrough
+        // through the engine (would corrupt an in-flight syllable). Other unmapped
+        // keys (punct, arrows, Enter, digits handled here as 0) fall through so the
+        // declined branch flushes the pending composition and passes the key.
+        if (wParam == VK_SHIFT || wParam == VK_CONTROL || wParam == VK_MENU ||
+            wParam == VK_LSHIFT || wParam == VK_RSHIFT ||
+            wParam == VK_LCONTROL || wParam == VK_RCONTROL ||
+            wParam == VK_LMENU || wParam == VK_RMENU ||
+            wParam == VK_LWIN || wParam == VK_RWIN ||
+            wParam == VK_CAPITAL || wParam == VK_TAB) {
+            if (dbg) { fprintf(dbg, " modifier/pass key -> leave composition\\n"); fclose(dbg); }
+            return S_OK;
+        }
         bool consumed = hunmin_ic_process(ic_, (uint32_t)ch);
         if (consumed) {
             if (dbg) { fprintf(dbg, " consumed, preedit=%s\n", hunmin_ic_preedit(ic_)); fflush(dbg); }
-            UpdateComposition(pic);
             const char* commit = hunmin_ic_commit(ic_);
             if (commit && commit[0]) {
                 int wlen = MultiByteToWideChar(CP_UTF8, 0, commit, -1, nullptr, 0);
@@ -243,8 +267,8 @@ public:
                     MultiByteToWideChar(CP_UTF8, 0, commit, -1, wbuf, wlen);
                     class EditSession : public ITfEditSession {
                     public:
-                        EditSession(ITfContext* ctx, TfClientId cid, const wchar_t* t)
-                            : ref_(1), ctx_(ctx), cid_(cid), t_(t) {}
+                        EditSession(ITfContext* ctx, CTextService* svc, TfClientId cid, const wchar_t* t)
+                            : ref_(1), ctx_(ctx), svc_(svc), cid_(cid), t_(t) {}
                         STDMETHOD(QueryInterface)(REFIID riid, void** ppv) override {
                             if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
                                 *ppv = this; AddRef(); return S_OK;
@@ -259,6 +283,81 @@ public:
                         }
                         STDMETHOD(DoEditSession)(TfEditCookie ec) override {
                             TF_SELECTION sel; ULONG fetched = 0;
+                            if (svc_->composition_) { svc_->composition_->EndComposition(ec); svc_->composition_ = nullptr; HMLOG("commit: ended composition\n"); }
+                                                        if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 && sel.range) {
+                                                            sel.range->SetText(ec, 0, t_, -1);
+                                                            sel.range->Collapse(ec, TF_ANCHOR_END);
+                                                            TF_SELECTION ns = sel;
+                                                            ctx_->SetSelection(ec, 1, &ns);
+                                                            sel.range->Release();
+                                                            HMLOG("commit: inserted text\n");
+                                                        }
+                            return S_OK;
+                        }
+                    private:
+                                            LONG ref_;
+                                            ITfContext* ctx_;
+                                            CTextService* svc_;
+                                            TfClientId cid_;
+                                            const wchar_t* t_;
+                    };
+                    EditSession* es = new EditSession(pic, this, clientId_, wbuf);
+                    HRESULT hrSess = S_OK;
+                    pic->RequestEditSession(clientId_, es, TF_ES_SYNC | TF_ES_READWRITE, &hrSess);
+                    if (dbg) { fprintf(dbg, " commit edit hr=0x%lX commit=%s\\n", (unsigned long)hrSess, commit); fflush(dbg); }
+                    es->Release();
+                    delete[] wbuf;
+                    UpdateComposition(pic);
+                }
+            }
+            UpdateComposition(pic);
+            if (pfEat) *pfEat = TRUE;
+        } else {
+            // Engine declined (space, empty backspace, unmapped): hunmin_ic_process
+            // already saved the in-flight syllable into the commit buffer, but only
+            // via save_commit. Flush reads it out so the frontend can deliver it,
+            // then re-render the now-empty preedit. The original key is NOT eaten
+            // (pfEat stays FALSE) and the client processes it -- matching the
+            // fcitx/android "used=FALSE => passthrough" contract.
+            const char* flushed = hunmin_ic_flush(ic_);
+            if (dbg) { fprintf(dbg, " declined, flushed=%s preedit=%s\\n",
+                               flushed ? flushed : "", hunmin_ic_preedit(ic_)); fflush(dbg); }
+            if (flushed && flushed[0]) {
+                int wlen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
+                if (wlen > 1) {
+                    wchar_t* wbuf = new wchar_t[wlen];
+                    MultiByteToWideChar(CP_UTF8, 0, flushed, -1, wbuf, wlen);
+                    class FlushSession : public ITfEditSession {
+                    public:
+                        FlushSession(ITfContext* ctx, CTextService* svc, TfClientId cid, const wchar_t* t)
+                            : ref_(1), ctx_(ctx), svc_(svc), cid_(cid), t_(t) {}
+                        STDMETHOD(QueryInterface)(REFIID riid, void** ppv) override {
+                            if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
+                                *ppv = this; AddRef(); return S_OK;
+                            }
+                            *ppv = nullptr; return E_NOINTERFACE;
+                        }
+                        STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+                        STDMETHOD_(ULONG, Release)() override {
+                            ULONG r = (ULONG)InterlockedDecrement(&ref_);
+                            if (r == 0) delete this;
+                            return r;
+                        }
+                        STDMETHOD(DoEditSession)(TfEditCookie ec) override {
+                            ITfRange* compRange = nullptr;
+                            if (svc_ && svc_->composition_) {
+                                if (SUCCEEDED(svc_->composition_->GetRange(&compRange)) && compRange) {
+                                    compRange->SetText(ec, 0, L"", -1);
+                                    compRange->Collapse(ec, TF_ANCHOR_START);
+                                    TF_SELECTION ns = {}; ns.range = compRange;
+                                    ctx_->SetSelection(ec, 1, &ns);
+                                    compRange->Release();
+                                    compRange = nullptr;
+                                }
+                                svc_->composition_->EndComposition(ec);
+                                svc_->composition_ = nullptr;
+                            }
+                            TF_SELECTION sel; ULONG fetched = 0;
                             if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 && sel.range) {
                                 sel.range->SetText(ec, 0, t_, -1);
                                 sel.range->Collapse(ec, TF_ANCHOR_END);
@@ -271,19 +370,18 @@ public:
                     private:
                         LONG ref_;
                         ITfContext* ctx_;
+                        CTextService* svc_;
                         TfClientId cid_;
                         const wchar_t* t_;
                     };
-                    EditSession* es = new EditSession(pic, clientId_, wbuf);
-                    HRESULT hrSess = S_OK;
-                    pic->RequestEditSession(clientId_, es, TF_ES_SYNC | TF_ES_READWRITE, &hrSess);
-                    if (dbg) { fprintf(dbg, " commit edit hr=0x%lX commit=%s\\n", (unsigned long)hrSess, commit); fflush(dbg); }
-                    es->Release();
+                    FlushSession* fs = new FlushSession(pic, this, clientId_, wbuf);
+                    HRESULT hrFlush = S_OK;
+                    pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
+                    fs->Release();
                     delete[] wbuf;
-                    UpdateComposition(pic);
                 }
             }
-            if (pfEat) *pfEat = TRUE;
+            UpdateComposition(pic);
         }
         return S_OK;
     }
@@ -387,8 +485,57 @@ private:
     ITfComposition* composition_;
     bool hangulMode_;
 
-};
+    // Helper used both for declined/pass-through keys to flush the pending
+    // composition exactly once, deleting the already-present composed text.
+    class FlushSession : public ITfEditSession {
+    public:
+        FlushSession(ITfContext* ctx, CTextService* svc, TfClientId cid, const wchar_t* t)
+            : ref_(1), ctx_(ctx), svc_(svc), cid_(cid), t_(t) {}
+        STDMETHOD(QueryInterface)(REFIID riid, void** ppv) override {
+            if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
+                *ppv = this; AddRef(); return S_OK;
+            }
+            *ppv = nullptr; return E_NOINTERFACE;
+        }
+        STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+        STDMETHOD_(ULONG, Release)() override {
+            ULONG r = (ULONG)InterlockedDecrement(&ref_);
+            if (r == 0) delete this;
+            return r;
+        }
+        STDMETHOD(DoEditSession)(TfEditCookie ec) override {
+            ITfRange* compRange = nullptr;
+            if (svc_ && svc_->composition_) {
+                if (SUCCEEDED(svc_->composition_->GetRange(&compRange)) && compRange) {
+                    compRange->SetText(ec, 0, L"", -1);
+                    compRange->Collapse(ec, TF_ANCHOR_START);
+                    TF_SELECTION ns = {}; ns.range = compRange;
+                    ctx_->SetSelection(ec, 1, &ns);
+                    compRange->Release();
+                    compRange = nullptr;
+                }
+                svc_->composition_->EndComposition(ec);
+                svc_->composition_ = nullptr;
+            }
+            TF_SELECTION sel; ULONG fetched = 0;
+            if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 && sel.range) {
+                sel.range->SetText(ec, 0, t_, -1);
+                sel.range->Collapse(ec, TF_ANCHOR_END);
+                TF_SELECTION ns = sel;
+                ctx_->SetSelection(ec, 1, &ns);
+                sel.range->Release();
+            }
+            return S_OK;
+        }
+    private:
+        LONG ref_;
+        ITfContext* ctx_;
+        CTextService* svc_;
+        TfClientId cid_;
+        const wchar_t* t_;
+    };
 
+};
 extern "C" HINSTANCE g_hunmin_hinst;
 /* placeholder */
 extern "C" BOOL DllRegisterServer() {
