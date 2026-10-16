@@ -44,11 +44,21 @@ std::string jsonEscape(const std::string &s) {
     std::string o;
     for (char c : s) {
         switch (c) {
-        case '"': o += "\\\""; break;
-        case '\\': o += "\\\\"; break;
-        case '\n': o += "\\n"; break;
-        case '\r': o += "\\r"; break;
-        case '\t': o += "\\t"; break;
+        case '"':
+            o += "\\\"";
+            break;
+        case '\\':
+            o += "\\\\";
+            break;
+        case '\n':
+            o += "\\n";
+            break;
+        case '\r':
+            o += "\\r";
+            break;
+        case '\t':
+            o += "\\t";
+            break;
         default:
             if (static_cast<unsigned char>(c) < 0x20) {
                 char buf[8];
@@ -127,9 +137,15 @@ std::string stringField(const std::string &line, const char *key) {
     while (p < line.size() && line[p] != '"') {
         if (line[p] == '\\' && p + 1 < line.size()) {
             switch (line[++p]) {
-            case 'n': o += '\n'; break;
-            case 't': o += '\t'; break;
-            case 'r': o += '\r'; break;
+            case 'n':
+                o += '\n';
+                break;
+            case 't':
+                o += '\t';
+                break;
+            case 'r':
+                o += '\r';
+                break;
             case 'u': {
                 const unsigned cp =
                     std::strtoul(line.c_str() + p + 1, nullptr, 16);
@@ -146,7 +162,8 @@ std::string stringField(const std::string &line, const char *key) {
                 p += 4;
                 break;
             }
-            default: o += line[p];
+            default:
+                o += line[p];
             }
             ++p;
             continue;

@@ -1,4 +1,4 @@
-data-orig/
-third_party/
+data-orig/**
+third_party/**
 libhunmin/src/tables.c
 libhunmin/src/tables.h

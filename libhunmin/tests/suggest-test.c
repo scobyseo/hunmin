@@ -31,7 +31,10 @@ static void expect(hunmin_ctx *ctx, int i, const char *kind,
 }
 
 static void check(int cond, const char *what) {
-  if (!cond) { printf("FAIL: %s\n", what); failures++; }
+  if (!cond) {
+    printf("FAIL: %s\n", what);
+    failures++;
+  }
 }
 
 int main(void) {
@@ -48,7 +51,10 @@ int main(void) {
   /* 水 must be the first *hanja* candidate: hanja.json lists it first. */
   int first_hanja = -1;
   for (int i = 0; i < n; i++)
-    if (!strcmp(hunmin_suggest_kind(ctx, i), "hanja")) { first_hanja = i; break; }
+    if (!strcmp(hunmin_suggest_kind(ctx, i), "hanja")) {
+      first_hanja = i;
+      break;
+    }
   check(first_hanja >= 0, "수 has a hanja candidate");
   if (first_hanja >= 0) {
     /* v2: detail is "ko | en" built from the libhangul comment and the Unihan
@@ -67,7 +73,10 @@ int main(void) {
   n = hunmin_suggest_count(ctx, "한");
   first_hanja = -1;
   for (int i = 0; i < n; i++)
-    if (!strcmp(hunmin_suggest_kind(ctx, i), "hanja")) { first_hanja = i; break; }
+    if (!strcmp(hunmin_suggest_kind(ctx, i), "hanja")) {
+      first_hanja = i;
+      break;
+    }
   check(first_hanja >= 0, "한 has a hanja candidate");
   if (first_hanja >= 0)
     expect(ctx, first_hanja, "hanja", "韓",
@@ -146,7 +155,10 @@ int main(void) {
   check(hunmin_suggest_text(ctx, 0)[0] != 0, "count() re-populated the list");
 
   hunmin_ctx_free(ctx);
-  if (failures) { printf("%d failure(s)\n", failures); return 1; }
+  if (failures) {
+    printf("%d failure(s)\n", failures);
+    return 1;
+  }
   printf("suggest: ok\n");
   return 0;
 }

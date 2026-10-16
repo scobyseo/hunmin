@@ -21,7 +21,10 @@
 
 #include "cJSON.h"
 
-typedef enum { SK_HANJA, SK_WORD, SK_IDIOM, SK_NONE } sug_kind;
+typedef enum { SK_HANJA,
+               SK_WORD,
+               SK_IDIOM,
+               SK_NONE } sug_kind;
 
 /* One record, three strings, each its own allocation. They are not stored as
  * three parallel blobs under a shared offset: the strings have different
@@ -67,7 +70,9 @@ static char *dupn(const char *s) {
 
 static void table_free(sug_table *t) {
   for (int i = 0; i < t->n; i++) {
-    free(t->v[i].key); free(t->v[i].text); free(t->v[i].detail);
+    free(t->v[i].key);
+    free(t->v[i].text);
+    free(t->v[i].detail);
   }
   free(t->v);
   memset(t, 0, sizeof *t);
@@ -78,7 +83,8 @@ static sug_rec *table_push(sug_table *t) {
     int cap = t->cap ? t->cap * 2 : 256;
     sug_rec *v = realloc(t->v, (size_t)cap * sizeof *v);
     if (!v) return NULL;
-    t->v = v; t->cap = cap;
+    t->v = v;
+    t->cap = cap;
   }
   sug_rec *r = &t->v[t->n];
   memset(r, 0, sizeof *r);
@@ -88,13 +94,26 @@ static sug_rec *table_push(sug_table *t) {
 static char *slurp(const char *path, long cap, size_t *out_len) {
   FILE *f = fopen(path, "rb");
   if (!f) return NULL;
-  if (fseek(f, 0, SEEK_END)) { fclose(f); return NULL; }
+  if (fseek(f, 0, SEEK_END)) {
+    fclose(f);
+    return NULL;
+  }
   long sz = ftell(f);
-  if (sz < 0 || sz > cap) { fclose(f); return NULL; }
+  if (sz < 0 || sz > cap) {
+    fclose(f);
+    return NULL;
+  }
   rewind(f);
   char *buf = malloc((size_t)sz + 1);
-  if (!buf) { fclose(f); return NULL; }
-  if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) { free(buf); fclose(f); return NULL; }
+  if (!buf) {
+    fclose(f);
+    return NULL;
+  }
+  if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) {
+    free(buf);
+    fclose(f);
+    return NULL;
+  }
   buf[sz] = 0;
   fclose(f);
   if (out_len) *out_len = (size_t)sz;
@@ -221,7 +240,10 @@ static int find_table(const char *const *dirs, int ndirs,
   for (int d = 0; d < ndirs; d++) {
     snprintf(out, outsz, "%s/%s/%s.json", dirs[d], sub, name);
     FILE *f = fopen(out, "rb");
-    if (f) { fclose(f); return 1; }
+    if (f) {
+      fclose(f);
+      return 1;
+    }
   }
   return 0;
 }
@@ -260,7 +282,8 @@ static void push(sug_kind kind, const char *text, const char *detail) {
     if (cap > SUG_MAX) cap = SUG_MAX;
     sug_item *v = realloc(g_list.v, (size_t)cap * sizeof *v);
     if (!v) return;
-    g_list.v = v; g_list.cap = cap;
+    g_list.v = v;
+    g_list.cap = cap;
   }
   sug_item *it = &g_list.v[g_list.n++];
   it->kind = kind;
@@ -286,8 +309,8 @@ static int resolve_dirs(const char *const **out, const hunmin_ctx *ctx) {
    * the context carries no explicit dir, so the fcitx5 addon and the test
    * harness -- which set the env var -- keep their existing behaviour. */
   const char *env = (ctx && ctx->data_dir && *ctx->data_dir)
-                      ? ctx->data_dir
-                      : getenv("HUNMIN_DATA_PATH");
+                        ? ctx->data_dir
+                        : getenv("HUNMIN_DATA_PATH");
   if (!env || !*env) {
 #ifdef HUNMIN_DEFAULT_DATA_DIR
     env = HUNMIN_DEFAULT_DATA_DIR;
@@ -312,7 +335,7 @@ static int syllables(const char *s) {
   for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
     if (*p < 0x80) continue;
     n++;
-    if ((*p & 0xE0) == 0xC0) p++;       /* 2-byte: one continuation */
+    if ((*p & 0xE0) == 0xC0) p++; /* 2-byte: one continuation */
     else if ((*p & 0xF0) == 0xE0) p += 2; /* 3-byte: two continuations */
     else if ((*p & 0xF8) == 0xF0) p += 3; /* 4-byte: three */
   }
@@ -369,9 +392,9 @@ const char *hunmin_suggest_kind(hunmin_ctx *ctx, int i) {
   if (!ctx) return "";
   if (!g_list.v || i < 0 || i >= g_list.n) return "";
   switch (g_list.v[i].kind) {
-    case SK_HANJA: return "hanja";
-    case SK_WORD: return "word";
-    case SK_IDIOM: return "idiom";
-    default: return "";
+  case SK_HANJA: return "hanja";
+  case SK_WORD: return "word";
+  case SK_IDIOM: return "idiom";
+  default: return "";
   }
 }

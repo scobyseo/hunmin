@@ -163,13 +163,13 @@ void scheduleEvent(Instance *instance) {
         const Text &t = panelOf(ic);
         FCITX_ASSERT(t.toString() == "\uac00");
         // cursor() is a byte offset; textLength() is the byte length.
-                FCITX_ASSERT(t.cursor() == static_cast<int>(t.textLength()))
-                    << "cursor " << t.cursor() << " vs textLength " << t.textLength();
-                tf->call<ITestFrontend::pushCommitExpectation>("가");
-                tap(uuid, Key("space"));
-                FCITX_ASSERT(panelOf(ic).toString().empty());
+        FCITX_ASSERT(t.cursor() == static_cast<int>(t.textLength()))
+            << "cursor " << t.cursor() << " vs textLength " << t.textLength();
+        tf->call<ITestFrontend::pushCommitExpectation>("가");
+        tap(uuid, Key("space"));
+        FCITX_ASSERT(panelOf(ic).toString().empty());
 
-                // --- F9 opens the Hanja window for the current preedit (P3).
+        // --- F9 opens the Hanja window for the current preedit (P3).
         // The whole reason the adapter consumes keys the engine declined: F9
         // is outside printable ASCII, so hunmin_ic_process() never sees it
         // (FRONTEND-CONTRACT.md A11).
@@ -329,8 +329,9 @@ void scheduleEvent(Instance *instance) {
 
             int rows = 0;
             for (const std::string *b : {hangulBase.empty() ? nullptr : &hangulBase,
-                                          latinBase.empty() ? nullptr : &latinBase}) {
-                if (!b) continue;
+                                         latinBase.empty() ? nullptr : &latinBase}) {
+                if (!b)
+                    continue;
                 for (int i = 0;; i++) {
                     if (!desc.valueByPath(*b + "/Enum/" + std::to_string(i))) {
                         break;
@@ -358,11 +359,13 @@ void scheduleEvent(Instance *instance) {
             // And every id offered has a file behind it -- a stale row would
             // otherwise survive the count.
             for (const std::string *b : {hangulBase.empty() ? nullptr : &hangulBase,
-                                          latinBase.empty() ? nullptr : &latinBase}) {
-                if (!b) continue;
+                                         latinBase.empty() ? nullptr : &latinBase}) {
+                if (!b)
+                    continue;
                 for (int i = 0;; i++) {
                     const std::string *id = desc.valueByPath(*b + "/Enum/" + std::to_string(i));
-                    if (!id) break;
+                    if (!id)
+                        break;
                     const std::string file = std::string(TESTING_SOURCE_DIR) +
                                              "/libhunmin/data/layouts/" + *id +
                                              ".json";
@@ -460,8 +463,7 @@ void scheduleEvent(Instance *instance) {
         FCITX_ASSERT(hanList->cursorIndex() == 1)
             << "Down did not move the cursor (index " << hanList->cursorIndex()
             << ", size=" << hanList->size() << ")";
-        FCITX_ASSERT(hanList->candidate(hanList->cursorIndex()).text().toString()
-                     == "\u809d")
+        FCITX_ASSERT(hanList->candidate(hanList->cursorIndex()).text().toString() == "\u809d")
             << "cursor is not on 肝";
 
         // Return commits the candidate under the cursor and closes the window,

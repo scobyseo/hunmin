@@ -105,13 +105,15 @@ Java_org_hunmin_ime_HunminNative_nativeCtxNew(JNIEnv *env, jclass k, jstring dat
 
 JNIEXPORT void JNICALL
 Java_org_hunmin_ime_HunminNative_nativeCtxFree(JNIEnv *env, jclass k, jlong ctx) {
-  (void)env; (void)k;
+  (void)env;
+  (void)k;
   hunmin_ctx_free((hunmin_ctx *)(intptr_t)ctx);
 }
 
 JNIEXPORT jint JNICALL
 Java_org_hunmin_ime_HunminNative_nativeLayoutCount(JNIEnv *env, jclass k, jlong ctx) {
-  (void)env; (void)k;
+  (void)env;
+  (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
   return c ? (jint)hunmin_ctx_layout_count(c) : 0;
 }
@@ -143,7 +145,8 @@ Java_org_hunmin_ime_HunminNative_nativeLayoutName(JNIEnv *env, jclass k, jlong c
 
 JNIEXPORT jboolean JNICALL
 Java_org_hunmin_ime_HunminNative_nativeLayoutSupported(JNIEnv *env, jclass k, jlong ctx, jint i) {
-  (void)env; (void)k;
+  (void)env;
+  (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
   return (c && i >= 0 && hunmin_ctx_layout_supported(c, i)) ? JNI_TRUE : JNI_FALSE;
 }
@@ -170,13 +173,15 @@ Java_org_hunmin_ime_HunminNative_nativeIcNew(JNIEnv *env, jclass k, jlong ctx, j
 
 JNIEXPORT void JNICALL
 Java_org_hunmin_ime_HunminNative_nativeIcFree(JNIEnv *env, jclass k, jlong ic) {
-  (void)env; (void)k;
+  (void)env;
+  (void)k;
   hunmin_ic_free((hunmin_ic *)(intptr_t)ic);
 }
 
 JNIEXPORT jboolean JNICALL
 Java_org_hunmin_ime_HunminNative_nativeProcess(JNIEnv *env, jclass k, jlong ic, jint ch) {
-  (void)env; (void)k;
+  (void)env;
+  (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
   return (i && hunmin_ic_process(i, (uint32_t)ch)) ? JNI_TRUE : JNI_FALSE;
 }
@@ -204,14 +209,15 @@ Java_org_hunmin_ime_HunminNative_nativeFlush(JNIEnv *env, jclass k, jlong ic) {
 
 JNIEXPORT void JNICALL
 Java_org_hunmin_ime_HunminNative_nativeReset(JNIEnv *env, jclass k, jlong ic) {
-  (void)env; (void)k;
+  (void)env;
+  (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
   if (i) hunmin_ic_reset(i);
 }
 
 JNIEXPORT jboolean JNICALL
 Java_org_hunmin_ime_HunminNative_nativeSetOption(JNIEnv *env, jclass k, jlong ic,
-                                                  jstring name, jint value) {
+                                                 jstring name, jint value) {
   (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
   char *n = dup_java_string(env, name);
@@ -231,7 +237,7 @@ Java_org_hunmin_ime_HunminNative_nativeSetOption(JNIEnv *env, jclass k, jlong ic
  */
 JNIEXPORT jstring JNICALL
 Java_org_hunmin_ime_HunminNative_nativeCommitText(JNIEnv *env, jclass k, jlong ic,
-                                                   jstring text) {
+                                                  jstring text) {
   (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
   if (!i) return (*env)->NewStringUTF(env, "");
@@ -246,8 +252,9 @@ Java_org_hunmin_ime_HunminNative_nativeCommitText(JNIEnv *env, jclass k, jlong i
 
 JNIEXPORT jint JNICALL
 Java_org_hunmin_ime_HunminNative_nativeSuggestCount(JNIEnv *env, jclass k, jlong ctx,
-                                                     jstring hangul) {
-  (void)env; (void)k;
+                                                    jstring hangul) {
+  (void)env;
+  (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
   if (!c) return 0;
   char *h = dup_java_string(env, hangul);

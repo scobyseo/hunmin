@@ -19,7 +19,7 @@ namespace fcitx {
 class HunminState;
 
 class HunminEngine : public InputMethodEngine {
-public:
+  public:
     explicit HunminEngine(Instance *instance);
 
     void activate(const fcitx::InputMethodEntry &,
@@ -52,7 +52,7 @@ public:
     hunmin_ctx *ctx() const { return ctx_; }
     auto &config() { return config_; }
 
-private:
+  private:
     Instance *instance_;
     HunminConfig config_;
     FactoryFor<HunminState> factory_;
@@ -60,7 +60,7 @@ private:
 };
 
 class HunminEngineFactory : public AddonFactory {
-public:
+  public:
     AddonInstance *create(AddonManager *manager) override {
         return new HunminEngine(manager->instance());
     }

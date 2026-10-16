@@ -85,7 +85,7 @@ class HunminState;
  * select() is defined out of line, after HunminState, because it casts to
  * HunminState and a dynamic_cast needs the complete type. */
 class HunminCandidateWord : public CandidateWord {
-public:
+  public:
     HunminCandidateWord(Text text, Text comment, HunminEngine *engine,
                         InputContext *ic, std::string hanja);
 
@@ -93,15 +93,14 @@ public:
 
     const std::string &hanja() const { return hanja_; }
 
-private:
+  private:
     HunminEngine *engine_;
     InputContext *ic_;
     std::string hanja_;
 };
 
-
 class HunminState : public InputContextProperty {
-public:
+  public:
     HunminState(HunminEngine *engine, InputContext *ic)
         : engine_(engine), ic_(ic), switcher_(engine->ctx()) {}
 
@@ -396,7 +395,7 @@ public:
         }
     }
 
-private:
+  private:
     void ensureIc(const std::string &layout) {
         // per-item profile layout wins; empty means "no override", in which
         // case the addon-wide default from conf/hunmin.conf applies.
@@ -586,7 +585,7 @@ void HunminEngine::deactivate(const InputMethodEntry &entry,
 }
 
 void HunminEngine::keyEvent(const InputMethodEntry &entry,
-                              KeyEvent &keyEvent) {
+                            KeyEvent &keyEvent) {
     if (keyEvent.isRelease()) {
         return;
     }
@@ -596,8 +595,8 @@ void HunminEngine::keyEvent(const InputMethodEntry &entry,
 
 std::string HunminEngine::layoutFor(const InputMethodEntry &entry) const {
     std::string layout = instance_->inputMethodManager()
-        .currentGroup()
-        .layoutFor(entry.uniqueName());
+                             .currentGroup()
+                             .layoutFor(entry.uniqueName());
     // Per-profile layout wins; empty means "no override", so use the global
     // hangulLayout config as the default Hangul layout.
     if (layout.empty()) {
@@ -652,9 +651,9 @@ void HunminEngine::reloadConfig() {
 
 void HunminEngine::setConfig(const fcitx::RawConfig &rawConfig) {
     config_.load(rawConfig, true);
-    instance_->inputContextManager().foreach([this](InputContext *ic) {
+    instance_->inputContextManager().foreach ([this](InputContext *ic) {
         state(ic)->reset(); // in-flight composition dropped; layout swaps
-        return true;        // lazily on the next key (ensureIc)
+        return true; // lazily on the next key (ensureIc)
     });
     safeSaveAsIni(config_, "conf/hunmin.conf");
 }

@@ -24,14 +24,29 @@ static void json_escape(const char *in, char *out, size_t cap) {
   size_t o = 0;
   for (const unsigned char *p = (const unsigned char *)in; *p && o + 7 < cap; p++) {
     switch (*p) {
-      case '"':  out[o++] = '\\'; out[o++] = '"';  break;
-      case '\\': out[o++] = '\\'; out[o++] = '\\'; break;
-      case '\n': out[o++] = '\\'; out[o++] = 'n';  break;
-      case '\r': out[o++] = '\\'; out[o++] = 'r';  break;
-      case '\t': out[o++] = '\\'; out[o++] = 't';  break;
-      default:
-        if (*p < 0x20) o += (size_t)snprintf(out + o, cap - o, "\\u%04x", *p);
-        else out[o++] = (char)*p;
+    case '"':
+      out[o++] = '\\';
+      out[o++] = '"';
+      break;
+    case '\\':
+      out[o++] = '\\';
+      out[o++] = '\\';
+      break;
+    case '\n':
+      out[o++] = '\\';
+      out[o++] = 'n';
+      break;
+    case '\r':
+      out[o++] = '\\';
+      out[o++] = 'r';
+      break;
+    case '\t':
+      out[o++] = '\\';
+      out[o++] = 't';
+      break;
+    default:
+      if (*p < 0x20) o += (size_t)snprintf(out + o, cap - o, "\\u%04x", *p);
+      else out[o++] = (char)*p;
     }
   }
   out[o] = 0;
@@ -44,12 +59,19 @@ static void json_escape(const char *in, char *out, size_t cap) {
 
 static char *read_file(const char *path, long *szp) {
   FILE *f = fopen(path, "rb");
-  if (!f) { perror(path); return NULL; }
+  if (!f) {
+    perror(path);
+    return NULL;
+  }
   fseek(f, 0, SEEK_END);
   long sz = ftell(f);
   fseek(f, 0, SEEK_SET);
   char *buf = malloc((size_t)sz + 1);
-  if (!buf || fread(buf, 1, (size_t)sz, f) != (size_t)sz) { free(buf); fclose(f); return NULL; }
+  if (!buf || fread(buf, 1, (size_t)sz, f) != (size_t)sz) {
+    free(buf);
+    fclose(f);
+    return NULL;
+  }
   buf[sz] = 0;
   fclose(f);
   if (szp) *szp = sz;
@@ -61,13 +83,28 @@ static char *read_file(const char *path, long *szp) {
 static void put_cp(char *o, size_t *n, size_t cap, uint32_t cp) {
   char b[4];
   int l;
-  if (cp < 0x80) { b[0] = (char)cp; l = 1; }
-  else if (cp < 0x800) { b[0] = (char)(0xC0 | cp >> 6); b[1] = (char)(0x80 | (cp & 0x3F)); l = 2; }
-  else if (cp < 0x10000) { b[0] = (char)(0xE0 | cp >> 12); b[1] = (char)(0x80 | (cp >> 6 & 0x3F));
-                            b[2] = (char)(0x80 | (cp & 0x3F)); l = 3; }
-  else { b[0] = (char)(0xF0 | cp >> 18); b[1] = (char)(0x80 | (cp >> 12 & 0x3F));
-         b[2] = (char)(0x80 | (cp >> 6 & 0x3F)); b[3] = (char)(0x80 | (cp & 0x3F)); l = 4; }
-  if (*n + (size_t)l < cap - 1) { for (int i = 0; i < l; i++) o[(*n)++] = b[i]; }
+  if (cp < 0x80) {
+    b[0] = (char)cp;
+    l = 1;
+  } else if (cp < 0x800) {
+    b[0] = (char)(0xC0 | cp >> 6);
+    b[1] = (char)(0x80 | (cp & 0x3F));
+    l = 2;
+  } else if (cp < 0x10000) {
+    b[0] = (char)(0xE0 | cp >> 12);
+    b[1] = (char)(0x80 | (cp >> 6 & 0x3F));
+    b[2] = (char)(0x80 | (cp & 0x3F));
+    l = 3;
+  } else {
+    b[0] = (char)(0xF0 | cp >> 18);
+    b[1] = (char)(0x80 | (cp >> 12 & 0x3F));
+    b[2] = (char)(0x80 | (cp >> 6 & 0x3F));
+    b[3] = (char)(0x80 | (cp & 0x3F));
+    l = 4;
+  }
+  if (*n + (size_t)l < cap - 1) {
+    for (int i = 0; i < l; i++) o[(*n)++] = b[i];
+  }
 }
 
 static void hangul_canon(const char *s, char *out, size_t cap) {
@@ -76,10 +113,19 @@ static void hangul_canon(const char *s, char *out, size_t cap) {
     unsigned char c = (unsigned char)*s;
     uint32_t cp;
     int l;
-    if (c < 0x80) { cp = c; l = 1; }
-    else if ((c >> 5) == 6) { cp = c & 0x1F; l = 2; }
-    else if ((c >> 4) == 0xE) { cp = c & 0xF; l = 3; }
-    else { cp = c & 7; l = 4; }
+    if (c < 0x80) {
+      cp = c;
+      l = 1;
+    } else if ((c >> 5) == 6) {
+      cp = c & 0x1F;
+      l = 2;
+    } else if ((c >> 4) == 0xE) {
+      cp = c & 0xF;
+      l = 3;
+    } else {
+      cp = c & 7;
+      l = 4;
+    }
     for (int i = 1; i < l; i++) cp = (cp << 6) | ((unsigned char)s[i] & 0x3F);
     s += l;
     if (cp >= 0xAC00 && cp <= 0xD7A3) {
@@ -105,13 +151,17 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
     line++;
     if (!*s) continue;
     cJSON *j = cJSON_Parse(s);
-    if (!j) { fprintf(stderr, "%s:%d: bad JSON\n", path, line); fails++; continue; }
+    if (!j) {
+      fprintf(stderr, "%s:%d: bad JSON\n", path, line);
+      fails++;
+      continue;
+    }
     const cJSON *meta = cJSON_GetObjectItemCaseSensitive(j, "meta");
     if (meta) {
       const cJSON *ca = cJSON_GetObjectItemCaseSensitive(meta, "caps");
       static const char *ovrs[] = {"w", "W", "z", "h", "H"};
       if (ic) {
-        hunmin_ic_reset(ic);  /* multi-case goldens: reset between cases */
+        hunmin_ic_reset(ic); /* multi-case goldens: reset between cases */
         if (cJSON_IsNumber(ca)) hunmin_ic_set_option(ic, "caps", ca->valueint);
         for (int k = 0; k < 5; k++) {
           const cJSON *cv = cJSON_GetObjectItemCaseSensitive(meta, ovrs[k]);
@@ -135,7 +185,9 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
         }
         if (!use || !ic) {
           fprintf(stderr, "%s: cannot resolve layout from meta/--layout\n", path);
-          cJSON_Delete(j); fails++; break;
+          cJSON_Delete(j);
+          fails++;
+          break;
         }
       }
       cJSON_Delete(j);
@@ -146,19 +198,26 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
     const cJSON *wpre = cJSON_GetObjectItemCaseSensitive(j, "preedit");
     if (!ic) {
       fprintf(stderr, "%s: missing meta.layout (line 1) or --layout\n", path);
-      cJSON_Delete(j); fails++; break;
+      cJSON_Delete(j);
+      fails++;
+      break;
     }
     uint32_t ch = 0x08; /* default backspace */
     const cJSON *jc = cJSON_GetObjectItemCaseSensitive(in, "ch");
     const cJSON *jk = cJSON_GetObjectItemCaseSensitive(in, "key");
     if (cJSON_IsString(jc) && jc->valuestring[0]) ch = (unsigned char)jc->valuestring[0];
     else if (cJSON_IsString(jk) && !strcmp(jk->valuestring, "backspace")) ch = 0x08;
-    else { fprintf(stderr, "%s:%d: bad in\n", path, line); cJSON_Delete(j); fails++; continue; }
+    else {
+      fprintf(stderr, "%s:%d: bad in\n", path, line);
+      cJSON_Delete(j);
+      fails++;
+      continue;
+    }
 
     hunmin_ic_process(ic, ch);
     const char *ac = hunmin_ic_commit(ic), *ap = hunmin_ic_preedit(ic);
     const cJSON *wtotal = cJSON_GetObjectItemCaseSensitive(j, "total");
-    if (cJSON_IsString(wtotal)) {   /* oracle mode: assert the rendered result of
+    if (cJSON_IsString(wtotal)) { /* oracle mode: assert the rendered result of
                                      * this step: composing buffer, else the commit
                                      * (patim getComposed() semantics, canonicalized:
                                      * NFC syllables == jamo sequences here) */
@@ -171,7 +230,10 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
                 path, line, jc && cJSON_IsString(jc) ? jc->valuestring : "bksp",
                 b_c, a_c);
         fails++;
-        if (fails > 8) { cJSON_Delete(j); break; }
+        if (fails > 8) {
+          cJSON_Delete(j);
+          break;
+        }
       }
       cJSON_Delete(j);
       continue;
@@ -183,7 +245,10 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
               path, line, jc && cJSON_IsString(jc) ? jc->valuestring : "backspace",
               ec, ep, ac, ap);
       fails++;
-      if (fails > 5) { cJSON_Delete(j); break; }
+      if (fails > 5) {
+        cJSON_Delete(j);
+        break;
+      }
     }
     cJSON_Delete(j);
   }
@@ -205,10 +270,16 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--trace")) trace = 1;
     else if (!strcmp(argv[i], "--batch")) batch = 1;
   }
-  if (!data) { fprintf(stderr, "usage: hunmin-sim --data DIR (--layout ID --keys STR | --batch | --check FILE)\n"); return 2; }
-  const char *dirs[1] = { data };
+  if (!data) {
+    fprintf(stderr, "usage: hunmin-sim --data DIR (--layout ID --keys STR | --batch | --check FILE)\n");
+    return 2;
+  }
+  const char *dirs[1] = {data};
   hunmin_ctx *ctx = hunmin_ctx_new(dirs, 1);
-  if (!ctx) { fprintf(stderr, "no layouts loaded from %s\n", data); return 2; }
+  if (!ctx) {
+    fprintf(stderr, "no layouts loaded from %s\n", data);
+    return 2;
+  }
 
   if (checkp) return check_file(ctx, checkp, layout);
 
@@ -221,15 +292,21 @@ int main(int argc, char **argv) {
      * keystrokes per process makes that cost amortise away. Context is
      * loaded once; each line gets a fresh ic so lines cannot influence each
      * other, and an empty line resets. */
-    if (!layout) { fprintf(stderr, "need --layout for --batch\n"); return 2; }
+    if (!layout) {
+      fprintf(stderr, "need --layout for --batch\n");
+      return 2;
+    }
     char linebuf[4096];
     char *line = linebuf;
     size_t n;
     while (fgets(line, (int)sizeof(linebuf), stdin)) {
       n = strlen(line);
-      while (n > 0 && (line[n-1] == '\n' || line[n-1] == '\r')) line[--n] = 0;
+      while (n > 0 && (line[n - 1] == '\n' || line[n - 1] == '\r')) line[--n] = 0;
       hunmin_ic *bic = hunmin_ic_new(ctx, layout);
-      if (!bic) { fprintf(stderr, "layout %s unavailable\n", layout); return 2; }
+      if (!bic) {
+        fprintf(stderr, "layout %s unavailable\n", layout);
+        return 2;
+      }
       if (caps) hunmin_ic_set_option(bic, "caps", 1);
       /* Accumulate the commit after EVERY key, not once at the end:
        * hunmin_ic_process() clears ic->commit on entry, so reading it once
@@ -260,9 +337,15 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  if (!layout || !keys) { fprintf(stderr, "need --layout and --keys\n"); return 2; }
+  if (!layout || !keys) {
+    fprintf(stderr, "need --layout and --keys\n");
+    return 2;
+  }
   hunmin_ic *ic = hunmin_ic_new(ctx, layout);
-  if (!ic) { fprintf(stderr, "layout %s unavailable\n", layout); return 2; }
+  if (!ic) {
+    fprintf(stderr, "layout %s unavailable\n", layout);
+    return 2;
+  }
   if (caps) hunmin_ic_set_option(ic, "caps", 1);
   for (const char *s = keys; *s; s++) {
     /* The return value is the engine's CONSUMPTION decision, and --trace threw
@@ -287,15 +370,14 @@ int main(int argc, char **argv) {
        * keystroke generator that searches the layout's key table, whose
        * alphabet necessarily includes '"' and '\\'. */
       char kbuf[8], cbuf[256], pbuf[256];
-      char kraw[2] = { (char)*s, 0 };
+      char kraw[2] = {(char)*s, 0};
       json_escape(kraw, kbuf, sizeof kbuf);
       json_escape(hunmin_ic_commit(ic), cbuf, sizeof cbuf);
       json_escape(hunmin_ic_preedit(ic), pbuf, sizeof pbuf);
       printf("{\"in\":{\"ch\":\"%s\"},\"commit\":\"%s\",\"preedit\":\"%s\","
              "\"consumed\":%s}\n",
              kbuf, cbuf, pbuf, consumed ? "true" : "false");
-    }
-    else printf("[%c] commit='%s' preedit='%s'\n", *s, hunmin_ic_commit(ic), hunmin_ic_preedit(ic));
+    } else printf("[%c] commit='%s' preedit='%s'\n", *s, hunmin_ic_commit(ic), hunmin_ic_preedit(ic));
   }
   return 0;
 }

@@ -7,7 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct { uint64_t s; } rng_t;
+typedef struct {
+  uint64_t s;
+} rng_t;
 static uint64_t next(rng_t *r) {
   r->s += 0x9E3779B97F4A7C15ull;
   uint64_t z = r->s;
@@ -17,12 +19,26 @@ static uint64_t next(rng_t *r) {
 }
 
 static int utf8(uint32_t cp, char *o) {
-  if (cp < 0x80) { o[0] = (char)cp; return 1; }
-  if (cp < 0x800) { o[0] = 0xC0 | cp >> 6; o[1] = 0x80 | (cp & 0x3F); return 2; }
-  if (cp < 0x10000) { o[0] = 0xE0 | cp >> 12; o[1] = 0x80 | (cp >> 6 & 0x3F);
-                      o[2] = 0x80 | (cp & 0x3F); return 3; }
-  o[0] = 0xF0 | cp >> 18; o[1] = 0x80 | (cp >> 12 & 0x3F);
-  o[2] = 0x80 | (cp >> 6 & 0x3F); o[3] = 0x80 | (cp & 0x3F); return 4;
+  if (cp < 0x80) {
+    o[0] = (char)cp;
+    return 1;
+  }
+  if (cp < 0x800) {
+    o[0] = 0xC0 | cp >> 6;
+    o[1] = 0x80 | (cp & 0x3F);
+    return 2;
+  }
+  if (cp < 0x10000) {
+    o[0] = 0xE0 | cp >> 12;
+    o[1] = 0x80 | (cp >> 6 & 0x3F);
+    o[2] = 0x80 | (cp & 0x3F);
+    return 3;
+  }
+  o[0] = 0xF0 | cp >> 18;
+  o[1] = 0x80 | (cp >> 12 & 0x3F);
+  o[2] = 0x80 | (cp >> 6 & 0x3F);
+  o[3] = 0x80 | (cp & 0x3F);
+  return 4;
 }
 
 static void put_json_str(FILE *f, const ucschar *s) {
@@ -30,8 +46,15 @@ static void put_json_str(FILE *f, const ucschar *s) {
   for (; s && *s; s++) {
     uint32_t c = *s;
     char b[4];
-    if (c == '"' || c == '\\') { fputc('\\', f); fputc((int)c, f); continue; }
-    if (c == '\n') { fputs("\\n", f); continue; }
+    if (c == '"' || c == '\\') {
+      fputc('\\', f);
+      fputc((int)c, f);
+      continue;
+    }
+    if (c == '\n') {
+      fputs("\\n", f);
+      continue;
+    }
     int n = utf8(c, b);
     for (int i = 0; i < n; i++) fputc(b[i], f);
   }
@@ -49,13 +72,22 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--out") && ++i < argc) out = argv[i];
     else if (!strcmp(argv[i], "--layout") && ++i < argc) lay = argv[i];
   }
-  if (!kbd || !out) { fprintf(stderr, "usage: %s --kbd ID --seed N --steps N --out FILE\n", argv[0]); return 2; }
+  if (!kbd || !out) {
+    fprintf(stderr, "usage: %s --kbd ID --seed N --steps N --out FILE\n", argv[0]);
+    return 2;
+  }
 
   HangulInputContext *ic = hangul_ic_new(kbd);
-  if (!ic) { fprintf(stderr, "unknown keyboard %s\n", kbd); return 1; }
-  rng_t r = { seed * 2654435761u + 7 };
+  if (!ic) {
+    fprintf(stderr, "unknown keyboard %s\n", kbd);
+    return 1;
+  }
+  rng_t r = {seed * 2654435761u + 7};
   FILE *f = fopen(out, "w");
-  if (!f) { perror(out); return 1; }
+  if (!f) {
+    perror(out);
+    return 1;
+  }
 
   fprintf(f, "{\"meta\":{\"layout\":\"%s\",\"kbd\":\"%s\",\"seed\":%llu, \"steps\":%d,\"tool\":\"gen-golden-libhangul\",\"lib\":\"0.2.0\"}}\n",
           lay ? lay : "", kbd, (unsigned long long)seed, steps);
