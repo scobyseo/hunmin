@@ -2,12 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-16 | Total pages: 36
-
-**`docs/` stays authoritative** for specifications, contracts and citable
-figures, and **`docs/HISTORY.md` carries what shipped, per phase**. This wiki
-holds the other half: what was decided and why, and how this project has been
-wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
+> Last updated: 2026-10-17 | Total pages: 37
 
 ## Concepts
 
@@ -113,6 +108,12 @@ wrong before. See `SCHEMA.md` §Relationship to docs/ and §What belongs here.
   `android:background` as a theme item, a Dialog-parented host activity), and an
   E2E assertion that failed on a correct UI. Durable artefact:
   `docs/ANDROID-UI-NOTES.md`.
+- [[2026-10-17-tsf-scaffold-milestone-a-verification]] — the pre-close pass
+  over issue #64: master had already absorbed the milestone-A scaffold (plus
+  the PR-#76 buffering adapter), the MSVC and llvm-mingw build measurements
+  on the Windows host, the 51/52 inner-loop ctest result with the
+  by-nature `data-selfcheck` failure, and the stale host-fact corrections in
+  `docs/ENVIRONMENT.md`, `docs/MILESTONES.md` and `docs/REMAINING-WORK.md`.
 
 ## Raw — measurements
 

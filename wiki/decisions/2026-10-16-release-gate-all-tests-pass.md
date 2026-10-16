@@ -85,6 +85,14 @@ exported at configure time, `-DHUNMIN_TRACE_BUILD=ON`, AVD `hunmin-e2e` booted,
 skipped across identical consecutive runs. `engine-android-goldens` passes once
 the AVD is attached; before that it skips with "no Android device attached".
 
+**Addendum 2026-10-17 (maintainer instruction, does not rewrite the ruling):**
+`data-selfcheck` was unregistered from ctest — the maintainer's instruction is
+that it is not touched before its own dev stage, and on the Windows host it
+was red on every pass (the converter-vs-committed-data divergence; the #46
+skip only solved the absent dump). The gate's exception list therefore holds
+`modes-corpus-selfcheck` alone, and the self-contained `krdict-fixture` guard
+remains. The ruling quote above stays as it was given.
+
 ## What this ruling does NOT do
 
 - It does not say 0.1 is ready to ship. That is `docs/REMAINING-WORK.md` §1 and

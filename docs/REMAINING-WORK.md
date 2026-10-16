@@ -21,10 +21,14 @@ items below belongs to which lane is
 [`MILESTONES.md`](MILESTONES.md) — a rearrangement of this board, not a second copy
 of it. Status claims stay here and nowhere else.
 
-**P6 (Windows TSF) is excluded by the maintainer's instruction**: there is no Windows
-environment on this host (`docs/ENVIRONMENT.md` batch 4, not installed) and no way to
-verify a TIP, so work on it could not be measured. Nothing below depends on it, and
-§4 says what that leaves short.
+**P6 (Windows TSF) was excluded by the maintainer's instruction**, because there
+was no Windows environment on the Linux host and no way to verify a TIP. **The
+factual basis is superseded 2026-10-16/17:** the Windows 11 host carries
+VS2022 BuildTools + Windows SDK, and milestone A (issue #64) — the TSF scaffold
+under `frontends/tsf/` — was measured there (core + DLL build natively, see
+`docs/ENVIRONMENT.md` batch 4). Whether the rest of P6 moves from "excluded"
+back onto this board is the maintainer's ruling; the milestone draft §"Windows
+IME (0.2)" below tracks it per-milestone.
 
 ---
 
@@ -40,35 +44,32 @@ version listed `engine-d3-x11` (and the two GTK variants) as failing on
 |---|---|---|
 | `docs-lint` | 3 errors: "156 ctest tests" | **passes** — the bare count was dropped |
 | `engine-d1-fcitx5` | rc 134 abort, CapsLock `J K 1` | **passes** |
-| `data-selfcheck` | us-qwerty.json format drift | **fixed 2026-10-13 (issue #46)** — skips (rc 77) when the gitignored krdict dump is absent; see below |
+| `data-selfcheck` | us-qwerty.json format drift | **unregistered 2026-10-17 (maintainer instruction)** — see below; §0's 2026-10-13 fix (issue #46) is history |
 | `engine-d3-x11` | `ㅎ\|곈` instead of `안\|녕` | **passes** (goldens regenerated) |
 | `engine-d3-gtk3` / `-gtk4` | same | **both pass** |
 
-**`data-selfcheck` no longer fails in a fresh worktree (2026-10-13, issue #46).**
-It used to fail on `krdict2data: no *.xml under …/data-orig/krdict` — the 368 MB
-국립국어원 dump is gitignored and absent from a new worktree, and the test did
-not skip on a missing input; it failed. Now, with no `*.xml` under
-`data-orig/krdict/`, `tools/selfcheck.py` skips that one converter step, copies
-the committed table across so `diff -r` cannot report it missing, and exits 77
-(`SKIP_RETURN_CODE`), so ctest reports the test **Skipped** instead of red. In
-the maintainer's primary tree, where the dump is present, every step runs
-exactly as before. The earlier 2026-10-09 diagnosis (a `diff -r` whitespace
-divergence in `us-qwerty.json`) and the 2026-10-10 diagnosis (krdict) were both
-true of their own tree at their own time; the current state is the skip.
+**`data-selfcheck` was unregistered 2026-10-17 (maintainer instruction).** Its
+history, so the state change is auditable: it used to fail in a fresh worktree
+on `krdict2data: no *.xml under …/data-orig/krdict` — the 368 MB 국립국어원
+dump is gitignored and absent from a new worktree, and the test did not skip
+on a missing input; it failed. The #46 fix (2026-10-13) made
+`tools/selfcheck.py` exit 77 with the dump absent, so ctest reported Skipped.
+On this host (Windows) the converter outputs already diverge from committed
+`data/`, so it stayed red on every pass. The maintainer's instruction: the
+check is **not touched before its own dev stage** — `tools/selfcheck.py` and
+the maintainer-only `tools/selfcheck-krdict.sh` stay for that stage — but it
+is no longer part of the registered suite, where it cost energy on every run.
 
-The self-contained guard for the converter's *logic* is ctest test
+The registered guard for the converter's *logic* is ctest test
 `krdict-fixture` (tier-B): a committed synthetic fixture under
 `tests/fixtures/krdict/` converted into a temp dir and diffed byte-identically
-against a committed expected `krdict.json`. The dump-dependent full-dump
-determinism run is the maintainer-only `tools/selfcheck-krdict.sh`, which is
-deliberately **not** registered with ctest — a run that needs 368 MB cannot
-live on the repo's test surface.
+against a committed expected `krdict.json`.
 
 `ctest` is green on a worktree configured `-DHUNMIN_TRACE_BUILD=ON`; the main
 tree here is configured without it, which registers fewer, so a bare count in
 prose is only meaningful next to the configuration it came from. No test is red
-in a fresh worktree: `data-selfcheck` reports Skipped where the gitignored
-krdict dump is absent — see §0 above.
+in a fresh worktree by design; `data-selfcheck` was unregistered 2026-10-17
+(above).
 
 ---
 
@@ -564,8 +565,8 @@ CI-WORKFLOW-VALID | grep | .github/workflows/ci.yml:\$\{\{ failure\(\) \}\} | pr
 # grant needed "an emulator, which this host does not have". False twice: tier E2
 # drove both permission branches on this host's AVD, and the AVD is what
 # tools/android-e2e.sh already uses.)
-DATASELFCHECK-46 | grep | tools/selfcheck.py:KR_ABSENT | present | issue #46: data-selfcheck skips (rc 77) when the gitignored 368 MB krdict dump is absent instead of failing, so a fresh worktree and CI are green. Two other rows carry the rest: krdict-fixture is the self-contained determinism guard (committed fixture under tests/fixtures/krdict/, expected output diffed byte-identically), and the dump-dependent full run is tools/selfcheck-krdict.sh, which is deliberately NOT registered with ctest
-DATASELFCHECK-46 | grep | CMakeLists.txt:set_tests_properties\(data-selfcheck PROPERTIES | present | issue #46: data-selfcheck carries SKIP_RETURN_CODE 77, so the skip is reported as Skipped by ctest rather than silently passed
+DATASELFCHECK-46 | grep | tools/selfcheck.py:KR_ABSENT | present | issue #46: tools/selfcheck.py keeps the rc-77 skip-when-absent branch for the gitignored 368 MB dump. **Unregistering note 2026-10-17:** the maintainer's instruction removed data-selfcheck from the ctest suite (not touched before its own dev stage); the row below the registration fact was replaced accordingly, and REMAINING-WORK §0 carries the history
+DATASELFCHECK-46 | grep | CMakeLists.txt:add_test\(NAME data-selfcheck | absent | 2026-10-17 (maintainer instruction): data-selfcheck is unregistered, so the suite cannot go red on the host's converter-vs-committed-data divergence. The self-contained guard is krdict-fixture; the full-dump run stays maintainer-only in tools/
 DATASELFCHECK-46 | path-present | tests/fixtures/krdict/01.xml | present | issue #46: the committed synthetic fixture exercises every krdict2data.py branch (Hanja/no-origin skipped, `/`-separated readings -> hanja_alt, Hanja-free readings dropped, pos/level/category, meanings absent, (ko,hanja) dedup counted in meta) with no 368 MB dump present
 DATASELFCHECK-46 | path-present | tools/selfcheck-krdict.sh | present | issue #46: the maintainer-only full-dump determinism run; not a ctest test, so the ctest surface stays self-contained
 DATASELFCHECK-46 | path-absent | CMakeLists.txt:selfcheck-krdict | absent | issue #46: selfcheck-krdict.sh must NOT appear in the ctest registration — a dump-dependent run cannot live on the ctest surface
@@ -577,6 +578,9 @@ F9-CANDIDATE-ABORT | grep | tests/e2e/run-d3.sh:DisabledAddons=classicui | prese
 F9-WINDOW-TIER | ctest | engine-d3-candidate | registered | issue #53 (split out of #51 at the maintainer's instruction, 2026-10-13: "F9 테스트는 별도 이슈로 등록하고 이 작업 범위에서 제외."), closed by the option-A disposition on 2026-10-15: a tier that draws the F9 candidate window for real. `engine-d3-candidate` is `tests/e2e/run-d3.sh` with `HUNMIN_D3_CLIENT=candidate` -- the same staged stack as engine-d3-x11 with classicui ENABLED (CANDIDATE_CLASSICUI is empty in that mode), reading `tests/e2e/cases-candidate.tsv`. It asserts three things per case: fcitx5 survives (the #45 abort oracle -- kill -0 after injection), the input window is actually drawn (xwininfo geometry), and the expected COMMIT text where a case carries one. **Measured red with the cap reverted 2026-10-15:** `kMaxCandidatePageSize` changed to 1000 made the deep case fail with `CommonCandidateList: invalid label idx` and fcitx5 SIGABRT (core dumped) -- the exact #45 abort, which no other tier reaches. Green with the cap in place. Cases: 간(67 candidates), 간+Return(刊), 간+Down+Return(肝), 낙(11 candidates, one past the old abort edge). The injector gained `{F9}`/`{Return}`/`{Down}` named-keysym tokens in `tests/e2e/xtest-type.py`; F9 opens the window asynchronously, so the injector settles 0.8s after it (measured: a Return at 40ms committed the source syllable plus Latin garbage instead of the candidate)
 CI-WINDOWS-OUT-OF-SCOPE | grep | .github/workflows/ci.yml:issue #51 | present | issue #51, item 2, the maintainer's ruling acted on 2026-10-13: "for windows, it is not scope of this version. so in the issue we will disable windows test." The `windows` job now carries `if: false` and a comment quoting that sentence; the block is kept rather than deleted so "was Windows ever built here, and why did it stop" stays answerable. It was red on master since at least 0d046bc with `cl : D8021 invalid numeric argument '/Wextra'` (CMakeLists.txt:10 passes GCC flags to MSVC), and the flag was deliberately NOT guarded with if(NOT MSVC) -- that would turn the job green, which is a different decision from the one ruled. What this row does NOT check: that `if: false` is what changed. A comment citing the issue passes it, which is the known weakness the row was written with (the assertion grammar cannot express "a job that runs nothing" against a `windows-latest` line that stays in the file). No job in the workflow depends on this one. Coverage lost while it is disabled: no job compiles the core with MSVC; docs/ENVIRONMENT.md §CI and docs/TESTING.md's ABI bullet were corrected to say so
 CI-DEB-SHLIBDEPS | grep | debian/rules:ignore-missing-info | present | issue #8's `deb` job, measured red 2026-10-13 (run 38398739533) at dh_shlibdeps, after the 63-test suite passed inside the package build: `no dependency information found for /lib/x86_64-linux-gnu/libFcitx5Core.so.7 (used by .../fcitx5/libhunmin.so)`, exit 25. Cause: the CI job installs fcitx5 5.1.13 from source into /usr, so no package owns those .so files and dpkg has no *.symbols/*.shlibs for them -- the same fact the job already records by passing -d to dpkg-buildpackage. Fixed with dpkg-shlibdeps(1)'s documented `--ignore-missing-info`, measured before it was committed: against the real addon with an empty --admindir the error reproduces and the flag makes it rc 0; debian/shlibs.local does not apply (both forms tried). NOT a blanket waiver: measured on this host, where fcitx5 is packaged, the resulting .deb still carries libfcitx5core7 (>= 5.1.19) and friends in shlibs:Depends -- the flag skips only what cannot be resolved. What the row does NOT check: that the CI build succeeds (`run` is vetoed by the assertion grammar), and the remaining gap is that a CI-built .deb declares `Depends: fcitx5` unversioned where the addon needs >= 5.1.13 -- a packaging decision this row leaves open
+TSF-SCAFFOLD-A | path-present | frontends/tsf/src/tsf.cpp | present | milestone A (issue #64): the TSF frontend scaffold exists in the tree; 1106 lines after the PR-#76 buffering-adapter merge
+TSF-SCAFFOLD-A | path-present | frontends/tsf/CMakeLists.txt | present | milestone A (issue #64): the CMake wiring that links the TSF DLL against `HUNMIN_LIB` exists; the MSVC build itself (core `hunmin.lib` + `hunmin-tsf.dll`, VS2022 BuildTools 14.44 + Windows SDK 10.0.26100) is measured on the Windows host and recorded in `docs/ENVIRONMENT.md` batch 4 and `docs/MILESTONES.md` §0.2 — the build dir is gitignored, so no row asserts an artefact the linter cannot see
+TIP-CI-LANE-ABSENT-DELIBERATE | grep | .github/workflows/ci.yml:if: false | present | issue #51 stays effective under the milestone-A work: no CI job builds a TIP, and the scaffolding change deliberately did not re-enable the windows job — that re-enable is a separate maintainer decision
 <!-- end docs-lint -->
 
 ---

@@ -126,10 +126,12 @@ APK remains blocked on issue #1 (B8 keystore path).
   `/usr/share/doc/hunmin/README.md.gz` part of the 0.2 definition of done, not
   incidental prose. Measured 2026-10-16; recorded in
   `wiki/decisions/2026-10-16-the-repository-is-private-until-after-0.2.md`.
-- The precondition is a **Windows environment**, which this host does not have
-  (`docs/ENVIRONMENT.md` batch 4, not installed). No TIP work can be measured
-  without a VM or physical machine; that is the blocker, and it is environmental,
-  not decisional.
+- The precondition was a **Windows environment**, marked absent in
+  `docs/ENVIRONMENT.md` batch 4. **Superseded 2026-10-16/17:** the Windows 11
+  host itself carries VS2022 BuildTools 14.44 + Windows SDK 10.0.26100, the
+  core and the milestone-A TSF DLL both build natively there (measured again
+  after the PR-#76 merge); see `docs/ENVIRONMENT.md` §"Windows 0.2 development
+  environment". TIP registration/activation stays device-bound.
 - The engine ABI is append-only and layouts are data, so 0.2 is expected to be a
   frontend-only lane: `docs/SPEC-P2.md`'s "planned TSF frontend" becomes an actual
   frontend. No core work is planned.

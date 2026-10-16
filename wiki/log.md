@@ -526,4 +526,19 @@
   documents are read by a stranger, and the 0.1 `.deb` already ships a
   `README.md.gz` claiming no release existed. `tools/release-0.1.sh` now verifies
   reachability unauthenticated against actual repository visibility.
-- `wiki/index.md` listed the page under Decisions.
+- `wiki/raw/sessions/2026-10-17-tsf-scaffold-milestone-a-verification.md` — the
+  pre-close verification pass over issue #64: the milestone-A branch was a
+  rebase no-op because master had already absorbed the scaffold (plus the
+  PR-#76 buffering adapter beyond A), the MSVC and llvm-mingw build
+  measurements taken on the Windows host, the 51/52 inner-loop result with
+  the maintainer-stated by-nature `data-selfcheck` failure, and the stale
+  host-fact corrections it drove through `docs/ENVIRONMENT.md`,
+  `docs/MILESTONES.md` and `docs/REMAINING-WORK.md` (with new TSF assertion
+  rows). The issue close itself is left to the maintainer.
+- `wiki/index.md` listed the page under Raw — sessions.
+- `wiki/decisions/2026-10-16-release-gate-all-tests-pass.md` — addendum, not a
+  rewrite: the maintainer's 2026-10-17 instruction unregistered
+  `data-selfcheck` from ctest (not touched before its own dev stage; red on
+  every pass on the Windows host), so the gate's exception list holds
+  `modes-corpus-selfcheck` alone and `tools/release-gate.sh` was updated with
+  the selftest fixtures re-planted. The ruling quote is kept verbatim.

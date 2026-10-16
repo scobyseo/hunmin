@@ -473,35 +473,49 @@ C:\Users\pc\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_...\Scri
 C:\Users\pc\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_...\mingw64\bin
 ```
 
-**Requires administrator (NOT installed):**
+**Requires administrator — installed 2026-10-16/17 (measured working):**
 
-| Tool | Why needed | Blocker |
+| Tool | Why needed | Status |
 |---|---|---|
-| Visual Studio Build Tools 2022 (VC workload) | MSVC `cl.exe` + ATL for TSF TIP | winget install runs but produces no compiler; admin required |
-| Windows 11 SDK | `tsf.h`, `msctf.h`, TSF interfaces, `winspool.lib` etc. | winget has only 10.0.17134/10.0.18362 (too old for TSF); admin required |
-| TAT (TSF Accommodation Tool) | TSF test harness | Windows SDK extras, admin required |
+| Visual Studio Build Tools 2022 (VC workload) | MSVC `cl.exe` + ATL for TSF TIP | **installed** — measured 2026-10-17: `VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe` reports *Microsoft (R) C/C++ compiler 19.44.35229* |
+| Windows 11 SDK | `tsf.h`, `msctf.h`, TSF interfaces, `winspool.lib` etc. | **installed** — `C:/Program Files (x86)/Windows Kits/10/Include` carries `10.0.26100.0` (and 10.0.18362.0) |
+| TAT (TSF Accommodation Tool) | TSF test harness | not measured on this host |
 
 Admin install script: `C:\Users\pc\tools\setup-windows-dev.ps1` (run in elevated PowerShell).
 It installs VS Build Tools 2022 + Windows 11 SDK and verifies `cl.exe` / `link.exe`.
 
-**Measured build results (2026-10-16, MinGW + CMake + Ninja):**
+**Measurable 2026-10-16 re-audit (MinGW + CMake + Ninja):**
 
 - `cmake -B build-win -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPiler=g++` — configure succeeds.
 - `cmake --build build-win --target hunmin` — `libhunmin.dll` + `libhunmin.dll.a` build successfully.
 - `expr-test` — builds and **passes** (`expr vectors: OK`).
-- `suggest-test`, `commit-text-test` — **link fails**: `libhunmin.dll.a` has no symbols.
-- `hunmin-sim` — **compile fails**: `getline` is POSIX, not in MinGW's libc.
+- ~~`suggest-test`, `commit-text-test` — **link fails**: `libhunmin.dll.a` has no symbols.~~
+- ~~`hunmin-sim` — **compile fails**: `getline` is POSIX, not in MinGW's libc.~~
 
-**Root cause of the link failure:** `libhunmin` has no Windows export macros
+**Update 2026-10-17 (verification pass, issue #64):** the two failures above are
+closed by `8b36a6c windows: portable sim build + tests link + milestones docs`
+(on master; the branch worktree was rebased onto it before this measurement).
+Measured fresh on this host with llvm-mingw
+(`C:/llvm-mingw-20261006-msvcrt-x86_64/bin/gcc.exe`, Ninja): `hunmin-sim` builds
+and commits `dkssud ` → `녕` against `libhunmin/data`; the inner ctest loop
+(`ctest -j16 -LE slow -LE mutation`) measured **51/52 passed, 1 failed** —
+the failure is `data-selfcheck` (tier-B), which the maintainer states **fails
+by nature on this host** (the converter-vs-committed-data divergence is the
+host's baseline, not a milestone-A regression). `engine-suggest` and
+`engine-commit-text` were reported `Not Run` by the same run and did not
+execute here.
+
+**Root cause the link failures had:** `libhunmin` had no Windows export macros
 (`HUNMIN_EXPORT`, `__declspec(dllexport)`). On Linux/gcc, default visibility
 exports everything; on Windows, nothing is exported without an explicit marker.
-This is a known gap, not a regression — the library was written for Linux CI.
+This was a known gap, not a regression — the library was written for Linux CI.
 
-**What works on this host:** engine code compiles, CMake configures, MinGW
-toolchain is fully functional. The engine is platform-independent C99.
+**What works on this host:** engine code compiles, CMake configures, llvm-mingw
+toolchain functional, `hunmin-sim` builds and runs, MSVC core + TSF DLL build
+(see batch 4's 2026-10-16 note). The engine is platform-independent C99.
 
-**What does not work:** linking tests against the DLL (no exports), building
-`hunmin-sim` (POSIX `getline`), anything needing Windows SDK headers or ATL.
+**What still did not work, until `8b36a6c`:** linking tests against the DLL (no
+exports), building `hunmin-sim` (POSIX `getline`). Both corrected on master.
 
 **Path to a working Windows build (two options):**
 
@@ -511,7 +525,8 @@ toolchain is fully functional. The engine is platform-independent C99.
 | **B: Install VS Build Tools + SDK (admin)** | Run the admin script; 20-30 min download | MSVC + ATL + Windows SDK; enables actual TSF TIP development (P6) |
 
 Option A is the immediate path to a green Windows CI build. Option B is
-required for P6 (TSF TIP) regardless.
+required for P6 (TSF TIP) regardless. **Both options are now taken** — B shipped
+(measured above), A in `8b36a6c`.
 
 ## Orca GUI (installed terminal/editor — worktree orchestration)
 
@@ -600,22 +615,26 @@ Whether a nested worktree breaks any tool that walks the tree (a glob that
 would now descend into `orca-probe/`) has **not** been measured. `orca worktree
 rm --force` cleans up both the git entry and the directory — no `rm -rf`.
 
-## Windows 0.2 development environment — not present on this host
+## Windows 0.2 development environment — now present (corrected 2026-10-17)
 
-Per `docs/REMAINING-WORK.md`, **P6/Windows TSF is intentionally excluded**:
-this host has no Windows environment and no way to verify a TIP locally
-(ENVIRONMENT.md 2026-10-09 batch 4, JDK/Android SDK still missing, and no
-Windows VM provisioned despite `/dev/kvm`). Until a Windows host is
-available (physical machine, bootable VM, or a remote runner with signing
-access), all 0.2 work must be planned and reasoned-before-executed, then
-verified on a Windows target.
+**This section was written while the Windows work was unverifiable and is now
+superseded on the Windows host.** Written 2026-10-09 against the Linux host:
+P6/Windows TSF was excluded as not measurable there (`docs/REMAINING-WORK.md`,
+no Windows VM provisioned despite `/dev/kvm`, JDK/Android SDK still missing).
 
-Recommended minimum toolchain for the 0.2 milestones:
-- VS BuildTools 2022 install root should be exposed via the `HUNMIN_VS2022_ROOT` environment variable (e.g. `C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools`). Load via `vsdevcmd.bat` (or configure with `cmake -G "Visual Studio 17 2022" -A x64`) to build `frontends/tsf`. This keeps machine-specific paths out of the repository.
-- CMake with Visual Studio or Ninja generator
-- Python 3.11+ for data/lint scripts (inside `tools/.venv`)
-- `gh` auth for issue tracking (host side already has `gh` CLI, missing token)
+Since then the **Windows 11 host itself became the dev environment** (see the
+section *Windows development environment (this host, measured 2026-10-16)*
+above): VS2022 BuildTools + Windows SDK installed, the core builds with MSVC,
+and the milestone-A TSF scaffold (`frontends/tsf/`, issue #64) builds
+`hunmin-tsf.dll` natively on it — measured again 2026-10-17 after the PR-#76
+merge. TIP registration/activation remains device-bound (registry state,
+Win+Space selection), and no TAT measurement exists yet.
 
-Open items: obtain or document a Windows dev host/VM for measurability;
-until then treat Windows milestones as blocked per AGENTS.md §1 "do not start
-these unmeasured."
+What remains *host-absent*: an automated CI TIP lane (the `windows` job stays
+disabled per issue #51) and signed-release verification on a Windows target.
+
+Effective 0.2 toolchain (measured, this host):
+- VS BuildTools 2022 root: `C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools` (exposed to scripts via `HUNMIN_VS2022_ROOT`, per `docs/MILESTONES.md`).
+- Build the TSF DLL through `vcvars64.bat` + the Ninja cache under `frontends/tsf/build-msvc/` (gitignored), or `cmake -G "Visual Studio 17 2022" -A x64`.
+- Native portable build with llvm-mingw (`C:/llvm-mingw-20261006-msvcrt-x86_64`), Ninja; `hunmin-sim` + tests build and run there.
+- `gh` CLI authenticated as `scobyseo`; Python 3.13 for data/lint scripts.

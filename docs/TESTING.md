@@ -57,7 +57,7 @@ answers "what does this test cost me, and what does it do to my working tree?"
 | Label | Meaning |
 |---|---|
 | `tier-A` | engine unit + golden vectors, host, C |
-| `tier-B` | ABI and data contracts (`abi`, `schema-contract`, `data-selfcheck`) |
+| `tier-B` | ABI and data contracts (`abi`, `schema-contract`, `krdict-fixture`) |
 | `tier-C` | cross-platform adapter conformance + the keycode fixtures |
 | `tier-D1` / `tier-D2` / `tier-D3` | the three fcitx5 tiers below |
 | `tier-E0` / `tier-E1` / `tier-E2` | the automated Android tiers below |
@@ -156,13 +156,13 @@ registration the tree does not contain is the defect issue #13 records, one
 level down from the directory it started as; the numbers above come from
 `ctest -N` on a freshly configured tree, `env -i` with only the row's variables.
 
-Per-label, in the 59-test configuration. No test fails in this configuration:
-`data-selfcheck` reports **Skipped** in a fresh worktree, because the gitignored
-krdict dump is absent (`docs/REMAINING-WORK.md` §0, issue #46), so its wall
-clock here is not its real cost — the maintainer's host measures it at 8.45 s.
-The self-contained guard for the krdict converter is `krdict-fixture`
+Per-label, in the 59-test configuration. No test fails in this configuration
+in a fresh worktree. The dump-dependent data selfcheck was unregistered
+2026-10-17 (maintainer instruction — revisit at its own dev stage), so the
+krdict converter's registered guard is `krdict-fixture`
 (`tests/fixtures/krdict/`); the dump-dependent full run is the maintainer-only
-`tools/selfcheck-krdict.sh`.
+`tools/selfcheck-krdict.sh`. On the maintainer's primary tree, where the dump
+is present, the full check still runs by hand.
 
 | Selection | Tests | Wall clock, `ctest -j16` |
 |---|---|---|

@@ -161,17 +161,12 @@ endif()
 # test count, and nothing fails until the test runs. Hence
 # set_tests_properties(... PROPERTIES LABELS ...), everywhere below.
 if(BUILD_TESTING AND Python3_FOUND)
-  add_test(NAME data-selfcheck
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/selfcheck.py
-            ${CMAKE_CURRENT_SOURCE_DIR})
-  # SKIP (rc 77) when the gitignored 368 MB krdict dump is absent — a fresh
-  # worktree has no data-orig/krdict/, and the repo's tests must be
-  # self-contained. krdict-fixture below is the self-contained guard; the
-  # dump-dependent full run is a maintainer-only script in tools/, which is
-  # deliberately unnamed in this file so that a grep for it in the ctest
-  # registration returns nothing (issue #46's verification).
-  set_tests_properties(data-selfcheck PROPERTIES
-    LABELS "tier-B" SKIP_RETURN_CODE 77)
+  # data-selfcheck was unregistered 2026-10-17 by the maintainer's
+  # instruction: it is not touched before its own dev stage, and until then it
+  # cost a red run on every pass (converter outputs diverge from committed
+  # data/ on the Windows host; skip-when-absent solved only the dump, not the
+  # divergence). tools/selfcheck.py stays for that dev stage, together with
+  # the self-contained krdict-fixture guard below.
   add_executable(expr-test tools/expr_test.c)
   target_include_directories(expr-test PRIVATE libhunmin/src)
   target_sources(expr-test PRIVATE libhunmin/src/expr.c)
@@ -445,8 +440,9 @@ if(BUILD_TESTING AND Python3_FOUND)
   set_tests_properties(schema-contract PROPERTIES LABELS "tier-B;guard")
   # krdict-fixture: self-contained determinism check for tools/krdict2data.py.
   # The real 국립국어원 dump is 368 MB and gitignored (tools/fetch-krdict.sh),
-  # so data-selfcheck cannot run the krdict converter in a fresh worktree; the
-  # dump-dependent full run is a maintainer-only script in tools/, not a ctest
+  # and the former registered full check (data-selfcheck) was unregistered
+  # 2026-10-17 (see its comment at the top of this block); the dump-dependent
+  # full run remains a maintainer-only script in tools/, not a ctest
   # test. This test converts the committed fixture
   # tests/fixtures/krdict/01.xml into a temp dir and diffs it byte-identically
   # against the committed expected output — proving the converter's logic with

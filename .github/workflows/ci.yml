@@ -489,11 +489,13 @@ jobs:
   # setComment), and Ubuntu 24.04's distro 5.1.7 is below the floor. Without
   # this, debian/rules fails at the addon configure/compile.
   #
-  # The failure mode to expect first: data-selfcheck is red in a fresh checkout
-  # without the gitignored krdict dump (REMAINING-WORK.md §0 names it). That is
-  # a defect in the test's skip/fail behaviour on a missing input, recorded
-  # there and deliberately not fixed here -- whether a missing input should
-  # skip or fail is the maintainer's call.
+  # The failure mode to expect first on a fresh checkout used to be
+  # data-selfcheck red without the gitignored krdict dump (REMAINING-WORK.md
+  # §0). 2026-10-17 (maintainer instruction): the test was unregistered — it
+  # is not touched before its own dev stage, and on the Windows host the
+  # converter-vs-committed-data divergence was red on every pass. The suite
+  # here is expected fully green now; krdict-fixture guards the converter's
+  # logic self-contained.
   deb:
     name: debian (.deb artefact)
     # needs: linux -- this job no longer builds fcitx5 5.1.13 from source; it

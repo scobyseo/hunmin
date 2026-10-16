@@ -108,8 +108,6 @@ in_list() { # in_list <space-list> <word>
 
 exception_reason() {
     case "$1" in
-        data-selfcheck)
-            echo "gitignored 368 MB krdict dump absent; guard is ctest krdict-fixture" ;;
         modes-corpus-selfcheck)
             echo "needs a modes corpus at tests/modes-corpus, which lives outside the repo" ;;
         *)
@@ -132,7 +130,14 @@ parse_skipped() {
         | sed -n 's/^[[:space:]]*[0-9][0-9]*[[:space:]]*-[[:space:]]*\(.*\)[[:space:]]*(Skipped)$/\1/p'
 }
 
-EXCEPTIONS="data-selfcheck modes-corpus-selfcheck"
+# Removed 2026-10-17 from this list: data-selfcheck. The maintainer's
+# instruction that day unregistered the test (it is not touched before its own
+# dev stage, and on the Windows host it was red on every pass), and a gate
+# exception for a test that no longer exists fails this script's own rule 3 --
+# a stale exception is a stale claim. krdict-fixture remains the converter's
+# self-contained guard. The ruling quote above is kept verbatim as history; the
+# exception list below is what the tree now asserts.
+EXCEPTIONS="modes-corpus-selfcheck"
 
 # Tests whose skip is contention rather than environment: re-run alone.
 RERUN_ALONE="engine-d3-gtk4"
@@ -221,7 +226,10 @@ if [ "$SELFTEST" -eq 1 ]; then
     # which is rule 2, and the reason the first version of this fixture failed.
     # Kept in step with EXCEPTIONS by hand: a new exception without a fixture
     # update makes the self-test fail, which is the point of it.
-    printf 'The following tests did not run:\n\t  1 - data-selfcheck (Skipped)\n\t 17 - modes-corpus-selfcheck (Skipped)\n' > "$d/declared"
+    # data-selfcheck left EXCEPTIONS 2026-10-17 (unregistered with the test);
+    # it is planted as the UNDECLARED skip now, which is exactly what the gate
+    # should verdict on a name that is no longer exempted by any list.
+    printf 'The following tests did not run:\n\t 17 - modes-corpus-selfcheck (Skipped)\n' > "$d/declared"
     printf 'The following tests did not run:\n\t  1 - data-selfcheck (Skipped)\n\t 42 - something-new (Skipped)\n' > "$d/undeclared"
     printf '100%% tests passed, 0 tests failed out of 184\n' > "$d/clean"
     echo "release-gate.sh --selftest (verdict logic only, no suite is run)"
