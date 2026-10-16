@@ -511,9 +511,20 @@ def rw_evaluate(kind: str, target: str) -> tuple[bool, str]:
             hits = len(re.findall(pat, fh.read()))
         return hits > 0, f"{hits} match(es) for /{pat}/ in {tgt}"
     if kind == "pyright":
-        r = subprocess.run(
-            ["pyright", "tools/"], capture_output=True, text=True, cwd=ROOT,
-        )
+        # Spawn by bare name; when the pyright.exe console script is absent
+        # (its wheel exits on Windows earlier, double-nesting dist/dist in
+        # its typeshed path), fall back to the pip module via this
+        # interpreter -- python -m pyright --version was measured working
+        # where no pyright.exe exists to CreateProcess.
+        try:
+            r = subprocess.run(
+                ["pyright", "tools/"], capture_output=True, text=True, cwd=ROOT,
+            )
+        except FileNotFoundError:
+            r = subprocess.run(
+                [sys.executable, "-m", "pyright", "tools/"],
+                capture_output=True, text=True, cwd=ROOT,
+            )
         m = re.search(r"(\d+)\s+error", r.stdout + r.stderr)
         n = int(m.group(1)) if m else -1
         # Absent pyright is not a clean tree, and must not read as one.

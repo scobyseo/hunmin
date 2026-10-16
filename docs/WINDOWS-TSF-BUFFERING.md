@@ -48,6 +48,21 @@ TSF should therefore follow `frontends/fcitx5/src/engine.cpp` and this buffering
 - Space, Enter, punctuation, and arbitrary keys behave as pass-through after the
   engine buffer has been flattened.
 
+## Adapter state (measured 2026-10-17, issue #73)
+
+The TSF adapter implements the buffering rule adapter-side: finalised syllables
+from `hunmin_ic_commit()` accumulate in the adapter (`wordbuf_`), the overlay
+shows the accumulated word plus the in-flight preedit, and the first boundary
+key (declined engine key: space, Enter, punctuation, backspace, unmapped)
+triggers one `hunmin_ic_flush()`, one edit-session insert of the whole word,
+and pass-through of the boundary key. No libhunmin change was needed:
+`hunmin_ic_commit()` is a destructive read that drains every finalised
+syllable so far, and `hunmin_ic_flush()` finalises the in-flight syllable
+first. Verified end to end in Notepad (multi-syllable word accumulates in the
+overlay, document receives the word once at the boundary). The registration
+and key-down chain this rides on is documented in
+`docs/WINDOWS-TSF-REGISTRATION.md`.
+
 ## Open questions
 
 - Whether UWP and console edit controls need the overlay for readable preedit.
