@@ -558,3 +558,12 @@
   excluded. The issue close is the maintainer's; see
   [[decisions-belong-to-the-maintainer]].
 - `wiki/index.md` listed the page under Raw — sessions.
+
+## [2026-10-17] update | .clang-format-ignore directory patterns need the ** glob (issue #77)
+
+- `wiki/raw/sessions/2026-10-17-clang-format-retune-option-2.md` — the first
+  full `-n` sweep caught the ignore file's directory pattern `data-orig/`
+  failing to match files inside the directory; the glob form `data-orig/**`
+  does. The rule and the probe measured with hangulctype.c/cJSON.c/tables.c
+  are recorded on the session page; the committed `.clang-format-ignore` uses
+  the glob form in the same pass.

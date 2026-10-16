@@ -71,7 +71,12 @@ excluding the vendored `data-orig/`/`third_party/cJSON` trees and the generated
 - `clang-format` 23.1.3 (`C:/Program Files/LLVM/bin/clang-format.exe`) honours
   `.clang-format-ignore` at the repo root, verified by probe before relying on
   it: a tracked scratch file re-formats while a sibling of the ignored prefix
-  stays byte-identical.
+  stays byte-identical. One semantics gotcha found by probe after the first
+  flagging: a directory pattern written as `data-orig/` does **not** match
+  files inside the directory (the vendored
+  `data-orig/libhangul/hangulctype.c` still warned under `-n`); the glob form
+  `data-orig/**` does, for both vendored prefixes, and the committed
+  `.clang-format-ignore` uses it.
 - `--style=<path>` is **not** a style value; the accepted form is
   `--style=file:<path>` (or bare `--style=file` for auto-discovery from the
   file's directory upward). The failed-first probes returned "Invalid value
