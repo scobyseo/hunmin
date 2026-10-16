@@ -141,7 +141,7 @@ public:
             HRESULT qh = ptm->QueryInterface(IID_ITfKeystrokeMgr, (void**)&pks);
             if (dbg2) { fprintf(dbg2, "Advise QI hr=0x%lX pks=%p\\n", (unsigned long)qh, (void*)pks); fflush(dbg2); }
             if (SUCCEEDED(qh) && pks) {
-                HRESULT ah = pks->AdviseKeyEventSink(clientId_, this, FALSE);
+                HRESULT ah = pks->AdviseKeyEventSink(clientId_, this, TRUE);
                 if (dbg2) { fprintf(dbg2, "AdviseKeyEventSink hr=0x%lX\\n", (unsigned long)ah); fflush(dbg2); }
                 pks->Release();
             }
@@ -277,8 +277,10 @@ public:
                     EditSession* es = new EditSession(pic, clientId_, wbuf);
                     HRESULT hrSess = S_OK;
                     pic->RequestEditSession(clientId_, es, TF_ES_SYNC | TF_ES_READWRITE, &hrSess);
+                    if (dbg) { fprintf(dbg, " commit edit hr=0x%lX commit=%s\\n", (unsigned long)hrSess, commit); fflush(dbg); }
                     es->Release();
                     delete[] wbuf;
+                    UpdateComposition(pic);
                 }
             }
             if (pfEat) *pfEat = TRUE;
