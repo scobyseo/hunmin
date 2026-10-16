@@ -577,6 +577,77 @@ def check_remaining_work() -> None:
             )
 
 
+# --------------------------------------------------------------------------
+# 7. Mutation anchors: the source text a mutation replaces must still exist
+# --------------------------------------------------------------------------
+def check_mutation_anchors() -> None:
+    """Every `old` anchor in tools/frontend-mutations.py must be in its target.
+
+    WHY THIS EXISTS. Measured 2026-10-16: commit 1521fad renamed the config
+    accessor `config().layout` -> `config().hangulLayout` in
+    frontends/fcitx5/src/engine.cpp, and updated the invariant checker
+    (tools/check-frontend-invariants.py:88) in the same commit -- but not the
+    `I5-layout-override-ignored` anchor in tools/frontend-mutations.py. The
+    mutation could no longer be applied, so the mutation self-test failed closed
+    with "anchor not found (source moved)" -- and because debian/rules runs the
+    whole suite inside `dpkg-buildpackage`, no .deb could be built at all until
+    it was fixed. The self-test caught it correctly and 26 seconds late, having
+    only been reached by a full package build.
+
+    This is the same fact read as text, in milliseconds, with no build and no
+    Gradle: which is what makes it affordable on a commit rather than only
+    discoverable by a release attempt. The self-test is still the guard -- this
+    one tells you *which* anchor moved, before it costs anything.
+
+    Only frontend-mutations.py is checked: it is the one that anchors on source
+    text. android-mutations.py names its mutations ("no-caps", "no-ctrl") and
+    applies them through a dispatch table, so there is no anchor to drift --
+    inventing one here would be a check with nothing to check.
+
+    Fails closed: if the module cannot be imported, or names a target that does
+    not exist, that is an error, not a skip. A guard that cannot read the thing
+    it guards is not a guard.
+    """
+    mod_path = os.path.join(ROOT, "tools", "frontend-mutations.py")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("_hunmin_fm", mod_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"no loader for {mod_path}")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    except Exception as exc:  # noqa: BLE001 - any failure must be visible
+        err(
+            f"tools/frontend-mutations.py could not be imported ({exc!r}), so its "
+            f"{'anchors'} could not be checked. A guard that cannot read the thing "
+            f"it guards is not a guard."
+        )
+        return
+
+    target = os.path.join(ROOT, str(mod.ENGINE_REL))
+    if not os.path.exists(target):
+        err(f"tools/frontend-mutations.py names {mod.ENGINE_REL} as its target, "
+            f"which does not exist.")
+        return
+    with open(target, encoding="utf-8") as fh:
+        code = fh.read()
+
+    for entry in mod.MUTATIONS:
+        mid, old = entry[0], entry[1]
+        if old and old not in code:
+            first = old.splitlines()[0].strip()
+            err(
+                f"mutation {mid} anchors on text that is not in "
+                f"{mod.ENGINE_REL}: {first!r}. Either the source moved (a rename "
+                f"that missed this anchor, which is what 1521fad did) or the "
+                f"mutation no longer describes the defect it is named for. The "
+                f"mutation self-test fails closed on this, and debian/rules runs "
+                f"the suite inside the package build -- so an unfixed anchor means "
+                f"no .deb is produced."
+            )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--build-dir")
@@ -590,6 +661,7 @@ def main() -> int:
     check_wiki_sources()
     check_wiki_index_count()
     check_remaining_work()
+    check_mutation_anchors()
 
     for w in warnings:
         print(f"warn: {w}", file=sys.stderr)

@@ -33,9 +33,17 @@ frontends/      fcitx5 addon (C++), Android IME (Kotlin + JNI)
 Not done, explicitly: a soft keyboard (the input view is a layout strip, not
 keys); the E3 manual session on a real Bluetooth keyboard, so no device is
 signed off; F9 has no AOSP keycode, so the hanja trigger is still an open design
-question; and the R8 shrinker path is written but never exercised (it ships
-`proguard-rules.pro` and `isMinifyEnabled = true`, but `assembleRelease`
-runs in no CI job, so the shrinker has never actually removed anything).
+question.
+
+Corrected 2026-10-16, because an earlier revision of this paragraph claimed
+"the R8 shrinker path is written but never exercised … `assembleRelease` runs in
+no CI job". Both halves were false: the shrinker path was measured end-to-end on
+2026-10-11 (`assembleRelease` + install + composition on an AVD), recorded in
+`tests/manual-checklists/release-r8-shrinker.md`, and CI job `android-release`
+builds the release APK. What remains true of it is narrower: that job is gated
+on a repository variable, so a green run does not imply a release APK was
+built, and no CI job installs or types into the release APK — `tools/android-e2e.sh`
+drives the debug one by design. Status lives in `docs/REMAINING-WORK.md`.
 
 The Android side of tier C **is** present — 14 `.in`/`.gold` pairs and
 `tools/android-trace-emit.sh`; an earlier revision of this file claimed
@@ -103,9 +111,10 @@ The convention is recorded in `docs/MILESTONES.md` §0.1 (issue #9).
 job `deb` produces the `.deb` and job `android-release` produces the release
 APK, each uploaded as a run artefact. The same sequence runs locally with
 `tools/build-release.sh` (`deb` / `apk` / `all`). One caveat recorded rather
-than hidden: the release APK from CI signs with a generated throwaway keystore,
-because the real keystore path is still undecided (issue #1) — a CI-built
-release APK proves the release *build*, not a release *signature*. Whether 0.1
+than hidden: the keystore path was decided 2026-10-13 (issue #1) — it resolves
+from `HUNMIN_RELEASE_STORE`, else from gitignored `local.properties`, else by
+generating a throwaway key, so a CI-built release APK proves the release
+*build*, not a release *signature*. Whether 0.1
 requires CI-built artefacts at all, or a local build suffices, is the ruling
 issue #8 asks the maintainer for.
 

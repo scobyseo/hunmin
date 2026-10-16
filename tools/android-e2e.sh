@@ -156,6 +156,28 @@ parse_bounds() {
   [ -n "$nums" ] && printf '%s' "$nums"
 }
 
+dump_ui() {  # dump_ui <remote-path> -> the dump on stdout
+  local i dump
+  for i in 1 2 3 4 5; do
+    "$ADB" shell uiautomator dump --windows "$1" >/dev/null 2>&1 || true
+    dump="$("$ADB" shell cat "$1" 2>/dev/null || true)"
+    # SIZE, not line count. Measured 2026-10-16: `uiautomator dump` writes the
+    # hierarchy as ONE line (33,540 bytes; `wc -l` returns 0 on a real dump), so
+    # the original `[ "$(printf '%s' "$dump" | wc -l)" -gt 5 ]` could never be
+    # true and this function returned 1 on every call -- 5 attempts and 10 s of
+    # sleeping per caller. Every tap_resource_id, every tap_text and every
+    # LIST= dump in this script depends on it, so the whole tier was walking on
+    # failed dumps. The tier still read as green because each failure ended in
+    # `skip`, which is exit 77 and ctest counts 77 as not-failed: "100% tests
+    # passed" over a tier that had asserted nothing. ${#dump} is the bash string
+    # length: exact, and no pipe to lose.
+    [ -n "$dump" ] && [ "${#dump}" -gt 200 ] && { printf '%s' "$dump"; return 0; }
+    sleep 2
+  done
+  echo "dump_ui: failed to get a non-empty dump from $1 after 5 attempts" >&2
+  return 1
+}
+
 tap_resource_id() {
   local rid="$1"
   local node="" bounds="" nums="" cx="" cy=""
@@ -584,17 +606,6 @@ KEY_PREFS="shared_prefs/hunmin_keys.xml"
 
 # `--windows`, because the thing being tapped is often in the IME's own window
 # rather than the app's -- the same reason find_mic above needs it.
-dump_ui() {  # dump_ui <remote-path> -> the dump on stdout
-  local i dump
-  for i in 1 2 3 4 5; do
-    "$ADB" shell uiautomator dump --windows "$1" >/dev/null 2>&1 || true
-    dump="$("$ADB" shell cat "$1" 2>/dev/null || true)"
-    [ -n "$dump" ] && [ "$(printf '%s' "$dump" | wc -l)" -gt 5 ] && { printf '%s' "$dump"; return 0; }
-    sleep 2
-  done
-  echo "dump_ui: failed to get valid dump from $1 after 5 attempts" >&2
-  return 1
-}
 
 # Tap the node whose text contains $1. Bounds come from the dump, never from
 # hardcoded pixels: a fixed coordinate is a test that passes on one image and

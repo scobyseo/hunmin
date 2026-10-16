@@ -51,11 +51,20 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
         True,  # closed by de0de72: D1 pins sin3-p2-yet and replays the golden
         False,  # caps affects composition, not what is published to the panel
     ),
+    # The anchor names the config accessor, so it has to be renamed whenever
+    # that accessor is: 1521fad ("Add DVORAK and Colemak layouts with separate
+    # Hangul/Latin pickers") renamed config().layout -> config().hangulLayout
+    # and updated tools/check-frontend-invariants.py:88 in the same commit, but
+    # not this entry -- which is what "I5-layout-override-ignored: anchor not
+    # found (source moved)" was, on 2026-10-16, and it failed the whole
+    # mutation self-test, and with it the deb build (debian/rules runs the
+    # suite). The mutation text moves with the anchor: it must keep discarding
+    # the per-item override, or it stops being the mutation it is named for.
     (
         "I5-layout-override-ignored",
         "        const std::string &want =\n"
-        "            layout.empty() ? *engine_->config().layout : layout;",
-        "        (void)layout;\n        const std::string &want = *engine_->config().layout;",
+        "            layout.empty() ? *engine_->config().hangulLayout : layout;",
+        "        (void)layout;\n        const std::string &want = *engine_->config().hangulLayout;",
         True,  # I7 checks the ternary and the call site structurally
         True,
         False,  # D2 pins the same layout the default does, so no difference

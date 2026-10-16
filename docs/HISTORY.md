@@ -185,3 +185,44 @@ excluding E1 from linux in that state makes `linux` green while the only job
 that measures E1 is broken. That is a maintainer call about what `linux`
 asserts, and it is recorded in `docs/CI-TIMING.md` §"Options" rather than
 settled here.
+
+## 2026-10-16 — 0.1.0, and the tier that was asserting nothing
+
+**Shipped.** The release checklist issue #10 asked for (`tests/manual-checklists/release-0.1.md`),
+the release gate as a script rather than a sentence (`tools/release-gate.sh`, from
+the maintainer's ruling that "on release, all TCs in this repo should pass, except
+data-selfcheck which cannot pass"), and the publish path as a script
+(`tools/release-0.1.sh`, issue #7). The `.deb` builds again — `tools/build-release.sh
+deb` exits 0 with the suite green inside the package build — and the release APK
+builds, signs, installs and composes `ㅎ곈디` on an emulator.
+
+**The defect worth remembering is that tier E2 had stopped asserting.** It reported
+`100% tests passed` over zero assertions, for two independent reasons in
+`tools/android-e2e.sh`: `dump_ui` was defined ~420 lines *below* its first call
+site, and its validity check was `wc -l > 5` on a hierarchy that `uiautomator
+dump` writes as **one line**. Every tap by resource id and every screen read failed,
+each failure ended in `skip`, and a skip is exit 77 — which ctest counts as
+not-failed. The same class had already cost a 2026-10-10 afternoon when
+`engine-d3-x11` reported green having run one of its eight cases. **A tier whose
+failure mode is `skip` cannot report its own blindness**, which is why the release
+gate now fails on an undeclared skip and on a declared exception that stopped
+skipping, rather than reading `100% tests passed` as done.
+
+**The second blocker was one renamed accessor.** `1521fad` renamed
+`config().layout` to `config().hangulLayout` and updated the invariant checker in
+the same commit but not the `I5-layout-override-ignored` anchor in
+`tools/frontend-mutations.py`. The mutation could no longer be applied, the
+mutation self-test failed closed — and because `debian/rules` runs the whole suite
+inside `dpkg-buildpackage`, **no `.deb` could be built at all**. The self-test
+caught it correctly and far too late. `docs-lint` check 7 now verifies every
+mutation anchor against its source in milliseconds, and `shellcheck -S error`
+covers the shell, whose first catch was a script with no shebang.
+
+**What is still open is in `docs/REMAINING-WORK.md`.** Two things are named there
+rather than left to be discovered: `engine-android-e2e` remains intermittent
+(passes at 108 s with full assertions, and fails with the field receiving literal
+ASCII while `dumpsys` reports the IME current, connected, bound and shown — five
+hypotheses refuted in `wiki/raw/measurements/2026-10-16-android-e2e-keys-bypass-the-ime.md`),
+and **no CI job has executed since 2026-10-13** — an account/billing limit, not a
+defect in this tree — so the release gate for 0.1 was `tools/release-gate.sh`, run
+locally.

@@ -31,13 +31,21 @@ blocked item; B1–B9 remain the maintainer's rulings wherever they are named.
 
 ## 0.1 — fcitx5 + Android
 
-The release closes with two decisions, two rulings-that-happen-to-be-blocking, and
-two measurements. No engine work is on the path.
+The release closes with four decisions and two measurements. No engine work is on
+the path. All four decisions are recorded below — this lane named B3, B4, B8 and
+B9 — so what is left on it is the measurement list further down and whatever
+`REMAINING-WORK.md` §2 holds behind B1, which is the 0.3 lane's.
 
 **Must be decided to ship (from `REMAINING-WORK.md` §1):**
 
-- **B8** — the keystore path contradiction in `build.gradle.kts`. A signed release
-  APK cannot exist until the packaging decision names one truth. GitHub issue #1.
+- ~~**B8** — the keystore path contradiction in `build.gradle.kts`. A signed
+  release APK cannot exist until the packaging decision names one truth. GitHub
+  issue #1.~~ **DECIDED 2026-10-13**: the keystore resolves from
+  `HUNMIN_RELEASE_STORE`, else gitignored `local.properties`, else a throwaway
+  key generated at build time. Ruling in
+  `wiki/decisions/2026-10-13-b8-keystore-path-resolved.md`. What the ruling left
+  to the maintainer: whether `local.properties` is the permanent canonical
+  keystore, and whether the throwaway-key fallback stays.
 - ~~**B3** — ON or OFF by default.~~ **DECIDED 2026-10-11: OFF by default until
   0.3**, so the modeswitch feature and everything `REMAINING-WORK.md` §2 holds
   hostage to B1 leave the 0.1 lane. The ruling and the separate-data-package
@@ -52,8 +60,13 @@ two measurements. No engine work is on the path.
   `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`.
   The **E5 assignment itself** (single vs compound meaning) is not decided by
   this and lands here in 0.3 as before.
-- **B9** — the R8/R3 documentation contradiction. A release must not ship two
-  documents describing two architectures as one.
+- ~~**B9** — the R8/R3 documentation contradiction. A release must not ship two
+  documents describing two architectures as one.~~ **DECIDED 2026-10-14: R8 is
+  adaptor-owned** — one judgement rule, one owning component, identical on every
+  frontend; `docs/SPEC-MODES.md` R3 is requirement-only and `docs/architecture.md`
+  records the owner and the mechanism. Ruling quoted in
+  `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md` (issue #3,
+  `a5c46dc`). R8's engine integration stays blocked on B1 and leaves with it.
 
 **Must be measured before shipping (environment-bound, not decision-gated):**
 
@@ -91,7 +104,7 @@ cmake -B build && cmake --build build
 ctest --test-dir build -N
 dpkg-buildpackage -us -uc -b     # hunmin_0.1.0_amd64.deb
 git tag 0.1.0
-gh release create 0.1.0 --title "hunmin 0.1.0" --notes-file docs/release-notes/0.1.md
+gh release create 0.1.0 --title "hunmin 0.1.0" --notes-file docs/release-notes/0.1.0.md
 gh release upload 0.1.0 hunmin_0.1.0_amd64.deb
 ```
 

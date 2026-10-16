@@ -199,6 +199,91 @@ if(BUILD_TESTING AND Python3_FOUND)
   # neither -- and tools/android-unit.sh reports a SKIP inside the suite as a
   # FAILURE, so an unconfigured host cannot produce a green-but-meaningless
   # report the way a bare `gradlew test` does.
+  # --- the commit-level rung: does each part still build? ------------------
+  #
+  # The `guard` label (docs/TESTING.md "The three levels") is the check that runs
+  # on every commit, and a label can only select tests -- so "did it build" has to
+  # be a test. These three are the whole of it, and they are cheap precisely
+  # because the build tree is already configured and mostly up to date:
+  #
+  #   measured on this host, incremental, after touching one source file:
+  #     builds            (engine + fcitx5 addon)   2.8 s
+  #     builds-android    (assembleDebug, warm)    12.0 s
+  #     abi + schema-contract + docs-lint           5.1 s
+  #     -> `ctest -L guard`                        ~20 s
+  #
+  # WHAT THIS DOES NOT PROVE, stated because it is the obvious objection: on an
+  # unchanged tree every one of these is a no-op that exits 0, so a green guard
+  # can mean "nothing changed" rather than "it builds". That is the intended
+  # trade -- the guard runs after an edit, and an edit makes the build out of
+  # date, which is exactly when this has teeth. A cold Gradle cache is the other
+  # limit: measured 126 s on this host (docs/CI-TIMING.md), which does not fit a
+  # 60 s commit rung, so the Android leg belongs to the PR rung on any machine
+  # that has not run Gradle recently.
+  add_test(NAME builds
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} -j 4)
+  set_tests_properties(builds PROPERTIES LABELS "guard" TIMEOUT 600)
+
+  # The fcitx5 addon, as its own test, because whether it EXISTS depends on the
+  # machine and the cache -- and the difference has to be visible rather than
+  # folded into a pass.
+  #
+  # Two measured facts make this shape necessary rather than fussy:
+  #
+  #  1. On a cold Actions cache the addon cannot build inside a 60 s rung: the
+  #     linux job builds fcitx5 5.1.13 from source because Ubuntu 24.04 ships
+  #     5.1.7, below the addon's real floor, and that build is 197 s
+  #     (docs/CI-TIMING.md). With the install tree cached it restores in ~10 s.
+  #  2. The repo's Actions caches are currently EMPTY (total_count 0), because no
+  #     job has executed since 2026-10-13. So "the cache will be warm" is not an
+  #     assumption this rung may make.
+  #
+  # So: build the addon when it is configured, and SKIP (exit 77, which ctest
+  # prints by name) when it is not. A skip is not a pass, and the skip message
+  # names the cause rather than leaving a green line to be read as coverage --
+  # the same failure this repository keeps paying for, where a missing
+  # `fcitx5-modules-dev` silently dropped the addon and 104 conformance tests
+  # never registered, which reads as green (see ci.yml's build-deps comment).
+  add_test(NAME builds-fcitx5-addon
+    COMMAND sh -c
+      "if cmake --build ${CMAKE_BINARY_DIR} --target help 2>/dev/null | grep -q hunmin_addon; then
+         cmake --build ${CMAKE_BINARY_DIR} --target hunmin_addon;
+       else
+         echo 'builds-fcitx5-addon: SKIPPED -- no hunmin_addon target, which means Fcitx5Core >= 5.1.13 was not found when this tree was configured (CMakeLists.txt printed \"Fcitx5Core not found: fcitx5 addon disabled\"). The addon was NOT compiled and NOT checked here; the tier-C/D rows that need it did not run either.';
+         exit 77;
+       fi")
+  set_tests_properties(builds-fcitx5-addon PROPERTIES
+    LABELS "guard" SKIP_RETURN_CODE 77 TIMEOUT 600)
+
+  # Code-level lint for the shell, at -S error only.
+  #
+  # -S error and not -S warning, measured 2026-10-16: at error severity the tree
+  # is clean, while -S warning reports 15 findings that are largely DELIBERATE
+  # here -- SC2046 unquoted word splitting in the resource-id greps is
+  # documented at length in tools/android-e2e.sh, and SC2034 flags the
+  # `$!`-handle variables the host rules require keeping. A gate that fires on
+  # those gets switched off, which is worse than no gate. At error severity it
+  # fires on exactly the class that matters: a script that would not parse or
+  # would run wrong. Its first catch was a missing shebang on
+  # tools/selfcheck-krdict.sh (SC2148).
+  #
+  # Fails if shellcheck is ABSENT rather than skipping, matching the precedent
+  # the M5-CLOSED assertion row set for pyright: a missing linter read as a
+  # clean tree is the failure mode this file exists to prevent.
+  file(GLOB_RECURSE HUNMIN_SHELL_SCRIPTS CONFIGURE_DEPENDS
+       ${CMAKE_CURRENT_SOURCE_DIR}/tools/*.sh
+       ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/*.sh)
+  find_program(SHELLCHECK_EXECUTABLE shellcheck)
+  if(HUNMIN_SHELL_SCRIPTS AND SHELLCHECK_EXECUTABLE)
+    add_test(NAME shell-lint
+      COMMAND ${SHELLCHECK_EXECUTABLE} -S error ${HUNMIN_SHELL_SCRIPTS})
+  else()
+    add_test(NAME shell-lint
+      COMMAND ${CMAKE_COMMAND} -E echo
+        "shell-lint did not run: shellcheck not found, or no shell scripts matched. An absent linter is not a clean tree (the same rule the pyright assertion row follows).")
+  endif()
+  set_tests_properties(shell-lint PROPERTIES LABELS "guard" TIMEOUT 300)
+
   find_program(JAVA_EXECUTABLE java HINTS $ENV{JAVA_HOME}/bin)
   if(JAVA_EXECUTABLE AND DEFINED ENV{ANDROID_HOME})
     add_test(NAME engine-android-e1
@@ -219,6 +304,18 @@ if(BUILD_TESTING AND Python3_FOUND)
     # the environment so CI is deterministic; tools/android-mutations.sh
     # --strategy in-tree is the old behaviour, where the exclusivity
     # requirement is the caller's to honour.
+    # The Android half of the commit rung: does the Kotlin frontend still
+    # compile. Same shape as every other Android test here -- registered when the
+    # toolchain is configured, SKIP_RETURN_CODE 77 otherwise -- so a host without
+    # an SDK reports "not run" rather than a green run that checked nothing.
+    # RUN_SERIAL: Gradle takes a lock on its own caches, and two of these at once
+    # is contention measured as seconds, not a correctness problem.
+    add_test(NAME builds-android
+      COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_SOURCE_DIR}/frontends/android
+              ./gradlew --no-daemon assembleDebug)
+    set_tests_properties(builds-android PROPERTIES
+      LABELS "guard"
+      SKIP_RETURN_CODE 77 TIMEOUT 900 RUN_SERIAL TRUE)
     add_test(NAME android-mutations
       COMMAND ${CMAKE_COMMAND} -E env HUNMIN_MUTATION_STRATEGY=sandbox
               ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-mutations.sh)
@@ -285,7 +382,11 @@ if(BUILD_TESTING AND Python3_FOUND)
   add_test(NAME schema-contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/doctor.py
             ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data)
-  set_tests_properties(schema-contract PROPERTIES LABELS "tier-B")
+  # `guard` as well as tier-B: this is the data-lint gate, it costs ~0.3 s, and
+  # it is one of the three tests that make up the commit-level check
+  # (docs/TESTING.md §The three levels). The label selects what runs on every
+  # commit; it adds no test and no build step.
+  set_tests_properties(schema-contract PROPERTIES LABELS "tier-B;guard")
   # krdict-fixture: self-contained determinism check for tools/krdict2data.py.
   # The real 국립국어원 dump is 368 MB and gitignored (tools/fetch-krdict.sh),
   # so data-selfcheck cannot run the krdict converter in a fresh worktree; the
@@ -308,7 +409,10 @@ if(BUILD_TESTING AND Python3_FOUND)
   # check 1 compares `ctest -N`'s TOTAL, which labels leave unchanged, and
   # check 6 reads `add_test(NAME ...)` out of the source CMakeLists, which
   # set_tests_properties cannot disturb.
-  set_tests_properties(docs-lint PROPERTIES LABELS "tier-G;slow")
+  # `guard`: one of the three commit-level tests. It is also where check 7
+  # verifies that every mutation anchor still matches its source, which is what
+  # keeps a rename from silently un-anchoring a mutation (2026-10-16).
+  set_tests_properties(docs-lint PROPERTIES LABELS "tier-G;slow;guard")
   # The mode corpus tool's --selfcheck: proves the checks can fail. Runs on a
   # committed corpus when one is present, and skips (77) when it is not, so CI
   # -- which has no dump -- does not report a missing data file as a failure.
@@ -643,6 +747,6 @@ if(BUILD_TESTING)
     add_test(NAME abi
       COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tools/abi-check.sh
               $<TARGET_FILE:hunmin> ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/tests/abi/symbols.txt)
-    set_tests_properties(abi PROPERTIES LABELS "tier-B")
+    set_tests_properties(abi PROPERTIES LABELS "tier-B;guard")
   endif()
 endif()

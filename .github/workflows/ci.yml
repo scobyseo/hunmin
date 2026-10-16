@@ -645,14 +645,13 @@ jobs:
   # The signed release APK, and the reason it is gated on a repository
   # variable and produces a throwaway signature.
   #
-  # B8 (issue #1) is unresolved: build.gradle.kts:77 hardcodes
-  # /home/scoby/.android/debug.keystore under a comment saying the keystore
-  # lives in gitignored local.properties. Signing with the debug keystore is
-  # not a releasable signature, so this job generates one at build time from a
-  # repository secret and hands the path to Gradle -- never writing a keystore
-  # into the tree. When B8 is ruled, this job becomes the place a real key
-  # would be wired in; until then it proves the release BUILD works, not that
-  # the release SIGNATURE does.
+  # B8 (issue #1) was decided 2026-10-13: build.gradle.kts reads
+  # HUNMIN_RELEASE_STORE, else a gitignored local.properties, else generates a
+  # throwaway key at build time. This job takes the first route with a
+  # throwaway key of its own, written to RUNNER_TEMP and never into the tree --
+  # so it proves the release BUILD works, not that the release SIGNATURE does.
+  # When a real release key exists, this job is where it would be wired in:
+  # point HUNMIN_RELEASE_STORE at it instead of generating one.
   android-release:
     name: android release APK (unsigned keystore)
     if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.HUNMIN_BUILD_RELEASE == 'true'
@@ -687,9 +686,11 @@ jobs:
           echo "$sdk_root/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
       - name: Generate a throwaway release keystore
-        # Not a real release key -- B8's ruling is what decides where one
-        # lives. This exists so assembleRelease runs end-to-end without
-        # borrowing the debug keystore.
+        # Not a real release key. B8 was decided 2026-10-13 (local.properties,
+        # HUNMIN_RELEASE_STORE override, throwaway-key fallback); this job
+        # takes the override with a key of its own, so assembleRelease runs
+        # end-to-end without borrowing the debug keystore and without writing a
+        # keystore into the tree.
         run: |
           keytool -genkeypair -keystore "$RUNNER_TEMP/release.keystore" \
             -storepass android -alias hunmin -keypass android \

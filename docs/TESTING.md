@@ -64,6 +64,7 @@ answers "what does this test cost me, and what does it do to my working tree?"
 | `tier-G` | process: `docs-lint`, `modes-corpus-selfcheck` |
 | `mutation` | the test rewrites repo source and rebuilds, to prove a guard can fail |
 | `slow` | measured ≥ 2 s on the host where the label was assigned |
+| `guard` | cheap enough to run on **every commit**; orthogonal to the tier axis |
 
 Two membership facts that are not derivable from the tier name:
 
@@ -97,6 +98,7 @@ ctest --test-dir build -j16 -L tier-A        # run
 ctest --test-dir build -j16 -L 'tier-A|tier-B'   # several -L's are OR'd
 ctest --test-dir build -j16 -LE slow         # everything cheap
 ctest --test-dir build -j16 -LE mutation     # nothing that rewrites your tree
+ctest --test-dir build -j4 -L guard          # the commit-level check (see below)
 ```
 
 `-L`/`-LE` take a **regex matched unanchored against each label**, which is what
@@ -194,6 +196,83 @@ is the cheapest way to see where a selection's time went:
 Label Time Summary:
 tier-A    =   1.47 sec*proc (26 tests)
 ```
+
+### The three levels: commit < PR < nightly == release
+
+The maintainer's ladder, 2026-10-16, with what each rung runs. **Cumulative** —
+each level contains the ones below it, which is what makes "nightly == release"
+mean something: a release gate that is stricter than what every PR ran has not
+been measuring the same thing the PR measured.
+
+| Level | Command | Measured, this host | Contains |
+|---|---|---|---|
+| **commit** | `ctest --test-dir build -j4 -L guard` | **19.4 s**, 7 tests | 4 guaranteed + 3 conditional — see below |
+| **PR** | `ctest --test-dir build -j4 -LE 'tier-E1'` | ~78 s projected for CI; **251 s** local at `-j4` | everything above, plus tiers A–D, E0/E2, the mutation self-tests |
+| **nightly == release** | `tools/release-gate.sh` | 234 s at `-j4`, 184 tests, 2 declared skips | everything, tier E1 included, plus the artefacts |
+
+Two properties make the rungs trustworthy rather than aspirational, and both are
+the reason the local numbers are quoted next to the CI ones rather than instead
+of them (§2 above, and `docs/CI-TIMING.md`):
+
+1. **A level's exclusions are declared, not implied.** `ctest -L` prints what it
+   selected and nothing about what it did not, so a green selection is
+   indistinguishable on its face from a green full run —
+   `wiki/raw/measurements/2026-10-10-d3-case-coverage.md`. `tools/ctest-select.sh`
+   closes that for a selection, and `tools/release-gate.sh` closes it for the
+   release rung by failing on any skipped test that is not in its exception
+   table, **and on a declared exception that stopped skipping** — an exception
+   that no longer applies is a stale claim, not a free pass.
+2. **The commit rung has to be under a minute**, or it stops being run — and it
+   has to survive an **empty cache**, because the repository's Actions caches are
+   currently empty (`total_count 0`: no job has executed since 2026-10-13, so
+   neither `actions/cache` step ever completed). So the rung is split in two:
+
+   | | tests | cost | if unavailable |
+   |---|---|---|---|
+   | **guaranteed** | `abi`, `schema-contract`, `docs-lint` (which also runs `wiki-lint` and verifies every mutation anchor), `shell-lint` | **~5 s** | cannot be unavailable — no SDK, no Gradle, no cache |
+   | **conditional** | `builds` (engine), `builds-fcitx5-addon`, `builds-android` | **~14 s** warm | **skip, by name, with the cause printed** |
+
+   The conditional legs are not free coverage and must never be read as it. A
+   skip is exit 77, which ctest prints by name, and each one says what it did
+   *not* check:
+
+   ```
+   builds-fcitx5-addon: SKIPPED -- no hunmin_addon target, which means
+   Fcitx5Core >= 5.1.13 was not found when this tree was configured
+   ```
+
+   That is the shape that makes "the cache will be warm" unnecessary. On a cold
+   Actions cache the fcitx5 addon cannot compile inside this rung at all — the
+   linux job builds fcitx5 5.1.13 from source for 197 s because Ubuntu 24.04
+   ships 5.1.7, below the addon's real floor (`docs/CI-TIMING.md`) — so on a cold
+   cache the addon leg skips, and the rung is still honest and still under a
+   minute. **A green `guard` therefore means "the guaranteed checks passed and
+   the conditional ones that could run did"; it never means "the frontends
+   compiled".**
+
+   All three behaviours are verified by planting the failure, not by reading the
+   green: a compile error in `libhunmin/src/ic.c` turns `builds` red in 0.11 s, a
+   script without a shebang turns `shell-lint` red, and a tree configured with
+   `-DCMAKE_DISABLE_FIND_PACKAGE_Fcitx5Core=ON` makes `builds-fcitx5-addon`
+   **Skipped** with the message above rather than Passed.
+
+**What the commit rung cannot do, stated so nobody assumes it:** with a cold
+cache it compiles only `libhunmin` — the fcitx5 addon and the Android frontend
+skip by name. It runs no tier tests beyond `abi`/`schema-contract`, and no
+linting of C or Kotlin: `shell-lint` covers the shell at `-S error` severity,
+and `docs-lint` covers the Python by type-checking `tools/` with pyright (the
+M5-CLOSED row). clang-tidy and clang-format are on the GitHub image and unused;
+adding them is a separate decision about how much noise this project is willing
+to gate on.
+
+**Why the commit rung is cheap is not obvious and is worth stating:** the two
+real defects this ladder exists to catch were both *text* drifting from *text*.
+A rename in `engine.cpp` moved a mutation anchor out from under
+`frontend-mutations` and no `.deb` could be built (2026-10-16); the same class of
+drift had already broken three `ci.yml` comments and two `README.md` paragraphs.
+`docs-lint` check 7 verifies every mutation anchor against its source in
+milliseconds, which is the guard that ran 26 seconds earlier than the self-test
+did and with a build in between.
 
 ### Make the selection visible
 

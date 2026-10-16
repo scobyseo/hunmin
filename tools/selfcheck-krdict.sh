@@ -1,3 +1,4 @@
+#!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Determinism of tools/krdict2data.py against the real 국립국어원 dump
