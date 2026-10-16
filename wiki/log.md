@@ -518,3 +518,12 @@
   the signed APK stays blocked on issue #1. The procedure lives in
   `docs/MILESTONES.md` §0.1, not here.
 - `wiki/index.md` listed the page under Decisions.
+- `wiki/decisions/2026-10-16-the-repository-is-private-until-after-0.2.md` — the
+  maintainer ruled `scobyseo/hunmin` stays private through 0.1, public after 0.2.
+  Records the measurement that prompted it (release published, `.deb` correct at
+  1,252,740 bytes, asset URL and release page both 404 unauthenticated), that #7
+  therefore stays open, and the consequence: 0.2 is the first release whose
+  documents are read by a stranger, and the 0.1 `.deb` already ships a
+  `README.md.gz` claiming no release existed. `tools/release-0.1.sh` now verifies
+  reachability unauthenticated against actual repository visibility.
+- `wiki/index.md` listed the page under Decisions.

@@ -115,6 +115,17 @@ APK remains blocked on issue #1 (B8 keystore path).
 
 ## 0.2 — Windows TSF
 
+- **This is the first release intended to reach people who do not already have
+  access to the repository.** The repository is **private until after 0.2**
+  (maintainer ruling 2026-10-16), so every artefact published up to and including
+  0.1 is account-gated: the GitHub Release on tag `0.1.0` exists and its
+  `.deb` is the one built at that tag, but the asset URL returns 404
+  unauthenticated and the release page is not readable. 0.2 is where the tree's
+  user-facing words are read by a stranger for the first time, which makes the
+  state of `README.md`, `docs/release-notes/` and the packaged
+  `/usr/share/doc/hunmin/README.md.gz` part of the 0.2 definition of done, not
+  incidental prose. Measured 2026-10-16; recorded in
+  `wiki/decisions/2026-10-16-the-repository-is-private-until-after-0.2.md`.
 - The precondition is a **Windows environment**, which this host does not have
   (`docs/ENVIRONMENT.md` batch 4, not installed). No TIP work can be measured
   without a VM or physical machine; that is the blocker, and it is environmental,

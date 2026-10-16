@@ -13,6 +13,15 @@
 #   4. Create GitHub Release:  gh release create 0.1.0 --title "hunmin 0.1.0" \
 #                              --notes-file docs/release-notes/0.1.0.md
 #   5. Upload artifact:    gh release upload 0.1.0 hunmin_0.1.0_amd64.deb
+#   6. Verify reachability: curl the asset URL with NO credentials and compare
+#                             the status against the repository's real visibility
+#
+# Step 6 is the one that answers issue #7's third verification item, and the
+# reason it is not "did the upload work" is that the upload working is not the
+# question. Measured 2026-10-16: the 0.1 release was published with the correct
+# bytes (1,252,740, verified by download and dpkg -c) and the asset URL returned
+# 404 to anyone without an account, because the repository is private until after
+# 0.2. Steps 1-5 all assert existence; only step 6 asserts reachability.
 #
 # Steps 3-5 are the irreversible ones, which is why the bare invocation prints
 # them instead of running them (see DRY_RUN below).
@@ -198,6 +207,84 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
     echo "  sha256 $(sha256sum "$ARTIFACT" | cut -d' ' -f1)"
   fi
 fi
+
+# --- 6. Reachability: can the audience this documents name actually fetch it? --
+# The third verification issue #7 asks. Steps 1-5 all assert EXISTENCE -- the tag
+# exists, the release exists, the asset is there, and f904d6a's fingerprinting
+# made the bytes right. None of that is the question: a private repository serves
+# a correct .deb to nobody. Measured 2026-10-16, when the 0.1 release was
+# published with the right bytes behind a 404.
+#
+# So this fetches the asset URL with NO credentials -- not gh, which is
+# authenticated as whoever runs it, and not a cookie -- and compares the status
+# against the repository's real visibility. A private repo returning 404 is a
+# recorded state (wiki/decisions/2026-10-16-the-repository-is-private-until-after-0.2.md);
+# documents advertising an anonymous download while the repo is private is a
+# contradiction, and that is what this refuses to finish on.
+verify_reachable() {
+  local url="https://github.com/${REPO}/releases/download/${TAG}/${ARTIFACT_NAME}"
+  local notes="${ROOT}/docs/release-notes/${TAG}.md"
+  local visibility status
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    echo "  curl -sS -o /dev/null -w '%{http_code}' ${url}   # no credentials"
+    echo "  # then compare against \$(gh repo view ${REPO} --json visibility -q .visibility)"
+    return 0
+  fi
+
+  command -v curl >/dev/null 2>&1 || { echo "curl not found (reachability check)" >&2; exit 1; }
+
+  # No -L on purpose for the private case: following the redirect to a login page
+  # turns "hidden" into "200", which is the exact false green this check exists to
+  # prevent. A public asset serves 200 directly.
+  status="$(curl -sS -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || echo 000)"
+  visibility="$(gh repo view "$REPO" --json visibility -q .visibility 2>/dev/null || echo UNKNOWN)"
+
+  echo "==> Step 6: reachability"
+  echo "  ${url}"
+  echo "  anonymous GET -> ${status}; repository visibility -> ${visibility}"
+
+  case "$visibility" in
+    PUBLIC)
+      if [[ "$status" != "200" ]]; then
+        echo "ERROR: repository is PUBLIC but the asset URL returns ${status}, not 200." >&2
+        echo "       A public release that a clean machine cannot fetch is the" >&2
+        echo "       failure issue #7's third item names." >&2
+        exit 1
+      fi
+      echo "  OK: public repository, anonymous download works."
+      ;;
+    PRIVATE)
+      if [[ "$status" != "404" ]]; then
+        echo "NOTE: repository is PRIVATE but the asset returned ${status} unauthenticated."
+        echo "      Re-measure and update the private-until-0.2 ruling if this is now public."
+      else
+        echo "  OK: private repository, 404 unauthenticated -- the recorded state."
+      fi
+      # The documents must agree with the measurement. This is the part that
+      # would have caught the published .deb whose README said no release existed.
+      if [[ -f "$notes" ]] && ! grep -qiE 'private|account with access|no anonymous download' "$notes"; then
+        echo "ERROR: the repository is private, but ${notes} does not say so." >&2
+        echo "       The release body is what a user reads first; an access claim" >&2
+        echo "       that the measurement contradicts is the defect this checks." >&2
+        exit 1
+      fi
+      if ! grep -qiE 'private|account with access' "${ROOT}/README.md"; then
+        echo "ERROR: the repository is private, but README.md does not say so." >&2
+        exit 1
+      fi
+      echo "  OK: the release notes and README both state the access boundary."
+      ;;
+    *)
+      echo "ERROR: could not read visibility for ${REPO} (got '${visibility}')." >&2
+      echo "       Refusing to reach a verdict here is the point: an unknown" >&2
+      echo "       visibility must not read as a pass." >&2
+      exit 1
+      ;;
+  esac
+}
+
+verify_reachable
 
 if [[ $DRY_RUN -eq 1 ]]; then
   echo
