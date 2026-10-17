@@ -86,8 +86,11 @@ static void HMLOG(const char *fmt, ...) {
  * hunmin_ctx_layout_count() reported 30 for 15 staged files, because
  * hunmin_ctx_new's search path is additive by design — duplicate ids
  * across dirs are not deduped, so overlapping dirs are the caller's to
- * avoid. Measured 2026-10-17. */
-static hunmin_ctx *hunmin_ctx_from_module() {
+ * avoid. Measured 2026-10-17. Non-static (issue #71): the settings dialog
+ * (settings.cpp) resolves data through this same function, so the dialog's
+ * layout lists can never disagree with the adapter's about where data
+ * came from. */
+hunmin_ctx *hunmin_ctx_from_module() {
     wchar_t envW[MAX_PATH];
     wchar_t modDir[MAX_PATH];
     char dirs[2][MAX_PATH * 3];
@@ -202,6 +205,7 @@ static void resolveLayoutSlot(const hunmin_ctx *ctx, const std::string &stored,
  * file) must reach the matcher, not just the adapter. */
 #include "keybinding.cpp"
 #include "config.h"
+#include "settings.h" /* ITfFunctionProvider branch + the apply bridge */
 // Skeleton edit session for TSF text insertion. Real insertion lives
 // inlined in OnKeyDown; this type documents the shape.
 class HEditSession : public ITfEditSession {
@@ -265,6 +269,13 @@ class CTextService : public ITfTextInputProcessor,
             *ppv = static_cast<ITfKeyEventSink *>(this);
         } else if (IsEqualIID(riid, IID_ITfCompositionSink)) {
             *ppv = static_cast<ITfCompositionSink *>(this);
+        } else if (IsEqualIID(riid, IID_ITfFunctionProvider)) {
+            /* Issue #71: the settings surface. QI'able on the live text
+             * service object, exactly the TSF-native reachability
+             * mechanism; GetFunction(IID_ITfFnConfigure) then hands out the
+             * configure function (settings.cpp). */
+            *ppv = hunmin_tsf_settings_new_provider(this);
+            return S_OK;
         } else {
             *ppv = nullptr;
             return E_NOINTERFACE;
@@ -278,6 +289,56 @@ class CTextService : public ITfTextInputProcessor,
         if (r == 0)
             delete this;
         return r;
+    }
+
+    /* Issue #71: re-read the configuration store and rebuild the live
+     * session — the settings dialog's Apply path, no process restart.
+     * Activate() reuses it, so there is exactly one config-read + rebuild
+     * in the adapter (never two that could drift). The buffered word is
+     * untouched (a word boundary flush operates the same after Apply); the
+     * IN-FLIGHT syllable of a running composition is lost by the ic
+     * swap — acceptable for an explicit Apply, recorded in
+     * tests/manual-checklists/tsf-settings-window.md. */
+    void ApplyConfigStore() {
+        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
+        if (dbg) {
+            fprintf(dbg, "ApplyConfigStore pid=%lu\n", (unsigned long)GetCurrentProcessId());
+            fflush(dbg);
+        }
+        HunminTsfConfig cfg;
+        hunmin_tsf_config_load(HKEY_CURRENT_USER, &cfg);
+        resolveLayoutSlot(ctx_, cfg.hangulLayout, kHangulDefaultId, true, &hangulId_, dbg);
+        resolveLayoutSlot(ctx_, cfg.latinLayout, kLatinDefaultId, false, &latinId_, dbg);
+        /* The mode-toggle set (Android KeyBinding semantics): configured
+         * chords ADD, and the bare physical Han/Eng key is appended when
+         * the store does not carry it — it must never go dead. */
+        {
+            HunminKeyCombo parsed[16];
+            const int nParsed = hunmin_tsf_keybindings_parse(cfg.toggleKeys, parsed, 16);
+            toggleKeys_.assign(parsed, parsed + nParsed);
+            bool hangeulBare = false;
+            for (const HunminKeyCombo &c : toggleKeys_)
+                if (c.vk == HUNMIN_TSF_VIRTUAL_HANGEUL && c.mods == 0)
+                    hangeulBare = true;
+            if (!hangeulBare)
+                toggleKeys_.push_back(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANGEUL, 0});
+            if (dbg) {
+                fprintf(dbg, "  toggle keys=%zu (configured bits: %s)\n", toggleKeys_.size(),
+                        cfg.toggleKeys[0] ? cfg.toggleKeys : "(none)");
+                fflush(dbg);
+            }
+        }
+        if (ic_) {
+            hunmin_ic_free(ic_);
+            ic_ = nullptr;
+        }
+        if (ctx_)
+            ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
+        if (dbg) {
+            fprintf(dbg, "  applied hangul=%s latin=%s ic=%p\n", hangulId_.c_str(),
+                    latinId_.c_str(), (void *)ic_);
+            fclose(dbg);
+        }
     }
 
     STDMETHOD(Activate)(ITfThreadMgr *ptm, TfClientId tid) override {
@@ -332,39 +393,14 @@ class CTextService : public ITfTextInputProcessor,
             fflush(dbg3);
         }
 
-        /* Layout wiring (issue #66): read the configured pair, resolve each
-         * slot against the loaded data, then instantiate. */
-        HunminTsfConfig cfg;
-        hunmin_tsf_config_load(HKEY_CURRENT_USER, &cfg);
-        resolveLayoutSlot(ctx_, cfg.hangulLayout, kHangulDefaultId, true, &hangulId_, dbg3);
-        resolveLayoutSlot(ctx_, cfg.latinLayout, kLatinDefaultId, false, &latinId_, dbg3);
-
-        /* The mode-toggle set (Android KeyBinding semantics): configured
-         * chords ADD, and the bare physical Han/Eng key is appended when the
-         * store does not carry it — it must never go dead. */
-        {
-            HunminKeyCombo parsed[16];
-            const int nParsed = hunmin_tsf_keybindings_parse(cfg.toggleKeys, parsed, 16);
-            toggleKeys_.assign(parsed, parsed + nParsed);
-            bool hangeulBare = false;
-            for (const HunminKeyCombo &c : toggleKeys_)
-                if (c.vk == HUNMIN_TSF_VIRTUAL_HANGEUL && c.mods == 0)
-                    hangeulBare = true;
-            if (!hangeulBare)
-                toggleKeys_.push_back(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANGEUL, 0});
-            if (dbg3) {
-                fprintf(dbg3, "  toggle keys=%zu (configured bits: %s)\n", toggleKeys_.size(),
-                        cfg.toggleKeys[0] ? cfg.toggleKeys : "(none)");
-                fflush(dbg3);
-            }
-        }
-
-        if (ctx_)
-            ic_ = hunmin_ic_new(ctx_, hangulId_.c_str());
+        /* Layout wiring (issue #66), now via ApplyConfigStore() (issue #71):
+         * the same re-read + rebuild the settings dialog's Apply drives on
+         * a LIVE service, without a process restart — acceptance is
+         * identical because the config boundary resets exactly the state
+         * Activate() had to do anyway; no separate activation-only copy
+         * exists. Activate() starts hangulMode_=true. */
+        ApplyConfigStore();
         if (dbg3) {
-            fprintf(dbg3, "  ic_=%p hangul=%s latin=%s\n", (void *)ic_,
-                    hangulId_.c_str(), latinId_.c_str());
-            fflush(dbg3);
             if (ctx_)
                 fprintf(dbg3, "  layout_count=%d\n", hunmin_ctx_layout_count(ctx_));
             fflush(dbg3);
@@ -1030,6 +1066,15 @@ class CTextService : public ITfTextInputProcessor,
 };
 extern "C" HINSTANCE g_hunmin_hinst;
 /* placeholder */
+
+/* Issue #71 bridge, defined in the TU that owns CTextService: settings.cpp
+ * (ITfFnConfigure::Show) hands the LIVE service back through a plain void*
+ * because the two TUs' headers deliberately do not entangle. */
+void hunmin_tsf_apply_config_store(void *svc) {
+    if (!svc)
+        return;
+    static_cast<CTextService *>(svc)->ApplyConfigStore();
+}
 extern "C" BOOL DllRegisterServer() {
     // logging
     FILE *dbg = tsf_log_open("hunmin-reg-debug.log", "w");

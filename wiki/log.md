@@ -588,3 +588,13 @@
   measured tier-registration drift — the standalone frontends/tsf configure
   had been registering zero F1 tests until `enable_testing()` and the
   executable-keyed Python3 guard landed.
+
+## [2026-10-17] create | Settings dialog — WinUI 3 exe (issue #71)
+
+- `wiki/raw/sessions/2026-10-17-settings-dialog-winui-exe.md` — the maintainer
+  ruling executed: the separate WinUI 3 settings exe. Carries the measured
+  window sizes (exe 545x674 px, interim dialog 493x434 px — "compact" as a
+  number), the ResizeClient-DPI-factor and XamlCompiler host quirks, the one
+  binding by key capture ("키 입력 방식"), the publish 495 files / 167.4 MiB
+  figure for #68, and the still-open device-bound and maintainer-sizing
+  questions.

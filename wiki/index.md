@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-17 | Total pages: 40
+> Last updated: 2026-10-17 | Total pages: 41
 
 ## Concepts
 
@@ -135,6 +135,12 @@
   that the standalone frontends/tsf configure had been registering ZERO
   tier-F1 tests (no `enable_testing()`, plus the Python3_FOUND guard).
   #71 (the dialog, subtasked to this issue) is its own worktree.
+- [[2026-10-17-settings-dialog-winui-exe]] — issue #71's exe work under the
+  2026-10-17 ruling: the maintenance requirement measured as a NUMBER, not a
+  verb — the compact WinUI exe lands 545x674 px, the layover interim Win32
+  dialog 493x434 px — plus the ResizeClient-DPI-factor and XamlCompiler-only
+  MSBuild.exe host quirks, the capture-one-binding key row, the publish
+  figure 495 files / 167.4 MiB for the #68 packaging weight.
 
 ## Raw — measurements
 
