@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-17 | Total pages: 39
+> Last updated: 2026-10-17 | Total pages: 40
 
 ## Concepts
 
@@ -126,6 +126,15 @@
   `RequestEditSession` + `ITfRange::SetText`, never `ITfInsertAtSelection`,
   and never opens an inline composition. What the pass did NOT establish:
   TAT and a ctest TSF tier, still open under milestone B (#65).
+- [[2026-10-17-milestone-c-layout-wiring-data-loading]] — issue #66's
+  milestone C: the layout pair comes from the `HKCU\Software\Hunmin\TSF`
+  store (env seam → registry → fcitx5-mirrored defaults), slots validated by
+  supported+mode; one data source wins (the additive chain double-loaded a
+  staged tree, 15 files counted as 30); tier F1 gained `tsf-config-test`,
+  `tsf-datadir-test` and a dubeolsik win32 trace — and the measured finding
+  that the standalone frontends/tsf configure had been registering ZERO
+  tier-F1 tests (no `enable_testing()`, plus the Python3_FOUND guard).
+  #71 (the dialog, subtasked to this issue) is its own worktree.
 
 ## Raw — measurements
 

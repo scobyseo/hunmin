@@ -579,3 +579,12 @@
   does. The rule and the probe measured with hangulctype.c/cJSON.c/tables.c
   are recorded on the session page; the committed `.clang-format-ignore` uses
   the glob form in the same pass.
+- `wiki/raw/sessions/2026-10-17-milestone-c-layout-wiring-data-loading.md` —
+  milestone C (issue #66): the HKCU layout-pair store mirroring the fcitx5
+  config, slot validation by supported+mode, the single-source data rule
+  (measured: the additive chain double-loaded a staged tree, 15 files →
+  layout_count 30), tier-F1 additions `tsf-config-test` / `tsf-datadir-test`
+  and the dubeolsik win32 trace (gold reviewed 400/400 vs tier A), and the
+  measured tier-registration drift — the standalone frontends/tsf configure
+  had been registering zero F1 tests until `enable_testing()` and the
+  executable-keyed Python3 guard landed.
