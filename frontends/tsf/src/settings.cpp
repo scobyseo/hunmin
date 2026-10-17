@@ -595,6 +595,23 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
             EndDialog(h, 0);
             return TRUE;
         }
+        /* 키 입력 buttons: BN_CLICKED arms the capture mode; the
+         * WM_KEYDOWN/WM_SYSKEYDOWN block above the switch then owns the
+         * keys (WinUI 3 parity). */
+        if (LOWORD(wp) == IDC_TOGGLE_CAPTURE && HIWORD(wp) == BN_CLICKED) {
+            s->captureTarget = IDC_TOGGLE_EDIT;
+            SetWindowTextW(GetDlgItem(h, IDC_TOGGLE_CAPTURE),
+                           CAPTURE_PROMPT_ACTIVE);
+            logLine("settings: capture armed target=%d", s->captureTarget);
+            return TRUE;
+        }
+        if (LOWORD(wp) == IDC_HANJA_CAPTURE && HIWORD(wp) == BN_CLICKED) {
+            s->captureTarget = IDC_HANJA_EDIT;
+            SetWindowTextW(GetDlgItem(h, IDC_HANJA_CAPTURE),
+                           CAPTURE_PROMPT_ACTIVE);
+            logLine("settings: capture armed target=%d", s->captureTarget);
+            return TRUE;
+        }
         break;
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
