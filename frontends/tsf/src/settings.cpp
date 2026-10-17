@@ -35,6 +35,8 @@ extern bool hunmin_tsf_log_path(const char *fname, char *out, size_t cap);
 #define IDC_LATIN_LIST 1002
 #define IDC_TOGGLE_EDIT 1003
 #define IDC_FEATURE_ROW 1004
+#define IDC_HANJA_EDIT 1005
+#define IDC_HINT_HANJA 2002
 #define IDC_HINT_TOGGLE 2001
 
 /* The provider's own type GUID (ITfFunctionProvider::GetType): fresh, not
@@ -189,23 +191,31 @@ static void addItem(std::vector<WORD> &t, DWORD style, DWORD exStyle, WORD x, WO
 #define TITLE_LATIN L"\uC601\uBB38 \uC790\uD310" /* latin layout */
 #define TITLE_TOGGLE L"\uD55C/\uC605 \uC804\uD658 \uD0A4 \uBAA9\uB85D" /* toggle key list */
 #define HINT_TOGGLE L"\uC608: v1:165:0;v1:32:1" /* e.g. */
+#define TITLE_HANJA L"\uD55C\uC790 \uD0A4" /* 한자 키 — the candidate-window key label */
+#define HINT_HANJA L"\uC608: v1:25:0" /* e.g.: v1:25:0 (25 = the Hanja key, the default) */
 #define FEATURE_ROW L"\uC790\uB3D9 \uD55C/\uC605 \uC804\uD658: \uBBF8\uC815 (0.3)"
 
 static std::vector<WORD> buildDialogTemplate() {
     std::vector<WORD> t;
-    /* No WS_VISIBLE here, and DS_SETFONT is REQUIRED because the font
-     * block is written below: without the flag USER32 parses the size and
-     * face words as the first item's bytes and every item (or the process)
-     * breaks — measured on this host via a probe that varied the style
-     * bits. DS_CENTER centres the ownerless launcher window. */
-    w32(t, DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU);
+    /* WS_VISIBLE is REQUIRED here, measured (2026-10-18, defect "the dialog
+     * opens but shows nothing"): without it the modal dialog's window is
+     * created visible=0 at WM_INITDIALOG and STAYS invisible for its whole
+     * lifetime on this host — the user sees nothing. The About-dialog-boxes
+     * doc claims the system "always displays a modal dialog box regardless
+     * of whether the dialog box template specifies the WS_VISIBLE style"
+     * (learn.microsoft.com win32 dlgbox about-dialog-boxes, owner section);
+     * this host contradicts it under rundll32 with no owner, and the
+     * template bit is what the docs say applies when the claim does not.
+     * DS_CENTER centres the ownerless launcher window. */
+    w32(t, DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU |
+               WS_VISIBLE);
     w32(t, 0); /* exStyle */
     const size_t cditOff = t.size();
     t.push_back(0); /* cdit, patched below */
     t.push_back(0); /* x */
     t.push_back(0); /* y */
     t.push_back(216);
-    t.push_back(164);
+    t.push_back(226);
     t.push_back(0); /* menu: none */
     t.push_back(0); /* class: standard dialog */
     wstr(t, L"Hunmin settings");
@@ -227,18 +237,29 @@ static std::vector<WORD> buildDialogTemplate() {
             100, 192, 14, IDC_TOGGLE_EDIT, ATOM_EDIT, L"");
     addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 118, 192, 10, IDC_HINT_TOGGLE, ATOM_STATIC,
             HINT_TOGGLE);
+    /* The Hanja/candidate key row (issue #67): the key that opens the F9-
+     * flow candidate window, default the bare physical Hanja key. */
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 136, 192, 10, 0, ATOM_STATIC, TITLE_HANJA);
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 0, 10,
+            148, 192, 14, IDC_HANJA_EDIT, ATOM_EDIT, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 166, 192, 10, IDC_HINT_HANJA, ATOM_STATIC,
+            HINT_HANJA);
     /* The feature row: display only, disabled, per the recorded ruling. */
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 132, 134, 10, 0, ATOM_STATIC, FEATURE_ROW);
-    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 148, 130, 10,
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 182, 134, 10, 0, ATOM_STATIC, FEATURE_ROW);
+    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 148, 180, 10,
             12, IDC_FEATURE_ROW, ATOM_BUTTON, L"");
     /* OK / Cancel. */
     addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_DEFPUSHBUTTON, 0,
-            104, 148, 48, 14, IDOK, ATOM_BUTTON, L"OK");
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 158, 148, 48,
+            104, 198, 48, 14, IDOK, ATOM_BUTTON, L"OK");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 158, 198, 48,
             14, IDCANCEL, ATOM_BUTTON, L"Cancel");
-    /* The template declared exactly the items appended above: 5 statics +
-     * 2 combos + 1 edit + 1 checkbox + 2 buttons. */
-    t[cditOff] = 11;
+    /* The template declared exactly the items appended above: 7 statics +
+     * 2 combos + 2 edits + 1 checkbox + 2 buttons = 14. (The count is
+     * derived from the add calls above; USER32 stops parsing at cdit, so a
+     * wrong number here either truncates children or reads garbage as the
+     * first item — the empty-dialog defect instrumentation kept the
+     * initdialog kids count as the guard.) */
+    t[cditOff] = 14;
     return t;
 }
 
@@ -273,10 +294,27 @@ static void applyAndClose(HWND h, SettingsState *s) {
     }
     strncpy(s->cfg.toggleKeys, keys.c_str(), HUNMIN_TSF_TOGGLE_KEYS_CAP - 1);
     s->cfg.toggleKeys[HUNMIN_TSF_TOGGLE_KEYS_CAP - 1] = '\0';
+    /* The candidate-window key (issue #67): ONE combo, same grammar. An
+     * empty edit means "reset to the default" — the store save then writes
+     * the default explicitly, so the resolved value always round-trips. */
+    std::string hanjaKey = wideToStore(getEditText(h, IDC_HANJA_EDIT));
+    if (hanjaKey.empty()) {
+        HunminTsfConfig def;
+        hunmin_tsf_config_load(nullptr, &def);
+        hanjaKey = def.hanjaKey;
+    }
+    if (hanjaKey.size() >= HUNMIN_TSF_HANJA_KEY_CAP) {
+        MessageBoxW(h, L"Hanja key binding too long.", L"Hunmin settings",
+                    MB_OK | MB_ICONWARNING);
+        return; /* stay on the dialog: the user fixes the value */
+    }
+    strncpy(s->cfg.hanjaKey, hanjaKey.c_str(), HUNMIN_TSF_HANJA_KEY_CAP - 1);
+    s->cfg.hanjaKey[HUNMIN_TSF_HANJA_KEY_CAP - 1] = '\0';
     if (hunmin_tsf_config_save(HKEY_CURRENT_USER, &s->cfg)) {
         s->applied = true;
-        logLine("settings: saved hangul=%s latin=%s keys=%s", s->cfg.hangulLayout,
-                s->cfg.latinLayout, s->cfg.toggleKeys);
+        logLine("settings: saved hangul=%s latin=%s keys=%s hanja=%s",
+                s->cfg.hangulLayout, s->cfg.latinLayout, s->cfg.toggleKeys,
+                s->cfg.hanjaKey);
         EndDialog(h, 1);
     } else {
         logLine("settings: save FAILED");
@@ -376,17 +414,20 @@ static void applyWindows11Look(HWND h, SettingsState *s) {
     attr = DWMWCP_ROUND;
     s->hrCorner = DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE, &attr,
                                         sizeof(attr));
-    /* Mica backdrop: the frame must be stretched over the client first. */
-    MARGINS m = {-1, -1, -1, -1};
-    s->hrExtend = DwmExtendFrameIntoClientArea(h, &m);
-    attr = DWMSBT_MICA;
-    s->hrBackdrop = DwmSetWindowAttribute(h, DWMWA_SYSTEMBACKDROP_TYPE, &attr,
-                                          sizeof(attr));
-    /* The dark, Mica-backed surface needs matching control colors and the
-     * dark control theme on the list/edit/checkbox controls. */
+    /* The Mica backdrop is GONE. Measured 2026-10-18 (defect "the dialog is
+     * empty"): with DwmExtendFrameIntoClientArea(-1) + DWMSBT_MICA the
+     * client is the DWM-composed surface and the dialog's own controls
+     * render ghost-white over it in light mode — the dialog reads as
+     * empty to the user (the PrintWindow capture proved contrasting text
+     * does not survive the backdrop). The interim dialog exists as a
+     * fallback surface; readability beats the Windows-11 look, which stays
+     * the ruled settings-ui exe's job. What remains of the look: rounded
+     * corners and, in dark mode, the dark title bar + dark child themes.
+     * WM_ERASEBKGND (below) now paints a solid mode brush instead of
+     * letting the backdrop show through. */
     if (s->dark) {
         const int ids[] = {IDC_HANGUL_LIST, IDC_LATIN_LIST, IDC_TOGGLE_EDIT,
-                           IDC_FEATURE_ROW};
+                           IDC_HANJA_EDIT, IDC_FEATURE_ROW};
         for (int id : ids) {
             HWND c = GetDlgItem(h, id);
             if (c)
@@ -414,9 +455,8 @@ static void applyWindows11Look(HWND h, SettingsState *s) {
             s->font = nf; /* deleted on WM_DESTROY (dialog-owned) */
         }
     }
-    logLine("settings w11: dark=%d corner=0x%lX darkAttr=0x%lX extend=0x%lX mica=0x%lX font=%ls",
-            (int)s->dark, (unsigned long)s->hrCorner, (unsigned long)s->hrDark,
-            (unsigned long)s->hrExtend, (unsigned long)s->hrBackdrop, want);
+    logLine("settings w11: dark=%d corner=0x%lX darkAttr=0x%lX font=%ls",
+            (int)s->dark, (unsigned long)s->hrCorner, (unsigned long)s->hrDark, want);
 }
 
 static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
@@ -442,9 +482,20 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         /* Toggle keys into the edit. */
         std::wstring w = utf8ToWide(s->cfg.toggleKeys);
         SetWindowTextW(GetDlgItem(h, IDC_TOGGLE_EDIT), w.c_str());
-        /* Windows 11 look: corners, Mica, dark mode, Variable font. Logged
-         * HRESULTs are the measurement (see the manual checklist). */
+        /* The candidate-window key into its edit (issue #67). */
+        std::wstring hk = utf8ToWide(s->cfg.hanjaKey);
+        SetWindowTextW(GetDlgItem(h, IDC_HANJA_EDIT), hk.c_str());
+        /* Windows 11 look: corners, dark title bar in dark mode, Variable
+         * font. Logged HRESULTs are the measurement (see the manual
+         * checklist). */
         applyWindows11Look(h, s);
+        {
+            RECT rc = {};
+            GetWindowRect(h, &rc);
+            logLine("settings: initdialog rect=(%ld,%ld)-(%ld,%ld) visible=%d",
+                    (long)rc.left, (long)rc.top, (long)rc.right, (long)rc.bottom,
+                    (int)IsWindowVisible(h));
+        }
         return TRUE;
     }
     switch (msg) {
@@ -478,12 +529,10 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         }
         break;
     case WM_ERASEBKGND:
-        /* Mica succeeded: paint nothing, the backdrop shows through. Mica
-         * failed (older host): fill dark so the window still renders as
-         * dark-mode, degraded but honest. */
+        /* Solid fill in dark mode; light mode keeps the default white —
+         * no backdrop shows through any more (Mica removed, see
+         * applyWindows11Look). */
         if (s && s->dark) {
-            if (SUCCEEDED(s->hrBackdrop))
-                return 1;
             RECT rc = {};
             GetClientRect(h, &rc);
             FillRect((HDC)wp, &rc, s->darkBgBrush);
@@ -523,6 +572,22 @@ static bool settingsDialogRun(HWND parent) {
     logLine("settings: open rows hangul=%zu latin=%zu", s.hangulRows.size(),
             s.latinRows.size());
     std::vector<WORD> t = buildDialogTemplate();
+    /* Template ground truth in the log: this stream is what USER32 parses,
+     * and the empty-dialog defect report (2026-10-18) showed a created-but-
+     * childless window — the dump here says whether the live bytes differ
+     * from the layout the docs specify (style/exstyle DWORDs, cdit, x/y/cx/
+     * cy, menu/class WORDs, title, DS_SETFONT size+face, then DWORD-aligned
+     * DLGITEMTEMPLATEs). */
+    {
+        std::string hex;
+        char piece[16];
+        const size_t dump = t.size() < 30 ? t.size() : 30;
+        for (size_t i = 0; i < dump; ++i) {
+            snprintf(piece, sizeof piece, "%04X ", t[i]);
+            hex += piece;
+        }
+        logLine("settings: template words=%zu head=%s", t.size(), hex.c_str());
+    }
     /* The instance handle: from this TU's own address, not a module-name
      * lookup — the tier-F1 binary links this code and is not the TIP
      * module (tsf.cpp's GetModuleHandleW(L"hunmin-tsf.dll") trick does not

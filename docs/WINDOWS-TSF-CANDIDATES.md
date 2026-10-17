@@ -43,11 +43,18 @@ one character at a time).
   can reach.
 - **Opening may not flush anything.** `hunmin_ic_flush()` would commit the
   anchor out from under the list — the fcitx5 rule, kept.
+- **The open/close key is the configured Hanja-key binding** (`v1:<vk>:<mods>`
+  grammar, one entry). The DEFAULT is the bare physical **Hanja key**
+  (VK_HANJA 0x19) — the maintainer's instruction of 2026-10-18; F9 is NOT in
+  the default set any more, but the settings dialog (§below) or the env seam
+  (`HUNMIN_TSF_HANJA_KEY`) can bind it. An unparseable stored binding falls
+  back to the default rather than matching nothing — the window must stay
+  reachable. One shared predicate makes OK and test phases one decision.
 - **Keyboard flow** (= fcitx5's, engine.cpp `keyEvent` candidate block):
 
 | Key | While the window is open | Window closed |
 |---|---|---|
-| F9 | close | open (nothing: passes through, both test and down) |
+| Hanja key (the configured binding; default the bare physical Hanja key, VK 0x19) | close | open (nothing: passes through, both test and down) |
 | `1`..`9` / `0` | commit that page-relative candidate | — |
 | Up/Down/Left/Right | move the cursor (clamped, no rotation — recorded divergence from fcitx5, which rotates) | — |
 | PageUp/PageDown | move one page of 10; the cursor follows | — |
@@ -116,7 +123,7 @@ happy path is the app's.
 cmake --build <tsf-build-dir> --target tsf-candidate-test tsf-trace-emit
 ctest --test-dir frontends/tsf/build-msvc -L tier-F1 --output-on-failure
 # device-bound (needs a live TIP; see tests/manual-checklists/tsf-hanja-candidates.md):
-# select Hunmin, type 안녕 (dkssud), press F9, pick a candidate.
+# select Hunmin, type 안녕 (dkssud), press the Hanja key, pick a candidate.
 ```
 
 `tsf-candidate-test` asserts (engine-measured anchors): open state and

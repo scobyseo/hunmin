@@ -93,6 +93,17 @@ int main() {
           "default hangul: got %s", cfg.hangulLayout);
     CHECK(strcmp(cfg.latinLayout, kLatinDefaultId) == 0, "default latin: got %s",
           cfg.latinLayout);
+    /* The candidate key (issue #67): default = the bare Hanja key (0x19 = 25). */
+    CHECK(strcmp(cfg.hanjaKey, "v1:25:0") == 0, "default hanja key: got %s",
+          cfg.hanjaKey);
+    _putenv_s(HUNMIN_TSF_ENV_HANJA_KEY, "v1:120:0");
+    hunmin_tsf_config_load(nullptr, &cfg);
+    CHECK(strcmp(cfg.hanjaKey, "v1:120:0") == 0, "env override hanja key: got %s",
+          cfg.hanjaKey);
+    _putenv_s(HUNMIN_TSF_ENV_HANJA_KEY, "");
+    hunmin_tsf_config_load(nullptr, &cfg);
+    CHECK(strcmp(cfg.hanjaKey, "v1:25:0") == 0, "empty env hanja key -> default: got %s",
+          cfg.hanjaKey);
 
     /* 3. Slot resolution against the real data (issue #71's list split must
      * hold for stored values too). */
@@ -123,13 +134,20 @@ int main() {
     HunminTsfConfig write = {};
     strcpy_s(write.hangulLayout, "sebeolsik-3-90");
     strcpy_s(write.latinLayout, "dvorak");
+    strcpy_s(write.hanjaKey, "v1:120:0");
     CHECK(hunmin_tsf_config_save(selftest, &write) == TRUE, "save returned FALSE");
-    CHECK(hunmin_tsf_config_load(selftest, &cfg) == 2,
-          "load from registry should report 2 registry-sourced slots");
+    CHECK(hunmin_tsf_config_load(selftest, &cfg) >= 1,
+          "load from registry failed entirely (got %d)", hunmin_tsf_config_load(selftest, &cfg));
+    CHECK(hunmin_tsf_config_load(selftest, &cfg) == 3,
+          "load from registry should report 3 registry-sourced slots (the "
+          "empty toggle list is not one of them); hangul=%s latin=%s hanja=%s",
+          cfg.hangulLayout, cfg.latinLayout, cfg.hanjaKey);
     CHECK(strcmp(cfg.hangulLayout, "sebeolsik-3-90") == 0, "round trip hangul: got %s",
           cfg.hangulLayout);
     CHECK(strcmp(cfg.latinLayout, "dvorak") == 0, "round trip latin: got %s",
           cfg.latinLayout);
+    CHECK(strcmp(cfg.hanjaKey, "v1:120:0") == 0, "round trip hanja key: got %s",
+          cfg.hanjaKey);
 
     /* 5. An unterminated id is rejected, never truncated. */
     HunminTsfConfig bad = {};

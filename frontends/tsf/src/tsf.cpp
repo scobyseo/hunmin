@@ -235,11 +235,13 @@ static std::string HunminWideToUtf8(const std::wstring &w) {
     return s;
 }
 /* The vk set the candidate window consumes while it is open: choose keys
- * (digits), motion (arrows, pages), Return/Esc closes, and F9 toggles again.
+ * (digits), motion (arrows, pages), Return/Esc. The OPEN/CLOSE toggle is the
+ * configured combo, checked separately before this set; F9 is not here any
+ * more by default (issue #67: the Hanja key is the default and F9 unbound).
  * Expressed once so OnTestKeyDown and the OnKeyDown window branch cannot
  * drift — the same shared-predicate rule the toggle binding uses. */
 static bool hunmin_tsf_candkey_eats_test(unsigned long vk) {
-    return vk == VK_F9 || vk == VK_RETURN || vk == VK_ESCAPE || vk == VK_PRIOR ||
+    return vk == VK_RETURN || vk == VK_ESCAPE || vk == VK_PRIOR ||
            vk == VK_NEXT || (vk >= VK_LEFT && vk <= VK_DOWN) ||
            (vk >= '0' && vk <= '9');
 }
@@ -288,7 +290,7 @@ class CTextService : public ITfTextInputProcessor,
         : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), ic_(nullptr),
           hangulMode_(true), overlayWnd_(nullptr), hasPreeditRect_(false), lastCtx_(nullptr),
           hangulId_("sin3-p2"), latinId_("us-qwerty"), candActive_(false), candCount_(0), candCursor_(0),
-          candTop_(0) {}
+          candTop_(0), hanjaCombo_(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0}) {}
     virtual ~CTextService() {
         if (overlayWnd_)
             DestroyWindow(overlayWnd_);
@@ -368,6 +370,26 @@ class CTextService : public ITfTextInputProcessor,
                 fprintf(dbg, "  toggle keys=%zu (configured bits: %s)\n", toggleKeys_.size(),
                         cfg.toggleKeys[0] ? cfg.toggleKeys : "(none)");
                 fflush(dbg);
+            }
+        }
+        /* The candidate-window key (issue #67): ONE binding from the store,
+         * default the bare physical Hanja key. An unparseable binding falls
+         * back to the default rather than matching nothing — the candidate
+         * window must stay reachable, and a parse failure must never
+         * swallow a keystroke. */
+        {
+            HunminKeyCombo parsed[2];
+            const int nParsed =
+                hunmin_tsf_keybindings_parse(cfg.hanjaKey, parsed, 2);
+            if (nParsed > 0) {
+                hanjaCombo_ = parsed[0];
+            } else {
+                hanjaCombo_ = HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0};
+                if (dbg) {
+                    fprintf(dbg, "  hanja key unparseable (%s) -> default VK_HANJA\n",
+                            cfg.hanjaKey[0] ? cfg.hanjaKey : "(empty)");
+                    fflush(dbg);
+                }
             }
         }
         /* The candidate window belongs to a composition the ic swap below
@@ -614,10 +636,11 @@ class CTextService : public ITfTextInputProcessor,
             eat = TRUE;
         else if (!hangulMode_)
             eat = FALSE;
-        else if (wParam == VK_F9) {
+        else if (hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam,
+                                              hunmin_tsf_keymods_from_state())) {
             /* Mirror the down decision exactly (no look-ahead lie): the
              * window opens only when the buffered word has candidates, and
-             * in the zero-candidate case F9 belongs to the client. The
+             * in the zero-candidate case the key belongs to the client. The
              * suggest lookup is a read of tables already in memory. */
             eat = (ctx_ && !BufferedHangul().empty() &&
                    hunmin_suggest_count(ctx_, BufferedHangul().c_str()) > 0)
@@ -699,14 +722,17 @@ class CTextService : public ITfTextInputProcessor,
                 fclose(dbg);
             return S_OK; // passthrough English
         }
-        /* --- F9 Hanja candidate window (issue #67) ---
+        /* --- the candidate-window key (issue #67) ---
          *
-         * F9 is intercepted before any engine feed because it is not a
-         * printable key (fcitx5's identical placement, engine.cpp:204-223).
-         * Consumption is conditional whether the window is open or, with a
-         * candidate-bearing buffer, just opened; with neither, F9 belongs
-         * to the client app and passes through uneaten. */
-        if (wParam == VK_F9) {
+         * The configured binding (default: the bare physical Hanja key)
+         * toggles the window. Interception sits before any engine feed
+         * because it is not a printable key (fcitx5's identical placement
+         * for F9, engine.cpp:204-223). Consumption is conditional whether
+         * the window is open or, with a candidate-bearing buffer, just
+         * opened; with neither, the key belongs to the client app and
+         * passes through uneaten. */
+        if (hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam,
+                                         hunmin_tsf_keymods_from_state())) {
             if (candActive_) {
                 CloseCandidateWindow();
             } else {
@@ -715,7 +741,8 @@ class CTextService : public ITfTextInputProcessor,
                     UpdateCandidateWindow(pic);
             }
             if (dbg) {
-                fprintf(dbg, " F9 -> %s (src=%s count=%d)\n", candActive_ ? "open" : "closed",
+                fprintf(dbg, " hanja key vk=%lu -> %s (src=%s count=%d)\n",
+                        (unsigned long)wParam, candActive_ ? "open" : "closed",
                         candSource_.c_str(), candCount_);
                 fflush(dbg);
                 fclose(dbg);
@@ -824,7 +851,7 @@ class CTextService : public ITfTextInputProcessor,
         case VK_PRIOR:
         case VK_NEXT:
         case VK_INSERT:
-        case VK_DELETE:
+        case VK_DELETE: {
             BoundaryFlush(pic, dbg);
             if (pfEat)
                 *pfEat = FALSE;
@@ -833,7 +860,25 @@ class CTextService : public ITfTextInputProcessor,
                 fclose(dbg);
             }
             return S_OK;
+        }
         default:
+            /* The function-key block (measured with the unbound-F9 case of
+             * issue #67: VK_F1..VK_F12 = 0x70..0x7B falls into the
+             * printable fallback below, so an unbound F-key composed its
+             * VK-value as a layout character — F9(0x78) typed 'x' = ㅈ into
+             * the composition the user was watching. Same defect class as
+             * the edit keys above, same keys-of-passage answer: a drained
+             * boundary and a pass-through. */
+            if (wParam >= VK_F1 && wParam <= VK_F12) {
+                BoundaryFlush(pic, dbg);
+                if (pfEat)
+                    *pfEat = FALSE;
+                if (dbg) {
+                    fprintf(dbg, " fkey vk=%lu -> boundary + passthrough\n", (unsigned long)wParam);
+                    fclose(dbg);
+                }
+                return S_OK;
+            }
             break;
         }
         char ch = 0;
@@ -1117,6 +1162,11 @@ class CTextService : public ITfTextInputProcessor,
      * the bare physical Han/Eng key — the platform alternate that survives
      * every rebinding, the rule Android's KeyAction.HANGUL_ENG encodes. */
     std::vector<HunminKeyCombo> toggleKeys_;
+    /* The candidate-window key (issue #67): ONE binding, default the bare
+     * physical Hanja key, re-read by ApplyConfigStore with everything else.
+     * F9 is deliberately NOT in the default set any more (maintainer
+     * instruction), but a stored binding can name it. */
+    HunminKeyCombo hanjaCombo_;
     HWND overlayWnd_;
     RECT preeditRect_;
     bool hasPreeditRect_;

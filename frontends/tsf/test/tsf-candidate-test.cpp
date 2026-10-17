@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * Tier F1 (issue #67): the F9 Hanja candidate window, driven over the mock
+ * Tier F1 (issue #67): the Hanja-key candidate window, driven over the mock
  * TSF layer exactly like tsf-trace-emit drives the buffering contract. The
  * adapter source is included as-is (private-public seam) so the compiled
  * logic is the linked DLL's logic, and the candidate state (candActive_/
@@ -177,32 +177,34 @@ static void TypeAnNyeng(Fixture &f) {
 }
 
 int main() {
-    /* 1. Empty buffer: F9 belongs to the client, in test and down alike. */
+    /* 1. Empty buffer: the candidate key belongs to the client, in test
+     * and down alike (default: the bare Hanja key, 0x19). */
     {
         Fixture f;
         f.Begin();
         BOOL testEat = TRUE, downEat = TRUE;
-        f.TestKey(VK_F9, &testEat);
-        f.Key(VK_F9, &downEat);
-        CHECK(testEat == FALSE, "case 1: F9 test ate with no buffer");
-        CHECK(downEat == FALSE, "case 1: F9 down ate with no buffer");
-        CHECK(!f.svc->candActive_, "case 1: candidate state active after empty F9");
+        f.TestKey(VK_HANJA, &testEat);
+        f.Key(VK_HANJA, &downEat);
+        CHECK(testEat == FALSE, "case 1: key test ate with no buffer");
+        CHECK(downEat == FALSE, "case 1: key down ate with no buffer");
+        CHECK(!f.svc->candActive_, "case 1: candidate state active after empty buffer key");
         f.AssertNoInsert("case 1");
         f.Teardown();
     }
 
-    /* 2. `dkssud` + F9: the window opens over the whole buffered word. */
+    /* 2. `dkssud` + the Hanja key: the window opens over the whole
+     * buffered word. */
     {
         Fixture f;
         f.Begin();
         TypeAnNyeng(f);
         BOOL testEat = FALSE;
-        f.TestKey(VK_F9, &testEat);
-        CHECK(testEat == TRUE, "case 2: F9 test did not eat for `dkssud`");
+        f.TestKey(VK_HANJA, &testEat);
+        CHECK(testEat == TRUE, "case 2: Hanja-key test did not eat for `dkssud`");
         BOOL eat = TRUE;
-        f.Key(VK_F9, &eat);
-        CHECK(eat == TRUE, "case 2: F9 down did not eat");
-        CHECK(f.svc->candActive_, "case 2: window not active after F9");
+        f.Key(VK_HANJA, &eat);
+        CHECK(eat == TRUE, "case 2: Hanja-key down did not eat");
+        CHECK(f.svc->candActive_, "case 2: window not active after the Hanja key");
         CHECK(f.svc->candCount_ == 2, "case 2: count %d, want 2 (krdict meal check)",
               f.svc->candCount_);
         CHECK(f.svc->candCursor_ == 0 && f.svc->candTop_ == 0, "case 2: cursor/top != 0/0");
@@ -222,7 +224,7 @@ int main() {
         Fixture f;
         f.Begin();
         TypeAnNyeng(f);
-        f.Key(VK_F9);
+        f.Key(VK_HANJA);
         std::string expected(hunmin_suggest_text(f.svc->ctx_, 0));
         CHECK(!expected.empty(), "case 3: candidate 0 text empty");
         BOOL eat = FALSE;
@@ -244,7 +246,7 @@ int main() {
         Fixture f;
         f.Begin();
         TypeAnNyeng(f);
-        f.Key(VK_F9);
+        f.Key(VK_HANJA);
         f.Key(VK_DOWN);
         CHECK(f.svc->candCursor_ == 1, "case 4: cursor %d after Down, want 1",
               f.svc->candCursor_);
@@ -263,7 +265,7 @@ int main() {
         Fixture f;
         f.Begin();
         TypeAnNyeng(f);
-        f.Key(VK_F9);
+        f.Key(VK_HANJA);
         f.Key(VK_UP);
         CHECK(f.svc->candCursor_ == 0, "case 5: Up moved cursor below 0");
         f.AssertNoInsert("case 5");
@@ -276,7 +278,7 @@ int main() {
         Fixture f;
         f.Begin();
         TypeAnNyeng(f);
-        f.Key(VK_F9);
+        f.Key(VK_HANJA);
         std::string expected(hunmin_suggest_text(f.svc->ctx_, 1));
         BOOL eat = TRUE;
         f.Key('2', &eat);
@@ -295,7 +297,7 @@ int main() {
         Fixture f;
         f.Begin();
         TypeAnNyeng(f);
-        f.Key(VK_F9);
+        f.Key(VK_HANJA);
         BOOL eat = FALSE;
         f.Key(VK_ESCAPE, &eat);
         CHECK(eat == TRUE, "case 7: Esc not consumed");
@@ -314,7 +316,7 @@ int main() {
     }
 
     /* 8. Zero candidates over the whole word: `rkrkrk` -> `가가가` (0 hits)
-     * — F9 passes through in both phases, no window, no state. */
+     * — the Hanja key passes through in both phases, no window, no state. */
     {
         Fixture f;
         f.Begin();
@@ -322,10 +324,10 @@ int main() {
         f.AssertWordbuf(kAnchorGaGa, "rkrkrk");
         f.AssertPreedit(kAnchorGa, "rkrkrk");
         BOOL testEat = TRUE, eat = TRUE;
-        f.TestKey(VK_F9, &testEat);
-        f.Key(VK_F9, &eat);
-        CHECK(testEat == FALSE, "case 8: F9 test ate with zero candidates");
-        CHECK(eat == FALSE, "case 8: F9 down ate with zero candidates");
+        f.TestKey(VK_HANJA, &testEat);
+        f.Key(VK_HANJA, &eat);
+        CHECK(testEat == FALSE, "case 8: Hanja-key test ate with zero candidates");
+        CHECK(eat == FALSE, "case 8: Hanja-key down ate with zero candidates");
         CHECK(!f.svc->candActive_, "case 8: state active with zero candidates");
         f.AssertNoInsert("case 8");
         f.Teardown();
@@ -338,7 +340,7 @@ int main() {
         Fixture f;
         f.Begin();
         TypeAnNyeng(f);
-        f.Key(VK_F9);
+        f.Key(VK_HANJA);
         BOOL eat = TRUE;
         f.Key('9', &eat);
         CHECK(eat == FALSE, "case 9: '9' swallowed (eat false expected)");
@@ -357,7 +359,7 @@ int main() {
         Fixture f;
         f.Begin();
         TypeAnNyeng(f);
-        f.Key(VK_F9);
+        f.Key(VK_HANJA);
         CHECK(f.svc->candActive_, "case 10: window did not open");
         f.Key(HUNMIN_TSF_VIRTUAL_HANGEUL);
         CHECK(!f.svc->candActive_, "case 10: window open after toggle");
@@ -409,7 +411,7 @@ int main() {
         f.Begin();
         f.Type("rk");
         f.AssertPreedit(kAnchorGa, "case 12 (rk)");
-        f.Key(VK_F9);
+        f.Key(VK_HANJA);
         CHECK(f.svc->candActive_, "case 12: window not active on single syllable");
         CHECK(f.svc->candCount_ >= 11, "case 12: count %d, want >= 11 for paging", f.svc->candCount_);
         f.Key(VK_NEXT);
@@ -431,10 +433,55 @@ int main() {
         Fixture f;
         f.Begin();
         f.Type("rk");
-        f.Key(VK_F9);
+        f.Key(VK_HANJA);
         f.Key(VK_PRIOR);
         CHECK(f.svc->candTop_ == 0, "case 13: top %d, want 0", f.svc->candTop_);
         CHECK(f.svc->candActive_, "case 13: window closed by PageUp");
+        f.Teardown();
+    }
+
+    /* 14. F9 is deliberately unbound by default (maintainer instruction:
+     * the Hanja key is the candidate toggle). MEASURED here: unbound F9
+     * (VK 0x78) does not disappear into the printable fallback — it is a
+     * key of passage like the edit keys (the #95 rule, extended to the
+     * F1..F12 block this case forced): the pending word drains once, and
+     * F9 reaches the application uneaten. */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        BOOL testEat = TRUE, eat = TRUE;
+        f.TestKey(VK_F9, &testEat);
+        f.Key(VK_F9, &eat);
+        CHECK(testEat == FALSE, "case 14: unbound F9 eaten in test phase");
+        CHECK(eat == FALSE, "case 14: unbound F9 eaten in down phase");
+        CHECK(!f.svc->candActive_, "case 14: unbound F9 opened the window");
+        CHECK(f.ctx->insertions.size() == 1, "case 14: %zu insertions, want 1 (the drained word)",
+              f.ctx->insertions.size());
+        if (f.ctx->insertions.size() == 1)
+            CHECK(utf8(f.ctx->insertions[0]) == kAnchorAnNyeng, "case 14: insert %s",
+                  utf8(f.ctx->insertions[0]).c_str());
+        CHECK(f.svc->wordbuf_.empty(), "case 14: nothing held after the F-key boundary");
+        f.Teardown();
+    }
+
+    /* 15. The configured key is the store's word: the env seam sets F9
+     * (v1:120:0) as the candidate key and the adapter honours it — both
+     * phases mirror the open decision. */
+    {
+        _putenv_s("HUNMIN_TSF_HANJA_KEY", "v1:120:0");
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        BOOL testEat = FALSE, eat = TRUE;
+        f.TestKey(VK_F9, &testEat);
+        f.Key(VK_F9, &eat);
+        CHECK(testEat == TRUE, "case 15: configured F9 not eaten in test phase");
+        CHECK(eat == TRUE, "case 15: configured F9 not eaten in down phase");
+        CHECK(f.svc->candActive_, "case 15: configured F9 did not open the window");
+        CHECK(f.svc->candCount_ == 2, "case 15: count %d walking the env seam",
+              f.svc->candCount_);
+        _putenv_s("HUNMIN_TSF_HANJA_KEY", "");
         f.Teardown();
     }
 

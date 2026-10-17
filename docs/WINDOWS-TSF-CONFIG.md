@@ -148,10 +148,20 @@ writes the store, nothing else.
   `v1:<vk>:<mods>` entry to `HangulEngKeys`: the store's ';' list grammar is
   unchanged, and the adapter still appends the implicit bare Han/Eng
   platform alternate — the physical key can never be captured away.
-- Store contract untouched (config.{h,cpp} untouched): `HKCU\Software\Hunmin\TSF,
+- Store contract untouched (config.{h,cpp} untouched): `HKCU\Software\Hunmin\TSF`,
   `REG_SZ` values `HangulLayout` / `LatinLayout` / `HangulEngKeys`; empty
   string removes the value (an absent toggle value leaves the physical key
   as the toggle).
+- Issue #67 adds a fourth value: `HanjaKey`, the candidate-window open/close
+  key, ONE `v1:<vk>:<mods>` entry (the maintainer instruction of 2026-10-18:
+  the physical Hanja key is the default, not F9). Default `v1:25:0`
+  (VK_HANJA = 0x19 = 25 decimal); env override `HUNMIN_TSF_HANJA_KEY` (the
+  same empty-means-no-override seam); the interim dialog's edit row follows
+  the same grammar, an empty edit saves the default explicitly. An
+  unparseable value falls back to the default IN THE ADAPTER rather than
+  unbinding the window — the candidate window must stay reachable, and the
+  failing entry must never swallow a keystroke (the toggle-binding rule
+  above, applied to a single-entry list).
 - Compact sizing (ruling: "configuration window ... too large; make both
   compact"), measured on this host 2026-10-17 (Windows 11 26200, the
   display's DPI scale 1.25 with a reported 96 DPI):

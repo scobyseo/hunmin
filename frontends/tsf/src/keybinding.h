@@ -48,6 +48,10 @@ extern "C" {
  * it out here because the mock harness includes this TU without windows.h
  * having a Korean keyboard to prove it against. */
 #define HUNMIN_TSF_VIRTUAL_HANGEUL 0x15u
+/* vk of the physical Hanja key — the default candidate-window key (issue #67,
+ * maintainer instruction: the Hanja key, not F9). windows.h defines
+ * VK_HANJA = 0x19; same reason to spell it out. */
+#define HUNMIN_TSF_VIRTUAL_HANJA 0x19u
 
 typedef struct HunminKeyCombo {
     unsigned int vk;
