@@ -120,6 +120,15 @@ if(HUNMIN_FCITX5)
   endif()
 endif()
 
+# --------------------------------------------------------- windows frontend
+# The TIP + its mock-TSF harness (tier F1). MSVC-only: the frontends/tsf
+# directory is otherwise configured standalone against build-msvc. A POSIX
+# configure (the linux CI job, the mingw build) adds nothing, which is the
+# same "absent, not red" treatment the other platform tiers get.
+if(WIN32 AND MSVC)
+  add_subdirectory(frontends/tsf)
+endif()
+
 # ------------------------------------------------------------------- tests
 # ----------------------------------------------------------------- labels
 # Every test carries labels on two INDEPENDENT axes. Select with `ctest -L`

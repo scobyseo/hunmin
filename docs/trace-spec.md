@@ -47,13 +47,23 @@ Exactly one key event. One of:
 ```json
 {"keysym": 0x006b, "mods": 0}     // X11 / XKB, keysym as XKB defines it
 {"keycode": 29, "mods": 0}        // Android, KEYCODE_*
-{"vk": 0x48, "scan": 0x1f, "mods": 0}  // Win32, virtual key + scan code
+{"vk": 0x48, "scan": 0x23, "mods": 0}  // Win32, virtual key + scan code
 ```
 
 `mods` is a platform-native bitfield **except** that `CapsLock` must be reported in the
 platform's own convention (`KeyState::CapsLock` / `KeyEvent.META_CAPS_LOCK_ON` /
 `KEYEVENT` extended key bit) rather than a hunmin-level flag. An adapter that cannot see
 CapsLock cannot be tested for it, and that is the point of the tier.
+
+Win32 (`vk`/`scan`/`mods`): `vk` is the virtual-key code (`VK_*`), `scan` the US-keyboard
+set-1 make code carried in `lParam` — informational; the shipped TIP reads `lParam` and
+ignores it. `mods` has one bit so far: `0x01` = Shift, meaning
+`GetKeyState(VK_SHIFT) < 0` at delivery time. Shift is therefore a property of the
+*event*, not of the character: `{"vk": 0x44, "scan": 0x20, "mods": 1}` is a shifted `D`,
+exactly what a real `WM_KEYDOWN` carries. There is no CapsLock bit: the Windows TIP
+models the key as a Hangul/English mode toggle (`VK_CAPITAL`), which is a different
+thing from the engine's caps variable, and a generator refuses a caps case for the
+platform rather than encode one as the other.
 
 Keys that are not single characters — BackSpace, Return, arrows, Tab — are named by their
 platform constant (`{"keysym": 0xff08}`, `{"keycode": 67}`). They must still be traceable,
@@ -116,6 +126,16 @@ reviewed line by line, never blind-accepted (docs/TESTING.md "Tier G").
 A platform is engine-correct iff its traces diff-clean against `.gold`, *and* the `.gold`
 it diffs against is the one tier A implies. The runner therefore verifies the runner, not
 just the adapter.
+
+### Multi-case batch files
+
+A trace file may additionally carry `{"meta": {"case": ...}}` separator lines after its
+header (as win32's `words.trace.in` does): the runner resets adapter state at each
+separator, and `tools/trace-check.py` compares only the event lines, so a batch diffs
+like any other file. This exists so a corpus does not flood ctest with one test per
+two-event case (win32's tier F1 chose it; x11's per-case files were registered before
+win32 and keep the split layout). The isolation rule is unchanged: every case still
+replays from a fresh engine, the separator only moves where that fresh engine is created.
 
 ## Runner
 

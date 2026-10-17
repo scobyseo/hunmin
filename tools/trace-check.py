@@ -138,6 +138,7 @@ def main() -> int:
             argv + [str(a.trace)],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             env=env,
         )
     except OSError as e:
