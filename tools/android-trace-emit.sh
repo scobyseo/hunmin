@@ -67,6 +67,9 @@ if [ -z "${ANDROID_HOME:-}" ]; then
         # Gradle (a child process) still sees no ANDROID_HOME, which is the
         # "SDK location not found" failure measured below.
         export ANDROID_HOME="$HOME/Android/Sdk"
+    elif [ -n "${LOCALAPPDATA:-}" ] && [ -d "$LOCALAPPDATA/Android/Sdk" ]; then
+        # Android Studio on Windows installs the SDK there.
+        export ANDROID_HOME="$(cd "$LOCALAPPDATA/Android/Sdk" && pwd -W 2>/dev/null || pwd)"
     else
         echo "skip: no ANDROID_HOME and no $HOME/Android/Sdk" >&2
         exit 77
@@ -75,7 +78,11 @@ fi
 [ -d "$ANDROID_HOME" ] || { echo "skip: ANDROID_HOME=$ANDROID_HOME is not a directory" >&2; exit 77; }
 
 JDK="${JAVA_HOME:-$HOME/toolchains/jdk-17.0.20.1+1}"
-if [ ! -x "$JDK/bin/java" ]; then
+JAVA_BIN="$JDK/bin/java"
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) JAVA_BIN="$JDK/bin/java.exe" ;;
+esac
+if [ ! -f "$JAVA_BIN" ]; then
     echo "skip: no JDK at $JDK (export JAVA_HOME)" >&2
     exit 77
 fi
@@ -86,6 +93,14 @@ export PATH="$JDK/bin:$PATH"
 # defaults to build/ and is set by a packaging build (debian/rules) to its own
 # dir -- issue #8, measured 2026-10-13.
 SHIM="$HUNMIN_BUILD_DIR/libhunjni-host.so"
+SHIM_HINT="HUNMIN_BUILD_DIR"
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        # llvm-mingw keeps the lib/ prefix on Windows shared libraries
+        # (measured: build-mingw/ holds libhunmin.dll + libhunmin.dll.a).
+        SHIM="$HUNMIN_BUILD_DIR/libhunjni-host.dll"
+        ;;
+esac
 if [ ! -f "$SHIM" ]; then
     # Build-log to stderr, stdout left clean.
     #
@@ -125,18 +140,38 @@ refresh_cache() {
     # flock, not a plain re-check: the check and the write have to be one
     # critical section, or fourteen processes that all found the cache stale
     # each start their own Gradle run and recreate the original race one level
-    # up.
-    exec {lockfd}>"$LOCK"
-    flock "$lockfd"
-    if cache_is_fresh; then
+    # up. git-bash ships no flock, so POSIX hosts get fd-based locking and
+    # Windows gets a mkdir lock (atomic) with a wait-then-proceed bound: a
+    # lock left behind by a killed process must not hang the suite.
+    if command -v flock >/dev/null 2>&1; then
+        exec {lockfd}>"$LOCK"
+        flock "$lockfd"
+        if cache_is_fresh; then
+            flock -u "$lockfd"
+            exec {lockfd}>&-
+            return 0
+        fi
+        ./gradlew --quiet :app:printTraceEmitClasspath >"$CACHE.tmp"
+        mv -f "$CACHE.tmp" "$CACHE"
         flock -u "$lockfd"
         exec {lockfd}>&-
-        return 0
+    else
+        local waited=0
+        while ! mkdir "$LOCK" 2>/dev/null; do
+            waited=$((waited + 1))
+            [ "$waited" -ge 120 ] && break
+            sleep 1
+        done
+        [ "$waited" -ge 120 ] && \
+            echo "trace-emit: classpath lock $LOCK looks stale, proceeding unlocked" >&2
+        if cache_is_fresh; then
+            rmdir "$LOCK" 2>/dev/null || true
+            return 0
+        fi
+        ./gradlew --quiet :app:printTraceEmitClasspath >"$CACHE.tmp"
+        mv -f "$CACHE.tmp" "$CACHE"
+        rmdir "$LOCK" 2>/dev/null || true
     fi
-    ./gradlew --quiet :app:printTraceEmitClasspath >"$CACHE.tmp"
-    mv -f "$CACHE.tmp" "$CACHE"
-    flock -u "$lockfd"
-    exec {lockfd}>&-
 }
 
 if ! cache_is_fresh; then
@@ -151,7 +186,19 @@ if [ ! -s "$CACHE" ]; then
     exit 1
 fi
 
-CP="$(paste -sd: "$CACHE")"
+# The Windows JVM expects ; between classpath entries (and llvm-mingw's PATH
+# for the dependent DLL); POSIX keeps :.
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        CP="$(paste -sd';' "$CACHE")"
+        # The JVM loader must resolve the shim's dependent engine DLL; putting
+        # the build dir on PATH does that for a native child of this bash.
+        export PATH="$HUNMIN_BUILD_DIR:$PATH"
+        ;;
+    *)
+        CP="$(paste -sd: "$CACHE")"
+        ;;
+esac
 
 # HUNMIN_JNI_LIB / HUNMIN_REPO_ROOT were passed by the old Gradle task from
 # -P properties; TraceEmit reads them from the environment, which is simpler

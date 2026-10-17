@@ -21,7 +21,10 @@ Check 2 is why this is not just "run the adapter and eyeball it". A stale `.gold
 """
 import argparse
 import json
+import os
 import pathlib
+import shlex
+import shutil
 import subprocess
 import sys
 
@@ -80,6 +83,22 @@ def check_invariants(recs: list[dict], path: pathlib.Path) -> None:
             raise SystemExit(f"{path}: event {n} has no `consumed`")
 
 
+def find_bash() -> str | None:
+    """A POSIX shell to wrap .sh runners on Windows (shutil.which, then the
+    usual Git-for-Windows install roots)."""
+    cand = shutil.which("bash")
+    if cand:
+        return cand
+    for pf in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)")):
+        if not pf:
+            continue
+        for sub in (os.path.join(pf, "Git", "usr", "bin", "bash.exe"),
+                    os.path.join(pf, "Git", "bin", "bash.exe")):
+            if os.path.exists(sub):
+                return sub
+    return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("trace", type=pathlib.Path)
@@ -94,14 +113,35 @@ def main() -> int:
     recs = load(a.trace)
     check_invariants(recs, a.trace)
 
+    # Cross-platform spawn: CMake passes --runner as one argv token, which may
+    # be a .sh script. POSIX hosts exec it directly; Windows' CreateProcess
+    # cannot run a shell script, so the runner is wrapped in a located bash
+    # (whose usr/bin goes first in the child's PATH for find/paste/realpath).
+    # Any OS failure to spawn becomes the documented skip: "runner not built
+    # for this platform" includes "cannot be executed on this platform".
+    tokens = shlex.split(a.runner, posix=(os.name != "nt"))
+    bashp = None
+    if os.name == "nt" and tokens and tokens[0].lower().endswith(".sh"):
+        bashp = find_bash()
+        if bashp is None:
+            print(f"skip: no POSIX shell to run {a.runner!r}", file=sys.stderr)
+            return 77
+        argv = [bashp, tokens[0]]
+    else:
+        argv = tokens
+    env = dict(os.environ)
+    if bashp:
+        env["PATH"] = os.path.dirname(bashp) + os.pathsep + env["PATH"]
+
     try:
         proc = subprocess.run(
-            a.runner.split() + [str(a.trace)],
+            argv + [str(a.trace)],
             capture_output=True,
             text=True,
+            env=env,
         )
-    except FileNotFoundError:
-        print(f"skip: no runner {a.runner!r}", file=sys.stderr)
+    except OSError as e:
+        print(f"skip: cannot run {a.runner!r}: {e}", file=sys.stderr)
         return 77
     if proc.returncode == 77:
         print("skip: runner reports the frontend is not built", file=sys.stderr)

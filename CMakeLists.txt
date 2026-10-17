@@ -19,7 +19,15 @@ find_package(PkgConfig QUIET)
 find_package(Python3 QUIET COMPONENTS Interpreter)
 
 # ---------------------------------------------------------------- libhunmin
-add_library(hunmin SHARED
+# One source list, two library kinds: the shared library for the POSIX
+# frontends and tests, and a static archive for the Windows TSF TIP.
+#
+# The TSF DLL is loaded by the registry's InprocServer32 path with no
+# controlled search path, so its dependencies are resolved against the
+# application's search order -- the DLL's own directory is NOT searched for
+# them (measured: ERROR_MOD_NOT_FOUND with hunmin.dll beside it). Linking
+# the engine in is what makes the registered path self-contained.
+set(HUNMIN_CORE_SOURCES
   libhunmin/src/version.c
   libhunmin/src/tables.c
   libhunmin/src/data.c
@@ -27,6 +35,8 @@ add_library(hunmin SHARED
   libhunmin/src/ic.c
   libhunmin/src/suggest.c
   third_party/cJSON/cJSON.c)
+
+add_library(hunmin SHARED ${HUNMIN_CORE_SOURCES})
 target_include_directories(hunmin PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/include)
 target_include_directories(hunmin PRIVATE third_party/cJSON libhunmin/src)
 set_target_properties(hunmin PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 0
@@ -34,6 +44,16 @@ set_target_properties(hunmin PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 0
 target_compile_definitions(hunmin PRIVATE
   HUNMIN_DEFAULT_DATA_DIR=\"${CMAKE_INSTALL_FULL_DATADIR}/hunmin\")
 target_link_options(hunmin PRIVATE -Wl,--export-all-symbols)
+
+add_library(hunmin_static STATIC ${HUNMIN_CORE_SOURCES})
+target_include_directories(hunmin_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/include)
+target_include_directories(hunmin_static PRIVATE third_party/cJSON libhunmin/src)
+set_target_properties(hunmin_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(hunmin_static PRIVATE
+  HUNMIN_DEFAULT_DATA_DIR=\"${CMAKE_INSTALL_FULL_DATADIR}/hunmin\")
+# The static archive is an intermediate for in-tree consumers (frontends/tsf),
+# not an installed artifact: the shipped Windows form is the TIP DLL, which
+# carries the engine with it.
 
 install(FILES libhunmin/include/hunmin.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(DIRECTORY libhunmin/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin)
@@ -85,6 +105,10 @@ if(HUNMIN_FCITX5)
   find_package(Fcitx5Module QUIET COMPONENTS TestFrontend)
   if(Fcitx5Core_FOUND)
     add_subdirectory(frontends/fcitx5)
+    # frontend-mutations (tier D1/D2) mutates frontends/fcitx5/src/engine.cpp
+    # and caught by testhunmin/testhunminui -- fcitx5 targets; record that the
+    # tier exists so its registration far below can follow this fact.
+    set(HUNMIN_HAS_FCITX5 TRUE)
   else()
     message(STATUS "Fcitx5Core not found: fcitx5 addon disabled")
   endif()
@@ -205,7 +229,12 @@ if(BUILD_TESTING AND Python3_FOUND)
   add_test(NAME keymap-fixture
     COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/keymap-fixture.py)
-  set_tests_properties(keymap-fixture PROPERTIES LABELS "tier-C")
+  set_tests_properties(keymap-fixture PROPERTIES LABELS "tier-C"
+    # The tool's own skip contract: without android.jar (Android keycodes
+    # unverified) or without an XKB/X11 keysym header (authoritative values
+    # unverified), it exits 77 and the tier records the gap the CI job covers
+    # instead of a red that says "wrong table".
+    SKIP_RETURN_CODE 77)
   # Tier E groundwork: the engine's output must not depend on the libc it was
   # linked against. It did -- compose-table dedup ran after an unstable qsort --
   # and no host-only tier could see it, because glibc and bionic disagree about
@@ -385,6 +414,14 @@ if(BUILD_TESTING AND Python3_FOUND)
   # than left to the environment so CI is deterministic; a person wanting the
   # faster in-tree path runs tools/frontend-mutations.py by hand, where the
   # exclusivity requirement is theirs to honour.
+  # Registered only where the frontend it mutates exists: the mutation targets
+  # (testhunmin/testhunminui, frontends/fcitx5/test/) are built from
+  # frontends/fcitx5/test/CMakeLists.txt, which is entered only when
+  # Fcitx5Core was found. On a host without them the sandbox could not even
+  # build its targets, and a mutation harness with nothing to mutate would be
+  # red by construction -- measured "sandbox: initial build failed" on the
+  # llvm-mingw host, where Fcitx5Core is not installed.
+  if(HUNMIN_HAS_FCITX5)
   add_test(NAME frontend-mutations
     COMMAND ${CMAKE_COMMAND} -E env HUNMIN_MUTATION_STRATEGY=sandbox
             ${Python3_EXECUTABLE}
@@ -397,6 +434,7 @@ if(BUILD_TESTING AND Python3_FOUND)
   set_tests_properties(frontend-mutations PROPERTIES
     LABELS "tier-D1;tier-D2;mutation;slow"
     TIMEOUT 900)
+  endif()
   add_test(NAME schema-contract
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/doctor.py
             ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data)
@@ -737,7 +775,15 @@ if(BUILD_TESTING)
                   --runner ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-trace-emit.sh)
         set_tests_properties(engine-android-conformance-${name} PROPERTIES
           LABELS "tier-C"
-          SKIP_RETURN_CODE 77 TIMEOUT 120)
+          SKIP_RETURN_CODE 77 TIMEOUT 120
+          # The runner defaults HUNMIN_BUILD_DIR to "$ROOT/build", which is the
+          # linux CI layout; every host must point it at its own build tree
+          # (debian already did by export, which this property must not undo --
+          # obj-x86_64-linux-gnu IS the deb build's CMAKE_BINARY_DIR). Without
+          # it the shim and classpath cache are looked up in build/ on other
+          # hosts and the test degrades to "engine missing" instead of using
+          # what was actually configured (measured on the llvm-mingw host).
+          ENVIRONMENT "HUNMIN_BUILD_DIR=${CMAKE_BINARY_DIR}")
       endforeach()
     else()
       message(STATUS "Tier C Android: no trace files found")
