@@ -11,6 +11,7 @@ add_library(hunmin-tsf MODULE
     src/tsf.cpp
     src/config.cpp
     src/settings.cpp
+    src/candwindow.cpp
 )
 
 # src/keybinding.cpp is NOT a target source on purpose: it is included by

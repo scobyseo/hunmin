@@ -38,7 +38,8 @@ endif()
 configure_file(tsf-testdir.h.in ${CMAKE_CURRENT_BINARY_DIR}/tsf-testdir.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_executable(tsf-trace-emit trace-emit.cpp ../src/config.cpp ../src/settings.cpp)
+add_executable(tsf-trace-emit trace-emit.cpp ../src/config.cpp ../src/settings.cpp
+                   ../src/candwindow.cpp)
 target_compile_definitions(tsf-trace-emit PRIVATE UNICODE _UNICODE)
 target_include_directories(tsf-trace-emit PRIVATE
     ${HUNMIN_TSF_REPO_ROOT}/libhunmin/include)
@@ -74,11 +75,11 @@ endif()
 # Issue #66 tier F1 additions. The config store + slot-resolution test and
 # the module-dir data test include src/tsf.cpp directly (same white-box seam
 # as tsf-trace-emit above) and resolve the engine the same way it did. The
-# three add_test calls are written out literally (no loop variable) because
+# add_test calls are written out literally (no loop variable) because
 # tools/docs-lint.py check 6 greps the sources for add_test(NAME <id>).
-foreach(tsf_test_exe tsf-config-test tsf-datadir-test tsf-settings-test)
+foreach(tsf_test_exe tsf-config-test tsf-datadir-test tsf-settings-test tsf-candidate-test)
   add_executable(${tsf_test_exe} ${tsf_test_exe}.cpp ../src/config.cpp
-                   ../src/settings.cpp)
+                   ../src/settings.cpp ../src/candwindow.cpp)
   target_compile_definitions(${tsf_test_exe} PRIVATE UNICODE _UNICODE)
   target_include_directories(${tsf_test_exe} PRIVATE
       ${CMAKE_CURRENT_BINARY_DIR}
@@ -102,7 +103,8 @@ target_sources(tsf-settings-test PRIVATE ../src/settings.cpp)
 add_test(NAME tsf-config-test COMMAND tsf-config-test)
 add_test(NAME tsf-datadir-test COMMAND tsf-datadir-test)
 add_test(NAME tsf-settings-test COMMAND tsf-settings-test)
-set_tests_properties(tsf-config-test tsf-datadir-test tsf-settings-test PROPERTIES
+add_test(NAME tsf-candidate-test COMMAND tsf-candidate-test)
+set_tests_properties(tsf-config-test tsf-datadir-test tsf-settings-test tsf-candidate-test PROPERTIES
   LABELS "tier-F1"
   SKIP_RETURN_CODE 77
   TIMEOUT 120)
@@ -112,7 +114,7 @@ set_tests_properties(tsf-config-test tsf-datadir-test tsf-settings-test PROPERTI
 # the staged copy IS its input; the trace runner and the config test read the
 # repo tree via HUNMIN_TSF_DATA_DIR, and get the staged copy as their
 # module-dir fallback anyway.
-foreach(tsf_test_exe tsf-trace-emit tsf-config-test tsf-datadir-test tsf-settings-test)
+foreach(tsf_test_exe tsf-trace-emit tsf-config-test tsf-datadir-test tsf-settings-test tsf-candidate-test)
   add_custom_command(TARGET ${tsf_test_exe} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${HUNMIN_TSF_REPO_ROOT}/libhunmin/data"

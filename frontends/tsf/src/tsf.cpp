@@ -206,6 +206,44 @@ static void resolveLayoutSlot(const hunmin_ctx *ctx, const std::string &stored,
 #include "keybinding.cpp"
 #include "config.h"
 #include "settings.h" /* ITfFunctionProvider branch + the apply bridge */
+#include "candwindow.h"
+/* UTF-8 <-> UTF-16 for the candidate path (issue #67): the suggest API is
+ * UTF-8, the popup and the buffered word are wide. Replacements for the two
+ * MultiByteToWideChar scatter patterns the adapter already carries — the
+ * candidate flow needs them at three call sites and half-drawn double
+ * conversions have burned this tree before (the embedded-NUL word buffer). */
+static std::wstring HunminUtf8ToWide(const char *utf8) {
+    if (!utf8 || !utf8[0])
+        return {};
+    int n = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, nullptr, 0);
+    if (n <= 1)
+        return {};
+    std::wstring w((size_t)n - 1, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8, -1, &w[0], n);
+    return w;
+}
+static std::string HunminWideToUtf8(const std::wstring &w) {
+    if (w.empty())
+        return {};
+    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0,
+                                nullptr, nullptr);
+    if (n <= 0)
+        return {};
+    std::string s((size_t)n, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr,
+                        nullptr);
+    return s;
+}
+/* The vk set the candidate window consumes while it is open: choose keys
+ * (digits), motion (arrows, pages), Return/Esc closes, and F9 toggles again.
+ * Expressed once so OnTestKeyDown and the OnKeyDown window branch cannot
+ * drift — the same shared-predicate rule the toggle binding uses. */
+static bool hunmin_tsf_candkey_eats_test(unsigned long vk) {
+    return vk == VK_F9 || vk == VK_RETURN || vk == VK_ESCAPE || vk == VK_PRIOR ||
+           vk == VK_NEXT || (vk >= VK_LEFT && vk <= VK_DOWN) ||
+           (vk >= '0' && vk <= '9');
+}
+
 // Skeleton edit session for TSF text insertion. Real insertion lives
 // inlined in OnKeyDown; this type documents the shape.
 class HEditSession : public ITfEditSession {
@@ -249,7 +287,8 @@ class CTextService : public ITfTextInputProcessor,
     CTextService()
         : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), ic_(nullptr),
           hangulMode_(true), overlayWnd_(nullptr), hasPreeditRect_(false), lastCtx_(nullptr),
-          hangulId_("sin3-p2"), latinId_("us-qwerty") {}
+          hangulId_("sin3-p2"), latinId_("us-qwerty"), candActive_(false), candCount_(0), candCursor_(0),
+          candTop_(0) {}
     virtual ~CTextService() {
         if (overlayWnd_)
             DestroyWindow(overlayWnd_);
@@ -331,6 +370,9 @@ class CTextService : public ITfTextInputProcessor,
                 fflush(dbg);
             }
         }
+        /* The candidate window belongs to a composition the ic swap below
+         * drops: close it with Apply, like the mode toggle does (issue #67). */
+        CloseCandidateWindow();
         if (ic_) {
             hunmin_ic_free(ic_);
             ic_ = nullptr;
@@ -485,6 +527,7 @@ class CTextService : public ITfTextInputProcessor,
             delete[] wbuf;
         }
         wordbuf_.clear();
+        CloseCandidateWindow();
         HideOverlay();
         if (ic_) {
             hunmin_ic_free(ic_);
@@ -564,9 +607,23 @@ class CTextService : public ITfTextInputProcessor,
         if (hunmin_tsf_keybindings_match(toggleKeys_.data(), (int)toggleKeys_.size(),
                                          (unsigned)wParam, hunmin_tsf_keymods_from_state()))
             eat = TRUE;
+        else if (candActive_ && hunmin_tsf_candkey_eats_test(wParam))
+            /* While the candidate window is open its keys are ours, on the
+             * same shared-predicate rule the toggle uses (test and down are
+             * one decision). */
+            eat = TRUE;
         else if (!hangulMode_)
             eat = FALSE;
-        else if ((wParam >= 'A' && wParam <= 'Z') || wParam == VK_SPACE || wParam == VK_BACK)
+        else if (wParam == VK_F9) {
+            /* Mirror the down decision exactly (no look-ahead lie): the
+             * window opens only when the buffered word has candidates, and
+             * in the zero-candidate case F9 belongs to the client. The
+             * suggest lookup is a read of tables already in memory. */
+            eat = (ctx_ && !BufferedHangul().empty() &&
+                   hunmin_suggest_count(ctx_, BufferedHangul().c_str()) > 0)
+                      ? TRUE
+                      : FALSE;
+        } else if ((wParam >= 'A' && wParam <= 'Z') || wParam == VK_SPACE || wParam == VK_BACK)
             eat = TRUE;
         if (pfEat)
             *pfEat = eat;
@@ -615,6 +672,10 @@ class CTextService : public ITfTextInputProcessor,
                 *pfEat = TRUE;
             const bool repeat = (lParam & (1 << 30)) != 0;
             if (!repeat) {
+                /* A mode switch is a composition boundary: the candidate
+                 * window belongs to the composition being flushed, so it
+                 * closes with it (issue #67). */
+                CloseCandidateWindow();
                 BoundaryFlush(pic, dbg);
                 hangulMode_ = !hangulMode_;
                 if (ic_) {
@@ -638,6 +699,109 @@ class CTextService : public ITfTextInputProcessor,
                 fclose(dbg);
             return S_OK; // passthrough English
         }
+        /* --- F9 Hanja candidate window (issue #67) ---
+         *
+         * F9 is intercepted before any engine feed because it is not a
+         * printable key (fcitx5's identical placement, engine.cpp:204-223).
+         * Consumption is conditional whether the window is open or, with a
+         * candidate-bearing buffer, just opened; with neither, F9 belongs
+         * to the client app and passes through uneaten. */
+        if (wParam == VK_F9) {
+            if (candActive_) {
+                CloseCandidateWindow();
+            } else {
+                OpenCandidates();
+                if (candActive_)
+                    UpdateCandidateWindow(pic);
+            }
+            if (dbg) {
+                fprintf(dbg, " F9 -> %s (src=%s count=%d)\n", candActive_ ? "open" : "closed",
+                        candSource_.c_str(), candCount_);
+                fflush(dbg);
+                fclose(dbg);
+            }
+            if (pfEat)
+                *pfEat = candActive_ ? TRUE : FALSE;
+            return S_OK;
+        }
+        if (candActive_) {
+            bool handled = false;
+            bool submit = false;
+            int submitIdx = candCursor_;
+            switch (wParam) {
+            case VK_RETURN:
+                submit = true;
+                handled = true;
+                break;
+            case VK_ESCAPE:
+                CloseCandidateWindow();
+                UpdateOverlay(pic);
+                handled = true;
+                break;
+            case VK_UP:
+            case VK_LEFT:
+                if (candCursor_ > 0) {
+                    --candCursor_;
+                    PageFollowCursor();
+                    UpdateCandidateWindow(pic);
+                }
+                handled = true;
+                break;
+            case VK_DOWN:
+            case VK_RIGHT:
+                if (candCursor_ < candCount_ - 1) {
+                    ++candCursor_;
+                    PageFollowCursor();
+                    UpdateCandidateWindow(pic);
+                }
+                handled = true;
+                break;
+            case VK_PRIOR:
+                PageStep(-1);
+                UpdateCandidateWindow(pic);
+                handled = true;
+                break;
+            case VK_NEXT:
+                PageStep(+1);
+                UpdateCandidateWindow(pic);
+                handled = true;
+                break;
+            default:
+                /* Digit select: 1..9 pick the page-relative candidates 1..9,
+                 * 0 picks the tenth, mirroring fcitx5's label scheme. A
+                 * digit past the end of the count closes the window and
+                 * falls through like any other unhandled key — an invisible
+                 * window must never swallow a keystroke. */
+                if (wParam >= '0' && wParam <= '9') {
+                    int pos = (wParam == '0') ? 9 : (int)(wParam - '1');
+                    int idx = candTop_ + pos;
+                    if (pos >= 0 && idx < candCount_) {
+                        submitIdx = idx;
+                        submit = true;
+                        handled = true;
+                    }
+                }
+                break;
+            }
+            if (submit)
+                CommitCandidate(pic, submitIdx);
+            if (handled) {
+                if (pfEat)
+                    *pfEat = TRUE;
+                if (dbg) {
+                    fprintf(dbg, " candidate key vk=%lu cursor=%d count=%d\n", (unsigned long)wParam,
+                            candCursor_, candCount_);
+                    fclose(dbg);
+                }
+                return S_OK;
+            }
+            /* Anything else: close and fall through to the normal path, so
+             * typing continues where the user left off instead of being
+             * swallowed by an invisible window (fcitx5: the default rule).
+             * The buffered word is untouched by the close itself. */
+            CloseCandidateWindow();
+            UpdateOverlay(pic);
+        }
         /* Edit/navigation keys (measured on this host during the buffered-input
          * check: VK_LEFT..VK_NEXT + VK_INSERT/VK_DELETE all fall into the
          * 0x20-0x7E printable fallback below, so each was translated into a
@@ -647,7 +811,9 @@ class CTextService : public ITfTextInputProcessor,
          * is a composition boundary, so the boundary drain commits the buffered
          * word exactly once and the key passes through untouched
          * (pfEat = FALSE, matching the OnTestKeyDown predicate which already
-         * shows no interest in them). */
+         * shows no interest in them). Reached only while the candidate window
+         * is NOT open: when it is, the block above owns these vk's for
+         * list motion (issue #67). */
         switch (wParam) {
         case VK_LEFT:
         case VK_UP:
@@ -848,75 +1014,13 @@ class CTextService : public ITfTextInputProcessor,
         memcpy(wbuf, wordbuf_.c_str(), wword * sizeof(wchar_t));
         MultiByteToWideChar(CP_UTF8, 0, pre, -1, wbuf + wword, wlen);
 
-        hasPreeditRect_ = false;
-        class RectSession : public ITfEditSession {
-          public:
-            RectSession(ITfContext *ctx, CTextService *svc) : ref_(1), ctx_(ctx), svc_(svc) {}
-            STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
-                if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
-                    *ppv = this;
-                    AddRef();
-                    return S_OK;
-                }
-                *ppv = nullptr;
-                return E_NOINTERFACE;
-            }
-            STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
-            STDMETHOD_(ULONG, Release)() override {
-                ULONG r = (ULONG)InterlockedDecrement(&ref_);
-                if (r == 0)
-                    delete this;
-                return r;
-            }
-            STDMETHOD(DoEditSession)(TfEditCookie ec) override {
-                ITfContextView *view = nullptr;
-                if (SUCCEEDED(ctx_->GetActiveView(&view)) && view) {
-                    TF_SELECTION sel;
-                    ULONG fetched = 0;
-                    if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 &&
-                        sel.range) {
-                        RECT rc;
-                        BOOL clipped = FALSE;
-                        if (SUCCEEDED(view->GetTextExt(ec, sel.range, &rc, &clipped))) {
-                            svc_->preeditRect_ = rc;
-                            svc_->hasPreeditRect_ = true;
-                        }
-                        sel.range->Release();
-                    }
-                    view->Release();
-                }
-                return S_OK;
-            }
-
-          private:
-            LONG ref_;
-            ITfContext *ctx_;
-            CTextService *svc_;
-        };
-        RectSession *rs = new RectSession(pic, this);
-        HRESULT hrRect = S_OK;
-        pic->RequestEditSession(clientId_, rs, TF_ES_SYNC | TF_ES_READ, &hrRect);
-        rs->Release();
-
-        GUITHREADINFO gti = {};
-        gti.cbSize = sizeof(gti);
-        bool haveCaret = GetGUIThreadInfo(GetCurrentThreadId(), &gti) != FALSE && gti.hwndCaret &&
-                         (gti.rcCaret.bottom > gti.rcCaret.top);
-        if (!hasPreeditRect_ && !haveCaret) {
+        RECT rc;
+        bool haveCaret = false;
+        GUITHREADINFO gti;
+        if (!AcquireCaretRect(pic, &rc, &haveCaret, &gti)) {
             delete[] wbuf;
             HideOverlay();
             return;
-        }
-        RECT rc = hasPreeditRect_ ? preeditRect_ : gti.rcCaret;
-        if (haveCaret && gti.hwndCaret) {
-            POINT topLeft = {gti.rcCaret.left, gti.rcCaret.top};
-            POINT bottomRight = {gti.rcCaret.right, gti.rcCaret.bottom};
-            ClientToScreen(gti.hwndCaret, &topLeft);
-            ClientToScreen(gti.hwndCaret, &bottomRight);
-            rc.left = topLeft.x;
-            rc.top = topLeft.y;
-            rc.right = bottomRight.x;
-            rc.bottom = bottomRight.y;
         }
 
         if (!overlayWnd_) {
@@ -1022,6 +1126,18 @@ class CTextService : public ITfTextInputProcessor,
      * (issue #73); drained destructively by hunmin_ic_commit(). */
     std::wstring wordbuf_;
 
+    /* F9 Hanja candidates (issue #67). The window anchors to the WHOLE
+     * buffered word — accumulated finalised syllables plus the in-flight
+     * preedit — which is the multi-syllable lookup the dictionary tables
+     * are keyed by (krdict words, idioms); fcitx5 anchors to its preedit
+     * only because it commits each syllable immediately. */
+    bool candActive_;
+    int candCount_;
+    int candCursor_; /* global 0-based cursor */
+    int candTop_; /* first index of the visible 10-row page */
+    std::string candSource_; /* the Hangul the list was looked up for */
+    HunminCandWindow candWnd_;
+
     // Helper used both for declined/pass-through keys to flush the pending
     // composition exactly once, deleting the already-present composed text.
     class FlushSession : public ITfEditSession {
@@ -1069,6 +1185,21 @@ class CTextService : public ITfTextInputProcessor,
         const wchar_t *t_;
     };
 
+    /* The insert half of the composition boundary: the whole buffered word
+     * reaches the document in one edit session, exactly once, and the
+     * buffer empties. Shared by the declined-key drain (below) and the
+     * candidate commit (the chosen Hanja replaces the whole buffered word —
+     * the Hangul it anchors to is never inserted). */
+    void InsertBufferedWord(ITfContext *pic) {
+        if (!wordbuf_.empty() && pic) {
+            FlushSession *fs = new FlushSession(pic, this, clientId_, wordbuf_.c_str());
+            HRESULT hrFlush = S_OK;
+            pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
+            fs->Release();
+            wordbuf_.clear();
+        }
+    }
+
     /* One composition-boundary drain shared by the declined key path and the
      * mode toggle (issue #66): the in-flight syllable is flushed into the
      * buffered word, and the whole word is inserted exactly once before the
@@ -1089,14 +1220,219 @@ class CTextService : public ITfTextInputProcessor,
                     ic_ ? hunmin_ic_preedit(ic_) : "");
             fflush(dbg);
         }
-        if (!wordbuf_.empty() && pic) {
-            FlushSession *fs = new FlushSession(pic, this, clientId_, wordbuf_.c_str());
-            HRESULT hrFlush = S_OK;
-            pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
-            fs->Release();
-            wordbuf_.clear();
-        }
+        InsertBufferedWord(pic);
         UpdateOverlay(pic);
+    }
+
+    /* --- F9 Hanja candidate window (issue #67) ---
+     *
+     * The engine serves the list (hunmin_suggest_count/text/detail/kind over
+     * the hanja/idiom/krdict tables, keyed by the WHOLE Hangul word); the
+     * adapter supplies everything else: the lookup text is the buffered
+     * word, the keyboard flow mirrors fcitx5 (digits pick, Up/Down moves,
+     * PageUp/PageDown pages, Return commits the cursor, Esc closes, any
+     * other key closes and falls through so typing continues) and the
+     * pop-up itself draws the rows.
+     *
+     * Page cap: kMaxCandidatePageSize, the value fcitx5's label ceiling
+     * forces (ruled by the maintainer for issue #45 — engine.cpp:471-486:
+     * 10 candidates survive, 11 abort). The TSF popup owns its own drawing
+     * rather than fcitx5's label table, so it could show more rows than
+     * that, but the SAME ruled number is kept: a word candidate list the
+     * digits can reach is 1..0 per page, and 67-row popups measured ~2000px
+     * tall on fcitx5's host. PageUp/PageDown are what the rest of the list
+     * is behind. */
+    static const int kMaxCandidatePageSize = 10;
+
+    /* The Hangul the candidate window anchors to: accumulated finalised
+     * syllables plus the in-flight preedit. Valid only while the window is
+     * open — opening may not flush anything (fcitx5's openCandidates rule:
+     * hunmin_ic_flush would commit the anchor out from under the list). */
+    std::string BufferedHangul() {
+        std::string s = HunminWideToUtf8(wordbuf_);
+        if (ic_) {
+            const char *pre = hunmin_ic_preedit(ic_);
+            if (pre)
+                s += pre;
+        }
+        return s;
+    }
+
+    bool OpenCandidates() {
+        candSource_ = BufferedHangul();
+        candCount_ = (ctx_ && !candSource_.empty())
+                         ? hunmin_suggest_count(ctx_, candSource_.c_str())
+                         : 0;
+        candActive_ = candCount_ > 0;
+        candCursor_ = 0;
+        candTop_ = 0;
+        return candActive_;
+    }
+
+    void CloseCandidateWindow() {
+        candActive_ = false;
+        candCount_ = 0;
+        candCursor_ = 0;
+        candTop_ = 0;
+        candSource_.clear();
+        candWnd_.Hide();
+    }
+
+    void PageFollowCursor() {
+        candTop_ = (candCursor_ / kMaxCandidatePageSize) * kMaxCandidatePageSize;
+    }
+
+    void PageStep(int dir) {
+        int lastTop = candCount_ > 0
+                          ? ((candCount_ - 1) / kMaxCandidatePageSize) * kMaxCandidatePageSize
+                          : 0;
+        int top = candTop_ + dir * kMaxCandidatePageSize;
+        if (top < 0)
+            top = 0;
+        if (top > lastTop)
+            top = lastTop;
+        candTop_ = top;
+        /* The cursor moves with the page when it would be left off it. */
+        if (candCursor_ < candTop_)
+            candCursor_ = candTop_;
+        else if (candCursor_ >= candTop_ + kMaxCandidatePageSize)
+            candCursor_ = candTop_ + kMaxCandidatePageSize - 1 < candCount_
+                              ? candTop_ + kMaxCandidatePageSize - 1
+                              : candCount_ - 1;
+    }
+
+    /* fcitx5 semantics (engine.cpp:160-176): choosing a candidate drops the
+     * composition it was anchored to, then commits the Hanja in its place —
+     * no surrounding-text surgery anywhere. The buffered Hangul has not
+     * been typed into the document yet, so nothing needs removing: the
+     * buffer itself is replaced by the chosen text, which is then inserted
+     * through the normal boundary path. */
+    void CommitCandidate(ITfContext *pic, int idx) {
+        if (idx < 0 || idx >= candCount_ || !ctx_)
+            return;
+        /* Copy first: the pointer is valid only until the next
+         * hunmin_suggest_* call on ctx. */
+        std::string hanja(hunmin_suggest_text(ctx_, idx));
+        if (hanja.empty())
+            return;
+        if (ic_)
+            hunmin_ic_reset(ic_); /* drop the composition the list anchored to */
+        CloseCandidateWindow();
+        wordbuf_ = HunminUtf8ToWide(hanja.c_str());
+        InsertBufferedWord(pic);
+        UpdateOverlay(pic);
+    }
+
+    void UpdateCandidateWindow(ITfContext *pic) {
+        if (!candActive_ || !pic || !ic_) {
+            candWnd_.Hide();
+            return;
+        }
+        RECT rc;
+        bool haveCaret = false;
+        GUITHREADINFO gti;
+        if (!AcquireCaretRect(pic, &rc, &haveCaret, &gti)) {
+            /* No metrics, no caret: same hide path the overlay takes. The
+             * candidate state stays open — a host that reports no window
+             * geometry today may report it after the next focus, and the
+             * next F9/arrow key redraws. */
+            candWnd_.Hide();
+            return;
+        }
+        HWND fontHost = haveCaret ? (gti.hwndFocus ? gti.hwndFocus : gti.hwndCaret) : nullptr;
+        std::vector<std::wstring> lines;
+        int end = candCount_ < candTop_ + kMaxCandidatePageSize
+                      ? candCount_
+                      : candTop_ + kMaxCandidatePageSize;
+        for (int i = candTop_; i < end; ++i) {
+            std::wstring text(HunminUtf8ToWide(hunmin_suggest_text(ctx_, i)));
+            wchar_t label = (wchar_t)(((i - candTop_) == 9) ? '0' : ('1' + (i - candTop_)));
+            std::wstring line = std::wstring(i == candCursor_ ? L">> " : L"   ") + label +
+                                L". " + text;
+            lines.push_back(line);
+        }
+        candWnd_.Show(rc, fontHost, lines);
+    }
+
+    /* The caret rect shared by the overlay and the candidate popup: one
+     * read-only edit session against the selection (GetTextExt), falling
+     * back to the thread's GUITHREADINFO caret. Screen coordinates out.
+     * False means the host reported nothing drawable — the popup/overlay
+     * hide path. */
+    bool AcquireCaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut,
+                          GUITHREADINFO *gtiOut) {
+        hasPreeditRect_ = false;
+        class RectSession : public ITfEditSession {
+          public:
+            RectSession(ITfContext *ctx, CTextService *svc) : ref_(1), ctx_(ctx), svc_(svc) {}
+            STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+                if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
+                    *ppv = this;
+                    AddRef();
+                    return S_OK;
+                }
+                *ppv = nullptr;
+                return E_NOINTERFACE;
+            }
+            STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+            STDMETHOD_(ULONG, Release)() override {
+                ULONG r = (ULONG)InterlockedDecrement(&ref_);
+                if (r == 0)
+                    delete this;
+                return r;
+            }
+            STDMETHOD(DoEditSession)(TfEditCookie ec) override {
+                ITfContextView *view = nullptr;
+                if (SUCCEEDED(ctx_->GetActiveView(&view)) && view) {
+                    TF_SELECTION sel;
+                    ULONG fetched = 0;
+                    if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 &&
+                        sel.range) {
+                        RECT rc;
+                        BOOL clipped = FALSE;
+                        if (SUCCEEDED(view->GetTextExt(ec, sel.range, &rc, &clipped))) {
+                            svc_->preeditRect_ = rc;
+                            svc_->hasPreeditRect_ = true;
+                        }
+                        sel.range->Release();
+                    }
+                    view->Release();
+                }
+                return S_OK;
+            }
+
+          private:
+            LONG ref_;
+            ITfContext *ctx_;
+            CTextService *svc_;
+        };
+        RectSession *rs = new RectSession(pic, this);
+        HRESULT hrRect = S_OK;
+        pic->RequestEditSession(clientId_, rs, TF_ES_SYNC | TF_ES_READ, &hrRect);
+        rs->Release();
+
+        GUITHREADINFO gti = {};
+        gti.cbSize = sizeof(gti);
+        bool haveCaret = GetGUIThreadInfo(GetCurrentThreadId(), &gti) != FALSE && gti.hwndCaret &&
+                         (gti.rcCaret.bottom > gti.rcCaret.top);
+        *haveCaretOut = haveCaret;
+        if (gtiOut)
+            *gtiOut = gti;
+        if (!hasPreeditRect_ && !haveCaret)
+            return false;
+        RECT rc = hasPreeditRect_ ? preeditRect_ : gti.rcCaret;
+        if (haveCaret && gti.hwndCaret) {
+            POINT topLeft = {gti.rcCaret.left, gti.rcCaret.top};
+            POINT bottomRight = {gti.rcCaret.right, gti.rcCaret.bottom};
+            ClientToScreen(gti.hwndCaret, &topLeft);
+            ClientToScreen(gti.hwndCaret, &bottomRight);
+            rc.left = topLeft.x;
+            rc.top = topLeft.y;
+            rc.right = bottomRight.x;
+            rc.bottom = bottomRight.y;
+        }
+        *rcOut = rc;
+        return true;
     }
 };
 extern "C" HINSTANCE g_hunmin_hinst;

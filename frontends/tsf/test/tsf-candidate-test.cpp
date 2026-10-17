@@ -1,0 +1,446 @@
+/*
+ * SPDX-FileCopyrightText: 2026 hunmin contributors
+ *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
+ * Tier F1 (issue #67): the F9 Hanja candidate window, driven over the mock
+ * TSF layer exactly like tsf-trace-emit drives the buffering contract. The
+ * adapter source is included as-is (private-public seam) so the compiled
+ * logic is the linked DLL's logic, and the candidate state (candActive_/
+ * candCount_/candCursor_/candTop_), the pop-up's hide path (no metrics in a
+ * headless run) and the ONE insert the commit produces are all assertable.
+ *
+ * Composition expectations come from hunmin-sim, not from this file's
+ * author: dubeolsik `dkssud` ends with the engine's commit buffer carrying
+ * `안` (wordbuf_) and preedit `녕` ([s] row commits `안`, [d] row shows the
+ * in-flight `녕`); `rkrkrk` ends with wordbuf_ `가가` and preedit `가`.
+ * Those two lookups are the anchors: `안녕` has 2 candidates (both word),
+ * `가가가` has 0, `가` has 65 (the hanja-table fallback) — measured with
+ * hunmin_suggest_count against the shipped tables on 2026-10-17.
+ *
+ * Registry hygiene: the layout seam is the env override
+ * (HUNMIN_TSF_HANGUL_LAYOUT, an empty value means "no override"), so this
+ * test never touches the production HKCU\Software\Hunmin\TSF store.
+ *
+ /* Hangul in expected strings is written as UTF-8 byte escapes (\xEC\x95\x88
+  * style): MSVC builds this TU under the ANSI codepage (949), where a raw
+  * UTF-8 literal is fatal (C2001) and a \uXXXX escape encodes through the
+  * codepage, not the engine's UTF-8 — both measured during this milestone's
+  * first run (docs/ENVIRONMENT.md pitfalls).
+  *
+  * Exit 0 clean, 1 assertion failed, 77 skip (engine data unavailable).
+  */
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <windows.h>
+
+#include "tsf-testdir.h"
+
+extern "C" HINSTANCE g_hunmin_hinst = nullptr;
+
+/* The GetKeyState seam, copied from trace-emit.cpp: applies over the whole
+ * TU, so the adapter and the toggle matcher it includes see the mock. */
+SHORT tsf_mock_GetKeyState(int vk);
+SHORT g_mockKeyState[256] = {};
+SHORT tsf_mock_GetKeyState(int vk) { return g_mockKeyState[vk & 0xFF]; }
+#define GetKeyState tsf_mock_GetKeyState
+
+#include "mock-tsf.h"
+#define private public
+#include "../src/tsf.cpp"
+#undef private
+#undef GetKeyState
+
+static int failures = 0;
+#define CHECK(cond, ...)                  \
+    do {                                  \
+        if (!(cond)) {                    \
+            printf("FAIL: " __VA_ARGS__); \
+            printf("\n");                 \
+            ++failures;                   \
+        }                                 \
+    } while (0)
+
+static std::string utf8(const std::wstring &w) {
+    if (w.empty())
+        return {};
+    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0,
+                                nullptr, nullptr);
+    std::string s(n > 0 ? (size_t)n : 0, '\0');
+    if (n > 0)
+        WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr, nullptr);
+    return s;
+}
+
+/* Anchors (see the header comment): */
+static const char *kAnchorAn = "\xEC\x95\x88"; /* 안 */
+static const char *kAnchorAnNyeng = "\xEC\x95\x88\xEB\x85\x95"; /* 안녕 */
+static const char *kAnchorPreeditNyeng = "\xEB\x85\x95"; /* 녕 */
+static const char *kAnchorPreeditNyee = "\xEB\x85\x80"; /* 녀 */
+static const char *kAnchorPreeditNieun = "\xE3\x84\xB4"; /* ㄴ */
+static const char *kAnchorGa = "\xEA\xB0\x80"; /* 가 */
+static const char *kAnchorGaGa = "\xEA\xB0\x80\xEA\xB0\x80"; /* 가가 */
+static const char *kAnchorGaGaGa = "\xEA\xB0\x80\xEA\xB0\x80\xEA\xB0\x80"; /* 가가가 */
+
+struct Fixture {
+    tsfmock::MockThreadMgr *tm = nullptr;
+    tsfmock::MockContext *ctx = nullptr;
+    tsfmock::MockDocumentMgr *dm = nullptr;
+    CTextService *svc = nullptr;
+
+    void Begin() {
+        _putenv_s("HUNMIN_DATA_DIR", HUNMIN_TSF_DATA_DIR);
+        /* Layout seam: dubeolsik without touching the real store. */
+        _putenv_s("HUNMIN_TSF_HANGUL_LAYOUT", "dubeolsik");
+        _putenv_s("HUNMIN_TSF_LATIN_LAYOUT", "us-qwerty");
+        g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+
+        tm = new tsfmock::MockThreadMgr(); /* ref 1 */
+        ctx = new tsfmock::MockContext(); /* ref 1 */
+        dm = new tsfmock::MockDocumentMgr(ctx); /* ref 1 */
+        ctx->AddRef(); /* dm holds the top reference */
+        svc = new CTextService(); /* ref 1 */
+        svc->Activate(tm, 1);
+        if (!tm->keySink) {
+            printf("skip: Activate did not advise a key sink\n");
+            Teardown();
+            std::exit(77);
+        }
+        if (!svc->ctx_ || !svc->ic_) {
+            printf("skip: engine context unavailable (check HUNMIN_TSF_DATA_DIR)\n");
+            Teardown();
+            std::exit(77);
+        }
+    }
+
+    void Teardown() {
+        if (!svc)
+            return;
+        svc->Release(); /* frees ic_/ctx_; candWnd_ dtor runs with it */
+        ctx->Release();
+        dm->Release();
+        tm->Release();
+        svc = nullptr;
+        ctx = nullptr;
+        dm = nullptr;
+        tm = nullptr;
+    }
+
+    void TestKey(WPARAM vk, BOOL *pfEat) {
+        BOOL ignore = FALSE;
+        svc->OnTestKeyDown(ctx, vk, 0, pfEat ? pfEat : &ignore);
+    }
+    void Key(WPARAM vk, BOOL *pfEat = nullptr) {
+        BOOL testEat = FALSE, eat = FALSE;
+        svc->OnTestKeyDown(ctx, vk, 0, &testEat);
+        svc->OnKeyDown(ctx, vk, 0, &eat);
+        if (pfEat)
+            *pfEat = eat;
+        (void)testEat;
+    }
+    /* One synthetic key per engine char (dubeolsik rows): the trace is
+     * VK-based, so 'd' arrives as VK_D (0x44) and the adapter derives the
+     * shifted/unshifted row from the Shift bit itself. */
+    void Type(const char *keys) {
+        for (const char *p = keys; *p; ++p)
+            Key((WPARAM)toupper((unsigned char)*p));
+    }
+    void AssertWordbuf(const char *utf8Expected, const char *what) {
+        CHECK(svc->wordbuf_ == (utf8Expected ? utf8Of(utf8Expected) : std::wstring()),
+              "%s: wordbuf got %s, want %s", what, utf8(svc->wordbuf_).c_str(),
+              utf8Expected ? utf8Expected : "(empty)");
+    }
+    static std::wstring utf8Of(const char *u) {
+        int n = MultiByteToWideChar(CP_UTF8, 0, u, -1, nullptr, 0);
+        std::wstring w((size_t)(n > 1 ? n - 1 : 0), L'\0');
+        if (n > 1)
+            MultiByteToWideChar(CP_UTF8, 0, u, -1, &w[0], n);
+        return w;
+    }
+    void AssertPreedit(const char *utf8Expected, const char *what) {
+        std::string got(std::string(svc->ic_ ? hunmin_ic_preedit(svc->ic_) : ""));
+        CHECK(got == (utf8Expected ? utf8Expected : ""), "%s: preedit got %s, want %s", what,
+              got.c_str(), utf8Expected ? utf8Expected : "(empty)");
+    }
+    void AssertNoInsert(const char *what) {
+        CHECK(ctx->insertions.empty(), "%s: %zu insertions happened, want none", what,
+              ctx->insertions.size());
+    }
+};
+
+/* Type `dkssud`: wordbuf_ reaches `안`, preedit reaches `녕` (engine-measured). */
+static void TypeAnNyeng(Fixture &f) {
+    f.Type("dkssud");
+    f.AssertWordbuf(kAnchorAn, "dkssud");
+    f.AssertPreedit(kAnchorPreeditNyeng, "dkssud");
+}
+
+int main() {
+    /* 1. Empty buffer: F9 belongs to the client, in test and down alike. */
+    {
+        Fixture f;
+        f.Begin();
+        BOOL testEat = TRUE, downEat = TRUE;
+        f.TestKey(VK_F9, &testEat);
+        f.Key(VK_F9, &downEat);
+        CHECK(testEat == FALSE, "case 1: F9 test ate with no buffer");
+        CHECK(downEat == FALSE, "case 1: F9 down ate with no buffer");
+        CHECK(!f.svc->candActive_, "case 1: candidate state active after empty F9");
+        f.AssertNoInsert("case 1");
+        f.Teardown();
+    }
+
+    /* 2. `dkssud` + F9: the window opens over the whole buffered word. */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        BOOL testEat = FALSE;
+        f.TestKey(VK_F9, &testEat);
+        CHECK(testEat == TRUE, "case 2: F9 test did not eat for `dkssud`");
+        BOOL eat = TRUE;
+        f.Key(VK_F9, &eat);
+        CHECK(eat == TRUE, "case 2: F9 down did not eat");
+        CHECK(f.svc->candActive_, "case 2: window not active after F9");
+        CHECK(f.svc->candCount_ == 2, "case 2: count %d, want 2 (krdict meal check)",
+              f.svc->candCount_);
+        CHECK(f.svc->candCursor_ == 0 && f.svc->candTop_ == 0, "case 2: cursor/top != 0/0");
+        CHECK(f.svc->candSource_ == kAnchorAnNyeng, "case 2: anchored to %s, want the whole word",
+              f.svc->candSource_.c_str());
+        f.AssertNoInsert("case 2");
+        /* 2b. While open, the window's keys are eaten in the test phase. */
+        BOOL dEat = TRUE;
+        f.TestKey('1', &dEat);
+        CHECK(dEat == TRUE, "case 2b: digit '1' not eaten in test phase");
+        f.Teardown();
+    }
+
+    /* 3. Return commits the cursor (c0): exactly one insert, the Hanja text,
+     * window closed, buffer empty, engine reset. */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        f.Key(VK_F9);
+        std::string expected(hunmin_suggest_text(f.svc->ctx_, 0));
+        CHECK(!expected.empty(), "case 3: candidate 0 text empty");
+        BOOL eat = FALSE;
+        f.Key(VK_RETURN, &eat);
+        CHECK(eat == TRUE, "case 3: Return not consumed");
+        CHECK(f.ctx->insertions.size() == 1, "case 3: %zu insertions, want 1",
+              f.ctx->insertions.size());
+        if (f.ctx->insertions.size() == 1)
+            CHECK(utf8(f.ctx->insertions[0]) == expected, "case 3: inserted %s, want %s",
+                  utf8(f.ctx->insertions[0]).c_str(), expected.c_str());
+        CHECK(!f.svc->candActive_, "case 3: window still open after commit");
+        f.AssertWordbuf(nullptr, "case 3");
+        f.AssertPreedit(nullptr, "case 3");
+        f.Teardown();
+    }
+
+    /* 4. Down moves the cursor; the moved cursor commits with Return. */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        f.Key(VK_F9);
+        f.Key(VK_DOWN);
+        CHECK(f.svc->candCursor_ == 1, "case 4: cursor %d after Down, want 1",
+              f.svc->candCursor_);
+        std::string expected(hunmin_suggest_text(f.svc->ctx_, 1));
+        f.Key(VK_RETURN);
+        CHECK(f.ctx->insertions.size() == 1, "case 4: %zu insertions, want 1",
+              f.ctx->insertions.size());
+        if (f.ctx->insertions.size() == 1)
+            CHECK(utf8(f.ctx->insertions[0]) == expected, "case 4: inserted %s, want %s",
+                  utf8(f.ctx->insertions[0]).c_str(), expected.c_str());
+        f.Teardown();
+    }
+
+    /* 5. Up at the top stays put (clamped, no rotation, no insertion). */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        f.Key(VK_F9);
+        f.Key(VK_UP);
+        CHECK(f.svc->candCursor_ == 0, "case 5: Up moved cursor below 0");
+        f.AssertNoInsert("case 5");
+        CHECK(f.svc->candActive_, "case 5: window closed by Up");
+        f.Teardown();
+    }
+
+    /* 6. Digit select commits the page-relative index. */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        f.Key(VK_F9);
+        std::string expected(hunmin_suggest_text(f.svc->ctx_, 1));
+        BOOL eat = TRUE;
+        f.Key('2', &eat);
+        CHECK(eat == TRUE, "case 6: digit '2' not consumed");
+        CHECK(f.ctx->insertions.size() == 1, "case 6: %zu insertions, want 1",
+              f.ctx->insertions.size());
+        if (f.ctx->insertions.size() == 1)
+            CHECK(utf8(f.ctx->insertions[0]) == expected, "case 6: inserted %s, want %s",
+                  utf8(f.ctx->insertions[0]).c_str(), expected.c_str());
+        CHECK(!f.svc->candActive_, "case 6: window left open after digit commit");
+        f.Teardown();
+    }
+
+    /* 7. Esc closes without touching the composition; typing continues. */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        f.Key(VK_F9);
+        BOOL eat = FALSE;
+        f.Key(VK_ESCAPE, &eat);
+        CHECK(eat == TRUE, "case 7: Esc not consumed");
+        CHECK(!f.svc->candActive_, "case 7: window open after Esc");
+        f.AssertNoInsert("case 7");
+        f.AssertWordbuf(kAnchorAn, "case 7");
+        f.AssertPreedit(kAnchorPreeditNyeng, "case 7");
+        /* Typing continues where the user left off — the key is consumed and
+         * the preedit grows (engine composes; the exact glyph is the
+         * engine's business, asserted nonempty). */
+        f.Key('d');
+        std::string now(hunmin_ic_preedit(f.svc->ic_));
+        CHECK(!now.empty(), "case 7: preedit empty after resuming typing");
+        f.AssertNoInsert("case 7 (resumed typing)");
+        f.Teardown();
+    }
+
+    /* 8. Zero candidates over the whole word: `rkrkrk` -> `가가가` (0 hits)
+     * — F9 passes through in both phases, no window, no state. */
+    {
+        Fixture f;
+        f.Begin();
+        f.Type("rkrkrk");
+        f.AssertWordbuf(kAnchorGaGa, "rkrkrk");
+        f.AssertPreedit(kAnchorGa, "rkrkrk");
+        BOOL testEat = TRUE, eat = TRUE;
+        f.TestKey(VK_F9, &testEat);
+        f.Key(VK_F9, &eat);
+        CHECK(testEat == FALSE, "case 8: F9 test ate with zero candidates");
+        CHECK(eat == FALSE, "case 8: F9 down ate with zero candidates");
+        CHECK(!f.svc->candActive_, "case 8: state active with zero candidates");
+        f.AssertNoInsert("case 8");
+        f.Teardown();
+    }
+
+    /* 9. A digit past the end of the count closes the window and falls
+     * through: the key itself reaches the composition boundary, the whole
+     * word inserts once, the digit is not swallowed. */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        f.Key(VK_F9);
+        BOOL eat = TRUE;
+        f.Key('9', &eat);
+        CHECK(eat == FALSE, "case 9: '9' swallowed (eat false expected)");
+        CHECK(!f.svc->candActive_, "case 9: window survived the dead digit");
+        CHECK(f.ctx->insertions.size() == 1, "case 9: %zu insertions, want 1",
+              f.ctx->insertions.size());
+        if (f.ctx->insertions.size() == 1)
+            CHECK(utf8(f.ctx->insertions[0]) == kAnchorAnNyeng,
+                  "case 9: inserted %s, want the whole word", utf8(f.ctx->insertions[0]).c_str());
+        f.Teardown();
+    }
+
+    /* 10. The mode toggle is a composition boundary with the window open:
+     * the candidate list closes and the buffered word inserts once. */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        f.Key(VK_F9);
+        CHECK(f.svc->candActive_, "case 10: window did not open");
+        f.Key(HUNMIN_TSF_VIRTUAL_HANGEUL);
+        CHECK(!f.svc->candActive_, "case 10: window open after toggle");
+        CHECK(!f.svc->hangulMode_, "case 10: mode did not switch");
+        CHECK(f.ctx->insertions.size() == 1, "case 10: %zu insertions, want 1",
+              f.ctx->insertions.size());
+        if (f.ctx->insertions.size() == 1)
+            CHECK(utf8(f.ctx->insertions[0]) == kAnchorAnNyeng, "case 10: insert %s",
+                  utf8(f.ctx->insertions[0]).c_str());
+        f.Teardown();
+    }
+
+    /* 11. Backspace edits the pending composition (the buffered-edit
+     * contract), engine-measured: `녕` -> `녀` -> `ㄴ` -> empty, the last one
+     * still consumed by the engine (no insert, the key never reaches the
+     * app while the engine deletes). One MORE backspace hits the empty
+     * preedit: the engine declines, the boundary inserts the buffered word
+     * once, and the key passes. */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        BOOL eat = FALSE;
+        f.Key(VK_BACK, &eat);
+        CHECK(eat == TRUE, "case 11a: BS not consumed");
+        f.AssertPreedit(kAnchorPreeditNyee, "case 11a");
+        f.AssertWordbuf(kAnchorAn, "case 11a");
+        f.AssertNoInsert("case 11a");
+        f.Key(VK_BACK);
+        f.AssertPreedit(kAnchorPreeditNieun, "case 11b");
+        f.Key(VK_BACK, &eat);
+        CHECK(eat == TRUE, "case 11c: BS on emptied syllable not consumed");
+        f.AssertPreedit(nullptr, "case 11c");
+        f.AssertNoInsert("case 11c");
+        f.Key(VK_BACK, &eat);
+        CHECK(eat == FALSE, "case 11d: BS past the empty preedit eaten anyway");
+        CHECK(f.ctx->insertions.size() == 1, "case 11d: %zu insertions, want 1",
+              f.ctx->insertions.size());
+        if (f.ctx->insertions.size() == 1)
+            CHECK(utf8(f.ctx->insertions[0]) == kAnchorAn, "case 11d: insert %s",
+                  utf8(f.ctx->insertions[0]).c_str());
+        f.Teardown();
+    }
+
+    /* 12. Paging over a 65-candidate list (`가` through the hanja table):
+     * PageDown moves top by the page and the cursor with it. */
+    {
+        Fixture f;
+        f.Begin();
+        f.Type("rk");
+        f.AssertPreedit(kAnchorGa, "case 12 (rk)");
+        f.Key(VK_F9);
+        CHECK(f.svc->candActive_, "case 12: window not active on single syllable");
+        CHECK(f.svc->candCount_ >= 11, "case 12: count %d, want >= 11 for paging", f.svc->candCount_);
+        f.Key(VK_NEXT);
+        CHECK(f.svc->candTop_ == 10, "case 12: top %d after PageDown, want 10", f.svc->candTop_);
+        CHECK(f.svc->candCursor_ == 10, "case 12: cursor %d after PageDown, want 10",
+              f.svc->candCursor_);
+        std::string expected(hunmin_suggest_text(f.svc->ctx_, 0 + 10));
+        f.Key(VK_RETURN);
+        CHECK(f.ctx->insertions.size() == 1, "case 12: %zu insertions, want 1",
+              f.ctx->insertions.size());
+        if (f.ctx->insertions.size() == 1)
+            CHECK(utf8(f.ctx->insertions[0]) == expected, "case 12: inserted %s, want %s",
+                  utf8(f.ctx->insertions[0]).c_str(), expected.c_str());
+        f.Teardown();
+    }
+
+    /* 13. PageUp from the first page stays at 0 (clamped). */
+    {
+        Fixture f;
+        f.Begin();
+        f.Type("rk");
+        f.Key(VK_F9);
+        f.Key(VK_PRIOR);
+        CHECK(f.svc->candTop_ == 0, "case 13: top %d, want 0", f.svc->candTop_);
+        CHECK(f.svc->candActive_, "case 13: window closed by PageUp");
+        f.Teardown();
+    }
+
+    if (failures == 0)
+        printf("tsf-candidate-test: all cases passed\n");
+    else
+        printf("tsf-candidate-test: %d failure(s)\n", failures);
+    return failures == 0 ? 0 : 1;
+}

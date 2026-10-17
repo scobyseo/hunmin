@@ -82,5 +82,9 @@ failure, so the adapter takes the no-metrics hide path).
 ## Open questions
 
 - Whether UWP and console edit controls need the overlay for readable preedit.
-- Capability probing and candidate window behavior for TSF applications.
+- ~~Capability probing and candidate window behavior for TSF applications.~~
+  The candidate window is implemented (issue #67): the F9 popup over the whole
+  buffered word, its contract and what stays manual/device-bound live in
+  `docs/WINDOWS-TSF-CANDIDATES.md`. Host-dependent caret-rect probing itself
+  remains open here.
 - Exact caret rect source for overlay movement in different applications.
