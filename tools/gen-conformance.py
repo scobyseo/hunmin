@@ -61,6 +61,65 @@ def x11_event(ch: str) -> dict:
     raise SystemExit(f"no X11 keysym known for {ch!r} (U+{ord(ch):04X})")
 
 
+# Win32 virtual-key codes + US-keyboard set-1 scan codes. VK codes are the
+# US keyboard's layout-independent codes (VK_A..VK_Z are their uppercase
+# ASCII values); the scan code is what the adapter receives in lParam and
+# today ignores -- carried anyway so the corpus models a real WM_KEYDOWN.
+_WIN32_LETTER_SCAN = {
+    "q": 0x10, "w": 0x11, "e": 0x12, "r": 0x13, "t": 0x14, "y": 0x15,
+    "u": 0x16, "i": 0x17, "o": 0x18, "p": 0x19,
+    "a": 0x1E, "s": 0x1F, "d": 0x20, "f": 0x21, "g": 0x22, "h": 0x23,
+    "j": 0x24, "k": 0x25, "l": 0x26,
+    "z": 0x2C, "x": 0x2D, "c": 0x2E, "v": 0x2F, "b": 0x30, "n": 0x31, "m": 0x32,
+}
+_WIN32_DIGIT_SCAN = {"1": 0x02, "2": 0x03, "3": 0x04, "4": 0x05, "5": 0x06,
+                     "6": 0x07, "7": 0x08, "8": 0x09, "9": 0x0A, "0": 0x0B}
+_WIN32_OEM = {  # char -> (VK, scan); shifted forms share the unshifted VK
+    ";": (0xBA, 0x27), "=": (0xBB, 0x0D), ",": (0xBC, 0x33), "-": (0xBD, 0x0C),
+    ".": (0xBE, 0x34), "/": (0xBF, 0x35), "`": (0xC0, 0x29), "[": (0xDB, 0x1A),
+    "\\": (0xDC, 0x2B), "]": (0xDD, 0x1B), "'": (0xDE, 0x28),
+}
+_WIN32_VK_NAMED = {
+    "backspace": 0x08, "return": 0x0D, "tab": 0x09, "space": 0x20,
+    "left": 0x25, "up": 0x26, "right": 0x27, "down": 0x28,
+}
+_WIN32_SCAN_NAMED = {
+    "backspace": 0x0E, "return": 0x1C, "tab": 0x0F, "space": 0x39,
+    "left": 0x4B, "up": 0x48, "right": 0x4D, "down": 0x50,
+}
+# mods bit 0x01 = Shift, i.e. GetKeyState(VK_SHIFT) < 0 at delivery time
+# (docs/trace-spec.md). Win32 has no CapsLock encoding here: a caps case is
+# refused below, because the adapter models Caps Lock as a mode toggle, not
+# as engine input.
+WIN32_SHIFT = 0x01
+
+
+def _win32_vk(ch: str) -> tuple[int, int, int]:
+    """(vk, scan, mods) for one ASCII character, or an error."""
+    low = ch.lower()
+    if low in _WIN32_LETTER_SCAN:
+        return (ord(low) - 32, _WIN32_LETTER_SCAN[low], WIN32_SHIFT if ch.isupper() else 0)
+    if ch in _WIN32_DIGIT_SCAN:
+        return (0x30 + int(ch), _WIN32_DIGIT_SCAN[ch], 0)
+    if ch in _WIN32_OEM:
+        vk, scan = _WIN32_OEM[ch]
+        return (vk, scan, 0)
+    base = _SHIFTED.get(ch)  # '!': "1", ':': ";", '|': "\\", ...
+    if base:
+        vk, scan, _ = _win32_vk(base)
+        return (vk, scan, WIN32_SHIFT)
+    if ch == " ":
+        return (0x20, 0x39, 0)
+    raise SystemExit(f"no Win32 VK known for {ch!r} (U+{ord(ch):04X})")
+
+
+def win32_event(ch: str) -> dict:
+    if ch == "\\b":
+        return {"vk": _WIN32_VK_NAMED["backspace"], "scan": _WIN32_SCAN_NAMED["backspace"], "mods": 0}
+    vk, scan, mods = _win32_vk(ch)
+    return {"vk": vk, "scan": scan, "mods": mods}
+
+
 def android_event(ch: str) -> dict:
     if ch == "\\b":
         return {"keycode": ANDROID_KEYCODES["backspace"], "mods": 0}
@@ -116,32 +175,33 @@ def x11_named(key: str) -> dict:
     return {"keysym": NAMED[key], "mods": 0}
 
 
+def win32_named(key: str) -> dict:
+    if key not in _WIN32_VK_NAMED:
+        raise SystemExit(f"no Win32 VK known for named key {key!r}")
+    return {"vk": _WIN32_VK_NAMED[key], "scan": _WIN32_SCAN_NAMED[key], "mods": 0}
+
+
 def android_named(key: str) -> dict:
     if key not in ANDROID_KEYCODES:
         raise SystemExit(f"no Android keycode known for named key {key!r}")
     return {"keycode": ANDROID_KEYCODES[key], "mods": 0}
 
 
-NAMED_BUILDERS = {"x11": x11_named, "android": android_named}
+NAMED_BUILDERS = {"x11": x11_named, "android": android_named, "win32": win32_named}
 
-BUILDERS = {"x11": x11_event, "android": android_event}
+BUILDERS = {"x11": x11_event, "android": android_event, "win32": win32_event}
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--golden", required=True, type=pathlib.Path)
-    ap.add_argument("--platform", required=True, choices=sorted(BUILDERS))
-    ap.add_argument("--layout", required=True)
-    ap.add_argument("--case", required=True)
-    ap.add_argument("--out", required=True, type=pathlib.Path)
-    ap.add_argument("--split-cases", action="store_true",
-                    help="one trace per tier A case (default when a golden has cases)")
-    a = ap.parse_args()
+def parse_golden(golden: pathlib.Path, a, build, build_named):
+    """One golden -> (cases, unsupported, head).
 
-    src = a.golden.read_text(encoding="utf-8").splitlines()
+    cases are (name, body_lines); each body line carries the platform-native
+    event plus the expectation copied verbatim from tier A.
+    """
+    src = golden.read_text(encoding="utf-8").splitlines()
     head = json.loads(src[0])
     if "meta" not in head:
-        raise SystemExit(f"{a.golden}: line 1 is not a meta object")
+        raise SystemExit(f"{golden}: line 1 is not a meta object")
 
     # Per-case state that tier A carries in `{"meta": {...}}` lines. These are
     # engine options, not decoration: a caps=1 case and a caps=0 case send the
@@ -157,21 +217,6 @@ def main() -> int:
     OPTION_KEYS = ("caps", "w", "W", "z", "h", "H", "mode")
     X_LOCK_MASK = 0x02
 
-    build = BUILDERS[a.platform]
-    build_named = NAMED_BUILDERS[a.platform]
-    out_lines = [
-        json.dumps(
-            {
-                "meta": {
-                    "platform": a.platform,
-                    "layout": a.layout,
-                    "case": a.case,
-                    "source": f"{a.golden.name} ({head['meta'].get('source', 'gate')})",
-                }
-            },
-            ensure_ascii=False,
-        )
-    ]
     current: dict = {}
     unsupported: set[str] = set()
     cases: list[tuple[str, list[str]]] = []
@@ -221,8 +266,14 @@ def main() -> int:
             consumed = bool(previous_preedit)
         else:
             consumed = _layout_maps(a.layout, spec["ch"])
-        if current.get("caps"):
+        if a.platform == "x11" and current.get("caps"):
+            # X11 is the only platform that encodes Caps Lock in `mods`
+            # (LockMask). Android applies the same bit below for historical
+            # corpus; win32 refuses caps cases outright (see OPTION_KEYS note)
+            # because its adapter models the key as a mode toggle.
             event["mods"] = event.get("mods", 0) | X_LOCK_MASK
+        if a.platform == "win32" and current.get("caps"):
+            unsupported.add("caps")
         previous_preedit = rec.get("preedit", "")
         line = json.dumps(
                 {
@@ -237,10 +288,61 @@ def main() -> int:
 
     if body:
         cases.append((name, body))
+    unsupported -= {"caps"}
+    return cases, unsupported, head
 
-    if unsupported - {"caps"}:
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--golden", required=True, type=pathlib.Path)
+    ap.add_argument("--extra-golden", action="append", type=pathlib.Path, default=[],
+                    help="further goldens whose cases join the SAME output; "
+                         "requires --batch")
+    ap.add_argument("--platform", required=True, choices=sorted(BUILDERS))
+    ap.add_argument("--layout", required=True)
+    ap.add_argument("--case", required=True)
+    ap.add_argument("--out", required=True, type=pathlib.Path)
+    ap.add_argument("--split-cases", action="store_true",
+                    help="one trace per tier A case (default when a golden has cases)")
+    ap.add_argument("--batch", action="store_true",
+                    help="one trace file carrying every case as an in-file "
+                         '{"meta": {"case": ...}} separator; the runner must '
+                         "reset the adapter at each separator (docs/trace-spec.md "
+                         '"Multi-case batch files"). For corpora that would '
+                         "otherwise flood ctest with one test per 2-event case.")
+    a = ap.parse_args()
+
+    if a.extra_golden and not a.batch:
+        raise SystemExit("--extra-golden requires --batch: merged cases must "
+                         "land in one file, not be re-split")
+
+    build = BUILDERS[a.platform]
+    build_named = NAMED_BUILDERS[a.platform]
+
+    all_cases, unsupported, head = parse_golden(a.golden, a, build, build_named)
+    for extra in a.extra_golden:
+        cases_e, unsupported_e, _ = parse_golden(extra, a, build, build_named)
+        all_cases += cases_e
+        unsupported |= unsupported_e
+    cases = all_cases
+
+    out_lines = [
+        json.dumps(
+            {
+                "meta": {
+                    "platform": a.platform,
+                    "layout": a.layout,
+                    "case": a.case,
+                    "source": f"{a.golden.name} ({head['meta'].get('source', 'gate')})",
+                }
+            },
+            ensure_ascii=False,
+        )
+    ]
+
+    if unsupported:
         raise SystemExit(
-            f"{a.golden}: case state {sorted(unsupported - {'caps'})} has no "
+            f"{a.golden}: case state {sorted(unsupported)} has no "
             "native encoding in the trace format; replaying it needs an engine-"
             "option channel that tools/trace-check.py cannot yet drive. Refusing "
             "to emit a trace that would assert the wrong expectation."
@@ -249,12 +351,24 @@ def main() -> int:
     # A golden's {"meta": {"case": ...}} lines separate INDEPENDENT cases: each
     # starts from a clean engine (docs/SPEC-P2.md "P2 gate corpora" -- a case is
     # replayed in isolation). Emitting them as one stream carries case N's
-    # composition into case N+1, which is not what tier A recorded. The trace
-    # format has no reset marker (docs/trace-spec.md), and adding one would put
-    # engine-lifecycle semantics into a format that is meant to be pure data.
-    # So a multi-case golden becomes one trace file per case, each replayed from
-    # a fresh context -- the same isolation tier A has.
+    # composition into case N+1, which is not what tier A recorded. So a
+    # multi-case golden becomes one trace file per case, each replayed from a
+    # fresh context -- the same isolation tier A has -- unless --batch is
+    # given, which keeps the separators in the file and pushes the per-case
+    # reset onto the runner (trace-check skips meta lines on both sides of the
+    # diff, so a batch file needs no runner-side change to stay comparable).
     a.out.parent.mkdir(parents=True, exist_ok=True)
+    if a.batch:
+        batch = [out_lines[0]]
+        for i, (name, body) in enumerate(cases, 1):
+            batch.append(json.dumps({"meta": {"case": name, "case_index": i}},
+                                    ensure_ascii=False))
+            batch.extend(body)
+        a.out.write_text("\n".join(batch) + "\n", encoding="utf-8")
+        print(f"{a.out}: {len(cases)} cases, "
+              f"{sum(len(b) for _, b in cases)} events", file=sys.stderr)
+        return 0
+
     if len(cases) > 1 or (a.split_cases and cases):
         if not cases:
             print(f"{a.golden}: no cases to split", file=sys.stderr)
@@ -283,8 +397,8 @@ def main() -> int:
     # Single-case golden: the events live in `body`, not `out_lines` (which
     # holds only the header). Writing out_lines here produced a header-only file,
     # i.e. a trace that asserts nothing.
-    a.out.write_text("\n".join([out_lines[0]] + body) + "\n", encoding="utf-8")
-    print(f"{a.out}: {len(body)} events", file=sys.stderr)
+    a.out.write_text("\n".join([out_lines[0]] + cases[0][1]) + "\n", encoding="utf-8")
+    print(f"{a.out}: {len(cases[0][1])} events", file=sys.stderr)
     return 0
 
 

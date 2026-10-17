@@ -1,0 +1,28 @@
+{"meta": {"layout": "sin3-p2", "source": "words-sin3-p2.txt words; keys per syllable from tools/sin3p2-ksgen.py (BFS, hunmin-sim --batch oracle)", "tool": "tools/wordlist2golden.py", "note": "expectations are hunmin-sim --trace output over the composed keys; the space after each word is the boundary event at which a commit-only adapter inserts the word"}}
+{"meta": {"case": "서시", "keys": "nrnd "}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "서"}
+{"in": {"ch": "n"}, "commit": "서", "preedit": "ㅅ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "시"}
+{"in": {"ch": " "}, "commit": "시", "preedit": ""}
+{"meta": {"case": "학교", "keys": "mfckx "}}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "하"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "학"}
+{"in": {"ch": "k"}, "commit": "학", "preedit": "ㄱ"}
+{"in": {"ch": "x"}, "commit": "", "preedit": "교"}
+{"in": {"ch": " "}, "commit": "교", "preedit": ""}
+{"meta": {"case": "사랑", "keys": "nfyfa "}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "사"}
+{"in": {"ch": "y"}, "commit": "사", "preedit": "ㄹ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "라"}
+{"in": {"ch": "a"}, "commit": "", "preedit": "랑"}
+{"in": {"ch": " "}, "commit": "랑", "preedit": ""}
+{"meta": {"case": "고향", "keys": "k/mwa "}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": "m"}, "commit": "고", "preedit": "ㅎ"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "햐"}
+{"in": {"ch": "a"}, "commit": "", "preedit": "향"}
+{"in": {"ch": " "}, "commit": "향", "preedit": ""}

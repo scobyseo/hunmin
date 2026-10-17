@@ -966,6 +966,13 @@ Four layers, cheap→real:
 ## Tier F — Windows TSF (P6) 🤖~ / 🧑
 
 - **F1 Tier-C conformance** on the TIP (trace mode via a harness app) — required.
+  The harness is `frontends/tsf/test/tsf-trace-emit` + the mock TSF layer
+  (`frontends/tsf/test/mock-tsf.h`, issue #80): in-memory COM doubles, no registry
+  and no real windows, with the adapter source included unmodified. ctest label
+  `tier-F1`, corpus `tests/conformance/win32/*.trace.in` (same generator, win32
+  dialect), registered only where MSVC found the engine. Not yet covered: a
+  backspace boundary (no sin3-p2 tier-A golden carries one) and overlay-window
+  presentation (needs real HWNDs, stubbed via `ITfContextView::GetTextExt`).
 - **F2 TAT** (Microsoft TSF Accommodation Tool, the official TIP stress-tester) driven on
   a Windows runner; plus UIAutomation-based text assertions in Notepad/test edit control
   with injected keys (`SendKeys`/`keybd_event`) — best-effort automation, flaky-allowed,

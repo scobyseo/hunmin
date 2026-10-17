@@ -67,6 +67,14 @@ overlay, document receives the word once at the boundary). The registration
 and key-down chain this rides on is documented in
 `docs/WINDOWS-TSF-REGISTRATION.md`.
 
+Since issue #80 the contract also has an automated check: the mock-TSF harness
+(`frontends/tsf/test/`, ctest label `tier-F1`, docs/TESTING.md "Tier F") drives
+the same adapter over in-memory COM doubles and asserts, per boundary event,
+exactly one edit-session insert carrying the whole buffered word — regressed
+if someone drops the `wordbuf_` append or inserts per syllable. The overlay
+window itself is out of its scope (`ITfContextView::GetTextExt` returns
+failure, so the adapter takes the no-metrics hide path).
+
 ## Open questions
 
 - Whether UWP and console edit controls need the overlay for readable preedit.
