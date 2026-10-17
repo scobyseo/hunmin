@@ -140,6 +140,19 @@ public partial class MainWindow : Window
         }
         if (IsModifierKey(e.Key))
             return; // modifier-only: wait for the non-modifier key (Android rule)
+        if ((int)e.Key == 229)
+        {
+            /* VirtualKey.ProcessKey: an active Korean IME surfaces its own
+             * processed keys (the physical 한/Hanja keys) under this code,
+             * and WinUI has no IMM32 to recover the real key. Record
+             * nothing — the user's first capture stored v1:229:0, which
+             * binds nothing (measured). */
+            if (_captureTargetRow == 0)
+                CaptureHint.Text = "이 키는 IME가 가로챕니다: 다른 조합을 누르세요";
+            else
+                HanjaCaptureHint.Text = "이 키는 IME가 가로챕니다: 다른 조합을 누르세요";
+            return;
+        }
         _capturedVk = (int)e.Key;
         _capturedMods = ModsNow();
         _capturing = false;

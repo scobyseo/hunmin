@@ -94,6 +94,19 @@ struct Fixture {
         /* Layout seam: dubeolsik without touching the real store. */
         _putenv_s("HUNMIN_TSF_HANGUL_LAYOUT", "dubeolsik");
         _putenv_s("HUNMIN_TSF_LATIN_LAYOUT", "us-qwerty");
+        /* Key seams: the DEFAULTS, so a store the user's live session
+         * mutated (their first capture wrote HKCU HanjaKey=v1:229:0 —
+         * measured) cannot flip these cases' expectations. Per-case
+         * _putenv_s still overrides (case 15 sets F9 BEFORE Fixture
+         * construction, so the default only fills an UNSET variable). */
+        {
+            const char *have = std::getenv("HUNMIN_TSF_HANJA_KEY");
+            if (!have)
+                _putenv_s("HUNMIN_TSF_HANJA_KEY", "v1:25:0");
+            have = std::getenv("HUNMIN_TSF_TOGGLE_KEYS");
+            if (!have)
+                _putenv_s("HUNMIN_TSF_TOGGLE_KEYS", "v1:21:0");
+        }
         g_mockKeyState[VK_SHIFT & 0xFF] = 0;
 
         tm = new tsfmock::MockThreadMgr(); /* ref 1 */

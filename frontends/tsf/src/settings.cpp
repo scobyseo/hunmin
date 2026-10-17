@@ -20,6 +20,7 @@
 #include "settings.h"
 
 #include <ctffunc.h>
+#include <imm.h>
 #include <msctf.h>
 #include <cstdio>
 #include <cstring>
@@ -509,8 +510,23 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
          * font. Logged HRESULTs are the measurement (see the manual
          * checklist). */
         applyWindows11Look(h, s);
+        /* Force the window into view (defect measured twice on 2026-10-18:
+         * the template's WS_VISIBLE reaches the window (initdialog logs
+         * visible=0 the ancestor artefact) yet the ownerless rundll32
+         * dialog never appeared ON SCREEN — PrintWindow proved the controls
+         * were all there. Owned top-level + DS_CENTER is not enough under
+         * this host, so: explicit ShowWindow, topmost, centred on the work
+         * area, and foreground. */
+        ShowWindow(h, SW_SHOWNORMAL);
         {
-            RECT rc = {};
+            RECT wa = {}, rc = {};
+            SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0);
+            GetWindowRect(h, &rc);
+            int w = rc.right - rc.left, ht = rc.bottom - rc.top;
+            SetWindowPos(h, HWND_TOPMOST, wa.left + ((wa.right - wa.left) - w) / 2,
+                         wa.top + ((wa.bottom - wa.top) - ht) / 2, 0, 0,
+                         SWP_NOSIZE);
+            SetForegroundWindow(h);
             GetWindowRect(h, &rc);
             logLine("settings: initdialog rect=(%ld,%ld)-(%ld,%ld) visible=%d",
                     (long)rc.left, (long)rc.top, (long)rc.right, (long)rc.bottom,
@@ -525,6 +541,20 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         if (lp & (1 << 30))
             return TRUE; /* auto-repeat swallowed (keybinding.h repeat rule) */
         WPARAM vk = wp;
+        /* A Korean IME is active while the dialog runs, so IME-processed
+         * keys (the physical 한/Hanja keys!) surface as VK_PROCESSKEY
+         * (0xE5) — measured: the first live capture stored v1:229:0, which
+         * binds nothing. IMM32 hands the real key back. */
+        if (vk == VK_PROCESSKEY) {
+            HIMC himc = ImmGetContext(h);
+            WPARAM real = himc ? (WPARAM)ImmGetVirtualKey(h) : 0;
+            if (himc)
+                ImmReleaseContext(h, himc);
+            logLine("settings: VK_PROCESSKEY resolved to %lu", (unsigned long)real);
+            if (real == 0)
+                return TRUE; /* unresolvable: wait for a plain key */
+            vk = real;
+        }
         bool chord =
             (GetKeyState(VK_SHIFT) & 0x8000) || (GetKeyState(VK_CONTROL) & 0x8000) ||
             (GetKeyState(VK_MENU) & 0x8000);

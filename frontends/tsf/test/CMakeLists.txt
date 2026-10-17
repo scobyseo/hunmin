@@ -91,6 +91,7 @@ foreach(tsf_test_exe tsf-config-test tsf-datadir-test tsf-settings-test tsf-cand
       user32
       gdi32
       advapi32
+      imm32
       shlwapi)
 endforeach()
 # The settings-dialog TU cannot be #included by the harness (it owns its own

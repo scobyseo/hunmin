@@ -73,6 +73,7 @@ target_link_libraries(hunmin-tsf PRIVATE
     ole32
     oleaut32
     user32
+    imm32
 )
 # Use module definition file for explicit exports.
 set_target_properties(hunmin-tsf PROPERTIES
