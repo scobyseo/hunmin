@@ -6,24 +6,26 @@
 #ifndef HUNMIN_TSF_SETTINGS_H_
 #define HUNMIN_TSF_SETTINGS_H_
 
-/* The settings dialog (issue #71): a Win32 window, plain API only, that edits
- * the configuration store (frontends/tsf/src/config.h) and shows the feature
- * rows. Deliberately a separate TU from tsf.cpp: the adapter is already far
- * past the ~700-line thin-frontend smell, and the dialog is presentation,
- * not input mapping.
+/* The settings surface (issue #71). Maintainer ruling 2026-10-17: the
+ * configuration UI is a SEPARATE WinUI 3 exe (frontends/tsf/settings-ui,
+ * Windows App SDK) — this TU keeps the DLL-side plumbing (the
+ * ITfFunctionProvider / ITfFnConfigure objects, the Win32 row collector and
+ * the interim plain-Win32 dialog, reachable only through the rundll32
+ * export until it is removed).
  *
- * Two reachability paths, the same dialog:
+ * Reachability:
  *   1. TSF-native: the text service object is QueryInterface-able for
  *      ITfFunctionProvider; GetFunction(IID_ITfFnConfigure) returns the
- *      configure function whose Show() runs this dialog modally and then
- *      makes the LIVE adapter re-read the store (Apply without a restart).
- *      Which Windows surfaces actually reach it is a measurement, not a
- *      claim - docs/WINDOWS-TSF-CONFIG.md carries the results.
- *   2. Clone-independent direct launcher: HunminSettingsShow is a rundll32
- *      export (frontends/tsf/show-settings.bat resolves the DLL from %~dp0
- *      first, the registered InprocServer32 path as fallback). No live
- *      service exists on this path, so Apply writes the store only and a
- *      running TIP sees it at its next Activate (config.h read order).
+ *      configure function whose Show() LAUNCHES THE EXE and waits on the
+ *      process (the property-sheet contract: not returning while the dialog
+ *      is open), then makes the LIVE adapter re-read the store (Apply
+ *      without a restart). Exe resolution: HUNMIN_TSF_SETTINGS_EXE >
+ *      <dll dir>\settings-ui\publish\ > <dll dir>\..\settings-ui\publish\;
+ *      the interim Win32 dialog is NOT reachable from Show.
+ *   2. Clone-independent direct launcher: frontends/tsf/show-settings.bat
+ *      launches the same exe (resolved beside the DLL; InprocServer32 as
+ *      fallback), falling back to the rundll32 HunminSettingsShow interim
+ *      dialog while it exists.
  */
 
 #include <windows.h>

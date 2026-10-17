@@ -1,10 +1,11 @@
 @echo off
-rem Launcher for the hunmin TSF settings dialog (issue #71). Direct path,
-rem no TSF plumbing needed; the dialog writes the HKCU store the running
-rem adapter reads at its next Activate.
+rem Launcher for the hunmin TSF settings UI (issue #71, maintainer ruling
+rem 2026-10-17): the EXE surface is the WinUI 3 settings application
+rem (frontends/tsf/settings-ui). The interim Win32 dialog (rundll32
+rem HunminSettingsShow) stays as the fallback until it is removed.
 rem
-rem The DLL is resolved clone-independently: the target beside this script
-rem (%~dp0build-msvc\Release\hunmin-tsf.dll) wins, else the registered
+rem The DLL (and with it the exe directory) is resolved clone-independently:
+rem the target beside this script (%~dp0build-msvc\) wins, else the registered
 rem InprocServer32 path. Nothing here depends on a checkout location.
 setlocal
 set "DLL=%~dp0build-msvc\Release\hunmin-tsf.dll"
@@ -17,6 +18,15 @@ if not exist "%DLL%" (
   echo hunmin-tsf.dll not found ^(build frontends/tsf first, or re-register the TIP^) 1>&2
   exit /b 1
 )
-pushd "%~dp0"
+for %%I in ("%DLL%") do set "DLLDIR=%%~dpI"
+rem First hit wins == the DLL-side contract (docs/WINDOWS-TSF-CONFIG.md):
+rem <dll dir>\settings-ui\publish\, else the dev-checkout <dll dir>\..\settings-ui\publish\.
+set "EXE=%DLLDIR%settings-ui\publish\hunmin-tsf-settingsui.exe"
+if not exist "%EXE%" set "EXE=%DLLDIR%..\settings-ui\publish\hunmin-tsf-settingsui.exe"
+if exist "%EXE%" (
+  start "" "%EXE%"
+  exit /b 0
+)
+rem Exe fallback: the interim dialog (removed when the Win32 TU goes).
 start "" rundll32 "%DLL%",HunminSettingsShow
-popd
+endlocal

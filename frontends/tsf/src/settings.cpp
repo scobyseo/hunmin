@@ -134,8 +134,8 @@ struct SettingsState {
     bool applied = false;
     /* Windows 11 look-and-feel state (measured HRESULTs land in the log). */
     bool dark = false;
-    HFONT font = nullptr;        /* the Segoe UI Variable upgrade, owned */
-    HBRUSH editBrush = nullptr;  /* dark edit-field background */
+    HFONT font = nullptr; /* the Segoe UI Variable upgrade, owned */
+    HBRUSH editBrush = nullptr; /* dark edit-field background */
     HBRUSH darkBgBrush = nullptr; /* dark text/label paint support */
     HRESULT hrCorner = E_FAIL;
     HRESULT hrDark = E_FAIL;
@@ -344,16 +344,13 @@ static bool fontFaceExists(const wchar_t *face) {
     LOGFONTW lf = {};
     lf.lfCharSet = DEFAULT_CHARSET;
     HDC dc = GetDC(nullptr);
-    EnumFontFamiliesExW(dc, &lf,
-                        [](const LOGFONTW *plf, const TEXTMETRICW *, DWORD, LPARAM lp) -> int {
+    EnumFontFamiliesExW(dc, &lf, [](const LOGFONTW *plf, const TEXTMETRICW *, DWORD, LPARAM lp) -> int {
                             auto *c = (Ctx *)lp;
                             if (_wcsicmp(plf->lfFaceName, c->face) == 0) {
                                 c->found = true;
                                 return 0;
                             }
-                            return 1;
-                        },
-                        (LPARAM)&ctx, 0);
+                            return 1; }, (LPARAM)&ctx, 0);
     ReleaseDC(nullptr, dc);
     return ctx.found;
 }
@@ -544,6 +541,79 @@ static bool settingsDialogRun(HWND parent) {
     return s.applied;
 }
 
+/* ---- the WinUI 3 settings exe (maintainer ruling 2026-10-17: the
+ * configuration surface is a SEPARATE Windows App SDK exe; the plain-Win32
+ * dialog is interim and stays reachable only through the rundll32 export /
+ * show-settings.bat until it is removed) ----
+ * Exe path resolution, first hit wins:
+ *   1. environment HUNMIN_TSF_SETTINGS_EXE (test and override seam);
+ *   2. <dll dir>\settings-ui\publish\hunmin-tsf-settingsui.exe — the
+ *      deployed shape (<settings-ui.bat> publishes exactly that;
+ *      frontends/tsf/settings-ui/build-settings-ui.bat);
+ *   3. <dll dir>\..\settings-ui\publish\hunmin-tsf-settingsui.exe — the
+ *      dev-checkout shape (DLL in frontends/tsf/build-msvc, exe beside the
+ *      csproj).
+ * Show() must not return while the dialog is open (the property-sheet
+ * contract, docs/WINDOWS-TSF-CONFIG.md): the process handle is waited on.
+ * Nothing is re-applied until the exe exits — the exe writes the HKCU store
+ * and the exit is the commit point. */
+static bool settingsExeRun(HWND parent, wchar_t *exeResolved, size_t cap) {
+    (void)parent; /* the exe owns its own window; TSF gives no meaningful one */
+    wchar_t exe[MAX_PATH];
+
+    char opt[MAX_PATH];
+    DWORD n = GetEnvironmentVariableA("HUNMIN_TSF_SETTINGS_EXE", opt,
+                                      (DWORD)sizeof(opt));
+    if (n > 0 && n < sizeof(opt))
+        MultiByteToWideChar(CP_UTF8, 0, opt, -1, exe, (int)sizeof(exe));
+    else {
+        HMODULE hSelf = nullptr;
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (LPCWSTR)(const void *)&HunminSettingsShow, &hSelf);
+        wchar_t dir[MAX_PATH];
+        if (hSelf == nullptr ||
+            GetModuleFileNameW(hSelf, dir, (DWORD)sizeof(dir)) == 0) {
+            logLine("settings-exe: module path FAILED err=%lu", GetLastError());
+            return false;
+        }
+        *wcsrchr(dir, L'\\') = L'\0';
+        swprintf(exe, MAX_PATH, L"%ls\\settings-ui\\publish\\hunmin-tsf-settingsui.exe",
+                 dir);
+        if (GetFileAttributesW(exe) == INVALID_FILE_ATTRIBUTES)
+            swprintf(exe, MAX_PATH, L"%ls\\..\\settings-ui\\publish\\hunmin-tsf-settingsui.exe",
+                     dir);
+        if (GetFileAttributesW(exe) == INVALID_FILE_ATTRIBUTES) {
+            logLine("settings-exe: not found under %ls", dir);
+            return false;
+        }
+    }
+    if (exeResolved && cap) {
+        wcsncpy(exeResolved, exe, cap - 1);
+        exeResolved[cap - 1] = L'\0';
+    }
+
+    logLine("settings-exe: launching %ls", exe);
+    SHELLEXECUTEINFOW si = {};
+    si.cbSize = sizeof(si);
+    si.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+    si.lpVerb = L"open";
+    si.lpFile = exe;
+    si.nShow = SW_SHOW;
+    if (!ShellExecuteExW(&si) || si.hProcess == nullptr) {
+        logLine("settings-exe: ShellExecuteEx FAILED err=%lu", GetLastError());
+        return false;
+    }
+    /* Modal per the documented contract: do not return until the dialog
+     * closes (the exe process exiting). */
+    WaitForSingleObject(si.hProcess, INFINITE);
+    DWORD exitCode = 0;
+    GetExitCodeProcess(si.hProcess, &exitCode);
+    CloseHandle(si.hProcess);
+    logLine("settings-exe: exited %lu", (unsigned long)exitCode);
+    return true;
+}
+
 /* ---- TSF-native plumbing ---- */
 
 class HunminTsfConfigFn : public ITfFnConfigure {
@@ -582,16 +652,20 @@ class HunminTsfConfigFn : public ITfFnConfigure {
         return *pbstrName ? S_OK : E_OUTOFMEMORY;
     }
     /* The contract the classic Text Services / property surfaces rely on:
-     * do not return until the dialog closes. */
+     * do not return until the dialog closes. Maintainer ruling 2026-10-17:
+     * Show surfaces the WinUI 3 exe ONLY — the interim Win32 dialog is not
+     * reachable here (it lives on via the rundll32 export until removed). */
     STDMETHOD(Show)(HWND hwndParent, LANGID langid, REFGUID rguidProfile) override {
         (void)langid;
         (void)rguidProfile;
         logLine("ITfFnConfigure::Show pid=%lu", (unsigned long)GetCurrentProcessId());
-        bool applied = settingsDialogRun(hwndParent);
-        /* Live re-apply, issue #71 requirement: the running adapter re-reads
-         * the store WITHOUT a process restart. Only when a live service is
-         * attached underneath this function object. */
-        if (applied && svc_)
+        bool launched = settingsExeRun(hwndParent, nullptr, 0);
+        /* Live re-apply, issue #71 requirement: after the exe's commit (its
+         * exit), the running adapter re-reads the store WITHOUT a process
+         * restart. A miss on the exe leaves the store untouched, and the
+         * no-exe fact is logged rather than silently falling back to the
+         * interim dialog. */
+        if (launched && svc_)
             hunmin_tsf_apply_config_store(svc_);
         return S_OK;
     }
