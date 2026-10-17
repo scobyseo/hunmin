@@ -165,6 +165,9 @@ class HEditSession : public ITfEditSession {
 };
 
 static const CLSID CLSID_HunminTSF = {0xF2C70001, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}};
+/* The language profile GUID is shared state: registration enables it, so
+ * unregistration must name the same GUID to remove it (issue #84). */
+static const GUID HunminProfileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
 
 class CTextService : public ITfTextInputProcessor,
                      public ITfThreadMgrEventSink,
@@ -953,7 +956,7 @@ extern "C" BOOL DllRegisterServer() {
             fwprintf(dbg, L"pProfile->Register hr=0x%lX\n", (unsigned long)regHr);
             fflush(dbg);
         }
-        static const GUID profileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
+        static const GUID profileGuid = HunminProfileGuid;
         HMODULE hSelf = nullptr;
         GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR)(const void *)DllRegisterServer, &hSelf);
         wchar_t iconPath[MAX_PATH] = L"";
@@ -1052,11 +1055,93 @@ extern "C" BOOL DllRegisterServer() {
 }
 
 extern "C" BOOL DllUnregisterServer() {
+    /* Mirror of DllRegisterServer, applied in reverse order (issue #84).
+     * First the profile and category state the CTF COM services hold, then
+     * the HKLM TIP tree under which AddLanguageProfile created subkeys, then
+     * the COM CLSID tree. Windows Settings' own per-user CTF store (HKCU
+     * SortOrder / Assemblies) is deliberately NOT touched: registration
+     * never writes it (measured, docs/WINDOWS-TSF-REGISTRATION.md), so
+     * unregistering must not either. Logging follows the register flow: only
+     * tsf_log_open-mediated writes, to hunmin-reg-debug.log. */
+    FILE *dbg = tsf_log_open("hunmin-reg-debug.log", "a");
     wchar_t guidStr[64];
     StringFromGUID2(CLSID_HunminTSF, guidStr, 64);
+    if (dbg) {
+        fwprintf(dbg, L"--- unregister begin guid=%s\n", guidStr);
+        fflush(dbg);
+    }
+
+    CoInitialize(nullptr);
+    ITfInputProcessorProfiles *pProfile = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
+                                  IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
+    if (dbg) {
+        fwprintf(dbg, L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
+        fflush(dbg);
+    }
+    if (SUCCEEDED(hr) && pProfile) {
+        /* Reverse of the register order: the per-profile enablement entry the
+         * ProfileMgr interface owns goes first (mirror of EnableLanguage-
+         * Profile / ProfileMgr), then Unregister() for Register(). */
+        ITfInputProcessorProfileMgr *pProfileMgr = nullptr;
+        HRESULT mgrHr = pProfile->QueryInterface(IID_ITfInputProcessorProfileMgr, (LPVOID *)&pProfileMgr);
+        if (dbg) {
+            fwprintf(dbg, L"pProfile QI(ITfInputProcessorProfileMgr) hr=0x%lX\n", (unsigned long)mgrHr);
+            fflush(dbg);
+        }
+        if (SUCCEEDED(mgrHr) && pProfileMgr) {
+            HRESULT upHr = pProfileMgr->UnregisterProfile(CLSID_HunminTSF, 0x0412, HunminProfileGuid, 0);
+            if (dbg) {
+                fwprintf(dbg, L"pProfileMgr->UnregisterProfile hr=0x%lX\n", (unsigned long)upHr);
+                fflush(dbg);
+            }
+            pProfileMgr->Release();
+        }
+        HRESULT unregHr = pProfile->Unregister(CLSID_HunminTSF);
+        if (dbg) {
+            fwprintf(dbg, L"pProfile->Unregister hr=0x%lX\n", (unsigned long)unregHr);
+            fflush(dbg);
+        }
+        pProfile->Release();
+    }
+
+    ITfCategoryMgr *pCatMgr = nullptr;
+    hr = CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
+    if (dbg) {
+        fwprintf(dbg, L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
+        fflush(dbg);
+    }
+    if (SUCCEEDED(hr) && pCatMgr) {
+        HRESULT c1 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_TIP_KEYBOARD, CLSID_HunminTSF);
+        HRESULT c2 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_CATEGORY_OF_TIP, CLSID_HunminTSF);
+        if (dbg) {
+            fwprintf(dbg, L"UnregisterCategory keyboard=0x%lX category=0x%lX\n", (unsigned long)c1, (unsigned long)c2);
+            fflush(dbg);
+        }
+        pCatMgr->Release();
+    }
+    CoUninitialize();
+
+    /* HKLM TIP tree: deleted AFTER the COM calls, because the registering
+     * side created LanguageProfile\0x00000412\{profile} subkeys under it
+     * through AddLanguageProfile. */
+    wchar_t tipPath[256];
+    swprintf(tipPath, 256, L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s", guidStr);
+    LSTATUS tipSt = RegDeleteTreeW(HKEY_LOCAL_MACHINE, tipPath);
+    if (dbg) {
+        fwprintf(dbg, L"RegDeleteTreeW(HKLM %s) st=0x%lX\n", tipPath, (unsigned long)tipSt);
+        fflush(dbg);
+    }
+
+    /* COM CLSID tree -- the only deletion the previous implementation did. */
     wchar_t clsidPath[128];
     swprintf(clsidPath, 128, L"CLSID\\%s", guidStr);
-    RegDeleteTreeW(HKEY_CLASSES_ROOT, clsidPath);
+    LSTATUS clsidSt = RegDeleteTreeW(HKEY_CLASSES_ROOT, clsidPath);
+    if (dbg) {
+        fwprintf(dbg, L"RegDeleteTreeW(HKCR %s) st=0x%lX\n", clsidPath, (unsigned long)clsidSt);
+        fflush(dbg);
+        fclose(dbg);
+    }
     return TRUE;
 }
 extern "C" const CLSID CLSID_HunminTSF_Export = {
