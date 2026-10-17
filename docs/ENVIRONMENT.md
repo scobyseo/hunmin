@@ -466,6 +466,13 @@ between what pip/winget can install without admin and what requires it.
 | Python | 3.13.14 | Windows store | `python3 --version` |
 | .NET SDK | — | pre-installed | `dotnet --version` |
 
+**ctest quirk on this CMake (4.4.4), measured 2026-10-17 (issue #86):** repeated
+`-LE` excludes a test only when it matches **all** the given expressions, not
+any of them — so the documented inner loop `ctest -j16 -LE slow -LE mutation`
+does NOT exclude the slow tier here (docs-lint, labelled slow, runs inside it
+and passes; the run stays far inside the 30 s budget anyway). `-LE slow` alone
+is what excludes it. The semantics changed with CMake, not with this repo.
+
 PATH entries to add (per-user, no admin):
 ```
 C:\Program Files\LLVM\bin
@@ -755,4 +762,60 @@ next host does not rediscover them:
 6. **Gradle's Windows-CRLF classpath cache** broke `-cp` assembly in
    `android-trace-emit.sh` (`ClassNotFoundException: TraceEmit`): the
    runner strips the `\r` on Windows now.
+7. **The tier-C android runner's shim compiler came from a PATH probe**
+   (issue #86, 2026-10-17): with `CC` unset, `tools/build-host-jni.sh`
+   picked `cc clang gcc` off PATH and got the MSVC-target LLVM clang in
+   `C:/Program Files/LLVM/bin` — which compiled `hunmin-jni.c` against VS 18
+   BuildTools headers (MSVC 14.51.36231, newer than the 14.44 recorded in
+   the audit above) and linked with `lld-link`, demanding `hunmin.lib`, a
+   file a mingw build tree never has (`libhunmin.dll.a` is what it holds).
+   Every `engine-android-conformance-*` test failed on that one selection.
+   `build-host-jni.sh` now takes `CMAKE_C_COMPILER` from the build tree's
+   `CMakeCache.txt` first; the PATH probe is fallback only.
+8. **The runners' defaulted `ANDROID_HOME` / `JAVA_HOME` were MSYS
+   `/c/...` forms** (issue #86, 2026-10-17): Gradle, a Windows JVM, answers
+   "SDK location not found" for a `/c/...` `ANDROID_HOME` and fails child
+   lookups (keytool) for a `/c/...` `JAVA_HOME` — the same class as
+   pitfall 2. Both defaults now convert with `cygpath -m` on MSYS, matching
+   the `LOCALAPPDATA` branch that already did; an inherited `C:/...` value
+   (the `.bashrc` convention) passes through unchanged, and the runners stay
+   self-sufficient under ctest's clean environment.
+
+### Which toolchain each Android runner uses (this host, measured 2026-10-17, issue #86)
+
+The tier-C android runner and tier E1 both build the host JNI shim
+(`libhunjni-host.dll`) through `tools/build-host-jni.sh`, so the shim's
+compiler selection decides whether the portable mingw suite is measurable
+here at all. Measured selection, after fixes 7 and 8 above:
+
+| runner | shim builder | compiler it uses, measured |
+|---|---|---|
+| `tools/android-trace-emit.sh` (tier C) | `tools/build-host-jni.sh` | `CMAKE_C_COMPILER` from the build tree's `CMakeCache.txt` — the llvm-mingw gcc the tree was configured with |
+| `tools/android-unit.sh` (tier E1) | `tools/build-host-jni.sh` | same |
+
+`tools/build-host-jni.sh` resolves its compiler in this order:
+
+1. `$CC` — explicit override, honoured first.
+2. `CMAKE_C_COMPILER` out of `$HUNMIN_BUILD_DIR/CMakeCache.txt` — the
+   toolchain that built the engine DLL the shim loads. CMake 4.4.4 stores a
+   `-D`-passed compiler under the `:STRING` cache-type suffix and a
+   self-resolved one under `:FILEPATH`; both are accepted. `cl` is refused:
+   the script is a mingw/POSIX path by contract.
+3. PATH probe `cc clang gcc` — fallback only, for a build dir with no cache.
+   On this host it measured wrong on both axes: `gcc` on PATH is WinLibs
+   mingw64, a different mingw than the llvm-mingw that built
+   `libhunmin.dll`.
+
+After the fix the shim's import table reads `DLL Name: libhunmin.dll`
+(`objdump -p`), and the android tier-C conformance set runs green with
+`ANDROID_HOME` / `JAVA_HOME` unset at ctest time, under the documented
+`cmake -S . -B build-mingw -G Ninja -DCMAKE_C_COMPILER=C:/llvm-mingw-20261006-msvcrt-x86_64/bin/gcc.exe`
+configure.
+
+**VS 18 BuildTools is present on this host** at
+`C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools`, carrying MSVC
+toolsets 14.44.35207 **and 14.51.36231** — 14.51 is not the version recorded
+in the 2026-10-16 audit table above, and any MSVC-target compiler discovery
+on this host can now pick it. The mingw tiers must not reach it; that is
+what resolution order 2 guarantees for the shim.
 
