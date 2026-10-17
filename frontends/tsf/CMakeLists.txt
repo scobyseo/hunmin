@@ -5,6 +5,7 @@ add_library(hunmin-tsf MODULE
     src/dllmain.cpp
     src/tsf.cpp
     src/config.cpp
+    src/settings.cpp
 )
 
 # src/keybinding.cpp is NOT a target source on purpose: it is included by
@@ -64,6 +65,7 @@ endif()
 target_link_libraries(hunmin-tsf PRIVATE
     ${HUNMIN_ENGINE_LIB}
     ole32
+    oleaut32
     user32
 )
 # Use module definition file for explicit exports.
