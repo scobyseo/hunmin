@@ -224,6 +224,28 @@ int main() {
         CHECK(eatenDown == FALSE, "caps lock keydown passes through");
         CHECK(svc->hangulMode_, "caps lock did not flip the mode");
 
+        // Edit/navigation keys are keys of passage (measured regression, this
+        // session: the 0x20-0x7E fallback translated VK_UP -> '&' etc. and
+        // ate them). A pending composition is the boundary: the drain commits
+        // it once, the editor receives the key itself, nothing is swallowed.
+        svc->OnKeyDown(mctx, 'R', 0, &eaten);
+        CHECK(eaten == TRUE, "compose before the edit key");
+        {
+            size_t insBefore = mctx->insertions.size();
+            svc->OnTestKeyDown(mctx, VK_UP, 0, &eaten);
+            CHECK(eaten == FALSE, "test keydown: the editor keeps VK_UP interest");
+            svc->OnKeyDown(mctx, VK_UP, 0, &eaten);
+            CHECK(eaten == FALSE, "VK_UP passes through (eat=FALSE)");
+            CHECK(mctx->insertions.size() == insBefore + 1, "edit key is a boundary: one insert");
+            CHECK(svc->wordbuf_.empty(), "nothing held after the edit-key boundary");
+        }
+        /* U+3131 wide-literal escape (the ANSI-codepage rule above); the two
+         * inserts so far were the toggle boundary and this edit-key boundary. */
+        CHECK(mctx->doc == std::wstring(2, L'\u3131'),
+              "document holds 2 boundary inserts (got %s)", wideToUtf8Preview(mctx->doc).c_str());
+        svc->OnKeyDown(mctx, VK_DELETE, 0, &eaten);
+        CHECK(eaten == FALSE, "VK_DELETE also passes through");
+
         svc->Release();
         mctx->Release();
         dm->Release();
