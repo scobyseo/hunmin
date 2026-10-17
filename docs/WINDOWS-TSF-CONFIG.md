@@ -104,6 +104,72 @@ tree loaded twice — 15 staged layout files reported
 `tsf-datadir-test`). Overlapping dirs are the caller's to avoid; the engine's
 contract is left untouched (no core change).
 
+
+## The settings dialog (WinUI 3 exe)
+
+The configuration UI is a **separate WinUI 3 settings exe** — the maintainer's
+ruling 2026-10-17 on issue #71 ("B — separate WinUI 3 settings exe via Windows
+App SDK; true Fluent; ~50MB+ installer weight; milestone E packaging
+implications"). It replaces the plain-Win32 dialog on the TSF surface; the
+interim dialog stays reachable only through `show-settings.bat`'s rundll32
+fallback until the Win32 TU is removed.
+
+Tree: `frontends/tsf/settings-ui/` — `HunminTsfSettingsUI.csproj` (net8.0,
+unpackaged, `WindowsAppSDKSelfContained=true`, `SelfContained=true`,
+win-x64), `App.xaml(.cs)`, `MainWindow.xaml(.cs)`,
+`build-settings-ui.bat`. No engine link, no candidate logic: the exe reads
+the layout JSON entries (`id`, `name.ko`, `mode` — docs/SPEC-SCHEMA.md) and
+writes the store, nothing else.
+
+- Launch paths (both reach the exe):
+  1. TSF-native — `ITfFnConfigure::Show` (`frontends/tsf/src/settings.cpp`)
+     launches the exe via `ShellExecuteEx` (edge case logged, never a
+     fallback to the interim dialog) and **waits on the process handle**: the
+     property-sheet contract ("do not return while the dialog is open") now
+     means one Settings host process. On exit it re-applies the store to the
+     live adapter (`hunmin_tsf_apply_config_store`, the #71 apply bridge).
+  2. Direct — `frontends/tsf/show-settings.bat` launches the same exe
+     (resolved beside the DLL, InprocServer32 fallback), rundll32 interim
+     dialog as fallback.
+- Exe resolution (first hit wins): `HUNMIN_TSF_SETTINGS_EXE` env >
+  `<dll dir>\settings-ui\publish\hunmin-tsf-settingsui.exe` >
+  `<dll dir>\..\settings-ui\publish\hunmin-tsf-settingsui.exe` (the
+  dev-checkout shape).
+- Data dir (same precedence the adapter uses): `--data` arg >
+  `HUNMIN_DATA_DIR` env > `<exedir>\data` > the parent-dir climb
+  (`<exedir>\..\data`, the deployed shape — the exe always sits under
+  `<dll dir>\settings-ui\`).
+- The mode-toggle key row: **one configurable binding set by key capture**
+  (ruling quoted: "한영 전환 키는 하나만 선택해도 되고, 복잡하게 입력하는 게
+  아니라 키 입력 방식을 사용하자") — [변경] starts capture ("키를
+  누르세요…", ESC cancels), the dialog's own KeyDown catches the next press,
+  auto-repeat is swallowed by the repeat bit, and modifier-only presses are
+  rejected (Android's isModifierKey mirror). The result writes ONE
+  `v1:<vk>:<mods>` entry to `HangulEngKeys`: the store's ';' list grammar is
+  unchanged, and the adapter still appends the implicit bare Han/Eng
+  platform alternate — the physical key can never be captured away.
+- Store contract untouched (config.{h,cpp} untouched): `HKCU\Software\Hunmin\TSF,
+  `REG_SZ` values `HangulLayout` / `LatinLayout` / `HangulEngKeys`; empty
+  string removes the value (an absent toggle value leaves the physical key
+  as the toggle).
+- Compact sizing (ruling: "configuration window ... too large; make both
+  compact"), measured on this host 2026-10-17 (Windows 11 26200, the
+  display's DPI scale 1.25 with a reported 96 DPI):
+  - WinUI exe: 545x674 px on screen (client 525x655 + title bar), fixed
+    via `AppWindow.ResizeClient` post-Activate — the ResizeClient input scales
+    by the DPI factor on this host ((500,600) request → 625x750 client), so
+    the request is measured to land inside the quoted ~480-560 px band.
+  - Interim Win32 dialog: template 216x164 dialog units, measured
+    493x434 px on screen (client 472x385, per-window DPI 96 on a 125% display
+    — the dialog's own DLU conversion lands larger than the raw-DU math
+    suggests). The quoted ~340x240 target is a LARGER template in dialog
+    units than the existing 216x164, and the on-screen 493x434 px already
+    sits in the compact band — kept as the fixed small size, recorded, and
+    the exact-quoted-template question is left to the removal commit.
+- Also recorded for #68 packaging: publish output is 495 files /
+  167.4 MiB fully self-contained (the ruling's ~50 MB+ is confirmed and
+  exceeded by the runtime-carrying layout).
+
 ## Tier F1 additions (ctest, MSVC-only)
 
 - `tsf-config-test` — env wins, empty env is unset, defaults, save/load round

@@ -1,75 +1,103 @@
 # Manual checklist — TSF settings window on a real host
 
-The mock harness (`tsf-settings-test`, tier F1) can drive the COM plumbing —
-ITfFunctionProvider, ITfFnConfigure, ApplyConfigStore — because it feeds the
-adapter real objects. What only a real desktop session can measure is the
-modal dialog itself and the Windows 11 look-and-feel layer (`applyWindows11Look`
-logs every DWM HRESULT; the log is the measurement, not a screenshot).
-Artifacts needed: the built `hunmin-tsf.dll`, the runtime log
-`<dll dir>\hunmin-tsf-debug.log` (delete it before starting so only this run's
-lines appear), and `regedit` for reading the store.
+**The settings UI is the WinUI 3 exe (`hunmin-tsf-settingsui.exe`,
+`frontends/tsf/settings-ui/`, ruling 2026-10-17)**; the interim plain-Win32
+dialog is its `show-settings.bat` fallback until removed. The mock harness
+(`tsf-settings-test`, tier F1) can drive the COM plumbing — ITfFunctionProvider,
+ITfFnConfigure, ApplyConfigStore — because it feeds the adapter real objects.
+What only a real desktop session can measure is the modal behaviour, the key
+capture and the measured window sizes.
 
-Background: the window reached two ways —
+Artifacts: the published exe (`build-settings-ui.bat`), the built
+`hunmin-tsf.dll`, the runtime log `<dll dir>\hunmin-tsf-debug.log` gated by
+`HUNMIN_TSF_DEBUG_LOG=1` (delete before starting), the exe-side log
+`settings-ui\publish\settings-ui-debug.log`, and `reg query`/`regedit` for the
+store:
 
-1. `rundll32` export: `frontends/tsf/show-settings.bat` resolves the DLL
-   clone-independently (beside the script, then the registered InprocServer32
-   path) and calls the `HunminSettingsShow` export.
-2. The TSF path: the language bar / text-service Tools menu opens
-   `ITfFnConfigure::Show`, which runs the same shared
-   `settingsDialogRun`.
+    reg query HKCU\Software\Hunmin\TSF /v HangulLayout
 
-Steps:
+## Sizes (compact — the ruling's numbers, measured on this host)
 
-1. Launch `show-settings.bat`. The log must show `HunminSettingsShow entry`,
-   `settings: open rows hangul=N latin=M` (row counts from
-   `hunmin_ctx_layout_mode`, matching `hunmin_ctx_layout_count`), and a
-   top-level dialog titled **Hunmin settings** with no owner (the rundll32
-   path has no natural parent).
-2. The two combo boxes list only the mode-correct layouts: the hangul combo
-   (`IDC_HANGUL_LIST`) carries `dubeolsik` and only hangul-mode ids, the latin
-   combo carries `us-qwerty` and only latin-mode ids — store values
-   `HangulLayout` / `LatinLayout` preselect. The feature row reads
-   **자동 한/영 전환: 미정 (0.3)** and is disabled throughout (ruling quoted in
-   `docs/REMAINING-WORK.md` 2026-10-12 — display only).
-3. Change both layouts to non-default values, set `HangulEngKeys` to
-   `v1:21:1`, press OK. The log must show
-   `settings: saved hangul=... latin=... keys=...`, `regedit` must show the
-   three values written under `HKCU\Software\Hunmin\TSF`, and the dialog must
-   close (EndDialog return 1). Verify the running TIP picks the change up on
-   the next Activate — or force it: reopen the dialog, change back, OK; the
-   composition of a fresh keystroke must use the new layout without a
-   process restart (`ApplyConfigStore` line in the log after the ITfFnConfigure
-   path).
-4. Set `HangulEngKeys` to a string longer than the store capacity — OK must
-   NOT close the dialog silently: the **Toggle key list too long.** warning
-   appears and the dialog stays open for fixing.
-5. OK with the store unsaveable (deny write by pointing at a read-only root,
-   or as the platform permits): the **Failed to write the settings store.**
-   warning appears, log shows `settings: save FAILED`, dialog stays open.
-   The user's explicit Apply must never silently do nothing.
-6. Cancel and the X both close with no write: the registry values must be
-   byte-identical to before, log shows `settings: dialog closed got=-1 applied=0`
-   (or `applied=0` variant for Cancel) — nothing was written.
-7. Windows 11 look (Win11 10.0.26200): rounded corners, Mica backdrop, dark
-   mode follows the system, the Variable font applied. Every DWM call's
-   HRESULT is logged (`hrBackdrop`, DwmSetWindowAttribute, etc.) — on a
-   failure the window must still render (dark fill fallback), and the logged
-   hr is the measurement to record, not a reject.
-8. The TSF path (needs a registered TIP and a host app whose language bar
-   exposes Tools): select Hunmin via Win+Space, open the Tools menu →
-   `GetDisplayName` label must launch the same dialog. The log shows
+| Surface | Template / request | Measured on screen (2026-10-17, Win11 26200, 125% display scale) |
+|---|---|---|
+| WinUI exe | ResizeClient (436, 500) — DPI factor 1.25 applies to the request | **545 x 674 px** (client 525x655 + title bar) |
+| Interim Win32 dialog | in-memory template 216x164 DU | **493 x 434 px** (client 472x385, per-window DPI 96) |
+
+The exe's measured width sits inside the claimed compact band (~480-560 px);
+the interim dialog stays at this fixed size and is not re-laid further
+(removal commit decides the quoted ~340x240 DU exact-template question, a
+number LARGER than the current 216x164 DU template).
+
+## Steps — the exe surface
+
+1. `reg query HKCU\Software\Hunmin\TSF` — record the three values
+   (`HangulLayout`/`LatinLayout`/`HangulEngKeys`) as the before-state.
+2. Launch `frontends\tsf\settings-ui\publish\hunmin-tsf-settingsui.exe`
+   (`--data <engine data dir>` to pin the tree; the deployed dir and
+   `HUNMIN_DATA_DIR` work the same). The window must open inside the compact
+   band above, and list layouts split by mode — hangul rows from
+   `mode=="hangul"`, latin rows from `mode=="latin"` (ko names from
+   `name.ko`, ids in parenthesis, sorted by id). Measured this host: 12
+   hangul + 3 latin rows from `libhunmin/data`.
+3. The key row shows the stored binding as a label (`한/영`, `오른쪽 Alt`,
+   `Shift+Space`, `F11 (v1:122:0)` …; `설정 없음 (물리 한/영 키)` when the
+   store is empty). Press **변경**: the hint turns "키를 누르세요… (ESC
+   취소)". Captured keydown contract (measured, UIAutomation):
+   - the NEXT keydown stores the binding — F11 → label `F11 (v1:122:0)`;
+   - **ESC cancels** — the label reverts to the stored binding, nothing is
+     written on Apply;
+   - modifier-only presses (Shift/Ctrl/Alt alone) are rejected as the
+     binding (the Android isModifierKey mirror): the row keeps waiting;
+   - auto-repeat (WasKeyDown) is swallowed — one press one capture;
+   - Shift chords land with the shift bit (e.g. Shift+Space → `v1:32:1`).
+4. Pick a layout different from the stored one in the hangul list, press
+   **적용**: the status line shows **저장했습니다.**. Read back:
+   `reg query HKCU\Software\Hunmin\TSF /v HangulLayout` shows the NEW value
+   (measured: `sin3-p2-basic` → `dubeolsik`), and
+   `reg query ... /v HangulEngKeys` shows the ONE captured entry
+   (`v1:122:0` in the measured run).
+5. Relaunch the exe: the selection and the captured key label come from the
+   store (measured: `dubeolsik` + `F11 (v1:122:0)`). Close the window (X):
+   exit 0.
+6. Restore the before-state values with `reg add` so the host user's TIP
+   settings survive the pass (do this after every smoke run).
+
+## Steps — the TSF-native path (device-bound where noted)
+
+7. `ITfFnConfigure::Show` (language bar / text-service Tools on a real
+   host, `HUNMIN_TSF_DEBUG_LOG=1` set first): the log shows
    `ITfFnConfigure::Show pid=...` from the HOST process (notepad etc.), then
-   the same entry/save lines as the rundll32 path.
+   `settings-exe: launching <path>` — the exe, NOT the Win32 dialog, opens —
+   and while the exe window is open the host call DOES NOT RETURN (the
+   modal property-sheet contract; verify: the host app's UI stays blocked
+   for the popup's lifetime). After the exe exits the log shows
+   `settings-exe: exited 0`, then `ApplyConfigStore` (the live adapter
+   re-reads without a restart). **Needs a registered TIP and a real host —
+   the registry/registration steps are in `tsf-register.bat`**; not
+   measurable headless: record the exact blocker (no language-bar host in
+   a headless session) as device-bound, never as passing.
+8. Exe miss (delete/rename `HUNMIN_TSF_SETTINGS_EXE` and the publish dir):
+   Show must LOG (`settings-exe: not found`) and return S_OK WITHOUT
+   opening the interim dialog — the ruling's "exe ONLY".
 
-Notes:
+## Steps — the interim dialog fallback (until removed)
+
+9. `show-settings.bat` with the exe present launches the exe (measured:
+   `hunmin-tsf-settingsui.exe` process appears, no rundll32). With the exe
+   absent it falls back to `rundll32 <dll>,HunminSettingsShow`, opening the
+   **Hunmin settings** dialog (the measured 493x434 px dialog). Steps 2-6
+   apply to it with combos in place of the lists; the apply logs
+   `settings: saved hangul=... latin=... keys=...` and Cancel/X close with
+   `settings: dialog closed got=-1 applied=0`, no write. Expected row label:
+   **자동 한/영 전환: 미정 (0.3)** disabled throughout.
+
+## Notes
+
 - Income to the engine IPC question: an in-flight syllable of a running
   composition is lost across Apply (the ic is rebuilt; documented in the
-  `ApplyConfigStore` contract). Verify in step 3: type `rk` so `ㅂ` is in
-  flight in a host app, apply a layout change from a second dialog, then
-  finish the word — record whether the preedit cleared, and whether the
-  partially-composed buffer reconnects around the boundary flush.
-- The dialog is not in any automated test (a blocking modal window in a CI
-  binary is the manual tier's surface); the pure half — the row split and the
-  apply-bridge — is in `tsf-settings-test`.
+  `ApplyConfigStore` contract in `frontends/tsf/src/settings.h`).
+- The dialogs are not in any automated ctest (blocking windows are the
+  manual tier's surface); the pure half — the row split, the store round
+  trip and the apply-bridge — is in `tsf-settings-test`.
 - Worker note: none of the above is a verdict. A failed step is a finding to
   record in `wiki/`, not a rebuild order.
