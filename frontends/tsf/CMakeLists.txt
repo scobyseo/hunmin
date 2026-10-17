@@ -12,8 +12,12 @@ endif()
 
 # Export registration helpers via DEF file eventually.
 target_compile_definitions(hunmin-tsf PRIVATE UNICODE _UNICODE)
+# CMAKE_CURRENT_SOURCE_DIR, not CMAKE_SOURCE_DIR: as a subdirectory of the
+# top-level project the latter is the repo root and the engine include path
+# would point one level too high (measured: the `builds` guard rebuilt the
+# DLL and hit C1083 on hunmin.h).
 target_include_directories(hunmin-tsf PRIVATE
-    ${CMAKE_SOURCE_DIR}/../../libhunmin/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../libhunmin/include
 )
 # Link the engine statically (see the note in the top-level CMakeLists.txt).
 # A TIP is loaded by its registry path alone: nothing sets a search path for
@@ -44,7 +48,12 @@ elseif(HUNMIN_LIB)
                     "hunmin.dll must be resolvable at run time or the TIP will fail to load")
     set(HUNMIN_ENGINE_LIB ${HUNMIN_LIB})
 else()
-    message(FATAL_ERROR "libhunmin (.lib) not found; build the core first")
+    # Skip, not fatal: a fresh top-level configure builds the core AFTER this
+    # directory is processed, and the standalone flow builds the core first.
+    # Absent-and-loud beats breaking every configure that happens to precede
+    # the core build; reconfigure once hunmin_static exists.
+    message(STATUS "libhunmin (.lib) not found: hunmin-tsf and its tier-F1 harness disabled; build the core first")
+    return()
 endif()
 target_link_libraries(hunmin-tsf PRIVATE
     ${HUNMIN_ENGINE_LIB}
@@ -55,3 +64,10 @@ target_link_libraries(hunmin-tsf PRIVATE
 set_target_properties(hunmin-tsf PROPERTIES
     SUFFIX ".dll"
     LINK_OPTIONS "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/src/hunmin-tsf.def")
+
+# Tier F1: the mock-TSF harness (issue #80) drives the adapter above over
+# in-memory COM doubles and needs no DLL, registry or window. MSVC builds
+# it; a POSIX or non-MSVC configure of this directory registers nothing.
+if(WIN32 AND MSVC)
+  add_subdirectory(test)
+endif()

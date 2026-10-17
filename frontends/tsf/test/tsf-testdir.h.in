@@ -1,0 +1,3 @@
+/* Per-test build configuration; @VAR@ substitution — same pattern as
+ * frontends/fcitx5/test/testdir.h.in. */
+#define HUNMIN_TSF_DATA_DIR "@HUNMIN_TSF_REPO_ROOT@/libhunmin/data"
