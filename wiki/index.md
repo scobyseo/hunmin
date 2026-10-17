@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-17 | Total pages: 37
+> Last updated: 2026-10-17 | Total pages: 38
 
 ## Concepts
 
@@ -114,6 +114,11 @@
   on the Windows host, the 51/52 inner-loop ctest result with the
   by-nature `data-selfcheck` failure, and the stale host-fact corrections in
   `docs/ENVIRONMENT.md`, `docs/MILESTONES.md` and `docs/REMAINING-WORK.md`.
+- [[2026-10-17-clang-format-retune-option-2]] — issue #77: the ruling (option
+  2, steered "ideal for AI workload"), the churn ladder that picked
+  `ColumnLimit: 0` (1491 → 1673 → 853 `-w` lines), the `--style=file:<path>`
+  trap, and the split-config + ignore-file landing with 51/51 inner-loop
+  ctest and pass-level idempotence.
 
 ## Raw — measurements
 

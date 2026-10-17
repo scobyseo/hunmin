@@ -28,7 +28,7 @@ struct LayoutAnnotation : public EnumAnnotation {
         }
     }
 
-private:
+  private:
     std::vector<std::pair<std::string, std::string>> layouts_;
 };
 

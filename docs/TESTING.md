@@ -261,9 +261,16 @@ cache it compiles only `libhunmin` — the fcitx5 addon and the Android frontend
 skip by name. It runs no tier tests beyond `abi`/`schema-contract`, and no
 linting of C or Kotlin: `shell-lint` covers the shell at `-S error` severity,
 and `docs-lint` covers the Python by type-checking `tools/` with pyright (the
-M5-CLOSED row). clang-tidy and clang-format are on the GitHub image and unused;
-adding them is a separate decision about how much noise this project is willing
-to gate on.
+(M5-CLOSED row). clang-tidy and clang-format are on the GitHub image and unused;
+adding CI gating for them is a separate decision about how much noise this
+project is willing to gate on. clang-format itself *is* the tree's formatting
+standard since 2026-10-17 (issue #77, option 2): a root `.clang-format` for the
+C core (2-space, compaction, `ColumnLimit: 0` so hand-shaped wraps, packed
+typedefs and single-line macros are never re-written), per-directory configs
+for the two 4-space C++ frontends, and a `.clang-format-ignore` for the vendored
+and generated trees. The machine-checkable state is `clang-format -n` reporting
+no changes on tracked files after a clean application commit; run
+`clang-format -i` on the files you touch and let the second pass be idempotent.
 
 **Why the commit rung is cheap is not obvious and is worth stating:** the two
 real defects this ladder exists to catch were both *text* drifting from *text*.

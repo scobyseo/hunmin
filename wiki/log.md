@@ -542,3 +542,28 @@
   every pass on the Windows host), so the gate's exception list holds
   `modes-corpus-selfcheck` alone and `tools/release-gate.sh` was updated with
   the selftest fixtures re-planted. The ruling quote is kept verbatim.
+
+## [2026-10-17] create | clang-format retuned to the tree's own style, applied once (issue #77)
+
+- `wiki/raw/sessions/2026-10-17-clang-format-retune-option-2.md` — the
+  implementation pass over issue #77: the maintainer's ruling (option 2,
+  steered "ideal for AI workload") kept verbatim, the churn ladder that
+  selected `ColumnLimit: 0` (retuned limit-100 1491 → limit-0 without
+  `AllowShort*` 1673 → limit-0 with them 853 `-w` lines; trailing-comment
+  alignment measured a no-op under limit 0), the `.clang-format-ignore` probe
+  and the `--style=file:<path>` trap, the split configs landing
+  (root C core, `frontends/fcitx5`, `frontends/tsf` after `tsf.cpp` fell
+  through to the root config once), and the machine-checkable state: 51/51
+  inner-loop ctest, idempotent second pass, vendored and generated trees
+  excluded. The issue close is the maintainer's; see
+  [[decisions-belong-to-the-maintainer]].
+- `wiki/index.md` listed the page under Raw — sessions.
+
+## [2026-10-17] update | .clang-format-ignore directory patterns need the ** glob (issue #77)
+
+- `wiki/raw/sessions/2026-10-17-clang-format-retune-option-2.md` — the first
+  full `-n` sweep caught the ignore file's directory pattern `data-orig/`
+  failing to match files inside the directory; the glob form `data-orig/**`
+  does. The rule and the probe measured with hangulctype.c/cJSON.c/tables.c
+  are recorded on the session page; the committed `.clang-format-ignore` uses
+  the glob form in the same pass.

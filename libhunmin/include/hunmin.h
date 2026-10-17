@@ -19,20 +19,20 @@ extern "C" {
  * visibility already exports everything, but the attribute makes
  * the intent explicit and survives a -fvisibility=hidden build. */
 #if defined(_WIN32) || defined(__CYGWIN__)
-  #ifdef HUNMIN_BUILDING_DLL
-    #define HUNMIN_EXPORT __declspec(dllexport)
-  #else
-    #define HUNMIN_EXPORT __declspec(dllimport)
-  #endif
+#ifdef HUNMIN_BUILDING_DLL
+#define HUNMIN_EXPORT __declspec(dllexport)
 #else
-  #define HUNMIN_EXPORT __attribute__((visibility("default")))
+#define HUNMIN_EXPORT __declspec(dllimport)
+#endif
+#else
+#define HUNMIN_EXPORT __attribute__((visibility("default")))
 #endif
 
 HUNMIN_EXPORT const char *hunmin_version_string(void);
 HUNMIN_EXPORT int hunmin_abi_version(void);
 
 typedef struct hunmin_ctx hunmin_ctx;
-typedef struct hunmin_ic  hunmin_ic;
+typedef struct hunmin_ic hunmin_ic;
 
 /* Create a context scanning layout/compose JSON from ndirs search paths
  * (each dir contains layouts and compose json files, see docs/SPEC-SCHEMA.md).
@@ -76,7 +76,7 @@ const char *hunmin_ic_preedit(hunmin_ic *ic);
  * hunmin_ic_reset (layout defaults return). */
 bool hunmin_ic_set_option(hunmin_ic *ic, const char *name, int value);
 
-void hunmin_ic_reset(hunmin_ic *ic);       /* drop composition silently */
+void hunmin_ic_reset(hunmin_ic *ic); /* drop composition silently */
 const char *hunmin_ic_flush(hunmin_ic *ic); /* commit in-flight syllable */
 
 /* --- External text pass-through (PLAN.md invariant 5) ---

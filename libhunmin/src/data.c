@@ -21,13 +21,11 @@
 #define MAX_LINE 4096
 
 static const char *SHIFTED[] = {
-  "~", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "+",
-  "{", "}", "|", ":", "\"", "<", ">", "?", NULL
-};
+    "~", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "+",
+    "{", "}", "|", ":", "\"", "<", ">", "?", NULL};
 static const char *BASE[] = {
-  "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=",
-  "[", "]", "\\", ";", "'", ",", ".", "/", NULL
-};
+    "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=",
+    "[", "]", "\\", ";", "'", ",", ".", "/", NULL};
 
 static uint32_t shifted_of(char c) {
   if (c >= 'a' && c <= 'z') return (uint32_t)(c - 'a' + 'A');
@@ -39,8 +37,12 @@ static uint32_t shifted_of(char c) {
 static int cp_from_utf8(const char *s, uint32_t *cp) { /* -> consumed bytes */
   unsigned char c = (unsigned char)s[0];
   if (!c) return 0;
-  if (c < 0x80) { *cp = c; return 1; }
-  int n = c >= 0xF0 ? 4 : c >= 0xE0 ? 3 : 2;
+  if (c < 0x80) {
+    *cp = c;
+    return 1;
+  }
+  int n = c >= 0xF0 ? 4 : c >= 0xE0 ? 3
+                                    : 2;
   *cp = c & (0x7F >> n);
   for (int i = 1; i < n; i++) {
     if (((unsigned char)s[i] & 0xC0) != 0x80) return 0;
@@ -74,15 +76,21 @@ static hm_val *load_value_deep(const cJSON *v, bool allow_case, int depth) {
     if (s[0] == '=' && s[1]) {
       const char *rest = s + 1;
       int n = cp_from_utf8(rest, &cp);
-      if (!cp || !n || rest[n]) { free(out); return NULL; }
-      out->kind = HK_LIT; out->code = cp;
+      if (!cp || !n || rest[n]) {
+        free(out);
+        return NULL;
+      }
+      out->kind = HK_LIT;
+      out->code = cp;
       return out;
     }
     int n = cp_from_utf8(s, &cp);
     if (!n || s[n] || !hm_is_jamo((ucschar)cp) || cp == 0x115F || cp == 0x1160) {
-      free(out); return NULL;
+      free(out);
+      return NULL;
     }
-    out->kind = HK_JAMO; out->code = cp;
+    out->kind = HK_JAMO;
+    out->code = cp;
     return out;
   }
   if (cJSON_IsObject(v)) {
@@ -98,14 +106,18 @@ static hm_val *load_value_deep(const cJSON *v, bool allow_case, int depth) {
     const cJSON *g = cJSON_GetObjectItemCaseSensitive(v, "g");
     if (g && !c) {
       hm_val *inner = load_value_deep(g, allow_case, depth + 1);
-      if (!inner) { free(out); return NULL; }
+      if (!inner) {
+        free(out);
+        return NULL;
+      }
       inner->g = 1;
       free(out);
-      return inner;             /* flag lives on the leaf */
+      return inner; /* flag lives on the leaf */
     }
     const cJSON *tier = cJSON_GetObjectItemCaseSensitive(v, "tier");
     if (tier && cJSON_IsNumber(tier)) {
-      out->kind = HK_TIER; out->code = (uint32_t)tier->valueint;
+      out->kind = HK_TIER;
+      out->code = (uint32_t)tier->valueint;
       return out;
     }
     const cJSON *j = cJSON_GetObjectItemCaseSensitive(v, "j");
@@ -113,25 +125,46 @@ static hm_val *load_value_deep(const cJSON *v, bool allow_case, int depth) {
       uint32_t cp;
       int n = cp_from_utf8(j->valuestring, &cp);
       if (!n || j->valuestring[n] || !hm_is_jamo((ucschar)cp) ||
-          cp == 0x115F || cp == 0x1160) { free(out); return NULL; }
-      out->kind = HK_JAMO; out->code = cp;
+          cp == 0x115F || cp == 0x1160) {
+        free(out);
+        return NULL;
+      }
+      out->kind = HK_JAMO;
+      out->code = cp;
       const cJSON *vr = cJSON_GetObjectItemCaseSensitive(v, "variant");
       if (cJSON_IsTrue(vr)) out->variant = 1;
       return out;
     }
     if (seq) {
-      if (!cJSON_IsArray(seq)) { free(out); return NULL; }
+      if (!cJSON_IsArray(seq)) {
+        free(out);
+        return NULL;
+      }
       size_t len = cJSON_GetArraySize(seq);
-      if (len == 0) { free(out); return NULL; }
+      if (len == 0) {
+        free(out);
+        return NULL;
+      }
       uint32_t *arr = calloc(len + 1, sizeof *arr);
-      if (!arr) { free(out); return NULL; }
+      if (!arr) {
+        free(out);
+        return NULL;
+      }
       size_t idx = 0;
       const cJSON *item;
       cJSON_ArrayForEach(item, seq) {
-        if (!cJSON_IsString(item)) { free(arr); free(out); return NULL; }
+        if (!cJSON_IsString(item)) {
+          free(arr);
+          free(out);
+          return NULL;
+        }
         uint32_t cp;
         int n = cp_from_utf8(item->valuestring, &cp);
-        if (!n || item->valuestring[n] || cp == 0) { free(arr); free(out); return NULL; }
+        if (!n || item->valuestring[n] || cp == 0) {
+          free(arr);
+          free(out);
+          return NULL;
+        }
         arr[idx++] = cp;
       }
       arr[idx] = 0;
@@ -140,18 +173,29 @@ static hm_val *load_value_deep(const cJSON *v, bool allow_case, int depth) {
       out->seqlen = idx;
       return out;
     }
-    if (amb || !c) { free(out); return NULL; } /* amb later; only case here */
-    if (!allow_case) { free(out); return NULL; }
+    if (amb || !c) {
+      free(out);
+      return NULL;
+    } /* amb later; only case here */
+    if (!allow_case) {
+      free(out);
+      return NULL;
+    }
     const cJSON *ci = cJSON_GetObjectItemCaseSensitive(c, "if");
     const cJSON *ct = cJSON_GetObjectItemCaseSensitive(c, "then");
     const cJSON *ce = cJSON_GetObjectItemCaseSensitive(c, "else");
-    if (!cJSON_IsString(ci) || !ct || !ce) { free(out); return NULL; }
+    if (!cJSON_IsString(ci) || !ct || !ce) {
+      free(out);
+      return NULL;
+    }
     out->cond = hm_expr_parse(ci->valuestring, NULL, 0);
     out->then = load_value_deep(ct, allow_case, depth + 1);
     out->els = load_value_deep(ce, allow_case, depth + 1);
     if (!out->cond || !out->then || !out->els) {
       hm_expr_free(out->cond);
-      free(out->then); free(out->els); free(out);
+      free(out->then);
+      free(out->els);
+      free(out);
       return NULL;
     }
     out->kind = HK_CASE;
@@ -162,7 +206,8 @@ static hm_val *load_value_deep(const cJSON *v, bool allow_case, int depth) {
 
 static int cmp_combo(const void *a, const void *b) {
   uint32_t x = ((const hm_combo *)a)->ab, y = ((const hm_combo *)b)->ab;
-  return x < y ? -1 : x > y ? 1 : 0;
+  return x < y ? -1 : x > y ? 1
+                            : 0;
 }
 
 static char *read_file(const char *path) {
@@ -171,9 +216,15 @@ static char *read_file(const char *path) {
   fseek(f, 0, SEEK_END);
   long sz = ftell(f);
   fseek(f, 0, SEEK_SET);
-  if (sz < 0 || sz > 1 << 20) { fclose(f); return NULL; }
+  if (sz < 0 || sz > 1 << 20) {
+    fclose(f);
+    return NULL;
+  }
   char *buf = malloc((size_t)sz + 1);
-  if (buf && fread(buf, 1, (size_t)sz, f) != (size_t)sz) { free(buf); buf = NULL; }
+  if (buf && fread(buf, 1, (size_t)sz, f) != (size_t)sz) {
+    free(buf);
+    buf = NULL;
+  }
   if (buf) buf[sz] = 0;
   fclose(f);
   return buf;
@@ -204,7 +255,10 @@ static int list_json(const char *dir, char names[MAX_FILES][MAX_LINE]) {
   for (int i = 0; i < n; i++)
     for (int j = i + 1; j < n; j++)
       if (strcmp(names[j], names[i]) < 0) {
-        char t[MAX_LINE]; strcpy(t, names[i]); strcpy(names[i], names[j]); strcpy(names[j], t);
+        char t[MAX_LINE];
+        strcpy(t, names[i]);
+        strcpy(names[i], names[j]);
+        strcpy(names[j], t);
       }
   return n;
 #else
@@ -213,12 +267,18 @@ static int list_json(const char *dir, char names[MAX_FILES][MAX_LINE]) {
   int n = 0;
   struct dirent *e;
   while ((e = readdir(d)) && n < MAX_FILES)
-    if (ends_json(e->d_name)) { snprintf(names[n], MAX_LINE, "%s", e->d_name); n++; }
+    if (ends_json(e->d_name)) {
+      snprintf(names[n], MAX_LINE, "%s", e->d_name);
+      n++;
+    }
   closedir(d);
   for (int i = 0; i < n; i++)
     for (int j = i + 1; j < n; j++)
       if (strcmp(names[j], names[i]) < 0) {
-        char t[MAX_LINE]; strcpy(t, names[i]); strcpy(names[i], names[j]); strcpy(names[j], t);
+        char t[MAX_LINE];
+        strcpy(t, names[i]);
+        strcpy(names[i], names[j]);
+        strcpy(names[j], t);
       }
   return n;
 #endif
@@ -231,7 +291,11 @@ static uint32_t utf8_first(const char *s) {
 }
 
 /* -------- compose registry -------- */
-typedef struct { char id[64]; hm_combo *items; size_t n; } compose_rec;
+typedef struct {
+  char id[64];
+  hm_combo *items;
+  size_t n;
+} compose_rec;
 static compose_rec comps[MAX_FILES];
 static int ncomps;
 
@@ -249,12 +313,18 @@ static bool load_compose_file(const char *path) {
   if (!root) return false;
   const cJSON *id = cJSON_GetObjectItemCaseSensitive(root, "id");
   const cJSON *items = cJSON_GetObjectItemCaseSensitive(root, "items");
-  if (!cJSON_IsString(id) || !cJSON_IsArray(items)) { cJSON_Delete(root); return false; }
+  if (!cJSON_IsString(id) || !cJSON_IsArray(items)) {
+    cJSON_Delete(root);
+    return false;
+  }
   size_t cnt = (size_t)cJSON_GetArraySize(items);
   char idname[64];
   snprintf(idname, sizeof idname, "%s", id->valuestring);
   hm_combo *arr = calloc(cnt ? cnt : 1, sizeof *arr);
-  if (!arr) { cJSON_Delete(root); return false; }
+  if (!arr) {
+    cJSON_Delete(root);
+    return false;
+  }
   size_t n = 0;
   const cJSON *it;
   bool ok = true;
@@ -266,15 +336,22 @@ static bool load_compose_file(const char *path) {
     if (!cJSON_IsString(ja) || !hm_is_jamo((a = (utf8_first(ja->valuestring)))) ||
         !cJSON_IsString(jb) || !hm_is_jamo((b = (utf8_first(jb->valuestring)))) ||
         !cJSON_IsString(jr) || !hm_is_jamo((r = (utf8_first(jr->valuestring))))) {
-      ok = false; break;
+      ok = false;
+      break;
     }
     arr[n].ab = (a << 16) | b;
     arr[n].r = r;
     n++;
   }
   cJSON_Delete(root);
-  if (!ok) { free(arr); return false; }
-  if (ncomps >= MAX_FILES) { free(arr); return false; }
+  if (!ok) {
+    free(arr);
+    return false;
+  }
+  if (ncomps >= MAX_FILES) {
+    free(arr);
+    return false;
+  }
   snprintf(comps[ncomps].id, sizeof comps[ncomps].id, "%s", idname);
   comps[ncomps].items = arr;
   comps[ncomps].n = 0;
@@ -300,7 +377,10 @@ static bool load_compose_file(const char *path) {
   for (size_t i = 0; i < n; i++) {
     bool dup = false;
     for (size_t k = 0; k < w; k++)
-      if (arr[k].ab == arr[i].ab) { dup = true; break; }
+      if (arr[k].ab == arr[i].ab) {
+        dup = true;
+        break;
+      }
     if (!dup) arr[w++] = arr[i];
   }
   qsort(arr, w, sizeof *arr, cmp_combo);
@@ -324,9 +404,13 @@ static void hm_val_clear(hm_val *v) {
   if (!v) return;
   if (v->kind == HK_CASE) {
     hm_expr_free(v->cond);
-    hm_val_clear(v->then); free(v->then);
-    hm_val_clear(v->els); free(v->els);
-    v->kind = HK_NONE; v->cond = NULL; v->then = v->els = NULL;
+    hm_val_clear(v->then);
+    free(v->then);
+    hm_val_clear(v->els);
+    free(v->els);
+    v->kind = HK_NONE;
+    v->cond = NULL;
+    v->then = v->els = NULL;
   } else if (v->kind == HK_SEQ) {
     hm_val_clear_seq(v);
   }
@@ -363,13 +447,16 @@ static bool build_compose(const cJSON *root, hm_layout *l) {
     for (size_t i = 0; i < rec->n && off < need; i++) {
       bool dup = false;
       for (size_t k = 0; k < off; k++)
-        if (l->combo[k].ab == rec->items[i].ab) { dup = true; break; }
+        if (l->combo[k].ab == rec->items[i].ab) {
+          dup = true;
+          break;
+        }
       if (!dup) l->combo[off++] = rec->items[i];
     }
   }
   qsort(l->combo, off, sizeof *l->combo, cmp_combo);
   l->ncombo = off;
-  for (size_t i = 0; i < l->ncombo; i++) {      /* pure modern-jong domain */
+  for (size_t i = 0; i < l->ncombo; i++) { /* pure modern-jong domain */
     uint32_t a = l->combo[i].ab >> 16, b = l->combo[i].ab & 0xFFFF, r = l->combo[i].r;
     /* modern compound-batchim zone: ㄲ…ssang-sios (U+11A9..U+11BB). Old-gul
      * chains (ᇬ U+11EC, ᆰ..) stay outside → compose unguarded, per
@@ -389,7 +476,8 @@ static bool build_keys(const cJSON *root, hm_layout *l) {
     uint32_t plain_cp = 0;
     if (base[0] && base[1] == 0) {
       unsigned char u = (unsigned char)base[0];
-      if (u >= 0x20 && u < 0x7F) plain_cp = u; else continue;
+      if (u >= 0x20 && u < 0x7F) plain_cp = u;
+      else continue;
     } else if (!strcmp(base, "space")) plain_cp = ' ';
     else if (!strcmp(base, "enter")) plain_cp = '\r';
     else if (!strcmp(base, "backspace")) plain_cp = '\b';
@@ -403,7 +491,7 @@ static bool build_keys(const cJSON *root, hm_layout *l) {
           continue;
         }
       } else if (strcmp(m->string, "plain")) {
-        continue;                                   /* ctrl/alt reserved */
+        continue; /* ctrl/alt reserved */
       }
       hm_val *nv = load_value_deep(m, true, 0);
       if (!nv) {
@@ -428,7 +516,10 @@ static bool load_layout_file(hunmin_ctx *ctx, const char *path, int *idx) {
   const cJSON *j;
   bool ok = false;
 
-  if (ctx->n >= MAX_LAYOUTS) { ok = false; goto out; }
+  if (ctx->n >= MAX_LAYOUTS) {
+    ok = false;
+    goto out;
+  }
   j = cJSON_GetObjectItemCaseSensitive(root, "schemaVersion");
   if (!cJSON_IsNumber(j) || j->valueint > 2) goto out;
   j = cJSON_GetObjectItemCaseSensitive(root, "id");
@@ -452,8 +543,7 @@ static bool load_layout_file(hunmin_ctx *ctx, const char *path, int *idx) {
   const cJSON *fl = cJSON_GetObjectItemCaseSensitive(root, "flags");
   if (cJSON_IsObject(fl)) {
     const cJSON *f;
-    cJSON_ArrayForEach(f, fl)
-      if (cJSON_IsNumber(f) && f->string && !f->string[1])
+    cJSON_ArrayForEach(f, fl) if (cJSON_IsNumber(f) && f->string && !f->string[1])
         l->flags[(unsigned char)f->string[0]] = f->valueint;
   }
   const cJSON *name = cJSON_GetObjectItemCaseSensitive(root, "name");
@@ -475,17 +565,20 @@ static bool load_layout_file(hunmin_ctx *ctx, const char *path, int *idx) {
   j = cJSON_GetObjectItemCaseSensitive(root, "libhangulType");
   if (cJSON_IsString(j) && l->type != HM_TYPE_ROMAJA) {
     const char *t = j->valuestring;
-    l->type = !strcmp(t, "jamo") ? HM_TYPE_JAMO :
-              !strcmp(t, "jamo-yet") ? HM_TYPE_JAMO_YET :
-              !strcmp(t, "jaso") ? HM_TYPE_JASO :
-              !strcmp(t, "jaso-yet") ? HM_TYPE_JASO_YET : HM_TYPE_JASO;
+    l->type = !strcmp(t, "jamo") ? HM_TYPE_JAMO : !strcmp(t, "jamo-yet") ? HM_TYPE_JAMO_YET
+                                              : !strcmp(t, "jaso")       ? HM_TYPE_JASO
+                                              : !strcmp(t, "jaso-yet")   ? HM_TYPE_JASO_YET
+                                                                         : HM_TYPE_JASO;
   }
 
   if (!build_compose(root, l)) goto out;
 
   if (!build_keys(root, l)) goto out;
   ok = true;
-  if (ok) { *idx = ctx->n; ctx->n++; }
+  if (ok) {
+    *idx = ctx->n;
+    ctx->n++;
+  }
 out:
   if (!ok && ctx->layouts) free(ctx->layouts[ctx->n].combo);
   cJSON_Delete(root);
@@ -513,7 +606,10 @@ hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs) {
   hunmin_ctx *ctx = calloc(1, sizeof *ctx);
   if (!ctx) return NULL;
   ctx->layouts = calloc(MAX_LAYOUTS, sizeof *ctx->layouts);
-  if (!ctx->layouts) { free(ctx); return NULL; }
+  if (!ctx->layouts) {
+    free(ctx);
+    return NULL;
+  }
 
   /* Record the search dirs (colon-joined, the same form resolve_dirs parses)
    * so the suggest layer can find hanja/idioms/krdict from the same place as
@@ -550,7 +646,10 @@ hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs) {
       load_layout_file(ctx, full, &idx);
     }
   }
-  if (ctx->n == 0) { hm_data_free(ctx); return NULL; }
+  if (ctx->n == 0) {
+    hm_data_free(ctx);
+    return NULL;
+  }
   return ctx;
 }
 

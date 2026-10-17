@@ -25,7 +25,8 @@ bool hunmin_tsf_log_path(const char *fname, char *out, size_t cap) {
     } else {
         HMODULE hMod = nullptr;
         if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                                (LPCWSTR)(const void *)&hunmin_tsf_log_path, &hMod) || !hMod)
+                                (LPCWSTR)(const void *)&hunmin_tsf_log_path, &hMod) ||
+            !hMod)
             return false;
         if (GetModuleFileNameW(hMod, dirW, MAX_PATH) == 0)
             return false;
@@ -302,50 +303,50 @@ class CTextService : public ITfTextInputProcessor,
             wordbuf_.copy(wbuf, wordbuf_.size());
             wbuf[wordbuf_.size()] = 0;
             class DeactSession : public ITfEditSession {
-                          public:
-                            DeactSession(ITfContext *ctx, TfClientId cid, const wchar_t *t)
-                                : ref_(1), ctx_(ctx), cid_(cid), t_(t) {}
-                            STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
-                                if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
-                                    *ppv = this;
-                                    AddRef();
-                                    return S_OK;
-                                }
-                                *ppv = nullptr;
-                                return E_NOINTERFACE;
-                            }
-                            STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
-                            STDMETHOD_(ULONG, Release)() override {
-                                ULONG r = (ULONG)InterlockedDecrement(&ref_);
-                                if (r == 0)
-                                    delete this;
-                                return r;
-                            }
-                            STDMETHOD(DoEditSession)(TfEditCookie ec) override {
-                                TF_SELECTION sel;
-                                ULONG fetched = 0;
-                                if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) &&
-                                    fetched == 1 && sel.range) {
-                                    sel.range->SetText(ec, 0, t_, -1);
-                                    sel.range->Collapse(ec, TF_ANCHOR_END);
-                                    TF_SELECTION ns = sel;
-                                    ctx_->SetSelection(ec, 1, &ns);
-                                    sel.range->Release();
-                                }
-                                return S_OK;
-                            }
+              public:
+                DeactSession(ITfContext *ctx, TfClientId cid, const wchar_t *t)
+                    : ref_(1), ctx_(ctx), cid_(cid), t_(t) {}
+                STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+                    if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
+                        *ppv = this;
+                        AddRef();
+                        return S_OK;
+                    }
+                    *ppv = nullptr;
+                    return E_NOINTERFACE;
+                }
+                STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+                STDMETHOD_(ULONG, Release)() override {
+                    ULONG r = (ULONG)InterlockedDecrement(&ref_);
+                    if (r == 0)
+                        delete this;
+                    return r;
+                }
+                STDMETHOD(DoEditSession)(TfEditCookie ec) override {
+                    TF_SELECTION sel;
+                    ULONG fetched = 0;
+                    if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) &&
+                        fetched == 1 && sel.range) {
+                        sel.range->SetText(ec, 0, t_, -1);
+                        sel.range->Collapse(ec, TF_ANCHOR_END);
+                        TF_SELECTION ns = sel;
+                        ctx_->SetSelection(ec, 1, &ns);
+                        sel.range->Release();
+                    }
+                    return S_OK;
+                }
 
-                          private:
-                            LONG ref_;
-                            ITfContext *ctx_;
-                            TfClientId cid_;
-                            const wchar_t *t_;
-                        };
-                        DeactSession *ds = new DeactSession(lastCtx_, clientId_, wbuf);
-                        HRESULT hrS = S_OK;
-                        lastCtx_->RequestEditSession(clientId_, ds, TF_ES_SYNC | TF_ES_READWRITE, &hrS);
-                        ds->Release();
-                        delete[] wbuf;
+              private:
+                LONG ref_;
+                ITfContext *ctx_;
+                TfClientId cid_;
+                const wchar_t *t_;
+            };
+            DeactSession *ds = new DeactSession(lastCtx_, clientId_, wbuf);
+            HRESULT hrS = S_OK;
+            lastCtx_->RequestEditSession(clientId_, ds, TF_ES_SYNC | TF_ES_READWRITE, &hrS);
+            ds->Release();
+            delete[] wbuf;
         }
         wordbuf_.clear();
         HideOverlay();

@@ -23,7 +23,10 @@
 static int failures;
 
 static void check(int cond, const char *what) {
-  if (!cond) { printf("FAIL: %s\n", what); failures++; }
+  if (!cond) {
+    printf("FAIL: %s\n", what);
+    failures++;
+  }
 }
 
 static void expect_str(const char *got, const char *want, const char *what) {
@@ -81,8 +84,8 @@ int main(void) {
   /* --- composes nothing, consumes no keystroke --- */
   {
     hunmin_ic *ic = fresh(ctx, "dubeolsik");
-    hunmin_ic_process(ic, 'g');            /* ㄱ as cho */
-    hunmin_ic_process(ic, 'k');            /* ㅏ       -> 하 */
+    hunmin_ic_process(ic, 'g'); /* ㄱ as cho */
+    hunmin_ic_process(ic, 'k'); /* ㅏ       -> 하 */
     expect_str(hunmin_ic_preedit(ic), "하", "typed a syllable first");
     /* The typed syllable comes out first, then the spoken text, in that order. */
     expect_str(hunmin_ic_commit_text(ic, "음성"), "하음성",
@@ -121,7 +124,10 @@ int main(void) {
      * single keystroke commit can hold. Nothing may be truncated. */
     char big[1024];
     size_t n = 0;
-    for (int i = 0; i < 200; i++) { memcpy(big + n, "가", 3); n += 3; }
+    for (int i = 0; i < 200; i++) {
+      memcpy(big + n, "가", 3);
+      n += 3;
+    }
     big[n] = 0;
     const char *got = hunmin_ic_commit_text(ic, big);
     check(got && strlen(got) == n, "a 600-byte sentence is not truncated");
@@ -155,7 +161,10 @@ int main(void) {
     hunmin_ic_free(ic);
   }
 
-  if (failures) { printf("%d failure(s)\n", failures); return 1; }
+  if (failures) {
+    printf("%d failure(s)\n", failures);
+    return 1;
+  }
   printf("commit_text: all assertions hold\n");
   return 0;
 }

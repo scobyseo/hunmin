@@ -8,13 +8,17 @@
 #include <stdio.h>
 #include <string.h>
 
-#define STR_CAP 64    /* ucschar buffer capacity (libhangul parity) */
-#define UTF8_CAP 256  /* getter output capacity */
+#define STR_CAP 64 /* ucschar buffer capacity (libhangul parity) */
+#define UTF8_CAP 256 /* getter output capacity */
 #define CF 0x115F /* choseong filler */
 #define JF 0x1160 /* jungseong filler */
 
-typedef struct { ucschar cho, jung, jong; uint8_t jvar;
-  ucschar stack[12]; int index; } buf_t;
+typedef struct {
+  ucschar cho, jung, jong;
+  uint8_t jvar;
+  ucschar stack[12];
+  int index;
+} buf_t;
 
 struct hunmin_ic {
   hm_layout *L;
@@ -27,13 +31,13 @@ struct hunmin_ic {
    * the ic, and handed out under the same lifetime rule as commit8. */
   char *ext8;
   size_t extcap;
-  uint32_t T;                   /* symbol-tier state (0/101..103) */
-  int caps;                     /* Caps Lock (expression var P) */
-  int flag_ovr[128];            /* 전처리수식 override (w/W/z/h/H), -1 = layout */
-  int flags_eff[128];           /* effective flags seen by expressions */
-  bool opt_auto_reorder;        /* libhangul ic_new defaults */
-  bool opt_combi_on_double;     /* false */
-  bool opt_non_choseong_combi;  /* true */
+  uint32_t T; /* symbol-tier state (0/101..103) */
+  int caps; /* Caps Lock (expression var P) */
+  int flag_ovr[128]; /* 전처리수식 override (w/W/z/h/H), -1 = layout */
+  int flags_eff[128]; /* effective flags seen by expressions */
+  bool opt_auto_reorder; /* libhangul ic_new defaults */
+  bool opt_combi_on_double; /* false */
+  bool opt_non_choseong_combi; /* true */
 };
 
 static void buf_clear(buf_t *b) {
@@ -58,28 +62,54 @@ static int jaso_to_string(ucschar cho, ucschar jung, ucschar jong,
                           ucschar *out, int cap) {
   int n = 0;
   ucschar ch;
-#define P(x) do { if (n < cap - 1) out[n++] = (x); } while (0)
+#define P(x)                         \
+  do {                               \
+    if (n < cap - 1) out[n++] = (x); \
+  } while (0)
   if (cho) {
     if (jung) {
       ch = hm_jamo_to_syllable(cho, jung, jong);
       if (ch) P(ch);
-      else { P(cho); P(jung); if (jong) P(jong); }
-    } else {
-      if (jong) { P(cho); P(JF); P(jong); }
       else {
+        P(cho);
+        P(jung);
+        if (jong) P(jong);
+      }
+    } else {
+      if (jong) {
+        P(cho);
+        P(JF);
+        P(jong);
+      } else {
         ch = hm_jamo_to_cjamo(cho);
-        if (hm_is_cjamo(ch)) P(ch); else { P(cho); P(JF); }
+        if (hm_is_cjamo(ch)) P(ch);
+        else {
+          P(cho);
+          P(JF);
+        }
       }
     }
   } else if (jung) {
-    if (jong) { P(CF); P(jung); P(jong); }
-    else {
+    if (jong) {
+      P(CF);
+      P(jung);
+      P(jong);
+    } else {
       ch = hm_jamo_to_cjamo(jung);
-      if (hm_is_cjamo(ch)) P(ch); else { P(CF); P(jung); }
+      if (hm_is_cjamo(ch)) P(ch);
+      else {
+        P(CF);
+        P(jung);
+      }
     }
   } else if (jong) {
     ch = hm_jamo_to_cjamo(jong);
-    if (hm_is_cjamo(ch)) P(ch); else { P(CF); P(JF); P(jong); }
+    if (hm_is_cjamo(ch)) P(ch);
+    else {
+      P(CF);
+      P(JF);
+      P(jong);
+    }
   }
 #undef P
   out[n] = 0;
@@ -102,8 +132,6 @@ static ucschar layout_combine(const hm_layout *L, ucschar a, ucschar b) {
   const hm_combo *c = layout_combine_find(L, a, b);
   return c ? c->r : 0;
 }
-
-
 
 static ucschar ic_cho_to_jong(hunmin_ic *ic, ucschar cho) {
   ucschar jong = hm_choseong_to_jongseong(cho);
@@ -143,7 +171,10 @@ static void save_commit(hunmin_ic *ic) {
 static void append_commit(hunmin_ic *ic, ucschar ch) {
   int i = 0;
   while (i < STR_CAP - 1 && ic->commit[i]) i++;
-  if (i < 63) { ic->commit[i++] = ch; ic->commit[i] = 0; }
+  if (i < 63) {
+    ic->commit[i++] = ch;
+    ic->commit[i] = 0;
+  }
 }
 
 static bool ic_push(hunmin_ic *ic, ucschar c) {
@@ -205,7 +236,7 @@ static bool process_jamo(hunmin_ic *ic, ucschar ch) {
         if (!ic_push(ic, ch)) return false;
       }
     } else {
-      goto flush;             /* non-jamo while composing: commit + not-consumed
+      goto flush; /* non-jamo while composing: commit + not-consumed
                                * (libhangul flush semantics, incl. ch == 0 null) */
     }
   } else if (b->jung) {
@@ -370,12 +401,26 @@ static bool process_jaso(hunmin_ic *ic, ucschar ch, bool vg, bool vj) {
 }
 
 static int utf8_encode(ucschar cp, char *o) {
-  if (cp < 0x80) { o[0] = (char)cp; return 1; }
-  if (cp < 0x800) { o[0] = (char)(0xC0 | cp >> 6); o[1] = (char)(0x80 | (cp & 0x3F)); return 2; }
-  if (cp < 0x10000) { o[0] = (char)(0xE0 | cp >> 12); o[1] = (char)(0x80 | (cp >> 6 & 0x3F));
-                      o[2] = (char)(0x80 | (cp & 0x3F)); return 3; }
-  o[0] = (char)(0xF0 | cp >> 18); o[1] = (char)(0x80 | (cp >> 12 & 0x3F));
-  o[2] = (char)(0x80 | (cp >> 6 & 0x3F)); o[3] = (char)(0x80 | (cp & 0x3F)); return 4;
+  if (cp < 0x80) {
+    o[0] = (char)cp;
+    return 1;
+  }
+  if (cp < 0x800) {
+    o[0] = (char)(0xC0 | cp >> 6);
+    o[1] = (char)(0x80 | (cp & 0x3F));
+    return 2;
+  }
+  if (cp < 0x10000) {
+    o[0] = (char)(0xE0 | cp >> 12);
+    o[1] = (char)(0x80 | (cp >> 6 & 0x3F));
+    o[2] = (char)(0x80 | (cp & 0x3F));
+    return 3;
+  }
+  o[0] = (char)(0xF0 | cp >> 18);
+  o[1] = (char)(0x80 | (cp >> 12 & 0x3F));
+  o[2] = (char)(0x80 | (cp >> 6 & 0x3F));
+  o[3] = (char)(0x80 | (cp & 0x3F));
+  return 4;
 }
 
 static char *to_utf8(const ucschar *s, char *out, size_t cap) {
@@ -388,7 +433,6 @@ static char *to_utf8(const ucschar *s, char *out, size_t cap) {
   out[o] = 0;
   return out;
 }
-
 
 /* process_romaja — verbatim port of libhangul hangul_ic_process_romaja()
  * (romanization automaton: letters double as jamo sources, 'x' marks cieuc,
@@ -558,9 +602,13 @@ bool hunmin_ic_process(hunmin_ic *ic, uint32_t ch) {
       ucschar popped = buf_pop(b);
       if (b->index >= 0) {
         ucschar pk = buf_peek(b);
-        if (hm_is_choseong(popped)) { b->cho = hm_is_choseong(pk) ? pk : 0; }
-        else if (hm_is_jungseong(popped)) { b->jung = hm_is_jungseong(pk) ? pk : 0; }
-        else if (hm_is_jongseong(popped)) { b->jong = hm_is_jongseong(pk) ? pk : 0; }
+        if (hm_is_choseong(popped)) {
+          b->cho = hm_is_choseong(pk) ? pk : 0;
+        } else if (hm_is_jungseong(popped)) {
+          b->jung = hm_is_jungseong(pk) ? pk : 0;
+        } else if (hm_is_jongseong(popped)) {
+          b->jong = hm_is_jongseong(pk) ? pk : 0;
+        }
       } else {
         buf_clear(b);
       }
@@ -571,39 +619,40 @@ bool hunmin_ic_process(hunmin_ic *ic, uint32_t ch) {
   }
 
   uint32_t prevT = ic->T;
-  ic->T = 0;                     /* tier is single-shot; every key ends it */
+  ic->T = 0; /* tier is single-shot; every key ends it */
   const hm_val *rv = NULL;
   if (ch < 128) {
-    hm_state st = { .D = ic->b.cho, .E = ic->b.jung, .F = ic->b.jong,
-                    .T = prevT, .P = ic->caps, .flags = ic->flags_eff,
-                    .J = ic->L->supports_case && ic->b.jung && ic->b.jvar };
+    hm_state st = {.D = ic->b.cho, .E = ic->b.jung, .F = ic->b.jong, .T = prevT, .P = ic->caps, .flags = ic->flags_eff, .J = ic->L->supports_case && ic->b.jung && ic->b.jvar};
     rv = hm_resolvev(&ic->L->keys[ch], st);
   }
-  if (rv && rv->kind == HK_NOOP) {   /* swallowed inside tier */
+  if (rv && rv->kind == HK_NOOP) { /* swallowed inside tier */
     save_preedit(ic);
     return true;
   }
   if (rv && rv->kind == HK_TIER) {
-    ic->T = rv->code;            /* entering a tier: consume, no text */
-    ic->preedit[0] = 0;          /* keep rendering as-is */
+    ic->T = rv->code; /* entering a tier: consume, no text */
+    ic->preedit[0] = 0; /* keep rendering as-is */
     save_preedit(ic);
     return true;
   }
   if (rv && rv->kind == HK_SEQ) {
     ic->preedit[0] = 0;
-    save_commit(ic);             /* flush any pending composition first */
+    save_commit(ic); /* flush any pending composition first */
     for (size_t i = 0; i < rv->seqlen && rv->seq[i]; i++)
       append_commit(ic, rv->seq[i]);
     save_preedit(ic);
     return true;
   }
   ucschar m = (rv && (rv->kind == HK_JAMO || rv->kind == HK_LIT))
-              ? (ucschar)rv->code : 0;
+                  ? (ucschar)rv->code
+                  : 0;
   /* unmapped (0) mirrors libhangul null entries exactly */
   bool r;
   switch (ic->L->type) {
-  case HM_TYPE_JASO: case HM_TYPE_JASO_YET:
-    r = process_jaso(ic, m, rv && rv->g, rv && rv->variant); break;
+  case HM_TYPE_JASO:
+  case HM_TYPE_JASO_YET:
+    r = process_jaso(ic, m, rv && rv->g, rv && rv->variant);
+    break;
   case HM_TYPE_ROMAJA: r = process_romaja(ic, (int)ch, m); break;
   default: r = process_jamo(ic, m); break;
   }
@@ -617,7 +666,10 @@ static void flags_rebuild(hunmin_ic *ic) {
 
 bool hunmin_ic_set_option(hunmin_ic *ic, const char *name, int value) {
   if (!ic || !name) return false;
-  if (!strcmp(name, "caps")) { ic->caps = !!value; return true; }
+  if (!strcmp(name, "caps")) {
+    ic->caps = !!value;
+    return true;
+  }
   /* 전처리수식 variables (pat.im/1136 §2-6): w W z h H */
   if (name[0] && !name[1] && strchr("wWzHh", name[0])) {
     ic->flag_ovr[(unsigned char)name[0]] = !!value;
@@ -644,7 +696,7 @@ void hunmin_ic_reset(hunmin_ic *ic) {
   if (!ic) return;
   ic->preedit[0] = ic->commit[0] = 0;
   buf_clear(&ic->b);
-  ic->T = 0;  /* pending symbol tier is input state; must not survive reset */
+  ic->T = 0; /* pending symbol tier is input state; must not survive reset */
   memset(ic->flag_ovr, -1, sizeof ic->flag_ovr);
   flags_rebuild(ic);
 }
@@ -673,18 +725,20 @@ const char *hunmin_ic_flush(hunmin_ic *ic) {
 static int utf8_valid(const char *s, size_t *len) {
   size_t n = 0;
   const unsigned char *p = (const unsigned char *)s;
-  for (; p[n]; ) {
+  for (; p[n];) {
     unsigned char c = p[n];
-    int need = c < 0x80 ? 0 : c < 0xE0 ? 1 : c < 0xF0 ? 2 : 3;
+    int need = c < 0x80 ? 0 : c < 0xE0 ? 1
+                          : c < 0xF0   ? 2
+                                       : 3;
     uint32_t cp = c & (0x7Fu >> need);
     for (int i = 1; i <= need; i++) {
-      if ((p[n + i] & 0xC0) != 0x80) return 0;   /* truncated, or not a continuation */
+      if ((p[n + i] & 0xC0) != 0x80) return 0; /* truncated, or not a continuation */
       cp = (cp << 6) | (p[n + i] & 0x3F);
     }
     if (cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return 0;
     /* Overlong: a codepoint encoded in more bytes than it needs. A client that
      * reads these as Latin-1 sees one string, one that validates sees another. */
-    static const uint32_t min_cp[4] = { 0, 0x80, 0x800, 0x10000 };
+    static const uint32_t min_cp[4] = {0, 0x80, 0x800, 0x10000};
     if (need && cp < min_cp[need]) return 0;
     n += (size_t)need + 1;
   }

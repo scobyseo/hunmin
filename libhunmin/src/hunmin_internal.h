@@ -8,22 +8,34 @@
 #include <stdlib.h>
 
 typedef enum {
-  HM_TYPE_JAMO, HM_TYPE_JAMO_YET,
-  HM_TYPE_JASO, HM_TYPE_JASO_YET,
+  HM_TYPE_JAMO,
+  HM_TYPE_JAMO_YET,
+  HM_TYPE_JASO,
+  HM_TYPE_JASO_YET,
   HM_TYPE_ROMAJA
 } hm_engine_t;
 
-typedef struct { uint32_t ab; /* (a<<16)|b */ uint32_t r; uint8_t ssang; } hm_combo;
+typedef struct {
+  uint32_t ab; /* (a<<16)|b */
+  uint32_t r;
+  uint8_t ssang;
+} hm_combo;
 
-typedef enum { HK_NONE = 0, HK_JAMO, HK_LIT, HK_CASE, HK_TIER, HK_NOOP, HK_SEQ } hm_kind;
+typedef enum { HK_NONE = 0,
+               HK_JAMO,
+               HK_LIT,
+               HK_CASE,
+               HK_TIER,
+               HK_NOOP,
+               HK_SEQ } hm_kind;
 typedef struct hm_val {
   hm_kind kind;
-  uint8_t g;          /* G-flag: shift-marked jong (state-3 composition gate) */
-  uint8_t variant;    /* right-side jung (only these chain-compose) */
-  uint32_t code;      /* HK_JAMO / HK_LIT / HK_TIER */
-  hm_expr *cond;      /* HK_CASE */
+  uint8_t g; /* G-flag: shift-marked jong (state-3 composition gate) */
+  uint8_t variant; /* right-side jung (only these chain-compose) */
+  uint32_t code; /* HK_JAMO / HK_LIT / HK_TIER */
+  hm_expr *cond; /* HK_CASE */
   struct hm_val *then, *els;
-  uint32_t *seq;      /* HK_SEQ: array of codepoints, terminated by 0 */
+  uint32_t *seq; /* HK_SEQ: array of codepoints, terminated by 0 */
   size_t seqlen;
 } hm_val;
 
@@ -36,7 +48,8 @@ static inline const hm_val *hm_resolvev(const hm_val *v, hm_state st) {
 /* Which half of a two-mode IME a layout belongs to. Data, not code: the
  * Android settings window splits its layout list on this (issue #12), and a
  * front-end that guessed from the name would drift from the file. */
-typedef enum { HM_MODE_HANGUL = 0, HM_MODE_LATIN = 1 } hm_layout_mode;
+typedef enum { HM_MODE_HANGUL = 0,
+               HM_MODE_LATIN = 1 } hm_layout_mode;
 
 typedef struct {
   int schema;
@@ -46,10 +59,10 @@ typedef struct {
   char name_ko[128];
   hm_engine_t type;
   bool supports_case;
-  bool jongonly_fresh;   /* modern ssang pairs need G after jong-only syllable (symbols/yethangul) */
+  bool jongonly_fresh; /* modern ssang pairs need G after jong-only syllable (symbols/yethangul) */
   bool supported;
-  int flags[128];          /* user flags from preprocessing defaults */
-  hm_val keys[128];   /* char -> resolved value (kind NONE = absent) */
+  int flags[128]; /* user flags from preprocessing defaults */
+  hm_val keys[128]; /* char -> resolved value (kind NONE = absent) */
   hm_combo *combo;
   size_t ncombo;
 } hm_layout;
