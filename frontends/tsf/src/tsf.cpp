@@ -4,7 +4,10 @@
 #include <cwchar>
 #include <msctf.h>
 #include <richedit.h>
+#include <shlguid.h>
+#include <shlobj_core.h>
 #include <shlwapi.h>
+#include <shobjidl_core.h>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -277,6 +280,10 @@ class HEditSession : public ITfEditSession {
 };
 
 static const CLSID CLSID_HunminTSF = {0xF2C70001, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}};
+/* The language-bar item's own item id (ctfutb TF_LANGBARITEMINFO::guidItem;
+ * a fresh slot in the same F2C7000x block, never equal to another TIP's). */
+static const GUID HunminLangBarItemGuid = {0xF2C70003, 0x0000, 0x0000,
+                                           {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03}};
 /* The language profile GUID is shared state: registration enables it, so
  * unregistration must name the same GUID to remove it (issue #84). */
 static const GUID HunminProfileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
@@ -284,7 +291,8 @@ static const GUID HunminProfileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 
 class CTextService : public ITfTextInputProcessor,
                      public ITfThreadMgrEventSink,
                      public ITfKeyEventSink,
-                     public ITfCompositionSink {
+                     public ITfCompositionSink,
+                     public ITfLangBarItemButton {
   public:
     CTextService()
         : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), ic_(nullptr),
@@ -319,6 +327,13 @@ class CTextService : public ITfTextInputProcessor,
              * mechanism; GetFunction(IID_ITfFnConfigure) then hands out the
              * configure function (settings.cpp). */
             *ppv = hunmin_tsf_settings_new_provider(this);
+            return S_OK;
+        } else if (IsEqualIID(riid, IID_ITfLangBarItem) ||
+                   IsEqualIID(riid, IID_ITfLangBarItemButton)) {
+            /* ctfutb.h: the language-bar button. ITfLangBarItemButton
+             * derives from ITfLangBarItem, so both IIDs bind this. */
+            *ppv = static_cast<ITfLangBarItemButton *>(this);
+            AddRef();
             return S_OK;
         } else {
             *ppv = nullptr;
@@ -467,6 +482,35 @@ class CTextService : public ITfTextInputProcessor,
          * Activate() had to do anyway; no separate activation-only copy
          * exists. Activate() starts hangulMode_=true. */
         ApplyConfigStore();
+        /* The language-bar button (ctfutb.h, discoverable settings entry):
+         * registered while the service is active; the desktop/floating bar
+         * shows "Hunmin 설정", clicking opens the settings window. */
+        {
+            ITfLangBarItemMgr *plbm = nullptr;
+            HRESULT hb = ptm->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm);
+            FILE *dbg4 = tsf_log_open("hunmin-tsf-debug.log");
+            if (dbg4) {
+                fprintf(dbg4, "langbar QI hr=0x%lX\n", (unsigned long)hb);
+                fflush(dbg4);
+            }
+            if (SUCCEEDED(hb) && plbm) {
+                HRESULT ai = plbm->AddItem(static_cast<ITfLangBarItem *>(this));
+                if (SUCCEEDED(ai)) {
+                    /* The mgr holds a reference to us; drop it only in
+                     * Deactivate's RemoveItem, the release there. */
+                    langbar_registered_ = true;
+                }
+                FILE *dbg5 = tsf_log_open("hunmin-tsf-debug.log");
+                if (dbg5) {
+                    fprintf(dbg5, "langbar AddItem hr=0x%lX\n", (unsigned long)ai);
+                    fflush(dbg5);
+                    fclose(dbg5);
+                }
+                plbm->Release();
+            }
+            if (dbg4)
+                fclose(dbg4);
+        }
         if (dbg3) {
             if (ctx_)
                 fprintf(dbg3, "  layout_count=%d\n", hunmin_ctx_layout_count(ctx_));
@@ -551,6 +595,17 @@ class CTextService : public ITfTextInputProcessor,
         wordbuf_.clear();
         CloseCandidateWindow();
         HideOverlay();
+        /* Drop the language-bar item; the langbar kernel releases its
+         * reference to us, which is why RemoveItem must pass the SAME
+         * pointer it got in AddItem. */
+        if (langbar_registered_ && threadMgr_) {
+            ITfLangBarItemMgr *plbm = nullptr;
+            if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm)) && plbm) {
+                plbm->RemoveItem(static_cast<ITfLangBarItem *>(this));
+                plbm->Release();
+            }
+            langbar_registered_ = false;
+        }
         if (ic_) {
             hunmin_ic_free(ic_);
             ic_ = nullptr;
@@ -565,6 +620,93 @@ class CTextService : public ITfTextInputProcessor,
         }
         clientId_ = TF_CLIENTID_NULL;
         return S_OK;
+    }
+    /* ---- ctfutb.h: ITfLangBarItem (the base surface the manager calls),
+     * then ITfLangBarItemButton. The tooltip-names and the click handler
+     * land the user on the settings surface (issue #67's four access
+     * points measured: this bar button + the ITfFnConfigure chain + the
+     * settings-ui exe are the ones a third-party TIP may legally reach;
+     * the Settings app keyboard page and the taskbar indicator context
+     * menu belong to the shell). ---- */
+    STDMETHOD(GetInfo)(TF_LANGBARITEMINFO *pInfo) override {
+        if (!pInfo)
+            return E_INVALIDARG;
+        ZeroMemory(pInfo, sizeof *pInfo);
+        pInfo->clsidService = CLSID_HunminTSF;
+        pInfo->guidItem = HunminLangBarItemGuid;
+        pInfo->dwStyle = TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_HIDDENBYDEFAULT |
+                         TF_LBI_STYLE_SHOWNINTRAY;
+        lstrcpynW(pInfo->szDescription, L"Hunmin \uC124\uC815", MAX_PATH);
+        return S_OK;
+    }
+    STDMETHOD(GetStatus)(DWORD *pdwStatus) override {
+        if (!pdwStatus)
+            return E_INVALIDARG;
+        *pdwStatus = 0;
+        return S_OK;
+    }
+    STDMETHOD(Show)(BOOL fShow) override {
+        (void)fShow;
+        return S_OK;
+    }
+    STDMETHOD(GetTooltipString)(BSTR *pbstrToolTip) override {
+        if (!pbstrToolTip)
+            return E_INVALIDARG;
+        *pbstrToolTip = SysAllocString(L"Hunmin \uC124\uC815 \uC5F4\uAE30");
+        return *pbstrToolTip ? S_OK : E_OUTOFMEMORY;
+    }
+    STDMETHOD(OnClick)(TfLBIClick click, POINT pt, const RECT *prcArea) override {
+        (void)click;
+        (void)pt;
+        (void)prcArea;
+        /* Open the settings window from the langbar click. The dedicated
+         * process keeps this thread free: the TIP thread must not pump a
+         * nested modal loop while TSF holds edit cookies. */
+        HMODULE self = nullptr;
+        wchar_t module[MAX_PATH] = {0};
+        if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                (LPCWSTR)this, &self) ||
+            !GetModuleFileNameW(self, module, MAX_PATH))
+            return E_FAIL;
+        wchar_t cmd[MAX_PATH + 64];
+        _snwprintf(cmd, _countof(cmd), L"\"%s,HunminSettingsShow\"", module);
+        SHELLEXECUTEINFOW sei = {sizeof sei};
+        sei.lpFile = L"rundll32.exe";
+        sei.lpParameters = cmd;
+        sei.lpDirectory = nullptr;
+        sei.nShow = SW_SHOWNORMAL;
+        sei.fMask = SEE_MASK_FLAG_NO_UI;
+        HRESULT hr = ShellExecuteExW(&sei) ? S_OK : E_FAIL;
+        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
+        if (dbg) {
+            fprintf(dbg, "langbar OnClick hr=0x%lX\n", (unsigned long)hr);
+            fflush(dbg);
+            fclose(dbg);
+        }
+        return hr;
+    }
+    STDMETHOD(InitMenu)(ITfMenu *pMenu) override {
+        (void)pMenu;
+        return S_OK; /* button style: no menu */
+    }
+    STDMETHOD(OnMenuSelect)(UINT wID) override {
+        (void)wID;
+        return S_OK;
+    }
+    STDMETHOD(GetIcon)(HICON *phIcon) override {
+        if (!phIcon)
+            return E_INVALIDARG;
+        /* No dedicated icon resource in the DLL yet; the shared application
+         * icon is the cached-handle fallback the bar expects (never freed). */
+        *phIcon = LoadIconW((HMODULE)NULL, IDI_APPLICATION);
+        return *phIcon ? S_OK : E_FAIL;
+    }
+    STDMETHOD(GetText)(BSTR *pbstrText) override {
+        if (!pbstrText)
+            return E_INVALIDARG;
+        *pbstrText = SysAllocString(L"\uD55C\uBBFC IME");
+        return *pbstrText ? S_OK : E_OUTOFMEMORY;
     }
 
     STDMETHOD(OnInitDocumentMgr)(ITfDocumentMgr *pdm) override {
@@ -1187,6 +1329,9 @@ class CTextService : public ITfTextInputProcessor,
     int candTop_; /* first index of the visible 10-row page */
     std::string candSource_; /* the Hangul the list was looked up for */
     HunminCandWindow candWnd_;
+    /* ctfutb.h ITfLangBarItemButton state: true between AddItem and
+     * RemoveItem; the manager owns exactly one extra reference. */
+    bool langbar_registered_ = false;
 
     // Helper used both for declined/pass-through keys to flush the pending
     // composition exactly once, deleting the already-present composed text.
@@ -1663,6 +1808,68 @@ extern "C" BOOL DllRegisterServer() {
             fflush(dbg);
         }
         pCatMgr->Release();
+    }
+    /* The Start-menu entry (discoverability): "Hunmin IME 설정" under
+     * Programs. The ruled surface (the settings-ui exe) wins when it is
+     * deployed beside the DLL; the rundll32 entry into HunminSettingsShow
+     * is the fallback that always works. Deleted in unregister, mirroring
+     * the tree work. */
+    {
+        wchar_t dllDir[MAX_PATH];
+        lstrcpynW(dllDir, dllPath, MAX_PATH);
+        PathRemoveFileSpecW(dllDir);
+        wchar_t pub[MAX_PATH];
+        wchar_t exe[MAX_PATH];
+        exe[0] = 0;
+        /* Candidate A: deployment layout — <dll dir>\settings-ui\publish. */
+        _snwprintf(pub, MAX_PATH, L"%s\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
+        if (PathFileExistsW(pub))
+            lstrcpynW(exe, pub, MAX_PATH);
+        if (!exe[0]) {
+            /* Candidate B: this worktree's layout — repo\frontends\tsf\.. */
+            _snwprintf(pub, MAX_PATH,
+                       L"%s\\..\\..\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
+            wchar_t full[MAX_PATH];
+            if (GetFullPathNameW(pub, MAX_PATH, full, nullptr) && PathFileExistsW(full))
+                lstrcpynW(exe, full, MAX_PATH);
+        }
+        IShellLinkW *sl = nullptr;
+        HRESULT lh = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
+                                      IID_PPV_ARGS(&sl));
+        if (dbg)
+            fwprintf(dbg, L"shortcut CoCreate hr=0x%lX exe=%s\n", (unsigned long)lh,
+                     exe[0] ? exe : L"<rundll32>");
+        if (SUCCEEDED(lh) && sl) {
+            if (exe[0]) {
+                sl->SetPath(exe);
+            } else {
+                sl->SetPath(L"rundll32.exe");
+                wchar_t arg[MAX_PATH + 32];
+                _snwprintf(arg, _countof(arg), L"\"%s,HunminSettingsShow\"", dllPath);
+                sl->SetArguments(arg);
+            }
+            sl->SetWorkingDirectory(dllDir);
+            IPersistFile *pf = nullptr;
+            if (SUCCEEDED(sl->QueryInterface(IID_PPV_ARGS(&pf))) && pf) {
+                PWSTR programs = nullptr;
+                if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Programs, 0, nullptr,
+                                                   &programs)) &&
+                    programs) {
+                    wchar_t link[MAX_PATH + 48];
+                    _snwprintf(link, _countof(link), L"%s\\Hunmin IME \uC124\uC815.lnk",
+                               programs);
+                    if (SUCCEEDED(pf->Save(link, TRUE))) {
+                        if (dbg)
+                            fwprintf(dbg, L"shortcut saved %s\n", link);
+                    } else if (dbg) {
+                        fwprintf(dbg, L"shortcut save FAILED %s\n", link);
+                    }
+                    CoTaskMemFree(programs);
+                }
+                pf->Release();
+            }
+            sl->Release();
+        }
     }
     CoUninitialize();
     return TRUE;

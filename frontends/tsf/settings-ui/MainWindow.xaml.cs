@@ -35,6 +35,10 @@ public partial class MainWindow : Window
     int _capturedVk = -1;
     int _capturedMods = 0;
     bool _uncaptured; // capture cleared a previously stored binding
+    /* Which row the capture fills: 0 = the toggle key, 1 = the Hanja key
+     * (issue #67's store value, same grammar). ESC keeps the stored one. */
+    int _captureTargetRow = 0;
+    const string ValHanja = "HanjaKey";
 
     public MainWindow()
     {
@@ -61,9 +65,10 @@ public partial class MainWindow : Window
             root.Width = 420;
             // ResizeClient input scales with the display's DPI factor
             // (measured on this host: (500,600) -> 625x750 client px);
-            // 420x500 requests land the on-screen window inside the quoted
-            // 480-560 px band (measured 2026-10-17: 545x~660 px with title bar).
-            AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(420, 500));
+            // 420x560 requests land the on-screen window inside the quoted
+            // 480-560 px band; 540 tall since issue #67 added the Hanja-key
+            // row (the previous 500 clipped the closing rows. measured).
+            AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(420, 560));
             var s = AppWindow.Size;
             LogDebug($"Compact client reserve w={s.Width} h={s.Height}");
         }
@@ -86,8 +91,16 @@ public partial class MainWindow : Window
     // ---- key capture ----
     void ToggleKeyChange_Click(object sender, RoutedEventArgs e)
     {
+        _captureTargetRow = 0;
         _capturing = true;
         CaptureHint.Text = "키를 누르세요… (ESC 취소)";
+    }
+
+    void HanjaKeyChange_Click(object sender, RoutedEventArgs e)
+    {
+        _captureTargetRow = 1;
+        _capturing = true;
+        HanjaCaptureHint.Text = "키를 누르세요… (ESC 취소)";
     }
 
     static bool IsModifierKey(VirtualKey k) => k is
@@ -118,7 +131,10 @@ public partial class MainWindow : Window
         if (e.Key == VirtualKey.Escape)
         {
             _capturing = false;
-            CaptureHint.Text = "";
+            if (_captureTargetRow == 0)
+                CaptureHint.Text = "";
+            else
+                HanjaCaptureHint.Text = "";
             Restore(); // dismissed capture keeps the stored binding
             return;
         }
@@ -128,9 +144,21 @@ public partial class MainWindow : Window
         _capturedMods = ModsNow();
         _capturing = false;
         _uncaptured = false;
-        CaptureHint.Text = "";
-        ToggleKeyLabel.Text = Describe(_capturedVk, _capturedMods)
-            + $" (v1:{_capturedVk}:{_capturedMods})";
+        if (_captureTargetRow == 0)
+        {
+            CaptureHint.Text = "";
+            ToggleKeyLabel.Text = Describe(_capturedVk, _capturedMods)
+                + $" (v1:{_capturedVk}:{_capturedMods})";
+        }
+        else
+        {
+            _hanjaVk = (int)e.Key;
+            _hanjaMods = ModsNow();
+            _hanjaCaptured = true;
+            HanjaCaptureHint.Text = "";
+            HanjaKeyLabel.Text = Describe(_hanjaVk, _hanjaMods)
+                + $" (v1:{_hanjaVk}:{_hanjaMods})";
+        }
     }
 
     // vk+mods -> label (stored backtick: the label strings are the manual
@@ -144,6 +172,7 @@ public partial class MainWindow : Window
         var baseName = vk switch
         {
             21 => "한/영",           // VK_HANGEUL (HangulMode)
+            25 => "한자",            // VK_HANJA — the candidate-window default key
             165 => "오른쪽 Alt",      // VK_RMENU
             164 => "왼쪽 Alt",       // VK_LMENU
             32 => "Space",
@@ -187,14 +216,32 @@ public partial class MainWindow : Window
         var local = Path.Combine(exedir, "data");
         if (Directory.Exists(local))
             return local;
-        return Path.Combine(exedir, "..", "data"); // deployed: <dll dir>\data
+        var sibling = Path.Combine(exedir, "..", "data"); // deployed: <dll dir>\data
+        if (Directory.Exists(sibling))
+            return sibling;
+        /* Dev-checkout climb (the same rule the DLL's loader applies): this
+         * project publishes to settings-ui\publish, four levels above which
+         * the repo's libhunmin\data lives. Without the climb the dev-run UI
+         * had an EMPTY layout list — measured 2026-10-18, the status the
+         * user reported ("layout list is not displayed"). */
+        var dir = Path.GetFullPath(exedir);
+        for (int i = 0; i < 6 && dir is { Length: > 3 }; i++)
+        {
+            dir = Path.GetDirectoryName(dir)!;
+            var candidate = Path.Combine(dir, "libhunmin", "data");
+            if (Directory.Exists(candidate))
+                return candidate;
+        }
+        return sibling; // the last documented default, so callers stay honest
     }
 
     void LoadLayouts()
     {
-        var (hangul, latin) = ParseLayouts(DataDir());
+        var dir = DataDir();
+        var (hangul, latin) = ParseLayouts(dir);
         HangulList.ItemsSource = hangul;
         LatinList.ItemsSource = latin;
+        LogDebug($"layouts dir={dir} hangul={hangul.Count} latin={latin.Count}");
     }
 
     public static (List<SlotRow> hangul, List<SlotRow> latin) ParseLayouts(string dataDir)
@@ -248,6 +295,8 @@ public partial class MainWindow : Window
         _capturedMods = 0;
         _storedHasToggle = false;
         _storedToggle = "";
+        _storedHasHanja = false;
+        _storedHanja = "";
         using var key = Registry.CurrentUser.OpenSubKey(RegRoot);
         Select(HangulList, key?.GetValue(ValHangul) as string ?? "sin3-p2");
         Select(LatinList, key?.GetValue(ValLatin) as string ?? "us-qwerty");
@@ -265,6 +314,22 @@ public partial class MainWindow : Window
             ToggleKeyLabel.Text = Describe(store.Value.vk, store.Value.mods)
                 + $" (v1:{store.Value.vk}:{store.Value.mods})";
         }
+        /* The Hanja/candidate key row (issue #67): same grammar; empty or
+         * unparseable means the adapter default (표시는 규칙대로: 설정 없음).
+         * The default IS the physical key, so the row shows what the
+         * adapter will do either way. */
+        _storedHanja = (key?.GetValue(ValHanja) as string) ?? "";
+        var hanja = ParseSingle(_storedHanja);
+        _storedHasHanja = _storedHanja.Trim().Length > 0;
+        if (hanja is null)
+        {
+            HanjaKeyLabel.Text = "설정 없음 (물리 한자 키)";
+        }
+        else
+        {
+            HanjaKeyLabel.Text = Describe(hanja.Value.vk, hanja.Value.mods)
+                + $" (v1:{hanja.Value.vk}:{hanja.Value.mods})";
+        }
         StatusText.Text = "";
     }
 
@@ -276,7 +341,7 @@ public partial class MainWindow : Window
         list.SelectedIndex = -1; // unknown stored id: no selection, not an error
     }
 
-    // ---- the store write (config.h contract: REG_SZ values) ----
+    // ---- apply: the config.h contract write, now four values ----
     void Apply_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -296,6 +361,22 @@ public partial class MainWindow : Window
             {
                 Set(key, ValToggle, _storedToggle); // untouched: rewrite the stored one
             }
+            /* The Hanja/candidate key (issue #67): a capture wins; a cleared
+             * capture deletes the value (the adapter falls back to the
+             * physical Hanja key); no capture this session rewrites the
+             * stored binding unchanged. */
+            if (_hanjaCaptured)
+            {
+                Set(key, ValHanja, $"v1:{_hanjaVk}:{_hanjaMods}");
+            }
+            else if (_storedHasHanja)
+            {
+                Set(key, ValHanja, _storedHanja);
+            }
+            else
+            {
+                key.DeleteValue(ValHanja, false);
+            }
             StatusText.Text = "저장했습니다.";
         }
         catch
@@ -306,6 +387,13 @@ public partial class MainWindow : Window
 
     string _storedToggle = "";
     bool _storedHasToggle = false;
+    /* The Hanja row's own capture state (issue #67): separate from the
+     * toggle's, so applying one never rewrites the other's store value. */
+    int _hanjaVk = -1;
+    int _hanjaMods = 0;
+    bool _hanjaCaptured = false;
+    string _storedHanja = "";
+    bool _storedHasHanja = false;
     void Set(RegistryKey key, string name, string value)
     {
         if (value.Length > 0)

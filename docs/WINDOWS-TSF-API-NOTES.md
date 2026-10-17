@@ -1,0 +1,102 @@
+# Windows TSF API notes (reference)
+
+Provenance: summaries quoted from the Microsoft Learn TSF reference
+(https://learn.microsoft.com/en-us/windows/win32/tsf/text-services-framework) and
+its child pages, and the API catalogue at
+https://learn.microsoft.com/en-us/windows/win32/api/_tsf/ (retrieved
+2026-10-18 during the issue #67 work). This page is read-only reference for
+future work on `frontends/tsf`; it states what the platform offers, not what
+the adapter does — the adapter's current shape and the open migration are
+tracked in the issue referenced at the bottom.
+
+## Headers of the API surface (https://learn.microsoft.com/en-us/windows/win32/api/_tsf/)
+
+The whole technology lives in seven headers; the ones this adapter already
+touches are marked:
+
+- `msctf.h` — the manager, contexts, key sinks, composition, edit sessions,
+  profiles (in use);
+- `ctffunc.h` — the function-provider family: `ITfFnConfigure`,
+  `ITfCandidateList`, `ITfFnSearchCandidateProvider` (in use @ #71/#67);
+- `ctfutb.h` — the language bar: `ITfLangBarItemButton`, bar item info (in
+  use: the settings button added with issue #67);
+- `textstor.h` — the application side of the same protocol, `ITextStoreACP`
+  and the `Ts*` anchor/gravity types;
+- `inputscope.h` — `InputScope` field classification (Notepad/Word fields
+  advertise these; candidate-window behaviour may branch on them);
+- `msctfmonitorapi.h` — TSF monitor/status API;
+- `ctfspui.h`, `msaatext.h` — speech/special-purpose providers (not used).
+
+## What each surface buys, in one paragraph each
+
+- **Text services & applications.** TSF is the system service for advanced
+  text input; a TIP (text input processor) is a COM in-proc server activated
+  by the TSF manager (msctf) inside the host process
+  (https://learn.microsoft.com/en-us/windows/win32/tsf/text-services-framework).
+  Hunmin is a TIP (`ITfTextInputProcessor`), registered under its own CLSID
+  and a 0x0412 (Korean) language profile — see WINDOWS-TSF-REGISTRATION.md.
+- **Compositions.** "A text service creates a composition by calling
+  `ITfContextComposition::StartComposition`. … `StartComposition` returns an
+  `ITfComposition` object that the text service keeps a reference to and uses
+  to modify and terminate the composition. The text service terminates the
+  composition by calling `ITfComposition::EndComposition`"
+  (https://learn.microsoft.com/en-us/windows/win32/tsf/compositions). The
+  service may implement `ITfCompositionSink` to receive start/update/end
+  notifications.
+- **Text stores / edit contexts.** All text moves through `ITfContext`
+  ranges: `ITfRange::SetText`, `GetSelection`/`SetSelection`, edits only
+  inside `RequestEditSession` (`TF_ES_SYNC`/`TF_ES_READWRITE`) edit sessions.
+  The adapter already works this way for committed text.
+- **Display attributes (the inline preedit styling mechanism).** To let the
+  *application* render undetermined text (underline, colour):
+  1. `ITfCategoryMgr::RegisterCategory` with `GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER`
+     (https://learn.microsoft.com/en-us/windows/win32/tsf/providing-display-attributes);
+  2. implement `ITfDisplayAttributeProvider` + `IEnumTfDisplayAttributeInfo` +
+     one `ITfDisplayAttributeInfo` per attribute (`TF_DISPLAYATTRIBUTE`
+     struct: text colour, background, underline style/colour/weight);
+  3. during a read/write edit session: take the `ITfRange` covering the
+     composition text, `ITfContext::GetProperty(GUID_PROP_ATTRIBUTE)`,
+     `ITfCategoryMgr::RegisterGUID` → `TfGuidAtom`, then
+     `ITfProperty::SetValue(ec, range, vtI4Variant)`.
+  The Learn page carries the full `CEditSession::DoEditSession` example.
+
+## Why native composition preedit beats the overlay window
+
+The current adapter draws the in-flight preedit on its own topmost overlay
+window, positioned from the caret rect. The platform's way (`ITfComposition`
+text + a display attribute) puts the preedit INTO the app's document: it
+inherently follows the app's fonts, zoom, and text flow, needs no caret-rect
+races, and any TSF-aware host (Notepad, Word, terminals hosting TSF) renders
+it. The overlay window remains needed only for cases the composition cannot
+cover — e.g. apps without TSF support, or the candidate popup itself, which
+is not in-document text at all.
+
+## Other interfaces this adapter already exercises
+
+- `ITfThreadMgrEventSink` (activation/deactivation, context push/pop),
+- `ITfKeyEventSink` + `ITfKeystrokeMgr::AdviseKeyEventSink` (key routing,
+  preserve-on-stale via `ITfKeystrokeMgr::SetPreserveKey`),
+- `ITfCompositionSink` (EndComposition on external control of the context),
+- `ITfFunctionProvider` → `ITfFnConfigure` (the settings surface, issue #71),
+- ctfutb `ITfLangBarItemButton` (language-bar settings button; added with
+  issue #67's discoverability work),
+- `ITfCategoryMgr` register/unregister of categories and profiles.
+
+## Migration sketch (for the separate tracking issue)
+
+1. First preedit key enters a foreign scope: `RequestEditSession` →
+   `ITfContextComposition::StartComposition(esi.empty range, this, &pos)`.
+2. Every subsequent engine transition rewrites the composition range text
+   (`ITfComposition::GetRange` → `SetText`) inside the same edit session, and
+   sets `GUID_PROP_ATTRIBUTE` over the range so the app underlines it.
+3. Commit: EndComposition, final `SetText` of the chosen character/word.
+4. Cancel/backspace-to-empty: EndComposition then delete the range.
+5. Overlay window stays only as the candidate-window renderer and as the
+   non-TSF-app fallback path.
+
+## Status
+
+- Overlay-window preedit is the shipped behaviour of 0.2.0 (issue #67).
+- The native-composition preedit migration is tracked as its own issue:
+  https://github.com/scobyseo/hunmin/issues/98 — do not fold it into a
+  settings/candidate PR.

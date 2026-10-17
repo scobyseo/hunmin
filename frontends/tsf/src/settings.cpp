@@ -36,6 +36,8 @@ extern bool hunmin_tsf_log_path(const char *fname, char *out, size_t cap);
 #define IDC_TOGGLE_EDIT 1003
 #define IDC_FEATURE_ROW 1004
 #define IDC_HANJA_EDIT 1005
+#define IDC_TOGGLE_CAPTURE 1006
+#define IDC_HANJA_CAPTURE 1007
 #define IDC_HINT_HANJA 2002
 #define IDC_HINT_TOGGLE 2001
 
@@ -134,6 +136,10 @@ struct SettingsState {
     /* The ids, in display order: the OK handler needs the id the user
      * picked, and CBS without sort keeps the added order. */
     bool applied = false;
+    /* Key-capture mode (WinUI 3 parity): 0 = idle, else the id of the edit
+     * the next recorded chord fills (IDC_TOGGLE_EDIT / IDC_HANJA_EDIT).
+     * The dialog's own WM_KEYDOWN/WM_SYSKEYDOWN owns the keys while set. */
+    int captureTarget = 0;
     /* Windows 11 look-and-feel state (measured HRESULTs land in the log). */
     bool dark = false;
     HFONT font = nullptr; /* the Segoe UI Variable upgrade, owned */
@@ -194,6 +200,12 @@ static void addItem(std::vector<WORD> &t, DWORD style, DWORD exStyle, WORD x, WO
 #define TITLE_HANJA L"\uD55C\uC790 \uD0A4" /* 한자 키 — the candidate-window key label */
 #define HINT_HANJA L"\uC608: v1:25:0" /* e.g.: v1:25:0 (25 = the Hanja key, the default) */
 #define FEATURE_ROW L"\uC790\uB3D9 \uD55C/\uC605 \uC804\uD658: \uBBF8\uC815 (0.3)"
+/* The capture button's two labels (WinUI 3의 key-capture flow, interim
+ * dialog parity): idle = click me; capturing = the next key records.
+ * Escapes, not literals: MSVC reads this TU under the ANSI codepage (949). */
+#define CAPTURE_PROMPT_IDLE L"\uD0A4 \uC785\uB825" /* 키 입력 */
+#define CAPTURE_PROMPT_ACTIVE \
+    L"\uD0A4\uB974 \uB204\uB974\uC138\uC694\u2026 (ESC \uCDE8\uC18C)" /* 키를 누르세요… (ESC 취소) */
 
 static std::vector<WORD> buildDialogTemplate() {
     std::vector<WORD> t;
@@ -214,52 +226,60 @@ static std::vector<WORD> buildDialogTemplate() {
     t.push_back(0); /* cdit, patched below */
     t.push_back(0); /* x */
     t.push_back(0); /* y */
-    t.push_back(216);
-    t.push_back(226);
+    t.push_back(200);
+    t.push_back(150);
     t.push_back(0); /* menu: none */
     t.push_back(0); /* class: standard dialog */
     wstr(t, L"Hunmin settings");
     t.push_back(9); /* DS_SETFONT needs this size word, then the face */
     wstr(t, L"Segoe UI");
     const size_t first = t.size();
-    /* Row labels. */
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP, 0, 10, 8, 90, 10, 0, ATOM_STATIC,
+    /* Compact grid, tightened twice after the user's live run ("spacing
+     * between widgets is too big"): 200x150 dlu, rows 13-14 dlu apart,
+     * edit->hint 2 dlu. The 키 입력 button beside each key field enters the
+     * capture mode (WinUI 3 parity: press the chord, the dialog records
+     * it; ESC cancels). */
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP, 0, 10, 5, 86, 10, 0, ATOM_STATIC,
             TITLE_HANGUL);
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 112, 8, 90, 10, 0, ATOM_STATIC, TITLE_LATIN);
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 106, 5, 86, 10, 0, ATOM_STATIC, TITLE_LATIN);
     /* Layout combo boxes, one per slot. */
     addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0,
-            10, 20, 90, 60, IDC_HANGUL_LIST, ATOM_COMBOBOX, L"");
+            10, 15, 86, 56, IDC_HANGUL_LIST, ATOM_COMBOBOX, L"");
     addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0,
-            112, 20, 90, 60, IDC_LATIN_LIST, ATOM_COMBOBOX, L"");
+            106, 15, 86, 56, IDC_LATIN_LIST, ATOM_COMBOBOX, L"");
     /* The mode-toggle key list row. */
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 88, 192, 10, 0, ATOM_STATIC, TITLE_TOGGLE);
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 42, 140, 10, 0, ATOM_STATIC, TITLE_TOGGLE);
     addItem(t, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 0, 10,
-            100, 192, 14, IDC_TOGGLE_EDIT, ATOM_EDIT, L"");
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 118, 192, 10, IDC_HINT_TOGGLE, ATOM_STATIC,
+            52, 150, 12, IDC_TOGGLE_EDIT, ATOM_EDIT, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 164, 52, 30, 12,
+            IDC_TOGGLE_CAPTURE, ATOM_BUTTON, CAPTURE_PROMPT_IDLE);
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 66, 178, 10, IDC_HINT_TOGGLE, ATOM_STATIC,
             HINT_TOGGLE);
-    /* The Hanja/candidate key row (issue #67): the key that opens the F9-
-     * flow candidate window, default the bare physical Hanja key. */
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 136, 192, 10, 0, ATOM_STATIC, TITLE_HANJA);
+    /* The Hanja/candidate key row (issue #67): the key that opens the
+     * candidate window, default the bare physical Hanja key. */
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 79, 140, 10, 0, ATOM_STATIC, TITLE_HANJA);
     addItem(t, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 0, 10,
-            148, 192, 14, IDC_HANJA_EDIT, ATOM_EDIT, L"");
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 166, 192, 10, IDC_HINT_HANJA, ATOM_STATIC,
+            89, 150, 12, IDC_HANJA_EDIT, ATOM_EDIT, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 164, 89, 30, 12,
+            IDC_HANJA_CAPTURE, ATOM_BUTTON, CAPTURE_PROMPT_IDLE);
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 103, 178, 10, IDC_HINT_HANJA, ATOM_STATIC,
             HINT_HANJA);
     /* The feature row: display only, disabled, per the recorded ruling. */
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 182, 134, 10, 0, ATOM_STATIC, FEATURE_ROW);
-    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 148, 180, 10,
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 116, 118, 10, 0, ATOM_STATIC, FEATURE_ROW);
+    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 132, 114, 10,
             12, IDC_FEATURE_ROW, ATOM_BUTTON, L"");
     /* OK / Cancel. */
     addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_DEFPUSHBUTTON, 0,
-            104, 198, 48, 14, IDOK, ATOM_BUTTON, L"OK");
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 158, 198, 48,
-            14, IDCANCEL, ATOM_BUTTON, L"Cancel");
+            100, 132, 44, 12, IDOK, ATOM_BUTTON, L"OK");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 148, 132, 44,
+            12, IDCANCEL, ATOM_BUTTON, L"Cancel");
     /* The template declared exactly the items appended above: 7 statics +
-     * 2 combos + 2 edits + 1 checkbox + 2 buttons = 14. (The count is
-     * derived from the add calls above; USER32 stops parsing at cdit, so a
-     * wrong number here either truncates children or reads garbage as the
-     * first item — the empty-dialog defect instrumentation kept the
-     * initdialog kids count as the guard.) */
-    t[cditOff] = 14;
+     * 2 combos + 2 edits + 2 capture buttons + 1 checkbox + 2 buttons =
+     * 16. (The count is derived from the add calls above; USER32 stops
+     * parsing at cdit, so a wrong number here either truncates children or
+     * reads garbage as the first item — the empty-dialog defect
+     * instrumentation kept the initdialog kids count as the guard.) */
+    t[cditOff] = 16;
     return t;
 }
 
@@ -496,6 +516,73 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
                     (long)rc.left, (long)rc.top, (long)rc.right, (long)rc.bottom,
                     (int)IsWindowVisible(h));
         }
+        return TRUE;
+    }
+    /* ---- key-capture mode (WinUI 3 parity; the maintainer instruction:
+     * set combinations by PRESSING keys, not by typing v1 strings) ---- */
+    if (s && s->captureTarget != 0 &&
+        (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)) {
+        if (lp & (1 << 30))
+            return TRUE; /* auto-repeat swallowed (keybinding.h repeat rule) */
+        WPARAM vk = wp;
+        bool chord =
+            (GetKeyState(VK_SHIFT) & 0x8000) || (GetKeyState(VK_CONTROL) & 0x8000) ||
+            (GetKeyState(VK_MENU) & 0x8000);
+        if (vk == VK_ESCAPE && !chord) {
+            /* Cancel: the button label restores; the edit keeps whatever the
+             * user had (the WinUI 3 cancel rule). */
+            SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
+                                                ? IDC_TOGGLE_CAPTURE
+                                                : IDC_HANJA_CAPTURE),
+                           CAPTURE_PROMPT_IDLE);
+            s->captureTarget = 0;
+            return TRUE;
+        }
+        bool isModifier =
+            vk == VK_SHIFT || vk == VK_LSHIFT || vk == VK_RSHIFT ||
+            vk == VK_CONTROL || vk == VK_LCONTROL || vk == VK_RCONTROL ||
+            vk == VK_MENU || vk == VK_LMENU || vk == VK_RMENU ||
+            vk == VK_LWIN || vk == VK_RWIN || vk == VK_APPS || vk == VK_NUMLOCK;
+        if (isModifier)
+            return TRUE; /* modifier-only: wait for the chord's main key */
+        unsigned mods = 0;
+        if (GetKeyState(VK_SHIFT) & 0x8000)
+            mods |= HUNMIN_TSF_KEYMOD_SHIFT;
+        if (GetKeyState(VK_CONTROL) & 0x8000)
+            mods |= HUNMIN_TSF_KEYMOD_CTRL;
+        if (GetKeyState(VK_MENU) & 0x8000)
+            mods |= HUNMIN_TSF_KEYMOD_ALT;
+        char combo[24];
+        snprintf(combo, sizeof combo, "v1:%lu:%u", (unsigned long)vk, mods);
+        HWND edit = GetDlgItem(h, s->captureTarget);
+        if (!edit) {
+            s->captureTarget = 0;
+            return TRUE;
+        }
+        if (s->captureTarget == IDC_TOGGLE_EDIT) {
+            /* The toggle row is a LIST: the chord APPENDS, unless the exact
+             * entry is already there (grammar "v1:<vk>:<mods>;..."; the
+             * find() is bounded by the ';' separators). */
+            std::string keys =
+                wideToStore(getEditText(h, IDC_TOGGLE_EDIT));
+            if (keys.find(combo) == std::string::npos) {
+                if (!keys.empty())
+                    keys += ";";
+                keys += combo;
+            }
+            std::wstring w(keys.begin(), keys.end());
+            SetWindowTextW(edit, w.c_str());
+        } else {
+            /* The Hanja row is ONE binding: the chord REPLACES. */
+            std::wstring w(combo, combo + strlen(combo));
+            SetWindowTextW(edit, w.c_str());
+        }
+        SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
+                                            ? IDC_TOGGLE_CAPTURE
+                                            : IDC_HANJA_CAPTURE),
+                       CAPTURE_PROMPT_IDLE);
+        logLine("settings: captured %s into %d", combo, s->captureTarget);
+        s->captureTarget = 0;
         return TRUE;
     }
     switch (msg) {
