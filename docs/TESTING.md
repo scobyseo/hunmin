@@ -970,8 +970,18 @@ Four layers, cheap→real:
   (`frontends/tsf/test/mock-tsf.h`, issue #80): in-memory COM doubles, no registry
   and no real windows, with the adapter source included unmodified. ctest label
   `tier-F1`, corpus `tests/conformance/win32/*.trace.in` (same generator, win32
-  dialect), registered only where MSVC found the engine. Not yet covered: a
-  backspace boundary (no sin3-p2 tier-A golden carries one) and overlay-window
+  dialect), registered only where MSVC found the engine. Milestone C (issue #66)
+  added `tsf-config-test` (the layout-pair store and slot resolution),
+  `tsf-datadir-test` (staged `<module>\data` loads with the env cleared) and a
+  dubeolsik win32 trace — until then every win32 trace selected the hard-coded
+  sin3-p2 and no test could see a layout-wiring regression. The harness also pins
+  both slots from the trace's own meta, so a host's real TIP settings cannot move
+  a conformance run. Registration caveat, measured 2026-10-17: the tier lives in
+  a standalone `frontends/tsf` configure, which needs its own `enable_testing()`
+  (now present — before it, ctest reported "No tests were found" while the
+  harness built) and `-DPython3_EXECUTABLE` passed explicitly works only with
+  the executable-keyed guard. Not yet covered: a backspace boundary (no sin3-p2
+  tier-A golden carries one) and overlay-window
   presentation (needs real HWNDs, stubbed via `ITfContextView::GetTextExt`).
 - **F2 TAT** (Microsoft TSF Accommodation Tool, the official TIP stress-tester) driven on
   a Windows runner; plus UIAutomation-based text assertions in Notepad/test edit control

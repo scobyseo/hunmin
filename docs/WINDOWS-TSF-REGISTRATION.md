@@ -13,6 +13,18 @@ host — Windows 11 (26200), Windows SDK 10.0.26100, VS BuildTools 14.44 — dur
 the 2026-10-16/17 TSF loading and buffering work. GUID literals that are not
 visible in the measured registry state are named only, not quoted.
 
+## Debug logging is an option (maintainer instruction, issue #66)
+
+Every runtime log this file mentions (`hunmin-tsf-debug.log`,
+`hunmin-reg-debug.log`) is written only when `HUNMIN_TSF_DEBUG_LOG` is set to
+`1` / `on` / `yes` / `true`; the gate is `tsf_log_open` (tsf.cpp), the one
+function all sites open through. With the switch off, no file is created and
+the registration/key-down chains behave identically apart from logging; the
+variable is re-read per open, so a session can be flipped on or off without a
+restart. The file still lands next to the DLL (or `HUNMIN_TSF_LOG_DIR`) exactly
+as described below.
+
+
 ## Constants (code: `frontends/tsf/src/tsf.cpp`)
 
 | Constant | Value |
