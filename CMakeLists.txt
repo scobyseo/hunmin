@@ -9,7 +9,13 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(GNUInstallDirs)
 if(MSVC)
-    add_compile_options(/std:c11 /W4)
+    # Every .c/.h in the tree is UTF-8 (measured 2026-10-17, `file` over all
+    # sources: UTF-8 or pure ASCII, no CP949 file). Without /utf-8 MSVC decodes
+    # them as CP949, which turns the UTF-8 test literals into unpairable bytes:
+    # C2001 "newline in constant" cascades (suggest-test.c:48,
+    # commit-text-test.c:89). /utf-8 fixes BOTH charsets — source AND execution
+    # — so narrow literals stay byte-correct against the UTF-8 data files.
+    add_compile_options(/std:c11 /W4 /utf-8)
 else()
     add_compile_options(-Wall -Wextra)
 endif()
@@ -83,11 +89,11 @@ if(HUNMIN_HAS_LIBHANGUL AND HUNMIN_SH)
 endif()
 
 # --------------------------------------------------------------------- sim
-if(NOT MSVC)
-    add_executable(hunmin-sim tools/sim.c)
-    target_include_directories(hunmin-sim PRIVATE third_party/cJSON)
-    target_link_libraries(hunmin-sim PRIVATE hunmin)
-endif()
+# hunmin-sim is plain C (portable: only snprintf) and the tier-A golden
+# regressions run through it; it builds and runs under MSVC too (issue #85).
+add_executable(hunmin-sim tools/sim.c)
+target_include_directories(hunmin-sim PRIVATE third_party/cJSON)
+target_link_libraries(hunmin-sim PRIVATE hunmin)
 if(NOT MSVC)
     install(TARGETS hunmin hunmin-sim
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

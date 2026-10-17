@@ -316,7 +316,7 @@ int main(int argc, char **argv) {
        * disagree with --trace. */
       char acc[1024];
       size_t acclen = 0;
-      for (ssize_t i = 0; i < n; i++) {
+      for (size_t i = 0; i < n; i++) {
         hunmin_ic_process(bic, (unsigned char)line[i]);
         const char *c = hunmin_ic_commit(bic);
         size_t cl = strlen(c);
