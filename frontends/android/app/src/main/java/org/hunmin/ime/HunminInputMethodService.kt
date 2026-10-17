@@ -6,7 +6,7 @@
  * Lifecycle, per docs/TESTING.md tier E:
  *
  *   onCreate      extract the tables, build the ctx, remember the active layout
- *   onStartInput  build a fresh HunminEngine for THIS editor  (two editors must
+ *   onStartInput  build a fresh HunminAdapter for THIS editor  (two editors must
  *                 not share a composition buffer)
  *   onKeyDown     map the keycode, feed the engine, present commit + preedit
  *   onStartInputView  show a minimal status view -- see onEvaluateInputViewShown
@@ -107,7 +107,7 @@ class HunminInputMethodService : InputMethodService() {
     }
 
     /** One engine per InputConnection; rebuilt on every onStartInput. */
-    private var engine: HunminEngine? = null
+    private var engine: HunminAdapter? = null
 
     /**
      * The IME's input view, held so its selection survives a view recreation.
@@ -145,7 +145,7 @@ class HunminInputMethodService : InputMethodService() {
     private var isHangulMode: Boolean = true
 
     /** Latin layout engine for English mode. */
-    private var latinEngine: HunminEngine? = null
+    private var latinEngine: HunminAdapter? = null
 
     /**
      * True when the current editor is a password field.
@@ -168,9 +168,9 @@ class HunminInputMethodService : InputMethodService() {
      * context is not usable before `onCreate`, and `onStartInput` is the
      * first place that reads it back.
      */
-    private val modeStore: HangulModeStore by lazy {
+    private val modeStore: HangulModeRepository by lazy {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        HangulModeStore(
+        HangulModeRepository(
             read = { key, default -> prefs.getBoolean(key, default) },
             write = { key, value -> prefs.edit().putBoolean(key, value).apply() },
         )
@@ -183,7 +183,7 @@ class HunminInputMethodService : InputMethodService() {
      * is a lookup per key event and not a disk read. It is a `by lazy` because
      * the service context is not usable before `onCreate`.
      */
-    private val keyBindings: KeyBindingStore by lazy { KeyBindings.from(this) }
+    private val keyBindings: KeyBindingRepository by lazy { KeyBindings.from(this) }
 
     /** Does this event fire [action]? Shorthand for the four checks below. */
     private fun fires(action: KeyAction, keyCode: Int, metaState: Int): Boolean =
@@ -193,7 +193,7 @@ class HunminInputMethodService : InputMethodService() {
         super.onCreate()
         registerTraceReceiver()
         registerHanjaReceiver()
-        val dataDir = HunminData.install(this)
+        val dataDir = HunminDataInstaller.install(this)
         if (dataDir == null) {
             // Without tables there is no layout and no Korean at all. Failing
             // here (rather than per keystroke) keeps the symptom one log line
@@ -201,7 +201,7 @@ class HunminInputMethodService : InputMethodService() {
             Log.e(TAG, "hunmin: no layout tables extracted; IME is inert")
             return
         }
-        ctx = HunminNative.nativeCtxNew(dataDir.absolutePath)
+        ctx = HunminNativeBridge.nativeCtxNew(dataDir.absolutePath)
         if (ctx == 0L) {
             Log.e(TAG, "hunmin: hunmin_ctx_new found no layout in ${dataDir.absolutePath}")
             return
@@ -211,20 +211,20 @@ class HunminInputMethodService : InputMethodService() {
         // the default rather than leave the IME with no engine.
         installSettingsBus()
         // Two layouts, one per mode, each resolved against what THIS build can
-        // open. LayoutCatalog owns the fallback chain so it is testable without
+        // open. LayoutRegistry owns the fallback chain so it is testable without
         // an engine -- see its KDoc for why the mode check is not optional.
-        val catalog = LayoutCatalog.sorted(availableLayouts())
-        layoutId = LayoutCatalog.resolve(
+        val catalog = LayoutRegistry.sorted(availableLayouts())
+        layoutId = LayoutRegistry.resolve(
             catalog, LayoutMode.HANGUL,
             readStoredLayout(LayoutMode.HANGUL), DEFAULT_LAYOUT,
         )
-        latinLayoutId = LayoutCatalog.resolve(
+        latinLayoutId = LayoutRegistry.resolve(
             catalog, LayoutMode.LATIN,
             readStoredLayout(LayoutMode.LATIN), DEFAULT_LATIN_LAYOUT,
         )
         Log.i(
             TAG,
-            "hunmin: ${HunminNative.nativeLayoutCount(ctx)} layouts, " +
+            "hunmin: ${HunminNativeBridge.nativeLayoutCount(ctx)} layouts, " +
                 "using $layoutId (한글) and $latinLayoutId (영문)",
         )
     }
@@ -233,14 +233,14 @@ class HunminInputMethodService : InputMethodService() {
         // Close the trace before anything else: a sink left open past onDestroy
         // would keep appending to a file nothing can pull, because the service
         // that could answer the pull is gone.
-        HunminTrace.close()
+        HunminTraceRecorder.close()
         traceReceiver?.let { runCatching { unregisterReceiver(it) } }
         traceReceiver = null
         runCatching { unregisterReceiver(hanjaReceiver) }
         engine?.close()
         engine = null
         if (ctx != 0L) {
-            HunminNative.nativeCtxFree(ctx)
+            HunminNativeBridge.nativeCtxFree(ctx)
             ctx = 0
         }
         super.onDestroy()
@@ -259,8 +259,8 @@ class HunminInputMethodService : InputMethodService() {
         super.onStartInput(info, restarting)
         engine?.close()
         latinEngine?.close()
-        engine = if (ctx == 0L) null else HunminEngine(ctx, layoutId)
-        latinEngine = if (ctx == 0L) null else HunminEngine(ctx, latinLayoutId)
+        engine = if (ctx == 0L) null else HunminAdapter(ctx, layoutId)
+        latinEngine = if (ctx == 0L) null else HunminAdapter(ctx, latinLayoutId)
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
@@ -313,7 +313,7 @@ class HunminInputMethodService : InputMethodService() {
         // previous field while the IME had already switched back. Caught by tier
         // E2 asserting the letter before a rebound keypress.
         picker?.setMode(isHangulMode)
-        picker?.setLayouts(LayoutCatalog.sorted(availableLayouts()))
+        picker?.setLayouts(LayoutRegistry.sorted(availableLayouts()))
         // The indicator shows the layout that is composing right now, so it is
         // the English one in English mode — a strip that said "sin3-p2" while
         // qwerty was composing would be showing the wrong name.
@@ -356,9 +356,11 @@ class HunminInputMethodService : InputMethodService() {
             val e = engine ?: return super.onKeyDown(keyCode, event)
             val target: InputConnection = currentInputConnection
                 ?: return super.onKeyDown(keyCode, event)
-            // Flush/commit the in-flight syllable first
-            val committed = e.flush(target)
-            // Then forward the space to the application
+            // Space is a boundary key: the WORD accumulated so far is delivered
+            // once through commitWord (issue #75), then the space itself is
+            // forwarded -- the space does not go through the engine. Not in a
+            // password editor: no composition, the guard below returns the key.
+            e.commitWord(target)
             target.commitText(" ", 1)
             return true
         }
@@ -395,7 +397,7 @@ class HunminInputMethodService : InputMethodService() {
         // engine. A physical keyboard delivers the modifier as its own
         // ACTION_DOWN before the chord key (Alt alone arrives first when the
         // user presses the Hanja chord's Shift). Feeding a bare modifier to the engine
-        // makes HunminEngine.onKey take its isModifierChord path and flush the
+        // makes HunminAdapter.onKey take its isModifierChord path and flush the
         // in-flight syllable -- which is exactly what left the Hanja lookup
         // with an empty preedit. Handled shortcuts above have already returned;
         // anything reaching here is an unhandled modifier, so pass it through
@@ -416,7 +418,7 @@ class HunminInputMethodService : InputMethodService() {
         // insertion path, so the field receives the literal character. An IME
         // composing Hangul into a masked field produces text the user cannot
         // read (measured 2026-10-13, issue #13). Checked before the engines
-        // rather than inside them: HunminEngine is layout-agnostic core code
+        // rather than inside them: HunminAdapter is layout-agnostic core code
         // with no notion of an editor, and the policy belongs to the adapter.
         if (isSecureEditor) return super.onKeyDown(keyCode, event)
 
@@ -453,14 +455,14 @@ class HunminInputMethodService : InputMethodService() {
         val target = currentInputConnection ?: return
 
         if (isHangulMode) {
-            // Switching to Hangul: flush any Latin composition first
-            latinEngine?.flush(target)
+            // Switching to Hangul: commit the Latin word first (boundary)
+            latinEngine?.commitWord(target)
             engine?.updatePreedit(target)
             Log.i(TAG, "hunmin: switched to Hangul mode ($layoutId)")
             showModeToast("한글")
         } else {
-            // Switching to English: flush Hangul composition first
-            engine?.flush(target)
+            // Switching to English: commit the Hangul word first (boundary)
+            engine?.commitWord(target)
             latinEngine?.updatePreedit(target)
             Log.i(TAG, "hunmin: switched to English mode ($latinLayoutId)")
             showModeToast("English")
@@ -552,17 +554,17 @@ class HunminInputMethodService : InputMethodService() {
             if (intent?.action != ACTION_TRACE) return
             when (intent.getStringExtra("op")) {
                 "enable" -> {
-                    HunminTrace.caseLabel =
+                    HunminTraceRecorder.caseLabel =
                         intent.getStringExtra("case") ?: "manual"
-                    HunminTrace.source = intent.getStringExtra("source") ?: ""
-                    HunminTrace.enable(
+                    HunminTraceRecorder.source = intent.getStringExtra("source") ?: ""
+                    HunminTraceRecorder.enable(
                         java.io.File(filesDir, TRACE_FILE),
                         layoutId,
                     )
-                    Log.i(TAG, "hunmin: trace enabled (case=${HunminTrace.caseLabel})")
+                    Log.i(TAG, "hunmin: trace enabled (case=${HunminTraceRecorder.caseLabel})")
                 }
                 "disable" -> {
-                    HunminTrace.close()
+                    HunminTraceRecorder.close()
                     Log.i(TAG, "hunmin: trace closed")
                 }
             }
@@ -577,7 +579,7 @@ class HunminInputMethodService : InputMethodService() {
      * OverlayActivity is started with startActivity (not startActivityForResult)
      * and an IME is a Service, not an Activity, so it can never receive an
      * activity result. The dialog therefore broadcasts the choice back; this
-     * receiver commits it through [HunminEngine.commitHanja], which flushes the
+     * receiver commits it through [HunminAdapter.commitHanja], which flushes the
      * composing Hangul first so the Hanja REPLACES it. commitExternalText would
      * append after it ("한恨"), because that path is invariant 5's voice
      * pass-through, not a conversion. Explicit-package broadcast, so only this
@@ -640,7 +642,7 @@ class HunminInputMethodService : InputMethodService() {
     /**
      * Ask for speech, then commit whatever comes back verbatim.
      *
-     * The whole point of routing this through [HunminEngine.commitExternalText]
+     * The whole point of routing this through [HunminAdapter.commitExternalText]
      * and never through `onKey` is invariant 5: spoken Hangul fed to
      * hunmin_ic_process would be composed a second time. Every failure below
      * therefore leaves the IME typing and reports itself, because a voice
@@ -747,7 +749,7 @@ class HunminInputMethodService : InputMethodService() {
     override fun onCreateInputView(): View {
         val view = LayoutPicker(this)
         view.applyStyle(toolbarStyle())
-        view.setLayouts(LayoutCatalog.sorted(availableLayouts()))
+        view.setLayouts(LayoutRegistry.sorted(availableLayouts()))
         view.setActiveLayout(currentLayout())
         // The indicator opens the settings window AT the layout section rather
         // than showing a dropdown: choosing a layout is a setting, and a second
@@ -789,13 +791,13 @@ class HunminInputMethodService : InputMethodService() {
     fun availableLayouts(): List<LayoutEntry> {
         if (ctx == 0L) return emptyList()
         val out = mutableListOf<LayoutEntry>()
-        val n = HunminNative.nativeLayoutCount(ctx)
+        val n = HunminNativeBridge.nativeLayoutCount(ctx)
         for (i in 0 until n) {
-            if (!HunminNative.nativeLayoutSupported(ctx, i)) continue
-            val id = HunminNative.nativeLayoutId(ctx, i)
+            if (!HunminNativeBridge.nativeLayoutSupported(ctx, i)) continue
+            val id = HunminNativeBridge.nativeLayoutId(ctx, i)
             if (id.isEmpty()) continue
-            val ko = HunminNative.nativeLayoutName(ctx, i, "ko")
-            val mode = LayoutMode.of(HunminNative.nativeLayoutMode(ctx, i))
+            val ko = HunminNativeBridge.nativeLayoutName(ctx, i, "ko")
+            val mode = LayoutMode.of(HunminNativeBridge.nativeLayoutMode(ctx, i))
             out.add(LayoutEntry(id, ko.ifEmpty { id }, mode))
         }
         return out
@@ -821,9 +823,9 @@ class HunminInputMethodService : InputMethodService() {
             if (mode == LayoutMode.LATIN) latinLayoutId = id else layoutId = id
             return
         }
-        currentInputConnection?.let { current.flush(it) }
+        currentInputConnection?.let { current.commitWord(it) }
         current.close()
-        val next = HunminEngine(ctx, id)
+        val next = HunminAdapter(ctx, id)
         if (!next.isUsable) {
             // Refuse rather than leave the IME with no engine: the user would
             // get silence instead of the layout they asked for.
@@ -856,7 +858,7 @@ class HunminInputMethodService : InputMethodService() {
      */
     private fun installSettingsBus() {
         ImeSettings.layoutsProvider = {
-            if (ctx == 0L) null else LayoutCatalog.sorted(availableLayouts())
+            if (ctx == 0L) null else LayoutRegistry.sorted(availableLayouts())
         }
         ImeSettings.layoutChoice = { mode ->
             when (mode) {
@@ -945,7 +947,7 @@ class HunminInputMethodService : InputMethodService() {
      * The preference document note that used to sit here: a stored layout this
      * build cannot run must degrade rather than brick the IME, because "I
      * downgraded and now I can't type" is the worst failure this code can
-     * produce. That is LayoutCatalog.resolve()'s fallback chain now, and it has
+     * produce. That is LayoutRegistry.resolve()'s fallback chain now, and it has
      * tier E1 tests where this loop had none.
      */
 }

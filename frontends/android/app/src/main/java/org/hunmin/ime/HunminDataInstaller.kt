@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * HunminData — put the engine's layout tables where libhunmin can open them.
+ * HunminDataInstaller — put the engine's layout tables where libhunmin can open them.
  *
  * libhunmin's loader is a filesystem scanner, and that is the whole constraint
  * here. hunmin_ctx_new() opendir()s `<dir>/compose` and `<dir>/layouts` and
@@ -28,9 +28,9 @@ import android.util.Log
 import java.io.File
 import java.security.MessageDigest
 
-object HunminData {
+object HunminDataInstaller {
 
-    private const val TAG = "HunminData"
+    private const val TAG = "HunminDataInstaller"
 
     /** Subdirs libhunmin scans, in the order hm_data_load reads them. */
     private val DATA_SUBDIRS = listOf("layouts", "compose", "hanja", "idioms")

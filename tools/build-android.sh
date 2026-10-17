@@ -18,6 +18,9 @@ set -euo pipefail
 ABI="${1:?usage: build-android.sh <abi> [api]}"
 API="${2:-24}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# cmake/ninja are native Windows programs on an MSYS host and cannot read
+# /c/... paths; cygpath -m gives the C:/... form they require. No-op elsewhere.
+command -v cygpath >/dev/null 2>&1 && ROOT="$(cygpath -m "$ROOT")"
 
 : "${ANDROID_NDK:?export ANDROID_NDK=~/Android/Sdk/ndk/27.3.13750724}"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
@@ -35,7 +38,9 @@ cmake --build "$OUT" --target hunmin hunmin-sim
 
 # Proof it is the right machine, not just a file with a plausible name. readelf
 # is host binutils and reads any ELF; llvm-readelf ships with the NDK.
-READELF="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+READELF="$(cd "$ANDROID_NDK/toolchains/llvm/prebuilt" && for tag in windows-x86_64 linux-x86_64 darwin-x86_64; do
+  [ -d "$tag" ] && { echo "$ANDROID_NDK/toolchains/llvm/prebuilt/$tag/bin/llvm-readelf"; break; }
+done)"
 SO="$OUT/jniLibs/$ABI/libhunmin.so"
 "$READELF" -h "$SO" | sed -n 's/^ *Machine: */  machine: /p'
 "$READELF" -d "$SO" | sed -n 's/^ *\(NEEDED\|SONAME\).*/  &/p'

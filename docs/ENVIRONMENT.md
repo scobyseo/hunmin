@@ -638,3 +638,121 @@ Effective 0.2 toolchain (measured, this host):
 - Build the TSF DLL through `vcvars64.bat` + the Ninja cache under `frontends/tsf/build-msvc/` (gitignored), or `cmake -G "Visual Studio 17 2022" -A x64`.
 - Native portable build with llvm-mingw (`C:/llvm-mingw-20261006-msvcrt-x86_64`), Ninja; `hunmin-sim` + tests build and run there.
 - `gh` CLI authenticated as `scobyseo`; Python 3.13 for data/lint scripts.
+
+## Android dev environment (this Windows host, measured 2026-10-17, issue #75)
+
+### Which environment runs which part (bash vs PowerShell, this host)
+
+The host has two live environments and they own disjoint halves. Read this
+BEFORE running anything Android-side; the wrong environment reports an
+unset-variable or unknown-command error that reads like a broken toolchain
+and costs a debugging round for nothing.
+
+| part | env | why |
+|---|---|---|
+| All Android tiers: `tools/build-android.sh`, gradle, `android-unit.sh`, tier C/E1, sdkmanager | **bash** (git-bash / MSYS, i.e. the Hermes terminal) | every repo tool for Android is POSIX shell; the env vars live in `~/.bashrc` |
+| VS BuildTools, MSVC `cl.exe`, TSF/TIP builds | **PowerShell / VS2022 prompt** | MSVC toolchain environment (`vcvars64.bat`, `HUNMIN_VS2022_ROOT`) is cmd/PowerShell-native |
+| Admin installs (AEHD/WHPX when they are needed, `setup-windows-dev.ps1` pattern) | **elevated PowerShell** | driver/feature installs need admin; they are one-off, not part of any tier run |
+
+- The Android env vars exist **only in bash** (`.bashrc` exports). A
+  PowerShell session sees neither `JAVA_HOME` nor `ANDROID_HOME` — that is
+  the intended split, not an omission: no repo tool needs them outside bash.
+  If PowerShell must call `adb`/`emulator.exe` by hand, export them per-host
+  (`setx ANDROID_HOME C:\Users\pc\Android\Sdk`) at that point — do not
+  pre-emptively widen the split.
+- The measured path-form rules below are **bash-side rules** (MSYS conversion);
+  they do not apply inside PowerShell/cmd, which is native-Windows all through.
+- **Path composition follows the same split.** Two failure modes, not one:
+  variables missing in the wrong environment, and a correct white path composed
+  in the wrong FORM. The forms (each with the red run that proves it — full
+  list in the pitfalls section below):
+
+  | composed where | becomes what | correct form | measured failure otherwise |
+  |---|---|---|---|
+  | bash → program argument (clang, cmake, java.exe, python) | a filesystem path the exe opens directly | `C:/...` mixed (`cygpath -m`) | llvm-mingw clang: "no such file or directory: /c/...hunmin-jni.c"; WindowsApps python3 globbed zero XML and reported "zero tests ran" while every result said PASS |
+  | bash → `PATH` list entry | an MSYS-converted list for the Windows loader | `/c/...` (`cygpath -u`) | a `C:/...` entry is re-split at the drive colon; the JNI shim's engine resolved to a STALE `libhunmin.dll` from another build tree instead of the intended one |
+  | data-dir list (`hm_split_dirs`, `HUNMIN_DATA_PATH`) | strings strtok-split on `:` | drive letter kept: the `:` after an ASCII drive char survives | `"C:/Workspace/…"` split into `C` + `/Workspace/…` → "no layouts loaded" (fixed in `data.c`/`suggest.c`) |
+  | `frontends/android/local.properties` `sdk.dir` | parsed by java `Properties.load` after bash `\` escaping | forward slashes | `C\:\Users\...` parses to `C:Users...` → AGP `SdkLocator` IOException, "file name syntax is incorrect" |
+  | gradle `-cp` assembled in bash (from the classpath cache) | a `;`-joined list for the Windows JVM | strip `\r` from gradle's CRLF output | a surviving CR is part of the path: `ClassNotFoundException: TraceEmit` |
+  | a committed `.sh` referenced as a ctest command or `subprocess.run` target | an executable | invoke via `bash <path>` on Windows hosts | CMake "BAD_COMMAND"; mutation runner's WinError 193 |
+
+- TSF work and Android work therefore do not share an environment: TSF is the
+  PowerShell half (see *Windows 0.2 development environment* below), Android
+  is the bash half (this section).
+
+The Batch 2 stack from the Linux host is installed here too, **without admin**,
+at the same versions, under `C:/Users/pc`:
+
+| what | version | path |
+|---|---|---|
+| JDK | Temurin 17.0.20.1+1 (same pin as the Linux table above) | `~/toolchains/jdk-17.0.20.1+1` |
+| cmdline-tools | 19.0 (build 13114758, Google zip) | `~/Android/Sdk/cmdline-tools/latest` |
+| platform-tools / adb | 1.0.41 (r37.0.1) | `~/Android/Sdk/platform-tools` |
+| platforms;android-35 / build-tools;35.0.0 / cmake;3.22.1 | sdkmanager | `~/Android/Sdk` |
+| ndk | 27.3.13750724 | `~/Android/Sdk/ndk/27.3.13750724` |
+| emulator | installed | `~/Android/Sdk/emulator` |
+| system-images;android-35;google_apis;x86_64 | sdkmanager | `~/Android/Sdk/system-images` |
+| AVD | `hunmin-e2e` (pixel_6, API 35, x86_64) | `~/.android/avd` |
+
+`~/.bashrc` exports `JAVA_HOME` / `ANDROID_HOME` / `ANDROID_NDK` as native
+`C:/...` strings (see the measured pitfall below), and
+`frontends/android/local.properties` carries `sdk.dir` with **forward** slashes
+(a single-backslash form is destroyed by `Properties.load`: `C\:\Users\...`
+parses to `C:Users...`, and AGP then fails configure with a garbled
+"file name syntax is incorrect" IOException out of `SdkLocator`).
+
+Verified 2026-10-17 in the `android-buffer-preedit-until-word-completion-as`
+worktree, from a clean tree:
+
+- `tools/build-android.sh arm64-v8a 24` and `x86_64 24` — both engine .so
+  cross-build with the pinned NDK clang, `llvm-readelf` machine lines correct.
+- `./gradlew :app:assembleDebug` in `frontends/android` — `app-debug.apk`
+  (4.1 MB) builds; the JNI shim's POST_BUILD symbol guard passes.
+- `ctest -L tier-C` with `ANDROID_HOME` set — 16/16, including all 14
+  `engine-android-conformance-*` traces via the host JVM runner.
+- `ctest -j16 -LE slow` — 50/54; tier-A 26/26. The four failures are
+  environment-absence, not regressions (below).
+
+### Host-absent pieces (do not optimise around them silently)
+
+- **Emulator acceleration**: no hypervisor driver and no WHPX
+  (`emulator -accel-check` → "Android Emulator hypervisor driver is not
+  installed"). tier E1/E2 (AVD boot, Espresso) cannot run until Android
+  Emulator Hypervisor Driver or WHPX is installed (admin) or a Hyper-V
+  feature is enabled.
+- **`builds-android` and the tier E0/E2 script tests fail here** for two
+  mechanically distinct reasons: CMake runs the committed `.sh` test commands
+  directly (no shebang exec on Windows → `BAD_COMMAND`), and `builds-android`
+  invokes `./gradlew` as a program (same class). The Linux CI job carries them.
+- `tools/android-e2e.sh` skips cleanly with no adb device, which is the
+  expected behaviour on this host.
+
+### Measured Windows pitfalls fixed on this pass (see the diffs)
+
+Every one of these reproduced as a red run first; they are recorded so the
+next host does not rediscover them:
+
+1. **`hm_data_load` / suggest's `resolve_dirs` split the data-dir list on `:`
+   (`strtok`)** — a Windows absolute path "C:/Workspace/…" split into "C" and
+   "/Workspace/…" and *every* data load failed: "no layouts loaded". Fixed with
+   the drive-letter-aware `hm_split_dirs` (`libhunmin/src/data.c`), used by
+   both sites. POSIX tokenisation is unchanged.
+2. **MSYS `/c/...` arguments into native Windows programs** (llvm-mingw
+   clang, gradle's `ProcessBuilder("keytool")`): path conversions
+   (`build-host-jni.sh`, `.bashrc` exports) now produce `C:/...`.
+   `PATH` for child processes stays MSYS-form — a `C:/...` entry inside PATH
+   is re-split at the drive colon when converted, which pointed the JNI
+   shim's engine dependency at a *stale* `libhunmin.dll` from another build
+   tree (measured via the trace-emit runner).
+3. **`cmake/android.toolchain.cmake` hardcoded `prebuilt/linux-x86_64`** and
+   the extensionless `clang` name: the prebuilt tag is now detected by
+   directory existence and `clang.exe` appended on Windows hosts.
+4. **`tools/build-android.sh`** gained the same tag detection and a
+   `cygpath -m` for its cmake/ninja arguments.
+5. **The JNI shim's POST_BUILD symbol check was a `sh -c … | grep` pipeline**,
+   unparseable under cmd.exe (AGP drives POST_BUILD through it): replaced by
+   CMake script mode (`check-jni-shim.cmake`).
+6. **Gradle's Windows-CRLF classpath cache** broke `-cp` assembly in
+   `android-trace-emit.sh` (`ClassNotFoundException: TraceEmit`): the
+   runner strips the `\r` on Windows now.
+

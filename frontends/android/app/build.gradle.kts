@@ -20,7 +20,7 @@ plugins {
 // under frontends/ would type the wrong Korean while every host test stayed
 // green. So assets are synced from the source tree at build time and nothing
 // under src/main/assets/data is ever committed.
-val syncHunminData by tasks.registering(Sync::class) {
+val syncHunminDataInstaller by tasks.registering(Sync::class) {
     from(rootProject.file("../../libhunmin/data")) {
         exclude("krdict/**")
     }
@@ -38,10 +38,10 @@ val syncHunminData by tasks.registering(Sync::class) {
 // release variants, and only one of them is built per invocation.
 listOf("mergeDebugAssets", "mergeReleaseAssets").forEach { name ->
     tasks.matching { it.name == name }.configureEach {
-        dependsOn(syncHunminData)
+        dependsOn(syncHunminDataInstaller)
     }
 }
-tasks.named("preBuild") { dependsOn(syncHunminData) }
+tasks.named("preBuild") { dependsOn(syncHunminDataInstaller) }
 
 android {
     namespace = "org.hunmin.ime"
@@ -224,7 +224,7 @@ android {
             // loader is a filesystem layout scanner -- it opens <dir>/compose/
             // and <dir>/layouts/*.json with opendir/fopen -- so the service
             // must extract them to filesDir before the first hunmin_ctx_new().
-            // See HunminData.install().
+            // See HunminDataInstaller.install().
             assets.srcDirs("src/main/assets")
             // One source dir per ABI build dir, because
             // tools/build-android.sh writes to build-android/<abi>/jniLibs/<abi>/libhunmin.so
@@ -282,7 +282,7 @@ android {
                 // THE critical line, and the reason the suite reported 17/17
                 // SKIPPED while looking perfectly green. Unit tests compile
                 // against the module's own classes, and without this the main
-                // source set -- where HunminNative, HunminEngine and HunminKeys
+                // source set -- where HunminNativeBridge, HunminAdapter and HunminKeyRegistry
                 // live -- is not on the test classpath. So every @Before died
                 // with NoClassDefFoundError, and JUnit 4 records an
                 // initialisation error in @Before as a SKIPPED test, not a
@@ -293,7 +293,7 @@ android {
                     tasks.named("mergeDebugJavaResource"),
                 )
                 // Put the main classes on the test classpath so the real
-                // HunminEngine/HunminKeys/HunminNative are under test rather
+                // HunminAdapter/HunminKeyRegistry/HunminNativeBridge are under test rather
                 // than missing. Kotlin's output dir is fixed for AGP builds, so
                 // name it directly instead of asking the task for its
                 // destinationDirectory (which a KotlinCompile task does not
@@ -338,13 +338,13 @@ dependencies {
 @Suppress("unused")
 fun traceEmitClasspath() = files(
     // The emitter (org.hunmin.ime.TraceEmit) lives in the unit-test source
-    // set, but it calls the JNI shim HunminNative, which is MAIN source.
+    // set, but it calls the JNI shim HunminNativeBridge, which is MAIN source.
     // A unit-test runtime classpath carries the main classes, but they land
     // in the variant's own kotlin-classes dir (…/debug, not
     // …/debugUnitTest) and that directory is NOT part of
     // debugUnitTestRuntimeClasspath. Measured: with only the unit-test dir
     // on the path the run died with
-    //   NoClassDefFoundError: org/hunmin/ime/HunminNative
+    //   NoClassDefFoundError: org/hunmin/ime/HunminNativeBridge
     // so both directories are listed explicitly.
     layout.buildDirectory.dir("tmp/kotlin-classes/debugUnitTest"),
     layout.buildDirectory.dir("tmp/kotlin-classes/debug"),

@@ -1,9 +1,9 @@
 /*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * HunminNative — the external declarations for hunmin-jni.c.
+ * HunminNativeBridge — the external declarations for hunmin-jni.c.
  *
- * Split from HunminEngine on purpose: the engine holds logic worth unit-testing,
+ * Split from HunminAdapter on purpose: the engine holds logic worth unit-testing,
  * this class holds none. Everything below is a one-line pass-through to a C
  * function, so a mocked InputConnection test can construct the engine around it
  * without a device, a .so, or a JNI environment.
@@ -11,7 +11,7 @@
  * Two ABI details worth keeping, because both fail late and confusingly:
  *
  *  - @JvmStatic is load-bearing. Without it these compile to *instance* methods
- *    on HunminNative.INSTANCE, and JNI then hands the C side a jobject where the
+ *    on HunminNativeBridge.INSTANCE, and JNI then hands the C side a jobject where the
  *    signature says jclass. Both are pointers to _jobject so nothing crashes,
  *    and every function here ignores the parameter -- which is exactly why the
  *    mistake would survive a full emulator run and only surface as a linker
@@ -26,7 +26,7 @@
  */
 package org.hunmin.ime
 
-object HunminNative {
+object HunminNativeBridge {
     init {
         // HUNMIN_JNI_LIB lets tier E1 load a HOST build of the same shim from an
         // absolute path. A JVM unit test cannot dlopen an Android .so -- the ELF

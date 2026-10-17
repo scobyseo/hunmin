@@ -14,7 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class LayoutCatalogTest {
+class LayoutRegistryTest {
 
     private fun entry(id: String, ko: String, mode: LayoutMode = LayoutMode.HANGUL) =
         LayoutEntry(id, ko, mode)
@@ -47,7 +47,7 @@ class LayoutCatalogTest {
         //   code-point order gives 가나다순 for Hangul at all.
         //   세벌식 390 comes before 세벌식 두벌자판: after the shared prefix,
         //   '3' (U+0033) is below 두 (U+B450). Latin sorts before Hangul.
-        val ids = LayoutCatalog.byMode(scanned, LayoutMode.HANGUL).map { it.id }
+        val ids = LayoutRegistry.byMode(scanned, LayoutMode.HANGUL).map { it.id }
         assertEquals(
             listOf(
                 "dubeolsik",         // 두
@@ -69,7 +69,7 @@ class LayoutCatalogTest {
 
     @Test
     fun `latin list holds only latin layouts`() {
-        val latin = LayoutCatalog.byMode(scanned, LayoutMode.LATIN)
+        val latin = LayoutRegistry.byMode(scanned, LayoutMode.LATIN)
         assertEquals(listOf("us-qwerty"), latin.map { it.id })
     }
 
@@ -77,15 +77,15 @@ class LayoutCatalogTest {
     fun `the order does not depend on what the engine scanned first`() {
         // Reversed input, same output: the sort is the only thing deciding.
         assertEquals(
-            LayoutCatalog.byMode(scanned, LayoutMode.HANGUL),
-            LayoutCatalog.byMode(scanned.reversed(), LayoutMode.HANGUL),
+            LayoutRegistry.byMode(scanned, LayoutMode.HANGUL),
+            LayoutRegistry.byMode(scanned.reversed(), LayoutMode.HANGUL),
         )
     }
 
     @Test
     fun `equal labels are ordered by id so the list is a total order`() {
         val twin = listOf(entry("b", "같은 이름"), entry("a", "같은 이름"))
-        assertEquals(listOf("a", "b"), LayoutCatalog.sorted(twin).map { it.id })
+        assertEquals(listOf("a", "b"), LayoutRegistry.sorted(twin).map { it.id })
     }
 
     @Test
@@ -97,7 +97,7 @@ class LayoutCatalogTest {
             entry("b", "영어 모드 (qwerty 자판)"),
             entry("a", "신세벌식 P2 + 기호 확장"),
         )
-        assertEquals(listOf("a", "b"), LayoutCatalog.sorted(mixed).map { it.id })
+        assertEquals(listOf("a", "b"), LayoutRegistry.sorted(mixed).map { it.id })
     }
 
     @Test
@@ -113,7 +113,7 @@ class LayoutCatalogTest {
     fun `choose keeps the active layout when it is in the list`() {
         assertEquals(
             "sebeolsik-3-2",
-            LayoutCatalog.choose(scanned, LayoutMode.HANGUL, "sebeolsik-3-2", "sin3-p2"),
+            LayoutRegistry.choose(scanned, LayoutMode.HANGUL, "sebeolsik-3-2", "sin3-p2"),
         )
     }
 
@@ -123,14 +123,14 @@ class LayoutCatalogTest {
         // sin3-p2 must not answer a question about the Latin list.
         assertEquals(
             "us-qwerty",
-            LayoutCatalog.choose(scanned, LayoutMode.LATIN, "sin3-p2", "us-qwerty"),
+            LayoutRegistry.choose(scanned, LayoutMode.LATIN, "sin3-p2", "us-qwerty"),
         )
         // The documented default, not the first row after sorting: a stored
         // layout that no longer exists must land where the user is documented to
         // get sin3-p2, not on whichever name happens to sort first.
         assertEquals(
             "sin3-p2",
-            LayoutCatalog.choose(scanned, LayoutMode.HANGUL, "gone-from-the-data", "sin3-p2"),
+            LayoutRegistry.choose(scanned, LayoutMode.HANGUL, "gone-from-the-data", "sin3-p2"),
         )
     }
 
@@ -140,7 +140,7 @@ class LayoutCatalogTest {
     fun `resolve keeps a stored layout that this build offers`() {
         assertEquals(
             "sebeolsik-final",
-            LayoutCatalog.resolve(scanned, LayoutMode.HANGUL, "sebeolsik-final", "sin3-p2"),
+            LayoutRegistry.resolve(scanned, LayoutMode.HANGUL, "sebeolsik-final", "sin3-p2"),
         )
     }
 
@@ -151,11 +151,11 @@ class LayoutCatalogTest {
         // be composing with qwerty.
         assertEquals(
             "sin3-p2",
-            LayoutCatalog.resolve(scanned, LayoutMode.HANGUL, "us-qwerty", "sin3-p2"),
+            LayoutRegistry.resolve(scanned, LayoutMode.HANGUL, "us-qwerty", "sin3-p2"),
         )
         assertEquals(
             "us-qwerty",
-            LayoutCatalog.resolve(scanned, LayoutMode.LATIN, "sin3-p2", "us-qwerty"),
+            LayoutRegistry.resolve(scanned, LayoutMode.LATIN, "sin3-p2", "us-qwerty"),
         )
     }
 
@@ -163,7 +163,7 @@ class LayoutCatalogTest {
     fun `resolve falls back to the mode default when the stored one is gone`() {
         assertEquals(
             "sin3-p2",
-            LayoutCatalog.resolve(scanned, LayoutMode.HANGUL, "removed-in-this-build", "sin3-p2"),
+            LayoutRegistry.resolve(scanned, LayoutMode.HANGUL, "removed-in-this-build", "sin3-p2"),
         )
     }
 
@@ -172,7 +172,7 @@ class LayoutCatalogTest {
         val noDefaults = scanned.filter { it.id != "sin3-p2" }
         assertEquals(
             "dubeolsik",
-            LayoutCatalog.resolve(noDefaults, LayoutMode.HANGUL, null, "sin3-p2"),
+            LayoutRegistry.resolve(noDefaults, LayoutMode.HANGUL, null, "sin3-p2"),
         )
     }
 
@@ -182,17 +182,17 @@ class LayoutCatalogTest {
         // and the documented default when there was nothing stored.
         assertEquals(
             "asked-for",
-            LayoutCatalog.resolve(emptyList(), LayoutMode.LATIN, "asked-for", "us-qwerty"),
+            LayoutRegistry.resolve(emptyList(), LayoutMode.LATIN, "asked-for", "us-qwerty"),
         )
         assertEquals(
             "us-qwerty",
-            LayoutCatalog.resolve(emptyList(), LayoutMode.LATIN, null, "us-qwerty"),
+            LayoutRegistry.resolve(emptyList(), LayoutMode.LATIN, null, "us-qwerty"),
         )
     }
 
     @Test
     fun `choose returns something when there is nothing to choose from`() {
-        assertEquals("fallback", LayoutCatalog.choose(emptyList(), LayoutMode.LATIN, null, "fallback"))
-        assertTrue(LayoutCatalog.byMode(emptyList(), LayoutMode.HANGUL).isEmpty())
+        assertEquals("fallback", LayoutRegistry.choose(emptyList(), LayoutMode.LATIN, null, "fallback"))
+        assertTrue(LayoutRegistry.byMode(emptyList(), LayoutMode.HANGUL).isEmpty())
     }
 }

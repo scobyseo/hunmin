@@ -29,7 +29,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # no adapter. Every build reported success. `jniLibs` then also had two
 # libhunmin.so for the same ABI, and the engine's srcDir won the merge.
 #
-# Hence libhunjni.so, loaded by System.loadLibrary("hunjni") in HunminNative.kt.
+# Hence libhunjni.so, loaded by System.loadLibrary("hunjni") in HunminNativeBridge.kt.
 # The name is asserted below so a rename on one side fails the build rather than
 # producing an UnsatisfiedLinkError at the first keystroke on a device.
 add_library(hunjni SHARED hunmin-jni.c)
@@ -98,19 +98,15 @@ target_link_options(hunjni PRIVATE
 # ANDROID_STL=none is set in build.gradle.kts to match.
 target_compile_options(hunjni PRIVATE -Wall -Wextra)
 
-# Assert the shim really is the shim. A shared library that links the engine and
-# exports no Java_org_* symbol is a JNI layer that will throw
-# UnsatisfiedLinkError on the device, and nothing else in the build notices:
-# it compiles, it links, it packages. Checking here turns that into a configure
-# error on the build machine. `nm -D` rather than readelf because the NDK's
-# llvm-nm is not guaranteed on PATH.
+# The symbol check lives in check-jni-shim.cmake (script mode) so it runs on
+# every host: AGP drives POST_BUILD through cmd.exe on Windows, which cannot
+# parse the previous `sh -c ... | grep` pipeline.
 find_program(NM_EXECUTABLE NAMES llvm-nm nm)
 if(NM_EXECUTABLE)
-  # shellcheck disable=SC2016
   set(_shim "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libhunjni.so")
   add_custom_command(TARGET hunjni POST_BUILD
-    COMMAND ${NM_EXECUTABLE} -D --defined-only ${_shim}
-    COMMAND sh -c
-      "'${NM_EXECUTABLE}' -D --defined-only '${_shim}' | grep -q Java_org_ || { echo 'FATAL: ${_shim} exports no Java_org_* symbol; the JNI shim was not built (is the output name colliding with the engine?)' >&2; exit 1; }"
+    COMMAND ${CMAKE_COMMAND}
+      -DNM=${NM_EXECUTABLE} -DSHIM=${_shim}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/check-jni-shim.cmake
     VERBATIM)
 endif()

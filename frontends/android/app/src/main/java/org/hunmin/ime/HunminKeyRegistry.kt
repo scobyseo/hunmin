@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * HunminKeys — Android KEYCODE -> engine character.
+ * HunminKeyRegistry — Android KEYCODE -> engine character.
  *
  * libhunmin's convention (hunmin.h): one US-QWERTY *character* per event, case
  * encoding shift, 0x08 backspace. That is the same convention the layout JSON
@@ -46,7 +46,7 @@ data class HunminKey(val keyCode: Int, val unshifted: Char, val shifted: Char?) 
         // the uppercase one -- so CapsLock+letter must come back as UPPERCASE,
         // not lowercase. The engine wants the unshifted letter plus the `caps`
         // option, so the case is undone here and the option is set separately in
-        // HunminEngine.onKey.
+        // HunminAdapter.onKey.
         //
         // An earlier revision returned `unshifted.lowercaseChar().uppercaseChar()`
         // under caps, which is always uppercase and therefore happened to be
@@ -68,7 +68,7 @@ data class HunminKey(val keyCode: Int, val unshifted: Char, val shifted: Char?) 
     }
 }
 
-object HunminKeys {
+object HunminKeyRegistry {
 
     const val BACKSPACE_ENGINE_CHAR: Char = ''
 
@@ -102,7 +102,7 @@ object HunminKeys {
     // defined below the map that consumes it is still null when the map is
     // built -- and the failure surfaces as
     //   NullPointerException: Cannot load from char array because
-    //   "HunminKeys.SHIFTED_DIGITS" is null
+    //   "HunminKeyRegistry.SHIFTED_DIGITS" is null
     // in <clinit>, which every test then reports as "could not initialize".
     private val SHIFTED_DIGITS = charArrayOf(')', '!', '@', '#', '$', '%', '^', '&', '*', '(')
 

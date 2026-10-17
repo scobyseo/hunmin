@@ -40,7 +40,7 @@ import org.junit.Before
 import org.junit.Test
 import java.io.File
 
-class HunminEngineTest {
+class HunminAdapterTest {
 
     private var ctx: Long = 0
 
@@ -78,25 +78,37 @@ class HunminEngineTest {
             File(shim!!).isFile,
         )
         assumeTrue("libhunmin data tables missing at $dataDir", dataDir.isDirectory)
-        ctx = HunminNative.nativeCtxNew(dataDir.absolutePath)
+        ctx = HunminNativeBridge.nativeCtxNew(dataDir.absolutePath)
         assertTrue("hunmin_ctx_new found no layout in ${dataDir.absolutePath}", ctx != 0L)
     }
 
     /** Type [keys] as keycodes through the adapter and return what the client saw. */
     private fun type(vararg keys: Char, layout: String = "sin3-p2"): RecordingInputConnection {
-        val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, layout)
-        assertTrue("layout $layout is not usable", engine.isUsable)
-        for (k in keys) engine.typeChar(k, ic)
+        val (engine, ic) = openType(*keys, layout = layout)
         engine.close()
         return ic
+    }
+
+    /**
+     * Open an engine, type [keys], and return BOTH sides. The word-buffering
+     * contract (issue #75) needs the live engine: a boundary check calls
+     * commitWord on the SAME engine that typed, and the old `type()` dropped
+     * it behind close().
+     */
+    private fun openType(vararg keys: Char, layout: String = "sin3-p2"):
+            Pair<HunminAdapter, RecordingInputConnection> {
+        val ic = RecordingInputConnection()
+        val engine = HunminAdapter(ctx, layout)
+        assertTrue("layout $layout is not usable", engine.isUsable)
+        for (k in keys) engine.typeChar(k, ic)
+        return engine to ic
     }
 
     /** The AOSP keycode for a character, via the adapter's own table. */
     private fun keyCodeOf(ch: Char): Int = press(ch).first
 
     /** Feed [ch] as a keypress would deliver it, shift bit included. */
-    private fun HunminEngine.typeChar(ch: Char, target: RecordingInputConnection): Boolean {
+    private fun HunminAdapter.typeChar(ch: Char, target: RecordingInputConnection): Boolean {
         val (code, meta) = press(ch)
         return onKey(code, meta, target)
     }
@@ -124,8 +136,8 @@ class HunminEngineTest {
      * uppercase key was asking the adapter for the wrong character.
      */
     private fun press(ch: Char): Pair<Int, Int> {
-        val key = HunminKeys.all().firstOrNull { it.unshifted == ch }
-            ?: HunminKeys.all().firstOrNull { it.shifted == ch }
+        val key = HunminKeyRegistry.all().firstOrNull { it.unshifted == ch }
+            ?: HunminKeyRegistry.all().firstOrNull { it.shifted == ch }
             ?: error("no AOSP keycode for '$ch' -- the table is missing a layout key")
         val shift = if (key.shifted == ch && ch.isUpperCase()) shiftOn else 0
         return key.keyCode to shift
@@ -138,7 +150,7 @@ class HunminEngineTest {
         // The 47 keys libhunmin/data/layouts/*.json reference. If one has no
         // AOSP keycode the adapter would pass it through and the layout would be
         // silently unusable on Android -- a defect no host tier can see.
-        val have = HunminKeys.all().flatMap { listOfNotNull(it.unshifted, it.shifted) }.toSet()
+        val have = HunminKeyRegistry.all().flatMap { listOfNotNull(it.unshifted, it.shifted) }.toSet()
         // Scan the layouts' own "keys" arrays rather than every quoted string in
         // the file: a regex over the whole document picks up JSON syntax and
         // Korean text in compose tables, so the "keys" it reports have nothing
@@ -165,8 +177,8 @@ class HunminEngineTest {
         // numbers KEYCODE_0 at 7 and KEYCODE_A at 29, so keyCode.toChar() is
         // wrong for every single key. Assert the disagreement explicitly so a
         // future "simplification" back to ASCII fails here.
-        val a = HunminKeys.all().first { it.unshifted == 'a' }
-        val zero = HunminKeys.all().first { it.unshifted == '0' }
+        val a = HunminKeyRegistry.all().first { it.unshifted == 'a' }
+        val zero = HunminKeyRegistry.all().first { it.unshifted == '0' }
         assertEquals("KEYCODE_A", 29, a.keyCode)
         assertEquals("KEYCODE_0", 7, zero.keyCode)
         assertTrue(a.keyCode != 'a'.code)
@@ -175,27 +187,27 @@ class HunminEngineTest {
 
     @Test
     fun `shift is data not a modifier`() {
-        val shifted = HunminKeys.engineChar(keyCodeOf('k'), shiftOn)
+        val shifted = HunminKeyRegistry.engineChar(keyCodeOf('k'), shiftOn)
         assertEquals('K', shifted)
         // Shift must not be classified as a chord -- that would drop every
         // shifted key to the client and silently break sin3-p2's symbol tiers.
-        assertFalse(HunminKeys.isModifierChord(shiftOn))
+        assertFalse(HunminKeyRegistry.isModifierChord(shiftOn))
     }
 
     @Test
     fun `ctrl chords are refused`() {
-        assertTrue(HunminKeys.isModifierChord(ctrlOn))
-        assertTrue(HunminKeys.isModifierChord(ctrlOn or shiftOn))
-        assertTrue(HunminKeys.isModifierChord(altOn))
+        assertTrue(HunminKeyRegistry.isModifierChord(ctrlOn))
+        assertTrue(HunminKeyRegistry.isModifierChord(ctrlOn or shiftOn))
+        assertTrue(HunminKeyRegistry.isModifierChord(altOn))
     }
 
     @Test
     fun `capslock inverts the shift and is not itself a chord`() {
-        assertFalse("CapsLock must not be a modifier chord", HunminKeys.isModifierChord(capsOn))
+        assertFalse("CapsLock must not be a modifier chord", HunminKeyRegistry.isModifierChord(capsOn))
         // The engine must receive the UNSHIFTED letter plus the caps option,
         // never the uppercase form: sin3-p2-yet reads caps as a separate option
         // (SPEC-P2.md) and an uppercase K would be read as a symbol-tier row.
-        assertEquals('k', HunminKeys.engineChar(keyCodeOf('k'), capsOn))
+        assertEquals('k', HunminKeyRegistry.engineChar(keyCodeOf('k'), capsOn))
     }
 
     // ------------------------------------------------------------ composition
@@ -214,9 +226,17 @@ class HunminEngineTest {
         // hunmin-sim --layout sin3-p2 --keys kfcQ commits 각 and leaves ㅒ in the
         // preedit: Q is the shifted form of q, and uppercase Q in sin3-p2 is a
         // symbol-tier key, not a second consonant.
-        val ic = type('k', 'f', 'c', 'Q')
-        // hunmin-sim --layout sin3-p2 --keys kfcQ commits 각 (preedit ㅒ).
-        assertEquals("각", ic.text())
+        val (engine, ic) = openType('k', 'f', 'c', 'Q')
+        // Measured (hunmin-sim --layout sin3-p2 --keys kfcQ): the engine
+        // commits 각 on Q and leaves ㅒ in flight. Under word-buffering the
+        // client sees the WORD 각ㅒ as composing text and NOTHING committed
+        // until a boundary; the first boundary delivers the whole word once.
+        assertEquals("the word must not commit before a boundary", "", ic.text())
+        assertEquals("각ㅒ", ic.composing())
+        engine.commitWord(ic)
+        assertEquals("각ㅒ", ic.text())
+        assertEquals("", ic.composing())
+        engine.close()
         // And nothing reached around the engine (I9):
         assertEquals(
             "no surrounding-text access (I9): ${ic.violations}",
@@ -229,14 +249,24 @@ class HunminEngineTest {
         // The same keys, two layouts, two answers -- which is what makes "layouts
         // are data" a claim rather than a slogan. sin3-p2 turns dkssud into 곈;
         // dubeolsik turns it into 한.
-        assertEquals("ㅎ곈", type('d', 'k', 's', 's', 'u', 'd', layout = "sin3-p2").text())
-        assertEquals("안", type('d', 'k', 's', 's', 'u', 'd', layout = "dubeolsik").text())
+        // Same boundary semantics for both layouts. Measured finals:
+        //   sin3-p2:    commits "ㅎ"+"곈", final preedit "디" -> word "ㅎ곈디"
+        //   dubeolsik:  commits "안",      final preedit "녕" -> word "안녕"
+        // (hunmin-sim --data libhunmin/data --layout L --trace --keys dkssud)
+        val (s3, sic) = openType('d', 'k', 's', 's', 'u', 'd', layout = "sin3-p2")
+        s3.commitWord(sic)
+        assertEquals("ㅎ곈디", sic.text())
+        s3.close()
+        val (du, dic) = openType('d', 'k', 's', 's', 'u', 'd', layout = "dubeolsik")
+        du.commitWord(dic)
+        assertEquals("안녕", dic.text())
+        du.close()
     }
 
     @Test
     fun `preedit is presented while composing and cleared after`() {
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.typeChar('k', ic)
         assertEquals("ㄱ", ic.composings.last())
         engine.typeChar('f', ic)
@@ -257,7 +287,7 @@ class HunminEngineTest {
         // keycode table's. Space composes nothing, so it must pass through --
         // and an IME that ate space would be unusable in every text field.
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.typeChar('k', ic)
         val consumed = engine.onKey(62 /* KEYCODE_SPACE */, 0, ic)
         assertFalse("space must not be consumed", consumed)
@@ -275,7 +305,7 @@ class HunminEngineTest {
      *      buffer and reappeared only after switching back. Fixed by flushing
      *      both engines in toggleHangulEnglish().
      *   2. Alt alone -- delivered as its own ACTION_DOWN before Alt+X for Hanja
-     *      -- reached HunminEngine.onKey, whose isModifierChord path flushes.
+     *      -- reached HunminAdapter.onKey, whose isModifierChord path flushes.
      *      The Hanja lookup then found an empty preedit. Fixed by not routing a
      *      bare modifier to the engine at all.
      *   3. The picked Hanja was never committed: OverlayActivity called
@@ -300,12 +330,12 @@ class HunminEngineTest {
         // as the user reported. flush() must also clear the preedit, or the
         // stale composition stays on screen over the committed text.
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.typeChar('k', ic)
         engine.typeChar('f', ic)
         assertEquals("가", ic.composings.last())
 
-        engine.flush(ic)
+        engine.commitWord(ic)
         assertEquals("the composing syllable must reach the client", "가", ic.text())
         assertEquals("", ic.composings.last())
         engine.close()
@@ -319,7 +349,7 @@ class HunminEngineTest {
         // "한恨" instead of "恨". That is what commitExternalText would do,
         // and it is why the Hanja path does not use it (see commitHanja's doc).
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.typeChar('k', ic)
         engine.typeChar('f', ic)
 
@@ -331,14 +361,14 @@ class HunminEngineTest {
 
     @Test
     fun `a modifier chord does not silently swallow the composition`() {
-        // Bug 2's core, at the layer E1 owns. HunminEngine.onKey flushes on a
+        // Bug 2's core, at the layer E1 owns. HunminAdapter.onKey flushes on a
         // modifier chord -- correct for the engine, which must not compose
         // Ctrl/Alt -- but the flush must COMMIT, not discard. The service guard
         // (do not route a bare modifier here at all) is tier E2; this asserts
         // the engine half, which is what would have lost the syllable if the
         // guard were the only change and flush were broken.
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.typeChar('k', ic)
         engine.typeChar('f', ic)
 
@@ -348,27 +378,29 @@ class HunminEngineTest {
     }
 
     @Test
-    fun `a four-key sequence commits and leaves the rest composing`() {
-        // Invariant 2, the one tier A cannot see. Two commits here would mean
-        // every syllable appears twice in every application. FRONTEND-CONTRACT
-        // §4 records that dropping the commit/flush split passes the fcitx5 D1
-        // suite, so this assertion is here for a reason that is not paranoia.
-        // Measured: `hunmin-sim --layout dubeolsik --keys dkssud` commits 안 and
-        // leaves 녕 in the preedit -- the final ㄴ has no 받침 partner yet, so it
-        // cannot become a syllable until another consonant arrives. Asserting 한
-        // here (as an earlier revision did) was an assumption, not a measurement.
-        val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "dubeolsik")
-        for (c in "dkssud") engine.typeChar(c, ic)
+    fun `a two-syllable word composes on the client and commits once at its boundary`() {
+        // Invariant 2, the one tier A cannot see. Two commitText calls for one
+        // word would mean every word lands twice. FRONTEND-CONTRACT §4 records
+        // that dropping the commit/flush split passes the fcitx5 D1 suite, so
+        // this assertion is here for a reason that is not paranoia. Measured:
+        // `hunmin-sim --layout dubeolsik --keys dkssud` commits 안 and leaves
+        // 녕 in the preedit. Under word-buffering (issue #75) the client is
+        // shown "안녕" as ONE composing region for the whole word, commits
+        // nothing until the boundary, and the boundary delivers "안녕" once.
+        val (engine, ic) = openType('d', 'k', 's', 's', 'u', 'd', layout = "dubeolsik")
+        assertEquals("nothing commits while the word is composing", emptyList<String>(), ic.commits)
+        assertEquals("the whole word is the client's composing text", "안녕", ic.composing())
+        engine.commitWord(ic)
+        assertEquals("the boundary commits the word exactly once",
+            listOf("안녕"), ic.commits)
+        assertEquals("", ic.composing())
         engine.close()
-        assertEquals(listOf("안"), ic.commits)
-        assertEquals("녕", ic.composings.last())
     }
 
     @Test
     fun `an unmapped key flushes and is not consumed`() {
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.typeChar('k', ic)
         val consumed = engine.onKey(9999 /* not a keycode */, 0, ic)
         assertFalse(consumed)
@@ -385,7 +417,7 @@ class HunminEngineTest {
         // hunmin_ic_process, or it is composed a second time. A spoken "안녕"
         // fed as keystrokes would compose into something else entirely.
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.commitExternalText(ic, "안녕하세요")
         assertEquals("안녕하세요", ic.text())
         engine.close()
@@ -397,7 +429,7 @@ class HunminEngineTest {
         // result must be "가" then the speech, because that is the order they
         // produced them in.
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.typeChar('k', ic)
         engine.typeChar('f', ic)
         engine.commitExternalText(ic, "안녕")
@@ -411,7 +443,7 @@ class HunminEngineTest {
         // 전처리수식 flags would drop and a real user's next keystroke would
         // compose under the wrong rules.
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.commitExternalText(ic, "abc")
         engine.typeChar('k', ic)
         engine.typeChar('f', ic)
@@ -422,7 +454,7 @@ class HunminEngineTest {
     @Test
     fun `malformed external text is refused rather than committed`() {
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.commitExternalText(ic, "\uD800")   // lone surrogate
         assertEquals("malformed text must not reach the client", "", ic.text())
         engine.close()
@@ -453,7 +485,7 @@ class HunminEngineTest {
         // case "k" followed by case "kf" would type "kkf" and compose 까, not 가.
         // That was measured, not theorised: an earlier revision of this test
         // reported `expected:<ㅅㄱ> but was:<까과>` for exactly this reason.
-        data class Case(val name: String, val keys: MutableList<Char>, val commits: MutableList<String>)
+        data class Case(val name: String, val keys: MutableList<Char>, val commits: MutableList<String>, var preedit: String = "")
 
         val cases = mutableListOf<Case>()
         for (line in golden.readLines()) {
@@ -468,6 +500,7 @@ class HunminEngineTest {
             if (cases.isEmpty()) cases.add(Case("<first>", mutableListOf(), mutableListOf()))
             cases.last().keys.add(ch[0])
             cases.last().commits.add(FIELD_COMMIT.find(line)?.groupValues?.get(1) ?: "")
+            cases.last().preedit = FIELD_PREEDIT.find(line)?.groupValues?.get(1) ?: ""
         }
         assertTrue(
             "the golden parse produced no cases -- the field regexes do not " +
@@ -480,21 +513,25 @@ class HunminEngineTest {
         for (c in cases) {
             if (c.keys.isEmpty()) continue
             val ic = RecordingInputConnection()
-            val engine = HunminEngine(ctx, "sin3-p2")
+            val engine = HunminAdapter(ctx, "sin3-p2")
             for (k in c.keys) engine.typeChar(k, ic)
-            // NO flush here, and that is deliberate. The golden corpus records
-            // what each keystroke COMMITTED, not the end-of-case state: case "k"
-            // types one consonant, leaves ㄱ in the preedit, and expects an empty
-            // commit. hunmin-sim does not flush either. Flushing at case end
-            // turned every trailing-preedit case into a mismatch
-            // (`expected:<> but was:<ㄱ>`) that says nothing about the adapter.
+            // The boundary closes the case the way a real user finishes a word:
+            // ONE commitWord at the end. The tier-A corpus records what each
+            // keystroke COMMITTED plus the preedit each left; under word-
+            // buffering those syllables reach the client at the case's boundary
+            // instead of per keystroke, so the comparison is the total text the
+            // client eventually saw -- golden committed text joined with the
+            // LAST event's preedit -- versus the adapter's end-of-word total.
+            engine.commitWord(ic)
             engine.close()
 
+            val expectedTotal =
+                c.commits.filter { it.isNotEmpty() }.joinToString("") + c.preedit
             assertEquals(
-                "case '${c.name}' (keys=${c.keys.joinToString("")}) committed a " +
-                    "different string than the tier A golden",
-                c.commits.filter { it.isNotEmpty() }.joinToString(""),
-                ic.commits.filter { it.isNotEmpty() }.joinToString(""),
+                "case '${c.name}' (keys=${c.keys.joinToString("")}) delivered a " +
+                    "different word than the tier A golden",
+                expectedTotal,
+                ic.text(),
             )
             assertEquals(
                 "case '${c.name}' touched surrounding text (I9): ${ic.violations}",
@@ -533,17 +570,18 @@ class HunminEngineTest {
         // engine decline, which is the flush path. Under the mutation the space
         // commits twice.
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "dubeolsik")
+        val engine = HunminAdapter(ctx, "dubeolsik")
         engine.typeChar('d', ic)
         engine.typeChar('k', ic)
         engine.typeChar('s', ic)
         assertEquals("nothing commits while the syllable is still forming", 0, ic.commits.size)
 
         engine.typeChar('s', ic)
-        // The fourth key completes 안 and commits it: one call.
-        assertEquals("the committing keystroke must commit exactly once",
-            1, ic.commits.size)
-        assertEquals(listOf("안"), ic.commits)
+        // The fourth key completes 안: the syllable moves into the adapter's
+        // word buffer, NOT into the client. It commits with the word.
+        assertEquals("a composing key must not commit to the client",
+            0, ic.commits.size)
+        assertEquals("the whole word is shown composing", "안ㄴ", ic.composing())
 
         // Now the key the engine DECLINES. Space is the one: it finishes the
         // syllable, which means hunmin_ic_process returns false, which is the
@@ -573,7 +611,7 @@ class HunminEngineTest {
             engine.onKey(62 /* KEYCODE_SPACE */, 0, ic),
         )
         assertEquals(
-            "the flush path must add exactly one commitText call; commits are " +
+            "the boundary must add exactly one commitText call; commits are " +
                 "${ic.commits}",
             beforeSpace + 1, ic.commits.size,
         )
@@ -595,7 +633,7 @@ class HunminEngineTest {
         // and replays its caps pair from tests/golden/manual-sin3-p2-yet.jsonl.
         val capsOn = capsOn
         val open = RecordingInputConnection()
-        val blocked = HunminEngine(ctx, "sin3-p2-yet")
+        val blocked = HunminAdapter(ctx, "sin3-p2-yet")
         blocked.typeChar('k', open)
         assertEquals("ㄱ", open.composings.last())
         blocked.close()
@@ -608,13 +646,15 @@ class HunminEngineTest {
         // case produces ㄱ, so a test written that way would have been testing
         // a behaviour the engine does not have.
         val capped = RecordingInputConnection()
-        val e2 = HunminEngine(ctx, "sin3-p2-yet")
+        val e2 = HunminAdapter(ctx, "sin3-p2-yet")
         val (kCode, _) = press('k')
         e2.onKey(kCode, capsOn, capped)      // k with caps held
         assertEquals("ㄱ", capped.composings.last())
         val (slashCode, _) = press('/')
-        e2.onKey(slashCode, capsOn, capped)  // / with caps held -> ㅋ
-        assertEquals("ㅋ", capped.composings.last())
+        e2.onKey(slashCode, capsOn, capped)  // / with caps held -> commits ㄱ, composes ㅋ
+        // The '/' commits ㄱ into the word buffer; the client's composing text
+        // is the buffered word plus the new in-flight syllable.
+        assertEquals("ㄱㅋ", capped.composings.last())
         e2.close()
     }
 
@@ -626,12 +666,12 @@ class HunminEngineTest {
         // the invariant worth holding is that filtering on it is not
         // decorative: every id offered must produce a usable engine. A row that
         // failed at keystroke time would be worse than not offering it.
-        val n = HunminNative.nativeLayoutCount(ctx)
+        val n = HunminNativeBridge.nativeLayoutCount(ctx)
         var offered = 0
         for (i in 0 until n) {
-            if (!HunminNative.nativeLayoutSupported(ctx, i)) continue
-            val id = HunminNative.nativeLayoutId(ctx, i)
-            val engine = HunminEngine(ctx, id)
+            if (!HunminNativeBridge.nativeLayoutSupported(ctx, i)) continue
+            val id = HunminNativeBridge.nativeLayoutId(ctx, i)
+            val engine = HunminAdapter(ctx, id)
             assertTrue("the picker offers '$id' but it is not usable", engine.isUsable)
             engine.close()
             offered++
@@ -644,11 +684,11 @@ class HunminEngineTest {
         // The picker labels rows with hunmin_ctx_layout_name(.., "ko"). An empty
         // label renders as a blank row, so this is a UI defect the engine
         // cannot report on its own -- it returns "" happily.
-        val n = HunminNative.nativeLayoutCount(ctx)
+        val n = HunminNativeBridge.nativeLayoutCount(ctx)
         for (i in 0 until n) {
-            if (!HunminNative.nativeLayoutSupported(ctx, i)) continue
-            val id = HunminNative.nativeLayoutId(ctx, i)
-            val ko = HunminNative.nativeLayoutName(ctx, i, "ko")
+            if (!HunminNativeBridge.nativeLayoutSupported(ctx, i)) continue
+            val id = HunminNativeBridge.nativeLayoutId(ctx, i)
+            val ko = HunminNativeBridge.nativeLayoutName(ctx, i, "ko")
             assertTrue("layout '$id' has no Korean name, so its picker row is blank",
                 ko.isNotEmpty())
         }
@@ -660,12 +700,12 @@ class HunminEngineTest {
         // mid-composition. Dropping it would be a data-loss bug and is the one
         // behaviour here that tier E1 can see without a picker UI at all.
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         engine.typeChar('k', ic)
         engine.typeChar('f', ic)
         assertEquals("가", ic.composings.last())
         // What HunminInputMethodService.setLayout does, in order.
-        engine.flush(ic)
+        engine.commitWord(ic)
         engine.close()
         assertTrue("the composition was lost on the layout switch: ${ic.commits}",
             ic.commits.any { it.contains("가") })
@@ -673,13 +713,13 @@ class HunminEngineTest {
 
     @Test
     fun `an unknown layout yields an unusable engine rather than a crash`() {
-        val engine = HunminEngine(ctx, "no-such-layout")
+        val engine = HunminAdapter(ctx, "no-such-layout")
         assertFalse(engine.isUsable)
         val ic = RecordingInputConnection()
         // Every key must pass through, not crash on a null handle.
         assertFalse(engine.typeChar('k', ic))
         engine.updatePreedit(ic)
-        engine.flush(ic)
+        engine.commitWord(ic)
         engine.commitExternalText(ic, "x")
         engine.close()
     }
@@ -697,7 +737,7 @@ class HunminEngineTest {
         // commits grow by precisely the composing text, and the composing
         // region is left empty.
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         assumeTrue(engine.isUsable)
 
         for (keyCode in listOf(21, 22, 19, 20)) { // LEFT RIGHT UP DOWN
@@ -726,8 +766,8 @@ class HunminEngineTest {
         // an arrow code has no engineChar at all, so the adapter cannot be
         // silently reaching the jamo pipeline with a character that happens to
         // compose to nothing.
-        assertEquals(null, HunminKeys.engineChar(21, 0))  // LEFT,  no shift
-        assertEquals(null, HunminKeys.engineChar(22, 1))  // RIGHT, META_SHIFT_ON
+        assertEquals(null, HunminKeyRegistry.engineChar(21, 0))  // LEFT,  no shift
+        assertEquals(null, HunminKeyRegistry.engineChar(22, 1))  // RIGHT, META_SHIFT_ON
     }
 
     @Test
@@ -751,7 +791,7 @@ class HunminEngineTest {
         // must not publish a composing region it does not own, because that is
         // what a selection cannot survive.
         val ic = RecordingInputConnection()
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         assumeTrue(engine.isUsable)
 
         val composingsBefore = ic.composings.size
@@ -779,7 +819,7 @@ class HunminEngineTest {
         // character before the cursor goes. Measured on R5KL808WBPN: focusing a
         // field that already had text ate its last character before the user
         // typed anything.
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         assumeTrue(engine.isUsable)
         val ic = RecordingInputConnection()
         engine.updatePreedit(ic)
@@ -794,12 +834,12 @@ class HunminEngineTest {
         // The other half: the guard above must not stop the engine from clearing
         // a composition it really did put there, or the last syllable stays on
         // screen forever.
-        val engine = HunminEngine(ctx, "sin3-p2")
+        val engine = HunminAdapter(ctx, "sin3-p2")
         assumeTrue(engine.isUsable)
         val ic = RecordingInputConnection()
         assertTrue(engine.typeChar('k', ic))
         assertEquals("ㄱ", ic.composings.last())
-        engine.flush(ic)
+        engine.commitWord(ic)
         assertEquals("the composing region outlived the flush", "", ic.composings.last())
         engine.close()
     }
@@ -815,7 +855,10 @@ class HunminEngineTest {
         // exactly that reason.
         val FIELD_CH = Regex(""""in"\s*:\s*\{\s*"ch"\s*:\s*"(.)"""")
         val FIELD_COMMIT = Regex(""""commit"\s*:\s*"(.*?)"""")
+        val FIELD_PREEDIT = Regex(""""preedit"\s*:\s*"(.*?)"""")
         val FIELD_CASE = Regex(""""case"\s*:\s*"([^"]*)"""")
+
+
         // The "keys" array of a layout file, and only that array. A regex over
         // the whole document finds 48 characters because it also matches the
         // JSON's own quotes and braces; keymap-fixture.py reads the same array

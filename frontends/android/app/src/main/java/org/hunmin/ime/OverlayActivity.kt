@@ -326,7 +326,7 @@ class OverlayActivity : AppCompatActivity() {
     /**
      * The layouts of one mode, in 가나다순, with the current one ticked.
      *
-     * Sorted by [LayoutCatalog], never by whatever the engine's directory scan
+     * Sorted by [LayoutRegistry], never by whatever the engine's directory scan
      * produced — the maintainer's rule, and the scan order is opendir()'s.
      */
     /** Open whichever section the intent asked for, or the top level. */
@@ -341,7 +341,7 @@ class OverlayActivity : AppCompatActivity() {
     }
 
     private fun showLayoutSection(mode: LayoutMode) {
-        val entries = LayoutCatalog.byMode(ImeSettings.layoutsProvider().orEmpty(), mode)
+        val entries = LayoutRegistry.byMode(ImeSettings.layoutsProvider().orEmpty(), mode)
         if (entries.isEmpty()) {
             Toast.makeText(this, "사용할 수 있는 배열이 없습니다", Toast.LENGTH_SHORT).show()
             return

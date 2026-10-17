@@ -260,7 +260,7 @@ class HunminEspressoTest {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val prefs = ctx.getSharedPreferences("hunmin", android.content.Context.MODE_PRIVATE)
 
-        fun wired() = HangulModeStore(
+        fun wired() = HangulModeRepository(
             read = { k, d -> prefs.getBoolean(k, d) },
             write = { k, v -> prefs.edit().putBoolean(k, v).apply() },
         )
@@ -353,8 +353,8 @@ class HunminEspressoTest {
     }
 
     private fun keyForChar(ch: Char): Pair<Int, Int> {
-        val key = HunminKeys.all().firstOrNull { it.unshifted == ch }
-            ?: HunminKeys.all().firstOrNull { it.shifted == ch }
+        val key = HunminKeyRegistry.all().firstOrNull { it.unshifted == ch }
+            ?: HunminKeyRegistry.all().firstOrNull { it.shifted == ch }
             ?: error("no AOSP keycode for '$ch'")
         val shift = if (key.shifted == ch && ch.isUpperCase()) 1 else 0
         return key.keyCode to shift

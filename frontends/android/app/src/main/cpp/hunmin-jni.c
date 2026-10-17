@@ -12,9 +12,9 @@
  * decision no tier can test, because tier E1 mocks InputConnection, not JNI.
  *
  * Deliberately NOT here:
- *   - key mapping. That belongs to HunminEngine, in Kotlin, where tier E1 can
+ *   - key mapping. That belongs to HunminAdapter, in Kotlin, where tier E1 can
  *     assert it without a device.
- *   - data path resolution. See HunminData.install().
+ *   - data path resolution. See HunminDataInstaller.install().
  *   - anything that caches. libhunmin's own return-value lifetime rule (valid
  *     until the next call on that ic) is honoured here rather than papered over
  *     with a Kotlin-side buffer, because a buffer would be a second copy of
@@ -86,7 +86,7 @@ static char *dup_java_string(JNIEnv *env, jstring s) {
 /* ===================== hunmin_ctx ======================================= */
 
 JNIEXPORT jlong JNICALL
-Java_org_hunmin_ime_HunminNative_nativeCtxNew(JNIEnv *env, jclass k, jstring data_dir) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeCtxNew(JNIEnv *env, jclass k, jstring data_dir) {
   (void)k;
   char *dir = dup_java_string(env, data_dir);
   /* One explicit search path rather than the HUNMIN_DATA_PATH env var: an IME
@@ -104,14 +104,14 @@ Java_org_hunmin_ime_HunminNative_nativeCtxNew(JNIEnv *env, jclass k, jstring dat
 }
 
 JNIEXPORT void JNICALL
-Java_org_hunmin_ime_HunminNative_nativeCtxFree(JNIEnv *env, jclass k, jlong ctx) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeCtxFree(JNIEnv *env, jclass k, jlong ctx) {
   (void)env;
   (void)k;
   hunmin_ctx_free((hunmin_ctx *)(intptr_t)ctx);
 }
 
 JNIEXPORT jint JNICALL
-Java_org_hunmin_ime_HunminNative_nativeLayoutCount(JNIEnv *env, jclass k, jlong ctx) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeLayoutCount(JNIEnv *env, jclass k, jlong ctx) {
   (void)env;
   (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
@@ -119,7 +119,7 @@ Java_org_hunmin_ime_HunminNative_nativeLayoutCount(JNIEnv *env, jclass k, jlong 
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_hunmin_ime_HunminNative_nativeLayoutId(JNIEnv *env, jclass k, jlong ctx, jint i) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeLayoutId(JNIEnv *env, jclass k, jlong ctx, jint i) {
   (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
   const char *s = (c && i >= 0) ? hunmin_ctx_layout_id(c, i) : NULL;
@@ -127,7 +127,7 @@ Java_org_hunmin_ime_HunminNative_nativeLayoutId(JNIEnv *env, jclass k, jlong ctx
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_hunmin_ime_HunminNative_nativeLayoutName(JNIEnv *env, jclass k, jlong ctx,
+Java_org_hunmin_ime_HunminNativeBridge_nativeLayoutName(JNIEnv *env, jclass k, jlong ctx,
                                                   jint i, jstring lang) {
   (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
@@ -144,7 +144,7 @@ Java_org_hunmin_ime_HunminNative_nativeLayoutName(JNIEnv *env, jclass k, jlong c
 }
 
 JNIEXPORT jboolean JNICALL
-Java_org_hunmin_ime_HunminNative_nativeLayoutSupported(JNIEnv *env, jclass k, jlong ctx, jint i) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeLayoutSupported(JNIEnv *env, jclass k, jlong ctx, jint i) {
   (void)env;
   (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
@@ -152,7 +152,7 @@ Java_org_hunmin_ime_HunminNative_nativeLayoutSupported(JNIEnv *env, jclass k, jl
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_hunmin_ime_HunminNative_nativeLayoutMode(JNIEnv *env, jclass k, jlong ctx, jint i) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeLayoutMode(JNIEnv *env, jclass k, jlong ctx, jint i) {
   (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
   return str_or_empty(env, (c && i >= 0) ? hunmin_ctx_layout_mode(c, i) : NULL);
@@ -161,7 +161,7 @@ Java_org_hunmin_ime_HunminNative_nativeLayoutMode(JNIEnv *env, jclass k, jlong c
 /* ===================== hunmin_ic ======================================== */
 
 JNIEXPORT jlong JNICALL
-Java_org_hunmin_ime_HunminNative_nativeIcNew(JNIEnv *env, jclass k, jlong ctx, jstring layout) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeIcNew(JNIEnv *env, jclass k, jlong ctx, jstring layout) {
   (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
   char *id = dup_java_string(env, layout);
@@ -172,14 +172,14 @@ Java_org_hunmin_ime_HunminNative_nativeIcNew(JNIEnv *env, jclass k, jlong ctx, j
 }
 
 JNIEXPORT void JNICALL
-Java_org_hunmin_ime_HunminNative_nativeIcFree(JNIEnv *env, jclass k, jlong ic) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeIcFree(JNIEnv *env, jclass k, jlong ic) {
   (void)env;
   (void)k;
   hunmin_ic_free((hunmin_ic *)(intptr_t)ic);
 }
 
 JNIEXPORT jboolean JNICALL
-Java_org_hunmin_ime_HunminNative_nativeProcess(JNIEnv *env, jclass k, jlong ic, jint ch) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeProcess(JNIEnv *env, jclass k, jlong ic, jint ch) {
   (void)env;
   (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
@@ -187,28 +187,28 @@ Java_org_hunmin_ime_HunminNative_nativeProcess(JNIEnv *env, jclass k, jlong ic, 
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_hunmin_ime_HunminNative_nativeCommit(JNIEnv *env, jclass k, jlong ic) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeCommit(JNIEnv *env, jclass k, jlong ic) {
   (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
   return str_or_empty(env, i ? hunmin_ic_commit(i) : NULL);
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_hunmin_ime_HunminNative_nativePreedit(JNIEnv *env, jclass k, jlong ic) {
+Java_org_hunmin_ime_HunminNativeBridge_nativePreedit(JNIEnv *env, jclass k, jlong ic) {
   (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
   return str_or_empty(env, i ? hunmin_ic_preedit(i) : NULL);
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_hunmin_ime_HunminNative_nativeFlush(JNIEnv *env, jclass k, jlong ic) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeFlush(JNIEnv *env, jclass k, jlong ic) {
   (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
   return str_or_empty(env, i ? hunmin_ic_flush(i) : NULL);
 }
 
 JNIEXPORT void JNICALL
-Java_org_hunmin_ime_HunminNative_nativeReset(JNIEnv *env, jclass k, jlong ic) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeReset(JNIEnv *env, jclass k, jlong ic) {
   (void)env;
   (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
@@ -216,7 +216,7 @@ Java_org_hunmin_ime_HunminNative_nativeReset(JNIEnv *env, jclass k, jlong ic) {
 }
 
 JNIEXPORT jboolean JNICALL
-Java_org_hunmin_ime_HunminNative_nativeSetOption(JNIEnv *env, jclass k, jlong ic,
+Java_org_hunmin_ime_HunminNativeBridge_nativeSetOption(JNIEnv *env, jclass k, jlong ic,
                                                  jstring name, jint value) {
   (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
@@ -236,7 +236,7 @@ Java_org_hunmin_ime_HunminNative_nativeSetOption(JNIEnv *env, jclass k, jlong ic
  * between the call and the return.
  */
 JNIEXPORT jstring JNICALL
-Java_org_hunmin_ime_HunminNative_nativeCommitText(JNIEnv *env, jclass k, jlong ic,
+Java_org_hunmin_ime_HunminNativeBridge_nativeCommitText(JNIEnv *env, jclass k, jlong ic,
                                                   jstring text) {
   (void)k;
   hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
@@ -251,7 +251,7 @@ Java_org_hunmin_ime_HunminNative_nativeCommitText(JNIEnv *env, jclass k, jlong i
 /* ===================== hanja candidates (P3) ============================ */
 
 JNIEXPORT jint JNICALL
-Java_org_hunmin_ime_HunminNative_nativeSuggestCount(JNIEnv *env, jclass k, jlong ctx,
+Java_org_hunmin_ime_HunminNativeBridge_nativeSuggestCount(JNIEnv *env, jclass k, jlong ctx,
                                                     jstring hangul) {
   (void)env;
   (void)k;
@@ -265,21 +265,21 @@ Java_org_hunmin_ime_HunminNative_nativeSuggestCount(JNIEnv *env, jclass k, jlong
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_hunmin_ime_HunminNative_nativeSuggestText(JNIEnv *env, jclass k, jlong ctx, jint i) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeSuggestText(JNIEnv *env, jclass k, jlong ctx, jint i) {
   (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
   return str_or_empty(env, c ? hunmin_suggest_text(c, i) : NULL);
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_hunmin_ime_HunminNative_nativeSuggestDetail(JNIEnv *env, jclass k, jlong ctx, jint i) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeSuggestDetail(JNIEnv *env, jclass k, jlong ctx, jint i) {
   (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
   return str_or_empty(env, c ? hunmin_suggest_detail(c, i) : NULL);
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_hunmin_ime_HunminNative_nativeSuggestKind(JNIEnv *env, jclass k, jlong ctx, jint i) {
+Java_org_hunmin_ime_HunminNativeBridge_nativeSuggestKind(JNIEnv *env, jclass k, jlong ctx, jint i) {
   (void)k;
   hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
   return str_or_empty(env, c ? hunmin_suggest_kind(c, i) : NULL);

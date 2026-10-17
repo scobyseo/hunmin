@@ -11,7 +11,7 @@ Status: **shape + contract reference only** — no design verdict, no implementa
 |---|---|---|---|
 | **libhunmin** | `libhunmin/` | Core engine: `hunmin_ctx` (layout/load), `hunmin_ic` (per-key composition, commit/preedit, options). Stable ABI, append-only. | `data/` (JSON: layouts, compose, hanja, krdict, idioms) |
 | **fcitx5 addon** | `frontends/fcitx5/` | Thin frontend: fcitx5 `InputMethodEngine`/`InputContext` + `modeswitch.*` (R8 cross-frontend wrapper). | `libhunmin` ABI |
-| **Android IME** | `frontends/android/` | Kotlin IME (`HunminInputMethodService`), JNI shim (`HunminNative`), layout/keys data, settings/UI. | `libhunmin` ABI (shipped as `.so`) |
+| **Android IME** | `frontends/android/` | Kotlin IME (`HunminInputMethodService`), JNI shim (`HunminNativeBridge`), layout/keys data, settings/UI. | `libhunmin` ABI (shipped as `.so`) |
 | **tools** | `tools/` | `kbd2data`, `extract_tables`, `gen-conformance`, `trace-check`, `doctor.py`, `docs-lint`, etc. | `libhunmin` dev headers |
 
 ## 2. Ownership rule
@@ -64,7 +64,7 @@ schema for guessing — is unaffected.
 | Mode query | `hunmin_ctx_layout_mode(ctx,i) → "hangul"\|"latin"` | `HM_MODE_HANGUL=0`, `HM_MODE_LATIN=1` |
 | Options | `hunmin_ic_set_option(ic,"caps",1)` etc. | engine-owned state; frontend surfaces it |
 | External text pass-through | `hunmin_ic_flush` (commits in-flight first) | voice / out-of-band text must never go through the jamo pipeline |
-| Android data path | `HunminNative.kt` ↔ `libhunmin.so` | native shim bridges Kotlin → C ABI |
+| Android data path | `HunminNativeBridge.kt` ↔ `libhunmin.so` | native shim bridges Kotlin → C ABI |
 | fcitx5 addon lifecycle | `HunminEngine`, `HunminState`, `modeswitch.{h,cpp}` | `engine.cpp:106` owns the adapter; `engine.cpp:342,359` record+judge at the boundary |
 
 ## 6. Version / ABI policy

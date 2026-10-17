@@ -54,6 +54,7 @@ import argparse
 import importlib.util
 import os
 import pathlib
+import platform
 import shutil
 import subprocess
 import sys
@@ -63,8 +64,8 @@ from types import ModuleType
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
 KOTLIN = pathlib.Path("frontends/android/app/src/main/java/org/hunmin/ime")
-ENGINE = "HunminEngine.kt"
-KEYS = "HunminKeys.kt"
+ENGINE = "HunminAdapter.kt"
+KEYS = "HunminKeyRegistry.kt"
 VOICE = "VoiceInput.kt"
 
 UNIT = pathlib.Path("tools/android-unit.sh")
@@ -117,7 +118,7 @@ MUTATIONS: list[tuple[str, str, str, bool]] = [
 ]
 
 # NOT a mutation: swapping flush for commit on the declined path. It was
-# planted, measured, and survives -- see the note in HunminEngineTest and
+# planted, measured, and survives -- see the note in HunminAdapterTest and
 # FRONTEND-CONTRACT section 4. Unlike the entry above this one is NOT planted,
 # so nothing here fails if the two branches later stop differing.
 
@@ -273,8 +274,15 @@ def _run_unit(root: pathlib.Path) -> tuple[int, str]:
     Costs a few milliseconds and one Gradle task's worth of re-writing.
     """
     shutil.rmtree(root / RESULTS, ignore_errors=True)
-    p = subprocess.run([str(root / UNIT)], cwd=root, capture_output=True,
-                       text=True)
+    unit = root / UNIT
+    if platform.system() == "Windows":
+        # A .sh cannot be executed as a Win32 program on a Windows host
+        # (createProcess error 193, measured); tier E1 is the shell script.
+        p = subprocess.run(["bash", str(unit)], cwd=root, capture_output=True,
+                           text=True)
+    else:
+        p = subprocess.run([str(unit)], cwd=root, capture_output=True,
+                           text=True)
     return p.returncode, (p.stdout + p.stderr).strip()
 
 

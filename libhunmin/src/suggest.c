@@ -319,9 +319,7 @@ static int resolve_dirs(const char *const **out, const hunmin_ctx *ctx) {
 #endif
   }
   snprintf(envbuf, sizeof envbuf, "%s", env);
-  int n = 0;
-  for (char *tok = strtok(envbuf, ":"); tok && n < 16; tok = strtok(NULL, ":"))
-    mydirs[n++] = tok;
+  int n = hm_split_dirs(env, envbuf, sizeof envbuf, mydirs, 16);
   *out = mydirs;
   return n;
 }

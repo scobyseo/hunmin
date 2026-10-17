@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * HunminEngine — the Android adapter, and nothing else.
+ * HunminAdapter — the Android adapter, and nothing else.
  *
  * Same shape as frontends/fcitx5/src/engine.cpp: map platform key events to the
  * engine's US-QWERTY character convention, feed hunmin_ic_process, present the
@@ -39,9 +39,9 @@ import android.view.inputmethod.EditorInfo
  * property for the same reason (FRONTEND-CONTRACT §2).
  *
  * @param commitText injected so tier E1 can drive the voice path with no device
- *   and no JNI; production passes [HunminNative]::nativeCommitText.
+ *   and no JNI; production passes [HunminNativeBridge]::nativeCommitText.
  */
-class HunminEngine(
+class HunminAdapter(
     private val ctx: Long,
     layoutId: String,
     private val native: NativeOps = JniOps,
@@ -66,22 +66,40 @@ class HunminEngine(
     }
 
     private object JniOps : NativeOps {
-        override fun icNew(ctx: Long, layout: String) = HunminNative.nativeIcNew(ctx, layout)
-        override fun icFree(ic: Long) = HunminNative.nativeIcFree(ic)
-        override fun process(ic: Long, ch: Int) = HunminNative.nativeProcess(ic, ch)
-        override fun commit(ic: Long) = HunminNative.nativeCommit(ic)
-        override fun preedit(ic: Long) = HunminNative.nativePreedit(ic)
-        override fun flush(ic: Long) = HunminNative.nativeFlush(ic)
-        override fun reset(ic: Long) = HunminNative.nativeReset(ic)
+        override fun icNew(ctx: Long, layout: String) = HunminNativeBridge.nativeIcNew(ctx, layout)
+        override fun icFree(ic: Long) = HunminNativeBridge.nativeIcFree(ic)
+        override fun process(ic: Long, ch: Int) = HunminNativeBridge.nativeProcess(ic, ch)
+        override fun commit(ic: Long) = HunminNativeBridge.nativeCommit(ic)
+        override fun preedit(ic: Long) = HunminNativeBridge.nativePreedit(ic)
+        override fun flush(ic: Long) = HunminNativeBridge.nativeFlush(ic)
+        override fun reset(ic: Long) = HunminNativeBridge.nativeReset(ic)
         override fun setOption(ic: Long, name: String, value: Int) =
-            HunminNative.nativeSetOption(ic, name, value)
-        override fun commitText(ic: Long, text: String) = HunminNative.nativeCommitText(ic, text)
+            HunminNativeBridge.nativeSetOption(ic, name, value)
+        override fun commitText(ic: Long, text: String) = HunminNativeBridge.nativeCommitText(ic, text)
         // Hanja candidates (P3)
-        override fun suggestCount(ctx: Long, hangul: String) = HunminNative.nativeSuggestCount(ctx, hangul)
-        override fun suggestText(ctx: Long, i: Int) = HunminNative.nativeSuggestText(ctx, i)
-        override fun suggestDetail(ctx: Long, i: Int) = HunminNative.nativeSuggestDetail(ctx, i)
-        override fun suggestKind(ctx: Long, i: Int) = HunminNative.nativeSuggestKind(ctx, i)
+        override fun suggestCount(ctx: Long, hangul: String) = HunminNativeBridge.nativeSuggestCount(ctx, hangul)
+        override fun suggestText(ctx: Long, i: Int) = HunminNativeBridge.nativeSuggestText(ctx, i)
+        override fun suggestDetail(ctx: Long, i: Int) = HunminNativeBridge.nativeSuggestDetail(ctx, i)
+        override fun suggestKind(ctx: Long, i: Int) = HunminNativeBridge.nativeSuggestKind(ctx, i)
     }
+
+    /**
+     * The word buffer — the adapter-side accumulation this frontend adds over
+     * the fcitx5 shape (issue #75, mirroring the TSF adapter's `wordbuf_`).
+     *
+     * Finalised text read from `hunmin_ic_commit()` accumulates here instead of
+     * being committed per syllable; the FIRST boundary key (the engine
+     * declining a key: space, Enter, punctuation, backspace, unmapped) commits
+     * the whole buffered word plus the engine's remaining text in ONE
+     * commitText, and the boundary key then passes through. The user sees the
+     * accumulated word rendered via the client preedit path (updatePreedit),
+     * which is what "buffer preedit until word completion as frontend adapter"
+     * means — the engine already keeps every piece of state this needs:
+     * `hunmin_ic_commit()` is a destructive drain of the finalised syllables so
+     * far, and nothing in `libhunmin` changed for this (`docs/WINDOWS-TSF-BUFFERING.md`
+     * §Adapter state measured the same property for the TSF frontend).
+     */
+    private var wordbuf: String = ""
 
     /** 0 when the layout id is unknown or unsupported — the engine declines. */
     private var ic: Long = native.icNew(ctx, layoutId)
@@ -116,21 +134,24 @@ class HunminEngine(
     fun onKey(keyCode: Int, metaState: Int, ic_: InputConnection): Boolean {
         if (ic == 0L) return false
 
-        if (HunminKeys.isModifierChord(metaState)) {
-            flush(ic_)
+        if (HunminKeyRegistry.isModifierChord(metaState)) {
+            // A chord cannot compose: it is a word boundary AND a pass-through.
+            commitWord(ic_)
             return false
         }
 
         val caps = (metaState and android.view.KeyEvent.META_CAPS_LOCK_ON) != 0
         if (caps) native.setOption(ic, "caps", 1)
 
-        val ch = HunminKeys.engineChar(keyCode, metaState)
+        val ch = HunminKeyRegistry.engineChar(keyCode, metaState)
         if (ch == null) {
-            flush(ic_)
+            // Unmapped key: word boundary first, then pass through -- space,
+            // Enter, punctuation reach the client AFTER the word lands.
+            commitWord(ic_)
             return false
         }
 
-        val tracing = HunminTrace.isEnabled
+        val tracing = HunminTraceRecorder.isEnabled
         // What the ADAPTER decided this key means, for the tier E3 trace. The
         // layer a device quirk actually shows up in is the adapter's mapping, not
         // the engine's response to it.
@@ -142,24 +163,32 @@ class HunminEngine(
             // the key contributed no complete text yet, which is the normal case
             // while a syllable is composing.
             //
-            // `delivered` holds it before the read is handed on, because
             // hunmin_ic_commit is destructive: a trace written after this point
             // would see "" for every commit and look like nothing was ever
             // committed while the user watched syllables appear.
+            //
+            // The syllable goes into [wordbuf], not into the client: the word
+            // accumulates until a boundary key (this function's decline paths
+            // and the service's Space handler) delivers it once. This is the
+            // word-boundary buffering of issue #75.
             val commit = native.commit(ic)
             delivered = commit
-            if (commit.isNotEmpty()) ic_.commitText(commit, 1)
+            if (commit.isNotEmpty()) wordbuf += commit
         } else {
-            // Engine declined. flush() emits the pending commit buffer AND the
-            // in-flight syllable in one string, because hunmin_ic_flush appends
-            // via save_commit and reads back through hunmin_ic_commit.
-            delivered = if (tracing) captureFlush(ic_) else ""
-            flush(ic_)
+            // Boundary key (a word boundary): one flush of the engine state
+            // and ONE commitText carrying the whole word plus whatever the
+            // engine still held. On the decline path the engine has already
+            // moved the in-flight syllable into its commit buffer
+            // (ic_push() -> save_commit() before returning false), so
+            // hunmin_ic_commit() and hunmin_ic_flush() return the same text
+            // there -- flush is kept because it is what a decline MEANS, for
+            // any future layout that declines without saving.
+            delivered = commitWord(ic_)
         }
         updatePreedit(ic_)
         if (tracing) {
-            HunminTrace.event(keyCode, metaState, tracedChar, delivered,
-                              native.preedit(ic), used)
+            HunminTraceRecorder.event(keyCode, metaState, tracedChar, delivered,
+                              preedit(), used)
         }
         return used
     }
@@ -168,35 +197,39 @@ class HunminEngine(
     private var delivered: String = ""
 
     /**
+     * Commit the word-so-far to the client and clear the buffer.
+     *
+     * Named for what it now DOES rather than inherited from raw ABI naming:
+     * hunmin_ic_flush only ends the engine's composition; this joins that
+     * remainder with [wordbuf] and hands the WHOLE word to the client in one
+     * commitText. It is the word boundary primitive of issue #75 -- a call
+     * site needs it when the word in progress is done because a key that is
+     * not a layout key arrived, the user switched mode or layout, or the
+     * client is about to act on its own (the service's Space handler).
+     *
+     * @return what reached the client ("" when there was nothing).
+     */
+    fun commitWord(ic_: InputConnection): String {
+        if (ic == 0L) return ""
+        val s = native.flush(ic)
+        val word = wordbuf + s
+        wordbuf = ""
+        if (word.isNotEmpty()) ic_.commitText(word, 1)
+        // The commit replaces the composing region's text one-for-one -- the
+        // client was shown exactly [word] as composing text -- but the region
+        // itself still carries our composing flag, so a clear must follow the
+        // commit or a stale syllable stays on screen over the committed word
+        // (measured per the preedit test in HunminAdapterTest).
+        updatePreedit(ic_)
+        return word
+    }
+
+    /**
      * Whether the client is currently showing a composing region THIS engine put
      * there. Per-session, because the service builds one engine per editor and
      * closes it in onFinishInput, so it cannot leak across two visible editors.
      */
     private var composing = false
-
-    /**
-     * Flush and return the text, so the trace sees what the client got.
-     *
-     * Only called when tracing is on, because calling it twice would emit the
-     * text twice -- hunmin_ic_flush is destructive. Hence the `tracing` guard at
-     * the call site rather than here.
-     */
-    private fun captureFlush(target: InputConnection): String {
-        val s = native.flush(ic)
-        if (s.isNotEmpty()) target.commitText(s, 1)
-        return s
-    }
-
-    /** Commit whatever is composing and hand it to the client. */
-    fun flush(ic_: InputConnection) {
-        if (ic == 0L) return
-        val s = native.flush(ic)
-        if (s.isNotEmpty()) ic_.commitText(s, 1)
-        // flush() commits but does not clear the composing region on its own
-        // (see the preedit test in HunminEngineTest): a caller that stops here
-        // leaves the stale syllable on screen over the text it just committed.
-        updatePreedit(ic_)
-    }
 
     /**
      * Replace the in-flight composition with a Hanja chosen by the user.
@@ -207,11 +240,13 @@ class HunminEngine(
      * opposite -- the Hangul being composed IS the thing being converted, so it
      * must be discarded, not committed before the Hanja. Flushing first and then
      * committing produced "가恨" instead of "恨", which is what the
-     * composition-replacement test in HunminEngineTest asserts against; reset()
+     * composition-replacement test in HunminAdapterTest asserts against; reset()
      * drops the syllable without committing it, so only the Hanja lands.
      */
     fun commitHanja(ic_: InputConnection, hanja: String) {
         if (ic == 0L) return
+        // The buffered word is part of the composition being replaced: the
+        // Hanja lands ONE FOR ONE for word + in-flight, never after it.
         reset(ic_)
         ic_.commitText(hanja, 1)
     }
@@ -227,6 +262,12 @@ class HunminEngine(
      */
     fun commitExternalText(ic_: InputConnection, text: String) {
         if (ic == 0L) return
+        // The typed word is buffered here, not in the engine, so deliver it
+        // first: the committed order stays "typed, then spoken".
+        if (wordbuf.isNotEmpty()) {
+            ic_.commitText(wordbuf, 1)
+            wordbuf = ""
+        }
         val out = native.commitText(ic, text)
         if (out.isNotEmpty()) ic_.commitText(out, 1)
         // The preedit the client was showing is now stale -- either committed
@@ -240,6 +281,9 @@ class HunminEngine(
     fun reset(ic_: InputConnection) {
         if (ic == 0L) return
         native.reset(ic)
+        // The buffered word is part of what the client was shown as composing
+        // text; keeping it would leave a word the engine has already forgotten.
+        wordbuf = ""
         updatePreedit(ic_)
     }
 
@@ -258,7 +302,7 @@ class HunminEngine(
     fun suggestKind(i: Int): String = native.suggestKind(ctx, i)
 
     /** Get the current preedit text for this engine's input context. */
-    fun preedit(): String = if (ic != 0L) native.preedit(ic) else ""
+    fun preedit(): String = if (ic != 0L) wordbuf + native.preedit(ic) else ""
 
     /**
      * Push the current preedit to the client.
@@ -281,10 +325,12 @@ class HunminEngine(
      */
     fun updatePreedit(ic_: InputConnection) {
         if (ic == 0L) return
-        val preedit = native.preedit(ic)
-        if (preedit.isEmpty() && !composing) return
-        ic_.setComposingText(preedit, 1)
-        composing = preedit.isNotEmpty()
+        // What the user reads is the whole word: everything already finalised
+        // and buffered here, then the engine's in-flight syllable.
+        val shown = wordbuf + native.preedit(ic)
+        if (shown.isEmpty() && !composing) return
+        ic_.setComposingText(shown, 1)
+        composing = shown.isNotEmpty()
     }
 
     override fun close() {

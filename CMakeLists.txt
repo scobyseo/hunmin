@@ -43,7 +43,13 @@ set_target_properties(hunmin PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 0
     POSITION_INDEPENDENT_CODE ON)
 target_compile_definitions(hunmin PRIVATE
   HUNMIN_DEFAULT_DATA_DIR=\"${CMAKE_INSTALL_FULL_DATADIR}/hunmin\")
-target_link_options(hunmin PRIVATE -Wl,--export-all-symbols)
+# Windows PE needs an explicit export surface for the plain 'hunmin.dll'
+# consumers. Android (and every ELF target) exports by default visibility, and
+# NDK's ld.lld rejects --export-all-symbols outright (measured: it fails the
+# cross-build outright, it does not warn), so the option stays PE-only.
+if(WIN32)
+  target_link_options(hunmin PRIVATE -Wl,--export-all-symbols)
+endif()
 
 add_library(hunmin_static STATIC ${HUNMIN_CORE_SOURCES})
 target_include_directories(hunmin_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/include)
