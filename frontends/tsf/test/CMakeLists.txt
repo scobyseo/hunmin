@@ -24,6 +24,11 @@ if(Python3_EXECUTABLE AND NOT Python3_FOUND)
   endif()
 endif()
 
+# Key the guard on the executable, not Python3_FOUND: when the interpreter
+# path is passed explicitly (-DPython3_EXECUTABLE=...) the find_package call
+# above is skipped, Python3_FOUND stays unset, and the tier silently
+# registers zero tests (measured 2026-10-17, this host).
+
 set(HUNMIN_TSF_REPO_ROOT "${CMAKE_SOURCE_DIR}")
 if(NOT EXISTS "${HUNMIN_TSF_REPO_ROOT}/libhunmin/data")
   # Standalone configure (frontends/tsf project opened directly).
@@ -33,7 +38,7 @@ endif()
 configure_file(tsf-testdir.h.in ${CMAKE_CURRENT_BINARY_DIR}/tsf-testdir.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_executable(tsf-trace-emit trace-emit.cpp)
+add_executable(tsf-trace-emit trace-emit.cpp ../src/config.cpp ../src/settings.cpp)
 target_compile_definitions(tsf-trace-emit PRIVATE UNICODE _UNICODE)
 target_include_directories(tsf-trace-emit PRIVATE
     ${HUNMIN_TSF_REPO_ROOT}/libhunmin/include)
@@ -47,7 +52,7 @@ target_link_libraries(tsf-trace-emit PRIVATE
     advapi32
     shlwapi)
 
-if(Python3_FOUND)
+if(Python3_EXECUTABLE)
   # One test per trace file, the names derived from the filename exactly as
   # tier C does it (docs/TESTING.md "Why labels rather than a -R regex").
   file(GLOB HUNMIN_TSF_CONFORMANCE_TRACES
@@ -65,3 +70,52 @@ if(Python3_FOUND)
       TIMEOUT 120)
   endforeach()
 endif()
+
+# Issue #66 tier F1 additions. The config store + slot-resolution test and
+# the module-dir data test include src/tsf.cpp directly (same white-box seam
+# as tsf-trace-emit above) and resolve the engine the same way it did. The
+# three add_test calls are written out literally (no loop variable) because
+# tools/docs-lint.py check 6 greps the sources for add_test(NAME <id>).
+foreach(tsf_test_exe tsf-config-test tsf-datadir-test tsf-settings-test)
+  add_executable(${tsf_test_exe} ${tsf_test_exe}.cpp ../src/config.cpp
+                   ../src/settings.cpp)
+  target_compile_definitions(${tsf_test_exe} PRIVATE UNICODE _UNICODE)
+  target_include_directories(${tsf_test_exe} PRIVATE
+      ${CMAKE_CURRENT_BINARY_DIR}
+      ${HUNMIN_TSF_REPO_ROOT}/libhunmin/include)
+  target_link_libraries(${tsf_test_exe} PRIVATE
+      ${HUNMIN_ENGINE_LIB}
+      ole32
+      oleaut32
+      user32
+      gdi32
+      advapi32
+      shlwapi)
+endforeach()
+# The settings-dialog TU cannot be #included by the harness (it owns its own
+# COM classes + the Win32 dialog loop), it is linked: it shares tsf.cpp's
+# hunmin_ctx_from_module / hunmin_tsf_apply_config_store through the test
+# binary's tsf.cpp include and adds oleaut32 (SysAllocString) only here.
+target_sources(tsf-settings-test PRIVATE ../src/settings.cpp)
+
+# Literal registrations (docs-lint check 6 greps sources for add_test(NAME id)).
+add_test(NAME tsf-config-test COMMAND tsf-config-test)
+add_test(NAME tsf-datadir-test COMMAND tsf-datadir-test)
+add_test(NAME tsf-settings-test COMMAND tsf-settings-test)
+set_tests_properties(tsf-config-test tsf-datadir-test tsf-settings-test PROPERTIES
+  LABELS "tier-F1"
+  SKIP_RETURN_CODE 77
+  TIMEOUT 120)
+
+# Stage the engine data beside every harness executable (issue #66): the
+# datadir test exercises the "<module>\data" branch with the env cleared, so
+# the staged copy IS its input; the trace runner and the config test read the
+# repo tree via HUNMIN_TSF_DATA_DIR, and get the staged copy as their
+# module-dir fallback anyway.
+foreach(tsf_test_exe tsf-trace-emit tsf-config-test tsf-datadir-test tsf-settings-test)
+  add_custom_command(TARGET ${tsf_test_exe} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${HUNMIN_TSF_REPO_ROOT}/libhunmin/data"
+            "$<TARGET_FILE_DIR:${tsf_test_exe}>/data"
+    COMMENT "Staging libhunmin/data next to ${tsf_test_exe}")
+endforeach()

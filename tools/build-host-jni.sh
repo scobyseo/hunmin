@@ -79,9 +79,43 @@ fi
 JNI_INC="$JDK/include"
 JNI_MD="$JDK/include/$JNI_MD_ARCH"
 
-# Host C compiler. Honour CC first; the common names next. A host without
-# one gets the documented skip, not a red test.
+# Host C compiler, three sources, most specific first:
+#
+#   1. $CC -- explicit override, honoured first as before.
+#   2. $BUILD_DIR/CMakeCache.txt -- CMAKE_C_COMPILER, the toolchain that built
+#      the engine DLL this shim links. The shim is load-coupled to that
+#      engine, so that toolchain is the honest default, not whatever a PATH
+#      probe happens to find. Measured 2026-10-17, issue #86: with CC unset
+#      on the Windows host, the old PATH probe picked the MSVC-target clang
+#      in C:/Program Files/LLVM/bin, which compiled hunmin-jni.c against VS 18
+#      BuildTools headers (MSVC 14.51.36231 -- newer than the 14.44 recorded
+#      in docs/ENVIRONMENT.md) and linked with lld-link, demanding `hunmin.lib`
+#      -- a file a mingw build tree never has (it holds libhunmin.dll.a). All
+#      16 engine-android-conformance-* tests failed on that one selection.
+#      The same probe would also hand the shim a *different* mingw (WinLibs
+#      gcc is on that PATH) than the one that built libhunmin.dll (llvm-mingw).
+#   3. the old PATH probe, kept as fallback for a build dir with no cache
+#      (engine compiled by hand). Its wrong-target failure mode above is why
+#      it is no longer first.
+#
+# A host with none of the three gets the documented skip, not a red test.
+# MSVC (cl / clang-cl) is refused rather than used: this script is a
+# mingw/POSIX path by contract (see the HOSTOS comment above), cl misreads
+# every gcc-style flag below, and falling through keeps the historical
+# behaviour for that corner instead of inventing a new one.
 CC_BIN="${CC:-}"
+if [ -z "$CC_BIN" ] && [ -f "$BUILD_DIR/CMakeCache.txt" ]; then
+    # The type suffix varies: CMake stores a -D-passed compiler as :STRING
+    # (measured, CMake 4.4.4) and a self-resolved one as :FILEPATH; accept
+    # both. Anchoring on "CMAKE_C_COMPILER:" leaves CMAKE_C_COMPILER_AR and
+    # friends out.
+    _cache_cc="$(sed -n 's/^CMAKE_C_COMPILER:\(FILEPATH\|STRING\|PATH\)=//p' \
+                       "$BUILD_DIR/CMakeCache.txt" | head -n 1)"
+    case "$_cache_cc" in
+        ""|*cl.exe|*cl) ;;                 # absent, or an MSVC tree
+        *) [ -f "$_cache_cc" ] && CC_BIN="$_cache_cc" ;;
+    esac
+fi
 if [ -z "$CC_BIN" ]; then
     for c in cc clang gcc; do
         if command -v "$c" >/dev/null 2>&1; then CC_BIN="$(command -v "$c")"; break; fi

@@ -6,6 +6,7 @@
 #include <richedit.h>
 #include <shlwapi.h>
 #include <string>
+#include <vector>
 #include <windows.h>
 #pragma comment(lib, "Shlwapi.lib")
 
@@ -39,7 +40,27 @@ bool hunmin_tsf_log_path(const char *fname, char *out, size_t cap) {
     int n = snprintf(out, cap, "%s\\%s", dirA, fname);
     return n > 0 && (size_t)n < cap;
 }
+/* Maintainer instruction (2026-10-17): debug output is an option, not an
+ * ambient side effect. The gate lives in tsf_log_open — the one function
+ * every log site opens through — so each site's `if (dbg)` stays intact and
+ * reads false while the switch is off: no file is created, nothing is
+ * written. HUNMIN_TSF_DEBUG_LOG set to 1 / on / yes / true enables; the
+ * variable is re-read per open, so a running session can be flipped without
+ * a restart. Registration logging (DllRegisterServer) goes through the same
+ * gate and stays silent when off. */
+static bool tsf_log_enabled(void) {
+    char v[16];
+    DWORD n = GetEnvironmentVariableA("HUNMIN_TSF_DEBUG_LOG", v, (DWORD)sizeof(v));
+    if (n == 0 || n >= sizeof(v))
+        return false;
+    for (DWORD i = 0; i < n && v[i]; ++i)
+        v[i] = (char)tolower((unsigned char)v[i]);
+    return strcmp(v, "1") == 0 || strcmp(v, "on") == 0 || strcmp(v, "yes") == 0 ||
+           strcmp(v, "true") == 0;
+}
 static FILE *tsf_log_open(const char *fname, const char *mode = "a") {
+    if (!tsf_log_enabled())
+        return nullptr;
     char path[MAX_PATH];
     if (!hunmin_tsf_log_path(fname, path, sizeof(path)))
         return nullptr;
@@ -57,83 +78,134 @@ static void HMLOG(const char *fmt, ...) {
     fflush(f);
     fclose(f);
 }
-static hunmin_ctx *hunmin_ctx_from_module() {
+/* Issue #66: ONE data source wins — the first present in priority order:
+ * (1) HUNMIN_DATA_DIR (explicit override), (2) <module>\data (the shipped
+ * shape; the build stages libhunmin/data beside the DLL), (3) the repo
+ * checkout climb (dev convenience, reached only when neither holds). The
+ * earlier additive chain held the same tree twice once staging existed:
+ * hunmin_ctx_layout_count() reported 30 for 15 staged files, because
+ * hunmin_ctx_new's search path is additive by design — duplicate ids
+ * across dirs are not deduped, so overlapping dirs are the caller's to
+ * avoid. Measured 2026-10-17. Non-static (issue #71): the settings dialog
+ * (settings.cpp) resolves data through this same function, so the dialog's
+ * layout lists can never disagree with the adapter's about where data
+ * came from. */
+hunmin_ctx *hunmin_ctx_from_module() {
     wchar_t envW[MAX_PATH];
-    wchar_t cand[MAX_PATH];
-    char dirs[8][MAX_PATH * 3];
-    char *argv[8];
+    wchar_t modDir[MAX_PATH];
+    char dirs[2][MAX_PATH * 3];
     int argc = 0;
     FILE *dbg0 = tsf_log_open("hunmin-tsf-debug.log");
-
-    if (GetEnvironmentVariableW(L"HUNMIN_DATA_DIR", envW, MAX_PATH) > 0 &&
-        (GetFileAttributesW(envW) & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
-        WideCharToMultiByte(CP_UTF8, 0, envW, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
-        argv[argc] = dirs[argc];
-        ++argc;
-        if (dbg0) {
-            fprintf(dbg0, "env data dir: %ls\n", envW);
-            fflush(dbg0);
-        }
-    }
 
     HMODULE hMod = GetModuleHandleW(L"hunmin-tsf.dll");
     if (!hMod)
         GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR)(const void *)hunmin_ctx_from_module,
                            &hMod);
-    wchar_t modDir[MAX_PATH];
-    if (hMod && GetModuleFileNameW(hMod, modDir, MAX_PATH)) {
+    if (hMod)
+        GetModuleFileNameW(hMod, modDir, MAX_PATH);
+
+    if (GetEnvironmentVariableW(L"HUNMIN_DATA_DIR", envW, MAX_PATH) > 0 &&
+        (GetFileAttributesW(envW) & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+        WideCharToMultiByte(CP_UTF8, 0, envW, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
+        ++argc;
+        if (dbg0) {
+            fprintf(dbg0, "env data dir: %ls\n", envW);
+            fflush(dbg0);
+        }
+    } else if (hMod) {
         PathRemoveFileSpecW(modDir);
-
-        if (dbg0) {
-            fprintf(dbg0, "modDir=%ls\n", modDir);
-            fflush(dbg0);
-        }
-
-        wchar_t candLocal[MAX_PATH];
-        PathCombineW(candLocal, modDir, L"data");
-        DWORD attrLocal = GetFileAttributesW(candLocal);
-        if (dbg0) {
-            fprintf(dbg0, "candLocal=%ls attr=0x%08lX dir=%d\n", candLocal, (unsigned long)attrLocal,
-                    (attrLocal != INVALID_FILE_ATTRIBUTES) &&
-                        ((attrLocal & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
-            fflush(dbg0);
-        }
-        if (attrLocal != INVALID_FILE_ATTRIBUTES &&
-            (attrLocal & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
-            WideCharToMultiByte(CP_UTF8, 0, candLocal, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
-            argv[argc] = dirs[argc];
+        wchar_t candMod[MAX_PATH];
+        PathCombineW(candMod, modDir, L"data");
+        DWORD attrMod = GetFileAttributesW(candMod);
+        if (dbg0)
+            fprintf(dbg0, "candMod=%ls dir=%d\n", candMod,
+                    (attrMod != INVALID_FILE_ATTRIBUTES) &&
+                        ((attrMod & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
+        if (attrMod != INVALID_FILE_ATTRIBUTES &&
+            (attrMod & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+            /* Shipped shape: data beside the module. Do not also climb to the
+             * repo — one tree in the search path, or every layout loads twice. */
+            WideCharToMultiByte(CP_UTF8, 0, candMod, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
             ++argc;
-        }
-
-        wchar_t repo[MAX_PATH];
-        wcsncpy_s(repo, modDir, MAX_PATH);
-        for (int i = 0; i < 4; ++i)
-            PathRemoveFileSpecW(repo);
-        PathCombineW(cand, repo, L"libhunmin\\data");
-        DWORD attrRepo = GetFileAttributesW(cand);
-        if (dbg0) {
-            fprintf(dbg0, "cand=%ls attr=0x%08lX dir=%d\n", cand, (unsigned long)attrRepo,
-                    (attrRepo != INVALID_FILE_ATTRIBUTES) &&
-                        ((attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
-            fflush(dbg0);
-        }
-        if (attrRepo != INVALID_FILE_ATTRIBUTES && (attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
-            WideCharToMultiByte(CP_UTF8, 0, cand, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
-            argv[argc] = dirs[argc];
-            ++argc;
+        } else {
+            /* Dev checkout: climb to the repo's libhunmin\data. */
+            wchar_t repo[MAX_PATH];
+            wcsncpy_s(repo, modDir, MAX_PATH);
+            for (int i = 0; i < 4; ++i)
+                PathRemoveFileSpecW(repo);
+            wchar_t cand[2 * MAX_PATH];
+            PathCombineW(cand, repo, L"libhunmin\\data");
+            DWORD attrRepo = GetFileAttributesW(cand);
+            if (dbg0)
+                fprintf(dbg0, "climb=%ls dir=%d\n", cand,
+                        (attrRepo != INVALID_FILE_ATTRIBUTES) &&
+                            ((attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
+            if (attrRepo != INVALID_FILE_ATTRIBUTES &&
+                (attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+                WideCharToMultiByte(CP_UTF8, 0, cand, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
+                ++argc;
+            }
         }
     }
     if (dbg0) {
         fprintf(dbg0, "argc=%d hMod=%p\n", argc, (void *)hMod);
-        fflush(dbg0);
-    }
-    if (dbg0)
         fclose(dbg0);
+    }
 
     if (argc == 0)
         return nullptr;
-    return hunmin_ctx_new((const char *const *)argv, argc);
+    const char *argv2[2] = {dirs[0], dirs[1]};
+    return hunmin_ctx_new(argv2, argc);
 }
+/* Configured layout ids resolved against the loaded data (issue #66). The
+ * fcitx5 defaults live in config.cpp; the adapter re-derives them here so a
+ * ctx created from a partial data dir still gets a working layout. */
+static const char *kHangulDefaultId = "sin3-p2";
+static const char *kLatinDefaultId = "us-qwerty";
+
+/* Accept a stored layout id only when the engine can instantiate it AND its
+ * mode matches the slot (issue #71: the dialog lists layouts split by
+ * hunmin_ctx_layout_mode, so a stale registry value naming a latin layout in
+ * the hangul slot must degrade to the default, never to a silent mispair). */
+static void resolveLayoutSlot(const hunmin_ctx *ctx, const std::string &stored,
+                              const char *def, bool wantHangul, std::string *outId,
+                              FILE *dbg) {
+    const char *candidate = stored.c_str();
+    if (candidate[0] == '\0')
+        candidate = def;
+    if (ctx) {
+        for (int i = 0; i < hunmin_ctx_layout_count(ctx); ++i) {
+            const char *id = hunmin_ctx_layout_id(ctx, i);
+            if (!id || strcmp(id, candidate) != 0)
+                continue;
+            const char *mode = hunmin_ctx_layout_mode(ctx, i); /* "hangul"|"latin" */
+            const bool modeOk =
+                wantHangul ? (mode && strcmp(mode, "hangul") == 0)
+                           : (mode && strcmp(mode, "latin") == 0);
+            if (modeOk && hunmin_ctx_layout_supported(ctx, i)) {
+                *outId = id;
+                return;
+            }
+            if (dbg) {
+                fprintf(dbg, "  config %s slot: id=%s mode=%s supported=%d -> rejected\n",
+                        wantHangul ? "hangul" : "latin", id, mode ? mode : "?",
+                        (int)hunmin_ctx_layout_supported(ctx, i));
+            }
+            break; /* found the id, wrong slot/build: fall to default */
+        }
+    }
+    if (ctx)
+        *outId = wantHangul ? kHangulDefaultId : kLatinDefaultId;
+    if (dbg && *outId != candidate)
+        fprintf(dbg, "  config %s slot: %s -> default %s\n",
+                wantHangul ? "hangul" : "latin", candidate, outId->c_str());
+}
+/* The toggle-key matcher shares this TU (see frontends/tsf/CMakeLists.txt):
+ * the harness's GetKeyState seam (#define GetKeyState before including this
+ * file) must reach the matcher, not just the adapter. */
+#include "keybinding.cpp"
+#include "config.h"
+#include "settings.h" /* ITfFunctionProvider branch + the apply bridge */
 // Skeleton edit session for TSF text insertion. Real insertion lives
 // inlined in OnKeyDown; this type documents the shape.
 class HEditSession : public ITfEditSession {
@@ -176,7 +248,8 @@ class CTextService : public ITfTextInputProcessor,
   public:
     CTextService()
         : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), ic_(nullptr),
-          hangulMode_(true), overlayWnd_(nullptr), hasPreeditRect_(false), lastCtx_(nullptr) {}
+          hangulMode_(true), overlayWnd_(nullptr), hasPreeditRect_(false), lastCtx_(nullptr),
+          hangulId_("sin3-p2"), latinId_("us-qwerty") {}
     virtual ~CTextService() {
         if (overlayWnd_)
             DestroyWindow(overlayWnd_);
@@ -199,6 +272,13 @@ class CTextService : public ITfTextInputProcessor,
             *ppv = static_cast<ITfKeyEventSink *>(this);
         } else if (IsEqualIID(riid, IID_ITfCompositionSink)) {
             *ppv = static_cast<ITfCompositionSink *>(this);
+        } else if (IsEqualIID(riid, IID_ITfFunctionProvider)) {
+            /* Issue #71: the settings surface. QI'able on the live text
+             * service object, exactly the TSF-native reachability
+             * mechanism; GetFunction(IID_ITfFnConfigure) then hands out the
+             * configure function (settings.cpp). */
+            *ppv = hunmin_tsf_settings_new_provider(this);
+            return S_OK;
         } else {
             *ppv = nullptr;
             return E_NOINTERFACE;
@@ -212,6 +292,56 @@ class CTextService : public ITfTextInputProcessor,
         if (r == 0)
             delete this;
         return r;
+    }
+
+    /* Issue #71: re-read the configuration store and rebuild the live
+     * session — the settings dialog's Apply path, no process restart.
+     * Activate() reuses it, so there is exactly one config-read + rebuild
+     * in the adapter (never two that could drift). The buffered word is
+     * untouched (a word boundary flush operates the same after Apply); the
+     * IN-FLIGHT syllable of a running composition is lost by the ic
+     * swap — acceptable for an explicit Apply, recorded in
+     * tests/manual-checklists/tsf-settings-window.md. */
+    void ApplyConfigStore() {
+        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
+        if (dbg) {
+            fprintf(dbg, "ApplyConfigStore pid=%lu\n", (unsigned long)GetCurrentProcessId());
+            fflush(dbg);
+        }
+        HunminTsfConfig cfg;
+        hunmin_tsf_config_load(HKEY_CURRENT_USER, &cfg);
+        resolveLayoutSlot(ctx_, cfg.hangulLayout, kHangulDefaultId, true, &hangulId_, dbg);
+        resolveLayoutSlot(ctx_, cfg.latinLayout, kLatinDefaultId, false, &latinId_, dbg);
+        /* The mode-toggle set (Android KeyBinding semantics): configured
+         * chords ADD, and the bare physical Han/Eng key is appended when
+         * the store does not carry it — it must never go dead. */
+        {
+            HunminKeyCombo parsed[16];
+            const int nParsed = hunmin_tsf_keybindings_parse(cfg.toggleKeys, parsed, 16);
+            toggleKeys_.assign(parsed, parsed + nParsed);
+            bool hangeulBare = false;
+            for (const HunminKeyCombo &c : toggleKeys_)
+                if (c.vk == HUNMIN_TSF_VIRTUAL_HANGEUL && c.mods == 0)
+                    hangeulBare = true;
+            if (!hangeulBare)
+                toggleKeys_.push_back(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANGEUL, 0});
+            if (dbg) {
+                fprintf(dbg, "  toggle keys=%zu (configured bits: %s)\n", toggleKeys_.size(),
+                        cfg.toggleKeys[0] ? cfg.toggleKeys : "(none)");
+                fflush(dbg);
+            }
+        }
+        if (ic_) {
+            hunmin_ic_free(ic_);
+            ic_ = nullptr;
+        }
+        if (ctx_)
+            ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
+        if (dbg) {
+            fprintf(dbg, "  applied hangul=%s latin=%s ic=%p\n", hangulId_.c_str(),
+                    latinId_.c_str(), (void *)ic_);
+            fclose(dbg);
+        }
     }
 
     STDMETHOD(Activate)(ITfThreadMgr *ptm, TfClientId tid) override {
@@ -266,11 +396,14 @@ class CTextService : public ITfTextInputProcessor,
             fflush(dbg3);
         }
 
-        if (ctx_)
-            ic_ = hunmin_ic_new(ctx_, "sin3-p2");
+        /* Layout wiring (issue #66), now via ApplyConfigStore() (issue #71):
+         * the same re-read + rebuild the settings dialog's Apply drives on
+         * a LIVE service, without a process restart — acceptance is
+         * identical because the config boundary resets exactly the state
+         * Activate() had to do anyway; no separate activation-only copy
+         * exists. Activate() starts hangulMode_=true. */
+        ApplyConfigStore();
         if (dbg3) {
-            fprintf(dbg3, "  ic_=%p after new (layout dubeolsik)\n", (void *)ic_);
-            fflush(dbg3);
             if (ctx_)
                 fprintf(dbg3, "  layout_count=%d\n", hunmin_ctx_layout_count(ctx_));
             fflush(dbg3);
@@ -420,8 +553,16 @@ class CTextService : public ITfTextInputProcessor,
         (void)pic;
         (void)lParam;
         FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
+        /* Shared predicate with OnKeyDown (the registration-work rule: test
+         * and down are one decision). The configured set always contains the
+         * bare Han/Eng key, so the physical key stays interested in both
+         * modes. CapsLock is NOT here any more: it is no longer the mode
+         * toggle (maintainer instruction: the Han/Eng key is the default),
+         * and in Korean input mode it is ignored outright (the engine's
+         * case-encoding convention). */
         BOOL eat = FALSE;
-        if (wParam == VK_CAPITAL)
+        if (hunmin_tsf_keybindings_match(toggleKeys_.data(), (int)toggleKeys_.size(),
+                                         (unsigned)wParam, hunmin_tsf_keymods_from_state()))
             eat = TRUE;
         else if (!hangulMode_)
             eat = FALSE;
@@ -459,19 +600,35 @@ class CTextService : public ITfTextInputProcessor,
             }
             return S_OK;
         }
-        // Mode toggle with Caps Lock
-        if (wParam == VK_CAPITAL) {
-            hangulMode_ = !hangulMode_;
-            if (ic_) {
-                hunmin_ic_free(ic_);
-                ic_ = nullptr;
-            }
-            if (ctx_)
-                ic_ = hunmin_ic_new(ctx_, hangulMode_ ? "sin3-p2" : "us-qwerty");
+        // Mode-toggle keys (issue #66 / #71): the configured bindings plus the
+        // always-on bare Han/Eng key (VK_HANGEUL, the platform alternate no
+        // rebinding can make dead — the Android rule). A toggle is a mode
+        // boundary, i.e. a composition boundary (Jamotong manual §9.5; the
+        // Android adapter commits at the mode switch): the pending syllable
+        // is flushed and the buffered word inserted before the engine is
+        // rebuilt with the other slot's layout. Auto-repeat is keydown with
+        // the preceding-down bit set (lParam bit 30): the press must toggle
+        // once, and repeats are swallowed rather than delivered to the app.
+        if (hunmin_tsf_keybindings_match(toggleKeys_.data(), (int)toggleKeys_.size(),
+                                         (unsigned)wParam, hunmin_tsf_keymods_from_state())) {
             if (pfEat)
                 *pfEat = TRUE;
+            const bool repeat = (lParam & (1 << 30)) != 0;
+            if (!repeat) {
+                BoundaryFlush(pic, dbg);
+                hangulMode_ = !hangulMode_;
+                if (ic_) {
+                    hunmin_ic_free(ic_);
+                    ic_ = nullptr;
+                }
+                if (ctx_)
+                    ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
+            }
             if (dbg) {
-                fprintf(dbg, " mode toggle -> %s\n", hangulMode_ ? "hangul" : "english");
+                fprintf(dbg, " toggle key vk=%lu repeat=%d -> %s (%s)\n",
+                        (unsigned long)wParam, (int)repeat,
+                        hangulMode_ ? "hangul" : "english",
+                        hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
                 fclose(dbg);
             }
             return S_OK;
@@ -545,6 +702,18 @@ class CTextService : public ITfTextInputProcessor,
         if (wParam == VK_SHIFT || wParam == VK_CONTROL || wParam == VK_MENU || wParam == VK_LSHIFT ||
             wParam == VK_RSHIFT || wParam == VK_LCONTROL || wParam == VK_RCONTROL || wParam == VK_LMENU ||
             wParam == VK_RMENU || wParam == VK_LWIN || wParam == VK_RWIN || wParam == VK_CAPITAL || wParam == VK_TAB) {
+            /* CapsLock is no longer the mode toggle (maintainer instruction:
+             * the Han/Eng key is the default), and in Korean input mode it is
+             * IGNORED outright: the engine's input convention encodes the
+             * shifted row in the case of the fed char (hunmin.h "case
+             * encodes shift"), so no caps-derived case or state may leak into
+             * hunmin_ic_process. The fed char derives from the VK and the
+             * Shift bit alone below; the caps state is never read. CapsLock
+             * passes through for the OS to toggle. The engine caps option is
+             * deliberately NOT wired from this frontend (fcitx5 does, for the
+             * yethangul P variable, engine.cpp:327 — recorded in
+             * docs/WINDOWS-TSF-CONFIG.md as a parity difference awaiting a
+             * maintainer decision). */
             if (dbg) {
                 fprintf(dbg, " modifier/pass key -> leave composition\n");
                 fclose(dbg);
@@ -580,34 +749,13 @@ class CTextService : public ITfTextInputProcessor,
         } else {
             /* Engine declined (space, empty backspace, unmapped): a word
              * boundary for the buffering adapter (issue #73). The engine has
-             * already saved the in-flight syllable via save_commit; flush
-             * reads it, the adapter appends whatever word it has been
-             * holding, and the whole word is inserted exactly once before
-             * the boundary key passes through (pfEat stays FALSE) --
+             * already saved the in-flight syllable via save_commit; the
+             * boundary drain flushes it, the adapter appends whatever word it
+             * has been holding, and the whole word is inserted exactly once
+             * before the boundary key passes through (pfEat stays FALSE) --
              * matching the fcitx/android "used=FALSE => passthrough"
              * contract. */
-            const char *flushed = hunmin_ic_flush(ic_);
-            if (flushed && flushed[0]) {
-                int flen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
-                if (flen > 1) {
-                    size_t old = wordbuf_.size();
-                    /* flen counts the NUL terminator; text only, as above. */
-                    wordbuf_.resize(old + flen - 1);
-                    MultiByteToWideChar(CP_UTF8, 0, flushed, -1, &wordbuf_[old], flen);
-                }
-            }
-            if (dbg) {
-                fprintf(dbg, " boundary, word len=%zu preedit=%s\n", wordbuf_.size(), hunmin_ic_preedit(ic_));
-                fflush(dbg);
-            }
-            if (!wordbuf_.empty()) {
-                FlushSession *fs = new FlushSession(pic, this, clientId_, wordbuf_.c_str());
-                HRESULT hrFlush = S_OK;
-                pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
-                fs->Release();
-                wordbuf_.clear();
-            }
-            UpdateOverlay(pic);
+            BoundaryFlush(pic, dbg);
         }
         return S_OK;
     }
@@ -824,6 +972,15 @@ class CTextService : public ITfTextInputProcessor,
     hunmin_ctx *ctx_;
     hunmin_ic *ic_;
     bool hangulMode_;
+    /* The resolved layout pair (issue #66): hangulMode_ switches between
+     * these, config-read at Activate and re-read by the settings dialog
+     * (#71). Defaults match the fcitx5 addon config. */
+    std::string hangulId_, latinId_;
+    /* Mode-toggle bindings (maintainer instruction: the Han/Eng key is the
+     * default; additional keys configure through the store). Always carries
+     * the bare physical Han/Eng key — the platform alternate that survives
+     * every rebinding, the rule Android's KeyAction.HANGUL_ENG encodes. */
+    std::vector<HunminKeyCombo> toggleKeys_;
     HWND overlayWnd_;
     RECT preeditRect_;
     bool hasPreeditRect_;
@@ -879,9 +1036,48 @@ class CTextService : public ITfTextInputProcessor,
         TfClientId cid_;
         const wchar_t *t_;
     };
+
+    /* One composition-boundary drain shared by the declined key path and the
+     * mode toggle (issue #66): the in-flight syllable is flushed into the
+     * buffered word, and the whole word is inserted exactly once before the
+     * boundary key (or mode switch) proceeds. */
+    void BoundaryFlush(ITfContext *pic, FILE *dbg) {
+        const char *flushed = ic_ ? hunmin_ic_flush(ic_) : "";
+        if (flushed && flushed[0]) {
+            int flen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
+            if (flen > 1) {
+                size_t old = wordbuf_.size();
+                /* flen counts the NUL terminator; text only. */
+                wordbuf_.resize(old + flen - 1);
+                MultiByteToWideChar(CP_UTF8, 0, flushed, -1, &wordbuf_[old], flen);
+            }
+        }
+        if (dbg) {
+            fprintf(dbg, " boundary, word len=%zu preedit=%s\n", wordbuf_.size(),
+                    ic_ ? hunmin_ic_preedit(ic_) : "");
+            fflush(dbg);
+        }
+        if (!wordbuf_.empty() && pic) {
+            FlushSession *fs = new FlushSession(pic, this, clientId_, wordbuf_.c_str());
+            HRESULT hrFlush = S_OK;
+            pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
+            fs->Release();
+            wordbuf_.clear();
+        }
+        UpdateOverlay(pic);
+    }
 };
 extern "C" HINSTANCE g_hunmin_hinst;
 /* placeholder */
+
+/* Issue #71 bridge, defined in the TU that owns CTextService: settings.cpp
+ * (ITfFnConfigure::Show) hands the LIVE service back through a plain void*
+ * because the two TUs' headers deliberately do not entangle. */
+void hunmin_tsf_apply_config_store(void *svc) {
+    if (!svc)
+        return;
+    static_cast<CTextService *>(svc)->ApplyConfigStore();
+}
 extern "C" BOOL DllRegisterServer() {
     // logging
     FILE *dbg = tsf_log_open("hunmin-reg-debug.log", "w");

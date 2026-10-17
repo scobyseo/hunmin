@@ -9,7 +9,14 @@ include(CTest)
 add_library(hunmin-tsf MODULE
     src/dllmain.cpp
     src/tsf.cpp
+    src/config.cpp
+    src/settings.cpp
 )
+
+# src/keybinding.cpp is NOT a target source on purpose: it is included by
+# src/tsf.cpp so the adapter and the binding matcher share one translation
+# unit — the tier-F1 harness reaches both through its GetKeyState injection
+# seam (#define GetKeyState over the whole TU).
 
 if(NOT DEFINED ENV{HUNMIN_VS2022_ROOT})
   message(WARNING "HUNMIN_VS2022_ROOT is not set; set it to your Visual Studio 2022 BuildTools root (e.g. C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools)")
@@ -63,6 +70,7 @@ endif()
 target_link_libraries(hunmin-tsf PRIVATE
     ${HUNMIN_ENGINE_LIB}
     ole32
+    oleaut32
     user32
 )
 # Use module definition file for explicit exports.
@@ -70,9 +78,26 @@ set_target_properties(hunmin-tsf PROPERTIES
     SUFFIX ".dll"
     LINK_OPTIONS "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/src/hunmin-tsf.def")
 
+# Stage the engine data next to the DLL (issue #66, data-loading half). The
+# adapter resolves data from <module>\data before the repo-climb fallback
+# (hunmin_ctx_from_module), so the shipped shape — a registered TIP with its
+# data beside it — is exactly what this build must produce. Without the
+# staging, the DLL found data only inside a checkout, four directories up.
+add_custom_command(TARGET hunmin-tsf POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../libhunmin/data"
+            "$<TARGET_FILE_DIR:hunmin-tsf>/data"
+    COMMENT "Staging libhunmin/data next to hunmin-tsf.dll")
+
 # Tier F1: the mock-TSF harness (issue #80) drives the adapter above over
 # in-memory COM doubles and needs no DLL, registry or window. MSVC builds
 # it; a POSIX or non-MSVC configure of this directory registers nothing.
+# enable_testing() must stand here: configured standalone (the documented
+# flow, tools/build-msvc.bat) nothing above this directory enables CTest,
+# and without it every add_test below is a silent no-op — ctest reported
+# "No tests were found" while the harness itself built fine (measured
+# 2026-10-17, this host).
 if(WIN32 AND MSVC)
+  enable_testing()
   add_subdirectory(test)
 endif()
