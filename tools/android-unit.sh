@@ -27,9 +27,23 @@ HUNMIN_BUILD_DIR="${HUNMIN_BUILD_DIR:-$ROOT/build}"
 cd "$ROOT/frontends/android"
 
 : "${ANDROID_HOME:=$HOME/Android/Sdk}"
+# The default is an MSYS /c/... path, but the consumer is Gradle, a Windows
+# JVM: it answers "SDK location not found" for /c/... (measured 2026-10-17,
+# issue #86). Same conversion android-trace-emit.sh applies to its own
+# default; cygpath -m is identity for C:/ values.
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) export ANDROID_HOME="$(cygpath -m "$ANDROID_HOME")" ;;
+esac
 [ -d "$ANDROID_HOME" ] || { echo "skip: no ANDROID_HOME" >&2; exit 77; }
 
 JDK="${JAVA_HOME:-$HOME/toolchains/jdk-17.0.20.1+1}"
+# Same MSYS-form rule as ANDROID_HOME above, same reason: this value is
+# exported as JAVA_HOME further down and Gradle hands it to child processes
+# such as its keytool lookup, for which a /c/... form is measured broken
+# (docs/ENVIRONMENT.md, the ProcessBuilder("keytool") pitfall).
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) JDK="$(cygpath -m "$JDK")" ;;
+esac
 if [ ! -x "$JDK/bin/java" ]; then
   echo "skip: no JDK at $JDK (export JAVA_HOME)" >&2
   exit 77
