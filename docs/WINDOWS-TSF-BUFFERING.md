@@ -57,7 +57,11 @@ TSF should therefore follow `frontends/fcitx5/src/engine.cpp` and this buffering
 The TSF adapter implements the buffering rule adapter-side: finalised syllables
 from `hunmin_ic_commit()` accumulate in the adapter (`wordbuf_`), the overlay
 shows the accumulated word plus the in-flight preedit, and the first boundary
-key (declined engine key: space, Enter, punctuation, backspace, unmapped)
+key (declined engine key: space, Enter, punctuation, backspace, unmapped; and
+the edit/navigation keys — ←/→/↑/↓/Home/End/PgUp/PgDn/Insert/Delete, measured
+2026-10-18 (issue #95) after the printable-VK fallback converted them into
+layout characters and ate them: a cursor move is a composition boundary, the
+boundary drain commits the buffered word once and the key passes through)
 triggers one `hunmin_ic_flush()`, one edit-session insert of the whole word,
 and pass-through of the boundary key. No libhunmin change was needed:
 `hunmin_ic_commit()` is a destructive read that drains every finalised

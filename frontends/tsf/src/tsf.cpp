@@ -635,6 +635,38 @@ class CTextService : public ITfTextInputProcessor,
                 fclose(dbg);
             return S_OK; // passthrough English
         }
+        /* Edit/navigation keys (measured on this host during the buffered-input
+         * check: VK_LEFT..VK_NEXT + VK_INSERT/VK_DELETE all fall into the
+         * 0x20-0x7E printable fallback below, so each was translated into a
+         * layout character (VK_UP 38 -> '&', VK_DOWN 40 -> '(', DELETE 46 ->
+         * '.', ...) and EATEN — the editor never saw them and stray punctuation
+         * could land in the document. They are keys of passage: a cursor move
+         * is a composition boundary, so the boundary drain commits the buffered
+         * word exactly once and the key passes through untouched
+         * (pfEat = FALSE, matching the OnTestKeyDown predicate which already
+         * shows no interest in them). */
+        switch (wParam) {
+        case VK_LEFT:
+        case VK_UP:
+        case VK_RIGHT:
+        case VK_DOWN:
+        case VK_HOME:
+        case VK_END:
+        case VK_PRIOR:
+        case VK_NEXT:
+        case VK_INSERT:
+        case VK_DELETE:
+            BoundaryFlush(pic, dbg);
+            if (pfEat)
+                *pfEat = FALSE;
+            if (dbg) {
+                fprintf(dbg, " edit key vk=%lu -> boundary + passthrough\n", (unsigned long)wParam);
+                fclose(dbg);
+            }
+            return S_OK;
+        default:
+            break;
+        }
         char ch = 0;
         if (wParam >= 'A' && wParam <= 'Z') {
             ch = (GetKeyState(VK_SHIFT) < 0) ? (char)wParam : (char)(wParam + 32);
