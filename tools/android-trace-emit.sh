@@ -74,6 +74,15 @@ if [ -z "${ANDROID_HOME:-}" ]; then
         # Gradle (a child process) still sees no ANDROID_HOME, which is the
         # "SDK location not found" failure measured below.
         export ANDROID_HOME="$HOME/Android/Sdk"
+        # The default is an MSYS /c/... path, but its consumer is Gradle, a
+        # Windows JVM: it answers "SDK location not found" for /c/...
+        # (measured 2026-10-17, issue #86). The LOCALAPPDATA branch below
+        # already converts with pwd -W; this branch needs the same. cygpath
+        # -m is identity for an already-C:/ value, and the case guard keeps
+        # POSIX hosts (no cygpath) out.
+        case "$(uname -s)" in
+            MINGW*|MSYS*|CYGWIN*) export ANDROID_HOME="$(cygpath -m "$ANDROID_HOME")" ;;
+        esac
     elif [ -n "${LOCALAPPDATA:-}" ] && [ -d "$LOCALAPPDATA/Android/Sdk" ]; then
         # Android Studio on Windows installs the SDK there.
         export ANDROID_HOME="$(cd "$LOCALAPPDATA/Android/Sdk" && pwd -W 2>/dev/null || pwd)"
@@ -85,6 +94,14 @@ fi
 [ -d "$ANDROID_HOME" ] || { echo "skip: ANDROID_HOME=$ANDROID_HOME is not a directory" >&2; exit 77; }
 
 JDK="${JAVA_HOME:-$HOME/toolchains/jdk-17.0.20.1+1}"
+# Same MSYS-form rule as ANDROID_HOME above, same reason: this value is
+# exported as JAVA_HOME further down and Gradle hands it to child processes
+# such as its keytool lookup, for which a /c/... form is measured broken
+# (docs/ENVIRONMENT.md, the ProcessBuilder("keytool") pitfall). cygpath -m is
+# identity for C:/ values, so an inherited JAVA_HOME passes through unchanged.
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) JDK="$(cygpath -m "$JDK")" ;;
+esac
 JAVA_BIN="$JDK/bin/java"
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) JAVA_BIN="$JDK/bin/java.exe" ;;
