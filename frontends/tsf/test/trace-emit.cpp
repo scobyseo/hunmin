@@ -67,11 +67,21 @@ std::string jsonEscape(const std::string &s) {
     std::string o;
     for (char c : s) {
         switch (c) {
-        case '"': o += "\\\""; break;
-        case '\\': o += "\\\\"; break;
-        case '\n': o += "\\n"; break;
-        case '\r': o += "\\r"; break;
-        case '\t': o += "\\t"; break;
+        case '"':
+            o += "\\\"";
+            break;
+        case '\\':
+            o += "\\\\";
+            break;
+        case '\n':
+            o += "\\n";
+            break;
+        case '\r':
+            o += "\\r";
+            break;
+        case '\t':
+            o += "\\t";
+            break;
         default:
             if (static_cast<unsigned char>(c) < 0x20) {
                 char buf[8];
@@ -139,9 +149,15 @@ std::string stringField(const std::string &line, const char *key) {
     while (p < line.size() && line[p] != '"') {
         if (line[p] == '\\' && p + 1 < line.size()) {
             switch (line[++p]) {
-            case 'n': o += '\n'; break;
-            case 't': o += '\t'; break;
-            case 'r': o += '\r'; break;
+            case 'n':
+                o += '\n';
+                break;
+            case 't':
+                o += '\t';
+                break;
+            case 'r':
+                o += '\r';
+                break;
             case 'u': {
                 // BMP code points only; the corpus is NFC Hangul plus ASCII.
                 const unsigned cp = std::strtoul(line.c_str() + p + 1, nullptr, 16);
@@ -233,6 +249,18 @@ int main(int argc, char **argv) {
     // sandbox sets this; inside ctest the module-relative default (next to
     // the exe, in the build tree) is fine and need not be redirected.
 
+    // Layout wiring (issue #66): the trace's own meta decides the layout the
+    // adapter composes with, overriding whatever the host's HKCU TIP config
+    // holds — a developer's real settings must not move a conformance run.
+    // The latin slot is pinned too, so no trace depends on stored state.
+    const std::string traceLayout = stringField(lines[0], "layout");
+    if (traceLayout.empty()) {
+        std::cerr << "tsf-trace-emit: meta carries no layout\n";
+        return 2;
+    }
+    _putenv_s("HUNMIN_TSF_HANGUL_LAYOUT", traceLayout.c_str());
+    _putenv_s("HUNMIN_TSF_LATIN_LAYOUT", "us-qwerty");
+
     tsfmock::MockThreadMgr *tm = nullptr;
     tsfmock::MockContext *ctx = nullptr;
     tsfmock::MockDocumentMgr *dm = nullptr;
@@ -243,11 +271,11 @@ int main(int argc, char **argv) {
     // and a clean mock document (docs/trace-spec.md "Multi-case batch
     // files"), the same isolation tier A gives every case.
     auto startRun = [&]() {
-        tm = new tsfmock::MockThreadMgr();                        // ref 1
-        ctx = new tsfmock::MockContext();                         // ref 1
-        dm = new tsfmock::MockDocumentMgr(ctx);                   // ref 1
+        tm = new tsfmock::MockThreadMgr(); // ref 1
+        ctx = new tsfmock::MockContext(); // ref 1
+        dm = new tsfmock::MockDocumentMgr(ctx); // ref 1
         ctx->AddRef(); // dm holds the top reference
-        svc = new CTextService();                                 // ref 1
+        svc = new CTextService(); // ref 1
         svc->Activate(tm, 1);
         // The key-sink advise contract the measured registration work
         // established: sink present, and foreground=TRUE (docs/
