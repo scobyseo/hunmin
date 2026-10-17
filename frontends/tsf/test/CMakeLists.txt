@@ -13,6 +13,16 @@
 if(NOT Python3_EXECUTABLE)
   find_package(Python3 QUIET COMPONENTS Interpreter)
 endif()
+# A configured-but-never-found interpreter is common: -DPython3_EXECUTABLE on
+# the cache skips find_package above, leaving Python3_FOUND false and the
+# whole tier-F1 corpus unregistered. Validate the path instead of the variable.
+if(Python3_EXECUTABLE AND NOT Python3_FOUND)
+  if(EXISTS "${Python3_EXECUTABLE}")
+    set(Python3_FOUND TRUE)
+  elseif(NOT CMAKE_CROSSCOMPILING)
+    find_package(Python3 QUIET COMPONENTS Interpreter)
+  endif()
+endif()
 
 # Key the guard on the executable, not Python3_FOUND: when the interpreter
 # path is passed explicitly (-DPython3_EXECUTABLE=...) the find_package call

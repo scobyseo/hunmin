@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 project(hunmin-tsf LANGUAGES C CXX)
 
+# enable_testing() for the tier-F1 mock harness below: without it add_test
+# registers nothing and `ctest --test-dir frontends/tsf/build-msvc` reports
+# "No tests were found" on a standalone configure (measured).
+include(CTest)
+
 add_library(hunmin-tsf MODULE
     src/dllmain.cpp
     src/tsf.cpp

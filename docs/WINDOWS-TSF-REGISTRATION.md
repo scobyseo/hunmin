@@ -124,10 +124,27 @@ this host:
   full chain was verified end to end in Notepad: selection loads, keys compose,
   text commits.
 
-Unregister gap, recorded as a finding: `DllUnregisterServer` deletes only
-`HKCR\CLSID\{CLSID}` (`RegDeleteTreeW`); the HKLM TIP tree and the per-user
-profile entries stay behind. The `windows-tsf-ime` working notes require
-removing the whole TIP tree; `frontends/tsf/src/tsf.cpp` does not do that yet.
+Unregister mirror (issue #84): `DllUnregisterServer` now reverses the
+registration flow in the same `CoInitialize` process scope:
+
+1. `ITfInputProcessorProfileMgr::UnregisterProfile({CLSID}, 0x0412, {profile})`
+   — mirror of `EnableLanguageProfile`/`ProfileMgr` activation, then
+2. `ITfInputProcessorProfiles::Unregister({CLSID})` — mirror of `Register()`,
+3. `ITfCategoryMgr::UnregisterCategory` for `GUID_TFCAT_TIP_KEYBOARD` and
+   `GUID_TFCAT_CATEGORY_OF_TIP`,
+4. `RegDeleteTreeW(HKLM\SOFTWARE\Microsoft\CTF\TIP\{CLSID})` — after the COM
+   calls, because `AddLanguageProfile` created the `LanguageProfile\0x00000412`
+   subkeys under it,
+5. `RegDeleteTreeW(HKCR\CLSID\{CLSID})` — the only deletion the previous
+   implementation performed.
+
+Windows Settings' own HKCU CTF store (`SortOrder`/`Assemblies`) is deliberately
+NOT touched: registration never writes it (measured, above). Every step logs to
+the same module-relative `hunmin-reg-debug.log` the register flow uses, opened
+in append mode so register+unregister share one log. The elevated
+register/unregister cycle itself is **not yet measured on this host** — it
+needs an elevated shell; the probes and rows to record live in
+`tests/manual-checklists/tsf-unregister-cleanup.md`.
 
 ## Module view
 
