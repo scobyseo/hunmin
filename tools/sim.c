@@ -333,7 +333,9 @@ int main(int argc, char **argv) {
       printf("{\"keys\":\"%s\",\"commit\":\"%s\",\"preedit\":\"%s\"}\n", kbuf, cbuf, pbuf);
       hunmin_ic_free(bic);
     }
-    free(line);
+    /* line aliases linebuf (a stack array): free()ing it was heap corruption
+     * that aborted the process before stdout's buffer ever flushed, so
+     * --batch silently exited 127/rc-0xC0000409 under msvcrt. */
     return 0;
   }
 
