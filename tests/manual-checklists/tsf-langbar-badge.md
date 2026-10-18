@@ -30,6 +30,37 @@ red step here is measurement, not an unexplained failure.
    measured, environmental. This is board row TSF-LANGBAR-67; do not debug
    our item code for it.
 
+## MEASURED RESULT (2026-10-18, post-reboot re-register, this host)
+
+The guide above was executed. Three facts, with the log lines that measured
+them:
+
+1. **Our own item** — `langbar AddItem hr=0x80004005` on every activation,
+   including the post-reboot re-registered build: the item lane stays CLOSED
+   (already proven environmental by the reference probe).
+2. **The menu extension** — `sysmenu advise cls=34745C63 hr=0x0` and
+   `cls=ED9D5450 hr=0x0`: the advice SETTLES on the host thread's system
+   items (the other two answer `0x80040202`, a single-sink limit). BUT the
+   field test says the tray's right-click menu shows NO "Hunmin 설정 열기":
+   the shell's tray menu is built by the shell from the language list, not
+   from the TSF item's column of sinks; the advised menu would render only
+   inside the floating language bar UI, which this build does not display in
+   embedded mode. Mechanism measured: advice lands, affordance does not.
+3. **The tray badge** — the compartment write runs (no failure lines), and
+   the UIA read of the tray's indicator name answers
+   `SystemTrayIcon | 트레이 입력 표시기 한국어 Hunmin … 입력 방법을 전환하려면
+   Windows 키 + 스페이스를 누르세요.` — the accessible name carries the
+   LOCALE and the IME identity but NO han/latin mode state: the shell does
+   not read a third-party TIP's conversion compartment for its badge on this
+   build. The write is correct TSF and costs nothing; it stays.
+
+**Standing state for milestone D's closure:** the mode display and the
+right-click entry are NOT reachable on Windows 11 25H2 (26200) through any
+legal TSF/langbar surface; the reachable, verified surfaces are the
+Start-menu entry, the language list's Sejong icon (IconIndex=0 fixed), the
+interim dialog's hook capture, and the WinUI 3 exe. Post-install
+re-measurement travels with issue #99 (the comment lists these rows).
+
 ## Test procedure (elevated steps: the maintainer's UAC)
 
 0. **Load the current build.** Run (or accept the UAC for)
