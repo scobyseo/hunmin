@@ -88,3 +88,22 @@ failure, so the adapter takes the no-metrics hide path).
   `docs/WINDOWS-TSF-CANDIDATES.md`. Host-dependent caret-rect probing itself
   remains open here.
 - Exact caret rect source for overlay movement in different applications.
+
+## Key routing notes (issue #67 field test, 2026-10-18)
+
+- **CTRL/ALT chords in hangul mode** (user note, verbatim): "when ctrl or alt
+  is pressed in korean mode, it should be treated as english mode - may need
+  buffer flush - and produce output accordingly." Shipped as: a CTRL/ALT
+  chord does not compose — the pending preedit commits (the boundary-flush
+  answer), the candidate window closes, and the chord passes to the app
+  uneaten (Ctrl+A selects all, not types). The shipped form keeps the MODE
+  itself on the hangul side after the chord; the note's stronger reading
+  (the chord SWITCHES the mode persistently to english) is the recorded
+  alternative and needs an explicit ruling if wanted later. Measured defect
+  that preceded this: the letter inside the chord fed the composition.
+- **Hanja fallback to the last syllable** (user note): when the Hanja key
+  opens no candidate list for the whole buffered word (no matching idiom or
+  word), the adapter should produce candidates FROM THE LAST SYLLABLE and
+  the commit replaces only that syllable, leaving the rest of the word. Not
+  shipped yet; the rule is recorded here as agreed behaviour for the
+  candidate layer (the zero-candidate pass-through currently ships).
