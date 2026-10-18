@@ -1744,6 +1744,35 @@ extern "C" BOOL DllRegisterServer() {
             fwprintf(dbg, L"pProfile->EnableLanguageProfile hr=0x%lX\n", (unsigned long)enableHr);
             fflush(dbg);
         }
+        /* Icon index pin (measured 2026-10-18: the live profile answered
+         * IconFile=<dll> IconIndex=1 — a slot with no icon — and the language
+         * entry rendered BLANK; user report "still no icon on langbar").
+         * AddLanguageProfile was called with uIconIndex=0 yet the stored
+         * value read 1, so registration rewrites the stored index to 0
+         * (resource id 1 IS the first icon of hunmin.ico). */
+        {
+            wchar_t lp3412[256];
+            swprintf(lp3412, _countof(lp3412),
+                     L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile\\0x00000412\\%s",
+                     guidStr, L"{F2C70002-0000-0000-0000-000000000002}");
+            for (DWORD pass = 0; pass < 2; ++pass) {
+                wchar_t ikey[192];
+                if (pass == 0)
+                    swprintf(ikey, _countof(ikey),
+                             L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile\\0x00000412",
+                             guidStr);
+                else
+                    lstrcpynW(ikey, lp3412, _countof(ikey));
+                HKEY hIk = nullptr;
+                if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, ikey, 0, KEY_SET_VALUE, &hIk) ==
+                    ERROR_SUCCESS) {
+                    DWORD zero = 0;
+                    RegSetValueExW(hIk, L"IconIndex", 0, REG_DWORD, (const BYTE *)&zero,
+                                   sizeof zero);
+                    RegCloseKey(hIk);
+                }
+            }
+        }
         /* Activation has to be asked for on the modern interface.
          *
          * ITfInputProcessorProfiles::ActivateLanguageProfile returns S_OK
