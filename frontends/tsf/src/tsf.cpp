@@ -1208,9 +1208,10 @@ class CTextService : public ITfTextInputProcessor,
          * drives (the candidate window closes with its composition, #67),
          * and the key passes to the client app uneaten, in its chord sense.
          * The mode itself is NOT flipped: one chord selects all without
-         * changing which script the next letter types in. (The user note
-         * remaining more aggressive — the mode WORD switch on ctrl/alt — is
-         * recorded in docs/WINDOWS-TSF-BUFFERING.md as the alternative.) */
+         * remaining more aggressive — the mode WORD switch on ctrl/alt — was
+         * ruled out 2026-10-18, issue #101: "will not switch mode; transient
+         * processing is enough". See docs/WINDOWS-TSF-BUFFERING.md and
+         * wiki/decisions/2026-10-18-tsf-chord-transient-not-persistent.md.) */
         if (hunmin_tsf_keymods_from_state() &
             (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) {
             if (pfEat)

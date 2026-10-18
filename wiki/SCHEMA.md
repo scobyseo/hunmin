@@ -111,7 +111,7 @@ page can be `active` with `confidence: low`.
 Add a tag here BEFORE using it.
 
 - **Subsystem**: engine, ic, data, layouts, compose, hanja, romaja, modes, space
-- **Frontend**: fcitx5, android, windows, e2e
+- **Frontend**: fcitx5, android, windows, tsf, e2e
 - **Practice**: measurement, licence, provenance, tooling, testing, postmortem
 - **Meta**: decision, question, contradiction, status
 - **Scope**: scope, release-plan
