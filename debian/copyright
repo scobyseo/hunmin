@@ -110,3 +110,8 @@ License: MIT
  LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
  OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Files: frontends/tsf/assets/*
+Copyright: 2022 어반브러시 (Urbanbrush)
+License: individual (the site's 무료일반 terms) — see assets/README.md;
+ attribution REQUIRED when the watermark is removed: 출처: 어반브러시.

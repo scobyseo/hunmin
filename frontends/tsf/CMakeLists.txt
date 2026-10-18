@@ -75,7 +75,11 @@ target_link_libraries(hunmin-tsf PRIVATE
     user32
     imm32
 )
-# Use module definition file for explicit exports.
+# Use module definition file for explicit exports, and the icon resource
+# (assets/README.md: provenance of hunmin.ico; MSVC's rc.exe compiles it,
+# the resource lands as id 1 = the profile icon and the barbar button).
+enable_language(RC)
+target_sources(hunmin-tsf PRIVATE src/hunmin-tsf.rc)
 set_target_properties(hunmin-tsf PROPERTIES
     SUFFIX ".dll"
     LINK_OPTIONS "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/src/hunmin-tsf.def")

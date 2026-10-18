@@ -697,8 +697,19 @@ class CTextService : public ITfTextInputProcessor,
     STDMETHOD(GetIcon)(HICON *phIcon) override {
         if (!phIcon)
             return E_INVALIDARG;
-        /* No dedicated icon resource in the DLL yet; the shared application
-         * icon is the cached-handle fallback the bar expects (never freed). */
+        /* The DLL's own resource (assets/hunmin.ico via hunmin-tsf.rc,
+         * id = 1): LoadIconW with unchanged refcount on a cached HMODULE —
+         * the bar owns no handle, so nothing to free; the shared IDI_-
+         * APPLICATION fallback stays for hosts the resource cannot
+         * satisfy (should not happen: the resource ships with the DLL). */
+        HMODULE self = nullptr;
+        if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                   GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                               (LPCWSTR)this, &self)) {
+            *phIcon = LoadIconW(self, MAKEINTRESOURCEW(1));
+            if (*phIcon)
+                return S_OK;
+        }
         *phIcon = LoadIconW((HMODULE)NULL, IDI_APPLICATION);
         return *phIcon ? S_OK : E_FAIL;
     }
@@ -1849,6 +1860,9 @@ extern "C" BOOL DllRegisterServer() {
                 sl->SetArguments(arg);
             }
             sl->SetWorkingDirectory(dllDir);
+            if (exe[0])
+                sl->SetIconLocation(exe, 0); /* the settings exe's own icon
+                                             * (assets/hunmin.ico, ApplicationIcon) */
             IPersistFile *pf = nullptr;
             if (SUCCEEDED(sl->QueryInterface(IID_PPV_ARGS(&pf))) && pf) {
                 PWSTR programs = nullptr;
