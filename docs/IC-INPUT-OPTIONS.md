@@ -83,17 +83,23 @@ The layout JSON is authored **per physical key, with both rows explicit**
 
 ```
 libhunmin/data/layouts/sin3-p2.json
-  "q" => {"plain": …, "shift": …}     "Q" => null
-  "a" => {"plain": …, "shift": …}     "A" => null
-  "1" => {"plain": …, "shift": …}     "!" => null
-  (dubeolsik.json is the same shape: "q" → {"shift": "ㄲ", "plain": "ㄷ"})
+  "q": {"plain": …, "shift": …}     -- and there is no "Q" entry at all:
+  "1": {"plain": …, "shift": …}     -- the keys object names base characters only
+  (dubeolsik.json is the same shape: "q" → {"shift": "ㅃ", "plain": "ㅂ"})
 ```
 
 `python3 -c …` over the shipped layouts: sin3-p2 has 47 key entries and
-dubeolsik 26, zero of them uppercase keys (they exist only as `null`
-placeholders). `docs/FRONTEND-CONTRACT.md` A2's "layouts encode shift as
-uppercase rows" describes the *loader's materialisation* — the loader puts
-the shift row at the shifted character's index — not the authoring
+dubeolsik 26, zero of them uppercase keys. **Corrected 2026-10-18 (issue
+#105 migration): an earlier revision of this snippet showed `"Q" => null`
+placeholders and a dubeolsik "q" row of ㄲ/ㄷ, and neither matches the
+shipped files** — no layout's `keys` object names an uppercase or
+shifted-punctuation character at all (dubeolsik's q is ㅂ plain / ㅃ
+shifted; the uppercase `"H"`/`"W"` strings in the two sin3-p2 files are
+`flags` overrides, the 전처리수식 set_option keys, not keys entries). The
+uppercase indexes of the runtime `keys[128]` table are purely the loader's
+materialisation — the loader puts the shift row at the shifted character's
+index — so `docs/FRONTEND-CONTRACT.md` A2's "layouts encode shift as
+uppercase rows" describes that materialisation, not the authoring
 convention. Saying "uppercase rows" as if the data had them is how a reader
 ends up concluding a data-model change is required for an explicit-modifier
 input; it is not (§2-A/B).
