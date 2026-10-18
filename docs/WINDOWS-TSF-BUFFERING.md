@@ -97,10 +97,16 @@ failure, so the adapter takes the no-metrics hide path).
   chord does not compose — the pending preedit commits (the boundary-flush
   answer), the candidate window closes, and the chord passes to the app
   uneaten (Ctrl+A selects all, not types). The shipped form keeps the MODE
-  itself on the hangul side after the chord; the note's stronger reading
-  (the chord SWITCHES the mode persistently to english) is the recorded
-  alternative and needs an explicit ruling if wanted later. Measured defect
-  that preceded this: the letter inside the chord fed the composition.
+  itself on the hangul side after the chord — **ruled 2026-10-18, issue #101**:
+  "will not switch mode; transient processing is enough." The note's stronger
+  reading (the chord SWITCHES the mode persistently to english) is closed, the
+  record is `wiki/decisions/2026-10-18-tsf-chord-transient-not-persistent.md`,
+  and no code change was needed: the ruling matches what shipped. Measured
+  defect that preceded this: the letter inside the chord fed the composition.
+  Not pinned behaviourally yet: the tier-F1 replay carries no ctrl/alt chord
+  case because `docs/trace-spec.md` defines only the Shift mods bit (0x01)
+  today — the source greps behind board rows TSF-CHORD-67 and
+  TSF-MODEPERSIST-67 are the current guard.
 - **Hanja fallback to the last syllable** (user note): when the Hanja key
   opens no candidate list for the whole buffered word (no matching idiom or
   word), the adapter should produce candidates FROM THE LAST SYLLABLE and

@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-18 | Total pages: 42
+> Last updated: 2026-10-18 | Total pages: 43
 
 ## Concepts
 
@@ -68,6 +68,13 @@
 - [[2026-10-13-r8-mode-guessing-is-adaptor-owned]] — R8 mode guessing is
   adaptor-owned; the engine stays ABI-clean and the adaptor (`modeswitch.*`)
   keeps the cross-frontend validity judgement.
+- [[2026-10-18-tsf-chord-transient-not-persistent]] — issue #101 ruled: a
+  CTRL/ALT chord in hangul mode is transient processing only — the pending
+  preedit commits through the boundary flush and the chord passes uneaten, but
+  the mode word stays hangul; no code change was needed because the shipped
+  rule already matches. What the ruling does not close: the tier-F1
+  behavioural pin waits on ctrl/alt mods bits trace-spec.md does not define,
+  and the chord-chain order ahead of the chord block is recorded, not decided.
 - [[space-emission-ownership]] — **contested.** The measurement is not in
   dispute: the engine declines the space and every frontend forwards it. But
   the log and `docs/REMAINING-WORK.md` B5 record the *decision* as closed with

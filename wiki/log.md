@@ -606,3 +606,19 @@
   the langbar surface measured closed (reference-item probe), the sink
   direction; pending: last-syllable fallback, mode-persist, re-register,
   CI billing.
+## [2026-10-18] create | CTRL/ALT chord in hangul mode ruled: transient, no mode switch (issue #101)
+
+- **New decision.** `decisions/2026-10-18-tsf-chord-transient-not-persistent.md`:
+  the maintainer ruled in an issue-#101 comment — "will not switch mode;
+  transient processing is enough." The shipped chord rule (commit the pending
+  preedit through the boundary flush, close the candidate window, pass the
+  chord to the app uneaten) already matches, so the ruling adds no code; the
+  mode-persist alternative recorded since the milestone-D session is closed.
+- What the ruling does not close, recorded on the page: the tier-F1
+  behavioural pin (trace-emit.cpp injects only the Shift bit — a ctrl/alt
+  chord case waits on the trace-spec.md mods bits), and the chord-chain order
+  ahead of the chord block (candidate-window keys see modifiers; the chord
+  flush can land on the Ctrl keydown itself) — read off the code, not measured.
+- The ruling was given on the issue, not in a session record, like issue #9's
+  ruling in the worktree session — the issue is the surviving source.
+- `wiki/index.md` listed the page; total pages 43.
