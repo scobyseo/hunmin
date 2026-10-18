@@ -289,22 +289,45 @@ int main() {
         f.Teardown();
     }
 
-    /* 6. Digit select commits the page-relative index. */
+    /* 6. Digit select, dedupe edition: the two 安寧 senses merged into ONE
+     * row (tools/krdict-dedupe.py), so digit '2' is now PAST the list end.
+     * The measured rule for an out-of-range digit (the keys-of-passage
+     * answer, same class as the unbound F-key and the edit keys): the list
+     * closes, the pending word drains through the boundary flush, and the
+     * digit itself passes to the app uneaten. */
     {
         Fixture f;
         f.Begin();
         TypeAnNyeng(f);
         f.Key(VK_HANJA);
-        std::string expected(hunmin_suggest_text(f.svc->ctx_, 1));
         BOOL eat = TRUE;
         f.Key('2', &eat);
-        CHECK(eat == TRUE, "case 6: digit '2' not consumed");
-        CHECK(f.ctx->insertions.size() == 1, "case 6: %zu insertions, want 1",
+        CHECK(eat == FALSE, "case 6: digit '2' past the end was consumed");
+        CHECK(f.ctx->insertions.size() == 1, "case 6: %zu insertions, want 1 (the drained word)",
               f.ctx->insertions.size());
         if (f.ctx->insertions.size() == 1)
-            CHECK(utf8(f.ctx->insertions[0]) == expected, "case 6: inserted %s, want %s",
+            CHECK(utf8(f.ctx->insertions[0]) == kAnchorAnNyeng,
+                  "case 6: inserted %s, want the drained word",
+                  utf8(f.ctx->insertions[0]).c_str());
+        CHECK(!f.svc->candActive_, "case 6: window left open after the drain");
+        f.Teardown();
+    }
+
+    /* 6b. In-range digit select commits the page-relative index — one-row
+     * list: digit '1' commits row 0 (the only one). */
+    {
+        Fixture f;
+        f.Begin();
+        TypeAnNyeng(f);
+        f.Key(VK_HANJA);
+        std::string expected(hunmin_suggest_text(f.svc->ctx_, 0));
+        BOOL eat = TRUE;
+        f.Key('1', &eat);
+        CHECK(eat == TRUE, "case 6b: in-range digit '1' not consumed");
+        if (f.ctx->insertions.size() == 1)
+            CHECK(utf8(f.ctx->insertions[0]) == expected, "case 6b: inserted %s, want %s",
                   utf8(f.ctx->insertions[0]).c_str(), expected.c_str());
-        CHECK(!f.svc->candActive_, "case 6: window left open after digit commit");
+        CHECK(!f.svc->candActive_, "case 6b: window left open after digit commit");
         f.Teardown();
     }
 

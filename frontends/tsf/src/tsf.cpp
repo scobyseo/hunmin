@@ -341,18 +341,24 @@ static const GUID HunminLangBarItemGuid = {0xF2C70003, 0x0000, 0x0000,
  * unregistration must name the same GUID to remove it (issue #84). */
 static const GUID HunminProfileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
 
-/* The key-card sink wrapper (TSF's ITfLangBarItemSink): the service keeps
- * it and CALLS OnUpdate on it when the mode changes; the langbar kernel
- * responds by re-querying the item's GetIcon/GetStatus. The method itself
- * is a receiver, deliberately a no-op. */
-class HunminLangBarSink : public ITfLangBarItemSink {
+/* ---- the SYSTEM langbar menu extension (docs: language-bar.md,
+ * "Extending System Language Bar Items"): TSF supports adding menu items to
+ * EXISTING language bar menus — the mechanism for the user's "right-click on
+ * the system lang bar -> setting" ask: obtain the item via GetItem, QI it for
+ * ITfSource, AdviseSink(IID_ITfSystemLangBarItemSink, this); the extended
+ * service calls InitMenu when its menu shows and OnMenuSelect with our id. ---- */
+class HunminSystemLangBarMenuExtension;
+
+wchar_t g_hunmin_ext_stub[] = L"hunmin-langbar-extension"; /* FROM_ADDRESS anchor */
+
+class HunminSystemLangBarMenuExtension : public ITfSystemLangBarItemSink {
   public:
-    LONG ref_ = 1; /* the service holds it; released with the service */
+    LONG ref_ = 1;
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
         if (!ppv)
             return E_INVALIDARG;
-        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfLangBarItemSink)) {
-            *ppv = static_cast<ITfLangBarItemSink *>(this);
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfSystemLangBarItemSink)) {
+            *ppv = static_cast<ITfSystemLangBarItemSink *>(this);
             InterlockedIncrement(&ref_);
             return S_OK;
         }
@@ -366,9 +372,19 @@ class HunminLangBarSink : public ITfLangBarItemSink {
             delete this;
         return r;
     }
-    STDMETHOD(OnUpdate)(DWORD dwFlags) override {
-        (void)dwFlags;
-        return S_OK;
+    /* ITfSystemLangBarItemSink: the menu-button shape (docs: language-bar.md)
+     * — one entry, then OnMenuSelect lands on the settings surface. */
+    STDMETHOD(InitMenu)(ITfMenu *pMenu) override {
+        if (!pMenu)
+            return E_FAIL;
+        const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
+        return pMenu->AddMenuItem(1, 0, nullptr, nullptr, label,
+                                  (ULONG)wcslen(label), nullptr);
+    }
+    STDMETHOD(OnMenuSelect)(UINT wID) override {
+        if (wID != 1)
+            return S_OK;
+        return hunmin_tsf_launch_settings((void *)&g_hunmin_ext_stub);
     }
 };
 
@@ -386,10 +402,6 @@ class CTextService : public ITfTextInputProcessor,
     virtual ~CTextService() {
         if (overlayWnd_)
             DestroyWindow(overlayWnd_);
-        if (langbarSink_) {
-            langbarSink_->Release();
-            langbarSink_ = nullptr;
-        }
         if (ic_)
             hunmin_ic_free(ic_);
         if (ctx_)
@@ -582,13 +594,6 @@ class CTextService : public ITfTextInputProcessor,
                 fflush(dbg4);
             }
             if (SUCCEEDED(hb) && plbm) {
-                /* The sink the bar-item work runs through: notify (below)
-                 * routes mode changes into a kernel refresh. */
-                if (!langbarSink_) {
-                    langbarSink_ = new HunminLangBarSink();
-                    DWORD cookie = 0;
-                    plbm->AdviseItemSink(langbarSink_, &cookie, HunminLangBarItemGuid);
-                }
                 HRESULT ai = plbm->AddItem(static_cast<ITfLangBarItem *>(this));
                 if (SUCCEEDED(ai)) {
                     /* The mgr holds a reference to us; drop it only in
@@ -606,6 +611,58 @@ class CTextService : public ITfTextInputProcessor,
             if (dbg4)
                 fclose(dbg4);
         }
+        /* The SYSTEM langbar menu extension (language-bar.md): advise our
+         * entry onto the host thread's system items (언어/키보드/도움말... —
+         * measured item list in this env); whichever accepts it will call
+         * InitMenu for our "Hunmin 설정 열기". Failures are measured, not
+         * fatal: the item-granting rule is per host build. */
+        if (threadMgr_) {
+            ITfLangBarItemMgr *plbm2 = nullptr;
+            if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfLangBarItemMgr,
+                                                     (void **)&plbm2)) &&
+                plbm2) {
+                static const GUID sysItems[] = {
+                    {0x34745C63, 0xB2F0, 0x4784, {0x8B, 0x67, 0x5E, 0x12, 0xC8, 0x70, 0x1A, 0x31}},
+                    {0x58C99D96, 0x2F9B, 0x42CE, {0x91, 0xBE, 0x37, 0xEF, 0x18, 0x60, 0xF8, 0x82}},
+                    {0x190F67A2, 0x024F, 0x40D9, {0xAA, 0xBA, 0x43, 0x9F, 0x5C, 0x80, 0x8F, 0x67}},
+                    {0xED9D5450, 0xEBE6, 0x4255, {0x82, 0x89, 0xF8, 0xA3, 0x1E, 0x68, 0x72, 0x28}},
+                };
+                if (!menExt_)
+                    menExt_ = new HunminSystemLangBarMenuExtension();
+                for (const GUID &g : sysItems) {
+                    HRESULT gr = plbm2->GetItem(g, &barItemBuf_);
+                    if (SUCCEEDED(gr) && barItemBuf_) {
+                        ITfSource *src = nullptr;
+                        if (SUCCEEDED(barItemBuf_->QueryInterface(IID_ITfSource,
+                                                                  (void **)&src)) &&
+                            src) {
+                            HRESULT ar = src->AdviseSink(
+                                IID_ITfSystemLangBarItemSink, menExt_, &menCookie_);
+                            FILE *dbg6 = tsf_log_open("hunmin-tsf-debug.log");
+                            if (dbg6) {
+                                fprintf(dbg6, "sysmenu advise cls=%08lX hr=0x%lX\n",
+                                        (unsigned long)g.Data1, (unsigned long)ar);
+                                fflush(dbg6);
+                                fclose(dbg6);
+                            }
+                            if (SUCCEEDED(ar)) {
+                                menCookie_ = menCookie_; /* cookie recorded */
+                                if (menSrc_)
+                                    menSrc_->Release();
+                                menSrc_ = src; /* released at Deactivate */
+                                menExt_->AddRef();
+                            } else {
+                                src->Release();
+                            }
+                        }
+                        barItemBuf_->Release();
+                        barItemBuf_ = nullptr;
+                    }
+                }
+                plbm2->Release();
+            }
+        }
+        UpdateConversionCompartment();
         if (dbg3) {
             if (ctx_)
                 fprintf(dbg3, "  layout_count=%d\n", hunmin_ctx_layout_count(ctx_));
@@ -700,6 +757,14 @@ class CTextService : public ITfTextInputProcessor,
                 plbm->Release();
             }
             langbar_registered_ = false;
+        }        /* The system-menu extension's documents (language-bar.md step 4):
+         * UnadviseSink by ITS cookie, THEN the sink release. */
+        if (menSrc_ && menExt_) {
+            menSrc_->UnadviseSink(menCookie_);
+            menSrc_->Release();
+            menSrc_ = nullptr;
+            menExt_->Release();
+            menExt_ = nullptr;
         }
         if (ic_) {
             hunmin_ic_free(ic_);
@@ -953,12 +1018,7 @@ class CTextService : public ITfTextInputProcessor,
                 CloseCandidateWindow();
                 BoundaryFlush(pic, dbg);
                 hangulMode_ = !hangulMode_;
-                /* Mirror the new mode onto the bar: the badge item posts
-                 * the change and the kernel re-queries GetIcon/GetStatus. */
-                if (langbarSink_) {
-                    DWORD fl = TF_LBI_ICON | TF_LBI_TEXT | 0x4;
-                    langbarSink_->OnUpdate(fl);
-                }
+                UpdateConversionCompartment();
                 if (ic_) {
                     hunmin_ic_free(ic_);
                     ic_ = nullptr;
@@ -1472,8 +1532,48 @@ class CTextService : public ITfTextInputProcessor,
     /* ctfutb.h ITfLangBarItemButton state: true between AddItem and
      * RemoveItem; the manager owns exactly one extra reference. */
     bool langbar_registered_ = false;
-    /* The sink the service notifies (HunminLangBarSink) on mode beverages. */
-    HunminLangBarSink *langbarSink_ = nullptr;
+    /* The system-menu extension advised onto the host thread's system
+     * langbar items (language-bar.md "Extending System Language Bar
+     * Items"); one entry per advised item, each tracked for its own
+     * UnadviseSink at Deactivate. */
+    HunminSystemLangBarMenuExtension *menExt_ = nullptr;
+    DWORD menCookie_ = 0;
+    ITfSource *menSrc_ = nullptr;
+    ITfLangBarItem *barItemBuf_ = nullptr;
+
+    void UpdateConversionCompartment() {
+        /* The compartment the language bar reads to draw its 中/英 badge
+         * (GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION,
+         * TF_CONVERSIONMODE_NATIVE — measured: the state the legacy bar
+         * and the tray use). Setting it on every mode boundary is how a
+         * TIP's own mode is reflected by the system surfaces. */
+        if (!threadMgr_) {
+            return;
+        }
+        ITfCompartmentMgr *cm = nullptr;
+        if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfCompartmentMgr, (void **)&cm)) && cm) {
+            ITfCompartment *c = nullptr;
+            if (SUCCEEDED(cm->GetCompartment(
+                    GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION, &c)) && c) {
+                VARIANT v;
+                VariantInit(&v);
+                v.vt = VT_I4;
+                v.lVal = hangulMode_ ? (LONG)TF_CONVERSIONMODE_NATIVE : 0L;
+                c->SetValue(0, &v);
+                VariantClear(&v);
+                c->Release();
+            } else {
+                FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
+                if (dbg) {
+                    fprintf(dbg, " conversion compartment GONE\n");
+                    fflush(dbg);
+                    fclose(dbg);
+                }
+            }
+            cm->Release();
+        }
+    }
+
 
     // Helper used both for declined/pass-through keys to flush the pending
     // composition exactly once, deleting the already-present composed text.
