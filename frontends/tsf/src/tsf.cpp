@@ -9,6 +9,7 @@
 #include <shlwapi.h>
 #include <shobjidl_core.h>
 #include <string>
+#include <utility>
 #include <vector>
 #include <windows.h>
 #pragma comment(lib, "Shlwapi.lib")
@@ -949,13 +950,13 @@ class CTextService : public ITfTextInputProcessor,
         else if (hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam,
                                               hunmin_tsf_keymods_from_state())) {
             /* Mirror the down decision exactly (no look-ahead lie): the
-             * window opens only when the buffered word has candidates, and
-             * in the zero-candidate case the key belongs to the client. The
-             * suggest lookup is a read of tables already in memory. */
-            eat = (ctx_ && !BufferedHangul().empty() &&
-                   hunmin_suggest_count(ctx_, BufferedHangul().c_str()) > 0)
-                      ? TRUE
-                      : FALSE;
+             * window opens when the buffered word has candidates — the
+             * whole-word lookup, or issue #100's last-syllable fallback
+             * when the whole word yields 0 — and in the zero-and-zero case
+             * the key belongs to the client. The suggest lookup is a read
+             * of tables already in memory. */
+            std::pair<int, bool> look = HanjaListCount();
+            eat = look.first > 0 ? TRUE : FALSE;
         } else if (hangulMode_ &&
                    (hunmin_tsf_keymods_from_state() &
                     (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT))) {
@@ -1529,6 +1530,7 @@ class CTextService : public ITfTextInputProcessor,
     int candCursor_; /* global 0-based cursor */
     int candTop_; /* first index of the visible 10-row page */
     std::string candSource_; /* the Hangul the list was looked up for */
+    bool candFallback_ = false; /* the list came from the last-syllable fallback (issue #100) */
     HunminCandWindow candWnd_;
     /* ctfutb.h ITfLangBarItemButton state: true between AddItem and
      * RemoveItem; the manager owns exactly one extra reference. */
@@ -1696,15 +1698,64 @@ class CTextService : public ITfTextInputProcessor,
         return s;
     }
 
+    /* The last UTF-8 character of s, by a forward walk over the code points
+     * (issue #100's "last syllable": in a composed word each character is a
+     * syllable; for an interrupted composition the last character may be a
+     * lone jamo, and that is the syllable the user was typing). Returns the
+     * empty string only when s itself is empty. */
+    static std::string LastSyllableOf(const std::string &s) {
+        size_t start = 0;
+        for (size_t i = 0; i < s.size();) {
+            start = i;
+            unsigned char b = (unsigned char)s[i];
+            i += (b >= 0xF0) ? 4 : (b >= 0xE0) ? 3
+                               : (b >= 0xC0)   ? 2
+                                               : 1;
+        }
+        return s.substr(start);
+    }
+
+    /* The candidate-count decision BOTH phases share (test and down are one
+     * decision): the whole buffered word is looked up first (the anchor the
+     * dictionary tables are keyed by), and when that yields 0 while the
+     * word has more than one syllable, the LAST syllable is looked up
+     * instead (issue #100). The returned pair is (count, fallback): count 0
+     * means the key belongs to the client in both phases; a fallback count
+     * > 0 opens a syllable-anchored list (candFallback_). */
+    std::pair<int, bool> HanjaListCount() {
+        std::string word = BufferedHangul();
+        if (ctx_ && !word.empty()) {
+            int n = hunmin_suggest_count(ctx_, word.c_str());
+            if (n > 0)
+                return {n, false};
+            std::string last = LastSyllableOf(word);
+            if (last != word) { /* more than one character => more than one syllable */
+                n = hunmin_suggest_count(ctx_, last.c_str());
+                if (n > 0)
+                    return {n, true};
+            }
+        }
+        return {0, false};
+    }
+
     bool OpenCandidates() {
-        candSource_ = BufferedHangul();
-        candCount_ = (ctx_ && !candSource_.empty())
-                         ? hunmin_suggest_count(ctx_, candSource_.c_str())
-                         : 0;
+        std::pair<int, bool> look = HanjaListCount();
+        CountToState(look.first, look.second);
+        return candActive_;
+    }
+
+    /* Recompute the list state from a (count, fallback) lookup answer. */
+    void CountToState(int n, bool fallback) {
+        candFallback_ = fallback;
+        if (fallback) {
+            candSource_ = LastSyllableOf(BufferedHangul());
+        } else {
+            candSource_ = BufferedHangul();
+        }
+        candCount_ = n;
         candActive_ = candCount_ > 0;
         candCursor_ = 0;
         candTop_ = 0;
-        return candActive_;
     }
 
     void CloseCandidateWindow() {
@@ -1753,10 +1804,21 @@ class CTextService : public ITfTextInputProcessor,
         std::string hanja(hunmin_suggest_text(ctx_, idx));
         if (hanja.empty())
             return;
+        /* Capture the word anchor BEFORE the reset: on a last-syllable
+         * fallback list (issue #100) the buffered word's own state is what
+         * the replacement is computed from, and after hunmin_ic_reset the
+         * in-flight preedit is gone. */
+        std::string replacement = hanja;
+        if (candFallback_) {
+            std::string word = BufferedHangul();
+            std::string last = LastSyllableOf(word);
+            /* Only last syllable replaced: the word prefix stays Hangul. */
+            replacement = word.substr(0, word.size() - last.size()) + hanja;
+        }
         if (ic_)
             hunmin_ic_reset(ic_); /* drop the composition the list anchored to */
         CloseCandidateWindow();
-        wordbuf_ = HunminUtf8ToWide(hanja.c_str());
+        wordbuf_ = HunminUtf8ToWide(replacement.c_str());
         InsertBufferedWord(pic);
         UpdateOverlay(pic);
     }

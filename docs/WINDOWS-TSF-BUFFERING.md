@@ -107,9 +107,17 @@ failure, so the adapter takes the no-metrics hide path).
   case because `docs/trace-spec.md` defines only the Shift mods bit (0x01)
   today — the source greps behind board rows TSF-CHORD-67 and
   TSF-MODEPERSIST-67 are the current guard.
-- **Hanja fallback to the last syllable** (user note): when the Hanja key
-  opens no candidate list for the whole buffered word (no matching idiom or
-  word), the adapter should produce candidates FROM THE LAST SYLLABLE and
-  the commit replaces only that syllable, leaving the rest of the word. Not
-  shipped yet; the rule is recorded here as agreed behaviour for the
-  candidate layer (the zero-candidate pass-through currently ships).
+- **Hanja fallback to the last syllable** (user note, verbatim): "when hanja
+  is pressed, and you did not found the matching idiom, you should produce
+  candidate items with last syllable." Shipped 2026-10-18 (issue #100): when
+  the Hanja key's whole-word lookup yields 0 while the buffered word has
+  more than one syllable, the adapter retries the lookup with the LAST
+  syllable (tsf.cpp `LastSyllableOf`, a UTF-8 character walk) and marks the
+  list as a syllable-fallback list (`candFallback_`,
+  `candSource_` = the syllable); the commit replaces ONLY that syllable —
+  the rest of the word stays Hangul — and the buffer drains once exactly
+  like the ordinary commit. One-syllable and empty buffers keep the
+  zero-candidate pass-through. Both key phases mirror the decision
+  (tsf.cpp `HanjaListCount`). Measured anchors against the shipped tables:
+  가가가 0 whole-word → 가 65; 가디 and 디 0 in both lookups; tier-F1
+  tsf-candidate-test cases 8/16/17/18 carry the contract.
