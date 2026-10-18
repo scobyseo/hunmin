@@ -279,6 +279,59 @@ class HEditSession : public ITfEditSession {
     LONG ref_;
 };
 
+/* Launch the settings surface: the WinUI 3 exe (the ruled surface, assets
+ * icon) when it is deployed beside this DLL, the rundll32 entry to
+ * HunminSettingsShow otherwise. A dedicated process: the TIP thread must
+ * not pump a nested modal loop while TSF holds edit cookies. */
+HRESULT hunmin_tsf_launch_settings(void *anchor) {
+    HMODULE self = nullptr;
+    wchar_t dll[MAX_PATH] = {0};
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            (LPCWSTR)anchor, &self) ||
+        !GetModuleFileNameW(self, dll, MAX_PATH))
+        return E_FAIL;
+    wchar_t dllDir[MAX_PATH];
+    lstrcpynW(dllDir, dll, MAX_PATH);
+    PathRemoveFileSpecW(dllDir);
+    wchar_t exe[MAX_PATH];
+    exe[0] = 0;
+    wchar_t pub[MAX_PATH];
+    _snwprintf(pub, _countof(pub), L"%s\\settings-ui\\publish\\hunmin-tsf-settingsui.exe",
+               dllDir);
+    if (!PathFileExistsW(pub)) {
+        _snwprintf(pub, _countof(pub),
+                   L"%s\\..\\..\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
+        wchar_t full[MAX_PATH];
+        if (GetFullPathNameW(pub, MAX_PATH, full, nullptr) && PathFileExistsW(full))
+            _snwprintf(pub, _countof(pub), L"%s", full);
+        else
+            pub[0] = 0;
+    }
+    if (pub[0])
+        lstrcpynW(exe, pub, MAX_PATH);
+    wchar_t cmd[MAX_PATH + 64];
+    SHELLEXECUTEINFOW sei = {sizeof sei};
+    sei.fMask = SEE_MASK_FLAG_NO_UI;
+    sei.nShow = SW_SHOWNORMAL;
+    if (exe[0]) {
+        sei.lpFile = exe;
+        sei.lpParameters = nullptr;
+    } else {
+        _snwprintf(cmd, _countof(cmd), L"\"%s,HunminSettingsShow\"", dll);
+        sei.lpFile = L"rundll32.exe";
+        sei.lpParameters = cmd;
+    }
+    BOOL ok = ShellExecuteExW(&sei);
+    FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
+    if (dbg) {
+        fprintf(dbg, "launch settings exe=%ls hr=%ld\n", exe, (long)GetLastError());
+        fflush(dbg);
+        fclose(dbg);
+    }
+    return ok ? S_OK : E_FAIL;
+}
+
 static const CLSID CLSID_HunminTSF = {0xF2C70001, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}};
 /* The language-bar item's own item id (ctfutb TF_LANGBARITEMINFO::guidItem;
  * a fresh slot in the same F2C7000x block, never equal to another TIP's). */
@@ -287,6 +340,37 @@ static const GUID HunminLangBarItemGuid = {0xF2C70003, 0x0000, 0x0000,
 /* The language profile GUID is shared state: registration enables it, so
  * unregistration must name the same GUID to remove it (issue #84). */
 static const GUID HunminProfileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
+
+/* The key-card sink wrapper (TSF's ITfLangBarItemSink): the service keeps
+ * it and CALLS OnUpdate on it when the mode changes; the langbar kernel
+ * responds by re-querying the item's GetIcon/GetStatus. The method itself
+ * is a receiver, deliberately a no-op. */
+class HunminLangBarSink : public ITfLangBarItemSink {
+  public:
+    LONG ref_ = 1; /* the service holds it; released with the service */
+    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+        if (!ppv)
+            return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfLangBarItemSink)) {
+            *ppv = static_cast<ITfLangBarItemSink *>(this);
+            InterlockedIncrement(&ref_);
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+    STDMETHOD_(ULONG, Release)() override {
+        ULONG r = (ULONG)InterlockedDecrement(&ref_);
+        if (r == 0)
+            delete this;
+        return r;
+    }
+    STDMETHOD(OnUpdate)(DWORD dwFlags) override {
+        (void)dwFlags;
+        return S_OK;
+    }
+};
 
 class CTextService : public ITfTextInputProcessor,
                      public ITfThreadMgrEventSink,
@@ -302,6 +386,10 @@ class CTextService : public ITfTextInputProcessor,
     virtual ~CTextService() {
         if (overlayWnd_)
             DestroyWindow(overlayWnd_);
+        if (langbarSink_) {
+            langbarSink_->Release();
+            langbarSink_ = nullptr;
+        }
         if (ic_)
             hunmin_ic_free(ic_);
         if (ctx_)
@@ -494,6 +582,13 @@ class CTextService : public ITfTextInputProcessor,
                 fflush(dbg4);
             }
             if (SUCCEEDED(hb) && plbm) {
+                /* The sink the bar-item work runs through: notify (below)
+                 * routes mode changes into a kernel refresh. */
+                if (!langbarSink_) {
+                    langbarSink_ = new HunminLangBarSink();
+                    DWORD cookie = 0;
+                    plbm->AdviseItemSink(langbarSink_, &cookie, HunminLangBarItemGuid);
+                }
                 HRESULT ai = plbm->AddItem(static_cast<ITfLangBarItem *>(this));
                 if (SUCCEEDED(ai)) {
                     /* The mgr holds a reference to us; drop it only in
@@ -634,8 +729,12 @@ class CTextService : public ITfTextInputProcessor,
         ZeroMemory(pInfo, sizeof *pInfo);
         pInfo->clsidService = CLSID_HunminTSF;
         pInfo->guidItem = HunminLangBarItemGuid;
-        pInfo->dwStyle = TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_HIDDENBYDEFAULT |
-                         TF_LBI_STYLE_SHOWNINTRAY;
+        /* BTN_BUTTON only: the earlier combo with HIDDENBYDEFAULT|
+         * SHOWNINTRAY was in place while every AddItem answered E_FAIL
+         * (measured 2026-10-18); the console kernel's BTN item carries
+         * exactly 0x00010010, so the reduced style is the reduced
+         * hypothesis — retry AddItem with it before blaming the kernel. */
+        pInfo->dwStyle = TF_LBI_STYLE_BTN_BUTTON;
         lstrcpynW(pInfo->szDescription, L"Hunmin \uC124\uC815", MAX_PATH);
         return S_OK;
     }
@@ -659,53 +758,44 @@ class CTextService : public ITfTextInputProcessor,
         (void)click;
         (void)pt;
         (void)prcArea;
-        /* Open the settings window from the langbar click. The dedicated
-         * process keeps this thread free: the TIP thread must not pump a
-         * nested modal loop while TSF holds edit cookies. */
-        HMODULE self = nullptr;
-        wchar_t module[MAX_PATH] = {0};
-        if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                                (LPCWSTR)this, &self) ||
-            !GetModuleFileNameW(self, module, MAX_PATH))
-            return E_FAIL;
-        wchar_t cmd[MAX_PATH + 64];
-        _snwprintf(cmd, _countof(cmd), L"\"%s,HunminSettingsShow\"", module);
-        SHELLEXECUTEINFOW sei = {sizeof sei};
-        sei.lpFile = L"rundll32.exe";
-        sei.lpParameters = cmd;
-        sei.lpDirectory = nullptr;
-        sei.nShow = SW_SHOWNORMAL;
-        sei.fMask = SEE_MASK_FLAG_NO_UI;
-        HRESULT hr = ShellExecuteExW(&sei) ? S_OK : E_FAIL;
-        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
-        if (dbg) {
-            fprintf(dbg, "langbar OnClick hr=0x%lX\n", (unsigned long)hr);
-            fflush(dbg);
-            fclose(dbg);
-        }
-        return hr;
+        /* The dedicated process keeps this thread free: the TIP thread must
+         * not pump a nested modal loop while TSF holds edit cookies. */
+        return hunmin_tsf_launch_settings(static_cast<void *>(this));
     }
     STDMETHOD(InitMenu)(ITfMenu *pMenu) override {
-        (void)pMenu;
-        return S_OK; /* button style: no menu */
+        /* The right-click popup: one entry, "<Hunmin settings>" (id = 1);
+         * OnMenuSelect lands it on the settings window. */
+        if (!pMenu)
+            return E_FAIL;
+        const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
+        return pMenu->AddMenuItem(1, 0, nullptr, nullptr, label,
+                                  (ULONG)wcslen(label), nullptr);
     }
     STDMETHOD(OnMenuSelect)(UINT wID) override {
-        (void)wID;
-        return S_OK;
+        if (wID != 1)
+            return S_OK;
+        return hunmin_tsf_launch_settings(nullptr);
     }
     STDMETHOD(GetIcon)(HICON *phIcon) override {
         if (!phIcon)
             return E_INVALIDARG;
-        /* The DLL's own resource (assets/hunmin.ico via hunmin-tsf.rc,
-         * id = 1): LoadIconW with unchanged refcount on a cached HMODULE —
-         * the bar owns no handle, so nothing to free; the shared IDI_-
-         * APPLICATION fallback stays for hosts the resource cannot
-         * satisfy (should not happen: the resource ships with the DLL). */
+        /* The input MODE badge (discover: the user asked for the current
+         * input mode in the bar): unit - red Hangul badge when the
+         * hangul side is active, Latin 'A' badge in english mode; the
+         * multi-size app icon (resource 1) remains the service's own
+         * identity in the language list. LoadIconW cached-handle rules
+         * apply; nothing to free. */
         HMODULE self = nullptr;
+        const wchar_t *which =
+            hangulMode_ ? MAKEINTRESOURCEW(2) : MAKEINTRESOURCEW(3);
         if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                                (LPCWSTR)this, &self)) {
+            *phIcon = LoadIconW(self, which);
+            if (*phIcon)
+                return S_OK;
+            /* The mode badges (2/3) are non-critical: fall through to the
+             * app icon when the mirroring rc did not compile them. */
             *phIcon = LoadIconW(self, MAKEINTRESOURCEW(1));
             if (*phIcon)
                 return S_OK;
@@ -716,7 +806,9 @@ class CTextService : public ITfTextInputProcessor,
     STDMETHOD(GetText)(BSTR *pbstrText) override {
         if (!pbstrText)
             return E_INVALIDARG;
-        *pbstrText = SysAllocString(L"\uD55C\uBBFC IME");
+        /* the MODE as TEXT (the bar renders this on text-capable bars):
+         * Hangul on hangul side / Latin on the latin side */
+        *pbstrText = SysAllocString(hangulMode_ ? L"\uD55C" : L"A");
         return *pbstrText ? S_OK : E_OUTOFMEMORY;
     }
 
@@ -854,6 +946,12 @@ class CTextService : public ITfTextInputProcessor,
                 CloseCandidateWindow();
                 BoundaryFlush(pic, dbg);
                 hangulMode_ = !hangulMode_;
+                /* Mirror the new mode onto the bar: the badge item posts
+                 * the change and the kernel re-queries GetIcon/GetStatus. */
+                if (langbarSink_) {
+                    DWORD fl = TF_LBI_ICON | TF_LBI_TEXT | 0x4;
+                    langbarSink_->OnUpdate(fl);
+                }
                 if (ic_) {
                     hunmin_ic_free(ic_);
                     ic_ = nullptr;
@@ -1343,6 +1441,8 @@ class CTextService : public ITfTextInputProcessor,
     /* ctfutb.h ITfLangBarItemButton state: true between AddItem and
      * RemoveItem; the manager owns exactly one extra reference. */
     bool langbar_registered_ = false;
+    /* The sink the service notifies (HunminLangBarSink) on mode beverages. */
+    HunminLangBarSink *langbarSink_ = nullptr;
 
     // Helper used both for declined/pass-through keys to flush the pending
     // composition exactly once, deleting the already-present composed text.
