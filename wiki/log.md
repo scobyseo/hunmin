@@ -598,3 +598,11 @@
   binding by key capture ("키 입력 방식"), the publish 495 files / 167.4 MiB
   figure for #68, and the still-open device-bound and maintainer-sizing
   questions.
+- `wiki/raw/sessions/2026-10-18-milestone-d-candidate-edit-mode-ux.md` — issue
+  #67's milestone D: candidate window + Hanja key store + hook-based key
+  capture + the screen-presence defect roots (Mica, ownerless rundll32) +
+  Start-menu entry + conversion compartment + system-langbar menu
+  extension + the krdict (ko,hanja) dedupe (34,142 → 33,184); overturned:
+  the langbar surface measured closed (reference-item probe), the sink
+  direction; pending: last-syllable fallback, mode-persist, re-register,
+  CI billing.

@@ -18,7 +18,7 @@ Measured against the shipped tables (2026-10-17, scratch probe over
 
 | Lookup | Count | First candidates (kind) |
 |---|---|---|
-| `안녕` | 2 | 安寧 (word) |
+| `안녕` | 1 | 安寧 (word) — unchanged after the (ko,hanja) krdict dedupe (tools/krdict-dedupe.py, 2026-10-18); the row count moved 2→1 |
 | `가` | 65 | 可 (word), 可 (hanja), 家 (hanja) |
 | `간` | 67 | 刊 (word), 肝 (word), 間 (word) |
 | `중국` | 1 | 中國 (word) |
