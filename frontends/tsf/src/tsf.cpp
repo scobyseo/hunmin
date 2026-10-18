@@ -4,7 +4,10 @@
 #include <cwchar>
 #include <msctf.h>
 #include <richedit.h>
+#include <shlguid.h>
+#include <shlobj_core.h>
 #include <shlwapi.h>
+#include <shobjidl_core.h>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -206,6 +209,46 @@ static void resolveLayoutSlot(const hunmin_ctx *ctx, const std::string &stored,
 #include "keybinding.cpp"
 #include "config.h"
 #include "settings.h" /* ITfFunctionProvider branch + the apply bridge */
+#include "candwindow.h"
+/* UTF-8 <-> UTF-16 for the candidate path (issue #67): the suggest API is
+ * UTF-8, the popup and the buffered word are wide. Replacements for the two
+ * MultiByteToWideChar scatter patterns the adapter already carries — the
+ * candidate flow needs them at three call sites and half-drawn double
+ * conversions have burned this tree before (the embedded-NUL word buffer). */
+static std::wstring HunminUtf8ToWide(const char *utf8) {
+    if (!utf8 || !utf8[0])
+        return {};
+    int n = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, nullptr, 0);
+    if (n <= 1)
+        return {};
+    std::wstring w((size_t)n - 1, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8, -1, &w[0], n);
+    return w;
+}
+static std::string HunminWideToUtf8(const std::wstring &w) {
+    if (w.empty())
+        return {};
+    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0,
+                                nullptr, nullptr);
+    if (n <= 0)
+        return {};
+    std::string s((size_t)n, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr,
+                        nullptr);
+    return s;
+}
+/* The vk set the candidate window consumes while it is open: choose keys
+ * (digits), motion (arrows, pages), Return/Esc. The OPEN/CLOSE toggle is the
+ * configured combo, checked separately before this set; F9 is not here any
+ * more by default (issue #67: the Hanja key is the default and F9 unbound).
+ * Expressed once so OnTestKeyDown and the OnKeyDown window branch cannot
+ * drift — the same shared-predicate rule the toggle binding uses. */
+static bool hunmin_tsf_candkey_eats_test(unsigned long vk) {
+    return vk == VK_RETURN || vk == VK_ESCAPE || vk == VK_PRIOR ||
+           vk == VK_NEXT || (vk >= VK_LEFT && vk <= VK_DOWN) ||
+           (vk >= '0' && vk <= '9');
+}
+
 // Skeleton edit session for TSF text insertion. Real insertion lives
 // inlined in OnKeyDown; this type documents the shape.
 class HEditSession : public ITfEditSession {
@@ -236,20 +279,126 @@ class HEditSession : public ITfEditSession {
     LONG ref_;
 };
 
+/* Launch the settings surface: the WinUI 3 exe (the ruled surface, assets
+ * icon) when it is deployed beside this DLL, the rundll32 entry to
+ * HunminSettingsShow otherwise. A dedicated process: the TIP thread must
+ * not pump a nested modal loop while TSF holds edit cookies. */
+HRESULT hunmin_tsf_launch_settings(void *anchor) {
+    HMODULE self = nullptr;
+    wchar_t dll[MAX_PATH] = {0};
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            (LPCWSTR)anchor, &self) ||
+        !GetModuleFileNameW(self, dll, MAX_PATH))
+        return E_FAIL;
+    wchar_t dllDir[MAX_PATH];
+    lstrcpynW(dllDir, dll, MAX_PATH);
+    PathRemoveFileSpecW(dllDir);
+    wchar_t exe[MAX_PATH];
+    exe[0] = 0;
+    wchar_t pub[MAX_PATH];
+    _snwprintf(pub, _countof(pub), L"%s\\settings-ui\\publish\\hunmin-tsf-settingsui.exe",
+               dllDir);
+    if (!PathFileExistsW(pub)) {
+        _snwprintf(pub, _countof(pub),
+                   L"%s\\..\\..\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
+        wchar_t full[MAX_PATH];
+        if (GetFullPathNameW(pub, MAX_PATH, full, nullptr) && PathFileExistsW(full))
+            _snwprintf(pub, _countof(pub), L"%s", full);
+        else
+            pub[0] = 0;
+    }
+    if (pub[0])
+        lstrcpynW(exe, pub, MAX_PATH);
+    wchar_t cmd[MAX_PATH + 64];
+    SHELLEXECUTEINFOW sei = {sizeof sei};
+    sei.fMask = SEE_MASK_FLAG_NO_UI;
+    sei.nShow = SW_SHOWNORMAL;
+    if (exe[0]) {
+        sei.lpFile = exe;
+        sei.lpParameters = nullptr;
+    } else {
+        _snwprintf(cmd, _countof(cmd), L"\"%s,HunminSettingsShow\"", dll);
+        sei.lpFile = L"rundll32.exe";
+        sei.lpParameters = cmd;
+    }
+    BOOL ok = ShellExecuteExW(&sei);
+    FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
+    if (dbg) {
+        fprintf(dbg, "launch settings exe=%ls hr=%ld\n", exe, (long)GetLastError());
+        fflush(dbg);
+        fclose(dbg);
+    }
+    return ok ? S_OK : E_FAIL;
+}
+
 static const CLSID CLSID_HunminTSF = {0xF2C70001, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}};
+/* The language-bar item's own item id (ctfutb TF_LANGBARITEMINFO::guidItem;
+ * a fresh slot in the same F2C7000x block, never equal to another TIP's). */
+static const GUID HunminLangBarItemGuid = {0xF2C70003, 0x0000, 0x0000,
+                                           {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03}};
 /* The language profile GUID is shared state: registration enables it, so
  * unregistration must name the same GUID to remove it (issue #84). */
 static const GUID HunminProfileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
 
+/* ---- the SYSTEM langbar menu extension (docs: language-bar.md,
+ * "Extending System Language Bar Items"): TSF supports adding menu items to
+ * EXISTING language bar menus — the mechanism for the user's "right-click on
+ * the system lang bar -> setting" ask: obtain the item via GetItem, QI it for
+ * ITfSource, AdviseSink(IID_ITfSystemLangBarItemSink, this); the extended
+ * service calls InitMenu when its menu shows and OnMenuSelect with our id. ---- */
+class HunminSystemLangBarMenuExtension;
+
+wchar_t g_hunmin_ext_stub[] = L"hunmin-langbar-extension"; /* FROM_ADDRESS anchor */
+
+class HunminSystemLangBarMenuExtension : public ITfSystemLangBarItemSink {
+  public:
+    LONG ref_ = 1;
+    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+        if (!ppv)
+            return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfSystemLangBarItemSink)) {
+            *ppv = static_cast<ITfSystemLangBarItemSink *>(this);
+            InterlockedIncrement(&ref_);
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+    STDMETHOD_(ULONG, Release)() override {
+        ULONG r = (ULONG)InterlockedDecrement(&ref_);
+        if (r == 0)
+            delete this;
+        return r;
+    }
+    /* ITfSystemLangBarItemSink: the menu-button shape (docs: language-bar.md)
+     * — one entry, then OnMenuSelect lands on the settings surface. */
+    STDMETHOD(InitMenu)(ITfMenu *pMenu) override {
+        if (!pMenu)
+            return E_FAIL;
+        const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
+        return pMenu->AddMenuItem(1, 0, nullptr, nullptr, label,
+                                  (ULONG)wcslen(label), nullptr);
+    }
+    STDMETHOD(OnMenuSelect)(UINT wID) override {
+        if (wID != 1)
+            return S_OK;
+        return hunmin_tsf_launch_settings((void *)&g_hunmin_ext_stub);
+    }
+};
+
 class CTextService : public ITfTextInputProcessor,
                      public ITfThreadMgrEventSink,
                      public ITfKeyEventSink,
-                     public ITfCompositionSink {
+                     public ITfCompositionSink,
+                     public ITfLangBarItemButton {
   public:
     CTextService()
         : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), ic_(nullptr),
           hangulMode_(true), overlayWnd_(nullptr), hasPreeditRect_(false), lastCtx_(nullptr),
-          hangulId_("sin3-p2"), latinId_("us-qwerty") {}
+          hangulId_("sin3-p2"), latinId_("us-qwerty"), candActive_(false), candCount_(0), candCursor_(0),
+          candTop_(0), hanjaCombo_(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0}) {}
     virtual ~CTextService() {
         if (overlayWnd_)
             DestroyWindow(overlayWnd_);
@@ -278,6 +427,13 @@ class CTextService : public ITfTextInputProcessor,
              * mechanism; GetFunction(IID_ITfFnConfigure) then hands out the
              * configure function (settings.cpp). */
             *ppv = hunmin_tsf_settings_new_provider(this);
+            return S_OK;
+        } else if (IsEqualIID(riid, IID_ITfLangBarItem) ||
+                   IsEqualIID(riid, IID_ITfLangBarItemButton)) {
+            /* ctfutb.h: the language-bar button. ITfLangBarItemButton
+             * derives from ITfLangBarItem, so both IIDs bind this. */
+            *ppv = static_cast<ITfLangBarItemButton *>(this);
+            AddRef();
             return S_OK;
         } else {
             *ppv = nullptr;
@@ -331,6 +487,29 @@ class CTextService : public ITfTextInputProcessor,
                 fflush(dbg);
             }
         }
+        /* The candidate-window key (issue #67): ONE binding from the store,
+         * default the bare physical Hanja key. An unparseable binding falls
+         * back to the default rather than matching nothing — the candidate
+         * window must stay reachable, and a parse failure must never
+         * swallow a keystroke. */
+        {
+            HunminKeyCombo parsed[2];
+            const int nParsed =
+                hunmin_tsf_keybindings_parse(cfg.hanjaKey, parsed, 2);
+            if (nParsed > 0) {
+                hanjaCombo_ = parsed[0];
+            } else {
+                hanjaCombo_ = HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0};
+                if (dbg) {
+                    fprintf(dbg, "  hanja key unparseable (%s) -> default VK_HANJA\n",
+                            cfg.hanjaKey[0] ? cfg.hanjaKey : "(empty)");
+                    fflush(dbg);
+                }
+            }
+        }
+        /* The candidate window belongs to a composition the ic swap below
+         * drops: close it with Apply, like the mode toggle does (issue #67). */
+        CloseCandidateWindow();
         if (ic_) {
             hunmin_ic_free(ic_);
             ic_ = nullptr;
@@ -403,6 +582,87 @@ class CTextService : public ITfTextInputProcessor,
          * Activate() had to do anyway; no separate activation-only copy
          * exists. Activate() starts hangulMode_=true. */
         ApplyConfigStore();
+        /* The language-bar button (ctfutb.h, discoverable settings entry):
+         * registered while the service is active; the desktop/floating bar
+         * shows "Hunmin 설정", clicking opens the settings window. */
+        {
+            ITfLangBarItemMgr *plbm = nullptr;
+            HRESULT hb = ptm->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm);
+            FILE *dbg4 = tsf_log_open("hunmin-tsf-debug.log");
+            if (dbg4) {
+                fprintf(dbg4, "langbar QI hr=0x%lX\n", (unsigned long)hb);
+                fflush(dbg4);
+            }
+            if (SUCCEEDED(hb) && plbm) {
+                HRESULT ai = plbm->AddItem(static_cast<ITfLangBarItem *>(this));
+                if (SUCCEEDED(ai)) {
+                    /* The mgr holds a reference to us; drop it only in
+                     * Deactivate's RemoveItem, the release there. */
+                    langbar_registered_ = true;
+                }
+                FILE *dbg5 = tsf_log_open("hunmin-tsf-debug.log");
+                if (dbg5) {
+                    fprintf(dbg5, "langbar AddItem hr=0x%lX\n", (unsigned long)ai);
+                    fflush(dbg5);
+                    fclose(dbg5);
+                }
+                plbm->Release();
+            }
+            if (dbg4)
+                fclose(dbg4);
+        }
+        /* The SYSTEM langbar menu extension (language-bar.md): advise our
+         * entry onto the host thread's system items (언어/키보드/도움말... —
+         * measured item list in this env); whichever accepts it will call
+         * InitMenu for our "Hunmin 설정 열기". Failures are measured, not
+         * fatal: the item-granting rule is per host build. */
+        if (threadMgr_) {
+            ITfLangBarItemMgr *plbm2 = nullptr;
+            if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfLangBarItemMgr,
+                                                     (void **)&plbm2)) &&
+                plbm2) {
+                static const GUID sysItems[] = {
+                    {0x34745C63, 0xB2F0, 0x4784, {0x8B, 0x67, 0x5E, 0x12, 0xC8, 0x70, 0x1A, 0x31}},
+                    {0x58C99D96, 0x2F9B, 0x42CE, {0x91, 0xBE, 0x37, 0xEF, 0x18, 0x60, 0xF8, 0x82}},
+                    {0x190F67A2, 0x024F, 0x40D9, {0xAA, 0xBA, 0x43, 0x9F, 0x5C, 0x80, 0x8F, 0x67}},
+                    {0xED9D5450, 0xEBE6, 0x4255, {0x82, 0x89, 0xF8, 0xA3, 0x1E, 0x68, 0x72, 0x28}},
+                };
+                if (!menExt_)
+                    menExt_ = new HunminSystemLangBarMenuExtension();
+                for (const GUID &g : sysItems) {
+                    HRESULT gr = plbm2->GetItem(g, &barItemBuf_);
+                    if (SUCCEEDED(gr) && barItemBuf_) {
+                        ITfSource *src = nullptr;
+                        if (SUCCEEDED(barItemBuf_->QueryInterface(IID_ITfSource,
+                                                                  (void **)&src)) &&
+                            src) {
+                            HRESULT ar = src->AdviseSink(
+                                IID_ITfSystemLangBarItemSink, menExt_, &menCookie_);
+                            FILE *dbg6 = tsf_log_open("hunmin-tsf-debug.log");
+                            if (dbg6) {
+                                fprintf(dbg6, "sysmenu advise cls=%08lX hr=0x%lX\n",
+                                        (unsigned long)g.Data1, (unsigned long)ar);
+                                fflush(dbg6);
+                                fclose(dbg6);
+                            }
+                            if (SUCCEEDED(ar)) {
+                                menCookie_ = menCookie_; /* cookie recorded */
+                                if (menSrc_)
+                                    menSrc_->Release();
+                                menSrc_ = src; /* released at Deactivate */
+                                menExt_->AddRef();
+                            } else {
+                                src->Release();
+                            }
+                        }
+                        barItemBuf_->Release();
+                        barItemBuf_ = nullptr;
+                    }
+                }
+                plbm2->Release();
+            }
+        }
+        UpdateConversionCompartment();
         if (dbg3) {
             if (ctx_)
                 fprintf(dbg3, "  layout_count=%d\n", hunmin_ctx_layout_count(ctx_));
@@ -485,7 +745,27 @@ class CTextService : public ITfTextInputProcessor,
             delete[] wbuf;
         }
         wordbuf_.clear();
+        CloseCandidateWindow();
         HideOverlay();
+        /* Drop the language-bar item; the langbar kernel releases its
+         * reference to us, which is why RemoveItem must pass the SAME
+         * pointer it got in AddItem. */
+        if (langbar_registered_ && threadMgr_) {
+            ITfLangBarItemMgr *plbm = nullptr;
+            if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm)) && plbm) {
+                plbm->RemoveItem(static_cast<ITfLangBarItem *>(this));
+                plbm->Release();
+            }
+            langbar_registered_ = false;
+        }        /* The system-menu extension's documents (language-bar.md step 4):
+         * UnadviseSink by ITS cookie, THEN the sink release. */
+        if (menSrc_ && menExt_) {
+            menSrc_->UnadviseSink(menCookie_);
+            menSrc_->Release();
+            menSrc_ = nullptr;
+            menExt_->Release();
+            menExt_ = nullptr;
+        }
         if (ic_) {
             hunmin_ic_free(ic_);
             ic_ = nullptr;
@@ -500,6 +780,101 @@ class CTextService : public ITfTextInputProcessor,
         }
         clientId_ = TF_CLIENTID_NULL;
         return S_OK;
+    }
+    /* ---- ctfutb.h: ITfLangBarItem (the base surface the manager calls),
+     * then ITfLangBarItemButton. The tooltip-names and the click handler
+     * land the user on the settings surface (issue #67's four access
+     * points measured: this bar button + the ITfFnConfigure chain + the
+     * settings-ui exe are the ones a third-party TIP may legally reach;
+     * the Settings app keyboard page and the taskbar indicator context
+     * menu belong to the shell). ---- */
+    STDMETHOD(GetInfo)(TF_LANGBARITEMINFO *pInfo) override {
+        if (!pInfo)
+            return E_INVALIDARG;
+        ZeroMemory(pInfo, sizeof *pInfo);
+        pInfo->clsidService = CLSID_HunminTSF;
+        pInfo->guidItem = HunminLangBarItemGuid;
+        /* BTN_BUTTON only: the earlier combo with HIDDENBYDEFAULT|
+         * SHOWNINTRAY was in place while every AddItem answered E_FAIL
+         * (measured 2026-10-18); the console kernel's BTN item carries
+         * exactly 0x00010010, so the reduced style is the reduced
+         * hypothesis — retry AddItem with it before blaming the kernel. */
+        pInfo->dwStyle = TF_LBI_STYLE_BTN_BUTTON;
+        lstrcpynW(pInfo->szDescription, L"Hunmin \uC124\uC815", MAX_PATH);
+        return S_OK;
+    }
+    STDMETHOD(GetStatus)(DWORD *pdwStatus) override {
+        if (!pdwStatus)
+            return E_INVALIDARG;
+        *pdwStatus = 0;
+        return S_OK;
+    }
+    STDMETHOD(Show)(BOOL fShow) override {
+        (void)fShow;
+        return S_OK;
+    }
+    STDMETHOD(GetTooltipString)(BSTR *pbstrToolTip) override {
+        if (!pbstrToolTip)
+            return E_INVALIDARG;
+        *pbstrToolTip = SysAllocString(L"Hunmin \uC124\uC815 \uC5F4\uAE30");
+        return *pbstrToolTip ? S_OK : E_OUTOFMEMORY;
+    }
+    STDMETHOD(OnClick)(TfLBIClick click, POINT pt, const RECT *prcArea) override {
+        (void)click;
+        (void)pt;
+        (void)prcArea;
+        /* The dedicated process keeps this thread free: the TIP thread must
+         * not pump a nested modal loop while TSF holds edit cookies. */
+        return hunmin_tsf_launch_settings(static_cast<void *>(this));
+    }
+    STDMETHOD(InitMenu)(ITfMenu *pMenu) override {
+        /* The right-click popup: one entry, "<Hunmin settings>" (id = 1);
+         * OnMenuSelect lands it on the settings window. */
+        if (!pMenu)
+            return E_FAIL;
+        const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
+        return pMenu->AddMenuItem(1, 0, nullptr, nullptr, label,
+                                  (ULONG)wcslen(label), nullptr);
+    }
+    STDMETHOD(OnMenuSelect)(UINT wID) override {
+        if (wID != 1)
+            return S_OK;
+        return hunmin_tsf_launch_settings(nullptr);
+    }
+    STDMETHOD(GetIcon)(HICON *phIcon) override {
+        if (!phIcon)
+            return E_INVALIDARG;
+        /* The input MODE badge (discover: the user asked for the current
+         * input mode in the bar): unit - red Hangul badge when the
+         * hangul side is active, Latin 'A' badge in english mode; the
+         * multi-size app icon (resource 1) remains the service's own
+         * identity in the language list. LoadIconW cached-handle rules
+         * apply; nothing to free. */
+        HMODULE self = nullptr;
+        const wchar_t *which =
+            hangulMode_ ? MAKEINTRESOURCEW(2) : MAKEINTRESOURCEW(3);
+        if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                   GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                               (LPCWSTR)this, &self)) {
+            *phIcon = LoadIconW(self, which);
+            if (*phIcon)
+                return S_OK;
+            /* The mode badges (2/3) are non-critical: fall through to the
+             * app icon when the mirroring rc did not compile them. */
+            *phIcon = LoadIconW(self, MAKEINTRESOURCEW(1));
+            if (*phIcon)
+                return S_OK;
+        }
+        *phIcon = LoadIconW((HMODULE)NULL, IDI_APPLICATION);
+        return *phIcon ? S_OK : E_FAIL;
+    }
+    STDMETHOD(GetText)(BSTR *pbstrText) override {
+        if (!pbstrText)
+            return E_INVALIDARG;
+        /* the MODE as TEXT (the bar renders this on text-capable bars):
+         * Hangul on hangul side / Latin on the latin side */
+        *pbstrText = SysAllocString(hangulMode_ ? L"\uD55C" : L"A");
+        return *pbstrText ? S_OK : E_OUTOFMEMORY;
     }
 
     STDMETHOD(OnInitDocumentMgr)(ITfDocumentMgr *pdm) override {
@@ -564,9 +939,31 @@ class CTextService : public ITfTextInputProcessor,
         if (hunmin_tsf_keybindings_match(toggleKeys_.data(), (int)toggleKeys_.size(),
                                          (unsigned)wParam, hunmin_tsf_keymods_from_state()))
             eat = TRUE;
+        else if (candActive_ && hunmin_tsf_candkey_eats_test(wParam))
+            /* While the candidate window is open its keys are ours, on the
+             * same shared-predicate rule the toggle uses (test and down are
+             * one decision). */
+            eat = TRUE;
         else if (!hangulMode_)
             eat = FALSE;
-        else if ((wParam >= 'A' && wParam <= 'Z') || wParam == VK_SPACE || wParam == VK_BACK)
+        else if (hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam,
+                                              hunmin_tsf_keymods_from_state())) {
+            /* Mirror the down decision exactly (no look-ahead lie): the
+             * window opens only when the buffered word has candidates, and
+             * in the zero-candidate case the key belongs to the client. The
+             * suggest lookup is a read of tables already in memory. */
+            eat = (ctx_ && !BufferedHangul().empty() &&
+                   hunmin_suggest_count(ctx_, BufferedHangul().c_str()) > 0)
+                      ? TRUE
+                      : FALSE;
+        } else if (hangulMode_ &&
+                   (hunmin_tsf_keymods_from_state() &
+                    (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT))) {
+            /* Mirror of the down-side chord rule: a Ctrl/Alt chord belongs
+             * to the app (Ctrl+A is not composition input) — test phase
+             * answers the same uneaten the down phase will act on. */
+            eat = FALSE;
+        } else if ((wParam >= 'A' && wParam <= 'Z') || wParam == VK_SPACE || wParam == VK_BACK)
             eat = TRUE;
         if (pfEat)
             *pfEat = eat;
@@ -615,8 +1012,13 @@ class CTextService : public ITfTextInputProcessor,
                 *pfEat = TRUE;
             const bool repeat = (lParam & (1 << 30)) != 0;
             if (!repeat) {
+                /* A mode switch is a composition boundary: the candidate
+                 * window belongs to the composition being flushed, so it
+                 * closes with it (issue #67). */
+                CloseCandidateWindow();
                 BoundaryFlush(pic, dbg);
                 hangulMode_ = !hangulMode_;
+                UpdateConversionCompartment();
                 if (ic_) {
                     hunmin_ic_free(ic_);
                     ic_ = nullptr;
@@ -638,6 +1040,113 @@ class CTextService : public ITfTextInputProcessor,
                 fclose(dbg);
             return S_OK; // passthrough English
         }
+         /* --- the candidate-window key (issue #67) ---
+         *
+         * The configured binding (default: the bare physical Hanja key)
+         * toggles the window. Interception sits before any engine feed
+         * because it is not a printable key (fcitx5's identical placement
+         * for F9, engine.cpp:204-223). Consumption is conditional whether
+         * the window is open or, with a candidate-bearing buffer, just
+         * opened; with neither, the key belongs to the client app and
+         * passes through uneaten. */
+        if (hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam,
+                                         hunmin_tsf_keymods_from_state())) {
+            if (candActive_) {
+                CloseCandidateWindow();
+            } else {
+                OpenCandidates();
+                if (candActive_)
+                    UpdateCandidateWindow(pic);
+            }
+            if (dbg) {
+                fprintf(dbg, " hanja key vk=%lu -> %s (src=%s count=%d)\n",
+                        (unsigned long)wParam, candActive_ ? "open" : "closed",
+                        candSource_.c_str(), candCount_);
+                fflush(dbg);
+                fclose(dbg);
+            }
+            if (pfEat)
+                *pfEat = candActive_ ? TRUE : FALSE;
+            return S_OK;
+        }
+        if (candActive_) {
+            bool handled = false;
+            bool submit = false;
+            int submitIdx = candCursor_;
+            switch (wParam) {
+            case VK_RETURN:
+                submit = true;
+                handled = true;
+                break;
+            case VK_ESCAPE:
+                CloseCandidateWindow();
+                UpdateOverlay(pic);
+                handled = true;
+                break;
+            case VK_UP:
+            case VK_LEFT:
+                if (candCursor_ > 0) {
+                    --candCursor_;
+                    PageFollowCursor();
+                    UpdateCandidateWindow(pic);
+                }
+                handled = true;
+                break;
+            case VK_DOWN:
+            case VK_RIGHT:
+                if (candCursor_ < candCount_ - 1) {
+                    ++candCursor_;
+                    PageFollowCursor();
+                    UpdateCandidateWindow(pic);
+                }
+                handled = true;
+                break;
+            case VK_PRIOR:
+                PageStep(-1);
+                UpdateCandidateWindow(pic);
+                handled = true;
+                break;
+            case VK_NEXT:
+                PageStep(+1);
+                UpdateCandidateWindow(pic);
+                handled = true;
+                break;
+            default:
+                /* Digit select: 1..9 pick the page-relative candidates 1..9,
+                 * 0 picks the tenth, mirroring fcitx5's label scheme. A
+                 * digit past the end of the count closes the window and
+                 * falls through like any other unhandled key — an invisible
+                 * window must never swallow a keystroke. */
+                if (wParam >= '0' && wParam <= '9') {
+                    int pos = (wParam == '0') ? 9 : (int)(wParam - '1');
+                    int idx = candTop_ + pos;
+                    if (pos >= 0 && idx < candCount_) {
+                        submitIdx = idx;
+                        submit = true;
+                        handled = true;
+                    }
+                }
+                break;
+            }
+            if (submit)
+                CommitCandidate(pic, submitIdx);
+            if (handled) {
+                if (pfEat)
+                    *pfEat = TRUE;
+                if (dbg) {
+                    fprintf(dbg, " candidate key vk=%lu cursor=%d count=%d\n", (unsigned long)wParam,
+                            candCursor_, candCount_);
+                    fclose(dbg);
+                }
+                return S_OK;
+            }
+            /* Anything else: close and fall through to the normal path, so
+             * typing continues where the user left off instead of being
+             * swallowed by an invisible window (fcitx5: the default rule).
+             * The buffered word is untouched by the close itself. */
+            CloseCandidateWindow();
+            UpdateOverlay(pic);
+        }
         /* Edit/navigation keys (measured on this host during the buffered-input
          * check: VK_LEFT..VK_NEXT + VK_INSERT/VK_DELETE all fall into the
          * 0x20-0x7E printable fallback below, so each was translated into a
@@ -647,7 +1156,9 @@ class CTextService : public ITfTextInputProcessor,
          * is a composition boundary, so the boundary drain commits the buffered
          * word exactly once and the key passes through untouched
          * (pfEat = FALSE, matching the OnTestKeyDown predicate which already
-         * shows no interest in them). */
+         * shows no interest in them). Reached only while the candidate window
+         * is NOT open: when it is, the block above owns these vk's for
+         * list motion (issue #67). */
         switch (wParam) {
         case VK_LEFT:
         case VK_UP:
@@ -658,7 +1169,7 @@ class CTextService : public ITfTextInputProcessor,
         case VK_PRIOR:
         case VK_NEXT:
         case VK_INSERT:
-        case VK_DELETE:
+        case VK_DELETE: {
             BoundaryFlush(pic, dbg);
             if (pfEat)
                 *pfEat = FALSE;
@@ -667,8 +1178,50 @@ class CTextService : public ITfTextInputProcessor,
                 fclose(dbg);
             }
             return S_OK;
+        }
         default:
+            /* The function-key block (measured with the unbound-F9 case of
+             * issue #67: VK_F1..VK_F12 = 0x70..0x7B falls into the
+             * printable fallback below, so an unbound F-key composed its
+             * VK-value as a layout character — F9(0x78) typed 'x' = ㅈ into
+             * the composition the user was watching. Same defect class as
+             * the edit keys above, same keys-of-passage answer: a drained
+             * boundary and a pass-through. */
+            if (wParam >= VK_F1 && wParam <= VK_F12) {
+                BoundaryFlush(pic, dbg);
+                if (pfEat)
+                    *pfEat = FALSE;
+                if (dbg) {
+                    fprintf(dbg, " fkey vk=%lu -> boundary + passthrough\n", (unsigned long)wParam);
+                    fclose(dbg);
+                }
+                return S_OK;
+            }
             break;
+        }
+        /* --- the CTRL/ALT chord rule (measured defect 2026-10-18: the letter
+         * inside a Ctrl/Alt chord still fed the composition — Ctrl+A typed
+         * the preedit's next syllable instead of select-all) ---
+         *
+         * A chord is application input, not composition input: the pending
+         * preedit commits through the SAME boundary flush a mode toggle
+         * drives (the candidate window closes with its composition, #67),
+         * and the key passes to the client app uneaten, in its chord sense.
+         * The mode itself is NOT flipped: one chord selects all without
+         * changing which script the next letter types in. (The user note
+         * remaining more aggressive — the mode WORD switch on ctrl/alt — is
+         * recorded in docs/WINDOWS-TSF-BUFFERING.md as the alternative.) */
+        if (hunmin_tsf_keymods_from_state() &
+            (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) {
+            if (pfEat)
+                *pfEat = FALSE;
+            CloseCandidateWindow();
+            BoundaryFlush(pic, dbg);
+            if (dbg) {
+                fprintf(dbg, " ctrl/alt chord -> commit + passthrough\n");
+                fclose(dbg);
+            }
+            return S_OK;
         }
         char ch = 0;
         if (wParam >= 'A' && wParam <= 'Z') {
@@ -848,75 +1401,13 @@ class CTextService : public ITfTextInputProcessor,
         memcpy(wbuf, wordbuf_.c_str(), wword * sizeof(wchar_t));
         MultiByteToWideChar(CP_UTF8, 0, pre, -1, wbuf + wword, wlen);
 
-        hasPreeditRect_ = false;
-        class RectSession : public ITfEditSession {
-          public:
-            RectSession(ITfContext *ctx, CTextService *svc) : ref_(1), ctx_(ctx), svc_(svc) {}
-            STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
-                if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
-                    *ppv = this;
-                    AddRef();
-                    return S_OK;
-                }
-                *ppv = nullptr;
-                return E_NOINTERFACE;
-            }
-            STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
-            STDMETHOD_(ULONG, Release)() override {
-                ULONG r = (ULONG)InterlockedDecrement(&ref_);
-                if (r == 0)
-                    delete this;
-                return r;
-            }
-            STDMETHOD(DoEditSession)(TfEditCookie ec) override {
-                ITfContextView *view = nullptr;
-                if (SUCCEEDED(ctx_->GetActiveView(&view)) && view) {
-                    TF_SELECTION sel;
-                    ULONG fetched = 0;
-                    if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 &&
-                        sel.range) {
-                        RECT rc;
-                        BOOL clipped = FALSE;
-                        if (SUCCEEDED(view->GetTextExt(ec, sel.range, &rc, &clipped))) {
-                            svc_->preeditRect_ = rc;
-                            svc_->hasPreeditRect_ = true;
-                        }
-                        sel.range->Release();
-                    }
-                    view->Release();
-                }
-                return S_OK;
-            }
-
-          private:
-            LONG ref_;
-            ITfContext *ctx_;
-            CTextService *svc_;
-        };
-        RectSession *rs = new RectSession(pic, this);
-        HRESULT hrRect = S_OK;
-        pic->RequestEditSession(clientId_, rs, TF_ES_SYNC | TF_ES_READ, &hrRect);
-        rs->Release();
-
-        GUITHREADINFO gti = {};
-        gti.cbSize = sizeof(gti);
-        bool haveCaret = GetGUIThreadInfo(GetCurrentThreadId(), &gti) != FALSE && gti.hwndCaret &&
-                         (gti.rcCaret.bottom > gti.rcCaret.top);
-        if (!hasPreeditRect_ && !haveCaret) {
+        RECT rc;
+        bool haveCaret = false;
+        GUITHREADINFO gti;
+        if (!AcquireCaretRect(pic, &rc, &haveCaret, &gti)) {
             delete[] wbuf;
             HideOverlay();
             return;
-        }
-        RECT rc = hasPreeditRect_ ? preeditRect_ : gti.rcCaret;
-        if (haveCaret && gti.hwndCaret) {
-            POINT topLeft = {gti.rcCaret.left, gti.rcCaret.top};
-            POINT bottomRight = {gti.rcCaret.right, gti.rcCaret.bottom};
-            ClientToScreen(gti.hwndCaret, &topLeft);
-            ClientToScreen(gti.hwndCaret, &bottomRight);
-            rc.left = topLeft.x;
-            rc.top = topLeft.y;
-            rc.right = bottomRight.x;
-            rc.bottom = bottomRight.y;
         }
 
         if (!overlayWnd_) {
@@ -1013,6 +1504,11 @@ class CTextService : public ITfTextInputProcessor,
      * the bare physical Han/Eng key — the platform alternate that survives
      * every rebinding, the rule Android's KeyAction.HANGUL_ENG encodes. */
     std::vector<HunminKeyCombo> toggleKeys_;
+    /* The candidate-window key (issue #67): ONE binding, default the bare
+     * physical Hanja key, re-read by ApplyConfigStore with everything else.
+     * F9 is deliberately NOT in the default set any more (maintainer
+     * instruction), but a stored binding can name it. */
+    HunminKeyCombo hanjaCombo_;
     HWND overlayWnd_;
     RECT preeditRect_;
     bool hasPreeditRect_;
@@ -1021,6 +1517,63 @@ class CTextService : public ITfTextInputProcessor,
     /* Finalised syllables held for insertion at the next boundary key
      * (issue #73); drained destructively by hunmin_ic_commit(). */
     std::wstring wordbuf_;
+
+    /* F9 Hanja candidates (issue #67). The window anchors to the WHOLE
+     * buffered word — accumulated finalised syllables plus the in-flight
+     * preedit — which is the multi-syllable lookup the dictionary tables
+     * are keyed by (krdict words, idioms); fcitx5 anchors to its preedit
+     * only because it commits each syllable immediately. */
+    bool candActive_;
+    int candCount_;
+    int candCursor_; /* global 0-based cursor */
+    int candTop_; /* first index of the visible 10-row page */
+    std::string candSource_; /* the Hangul the list was looked up for */
+    HunminCandWindow candWnd_;
+    /* ctfutb.h ITfLangBarItemButton state: true between AddItem and
+     * RemoveItem; the manager owns exactly one extra reference. */
+    bool langbar_registered_ = false;
+    /* The system-menu extension advised onto the host thread's system
+     * langbar items (language-bar.md "Extending System Language Bar
+     * Items"); one entry per advised item, each tracked for its own
+     * UnadviseSink at Deactivate. */
+    HunminSystemLangBarMenuExtension *menExt_ = nullptr;
+    DWORD menCookie_ = 0;
+    ITfSource *menSrc_ = nullptr;
+    ITfLangBarItem *barItemBuf_ = nullptr;
+
+    void UpdateConversionCompartment() {
+        /* The compartment the language bar reads to draw its 中/英 badge
+         * (GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION,
+         * TF_CONVERSIONMODE_NATIVE — measured: the state the legacy bar
+         * and the tray use). Setting it on every mode boundary is how a
+         * TIP's own mode is reflected by the system surfaces. */
+        if (!threadMgr_) {
+            return;
+        }
+        ITfCompartmentMgr *cm = nullptr;
+        if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfCompartmentMgr, (void **)&cm)) && cm) {
+            ITfCompartment *c = nullptr;
+            if (SUCCEEDED(cm->GetCompartment(
+                    GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION, &c)) && c) {
+                VARIANT v;
+                VariantInit(&v);
+                v.vt = VT_I4;
+                v.lVal = hangulMode_ ? (LONG)TF_CONVERSIONMODE_NATIVE : 0L;
+                c->SetValue(0, &v);
+                VariantClear(&v);
+                c->Release();
+            } else {
+                FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
+                if (dbg) {
+                    fprintf(dbg, " conversion compartment GONE\n");
+                    fflush(dbg);
+                    fclose(dbg);
+                }
+            }
+            cm->Release();
+        }
+    }
+
 
     // Helper used both for declined/pass-through keys to flush the pending
     // composition exactly once, deleting the already-present composed text.
@@ -1069,6 +1622,21 @@ class CTextService : public ITfTextInputProcessor,
         const wchar_t *t_;
     };
 
+    /* The insert half of the composition boundary: the whole buffered word
+     * reaches the document in one edit session, exactly once, and the
+     * buffer empties. Shared by the declined-key drain (below) and the
+     * candidate commit (the chosen Hanja replaces the whole buffered word —
+     * the Hangul it anchors to is never inserted). */
+    void InsertBufferedWord(ITfContext *pic) {
+        if (!wordbuf_.empty() && pic) {
+            FlushSession *fs = new FlushSession(pic, this, clientId_, wordbuf_.c_str());
+            HRESULT hrFlush = S_OK;
+            pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
+            fs->Release();
+            wordbuf_.clear();
+        }
+    }
+
     /* One composition-boundary drain shared by the declined key path and the
      * mode toggle (issue #66): the in-flight syllable is flushed into the
      * buffered word, and the whole word is inserted exactly once before the
@@ -1089,14 +1657,219 @@ class CTextService : public ITfTextInputProcessor,
                     ic_ ? hunmin_ic_preedit(ic_) : "");
             fflush(dbg);
         }
-        if (!wordbuf_.empty() && pic) {
-            FlushSession *fs = new FlushSession(pic, this, clientId_, wordbuf_.c_str());
-            HRESULT hrFlush = S_OK;
-            pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
-            fs->Release();
-            wordbuf_.clear();
-        }
+        InsertBufferedWord(pic);
         UpdateOverlay(pic);
+    }
+
+    /* --- F9 Hanja candidate window (issue #67) ---
+     *
+     * The engine serves the list (hunmin_suggest_count/text/detail/kind over
+     * the hanja/idiom/krdict tables, keyed by the WHOLE Hangul word); the
+     * adapter supplies everything else: the lookup text is the buffered
+     * word, the keyboard flow mirrors fcitx5 (digits pick, Up/Down moves,
+     * PageUp/PageDown pages, Return commits the cursor, Esc closes, any
+     * other key closes and falls through so typing continues) and the
+     * pop-up itself draws the rows.
+     *
+     * Page cap: kMaxCandidatePageSize, the value fcitx5's label ceiling
+     * forces (ruled by the maintainer for issue #45 — engine.cpp:471-486:
+     * 10 candidates survive, 11 abort). The TSF popup owns its own drawing
+     * rather than fcitx5's label table, so it could show more rows than
+     * that, but the SAME ruled number is kept: a word candidate list the
+     * digits can reach is 1..0 per page, and 67-row popups measured ~2000px
+     * tall on fcitx5's host. PageUp/PageDown are what the rest of the list
+     * is behind. */
+    static const int kMaxCandidatePageSize = 10;
+
+    /* The Hangul the candidate window anchors to: accumulated finalised
+     * syllables plus the in-flight preedit. Valid only while the window is
+     * open — opening may not flush anything (fcitx5's openCandidates rule:
+     * hunmin_ic_flush would commit the anchor out from under the list). */
+    std::string BufferedHangul() {
+        std::string s = HunminWideToUtf8(wordbuf_);
+        if (ic_) {
+            const char *pre = hunmin_ic_preedit(ic_);
+            if (pre)
+                s += pre;
+        }
+        return s;
+    }
+
+    bool OpenCandidates() {
+        candSource_ = BufferedHangul();
+        candCount_ = (ctx_ && !candSource_.empty())
+                         ? hunmin_suggest_count(ctx_, candSource_.c_str())
+                         : 0;
+        candActive_ = candCount_ > 0;
+        candCursor_ = 0;
+        candTop_ = 0;
+        return candActive_;
+    }
+
+    void CloseCandidateWindow() {
+        candActive_ = false;
+        candCount_ = 0;
+        candCursor_ = 0;
+        candTop_ = 0;
+        candSource_.clear();
+        candWnd_.Hide();
+    }
+
+    void PageFollowCursor() {
+        candTop_ = (candCursor_ / kMaxCandidatePageSize) * kMaxCandidatePageSize;
+    }
+
+    void PageStep(int dir) {
+        int lastTop = candCount_ > 0
+                          ? ((candCount_ - 1) / kMaxCandidatePageSize) * kMaxCandidatePageSize
+                          : 0;
+        int top = candTop_ + dir * kMaxCandidatePageSize;
+        if (top < 0)
+            top = 0;
+        if (top > lastTop)
+            top = lastTop;
+        candTop_ = top;
+        /* The cursor moves with the page when it would be left off it. */
+        if (candCursor_ < candTop_)
+            candCursor_ = candTop_;
+        else if (candCursor_ >= candTop_ + kMaxCandidatePageSize)
+            candCursor_ = candTop_ + kMaxCandidatePageSize - 1 < candCount_
+                              ? candTop_ + kMaxCandidatePageSize - 1
+                              : candCount_ - 1;
+    }
+
+    /* fcitx5 semantics (engine.cpp:160-176): choosing a candidate drops the
+     * composition it was anchored to, then commits the Hanja in its place —
+     * no surrounding-text surgery anywhere. The buffered Hangul has not
+     * been typed into the document yet, so nothing needs removing: the
+     * buffer itself is replaced by the chosen text, which is then inserted
+     * through the normal boundary path. */
+    void CommitCandidate(ITfContext *pic, int idx) {
+        if (idx < 0 || idx >= candCount_ || !ctx_)
+            return;
+        /* Copy first: the pointer is valid only until the next
+         * hunmin_suggest_* call on ctx. */
+        std::string hanja(hunmin_suggest_text(ctx_, idx));
+        if (hanja.empty())
+            return;
+        if (ic_)
+            hunmin_ic_reset(ic_); /* drop the composition the list anchored to */
+        CloseCandidateWindow();
+        wordbuf_ = HunminUtf8ToWide(hanja.c_str());
+        InsertBufferedWord(pic);
+        UpdateOverlay(pic);
+    }
+
+    void UpdateCandidateWindow(ITfContext *pic) {
+        if (!candActive_ || !pic || !ic_) {
+            candWnd_.Hide();
+            return;
+        }
+        RECT rc;
+        bool haveCaret = false;
+        GUITHREADINFO gti;
+        if (!AcquireCaretRect(pic, &rc, &haveCaret, &gti)) {
+            /* No metrics, no caret: same hide path the overlay takes. The
+             * candidate state stays open — a host that reports no window
+             * geometry today may report it after the next focus, and the
+             * next F9/arrow key redraws. */
+            candWnd_.Hide();
+            return;
+        }
+        HWND fontHost = haveCaret ? (gti.hwndFocus ? gti.hwndFocus : gti.hwndCaret) : nullptr;
+        std::vector<std::wstring> lines;
+        int end = candCount_ < candTop_ + kMaxCandidatePageSize
+                      ? candCount_
+                      : candTop_ + kMaxCandidatePageSize;
+        for (int i = candTop_; i < end; ++i) {
+            std::wstring text(HunminUtf8ToWide(hunmin_suggest_text(ctx_, i)));
+            wchar_t label = (wchar_t)(((i - candTop_) == 9) ? '0' : ('1' + (i - candTop_)));
+            std::wstring line = std::wstring(i == candCursor_ ? L">> " : L"   ") + label +
+                                L". " + text;
+            lines.push_back(line);
+        }
+        candWnd_.Show(rc, fontHost, lines);
+    }
+
+    /* The caret rect shared by the overlay and the candidate popup: one
+     * read-only edit session against the selection (GetTextExt), falling
+     * back to the thread's GUITHREADINFO caret. Screen coordinates out.
+     * False means the host reported nothing drawable — the popup/overlay
+     * hide path. */
+    bool AcquireCaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut,
+                          GUITHREADINFO *gtiOut) {
+        hasPreeditRect_ = false;
+        class RectSession : public ITfEditSession {
+          public:
+            RectSession(ITfContext *ctx, CTextService *svc) : ref_(1), ctx_(ctx), svc_(svc) {}
+            STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+                if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
+                    *ppv = this;
+                    AddRef();
+                    return S_OK;
+                }
+                *ppv = nullptr;
+                return E_NOINTERFACE;
+            }
+            STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+            STDMETHOD_(ULONG, Release)() override {
+                ULONG r = (ULONG)InterlockedDecrement(&ref_);
+                if (r == 0)
+                    delete this;
+                return r;
+            }
+            STDMETHOD(DoEditSession)(TfEditCookie ec) override {
+                ITfContextView *view = nullptr;
+                if (SUCCEEDED(ctx_->GetActiveView(&view)) && view) {
+                    TF_SELECTION sel;
+                    ULONG fetched = 0;
+                    if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 &&
+                        sel.range) {
+                        RECT rc;
+                        BOOL clipped = FALSE;
+                        if (SUCCEEDED(view->GetTextExt(ec, sel.range, &rc, &clipped))) {
+                            svc_->preeditRect_ = rc;
+                            svc_->hasPreeditRect_ = true;
+                        }
+                        sel.range->Release();
+                    }
+                    view->Release();
+                }
+                return S_OK;
+            }
+
+          private:
+            LONG ref_;
+            ITfContext *ctx_;
+            CTextService *svc_;
+        };
+        RectSession *rs = new RectSession(pic, this);
+        HRESULT hrRect = S_OK;
+        pic->RequestEditSession(clientId_, rs, TF_ES_SYNC | TF_ES_READ, &hrRect);
+        rs->Release();
+
+        GUITHREADINFO gti = {};
+        gti.cbSize = sizeof(gti);
+        bool haveCaret = GetGUIThreadInfo(GetCurrentThreadId(), &gti) != FALSE && gti.hwndCaret &&
+                         (gti.rcCaret.bottom > gti.rcCaret.top);
+        *haveCaretOut = haveCaret;
+        if (gtiOut)
+            *gtiOut = gti;
+        if (!hasPreeditRect_ && !haveCaret)
+            return false;
+        RECT rc = hasPreeditRect_ ? preeditRect_ : gti.rcCaret;
+        if (haveCaret && gti.hwndCaret) {
+            POINT topLeft = {gti.rcCaret.left, gti.rcCaret.top};
+            POINT bottomRight = {gti.rcCaret.right, gti.rcCaret.bottom};
+            ClientToScreen(gti.hwndCaret, &topLeft);
+            ClientToScreen(gti.hwndCaret, &bottomRight);
+            rc.left = topLeft.x;
+            rc.top = topLeft.y;
+            rc.right = bottomRight.x;
+            rc.bottom = bottomRight.y;
+        }
+        *rcOut = rc;
+        return true;
     }
 };
 extern "C" HINSTANCE g_hunmin_hinst;
@@ -1202,6 +1975,35 @@ extern "C" BOOL DllRegisterServer() {
             fwprintf(dbg, L"pProfile->EnableLanguageProfile hr=0x%lX\n", (unsigned long)enableHr);
             fflush(dbg);
         }
+        /* Icon index pin (measured 2026-10-18: the live profile answered
+         * IconFile=<dll> IconIndex=1 — a slot with no icon — and the language
+         * entry rendered BLANK; user report "still no icon on langbar").
+         * AddLanguageProfile was called with uIconIndex=0 yet the stored
+         * value read 1, so registration rewrites the stored index to 0
+         * (resource id 1 IS the first icon of hunmin.ico). */
+        {
+            wchar_t lp3412[256];
+            swprintf(lp3412, _countof(lp3412),
+                     L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile\\0x00000412\\%s",
+                     guidStr, L"{F2C70002-0000-0000-0000-000000000002}");
+            for (DWORD pass = 0; pass < 2; ++pass) {
+                wchar_t ikey[192];
+                if (pass == 0)
+                    swprintf(ikey, _countof(ikey),
+                             L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile\\0x00000412",
+                             guidStr);
+                else
+                    lstrcpynW(ikey, lp3412, _countof(ikey));
+                HKEY hIk = nullptr;
+                if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, ikey, 0, KEY_SET_VALUE, &hIk) ==
+                    ERROR_SUCCESS) {
+                    DWORD zero = 0;
+                    RegSetValueExW(hIk, L"IconIndex", 0, REG_DWORD, (const BYTE *)&zero,
+                                   sizeof zero);
+                    RegCloseKey(hIk);
+                }
+            }
+        }
         /* Activation has to be asked for on the modern interface.
          *
          * ITfInputProcessorProfiles::ActivateLanguageProfile returns S_OK
@@ -1277,6 +2079,71 @@ extern "C" BOOL DllRegisterServer() {
             fflush(dbg);
         }
         pCatMgr->Release();
+    }
+    /* The Start-menu entry (discoverability): "Hunmin IME 설정" under
+     * Programs. The ruled surface (the settings-ui exe) wins when it is
+     * deployed beside the DLL; the rundll32 entry into HunminSettingsShow
+     * is the fallback that always works. Deleted in unregister, mirroring
+     * the tree work. */
+    {
+        wchar_t dllDir[MAX_PATH];
+        lstrcpynW(dllDir, dllPath, MAX_PATH);
+        PathRemoveFileSpecW(dllDir);
+        wchar_t pub[MAX_PATH];
+        wchar_t exe[MAX_PATH];
+        exe[0] = 0;
+        /* Candidate A: deployment layout — <dll dir>\settings-ui\publish. */
+        _snwprintf(pub, MAX_PATH, L"%s\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
+        if (PathFileExistsW(pub))
+            lstrcpynW(exe, pub, MAX_PATH);
+        if (!exe[0]) {
+            /* Candidate B: this worktree's layout — repo\frontends\tsf\.. */
+            _snwprintf(pub, MAX_PATH,
+                       L"%s\\..\\..\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
+            wchar_t full[MAX_PATH];
+            if (GetFullPathNameW(pub, MAX_PATH, full, nullptr) && PathFileExistsW(full))
+                lstrcpynW(exe, full, MAX_PATH);
+        }
+        IShellLinkW *sl = nullptr;
+        HRESULT lh = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
+                                      IID_PPV_ARGS(&sl));
+        if (dbg)
+            fwprintf(dbg, L"shortcut CoCreate hr=0x%lX exe=%s\n", (unsigned long)lh,
+                     exe[0] ? exe : L"<rundll32>");
+        if (SUCCEEDED(lh) && sl) {
+            if (exe[0]) {
+                sl->SetPath(exe);
+            } else {
+                sl->SetPath(L"rundll32.exe");
+                wchar_t arg[MAX_PATH + 32];
+                _snwprintf(arg, _countof(arg), L"\"%s,HunminSettingsShow\"", dllPath);
+                sl->SetArguments(arg);
+            }
+            sl->SetWorkingDirectory(dllDir);
+            if (exe[0])
+                sl->SetIconLocation(exe, 0); /* the settings exe's own icon
+                                             * (assets/hunmin.ico, ApplicationIcon) */
+            IPersistFile *pf = nullptr;
+            if (SUCCEEDED(sl->QueryInterface(IID_PPV_ARGS(&pf))) && pf) {
+                PWSTR programs = nullptr;
+                if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Programs, 0, nullptr,
+                                                   &programs)) &&
+                    programs) {
+                    wchar_t link[MAX_PATH + 48];
+                    _snwprintf(link, _countof(link), L"%s\\Hunmin IME \uC124\uC815.lnk",
+                               programs);
+                    if (SUCCEEDED(pf->Save(link, TRUE))) {
+                        if (dbg)
+                            fwprintf(dbg, L"shortcut saved %s\n", link);
+                    } else if (dbg) {
+                        fwprintf(dbg, L"shortcut save FAILED %s\n", link);
+                    }
+                    CoTaskMemFree(programs);
+                }
+                pf->Release();
+            }
+            sl->Release();
+        }
     }
     CoUninitialize();
     return TRUE;

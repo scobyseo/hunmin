@@ -19,16 +19,17 @@ static void copyStr(const char *src, char *dst, size_t cap) {
 
 /* One slot: env first, then the REG_SZ under the store key. Returns 1 when
  * the registry satisfied the slot (the loader's diagnostic count), and never
- * leaves a slot empty — env miss + registry miss = the default. */
+ * leaves a slot empty — env miss + registry miss = the default. cap is the
+ * dst capacity (the slots differ: layout ids 64, the hanja key 32). */
 static int loadSlot(HKEY root, const char *envName, const char *regValName,
-                    const char *def, char *dst) {
+                    const char *def, char *dst, size_t cap) {
     char envBuf[HUNMIN_TSF_LAYOUT_ID_CAP];
     /* > 0 excludes an empty-valued variable from counting as set: an empty
      * HUNMIN_TSF_* means "no override", the same rule
      * hunmin_ctx_from_module() applies to HUNMIN_DATA_DIR. */
     if (GetEnvironmentVariableA(envName, envBuf, (DWORD)sizeof(envBuf)) > 0 &&
         envBuf[0] != '\0') {
-        copyStr(envBuf, dst, HUNMIN_TSF_LAYOUT_ID_CAP);
+        copyStr(envBuf, dst, cap);
         return 0;
     }
     if (root) {
@@ -44,12 +45,12 @@ static int loadSlot(HKEY root, const char *envName, const char *regValName,
              * treated as absent rather than trusted. */
             if (got == ERROR_SUCCESS && type == REG_SZ &&
                 (int)size > 0 && buf[0] != '\0') {
-                copyStr((const char *)buf, dst, HUNMIN_TSF_LAYOUT_ID_CAP);
+                copyStr((const char *)buf, dst, cap);
                 return 1;
             }
         }
     }
-    copyStr(def, dst, HUNMIN_TSF_LAYOUT_ID_CAP);
+    copyStr(def, dst, cap);
     return 0;
 }
 
@@ -91,10 +92,16 @@ extern "C" int hunmin_tsf_config_load(HKEY root, HunminTsfConfig *out) {
      * choice; the settings dialog lists every data dir layout anyway. */
     int fromReg =
         loadSlot(root, HUNMIN_TSF_ENV_HANGUL_LAYOUT, HUNMIN_TSF_REGVAL_HANGUL,
-                 "sin3-p2", out->hangulLayout);
+                 "sin3-p2", out->hangulLayout, HUNMIN_TSF_LAYOUT_ID_CAP);
     fromReg += loadSlot(root, HUNMIN_TSF_ENV_LATIN_LAYOUT,
-                        HUNMIN_TSF_REGVAL_LATIN, "us-qwerty", out->latinLayout);
+                        HUNMIN_TSF_REGVAL_LATIN, "us-qwerty", out->latinLayout,
+                        HUNMIN_TSF_LAYOUT_ID_CAP);
     loadToggleKeys(root, out->toggleKeys);
+    /* The candidate key (issue #67): the physical Hanja key (VK_HANJA = 0x19
+     * = decimal 25, bare) is the default, the same platform-alternate rule
+     * the toggle binding carries. */
+    fromReg += loadSlot(root, HUNMIN_TSF_ENV_HANJA_KEY, HUNMIN_TSF_REGVAL_HANJAKEY,
+                        "v1:25:0", out->hanjaKey, HUNMIN_TSF_HANJA_KEY_CAP);
     return fromReg;
 }
 
@@ -103,7 +110,8 @@ extern "C" BOOL hunmin_tsf_config_save(HKEY root, const HunminTsfConfig *cfg) {
         return FALSE;
     if (memchr(cfg->hangulLayout, '\0', HUNMIN_TSF_LAYOUT_ID_CAP) == nullptr ||
         memchr(cfg->latinLayout, '\0', HUNMIN_TSF_LAYOUT_ID_CAP) == nullptr ||
-        memchr(cfg->toggleKeys, '\0', HUNMIN_TSF_TOGGLE_KEYS_CAP) == nullptr)
+        memchr(cfg->toggleKeys, '\0', HUNMIN_TSF_TOGGLE_KEYS_CAP) == nullptr ||
+        memchr(cfg->hanjaKey, '\0', HUNMIN_TSF_HANJA_KEY_CAP) == nullptr)
         return FALSE; /* unterminated field: reject, never truncate */
     HKEY key = nullptr;
     if (RegCreateKeyExA(root, HUNMIN_TSF_CONFIG_ROOT_RELPATH, 0, nullptr, 0,
@@ -112,10 +120,11 @@ extern "C" BOOL hunmin_tsf_config_save(HKEY root, const HunminTsfConfig *cfg) {
     struct {
         const char *name;
         const char *value;
-    } vals[3] = {{HUNMIN_TSF_REGVAL_HANGUL, cfg->hangulLayout},
+    } vals[4] = {{HUNMIN_TSF_REGVAL_HANGUL, cfg->hangulLayout},
                  {HUNMIN_TSF_REGVAL_LATIN, cfg->latinLayout},
-                 {HUNMIN_TSF_REGVAL_TOGGLE, cfg->toggleKeys}};
-    for (int i = 0; i < 3; ++i) {
+                 {HUNMIN_TSF_REGVAL_TOGGLE, cfg->toggleKeys},
+                 {HUNMIN_TSF_REGVAL_HANJAKEY, cfg->hanjaKey}};
+    for (int i = 0; i < 4; ++i) {
         if (RegSetValueExA(key, vals[i].name, 0, REG_SZ,
                            (const BYTE *)vals[i].value,
                            (DWORD)strlen(vals[i].value) + 1) != ERROR_SUCCESS) {

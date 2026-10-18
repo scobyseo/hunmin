@@ -1,0 +1,8 @@
+/* 1 ICON hunmin.ico — the TIP DLL's own resources: the registration profile
+ * icon (AddLanguageProfile's iconPath=uIconIndex=0... resolution is by the
+ * language-bar kernel against this module; see assets/README.md for the
+ * provenance) and ITfLangBarItemButton::GetIcon's LoadIconWMAKEINTRESOURCE(1)
+ * path; index 0 of the DLL's icon-group list IS this icon. */
+1 ICON "..\\assets\\hunmin.ico"
+2 ICON "..\\assets\\hunmin-hangul.ico"
+3 ICON "..\\assets\\hunmin-latin.ico"

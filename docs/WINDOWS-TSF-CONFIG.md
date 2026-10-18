@@ -58,6 +58,14 @@ and so on. The shape is Android's `KeyBinding.kt` ported to Windows vocabulary
   does not fire under a modifier and a chord does not fire bare, so Shift+Space
   and a shifted layout row never fight over the same event. A malformed entry
   parses to nothing — a binding nobody set must not swallow a keystroke.
+- **Capture must not store VK_PROCESSKEY.** While a Korean IME is active, the
+  physical 한/Hanja keys arrive at a capture surface as VK_PROCESSKEY (0xE5 =
+  229) — the first live capture stored `v1:229:0` and bound nothing (measured
+  2026-10-18). The Win32 dialog resolves it through IMM32
+  (`ImmGetVirtualKey`) before recording; the WinUI exe has no IMM32 access and
+  instead rejects 229 with an on-screen "이 키는 IME가 가로챕니다" hint. The
+  tier-F1 harness sets `HUNMIN_TSF_HANJA_KEY`/`HUNMIN_TSF_TOGGLE_KEYS` env
+  defaults so a store a live session mutated cannot flip test expectations.
 - The **physical Han/Eng key is a platform alternate that survives every
   rebinding** (the Android rule: "a user rebinding 한/영 must not end up with a
   keyboard whose physical 한/영 key does nothing"): `Activate()` appends the
@@ -148,10 +156,20 @@ writes the store, nothing else.
   `v1:<vk>:<mods>` entry to `HangulEngKeys`: the store's ';' list grammar is
   unchanged, and the adapter still appends the implicit bare Han/Eng
   platform alternate — the physical key can never be captured away.
-- Store contract untouched (config.{h,cpp} untouched): `HKCU\Software\Hunmin\TSF,
+- Store contract untouched (config.{h,cpp} untouched): `HKCU\Software\Hunmin\TSF`,
   `REG_SZ` values `HangulLayout` / `LatinLayout` / `HangulEngKeys`; empty
   string removes the value (an absent toggle value leaves the physical key
   as the toggle).
+- Issue #67 adds a fourth value: `HanjaKey`, the candidate-window open/close
+  key, ONE `v1:<vk>:<mods>` entry (the maintainer instruction of 2026-10-18:
+  the physical Hanja key is the default, not F9). Default `v1:25:0`
+  (VK_HANJA = 0x19 = 25 decimal); env override `HUNMIN_TSF_HANJA_KEY` (the
+  same empty-means-no-override seam); the interim dialog's edit row follows
+  the same grammar, an empty edit saves the default explicitly. An
+  unparseable value falls back to the default IN THE ADAPTER rather than
+  unbinding the window — the candidate window must stay reachable, and the
+  failing entry must never swallow a keystroke (the toggle-binding rule
+  above, applied to a single-entry list).
 - Compact sizing (ruling: "configuration window ... too large; make both
   compact"), measured on this host 2026-10-17 (Windows 11 26200, the
   display's DPI scale 1.25 with a reported 96 DPI):

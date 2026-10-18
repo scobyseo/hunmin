@@ -20,6 +20,7 @@
 #include "settings.h"
 
 #include <ctffunc.h>
+#include <imm.h>
 #include <msctf.h>
 #include <cstdio>
 #include <cstring>
@@ -35,6 +36,10 @@ extern bool hunmin_tsf_log_path(const char *fname, char *out, size_t cap);
 #define IDC_LATIN_LIST 1002
 #define IDC_TOGGLE_EDIT 1003
 #define IDC_FEATURE_ROW 1004
+#define IDC_HANJA_EDIT 1005
+#define IDC_TOGGLE_CAPTURE 1006
+#define IDC_HANJA_CAPTURE 1007
+#define IDC_HINT_HANJA 2002
 #define IDC_HINT_TOGGLE 2001
 
 /* The provider's own type GUID (ITfFunctionProvider::GetType): fresh, not
@@ -132,6 +137,10 @@ struct SettingsState {
     /* The ids, in display order: the OK handler needs the id the user
      * picked, and CBS without sort keeps the added order. */
     bool applied = false;
+    /* Key-capture mode (WinUI 3 parity): 0 = idle, else the id of the edit
+     * the next recorded chord fills (IDC_TOGGLE_EDIT / IDC_HANJA_EDIT).
+     * The dialog's own WM_KEYDOWN/WM_SYSKEYDOWN owns the keys while set. */
+    int captureTarget = 0;
     /* Windows 11 look-and-feel state (measured HRESULTs land in the log). */
     bool dark = false;
     HFONT font = nullptr; /* the Segoe UI Variable upgrade, owned */
@@ -189,56 +198,89 @@ static void addItem(std::vector<WORD> &t, DWORD style, DWORD exStyle, WORD x, WO
 #define TITLE_LATIN L"\uC601\uBB38 \uC790\uD310" /* latin layout */
 #define TITLE_TOGGLE L"\uD55C/\uC605 \uC804\uD658 \uD0A4 \uBAA9\uB85D" /* toggle key list */
 #define HINT_TOGGLE L"\uC608: v1:165:0;v1:32:1" /* e.g. */
+#define TITLE_HANJA L"\uD55C\uC790 \uD0A4" /* 한자 키 — the candidate-window key label */
+#define HINT_HANJA L"\uC608: v1:25:0" /* e.g.: v1:25:0 (25 = the Hanja key, the default) */
 #define FEATURE_ROW L"\uC790\uB3D9 \uD55C/\uC605 \uC804\uD658: \uBBF8\uC815 (0.3)"
+/* The capture button's two labels (WinUI 3의 key-capture flow, interim
+ * dialog parity): idle = click me; capturing = the next key records.
+ * Escapes, not literals: MSVC reads this TU under the ANSI codepage (949). */
+#define CAPTURE_PROMPT_IDLE L"\uD0A4 \uC785\uB825" /* 키 입력 */
+#define CAPTURE_PROMPT_ACTIVE \
+    L"\uD0A4\uB974 \uB204\uB974\uC138\uC694\u2026 (ESC \uCDE8\uC18C)" /* 키를 누르세요… (ESC 취소) */
 
 static std::vector<WORD> buildDialogTemplate() {
     std::vector<WORD> t;
-    /* No WS_VISIBLE here, and DS_SETFONT is REQUIRED because the font
-     * block is written below: without the flag USER32 parses the size and
-     * face words as the first item's bytes and every item (or the process)
-     * breaks — measured on this host via a probe that varied the style
-     * bits. DS_CENTER centres the ownerless launcher window. */
-    w32(t, DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU);
+    /* WS_VISIBLE is REQUIRED here, measured (2026-10-18, defect "the dialog
+     * opens but shows nothing"): without it the modal dialog's window is
+     * created visible=0 at WM_INITDIALOG and STAYS invisible for its whole
+     * lifetime on this host — the user sees nothing. The About-dialog-boxes
+     * doc claims the system "always displays a modal dialog box regardless
+     * of whether the dialog box template specifies the WS_VISIBLE style"
+     * (learn.microsoft.com win32 dlgbox about-dialog-boxes, owner section);
+     * this host contradicts it under rundll32 with no owner, and the
+     * template bit is what the docs say applies when the claim does not.
+     * DS_CENTER centres the ownerless launcher window. */
+    w32(t, DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU |
+               WS_VISIBLE);
     w32(t, 0); /* exStyle */
     const size_t cditOff = t.size();
     t.push_back(0); /* cdit, patched below */
     t.push_back(0); /* x */
     t.push_back(0); /* y */
-    t.push_back(216);
-    t.push_back(164);
+    t.push_back(200);
+    t.push_back(150);
     t.push_back(0); /* menu: none */
     t.push_back(0); /* class: standard dialog */
     wstr(t, L"Hunmin settings");
     t.push_back(9); /* DS_SETFONT needs this size word, then the face */
     wstr(t, L"Segoe UI");
     const size_t first = t.size();
-    /* Row labels. */
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP, 0, 10, 8, 90, 10, 0, ATOM_STATIC,
+    /* Compact grid, tightened twice after the user's live run ("spacing
+     * between widgets is too big"): 200x150 dlu, rows 13-14 dlu apart,
+     * edit->hint 2 dlu. The 키 입력 button beside each key field enters the
+     * capture mode (WinUI 3 parity: press the chord, the dialog records
+     * it; ESC cancels). */
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP, 0, 10, 5, 86, 10, 0, ATOM_STATIC,
             TITLE_HANGUL);
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 112, 8, 90, 10, 0, ATOM_STATIC, TITLE_LATIN);
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 106, 5, 86, 10, 0, ATOM_STATIC, TITLE_LATIN);
     /* Layout combo boxes, one per slot. */
     addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0,
-            10, 20, 90, 60, IDC_HANGUL_LIST, ATOM_COMBOBOX, L"");
+            10, 15, 86, 56, IDC_HANGUL_LIST, ATOM_COMBOBOX, L"");
     addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0,
-            112, 20, 90, 60, IDC_LATIN_LIST, ATOM_COMBOBOX, L"");
+            106, 15, 86, 56, IDC_LATIN_LIST, ATOM_COMBOBOX, L"");
     /* The mode-toggle key list row. */
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 88, 192, 10, 0, ATOM_STATIC, TITLE_TOGGLE);
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 42, 140, 10, 0, ATOM_STATIC, TITLE_TOGGLE);
     addItem(t, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 0, 10,
-            100, 192, 14, IDC_TOGGLE_EDIT, ATOM_EDIT, L"");
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 118, 192, 10, IDC_HINT_TOGGLE, ATOM_STATIC,
+            52, 150, 12, IDC_TOGGLE_EDIT, ATOM_EDIT, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 164, 52, 30, 12,
+            IDC_TOGGLE_CAPTURE, ATOM_BUTTON, CAPTURE_PROMPT_IDLE);
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 66, 178, 10, IDC_HINT_TOGGLE, ATOM_STATIC,
             HINT_TOGGLE);
+    /* The Hanja/candidate key row (issue #67): the key that opens the
+     * candidate window, default the bare physical Hanja key. */
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 79, 140, 10, 0, ATOM_STATIC, TITLE_HANJA);
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 0, 10,
+            89, 150, 12, IDC_HANJA_EDIT, ATOM_EDIT, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 164, 89, 30, 12,
+            IDC_HANJA_CAPTURE, ATOM_BUTTON, CAPTURE_PROMPT_IDLE);
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 103, 178, 10, IDC_HINT_HANJA, ATOM_STATIC,
+            HINT_HANJA);
     /* The feature row: display only, disabled, per the recorded ruling. */
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 132, 134, 10, 0, ATOM_STATIC, FEATURE_ROW);
-    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 148, 130, 10,
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 116, 118, 10, 0, ATOM_STATIC, FEATURE_ROW);
+    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 132, 114, 10,
             12, IDC_FEATURE_ROW, ATOM_BUTTON, L"");
     /* OK / Cancel. */
     addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_DEFPUSHBUTTON, 0,
-            104, 148, 48, 14, IDOK, ATOM_BUTTON, L"OK");
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 158, 148, 48,
-            14, IDCANCEL, ATOM_BUTTON, L"Cancel");
-    /* The template declared exactly the items appended above: 5 statics +
-     * 2 combos + 1 edit + 1 checkbox + 2 buttons. */
-    t[cditOff] = 11;
+            100, 132, 44, 12, IDOK, ATOM_BUTTON, L"OK");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 148, 132, 44,
+            12, IDCANCEL, ATOM_BUTTON, L"Cancel");
+    /* The template declared exactly the items appended above: 7 statics +
+     * 2 combos + 2 edits + 2 capture buttons + 1 checkbox + 2 buttons =
+     * 16. (The count is derived from the add calls above; USER32 stops
+     * parsing at cdit, so a wrong number here either truncates children or
+     * reads garbage as the first item — the empty-dialog defect
+     * instrumentation kept the initdialog kids count as the guard.) */
+    t[cditOff] = 16;
     return t;
 }
 
@@ -273,10 +315,27 @@ static void applyAndClose(HWND h, SettingsState *s) {
     }
     strncpy(s->cfg.toggleKeys, keys.c_str(), HUNMIN_TSF_TOGGLE_KEYS_CAP - 1);
     s->cfg.toggleKeys[HUNMIN_TSF_TOGGLE_KEYS_CAP - 1] = '\0';
+    /* The candidate-window key (issue #67): ONE combo, same grammar. An
+     * empty edit means "reset to the default" — the store save then writes
+     * the default explicitly, so the resolved value always round-trips. */
+    std::string hanjaKey = wideToStore(getEditText(h, IDC_HANJA_EDIT));
+    if (hanjaKey.empty()) {
+        HunminTsfConfig def;
+        hunmin_tsf_config_load(nullptr, &def);
+        hanjaKey = def.hanjaKey;
+    }
+    if (hanjaKey.size() >= HUNMIN_TSF_HANJA_KEY_CAP) {
+        MessageBoxW(h, L"Hanja key binding too long.", L"Hunmin settings",
+                    MB_OK | MB_ICONWARNING);
+        return; /* stay on the dialog: the user fixes the value */
+    }
+    strncpy(s->cfg.hanjaKey, hanjaKey.c_str(), HUNMIN_TSF_HANJA_KEY_CAP - 1);
+    s->cfg.hanjaKey[HUNMIN_TSF_HANJA_KEY_CAP - 1] = '\0';
     if (hunmin_tsf_config_save(HKEY_CURRENT_USER, &s->cfg)) {
         s->applied = true;
-        logLine("settings: saved hangul=%s latin=%s keys=%s", s->cfg.hangulLayout,
-                s->cfg.latinLayout, s->cfg.toggleKeys);
+        logLine("settings: saved hangul=%s latin=%s keys=%s hanja=%s",
+                s->cfg.hangulLayout, s->cfg.latinLayout, s->cfg.toggleKeys,
+                s->cfg.hanjaKey);
         EndDialog(h, 1);
     } else {
         logLine("settings: save FAILED");
@@ -376,17 +435,20 @@ static void applyWindows11Look(HWND h, SettingsState *s) {
     attr = DWMWCP_ROUND;
     s->hrCorner = DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE, &attr,
                                         sizeof(attr));
-    /* Mica backdrop: the frame must be stretched over the client first. */
-    MARGINS m = {-1, -1, -1, -1};
-    s->hrExtend = DwmExtendFrameIntoClientArea(h, &m);
-    attr = DWMSBT_MICA;
-    s->hrBackdrop = DwmSetWindowAttribute(h, DWMWA_SYSTEMBACKDROP_TYPE, &attr,
-                                          sizeof(attr));
-    /* The dark, Mica-backed surface needs matching control colors and the
-     * dark control theme on the list/edit/checkbox controls. */
+    /* The Mica backdrop is GONE. Measured 2026-10-18 (defect "the dialog is
+     * empty"): with DwmExtendFrameIntoClientArea(-1) + DWMSBT_MICA the
+     * client is the DWM-composed surface and the dialog's own controls
+     * render ghost-white over it in light mode — the dialog reads as
+     * empty to the user (the PrintWindow capture proved contrasting text
+     * does not survive the backdrop). The interim dialog exists as a
+     * fallback surface; readability beats the Windows-11 look, which stays
+     * the ruled settings-ui exe's job. What remains of the look: rounded
+     * corners and, in dark mode, the dark title bar + dark child themes.
+     * WM_ERASEBKGND (below) now paints a solid mode brush instead of
+     * letting the backdrop show through. */
     if (s->dark) {
         const int ids[] = {IDC_HANGUL_LIST, IDC_LATIN_LIST, IDC_TOGGLE_EDIT,
-                           IDC_FEATURE_ROW};
+                           IDC_HANJA_EDIT, IDC_FEATURE_ROW};
         for (int id : ids) {
             HWND c = GetDlgItem(h, id);
             if (c)
@@ -414,9 +476,124 @@ static void applyWindows11Look(HWND h, SettingsState *s) {
             s->font = nf; /* deleted on WM_DESTROY (dialog-owned) */
         }
     }
-    logLine("settings w11: dark=%d corner=0x%lX darkAttr=0x%lX extend=0x%lX mica=0x%lX font=%ls",
-            (int)s->dark, (unsigned long)s->hrCorner, (unsigned long)s->hrDark,
-            (unsigned long)s->hrExtend, (unsigned long)s->hrBackdrop, want);
+    logLine("settings w11: dark=%d corner=0x%lX darkAttr=0x%lX font=%ls",
+            (int)s->dark, (unsigned long)s->hrCorner, (unsigned long)s->hrDark, want);
+}
+
+/* ---- the key-capture hook (the maintainer instruction: set combinations
+ * by pressing keys). The WM_KEYDOWN route was measured dead in this modal
+ * dialog on this host — the build shows this hemmed untouchable — so the
+ * recorder is a thread WH_KEYBOARD hook, which sees the TRUE physical VKs
+ * before any IME processing (the physical 한/Hanja keys arrive as their
+ * real VK here, not VK_PROCESSKEY). Keydown commits, chordless ESC
+ * cancels, modifier-only keys stay armed; the hook swallows every
+ * keyboard event while armed, so the IME cannot compose through the
+ * capture. ---- */
+static HHOOK g_captureHook = nullptr;
+static HWND g_captureDlg = nullptr;
+
+static bool captureIsModifier(WPARAM vk) {
+    return vk == VK_SHIFT || vk == VK_LSHIFT || vk == VK_RSHIFT ||
+           vk == VK_CONTROL || vk == VK_LCONTROL || vk == VK_RCONTROL ||
+           vk == VK_MENU || vk == VK_LMENU || vk == VK_RMENU || vk == VK_LWIN ||
+           vk == VK_RWIN || vk == VK_APPS || vk == VK_NUMLOCK;
+}
+
+/* Record the chord into the armed row and stand down. */
+static void recordCapturedChord(HWND h, SettingsState *s, WPARAM vk) {
+    unsigned mods = 0;
+    if (GetKeyState(VK_SHIFT) & 0x8000)
+        mods |= HUNMIN_TSF_KEYMOD_SHIFT;
+    if (GetKeyState(VK_CONTROL) & 0x8000)
+        mods |= HUNMIN_TSF_KEYMOD_CTRL;
+    if (GetKeyState(VK_MENU) & 0x8000)
+        mods |= HUNMIN_TSF_KEYMOD_ALT;
+    char combo[24];
+    snprintf(combo, sizeof combo, "v1:%lu:%u", (unsigned long)vk, mods);
+    HWND edit = GetDlgItem(h, s->captureTarget);
+    if (edit) {
+        if (s->captureTarget == IDC_TOGGLE_EDIT) {
+            /* The toggle row is a LIST: the chord APPENDS, unless the
+             * exact entry is already there (grammar
+             * "v1:<vk>:<mods>;..."). */
+            std::string keys = wideToStore(getEditText(h, IDC_TOGGLE_EDIT));
+            if (keys.find(combo) == std::string::npos) {
+                if (!keys.empty())
+                    keys += ";";
+                keys += combo;
+            }
+            std::wstring w(keys.begin(), keys.end());
+            SetWindowTextW(edit, w.c_str());
+        } else {
+            /* The Hanja row is ONE binding: the chord REPLACES. */
+            std::wstring w(combo, combo + strlen(combo));
+            SetWindowTextW(edit, w.c_str());
+        }
+        logLine("settings: captured %s into %d", combo, s->captureTarget);
+    }
+    if (g_captureHook) {
+        UnhookWindowsHookEx(g_captureHook);
+        g_captureHook = nullptr;
+    }
+    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
+                                            ? IDC_TOGGLE_CAPTURE
+                                            : IDC_HANJA_CAPTURE),
+                   CAPTURE_PROMPT_IDLE);
+    s->captureTarget = 0;
+}
+
+/* Cancel: the button label restores, the edit keeps whatever it had. */
+static void recordCapturedAbort(HWND h, SettingsState *s) {
+    logLine("settings: capture cancelled");
+    if (g_captureHook) {
+        UnhookWindowsHookEx(g_captureHook);
+        g_captureHook = nullptr;
+    }
+    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
+                                            ? IDC_TOGGLE_CAPTURE
+                                            : IDC_HANJA_CAPTURE),
+                   CAPTURE_PROMPT_IDLE);
+    s->captureTarget = 0;
+}
+
+static LRESULT CALLBACK captureKeyHook(int code, WPARAM wp, LPARAM lp) {
+    if (code == HC_ACTION && g_captureDlg) {
+        auto *s = (SettingsState *)GetWindowLongPtrW(g_captureDlg, GWLP_USERDATA);
+        if (s && s->captureTarget != 0) {
+            WPARAM vk = wp;
+            bool up = (lp & (1u << 31)) != 0;
+            bool chord = (GetKeyState(VK_SHIFT) & 0x8000) ||
+                         (GetKeyState(VK_CONTROL) & 0x8000) ||
+                         (GetKeyState(VK_MENU) & 0x8000);
+            if (!up && vk == VK_ESCAPE && !chord) {
+                recordCapturedAbort(g_captureDlg, s);
+                return 1;
+            }
+            if (!up && !captureIsModifier(vk)) {
+                recordCapturedChord(g_captureDlg, s, vk);
+                return 1;
+            }
+            /* keyups and modifier keydowns: swallowed, capture stays armed */
+            return 1;
+        }
+    }
+    return CallNextHookEx(nullptr, code, wp, lp);
+}
+
+/* Arm: install the hook and paint the prompt onto the targeted button. */
+static void RecordCapturedChordArm(HWND h, SettingsState *s) {
+    if (s->captureTarget == 0)
+        return;
+    g_captureDlg = h;
+    if (!g_captureHook)
+        g_captureHook =
+            SetWindowsHookExW(WH_KEYBOARD, captureKeyHook, nullptr, GetCurrentThreadId());
+    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
+                                            ? IDC_TOGGLE_CAPTURE
+                                            : IDC_HANJA_CAPTURE),
+                   CAPTURE_PROMPT_ACTIVE);
+    logLine("settings: hook capture armed target=%d hook=%p", s->captureTarget,
+            (void *)g_captureHook);
 }
 
 static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
@@ -442,9 +619,35 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         /* Toggle keys into the edit. */
         std::wstring w = utf8ToWide(s->cfg.toggleKeys);
         SetWindowTextW(GetDlgItem(h, IDC_TOGGLE_EDIT), w.c_str());
-        /* Windows 11 look: corners, Mica, dark mode, Variable font. Logged
-         * HRESULTs are the measurement (see the manual checklist). */
+        /* The candidate-window key into its edit (issue #67). */
+        std::wstring hk = utf8ToWide(s->cfg.hanjaKey);
+        SetWindowTextW(GetDlgItem(h, IDC_HANJA_EDIT), hk.c_str());
+        /* Windows 11 look: corners, dark title bar in dark mode, Variable
+         * font. Logged HRESULTs are the measurement (see the manual
+         * checklist). */
         applyWindows11Look(h, s);
+        /* Force the window into view (defect measured twice on 2026-10-18:
+         * the template's WS_VISIBLE reaches the window (initdialog logs
+         * visible=0 the ancestor artefact) yet the ownerless rundll32
+         * dialog never appeared ON SCREEN — PrintWindow proved the controls
+         * were all there. Owned top-level + DS_CENTER is not enough under
+         * this host, so: explicit ShowWindow, topmost, centred on the work
+         * area, and foreground. */
+        ShowWindow(h, SW_SHOWNORMAL);
+        {
+            RECT wa = {}, rc = {};
+            SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0);
+            GetWindowRect(h, &rc);
+            int w = rc.right - rc.left, ht = rc.bottom - rc.top;
+            SetWindowPos(h, HWND_TOPMOST, wa.left + ((wa.right - wa.left) - w) / 2,
+                         wa.top + ((wa.bottom - wa.top) - ht) / 2, 0, 0,
+                         SWP_NOSIZE);
+            SetForegroundWindow(h);
+            GetWindowRect(h, &rc);
+            logLine("settings: initdialog rect=(%ld,%ld)-(%ld,%ld) visible=%d",
+                    (long)rc.left, (long)rc.top, (long)rc.right, (long)rc.bottom,
+                    (int)IsWindowVisible(h));
+        }
         return TRUE;
     }
     switch (msg) {
@@ -457,6 +660,27 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
             EndDialog(h, 0);
             return TRUE;
         }
+        /* 키 입력 buttons: BN_CLICKED arms the capture mode by installing
+         * the thread WH_KEYBOARD hook (see captureKeyHook above): the
+         * WM_KEYDOWN route was measured dead in this dialog (armed,
+         * focused, no keydown ever arrived), so the hook is the recorder
+         * and the dialog proc only paints the mode. Focus stays put. */
+        if (LOWORD(wp) == IDC_TOGGLE_CAPTURE && HIWORD(wp) == BN_CLICKED) {
+            s->captureTarget = IDC_TOGGLE_EDIT;
+            RecordCapturedChordArm(h, s);
+            return TRUE;
+        }
+        if (LOWORD(wp) == IDC_HANJA_CAPTURE && HIWORD(wp) == BN_CLICKED) {
+            s->captureTarget = IDC_HANJA_EDIT;
+            RecordCapturedChordArm(h, s);
+            return TRUE;
+        }
+        break;
+    case WM_GETDLGCODE:
+        /* While capturing the dialog wants every key (arrows and Tab
+         * included); the navigation behaviour stays untouched otherwise. */
+        if (s && s->captureTarget != 0)
+            return DLGC_WANTALLKEYS;
         break;
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
@@ -478,12 +702,10 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         }
         break;
     case WM_ERASEBKGND:
-        /* Mica succeeded: paint nothing, the backdrop shows through. Mica
-         * failed (older host): fill dark so the window still renders as
-         * dark-mode, degraded but honest. */
+        /* Solid fill in dark mode; light mode keeps the default white —
+         * no backdrop shows through any more (Mica removed, see
+         * applyWindows11Look). */
         if (s && s->dark) {
-            if (SUCCEEDED(s->hrBackdrop))
-                return 1;
             RECT rc = {};
             GetClientRect(h, &rc);
             FillRect((HDC)wp, &rc, s->darkBgBrush);
@@ -491,6 +713,10 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         }
         break;
     case WM_DESTROY:
+        if (g_captureHook) {
+            UnhookWindowsHookEx(g_captureHook);
+            g_captureHook = nullptr;
+        }
         if (s && s->font)
             DeleteObject(s->font);
         if (s && s->editBrush)
@@ -523,6 +749,22 @@ static bool settingsDialogRun(HWND parent) {
     logLine("settings: open rows hangul=%zu latin=%zu", s.hangulRows.size(),
             s.latinRows.size());
     std::vector<WORD> t = buildDialogTemplate();
+    /* Template ground truth in the log: this stream is what USER32 parses,
+     * and the empty-dialog defect report (2026-10-18) showed a created-but-
+     * childless window — the dump here says whether the live bytes differ
+     * from the layout the docs specify (style/exstyle DWORDs, cdit, x/y/cx/
+     * cy, menu/class WORDs, title, DS_SETFONT size+face, then DWORD-aligned
+     * DLGITEMTEMPLATEs). */
+    {
+        std::string hex;
+        char piece[16];
+        const size_t dump = t.size() < 30 ? t.size() : 30;
+        for (size_t i = 0; i < dump; ++i) {
+            snprintf(piece, sizeof piece, "%04X ", t[i]);
+            hex += piece;
+        }
+        logLine("settings: template words=%zu head=%s", t.size(), hex.c_str());
+    }
     /* The instance handle: from this TU's own address, not a module-name
      * lookup — the tier-F1 binary links this code and is not the TIP
      * module (tsf.cpp's GetModuleHandleW(L"hunmin-tsf.dll") trick does not

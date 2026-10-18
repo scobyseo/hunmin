@@ -40,9 +40,11 @@ extern "C" {
 #define HUNMIN_TSF_ENV_HANGUL_LAYOUT "HUNMIN_TSF_HANGUL_LAYOUT"
 #define HUNMIN_TSF_ENV_LATIN_LAYOUT "HUNMIN_TSF_LATIN_LAYOUT"
 #define HUNMIN_TSF_ENV_TOGGLE_KEYS "HUNMIN_TSF_TOGGLE_KEYS"
+#define HUNMIN_TSF_ENV_HANJA_KEY "HUNMIN_TSF_HANJA_KEY"
 #define HUNMIN_TSF_REGVAL_HANGUL "HangulLayout"
 #define HUNMIN_TSF_REGVAL_LATIN "LatinLayout"
 #define HUNMIN_TSF_REGVAL_TOGGLE "HangulEngKeys"
+#define HUNMIN_TSF_REGVAL_HANJAKEY "HanjaKey"
 
 /* Slots are fixed-size: layout ids are short ASCII strings and the engine
  * compares them by exact bytes; 64 covers every id in libhunmin/data. */
@@ -50,6 +52,10 @@ extern "C" {
 /* The mode-toggle binding list ("v1:<vk>:<mods>;...", see keybinding.h) plus
  * NUL: room for four chords plus the headroom a long list needs. */
 #define HUNMIN_TSF_TOGGLE_KEYS_CAP 256
+/* The Hanja/candidate key: ONE binding in the same grammar (issue #67,
+ * maintainer instruction: the physical Hanja key is the default candidate
+ * key, not F9, and the key is selectable in the settings dialog). */
+#define HUNMIN_TSF_HANJA_KEY_CAP 32
 
 typedef struct HunminTsfConfig {
     char hangulLayout[HUNMIN_TSF_LAYOUT_ID_CAP];
@@ -60,6 +66,10 @@ typedef struct HunminTsfConfig {
      * alternate no rebinding can make dead, the maintainer's instruction that
      * the physical key is the default. */
     char toggleKeys[HUNMIN_TSF_TOGGLE_KEYS_CAP];
+    /* The candidate-window key, same grammar, ONE entry. Empty means the
+     * default: the physical Hanja key (VK_HANJA, bare) — the same
+     * platform-alternate rule as the toggle. */
+    char hanjaKey[HUNMIN_TSF_HANJA_KEY_CAP];
 } HunminTsfConfig;
 
 /* Fill *out from env, then registry, then defaults. root may be NULL (the

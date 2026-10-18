@@ -11,6 +11,7 @@ add_library(hunmin-tsf MODULE
     src/tsf.cpp
     src/config.cpp
     src/settings.cpp
+    src/candwindow.cpp
 )
 
 # src/keybinding.cpp is NOT a target source on purpose: it is included by
@@ -72,8 +73,13 @@ target_link_libraries(hunmin-tsf PRIVATE
     ole32
     oleaut32
     user32
+    imm32
 )
-# Use module definition file for explicit exports.
+# Use module definition file for explicit exports, and the icon resource
+# (assets/README.md: provenance of hunmin.ico; MSVC's rc.exe compiles it,
+# the resource lands as id 1 = the profile icon and the barbar button).
+enable_language(RC)
+target_sources(hunmin-tsf PRIVATE src/hunmin-tsf.rc)
 set_target_properties(hunmin-tsf PROPERTIES
     SUFFIX ".dll"
     LINK_OPTIONS "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/src/hunmin-tsf.def")

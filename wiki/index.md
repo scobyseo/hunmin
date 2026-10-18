@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-17 | Total pages: 41
+> Last updated: 2026-10-18 | Total pages: 42
 
 ## Concepts
 
@@ -221,4 +221,11 @@ tools/wiki-lint.py --strict   # what docs-lint runs
 ```
 
 The one check that is not advisory: a `void` or `superseded` page still linked
-from an `active` page. That is the failure this wiki was created for.
+from an `active` page. That is the failure this wiki was created for.- [[2026-10-18-milestone-d-candidate-edit-mode-ux]] — issue #67's milestone D:
+  the candidate window (whole-word anchor), the Hanja-key default and its
+  store value, key capture via a thread keyboard hook (the WM_KEYDOWN route
+  measured dead in a modal dialog), the on-screen defects rooted (Mica,
+  ownerless rundll32 not displayed by WS_VISIBLE alone), the Start-menu
+  entry, the conversion-compartment mode write, the system langbar menu
+  extension, and the (ko,hanja) krdict dedupe; pending: last-syllable
+  fallback, mode-persist ruling, live re-register, CI billing.
