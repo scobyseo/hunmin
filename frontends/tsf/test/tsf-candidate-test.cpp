@@ -15,8 +15,10 @@
  * `안` (wordbuf_) and preedit `녕` ([s] row commits `안`, [d] row shows the
  * in-flight `녕`); `rkrkrk` ends with wordbuf_ `가가` and preedit `가`.
  * Those two lookups are the anchors: `안녕` has 2 candidates (both word),
- * `가가가` has 0, `가` has 65 (the hanja-table fallback) — measured with
- * hunmin_suggest_count against the shipped tables on 2026-10-17.
+ * `가가가` has 0 over the whole word but the LAST syllable `가` has 65
+ * (the hanja-table fallback, issue #100), and `가디`/`디` are zero in BOTH
+ * lookups — measured with hunmin_suggest_count against the shipped tables
+ * on 2026-10-18.
  *
  * Registry hygiene: the layout seam is the env override
  * (HUNMIN_TSF_HANGUL_LAYOUT, an empty value means "no override"), so this
@@ -354,20 +356,27 @@ int main() {
         f.Teardown();
     }
 
-    /* 8. Zero candidates over the whole word: `rkrkrk` -> `가가가` (0 hits)
-     * — the Hanja key passes through in both phases, no window, no state. */
+    /* 8. Zero whole-word candidates, multi-syllable word: `rkrkrk` ->
+     * `가가가` (0 hits over the word; the LAST syllable `가` has 65).
+     * Issue #100: the fallback list OPENS, anchored to the last syllable,
+     * and the key is eaten in both phases (one decision). */
     {
         Fixture f;
         f.Begin();
         f.Type("rkrkrk");
         f.AssertWordbuf(kAnchorGaGa, "rkrkrk");
         f.AssertPreedit(kAnchorGa, "rkrkrk");
-        BOOL testEat = TRUE, eat = TRUE;
+        BOOL testEat = FALSE, eat = FALSE;
         f.TestKey(VK_HANJA, &testEat);
         f.Key(VK_HANJA, &eat);
-        CHECK(testEat == FALSE, "case 8: Hanja-key test ate with zero candidates");
-        CHECK(eat == FALSE, "case 8: Hanja-key down ate with zero candidates");
-        CHECK(!f.svc->candActive_, "case 8: state active with zero candidates");
+        CHECK(testEat == TRUE, "case 8: Hanja-key test did not eat over the fallback list");
+        CHECK(eat == TRUE, "case 8: Hanja-key down did not eat over the fallback list");
+        CHECK(f.svc->candActive_, "case 8: fallback list did not open");
+        CHECK(f.svc->candFallback_, "case 8: list not marked as a syllable-fallback list");
+        CHECK(f.svc->candSource_ == kAnchorGa, "case 8: anchored to %s, want the last syllable",
+              f.svc->candSource_.c_str());
+        CHECK(f.svc->candCount_ >= 11, "case 8: count %d, want the measured 65-row `가` list",
+              f.svc->candCount_);
         f.AssertNoInsert("case 8");
         f.Teardown();
     }
@@ -521,6 +530,74 @@ int main() {
         CHECK(f.svc->candCount_ == 1, "case 15: count %d walking the env seam (deduped)",
               f.svc->candCount_);
         _putenv_s("HUNMIN_TSF_HANJA_KEY", "");
+        f.Teardown();
+    }
+
+    /* 16. Issue #100: a fallback list's commit replaces ONLY the last
+     * syllable. `rkrkrk` -> the `가` fallback list; committing row 0 inserts
+     * `가가` + the chosen Hanja (the word prefix stays Hangul), exactly one
+     * insert, the buffer drains once like the ordinary commit. */
+    {
+        Fixture f;
+        f.Begin();
+        f.Type("rkrkrk");
+        f.Key(VK_HANJA); /* opens the last-syllable fallback list (case 8) */
+        CHECK(f.svc->candFallback_, "case 16: fallback list did not open");
+        std::string expected(hunmin_suggest_text(f.svc->ctx_, 0));
+        CHECK(!expected.empty(), "case 16: candidate 0 text empty against the data");
+        if (!expected.empty()) {
+            BOOL eat = FALSE;
+            f.Key(VK_RETURN, &eat);
+            CHECK(eat == TRUE, "case 16: Return not consumed on a fallback list");
+            CHECK(f.ctx->insertions.size() == 1, "case 16: %zu insertions, want 1",
+                  f.ctx->insertions.size());
+            if (f.ctx->insertions.size() == 1)
+                CHECK(utf8(f.ctx->insertions[0]) == std::string(kAnchorGaGa) + expected,
+                      "case 16: inserted %s, want %s",
+                      utf8(f.ctx->insertions[0]).c_str(),
+                      (std::string(kAnchorGaGa) + expected).c_str());
+            CHECK(!f.svc->candActive_, "case 16: window still open after fallback commit");
+            f.AssertWordbuf(nullptr, "case 16");
+            f.AssertPreedit(nullptr, "case 16");
+        }
+        f.Teardown();
+    }
+
+    /* 17. Zero-and-zero (`rkel` -> `가디`: 0 whole-word, 0 on the last
+     * syllable 디 — measured): the Hanja key passes through in both phases,
+     * no window, no state, no insert. */
+    {
+        Fixture f;
+        f.Begin();
+        f.Type("rkel");
+        CHECK(utf8(f.svc->wordbuf_) + std::string(hunmin_ic_preedit(f.svc->ic_)) ==
+                  std::string(kAnchorGa) + "\xEB\x94\x94",
+              "case 17: composed buffer is not ga-di");
+        f.AssertPreedit("\xEB\x94\x94", "case 17");
+        BOOL testEat = TRUE, eat = TRUE;
+        f.TestKey(VK_HANJA, &testEat);
+        f.Key(VK_HANJA, &eat);
+        CHECK(testEat == FALSE, "case 17: Hanja-key test ate on a zero-and-zero buffer");
+        CHECK(eat == FALSE, "case 17: Hanja-key down ate on a zero-and-zero buffer");
+        CHECK(!f.svc->candActive_, "case 17: state active on a zero-and-zero buffer");
+        f.AssertNoInsert("case 17");
+        f.Teardown();
+    }
+
+    /* 18. One-syllable zero (`el` -> `디`: 0 hits, and the fallback lookup
+     * would be the same single syllable — word == last): pass-through in
+     * both phases (issue #100 keeps one-syllable words as they were). */
+    {
+        Fixture f;
+        f.Begin();
+        f.Type("el");
+        BOOL testEat = TRUE, eat = TRUE;
+        f.TestKey(VK_HANJA, &testEat);
+        f.Key(VK_HANJA, &eat);
+        CHECK(testEat == FALSE, "case 18: Hanja-key test ate on a one-syllable zero");
+        CHECK(eat == FALSE, "case 18: Hanja-key down ate on a one-syllable zero");
+        CHECK(!f.svc->candActive_, "case 18: state active on a one-syllable zero");
+        f.AssertNoInsert("case 18");
         f.Teardown();
     }
 
