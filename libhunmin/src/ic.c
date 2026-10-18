@@ -659,6 +659,22 @@ bool hunmin_ic_process(hunmin_ic *ic, uint32_t ch) {
   return r;
 }
 
+bool hunmin_ic_process_key(hunmin_ic *ic, uint32_t base, uint32_t shift) {
+  if (!ic) return false;
+  /* The case endpoint lives here, not in the frontend: the loader's own
+   * US-QWERTY map (data.c, one home — docs/IC-INPUT-OPTIONS.md §0-4) turns
+   * (base, shift) into the same ch the legacy call would have been handed.
+   * When the base has NO shifted form, the character is treated as already
+   * resolved and the bit selects nothing further — that is the
+   * fcitx5-shaped-host rule specified in
+   * docs/SPEC-P2.md §"IC input entry points", not invented per-host. */
+  if (shift) {
+    uint32_t s = hm_shifted_of(base);
+    if (s) return hunmin_ic_process(ic, s);
+  }
+  return hunmin_ic_process(ic, base);
+}
+
 static void flags_rebuild(hunmin_ic *ic) {
   for (int i = 0; i < 128; i++)
     ic->flags_eff[i] = ic->flag_ovr[i] >= 0 ? ic->flag_ovr[i] : ic->L->flags[i];

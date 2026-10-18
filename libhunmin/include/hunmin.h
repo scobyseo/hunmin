@@ -64,6 +64,24 @@ void hunmin_ic_free(hunmin_ic *ic);
  * Returns true when consumed by the engine. */
 bool hunmin_ic_process(hunmin_ic *ic, uint32_t ch);
 
+/* Feed one key event as base character + explicit modifier (issue #90,
+ * docs/IC-INPUT-OPTIONS.md §2-B option B). base is the *unshifted* US-QWERTY
+ * character; shift is nonzero when Shift is held. The engine owns the case
+ * endpoint: it reuses the loader's own US-QWERTY shift map, so no host parses
+ * shift as a character bit — a frontend passes unshifted + the bit and the
+ * CapsLock×Shift decision moves here (docs/SPEC-P2 §"IC input entry points").
+ *
+ * The dual-convention rule (specified in SPEC-P2, not invented per-host): a
+ * character that is already the shifted form of a key (an uppercase letter, or
+ * a shifted punctuation — a fcitx5-shaped host) is treated as already
+ * resolved, and a shift bit on it selects nothing further: ch reaches the
+ * engine as-is. Equivalently, the shift bit is only honoured when the base
+ * character has a shifted form under the loader's map.
+ *
+ * The legacy case-encoding call hunmin_ic_process stays byte-for-byte valid
+ * and remains the only call existing frontends use. */
+bool hunmin_ic_process_key(hunmin_ic *ic, uint32_t base, uint32_t shift);
+
 /* UTF-8 of what the last hunmin_ic_process produced; a destructive read
  * (cleared on read — deliver it once, it will not repeat), "" if none.
  * Valid until the next hunmin_ic_* call on this ic.

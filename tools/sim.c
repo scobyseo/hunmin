@@ -2,7 +2,13 @@
  *   hunmin-sim --data DIR --layout ID --keys 'gqqw' [--trace]
  *   hunmin-sim --data DIR --check tests/golden/ref-dubeolsik.jsonl
  * --check drives the engine with each event's "in" and compares commit and
- * preedit exactly (tier A parity gate). */
+ * preedit exactly (tier A parity gate).
+ * --keys/--batch may carry an explicit shift on a key (issue #90,
+ * hunmin_ic_process_key): "\\s<char>" is the base char with Shift held, "\\b"
+ * is backspace, "\\" (two backslashes) is a literal backslash. Any other
+ * escape is a load error, not a silently literalised backslash. Committed
+ * callers never feed a raw backslash (it is excluded from every key
+ * alphabet), so a key string without backslashes behaves exactly as before. */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -138,6 +144,43 @@ static void hangul_canon(const char *s, char *out, size_t cap) {
     }
   }
   out[o] = 0;
+}
+
+/* Consume one keystroke event from *s and advance it: a plain byte, or a
+ * backslash escape ("\s<char>" explicit shift driven through
+ * hunmin_ic_process_key, "\b" backspace, "\\" a literal backslash). Returns 0,
+ * or -1 after naming the bad escape — an unknown escape must fail loudly, not
+ * become a backslash-then-character pair. */
+static int keys_step(const char **s, uint32_t *ch, uint32_t *shift,
+                     const char *what) {
+  const char *p = *s;
+  if (p[0] == '\\' && p[1]) {
+    if (p[1] == 's' && p[2]) {
+      *ch = (unsigned char)p[2];
+      *shift = 1;
+      *s = p + 3;
+      return 0;
+    }
+    if (p[1] == 'b') {
+      *ch = 0x08;
+      *shift = 0;
+      *s = p + 2;
+      return 0;
+    }
+    if (p[1] == '\\') {
+      *ch = (unsigned char)'\\';
+      *shift = 0;
+      *s = p + 2;
+      return 0;
+    }
+    fprintf(stderr, "%s: unknown key escape \\%c (\\\\ = literal, "
+                    "\\s<char> = shift, \\b = backspace)\n", what, p[1]);
+    return -1;
+  }
+  *ch = (unsigned char)p[0];
+  *shift = 0;
+  *s = p + 1;
+  return 0;
 }
 
 static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layout) {
@@ -316,8 +359,13 @@ int main(int argc, char **argv) {
        * disagree with --trace. */
       char acc[1024];
       size_t acclen = 0;
-      for (size_t i = 0; i < n; i++) {
-        hunmin_ic_process(bic, (unsigned char)line[i]);
+      for (const char *kp = line; *kp;) {
+        uint32_t key = 0, shift = 0;
+        if (keys_step(&kp, &key, &shift, "--batch")) return 2;
+        if (shift)
+          hunmin_ic_process_key(bic, key, 1); /* explicit-modifier entry */
+        else
+          hunmin_ic_process(bic, key);
         const char *c = hunmin_ic_commit(bic);
         size_t cl = strlen(c);
         if (cl && acclen + cl < sizeof acc) {
@@ -349,18 +397,27 @@ int main(int argc, char **argv) {
     return 2;
   }
   if (caps) hunmin_ic_set_option(ic, "caps", 1);
-  for (const char *s = keys; *s; s++) {
-    /* The return value is the engine's CONSUMPTION decision, and --trace threw
-     * it away. That made the trace unable to say anything about a key the
-     * engine declined -- space above all, which is the one key whose whole
-     * point is that it is not consumed. Consumers had to re-derive it from the
-     * layout's key table (tools/gen-conformance.py:221 does exactly that),
-     * which is a second, weaker source for something the engine already
-     * answered. Emitting it here makes tier A the single source for
-     * consumption as well as for commit/preedit, which is what the tier-D3
-     * expectation needs: a declined key is forwarded to the client, and the
-     * client is where the space character has to come from. */
-    bool consumed = hunmin_ic_process(ic, (unsigned char)*s);
+  /* The return value is the engine's CONSUMPTION decision, and --trace threw
+   * it away. That made the trace unable to say anything about a key the
+   * engine declined -- space above all, which is the one key whose whole
+   * point is that it is not consumed. Consumers had to re-derive it from the
+   * layout's key table (tools/gen-conformance.py:221 does exactly that),
+   * which is a second, weaker source for something the engine already
+   * answered. Emitting it here makes tier A the single source for
+   * consumption as well as for commit/preedit, which is what the tier-D3
+   * expectation needs: a declined key is forwarded to the client, and the
+   * client is where the space character has to come from.
+   *
+   * An event with an explicit shift (the "\s<char>" escape) goes through
+   * hunmin_ic_process_key -- the same (base, shift) triple tier C already
+   * records for x11/win32/android. A plain byte stays on the legacy
+   * case-encoding call, byte-for-byte. */
+  for (const char *s = keys; *s;) {
+    uint32_t key = 0, shift = 0;
+    if (keys_step(&s, &key, &shift, "--keys")) return 2;
+    bool consumed;
+    if (shift) consumed = hunmin_ic_process_key(ic, key, 1);
+    else consumed = hunmin_ic_process(ic, key);
     if (trace) {
       /* Every string in the line is escaped, not just commit and preedit.
        * The input key went through raw `%c`, so sin3-p2's shifted apostrophe
@@ -370,16 +427,22 @@ int main(int argc, char **argv) {
        * tools/gen-conformance.py (tier C corpus) and tools/sin3p2-ksgen.py.
        * The engine was right; the emitter was not. Found while building a
        * keystroke generator that searches the layout's key table, whose
-       * alphabet necessarily includes '"' and '\\'. */
+       * alphabet necessarily includes '"' and '\'. */
       char kbuf[8], cbuf[256], pbuf[256];
-      char kraw[2] = {(char)*s, 0};
+      char kraw[2] = {(char)key, 0};
       json_escape(kraw, kbuf, sizeof kbuf);
       json_escape(hunmin_ic_commit(ic), cbuf, sizeof cbuf);
       json_escape(hunmin_ic_preedit(ic), pbuf, sizeof pbuf);
-      printf("{\"in\":{\"ch\":\"%s\"},\"commit\":\"%s\",\"preedit\":\"%s\","
+      /* A shift key records itself in "in" so the trace row is self-describing
+       * at the same native-event level tier C uses; rows without the escape
+       * stay exactly as gen-conformance has always parsed them. */
+      printf("{\"in\":{\"ch\":\"%s\"%s},\"commit\":\"%s\",\"preedit\":\"%s\","
              "\"consumed\":%s}\n",
-             kbuf, cbuf, pbuf, consumed ? "true" : "false");
-    } else printf("[%c] commit='%s' preedit='%s'\n", *s, hunmin_ic_commit(ic), hunmin_ic_preedit(ic));
+             kbuf, shift ? ",\"shift\":true" : "", cbuf, pbuf,
+             consumed ? "true" : "false");
+    } else
+      printf("[%c%s] commit='%s' preedit='%s'\n", (unsigned char)key,
+             shift ? "+" : "", hunmin_ic_commit(ic), hunmin_ic_preedit(ic));
   }
   return 0;
 }

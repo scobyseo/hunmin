@@ -34,6 +34,12 @@ static uint32_t shifted_of(char c) {
   return 0;
 }
 
+/* Internal (non-ABI) form for ic.c: the shifted form of a base character
+ * under the loader's own US-QWERTY map, 0 when the base has none. The public
+ * wrapper hunmin_ic_process_key reuses this — no second US table anywhere
+ * (docs/IC-INPUT-OPTIONS.md §0-4). */
+uint32_t hm_shifted_of(uint32_t base) { return base < 128 ? shifted_of((char)base) : 0; }
+
 static int cp_from_utf8(const char *s, uint32_t *cp) { /* -> consumed bytes */
   unsigned char c = (unsigned char)s[0];
   if (!c) return 0;

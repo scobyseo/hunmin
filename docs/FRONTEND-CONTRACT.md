@@ -104,6 +104,18 @@ deliberately lets Shift through as a plain character — uppercase letters
 초성체 depend on it). **Holds.** If a layout needed Shift as a state bit, this
 would have to change.
 
+**Dual convention appended (issue #90, 2026-10-18):** the engine now also has
+the explicit-modifier entry `hunmin_ic_process_key(ic, base, shift)`
+(docs/SPEC-P2 "IC input entry points"; measurement in
+`docs/IC-INPUT-OPTIONS.md` §2-B). fcitx5 does not use it and everything in
+A1–A3 above stays its contract unchanged; the value is that the case endpoint
+— the CapsLock×Shift decision each adapter otherwise re-derives, and the one
+Android shipped wrong once (A3') — now has one engine-owned home, engine-tested
+without any host layout (ctest `engine-process-key`, tier A). A frontend that
+migrates keeps its VK/keysym → base-character half and passes the bit; the
+already-resolved rule covers a host that delivers the resolved character
+itself (the fcitx5 shape).
+
 ### A3. CapsLock is inverted by the adapter
 
 `engine.cpp:66-72`: when CapsLock is down and the sym is `A`–`Z`, it lowercases

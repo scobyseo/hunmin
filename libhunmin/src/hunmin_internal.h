@@ -83,6 +83,10 @@ struct hunmin_ctx {
 /* data.c */
 hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs);
 void hm_data_free(hunmin_ctx *ctx);
+/* Shifted form of a US-QWERTY base character under the loader's map (0 when
+ * there is none); used by hunmin_ic_process_key so the case endpoint has one
+ * home. Not exported in the ABI. */
+uint32_t hm_shifted_of(uint32_t base);
 
 /* Split a colon-joined data-dir list without strtok, and Windows-drive-aware:
  * the ':' in "C:/x" is a drive marker, not a separator, so "C:/a" must never

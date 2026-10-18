@@ -216,6 +216,18 @@ if(BUILD_TESTING AND Python3_FOUND)
     LABELS "tier-A"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
+  # Tier A equality: hunmin_ic_process_key() (explicit modifier, issue #90)
+  # against the case-encoding hunmin_ic_process() over every shipped layout
+  # and every (base, shift) row. The legacy character is computed from an
+  # independent copy of the US-QWERTY map in the test, so a drift in the
+  # loader's map reads red instead of passing unobserved through both sides.
+  add_executable(process-key-test libhunmin/tests/process-key-test.c)
+  target_link_libraries(process-key-test PRIVATE hunmin)
+  add_test(NAME engine-process-key COMMAND process-key-test)
+  set_tests_properties(engine-process-key PROPERTIES
+    LABELS "tier-A"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
   # Structural invariants of the fcitx5 adapter that tier D1 provably does
   # not cover (docs/FRONTEND-CONTRACT.md §4: mutation testing showed the
   # commit/flush split and the caps option can both break with D1 still green).

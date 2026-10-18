@@ -13,6 +13,7 @@ hunmin_ic_free
 hunmin_ic_new
 hunmin_ic_preedit
 hunmin_ic_process
+hunmin_ic_process_key
 hunmin_ic_reset
 hunmin_ic_set_option
 hunmin_suggest_count

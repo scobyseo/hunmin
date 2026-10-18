@@ -150,3 +150,39 @@ Findings recorded while building them:
   `ㅁ+ㅈ→ᅕ`; the `ㅆ` second-cho key is unreachable (key `x` yields `ㅛ` in
   cho-only state). Excluded from corpora; opening items for the 388
   `unitmix-unresolved` old-cluster rows.
+## IC input entry points (issue #90: the explicit-modifier append)
+
+The engine's composition input is the case-encoding `char` event
+(`hunmin_ic_process(ic, ch)`, libhangul/golden parity). Direction from the
+close of #87: option B of `docs/IC-INPUT-OPTIONS.md` -- append an
+explicit-modifier key entry point; the case endpoint moves into the engine.
+
+**This is engine-interface behaviour justification (hard rule), recorded
+2026-10-18.** The wrapper reuses the loader's own US-QWERTY shift map
+(`data.c` `BASE[]`/`SHIFTED[]`, one home -- §0-4 of the options doc):
+`hunmin_ic_process_key(ic, base, shift)` maps `(base, shift)` to the same
+`ch` the legacy call was always handed. No new US table, no layout-JSON
+change, no expression or state-machine change; `hunmin_ic_process` is
+byte-for-byte unchanged and remains the only call fcitx5 uses (its keysym
+arrives pre-resolved).
+
+**The already-resolved rule (specified here, not invented per-host).** Given
+`base`:
+
+- When the base is a lowercase letter or one of the 21 punctuation base keys,
+  `base` names a physical key: `shift=0` selects the plain row, `shift=1`
+  selects the shifted row at `keys[shifted_of(base)]` -- exactly the addressing
+  the loader materialises (docs/IC-INPUT-OPTIONS.md §1).
+- When `base` is *itself* an already-shifted form (an uppercase letter, a
+  shifted punctuation, or any non-US-QWERTY codepoint), `shifted_of(base)` is
+  zero and nothing further is selected: the character reaches the engine as-is
+  and the shift bit is idempotent. This is the fcitx5-shaped-host case: a
+  frontend whose event already carries the resolved character passes it with
+  either shift value and behaviour equals the legacy call.
+
+Guard: ctest `engine-process-key` (tier A) sweeps every shipped layout × every
+(base, shift) row and asserts commit/preedit/equality of consumption against
+the legacy call, with the legacy character computed from an independent copy
+of the shift map so a drift in the loader's map reads red. Consequence
+preserved: no tier-A golden or tier-C corpus regen -- an appended entry point
+invalidates none of them (options doc §0-2).
