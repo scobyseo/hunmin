@@ -218,7 +218,7 @@ int main() {
         f.Key(VK_HANJA, &eat);
         CHECK(eat == TRUE, "case 2: Hanja-key down did not eat");
         CHECK(f.svc->candActive_, "case 2: window not active after the Hanja key");
-        CHECK(f.svc->candCount_ == 2, "case 2: count %d, want 2 (krdict meal check)",
+        CHECK(f.svc->candCount_ == 1, "case 2: count %d, want 1 (krdict dedupe merged the sense rows, tools/krdict-dedupe.py)",
               f.svc->candCount_);
         CHECK(f.svc->candCursor_ == 0 && f.svc->candTop_ == 0, "case 2: cursor/top != 0/0");
         CHECK(f.svc->candSource_ == kAnchorAnNyeng, "case 2: anchored to %s, want the whole word",
@@ -254,16 +254,19 @@ int main() {
         f.Teardown();
     }
 
-    /* 4. Down moves the cursor; the moved cursor commits with Return. */
+    /* 4. Down moves the cursor; the moved cursor commits with Return.
+     * (krdict-dedupe merged the two 安寧 rows to one, so a one-row list
+     * clamps Down at the last row: cursor stays 0 and Return still commits
+     * that row.) */
     {
         Fixture f;
         f.Begin();
         TypeAnNyeng(f);
         f.Key(VK_HANJA);
         f.Key(VK_DOWN);
-        CHECK(f.svc->candCursor_ == 1, "case 4: cursor %d after Down, want 1",
+        CHECK(f.svc->candCursor_ == 0, "case 4: cursor %d after Down on a 1-row list, want 0 (clamped)",
               f.svc->candCursor_);
-        std::string expected(hunmin_suggest_text(f.svc->ctx_, 1));
+        std::string expected(hunmin_suggest_text(f.svc->ctx_, 0));
         f.Key(VK_RETURN);
         CHECK(f.ctx->insertions.size() == 1, "case 4: %zu insertions, want 1",
               f.ctx->insertions.size());
@@ -492,7 +495,7 @@ int main() {
         CHECK(testEat == TRUE, "case 15: configured F9 not eaten in test phase");
         CHECK(eat == TRUE, "case 15: configured F9 not eaten in down phase");
         CHECK(f.svc->candActive_, "case 15: configured F9 did not open the window");
-        CHECK(f.svc->candCount_ == 2, "case 15: count %d walking the env seam",
+        CHECK(f.svc->candCount_ == 1, "case 15: count %d walking the env seam (deduped)",
               f.svc->candCount_);
         _putenv_s("HUNMIN_TSF_HANJA_KEY", "");
         f.Teardown();

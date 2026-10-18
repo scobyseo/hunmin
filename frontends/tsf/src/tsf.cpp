@@ -891,6 +891,13 @@ class CTextService : public ITfTextInputProcessor,
                    hunmin_suggest_count(ctx_, BufferedHangul().c_str()) > 0)
                       ? TRUE
                       : FALSE;
+        } else if (hangulMode_ &&
+                   (hunmin_tsf_keymods_from_state() &
+                    (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT))) {
+            /* Mirror of the down-side chord rule: a Ctrl/Alt chord belongs
+             * to the app (Ctrl+A is not composition input) — test phase
+             * answers the same uneaten the down phase will act on. */
+            eat = FALSE;
         } else if ((wParam >= 'A' && wParam <= 'Z') || wParam == VK_SPACE || wParam == VK_BACK)
             eat = TRUE;
         if (pfEat)
@@ -973,7 +980,7 @@ class CTextService : public ITfTextInputProcessor,
                 fclose(dbg);
             return S_OK; // passthrough English
         }
-        /* --- the candidate-window key (issue #67) ---
+         /* --- the candidate-window key (issue #67) ---
          *
          * The configured binding (default: the bare physical Hanja key)
          * toggles the window. Interception sits before any engine feed
@@ -1131,6 +1138,30 @@ class CTextService : public ITfTextInputProcessor,
                 return S_OK;
             }
             break;
+        }
+        /* --- the CTRL/ALT chord rule (measured defect 2026-10-18: the letter
+         * inside a Ctrl/Alt chord still fed the composition — Ctrl+A typed
+         * the preedit's next syllable instead of select-all) ---
+         *
+         * A chord is application input, not composition input: the pending
+         * preedit commits through the SAME boundary flush a mode toggle
+         * drives (the candidate window closes with its composition, #67),
+         * and the key passes to the client app uneaten, in its chord sense.
+         * The mode itself is NOT flipped: one chord selects all without
+         * changing which script the next letter types in. (The user note
+         * remaining more aggressive — the mode WORD switch on ctrl/alt — is
+         * recorded in docs/WINDOWS-TSF-BUFFERING.md as the alternative.) */
+        if (hunmin_tsf_keymods_from_state() &
+            (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) {
+            if (pfEat)
+                *pfEat = FALSE;
+            CloseCandidateWindow();
+            BoundaryFlush(pic, dbg);
+            if (dbg) {
+                fprintf(dbg, " ctrl/alt chord -> commit + passthrough\n");
+                fclose(dbg);
+            }
+            return S_OK;
         }
         char ch = 0;
         if (wParam >= 'A' && wParam <= 'Z') {
