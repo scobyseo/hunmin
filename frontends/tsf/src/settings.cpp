@@ -627,11 +627,16 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         }
         /* 키 입력 buttons: BN_CLICKED arms the capture mode; the
          * WM_KEYDOWN/WM_SYSKEYDOWN block above the switch then owns the
-         * keys (WinUI 3 parity). */
+         * keys (WinUI 3 parity). Focus moves to the DIALOG: the keydown
+         * block receives WM_KEYDOWN only while the dialog window itself
+         * has focus — with focus left on the button the keys went to the
+         * button's wndproc and the capture sat idle forever (measured:
+         * "capture armed" logged twice, zero keydowns). */
         if (LOWORD(wp) == IDC_TOGGLE_CAPTURE && HIWORD(wp) == BN_CLICKED) {
             s->captureTarget = IDC_TOGGLE_EDIT;
             SetWindowTextW(GetDlgItem(h, IDC_TOGGLE_CAPTURE),
                            CAPTURE_PROMPT_ACTIVE);
+            SetFocus(h);
             logLine("settings: capture armed target=%d", s->captureTarget);
             return TRUE;
         }
@@ -639,9 +644,16 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
             s->captureTarget = IDC_HANJA_EDIT;
             SetWindowTextW(GetDlgItem(h, IDC_HANJA_CAPTURE),
                            CAPTURE_PROMPT_ACTIVE);
+            SetFocus(h);
             logLine("settings: capture armed target=%d", s->captureTarget);
             return TRUE;
         }
+        break;
+    case WM_GETDLGCODE:
+        /* While capturing the dialog wants every key (arrows and Tab
+         * included); the navigation behaviour stays untouched otherwise. */
+        if (s && s->captureTarget != 0)
+            return DLGC_WANTALLKEYS;
         break;
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
