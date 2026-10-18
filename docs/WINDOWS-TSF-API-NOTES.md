@@ -73,6 +73,23 @@ is not in-document text at all.
 
 ## Other interfaces this adapter already exercises
 
+### System langbar items (ctfutb.h: ITfSystemLangBarItem / ITfSystemDeviceTypeLangBarItem)
+
+These are implemented by SYSTEM-provided langbar items, not by a text service:
+a service retrieves a system item (`ITfLangBarItemMgr::GetItem`) and
+customizes its appearance — `SetIconMode` (show text-under-icon vs icon-only,
+`TF_SLI_*` modes), `SetIconItemText` on the device-type variant. Two
+consequences for us, measured against the E_FAIL status of our own `AddItem`:
+
+- They do not create a clickable settings entry — no new item, no new menu.
+- The system keeps one langbar item per active TIP, and its click invokes the
+  TIP's own `ITfFnConfigure` (issue #71 implements `Show`). So when the
+  desktop language bar is visible, the system item IS the clickable settings
+  entry, and our own `AddItem`'s E_FAIL (recorded above) is a duplicate of
+  that affordance, not the only path. Branding it with
+  `ITfSystemDeviceTypeLangBarItem` (a Hunmin logo over text mode) is
+  optional polish, tracked here so future work starts from measured ground.
+
 - `ITfThreadMgrEventSink` (activation/deactivation, context push/pop),
 - `ITfKeyEventSink` + `ITfKeystrokeMgr::AdviseKeyEventSink` (key routing,
   preserve-on-stale via `ITfKeystrokeMgr::SetPreserveKey`),
