@@ -1,16 +1,17 @@
 @echo off
 rem the CLEAN-HOST install test (issue #99): run INSIDE Windows Sandbox.
-rem Everything runs from the read-only mapped build tree.
-set DLL=C:\Users\WDIGUtilityAccount2\Desktop\build-msvc\Release\hunmin-tsf.dll
 set DLL=%USERPROFILE%\Desktop\build-msvc\Release\hunmin-tsf.dll
+set HUNMIN_TSF_LOG_DIR=%TEMP%
+set HUNMIN_TSF_DEBUG_LOG=1
 echo == %COMPUTERNAME% %DATE% %TIME% ==
+del /q "%TEMP%\hunmin-reg-debug.log" >nul 2>&1
 reg query "HKLM\SOFTWARE\Microsoft\CTF\TIP\{F2C70001-0000-0000-0000-000000000001}" 2>nul && echo TIP-TREE-PREEXISTING-UNEXPECTED || echo TIP-TREE-CLEAN-OK
-regsvr32 /s "%DLL%"
+regsvr32 "%DLL%"
 echo regsvr32 rc=%errorlevel%
-reg query "HKLM\SOFTWARE\Microsoft\CTF\TIP\{F2C70001-0000-0000-0000-000000000001}\LanguageProfile\0x00000412" /v IconIndex
-reg query HKCU\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000412 2>nul | findstr /i Hunmin
-echo == next: Win+Space to Hunmin in a text window and type dkssud ?
-echo committext should be ¾È³ç (word candidates from the STAGED data),
-echo the Sejong icon shows in the language list, the tray badge may not
-echo switch (measured not honored for third-party TIPs on this build).
-start notepad
+reg query "HKLM\SOFTWARE\Microsoft\CTF\TIP\{F2C70001-0000-0000-0000-000000000001}\LanguageProfile\0x00000412" 2>&1
+echo ----- registration log ("%TEMP%\hunmin-reg-debug.log") -----
+type "%TEMP%\hunmin-reg-debug.log"
+echo ----- end -----
+echo next: close the registration dialog if one appeared, then
+echo Win+Space to Hunmin and type dkssud in the text window.
+start "" "%windir%\System32\notepad.exe"
