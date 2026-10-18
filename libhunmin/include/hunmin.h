@@ -78,8 +78,9 @@ bool hunmin_ic_process(hunmin_ic *ic, uint32_t ch);
  * engine as-is. Equivalently, the shift bit is only honoured when the base
  * character has a shifted form under the loader's map.
  *
- * The legacy case-encoding call hunmin_ic_process stays byte-for-byte valid
- * and remains the only call existing frontends use. */
+ * The legacy case-encoding call hunmin_ic_process stays byte-for-byte valid:
+ * fcitx5 and the tier C trace runners use it. The Android adapter passes
+ * base + shift through this call instead (issue #105). */
 bool hunmin_ic_process_key(hunmin_ic *ic, uint32_t base, uint32_t shift);
 
 /* UTF-8 of what the last hunmin_ic_process produced; a destructive read

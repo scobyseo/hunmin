@@ -1,12 +1,14 @@
 /*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * HunminKeyRegistry — Android KEYCODE -> engine character.
+ * HunminKeyRegistry — Android KEYCODE -> UNSHIFTED engine base character.
  *
  * libhunmin's convention (hunmin.h): one US-QWERTY *character* per event, case
- * encoding shift, 0x08 backspace. That is the same convention the layout JSON
- * tables are authored in and the same one the fcitx5 addon feeds it, which is
- * what makes one set of tier-A goldens comparable across every platform.
+ * encoding shift, 0x08 backspace. That is the convention the layout JSON
+ * tables are authored in, which is what makes one set of tier-A goldens
+ * comparable across every platform. Since hunmin_ic_process_key (issue #90,
+ * adapter migrated in #105) this table supplies only the UNSHIFTED base half
+ * and the shift bit travels beside it: the case encoding is the engine's.
  *
  * The obvious implementation — `event.getUnicodeChar()` — is wrong here, and
  * the reason matters. getUnicodeChar() resolves the key through the *host*
@@ -28,45 +30,21 @@
  */
 package org.hunmin.ime
 
-/** One key the adapter can hand to the engine. */
-data class HunminKey(val keyCode: Int, val unshifted: Char, val shifted: Char?) {
-    /**
-     * What the engine should see for this key under [shiftedOn] and [capsOn].
-     *
-     * Shift is data, not a modifier (invariant 4): sin3-p2's symbol tiers and
-     * 초성체 need the uppercase form, so the adapter passes it through and never
-     * turns it into a chord. CapsLock is separate and inverted — AOSP delivers
-     * the *shifted* letter under CapsLock, so the adapter has to undo it and
-     * tell the engine about caps separately. Same rule as the fcitx5 adapter's
-     * A3, for the same platform reason.
-     */
-    fun engineChar(shiftedOn: Boolean, capsOn: Boolean): Char? {
-        // CapsLock INVERTS shift, it does not replace the letter. AOSP delivers
-        // the shifted form whenever CapsLock is on, which for a plain letter is
-        // the uppercase one -- so CapsLock+letter must come back as UPPERCASE,
-        // not lowercase. The engine wants the unshifted letter plus the `caps`
-        // option, so the case is undone here and the option is set separately in
-        // HunminAdapter.onKey.
-        //
-        // An earlier revision returned `unshifted.lowercaseChar().uppercaseChar()`
-        // under caps, which is always uppercase and therefore happened to be
-        // right for letters -- but it ignored Shift entirely under caps, so
-        // CapsLock+Shift+letter produced the wrong case. Both bits have to be
-        // considered.
-        val shiftedResult = shifted ?: unshifted.uppercaseChar()
-        return if (capsOn) {
-            // Under CapsLock the physical shift is inverted by the OS, so the
-            // character the user sees is the OPPOSITE of what shift alone would
-            // give -- and AOSP already applied that inversion before we get
-            // here. What the engine needs is the unshifted letter.
-            unshifted
-        } else if (shiftedOn) {
-            shiftedResult
-        } else {
-            unshifted
-        }
-    }
-}
+/**
+ * One key the adapter can hand to the engine: the UNSHIFTED US-QWERTY
+ * character, plus the shifted form as DATA for the layout scan.
+ *
+ * The case decision is deliberately not here any more. Since
+ * hunmin_ic_process_key (issue #90, adapter migrated in #105) the adapter
+ * passes [unshifted] plus the shift bit and the `caps` option, and the engine
+ * selects the row with its own US-QWERTY map (docs/SPEC-P2 "IC input entry
+ * points"). The CapsLock×Shift matrix that used to sit in this class is where
+ * the CapsLock+Shift wrong-case defect shipped, and re-deriving the row here
+ * would be a second home for a decision the engine owns. [shifted] stays
+ * because [HunminKeyRegistry.hasLayoutKey] must see H and W as layout keys in
+ * their own right (invariant 4).
+ */
+data class HunminKey(val keyCode: Int, val unshifted: Char, val shifted: Char?)
 
 object HunminKeyRegistry {
 
@@ -124,9 +102,9 @@ object HunminKeyRegistry {
         // "which keycodes exist for these layout keys" has to see H and W as
         // layout keys in their own right, so they are registered here too.
         // Registering a second HunminKey for the same keycode would collide, so
-        // this is expressed as a lookup alias instead: engineChar() already
-        // returns the uppercase form under shift, which is the only route the
-        // engine ever takes. See hasLayoutKey().
+        // this is expressed as a lookup alias instead: the shifted ROW is the
+        // shift bit's selection inside hunmin_ic_process_key, not a character
+        // this table resolves. See hasLayoutKey().
         // Punctuation sits AFTER the letters, not at its ASCII value.
         put(55, k(55, ','))
         put(56, k(56, '.'))
@@ -155,24 +133,33 @@ object HunminKeyRegistry {
     }
 
     /**
-     * The engine character for a key, or null when the adapter must let the key
-     * through untouched.
+     * The key's UNSHIFTED US-QWERTY character, or null when the adapter must
+     * let the key through untouched.
      *
      * Null is the important return value: it is how space, backspace, unknown
      * keys and out-of-range keycodes reach the client (invariant 3). Returning
      * "not consumed" is the mechanism, so a null here is a pass-through, not an
-     * error.
+     * error. The metaState is deliberately NOT an input: the base is the same
+     * character under every modifier combination, and the bits travel to the
+     * engine beside it ([isShiftOn], the `caps` option in HunminAdapter.onKey).
+     *
+     * KEYCODE_DEL (67) needs no special case here: it sits in [BY_KEYCODE]
+     * with [BACKSPACE_ENGINE_CHAR] as its base, and the engine's
+     * already-resolved rule leaves 0x08 alone under a shift bit (data.c's
+     * SHIFTED[] table has no row for it).
      */
-    fun engineChar(keyCode: Int, metaState: Int): Char? {
-        if (keyCode == 67) return BACKSPACE_ENGINE_CHAR  // DEL is backspace
-        val key = BY_KEYCODE[keyCode] ?: return null
-        val shifted = (metaState and META_SHIFT_ON) != 0
-        // META_CAPS_LOCK_ON, not META_CAPS_LOCK_MASK: AOSP has no MASK constant
-        // for caps, only the ON bit (verified with javap against android.jar --
-        // META_CAPS_LOCK_ON is 0x00010000 and META_SHIFT_ON is 0x1).
-        val caps = (metaState and META_CAPS_LOCK_ON) != 0
-        return key.engineChar(shifted, caps)
-    }
+    fun engineBase(keyCode: Int): Char? = BY_KEYCODE[keyCode]?.unshifted
+
+    /**
+     * AOSP's shift bit, passed to the engine beside [engineBase]. Shift is
+     * data (invariant 4), and since the #105 migration the bit travels
+     * VERBATIM: no CapsLock inversion happens here — the deleted engineChar
+     * matrix made CapsLock win over Shift, and which row the bit selects
+     * under CapsLock+Shift is now the engine's decision (SPEC-P2 "IC input
+     * entry points"). Recorded as a behaviour delta in FRONTEND-CONTRACT
+     * A3', not re-decided in the adapter.
+     */
+    fun isShiftOn(metaState: Int): Boolean = (metaState and META_SHIFT_ON) != 0
 
     /**
      * Modifier chords the adapter refuses to send to the engine.

@@ -186,6 +186,22 @@ Java_org_hunmin_ime_HunminNativeBridge_nativeProcess(JNIEnv *env, jclass k, jlon
   return (i && hunmin_ic_process(i, (uint32_t)ch)) ? JNI_TRUE : JNI_FALSE;
 }
 
+/* The explicit-modifier entry the adapter's onKey uses since issue #105:
+ * base is the UNSHIFTED US-QWERTY character and shift is the AOSP
+ * META_SHIFT_ON bit, verbatim -- the CapsLock×Shift case endpoint lives in
+ * hunmin_ic_process_key, not in any adapter layer. The legacy nativeProcess
+ * above stays: the tier C trace runner (TraceEmit) replays the android
+ * corpus's engine-character events through it. */
+JNIEXPORT jboolean JNICALL
+Java_org_hunmin_ime_HunminNativeBridge_nativeProcessKey(JNIEnv *env, jclass k, jlong ic,
+                                                        jint base, jint shift) {
+  (void)env;
+  (void)k;
+  hunmin_ic *i = (hunmin_ic *)(intptr_t)ic;
+  return (i && hunmin_ic_process_key(i, (uint32_t)base, (uint32_t)shift)) ? JNI_TRUE
+                                                                          : JNI_FALSE;
+}
+
 JNIEXPORT jstring JNICALL
 Java_org_hunmin_ime_HunminNativeBridge_nativeCommit(JNIEnv *env, jclass k, jlong ic) {
   (void)k;

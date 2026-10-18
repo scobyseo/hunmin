@@ -69,7 +69,7 @@
 }
 
 # ──────────────────────────────────────────────────────────────────────
-# Key mapping: HunminKeys (engineChar, hasLayoutKey, all)
+# Key mapping: HunminKeyRegistry (hasLayoutKey, all)
 # ──────────────────────────────────────────────────────────────────────
 -keep class org.hunmin.ime.HunminKeys {
     *;
