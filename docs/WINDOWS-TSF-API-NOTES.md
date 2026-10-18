@@ -75,20 +75,24 @@ is not in-document text at all.
 
 ### System langbar items (ctfutb.h: ITfSystemLangBarItem / ITfSystemDeviceTypeLangBarItem)
 
-These are implemented by SYSTEM-provided langbar items, not by a text service:
-a service retrieves a system item (`ITfLangBarItemMgr::GetItem`) and
-customizes its appearance — `SetIconMode` (show text-under-icon vs icon-only,
-`TF_SLI_*` modes), `SetIconItemText` on the device-type variant. Two
-consequences for us, measured against the E_FAIL status of our own `AddItem`:
+**Measured closed on this host (Windows 11 build 10.0.26100, 2026-10-18).**
+A minimal reference item (BTN_BUTTON alone) and the full combo alike fail
+`ITfLangBarItemMgr::AddItem` with `0x80004005` from a plain thread — the same
+E_FAIL the TIP's real item gets on every activation: the refusal is
+environmental, not item-specific. The kernel enumerates exactly four
+system-owned buttons (언어, 수정, 키보드, 도움말) and no per-TIP slot.
 
-- They do not create a clickable settings entry — no new item, no new menu.
-- The system keeps one langbar item per active TIP, and its click invokes the
-  TIP's own `ITfFnConfigure` (issue #71 implements `Show`). So when the
-  desktop language bar is visible, the system item IS the clickable settings
-  entry, and our own `AddItem`'s E_FAIL (recorded above) is a duplicate of
-  that affordance, not the only path. Branding it with
-  `ITfSystemDeviceTypeLangBarItem` (a Hunmin logo over text mode) is
-  optional polish, tracked here so future work starts from measured ground.
+- `ITfSystemLangBarItem` / `ITfSystemDeviceTypeLangBarItem` are appearance
+  interfaces on the system's own items (the QI succeeds on the system's
+  키보드/도움말 buttons, icon mode 0): no new item, no new menu entry, and
+  not our service's mode text.
+- The MS IME's A/가 tray badge rides a system path not exposed to
+  third-party TIPs on this build; the tray input indicator's icon is the
+  active profile's static icon (registration's resource id 1).
+- The adapter's item code stays: correct per ctfutb.h (BTN_BUTTON style,
+  right-click menu via InitMenu/OnMenuSelect wired to
+  `hunmin_tsf_launch_settings` → the settings-ui exe), dormant where the
+  kernel refuses items, alive wherever one will be accepted.
 
 - `ITfThreadMgrEventSink` (activation/deactivation, context push/pop),
 - `ITfKeyEventSink` + `ITfKeystrokeMgr::AdviseKeyEventSink` (key routing,
