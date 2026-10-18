@@ -218,6 +218,10 @@ std::string wideToUtf8(const std::wstring &w) {
 } // namespace
 
 int main(int argc, char **argv) {
+    /* CoInitialize for the adapter's ITfCategoryMgr::RegisterGUID (the
+     * display-attribute atom, issue #98): the real system category manager
+     * serves it in a console process just as in a host. */
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 #ifdef _DEBUG
     // Debug-CRT asserts default to a message box and die with rc 3 before
     // anything reaches stdout/stderr; run the assertion text to stderr so
@@ -341,6 +345,7 @@ int main(int argc, char **argv) {
         g_mockKeyState[VK_SHIFT & 0xFF] =
             (mods & 0x01) ? (SHORT)0x8000 : (SHORT)0;
         const std::wstring wordBefore = svc->wordbuf_;
+        const int endsBefore = ctx->compositionEnds;
         const size_t insertsBefore = ctx->insertions.size();
 
         BOOL testEat = FALSE;
@@ -370,6 +375,19 @@ int main(int argc, char **argv) {
                 fail("insert at event " + std::to_string(i) +
                      " does not extend the buffered word: contract break");
             commit = insertedUtf8.substr(beforeUtf8.size());
+        } else if (ctx->compositionEnds > endsBefore) {
+            /* Native boundary (issue #98): the word drained through the
+             * composition end -- no plain insert, by design. The flush and
+             * the drain both happen INSIDE this event, so before/after word
+             * buffers can agree; the fused range text is the delivered word
+             * and this event's own engine commit is its tail past the
+             * previously held text. */
+            const std::string fused = wideToUtf8(ctx->compositionText);
+            if (beforeUtf8 != heldExpected || fused.size() < heldExpected.size() ||
+                fused.compare(0, heldExpected.size(), heldExpected) != 0)
+                fail("event " + std::to_string(i) + ": composition fused \"" +
+                     fused + "\" does not carry held \"" + heldExpected + "\"");
+            commit = fused.substr(heldExpected.size());
         } else {
             if (afterUtf8.size() < beforeUtf8.size() ||
                 afterUtf8.compare(0, beforeUtf8.size(), beforeUtf8) != 0)
@@ -388,33 +406,64 @@ int main(int argc, char **argv) {
             if (insertsAfter != insertsBefore)
                 fail("event " + std::to_string(i) +
                      " inserted while the engine consumed the key");
+            // The composition shows the buffers (issue #98): never a plain
+            // insert while the engine consumes; the composition channel
+            // covers the visible text.
             heldExpected += expectedCommit;
         } else {
             const std::string word = heldExpected + expectedCommit;
-            if (word.empty()) {
-                if (insertsAfter != insertsBefore)
-                    fail("event " + std::to_string(i) + " inserted with nothing pending");
-            } else {
-                if (insertsAfter - insertsBefore != 1)
+            if (!word.empty()) {
+                // Boundary delivery of the pending word, exactly once:
+                // either the composition ENDED with the word fused (the
+                // native path, issue #98), or the host refused compositions
+                // and the plain fallback inserted it (the 0.2 shape). Never
+                // both, never none.
+                const bool compEnded = ctx->compositionEnds > endsBefore;
+                const std::string fused = wideToUtf8(ctx->compositionText);
+                if (!(compEnded && fused == word) &&
+                    !(insertsAfter - insertsBefore == 1 && insertedUtf8 == word))
                     fail("event " + std::to_string(i) +
-                         ": expected one boundary insert, got " +
-                         std::to_string(insertsAfter - insertsBefore));
-                if (insertedUtf8 != word)
-                    fail("event " + std::to_string(i) + ": inserted \"" +
-                         insertedUtf8 + "\" but the buffering contract says \"" +
-                         word + "\"");
+                         ": expected one boundary delivery of \"" + word +
+                         "\" (composition fused \"" + (compEnded ? fused : "(none)") +
+                         "\", plain inserts " +
+                         std::to_string(insertsAfter - insertsBefore) + ")");
+            } else if (insertsAfter != insertsBefore) {
+                fail("event " + std::to_string(i) + " inserted with nothing pending");
             }
             heldExpected.clear();
         }
         cumulativeCommits += expectedCommit;
-        // Total committed text = what the document holds + what the adapter
-        // still buffers (docs/WINDOWS-TSF-BUFFERING.md: the word enters the
-        // document only at a boundary; before that it lives in wordbuf_).
+        // Total committed text (docs/WINDOWS-TSF-BUFFERING.md), issue #98:
+        // with a composition the pending text IS document text (the
+        // composition range holds the whole buffered word plus the in-flight
+        // preedit), so the document now carries cumulativeCommits + preedit;
+        // the fallback path (a host that refused compositions) keeps the
+        // 0.2 shape, document + held.
         const std::string heldNow = wideToUtf8(svc->wordbuf_);
         const std::string docNow = wideToUtf8(ctx->doc);
-        if (cumulativeCommits.size() != heldNow.size() + docNow.size() ||
-            cumulativeCommits.compare(0, docNow.size(), docNow) != 0 ||
-            cumulativeCommits.compare(docNow.size(), heldNow.size(), heldNow) != 0)
+        const std::string preeditNow =
+            std::string(svc->ic_ ? hunmin_ic_preedit(svc->ic_) : "");
+        if (ctx->compositionStarts > 0) {
+            const bool compActive = ctx->compositionActive;
+            if (compActive) {
+                // Invariant: what the composition shows == held + preedit.
+                const std::string inRange = wideToUtf8(ctx->compositionText);
+                if (inRange.size() != heldNow.size() + preeditNow.size() ||
+                    inRange.compare(0, heldNow.size(), heldNow) != 0 ||
+                    inRange.compare(heldNow.size(), preeditNow.size(), preeditNow) != 0)
+                    fail("event " + std::to_string(i) +
+                         ": composition \"" + inRange + "\" != held \"" + heldNow +
+                         "\" + preedit \"" + preeditNow + "\"");
+            }
+            if (docNow.size() != cumulativeCommits.size() + preeditNow.size() ||
+                docNow.compare(0, cumulativeCommits.size(), cumulativeCommits) != 0 ||
+                docNow.compare(cumulativeCommits.size(), preeditNow.size(), preeditNow) != 0)
+                fail("committed text after event " + std::to_string(i) +
+                     ": document \"" + docNow + "\" != cumulative \"" +
+                     cumulativeCommits + "\" + preedit \"" + preeditNow + "\"");
+        } else if (cumulativeCommits.size() != heldNow.size() + docNow.size() ||
+                   cumulativeCommits.compare(0, docNow.size(), docNow) != 0 ||
+                   cumulativeCommits.compare(docNow.size(), heldNow.size(), heldNow) != 0)
             fail("committed text after event " + std::to_string(i) +
                  ": document \"" + docNow + "\" + held \"" + heldNow +
                  "\" != tier A's cumulative \"" + cumulativeCommits + "\"");

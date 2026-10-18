@@ -183,6 +183,26 @@ struct Fixture {
         CHECK(ctx->insertions.empty(), "%s: %zu insertions happened, want none", what,
               ctx->insertions.size());
     }
+    
+    /* The composition channel (issue #98): a boundary that drains a
+     * pending word now ENDS the composition whose range already holds
+     * the whole word -- the fusing text is the commit, not a plain
+     * SetText. Assert on that channel; never re-derive the commit by
+     * extending it. */
+    void AssertCompositionEnded(const char *utf8Expected, const char *what) {
+        CHECK(ctx->compositionEnds >= 1, "%s: no composition ended", what);
+        CHECK(!ctx->compositionActive, "%s: composition left active", what);
+        CHECK(utf8(ctx->compositionText) == std::string(utf8Expected ? utf8Expected : ""),
+              "%s: fused text got %s, want %s", what,
+              utf8(ctx->compositionText).c_str(),
+              utf8Expected ? utf8Expected : "(empty)");
+    }
+    void AssertCompositionText(const char *utf8Expected, const char *what) {
+        CHECK(utf8(ctx->compositionText) == std::string(utf8Expected ? utf8Expected : ""),
+              "%s: composition text got %s, want %s", what,
+              utf8(ctx->compositionText).c_str(),
+              utf8Expected ? utf8Expected : "(empty)");
+    }
 };
 
 /* Type `dkssud`: wordbuf_ reaches `안`, preedit reaches `녕` (engine-measured). */
@@ -190,6 +210,7 @@ static void TypeAnNyeng(Fixture &f) {
     f.Type("dkssud");
     f.AssertWordbuf(kAnchorAn, "dkssud");
     f.AssertPreedit(kAnchorPreeditNyeng, "dkssud");
+    f.AssertCompositionText(kAnchorAnNyeng, "dkssud (composition)");
 }
 
 int main() {
@@ -246,11 +267,7 @@ int main() {
         BOOL eat = FALSE;
         f.Key(VK_RETURN, &eat);
         CHECK(eat == TRUE, "case 3: Return not consumed");
-        CHECK(f.ctx->insertions.size() == 1, "case 3: %zu insertions, want 1",
-              f.ctx->insertions.size());
-        if (f.ctx->insertions.size() == 1)
-            CHECK(utf8(f.ctx->insertions[0]) == expected, "case 3: inserted %s, want %s",
-                  utf8(f.ctx->insertions[0]).c_str(), expected.c_str());
+        f.AssertCompositionEnded(expected.c_str(), "case 3");
         CHECK(!f.svc->candActive_, "case 3: window still open after commit");
         f.AssertWordbuf(nullptr, "case 3");
         f.AssertPreedit(nullptr, "case 3");
@@ -271,11 +288,7 @@ int main() {
               f.svc->candCursor_);
         std::string expected(hunmin_suggest_text(f.svc->ctx_, 0));
         f.Key(VK_RETURN);
-        CHECK(f.ctx->insertions.size() == 1, "case 4: %zu insertions, want 1",
-              f.ctx->insertions.size());
-        if (f.ctx->insertions.size() == 1)
-            CHECK(utf8(f.ctx->insertions[0]) == expected, "case 4: inserted %s, want %s",
-                  utf8(f.ctx->insertions[0]).c_str(), expected.c_str());
+        f.AssertCompositionEnded(expected.c_str(), "case 4");
         f.Teardown();
     }
 
@@ -306,12 +319,7 @@ int main() {
         BOOL eat = TRUE;
         f.Key('2', &eat);
         CHECK(eat == FALSE, "case 6: digit '2' past the end was consumed");
-        CHECK(f.ctx->insertions.size() == 1, "case 6: %zu insertions, want 1 (the drained word)",
-              f.ctx->insertions.size());
-        if (f.ctx->insertions.size() == 1)
-            CHECK(utf8(f.ctx->insertions[0]) == kAnchorAnNyeng,
-                  "case 6: inserted %s, want the drained word",
-                  utf8(f.ctx->insertions[0]).c_str());
+        f.AssertCompositionEnded(kAnchorAnNyeng, "case 6");
         CHECK(!f.svc->candActive_, "case 6: window left open after the drain");
         f.Teardown();
     }
@@ -327,9 +335,7 @@ int main() {
         BOOL eat = TRUE;
         f.Key('1', &eat);
         CHECK(eat == TRUE, "case 6b: in-range digit '1' not consumed");
-        if (f.ctx->insertions.size() == 1)
-            CHECK(utf8(f.ctx->insertions[0]) == expected, "case 6b: inserted %s, want %s",
-                  utf8(f.ctx->insertions[0]).c_str(), expected.c_str());
+        f.AssertCompositionEnded(expected.c_str(), "case 6b");
         CHECK(!f.svc->candActive_, "case 6b: window left open after digit commit");
         f.Teardown();
     }
@@ -394,11 +400,7 @@ int main() {
         f.Key('9', &eat);
         CHECK(eat == FALSE, "case 9: '9' swallowed (eat false expected)");
         CHECK(!f.svc->candActive_, "case 9: window survived the dead digit");
-        CHECK(f.ctx->insertions.size() == 1, "case 9: %zu insertions, want 1",
-              f.ctx->insertions.size());
-        if (f.ctx->insertions.size() == 1)
-            CHECK(utf8(f.ctx->insertions[0]) == kAnchorAnNyeng,
-                  "case 9: inserted %s, want the whole word", utf8(f.ctx->insertions[0]).c_str());
+        f.AssertCompositionEnded(kAnchorAnNyeng, "case 9");
         f.Teardown();
     }
 
@@ -413,11 +415,7 @@ int main() {
         f.Key(HUNMIN_TSF_VIRTUAL_HANGEUL);
         CHECK(!f.svc->candActive_, "case 10: window open after toggle");
         CHECK(!f.svc->hangulMode_, "case 10: mode did not switch");
-        CHECK(f.ctx->insertions.size() == 1, "case 10: %zu insertions, want 1",
-              f.ctx->insertions.size());
-        if (f.ctx->insertions.size() == 1)
-            CHECK(utf8(f.ctx->insertions[0]) == kAnchorAnNyeng, "case 10: insert %s",
-                  utf8(f.ctx->insertions[0]).c_str());
+        f.AssertCompositionEnded(kAnchorAnNyeng, "case 10");
         f.Teardown();
     }
 
@@ -445,11 +443,7 @@ int main() {
         f.AssertNoInsert("case 11c");
         f.Key(VK_BACK, &eat);
         CHECK(eat == FALSE, "case 11d: BS past the empty preedit eaten anyway");
-        CHECK(f.ctx->insertions.size() == 1, "case 11d: %zu insertions, want 1",
-              f.ctx->insertions.size());
-        if (f.ctx->insertions.size() == 1)
-            CHECK(utf8(f.ctx->insertions[0]) == kAnchorAn, "case 11d: insert %s",
-                  utf8(f.ctx->insertions[0]).c_str());
+        f.AssertCompositionEnded(kAnchorAn, "case 11d");
         f.Teardown();
     }
 
@@ -469,11 +463,7 @@ int main() {
               f.svc->candCursor_);
         std::string expected(hunmin_suggest_text(f.svc->ctx_, 0 + 10));
         f.Key(VK_RETURN);
-        CHECK(f.ctx->insertions.size() == 1, "case 12: %zu insertions, want 1",
-              f.ctx->insertions.size());
-        if (f.ctx->insertions.size() == 1)
-            CHECK(utf8(f.ctx->insertions[0]) == expected, "case 12: inserted %s, want %s",
-                  utf8(f.ctx->insertions[0]).c_str(), expected.c_str());
+        f.AssertCompositionEnded(expected.c_str(), "case 12");
         f.Teardown();
     }
 
@@ -505,11 +495,7 @@ int main() {
         CHECK(testEat == FALSE, "case 14: unbound F9 eaten in test phase");
         CHECK(eat == FALSE, "case 14: unbound F9 eaten in down phase");
         CHECK(!f.svc->candActive_, "case 14: unbound F9 opened the window");
-        CHECK(f.ctx->insertions.size() == 1, "case 14: %zu insertions, want 1 (the drained word)",
-              f.ctx->insertions.size());
-        if (f.ctx->insertions.size() == 1)
-            CHECK(utf8(f.ctx->insertions[0]) == kAnchorAnNyeng, "case 14: insert %s",
-                  utf8(f.ctx->insertions[0]).c_str());
+        f.AssertCompositionEnded(kAnchorAnNyeng, "case 14");
         CHECK(f.svc->wordbuf_.empty(), "case 14: nothing held after the F-key boundary");
         f.Teardown();
     }
@@ -550,14 +536,15 @@ int main() {
             BOOL eat = FALSE;
             f.Key(VK_RETURN, &eat);
             CHECK(eat == TRUE, "case 16: Return not consumed on a fallback list");
-            CHECK(f.ctx->insertions.size() == 1, "case 16: %zu insertions, want 1",
-                  f.ctx->insertions.size());
-            if (f.ctx->insertions.size() == 1)
-                CHECK(utf8(f.ctx->insertions[0]) == std::string(kAnchorGaGa) + expected,
-                      "case 16: inserted %s, want %s",
-                      utf8(f.ctx->insertions[0]).c_str(),
-                      (std::string(kAnchorGaGa) + expected).c_str());
+            /* Issue #98: the commit is the composition's END (the candidate
+             * replaces the composition the list anchored to), so the fused
+             * text is observed on the composition channel, not the plain
+             * edit-session insert channel (mock-tsf.h: insertions = one
+             * entry per NON-composition SetText). Exactly one fused content
+             * and zero plain inserts is the one-insert contract here. */
             CHECK(!f.svc->candActive_, "case 16: window still open after fallback commit");
+            f.AssertCompositionEnded((std::string(kAnchorGaGa) + expected).c_str(), "case 16");
+            f.AssertNoInsert("case 16");
             f.AssertWordbuf(nullptr, "case 16");
             f.AssertPreedit(nullptr, "case 16");
         }

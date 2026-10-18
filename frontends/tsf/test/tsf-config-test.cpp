@@ -250,17 +250,26 @@ int main() {
         CHECK(eaten == TRUE, "compose before the edit key");
         {
             size_t insBefore = mctx->insertions.size();
+            int endsBefore = mctx->compositionEnds;
             svc->OnTestKeyDown(mctx, VK_UP, 0, &eaten);
             CHECK(eaten == FALSE, "test keydown: the editor keeps VK_UP interest");
             svc->OnKeyDown(mctx, VK_UP, 0, &eaten);
             CHECK(eaten == FALSE, "VK_UP passes through (eat=FALSE)");
-            CHECK(mctx->insertions.size() == insBefore + 1, "edit key is a boundary: one insert");
+            /* Boundary delivery is exactly-once through ONE channel (the
+             * trace runner's rule): with the composition live (the 'r' above
+             * started it) the pending word fuses through the composition
+             * end; only a host that refused compositions plain-inserts. */
+            CHECK(mctx->compositionEnds == endsBefore + 1 &&
+                      mctx->compositionText == std::wstring(1, L'\u3131') &&
+                      mctx->insertions.size() == insBefore,
+                  "edit key is a boundary: one composition-fused delivery");
             CHECK(svc->wordbuf_.empty(), "nothing held after the edit-key boundary");
         }
         /* U+3131 wide-literal escape (the ANSI-codepage rule above); the two
-         * inserts so far were the toggle boundary and this edit-key boundary. */
+         * boundary deliveries so far were the toggle boundary and this
+         * edit-key boundary, both fused into the document. */
         CHECK(mctx->doc == std::wstring(2, L'\u3131'),
-              "document holds 2 boundary inserts (got %s)", wideToUtf8Preview(mctx->doc).c_str());
+              "document holds 2 boundary deliveries (got %s)", wideToUtf8Preview(mctx->doc).c_str());
         svc->OnKeyDown(mctx, VK_DELETE, 0, &eaten);
         CHECK(eaten == FALSE, "VK_DELETE also passes through");
 

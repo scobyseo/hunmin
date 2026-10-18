@@ -28,7 +28,7 @@
 // exact signatures come from msctf.h; the compiler flags any drift. The
 // macro lives at header scope: a per-class define/undef lapse was exactly
 // what made every mock after the first one compile as an abstract class.
-#define TSF_MOCK_STUB(name, ...)                                              \
+#define TSF_MOCK_STUB(name, ...) \
     STDMETHOD(name)(__VA_ARGS__) override { return E_NOTIMPL; }
 
 namespace tsfmock {
@@ -50,13 +50,21 @@ struct RefCount {
 };
 
 class MockContext;
+class MockProperty;
+class MockComposition;
+class MockContextComposition;
 
 // One range bound to context anchors at creation time. The adapter's edit
 // sessions do GetSelection -> SetText -> Collapse(TF_ANCHOR_END) -> SetSelection.
+// A range created INSIDE a composition (issue #98) records its writes on the
+// composition channel, not the plain-insert channel — the buffering contract's
+// "exactly one boundary insert" observation must stay about COMMITTED text.
 class MockRange : public ITfRange, public RefCount {
   public:
     MockRange(MockContext *ctx, LONG start, LONG end)
         : ctx_(ctx), start_(start), end_(end) {}
+    MockRange(MockContext *ctx, LONG start, LONG end, bool inComposition)
+        : ctx_(ctx), start_(start), end_(end), inComposition_(inComposition) {}
     // SetText splices pchText into the document at [start_, end_) and records
     // it. cch < 0 means NUL-terminated.
     STDMETHOD(SetText)(TfEditCookie ec, DWORD dwFlags, const WCHAR *pchText, LONG cch) override;
@@ -79,8 +87,8 @@ class MockRange : public ITfRange, public RefCount {
     STDMETHOD_(ULONG, AddRef)() override { return RefCount::AddRef(); }
     STDMETHOD_(ULONG, Release)() override { return RefCount::Release(); }
 
-// The members ITfRange declares but the adapter never calls. Their exact
-// signatures come from msctf.h; the compiler flags any drift.
+    // The members ITfRange declares but the adapter never calls. Their exact
+    // signatures come from msctf.h; the compiler flags any drift.
     TSF_MOCK_STUB(GetText, TfEditCookie ec, DWORD dwFlags, WCHAR *pchText, ULONG cchMax,
                   ULONG *pcch)
     TSF_MOCK_STUB(GetFormattedText, TfEditCookie ec, IDataObject **ppDataObject)
@@ -107,15 +115,23 @@ class MockRange : public ITfRange, public RefCount {
     TSF_MOCK_STUB(AdjustForInsert, TfEditCookie ec, ULONG cchInsert, BOOL *pfInsertOk)
     TSF_MOCK_STUB(GetGravity, TfGravity *pgStart, TfGravity *pgEnd)
     TSF_MOCK_STUB(SetGravity, TfEditCookie ec, TfGravity gStart, TfGravity gEnd)
-    TSF_MOCK_STUB(Clone, ITfRange **ppClone)
+    // A real host hands back an independent range over the same span
+    // (msctf ITfRange::Clone). The composition caret path (issue #98)
+    // clones the composition range and collapses the CLONE to set the
+    // post-commit caret; a stubbed Clone left the selection on the dead
+    // composition's span, and the next composition rewrote committed
+    // text instead of appending after it.
+    STDMETHOD(Clone)(ITfRange **ppClone) override;
     TSF_MOCK_STUB(GetContext, ITfContext **ppContext)
 
   private:
     ~MockRange() = default;
     friend class MockContext;
+    friend class MockComposition;
     MockContext *ctx_;
     LONG start_;
     LONG end_;
+    bool inComposition_ = false;
 };
 
 class MockContextView : public ITfContextView, public RefCount {
@@ -156,16 +172,124 @@ class MockContextView : public ITfContextView, public RefCount {
     ~MockContextView() = default;
 };
 
+// The composition object: holds the range it was started on (composition
+// channel), reports it back through GetRange, and ends the composition.
+class MockComposition : public ITfComposition, public RefCount {
+  public:
+    MockComposition(MockContext *ctx, MockRange *range) : ctx_(ctx), range_(range) {}
+    STDMETHOD(GetRange)(ITfRange **ppRange) override {
+        if (!ppRange)
+            return E_INVALIDARG;
+        *ppRange = range_;
+        if (range_)
+            range_->AddRef();
+        return S_OK;
+    }
+    STDMETHOD(EndComposition)(TfEditCookie ecWrite) override; /* out-of-line */
+    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+        if (!ppv)
+            return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfComposition)) {
+            *ppv = static_cast<ITfComposition *>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    STDMETHOD_(ULONG, AddRef)() override { return RefCount::AddRef(); }
+    STDMETHOD_(ULONG, Release)() override { return RefCount::Release(); }
+
+    TSF_MOCK_STUB(ShiftStart, TfEditCookie ecWrite, ITfRange *pNewStart)
+    TSF_MOCK_STUB(ShiftEnd, TfEditCookie ecWrite, ITfRange *pNewEnd)
+
+  private:
+    MockComposition() = default;
+    ~MockComposition() {
+        if (range_)
+            range_->Release();
+    }
+    MockContext *ctx_;
+    MockRange *range_; // the composition channel's range; owned here
+};
+
+// The display-attribute property channel: records SetValue/Clear.
+class MockProperty : public ITfProperty, public RefCount {
+  public:
+    explicit MockProperty(MockContext *ctx) : ref_(1), ctx_(ctx) {}
+    STDMETHOD(FindRange)(TfEditCookie ec, ITfRange *pRange, ITfRange **ppRange, TfAnchor aPos) override {
+        (void)ec;
+        (void)pRange;
+        (void)ppRange;
+        (void)aPos;
+        return E_NOTIMPL;
+    }
+    STDMETHOD(SetValueStore)(TfEditCookie ec, ITfRange *pRange, ITfPropertyStore *pPropStore) override {
+        (void)ec;
+        (void)pRange;
+        (void)pPropStore;
+        return E_NOTIMPL;
+    }
+    STDMETHOD(SetValue)(TfEditCookie ec, ITfRange *pRange, const VARIANT *pvarValue) override;
+    STDMETHOD(Clear)(TfEditCookie ec, ITfRange *pRange) override;
+    STDMETHOD(GetType)(GUID *pguid) override;
+    STDMETHOD(EnumRanges)(TfEditCookie ec, IEnumTfRanges **ppEnum, ITfRange *pTargetRange) override {
+        (void)ec;
+        (void)ppEnum;
+        (void)pTargetRange;
+        return E_NOTIMPL;
+    }
+    STDMETHOD(GetValue)(TfEditCookie ec, ITfRange *pRange, VARIANT *pvarValue) override {
+        (void)ec;
+        (void)pRange;
+        (void)pvarValue;
+        return E_NOTIMPL;
+    }
+    STDMETHOD(GetContext)(ITfContext **ppContext) override {
+        (void)ppContext;
+        return E_NOTIMPL;
+    }
+    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+        if (!ppv)
+            return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfProperty)) {
+            *ppv = static_cast<ITfProperty *>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    STDMETHOD_(ULONG, AddRef)() override { return RefCount::AddRef(); }
+    STDMETHOD_(ULONG, Release)() override { return RefCount::Release(); }
+
+  private:
+    ~MockProperty() = default;
+    LONG ref_;
+    MockContext *ctx_;
+};
+
 // The document. RequestEditSession executes the session synchronously -- the
 // TF_ES_SYNC contract the adapter relies on -- after recording it, so the
 // harness reads insertions/session count straight after OnKeyDown returns.
-class MockContext : public ITfContext, public RefCount {
+class MockContext : public ITfContext, public ITfContextComposition, public RefCount {
   public:
     static constexpr TfEditCookie kCookie = 1;
 
-    std::wstring doc;                       // the client document text
-    std::vector<std::wstring> insertions;   // one entry per SetText, in order
+    std::wstring doc; // the client document text
+    std::vector<std::wstring> insertions; // one entry per NON-composition SetText, in order
     int sessionCount = 0;
+
+    // Composition channel (issue #98): what StartComposition/EndComposition
+    // did, the rewritten composition text per SetText through a composition
+    // range, and the GUID_PROP_ATTRIBUTE writes the adapter's provider applied.
+    bool compositionActive = false;
+    int compositionStarts = 0;
+    int compositionEnds = 0;
+    std::wstring compositionText; // last full composition-range content
+    std::vector<std::wstring> compositionInsertions; // one per composition-range SetText
+    int attrWrites = 0; // SetValue(TF composition range)
+    int attrClears = 0; // Clear on finalize
 
     STDMETHOD(RequestEditSession)(TfClientId tid, ITfEditSession *pes, DWORD dwFlags,
                                   HRESULT *phrSession) override {
@@ -219,11 +343,26 @@ class MockContext : public ITfContext, public RefCount {
         return S_OK;
     }
 
+    /* ITfContextComposition (issue #98): ITfContextComposition derives
+     * from IUnknown, so the context answers for it itself; the body is
+     * out-of-line below the complete type (the MockRange::SetText shape). */
+    STDMETHOD(StartComposition)(TfEditCookie ecWrite, ITfRange *pCompositionRange,
+                                ITfCompositionSink *pSink,
+                                ITfComposition **ppComposition) override;
+
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
         if (!ppv)
             return E_INVALIDARG;
         if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfContext)) {
             *ppv = static_cast<ITfContext *>(this);
+            AddRef();
+            return S_OK;
+        }
+        if (IsEqualIID(riid, IID_ITfContextComposition)) {
+            /* Issue #98: the composition half of the adapter's contract --
+             * ITfContextComposition derives from IUnknown, so the context
+             * answers for it itself. */
+            *ppv = static_cast<ITfContextComposition *>(this);
             AddRef();
             return S_OK;
         }
@@ -238,7 +377,12 @@ class MockContext : public ITfContext, public RefCount {
     TSF_MOCK_STUB(GetEnd, TfEditCookie ec, ITfRange **ppEnd)
     TSF_MOCK_STUB(EnumViews, IEnumTfContextViews **ppEnum)
     TSF_MOCK_STUB(GetStatus, TF_STATUS *pdcs)
-    TSF_MOCK_STUB(GetProperty, REFGUID guidProp, ITfProperty **ppProp)
+    STDMETHOD(GetProperty)(REFGUID guidProp, ITfProperty **ppProp) override;
+    TSF_MOCK_STUB(EnumCompositions, IEnumITfCompositionView **ppEnum)
+    TSF_MOCK_STUB(FindComposition, TfEditCookie ecRead, ITfRange *pTestRange,
+                  IEnumITfCompositionView **ppEnum)
+    TSF_MOCK_STUB(TakeOwnership, TfEditCookie ecWrite, ITfCompositionView *pComposer,
+                  ITfCompositionSink *pSink, ITfComposition **ppComposition)
     TSF_MOCK_STUB(GetAppProperty, REFGUID guidProp, ITfReadOnlyProperty **ppProp)
     TSF_MOCK_STUB(TrackProperties, const GUID **prgProp, ULONG cProp,
                   const GUID **prgAppProp, ULONG cAppProp,
@@ -250,7 +394,12 @@ class MockContext : public ITfContext, public RefCount {
 
   private:
     ~MockContext() = default;
+    friend class MockProperty;
+    friend class MockComposition;
     friend class MockRange;
+    friend class MockProperty;
+    friend class MockComposition;
+    friend class MockContextComposition;
     LONG selStart_ = 0;
     LONG selEnd_ = 0;
 };
@@ -400,7 +549,14 @@ MockRange::SetText(TfEditCookie ec, DWORD dwFlags, const WCHAR *pchText, LONG cc
     // a second delivery of the same word; record it anyway, the contract
     // assertion ("exactly one insert per boundary") is what catches it.
     ctx_->doc.replace((size_t)start_, (size_t)(end_ - start_), text);
-    ctx_->insertions.push_back(text);
+    if (inComposition_) {
+        ctx_->compositionInsertions.push_back(text);
+        // The composition range holds the WHOLE composition text: every
+        // rewrite rewrites it all, so the last write is the content.
+        ctx_->compositionText = text;
+    } else {
+        ctx_->insertions.push_back(text);
+    }
     end_ = start_ + static_cast<LONG>(text.size());
     return S_OK;
 }
@@ -411,6 +567,91 @@ inline HRESULT MockRange::Collapse(TfEditCookie ec, TfAnchor aPos) {
         start_ = end_;
     else
         end_ = start_;
+    return S_OK;
+}
+
+inline HRESULT MockRange::Clone(ITfRange **ppClone) {
+    if (!ppClone)
+        return E_INVALIDARG;
+    /* Independent range, same span, same channel (the real ITfRange::Clone
+     * contract the composition caret path relies on). */
+    *ppClone = new MockRange(ctx_, start_, end_, inComposition_);
+    return S_OK;
+}
+
+// ---- Out-of-line definitions (issue #98): the bodies touch MockContext's
+// complete type; declared above, defined here, the file's existing shape ----
+inline HRESULT MockComposition::EndComposition(TfEditCookie ecWrite) {
+    (void)ecWrite;
+    // The composed text fuses into the document (it is already spliced
+    // there by SetText); the composition stops being active.
+    ctx_->compositionActive = false;
+    ++ctx_->compositionEnds;
+    return S_OK;
+}
+
+inline HRESULT MockContext::StartComposition(TfEditCookie ecWrite,
+                                             ITfRange *pCompositionRange,
+                                             ITfCompositionSink *pSink,
+                                             ITfComposition **ppComposition) {
+    (void)ecWrite;
+    if (compositionActive) {
+        // One composition at a time: the adapter must end one before
+        // starting the next -- report failure so a contract break is loud.
+        if (ppComposition)
+            *ppComposition = nullptr;
+        return E_FAIL;
+    }
+    if (!pCompositionRange || !ppComposition)
+        return E_INVALIDARG;
+    LONG start = 0, end = 0;
+    if (MockRange *src = dynamic_cast<MockRange *>(pCompositionRange)) {
+        start = src->startForSelection();
+        end = src->endForSelection();
+        if (end < start)
+            end = start;
+    }
+    MockRange *r = new MockRange(this, start, end, true);
+    MockComposition *c = new MockComposition(this, r);
+    /* The range's initial reference passes to MockComposition (its dtor
+     * releases it); no Release here. */
+    compositionActive = true;
+    ++compositionStarts;
+    (void)pSink; /* the external-termination path is not exercised here */
+    *ppComposition = c;
+    return S_OK;
+}
+
+inline HRESULT MockContext::GetProperty(REFGUID guidProp, ITfProperty **ppProp) {
+    if (!ppProp)
+        return E_INVALIDARG;
+    /* Only the display-attribute property exists in this mock; anything
+     * else is not something the adapter asks for today. */
+    if (!IsEqualGUID(guidProp, GUID_PROP_ATTRIBUTE))
+        return E_NOTIMPL;
+    *ppProp = new MockProperty(this);
+    return S_OK;
+}
+
+inline HRESULT MockProperty::SetValue(TfEditCookie ec, ITfRange *pRange, const VARIANT *pvarValue) {
+    (void)ec;
+    (void)pRange;
+    (void)pvarValue;
+    ++ctx_->attrWrites;
+    return S_OK;
+}
+
+inline HRESULT MockProperty::Clear(TfEditCookie ec, ITfRange *pRange) {
+    (void)ec;
+    (void)pRange;
+    ++ctx_->attrClears;
+    return S_OK;
+}
+
+inline HRESULT MockProperty::GetType(GUID *pguid) {
+    if (!pguid)
+        return E_INVALIDARG;
+    *pguid = GUID_PROP_ATTRIBUTE;
     return S_OK;
 }
 
