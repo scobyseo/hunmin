@@ -480,6 +480,122 @@ static void applyWindows11Look(HWND h, SettingsState *s) {
             (int)s->dark, (unsigned long)s->hrCorner, (unsigned long)s->hrDark, want);
 }
 
+/* ---- the key-capture hook (the maintainer instruction: set combinations
+ * by pressing keys). The WM_KEYDOWN route was measured dead in this modal
+ * dialog on this host — the build shows this hemmed untouchable — so the
+ * recorder is a thread WH_KEYBOARD hook, which sees the TRUE physical VKs
+ * before any IME processing (the physical 한/Hanja keys arrive as their
+ * real VK here, not VK_PROCESSKEY). Keydown commits, chordless ESC
+ * cancels, modifier-only keys stay armed; the hook swallows every
+ * keyboard event while armed, so the IME cannot compose through the
+ * capture. ---- */
+static HHOOK g_captureHook = nullptr;
+static HWND g_captureDlg = nullptr;
+
+static bool captureIsModifier(WPARAM vk) {
+    return vk == VK_SHIFT || vk == VK_LSHIFT || vk == VK_RSHIFT ||
+           vk == VK_CONTROL || vk == VK_LCONTROL || vk == VK_RCONTROL ||
+           vk == VK_MENU || vk == VK_LMENU || vk == VK_RMENU || vk == VK_LWIN ||
+           vk == VK_RWIN || vk == VK_APPS || vk == VK_NUMLOCK;
+}
+
+/* Record the chord into the armed row and stand down. */
+static void recordCapturedChord(HWND h, SettingsState *s, WPARAM vk) {
+    unsigned mods = 0;
+    if (GetKeyState(VK_SHIFT) & 0x8000)
+        mods |= HUNMIN_TSF_KEYMOD_SHIFT;
+    if (GetKeyState(VK_CONTROL) & 0x8000)
+        mods |= HUNMIN_TSF_KEYMOD_CTRL;
+    if (GetKeyState(VK_MENU) & 0x8000)
+        mods |= HUNMIN_TSF_KEYMOD_ALT;
+    char combo[24];
+    snprintf(combo, sizeof combo, "v1:%lu:%u", (unsigned long)vk, mods);
+    HWND edit = GetDlgItem(h, s->captureTarget);
+    if (edit) {
+        if (s->captureTarget == IDC_TOGGLE_EDIT) {
+            /* The toggle row is a LIST: the chord APPENDS, unless the
+             * exact entry is already there (grammar
+             * "v1:<vk>:<mods>;..."). */
+            std::string keys = wideToStore(getEditText(h, IDC_TOGGLE_EDIT));
+            if (keys.find(combo) == std::string::npos) {
+                if (!keys.empty())
+                    keys += ";";
+                keys += combo;
+            }
+            std::wstring w(keys.begin(), keys.end());
+            SetWindowTextW(edit, w.c_str());
+        } else {
+            /* The Hanja row is ONE binding: the chord REPLACES. */
+            std::wstring w(combo, combo + strlen(combo));
+            SetWindowTextW(edit, w.c_str());
+        }
+        logLine("settings: captured %s into %d", combo, s->captureTarget);
+    }
+    if (g_captureHook) {
+        UnhookWindowsHookEx(g_captureHook);
+        g_captureHook = nullptr;
+    }
+    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
+                                            ? IDC_TOGGLE_CAPTURE
+                                            : IDC_HANJA_CAPTURE),
+                   CAPTURE_PROMPT_IDLE);
+    s->captureTarget = 0;
+}
+
+/* Cancel: the button label restores, the edit keeps whatever it had. */
+static void recordCapturedAbort(HWND h, SettingsState *s) {
+    logLine("settings: capture cancelled");
+    if (g_captureHook) {
+        UnhookWindowsHookEx(g_captureHook);
+        g_captureHook = nullptr;
+    }
+    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
+                                            ? IDC_TOGGLE_CAPTURE
+                                            : IDC_HANJA_CAPTURE),
+                   CAPTURE_PROMPT_IDLE);
+    s->captureTarget = 0;
+}
+
+static LRESULT CALLBACK captureKeyHook(int code, WPARAM wp, LPARAM lp) {
+    if (code == HC_ACTION && g_captureDlg) {
+        auto *s = (SettingsState *)GetWindowLongPtrW(g_captureDlg, GWLP_USERDATA);
+        if (s && s->captureTarget != 0) {
+            WPARAM vk = wp;
+            bool up = (lp & (1u << 31)) != 0;
+            bool chord = (GetKeyState(VK_SHIFT) & 0x8000) ||
+                         (GetKeyState(VK_CONTROL) & 0x8000) ||
+                         (GetKeyState(VK_MENU) & 0x8000);
+            if (!up && vk == VK_ESCAPE && !chord) {
+                recordCapturedAbort(g_captureDlg, s);
+                return 1;
+            }
+            if (!up && !captureIsModifier(vk)) {
+                recordCapturedChord(g_captureDlg, s, vk);
+                return 1;
+            }
+            /* keyups and modifier keydowns: swallowed, capture stays armed */
+            return 1;
+        }
+    }
+    return CallNextHookEx(nullptr, code, wp, lp);
+}
+
+/* Arm: install the hook and paint the prompt onto the targeted button. */
+static void RecordCapturedChordArm(HWND h, SettingsState *s) {
+    if (s->captureTarget == 0)
+        return;
+    g_captureDlg = h;
+    if (!g_captureHook)
+        g_captureHook =
+            SetWindowsHookExW(WH_KEYBOARD, captureKeyHook, nullptr, GetCurrentThreadId());
+    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
+                                            ? IDC_TOGGLE_CAPTURE
+                                            : IDC_HANJA_CAPTURE),
+                   CAPTURE_PROMPT_ACTIVE);
+    logLine("settings: hook capture armed target=%d hook=%p", s->captureTarget,
+            (void *)g_captureHook);
+}
+
 static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     auto *s = (SettingsState *)GetWindowLongPtrW(h, GWLP_USERDATA);
     if (msg == WM_INITDIALOG && s == nullptr) {
@@ -534,87 +650,6 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return TRUE;
     }
-    /* ---- key-capture mode (WinUI 3 parity; the maintainer instruction:
-     * set combinations by PRESSING keys, not by typing v1 strings) ---- */
-    if (s && s->captureTarget != 0 &&
-        (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)) {
-        if (lp & (1 << 30))
-            return TRUE; /* auto-repeat swallowed (keybinding.h repeat rule) */
-        WPARAM vk = wp;
-        /* A Korean IME is active while the dialog runs, so IME-processed
-         * keys (the physical 한/Hanja keys!) surface as VK_PROCESSKEY
-         * (0xE5) — measured: the first live capture stored v1:229:0, which
-         * binds nothing. IMM32 hands the real key back. */
-        if (vk == VK_PROCESSKEY) {
-            HIMC himc = ImmGetContext(h);
-            WPARAM real = himc ? (WPARAM)ImmGetVirtualKey(h) : 0;
-            if (himc)
-                ImmReleaseContext(h, himc);
-            logLine("settings: VK_PROCESSKEY resolved to %lu", (unsigned long)real);
-            if (real == 0)
-                return TRUE; /* unresolvable: wait for a plain key */
-            vk = real;
-        }
-        bool chord =
-            (GetKeyState(VK_SHIFT) & 0x8000) || (GetKeyState(VK_CONTROL) & 0x8000) ||
-            (GetKeyState(VK_MENU) & 0x8000);
-        if (vk == VK_ESCAPE && !chord) {
-            /* Cancel: the button label restores; the edit keeps whatever the
-             * user had (the WinUI 3 cancel rule). */
-            SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
-                                                ? IDC_TOGGLE_CAPTURE
-                                                : IDC_HANJA_CAPTURE),
-                           CAPTURE_PROMPT_IDLE);
-            s->captureTarget = 0;
-            return TRUE;
-        }
-        bool isModifier =
-            vk == VK_SHIFT || vk == VK_LSHIFT || vk == VK_RSHIFT ||
-            vk == VK_CONTROL || vk == VK_LCONTROL || vk == VK_RCONTROL ||
-            vk == VK_MENU || vk == VK_LMENU || vk == VK_RMENU ||
-            vk == VK_LWIN || vk == VK_RWIN || vk == VK_APPS || vk == VK_NUMLOCK;
-        if (isModifier)
-            return TRUE; /* modifier-only: wait for the chord's main key */
-        unsigned mods = 0;
-        if (GetKeyState(VK_SHIFT) & 0x8000)
-            mods |= HUNMIN_TSF_KEYMOD_SHIFT;
-        if (GetKeyState(VK_CONTROL) & 0x8000)
-            mods |= HUNMIN_TSF_KEYMOD_CTRL;
-        if (GetKeyState(VK_MENU) & 0x8000)
-            mods |= HUNMIN_TSF_KEYMOD_ALT;
-        char combo[24];
-        snprintf(combo, sizeof combo, "v1:%lu:%u", (unsigned long)vk, mods);
-        HWND edit = GetDlgItem(h, s->captureTarget);
-        if (!edit) {
-            s->captureTarget = 0;
-            return TRUE;
-        }
-        if (s->captureTarget == IDC_TOGGLE_EDIT) {
-            /* The toggle row is a LIST: the chord APPENDS, unless the exact
-             * entry is already there (grammar "v1:<vk>:<mods>;..."; the
-             * find() is bounded by the ';' separators). */
-            std::string keys =
-                wideToStore(getEditText(h, IDC_TOGGLE_EDIT));
-            if (keys.find(combo) == std::string::npos) {
-                if (!keys.empty())
-                    keys += ";";
-                keys += combo;
-            }
-            std::wstring w(keys.begin(), keys.end());
-            SetWindowTextW(edit, w.c_str());
-        } else {
-            /* The Hanja row is ONE binding: the chord REPLACES. */
-            std::wstring w(combo, combo + strlen(combo));
-            SetWindowTextW(edit, w.c_str());
-        }
-        SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
-                                            ? IDC_TOGGLE_CAPTURE
-                                            : IDC_HANJA_CAPTURE),
-                       CAPTURE_PROMPT_IDLE);
-        logLine("settings: captured %s into %d", combo, s->captureTarget);
-        s->captureTarget = 0;
-        return TRUE;
-    }
     switch (msg) {
     case WM_COMMAND:
         if (LOWORD(wp) == IDOK) {
@@ -625,27 +660,19 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
             EndDialog(h, 0);
             return TRUE;
         }
-        /* 키 입력 buttons: BN_CLICKED arms the capture mode; the
-         * WM_KEYDOWN/WM_SYSKEYDOWN block above the switch then owns the
-         * keys (WinUI 3 parity). Focus moves to the DIALOG: the keydown
-         * block receives WM_KEYDOWN only while the dialog window itself
-         * has focus — with focus left on the button the keys went to the
-         * button's wndproc and the capture sat idle forever (measured:
-         * "capture armed" logged twice, zero keydowns). */
+        /* 키 입력 buttons: BN_CLICKED arms the capture mode by installing
+         * the thread WH_KEYBOARD hook (see captureKeyHook above): the
+         * WM_KEYDOWN route was measured dead in this dialog (armed,
+         * focused, no keydown ever arrived), so the hook is the recorder
+         * and the dialog proc only paints the mode. Focus stays put. */
         if (LOWORD(wp) == IDC_TOGGLE_CAPTURE && HIWORD(wp) == BN_CLICKED) {
             s->captureTarget = IDC_TOGGLE_EDIT;
-            SetWindowTextW(GetDlgItem(h, IDC_TOGGLE_CAPTURE),
-                           CAPTURE_PROMPT_ACTIVE);
-            SetFocus(h);
-            logLine("settings: capture armed target=%d", s->captureTarget);
+            RecordCapturedChordArm(h, s);
             return TRUE;
         }
         if (LOWORD(wp) == IDC_HANJA_CAPTURE && HIWORD(wp) == BN_CLICKED) {
             s->captureTarget = IDC_HANJA_EDIT;
-            SetWindowTextW(GetDlgItem(h, IDC_HANJA_CAPTURE),
-                           CAPTURE_PROMPT_ACTIVE);
-            SetFocus(h);
-            logLine("settings: capture armed target=%d", s->captureTarget);
+            RecordCapturedChordArm(h, s);
             return TRUE;
         }
         break;
@@ -686,6 +713,10 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         }
         break;
     case WM_DESTROY:
+        if (g_captureHook) {
+            UnhookWindowsHookEx(g_captureHook);
+            g_captureHook = nullptr;
+        }
         if (s && s->font)
             DeleteObject(s->font);
         if (s && s->editBrush)
