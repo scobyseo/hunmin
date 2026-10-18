@@ -403,7 +403,7 @@ Four files, and the split is the same one the fcitx5 addon makes:
 | File | Role | Code lines |
 |---|---|---|
 | `HunminInputMethodService.kt` | lifecycle, key dispatch, external-text door | ~230 |
-| `HunminAdapter.kt` | the adapter proper: keycode → engine char, commit/preedit | ~190 |
+| `HunminAdapter.kt` | the adapter proper: keycode → base + shift bit, commit/preedit | ~190 |
 | `HunminKeyRegistry.kt` | the AOSP keycode table and the chord mask | ~200 |
 | `HunminDataInstaller.kt` | extract the layout tables out of the APK into filesDir | ~120 |
 | `cpp/hunmin-jni.c` | handle conversion and UTF-8 marshalling, nothing else | ~230 |
@@ -437,12 +437,30 @@ distinct from the META bits ("super" is the Meta key, reported as
 A mask of `0xf0000000` additionally sweeps up CapsLock, which is the `caps`
 engine option, not a chord.
 
-### A3'. CapsLock inverts shift; the letter must arrive unshifted
+### A3'. CapsLock is the `caps` option; the shift bit travels verbatim
 
-AOSP delivers the *shifted* form under CapsLock. The engine wants the unshifted
-letter plus `set_option("caps", 1)` (SPEC-P2.md). Shift and CapsLock must both
-be considered: an early revision returned uppercase under CapsLock and ignored
-Shift entirely, so CapsLock+Shift+letter produced the wrong case.
+AOSP delivers the *shifted* form under CapsLock. Migrated to
+`hunmin_ic_process_key` (issue #105): `onKey` passes the key's UNSHIFTED base
+plus the AOSP `META_SHIFT_ON` bit, verbatim, and sets `set_option("caps", 1)`
+from `META_CAPS_LOCK_ON`. The CapsLock×Shift matrix that used to live in
+`HunminKeyRegistry.engineChar` is deleted — including its history: an early
+revision returned uppercase under CapsLock and ignored Shift entirely, so
+CapsLock+Shift+letter produced the wrong case, and the corrected matrix made
+CapsLock win over Shift. Which row the (base, shift) pair selects is now the
+engine's decision alone (SPEC-P2 "IC input entry points"; ctest
+`engine-process-key`, tier A).
+
+Two behaviour deltas ride on the deletion, measured, not re-decided here:
+
+- CapsLock+Shift+letter now reaches the engine with shift=1 and composes the
+  SHIFTED row; the deleted matrix made CapsLock win and composed the plain
+  row. Restoring that inversion is a one-line adapter change and a ruling.
+- Shift+`,` and Shift+`.` resolve through the loader's map to `<` and `>` —
+  unmapped in every shipped layout, so they decline and pass through, which is
+  the answer the fcitx5 host already gives — where the deleted matrix dropped
+  the bit and composed the plain row.
+
+CapsLock alone is unchanged: bit=0, plain row, `caps` option set.
 Only `sin3-p2-yet` reads the option, so a test on `sin3-p2` asserts nothing —
 `android-mutations` proves this by deleting the `set_option` call and watching
 the suite catch it.

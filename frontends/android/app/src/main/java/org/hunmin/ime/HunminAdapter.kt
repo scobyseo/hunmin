@@ -4,10 +4,11 @@
  * HunminAdapter — the Android adapter, and nothing else.
  *
  * Same shape as frontends/fcitx5/src/engine.cpp: map platform key events to the
- * engine's US-QWERTY character convention, feed hunmin_ic_process, present the
- * preedit and the commit. No composition logic, no per-layout knowledge, no jamo
- * handling — PLAN.md rule #4. The JNI layer (hunmin-jni.c) is thinner still:
- * handle conversion and UTF-8 marshalling only.
+ * engine's US-QWERTY base character plus the shift bit, feed
+ * hunmin_ic_process_key, present the preedit and the commit. No composition
+ * logic, no per-layout knowledge, no jamo handling — PLAN.md rule #4. The JNI
+ * layer (hunmin-jni.c) is thinner still: handle conversion and UTF-8
+ * marshalling only.
  *
  * What is deliberately absent, and why each is not an oversight:
  *
@@ -51,7 +52,7 @@ class HunminAdapter(
     interface NativeOps {
         fun icNew(ctx: Long, layout: String): Long
         fun icFree(ic: Long)
-        fun process(ic: Long, ch: Int): Boolean
+        fun processKey(ic: Long, base: Int, shift: Int): Boolean
         fun commit(ic: Long): String
         fun preedit(ic: Long): String
         fun flush(ic: Long): String
@@ -68,7 +69,8 @@ class HunminAdapter(
     private object JniOps : NativeOps {
         override fun icNew(ctx: Long, layout: String) = HunminNativeBridge.nativeIcNew(ctx, layout)
         override fun icFree(ic: Long) = HunminNativeBridge.nativeIcFree(ic)
-        override fun process(ic: Long, ch: Int) = HunminNativeBridge.nativeProcess(ic, ch)
+        override fun processKey(ic: Long, base: Int, shift: Int) =
+            HunminNativeBridge.nativeProcessKey(ic, base, shift)
         override fun commit(ic: Long) = HunminNativeBridge.nativeCommit(ic)
         override fun preedit(ic: Long) = HunminNativeBridge.nativePreedit(ic)
         override fun flush(ic: Long) = HunminNativeBridge.nativeFlush(ic)
@@ -118,9 +120,11 @@ class HunminAdapter(
      *
      *  1. Ctrl/Alt/Super/Meta chords flush and pass through. Shift is *not* in
      *     that set — it is a layout row, not a modifier (invariant 4).
-     *  2. CapsLock is handed to the engine as an option, with the letter
-     *     un-shifted, because AOSP delivers the shifted form under CapsLock
-     *     (invariant 5 of §5; FRONTEND-CONTRACT §3 A3).
+     *  2. The key reaches the engine as its UNSHIFTED base plus the AOSP
+     *     shift bit, verbatim (hunmin_ic_process_key), and CapsLock as the
+     *     `caps` option: the CapsLock×Shift case endpoint is the engine's,
+     *     not this adapter's (invariant 5 of §5; FRONTEND-CONTRACT §3 A3',
+     *     SPEC-P2 "IC input entry points").
      *  3. An unmapped key flushes and passes through. That is how space and
      *     friends reach the client.
      *  4. hunmin_ic_commit is read **or** hunmin_ic_flush is called, never both.
@@ -143,8 +147,8 @@ class HunminAdapter(
         val caps = (metaState and android.view.KeyEvent.META_CAPS_LOCK_ON) != 0
         if (caps) native.setOption(ic, "caps", 1)
 
-        val ch = HunminKeyRegistry.engineChar(keyCode, metaState)
-        if (ch == null) {
+        val base = HunminKeyRegistry.engineBase(keyCode)
+        if (base == null) {
             // Unmapped key: word boundary first, then pass through -- space,
             // Enter, punctuation reach the client AFTER the word lands.
             commitWord(ic_)
@@ -152,12 +156,22 @@ class HunminAdapter(
         }
 
         val tracing = HunminTraceRecorder.isEnabled
-        // What the ADAPTER decided this key means, for the tier E3 trace. The
-        // layer a device quirk actually shows up in is the adapter's mapping, not
-        // the engine's response to it.
-        val tracedChar = if (tracing) ch else null
+        // What the ADAPTER decided this key means, for the tier E3 trace: the
+        // unshifted base, the modifier bits travelling verbatim in [metaState].
+        // The layer a device quirk actually shows up in is the adapter's
+        // mapping, not the engine's response to it.
+        val tracedChar = if (tracing) base else null
 
-        val used = native.process(ic, ch.code)
+        // The case endpoint is the ENGINE's (issue #105): unshifted base +
+        // shift bit + the caps option above. hunmin_ic_process_key resolves
+        // the row from the loader's own US-QWERTY map, so CapsLock×Shift is
+        // no longer re-derived here -- the site of the earlier wrong-case
+        // defect (FRONTEND-CONTRACT §3 A3') is deleted, not rewritten. The
+        // bit passes verbatim, so CapsLock+Shift now composes the shifted
+        // row; that delta is recorded in A3' and reversing it would be a
+        // one-line change here awaiting a ruling.
+        val used = native.processKey(
+            ic, base.code, if (HunminKeyRegistry.isShiftOn(metaState)) 1 else 0)
         if (used) {
             // Read the destructive buffer exactly once. An empty string means
             // the key contributed no complete text yet, which is the normal case

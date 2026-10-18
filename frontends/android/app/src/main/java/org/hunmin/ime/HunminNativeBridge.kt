@@ -69,8 +69,23 @@ object HunminNativeBridge {
 
     @JvmStatic external fun nativeIcFree(ic: Long)
 
-    /** hunmin_ic_process — true when the engine consumed the key. */
+    /**
+     * hunmin_ic_process — the legacy case-encoding call. The Android ADAPTER
+     * no longer uses it (it passes base + shift via [nativeProcessKey]); this
+     * declaration stays because the tier C trace runner, TraceEmit, replays
+     * the android corpus's engine-character events straight into the engine.
+     */
     @JvmStatic external fun nativeProcess(ic: Long, ch: Int): Boolean
+
+    /**
+     * hunmin_ic_process_key — the explicit-modifier entry (issue #90; the
+     * adapter migrated in #105). [base] is the UNSHIFTED US-QWERTY character
+     * and [shift] is the AOSP META_SHIFT_ON bit, verbatim; the engine owns
+     * the CapsLock×Shift case endpoint (docs/SPEC-P2 "IC input entry
+     * points"). A nonzero [shift] selects the shifted row when the base has
+     * one and is idempotent when it does not (the already-resolved rule).
+     */
+    @JvmStatic external fun nativeProcessKey(ic: Long, base: Int, shift: Int): Boolean
 
     /**
      * hunmin_ic_commit — a DESTRUCTIVE read: the text is delivered exactly once

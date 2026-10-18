@@ -187,8 +187,11 @@ class HunminAdapterTest {
 
     @Test
     fun `shift is data not a modifier`() {
-        val shifted = HunminKeyRegistry.engineChar(keyCodeOf('k'), shiftOn)
-        assertEquals('K', shifted)
+        // The adapter passes the UNSHIFTED base whatever the metaState is:
+        // resolving the shifted row is hunmin_ic_process_key's job, and the
+        // four-key test below proves the row still composes ('Q' arrives as
+        // KEYCODE_Q + META_SHIFT_ON and must reach sin3-p2's symbol tier).
+        assertEquals('k', HunminKeyRegistry.engineBase(keyCodeOf('k')))
         // Shift must not be classified as a chord -- that would drop every
         // shifted key to the client and silently break sin3-p2's symbol tiers.
         assertFalse(HunminKeyRegistry.isModifierChord(shiftOn))
@@ -202,12 +205,22 @@ class HunminAdapterTest {
     }
 
     @Test
-    fun `capslock inverts the shift and is not itself a chord`() {
+    fun `capslock is not a chord and the base stays unshifted`() {
         assertFalse("CapsLock must not be a modifier chord", HunminKeyRegistry.isModifierChord(capsOn))
-        // The engine must receive the UNSHIFTED letter plus the caps option,
-        // never the uppercase form: sin3-p2-yet reads caps as a separate option
-        // (SPEC-P2.md) and an uppercase K would be read as a symbol-tier row.
-        assertEquals('k', HunminKeyRegistry.engineChar(keyCodeOf('k'), capsOn))
+        // The base is the UNSHIFTED letter under every modifier combination:
+        // the bits travel beside it (the shift bit verbatim via isShiftOn,
+        // caps as the engine option), so no metaState can change what
+        // engineBase returns. Which ROW the engine resolves under
+        // CapsLock+Shift is tier A's engine-process-key domain; the caps
+        // OPTION path is pinned end-to-end by the sin3-p2-yet test below.
+        // The deleted engineChar matrix is where the CapsLock+Shift
+        // wrong-case defect shipped.
+        val kc = keyCodeOf('k')
+        assertEquals('k', HunminKeyRegistry.engineBase(kc))
+        assertFalse(HunminKeyRegistry.isShiftOn(0))
+        assertFalse(HunminKeyRegistry.isShiftOn(capsOn))
+        assertTrue(HunminKeyRegistry.isShiftOn(shiftOn))
+        assertTrue(HunminKeyRegistry.isShiftOn(capsOn or shiftOn))
     }
 
     // ------------------------------------------------------------ composition
@@ -763,11 +776,12 @@ class HunminAdapterTest {
     @Test
     fun `an arrow keycode is not a layout key`() {
         // Why the test above holds at the mapping layer rather than by accident:
-        // an arrow code has no engineChar at all, so the adapter cannot be
+        // an arrow code has no base at all, so the adapter cannot be
         // silently reaching the jamo pipeline with a character that happens to
-        // compose to nothing.
-        assertEquals(null, HunminKeyRegistry.engineChar(21, 0))  // LEFT,  no shift
-        assertEquals(null, HunminKeyRegistry.engineChar(22, 1))  // RIGHT, META_SHIFT_ON
+        // compose to nothing. The base is metaState-independent, so one
+        // assertion per keycode covers every modifier combination.
+        assertEquals(null, HunminKeyRegistry.engineBase(21))  // LEFT
+        assertEquals(null, HunminKeyRegistry.engineBase(22))  // RIGHT
     }
 
     @Test
@@ -779,7 +793,7 @@ class HunminAdapterTest {
         // The mechanism turns out to be the one the issue guessed at, one layer
         // along. Not "the composition rule emits", but updatePreedit's
         // unconditional setComposingText("", 1): an arrow keycode resolves to no
-        // engineChar, so the adapter takes the unmapped-key path, which flushes,
+        // base, so the adapter takes the unmapped-key path, which flushes,
         // and the flush ends in updatePreedit. With no composition of ours on
         // screen, setComposingText("", 1) is the editor being told "replace the
         // composing region with nothing" -- and where a selection is standing,
