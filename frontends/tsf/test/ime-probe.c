@@ -48,6 +48,37 @@ static const CLSID kHunminTsfClsid = {0xF2C70001, 0x0000, 0x0000, {0x00, 0x00, 0
 static const GUID kHunminProfileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
 #define HUNMIN_LANGID 0x0412
 
+static void redirect_log_to_probe_dir(void)
+{
+    /* The TIP logs next to the installed DLL by default (tsf.cpp
+     * hunmin_tsf_log_path) -- inside the sandbox that is C:\Program Files,
+     * unreachable from the host after the round. Point HUNMIN_TSF_LOG_DIR at
+     * THIS exe's directory (the mapped folder) so the trace comes back, and
+     * only for this process: other hosts' TIP instances keep logging
+     * beside the DLL. Must run before the TIP loads (first key). */
+    wchar_t exeW[MAX_PATH], dirW[MAX_PATH];
+    DWORD n = GetModuleFileNameW(NULL, exeW, MAX_PATH);
+    while (n > 0 && exeW[n - 1] != L'\\')
+        n--;
+    if (n == 0 || n >= MAX_PATH - 1)
+        return;
+    memcpy(dirW, exeW, n * sizeof(wchar_t));
+    dirW[n] = 0;
+    SetEnvironmentVariableW(L"HUNMIN_TSF_LOG_DIR", dirW);
+    {
+        /* Record where the TIP's own log will land, so a round log is
+         * unambiguous about which copy to read. */
+        FILE *l = _wfopen(L"ime-probe.log", L"a");
+        if (l) {
+            fprintf(l, "HUNMIN_TSF_LOG_DIR -> ");
+            for (DWORD i = 0; i < n; i++)
+                fputc(dirW[i] < 128 ? (int)dirW[i] : '?', l);
+            fprintf(l, "\n");
+            fclose(l);
+        }
+    }
+}
+
 static void activate_hunmin_profile(void)
 {
     FILE *log = _wfopen(L"ime-probe.log", L"a");
@@ -102,6 +133,8 @@ static LRESULT CALLBACK probe_wndproc(HWND wnd, UINT msg, WPARAM wp, LPARAM lp)
 int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show)
 {
     (void)prev; (void)cmd;
+
+    redirect_log_to_probe_dir();
 
     /* msftedit.dll must be loaded before the RICHEDIT50W class exists. */
     HMODULE msftedit = LoadLibraryW(L"msftedit.dll");
