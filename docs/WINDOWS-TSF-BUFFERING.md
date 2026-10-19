@@ -26,14 +26,18 @@ TSF should therefore follow `frontends/fcitx5/src/engine.cpp` and this buffering
    - If the target application supports client preedit, use that presentation path.
    - Otherwise show the pending preedit through a small overlay anchored at the text
      caret, mirroring Jamotong.
-3. Never keep a TSF composition that owns the same text you later insert.
+3. ~~Never keep a TSF composition that owns the same text you later insert.~~
+   **Superseded 2026-10-20 (issue #98):** the adapter now opens an inline
+   composition for preedit. The rule's intent — the same text must never be
+   delivered twice — is preserved: the composition range holds the buffered word
+   plus in-flight preedit, and `EndComposition` fuses it into the document as
+   ordinary text at the first boundary. The old sub-bullets (no `StartComposition`,
+   `OnCompositionTerminated` a no-op) are history.
    - The adapter inserts only flattened commit text: via a synchronous edit session
      (`RequestEditSession`, `TF_ES_SYNC | TF_ES_READWRITE`) whose edit-doer sets the
      selection range with `ITfRange::SetText` (`FlushSession`, `DeactSession` in
      `frontends/tsf/src/tsf.cpp`). The draft's `ITfInsertAtSelection` wording was
      never implemented; measured 2026-10-17 and corrected here.
-   - It never opens an inline composition for preedit: no `StartComposition` call
-     exists, and `ITfCompositionSink::OnCompositionTerminated` is a no-op.
 4. It must insert exactly once.
    - Commit text comes from `hunmin_ic_commit(...)`.
    - If the engine declines a keystroke, use `hunmin_ic_flush(...)` only once, then

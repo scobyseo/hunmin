@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-18 | Total pages: 43
+> Last updated: 2026-10-19 | Total pages: 44
 
 ## Concepts
 
@@ -236,3 +236,11 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   entry, the conversion-compartment mode write, the system langbar menu
   extension, and the (ko,hanja) krdict dedupe; pending: last-syllable
   fallback, mode-persist ruling, live re-register, CI billing.
+- [[2026-10-19-tsf-native-composition-preedit]] — issue #98 closed the
+  overlay: the preedit is a native `ITfContextComposition` (caret range,
+  per-transition rewrite, boundary end, fused text), underlined through a
+  registered display-attribute provider; the rebase onto #106's key-path
+  migration re-verified, and the re-verification corrected the fallback
+  case's delivery channel and the unsound "7/7" claim; left minor: Notepad
+  paints its composition highlight over the preedit under both attribute
+  encodings measured (noted on the issue).

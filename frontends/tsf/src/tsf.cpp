@@ -336,11 +336,142 @@ HRESULT hunmin_tsf_launch_settings(void *anchor) {
 static const CLSID CLSID_HunminTSF = {0xF2C70001, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}};
 /* The language-bar item's own item id (ctfutb TF_LANGBARITEMINFO::guidItem;
  * a fresh slot in the same F2C7000x block, never equal to another TIP's). */
-static const GUID HunminLangBarItemGuid = {0xF2C70003, 0x0000, 0x0000,
-                                           {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03}};
+static const GUID HunminLangBarItemGuid = {0xF2C70003, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03}};
 /* The language profile GUID is shared state: registration enables it, so
  * unregistration must name the same GUID to remove it (issue #84). */
 static const GUID HunminProfileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
+/* The display attribute the composition text carries (issue #98): a solid
+ * underline over the undetermined text, app default colors. Registered with
+ * ITfCategoryMgr under GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER in
+ * DllRegisterServer; the document property GUID_PROP_ATTRIBUTE carries the
+ * atom ITfCategoryMgr::RegisterGUID hands back for it. */
+static const GUID HunminDisplayAttrGuid = {0xF2C70004, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04}};
+
+/* ITfDisplayAttributeInfo for HunminDisplayAttrGuid: one attribute, the
+ * underlined-undetermined-text shape every Korean IME uses. */
+class HunminDisplayAttrInfo : public ITfDisplayAttributeInfo {
+  public:
+    HunminDisplayAttrInfo() : ref_(1) {}
+    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+        if (!ppv)
+            return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfDisplayAttributeInfo)) {
+            *ppv = static_cast<ITfDisplayAttributeInfo *>(this);
+        } else {
+            *ppv = nullptr;
+            return E_NOINTERFACE;
+        }
+        AddRef();
+        return S_OK;
+    }
+    STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+    STDMETHOD_(ULONG, Release)() override {
+        ULONG r = (ULONG)InterlockedDecrement(&ref_);
+        if (r == 0)
+            delete this;
+        return r;
+    }
+    STDMETHOD(GetGUID)(GUID *pguid) override {
+        if (!pguid)
+            return E_INVALIDARG;
+        *pguid = HunminDisplayAttrGuid;
+        return S_OK;
+    }
+    STDMETHOD(GetDescription)(BSTR *pbstrDesc) override {
+        if (!pbstrDesc)
+            return E_INVALIDARG;
+        *pbstrDesc = SysAllocString(L"Hunmin preedit");
+        return *pbstrDesc ? S_OK : E_OUTOFMEMORY;
+    }
+    STDMETHOD(GetAttributeInfo)(TF_DISPLAYATTRIBUTE *pda) override {
+        if (!pda)
+            return E_INVALIDARG;
+        ZeroMemory(pda, sizeof *pda);
+        /* Measured against Notepad rendering the MS IME beside ours: the app
+         * honors the provider's colors, and the all-TF_CT_NONE shape (a
+         * ZeroMemory init) made it paint its light-blue composition highlight
+         * over the preedit. The ruled shape is the MS IME's: transparent
+         * background, underline only, theme colors for text and underline.
+         * CLR_NONE as an explicit COLORREF is the no-background encoding;
+         * TF_CT_SYSCOLOR picks the theme's window text. */
+        pda->crText.type = TF_CT_SYSCOLOR;
+        pda->crText.nIndex = COLOR_WINDOWTEXT;
+        pda->crBk.type = TF_CT_COLORREF;
+        pda->crBk.cr = (COLORREF)CLR_NONE;
+        pda->crLine.type = TF_CT_SYSCOLOR;
+        pda->crLine.nIndex = COLOR_WINDOWTEXT;
+        pda->lsStyle = TF_LS_SOLID;
+        pda->fBoldLine = FALSE;
+        pda->bAttr = TF_ATTR_INPUT;
+        return S_OK;
+    }
+    STDMETHOD(SetAttributeInfo)(const TF_DISPLAYATTRIBUTE *pda) override {
+        (void)pda;
+        return E_NOTIMPL; /* the attribute is not user-editable here */
+    }
+    STDMETHOD(Reset)() override { return S_OK; }
+
+  private:
+    LONG ref_;
+    virtual ~HunminDisplayAttrInfo() = default;
+};
+
+class HunminEnumDisplayAttrInfo : public IEnumTfDisplayAttributeInfo {
+  public:
+    HunminEnumDisplayAttrInfo() : ref_(1), pos_(0) {}
+    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+        if (!ppv)
+            return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IEnumTfDisplayAttributeInfo)) {
+            *ppv = static_cast<IEnumTfDisplayAttributeInfo *>(this);
+        } else {
+            *ppv = nullptr;
+            return E_NOINTERFACE;
+        }
+        AddRef();
+        return S_OK;
+    }
+    STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+    STDMETHOD_(ULONG, Release)() override {
+        ULONG r = (ULONG)InterlockedDecrement(&ref_);
+        if (r == 0)
+            delete this;
+        return r;
+    }
+    STDMETHOD(Clone)(IEnumTfDisplayAttributeInfo **ppEnum) override {
+        if (!ppEnum)
+            return E_INVALIDARG;
+        HunminEnumDisplayAttrInfo *e = new HunminEnumDisplayAttrInfo();
+        e->pos_ = pos_;
+        *ppEnum = e;
+        return S_OK;
+    }
+    STDMETHOD(Next)(ULONG ulCount, ITfDisplayAttributeInfo **rgInfo, ULONG *pcFetched) override {
+        if (!rgInfo)
+            return E_INVALIDARG;
+        ULONG n = 0;
+        while (n < ulCount && pos_ < 1) {
+            rgInfo[n++] = new HunminDisplayAttrInfo();
+            ++pos_;
+        }
+        if (pcFetched)
+            *pcFetched = n;
+        return n == ulCount ? S_OK : S_FALSE;
+    }
+    STDMETHOD(Reset)() override {
+        pos_ = 0;
+        return S_OK;
+    }
+    STDMETHOD(Skip)(ULONG ulCount) override {
+        pos_ = (pos_ + ulCount > 1) ? 1 : pos_ + ulCount;
+        return S_OK;
+    }
+
+  private:
+    LONG ref_;
+    ULONG pos_;
+    virtual ~HunminEnumDisplayAttrInfo() = default;
+};
 
 /* ---- the SYSTEM langbar menu extension (docs: language-bar.md,
  * "Extending System Language Bar Items"): TSF supports adding menu items to
@@ -393,14 +524,22 @@ class CTextService : public ITfTextInputProcessor,
                      public ITfThreadMgrEventSink,
                      public ITfKeyEventSink,
                      public ITfCompositionSink,
-                     public ITfLangBarItemButton {
+                     public ITfLangBarItemButton,
+                     public ITfDisplayAttributeProvider {
   public:
     CTextService()
         : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), ic_(nullptr),
           hangulMode_(true), overlayWnd_(nullptr), hasPreeditRect_(false), lastCtx_(nullptr),
+          composition_(nullptr), compCtx_(nullptr), displayAttrAtom_(0),
           hangulId_("sin3-p2"), latinId_("us-qwerty"), candActive_(false), candCount_(0), candCursor_(0),
           candTop_(0), hanjaCombo_(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0}) {}
     virtual ~CTextService() {
+        if (composition_)
+            composition_->Release();
+        if (compCtx_) {
+            compCtx_->Release();
+            compCtx_ = nullptr;
+        }
         if (overlayWnd_)
             DestroyWindow(overlayWnd_);
         if (ic_)
@@ -429,6 +568,11 @@ class CTextService : public ITfTextInputProcessor,
              * configure function (settings.cpp). */
             *ppv = hunmin_tsf_settings_new_provider(this);
             return S_OK;
+        } else if (IsEqualIID(riid, IID_ITfDisplayAttributeProvider)) {
+            /* Issue #98: the display-attribute provider the app-side
+             * attribute manager looks for through the
+             * GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER category. */
+            *ppv = static_cast<ITfDisplayAttributeProvider *>(this);
         } else if (IsEqualIID(riid, IID_ITfLangBarItem) ||
                    IsEqualIID(riid, IID_ITfLangBarItemButton)) {
             /* ctfutb.h: the language-bar button. ITfLangBarItemButton
@@ -682,6 +826,11 @@ class CTextService : public ITfTextInputProcessor,
             threadMgr_->Release();
             threadMgr_ = nullptr;
         }
+        /* A live composition (issue #98) is finalised in its own context
+         * first: the composed word stays there as committed text and the
+         * buffers drain, so the plain-insert path below only handles what
+         * is left when no composition could ever be started. */
+        DetachComposition();
         if (lastCtx_ && ic_) {
             const char *flushed = hunmin_ic_flush(ic_);
             if (flushed && flushed[0]) {
@@ -747,7 +896,6 @@ class CTextService : public ITfTextInputProcessor,
         }
         wordbuf_.clear();
         CloseCandidateWindow();
-        HideOverlay();
         /* Drop the language-bar item; the langbar kernel releases its
          * reference to us, which is why RemoveItem must pass the SAME
          * pointer it got in AddItem. */
@@ -758,7 +906,7 @@ class CTextService : public ITfTextInputProcessor,
                 plbm->Release();
             }
             langbar_registered_ = false;
-        }        /* The system-menu extension's documents (language-bar.md step 4):
+        } /* The system-menu extension's documents (language-bar.md step 4):
          * UnadviseSink by ITS cookie, THEN the sink release. */
         if (menSrc_ && menExt_) {
             menSrc_->UnadviseSink(menCookie_);
@@ -878,6 +1026,23 @@ class CTextService : public ITfTextInputProcessor,
         return *pbstrText ? S_OK : E_OUTOFMEMORY;
     }
 
+    /* ---- ITfDisplayAttributeProvider (issue #98): one attribute, enum'd ---- */
+    STDMETHOD(EnumDisplayAttributeInfo)(IEnumTfDisplayAttributeInfo **ppEnum) override {
+        if (!ppEnum)
+            return E_INVALIDARG;
+        *ppEnum = new HunminEnumDisplayAttrInfo();
+        return S_OK;
+    }
+    STDMETHOD(GetDisplayAttributeInfo)(REFGUID guid, ITfDisplayAttributeInfo **ppInfo) override {
+        if (!ppInfo)
+            return E_INVALIDARG;
+        *ppInfo = nullptr;
+        if (!IsEqualGUID(guid, HunminDisplayAttrGuid))
+            return E_FAIL;
+        *ppInfo = new HunminDisplayAttrInfo();
+        return S_OK;
+    }
+
     STDMETHOD(OnInitDocumentMgr)(ITfDocumentMgr *pdm) override {
         (void)pdm;
         return S_OK;
@@ -983,6 +1148,8 @@ class CTextService : public ITfTextInputProcessor,
             lastCtx_ = pic;
             if (lastCtx_)
                 lastCtx_->AddRef();
+            if (composition_ && compCtx_ && compCtx_ != pic)
+                DetachComposition();
         }
         FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
         if (dbg) {
@@ -1041,7 +1208,7 @@ class CTextService : public ITfTextInputProcessor,
                 fclose(dbg);
             return S_OK; // passthrough English
         }
-         /* --- the candidate-window key (issue #67) ---
+        /* --- the candidate-window key (issue #67) ---
          *
          * The configured binding (default: the bare physical Hanja key)
          * toggles the window. Interception sits before any engine feed
@@ -1081,7 +1248,6 @@ class CTextService : public ITfTextInputProcessor,
                 break;
             case VK_ESCAPE:
                 CloseCandidateWindow();
-                UpdateOverlay(pic);
                 handled = true;
                 break;
             case VK_UP:
@@ -1146,7 +1312,6 @@ class CTextService : public ITfTextInputProcessor,
              * swallowed by an invisible window (fcitx5: the default rule).
              * The buffered word is untouched by the close itself. */
             CloseCandidateWindow();
-            UpdateOverlay(pic);
         }
         /* Edit/navigation keys (measured on this host during the buffered-input
          * check: VK_LEFT..VK_NEXT + VK_INSERT/VK_DELETE all fall into the
@@ -1363,7 +1528,7 @@ class CTextService : public ITfTextInputProcessor,
                 fprintf(dbg, " consumed, word len=%zu preedit=%s\n", wordbuf_.size(), hunmin_ic_preedit(ic_));
                 fflush(dbg);
             }
-            UpdateOverlay(pic);
+            CompositionWrite(pic);
             if (pfEat)
                 *pfEat = TRUE;
         } else {
@@ -1408,121 +1573,254 @@ class CTextService : public ITfTextInputProcessor,
     STDMETHOD(OnCompositionTerminated)(TfEditCookie ecWrite, ITfComposition *pComposition) override {
         (void)ecWrite;
         (void)pComposition;
+        /* The host terminated the composition (issue #98): the composed text
+         * is now document text by the host's decision, so the buffers drain
+         * and the engine state resets — the same word must never be
+         * delivered twice through the next boundary. */
+        if (composition_) {
+            composition_->Release();
+            composition_ = nullptr;
+        }
+        if (compCtx_) {
+            compCtx_->Release();
+            compCtx_ = nullptr;
+        }
+        compText_.clear();
+        wordbuf_.clear();
+        if (ic_)
+            hunmin_ic_reset(ic_);
         return S_OK;
     }
 
     void HideOverlay() {
-        if (overlayWnd_)
-            ShowWindow(overlayWnd_, SW_HIDE);
+        /* Ruled out with issue #98: the floating preedit window is gone for
+         * good — the preedit rides the native composition. Kept as a no-op
+         * so the teardown paths stay one call wide. */
+        (void)overlayWnd_;
     }
 
-    void UpdateOverlay(ITfContext *pic) {
-        if (!pic || !ic_) {
-            HideOverlay();
+    /* ---- Native composition preedit (issue #98) ----
+     *
+     * The engine's buffers reach the DOCUMENT while typing: the whole
+     * buffered word (finalised syllables + in-flight preedit, issue #73)
+     * sits in an ITfComposition started on the caret's empty selection
+     * range, carried toward the app through one edit session per engine
+     * transition, and underlined with GUID_PROP_ATTRIBUTE (the
+     * display-attribute atom registered under HunminDisplayAttrGuid, the
+     * attribute the provider above serves). A word boundary ends the
+     * composition: the text fuses into the document as ordinary text and
+     * the buffers empty. The floating overlay window has no remaining
+     * preedit role (ruled 2026-10-20: the overlay keeps only the candidate
+     * popup; the non-TSF-app fallback is dropped with the preedit path).
+     *
+     * If a host refuses ITfContextComposition (or the write session), the
+     * commit mechanism degrades to the plain selection SetText the 0.2
+     * adapter committed with — typed text still lands unstyled at the
+     * boundary. The candidate popup keeps the caret-rect machinery. */
+    class CompositionSession : public ITfEditSession {
+      public:
+        CompositionSession(ITfContext *ctx, CTextService *svc, TfClientId cid, const wchar_t *t, bool endAfter)
+            : ref_(1), ctx_(ctx), svc_(svc), cid_(cid), t_(t), endAfter_(endAfter) {}
+        STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+            if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
+                *ppv = this;
+                AddRef();
+                return S_OK;
+            }
+            *ppv = nullptr;
+            return E_NOINTERFACE;
+        }
+        STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+        STDMETHOD_(ULONG, Release)() override {
+            ULONG r = (ULONG)InterlockedDecrement(&ref_);
+            if (r == 0)
+                delete this;
+            return r;
+        }
+        STDMETHOD(DoEditSession)(TfEditCookie ec) override {
+            HRESULT hr = S_OK;
+            if (!svc_->composition_) {
+                /* First preedit key in this context: the empty selection
+                 * range becomes the composition. A host that refuses the
+                 * interface leaves composition_ null, and the caller's
+                 * boundary path then falls back to the plain insert. */
+                ITfContextComposition *cc = nullptr;
+                if (SUCCEEDED(ctx_->QueryInterface(IID_ITfContextComposition, (void **)&cc)) && cc) {
+                    TF_SELECTION sel;
+                    ULONG fetched = 0;
+                    if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) &&
+                        fetched == 1 && sel.range) {
+                        HRESULT hs = cc->StartComposition(
+                            ec, sel.range, static_cast<ITfCompositionSink *>(svc_), &svc_->composition_);
+                        if (SUCCEEDED(hs) && svc_->composition_) {
+                            svc_->compCtx_ = ctx_;
+                            ctx_->AddRef();
+                        }
+                        HMLOG("composition start hr=0x%lX comp=%p\n", (unsigned long)hs,
+                              (void *)svc_->composition_);
+                        sel.range->Release();
+                    }
+                    cc->Release();
+                }
+            }
+            if (svc_->composition_) {
+                ITfRange *range = nullptr;
+                if (SUCCEEDED(svc_->composition_->GetRange(&range)) && range) {
+                    /* An in-composition rewrite may CLEAR the range: an
+                     * engine backspace can empty both buffers while the
+                     * composition lives, and skipping the SetText left the
+                     * stale preedit visible (measured at the seosi trace's
+                     * backspace, issue #98; a real host shows the same
+                     * ghost). Empty fuses nothing if the boundary ends it
+                     * next. */
+                    hr = range->SetText(ec, 0, t_, -1);
+                    if (!endAfter_)
+                        svc_->ApplyDisplayAttribute(ctx_, ec, range, false);
+                    else
+                        svc_->ApplyDisplayAttribute(ctx_, ec, range, true);
+                    /* Caret: the COLLAPSE must never touch the composition's
+                     * own range (escaping a collapsed-at-end range would
+                     * make the next rewrite splice AFTER the text instead
+                     * of replacing it). Write mode keeps the selection on
+                     * the composition; end mode walks a clone to the end. */
+                    if (endAfter_) {
+                        ITfRange *caret = nullptr;
+                        if (SUCCEEDED(range->Clone(&caret)) && caret) {
+                            caret->Collapse(ec, TF_ANCHOR_END);
+                            TF_SELECTION cs = {};
+                            cs.range = caret;
+                            cs.style.ase = TF_AE_END;
+                            cs.style.fInterimChar = FALSE;
+                            ctx_->SetSelection(ec, 1, &cs);
+                            caret->Release();
+                        }
+                    } else {
+                        TF_SELECTION ns = {};
+                        ns.range = range;
+                        ns.style.ase = TF_AE_END;
+                        ns.style.fInterimChar = FALSE;
+                        ctx_->SetSelection(ec, 1, &ns);
+                    }
+                    range->Release();
+                }
+                svc_->compText_ = t_;
+                if (endAfter_) {
+                    svc_->composition_->EndComposition(ec);
+                    HMLOG("composition end text=%ls\n", t_);
+                    svc_->composition_->Release();
+                    svc_->composition_ = nullptr;
+                    if (svc_->compCtx_) {
+                        svc_->compCtx_->Release();
+                        svc_->compCtx_ = nullptr;
+                    }
+                    svc_->compText_.clear();
+                }
+            }
+            return S_OK;
+        }
+
+      private:
+        LONG ref_;
+        ITfContext *ctx_;
+        CTextService *svc_;
+        TfClientId cid_;
+        const wchar_t *t_;
+        bool endAfter_;
+    };
+
+    /* The write half of the composition lifecycle: one edit session makes
+     * the composition exist (if not yet) and shows the whole buffered word
+     * in it, underlined. Called after every engine transition that a bound
+     * key drives. */
+    void CompositionWrite(ITfContext *pic) {
+        if (!pic)
             return;
+        std::wstring full = wordbuf_;
+        if (ic_) {
+            const char *pre = hunmin_ic_preedit(ic_);
+            full += HunminUtf8ToWide(pre);
         }
-        const char *pre = hunmin_ic_preedit(ic_);
-        /* Overlay shows the whole buffered word (issue #73): accumulated
-         * finalised syllables plus the in-flight preedit. */
-        size_t wword = wordbuf_.size();
-        int wlen = MultiByteToWideChar(CP_UTF8, 0, pre, -1, nullptr, 0);
-        if (wlen < 0)
-            wlen = 0;
-        if (wword + (size_t)wlen <= 1) {
-            HideOverlay();
+        if (full.empty() && !composition_)
             return;
-        }
-        wchar_t *wbuf = new wchar_t[wword + (size_t)wlen];
-        memcpy(wbuf, wordbuf_.c_str(), wword * sizeof(wchar_t));
-        MultiByteToWideChar(CP_UTF8, 0, pre, -1, wbuf + wword, wlen);
-
-        RECT rc;
-        bool haveCaret = false;
-        GUITHREADINFO gti;
-        if (!AcquireCaretRect(pic, &rc, &haveCaret, &gti)) {
-            delete[] wbuf;
-            HideOverlay();
-            return;
-        }
-
-        if (!overlayWnd_) {
-            HWND fontWindow = haveCaret ? (gti.hwndFocus ? gti.hwndFocus : gti.hwndCaret) : nullptr;
-            DPI_AWARENESS_CONTEXT oldCtx = nullptr;
-            if (fontWindow)
-                oldCtx = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(fontWindow));
-            overlayWnd_ = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, L"STATIC", wbuf,
-                                          WS_POPUP | SS_LEFTNOWORDWRAP, rc.left, rc.top, 1, 1, nullptr, nullptr,
-                                          GetModuleHandleW(L"hunmin-tsf.dll"), nullptr);
-            if (oldCtx)
-                SetThreadDpiAwarenessContext(oldCtx);
-        }
-
-        HFONT hFont = nullptr;
-        HWND fontHwnd = haveCaret ? (gti.hwndFocus ? gti.hwndFocus : gti.hwndCaret) : nullptr;
-        CHARFORMAT2W cf;
-        ZeroMemory(&cf, sizeof(cf));
-        cf.cbSize = sizeof(cf);
-        if (fontHwnd && SendMessageW(fontHwnd, EM_GETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf) &&
-            (cf.dwMask & (CFM_FACE | CFM_SIZE)) == (CFM_FACE | CFM_SIZE)) {
-            LOGFONTW lf;
-            ZeroMemory(&lf, sizeof(lf));
-            UINT dpi = fontHwnd ? GetDpiForWindow(fontHwnd) : 96;
-            if (dpi == 0)
-                dpi = 96;
-            lf.lfHeight = -(int)((cf.yHeight * dpi + 720) / 1440);
-            if (lf.lfHeight == 0)
-                lf.lfHeight = -12;
-            lf.lfWeight = (cf.dwEffects & CFE_BOLD) ? FW_BOLD : FW_NORMAL;
-            lf.lfItalic = (cf.dwEffects & CFE_ITALIC) ? 1 : 0;
-            wcscpy_s(lf.lfFaceName, LF_FACESIZE, cf.szFaceName);
-            hFont = CreateFontIndirectW(&lf);
-        }
-        if (!hFont && fontHwnd)
-            hFont = (HFONT)SendMessageW(fontHwnd, WM_GETFONT, 0, 0);
-        if (!hFont)
-            hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        LOGFONTW lf = {};
-        GetObjectW(hFont, sizeof(lf), &lf);
-        UINT srcDpi = fontHwnd ? GetDpiForWindow(fontHwnd) : 0;
-        UINT dstDpi = overlayWnd_ ? GetDpiForWindow(overlayWnd_) : 0;
-
-        HWND metricWindow = fontHwnd ? fontHwnd : overlayWnd_;
-        HDC dc = GetDC(metricWindow);
-        SIZE sz = {};
-        if (dc) {
-            HFONT oldFont = (HFONT)SelectObject(dc, hFont);
-            GetTextExtentPoint32W(dc, wbuf, (int)wcslen(wbuf), &sz);
-            SelectObject(dc, oldFont);
-            ReleaseDC(metricWindow, dc);
-        }
-        wchar_t fontClass[128] = L"?";
-        if (fontHwnd)
-            GetClassNameW(fontHwnd, fontClass, 128);
-        HMLOG(
-            "UpdateOverlay: haveCaret=%d fontHwnd=%p class=%ls lfFace=%ls lfHeight=%ld srcDpi=%u dstDpi=%u sz=%dx%d\n",
-            (int)haveCaret, (void *)fontHwnd, fontClass, lf.lfFaceName, (long)lf.lfHeight, srcDpi, dstDpi, (int)sz.cx,
-            (int)sz.cy);
-        if (hFont && overlayWnd_)
-            SendMessageW(overlayWnd_, WM_SETFONT, (WPARAM)hFont, TRUE);
-        if (sz.cx < 1)
-            sz.cx = 10;
-        if (sz.cy < 1)
-            sz.cy = 14;
-        int pad = 6;
-        int caretH = rc.bottom - rc.top;
-        if (caretH < 1)
-            caretH = sz.cy;
-        int y = rc.top + (caretH - sz.cy) / 2;
-        if (y < rc.top)
-            y = rc.top;
-        MoveWindow(overlayWnd_, rc.left, y, sz.cx + pad, sz.cy + pad, TRUE);
-        SetWindowTextW(overlayWnd_, wbuf);
-        ShowWindow(overlayWnd_, SW_SHOWNA);
-
-        delete[] wbuf;
+        CompositionSession *cs = new CompositionSession(pic, this, clientId_, full.c_str(), false);
+        HRESULT hrC = S_OK;
+        pic->RequestEditSession(clientId_, cs, TF_ES_SYNC | TF_ES_READWRITE, &hrC);
+        cs->Release();
     }
 
-  private:
+    /* The end half: rewrites the composition range to the final text if it
+     * differs, drops the display attribute, and calls EndComposition — the
+     * composed text fuses into the document as ordinary text. Runs in the
+     * composition's own context when called after a context switch. */
+    void CompositionEnd(ITfContext *pic, const std::wstring &text) {
+        ITfContext *ctx = (composition_ && compCtx_) ? compCtx_ : pic;
+        if (!ctx)
+            return;
+        CompositionSession *cs = new CompositionSession(ctx, this, clientId_, text.c_str(), true);
+        HRESULT hrE = S_OK;
+        ctx->RequestEditSession(clientId_, cs, TF_ES_SYNC | TF_ES_READWRITE, &hrE);
+        cs->Release();
+    }
+
+    /* A context/focus switch ends the live composition in its own context
+     * (the word stays there as committed text); the buffers drain so the
+     * next context starts clean — the old 0.2 boundary-drain contract,
+     * pointed at the composition instead of the overlay. */
+    void DetachComposition() {
+        if (!composition_ || !compCtx_)
+            return;
+        const char *flushed = ic_ ? hunmin_ic_flush(ic_) : "";
+        if (flushed && flushed[0]) {
+            int flen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
+            if (flen > 1) {
+                size_t old = wordbuf_.size();
+                wordbuf_.resize(old + flen - 1);
+                MultiByteToWideChar(CP_UTF8, 0, flushed, -1, &wordbuf_[old], flen);
+            }
+        }
+        std::wstring text = wordbuf_;
+        wordbuf_.clear();
+        CompositionEnd(compCtx_, text);
+    }
+
+    /* Registers the composition-attribute GUID once and applies (or clears)
+     * it over the composition range (msctf: providing display attributes —
+     * the property value is the TfGuidAtom the app's attribute manager
+     * resolves through our provider). Without a category manager (COM not
+     * initialised in the process) the composition text simply renders
+     * unstyled; logged, so the cause stays findable. */
+    void ApplyDisplayAttribute(ITfContext *ctx, TfEditCookie ec, ITfRange *range, bool clear) {
+        if (!ctx || !range)
+            return;
+        if (displayAttrAtom_ == 0) {
+            ITfCategoryMgr *cm = nullptr;
+            if (SUCCEEDED(CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER,
+                                           IID_ITfCategoryMgr, (void **)&cm)) &&
+                cm) {
+                HRESULT hrG = cm->RegisterGUID(HunminDisplayAttrGuid, &displayAttrAtom_);
+                cm->Release();
+                if (FAILED(hrG))
+                    HMLOG("display attr RegisterGUID hr=0x%lX\n", (unsigned long)hrG);
+            }
+        }
+        if (displayAttrAtom_ == 0)
+            return; /* no styling channel: plain composition text */
+        ITfProperty *prop = nullptr;
+        if (SUCCEEDED(ctx->GetProperty(GUID_PROP_ATTRIBUTE, &prop)) && prop) {
+            if (clear) {
+                prop->Clear(ec, range);
+            } else {
+                VARIANT v;
+                VariantInit(&v);
+                v.vt = VT_I4;
+                v.lVal = (LONG)displayAttrAtom_;
+                prop->SetValue(ec, range, &v);
+                VariantClear(&v);
+            }
+            prop->Release();
+        }
+    }
+
     LONG ref_;
     ITfThreadMgr *threadMgr_;
     TfClientId clientId_;
@@ -1548,6 +1846,16 @@ class CTextService : public ITfTextInputProcessor,
     RECT preeditRect_;
     bool hasPreeditRect_;
     ITfContext *lastCtx_;
+
+    /* Native composition preedit (issue #98): the ITfComposition the
+     * engine's in-flight text lives in, the context it belongs to, and the
+     * text currently shown in it (the whole buffered word — finalized
+     * syllables plus the in-flight preedit, issue #73's content — in the
+     * document flow, underlined through GUID_PROP_ATTRIBUTE). */
+    ITfComposition *composition_;
+    ITfContext *compCtx_;
+    std::wstring compText_;
+    TfGuidAtom displayAttrAtom_;
 
     /* Finalised syllables held for insertion at the next boundary key
      * (issue #73); drained destructively by hunmin_ic_commit(). */
@@ -1590,7 +1898,8 @@ class CTextService : public ITfTextInputProcessor,
         if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfCompartmentMgr, (void **)&cm)) && cm) {
             ITfCompartment *c = nullptr;
             if (SUCCEEDED(cm->GetCompartment(
-                    GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION, &c)) && c) {
+                    GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION, &c)) &&
+                c) {
                 VARIANT v;
                 VariantInit(&v);
                 v.vt = VT_I4;
@@ -1609,7 +1918,6 @@ class CTextService : public ITfTextInputProcessor,
             cm->Release();
         }
     }
-
 
     // Helper used both for declined/pass-through keys to flush the pending
     // composition exactly once, deleting the already-present composed text.
@@ -1660,17 +1968,24 @@ class CTextService : public ITfTextInputProcessor,
 
     /* The insert half of the composition boundary: the whole buffered word
      * reaches the document in one edit session, exactly once, and the
-     * buffer empties. Shared by the declined-key drain (below) and the
-     * candidate commit (the chosen Hanja replaces the whole buffered word —
-     * the Hangul it anchors to is never inserted). */
+     * buffer empties. With a live composition the word is ALREADY document
+     * text (the composition range holds it, issue #98): the session ends
+     * the composition, fusing the word in unstyled. Only a host that
+     * refused ITfContextComposition falls back to the plain selection
+     * SetText the 0.2 adapter committed with. */
     void InsertBufferedWord(ITfContext *pic) {
-        if (!wordbuf_.empty() && pic) {
+        if (wordbuf_.empty())
+            return;
+        if (composition_) {
+            CompositionEnd(pic, wordbuf_);
+        } else {
             FlushSession *fs = new FlushSession(pic, this, clientId_, wordbuf_.c_str());
             HRESULT hrFlush = S_OK;
-            pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
+            if (pic)
+                pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
             fs->Release();
-            wordbuf_.clear();
         }
+        wordbuf_.clear();
     }
 
     /* One composition-boundary drain shared by the declined key path and the
@@ -1694,7 +2009,6 @@ class CTextService : public ITfTextInputProcessor,
             fflush(dbg);
         }
         InsertBufferedWord(pic);
-        UpdateOverlay(pic);
     }
 
     /* --- F9 Hanja candidate window (issue #67) ---
@@ -1853,7 +2167,6 @@ class CTextService : public ITfTextInputProcessor,
         CloseCandidateWindow();
         wordbuf_ = HunminUtf8ToWide(replacement.c_str());
         InsertBufferedWord(pic);
-        UpdateOverlay(pic);
     }
 
     void UpdateCandidateWindow(ITfContext *pic) {
@@ -2170,8 +2483,15 @@ extern "C" BOOL DllRegisterServer() {
     if (SUCCEEDED(hr) && pCatMgr) {
         HRESULT c1 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_TIP_KEYBOARD, CLSID_HunminTSF);
         HRESULT c2 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_CATEGORY_OF_TIP, CLSID_HunminTSF);
+        /* Issue #98: the display-attribute provider category — the app-side
+         * attribute manager resolves the above provider object through it,
+         * and the composition range's GUID_PROP_ATTRIBUTE value carries
+         * HunminDisplayAttrGuid, which the provider serves. */
+        HRESULT c3 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
+                                               CLSID_HunminTSF);
         if (dbg) {
-            fwprintf(dbg, L"RegisterCategory keyboard=0x%lX category=0x%lX\n", (unsigned long)c1, (unsigned long)c2);
+            fwprintf(dbg, L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n",
+                     (unsigned long)c1, (unsigned long)c2, (unsigned long)c3);
             fflush(dbg);
         }
         pCatMgr->Release();
@@ -2305,8 +2625,12 @@ extern "C" BOOL DllUnregisterServer() {
     if (SUCCEEDED(hr) && pCatMgr) {
         HRESULT c1 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_TIP_KEYBOARD, CLSID_HunminTSF);
         HRESULT c2 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_CATEGORY_OF_TIP, CLSID_HunminTSF);
+        /* Issue #98: mirror of the display-attribute provider registration. */
+        HRESULT c3 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
+                                                 CLSID_HunminTSF);
         if (dbg) {
-            fwprintf(dbg, L"UnregisterCategory keyboard=0x%lX category=0x%lX\n", (unsigned long)c1, (unsigned long)c2);
+            fwprintf(dbg, L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n",
+                     (unsigned long)c1, (unsigned long)c2, (unsigned long)c3);
             fflush(dbg);
         }
         pCatMgr->Release();
