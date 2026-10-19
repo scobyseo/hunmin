@@ -83,7 +83,8 @@ and so on. The shape is Android's `KeyBinding.kt` ported to Windows vocabulary
   caps-derived case cannot enter the composition; the TSF side does not
   wire the engine `caps` option either (fcitx5 does, engine.cpp:327, for the
   yethangul P variable; the Android adapter does since #105 — the parity
-  question is a separate maintainer decision). What #106 changed about this
+  question is a separate maintainer decision, filed as issue #112). What
+  #106 changed about this
   is only where the CapsLock×Shift row would be answered if it ever is: in
   the engine's loader map, not in this adapter.
 
