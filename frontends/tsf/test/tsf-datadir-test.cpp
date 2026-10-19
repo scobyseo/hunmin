@@ -6,32 +6,24 @@
  * Tier F1 (issue #66, data-loading half): hunmin_ctx_from_module() must
  * resolve the engine data from the module's own directory — the
  * "<module>\data" branch — with no environment help. The build stages
- * libhunmin/data next to this executable (frontends/tsf/test/CMakeLists.txt
- * POST_BUILD); this test clears HUNMIN_DATA_DIR (an empty value means unset
- * for the loader, the same rule the env branch itself applies) and asserts
- * the load, that every staged layout file shows up in the enumeration, and
- * that the fcitx5-default hangul layout instantiates.
+ * libhunmin/data next to the test executable (frontends/tsf/test/
+ * CMakeLists.txt POST_BUILD); this case clears HUNMIN_DATA_DIR (an empty
+ * value means unset for the loader, the same rule the env branch itself
+ * applies) and asserts the load, that every staged layout file shows up in
+ * the enumeration, and that the fcitx5-default hangul layout instantiates.
  *
- * Exit 0 clean, 1 assertion failed, 77 skip (staging absent).
+ * The staged-copy PRESENCE check is the wrapper's (tools/tsf-run-if-data.py,
+ * --staged): its absence is the rc-77 skip, not a failure. Its parsing is
+ * this case's business.
  *
- * GoogleTest form (issue #109, option 1b): one ctest entry is kept
- * (tsf-datadir-test), and the 77-skip contract is decided in main(), before
- * RUN_ALL_TESTS -- a gtest skip reports rc 0, which would read as a pass.
+ * FRAGMENT, not a standalone TU: #included by tsf-test.cpp after the
+ * white-box seam (src/tsf.cpp, mock-tsf.h, the GetKeyState mock). The ctest
+ * entry `tsf-datadir-test` selects this group with --gtest_filter=Datadir.*.
  */
 #include <gtest/gtest.h>
 
 #include <cstdio>
 #include <cstring>
-#include <windows.h>
-
-#include "tsf-testdir.h"
-
-/* Same white-box seam as trace-emit.cpp: the search chain under test is
- * static inside the adapter TU and deliberately not part of the ABI. */
-extern "C" HINSTANCE g_hunmin_hinst = nullptr;
-#define private public
-#include "../src/tsf.cpp"
-#undef private
 
 static int countLayoutJson(const char *layoutsDirA) {
     char pattern[MAX_PATH * 2];
@@ -65,17 +57,12 @@ TEST(Datadir, ModuleDirDataLoadsWithNoEnvironmentHelp) {
         *slash = '\0';
     const char *exeDir = exePath;
 
-    /* The staged copy must exist: the POST_BUILD step is what makes the
-     * shipped shape real, and its absence means the test would silently
-     * verify the repo-climb fallback instead. (Its absence is main()'s
-     * rc-77 skip, not a failure.) */
-    char staged[MAX_PATH * 2];
-    snprintf(staged, sizeof(staged), "%s\\data\\layouts", exeDir);
-
     hunmin_ctx *ctx = hunmin_ctx_from_module();
     ASSERT_NE(ctx, nullptr)
         << "hunmin_ctx_from_module() returned NULL with HUNMIN_DATA_DIR cleared";
 
+    char staged[MAX_PATH * 2];
+    snprintf(staged, sizeof(staged), "%s\\data\\layouts", exeDir);
     const int files = countLayoutJson(staged);
     const int enumerated = hunmin_ctx_layout_count(ctx);
     ASSERT_GT(files, 0) << "staged layouts dir holds " << files << " json files";
@@ -104,27 +91,4 @@ TEST(Datadir, ModuleDirDataLoadsWithNoEnvironmentHelp) {
         << "dubeolsik 'r' inconsumed, preedit=\"" << (pre ? pre : "") << "\"";
     hunmin_ic_free(d);
     hunmin_ctx_free(ctx);
-}
-
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    /* The rc-77 skip contract (staging absent): probe once, before any
-     * assertion machinery runs. */
-    char exePath[MAX_PATH * 2];
-    if (!GetModuleFileNameA(nullptr, exePath, (DWORD)sizeof(exePath)))
-        return 77;
-    char *slash = strrchr(exePath, '\\');
-    if (!slash)
-        slash = strrchr(exePath, '/');
-    if (slash)
-        *slash = '\0';
-    char staged[MAX_PATH * 2];
-    snprintf(staged, sizeof(staged), "%s\\data\\layouts", exePath);
-    DWORD attr = GetFileAttributesA(staged);
-    if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-        fprintf(stderr, "skip: staged data missing at %s (POST_BUILD staging did not run)\n",
-                staged);
-        return 77;
-    }
-    return RUN_ALL_TESTS();
 }

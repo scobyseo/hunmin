@@ -1,8 +1,10 @@
-# Tier F1: the TSF mock harness (issue #80). A ctest binary that drives the
-# real adapter (frontends/tsf/src/tsf.cpp, included as-is by the harness)
-# over the mock TSF layer in mock-tsf.h and replays win32 platform traces
-# (tests/conformance/win32) for tools/trace-check.py to diff against the
-# expectation tier A implies -- docs/TESTING.md tier F1.
+# Tier F1: the TSF mock harness (issue #80). ONE test executable (tsf-test,
+# issue #109: every runner white-boxes src/tsf.cpp, so N executables compiled
+# the heavy TU N times -- measured 12.7 s per adapter touch, ~4 s merged) that
+# drives the real adapter (frontends/tsf/src/tsf.cpp) over the mock TSF layer
+# in mock-tsf.h and replays win32 platform traces (tests/conformance/win32)
+# for tools/trace-check.py to diff against the expectation tier A implies --
+# docs/TESTING.md tier F1.
 #
 # Build constraints: MSVC only (msctf.h, the DLL's own compile flags), with
 # the engine resolved the same way the TIP above resolved it. On a Windows
@@ -23,7 +25,6 @@ if(Python3_EXECUTABLE AND NOT Python3_FOUND)
     find_package(Python3 QUIET COMPONENTS Interpreter)
   endif()
 endif()
-
 # Key the guard on the executable, not Python3_FOUND: when the interpreter
 # path is passed explicitly (-DPython3_EXECUTABLE=...) the find_package call
 # above is skipped, Python3_FOUND stays unset, and the tier silently
@@ -72,56 +73,60 @@ if(Python3_EXECUTABLE)
   endforeach()
 endif()
 
-# Issue #66 tier F1 additions. The config store + slot-resolution test and
-# the module-dir data test include src/tsf.cpp directly (same white-box seam
-# as tsf-trace-emit above) and resolve the engine the same way it did. The
-# add_test calls are written out literally (no loop variable) because
-# tools/docs-lint.py check 6 greps the sources for add_test(NAME <id>).
-foreach(tsf_test_exe tsf-config-test tsf-datadir-test tsf-settings-test tsf-candidate-test)
-  add_executable(${tsf_test_exe} ${tsf_test_exe}.cpp ../src/config.cpp
-                   ../src/settings.cpp ../src/candwindow.cpp)
-  target_compile_definitions(${tsf_test_exe} PRIVATE UNICODE _UNICODE)
-  target_include_directories(${tsf_test_exe} PRIVATE
-      ${CMAKE_CURRENT_BINARY_DIR}
-      ${HUNMIN_TSF_REPO_ROOT}/libhunmin/include)
-  target_link_libraries(${tsf_test_exe} PRIVATE
-      ${HUNMIN_ENGINE_LIB}
-      GTest::gtest
-      ole32
-      oleaut32
-      user32
-      gdi32
-      advapi32
-      imm32
-      shlwapi)
-endforeach()
-# tsf-candidate-test has no skip probe of its own, so its main() comes from
-# the framework: gtest_main, not a hand-written one (issue #109). The other
-# three runners keep main() — the rc-77 skip contract needs a probe that
-# exits before RUN_ALL_TESTS, which gtest_main cannot express.
-target_link_libraries(tsf-candidate-test PRIVATE GTest::gtest_main)
-# The settings-dialog TU cannot be #included by the harness (it owns its own
-# COM classes + the Win32 dialog loop), it is linked: it shares tsf.cpp's
-# hunmin_ctx_from_module / hunmin_tsf_apply_config_store through the test
-# binary's tsf.cpp include and adds oleaut32 (SysAllocString) only here.
-target_sources(tsf-settings-test PRIVATE ../src/settings.cpp)
+# The four case groups ride ONE executable: tsf-test.cpp owns the white-box
+# seam once (the old four-target shape recompiled src/tsf.cpp per runner) and
+# each registered entry selects its group with --gtest_filter, so the
+# registered COUNT and the per-group labels are what they were. The rc-77
+# skip probes run OUTSIDE the binary (tools/tsf-run-if-data.py): a gtest skip
+# reports rc 0, which reads as a pass, so the contract is decided before
+# gtest runs. add_test calls are written out literally (no loop variable)
+# because tools/docs-lint.py check 6 greps the sources for add_test(NAME id).
+add_executable(tsf-test tsf-test.cpp ../src/config.cpp
+                 ../src/settings.cpp ../src/candwindow.cpp)
+target_compile_definitions(tsf-test PRIVATE UNICODE _UNICODE)
+target_include_directories(tsf-test PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${HUNMIN_TSF_REPO_ROOT}/libhunmin/include)
+target_link_libraries(tsf-test PRIVATE
+    ${HUNMIN_ENGINE_LIB}
+    GTest::gtest_main
+    ole32
+    oleaut32
+    user32
+    gdi32
+    advapi32
+    imm32
+    shlwapi)
 
+set(HUNMIN_TSF_PROBE ${HUNMIN_TSF_REPO_ROOT}/tools/tsf-run-if-data.py)
 # Literal registrations (docs-lint check 6 greps sources for add_test(NAME id)).
-add_test(NAME tsf-config-test COMMAND tsf-config-test)
-add_test(NAME tsf-datadir-test COMMAND tsf-datadir-test)
-add_test(NAME tsf-settings-test COMMAND tsf-settings-test)
-add_test(NAME tsf-candidate-test COMMAND tsf-candidate-test)
-set_tests_properties(tsf-config-test tsf-datadir-test tsf-settings-test tsf-candidate-test PROPERTIES
+add_test(NAME tsf-config-test
+  COMMAND ${Python3_EXECUTABLE} ${HUNMIN_TSF_PROBE}
+          --data ${HUNMIN_TSF_REPO_ROOT}/libhunmin/data
+          $<TARGET_FILE:tsf-test> --gtest_filter=TsfConfigTest.*)
+add_test(NAME tsf-settings-test
+  COMMAND ${Python3_EXECUTABLE} ${HUNMIN_TSF_PROBE}
+          --data ${HUNMIN_TSF_REPO_ROOT}/libhunmin/data
+          $<TARGET_FILE:tsf-test> --gtest_filter=TsfSettingsTest.*)
+add_test(NAME tsf-candidate-test
+  COMMAND ${Python3_EXECUTABLE} ${HUNMIN_TSF_PROBE}
+          --data ${HUNMIN_TSF_REPO_ROOT}/libhunmin/data
+          $<TARGET_FILE:tsf-test> --gtest_filter=CandidateTest.*)
+add_test(NAME tsf-datadir-test
+  COMMAND ${Python3_EXECUTABLE} ${HUNMIN_TSF_PROBE}
+          --staged
+          $<TARGET_FILE:tsf-test> --gtest_filter=Datadir.*)
+set_tests_properties(tsf-config-test tsf-settings-test tsf-candidate-test tsf-datadir-test PROPERTIES
   LABELS "tier-F1"
   SKIP_RETURN_CODE 77
   TIMEOUT 120)
 
-# Stage the engine data beside every harness executable (issue #66): the
-# datadir test exercises the "<module>\data" branch with the env cleared, so
-# the staged copy IS its input; the trace runner and the config test read the
-# repo tree via HUNMIN_TSF_DATA_DIR, and get the staged copy as their
+# Stage the engine data beside both harness executables (issue #66): the
+# datadir entry exercises the "<module>\data" branch with the env cleared, so
+# the staged copy IS its input; the trace runner and the other entries read
+# the repo tree via HUNMIN_TSF_DATA_DIR, and get the staged copy as their
 # module-dir fallback anyway.
-foreach(tsf_test_exe tsf-trace-emit tsf-config-test tsf-datadir-test tsf-settings-test tsf-candidate-test)
+foreach(tsf_test_exe tsf-trace-emit tsf-test)
   add_custom_command(TARGET ${tsf_test_exe} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${HUNMIN_TSF_REPO_ROOT}/libhunmin/data"

@@ -5,8 +5,8 @@
  *
  * Tier F1 (issue #67): the Hanja-key candidate window, driven over the mock
  * TSF layer exactly like tsf-trace-emit drives the buffering contract. The
- * adapter source is included as-is (private-public seam) so the compiled
- * logic is the linked DLL's logic, and the candidate state (candActive_/
+ * adapter logic under test is the compiled DLL's logic (the white-box seam
+ * lives once in tsf-test.cpp), and the candidate state (candActive_/
  * candCount_/candCursor_/candTop_), the pop-up's hide path (no metrics in a
  * headless run) and the ONE insert the commit produces are all assertable.
  *
@@ -30,39 +30,32 @@
  *  codepage, not the engine's UTF-8 — both measured during this milestone's
  *  first run (docs/ENVIRONMENT.md pitfalls).
  *
- * Exit 0 clean, 1 assertion failed, 77 skip (engine data unavailable).
+ * FRAGMENT, not a standalone TU: #included by tsf-test.cpp after the
+ * white-box seam (src/tsf.cpp, mock-tsf.h, the GetKeyState mock). The ctest
+ * entry `tsf-candidate-test` selects this group with
+ * --gtest_filter=CandidateTest.*; the rc-77 skip probe lives in
+ * tools/tsf-run-if-data.py.
  *
- * GoogleTest form (issue #109, option 1b): one ctest entry is kept
- * (tsf-candidate-test); the original per-case Fixture blocks map 1:1 onto
- * TEST_F cases with native EXPECT_* assertions (the old CHECK counter is
- * gone), with Begin()/Teardown() still explicit calls so the case-15
- * env-before-Begin ordering and the mid-Begin rc-77 exit keep their exact
- * semantics.
+ * GoogleTest form (issue #109, option 1b): native EXPECT_* assertions, the
+ * CHECK counter gone. Begin()/Teardown() stay explicit calls so the
+ * case-15 env-before-Begin ordering and the mid-Begin rc-77 exit keep
+ * their exact semantics.
  */
 #include <gtest/gtest.h>
 
 #include <cctype>
-#include <cstdio>
 #include <cstring>
 #include <string>
-#include <windows.h>
 
-#include "tsf-testdir.h"
-
-extern "C" HINSTANCE g_hunmin_hinst = nullptr;
-
-/* The GetKeyState seam, copied from trace-emit.cpp: applies over the whole
- * TU, so the adapter and the toggle matcher it includes see the mock. */
-SHORT tsf_mock_GetKeyState(int vk);
-SHORT g_mockKeyState[256] = {};
-SHORT tsf_mock_GetKeyState(int vk) { return g_mockKeyState[vk & 0xFF]; }
-#define GetKeyState tsf_mock_GetKeyState
-
-#include "mock-tsf.h"
-#define private public
-#include "../src/tsf.cpp"
-#undef private
-#undef GetKeyState
+/* Anchors (see the header comment): */
+static const char *kAnchorAn = "\xEC\x95\x88"; /* 안 */
+static const char *kAnchorAnNyeng = "\xEC\x95\x88\xEB\x85\x95"; /* 안녕 */
+static const char *kAnchorPreeditNyeng = "\xEB\x85\x95"; /* 녕 */
+static const char *kAnchorPreeditNyee = "\xEB\x85\x80"; /* 녀 */
+static const char *kAnchorPreeditNieun = "\xE3\x84\xB4"; /* ㄴ */
+static const char *kAnchorGa = "\xEA\xB0\x80"; /* 가 */
+static const char *kAnchorGaGa = "\xEA\xB0\x80\xEA\xB0\x80"; /* 가가 */
+static const char *kAnchorGaGaGa = "\xEA\xB0\x80\xEA\xB0\x80\xEA\xB0\x80"; /* 가가가 */
 
 static std::string utf8(const std::wstring &w) {
     if (w.empty())
@@ -74,16 +67,6 @@ static std::string utf8(const std::wstring &w) {
         WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr, nullptr);
     return s;
 }
-
-/* Anchors (see the header comment): */
-static const char *kAnchorAn = "\xEC\x95\x88"; /* 안 */
-static const char *kAnchorAnNyeng = "\xEC\x95\x88\xEB\x85\x95"; /* 안녕 */
-static const char *kAnchorPreeditNyeng = "\xEB\x85\x95"; /* 녕 */
-static const char *kAnchorPreeditNyee = "\xEB\x85\x80"; /* 녀 */
-static const char *kAnchorPreeditNieun = "\xE3\x84\xB4"; /* ㄴ */
-static const char *kAnchorGa = "\xEA\xB0\x80"; /* 가 */
-static const char *kAnchorGaGa = "\xEA\xB0\x80\xEA\xB0\x80"; /* 가가 */
-static const char *kAnchorGaGaGa = "\xEA\xB0\x80\xEA\xB0\x80\xEA\xB0\x80"; /* 가가가 */
 
 struct CandidateTest : public ::testing::Test {
     tsfmock::MockThreadMgr *tm = nullptr;
@@ -588,7 +571,3 @@ TEST_F(CandidateTest, InjectedShiftSelectsTheShiftRow) {
     AssertNoInsert("case 19");
     Teardown();
 }
-
-/* main() comes from GTest::gtest_main: this runner has no skip probe to run
- * before the cases (its two skip paths live inside Begin(), which exits 77
- * directly), so the framework's own entry point is the whole story. */

@@ -12,55 +12,18 @@
  * never reads or writes the production store HKCU\Software\Hunmin\TSF — the
  * production store stays a manual-checklist surface, not a test side effect.
  *
- * Exit 0 clean, 1 assertion failed, 77 skip (engine data unavailable).
+ * FRAGMENT, not a standalone TU: #included by tsf-test.cpp after the
+ * white-box seam (src/tsf.cpp, mock-tsf.h, the GetKeyState mock). The ctest
+ * entry `tsf-config-test` selects this group with --gtest_filter=TsfConfigTest.*;
+ * the rc-77 skip probe lives in tools/tsf-run-if-data.py.
  *
- * GoogleTest form (issue #109, option 1b): one ctest entry is kept
- * (tsf-config-test); the original sections are TEST_F cases with native
- * EXPECT_* assertions (the old CHECK counter is gone), and the 77-skip
- * contract is decided in main(), before RUN_ALL_TESTS.
+ * GoogleTest form (issue #109, option 1b): native EXPECT_* assertions, the
+ * CHECK counter gone.
  */
 #include <gtest/gtest.h>
 
-#include <cstdio>
 #include <cstring>
 #include <string>
-#include <windows.h>
-
-#include "tsf-testdir.h"
-
-extern "C" HINSTANCE g_hunmin_hinst = nullptr;
-
-/* The GetKeyState seam, copied from trace-emit.cpp: the adapter (and now the
- * toggle matcher it includes) read the thread input state, so the harness
- * owns it. Applies over the whole TU, mock-tsf.h included first. */
-SHORT tsf_mock_GetKeyState(int vk);
-SHORT g_mockKeyState[256] = {};
-SHORT tsf_mock_GetKeyState(int vk) {
-    return g_mockKeyState[vk & 0xFF];
-}
-#define GetKeyState tsf_mock_GetKeyState
-
-#include "mock-tsf.h"
-#define private public
-#include "../src/tsf.cpp"
-#undef private
-#undef GetKeyState
-
-static std::string wideToUtf8Preview(const std::wstring &w) {
-    std::string o;
-    for (wchar_t c : w) {
-        if (c < 0x80) {
-            o += (char)c;
-        } else if (c < 0x800) {
-            o += (char)(0xC0 | (c >> 6));
-            o += (char)(0x80 | (c & 0x3F));
-        } else {
-            o += (char)(0xE0 | (c >> 12));
-            o += (char)(0x80 | ((c >> 6) & 0x3F));
-        }
-    }
-    return o;
-}
 
 class TsfConfigTest : public ::testing::Test {
  protected:
@@ -287,19 +250,4 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     mctx->Release();
     dm->Release();
     tm->Release();
-}
-
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    /* The rc-77 skip contract (engine data unavailable): probe once, before
-     * any assertion machinery runs. */
-    _putenv_s("HUNMIN_DATA_DIR", HUNMIN_TSF_DATA_DIR);
-    const char *dirs[1] = {HUNMIN_TSF_DATA_DIR};
-    hunmin_ctx *probe = hunmin_ctx_new(dirs, 1);
-    if (!probe) {
-        fprintf(stderr, "skip: engine context unavailable (check HUNMIN_TSF_DATA_DIR)\n");
-        return 77;
-    }
-    hunmin_ctx_free(probe);
-    return RUN_ALL_TESTS();
 }

@@ -12,40 +12,20 @@
  * window in a CI binary) and ITfFnConfigure::Show — those are the manual
  * checklist's surface (tests/manual-checklists/tsf-settings-window.md).
  *
- * Exit 0 clean, 1 assertion failed, 77 skip (engine data unavailable).
+ * FRAGMENT, not a standalone TU: #included by tsf-test.cpp after the
+ * white-box seam (src/tsf.cpp, mock-tsf.h, the GetKeyState mock). The ctest
+ * entry `tsf-settings-test` selects this group with
+ * --gtest_filter=TsfSettingsTest.*; the rc-77 skip probe lives in
+ * tools/tsf-run-if-data.py.
  *
- * GoogleTest form (issue #109, option 1b): one ctest entry is kept
- * (tsf-settings-test); the original sections are TEST_F cases with native
- * EXPECT_* assertions (the old CHECK counter is gone), and the 77-skip
- * contract is decided in main(), before RUN_ALL_TESTS -- a gtest skip
- * reports rc 0, which would read as a pass.
+ * GoogleTest form (issue #109, option 1b): native EXPECT_* assertions, the
+ * CHECK counter gone.
  */
 #include <gtest/gtest.h>
 
-#include <cstdio>
+#include <ctffunc.h>
 #include <cstring>
 #include <string>
-#include <ctffunc.h>
-#include <windows.h>
-
-#include "tsf-testdir.h"
-
-extern "C" HINSTANCE g_hunmin_hinst = nullptr;
-
-/* The GetKeyState seam, as in tsf-config-test.cpp: the adapter read the
- * thread input state. */
-SHORT tsf_mock_GetKeyState(int vk);
-SHORT g_mockKeyState[256] = {};
-SHORT tsf_mock_GetKeyState(int vk) {
-    return g_mockKeyState[vk & 0xFF];
-}
-#define GetKeyState tsf_mock_GetKeyState
-
-#include "mock-tsf.h"
-#define private public
-#include "../src/tsf.cpp"
-#undef private
-#undef GetKeyState
 
 class TsfSettingsTest : public ::testing::Test {
  protected:
@@ -235,19 +215,4 @@ TEST_F(TsfSettingsTest, ApplyConfigStoreAndTheVoidPtrBridge) {
     EXPECT_EQ(eaten, TRUE) << "post-Apply keydown not consumed";
     EXPECT_STREQ(hunmin_ic_preedit(svc_->ic_), "\xE3\x84\xB1")
         << "post-Apply composition still works";
-}
-
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    /* The rc-77 skip contract (engine data unavailable): probe once, before
-     * any assertion machinery runs. */
-    _putenv_s("HUNMIN_DATA_DIR", HUNMIN_TSF_DATA_DIR);
-    const char *dirs[1] = {HUNMIN_TSF_DATA_DIR};
-    hunmin_ctx *probe = hunmin_ctx_new(dirs, 1);
-    if (!probe) {
-        fprintf(stderr, "skip: engine context unavailable (check HUNMIN_TSF_DATA_DIR)\n");
-        return 77;
-    }
-    hunmin_ctx_free(probe);
-    return RUN_ALL_TESTS();
 }
