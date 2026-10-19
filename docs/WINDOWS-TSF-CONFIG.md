@@ -78,11 +78,15 @@ and so on. The shape is Android's `KeyBinding.kt` ported to Windows vocabulary
   toggles once and repeats are swallowed, delivering neither a wrong toggle nor
   the repeat to the application.
 - CapsLock is no longer a toggle and is IGNORED in Korean input mode: the
-  fed char derives from the VK and the Shift bit alone (the engine's input
-  convention is case-encoding — hunmin.h "case encodes shift" — so a
-  caps-derived case would corrupt a composition), and the TSF side does not
+  adapter hands the engine the VK's unshifted base plus the Shift bit
+  (`hunmin_ic_process_key`, issue #106) and reads no caps state, so a
+  caps-derived case cannot enter the composition; the TSF side does not
   wire the engine `caps` option either (fcitx5 does, engine.cpp:327, for the
-  yethangul P variable; the parity there is a separate maintainer decision).
+  yethangul P variable; the Android adapter does since #105 — the parity
+  question is a separate maintainer decision, filed as issue #112). What
+  #106 changed about this
+  is only where the CapsLock×Shift row would be answered if it ever is: in
+  the engine's loader map, not in this adapter.
 
 Device-bound open question: whether Windows routes the physical Han/Eng key to
 the TIP as `VK_HANGEUL` (vs. the input hotkey system consuming it) is verified
