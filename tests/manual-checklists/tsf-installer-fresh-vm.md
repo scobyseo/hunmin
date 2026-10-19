@@ -67,5 +67,27 @@ and this round's logs back out (`ReadOnly=false`).
   if the Start-menu entry (`Hunmin IME 설정`) fails to launch, that is a
   finding, not a prerequisite to add.
 
-Status: **not yet measured on a clean machine from the packaged installer —
-this round is the issue's own verification and is owed before the release.**
+Status: **measured 2026-10-19, two Windows Sandbox rounds (scripted half) —
+the interactive rows below are the owed half.** What the rounds measured,
+from the mapped-folder logs:
+
+- the silent install (`/VERYSILENT`) exits 0 on the clean image — no VC
+  redist, no missing-`MSVCP140.dll` failure (the `/MT` fix, on the artefact);
+- `reg query` after install: the CLSID `InprocServer32`, the HKLM CTF TIP
+  tree (`Enable=1`, the category trees) and the language profile
+  (`0x00000412`, `{F2C70002-...-0002}`, `IconFile=C:\Program Files\Hunmin
+  IME\hunmin-tsf.dll`, `IconIndex=0x0`) — all pointing at the INSTALL path;
+- `data\krdict\krdict.json` and `settings-ui\hunmin-tsf-settingsui.exe`
+  present in the install dir;
+- the silent uninstall exits 0 and BOTH `{CLSID}` registry trees read
+  "unable to find" afterwards; the tree is fully removed (the
+  `[UninstallDelete]` fix — the TIP's own debug log used to pin the
+  directory), leaving only `unins000.exe` itself: the uninstaller cannot
+  delete its own binary; its self-delete pends a reboot (the sandbox's
+  10-second shutdown cut it short).
+
+Owed: the interactive rows — Win+Space shows Hunmin with the Sejong icon,
+typing composes, a multi-syllable word yields candidates, `layout_count=15`
+in the debug log (the round-2 log copy came after the uninstaller had
+already deleted it; the next round copies it before uninstalling, or reads
+it from a live session).

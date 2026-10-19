@@ -81,6 +81,15 @@ Name: "{group}\Hunmin IME 설정"; Filename: "{app}\settings-ui\hunmin-tsf-setti
 ; fresh-VM checklist re-measures the registry after this runs.
 Filename: "{sys}\regsvr32.exe"; Parameters: "/u /s ""{app}\hunmin-tsf.dll"""; RunOnceId: "UnregHunminTIP"
 
+[UninstallDelete]
+; The TIP writes hunmin-tsf-debug.log beside itself (the host process's
+; working directory is the install dir when regsvr32 loads it); a foreign
+; file makes the uninstaller leave the whole {app} directory behind —
+; measured in the first Windows Sandbox round 2026-10-19 ("Uninstall
+; removes the whole tree" was not met). Delete what is left, the tree
+; included; nothing outside {app} is touched.
+Type: filesandordirs; Name: "{app}"
+
 [Code]
 // The issue's registration step, run literally: regsvr32 on the INSTALLED
 // DLL. DllRegisterServer writes the HKCR CLSID tree, the HKLM CTF TIP tree

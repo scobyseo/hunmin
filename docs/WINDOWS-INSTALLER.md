@@ -114,13 +114,15 @@ Verified on this host, from the built artefacts (2026-10-19):
   (`ctest --test-dir frontends/tsf/build-msvc -C Release` — 7 tests, tier F1);
 - docs gates: `python3 tools/docs-lint.py` errors 0.
 
-Owed to the issue's own verification rows, on a fresh Windows VM or a clean
-account (the checklist walks them): install → Win+Space shows Hunmin with
-the Sejong icon → typing composes → a multi-syllable word yields candidates
-from `<install>\data\krdict\krdict.json` with `layout_count=15` in the debug
-log → profile paths point at the install path → uninstall leaves no CTF
-state we own. No ctest tier can claim a clean machine; that round is the
-release gate and stays manual.
+Owed to the issue's own verification rows: the INTERACTIVE half of the
+clean-machine round — Win+Space shows Hunmin with the Sejong icon → typing
+composes → a multi-syllable word yields candidates from
+`<install>\data\krdict\krdict.json` with `layout_count=15` in the debug log.
+The SCRIPTED half is measured (two Windows Sandbox rounds, 2026-10-19, the
+logs in the checklist): silent install exit 0 with no VC redist, install-path
+registration (`IconFile=<install path>`, `IconIndex=0x0`), krdict + settings
+exe present, silent uninstall exit 0, both `{CLSID}` trees gone, the tree
+removed down to the uninstaller's own pending self-delete.
 
 ## Provenance
 
