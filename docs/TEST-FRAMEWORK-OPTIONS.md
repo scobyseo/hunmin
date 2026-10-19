@@ -77,7 +77,7 @@ The migration surface is the hand-written assertion code:
 | surface | code | assertion sites | ctest entries (this host) |
 |---|---|---|---|
 | engine C executables | 3 files, C | 63 | 3 |
-| tsf tier-F1 runners + COM mock | 5 files, ~2,390 lines | 139 `CHECK(` + exit-code + trace emission | 7 (3 per-trace + 4 runners) |
+| tsf tier-F1 runners + COM mock | 5 files, ~2,390 lines | native gtest EXPECTs + exit-code + trace emission | 4 (3 per-trace + 1 executable; the four groups merged 2026-10-19) |
 | fcitx5 runners | 4 files | ~111 | 3 |
 
 Three assertion shapes coexist: the C `check()`/`expect_str()` pair, the TSF
@@ -215,17 +215,20 @@ matcher-level introspection on the COM mock's interaction records.
 
 | option | new vendored tree | C engine tier | tsf tier-F1 | fcitx5 | ctest entries at risk | measured toolchain cost |
 |---|---|---|---|---|---|---|
-| 1 gtest+gmock vendored | ~3.9 MiB | migrates (63 sites) | migrates CHECK sites; QI stays manual | migrates | 13 | 4.3 s (Ninja) or 19.9 s (MSVC) per fresh build tree, not additive |
-| 1b gtest+gmock via FetchContent | none in-tree; ~3.9 MiB under `_deps/` per configure | migrates | same as 1 | migrates | 13 | same builds + 7.2 s cold fetch per fresh configure (URL form fails TLS here) |
-| 2 gtest, C++ tiers only | ~3.9 MiB | stays hand-rolled | same as 1 | migrates | 10 | same as 1 |
-| 3 Catch2/doctest | lighter, not measured | C++-only reach | same reach as 2 | migrates | 10 | not measured here |
+| 1 gtest+gmock vendored | ~3.9 MiB | migrates (63 sites) | migrates CHECK sites; QI stays manual | migrates | 10 | 4.3 s (Ninja) or 19.9 s (MSVC) per fresh build tree, not additive |
+| 1b gtest+gmock via FetchContent | none in-tree; ~3.9 MiB under `_deps/` per configure | migrates | same as 1 | migrates | 10 | same builds + 7.2 s cold fetch per fresh configure (URL form fails TLS here) |
+| 2 gtest, C++ tiers only | ~3.9 MiB | stays hand-rolled | same as 1 | migrates | 7 | same as 1 |
+| 3 Catch2/doctest | lighter, not measured | C++-only reach | same reach as 2 | migrates | 7 | not measured here |
 | 4 keep hand-rolled | none | unchanged | unchanged | unchanged | 0 | 0 |
 
 Under every option: `trace-check.py` and the `.trace.in` differential
 contract stay; the 31 data-driven golden entries and the lint/schema gates
-are untouched; the registered-entry count cannot shrink below the 3 + 7 + 3
+are untouched; the registered-entry count cannot shrink below the 3 + 4 + 3
 code-driven entries listed in §1 (each hand-rolled binary maps to at least
-one framework case).
+one framework case). Amended 2026-10-19, post-ruling: the four TSF runner
+entries merged into one executable at the maintainer's direction, so the
+option-1 surface 13 became 10 and the MSVC-tree registered count 59 became
+56; the never-shrinks gate holds against the merged shape.
 
 ## 4. Provenance
 

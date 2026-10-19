@@ -99,24 +99,18 @@ target_link_libraries(tsf-test PRIVATE
     shlwapi)
 
 set(HUNMIN_TSF_PROBE ${HUNMIN_TSF_REPO_ROOT}/tools/tsf-run-if-data.py)
-# Literal registrations (docs-lint check 6 greps sources for add_test(NAME id)).
-add_test(NAME tsf-config-test
+# ONE registration for the one executable (maintainer ruling, issue #109):
+# the wrapper probes BOTH data conditions (the repo tree AND the staged
+# copy beside the executable) and exits 77 with the reason when either is
+# absent; all four case groups run in that one process. The registered
+# count is 4 entries lower than the four-entry shape (59 -> 56 on the MSVC
+# tree) -- the maintainer amended the never-shrinks gate for this merge.
+# Literal registration (docs-lint check 6 greps sources for add_test(NAME id)).
+add_test(NAME tsf-test
   COMMAND ${Python3_EXECUTABLE} ${HUNMIN_TSF_PROBE}
-          --data ${HUNMIN_TSF_REPO_ROOT}/libhunmin/data
-          $<TARGET_FILE:tsf-test> --gtest_filter=TsfConfigTest.*)
-add_test(NAME tsf-settings-test
-  COMMAND ${Python3_EXECUTABLE} ${HUNMIN_TSF_PROBE}
-          --data ${HUNMIN_TSF_REPO_ROOT}/libhunmin/data
-          $<TARGET_FILE:tsf-test> --gtest_filter=TsfSettingsTest.*)
-add_test(NAME tsf-candidate-test
-  COMMAND ${Python3_EXECUTABLE} ${HUNMIN_TSF_PROBE}
-          --data ${HUNMIN_TSF_REPO_ROOT}/libhunmin/data
-          $<TARGET_FILE:tsf-test> --gtest_filter=CandidateTest.*)
-add_test(NAME tsf-datadir-test
-  COMMAND ${Python3_EXECUTABLE} ${HUNMIN_TSF_PROBE}
-          --staged
-          $<TARGET_FILE:tsf-test> --gtest_filter=Datadir.*)
-set_tests_properties(tsf-config-test tsf-settings-test tsf-candidate-test tsf-datadir-test PROPERTIES
+          --data ${HUNMIN_TSF_REPO_ROOT}/libhunmin/data --staged
+          $<TARGET_FILE:tsf-test>)
+set_tests_properties(tsf-test PROPERTIES
   LABELS "tier-F1"
   SKIP_RETURN_CODE 77
   TIMEOUT 120)
