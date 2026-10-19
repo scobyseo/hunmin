@@ -87,6 +87,42 @@ the probe itself activates the Hunmin profile
 (`ITfInputProcessorProfiles::ActivateLanguageProfile` — the same call
 `DllRegisterServer` makes, `tsf.cpp:2460`; its `hr` lands in the probe log).
 
+## The composition finding: native-TSF hosts only (rounds 8-14, 2026-10-20)
+
+With activation and the trace fixed (rounds 10+), the sandbox rounds measured
+the interactive rows' real blocker, and it is not the installer:
+
+- **Modern TSF hosts keep the composition and typing composes.** Win11
+  Notepad on the dev host (#98's own verification) and Edge in the sandbox
+  (round 14: Hunmin in the switcher with the right icon, `layout_count=15`
+  from the installed tree, and the maintainer's live judgement "it works
+  quite well").
+- **Default-sink hosts — classic `EDIT`, msftedit `RICHEDIT50W` (rounds
+  11, 13) — terminate the composition after EVERY keystroke**, and the
+  termination handler (tsf.cpp `OnCompositionTerminated`) drains the buffers
+  and resets the engine (#98's never-deliver-twice rule). Result: every key
+  evaluates its fresh/bare-jamo branch — measured on both hosts and both
+  layouts (sin3-p2 `jfshta` → `ㅇㅍㄴㄴㅋㅇ`; dubeolsik `dkssud` → loose
+  `ㅇㅏㄴㄴㅕㅇ`), `word len=0` on every key, Hanja source always empty
+  (`count=0`), space/backspace passing through with nothing to act on.
+- The tier-F1 mock never terminates compositions, which is why the whole
+  corpus stays green while every classic host fails.
+- The bisect ruled out the adapter's own per-key writes as the trigger:
+  with the caret `SetSelection` (round 11) and the per-key display-attribute
+  write (round 12) removed, the termination persisted on both hosts; both
+  edits were reverted to the #98-verified shape. What remains in the write
+  session is the minimal preedit set (GetSelection → StartComposition →
+  SetText) — the same pattern every TIP uses.
+
+So the TIP supports the native TSF composition path only. The legacy shape —
+the pre-#98 overlay-window preedit with direct document commits, which is
+what classic hosts need — was replaced by #98 and is gone from the tree.
+Fix directions awaiting the maintainer's ruling: (a) ship 0.2 native-only
+with this limitation documented; (b) restore the overlay/direct-insert
+fallback for hosts observed terminating compositions (the pre-#98 code is
+in git history; #98's native path stays for hosts that keep the
+composition); (c) the TSF interim-input route as new work.
+
 ## Known-sharp edges, recorded rather than hidden
 
 - The uninstall ordering claim (Inno runs `[UninstallRun]` before deleting
@@ -99,9 +135,10 @@ the probe itself activates the Hunmin profile
   if the Start-menu entry (`Hunmin IME 설정`) fails to launch, that is a
   finding, not a prerequisite to add.
 
-Status: **measured 2026-10-19, two Windows Sandbox rounds (scripted half) —
-the interactive rows below are the owed half.** What the rounds measured,
-from the mapped-folder logs:
+Status: **measured 2026-10-20, two Windows Sandbox rounds (scripted half) —
+the interactive half measured 2026-10-20 rounds 8-14 (see the composition
+finding above).** What the scripted rounds measured, from the mapped-folder
+logs:
 
 - the silent install (`/VERYSILENT`) exits 0 on the clean image — no VC
   redist, no missing-`MSVCP140.dll` failure (the `/MT` fix, on the artefact);
@@ -118,9 +155,12 @@ from the mapped-folder logs:
   delete its own binary; its self-delete pends a reboot (the sandbox's
   10-second shutdown cut it short).
 
-Owed: the interactive rows — Win+Space shows Hunmin with the Sejong icon,
-typing composes in the probe, a multi-syllable word yields candidates,
-`layout_count=15` in the debug log. The readback problem is solved by the
-probe's launch directory: started from the mapped folder, the TIP debug log
-lands in the mapped folder and survives the uninstall, so the host copy is
-made before the round ends rather than before the uninstaller runs.
+Interactive half, as measured in the sandbox (round 14, Edge as the host):
+Win+Space shows Hunmin with the Sejong icon; typing composes (the
+maintainer's live judgement: "it works quite well"); `layout_count=15`
+lands in the mapped-folder log through the probe's redirection. Still owed:
+the candidate-window row on a modern host (the Hanja key was only exercised
+on classic hosts, where the source is always empty per the finding above) —
+and, pending the maintainer's ruling on that finding, the classic-host
+(rows 2-8 on `EDIT`/`RICHEDIT50W`) story entirely: they are where the
+native-TSF-only shape is measured broken.
