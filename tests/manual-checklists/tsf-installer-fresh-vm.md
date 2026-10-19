@@ -27,16 +27,22 @@ use (the sandbox maps folders read-only unless `ReadOnly=off`):
 </Configuration>
 ```
 
-The mapped folder carries the built installer (`hunmin-<version>-setup.exe`)
-and this round's logs back out (`ReadOnly=false`).
+The mapped folder carries the built installer (`hunmin-<version>-setup.exe`),
+the probe host `ime-probe.exe` (built from
+`frontends/tsf/test/ime-probe.c`; the build command is in its file header —
+MSVC, static CRT, system-DLL imports only, same gate as the TIP), and this
+round's logs back out (`ReadOnly=false`).
 
 ## Steps
 
 ```text
 1. run hunmin-<version>-setup.exe (double-click; accept the elevation prompt)
 2. Win+Space                -> Hunmin appears, Sejong icon, NOT blank
-3. start notepad            -> launch by full path on a clean host
-4. switch to Hunmin, type dks sud / dkssud + Hanja key
+3. start ime-probe.exe      -> from the mapped folder, so the TIP debug log
+   (follows the host process's working directory) lands IN the mapped
+   folder and survives the uninstall -- the readback round 2 lost. There is
+   no Notepad on the sandbox image (see the finding below).
+4. switch to the probe, type dks sud / dkssud + Hanja key
 5. reg query "HKLM\SOFTWARE\Microsoft\CTF\TIP\{F2C70001-...-0001}" /s
 6. reg query "HKCR\CLSID\{F2C70001-...-0001}" /s
 7. uninstall (Settings > Apps, or {app}\unins000.exe), then repeat 5-6
@@ -54,6 +60,32 @@ and this round's logs back out (`ReadOnly=false`).
 | 7 | both `{CLSID}` trees absent after uninstall | the uninstall runs `regsvr32 /u` on the installed DLL BEFORE deleting files; `DllUnregisterServer` removes the full registered state (issue #84: CLSID tree, HKLM CTF TIP tree, categories, profile) |
 | 7 | HKCU CTF SortOrder/Assemblies: record exactly what remains and why | Windows' own store, written when the user actually selects the IME; registration never writes it and the uninstall must not clean it (the #84 boundary) — a stale slot with the profile gone is the recorded expectation |
 | 8 | `{app}` gone | Inno removes the files it installed; the data tree ships inside `{app}\data`, so nothing is left by design |
+
+## The host app is ime-probe, not Notepad (finding, 2026-10-20)
+
+The sandbox image has no Notepad to start: `System32\notepad.exe` on this
+Windows 11 image is the Store-app alias and does not launch inside Windows
+Sandbox (measured when round 2's helper script, the dev-period
+`tsf-sandbox-install.bat`, ended with exactly that line). The round's host
+app is `ime-probe.exe` instead: one RichEdit window (RICHEDIT50W from the
+inbox `msftedit.dll`), TSF-aware like Notepad, so the #98 native composition
+renders inline; it falls back to a plain EDIT control (system floating
+preedit) if `msftedit.dll` is missing, and its title names which control is
+in use. Static CRT, system-DLL imports only — it loads where the TIP loads.
+
+Round 7 (2026-10-20 00:06, the scripted driver + Edge over `target.html`)
+measured the interactive rows' first blocker: the profile activation did not
+survive the round. The driver's Win+Space taps never landed on Hunmin, the
+tray showed only the default `A` + Hangul pair, `dkssud` committed as raw
+Latin, and the copied debug log held only the ungated `DllMain PROCESS_ATTACH`
+line (`HUNMIN_TSF_DEBUG_LOG` was never set in the host process). Round 8's
+changes, all in the gitignored round cmd: the ko-KR language list is added
+BEFORE the install (the post-install `Set-WinUserLanguageList` call is the
+prime suspect for resetting the active processor to the MS IME default),
+`HUNMIN_TSF_DEBUG_LOG=1` is set machine-wide before the host launches, and
+the probe itself activates the Hunmin profile
+(`ITfInputProcessorProfiles::ActivateLanguageProfile` — the same call
+`DllRegisterServer` makes, `tsf.cpp:2460`; its `hr` lands in the probe log).
 
 ## Known-sharp edges, recorded rather than hidden
 
@@ -87,7 +119,8 @@ from the mapped-folder logs:
   10-second shutdown cut it short).
 
 Owed: the interactive rows — Win+Space shows Hunmin with the Sejong icon,
-typing composes, a multi-syllable word yields candidates, `layout_count=15`
-in the debug log (the round-2 log copy came after the uninstaller had
-already deleted it; the next round copies it before uninstalling, or reads
-it from a live session).
+typing composes in the probe, a multi-syllable word yields candidates,
+`layout_count=15` in the debug log. The readback problem is solved by the
+probe's launch directory: started from the mapped folder, the TIP debug log
+lands in the mapped folder and survives the uninstall, so the host copy is
+made before the round ends rather than before the uninstaller runs.
