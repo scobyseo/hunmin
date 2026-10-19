@@ -1,0 +1,34 @@
+﻿================================================================
+Hunmin IME — licence information
+================================================================
+
+The Hunmin IME and its engine are Copyright (C) 2026 Seo Bon Keun,
+released under the GNU Lesser General Public License, version 2.1 or
+later (LGPL-2.1-or-later). The full licence text is installed as
+LICENSE.txt beside this file.
+
+Bundled Korean data tables — the installed "data" directory; each
+part's full terms and provenance are installed beside it:
+
+  data\krdict    Derived from the 국립국어원 한국어기초사전 (the Korean
+                 Basic Dictionary of the National Institute of Korean
+                 Language), licensed CC-BY-SA 2.0 KR. Required
+                 attribution: "국립국어원 한국어기초사전". The ShareAlike
+                 term applies to this data; its terms ship in
+                 data\krdict\LICENSE.md.
+
+  data\hanja     BSD-3-Clause, from the libhangul project's dictionary
+                 data (Copyright 2005-2006 Choe Hwanjin). Terms:
+                 data\hanja\LICENSE.md.
+
+  data\idioms    MIT. Terms: data\idioms\LICENSE.md.
+
+  data\layouts, data\compose
+                 LGPL-2.1-or-later, like the engine.
+
+Icon credit (a term of the source's licence):
+
+  출처: 어반브러시
+  The King Sejong illustration used for the IME icon is from
+  Urbanbrush (https://www.urbanbrush.net). Its free-use terms require
+  this credit.

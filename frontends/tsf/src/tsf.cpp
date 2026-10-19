@@ -1573,6 +1573,12 @@ class CTextService : public ITfTextInputProcessor,
     STDMETHOD(OnCompositionTerminated)(TfEditCookie ecWrite, ITfComposition *pComposition) override {
         (void)ecWrite;
         (void)pComposition;
+        /* Logged as of the sandbox round that needed it (issue #99): this
+         * handler was the only silent piece of the composition lifecycle,
+         * and a host that terminates per keystroke hid here — every key
+         * then evaluated its fresh/bare-jamo branch (round 10's trace). */
+        HMLOG("OnCompositionTerminated comp=%p wordbuf=%zu\n",
+              (void *)composition_, wordbuf_.size());
         /* The host terminated the composition (issue #98): the composed text
          * is now document text by the host's decision, so the buffers drain
          * and the engine state resets — the same word must never be
