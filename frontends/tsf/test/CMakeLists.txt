@@ -95,6 +95,11 @@ foreach(tsf_test_exe tsf-config-test tsf-datadir-test tsf-settings-test tsf-cand
       imm32
       shlwapi)
 endforeach()
+# tsf-candidate-test has no skip probe of its own, so its main() comes from
+# the framework: gtest_main, not a hand-written one (issue #109). The other
+# three runners keep main() — the rc-77 skip contract needs a probe that
+# exits before RUN_ALL_TESTS, which gtest_main cannot express.
+target_link_libraries(tsf-candidate-test PRIVATE GTest::gtest_main)
 # The settings-dialog TU cannot be #included by the harness (it owns its own
 # COM classes + the Win32 dialog loop), it is linked: it shares tsf.cpp's
 # hunmin_ctx_from_module / hunmin_tsf_apply_config_store through the test

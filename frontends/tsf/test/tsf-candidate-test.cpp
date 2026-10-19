@@ -589,7 +589,6 @@ TEST_F(CandidateTest, InjectedShiftSelectsTheShiftRow) {
     Teardown();
 }
 
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
+/* main() comes from GTest::gtest_main: this runner has no skip probe to run
+ * before the cases (its two skip paths live inside Begin(), which exits 77
+ * directly), so the framework's own entry point is the whole story. */
