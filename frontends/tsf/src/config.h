@@ -14,6 +14,14 @@
  * frontend has no configtool; the settings dialog (#71) writes this store and
  * every Activate() reads it.
  *
+ * There is no live apply after a save (ruled 2026-10-20, issue #120): the
+ * settings exe is a separate process, and nothing asks the running TIP to
+ * re-read. A save reaches a host when that host next ACTIVATES the TIP — a
+ * new app's first activation, or a Win+Space round-trip in an already-running
+ * app (measured 2026-10-20: re-activation re-runs Activate() and re-reads;
+ * the hunmin-tsf-debug.log carries only ever Activate()-driven reads). An app
+ * sitting on Hunmin across the save keeps the OLD layout until then.
+ *
  * Read order, first source that yields a non-empty value wins:
  *   1. environment  HUNMIN_TSF_HANGUL_LAYOUT / HUNMIN_TSF_LATIN_LAYOUT
  *      (the test seam: tier F1 and the config test inject layouts without
