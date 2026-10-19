@@ -56,9 +56,14 @@ number LARGER than the current 216x164 DU template).
    (measured: `sin3-p2-basic` → `dubeolsik`), and
    `reg query ... /v HangulEngKeys` shows the ONE captured entry
    (`v1:122:0` in the measured run).
-5. Relaunch the exe: the selection and the captured key label come from the
-   store (measured: `dubeolsik` + `F11 (v1:122:0)`). Close the window (X):
-   exit 0.
+5. **OK (steering 2026-10-20, issue #120)**: press **OK** — the same save
+   runs and the window closes in one click. Read back: the registry shows the
+   saved layout (measured this host: select `sin3-p2`, OK,
+   `HangulLayout = sin3-p2`; relaunch shows `sin3-p2` restored).
+   Reopen the exe: the selection and the captured key label come from the
+   store (measured: `dubeolsik` + `F11 (v1:122:0)`; 2026-10-20 re-measured
+   the visible-row click + save + reopen round-trip end to end). Close the
+   window (X): exit 0.
 6. Restore the before-state values with `reg add` so the host user's TIP
    settings survive the pass (do this after every smoke run).
 
@@ -93,6 +98,11 @@ number LARGER than the current 216x164 DU template).
 
 ## Notes
 
+- The save/load semantics (ruled 2026-10-20, issue #120): a save applies at
+  the NEXT activation, never live — a new app, or a Win+Space round-trip in
+  the already-running host re-reads; an app sitting on Hunmin across the save
+  keeps the old layout until then. The in-UI grey line carries the same rule
+  (`MainWindow.xaml`), the contract text in `frontends/tsf/src/config.h`.
 - Income to the engine IPC question: an in-flight syllable of a running
   composition is lost across Apply (the ic is rebuilt; documented in the
   `ApplyConfigStore` contract in `frontends/tsf/src/settings.h`).

@@ -398,6 +398,14 @@ public partial class MainWindow : Window
         }
     }
 
+    /* OK (steering 2026-10-20): the dialog idiom — one click saves and
+     * closes. The same Apply_Click runs, then the window closes. */
+    void Ok_Click(object sender, RoutedEventArgs e)
+    {
+        Apply_Click(sender, e);
+        Close();
+    }
+
     string _storedToggle = "";
     bool _storedHasToggle = false;
     /* The Hanja row's own capture state (issue #67): separate from the

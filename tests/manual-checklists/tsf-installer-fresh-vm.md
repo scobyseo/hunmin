@@ -123,6 +123,29 @@ fallback for hosts observed terminating compositions (the pre-#98 code is
 in git history; #98's native path stays for hosts that keep the
 composition); (c) the TSF interim-input route as new work.
 
+## The settings round trip (issue #120)
+
+Sandbox round 10 observed a save to `dubeolsik` not reflected in typing
+(`applied hangul=sin3-p2` at activation) nor on reopening the settings exe.
+Re-measured on the dev host against the same sources (2026-10-20, UIA-driven
+user path — visible-row click, 적용, relaunch, plus 3 scripted Win+Space
+cycles):
+
+- the save LANDS: `reg query "HKCU\Software\Hunmin\TSF" /v HangulLayout` reads
+  the saved value after 적용, and the reopened exe restores it — the
+  "save never lands" shape is disproven for a real row click;
+- the TIP reads the store ONLY in `Activate()` (`tsf.cpp:613`); the settings
+  exe is a separate process, so a save is not pushed to already-running
+  hosts — the "no live apply" shape is the ruled state (the contract comment
+  in `frontends/tsf/src/config.h`);
+- a Win+Space round-trip (Hunmin → other IME → back) re-runs Activate() in the
+  SAME host process and picks the save up — measured; so round 10's "typing
+  still sin3-p2" is the expected no-round-trip state, not a lost save.
+
+Still owed in the sandbox: round 10's own reg-query readback inside the VM
+after a save (the issue's checkbox), which this host cannot substitute for
+the INSTALLER-shaped exes.
+
 ## Known-sharp edges, recorded rather than hidden
 
 - The uninstall ordering claim (Inno runs `[UninstallRun]` before deleting
