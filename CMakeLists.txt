@@ -25,6 +25,20 @@ include(FetchContent)
 find_package(PkgConfig QUIET)
 find_package(Python3 QUIET COMPONENTS Interpreter)
 
+# The packaged TIP shape (issue #99): link the MSVC CRT statically so the
+# shipped DLL loads on a clean Windows image with no VC redist — the
+# clean-VM field test root-caused the /MD build to import MSVCP140.dll /
+# VCRUNTIME140.dll / VCRUNTIME140_1.dll, which the dev host has from
+# BuildTools and a fresh image does not. Default OFF: dev builds keep the
+# /MD default; tools/build-windows-installer.sh turns this ON for the
+# release package. It must cover every MSVC target in the configure — the
+# static engine lib and the TIP must agree or the link warns LNK4098 and
+# mixes CRT heaps.
+option(HUNMIN_MSVC_STATIC_RUNTIME "Link the MSVC CRT statically (/MT); the packaged TIP shape (issue #99)" OFF)
+if(HUNMIN_MSVC_STATIC_RUNTIME AND MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 # ---------------------------------------------------------------- libhunmin
 # One source list, two library kinds: the shared library for the POSIX
 # frontends and tests, and a static archive for the Windows TSF TIP.

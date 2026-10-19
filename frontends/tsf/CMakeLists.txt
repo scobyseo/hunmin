@@ -6,6 +6,15 @@ project(hunmin-tsf LANGUAGES C CXX)
 # "No tests were found" on a standalone configure (measured).
 include(CTest)
 
+# Same option as the top-level CMakeLists.txt (issue #99): this directory is
+# also configured standalone, where the top-level definition never runs —
+# the packaging build passes it here too, so the standalone TIP build links
+# the same static CRT the packaged engine lib was built with.
+option(HUNMIN_MSVC_STATIC_RUNTIME "Link the MSVC CRT statically (/MT); the packaged TIP shape (issue #99)" OFF)
+if(HUNMIN_MSVC_STATIC_RUNTIME AND MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 add_library(hunmin-tsf MODULE
     src/dllmain.cpp
     src/tsf.cpp
