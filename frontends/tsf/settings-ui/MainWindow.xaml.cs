@@ -68,7 +68,7 @@ public partial class MainWindow : Window
             // 420x560 requests land the on-screen window inside the quoted
             // 480-560 px band; 540 tall since issue #67 added the Hanja-key
             // row (the previous 500 clipped the closing rows. measured).
-            AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(420, 560));
+            AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(440, 600));
             var s = AppWindow.Size;
             LogDebug($"Compact client reserve w={s.Width} h={s.Height}");
         }
