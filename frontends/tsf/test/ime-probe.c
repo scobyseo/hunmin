@@ -137,8 +137,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show)
     redirect_log_to_probe_dir();
 
     /* msftedit.dll must be loaded before the RICHEDIT50W class exists. */
+#ifdef FORCE_EDIT_HOST
+    /* Bisect (issue #99 round 13): same window, plain EDIT control — the
+     * system's default TSF sink instead of msftedit's. Isolates whether the
+     * per-key composition termination is an msftedit behavior. */
+    HMODULE msftedit = NULL;
+    PCWSTR edit_class = L"EDIT";
+#else
     HMODULE msftedit = LoadLibraryW(L"msftedit.dll");
     PCWSTR edit_class = msftedit ? L"RICHEDIT50W" : L"EDIT";
+#endif
 
     WNDCLASSW wc = {0};
     wc.lpfnWndProc   = probe_wndproc;

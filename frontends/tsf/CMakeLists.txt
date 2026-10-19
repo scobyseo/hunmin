@@ -114,5 +114,21 @@ add_custom_command(TARGET hunmin-tsf POST_BUILD
 # 2026-10-17, this host).
 if(WIN32 AND MSVC)
   enable_testing()
+  # GoogleTest via FetchContent, mirroring the top-level block (issue #109):
+  # the migration moved tsf-test onto GTest::gtest_main, whose target only
+  # the top-level configure used to declare -- the standalone configure (the
+  # installer's build shape, tools/build-windows-installer.sh) then failed
+  # with "GTest::gtest_main ... was not found" (measured 2026-10-20, issue
+  # #99). Gated on BUILD_TESTING alone: the gtest target is the test
+  # framework itself, while Python3_FOUND (the top-level guard) decides only
+  # the trace-loop registrations inside test/. Same offline escape hatch.
+  if(BUILD_TESTING)
+    include(FetchContent)
+    FetchContent_Declare(googletest
+      GIT_REPOSITORY https://github.com/google/googletest.git
+      GIT_TAG        v1.17.0
+      GIT_SHALLOW    TRUE)
+    FetchContent_MakeAvailable(googletest)
+  endif()
   add_subdirectory(test)
 endif()
