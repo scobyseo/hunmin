@@ -21,6 +21,7 @@ else()
 endif()
 option(BUILD_TESTING "" ON)
 include(CTest)
+include(FetchContent)
 find_package(PkgConfig QUIET)
 find_package(Python3 QUIET COMPONENTS Interpreter)
 
@@ -102,6 +103,32 @@ else()
     install(TARGETS hunmin
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
+# --------------------------------------------------- GoogleTest via FetchContent
+# Fetched at configure time (issue #109, ruling: option 1b). This block sits
+# ABOVE the frontend add_subdirectory calls because frontends/tsf's tier-F1
+# runners link GTest::gtest_main too. One ctest entry per binary is kept on
+# purpose -- registration shape, not the framework, is what the 30 s
+# inner-loop budget is sensitive to (docs/TEST-FRAMEWORK-OPTIONS.md, ~27 ms
+# per spawned case measured). So no gtest_discover_tests: each test
+# executable stays one add_test. A configure without network cannot fetch;
+# point FETCHCONTENT_SOURCE_DIR_GOOGLETEST at a checkout to build offline.
+if(BUILD_TESTING AND Python3_FOUND)
+  enable_language(CXX)
+  FetchContent_Declare(googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.17.0
+    GIT_SHALLOW    TRUE)
+  FetchContent_MakeAvailable(googletest)
+  # A C++ test binary built by llvm-mingw depends on the toolchain's runtime
+  # DLLs (libstdc++-6.dll, libgcc_s_seh-1.dll, libwinpthread-1.dll), which are
+  # not on ctest's PATH -- the suite died with 0xc0000135 before this
+  # (measured 2026-10-19, issue #109). Link the runtimes static; MSVC does not
+  # take this flag, hence the guard.
+  if(MINGW)
+    set(HUNMIN_TEST_LINK_OPTS -static)
+  endif()
 endif()
 
 # --------------------------------------------------------- fcitx5 frontend
@@ -195,8 +222,9 @@ if(BUILD_TESTING AND Python3_FOUND)
   set_tests_properties(expr-vectors PROPERTIES LABELS "tier-A")
   # Tier A for the P3 candidate API. Runs against libhunmin/data via
   # HUNMIN_DATA_PATH so it exercises the shipped tables, not a copy.
-  add_executable(suggest-test libhunmin/tests/suggest-test.c)
-  target_link_libraries(suggest-test PRIVATE hunmin)
+  add_executable(suggest-test libhunmin/tests/suggest-test.cpp)
+  target_link_libraries(suggest-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(suggest-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
   add_test(NAME engine-suggest COMMAND suggest-test)
   set_tests_properties(engine-suggest PROPERTIES
     LABELS "tier-A"
@@ -205,7 +233,9 @@ if(BUILD_TESTING AND Python3_FOUND)
   # Tier A for invariant 5: hunmin_ic_commit_text(), the external-text
   # pass-through P5's voice path needs. Its interesting assertions are the
   # negative ones -- that the text is NOT put through the jamo pipeline.
-  add_executable(commit-text-test libhunmin/tests/commit-text-test.c)
+  add_executable(commit-text-test libhunmin/tests/commit-text-test.cpp)
+  target_link_libraries(commit-text-test PRIVATE GTest::gtest_main)
+  target_link_options(commit-text-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
   target_include_directories(commit-text-test PRIVATE libhunmin/include libhunmin/src third_party/cJSON)
   target_sources(commit-text-test PRIVATE
     libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/data.c
@@ -221,8 +251,9 @@ if(BUILD_TESTING AND Python3_FOUND)
   # and every (base, shift) row. The legacy character is computed from an
   # independent copy of the US-QWERTY map in the test, so a drift in the
   # loader's map reads red instead of passing unobserved through both sides.
-  add_executable(process-key-test libhunmin/tests/process-key-test.c)
-  target_link_libraries(process-key-test PRIVATE hunmin)
+  add_executable(process-key-test libhunmin/tests/process-key-test.cpp)
+  target_link_libraries(process-key-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(process-key-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
   add_test(NAME engine-process-key COMMAND process-key-test)
   set_tests_properties(engine-process-key PROPERTIES
     LABELS "tier-A"

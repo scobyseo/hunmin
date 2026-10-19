@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-19 | Total pages: 44
+> Last updated: 2026-10-19 | Total pages: 45
 
 ## Concepts
 
@@ -244,3 +244,9 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   case's delivery channel and the unsound "7/7" claim; left minor: Notepad
   paints its composition highlight over the preedit under both attribute
   encodings measured (noted on the issue).
+- [[2026-10-19-test-framework-migration]] — issue #109 ruled option 1b
+  (GoogleTest + gmock via FetchContent) and the migration shipped the same
+  day: the engine tier-A trio and the four TSF runner groups (merged into
+  one executable, one add_test, the rc-77 probes in a wrapper outside the
+  binary); the FetchContent "disqualification" overturned by measurement;
+  the fcitx5 trio deferred to issue #118 (unverifiable on this host).

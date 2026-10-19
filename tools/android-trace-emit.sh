@@ -224,8 +224,15 @@ case "$(uname -s)" in
         # entry must be the MSYS form: a C:/... entry in PATH is re-split at the
         # drive colon when the list is converted for the child, and the engine
         # then resolves from whatever other PATH dir happens to carry a stale
-        # libhunmin.dll (measured 2026-10-17).
+        # libhunmin.dll (measured 2026-10-17). A multi-config tree (VS) keeps
+        # the DLL under the per-config dir, so those join too when present
+        # (measured 2026-10-19, issue #109).
         export PATH="$(cygpath -u "$HUNMIN_BUILD_DIR"):$PATH"
+        for d in "$HUNMIN_BUILD_DIR/Release" "$HUNMIN_BUILD_DIR/Debug"; do
+            if [ -f "$d/libhunmin.dll" ] || [ -f "$d/hunmin.dll" ]; then
+                export PATH="$(cygpath -u "$d"):$PATH"
+            fi
+        done
         ;;
     *)
         CP="$(paste -sd: "$CACHE")"

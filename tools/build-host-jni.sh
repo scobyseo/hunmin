@@ -40,8 +40,14 @@ case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) HOSTOS=windows ;;
 esac
 if [ "$HOSTOS" = windows ]; then
+    # The root is where a mingw tree keeps the DLL; a multi-config VS tree
+    # keeps it under the per-config dir (build-msvc/Release) -- search both
+    # (measured 2026-10-19, issue #109: the root probe alone missed it and
+    # the runner reported the engine missing on a built tree).
     ENGINE=""
-    for e in "$BUILD_DIR/libhunmin.dll" "$BUILD_DIR/hunmin.dll"; do
+    for e in "$BUILD_DIR/libhunmin.dll" "$BUILD_DIR/hunmin.dll" \
+             "$BUILD_DIR/Release/libhunmin.dll" "$BUILD_DIR/Release/hunmin.dll" \
+             "$BUILD_DIR/Debug/libhunmin.dll" "$BUILD_DIR/Debug/hunmin.dll"; do
         if [ -f "$e" ]; then ENGINE="$e"; break; fi
     done
     OUT="$BUILD_DIR/libhunjni-host.dll"
@@ -105,11 +111,15 @@ JNI_MD="$JDK/include/$JNI_MD_ARCH"
 # behaviour for that corner instead of inventing a new one.
 CC_BIN="${CC:-}"
 if [ -z "$CC_BIN" ] && [ -f "$BUILD_DIR/CMakeCache.txt" ]; then
-    # The type suffix varies: CMake stores a -D-passed compiler as :STRING
-    # (measured, CMake 4.4.4) and a self-resolved one as :FILEPATH; accept
-    # both. Anchoring on "CMAKE_C_COMPILER:" leaves CMAKE_C_COMPILER_AR and
-    # friends out.
-    _cache_cc="$(sed -n 's/^CMAKE_C_COMPILER:\(FILEPATH\|STRING\|PATH\)=//p' \
+    # The type suffix varies: CMake stores a -D-passed compiler as
+    # :UNINITIALIZED until its first normalization, :STRING or :FILEPATH
+    # afterwards, and :INTERNAL on some re-configures (all three measured
+    # 2026-10-19, issue #109: a fresh build-mingw cache held :UNINITIALIZED,
+    # which the old explicit list missed -- the probe then fell through to the
+    # PATH clang, and every conformance test died on the missing hunmin.lib
+    # again). Anchoring on "CMAKE_C_COMPILER:" with any type leaves
+    # CMAKE_C_COMPILER_AR and friends out.
+    _cache_cc="$(sed -n 's/^CMAKE_C_COMPILER:[A-Z_]*=//p' \
                        "$BUILD_DIR/CMakeCache.txt" | head -n 1)"
     case "$_cache_cc" in
         ""|*cl.exe|*cl) ;;                 # absent, or an MSVC tree
@@ -149,11 +159,23 @@ if [ "$HOSTOS" = posix ]; then
     # mingw does not take -Wl,-rpath.
     LINK_FLAGS+=(-fPIC -Wl,-rpath,"$BUILD_DIR")
 fi
+# The engine's link input beside -L"$BUILD_DIR": a multi-config tree (VS)
+# keeps hunmin.lib under the per-config dir (build-msvc/Release), not at the
+# root a mingw tree uses; search both rather than dying on the first
+# (measured 2026-10-19, issue #109: LNK1181 on '..\..\hunmin.lib').
+LIBDIR_FLAGS=(-L"$BUILD_DIR")
+if [ "$HOSTOS" = windows ]; then
+    for d in "$BUILD_DIR/Release" "$BUILD_DIR/Debug"; do
+        if [ -f "$d/hunmin.lib" ] || [ -f "$d/libhunmin.dll.a" ]; then
+            LIBDIR_FLAGS+=(-L"$d")
+        fi
+    done
+fi
 "$CC_BIN" "${LINK_FLAGS[@]}" \
   -I"$JNI_INC" -I"$JNI_MD" \
   -I"$ROOT/libhunmin/include" \
   -o "$OUT" "$SRC" \
-  -L"$BUILD_DIR" -lhunmin
+  "${LIBDIR_FLAGS[@]}" -lhunmin
 
 # Proof it is a loadable library for this JVM and not merely a file: the
 # dependency it actually resolved, which is the thing that silently differs if
