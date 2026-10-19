@@ -133,6 +133,36 @@ scratch directory (`$TMPDIR/googletest-1.17.0`), not in the repo.
   three files map to TEST/EXPECT macros 1:1, or stay hand-rolled if the
   ruling scopes the framework out of C (option 2).
 
+### Option 1b — the same, fetched at configure time (FetchContent)
+
+The issue disqualifies this with "FetchContent is disqualified: CI cannot
+fetch dependencies while the billing failure stands, issue #102". Checked:
+the billing failure is real (every CI job dies in ~3 s at billing, so a
+configure that fetches cannot be verified on CI today) — but it is a
+transient account state, not a property of the mechanism. Measured on this
+host, the mechanism itself has two shapes:
+
+- **URL form — fails out of the box here, measured.** cmake's bundled
+  downloader rejects GitHub's certificate chain ("SSL peer certificate or
+  SSH remote key was not OK ... certificate signer not trusted") where
+  git-bash curl succeeds; configure dies at 2.1 s. Content integrity would
+  still be pinable (`URL_HASH SHA256=65fab701...` of the v1.17.0 tarball),
+  but the default path needs `CMAKE_TLS_CAINFO` pointed at a working CA
+  bundle or verification disabled.
+- **GIT_REPOSITORY form — works, measured.** A fresh configure including the
+  clone of v1.17.0 takes 7.2 s (git's own TLS, unaffected), builds green,
+  and its 20-case spike passes in 0.35 s. The same `-static` discovery
+  friction as option 1 applies; the acquisition method does not change it.
+
+What stays different from vendoring once billing clears, beyond the fetch
+step: a configure without network cannot build the tree (a vendored checkout
+is complete by definition); every fresh CI runner repeats the 7.2 s fetch;
+and the tree's one existing third-party dependency is vendored (cJSON), so
+FetchContent would introduce a second acquisition pattern whose licence
+recording (fetched copy under `_deps/`) does not fit debian/copyright's
+`Files:` globs — a packaging note, since gtest is test-only and ships in no
+binary.
+
 ### Option 2 — GoogleTest for the C++ frontend tiers only
 
 Touches 10 of the migration-surface entries (7 tsf + 3 fcitx5); the 3 C
@@ -168,6 +198,10 @@ matcher-level introspection on the COM mock's interaction records.
 - **If tier-F1 correctness ever needs richer interaction introspection**, that
   is gmock's matcher layer — and it layers on top of the hand-written COM
   plumbing either way; it is not a reason to switch framework candidates.
+- **If billing clears and offline configure is never a scenario**, the
+  ~3.9 MiB vendored tree stops buying much: the residual differences are the
+  measured 7.2 s cold fetch per fresh configure and hermeticity of the
+  checkout, not build cost (the framework compiles either way).
 - **Nothing above is verifiable on CI today**: the GitHub Actions jobs fail
   at billing level (issue #102), so toolchain and budget verification is
   host-measured until that clears.
@@ -177,6 +211,7 @@ matcher-level introspection on the COM mock's interaction records.
 | option | new vendored tree | C engine tier | tsf tier-F1 | fcitx5 | ctest entries at risk | measured toolchain cost |
 |---|---|---|---|---|---|---|
 | 1 gtest+gmock vendored | ~3.9 MiB | migrates (63 sites) | migrates CHECK sites; QI stays manual | migrates | 13 | 4.3 s + 19.9 s one-off |
+| 1b gtest+gmock via FetchContent | none in-tree; ~3.9 MiB under `_deps/` per configure | migrates | same as 1 | migrates | 13 | same builds + 7.2 s cold fetch per fresh configure (URL form fails TLS here) |
 | 2 gtest, C++ tiers only | ~3.9 MiB | stays hand-rolled | same as 1 | migrates | 10 | same as 1 |
 | 3 Catch2/doctest | lighter, not measured | C++-only reach | same reach as 2 | migrates | 10 | not measured here |
 | 4 keep hand-rolled | none | unchanged | unchanged | unchanged | 0 | 0 |
@@ -206,6 +241,11 @@ one framework case).
 - Spawn-overhead spike: 20-case scratch binary, `gtest_discover_tests`
   registration, `time ctest` 0.595 s vs `time` direct run 0.052 s; discovery
   without `-static` reproduced the launcher failure, with `-static` it passed.
+- FetchContent variants (scratch): URL form failed TLS at 2.1 s (exact error
+  quoted in §2); GIT_REPOSITORY form configured fresh in 7.2 s incl. clone,
+  built green with `-static`, 20 cases in 0.35 s. Tarball sha256
+  65fab701d9829d38cb77c14acdc431d2108bfdbf8979e40eb8ae567edf10b27c recorded
+  for a future URL_HASH pin.
 - Read-but-not-executed (named so they are not mistaken for measurements):
   Catch2 and doctest builds on this host; gmock matcher behaviour against
   the COM mock's interaction records; anything CI-side (jobs fail at billing,
