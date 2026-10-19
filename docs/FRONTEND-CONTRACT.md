@@ -81,6 +81,17 @@ Our `hunmin_ic` lives here, so **two open windows get two independent engines**
 `hunmin_ic_preedit`. Plus `hunmin_ic_set_option(ic, "caps", …)` and
 `hunmin_ic_free`.
 
+**The caps option is a common frontend contract** (issue #112, ruling
+"wire and make it common to all platform"): every frontend sets
+`hunmin_ic_set_option(ic, "caps", 1 | 0)` **per key event** from its
+platform's CapsLock state — fcitx5 from `KeyState::CapsLock`
+(engine.cpp:327), Android from `META_CAPS_LOCK_ON` (HunminAdapter.kt), the
+TSF TIP from `GetKeyState(VK_CAPITAL)`'s toggle bit read beside the modifier
+snapshot (`hunmin_tsf_capslock_from_state`, keybinding.cpp). CapsLock feeds
+the yethangul P variable only (hunmin.h:93) and selects **no** row on any
+platform — the Shift bit (or, for fcitx5, the host-resolved keysym case) is
+the only row transport.
+
 ## 3. Assumptions, and whether they hold
 
 ### A1. Key convention is ASCII, not keysym-to-layout-table

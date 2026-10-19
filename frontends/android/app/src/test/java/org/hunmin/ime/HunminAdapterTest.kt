@@ -668,6 +668,19 @@ class HunminAdapterTest {
         // The '/' commits ㄱ into the word buffer; the client's composing text
         // is the buffered word plus the new in-flight syllable.
         assertEquals("ㄱㅋ", capped.composings.last())
+
+        // Issue #112 alignment: the option is fed 1/0 PER EVENT. The old
+        // set-1-only feed left ic->caps sticky-on for the ic's lifetime, so
+        // the same engine kept resolving the P=1 tier after CapsLock was
+        // released. Same adapter, one boundary, then the k/ pair with caps
+        // released: the manual golden's caps=0 rows must come back
+        // (k -> ㄱ, / -> 고) -- not the caps=1 row (/ composes ㅋ).
+        e2.onKey(62 /* KEYCODE_SPACE */, capsOn, capped) // unmapped: word lands, in-flight clears
+        val (kCodeOff, _) = press('k')
+        e2.onKey(kCodeOff, 0, capped)
+        assertEquals("ㄱ", capped.composings.last())
+        e2.onKey(slashCode, 0, capped)
+        assertEquals("고", capped.composings.last())
         e2.close()
     }
 

@@ -77,16 +77,23 @@ and so on. The shape is Android's `KeyBinding.kt` ported to Windows vocabulary
 - Auto-repeat is keydown with lParam bit 30 (preceding-down) set: the press
   toggles once and repeats are swallowed, delivering neither a wrong toggle nor
   the repeat to the application.
-- CapsLock is no longer a toggle and is IGNORED in Korean input mode: the
+- CapsLock is not a toggle and never selects a row in Korean input mode: the
   adapter hands the engine the VK's unshifted base plus the Shift bit
-  (`hunmin_ic_process_key`, issue #106) and reads no caps state, so a
-  caps-derived case cannot enter the composition; the TSF side does not
-  wire the engine `caps` option either (fcitx5 does, engine.cpp:327, for the
-  yethangul P variable; the Android adapter does since #105 — the parity
-  question is a separate maintainer decision, filed as issue #112). What
-  #106 changed about this
-  is only where the CapsLock×Shift row would be answered if it ever is: in
-  the engine's loader map, not in this adapter.
+  (`hunmin_ic_process_key`, issue #106), and the Shift bit is the only row
+  transport — CapsLock alone composes the plain row, on every platform.
+  The engine `caps` option **is wired from the key path** (issue #112,
+  ruling 2026-10-19: "wire and make it common to all platform"): one
+  `hunmin_tsf_capslock_from_state()` read beside the modifier snapshot
+  (`frontends/tsf/src/keybinding.cpp`, the toggle LOW bit of
+  `GetKeyState(VK_CAPITAL)`), and one `hunmin_ic_set_option(ic, "caps",
+  1|0)` per key event at the snapshot in tsf.cpp — the same per-event shape
+  fcitx5 has had since engine.cpp:327 and Android since #105 (aligned to
+  1/0 per event by #112; the set-1-only shape left the P variable sticky-on
+  after the first CapsLock use). The option feeds the yethangul P variable
+  only (`hunmin.h:93`); tier F1 pins both sides — dubeolsik r under
+  CapsLock stays the plain row ㄱ, and sin3-p2-yet's j/k pair resolves the
+  P=1 tier with caps on and the plain tier with caps off (the
+  `p2-2-4-3-caps.jsonl` golden pair, replayed through the adapter).
 
 Device-bound open question: whether Windows routes the physical Han/Eng key to
 the TIP as `VK_HANGEUL` (vs. the input hotkey system consuming it) is verified

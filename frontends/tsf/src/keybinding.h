@@ -76,6 +76,18 @@ int hunmin_tsf_keybindings_match(const HunminKeyCombo *bindings, int count,
  * via the aggregate vks; the family rule only (the VK names a side binding). */
 unsigned int hunmin_tsf_keymods_from_state(void);
 
+/* The CapsLock TOGGLE state (issue #112, ruling "wire and make it common to
+ * all platform"): 1 when toggled on. A toggle key reports its state in the
+ * LOW bit of GetKeyState (0x0001), not the 0x8000 down bit the modifiers
+ * above use — and it is deliberately NOT a HUNMIN_TSF_KEYMOD bit: bindings
+ * match three families exactly, and CapsLock must never make a bare binding
+ * miss (Android's isModifierChord excludes it the same way). Read beside
+ * hunmin_tsf_keymods_from_state() so host state enters the key path at one
+ * seam, and fed to the engine as the "caps" option (the yethangul P
+ * variable, hunmin.h:93) once per key event — the same per-event 1/0 shape
+ * fcitx5 has (engine.cpp:327) and Android since #112's alignment. */
+int hunmin_tsf_capslock_from_state(void);
+
 #ifdef __cplusplus
 }
 #endif

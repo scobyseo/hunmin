@@ -145,7 +145,12 @@ class HunminAdapter(
         }
 
         val caps = (metaState and android.view.KeyEvent.META_CAPS_LOCK_ON) != 0
-        if (caps) native.setOption(ic, "caps", 1)
+        // Issue #112 (ruling "wire and make it common to all platform"): the
+        // option is fed 1/0 PER EVENT, the fcitx5 shape (engine.cpp:327).
+        // The earlier set-1-only feed left ic->caps sticky-on for the ic's
+        // lifetime -- after the first CapsLock use every later key kept
+        // resolving the P=1 tier. 0 is also a feed, not an absence.
+        native.setOption(ic, "caps", if (caps) 1 else 0)
 
         val base = HunminKeyRegistry.engineBase(keyCode)
         if (base == null) {
