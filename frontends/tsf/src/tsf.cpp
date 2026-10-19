@@ -1213,8 +1213,13 @@ class CTextService : public ITfTextInputProcessor,
          * ruled out 2026-10-18, issue #101: "will not switch mode; transient
          * processing is enough". See docs/WINDOWS-TSF-BUFFERING.md and
          * wiki/decisions/2026-10-18-tsf-chord-transient-not-persistent.md.) */
-        if (hunmin_tsf_keymods_from_state() &
-            (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) {
+        /* One snapshot of the modifier state for this event. The chord rule
+         * below and the shift bit handed to the engine both read it, so the
+         * decision and the bit can never disagree, and the mock harness's
+         * GetKeyState seam (frontends/tsf/test/trace-emit.cpp) covers both
+         * with one injection. */
+        const unsigned int mods = hunmin_tsf_keymods_from_state();
+        if (mods & (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) {
             if (pfEat)
                 *pfEat = FALSE;
             CloseCandidateWindow();
@@ -1225,61 +1230,84 @@ class CTextService : public ITfTextInputProcessor,
             }
             return S_OK;
         }
-        char ch = 0;
+        /* --- the VK -> base half, and only that half (issue #106) ---
+         *
+         * Before this, each branch below carried BOTH forms of its key:
+         * the Shift bit picked between them here, over a second copy of the
+         * US-QWERTY shift map (VK_0..VK_9 against a hardcoded
+         * "0123456789"/")!@#$%^&*(" pair, eleven VK_OEM_* pairs). The engine
+         * already owns that map -- libhunmin/src/data.c's BASE/SHIFTED, the
+         * same table the loader uses to place a "shift" row -- and
+         * hunmin_ic_process_key() exposes it as the case endpoint
+         * (hunmin.h:66-84, issue #90's option B, docs/IC-INPUT-OPTIONS.md
+         * §2-B). So what is left here is the half no host can supply: the
+         * physical key's UNSHIFTED US-QWERTY character. The shift bit
+         * travels beside it, and the shifted row is selected in the engine.
+         *
+         * This is the shape the Android adapter landed in #105 and the one
+         * docs/FRONTEND-CONTRACT.md A3' describes. It carries the same
+         * stated cost as fcitx5's assumption A1 and Android's registry: a
+         * layout wanting a non-US physical key cannot be expressed, because
+         * the table is authored in the US-QWERTY convention.
+         *
+         * CapsLock is deliberately NOT wired to the engine `caps` option
+         * here. That is unchanged from before this migration (see the
+         * modifier-key block below) and remains the parity difference
+         * recorded in docs/WINDOWS-TSF-CONFIG.md, awaiting a maintainer
+         * decision. What this migration changes about it is only WHERE the
+         * CapsLock-x-Shift question would be answered if it is answered:
+         * in the engine, not in this switch. */
+        uint32_t base = 0;
         if (wParam >= 'A' && wParam <= 'Z') {
-            ch = (GetKeyState(VK_SHIFT) < 0) ? (char)wParam : (char)(wParam + 32);
+            base = (uint32_t)(wParam + 32); /* the lowercase half */
         } else if (wParam >= '0' && wParam <= '9') {
-            static const char unshifted[] = "0123456789";
-            static const char shifted[] = ")!@#$%^&*(";
-            int i = (int)(wParam - '0');
-            ch = (GetKeyState(VK_SHIFT) < 0) ? shifted[i] : unshifted[i];
+            base = (uint32_t)wParam;
         } else if (wParam == VK_SPACE) {
-            ch = ' ';
+            base = ' ';
         } else if (wParam == VK_BACK) {
-            ch = 0x08;
+            base = 0x08;
         } else {
-            bool shift = GetKeyState(VK_SHIFT) < 0;
             switch (wParam) {
             case VK_OEM_1:
-                ch = shift ? ':' : ';';
+                base = ';';
                 break;
             case VK_OEM_7:
-                ch = shift ? '"' : '\'';
+                base = '\'';
                 break;
             case VK_OEM_COMMA:
-                ch = shift ? '<' : ',';
+                base = ',';
                 break;
             case VK_OEM_PERIOD:
-                ch = shift ? '>' : '.';
+                base = '.';
                 break;
             case VK_OEM_2:
-                ch = shift ? '?' : '/';
+                base = '/';
                 break;
             case VK_OEM_3:
-                ch = shift ? '~' : '`';
+                base = '`';
                 break;
             case VK_OEM_4:
-                ch = shift ? '{' : '[';
+                base = '[';
                 break;
             case VK_OEM_5:
-                ch = shift ? '|' : '\\';
+                base = '\\';
                 break;
             case VK_OEM_6:
-                ch = shift ? '}' : ']';
+                base = ']';
                 break;
             case VK_OEM_MINUS:
-                ch = shift ? '_' : '-';
+                base = '-';
                 break;
             case VK_OEM_PLUS:
-                ch = shift ? '+' : '=';
+                base = '=';
                 break;
             default:
                 if (wParam >= 0x20 && wParam <= 0x7E)
-                    ch = (char)wParam;
+                    base = (uint32_t)wParam;
                 break;
             }
         }
-        // When ch == 0 (punctuation / any key no layout row covers), fall through
+        // When base == 0 (punctuation / any key no layout row covers), fall through
         // with the Zero entry: hunmin_ic_process -> save_commit -> false, so the
         // declined branch below flushes the pending syllable and passes the key.
         // Modifier keys (Shift/Ctrl/Alt/Win, Caps) are not text: never flush/passthrough
@@ -1291,23 +1319,28 @@ class CTextService : public ITfTextInputProcessor,
             wParam == VK_RMENU || wParam == VK_LWIN || wParam == VK_RWIN || wParam == VK_CAPITAL || wParam == VK_TAB) {
             /* CapsLock is no longer the mode toggle (maintainer instruction:
              * the Han/Eng key is the default), and in Korean input mode it is
-             * IGNORED outright: the engine's input convention encodes the
-             * shifted row in the case of the fed char (hunmin.h "case
-             * encodes shift"), so no caps-derived case or state may leak into
-             * hunmin_ic_process. The fed char derives from the VK and the
-             * Shift bit alone below; the caps state is never read. CapsLock
-             * passes through for the OS to toggle. The engine caps option is
-             * deliberately NOT wired from this frontend (fcitx5 does, for the
-             * yethangul P variable, engine.cpp:327 — recorded in
-             * docs/WINDOWS-TSF-CONFIG.md as a parity difference awaiting a
-             * maintainer decision). */
+             * IGNORED outright. The engine derives the shifted row from the
+             * (base, shift) pair handed to hunmin_ic_process_key above, so no
+             * caps-derived case may leak in through this frontend; the caps
+             * state is never read here. CapsLock passes through for the OS
+             * to toggle. The engine caps option is deliberately NOT wired
+             * from this frontend (fcitx5 does, for the yethangul P variable,
+             * engine.cpp:327; the Android adapter does since #105) —
+             * recorded in docs/WINDOWS-TSF-CONFIG.md as a parity difference
+             * awaiting a maintainer decision. */
             if (dbg) {
                 fprintf(dbg, " modifier/pass key -> leave composition\n");
                 fclose(dbg);
             }
             return S_OK;
         }
-        bool consumed = hunmin_ic_process(ic_, (uint32_t)ch);
+        /* The case endpoint is the engine's (issue #106): the unshifted base
+         * plus the Shift bit from the snapshot above. hunmin_ic_process_key
+         * resolves the row through the loader's own US-QWERTY map, so the
+         * shift column this adapter used to carry is deleted rather than
+         * rewritten (FRONTEND-CONTRACT.md A3'). */
+        bool consumed =
+            hunmin_ic_process_key(ic_, base, (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u);
         if (consumed) {
             /* Word buffering (issue #73, adapter-side; no libhunmin change):
              * hunmin_ic_commit() is a destructive read of every syllable the

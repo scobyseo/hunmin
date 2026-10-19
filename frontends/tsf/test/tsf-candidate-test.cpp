@@ -155,8 +155,9 @@ struct Fixture {
         (void)testEat;
     }
     /* One synthetic key per engine char (dubeolsik rows): the trace is
-     * VK-based, so 'd' arrives as VK_D (0x44) and the adapter derives the
-     * shifted/unshifted row from the Shift bit itself. */
+     * VK-based, so 'd' arrives as VK_D (0x44) and the engine derives the
+     * shifted/unshifted row from the Shift bit the adapter passes beside the
+     * base character (issue #106 — the adapter itself no longer decides). */
     void Type(const char *keys) {
         for (const char *p = keys; *p; ++p)
             Key((WPARAM)toupper((unsigned char)*p));
@@ -598,6 +599,30 @@ int main() {
         CHECK(eat == FALSE, "case 18: Hanja-key down ate on a one-syllable zero");
         CHECK(!f.svc->candActive_, "case 18: state active on a one-syllable zero");
         f.AssertNoInsert("case 18");
+        f.Teardown();
+    }
+
+    /* 19. Issue #106: the shifted row is the ENGINE's decision now. The
+     * adapter hands the unshifted base + the Shift bit to
+     * hunmin_ic_process_key; the row comes from the loader's own US-QWERTY
+     * map. Injected shift + VK_R ('r'): dubeolsik plain ㄱ, shift row ㄲ
+     * (dubeolsik.json) — the adapter's deleted shift column used to decide
+     * exactly this, so a regression here is the migration undone. */
+    {
+        Fixture f;
+        f.Begin();
+        f.Type("r");
+        f.AssertPreedit("\xE3\x84\xB1", "case 19: plain r is not gigyeong");
+        f.Teardown();
+    }
+    {
+        Fixture f;
+        f.Begin();
+        g_mockKeyState[VK_SHIFT & 0xFF] = (SHORT)0x8000;
+        f.Key('R'); /* the VK the OS sends for the key; case is the engine's */
+        g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+        f.AssertPreedit("\xE3\x84\xB2", "case 19: shifted r is not ssang-gigyeong");
+        f.AssertNoInsert("case 19");
         f.Teardown();
     }
 
