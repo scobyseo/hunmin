@@ -6,12 +6,16 @@ choice is the maintainer's** (issue #83 says the same: "This issue measures
 and presents; it does not decide").
 
 Produced 2026-10-19 on branch
-`scobyseo/ci-audit-existing-test-harnesses-for-mock-opport` (base `5d4206d` = master
-tip), Windows 11 host. The branch modifies nothing but this file;
+`scobyseo/ci-audit-existing-test-harnesses-for-mock-opport`, Windows 11 host.
+First measured at base `5d4206d`, then **rebased onto `origin/master` at
+`48c2acd`** (which merged #116 — the GoogleTest migration of issue #109 — and
+#117, the 0.2 release round) and the affected tiers **re-measured the same
+day on the rebased tree**; every figure below names which base it describes.
+The branch modifies nothing but this file;
 `docs/REMAINING-WORK.md` and `AGENTS.md` are deliberately untouched here
 because parallel sessions patch the same board. Figures come from three
-kinds of source, named per figure: **fresh** (measured in this worktree at
-`5d4206d` on 2026-10-19), **host** (an earlier measurement on this machine,
+kinds of source, named per figure: **fresh** (measured in this worktree on
+2026-10-19, base named), **host** (an earlier measurement on this machine,
 tree named), and **CI** (the last executed CI logs, parsed in
 `docs/CI-TIMING.md`; no CI job has run since 2026-10-13 — CI-TIMING §6).
 
@@ -55,9 +59,20 @@ re-verified before being relied on.
    row: tier F is not a mock opportunity — it is a mock already shipped.**
    Issue #80's harness exists: `frontends/tsf/test/mock-tsf.h` (in-memory COM
    doubles, adapter `tsf.cpp` included unmodified), corpus replay through
-   `tools/trace-check.py`, plus four config/datadir/settings/candidate test
-   binaries. The F row below measures what that mock costs and what it
+   `tools/trace-check.py`, plus the config/datadir/settings/candidate case
+   groups. The F row below measures what that mock costs and what it
    structurally cannot see.
+7. **A premise that changed while the audit was open, found at rebase:**
+   master took the GoogleTest migration (issue #109, merged as #116) and the
+   0.2 release round (#117) after this branch's first measurements. Tier A's
+   runners are gtest-based (fetched via FetchContent, root `CMakeLists.txt:122-137`),
+   and tier F1's four test executables merged into ONE gtest binary with ONE
+   registration (`frontends/tsf/test/CMakeLists.txt:76-83`, "the maintainer
+   amended the never-shrinks gate for this merge"). The affected tier was
+   re-measured on the rebased tree (§2 F1) — the run cost is unchanged and
+   the registered count dropped by the ruling. The sibling audit
+   `docs/TEST-FRAMEWORK-OPTIONS.md` (issue #109) measured the migration's
+   build-cost side; no figure in it contradicts anything here.
 
 ## 1. The unpacked subject: four different things called "mock"
 
@@ -90,9 +105,9 @@ The deliverable table; each tier then gets its surface and cost spelled out.
 | **D2** fcitx5 UI accessors | same 0.23 s block | already P1 (no UI addon loaded) | ~nothing | `setPreedit` vs `setClientPreedit` branch semantics — the branches are fcitx5's | nothing for a mock to take |
 | **D3** X11 e2e ×4 variants | 159.94 s serial, host (x11 46.43 + gtk3 48.47 + gtk4 48.63 + candidate 16.41 — TESTING.md, 2026-10-15); **skips on CI** | no — the load-bearing parts are fcitx5's own XIM/GTK code, not ours | the priced speedup lever is pacing + restart ordering, reaching ~22 s per run (D3-PERFORMANCE §3) — and that lever is not a mock | the XIM `FORWARD` path, the two GTK mechanisms, the classicui abort oracle — each already caught a real defect only because it was real | the speedup lever is pacing/restarts (D3-PERFORMANCE §3), not mocking |
 | **E0** engine on device | no wall figure exists anywhere; `TIMEOUT 600 s`; CI's only placement runs **before** the emulator boots | no — the premise is bionic, the other libc | nothing to save by mocking — a host mock re-hides the bug the tier exists for | the glibc/bionic divergence class (measured: unstable `qsort` compose dedup, TESTING.md E0) | keep real; the finding is its CI placement (below) |
-| **E1** Android JVM | **fresh, this host: 50.6 s** for the whole tier (116/116, warm Gradle, shim build included); CI 148.38 s cold (linux), 185.68 s (deb); android-job copy now ~23 s warm (ci.yml:419-420) | already P2 — the mock shipped with the tier | Gradle is the remaining cost, not the framework | the real JNI shim + real engine — the point of the tier | nothing for a mock to take; its cost lever is cache warmth (CI-TIMING option B) |
+| **E1** Android JVM | **fresh: 50.6 s** at `5d4206d` (shim built cold), **34.7 s** re-run on the rebased `48c2acd` (shim prebuilt) — 116/116 both times, warm Gradle; CI 148.38 s cold (linux), 185.68 s (deb); android-job copy now ~23 s warm (ci.yml:419-420) | already P2 — the mock shipped with the tier | Gradle is the remaining cost, not the framework | the real JNI shim + real engine — the point of the tier | nothing for a mock to take; its cost lever is cache warmth (CI-TIMING option B) |
 | **E2** emulator (e2e + espresso) | e2e **108.8 s / 108.9 s** (host, 2026-10-16, wiki); espresso: 12/12 pass (2026-10-13), no wall figure recorded; emulator boot: never measured | no for its four platform contracts; the tier's *reliability* is the measured problem, not its cost | emulator boot + AVD management | key-routing-to-IME-window, on-screen-text read-back, IME binding, `EditorInfo` secure-field behavior — every one caught a defect a mock cannot see by construction | the open item is the unroot-caused keys-bypass-the-IME flake (wiki 2026-10-16), a key-delivery investigation, not a mock |
-| **F1** TSF mock harness | **fresh, this host: 1.92 s total, 7/7 pass** (tier-F1 = 1.89 s·proc, 2026-10-19, this worktree) | already P3 — issue #80 shipped it | — | registry, COM activation, threading, real HWNDs — the `E_NOTIMPL` stub list is exactly the unmodelled surface | the real-session F2/F3 work is the residual, not a mock target |
+| **F1** TSF mock harness | **fresh, rebased tree `48c2acd`: 1.99 s total, 4/4 pass** (tier-F1 = 1.96 s·proc; was 7 entries / 1.92 s at `5d4206d` — the #109 merge changed the registration, not the run cost) | already P3 — issue #80 shipped it | — | registry, COM activation, threading, real HWNDs — the `E_NOTIMPL` stub list is exactly the unmodelled surface | the real-session F2/F3 work is the residual, not a mock target |
 
 ### D1/D2 — what the adapter actually touches, and what that pins
 
@@ -183,7 +198,10 @@ Cost, with provenance: CI linux 148.38 s / deb 185.68 s, both cold-Gradle
 (`ci.yml:410-420`); maintainer-host `android-unit.sh` warm 22.95 s / cold
 126.24 s (CI-TIMING §2). **Fresh on this host, 2026-10-19: the whole tier is
 50.6 s** — 116/116 pass, warm Gradle, including the host-JNI shim build
-(`HUNMIN_BUILD_DIR=<this worktree>/build-mingw bash tools/android-unit.sh`).
+(`HUNMIN_BUILD_DIR=<this worktree>/build-mingw bash tools/android-unit.sh`) —
+and **34.7 s re-run on the rebased tree (`48c2acd`)** with the shim already
+built, 116/116 again; the delta between the two is the shim build, which the
+tier pays on a cold checkout and not on the second run.
 `android-mutations` (nine planted defects, 84.31 s CI linux / 138.45 s deb,
 54.0 s host sandbox) rides on this tier's harness. The remaining cost is
 Gradle's `--rerun-tasks` design (`tools/android-unit.sh:47-56`), which is
@@ -232,18 +250,58 @@ a real `SetText` splice at `:62-70`, composition-channel recording for the
 issue-#98 native composition at `:57-67`), stubbing the rest with
 `E_NOTIMPL` so an adapter call the mock does not model fails loudly instead
 of silently succeeding (`:27-32`). The harness includes the adapter source
-unmodified (`frontends/tsf/test/CMakeLists.txt:41-54`).
+unmodified (`frontends/tsf/test/CMakeLists.txt:42-55`).
 
-**Fresh cost, this worktree at `5d4206d`, 2026-10-19: 7/7 pass, tier-F1 =
-1.89 s·proc, total 1.92 s** (`ctest .` in the standalone MSVC configure of
-`frontends/tsf`; each test sub-second — sibling-worktree logs of 2026-10-18
-agree). What the mock structurally cannot see is the other half of tier F:
+Since issue #109 (merged as #116) the four case-group
+executables are ONE gtest binary (`tsf-test`, linking `GTest::gtest_main`,
+`frontends/tsf/test/CMakeLists.txt:84-99`) with ONE registration
+(`:109-116`); the registered count went 7 → 4 (three per-trace `tsf-mock-*`
+entries plus `tsf-test`) — "the maintainer amended the never-shrinks gate
+for this merge" (`:106-107`). Two shapes of that merge are worth the audit
+keeping:
+
+- **The rc-77 skip probe moved OUTSIDE the gtest binary.** A gtest skip
+  reports rc 0, which reads as a pass, so the data-availability contract is
+  decided before gtest runs, by `tools/tsf-run-if-data.py`
+  (`frontends/tsf/test/CMakeLists.txt:79-83`, `:101-112`). That is the
+  "green having measured nothing" guard — the same lesson tiers D1/E1
+  learned — preserved by NOT trusting the framework's own skip semantics.
+- **The merged binary cost nothing at run time.** Fresh on the rebased
+  tree, 2026-10-19: **4/4 pass, tier-F1 = 1.96 s·proc, total 1.99 s**
+  (`ctest .` in the standalone MSVC configure) — against 7 entries / 1.92 s
+  at `5d4206d`. The saving the merge priced is a build-time one, measured
+  in issue #109's own audit: recompiling the heavy adapter TU once per
+  executable (about 12.7 s per adapter touch) versus once merged.
+
+What the mock structurally cannot see is the other half of tier F:
 registry/COM activation, the live TIP session in real applications
 (verified by hand in Notepad, 2026-10-17 — WINDOWS-TSF-REGISTRATION.md), TAT
 stress (F2) and the install matrix (F3) — none of which is a ctest tier
 today. The residual real-framework surface is already the *only* part of
 tier F that exists outside the mock; a second mock layer has nothing left to
 absorb.
+
+Two configure-shape findings, surfaced by re-measuring after the rebase and
+recorded for a ruling, not fixed here:
+
+1. **A root MSVC configure with `-DBUILD_TESTING=OFF` fails to generate on
+   the `48c2acd` tree.** The root adds the TIP subdirectory
+   (`CMakeLists.txt:176`), `tsf-test` links `GTest::gtest_main`
+   unconditionally (`frontends/tsf/test/CMakeLists.txt:90`), but the
+   googletest fetch that provides the target is gated on `BUILD_TESTING`
+   (`frontends/tsf/CMakeLists.txt:125-132`) — measured: generate-step
+   failure, "the target was not found" (2026-10-19). The old engine-only
+   recipe (configure the root with testing off, build `hunmin`) is what
+   trips it; the pre-#116 tree built the same way fine.
+2. **The control that isolates the cause: the same configure without the
+   flag — in a bare vcvars environment, no PATH edits — generates fine**
+   (measured 2026-10-19, throwaway build dir, `BARE-VCVARS-CFG-OK`): the
+   Store-python alias directory is on the default user PATH, so
+   `Python3_FOUND` resolves and the fetch runs. The guard mismatch in
+   finding 1 is therefore the whole failure, and it bites exactly the
+   engine-only/tested-off shapes. Whether the target should sit under the
+   fetch's guard or the fetch under no guard is the maintainer's call; the
+   audit's own build recipe had to pick one to take its measurements.
 
 ## 3. The cross-platform question: which D/E assertions are engine assertions?
 
@@ -278,17 +336,28 @@ E1→C, not D/E→C.
 
 ## 4. Provenance
 
-- **Fresh (this worktree, `5d4206d`, 2026-10-19):** F1 tier 1.92 s total
-  (7/7) via `ctest .` in `frontends/tsf/build-msvc` (standalone MSVC
-  configure, engine built with `build-msvc`-style recipe into
-  `build-msvc/hunmin.lib`); E1 tier 50.6 s (116/116) via
-  `bash tools/android-unit.sh` with `HUNMIN_BUILD_DIR` pointing at this
-  worktree's llvm-mingw build; inner loop `ctest -j16 -LE
-  'slow|mutation|tier-E0|tier-E2'` = 52 tests, 4.14 s, with exactly one red —
+- **Fresh at `5d4206d` (pre-rebase), 2026-10-19:** F1 tier 1.92 s total
+  (7/7) via `ctest .` in the standalone MSVC configure of `frontends/tsf`;
+  E1 tier 50.6 s (116/116) via `bash tools/android-unit.sh` with
+  `HUNMIN_BUILD_DIR` at this worktree's llvm-mingw build (host-JNI shim
+  built cold); inner loop `ctest -j16 -LE 'slow|mutation|tier-E0|tier-E2'`
+  = 52 tests, 4.14 s.
+- **Fresh at `48c2acd` (post-rebase), same day:** the rebase took #116
+  (#109's gtest migration) and #117, so the affected measurements were
+  re-taken per the rebase rule — F1 tier **1.99 s total, 4/4 pass** (the
+  registration is now 3 trace entries + the one merged `tsf-test`, §2 F1);
+  E1 **34.7 s, 116/116** (shim prebuilt; the 50.6 s above is the cold-shim
+  figure); inner loop 52 tests, **4.55 s**, one red both times —
   `builds-android`, the documented spawn-broken-`.sh` baseline on this host
-  (workspace AGENTS.md, measured 2026-10-18), not caused by any change (this
-  branch ships none). 58 tests register in this worktree's mingw configure
-  (`ANDROID_HOME` exported at configure).
+  (workspace AGENTS.md, measured 2026-10-18), not caused by any change (the
+  branch ships prose only). 58 tests register in this worktree's mingw
+  configure, before and after the rebase (`ANDROID_HOME` exported at
+  configure). The F1 build recipe on the rebased tree: root MSVC configure
+  with testing ON (see §2 F1, finding 1, for the `BUILD_TESTING=OFF`
+  failure), `cmake --build build-msvc --target hunmin_static`, then the
+  standalone `frontends/tsf` configure — which finds
+  `build-msvc/hunmin_static.lib` through its own `find_library`
+  (`frontends/tsf/CMakeLists.txt:59`) with no engine flag passed.
 - **Host (this machine, earlier, trees named):** D3 serial figures and the
   D3-candidate 16.41 s — TESTING.md (maintainer's Linux host, 2026-10-10 and
   2026-10-15); D3 component breakdown — D3-PERFORMANCE (same host,
