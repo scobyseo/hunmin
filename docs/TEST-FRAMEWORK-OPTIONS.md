@@ -106,7 +106,12 @@ scratch directory (`$TMPDIR/googletest-1.17.0`), not in the repo.
   gtest + gmock + both `_main` libraries in 4.3 s, exit 0. VS 2022 x64
   (Release) configures in 7.4 s and builds in 19.9 s, exit 0, with one benign
   MSB8029 warning caused by placing the build under the system temp directory
-  (the spike's scratch location), not by gtest.
+  (the spike's scratch location), not by gtest. These are per-toolchain
+  figures, not additive — a build tree pays only its own. For scale: the
+  repo's full build under llvm-mingw/Ninja (engine, sim, tools, tests — 35
+  steps) is 1.9 s, so the Ninja-side gtest cost is about three times the tree
+  it joins; the MSVC Release figure is a dev-host shape, and the linux CI
+  job's compiler is not measured here (the Ninja figure is the closest proxy).
 - **Per-case ctest spawn overhead, measured:** a scratch binary of 20 trivial
   cases, registered via `gtest_discover_tests`, runs 0.595 s under `ctest`
   (20 process spawns) and 0.052 s as a single process — **~27 ms per spawned
@@ -210,7 +215,7 @@ matcher-level introspection on the COM mock's interaction records.
 
 | option | new vendored tree | C engine tier | tsf tier-F1 | fcitx5 | ctest entries at risk | measured toolchain cost |
 |---|---|---|---|---|---|---|
-| 1 gtest+gmock vendored | ~3.9 MiB | migrates (63 sites) | migrates CHECK sites; QI stays manual | migrates | 13 | 4.3 s + 19.9 s one-off |
+| 1 gtest+gmock vendored | ~3.9 MiB | migrates (63 sites) | migrates CHECK sites; QI stays manual | migrates | 13 | 4.3 s (Ninja) or 19.9 s (MSVC) per fresh build tree, not additive |
 | 1b gtest+gmock via FetchContent | none in-tree; ~3.9 MiB under `_deps/` per configure | migrates | same as 1 | migrates | 13 | same builds + 7.2 s cold fetch per fresh configure (URL form fails TLS here) |
 | 2 gtest, C++ tiers only | ~3.9 MiB | stays hand-rolled | same as 1 | migrates | 10 | same as 1 |
 | 3 Catch2/doctest | lighter, not measured | C++-only reach | same reach as 2 | migrates | 10 | not measured here |
@@ -246,6 +251,8 @@ one framework case).
   built green with `-static`, 20 cases in 0.35 s. Tarball sha256
   65fab701d9829d38cb77c14acdc431d2108bfdbf8979e40eb8ae567edf10b27c recorded
   for a future URL_HASH pin.
+- Proportion anchor: `time cmake --build build-mingw` (fresh configure, same
+  worktree, 35 build steps) → 1.9 s, exit 0.
 - Read-but-not-executed (named so they are not mistaken for measurements):
   Catch2 and doctest builds on this host; gmock matcher behaviour against
   the COM mock's interaction records; anything CI-side (jobs fail at billing,
