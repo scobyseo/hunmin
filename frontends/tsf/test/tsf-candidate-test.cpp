@@ -34,15 +34,15 @@
  *
  * GoogleTest form (issue #109, option 1b): one ctest entry is kept
  * (tsf-candidate-test); the original per-case Fixture blocks map 1:1 onto
- * TEST_F cases, with Begin()/Teardown() still explicit calls so the
- * case-15 env-before-Begin ordering and the mid-Begin rc-77 exit keep
- * their exact semantics. The CHECK macro is backed by ADD_FAILURE() so
- * every original message stays verbatim and non-fatal.
+ * TEST_F cases with native EXPECT_* assertions (the old CHECK counter is
+ * gone), with Begin()/Teardown() still explicit calls so the case-15
+ * env-before-Begin ordering and the mid-Begin rc-77 exit keep their exact
+ * semantics.
  */
 #include <gtest/gtest.h>
 
+#include <cctype>
 #include <cstdio>
-#include <cstdarg>
 #include <cstring>
 #include <string>
 #include <windows.h>
@@ -63,24 +63,6 @@ SHORT tsf_mock_GetKeyState(int vk) { return g_mockKeyState[vk & 0xFF]; }
 #include "../src/tsf.cpp"
 #undef private
 #undef GetKeyState
-
-/* printf-style format → a gtest failure line. Every original CHECK message
- * survives unchanged; only the reporting moves from a failures counter to
- * the framework's per-case result. */
-static std::string tsf_fmt(const char *fmt, ...) {
-    char buf[1024];
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, ap);
-    va_end(ap);
-    return std::string(buf);
-}
-#define CHECK(cond, ...)               \
-    do {                               \
-        if (!(cond)) {                 \
-            ADD_FAILURE() << tsf_fmt(__VA_ARGS__); \
-        }                              \
-    } while (0)
 
 static std::string utf8(const std::wstring &w) {
     if (w.empty())
@@ -181,9 +163,10 @@ struct CandidateTest : public ::testing::Test {
             Key((WPARAM)toupper((unsigned char)*p));
     }
     void AssertWordbuf(const char *utf8Expected, const char *what) {
-        CHECK(svc->wordbuf_ == (utf8Expected ? utf8Of(utf8Expected) : std::wstring()),
-              "%s: wordbuf got %s, want %s", what, utf8(svc->wordbuf_).c_str(),
-              utf8Expected ? utf8Expected : "(empty)");
+        EXPECT_EQ(svc->wordbuf_,
+                  utf8Expected ? utf8Of(utf8Expected) : std::wstring())
+            << what << ": wordbuf got " << utf8(svc->wordbuf_) << ", want "
+            << (utf8Expected ? utf8Expected : "(empty)");
     }
     static std::wstring utf8Of(const char *u) {
         int n = MultiByteToWideChar(CP_UTF8, 0, u, -1, nullptr, 0);
@@ -193,13 +176,13 @@ struct CandidateTest : public ::testing::Test {
         return w;
     }
     void AssertPreedit(const char *utf8Expected, const char *what) {
-        std::string got(std::string(svc->ic_ ? hunmin_ic_preedit(svc->ic_) : ""));
-        CHECK(got == (utf8Expected ? utf8Expected : ""), "%s: preedit got %s, want %s", what,
-              got.c_str(), utf8Expected ? utf8Expected : "(empty)");
+        EXPECT_EQ(std::string(svc->ic_ ? hunmin_ic_preedit(svc->ic_) : ""),
+                  std::string(utf8Expected ? utf8Expected : ""))
+            << what << ": preedit";
     }
     void AssertNoInsert(const char *what) {
-        CHECK(ctx->insertions.empty(), "%s: %zu insertions happened, want none", what,
-              ctx->insertions.size());
+        EXPECT_EQ(ctx->insertions.size(), (size_t)0)
+            << what << ": insertions happened, want none";
     }
 
     /* The composition channel (issue #98): a boundary that drains a
@@ -208,18 +191,18 @@ struct CandidateTest : public ::testing::Test {
      * SetText. Assert on that channel; never re-derive the commit by
      * extending it. */
     void AssertCompositionEnded(const char *utf8Expected, const char *what) {
-        CHECK(ctx->compositionEnds >= 1, "%s: no composition ended", what);
-        CHECK(!ctx->compositionActive, "%s: composition left active", what);
-        CHECK(utf8(ctx->compositionText) == std::string(utf8Expected ? utf8Expected : ""),
-              "%s: fused text got %s, want %s", what,
-              utf8(ctx->compositionText).c_str(),
-              utf8Expected ? utf8Expected : "(empty)");
+        EXPECT_GE(ctx->compositionEnds, 1) << what << ": no composition ended";
+        EXPECT_FALSE(ctx->compositionActive) << what << ": composition left active";
+        EXPECT_EQ(utf8(ctx->compositionText),
+                  std::string(utf8Expected ? utf8Expected : ""))
+            << what << ": fused text got " << utf8(ctx->compositionText)
+            << ", want " << (utf8Expected ? utf8Expected : "(empty)");
     }
     void AssertCompositionText(const char *utf8Expected, const char *what) {
-        CHECK(utf8(ctx->compositionText) == std::string(utf8Expected ? utf8Expected : ""),
-              "%s: composition text got %s, want %s", what,
-              utf8(ctx->compositionText).c_str(),
-              utf8Expected ? utf8Expected : "(empty)");
+        EXPECT_EQ(utf8(ctx->compositionText),
+                  std::string(utf8Expected ? utf8Expected : ""))
+            << what << ": composition text got " << utf8(ctx->compositionText)
+            << ", want " << (utf8Expected ? utf8Expected : "(empty)");
     }
 };
 
@@ -238,9 +221,9 @@ TEST_F(CandidateTest, EmptyBufferKeyBelongsToTheClient) {
     BOOL testEat = TRUE, downEat = TRUE;
     TestKey(VK_HANJA, &testEat);
     Key(VK_HANJA, &downEat);
-    CHECK(testEat == FALSE, "case 1: key test ate with no buffer");
-    CHECK(downEat == FALSE, "case 1: key down ate with no buffer");
-    CHECK(!svc->candActive_, "case 1: candidate state active after empty buffer key");
+    EXPECT_EQ(testEat, FALSE) << "case 1: key test ate with no buffer";
+    EXPECT_EQ(downEat, FALSE) << "case 1: key down ate with no buffer";
+    EXPECT_FALSE(svc->candActive_) << "case 1: candidate state active after empty buffer key";
     AssertNoInsert("case 1");
     Teardown();
 }
@@ -252,21 +235,21 @@ TEST_F(CandidateTest, HanjaKeyOpensTheWindowOverTheWholeWord) {
     TypeAnNyeng(*this);
     BOOL testEat = FALSE;
     TestKey(VK_HANJA, &testEat);
-    CHECK(testEat == TRUE, "case 2: Hanja-key test did not eat for `dkssud`");
+    EXPECT_EQ(testEat, TRUE) << "case 2: Hanja-key test did not eat for `dkssud`";
     BOOL eat = TRUE;
     Key(VK_HANJA, &eat);
-    CHECK(eat == TRUE, "case 2: Hanja-key down did not eat");
-    CHECK(svc->candActive_, "case 2: window not active after the Hanja key");
-    CHECK(svc->candCount_ == 1, "case 2: count %d, want 1 (krdict dedupe merged the sense rows, tools/krdict-dedupe.py)",
-          svc->candCount_);
-    CHECK(svc->candCursor_ == 0 && svc->candTop_ == 0, "case 2: cursor/top != 0/0");
-    CHECK(svc->candSource_ == kAnchorAnNyeng, "case 2: anchored to %s, want the whole word",
-          svc->candSource_.c_str());
+    EXPECT_EQ(eat, TRUE) << "case 2: Hanja-key down did not eat";
+    EXPECT_TRUE(svc->candActive_) << "case 2: window not active after the Hanja key";
+    /* krdict dedupe merged the sense rows, tools/krdict-dedupe.py. */
+    EXPECT_EQ(svc->candCount_, 1) << "case 2: candidate count";
+    EXPECT_EQ(svc->candCursor_, 0) << "case 2: cursor";
+    EXPECT_EQ(svc->candTop_, 0) << "case 2: top";
+    EXPECT_EQ(svc->candSource_, kAnchorAnNyeng) << "case 2: anchored to the whole word";
     AssertNoInsert("case 2");
     /* 2b. While open, the window's keys are eaten in the test phase. */
     BOOL dEat = TRUE;
     TestKey('1', &dEat);
-    CHECK(dEat == TRUE, "case 2b: digit '1' not eaten in test phase");
+    EXPECT_EQ(dEat, TRUE) << "case 2b: digit '1' not eaten in test phase";
     Teardown();
 }
 
@@ -277,12 +260,12 @@ TEST_F(CandidateTest, ReturnCommitsTheCursor) {
     TypeAnNyeng(*this);
     Key(VK_HANJA);
     std::string expected(hunmin_suggest_text(svc->ctx_, 0));
-    CHECK(!expected.empty(), "case 3: candidate 0 text empty");
+    EXPECT_FALSE(expected.empty()) << "case 3: candidate 0 text empty";
     BOOL eat = FALSE;
     Key(VK_RETURN, &eat);
-    CHECK(eat == TRUE, "case 3: Return not consumed");
+    EXPECT_EQ(eat, TRUE) << "case 3: Return not consumed";
     AssertCompositionEnded(expected.c_str(), "case 3");
-    CHECK(!svc->candActive_, "case 3: window still open after commit");
+    EXPECT_FALSE(svc->candActive_) << "case 3: window still open after commit";
     AssertWordbuf(nullptr, "case 3");
     AssertPreedit(nullptr, "case 3");
     Teardown();
@@ -297,8 +280,8 @@ TEST_F(CandidateTest, DownClampsAndReturnStillCommits) {
     TypeAnNyeng(*this);
     Key(VK_HANJA);
     Key(VK_DOWN);
-    CHECK(svc->candCursor_ == 0, "case 4: cursor %d after Down on a 1-row list, want 0 (clamped)",
-          svc->candCursor_);
+    EXPECT_EQ(svc->candCursor_, 0)
+        << "case 4: cursor after Down on a 1-row list, want 0 (clamped)";
     std::string expected(hunmin_suggest_text(svc->ctx_, 0));
     Key(VK_RETURN);
     AssertCompositionEnded(expected.c_str(), "case 4");
@@ -311,9 +294,9 @@ TEST_F(CandidateTest, UpAtTheTopStaysPut) {
     TypeAnNyeng(*this);
     Key(VK_HANJA);
     Key(VK_UP);
-    CHECK(svc->candCursor_ == 0, "case 5: Up moved cursor below 0");
+    EXPECT_EQ(svc->candCursor_, 0) << "case 5: Up moved cursor below 0";
     AssertNoInsert("case 5");
-    CHECK(svc->candActive_, "case 5: window closed by Up");
+    EXPECT_TRUE(svc->candActive_) << "case 5: window closed by Up";
     Teardown();
 }
 
@@ -329,9 +312,9 @@ TEST_F(CandidateTest, OutOfRangeDigitDrainsAndPasses) {
     Key(VK_HANJA);
     BOOL eat = TRUE;
     Key('2', &eat);
-    CHECK(eat == FALSE, "case 6: digit '2' past the end was consumed");
+    EXPECT_EQ(eat, FALSE) << "case 6: digit '2' past the end was consumed";
     AssertCompositionEnded(kAnchorAnNyeng, "case 6");
-    CHECK(!svc->candActive_, "case 6: window left open after the drain");
+    EXPECT_FALSE(svc->candActive_) << "case 6: window left open after the drain";
     Teardown();
 }
 
@@ -344,9 +327,9 @@ TEST_F(CandidateTest, InRangeDigitCommits) {
     std::string expected(hunmin_suggest_text(svc->ctx_, 0));
     BOOL eat = TRUE;
     Key('1', &eat);
-    CHECK(eat == TRUE, "case 6b: in-range digit '1' not consumed");
+    EXPECT_EQ(eat, TRUE) << "case 6b: in-range digit '1' not consumed";
     AssertCompositionEnded(expected.c_str(), "case 6b");
-    CHECK(!svc->candActive_, "case 6b: window left open after digit commit");
+    EXPECT_FALSE(svc->candActive_) << "case 6b: window left open after digit commit";
     Teardown();
 }
 
@@ -357,8 +340,8 @@ TEST_F(CandidateTest, EscClosesAndTypingContinues) {
     Key(VK_HANJA);
     BOOL eat = FALSE;
     Key(VK_ESCAPE, &eat);
-    CHECK(eat == TRUE, "case 7: Esc not consumed");
-    CHECK(!svc->candActive_, "case 7: window open after Esc");
+    EXPECT_EQ(eat, TRUE) << "case 7: Esc not consumed";
+    EXPECT_FALSE(svc->candActive_) << "case 7: window open after Esc";
     AssertNoInsert("case 7");
     AssertWordbuf(kAnchorAn, "case 7");
     AssertPreedit(kAnchorPreeditNyeng, "case 7");
@@ -367,7 +350,7 @@ TEST_F(CandidateTest, EscClosesAndTypingContinues) {
      * engine's business, asserted nonempty). */
     Key('d');
     std::string now(hunmin_ic_preedit(svc->ic_));
-    CHECK(!now.empty(), "case 7: preedit empty after resuming typing");
+    EXPECT_FALSE(now.empty()) << "case 7: preedit empty after resuming typing";
     AssertNoInsert("case 7 (resumed typing)");
     Teardown();
 }
@@ -384,14 +367,13 @@ TEST_F(CandidateTest, FallbackListOpensAnchoredToTheLastSyllable) {
     BOOL testEat = FALSE, eat = FALSE;
     TestKey(VK_HANJA, &testEat);
     Key(VK_HANJA, &eat);
-    CHECK(testEat == TRUE, "case 8: Hanja-key test did not eat over the fallback list");
-    CHECK(eat == TRUE, "case 8: Hanja-key down did not eat over the fallback list");
-    CHECK(svc->candActive_, "case 8: fallback list did not open");
-    CHECK(svc->candFallback_, "case 8: list not marked as a syllable-fallback list");
-    CHECK(svc->candSource_ == kAnchorGa, "case 8: anchored to %s, want the last syllable",
-          svc->candSource_.c_str());
-    CHECK(svc->candCount_ >= 11, "case 8: count %d, want the measured 65-row `가` list",
-          svc->candCount_);
+    EXPECT_EQ(testEat, TRUE) << "case 8: Hanja-key test did not eat over the fallback list";
+    EXPECT_EQ(eat, TRUE) << "case 8: Hanja-key down did not eat over the fallback list";
+    EXPECT_TRUE(svc->candActive_) << "case 8: fallback list did not open";
+    EXPECT_TRUE(svc->candFallback_) << "case 8: list not marked as a syllable-fallback list";
+    EXPECT_EQ(svc->candSource_, kAnchorGa) << "case 8: anchored to the last syllable";
+    /* The measured 65-row `가` list. */
+    EXPECT_GE(svc->candCount_, 11) << "case 8: fallback list count";
     AssertNoInsert("case 8");
     Teardown();
 }
@@ -405,8 +387,8 @@ TEST_F(CandidateTest, DeadDigitClosesAndFallsThrough) {
     Key(VK_HANJA);
     BOOL eat = TRUE;
     Key('9', &eat);
-    CHECK(eat == FALSE, "case 9: '9' swallowed (eat false expected)");
-    CHECK(!svc->candActive_, "case 9: window survived the dead digit");
+    EXPECT_EQ(eat, FALSE) << "case 9: '9' swallowed (eat false expected)";
+    EXPECT_FALSE(svc->candActive_) << "case 9: window survived the dead digit";
     AssertCompositionEnded(kAnchorAnNyeng, "case 9");
     Teardown();
 }
@@ -417,10 +399,10 @@ TEST_F(CandidateTest, ModeToggleIsABoundaryWithTheWindowOpen) {
     Begin();
     TypeAnNyeng(*this);
     Key(VK_HANJA);
-    CHECK(svc->candActive_, "case 10: window did not open");
+    EXPECT_TRUE(svc->candActive_) << "case 10: window did not open";
     Key(HUNMIN_TSF_VIRTUAL_HANGEUL);
-    CHECK(!svc->candActive_, "case 10: window open after toggle");
-    CHECK(!svc->hangulMode_, "case 10: mode did not switch");
+    EXPECT_FALSE(svc->candActive_) << "case 10: window open after toggle";
+    EXPECT_FALSE(svc->hangulMode_) << "case 10: mode did not switch";
     AssertCompositionEnded(kAnchorAnNyeng, "case 10");
     Teardown();
 }
@@ -436,18 +418,18 @@ TEST_F(CandidateTest, BackspaceEditsThePendingComposition) {
     TypeAnNyeng(*this);
     BOOL eat = FALSE;
     Key(VK_BACK, &eat);
-    CHECK(eat == TRUE, "case 11a: BS not consumed");
+    EXPECT_EQ(eat, TRUE) << "case 11a: BS not consumed";
     AssertPreedit(kAnchorPreeditNyee, "case 11a");
     AssertWordbuf(kAnchorAn, "case 11a");
     AssertNoInsert("case 11a");
     Key(VK_BACK);
     AssertPreedit(kAnchorPreeditNieun, "case 11b");
     Key(VK_BACK, &eat);
-    CHECK(eat == TRUE, "case 11c: BS on emptied syllable not consumed");
+    EXPECT_EQ(eat, TRUE) << "case 11c: BS on emptied syllable not consumed";
     AssertPreedit(nullptr, "case 11c");
     AssertNoInsert("case 11c");
     Key(VK_BACK, &eat);
-    CHECK(eat == FALSE, "case 11d: BS past the empty preedit eaten anyway");
+    EXPECT_EQ(eat, FALSE) << "case 11d: BS past the empty preedit eaten anyway";
     AssertCompositionEnded(kAnchorAn, "case 11d");
     Teardown();
 }
@@ -459,12 +441,11 @@ TEST_F(CandidateTest, PageDownMovesTopAndCursor) {
     Type("rk");
     AssertPreedit(kAnchorGa, "case 12 (rk)");
     Key(VK_HANJA);
-    CHECK(svc->candActive_, "case 12: window not active on single syllable");
-    CHECK(svc->candCount_ >= 11, "case 12: count %d, want >= 11 for paging", svc->candCount_);
+    EXPECT_TRUE(svc->candActive_) << "case 12: window not active on single syllable";
+    EXPECT_GE(svc->candCount_, 11) << "case 12: want >= 11 for paging";
     Key(VK_NEXT);
-    CHECK(svc->candTop_ == 10, "case 12: top %d after PageDown, want 10", svc->candTop_);
-    CHECK(svc->candCursor_ == 10, "case 12: cursor %d after PageDown, want 10",
-          svc->candCursor_);
+    EXPECT_EQ(svc->candTop_, 10) << "case 12: top after PageDown";
+    EXPECT_EQ(svc->candCursor_, 10) << "case 12: cursor after PageDown";
     std::string expected(hunmin_suggest_text(svc->ctx_, 0 + 10));
     Key(VK_RETURN);
     AssertCompositionEnded(expected.c_str(), "case 12");
@@ -477,8 +458,8 @@ TEST_F(CandidateTest, PageUpFromTheFirstPageStaysAtZero) {
     Type("rk");
     Key(VK_HANJA);
     Key(VK_PRIOR);
-    CHECK(svc->candTop_ == 0, "case 13: top %d, want 0", svc->candTop_);
-    CHECK(svc->candActive_, "case 13: window closed by PageUp");
+    EXPECT_EQ(svc->candTop_, 0) << "case 13: top";
+    EXPECT_TRUE(svc->candActive_) << "case 13: window closed by PageUp";
     Teardown();
 }
 
@@ -494,11 +475,11 @@ TEST_F(CandidateTest, UnboundF9IsAKeyOfPassage) {
     BOOL testEat = TRUE, eat = TRUE;
     TestKey(VK_F9, &testEat);
     Key(VK_F9, &eat);
-    CHECK(testEat == FALSE, "case 14: unbound F9 eaten in test phase");
-    CHECK(eat == FALSE, "case 14: unbound F9 eaten in down phase");
-    CHECK(!svc->candActive_, "case 14: unbound F9 opened the window");
+    EXPECT_EQ(testEat, FALSE) << "case 14: unbound F9 eaten in test phase";
+    EXPECT_EQ(eat, FALSE) << "case 14: unbound F9 eaten in down phase";
+    EXPECT_FALSE(svc->candActive_) << "case 14: unbound F9 opened the window";
     AssertCompositionEnded(kAnchorAnNyeng, "case 14");
-    CHECK(svc->wordbuf_.empty(), "case 14: nothing held after the F-key boundary");
+    EXPECT_TRUE(svc->wordbuf_.empty()) << "case 14: nothing held after the F-key boundary";
     Teardown();
 }
 
@@ -512,11 +493,10 @@ TEST_F(CandidateTest, ConfiguredKeyIsTheStoresWord) {
     BOOL testEat = FALSE, eat = TRUE;
     TestKey(VK_F9, &testEat);
     Key(VK_F9, &eat);
-    CHECK(testEat == TRUE, "case 15: configured F9 not eaten in test phase");
-    CHECK(eat == TRUE, "case 15: configured F9 not eaten in down phase");
-    CHECK(svc->candActive_, "case 15: configured F9 did not open the window");
-    CHECK(svc->candCount_ == 1, "case 15: count %d walking the env seam (deduped)",
-          svc->candCount_);
+    EXPECT_EQ(testEat, TRUE) << "case 15: configured F9 not eaten in test phase";
+    EXPECT_EQ(eat, TRUE) << "case 15: configured F9 not eaten in down phase";
+    EXPECT_TRUE(svc->candActive_) << "case 15: configured F9 did not open the window";
+    EXPECT_EQ(svc->candCount_, 1) << "case 15: walking the env seam (deduped)";
     _putenv_s("HUNMIN_TSF_HANJA_KEY", "");
     Teardown();
 }
@@ -529,20 +509,20 @@ TEST_F(CandidateTest, FallbackCommitReplacesOnlyTheLastSyllable) {
     Begin();
     Type("rkrkrk");
     Key(VK_HANJA); /* opens the last-syllable fallback list (case 8) */
-    CHECK(svc->candFallback_, "case 16: fallback list did not open");
+    EXPECT_TRUE(svc->candFallback_) << "case 16: fallback list did not open";
     std::string expected(hunmin_suggest_text(svc->ctx_, 0));
-    CHECK(!expected.empty(), "case 16: candidate 0 text empty against the data");
+    EXPECT_FALSE(expected.empty()) << "case 16: candidate 0 text empty against the data";
     if (!expected.empty()) {
         BOOL eat = FALSE;
         Key(VK_RETURN, &eat);
-        CHECK(eat == TRUE, "case 16: Return not consumed on a fallback list");
+        EXPECT_EQ(eat, TRUE) << "case 16: Return not consumed on a fallback list";
         /* Issue #98: the commit is the composition's END (the candidate
          * replaces the composition the list anchored to), so the fused
          * text is observed on the composition channel, not the plain
          * edit-session insert channel (mock-tsf.h: insertions = one
          * entry per NON-composition SetText). Exactly one fused content
          * and zero plain inserts is the one-insert contract here. */
-        CHECK(!svc->candActive_, "case 16: window still open after fallback commit");
+        EXPECT_FALSE(svc->candActive_) << "case 16: window still open after fallback commit";
         AssertCompositionEnded((std::string(kAnchorGaGa) + expected).c_str(), "case 16");
         AssertNoInsert("case 16");
         AssertWordbuf(nullptr, "case 16");
@@ -557,16 +537,16 @@ TEST_F(CandidateTest, FallbackCommitReplacesOnlyTheLastSyllable) {
 TEST_F(CandidateTest, ZeroAndZeroPassesThrough) {
     Begin();
     Type("rkel");
-    CHECK(utf8(svc->wordbuf_) + std::string(hunmin_ic_preedit(svc->ic_)) ==
-              std::string(kAnchorGa) + "\xEB\x94\x94",
-          "case 17: composed buffer is not ga-di");
+    EXPECT_EQ(utf8(svc->wordbuf_) + std::string(hunmin_ic_preedit(svc->ic_)),
+              std::string(kAnchorGa) + "\xEB\x94\x94")
+        << "case 17: composed buffer is not ga-di";
     AssertPreedit("\xEB\x94\x94", "case 17");
     BOOL testEat = TRUE, eat = TRUE;
     TestKey(VK_HANJA, &testEat);
     Key(VK_HANJA, &eat);
-    CHECK(testEat == FALSE, "case 17: Hanja-key test ate on a zero-and-zero buffer");
-    CHECK(eat == FALSE, "case 17: Hanja-key down ate on a zero-and-zero buffer");
-    CHECK(!svc->candActive_, "case 17: state active on a zero-and-zero buffer");
+    EXPECT_EQ(testEat, FALSE) << "case 17: Hanja-key test ate on a zero-and-zero buffer";
+    EXPECT_EQ(eat, FALSE) << "case 17: Hanja-key down ate on a zero-and-zero buffer";
+    EXPECT_FALSE(svc->candActive_) << "case 17: state active on a zero-and-zero buffer";
     AssertNoInsert("case 17");
     Teardown();
 }
@@ -580,9 +560,9 @@ TEST_F(CandidateTest, OneSyllableZeroPassesThrough) {
     BOOL testEat = TRUE, eat = TRUE;
     TestKey(VK_HANJA, &testEat);
     Key(VK_HANJA, &eat);
-    CHECK(testEat == FALSE, "case 18: Hanja-key test ate on a one-syllable zero");
-    CHECK(eat == FALSE, "case 18: Hanja-key down ate on a one-syllable zero");
-    CHECK(!svc->candActive_, "case 18: state active on a one-syllable zero");
+    EXPECT_EQ(testEat, FALSE) << "case 18: Hanja-key test ate on a one-syllable zero";
+    EXPECT_EQ(eat, FALSE) << "case 18: Hanja-key down ate on a one-syllable zero";
+    EXPECT_FALSE(svc->candActive_) << "case 18: state active on a one-syllable zero";
     AssertNoInsert("case 18");
     Teardown();
 }

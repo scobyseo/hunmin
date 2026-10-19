@@ -15,15 +15,14 @@
  * Exit 0 clean, 1 assertion failed, 77 skip (engine data unavailable).
  *
  * GoogleTest form (issue #109, option 1b): one ctest entry is kept
- * (tsf-settings-test); the 77-skip contract is decided in main(), before
- * RUN_ALL_TESTS. The CHECK macro is backed by ADD_FAILURE() so every
- * original message stays verbatim and non-fatal, exactly as the failure
- * counter did.
+ * (tsf-settings-test); the original sections are TEST_F cases with native
+ * EXPECT_* assertions (the old CHECK counter is gone), and the 77-skip
+ * contract is decided in main(), before RUN_ALL_TESTS -- a gtest skip
+ * reports rc 0, which would read as a pass.
  */
 #include <gtest/gtest.h>
 
 #include <cstdio>
-#include <cstdarg>
 #include <cstring>
 #include <string>
 #include <ctffunc.h>
@@ -47,24 +46,6 @@ SHORT tsf_mock_GetKeyState(int vk) {
 #include "../src/tsf.cpp"
 #undef private
 #undef GetKeyState
-
-/* printf-style format → a gtest failure line. Every original CHECK message
- * survives unchanged; only the reporting moves from a failures counter to
- * the framework's per-case result. */
-static std::string tsf_fmt(const char *fmt, ...) {
-    char buf[1024];
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, ap);
-    va_end(ap);
-    return std::string(buf);
-}
-#define CHECK(cond, ...)               \
-    do {                               \
-        if (!(cond)) {                 \
-            ADD_FAILURE() << tsf_fmt(__VA_ARGS__); \
-        }                              \
-    } while (0)
 
 class TsfSettingsTest : public ::testing::Test {
  protected:
@@ -121,27 +102,31 @@ TEST_F(TsfSettingsTest, LayoutRowSplit) {
     HunminTsfLayoutRow lat[HUNMIN_TSF_SETTINGS_MAX_ROWS];
     int nh = hunmin_tsf_rows_for_mode(ctx_, true, hang, HUNMIN_TSF_SETTINGS_MAX_ROWS);
     int nl = hunmin_tsf_rows_for_mode(ctx_, false, lat, HUNMIN_TSF_SETTINGS_MAX_ROWS);
-    CHECK(nh > 0 && nl > 0, "both halves list something (hangul=%d latin=%d)", nh, nl);
+    EXPECT_GT(nh, 0) << "the hangul half lists nothing";
+    EXPECT_GT(nl, 0) << "the latin half lists nothing";
     bool hasDubeol = false, hasUsQwerty = false;
     for (int i = 0; i < nh; ++i) {
         const char *mode = hunmin_ctx_layout_mode(ctx_, hang[i].index);
-        CHECK(mode && strcmp(mode, "hangul") == 0, "row %d in the hangul list is hangul-mode",
-              i);
-        CHECK(strcmp(hang[i].id, "dubeolsik") != 0 || hang[i].supported == 1,
-              "dubeolsik row reports engine support");
-        if (strcmp(hang[i].id, "dubeolsik") == 0)
+        ASSERT_NE(mode, nullptr) << "row " << i << " in the hangul list has no mode";
+        EXPECT_STREQ(mode, "hangul") << "row " << i << " in the hangul list is hangul-mode";
+        if (strcmp(hang[i].id, "dubeolsik") == 0) {
             hasDubeol = true;
+            EXPECT_EQ(hang[i].supported, 1) << "dubeolsik row reports engine support";
+        }
     }
     for (int i = 0; i < nl; ++i) {
         const char *mode = hunmin_ctx_layout_mode(ctx_, lat[i].index);
-        CHECK(mode && strcmp(mode, "latin") == 0, "row %d in the latin list is latin-mode", i);
+        ASSERT_NE(mode, nullptr) << "row " << i << " in the latin list has no mode";
+        EXPECT_STREQ(mode, "latin") << "row " << i << " in the latin list is latin-mode";
         if (strcmp(lat[i].id, "us-qwerty") == 0)
             hasUsQwerty = true;
     }
-    CHECK(hasDubeol, "the hangul list carries dubeolsik (the stored default slot)");
-    CHECK(hasUsQwerty, "the latin list carries us-qwerty");
-    CHECK(hang[0].name[0] != '\0' && lat[0].name[0] != '\0',
-          "rows carry a display name from hunmin_ctx_layout_name(..., ko)");
+    EXPECT_TRUE(hasDubeol) << "the hangul list carries dubeolsik (the stored default slot)";
+    EXPECT_TRUE(hasUsQwerty) << "the latin list carries us-qwerty";
+    EXPECT_NE(hang[0].name[0], '\0')
+        << "hangul rows carry a display name from hunmin_ctx_layout_name(..., ko)";
+    EXPECT_NE(lat[0].name[0], '\0')
+        << "latin rows carry a display name from hunmin_ctx_layout_name(..., ko)";
 }
 
 /* 2. The TSF-native plumbing on the live adapter (issue #71): the text
@@ -155,59 +140,54 @@ TEST_F(TsfSettingsTest, FunctionProviderAndConfigureFunction) {
 
     IUnknown *provUnk = nullptr;
     HRESULT hr = svc_->QueryInterface(IID_ITfFunctionProvider, (void **)&provUnk);
-    CHECK(hr == S_OK && provUnk, "QI(ITfFunctionProvider) on the text service: 0x%lX",
-          (unsigned long)hr);
-    if (provUnk) {
-        ITfFunctionProvider *prov = nullptr;
-        hr = provUnk->QueryInterface(IID_ITfFunctionProvider, (void **)&prov);
-        CHECK(hr == S_OK && prov, "provider QI self-check: 0x%lX", (unsigned long)hr);
-        if (prov) {
-            GUID type = {};
-            hr = prov->GetType(&type);
-            CHECK(hr == S_OK && type.Data1 != 0, "provider GetType (fresh GUID)");
-            BSTR desc = nullptr;
-            hr = prov->GetDescription(&desc);
-            CHECK(hr == S_OK && desc && SysStringLen(desc) > 0, "provider GetDescription");
-            if (desc)
-                SysFreeString(desc);
-            /* And a random IID is refused - the surface is not a grab-bag.
-             * Distinct out-pointer: a failed QI must not clobber `prov`. */
-            ITfFunctionProvider *wrong = (ITfFunctionProvider *)0x1;
-            hr = prov->QueryInterface(IID_ITfKeyEventSink, (void **)&wrong);
-            CHECK(hr == E_NOINTERFACE && wrong == nullptr,
-                  "provider refuses unrelated interfaces");
+    EXPECT_EQ(hr, S_OK) << "QI(ITfFunctionProvider) on the text service";
+    ASSERT_NE(provUnk, nullptr) << "QI(ITfFunctionProvider) returned no object";
+    ITfFunctionProvider *prov = nullptr;
+    hr = provUnk->QueryInterface(IID_ITfFunctionProvider, (void **)&prov);
+    EXPECT_EQ(hr, S_OK) << "provider QI self-check";
+    ASSERT_NE(prov, nullptr) << "provider QI self-check returned no object";
+    GUID type = {};
+    hr = prov->GetType(&type);
+    EXPECT_EQ(hr, S_OK) << "provider GetType";
+    EXPECT_NE(type.Data1, 0u) << "provider GetType (fresh GUID)";
+    BSTR desc = nullptr;
+    hr = prov->GetDescription(&desc);
+    EXPECT_EQ(hr, S_OK) << "provider GetDescription";
+    ASSERT_NE(desc, nullptr) << "provider GetDescription returned no BSTR";
+    EXPECT_GT(SysStringLen(desc), 0u) << "provider GetDescription: empty BSTR";
+    SysFreeString(desc);
+    /* And a random IID is refused - the surface is not a grab-bag.
+     * Distinct out-pointer: a failed QI must not clobber `prov`. */
+    ITfFunctionProvider *wrong = (ITfFunctionProvider *)0x1;
+    hr = prov->QueryInterface(IID_ITfKeyEventSink, (void **)&wrong);
+    EXPECT_EQ(hr, E_NOINTERFACE) << "provider refuses unrelated interfaces";
+    EXPECT_EQ(wrong, nullptr) << "a failed QI clobbered the out-pointer";
 
-            /* GetFunction -> configure function, WHILE `prov` is still the
-             * live reference (it is released below). */
-            IUnknown *fnUnk = nullptr;
-            hr = prov->GetFunction(GUID_NULL, IID_ITfFnConfigure, &fnUnk);
-            CHECK(hr == S_OK && fnUnk, "GetFunction(IID_ITfFnConfigure): 0x%lX",
-                  (unsigned long)hr);
-            prov->Release();
-            if (fnUnk) {
-                ITfFnConfigure *fn = nullptr;
-                hr = fnUnk->QueryInterface(IID_ITfFnConfigure, (void **)&fn);
-                CHECK(hr == S_OK && fn, "configure fn QI: 0x%lX", (unsigned long)hr);
-                if (fn) {
-                    ITfFunction *fnBase = nullptr;
-                    hr = fn->QueryInterface(IID_ITfFunction, (void **)&fnBase);
-                    CHECK(hr == S_OK && fnBase, "ITfFnConfigure QIs its base ITfFunction");
-                    if (fnBase)
-                        fnBase->Release();
-                    BSTR name = nullptr;
-                    hr = fn->GetDisplayName(&name);
-                    CHECK(hr == S_OK && name && SysStringLen(name) > 0,
-                          "ITfFnConfigure::GetDisplayName (the language-bar Tools label)");
-                    if (name)
-                        SysFreeString(name);
-                    fn->Release();
-                }
-                fnUnk->Release();
-            }
-        } else {
-            provUnk->Release();
-        }
-    }
+    /* GetFunction -> configure function, WHILE `prov` is still the
+     * live reference (it is released below). */
+    IUnknown *fnUnk = nullptr;
+    hr = prov->GetFunction(GUID_NULL, IID_ITfFnConfigure, &fnUnk);
+    EXPECT_EQ(hr, S_OK) << "GetFunction(IID_ITfFnConfigure)";
+    prov->Release();
+    prov = nullptr;
+    ASSERT_NE(fnUnk, nullptr) << "GetFunction(IID_ITfFnConfigure) returned no object";
+    ITfFnConfigure *fn = nullptr;
+    hr = fnUnk->QueryInterface(IID_ITfFnConfigure, (void **)&fn);
+    EXPECT_EQ(hr, S_OK) << "configure fn QI";
+    ASSERT_NE(fn, nullptr) << "configure fn QI returned no object";
+    ITfFunction *fnBase = nullptr;
+    hr = fn->QueryInterface(IID_ITfFunction, (void **)&fnBase);
+    EXPECT_EQ(hr, S_OK) << "ITfFnConfigure QIs its base ITfFunction";
+    if (fnBase)
+        fnBase->Release();
+    BSTR name = nullptr;
+    hr = fn->GetDisplayName(&name);
+    EXPECT_EQ(hr, S_OK) << "ITfFnConfigure::GetDisplayName (the language-bar Tools label)";
+    ASSERT_NE(name, nullptr) << "ITfFnConfigure::GetDisplayName returned no BSTR";
+    EXPECT_GT(SysStringLen(name), 0u) << "ITfFnConfigure::GetDisplayName: empty BSTR";
+    SysFreeString(name);
+    fn->Release();
+    fnUnk->Release();
 }
 
 /* 3. ApplyConfigStore re-reads the store into the LIVE adapter (env
@@ -222,11 +202,11 @@ TEST_F(TsfSettingsTest, ApplyConfigStoreAndTheVoidPtrBridge) {
     activate();
 
     svc_->ApplyConfigStore();
-    CHECK(svc_->hangulId_ == "dubeolsik", "applied hangul slot: got %s",
-          svc_->hangulId_.c_str());
-    CHECK(svc_->latinId_ == "us-qwerty", "applied latin slot: got %s", svc_->latinId_.c_str());
-    CHECK(svc_->toggleKeys_.size() == 2, /* v1:21:1 (Han/Eng + Shift) + the bare 0x15 */
-          "configured chord ADDs to the bare Han/Eng key");
+    EXPECT_EQ(svc_->hangulId_, "dubeolsik") << "applied hangul slot";
+    EXPECT_EQ(svc_->latinId_, "us-qwerty") << "applied latin slot";
+    /* v1:21:1 (Han/Eng + Shift) + the bare 0x15: the configured chord ADDs
+     * to the bare Han/Eng key. */
+    EXPECT_EQ(svc_->toggleKeys_.size(), (size_t)2);
     bool bareHangeul = false, shiftedHangeul = false;
     for (const HunminKeyCombo &c : svc_->toggleKeys_) {
         if (c.vk == HUNMIN_TSF_VIRTUAL_HANGEUL && c.mods == 0)
@@ -234,15 +214,14 @@ TEST_F(TsfSettingsTest, ApplyConfigStoreAndTheVoidPtrBridge) {
         if (c.vk == HUNMIN_TSF_VIRTUAL_HANGEUL && c.mods == HUNMIN_TSF_KEYMOD_SHIFT)
             shiftedHangeul = true;
     }
-    CHECK(bareHangeul, "the bare Han/Eng key survives every Apply");
-    CHECK(shiftedHangeul, "the configured v1:21:1 chord is present");
-    CHECK(svc_->ic_ != nullptr, "the engine context is rebuilt after Apply");
+    EXPECT_TRUE(bareHangeul) << "the bare Han/Eng key survives every Apply";
+    EXPECT_TRUE(shiftedHangeul) << "the configured v1:21:1 chord is present";
+    EXPECT_NE(svc_->ic_, nullptr) << "the engine context is rebuilt after Apply";
 
     /* 4. The void* bridge (settings.cpp's Show path re-applies via it). */
     _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "sebeolsik-3-90");
     hunmin_tsf_apply_config_store(svc_);
-    CHECK(svc_->hangulId_ == "sebeolsik-3-90", "apply bridge re-read: got %s",
-          svc_->hangulId_.c_str());
+    EXPECT_EQ(svc_->hangulId_, "sebeolsik-3-90") << "apply bridge re-read";
     _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "");
     hunmin_tsf_apply_config_store(nullptr); /* no crash on a dead service */
 
@@ -253,9 +232,9 @@ TEST_F(TsfSettingsTest, ApplyConfigStoreAndTheVoidPtrBridge) {
     BOOL eaten = FALSE;
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
     svc_->OnKeyDown(mctx_, 'R', 0, &eaten);
-    CHECK(eaten == TRUE &&
-              std::string(hunmin_ic_preedit(svc_->ic_)).compare("\xE3\x84\xB1") == 0,
-          "post-Apply composition still works (got %s)", hunmin_ic_preedit(svc_->ic_));
+    EXPECT_EQ(eaten, TRUE) << "post-Apply keydown not consumed";
+    EXPECT_STREQ(hunmin_ic_preedit(svc_->ic_), "\xE3\x84\xB1")
+        << "post-Apply composition still works";
 }
 
 int main(int argc, char **argv) {
