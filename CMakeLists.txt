@@ -105,6 +105,32 @@ else()
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
+# --------------------------------------------------- GoogleTest via FetchContent
+# Fetched at configure time (issue #109, ruling: option 1b). This block sits
+# ABOVE the frontend add_subdirectory calls because frontends/tsf's tier-F1
+# runners link GTest::gtest_main too. One ctest entry per binary is kept on
+# purpose -- registration shape, not the framework, is what the 30 s
+# inner-loop budget is sensitive to (docs/TEST-FRAMEWORK-OPTIONS.md, ~27 ms
+# per spawned case measured). So no gtest_discover_tests: each test
+# executable stays one add_test. A configure without network cannot fetch;
+# point FETCHCONTENT_SOURCE_DIR_GOOGLETEST at a checkout to build offline.
+if(BUILD_TESTING AND Python3_FOUND)
+  enable_language(CXX)
+  FetchContent_Declare(googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.17.0
+    GIT_SHALLOW    TRUE)
+  FetchContent_MakeAvailable(googletest)
+  # A C++ test binary built by llvm-mingw depends on the toolchain's runtime
+  # DLLs (libstdc++-6.dll, libgcc_s_seh-1.dll, libwinpthread-1.dll), which are
+  # not on ctest's PATH -- the suite died with 0xc0000135 before this
+  # (measured 2026-10-19, issue #109). Link the runtimes static; MSVC does not
+  # take this flag, hence the guard.
+  if(MINGW)
+    set(HUNMIN_TEST_LINK_OPTS -static)
+  endif()
+endif()
+
 # --------------------------------------------------------- fcitx5 frontend
 # (tier D1; skipped when Fcitx5Core is unavailable)
 option(HUNMIN_FCITX5 "Build the fcitx5 addon" ON)
@@ -183,28 +209,6 @@ endif()
 # test count, and nothing fails until the test runs. Hence
 # set_tests_properties(... PROPERTIES LABELS ...), everywhere below.
 if(BUILD_TESTING AND Python3_FOUND)
-  # Google Test + gmock, fetched at configure time (issue #109, ruling:
-  # option 1b). One ctest entry per binary is kept on purpose -- registration
-  # shape, not the framework, is what the 30 s inner-loop budget is sensitive
-  # to (docs/TEST-FRAMEWORK-OPTIONS.md, ~27 ms per spawned case measured).
-  # So no gtest_discover_tests here: each hand-rolled executable stays one
-  # add_test. A configure without network cannot fetch; point
-  # FETCHCONTENT_SOURCE_DIR_GOOGLETEST at a checkout to build offline.
-  enable_language(CXX)
-  FetchContent_Declare(googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG        v1.17.0
-    GIT_SHALLOW    TRUE)
-  FetchContent_MakeAvailable(googletest)
-  # A C++ test binary built by llvm-mingw depends on the toolchain's runtime
-  # DLLs (libstdc++-6.dll, libgcc_s_seh-1.dll, libwinpthread-1.dll), which are
-  # not on ctest's PATH -- the suite died with 0xc0000135 before this
-  # (measured 2026-10-19, issue #109). Link the runtimes static; MSVC does not
-  # take this flag, hence the guard.
-  if(MINGW)
-    set(HUNMIN_TEST_LINK_OPTS -static)
-  endif()
-
   # data-selfcheck was unregistered 2026-10-17 by the maintainer's
   # instruction: it is not touched before its own dev stage, and until then it
   # cost a red run on every pass (converter outputs diverge from committed

@@ -13,7 +13,13 @@
  * that the fcitx5-default hangul layout instantiates.
  *
  * Exit 0 clean, 1 assertion failed, 77 skip (staging absent).
+ *
+ * GoogleTest form (issue #109, option 1b): one ctest entry is kept
+ * (tsf-datadir-test), and the 77-skip contract is decided in main(), before
+ * RUN_ALL_TESTS -- a gtest skip reports rc 0, which would read as a pass.
  */
+#include <gtest/gtest.h>
+
 #include <cstdio>
 #include <cstring>
 #include <windows.h>
@@ -43,17 +49,15 @@ static int countLayoutJson(const char *layoutsDirA) {
     return n;
 }
 
-int main() {
+TEST(Datadir, ModuleDirDataLoadsWithNoEnvironmentHelp) {
     /* Unset, not merely empty-of-meaning: GetEnvironmentVariableW returns 0
      * for an empty value, which is exactly what the loader's env branch
      * treats as "no override". */
     _putenv_s("HUNMIN_DATA_DIR", "");
 
     char exePath[MAX_PATH * 2];
-    if (!GetModuleFileNameA(nullptr, exePath, (DWORD)sizeof(exePath))) {
-        printf("tsf-datadir-test: cannot resolve own path\n");
-        return 1;
-    }
+    ASSERT_TRUE(GetModuleFileNameA(nullptr, exePath, (DWORD)sizeof(exePath)))
+        << "cannot resolve own path";
     char *slash = strrchr(exePath, '\\');
     if (!slash)
         slash = strrchr(exePath, '/');
@@ -63,41 +67,25 @@ int main() {
 
     /* The staged copy must exist: the POST_BUILD step is what makes the
      * shipped shape real, and its absence means the test would silently
-     * verify the repo-climb fallback instead. */
+     * verify the repo-climb fallback instead. (Its absence is main()'s
+     * rc-77 skip, not a failure.) */
     char staged[MAX_PATH * 2];
     snprintf(staged, sizeof(staged), "%s\\data\\layouts", exeDir);
-    DWORD attr = GetFileAttributesA(staged);
-    if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-        printf("skip: staged data missing at %s (POST_BUILD staging did not run)\n", staged);
-        return 77;
-    }
 
     hunmin_ctx *ctx = hunmin_ctx_from_module();
-    if (!ctx) {
-        printf("FAIL: hunmin_ctx_from_module() returned NULL with HUNMIN_DATA_DIR cleared\n");
-        return 1;
-    }
+    ASSERT_NE(ctx, nullptr)
+        << "hunmin_ctx_from_module() returned NULL with HUNMIN_DATA_DIR cleared";
 
     const int files = countLayoutJson(staged);
     const int enumerated = hunmin_ctx_layout_count(ctx);
-    if (files <= 0) {
-        printf("FAIL: staged layouts dir holds %d json files\n", files);
-        return 1;
-    }
-    if (files != enumerated) {
-        printf("FAIL: staged layout files=%d but hunmin_ctx_layout_count=%d "
-               "(a staged layout did not parse)\n",
-               files, enumerated);
-        hunmin_ctx_free(ctx);
-        return 1;
-    }
+    ASSERT_GT(files, 0) << "staged layouts dir holds " << files << " json files";
+    ASSERT_EQ(files, enumerated)
+        << "staged layout files=" << files
+        << " but hunmin_ctx_layout_count=" << enumerated
+        << " (a staged layout did not parse)";
 
     hunmin_ic *ic = hunmin_ic_new(ctx, "sin3-p2");
-    if (!ic) {
-        printf("FAIL: hunmin_ic_new(sin3-p2) returned NULL against staged data\n");
-        hunmin_ctx_free(ctx);
-        return 1;
-    }
+    ASSERT_NE(ic, nullptr) << "hunmin_ic_new(sin3-p2) returned NULL against staged data";
     hunmin_ic_free(ic);
 
     /* The repo-climb fallback must not be what satisfied the load: the env
@@ -105,26 +93,38 @@ int main() {
      * Pin that the ctx's data actually came from beside us by keying one
      * layout that exists and asserting a known pair composes. */
     hunmin_ic *d = hunmin_ic_new(ctx, "dubeolsik");
-    if (!d) {
-        printf("FAIL: dubeolsik did not instantiate against staged data\n");
-        hunmin_ctx_free(ctx);
-        return 1;
-    }
+    ASSERT_NE(d, nullptr) << "dubeolsik did not instantiate against staged data";
     /* dubeolsik maps 'r' to  ㄱ: the first key must be consumed and show in
      * preedit. If the ctx somehow resolved a different data tree, this pair
      * still holds for any dubeolsik-bearing tree, so it is a leap check for
      * pathological staging, not a layout assertion. */
     bool consumed = hunmin_ic_process(d, 'r');
     const char *pre = hunmin_ic_preedit(d);
-    if (!consumed || !pre || !pre[0]) {
-        printf("FAIL: dubeolsik 'r' inconsumed, preedit=\"%s\"\n", pre ? pre : "");
-        hunmin_ic_free(d);
-        hunmin_ctx_free(ctx);
-        return 1;
-    }
+    EXPECT_TRUE(consumed && pre && pre[0])
+        << "dubeolsik 'r' inconsumed, preedit=\"" << (pre ? pre : "") << "\"";
     hunmin_ic_free(d);
     hunmin_ctx_free(ctx);
+}
 
-    printf("ok: module-dir data load, %d layouts enumerated, dubeolsik composes\n", files);
-    return 0;
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    /* The rc-77 skip contract (staging absent): probe once, before any
+     * assertion machinery runs. */
+    char exePath[MAX_PATH * 2];
+    if (!GetModuleFileNameA(nullptr, exePath, (DWORD)sizeof(exePath)))
+        return 77;
+    char *slash = strrchr(exePath, '\\');
+    if (!slash)
+        slash = strrchr(exePath, '/');
+    if (slash)
+        *slash = '\0';
+    char staged[MAX_PATH * 2];
+    snprintf(staged, sizeof(staged), "%s\\data\\layouts", exePath);
+    DWORD attr = GetFileAttributesA(staged);
+    if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
+        fprintf(stderr, "skip: staged data missing at %s (POST_BUILD staging did not run)\n",
+                staged);
+        return 77;
+    }
+    return RUN_ALL_TESTS();
 }

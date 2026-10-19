@@ -86,6 +86,7 @@ foreach(tsf_test_exe tsf-config-test tsf-datadir-test tsf-settings-test tsf-cand
       ${HUNMIN_TSF_REPO_ROOT}/libhunmin/include)
   target_link_libraries(${tsf_test_exe} PRIVATE
       ${HUNMIN_ENGINE_LIB}
+      GTest::gtest
       ole32
       oleaut32
       user32

@@ -25,14 +25,24 @@
  * test never touches the production HKCU\Software\Hunmin\TSF store.
  *
  /* Hangul in expected strings is written as UTF-8 byte escapes (\xEC\x95\x88
-  * style): MSVC builds this TU under the ANSI codepage (949), where a raw
-  * UTF-8 literal is fatal (C2001) and a \uXXXX escape encodes through the
-  * codepage, not the engine's UTF-8 — both measured during this milestone's
-  * first run (docs/ENVIRONMENT.md pitfalls).
-  *
-  * Exit 0 clean, 1 assertion failed, 77 skip (engine data unavailable).
-  */
+ *  style): MSVC builds this TU under the ANSI codepage (949), where a raw
+ *  UTF-8 literal is fatal (C2001) and a \uXXXX escape encodes through the
+ *  codepage, not the engine's UTF-8 — both measured during this milestone's
+ *  first run (docs/ENVIRONMENT.md pitfalls).
+ *
+ * Exit 0 clean, 1 assertion failed, 77 skip (engine data unavailable).
+ *
+ * GoogleTest form (issue #109, option 1b): one ctest entry is kept
+ * (tsf-candidate-test); the original per-case Fixture blocks map 1:1 onto
+ * TEST_F cases, with Begin()/Teardown() still explicit calls so the
+ * case-15 env-before-Begin ordering and the mid-Begin rc-77 exit keep
+ * their exact semantics. The CHECK macro is backed by ADD_FAILURE() so
+ * every original message stays verbatim and non-fatal.
+ */
+#include <gtest/gtest.h>
+
 #include <cstdio>
+#include <cstdarg>
 #include <cstring>
 #include <string>
 #include <windows.h>
@@ -54,14 +64,22 @@ SHORT tsf_mock_GetKeyState(int vk) { return g_mockKeyState[vk & 0xFF]; }
 #undef private
 #undef GetKeyState
 
-static int failures = 0;
-#define CHECK(cond, ...)                  \
-    do {                                  \
-        if (!(cond)) {                    \
-            printf("FAIL: " __VA_ARGS__); \
-            printf("\n");                 \
-            ++failures;                   \
-        }                                 \
+/* printf-style format → a gtest failure line. Every original CHECK message
+ * survives unchanged; only the reporting moves from a failures counter to
+ * the framework's per-case result. */
+static std::string tsf_fmt(const char *fmt, ...) {
+    char buf[1024];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    return std::string(buf);
+}
+#define CHECK(cond, ...)               \
+    do {                               \
+        if (!(cond)) {                 \
+            ADD_FAILURE() << tsf_fmt(__VA_ARGS__); \
+        }                              \
     } while (0)
 
 static std::string utf8(const std::wstring &w) {
@@ -85,7 +103,7 @@ static const char *kAnchorGa = "\xEA\xB0\x80"; /* 가 */
 static const char *kAnchorGaGa = "\xEA\xB0\x80\xEA\xB0\x80"; /* 가가 */
 static const char *kAnchorGaGaGa = "\xEA\xB0\x80\xEA\xB0\x80\xEA\xB0\x80"; /* 가가가 */
 
-struct Fixture {
+struct CandidateTest : public ::testing::Test {
     tsfmock::MockThreadMgr *tm = nullptr;
     tsfmock::MockContext *ctx = nullptr;
     tsfmock::MockDocumentMgr *dm = nullptr;
@@ -99,8 +117,8 @@ struct Fixture {
         /* Key seams: the DEFAULTS, so a store the user's live session
          * mutated (their first capture wrote HKCU HanjaKey=v1:229:0 —
          * measured) cannot flip these cases' expectations. Per-case
-         * _putenv_s still overrides (case 15 sets F9 BEFORE Fixture
-         * construction, so the default only fills an UNSET variable). */
+         * _putenv_s still overrides (case 15 sets F9 BEFORE Begin(),
+         * so the default only fills an UNSET variable). */
         {
             const char *have = std::getenv("HUNMIN_TSF_HANJA_KEY");
             if (!have)
@@ -118,12 +136,12 @@ struct Fixture {
         svc = new CTextService(); /* ref 1 */
         svc->Activate(tm, 1);
         if (!tm->keySink) {
-            printf("skip: Activate did not advise a key sink\n");
+            fprintf(stderr, "skip: Activate did not advise a key sink\n");
             Teardown();
             std::exit(77);
         }
         if (!svc->ctx_ || !svc->ic_) {
-            printf("skip: engine context unavailable (check HUNMIN_TSF_DATA_DIR)\n");
+            fprintf(stderr, "skip: engine context unavailable (check HUNMIN_TSF_DATA_DIR)\n");
             Teardown();
             std::exit(77);
         }
@@ -183,7 +201,7 @@ struct Fixture {
         CHECK(ctx->insertions.empty(), "%s: %zu insertions happened, want none", what,
               ctx->insertions.size());
     }
-    
+
     /* The composition channel (issue #98): a boundary that drains a
      * pending word now ENDS the composition whose range already holds
      * the whole word -- the fusing text is the commit, not a plain
@@ -206,416 +224,392 @@ struct Fixture {
 };
 
 /* Type `dkssud`: wordbuf_ reaches `안`, preedit reaches `녕` (engine-measured). */
-static void TypeAnNyeng(Fixture &f) {
+static void TypeAnNyeng(CandidateTest &f) {
     f.Type("dkssud");
     f.AssertWordbuf(kAnchorAn, "dkssud");
     f.AssertPreedit(kAnchorPreeditNyeng, "dkssud");
     f.AssertCompositionText(kAnchorAnNyeng, "dkssud (composition)");
 }
 
-int main() {
-    /* 1. Empty buffer: the candidate key belongs to the client, in test
-     * and down alike (default: the bare Hanja key, 0x19). */
-    {
-        Fixture f;
-        f.Begin();
-        BOOL testEat = TRUE, downEat = TRUE;
-        f.TestKey(VK_HANJA, &testEat);
-        f.Key(VK_HANJA, &downEat);
-        CHECK(testEat == FALSE, "case 1: key test ate with no buffer");
-        CHECK(downEat == FALSE, "case 1: key down ate with no buffer");
-        CHECK(!f.svc->candActive_, "case 1: candidate state active after empty buffer key");
-        f.AssertNoInsert("case 1");
-        f.Teardown();
-    }
+/* 1. Empty buffer: the candidate key belongs to the client, in test
+ * and down alike (default: the bare Hanja key, 0x19). */
+TEST_F(CandidateTest, EmptyBufferKeyBelongsToTheClient) {
+    Begin();
+    BOOL testEat = TRUE, downEat = TRUE;
+    TestKey(VK_HANJA, &testEat);
+    Key(VK_HANJA, &downEat);
+    CHECK(testEat == FALSE, "case 1: key test ate with no buffer");
+    CHECK(downEat == FALSE, "case 1: key down ate with no buffer");
+    CHECK(!svc->candActive_, "case 1: candidate state active after empty buffer key");
+    AssertNoInsert("case 1");
+    Teardown();
+}
 
-    /* 2. `dkssud` + the Hanja key: the window opens over the whole
-     * buffered word. */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        BOOL testEat = FALSE;
-        f.TestKey(VK_HANJA, &testEat);
-        CHECK(testEat == TRUE, "case 2: Hanja-key test did not eat for `dkssud`");
-        BOOL eat = TRUE;
-        f.Key(VK_HANJA, &eat);
-        CHECK(eat == TRUE, "case 2: Hanja-key down did not eat");
-        CHECK(f.svc->candActive_, "case 2: window not active after the Hanja key");
-        CHECK(f.svc->candCount_ == 1, "case 2: count %d, want 1 (krdict dedupe merged the sense rows, tools/krdict-dedupe.py)",
-              f.svc->candCount_);
-        CHECK(f.svc->candCursor_ == 0 && f.svc->candTop_ == 0, "case 2: cursor/top != 0/0");
-        CHECK(f.svc->candSource_ == kAnchorAnNyeng, "case 2: anchored to %s, want the whole word",
-              f.svc->candSource_.c_str());
-        f.AssertNoInsert("case 2");
-        /* 2b. While open, the window's keys are eaten in the test phase. */
-        BOOL dEat = TRUE;
-        f.TestKey('1', &dEat);
-        CHECK(dEat == TRUE, "case 2b: digit '1' not eaten in test phase");
-        f.Teardown();
-    }
+/* 2. `dkssud` + the Hanja key: the window opens over the whole
+ * buffered word. */
+TEST_F(CandidateTest, HanjaKeyOpensTheWindowOverTheWholeWord) {
+    Begin();
+    TypeAnNyeng(*this);
+    BOOL testEat = FALSE;
+    TestKey(VK_HANJA, &testEat);
+    CHECK(testEat == TRUE, "case 2: Hanja-key test did not eat for `dkssud`");
+    BOOL eat = TRUE;
+    Key(VK_HANJA, &eat);
+    CHECK(eat == TRUE, "case 2: Hanja-key down did not eat");
+    CHECK(svc->candActive_, "case 2: window not active after the Hanja key");
+    CHECK(svc->candCount_ == 1, "case 2: count %d, want 1 (krdict dedupe merged the sense rows, tools/krdict-dedupe.py)",
+          svc->candCount_);
+    CHECK(svc->candCursor_ == 0 && svc->candTop_ == 0, "case 2: cursor/top != 0/0");
+    CHECK(svc->candSource_ == kAnchorAnNyeng, "case 2: anchored to %s, want the whole word",
+          svc->candSource_.c_str());
+    AssertNoInsert("case 2");
+    /* 2b. While open, the window's keys are eaten in the test phase. */
+    BOOL dEat = TRUE;
+    TestKey('1', &dEat);
+    CHECK(dEat == TRUE, "case 2b: digit '1' not eaten in test phase");
+    Teardown();
+}
 
-    /* 3. Return commits the cursor (c0): exactly one insert, the Hanja text,
-     * window closed, buffer empty, engine reset. */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        f.Key(VK_HANJA);
-        std::string expected(hunmin_suggest_text(f.svc->ctx_, 0));
-        CHECK(!expected.empty(), "case 3: candidate 0 text empty");
+/* 3. Return commits the cursor (c0): exactly one insert, the Hanja text,
+ * window closed, buffer empty, engine reset. */
+TEST_F(CandidateTest, ReturnCommitsTheCursor) {
+    Begin();
+    TypeAnNyeng(*this);
+    Key(VK_HANJA);
+    std::string expected(hunmin_suggest_text(svc->ctx_, 0));
+    CHECK(!expected.empty(), "case 3: candidate 0 text empty");
+    BOOL eat = FALSE;
+    Key(VK_RETURN, &eat);
+    CHECK(eat == TRUE, "case 3: Return not consumed");
+    AssertCompositionEnded(expected.c_str(), "case 3");
+    CHECK(!svc->candActive_, "case 3: window still open after commit");
+    AssertWordbuf(nullptr, "case 3");
+    AssertPreedit(nullptr, "case 3");
+    Teardown();
+}
+
+/* 4. Down moves the cursor; the moved cursor commits with Return.
+ * (krdict-dedupe merged the two 安寧 rows to one, so a one-row list
+ * clamps Down at the last row: cursor stays 0 and Return still commits
+ * that row.) */
+TEST_F(CandidateTest, DownClampsAndReturnStillCommits) {
+    Begin();
+    TypeAnNyeng(*this);
+    Key(VK_HANJA);
+    Key(VK_DOWN);
+    CHECK(svc->candCursor_ == 0, "case 4: cursor %d after Down on a 1-row list, want 0 (clamped)",
+          svc->candCursor_);
+    std::string expected(hunmin_suggest_text(svc->ctx_, 0));
+    Key(VK_RETURN);
+    AssertCompositionEnded(expected.c_str(), "case 4");
+    Teardown();
+}
+
+/* 5. Up at the top stays put (clamped, no rotation, no insertion). */
+TEST_F(CandidateTest, UpAtTheTopStaysPut) {
+    Begin();
+    TypeAnNyeng(*this);
+    Key(VK_HANJA);
+    Key(VK_UP);
+    CHECK(svc->candCursor_ == 0, "case 5: Up moved cursor below 0");
+    AssertNoInsert("case 5");
+    CHECK(svc->candActive_, "case 5: window closed by Up");
+    Teardown();
+}
+
+/* 6. Digit select, dedupe edition: the two 安寧 senses merged into ONE
+ * row (tools/krdict-dedupe.py), so digit '2' is now PAST the list end.
+ * The measured rule for an out-of-range digit (the keys-of-passage
+ * answer, same class as the unbound F-key and the edit keys): the list
+ * closes, the pending word drains through the boundary flush, and the
+ * digit itself passes to the app uneaten. */
+TEST_F(CandidateTest, OutOfRangeDigitDrainsAndPasses) {
+    Begin();
+    TypeAnNyeng(*this);
+    Key(VK_HANJA);
+    BOOL eat = TRUE;
+    Key('2', &eat);
+    CHECK(eat == FALSE, "case 6: digit '2' past the end was consumed");
+    AssertCompositionEnded(kAnchorAnNyeng, "case 6");
+    CHECK(!svc->candActive_, "case 6: window left open after the drain");
+    Teardown();
+}
+
+/* 6b. In-range digit select commits the page-relative index — one-row
+ * list: digit '1' commits row 0 (the only one). */
+TEST_F(CandidateTest, InRangeDigitCommits) {
+    Begin();
+    TypeAnNyeng(*this);
+    Key(VK_HANJA);
+    std::string expected(hunmin_suggest_text(svc->ctx_, 0));
+    BOOL eat = TRUE;
+    Key('1', &eat);
+    CHECK(eat == TRUE, "case 6b: in-range digit '1' not consumed");
+    AssertCompositionEnded(expected.c_str(), "case 6b");
+    CHECK(!svc->candActive_, "case 6b: window left open after digit commit");
+    Teardown();
+}
+
+/* 7. Esc closes without touching the composition; typing continues. */
+TEST_F(CandidateTest, EscClosesAndTypingContinues) {
+    Begin();
+    TypeAnNyeng(*this);
+    Key(VK_HANJA);
+    BOOL eat = FALSE;
+    Key(VK_ESCAPE, &eat);
+    CHECK(eat == TRUE, "case 7: Esc not consumed");
+    CHECK(!svc->candActive_, "case 7: window open after Esc");
+    AssertNoInsert("case 7");
+    AssertWordbuf(kAnchorAn, "case 7");
+    AssertPreedit(kAnchorPreeditNyeng, "case 7");
+    /* Typing continues where the user left off — the key is consumed and
+     * the preedit grows (engine composes; the exact glyph is the
+     * engine's business, asserted nonempty). */
+    Key('d');
+    std::string now(hunmin_ic_preedit(svc->ic_));
+    CHECK(!now.empty(), "case 7: preedit empty after resuming typing");
+    AssertNoInsert("case 7 (resumed typing)");
+    Teardown();
+}
+
+/* 8. Zero whole-word candidates, multi-syllable word: `rkrkrk` ->
+ * `가가가` (0 hits over the word; the LAST syllable `가` has 65).
+ * Issue #100: the fallback list OPENS, anchored to the last syllable,
+ * and the key is eaten in both phases (one decision). */
+TEST_F(CandidateTest, FallbackListOpensAnchoredToTheLastSyllable) {
+    Begin();
+    Type("rkrkrk");
+    AssertWordbuf(kAnchorGaGa, "rkrkrk");
+    AssertPreedit(kAnchorGa, "rkrkrk");
+    BOOL testEat = FALSE, eat = FALSE;
+    TestKey(VK_HANJA, &testEat);
+    Key(VK_HANJA, &eat);
+    CHECK(testEat == TRUE, "case 8: Hanja-key test did not eat over the fallback list");
+    CHECK(eat == TRUE, "case 8: Hanja-key down did not eat over the fallback list");
+    CHECK(svc->candActive_, "case 8: fallback list did not open");
+    CHECK(svc->candFallback_, "case 8: list not marked as a syllable-fallback list");
+    CHECK(svc->candSource_ == kAnchorGa, "case 8: anchored to %s, want the last syllable",
+          svc->candSource_.c_str());
+    CHECK(svc->candCount_ >= 11, "case 8: count %d, want the measured 65-row `가` list",
+          svc->candCount_);
+    AssertNoInsert("case 8");
+    Teardown();
+}
+
+/* 9. A digit past the end of the count closes the window and falls
+ * through: the key itself reaches the composition boundary, the whole
+ * word inserts once, the digit is not swallowed. */
+TEST_F(CandidateTest, DeadDigitClosesAndFallsThrough) {
+    Begin();
+    TypeAnNyeng(*this);
+    Key(VK_HANJA);
+    BOOL eat = TRUE;
+    Key('9', &eat);
+    CHECK(eat == FALSE, "case 9: '9' swallowed (eat false expected)");
+    CHECK(!svc->candActive_, "case 9: window survived the dead digit");
+    AssertCompositionEnded(kAnchorAnNyeng, "case 9");
+    Teardown();
+}
+
+/* 10. The mode toggle is a composition boundary with the window open:
+ * the candidate list closes and the buffered word inserts once. */
+TEST_F(CandidateTest, ModeToggleIsABoundaryWithTheWindowOpen) {
+    Begin();
+    TypeAnNyeng(*this);
+    Key(VK_HANJA);
+    CHECK(svc->candActive_, "case 10: window did not open");
+    Key(HUNMIN_TSF_VIRTUAL_HANGEUL);
+    CHECK(!svc->candActive_, "case 10: window open after toggle");
+    CHECK(!svc->hangulMode_, "case 10: mode did not switch");
+    AssertCompositionEnded(kAnchorAnNyeng, "case 10");
+    Teardown();
+}
+
+/* 11. Backspace edits the pending composition (the buffered-edit
+ * contract), engine-measured: `녕` -> `녀` -> `ㄴ` -> empty, the last one
+ * still consumed by the engine (no insert, the key never reaches the
+ * app while the engine deletes). One MORE backspace hits the empty
+ * preedit: the engine declines, the boundary inserts the buffered word
+ * once, and the key passes. */
+TEST_F(CandidateTest, BackspaceEditsThePendingComposition) {
+    Begin();
+    TypeAnNyeng(*this);
+    BOOL eat = FALSE;
+    Key(VK_BACK, &eat);
+    CHECK(eat == TRUE, "case 11a: BS not consumed");
+    AssertPreedit(kAnchorPreeditNyee, "case 11a");
+    AssertWordbuf(kAnchorAn, "case 11a");
+    AssertNoInsert("case 11a");
+    Key(VK_BACK);
+    AssertPreedit(kAnchorPreeditNieun, "case 11b");
+    Key(VK_BACK, &eat);
+    CHECK(eat == TRUE, "case 11c: BS on emptied syllable not consumed");
+    AssertPreedit(nullptr, "case 11c");
+    AssertNoInsert("case 11c");
+    Key(VK_BACK, &eat);
+    CHECK(eat == FALSE, "case 11d: BS past the empty preedit eaten anyway");
+    AssertCompositionEnded(kAnchorAn, "case 11d");
+    Teardown();
+}
+
+/* 12. Paging over a 65-candidate list (`가` through the hanja table):
+ * PageDown moves top by the page and the cursor with it. */
+TEST_F(CandidateTest, PageDownMovesTopAndCursor) {
+    Begin();
+    Type("rk");
+    AssertPreedit(kAnchorGa, "case 12 (rk)");
+    Key(VK_HANJA);
+    CHECK(svc->candActive_, "case 12: window not active on single syllable");
+    CHECK(svc->candCount_ >= 11, "case 12: count %d, want >= 11 for paging", svc->candCount_);
+    Key(VK_NEXT);
+    CHECK(svc->candTop_ == 10, "case 12: top %d after PageDown, want 10", svc->candTop_);
+    CHECK(svc->candCursor_ == 10, "case 12: cursor %d after PageDown, want 10",
+          svc->candCursor_);
+    std::string expected(hunmin_suggest_text(svc->ctx_, 0 + 10));
+    Key(VK_RETURN);
+    AssertCompositionEnded(expected.c_str(), "case 12");
+    Teardown();
+}
+
+/* 13. PageUp from the first page stays at 0 (clamped). */
+TEST_F(CandidateTest, PageUpFromTheFirstPageStaysAtZero) {
+    Begin();
+    Type("rk");
+    Key(VK_HANJA);
+    Key(VK_PRIOR);
+    CHECK(svc->candTop_ == 0, "case 13: top %d, want 0", svc->candTop_);
+    CHECK(svc->candActive_, "case 13: window closed by PageUp");
+    Teardown();
+}
+
+/* 14. F9 is deliberately unbound by default (maintainer instruction:
+ * the Hanja key is the candidate toggle). MEASURED here: unbound F9
+ * (VK 0x78) does not disappear into the printable fallback — it is a
+ * key of passage like the edit keys (the #95 rule, extended to the
+ * F1..F12 block this case forced): the pending word drains once, and
+ * F9 reaches the application uneaten. */
+TEST_F(CandidateTest, UnboundF9IsAKeyOfPassage) {
+    Begin();
+    TypeAnNyeng(*this);
+    BOOL testEat = TRUE, eat = TRUE;
+    TestKey(VK_F9, &testEat);
+    Key(VK_F9, &eat);
+    CHECK(testEat == FALSE, "case 14: unbound F9 eaten in test phase");
+    CHECK(eat == FALSE, "case 14: unbound F9 eaten in down phase");
+    CHECK(!svc->candActive_, "case 14: unbound F9 opened the window");
+    AssertCompositionEnded(kAnchorAnNyeng, "case 14");
+    CHECK(svc->wordbuf_.empty(), "case 14: nothing held after the F-key boundary");
+    Teardown();
+}
+
+/* 15. The configured key is the store's word: the env seam sets F9
+ * (v1:120:0) as the candidate key and the adapter honours it — both
+ * phases mirror the open decision. */
+TEST_F(CandidateTest, ConfiguredKeyIsTheStoresWord) {
+    _putenv_s("HUNMIN_TSF_HANJA_KEY", "v1:120:0");
+    Begin();
+    TypeAnNyeng(*this);
+    BOOL testEat = FALSE, eat = TRUE;
+    TestKey(VK_F9, &testEat);
+    Key(VK_F9, &eat);
+    CHECK(testEat == TRUE, "case 15: configured F9 not eaten in test phase");
+    CHECK(eat == TRUE, "case 15: configured F9 not eaten in down phase");
+    CHECK(svc->candActive_, "case 15: configured F9 did not open the window");
+    CHECK(svc->candCount_ == 1, "case 15: count %d walking the env seam (deduped)",
+          svc->candCount_);
+    _putenv_s("HUNMIN_TSF_HANJA_KEY", "");
+    Teardown();
+}
+
+/* 16. Issue #100: a fallback list's commit replaces ONLY the last
+ * syllable. `rkrkrk` -> the `가` fallback list; committing row 0 inserts
+ * `가가` + the chosen Hanja (the word prefix stays Hangul), exactly one
+ * insert, the buffer drains once like the ordinary commit. */
+TEST_F(CandidateTest, FallbackCommitReplacesOnlyTheLastSyllable) {
+    Begin();
+    Type("rkrkrk");
+    Key(VK_HANJA); /* opens the last-syllable fallback list (case 8) */
+    CHECK(svc->candFallback_, "case 16: fallback list did not open");
+    std::string expected(hunmin_suggest_text(svc->ctx_, 0));
+    CHECK(!expected.empty(), "case 16: candidate 0 text empty against the data");
+    if (!expected.empty()) {
         BOOL eat = FALSE;
-        f.Key(VK_RETURN, &eat);
-        CHECK(eat == TRUE, "case 3: Return not consumed");
-        f.AssertCompositionEnded(expected.c_str(), "case 3");
-        CHECK(!f.svc->candActive_, "case 3: window still open after commit");
-        f.AssertWordbuf(nullptr, "case 3");
-        f.AssertPreedit(nullptr, "case 3");
-        f.Teardown();
+        Key(VK_RETURN, &eat);
+        CHECK(eat == TRUE, "case 16: Return not consumed on a fallback list");
+        /* Issue #98: the commit is the composition's END (the candidate
+         * replaces the composition the list anchored to), so the fused
+         * text is observed on the composition channel, not the plain
+         * edit-session insert channel (mock-tsf.h: insertions = one
+         * entry per NON-composition SetText). Exactly one fused content
+         * and zero plain inserts is the one-insert contract here. */
+        CHECK(!svc->candActive_, "case 16: window still open after fallback commit");
+        AssertCompositionEnded((std::string(kAnchorGaGa) + expected).c_str(), "case 16");
+        AssertNoInsert("case 16");
+        AssertWordbuf(nullptr, "case 16");
+        AssertPreedit(nullptr, "case 16");
     }
+    Teardown();
+}
 
-    /* 4. Down moves the cursor; the moved cursor commits with Return.
-     * (krdict-dedupe merged the two 安寧 rows to one, so a one-row list
-     * clamps Down at the last row: cursor stays 0 and Return still commits
-     * that row.) */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        f.Key(VK_HANJA);
-        f.Key(VK_DOWN);
-        CHECK(f.svc->candCursor_ == 0, "case 4: cursor %d after Down on a 1-row list, want 0 (clamped)",
-              f.svc->candCursor_);
-        std::string expected(hunmin_suggest_text(f.svc->ctx_, 0));
-        f.Key(VK_RETURN);
-        f.AssertCompositionEnded(expected.c_str(), "case 4");
-        f.Teardown();
-    }
+/* 17. Zero-and-zero (`rkel` -> `가디`: 0 whole-word, 0 on the last
+ * syllable 디 — measured): the Hanja key passes through in both phases,
+ * no window, no state, no insert. */
+TEST_F(CandidateTest, ZeroAndZeroPassesThrough) {
+    Begin();
+    Type("rkel");
+    CHECK(utf8(svc->wordbuf_) + std::string(hunmin_ic_preedit(svc->ic_)) ==
+              std::string(kAnchorGa) + "\xEB\x94\x94",
+          "case 17: composed buffer is not ga-di");
+    AssertPreedit("\xEB\x94\x94", "case 17");
+    BOOL testEat = TRUE, eat = TRUE;
+    TestKey(VK_HANJA, &testEat);
+    Key(VK_HANJA, &eat);
+    CHECK(testEat == FALSE, "case 17: Hanja-key test ate on a zero-and-zero buffer");
+    CHECK(eat == FALSE, "case 17: Hanja-key down ate on a zero-and-zero buffer");
+    CHECK(!svc->candActive_, "case 17: state active on a zero-and-zero buffer");
+    AssertNoInsert("case 17");
+    Teardown();
+}
 
-    /* 5. Up at the top stays put (clamped, no rotation, no insertion). */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        f.Key(VK_HANJA);
-        f.Key(VK_UP);
-        CHECK(f.svc->candCursor_ == 0, "case 5: Up moved cursor below 0");
-        f.AssertNoInsert("case 5");
-        CHECK(f.svc->candActive_, "case 5: window closed by Up");
-        f.Teardown();
-    }
+/* 18. One-syllable zero (`el` -> `디`: 0 hits, and the fallback lookup
+ * would be the same single syllable — word == last): pass-through in
+ * both phases (issue #100 keeps one-syllable words as they were). */
+TEST_F(CandidateTest, OneSyllableZeroPassesThrough) {
+    Begin();
+    Type("el");
+    BOOL testEat = TRUE, eat = TRUE;
+    TestKey(VK_HANJA, &testEat);
+    Key(VK_HANJA, &eat);
+    CHECK(testEat == FALSE, "case 18: Hanja-key test ate on a one-syllable zero");
+    CHECK(eat == FALSE, "case 18: Hanja-key down ate on a one-syllable zero");
+    CHECK(!svc->candActive_, "case 18: state active on a one-syllable zero");
+    AssertNoInsert("case 18");
+    Teardown();
+}
 
-    /* 6. Digit select, dedupe edition: the two 安寧 senses merged into ONE
-     * row (tools/krdict-dedupe.py), so digit '2' is now PAST the list end.
-     * The measured rule for an out-of-range digit (the keys-of-passage
-     * answer, same class as the unbound F-key and the edit keys): the list
-     * closes, the pending word drains through the boundary flush, and the
-     * digit itself passes to the app uneaten. */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        f.Key(VK_HANJA);
-        BOOL eat = TRUE;
-        f.Key('2', &eat);
-        CHECK(eat == FALSE, "case 6: digit '2' past the end was consumed");
-        f.AssertCompositionEnded(kAnchorAnNyeng, "case 6");
-        CHECK(!f.svc->candActive_, "case 6: window left open after the drain");
-        f.Teardown();
-    }
+/* 19. Issue #106: the shifted row is the ENGINE's decision now. The
+ * adapter hands the unshifted base + the Shift bit to
+ * hunmin_ic_process_key; the row comes from the loader's own US-QWERTY
+ * map. Injected shift + VK_R ('r'): dubeolsik plain ㄱ, shift row ㄲ
+ * (dubeolsik.json) — the adapter's deleted shift column used to decide
+ * exactly this, so a regression here is the migration undone. */
+TEST_F(CandidateTest, ShiftedRowIsTheEnginesDecision) {
+    Begin();
+    Type("r");
+    AssertPreedit("\xE3\x84\xB1", "case 19: plain r is not gigyeong");
+    Teardown();
+}
+TEST_F(CandidateTest, InjectedShiftSelectsTheShiftRow) {
+    Begin();
+    g_mockKeyState[VK_SHIFT & 0xFF] = (SHORT)0x8000;
+    Key('R'); /* the VK the OS sends for the key; case is the engine's */
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    AssertPreedit("\xE3\x84\xB2", "case 19: shifted r is not ssang-gigyeong");
+    AssertNoInsert("case 19");
+    Teardown();
+}
 
-    /* 6b. In-range digit select commits the page-relative index — one-row
-     * list: digit '1' commits row 0 (the only one). */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        f.Key(VK_HANJA);
-        std::string expected(hunmin_suggest_text(f.svc->ctx_, 0));
-        BOOL eat = TRUE;
-        f.Key('1', &eat);
-        CHECK(eat == TRUE, "case 6b: in-range digit '1' not consumed");
-        f.AssertCompositionEnded(expected.c_str(), "case 6b");
-        CHECK(!f.svc->candActive_, "case 6b: window left open after digit commit");
-        f.Teardown();
-    }
-
-    /* 7. Esc closes without touching the composition; typing continues. */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        f.Key(VK_HANJA);
-        BOOL eat = FALSE;
-        f.Key(VK_ESCAPE, &eat);
-        CHECK(eat == TRUE, "case 7: Esc not consumed");
-        CHECK(!f.svc->candActive_, "case 7: window open after Esc");
-        f.AssertNoInsert("case 7");
-        f.AssertWordbuf(kAnchorAn, "case 7");
-        f.AssertPreedit(kAnchorPreeditNyeng, "case 7");
-        /* Typing continues where the user left off — the key is consumed and
-         * the preedit grows (engine composes; the exact glyph is the
-         * engine's business, asserted nonempty). */
-        f.Key('d');
-        std::string now(hunmin_ic_preedit(f.svc->ic_));
-        CHECK(!now.empty(), "case 7: preedit empty after resuming typing");
-        f.AssertNoInsert("case 7 (resumed typing)");
-        f.Teardown();
-    }
-
-    /* 8. Zero whole-word candidates, multi-syllable word: `rkrkrk` ->
-     * `가가가` (0 hits over the word; the LAST syllable `가` has 65).
-     * Issue #100: the fallback list OPENS, anchored to the last syllable,
-     * and the key is eaten in both phases (one decision). */
-    {
-        Fixture f;
-        f.Begin();
-        f.Type("rkrkrk");
-        f.AssertWordbuf(kAnchorGaGa, "rkrkrk");
-        f.AssertPreedit(kAnchorGa, "rkrkrk");
-        BOOL testEat = FALSE, eat = FALSE;
-        f.TestKey(VK_HANJA, &testEat);
-        f.Key(VK_HANJA, &eat);
-        CHECK(testEat == TRUE, "case 8: Hanja-key test did not eat over the fallback list");
-        CHECK(eat == TRUE, "case 8: Hanja-key down did not eat over the fallback list");
-        CHECK(f.svc->candActive_, "case 8: fallback list did not open");
-        CHECK(f.svc->candFallback_, "case 8: list not marked as a syllable-fallback list");
-        CHECK(f.svc->candSource_ == kAnchorGa, "case 8: anchored to %s, want the last syllable",
-              f.svc->candSource_.c_str());
-        CHECK(f.svc->candCount_ >= 11, "case 8: count %d, want the measured 65-row `가` list",
-              f.svc->candCount_);
-        f.AssertNoInsert("case 8");
-        f.Teardown();
-    }
-
-    /* 9. A digit past the end of the count closes the window and falls
-     * through: the key itself reaches the composition boundary, the whole
-     * word inserts once, the digit is not swallowed. */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        f.Key(VK_HANJA);
-        BOOL eat = TRUE;
-        f.Key('9', &eat);
-        CHECK(eat == FALSE, "case 9: '9' swallowed (eat false expected)");
-        CHECK(!f.svc->candActive_, "case 9: window survived the dead digit");
-        f.AssertCompositionEnded(kAnchorAnNyeng, "case 9");
-        f.Teardown();
-    }
-
-    /* 10. The mode toggle is a composition boundary with the window open:
-     * the candidate list closes and the buffered word inserts once. */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        f.Key(VK_HANJA);
-        CHECK(f.svc->candActive_, "case 10: window did not open");
-        f.Key(HUNMIN_TSF_VIRTUAL_HANGEUL);
-        CHECK(!f.svc->candActive_, "case 10: window open after toggle");
-        CHECK(!f.svc->hangulMode_, "case 10: mode did not switch");
-        f.AssertCompositionEnded(kAnchorAnNyeng, "case 10");
-        f.Teardown();
-    }
-
-    /* 11. Backspace edits the pending composition (the buffered-edit
-     * contract), engine-measured: `녕` -> `녀` -> `ㄴ` -> empty, the last one
-     * still consumed by the engine (no insert, the key never reaches the
-     * app while the engine deletes). One MORE backspace hits the empty
-     * preedit: the engine declines, the boundary inserts the buffered word
-     * once, and the key passes. */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        BOOL eat = FALSE;
-        f.Key(VK_BACK, &eat);
-        CHECK(eat == TRUE, "case 11a: BS not consumed");
-        f.AssertPreedit(kAnchorPreeditNyee, "case 11a");
-        f.AssertWordbuf(kAnchorAn, "case 11a");
-        f.AssertNoInsert("case 11a");
-        f.Key(VK_BACK);
-        f.AssertPreedit(kAnchorPreeditNieun, "case 11b");
-        f.Key(VK_BACK, &eat);
-        CHECK(eat == TRUE, "case 11c: BS on emptied syllable not consumed");
-        f.AssertPreedit(nullptr, "case 11c");
-        f.AssertNoInsert("case 11c");
-        f.Key(VK_BACK, &eat);
-        CHECK(eat == FALSE, "case 11d: BS past the empty preedit eaten anyway");
-        f.AssertCompositionEnded(kAnchorAn, "case 11d");
-        f.Teardown();
-    }
-
-    /* 12. Paging over a 65-candidate list (`가` through the hanja table):
-     * PageDown moves top by the page and the cursor with it. */
-    {
-        Fixture f;
-        f.Begin();
-        f.Type("rk");
-        f.AssertPreedit(kAnchorGa, "case 12 (rk)");
-        f.Key(VK_HANJA);
-        CHECK(f.svc->candActive_, "case 12: window not active on single syllable");
-        CHECK(f.svc->candCount_ >= 11, "case 12: count %d, want >= 11 for paging", f.svc->candCount_);
-        f.Key(VK_NEXT);
-        CHECK(f.svc->candTop_ == 10, "case 12: top %d after PageDown, want 10", f.svc->candTop_);
-        CHECK(f.svc->candCursor_ == 10, "case 12: cursor %d after PageDown, want 10",
-              f.svc->candCursor_);
-        std::string expected(hunmin_suggest_text(f.svc->ctx_, 0 + 10));
-        f.Key(VK_RETURN);
-        f.AssertCompositionEnded(expected.c_str(), "case 12");
-        f.Teardown();
-    }
-
-    /* 13. PageUp from the first page stays at 0 (clamped). */
-    {
-        Fixture f;
-        f.Begin();
-        f.Type("rk");
-        f.Key(VK_HANJA);
-        f.Key(VK_PRIOR);
-        CHECK(f.svc->candTop_ == 0, "case 13: top %d, want 0", f.svc->candTop_);
-        CHECK(f.svc->candActive_, "case 13: window closed by PageUp");
-        f.Teardown();
-    }
-
-    /* 14. F9 is deliberately unbound by default (maintainer instruction:
-     * the Hanja key is the candidate toggle). MEASURED here: unbound F9
-     * (VK 0x78) does not disappear into the printable fallback — it is a
-     * key of passage like the edit keys (the #95 rule, extended to the
-     * F1..F12 block this case forced): the pending word drains once, and
-     * F9 reaches the application uneaten. */
-    {
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        BOOL testEat = TRUE, eat = TRUE;
-        f.TestKey(VK_F9, &testEat);
-        f.Key(VK_F9, &eat);
-        CHECK(testEat == FALSE, "case 14: unbound F9 eaten in test phase");
-        CHECK(eat == FALSE, "case 14: unbound F9 eaten in down phase");
-        CHECK(!f.svc->candActive_, "case 14: unbound F9 opened the window");
-        f.AssertCompositionEnded(kAnchorAnNyeng, "case 14");
-        CHECK(f.svc->wordbuf_.empty(), "case 14: nothing held after the F-key boundary");
-        f.Teardown();
-    }
-
-    /* 15. The configured key is the store's word: the env seam sets F9
-     * (v1:120:0) as the candidate key and the adapter honours it — both
-     * phases mirror the open decision. */
-    {
-        _putenv_s("HUNMIN_TSF_HANJA_KEY", "v1:120:0");
-        Fixture f;
-        f.Begin();
-        TypeAnNyeng(f);
-        BOOL testEat = FALSE, eat = TRUE;
-        f.TestKey(VK_F9, &testEat);
-        f.Key(VK_F9, &eat);
-        CHECK(testEat == TRUE, "case 15: configured F9 not eaten in test phase");
-        CHECK(eat == TRUE, "case 15: configured F9 not eaten in down phase");
-        CHECK(f.svc->candActive_, "case 15: configured F9 did not open the window");
-        CHECK(f.svc->candCount_ == 1, "case 15: count %d walking the env seam (deduped)",
-              f.svc->candCount_);
-        _putenv_s("HUNMIN_TSF_HANJA_KEY", "");
-        f.Teardown();
-    }
-
-    /* 16. Issue #100: a fallback list's commit replaces ONLY the last
-     * syllable. `rkrkrk` -> the `가` fallback list; committing row 0 inserts
-     * `가가` + the chosen Hanja (the word prefix stays Hangul), exactly one
-     * insert, the buffer drains once like the ordinary commit. */
-    {
-        Fixture f;
-        f.Begin();
-        f.Type("rkrkrk");
-        f.Key(VK_HANJA); /* opens the last-syllable fallback list (case 8) */
-        CHECK(f.svc->candFallback_, "case 16: fallback list did not open");
-        std::string expected(hunmin_suggest_text(f.svc->ctx_, 0));
-        CHECK(!expected.empty(), "case 16: candidate 0 text empty against the data");
-        if (!expected.empty()) {
-            BOOL eat = FALSE;
-            f.Key(VK_RETURN, &eat);
-            CHECK(eat == TRUE, "case 16: Return not consumed on a fallback list");
-            /* Issue #98: the commit is the composition's END (the candidate
-             * replaces the composition the list anchored to), so the fused
-             * text is observed on the composition channel, not the plain
-             * edit-session insert channel (mock-tsf.h: insertions = one
-             * entry per NON-composition SetText). Exactly one fused content
-             * and zero plain inserts is the one-insert contract here. */
-            CHECK(!f.svc->candActive_, "case 16: window still open after fallback commit");
-            f.AssertCompositionEnded((std::string(kAnchorGaGa) + expected).c_str(), "case 16");
-            f.AssertNoInsert("case 16");
-            f.AssertWordbuf(nullptr, "case 16");
-            f.AssertPreedit(nullptr, "case 16");
-        }
-        f.Teardown();
-    }
-
-    /* 17. Zero-and-zero (`rkel` -> `가디`: 0 whole-word, 0 on the last
-     * syllable 디 — measured): the Hanja key passes through in both phases,
-     * no window, no state, no insert. */
-    {
-        Fixture f;
-        f.Begin();
-        f.Type("rkel");
-        CHECK(utf8(f.svc->wordbuf_) + std::string(hunmin_ic_preedit(f.svc->ic_)) ==
-                  std::string(kAnchorGa) + "\xEB\x94\x94",
-              "case 17: composed buffer is not ga-di");
-        f.AssertPreedit("\xEB\x94\x94", "case 17");
-        BOOL testEat = TRUE, eat = TRUE;
-        f.TestKey(VK_HANJA, &testEat);
-        f.Key(VK_HANJA, &eat);
-        CHECK(testEat == FALSE, "case 17: Hanja-key test ate on a zero-and-zero buffer");
-        CHECK(eat == FALSE, "case 17: Hanja-key down ate on a zero-and-zero buffer");
-        CHECK(!f.svc->candActive_, "case 17: state active on a zero-and-zero buffer");
-        f.AssertNoInsert("case 17");
-        f.Teardown();
-    }
-
-    /* 18. One-syllable zero (`el` -> `디`: 0 hits, and the fallback lookup
-     * would be the same single syllable — word == last): pass-through in
-     * both phases (issue #100 keeps one-syllable words as they were). */
-    {
-        Fixture f;
-        f.Begin();
-        f.Type("el");
-        BOOL testEat = TRUE, eat = TRUE;
-        f.TestKey(VK_HANJA, &testEat);
-        f.Key(VK_HANJA, &eat);
-        CHECK(testEat == FALSE, "case 18: Hanja-key test ate on a one-syllable zero");
-        CHECK(eat == FALSE, "case 18: Hanja-key down ate on a one-syllable zero");
-        CHECK(!f.svc->candActive_, "case 18: state active on a one-syllable zero");
-        f.AssertNoInsert("case 18");
-        f.Teardown();
-    }
-
-    /* 19. Issue #106: the shifted row is the ENGINE's decision now. The
-     * adapter hands the unshifted base + the Shift bit to
-     * hunmin_ic_process_key; the row comes from the loader's own US-QWERTY
-     * map. Injected shift + VK_R ('r'): dubeolsik plain ㄱ, shift row ㄲ
-     * (dubeolsik.json) — the adapter's deleted shift column used to decide
-     * exactly this, so a regression here is the migration undone. */
-    {
-        Fixture f;
-        f.Begin();
-        f.Type("r");
-        f.AssertPreedit("\xE3\x84\xB1", "case 19: plain r is not gigyeong");
-        f.Teardown();
-    }
-    {
-        Fixture f;
-        f.Begin();
-        g_mockKeyState[VK_SHIFT & 0xFF] = (SHORT)0x8000;
-        f.Key('R'); /* the VK the OS sends for the key; case is the engine's */
-        g_mockKeyState[VK_SHIFT & 0xFF] = 0;
-        f.AssertPreedit("\xE3\x84\xB2", "case 19: shifted r is not ssang-gigyeong");
-        f.AssertNoInsert("case 19");
-        f.Teardown();
-    }
-
-    if (failures == 0)
-        printf("tsf-candidate-test: all cases passed\n");
-    else
-        printf("tsf-candidate-test: %d failure(s)\n", failures);
-    return failures == 0 ? 0 : 1;
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
