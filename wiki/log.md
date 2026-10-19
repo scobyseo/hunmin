@@ -622,3 +622,13 @@
 - The ruling was given on the issue, not in a session record, like issue #9's
   ruling in the worktree session — the issue is the surviving source.
 - `wiki/index.md` listed the page; total pages 43.
+
+## [2026-10-19] create | TSF native composition preedit (issue #98)
+
+- Session page for the phase that replaced the overlay-window preedit with
+  a native TSF composition (inline text + display attribute), including the
+  rebase re-verification (both key-path change-sets coexist; tier-F1 re-run
+  green) and its two corrections: the fallback case's delivery channel and
+  the unsound "7/7 measured" claim. The leftover minor issue (Notepad's
+  composition highlight over the preedit) is noted on the issue for the
+  revisit.
