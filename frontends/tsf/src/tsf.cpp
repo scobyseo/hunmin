@@ -1384,6 +1384,14 @@ class CTextService : public ITfTextInputProcessor,
          * GetKeyState seam (frontends/tsf/test/trace-emit.cpp) covers both
          * with one injection. */
         const unsigned int mods = hunmin_tsf_keymods_from_state();
+        /* The engine caps option, fed per event beside the modifier snapshot
+         * (issue #112, ruling "wire and make it common to all platform"):
+         * one set per key event, 1 when the platform CapsLock is toggled on,
+         * 0 when off — the shape fcitx5 has had all along (engine.cpp:327).
+         * The option feeds the yethangul P variable only (hunmin.h:93); it
+         * selects NO row — the Shift bit below stays the only row transport
+         * (the engine's case endpoint, hunmin_ic_process_key). */
+        hunmin_ic_set_option(ic_, "caps", hunmin_tsf_capslock_from_state() ? 1 : 0);
         if (mods & (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) {
             if (pfEat)
                 *pfEat = FALSE;
@@ -1415,13 +1423,11 @@ class CTextService : public ITfTextInputProcessor,
          * layout wanting a non-US physical key cannot be expressed, because
          * the table is authored in the US-QWERTY convention.
          *
-         * CapsLock is deliberately NOT wired to the engine `caps` option
-         * here. That is unchanged from before this migration (see the
-         * modifier-key block below) and remains the parity difference
-         * recorded in docs/WINDOWS-TSF-CONFIG.md, awaiting a maintainer
-         * decision. What this migration changes about it is only WHERE the
-         * CapsLock-x-Shift question would be answered if it is answered:
-         * in the engine, not in this switch. */
+         * CapsLock IS wired to the engine `caps` option — since issue #112's
+         * ruling ("wire and make it common to all platform") it is set once
+         * per key event beside the modifier snapshot above. What stays true
+         * here is that CapsLock selects NO row: the (base, shift) pair below
+         * is the only row transport, on every platform. */
         uint32_t base = 0;
         if (wParam >= 'A' && wParam <= 'Z') {
             base = (uint32_t)(wParam + 32); /* the lowercase half */
@@ -1483,16 +1489,12 @@ class CTextService : public ITfTextInputProcessor,
             wParam == VK_RSHIFT || wParam == VK_LCONTROL || wParam == VK_RCONTROL || wParam == VK_LMENU ||
             wParam == VK_RMENU || wParam == VK_LWIN || wParam == VK_RWIN || wParam == VK_CAPITAL || wParam == VK_TAB) {
             /* CapsLock is no longer the mode toggle (maintainer instruction:
-             * the Han/Eng key is the default), and in Korean input mode it is
-             * IGNORED outright. The engine derives the shifted row from the
-             * (base, shift) pair handed to hunmin_ic_process_key above, so no
-             * caps-derived case may leak in through this frontend; the caps
-             * state is never read here. CapsLock passes through for the OS
-             * to toggle. The engine caps option is deliberately NOT wired
-             * from this frontend (fcitx5 does, for the yethangul P variable,
-             * engine.cpp:327; the Android adapter does since #105) —
-             * recorded in docs/WINDOWS-TSF-CONFIG.md as a parity difference
-             * awaiting a maintainer decision. */
+             * the Han/Eng key is the default), and in Korean input mode the
+             * key is ignored outright: it passes through for the OS to
+             * toggle, and the engine `caps` option it feeds is set per key
+             * event beside the modifier snapshot above (issue #112) — never
+             * from this guard, and never into the (base, shift) pair the
+             * engine resolves rows from. */
             if (dbg) {
                 fprintf(dbg, " modifier/pass key -> leave composition\n");
                 fclose(dbg);

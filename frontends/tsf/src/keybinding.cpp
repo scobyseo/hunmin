@@ -85,3 +85,8 @@ unsigned int hunmin_tsf_keymods_from_state(void) {
         m |= HUNMIN_TSF_KEYMOD_ALT;
     return m;
 }
+
+int hunmin_tsf_capslock_from_state(void) {
+    /* Toggle key: the LOW bit carries the toggled state, never 0x8000. */
+    return (GetKeyState(VK_CAPITAL) & 0x0001u) != 0u;
+}

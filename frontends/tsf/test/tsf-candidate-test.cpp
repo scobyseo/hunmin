@@ -74,10 +74,12 @@ struct CandidateTest : public ::testing::Test {
     tsfmock::MockDocumentMgr *dm = nullptr;
     CTextService *svc = nullptr;
 
-    void Begin() {
+    void Begin(const char *hangulLayout = "dubeolsik") {
         _putenv_s("HUNMIN_DATA_DIR", HUNMIN_TSF_DATA_DIR);
-        /* Layout seam: dubeolsik without touching the real store. */
-        _putenv_s("HUNMIN_TSF_HANGUL_LAYOUT", "dubeolsik");
+        /* Layout seam: dubeolsik without touching the real store; a case
+         * needing another layout names it (case 21 replays the sin3-p2-yet
+         * caps pair). */
+        _putenv_s("HUNMIN_TSF_HANGUL_LAYOUT", hangulLayout);
         _putenv_s("HUNMIN_TSF_LATIN_LAYOUT", "us-qwerty");
         /* Key seams: the DEFAULTS, so a store the user's live session
          * mutated (their first capture wrote HKCU HanjaKey=v1:229:0 —
@@ -569,5 +571,47 @@ TEST_F(CandidateTest, InjectedShiftSelectsTheShiftRow) {
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
     AssertPreedit("\xE3\x84\xB2", "case 19: shifted r is not ssang-gigyeong");
     AssertNoInsert("case 19");
+    Teardown();
+}
+
+/* 20. Issue #112 (ruling "wire and make it common to all platform"): the
+ * adapter feeds the engine `caps` option per key event, and CapsLock still
+ * selects NO row — the Shift bit is the only row transport (issue #106's
+ * engine case endpoint). The issue's sketch expected dubeolsik r -> ㄲ under
+ * CapsLock; measured against the tree that premise is wrong: the option
+ * feeds only the yethangul P variable (hunmin.h:93), and both other
+ * frontends leave the row plain under caps alone (fcitx5 even UNDOES the
+ * host's uppercase sym, engine.cpp:324-326). The common behaviour is the
+ * plain row, pinned here through the real engine. */
+TEST_F(CandidateTest, CapsLockFeedsTheOptionButSelectsNoRow) {
+    Begin();
+    g_mockKeyState[VK_CAPITAL & 0xFF] = (SHORT)0x0001; /* the toggle bit */
+    Key('R');
+    g_mockKeyState[VK_CAPITAL & 0xFF] = 0;
+    AssertPreedit("\xE3\x84\xB1", "caps 20: r under CapsLock is the plain row");
+    AssertNoInsert("caps 20");
+    Teardown();
+}
+
+/* 21. What the wiring is FOR, end to end: sin3-p2-yet resolves a different
+ * tier under the P variable, the exact pair tier A pins in
+ * tests/golden/p2-2-4-3-caps.jsonl — j then k with caps=1 resolves the
+ * yet-form preedit (U+1141 U+1160), with caps=0 the plain ㅇ (U+3147).
+ * Both rounds run on this adapter with the mock's VK_CAPITAL toggle bit
+ * injected, so the option's per-event shape (1 when on, 0 when off) is
+ * what the engine saw — the TSF frontend honours the yethangul P variable
+ * exactly like fcitx5 and Android now do. */
+TEST_F(CandidateTest, CapsLockDrivesTheYethangulPVariable) {
+    Begin("sin3-p2-yet");
+    g_mockKeyState[VK_CAPITAL & 0xFF] = (SHORT)0x0001;
+    Type("jk");
+    AssertPreedit("\xE1\x85\x81\xE1\x85\xA0",
+                  "caps 21: P=1 tier with CapsLock toggled on");
+    g_mockKeyState[VK_CAPITAL & 0xFF] = 0;
+    Teardown();
+
+    Begin("sin3-p2-yet");
+    Type("jk");
+    AssertPreedit("\xE3\x85\x87", "caps 21: plain tier with CapsLock off");
     Teardown();
 }
