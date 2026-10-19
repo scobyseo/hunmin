@@ -40,8 +40,14 @@ case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) HOSTOS=windows ;;
 esac
 if [ "$HOSTOS" = windows ]; then
+    # The root is where a mingw tree keeps the DLL; a multi-config VS tree
+    # keeps it under the per-config dir (build-msvc/Release) -- search both
+    # (measured 2026-10-19, issue #109: the root probe alone missed it and
+    # the runner reported the engine missing on a built tree).
     ENGINE=""
-    for e in "$BUILD_DIR/libhunmin.dll" "$BUILD_DIR/hunmin.dll"; do
+    for e in "$BUILD_DIR/libhunmin.dll" "$BUILD_DIR/hunmin.dll" \
+             "$BUILD_DIR/Release/libhunmin.dll" "$BUILD_DIR/Release/hunmin.dll" \
+             "$BUILD_DIR/Debug/libhunmin.dll" "$BUILD_DIR/Debug/hunmin.dll"; do
         if [ -f "$e" ]; then ENGINE="$e"; break; fi
     done
     OUT="$BUILD_DIR/libhunjni-host.dll"
@@ -153,11 +159,23 @@ if [ "$HOSTOS" = posix ]; then
     # mingw does not take -Wl,-rpath.
     LINK_FLAGS+=(-fPIC -Wl,-rpath,"$BUILD_DIR")
 fi
+# The engine's link input beside -L"$BUILD_DIR": a multi-config tree (VS)
+# keeps hunmin.lib under the per-config dir (build-msvc/Release), not at the
+# root a mingw tree uses; search both rather than dying on the first
+# (measured 2026-10-19, issue #109: LNK1181 on '..\..\hunmin.lib').
+LIBDIR_FLAGS=(-L"$BUILD_DIR")
+if [ "$HOSTOS" = windows ]; then
+    for d in "$BUILD_DIR/Release" "$BUILD_DIR/Debug"; do
+        if [ -f "$d/hunmin.lib" ] || [ -f "$d/libhunmin.dll.a" ]; then
+            LIBDIR_FLAGS+=(-L"$d")
+        fi
+    done
+fi
 "$CC_BIN" "${LINK_FLAGS[@]}" \
   -I"$JNI_INC" -I"$JNI_MD" \
   -I"$ROOT/libhunmin/include" \
   -o "$OUT" "$SRC" \
-  -L"$BUILD_DIR" -lhunmin
+  "${LIBDIR_FLAGS[@]}" -lhunmin
 
 # Proof it is a loadable library for this JVM and not merely a file: the
 # dependency it actually resolved, which is the thing that silently differs if
