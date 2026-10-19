@@ -632,3 +632,15 @@
   the unsound "7/7 measured" claim. The leftover minor issue (Notepad's
   composition highlight over the preedit) is noted on the issue for the
   revisit.
+
+## [2026-10-19] create | The test-framework migration, ruled and shipped (issue #109)
+
+- Session page for the day the framework question became a ruling and then
+  the tree: option 1b (FetchContent, not vendored — the issue's
+  "disqualification" did not survive measurement), the engine tier-A trio
+  under gtest, the four TSF runner groups merged into one executable with
+  one add_test and the rc-77 probes outside the binary, the never-shrinks
+  gate amended (59 → 56 on the MSVC tree), and the two host lessons (the
+  :UNINITIALIZED cache suffix that revived the #86 hunmin.lib failure;
+  -static for llvm-mingw test binaries). The fcitx5 trio is deliberately
+  absent, tracked as issue #118.
