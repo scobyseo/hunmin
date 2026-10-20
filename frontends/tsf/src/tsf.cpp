@@ -551,7 +551,7 @@ class CTextService : public ITfTextInputProcessor,
   public:
     CTextService()
         : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), ic_(nullptr),
-          hangulMode_(true), overlayWnd_(nullptr), hasPreeditRect_(false), lastCtx_(nullptr),
+          hangulMode_(true), hasPreeditRect_(false), lastCtx_(nullptr),
           legacyMode_(false),
           composition_(nullptr), compCtx_(nullptr), displayAttrAtom_(0),
           hangulId_("sin3-p2"), latinId_("us-qwerty"), candActive_(false), candCount_(0), candCursor_(0),
@@ -563,8 +563,6 @@ class CTextService : public ITfTextInputProcessor,
             compCtx_->Release();
             compCtx_ = nullptr;
         }
-        if (overlayWnd_)
-            DestroyWindow(overlayWnd_);
         if (ic_)
             hunmin_ic_free(ic_);
         if (ctx_)
@@ -1774,13 +1772,6 @@ class CTextService : public ITfTextInputProcessor,
         return S_OK;
     }
 
-    void HideOverlay() {
-        /* Ruled out with issue #98: the floating preedit window is gone for
-         * good — the preedit rides the native composition. Kept as a no-op
-         * so the teardown paths stay one call wide. */
-        (void)overlayWnd_;
-    }
-
     /* ---- Native composition preedit (issue #98) ----
      *
      * The engine's buffers reach the DOCUMENT while typing: the whole
@@ -2031,7 +2022,6 @@ class CTextService : public ITfTextInputProcessor,
      * F9 is deliberately NOT in the default set any more (maintainer
      * instruction), but a stored binding can name it. */
     HunminKeyCombo hanjaCombo_;
-    HWND overlayWnd_;
     RECT preeditRect_;
     bool hasPreeditRect_;
     ITfContext *lastCtx_;
