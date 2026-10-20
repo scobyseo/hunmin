@@ -63,6 +63,7 @@ struct TrayState {
     NOTIFYICONDATAW nid = {};
     bool wnd_class_ready = false;
     bool added = false;
+    bool promoted = false; /* the Win11 visible-in-taskbar write landed */
     HICON icon = nullptr;
     int hangul = 1; /* last requested mode; re-applied on WM_ACTIVATEAPP */
     hunmin_tsf_tray_callbacks cb = {nullptr, nullptr};
@@ -88,6 +89,52 @@ HICON TrayIconFor(int hangul) {
     UINT cy = GetSystemMetrics(SM_CYSMICON);
     return (HICON)LoadImageW(m, MAKEINTRESOURCEW(hangul ? 2 : 3), IMAGE_ICON,
                              cx, cy, LR_DEFAULTCOLOR);
+}
+
+/* Win11's tray settings store (HKCU\Control Panel\NotifyIconSettings): one
+ * subkey per icon-owning EXECUTABLE, `ExecutablePath` names it and
+ * `IsPromotedDWORD` = 1 is the "visible in the taskbar" state the settings
+ * page edits. An icon added by a process the user never promoted lands
+ * HIDDEN in the overflow (the installer round's defect report), so the
+ * badge promotes itself here, best effort: an older Windows without the
+ * key, an access failure, or no matching entry yet are all logged and
+ * retried on the next successful NIM_ADD, never fatal. The icon's owner is
+ * the HOST process (ime-probe, wordpad, ...), not our DLL. */
+bool TrayPromote(void) {
+    wchar_t host[MAX_PATH];
+    if (GetModuleFileNameW(nullptr, host, MAX_PATH) == 0)
+        return false;
+    HKEY root = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Control Panel\\NotifyIconSettings",
+                      0, KEY_READ | KEY_WRITE, &root) != ERROR_SUCCESS)
+        return false;
+    bool ok = false;
+    wchar_t name[128];
+    for (DWORD i = 0;; ++i) {
+        DWORD len = _countof(name);
+        FILETIME ft;
+        if (RegEnumKeyExW(root, i, name, &len, nullptr, nullptr, nullptr,
+                          &ft) != ERROR_SUCCESS)
+            break;
+        HKEY k = nullptr;
+        if (RegOpenKeyExW(root, name, 0, KEY_READ | KEY_WRITE, &k) != ERROR_SUCCESS)
+            continue;
+        wchar_t exe[MAX_PATH];
+        DWORD sz = sizeof(exe);
+        if (RegGetValueW(k, nullptr, L"ExecutablePath", RRF_RT_REG_SZ, nullptr,
+                         exe, &sz) == ERROR_SUCCESS &&
+            _wcsicmp(exe, host) == 0) {
+            DWORD one = 1;
+            if (RegSetValueExW(k, L"IsPromotedDWORD", 0, REG_DWORD,
+                               (const BYTE *)&one, sizeof(one)) == ERROR_SUCCESS)
+                ok = true;
+        }
+        RegCloseKey(k);
+        if (ok)
+            break;
+    }
+    RegCloseKey(root);
+    return ok;
 }
 
 void TrayRemove(void) {
@@ -120,6 +167,14 @@ bool TrayAdd(void) {
     if (!Shell_NotifyIconW(NIM_ADD, &g_tray.nid))
         return false;
     g_tray.added = true;
+    /* Visible in the taskbar, not the overflow (the installer round's defect
+     * report): the promotion write may also miss while the shell has not yet
+     * created the entry for this host executable — retried on the next
+     * add/update while unconfirmed. */
+    if (!g_tray.promoted) {
+        g_tray.promoted = TrayPromote();
+        HMLOG("tray promote ok=%d\r\n", (int)g_tray.promoted);
+    }
     return true;
 }
 
@@ -143,10 +198,23 @@ LRESULT CALLBACK TrayWndProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         /* Classic (version 0) icon routing: the LOWORD of lParam is the
          * mouse message. The single-entry menu never needs WM_CONTEXTMENU. */
         switch ((UINT)lparam & 0xFFFF) {
-        case WM_LBUTTONUP:
+        case WM_LBUTTONUP: {
+            /* The toggle must apply to the edit the user was typing in (the
+             * installer round's defect: the flip happened but the keystrokes
+             * after the click landed nowhere, because the tray click hands
+             * the foreground away). Remember the foreground window, flip,
+             * and set it back — the tray host (Shell_TrayWnd) itself is not
+             * a restore target. */
+            HWND prev = GetForegroundWindow();
+            wchar_t cls[64];
+            bool prevIsTray = prev && GetClassNameW(prev, cls, 64) > 0 &&
+                              wcscmp(cls, L"Shell_TrayWnd") == 0;
             if (g_tray.cb.toggle)
                 g_tray.cb.toggle();
+            if (prev && !prevIsTray && !SetForegroundWindow(prev))
+                HMLOG("tray focus restore FAILED err=%lu\r\n", GetLastError());
             return 0;
+        }
         case WM_RBUTTONUP: {
             /* The owner window takes the foreground for the menu's lifetime
              * (the Shell_NotifyIcon menu rule); the click lands through
@@ -231,6 +299,12 @@ void hunmin_tsf_tray_update(int hangul) {
     if (g_tray.added) {
         g_tray.nid.hIcon = g_tray.icon;
         Shell_NotifyIconW(NIM_MODIFY, &g_tray.nid);
+        /* The promotion retry lane: the shell's settings entry for this
+         * host executable may only exist by now (created after NIM_ADD). */
+        if (!g_tray.promoted) {
+            g_tray.promoted = TrayPromote();
+            HMLOG("tray promote retry ok=%d\r\n", (int)g_tray.promoted);
+        }
     } else {
         TrayShowChecked();
     }
