@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-19 | Total pages: 45
+> Last updated: 2026-10-20 | Total pages: 46
 
 ## Concepts
 
@@ -250,3 +250,14 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   one executable, one add_test, the rc-77 probes in a wrapper outside the
   binary); the FetchContent "disqualification" overturned by measurement;
   the fcitx5 trio deferred to issue #118 (unverifiable on this host).
+- [[2026-10-20-legacy-interim-input-path]] — issue #119's ruled legacy
+  support shipped on the interim route the spike measured: runtime detection
+  (the first mid-word host termination flips the service, no composition),
+  a Delivery seam (NativeDelivery = the #98 composition untouched;
+  InterimDelivery owns the span + posted writes), the test-phase boundary
+  drain (msftedit never calls OnKeyDown for an uneaten printable key), the
+  app's-caret-not-ours rule, the one-char Hanja ruling, the #103 tray core
+  layered under the new dispatcher, and the dead overlay remnants stripped;
+  overturned: the EXP-A space row (the eaten-space artifact) and the
+  tier-F1 mock's blind spot (the 24px capture EDIT rejected EM_REPLACESEL
+  growth).

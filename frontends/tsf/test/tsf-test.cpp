@@ -45,3 +45,4 @@ SHORT tsf_mock_GetKeyState(int vk) { return g_mockKeyState[vk & 0xFF]; }
 #include "tsf-settings-test.cpp"
 #include "tsf-candidate-test.cpp"
 #include "tsf-datadir-test.cpp"
+#include "tsf-legacy-test.cpp"

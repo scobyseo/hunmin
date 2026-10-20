@@ -551,7 +551,8 @@ class CTextService : public ITfTextInputProcessor,
   public:
     CTextService()
         : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), ic_(nullptr),
-          hangulMode_(true), overlayWnd_(nullptr), hasPreeditRect_(false), lastCtx_(nullptr),
+          hangulMode_(true), hasPreeditRect_(false), lastCtx_(nullptr),
+          legacyMode_(false),
           composition_(nullptr), compCtx_(nullptr), displayAttrAtom_(0),
           hangulId_("sin3-p2"), latinId_("us-qwerty"), candActive_(false), candCount_(0), candCursor_(0),
           candTop_(0), hanjaCombo_(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0}) {}
@@ -562,8 +563,6 @@ class CTextService : public ITfTextInputProcessor,
             compCtx_->Release();
             compCtx_ = nullptr;
         }
-        if (overlayWnd_)
-            DestroyWindow(overlayWnd_);
         if (ic_)
             hunmin_ic_free(ic_);
         if (ctx_)
@@ -792,6 +791,18 @@ class CTextService : public ITfTextInputProcessor,
          * Activate() had to do anyway; no separate activation-only copy
          * exists. Activate() starts hangulMode_=true. */
         ApplyConfigStore();
+        /* Issue #119: the legacy path is DETECTED at runtime (a mid-word
+         * host termination flips the service); HUNMIN_TSF_INTERIM=1 only
+         * FORCES every context onto it up front (debug/probe escape
+         * hatch). */
+        {
+            char v[8] = {0};
+            interimForce_ = GetEnvironmentVariableA("HUNMIN_TSF_INTERIM", v, sizeof v) &&
+                            (v[0] == '1' || _stricmp(v, "on") == 0 || _stricmp(v, "true") == 0);
+            legacyMode_ = interimForce_;
+            delivery_ = legacyMode_ ? (Delivery *)&interimDelivery_ : &nativeDelivery_;
+            HMLOG("legacy force=%d detected-mode=%d\n", interimForce_ ? 1 : 0, legacyMode_ ? 1 : 0);
+        }
         /* The language-bar button (ctfutb.h, discoverable settings entry):
          * registered while the service is active; the desktop/floating bar
          * shows "Hunmin 설정", clicking opens the settings window. */
@@ -1171,6 +1182,10 @@ class CTextService : public ITfTextInputProcessor,
     STDMETHOD(OnTestKeyDown)(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) override {
         (void)pic;
         (void)lParam;
+        /* The previous key's deferred doc write runs before this key is
+         * classified — a keystroke storm must not reorder the doc writes
+         * behind the engine state. */
+        FlushPendingDocWrites();
         FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
         /* Shared predicate with OnKeyDown (the registration-work rule: test
          * and down are one decision). The configured set always contains the
@@ -1207,8 +1222,31 @@ class CTextService : public ITfTextInputProcessor,
              * to the app (Ctrl+A is not composition input) — test phase
              * answers the same uneaten the down phase will act on. */
             eat = FALSE;
-        } else if ((wParam >= 'A' && wParam <= 'Z') || wParam == VK_SPACE || wParam == VK_BACK)
+        } else if (wParam >= 'A' && wParam <= 'Z') {
             eat = TRUE;
+        } else if (wParam == VK_SPACE) {
+            /* A boundary key is a key of passage (#95 contract): the app
+             * inserts the space. MEASURED on msftedit: with eat=FALSE the
+             * host NEVER calls OnKeyDown for the key — the test phase is
+             * the TIP's only sight of it — so the boundary drain runs
+             * HERE. The span bookkeeping is position-based, so the drain
+             * is order-independent against the app's own space insertion,
+             * and a host that DOES call the down re-runs the flush on the
+             * already-empty buffer (a no-op). */
+            BoundaryFlush(pic, dbg);
+            eat = FALSE;
+        } else if (wParam == VK_BACK) {
+            /* Against in-flight text the engine consumes the key (the jamo
+             * deletes). At an EMPTY in-flight the engine declines — and on
+             * the interim path the key must then PASS, so the app deletes
+             * the committed char (measured: eaten = the backspace does
+             * nothing at all); the span bookkeeping self-heals at the next
+             * write (the fresh-span anchor re-reads the live caret). The
+             * native path keeps the key: its declined branch is the
+             * #98-verified composition-close shape. */
+            const char *pre = ic_ ? hunmin_ic_preedit(ic_) : "";
+            eat = (legacyMode_ && pre[0] == '\0') ? FALSE : TRUE;
+        }
         if (pfEat)
             *pfEat = eat;
         if (dbg) {
@@ -1219,16 +1257,10 @@ class CTextService : public ITfTextInputProcessor,
         return S_OK;
     }
     STDMETHOD(OnKeyDown)(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) override {
-        (void)lParam;
-        if (lastCtx_ != pic) {
-            if (lastCtx_)
-                lastCtx_->Release();
-            lastCtx_ = pic;
-            if (lastCtx_)
-                lastCtx_->AddRef();
-            if (composition_ && compCtx_ && compCtx_ != pic)
-                DetachComposition();
-        }
+        /* Same entry flush as the test phase: whichever callback the host
+         * reaches first settles the previous key's doc write. */
+        FlushPendingDocWrites();
+        TrackKeyContext(pic);
         FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
         if (dbg) {
             fprintf(dbg, "OnKeyDown wParam=%lu ic=%p\n", (unsigned long)wParam, (void *)ic_);
@@ -1243,31 +1275,13 @@ class CTextService : public ITfTextInputProcessor,
             }
             return S_OK;
         }
-        // Mode-toggle keys (issue #66 / #71): the configured bindings plus the
-        // always-on bare Han/Eng key (VK_HANGEUL, the platform alternate no
-        // rebinding can make dead — the Android rule). A toggle is a mode
-        // boundary, i.e. a composition boundary (Jamotong manual §9.5; the
-        // Android adapter commits at the mode switch): the pending syllable
-        // is flushed and the buffered word inserted before the engine is
-        // rebuilt with the other slot's layout. Auto-repeat is keydown with
-        // the preceding-down bit set (lParam bit 30): the press must toggle
-        // once, and repeats are swallowed rather than delivered to the app.
-        if (hunmin_tsf_keybindings_match(toggleKeys_.data(), (int)toggleKeys_.size(),
-                                         (unsigned)wParam, hunmin_tsf_keymods_from_state())) {
-            if (pfEat)
-                *pfEat = TRUE;
-            const bool repeat = (lParam & (1 << 30)) != 0;
-            if (!repeat)
-                /* The shared mode-switch core (issue #103): the tray
-                 * badge's left-click runs the same steps with no context. */
-                ToggleModeCore(pic, dbg);
-            if (dbg) {
-                fprintf(dbg, " toggle key vk=%lu repeat=%d -> %s (%s)\n",
-                        (unsigned long)wParam, (int)repeat,
-                        hangulMode_ ? "hangul" : "english",
-                        hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
-                fclose(dbg);
-            }
+        /* Each handler owns one key class and answers one question: is the
+         * key ours (pfEat), and what state changes. The order IS the
+         * precedence: the toggle, the mode passthrough, the candidate
+         * window's own key, the open window's list keys, the keys of
+         * passage, and finally the composition feed. */
+        if (IsModeToggle(wParam)) {
+            ApplyModeToggle(pic, wParam, lParam, pfEat, dbg);
             return S_OK;
         }
         if (!hangulMode_) {
@@ -1275,123 +1289,186 @@ class CTextService : public ITfTextInputProcessor,
                 fclose(dbg);
             return S_OK; // passthrough English
         }
-        /* --- the candidate-window key (issue #67) ---
-         *
-         * The configured binding (default: the bare physical Hanja key)
-         * toggles the window. Interception sits before any engine feed
-         * because it is not a printable key (fcitx5's identical placement
-         * for F9, engine.cpp:204-223). Consumption is conditional whether
-         * the window is open or, with a candidate-bearing buffer, just
-         * opened; with neither, the key belongs to the client app and
-         * passes through uneaten. */
-        if (hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam,
-                                         hunmin_tsf_keymods_from_state())) {
-            if (candActive_) {
-                CloseCandidateWindow();
-            } else {
-                OpenCandidates();
-                if (candActive_)
-                    UpdateCandidateWindow(pic);
-            }
-            if (dbg) {
-                fprintf(dbg, " hanja key vk=%lu -> %s (src=%s count=%d)\n",
-                        (unsigned long)wParam, candActive_ ? "open" : "closed",
-                        candSource_.c_str(), candCount_);
-                fflush(dbg);
-                fclose(dbg);
-            }
-            if (pfEat)
-                *pfEat = candActive_ ? TRUE : FALSE;
+        if (IsCandidateToggle(wParam)) {
+            ToggleCandidateWindow(pic, wParam, pfEat, dbg);
             return S_OK;
         }
+        if (candActive_ && CandidateListKey(pic, wParam, pfEat, dbg))
+            return S_OK;
+        if (IsKeyOfPassage(wParam)) {
+            DrainAndPass(pic, wParam, pfEat, dbg, "edit key");
+            return S_OK;
+        }
+        if (wParam >= VK_F1 && wParam <= VK_F12) {
+            DrainAndPass(pic, wParam, pfEat, dbg, "fkey");
+            return S_OK;
+        }
+        FeedEngineKey(pic, wParam, pfEat, dbg);
+        return S_OK;
+    }
+
+    void TrackKeyContext(ITfContext *pic) {
+        if (lastCtx_ == pic)
+            return;
+        if (lastCtx_)
+            lastCtx_->Release();
+        lastCtx_ = pic;
+        if (lastCtx_)
+            lastCtx_->AddRef();
+        if (composition_ && compCtx_ && compCtx_ != pic)
+            DetachComposition();
+    }
+
+    bool IsModeToggle(WPARAM wParam) {
+        return hunmin_tsf_keybindings_match(toggleKeys_.data(), (int)toggleKeys_.size(),
+                                            (unsigned)wParam, hunmin_tsf_keymods_from_state()) != FALSE;
+    }
+
+    /* The mode toggle (issue #66 / #71): the configured bindings plus the
+     * always-on bare Han/Eng key (VK_HANGEUL, the platform alternate no
+     * rebinding can make dead — the Android rule). A toggle is a mode
+     * boundary, i.e. a composition boundary (Jamotong manual §9.5; the
+     * Android adapter commits at the mode switch). Auto-repeat is keydown
+     * with the preceding-down bit set (lParam bit 30): the press must
+     * toggle once, and repeats are swallowed rather than delivered to the
+     * app. The steps themselves are the SHARED mode-switch core
+     * (ToggleModeCore, issue #103): the tray badge's left-click runs the
+     * same steps with no context. */
+    void ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat, FILE *dbg) {
+        if (pfEat)
+            *pfEat = TRUE;
+        const bool repeat = (lParam & (1 << 30)) != 0;
+        if (!repeat)
+            ToggleModeCore(pic, dbg);
+        if (dbg) {
+            fprintf(dbg, " toggle key vk=%lu repeat=%d -> %s (%s)\n",
+                    (unsigned long)wParam, (int)repeat,
+                    hangulMode_ ? "hangul" : "english",
+                    hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
+            fclose(dbg);
+        }
+    }
+
+    bool IsCandidateToggle(WPARAM wParam) {
+        return hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam,
+                                            hunmin_tsf_keymods_from_state()) != FALSE;
+    }
+
+    /* The candidate-window key (issue #67). The configured binding (default:
+     * the bare physical Hanja key) toggles the window. Interception sits
+     * before any engine feed because it is not a printable key (fcitx5's
+     * identical placement for F9, engine.cpp:204-223). Consumption is
+     * conditional whether the window is open or, with a candidate-bearing
+     * buffer, just opened; with neither, the key belongs to the client app
+     * and passes through uneaten. */
+    void ToggleCandidateWindow(ITfContext *pic, WPARAM wParam, BOOL *pfEat, FILE *dbg) {
         if (candActive_) {
-            bool handled = false;
-            bool submit = false;
-            int submitIdx = candCursor_;
-            switch (wParam) {
-            case VK_RETURN:
-                submit = true;
-                handled = true;
-                break;
-            case VK_ESCAPE:
-                CloseCandidateWindow();
-                handled = true;
-                break;
-            case VK_UP:
-            case VK_LEFT:
-                if (candCursor_ > 0) {
-                    --candCursor_;
-                    PageFollowCursor();
-                    UpdateCandidateWindow(pic);
-                }
-                handled = true;
-                break;
-            case VK_DOWN:
-            case VK_RIGHT:
-                if (candCursor_ < candCount_ - 1) {
-                    ++candCursor_;
-                    PageFollowCursor();
-                    UpdateCandidateWindow(pic);
-                }
-                handled = true;
-                break;
-            case VK_PRIOR:
-                PageStep(-1);
+            CloseCandidateWindow();
+        } else {
+            OpenCandidates();
+            if (candActive_)
                 UpdateCandidateWindow(pic);
-                handled = true;
-                break;
-            case VK_NEXT:
-                PageStep(+1);
+        }
+        if (dbg) {
+            fprintf(dbg, " hanja key vk=%lu -> %s (src=%s count=%d)\n",
+                    (unsigned long)wParam, candActive_ ? "open" : "closed",
+                    candSource_.c_str(), candCount_);
+            fflush(dbg);
+            fclose(dbg);
+        }
+        if (pfEat)
+            *pfEat = candActive_ ? TRUE : FALSE;
+    }
+
+    /* The open window's list keys (issue #67): Enter commits the cursor,
+     * Esc closes, arrows/PageUp/PageDown move, digits 1..0 pick. A digit
+     * past the end of the count closes the window and falls through like
+     * any other unhandled key — an invisible window must never swallow a
+     * keystroke. Returns true when the key was ours. */
+    bool CandidateListKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat, FILE *dbg) {
+        bool handled = false;
+        bool submit = false;
+        int submitIdx = candCursor_;
+        switch (wParam) {
+        case VK_RETURN:
+            submit = true;
+            handled = true;
+            break;
+        case VK_ESCAPE:
+            CloseCandidateWindow();
+            handled = true;
+            break;
+        case VK_UP:
+        case VK_LEFT:
+            if (candCursor_ > 0) {
+                --candCursor_;
+                PageFollowCursor();
                 UpdateCandidateWindow(pic);
-                handled = true;
-                break;
-            default:
-                /* Digit select: 1..9 pick the page-relative candidates 1..9,
-                 * 0 picks the tenth, mirroring fcitx5's label scheme. A
-                 * digit past the end of the count closes the window and
-                 * falls through like any other unhandled key — an invisible
-                 * window must never swallow a keystroke. */
-                if (wParam >= '0' && wParam <= '9') {
-                    int pos = (wParam == '0') ? 9 : (int)(wParam - '1');
-                    int idx = candTop_ + pos;
-                    if (pos >= 0 && idx < candCount_) {
-                        submitIdx = idx;
-                        submit = true;
-                        handled = true;
-                    }
-                }
-                break;
             }
-            if (submit)
-                CommitCandidate(pic, submitIdx);
-            if (handled) {
-                if (pfEat)
-                    *pfEat = TRUE;
-                if (dbg) {
-                    fprintf(dbg, " candidate key vk=%lu cursor=%d count=%d\n", (unsigned long)wParam,
-                            candCursor_, candCount_);
-                    fclose(dbg);
-                }
-                return S_OK;
+            handled = true;
+            break;
+        case VK_DOWN:
+        case VK_RIGHT:
+            if (candCursor_ < candCount_ - 1) {
+                ++candCursor_;
+                PageFollowCursor();
+                UpdateCandidateWindow(pic);
             }
+            handled = true;
+            break;
+        case VK_PRIOR:
+            PageStep(-1);
+            UpdateCandidateWindow(pic);
+            handled = true;
+            break;
+        case VK_NEXT:
+            PageStep(+1);
+            UpdateCandidateWindow(pic);
+            handled = true;
+            break;
+        default:
+            /* Digit select: 1..9 pick the page-relative candidates 1..9,
+             * 0 picks the tenth, mirroring fcitx5's label scheme. */
+            if (wParam >= '0' && wParam <= '9') {
+                int pos = (wParam == '0') ? 9 : (int)(wParam - '1');
+                int idx = candTop_ + pos;
+                if (pos >= 0 && idx < candCount_) {
+                    submitIdx = idx;
+                    submit = true;
+                    handled = true;
+                }
+            }
+            break;
+        }
+        if (submit)
+            CommitCandidate(pic, submitIdx);
+        if (!handled) {
             /* Anything else: close and fall through to the normal path, so
              * typing continues where the user left off instead of being
              * swallowed by an invisible window (fcitx5: the default rule).
              * The buffered word is untouched by the close itself. */
             CloseCandidateWindow();
+            return false;
         }
-        /* Edit/navigation keys (measured on this host during the buffered-input
-         * check: VK_LEFT..VK_NEXT + VK_INSERT/VK_DELETE all fall into the
-         * 0x20-0x7E printable fallback below, so each was translated into a
-         * layout character (VK_UP 38 -> '&', VK_DOWN 40 -> '(', DELETE 46 ->
-         * '.', ...) and EATEN — the editor never saw them and stray punctuation
-         * could land in the document. They are keys of passage: a cursor move
-         * is a composition boundary, so the boundary drain commits the buffered
-         * word exactly once and the key passes through untouched
-         * (pfEat = FALSE, matching the OnTestKeyDown predicate which already
-         * shows no interest in them). Reached only while the candidate window
-         * is NOT open: when it is, the block above owns these vk's for
-         * list motion (issue #67). */
+        if (pfEat)
+            *pfEat = TRUE;
+        if (dbg) {
+            fprintf(dbg, " candidate key vk=%lu cursor=%d count=%d\n", (unsigned long)wParam,
+                    candCursor_, candCount_);
+            fclose(dbg);
+        }
+        return true;
+    }
+
+    /* Keys of passage (measured on this host during the buffered-input
+     * check: VK_LEFT..VK_NEXT + VK_INSERT/VK_DELETE all fell into the
+     * printable fallback below, so each was translated into a layout
+     * character — VK_UP 38 -> '&', DELETE 46 -> '.' — and EATEN). A cursor
+     * move is a composition boundary: the boundary drain commits the
+     * buffered word exactly once and the key passes through untouched.
+     * Reached only while the candidate window is NOT open: when it is,
+     * CandidateListKey owns these vk's for list motion (issue #67). */
+    bool IsKeyOfPassage(WPARAM wParam) {
         switch (wParam) {
         case VK_LEFT:
         case VK_UP:
@@ -1402,49 +1479,134 @@ class CTextService : public ITfTextInputProcessor,
         case VK_PRIOR:
         case VK_NEXT:
         case VK_INSERT:
-        case VK_DELETE: {
-            BoundaryFlush(pic, dbg);
-            if (pfEat)
-                *pfEat = FALSE;
-            if (dbg) {
-                fprintf(dbg, " edit key vk=%lu -> boundary + passthrough\n", (unsigned long)wParam);
-                fclose(dbg);
-            }
-            return S_OK;
-        }
+        case VK_DELETE:
+            return true;
         default:
             /* The function-key block (measured with the unbound-F9 case of
              * issue #67: VK_F1..VK_F12 = 0x70..0x7B falls into the
              * printable fallback below, so an unbound F-key composed its
              * VK-value as a layout character — F9(0x78) typed 'x' = ㅈ into
-             * the composition the user was watching. Same defect class as
-             * the edit keys above, same keys-of-passage answer: a drained
-             * boundary and a pass-through. */
-            if (wParam >= VK_F1 && wParam <= VK_F12) {
-                BoundaryFlush(pic, dbg);
-                if (pfEat)
-                    *pfEat = FALSE;
-                if (dbg) {
-                    fprintf(dbg, " fkey vk=%lu -> boundary + passthrough\n", (unsigned long)wParam);
-                    fclose(dbg);
-                }
-                return S_OK;
-            }
-            break;
+             * the composition the user was watching. Same defect class,
+             * same keys-of-passage answer. */
+            return wParam >= VK_F1 && wParam <= VK_F12;
         }
-        /* --- the CTRL/ALT chord rule (measured defect 2026-10-18: the letter
-         * inside a Ctrl/Alt chord still fed the composition — Ctrl+A typed
-         * the preedit's next syllable instead of select-all) ---
-         *
-         * A chord is application input, not composition input: the pending
-         * preedit commits through the SAME boundary flush a mode toggle
-         * drives (the candidate window closes with its composition, #67),
-         * and the key passes to the client app uneaten, in its chord sense.
-         * The mode itself is NOT flipped: one chord selects all without
-         * remaining more aggressive — the mode WORD switch on ctrl/alt — was
-         * ruled out 2026-10-18, issue #101: "will not switch mode; transient
-         * processing is enough". See docs/WINDOWS-TSF-BUFFERING.md and
-         * wiki/decisions/2026-10-18-tsf-chord-transient-not-persistent.md.) */
+    }
+
+    void DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat, FILE *dbg,
+                      const char *tag) {
+        BoundaryFlush(pic, dbg);
+        if (pfEat)
+            *pfEat = FALSE;
+        if (dbg) {
+            fprintf(dbg, " %s vk=%lu -> boundary + passthrough\n", tag,
+                    (unsigned long)wParam);
+            fclose(dbg);
+        }
+    }
+
+    /* The VK -> base half, and only that half (issue #106): the physical
+     * key's UNSHIFTED US-QWERTY character. The shift column the adapter
+     * used to carry is the engine's own map (data.c BASE/SHIFTED), selected
+     * in the engine by the Shift bit that travels beside the base
+     * (FRONTEND-CONTRACT.md A3'). */
+    static uint32_t VkToBase(WPARAM wParam) {
+        if (wParam >= 'A' && wParam <= 'Z')
+            return (uint32_t)(wParam + 32); /* the lowercase half */
+        if (wParam >= '0' && wParam <= '9')
+            return (uint32_t)wParam;
+        if (wParam == VK_SPACE)
+            return ' ';
+        if (wParam == VK_BACK)
+            return 0x08;
+        switch (wParam) {
+        case VK_OEM_1:
+            return ';';
+        case VK_OEM_7:
+            return '\'';
+        case VK_OEM_COMMA:
+            return ',';
+        case VK_OEM_PERIOD:
+            return '.';
+        case VK_OEM_2:
+            return '/';
+        case VK_OEM_3:
+            return '`';
+        case VK_OEM_4:
+            return '[';
+        case VK_OEM_5:
+            return '\\';
+        case VK_OEM_6:
+            return ']';
+        case VK_OEM_MINUS:
+            return '-';
+        case VK_OEM_PLUS:
+            return '=';
+        default:
+            if (wParam >= 0x20 && wParam <= 0x7E)
+                return (uint32_t)wParam;
+            return 0;
+        }
+    }
+
+    /* Modifier keys are not text: never feed them to the engine (would
+     * corrupt an in-flight syllable). CapsLock is no longer the mode toggle
+     * (maintainer instruction: the Han/Eng key is the default), and in
+     * Korean input mode the key is ignored outright: it passes through for
+     * the OS to toggle, and the engine `caps` option it feeds is set per
+     * key event beside the modifier snapshot (issue #112) — never into the
+     * (base, shift) pair the engine resolves rows from. */
+    static bool IsModifierVk(WPARAM wParam) {
+        switch (wParam) {
+        case VK_SHIFT:
+        case VK_CONTROL:
+        case VK_MENU:
+        case VK_LSHIFT:
+        case VK_RSHIFT:
+        case VK_LCONTROL:
+        case VK_RCONTROL:
+        case VK_LMENU:
+        case VK_RMENU:
+        case VK_LWIN:
+        case VK_RWIN:
+        case VK_CAPITAL:
+        case VK_TAB:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    /* Word buffering (issue #73, adapter-side; no libhunmin change):
+     * hunmin_ic_commit() is a destructive read of every syllable the
+     * engine finalised so far, so the adapter accumulates it instead of
+     * inserting per syllable. The word size includes no NUL: the buffer
+     * holds text only, or every later insert would stop at the embedded
+     * NUL after the first syllable. */
+    void HarvestFinalised() {
+        const char *commit = hunmin_ic_commit(ic_);
+        if (!commit || !commit[0])
+            return;
+        int clen = MultiByteToWideChar(CP_UTF8, 0, commit, -1, nullptr, 0);
+        if (clen <= 1)
+            return;
+        size_t old = wordbuf_.size();
+        wordbuf_.resize(old + clen - 1);
+        MultiByteToWideChar(CP_UTF8, 0, commit, -1, &wordbuf_[old], clen);
+    }
+
+    /* The composition feed: the engine decides consumed/declined. A chord
+     * (Ctrl/Alt) is application input, not composition input — measured
+     * defect 2026-10-18: the letter inside a Ctrl/Alt chord still fed the
+     * composition, Ctrl+A typed the preedit's next syllable instead of
+     * select-all. The chord commits through the SAME boundary flush a mode
+     * toggle drives and passes uneaten; the mode itself is NOT flipped
+     * (ruled out 2026-10-18, issue #101: "will not switch mode; transient
+     * processing is enough" — docs/WINDOWS-TSF-BUFFERING.md and
+     * wiki/decisions/2026-10-18-tsf-chord-transient-not-persistent.md).
+     * A decline is a word boundary for the buffering adapter (issue #73):
+     * the boundary drain runs and the key passes (pfEat stays FALSE) —
+     * the fcitx/android "used=FALSE => passthrough" contract. */
+    void FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat, FILE *dbg) {
         /* One snapshot of the modifier state for this event. The chord rule
          * below and the shift bit handed to the engine both read it, so the
          * decision and the bit can never disagree, and the mock harness's
@@ -1456,162 +1618,48 @@ class CTextService : public ITfTextInputProcessor,
          * one set per key event, 1 when the platform CapsLock is toggled on,
          * 0 when off — the shape fcitx5 has had all along (engine.cpp:327).
          * The option feeds the yethangul P variable only (hunmin.h:93); it
-         * selects NO row — the Shift bit below stays the only row transport
+         * selects NO row — the Shift bit stays the only row transport
          * (the engine's case endpoint, hunmin_ic_process_key). */
         hunmin_ic_set_option(ic_, "caps", hunmin_tsf_capslock_from_state() ? 1 : 0);
         if (mods & (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) {
-            if (pfEat)
-                *pfEat = FALSE;
             CloseCandidateWindow();
             BoundaryFlush(pic, dbg);
+            if (pfEat)
+                *pfEat = FALSE;
             if (dbg) {
                 fprintf(dbg, " ctrl/alt chord -> commit + passthrough\n");
                 fclose(dbg);
             }
-            return S_OK;
+            return;
         }
-        /* --- the VK -> base half, and only that half (issue #106) ---
-         *
-         * Before this, each branch below carried BOTH forms of its key:
-         * the Shift bit picked between them here, over a second copy of the
-         * US-QWERTY shift map (VK_0..VK_9 against a hardcoded
-         * "0123456789"/")!@#$%^&*(" pair, eleven VK_OEM_* pairs). The engine
-         * already owns that map -- libhunmin/src/data.c's BASE/SHIFTED, the
-         * same table the loader uses to place a "shift" row -- and
-         * hunmin_ic_process_key() exposes it as the case endpoint
-         * (hunmin.h:66-84, issue #90's option B, docs/IC-INPUT-OPTIONS.md
-         * §2-B). So what is left here is the half no host can supply: the
-         * physical key's UNSHIFTED US-QWERTY character. The shift bit
-         * travels beside it, and the shifted row is selected in the engine.
-         *
-         * This is the shape the Android adapter landed in #105 and the one
-         * docs/FRONTEND-CONTRACT.md A3' describes. It carries the same
-         * stated cost as fcitx5's assumption A1 and Android's registry: a
-         * layout wanting a non-US physical key cannot be expressed, because
-         * the table is authored in the US-QWERTY convention.
-         *
-         * CapsLock IS wired to the engine `caps` option — since issue #112's
-         * ruling ("wire and make it common to all platform") it is set once
-         * per key event beside the modifier snapshot above. What stays true
-         * here is that CapsLock selects NO row: the (base, shift) pair below
-         * is the only row transport, on every platform. */
-        uint32_t base = 0;
-        if (wParam >= 'A' && wParam <= 'Z') {
-            base = (uint32_t)(wParam + 32); /* the lowercase half */
-        } else if (wParam >= '0' && wParam <= '9') {
-            base = (uint32_t)wParam;
-        } else if (wParam == VK_SPACE) {
-            base = ' ';
-        } else if (wParam == VK_BACK) {
-            base = 0x08;
-        } else {
-            switch (wParam) {
-            case VK_OEM_1:
-                base = ';';
-                break;
-            case VK_OEM_7:
-                base = '\'';
-                break;
-            case VK_OEM_COMMA:
-                base = ',';
-                break;
-            case VK_OEM_PERIOD:
-                base = '.';
-                break;
-            case VK_OEM_2:
-                base = '/';
-                break;
-            case VK_OEM_3:
-                base = '`';
-                break;
-            case VK_OEM_4:
-                base = '[';
-                break;
-            case VK_OEM_5:
-                base = '\\';
-                break;
-            case VK_OEM_6:
-                base = ']';
-                break;
-            case VK_OEM_MINUS:
-                base = '-';
-                break;
-            case VK_OEM_PLUS:
-                base = '=';
-                break;
-            default:
-                if (wParam >= 0x20 && wParam <= 0x7E)
-                    base = (uint32_t)wParam;
-                break;
-            }
-        }
-        // When base == 0 (punctuation / any key no layout row covers), fall through
-        // with the Zero entry: hunmin_ic_process -> save_commit -> false, so the
-        // declined branch below flushes the pending syllable and passes the key.
-        // Modifier keys (Shift/Ctrl/Alt/Win, Caps) are not text: never flush/passthrough
-        // through the engine (would corrupt an in-flight syllable). Other unmapped
-        // keys (punct, arrows, Enter, digits handled here as 0) fall through so the
-        // declined branch flushes the pending composition and passes the key.
-        if (wParam == VK_SHIFT || wParam == VK_CONTROL || wParam == VK_MENU || wParam == VK_LSHIFT ||
-            wParam == VK_RSHIFT || wParam == VK_LCONTROL || wParam == VK_RCONTROL || wParam == VK_LMENU ||
-            wParam == VK_RMENU || wParam == VK_LWIN || wParam == VK_RWIN || wParam == VK_CAPITAL || wParam == VK_TAB) {
-            /* CapsLock is no longer the mode toggle (maintainer instruction:
-             * the Han/Eng key is the default), and in Korean input mode the
-             * key is ignored outright: it passes through for the OS to
-             * toggle, and the engine `caps` option it feeds is set per key
-             * event beside the modifier snapshot above (issue #112) — never
-             * from this guard, and never into the (base, shift) pair the
-             * engine resolves rows from. */
+        if (IsModifierVk(wParam)) {
             if (dbg) {
                 fprintf(dbg, " modifier/pass key -> leave composition\n");
                 fclose(dbg);
             }
-            return S_OK;
+            return;
         }
         /* The case endpoint is the engine's (issue #106): the unshifted base
-         * plus the Shift bit from the snapshot above. hunmin_ic_process_key
-         * resolves the row through the loader's own US-QWERTY map, so the
-         * shift column this adapter used to carry is deleted rather than
-         * rewritten (FRONTEND-CONTRACT.md A3'). */
-        bool consumed =
-            hunmin_ic_process_key(ic_, base, (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u);
-        if (consumed) {
-            /* Word buffering (issue #73, adapter-side; no libhunmin change):
-             * hunmin_ic_commit() is a destructive read of every syllable the
-             * engine finalised so far, so the adapter accumulates it instead
-             * of inserting per syllable. Insertion happens exactly once, on
-             * the first boundary key (declined path below). */
-            const char *commit = hunmin_ic_commit(ic_);
-            if (commit && commit[0]) {
-                int clen = MultiByteToWideChar(CP_UTF8, 0, commit, -1, nullptr, 0);
-                if (clen > 1) {
-                    size_t old = wordbuf_.size();
-                    /* clen counts the NUL terminator; the buffer holds text
-                     * only, or every later insert/overlay would stop at the
-                     * embedded NUL after the first syllable. */
-                    wordbuf_.resize(old + clen - 1);
-                    MultiByteToWideChar(CP_UTF8, 0, commit, -1, &wordbuf_[old], clen);
-                }
-            }
-            if (dbg) {
-                fprintf(dbg, " consumed, word len=%zu preedit=%s\n", wordbuf_.size(), hunmin_ic_preedit(ic_));
-                fflush(dbg);
-            }
-            CompositionWrite(pic);
-            if (pfEat)
-                *pfEat = TRUE;
-        } else {
-            /* Engine declined (space, empty backspace, unmapped): a word
-             * boundary for the buffering adapter (issue #73). The engine has
-             * already saved the in-flight syllable via save_commit; the
-             * boundary drain flushes it, the adapter appends whatever word it
-             * has been holding, and the whole word is inserted exactly once
-             * before the boundary key passes through (pfEat stays FALSE) --
-             * matching the fcitx/android "used=FALSE => passthrough"
-             * contract. */
+         * plus the Shift bit from the snapshot above. */
+        bool consumed = hunmin_ic_process_key(
+            ic_, VkToBase(wParam), (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u);
+        if (!consumed) {
             BoundaryFlush(pic, dbg);
+            return;
         }
-        return S_OK;
+        HarvestFinalised();
+        if (dbg) {
+            fprintf(dbg, " consumed, word len=%zu preedit=%s\n", wordbuf_.size(),
+                    hunmin_ic_preedit(ic_));
+            fflush(dbg);
+        }
+        /* Issue #119: the legacy interim path when the host was detected
+         * terminating compositions mid-word (or the env said so); the #98
+         * native path otherwise stays as is. The doc write is POSTED —
+         * never inline in a TSF callback (the measured focus-storm defect). */
+        delivery_->Consumed(pic);
+        if (pfEat)
+            *pfEat = TRUE;
     }
 
     STDMETHOD(OnTestKeyUp)(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) override {
@@ -1642,16 +1690,76 @@ class CTextService : public ITfTextInputProcessor,
     STDMETHOD(OnCompositionTerminated)(TfEditCookie ecWrite, ITfComposition *pComposition) override {
         (void)ecWrite;
         (void)pComposition;
-        /* Logged as of the sandbox round that needed it (issue #99): this
-         * handler was the only silent piece of the composition lifecycle,
-         * and a host that terminates per keystroke hid here — every key
-         * then evaluated its fresh/bare-jamo branch (round 10's trace). */
-        HMLOG("OnCompositionTerminated comp=%p wordbuf=%zu\n",
-              (void *)composition_, wordbuf_.size());
-        /* The host terminated the composition (issue #98): the composed text
-         * is now document text by the host's decision, so the buffers drain
-         * and the engine state resets — the same word must never be
-         * delivered twice through the next boundary. */
+        HMLOG("OnCompositionTerminated comp=%p wordbuf=%zu self=%d\n",
+              (void *)composition_, wordbuf_.size(), endingSelf_ ? 1 : 0);
+        if (endingSelf_) {
+            /* Our own EndComposition (issue #98): the composed text is
+             * document text by OUR decision, so the buffers drain and the
+             * engine state resets — the same word must never be delivered
+             * twice through the next boundary. */
+            if (composition_) {
+                composition_->Release();
+                composition_ = nullptr;
+            }
+            if (compCtx_) {
+                compCtx_->Release();
+                compCtx_ = nullptr;
+            }
+            compText_.clear();
+            wordbuf_.clear();
+            if (ic_)
+                hunmin_ic_reset(ic_);
+            return S_OK;
+        }
+        /* Host-driven termination. A modern host terminates only at real
+         * boundaries (focus loss, user click-away); when the state is
+         * mid-word — the in-flight text was composed but the word is not
+         * finished — the host is a classic (default-sink) one: the #119
+         * measurement (rounds 11-14; the baseline round in
+         * docs/TSF-INTERIM-INPUT-SPIKE.md) shows these hosts terminate per
+         * key. Flip THIS SERVICE to the interim path for its life and
+         * recover what this termination fused:
+         *   - the engine's state is NOT ours to drop: the in-flight
+         *     syllable is still live in the ic; the doc now holds a DEAD
+         *     COPY of what the composition showed (compText_) — delete
+         *     that copy from the control (EM), and the ic keeps composing
+         *     from the same jamo state (no reset, no re-feed needed). */
+        if (wordbuf_.empty() && compText_.empty()) {
+            /* nothing mid-word: a real boundary under our own bookkeeping
+             * must have run already — plain cleanup, old contract. */
+            if (composition_) {
+                composition_->Release();
+                composition_ = nullptr;
+            }
+            if (compCtx_) {
+                compCtx_->Release();
+                compCtx_ = nullptr;
+            }
+            compText_.clear();
+            return S_OK;
+        }
+        HMLOG("legacy detection: mid-word host termination (compText=%zu wordbuf=%zu) -> interim path\n",
+              compText_.size(), wordbuf_.size());
+        legacyMode_ = true;
+        delivery_ = &interimDelivery_;
+        /* What is dead in the doc = the WHOLE composition text (compText_:
+         * nothing under this composition was ours to keep there — the
+         * interim path rebuilds the word from the LIVE buffers and live
+         * ic state). Delete the dead copy at the POSTED write — never
+         * inline here: this handler runs inside the host's TSF callback,
+         * where the EM writes fire the re-entrant focus storm that eats
+         * keystrokes (measured). One path for every caret state: the
+         * write re-measures the caret when the app's queue has settled
+         * (the fused copy's caret was measured BOTH behind the span and
+         * past it, settling differently per host). The ic keeps composing
+         * from the same jamo state (no reset) and wordbuf_ keeps the
+         * finalised syllables so the write re-appends them to the doc. */
+        interimDelivery_.CaptureDeadCopy(compText_);
+        /* A write posted by the terminated key is superseded: the host has
+         * fused the composition text itself and the re-bookkeeping above
+         * recomputes the span. The posted write runs as THIS flip's dead
+         * copy removal instead. */
+        interimDelivery_.CaptureDeadCopy(compText_);
         if (composition_) {
             composition_->Release();
             composition_ = nullptr;
@@ -1661,17 +1769,7 @@ class CTextService : public ITfTextInputProcessor,
             compCtx_ = nullptr;
         }
         compText_.clear();
-        wordbuf_.clear();
-        if (ic_)
-            hunmin_ic_reset(ic_);
         return S_OK;
-    }
-
-    void HideOverlay() {
-        /* Ruled out with issue #98: the floating preedit window is gone for
-         * good — the preedit rides the native composition. Kept as a no-op
-         * so the teardown paths stay one call wide. */
-        (void)overlayWnd_;
     }
 
     /* ---- Native composition preedit (issue #98) ----
@@ -1780,6 +1878,12 @@ class CTextService : public ITfTextInputProcessor,
                 }
                 svc_->compText_ = t_;
                 if (endAfter_) {
+                    /* Issue #119: our own end is flagged so the sink cannot
+                     * mistake it for a host-driven termination (measured:
+                     * the sink has never fired for a service-called
+                     * EndComposition — the wrap is protection, not assumed
+                     * behaviour). */
+                    svc_->endingSelf_ = true;
                     svc_->composition_->EndComposition(ec);
                     HMLOG("composition end text=%ls\n", t_);
                     svc_->composition_->Release();
@@ -1789,6 +1893,7 @@ class CTextService : public ITfTextInputProcessor,
                         svc_->compCtx_ = nullptr;
                     }
                     svc_->compText_.clear();
+                    svc_->endingSelf_ = false;
                 }
             }
             return S_OK;
@@ -1917,7 +2022,6 @@ class CTextService : public ITfTextInputProcessor,
      * F9 is deliberately NOT in the default set any more (maintainer
      * instruction), but a stored binding can name it. */
     HunminKeyCombo hanjaCombo_;
-    HWND overlayWnd_;
     RECT preeditRect_;
     bool hasPreeditRect_;
     ITfContext *lastCtx_;
@@ -1935,6 +2039,328 @@ class CTextService : public ITfTextInputProcessor,
     /* Finalised syllables held for insertion at the next boundary key
      * (issue #73); drained destructively by hunmin_ic_commit(). */
     std::wstring wordbuf_;
+
+    bool interimForce_ = false;
+    bool legacyMode_ = false; /* the mode flag; delivery_ carries the behaviour */
+    bool endingSelf_ = false; /* between EndComposition entry and return */
+
+    /* ---- The delivery seam (issue #119) ----
+     *
+     * The COMMON key handling (OnTestKeyDown/OnKeyDown) classifies the key
+     * and feeds the engine; it never asks which mode it is in. What the
+     * two modes DO with the engine's answer is the seam below:
+     *
+     * - NativeDelivery — the #98 composition path: the word rides a live
+     *   ITfComposition (inline start/update/end per edit session). Modern
+     *   hosts keep compositions alive (Win11 Notepad, Edge — measured).
+     * - InterimDelivery — the #119 interim path for classic (default-sink)
+     *   hosts: NO composition (nothing to terminate), the word is document
+     *   text, rewritten per key through the control's own EM_* protocol.
+     *   The doc model: [finalised word][in-flight span]; the span
+     *   [preStart_, preStart_+preLen_) is the ONLY text the mode rewrites,
+     *   always through ONE select + ONE EM_REPLACESEL (ReplaceSpan) —
+     *   piecewise span edits accumulate (measured: 1+1+1+2+2+2 chars for
+     *   7 keys; jamotong_ime's manual §8.2, artifact ㄱ가간...).
+     *   NO overlay window (maintainer instruction 2026-10-20). The styled
+     *   composition underline is NOT reproduced on this path (fInterimChar
+     *   selection: SetSelection E_INVALIDARG measured on both host
+     *   classes) — plain-text preedit is the accepted shape
+     *   (docs/TSF-INTERIM-INPUT-SPIKE.md §4-§6).
+     *
+     * A host-driven OnCompositionTerminated that fires MID-WORD flips the
+     * service native -> interim for its life (the detection measurement:
+     * classic EDIT / msftedit RICHEDIT50W terminate every key; modern
+     * hosts terminate only at real boundaries). HUNMIN_TSF_INTERIM=1
+     * overrides detection (the old spike's escape hatch). */
+    struct Delivery {
+        virtual ~Delivery() = default;
+        /* The engine consumed a key (or a host termination fused the word):
+         * the word state moved, the document must follow. */
+        virtual void Consumed(ITfContext *pic) = 0;
+        /* A word boundary: declined key, mode toggle, chord, passage key. */
+        virtual void Boundary(ITfContext *pic) = 0;
+        /* The Hanja candidate lookup anchor. */
+        virtual std::string CandidateAnchor() = 0;
+        /* A picked candidate commits as `replacement` (the fallback-aware
+         * text the common side computed from the anchor). false = refused:
+         * the buffers stay intact, nothing is delivered. */
+        virtual bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) = 0;
+        /* Settle a posted doc write (the interim deferral; the native path
+         * is synchronous — a no-op). */
+        virtual void FlushPending() = 0;
+    };
+
+    struct NativeDelivery : Delivery {
+        CTextService *svc;
+        explicit NativeDelivery(CTextService *s) : svc(s) {}
+        void Consumed(ITfContext *pic) override {
+            svc->CompositionWrite(pic);
+        }
+        void Boundary(ITfContext *pic) override {
+            svc->InsertBufferedWord(pic);
+        }
+        std::string CandidateAnchor() override {
+            /* The whole buffered word: accumulated finalised syllables plus
+             * the in-flight preedit — the multi-syllable lookup the
+             * dictionary tables are keyed by (krdict words, idioms).
+             * fcitx5 anchors to its preedit only because it commits each
+             * syllable immediately. */
+            std::string s = HunminWideToUtf8(svc->wordbuf_);
+            if (svc->ic_) {
+                const char *pre = hunmin_ic_preedit(svc->ic_);
+                if (pre)
+                    s += pre;
+            }
+            return s;
+        }
+        bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) override {
+            if (svc->ic_)
+                hunmin_ic_reset(svc->ic_); /* drop the composition the list anchored to */
+            svc->wordbuf_ = replacement;
+            svc->InsertBufferedWord(pic);
+            return true;
+        }
+        void FlushPending() override {}
+    };
+
+    /* The interim mode's own state and writes. The deferral machinery
+     * (measured defect): the EM_* writes must not run INSIDE a TSF
+     * callback — the first inline write fired a re-entrant
+     * ITfThreadMgrEventSink::OnSetFocus(NULL) storm (msftedit's TSF store
+     * settling the out-of-band selection change) and every keystroke sent
+     * while it ran was lost before reaching OnTestKeyDown. So the write is
+     * POSTED and runs on the app's UI thread from a thread timer
+     * (SetTimer with a NULL hwnd — fires when that thread pumps, i.e.
+     * after the current key event has fully returned), or at the ENTRY of
+     * the next key event, whichever comes first. One slot suffices: the
+     * entry flush keeps it empty at every post. */
+    struct InterimDelivery : Delivery {
+        CTextService *svc;
+        explicit InterimDelivery(CTextService *s) : svc(s) {}
+
+        HWND interimHwnd_ = nullptr; /* the edit control (resolved once) */
+        LONG preStart_ = 0; /* doc offset where the span begins */
+        size_t preLen_ = 0; /* the span's current char count */
+        std::wstring pendingDeadCopy_; /* a fused copy awaiting deletion */
+        enum PendingWrite { kPendingNone,
+                            kPendingWrite,
+                            kPendingDrain };
+        PendingWrite pendingWriteKind_ = kPendingNone;
+        static InterimDelivery *s_writer; /* one TIP instance per thread */
+        static const UINT_PTR kWriteTimerId = 1;
+
+        void Consumed(ITfContext *pic) override {
+            (void)pic;
+            Post(kPendingWrite);
+        }
+        void Boundary(ITfContext *pic) override {
+            (void)pic;
+            Post(kPendingDrain);
+        }
+        void FlushPending() override {
+            Dispatch();
+        }
+        /* The one-char ruling (maintainer, 2026-10-20: "in interim mode,
+         * only one char conversion should be supported"): the finalised
+         * syllables are document text outside the span the mode rewrites,
+         * so the anchor is the IN-FLIGHT preedit only, and a candidate
+         * that is not exactly one character is refused whole — the
+         * whole-word anchor's multi-char candidates cannot commit without
+         * corrupting the word (measured: 안녕 + 安寧 → 안安寧). */
+        std::string CandidateAnchor() override {
+            const char *pre = svc->ic_ ? hunmin_ic_preedit(svc->ic_) : "";
+            return std::string(pre ? pre : "");
+        }
+        bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) override {
+            (void)pic;
+            if (replacement.size() != 1 || preLen_ == 0)
+                return false; /* refused: the word stays intact */
+            if (svc->ic_)
+                hunmin_ic_reset(svc->ic_); /* drop the syllable the list anchored to */
+            svc->wordbuf_ = replacement; /* the drain rewrites the span to it */
+            Post(kPendingDrain);
+            return true;
+        }
+
+        void Post(PendingWrite kind) {
+            pendingWriteKind_ = kind;
+            s_writer = this;
+            SetTimer(nullptr, kWriteTimerId, 10, WriteTimerProc);
+        }
+        /* Runs the queued doc write. Called from the timer and from the
+         * key events' entry (the mock tests drive it directly — they never
+         * pump). */
+        void Dispatch() {
+            PendingWrite kind = pendingWriteKind_;
+            pendingWriteKind_ = kPendingNone;
+            KillTimer(nullptr, kWriteTimerId);
+            if (kind == kPendingWrite)
+                InterimWrite();
+            else if (kind == kPendingDrain)
+                InterimDrain();
+        }
+        static void CALLBACK WriteTimerProc(HWND, UINT, UINT_PTR, DWORD) {
+            if (s_writer)
+                s_writer->Dispatch();
+        }
+
+        /* The edit control the writes go through: the key events arrive on
+         * the app's input thread, so GetFocus() is it — default-sink
+         * contexts refuse IID_ITfContextOwner (measured). */
+        HWND ResolveControl(ITfContext *pic) {
+            if (interimHwnd_)
+                return interimHwnd_;
+            HWND hwnd = GetFocus();
+            if (!hwnd && pic) {
+                ITfContextOwner *owner = nullptr;
+                if (SUCCEEDED(pic->QueryInterface(IID_ITfContextOwner, (void **)&owner)) && owner) {
+                    owner->GetWnd(&hwnd);
+                    owner->Release();
+                }
+            }
+            interimHwnd_ = hwnd;
+            HMLOG("interim: control hwnd=%p\n", (void *)hwnd);
+            return hwnd;
+        }
+
+        /* The ONE write primitive: the doc span becomes exactly `text` —
+         * one select, one EM_REPLACESEL. */
+        void ReplaceSpan(HWND hwnd, const std::wstring &text) {
+            EmSelect(hwnd, preStart_, preStart_ + (LONG)preLen_);
+            EmReplace(hwnd, text.c_str());
+            preLen_ = text.size();
+            HMLOG("interim: span now %zu chars at %ld (caret=%ld doclen=%d focused=%d)\n",
+                  text.size(), preStart_, EmCaret(hwnd),
+                  GetWindowTextLengthW(hwnd), GetFocus() == hwnd);
+        }
+
+        /* A host termination fused the composition's text into the doc:
+         * delete that dead copy and re-anchor the span where it sat. The
+         * caret may still be unsettled when the termination fires
+         * (measured both states); an unremovable copy is dropped and the
+         * fresh-span anchor recovers. */
+        void CaptureDeadCopy(const std::wstring &copy) {
+            pendingDeadCopy_ = copy;
+            preStart_ = 0;
+            preLen_ = 0;
+            Post(kPendingWrite);
+        }
+        void RemoveDeadCopy(HWND hwnd) {
+            if (pendingDeadCopy_.empty())
+                return;
+            LONG caret = EmCaret(hwnd);
+            LONG span = (LONG)pendingDeadCopy_.size();
+            if (caret >= span) {
+                EmSelect(hwnd, caret - span, caret);
+                EmReplace(hwnd, L"");
+                preStart_ = caret - span;
+                HMLOG("interim: dead copy removed (%ld chars, preStart=%ld)\n",
+                      span, preStart_);
+            }
+            pendingDeadCopy_.clear();
+        }
+
+        /* The finalised syllables closed by the engine since the last
+         * write, taken out of the buffer. */
+        std::wstring TakeFinalisedWord() {
+            std::wstring f;
+            f.swap(svc->wordbuf_);
+            return f;
+        }
+
+        /* The interim consumed path: the newly finalised syllables land in
+         * the document AHEAD of the in-flight span, then the span becomes
+         * the engine's current preedit. */
+        void InterimWrite() {
+            HWND hwnd = ResolveControl(nullptr);
+            if (!hwnd)
+                return;
+            RemoveDeadCopy(hwnd);
+            /* A fresh word (no span in the doc) anchors at the live caret:
+             * the app may have inserted passthrough text (the boundary
+             * space) since the previous word closed. */
+            if (preLen_ == 0)
+                preStart_ = EmCaret(hwnd);
+            std::wstring finalised = TakeFinalisedWord();
+            if (!finalised.empty()) {
+                EmSelect(hwnd, preStart_, preStart_);
+                EmReplace(hwnd, finalised.c_str());
+                preStart_ += (LONG)finalised.size();
+                HMLOG("interim: appended %zu finalised chars\n", finalised.size());
+            }
+            std::wstring pre = HunminUtf8ToWide(svc->ic_ ? hunmin_ic_preedit(svc->ic_) : "");
+            if (!pre.empty() || preLen_ > 0)
+                ReplaceSpan(hwnd, pre);
+        }
+
+        /* The interim boundary drain: the in-flight span becomes the word
+         * (never an insert at the anchor — the word is ALREADY document
+         * text when the span is closed), then the bookkeeping closes and
+         * the engine state drops. The drain runs from the TIMER, i.e.
+         * AFTER the app inserted its boundary space and parked its own
+         * caret: measured live, the span's EmSelect left the app's caret
+         * INSIDE the word ahead of the space, so the following keys
+         * landed before the space and the backspace deleted the wrong
+         * char. The app's caret is not ours to move — saved and given
+         * back. */
+        void InterimDrain() {
+            HWND hwnd = ResolveControl(nullptr);
+            std::wstring word;
+            word.swap(svc->wordbuf_);
+            LONG userCaret = hwnd ? EmCaret(hwnd) : 0;
+            if (hwnd && !word.empty() && preLen_ > 0) {
+                ReplaceSpan(hwnd, word);
+                preStart_ += (LONG)word.size();
+            }
+            preLen_ = 0;
+            if (svc->ic_)
+                hunmin_ic_reset(svc->ic_);
+            if (hwnd)
+                EmSelect(hwnd, userCaret, userCaret);
+            HMLOG("interim boundary: word len=%zu preStart=%ld caret=%ld\n",
+                  word.size(), preStart_, userCaret);
+        }
+
+        /* The class-aware EM primitives: EM_EXSETSEL/CHARRANGE for the
+         * msftedit richedit, EM_SETSEL for plain EDIT. */
+        enum { kEmRich = 0,
+               kEmPlain = 1 };
+        int ControlKind(HWND hwnd) {
+            wchar_t cls[64] = {0};
+            GetClassNameW(hwnd, cls, 64);
+            return (wcsstr(cls, L"RICHEDIT") != nullptr) ? kEmRich : kEmPlain;
+        }
+        void EmSelect(HWND hwnd, LONG start, LONG end) {
+            if (ControlKind(hwnd) == kEmRich) {
+                CHARRANGE cr;
+                cr.cpMin = start;
+                cr.cpMax = end;
+                SendMessageW(hwnd, EM_EXSETSEL, 0, (LPARAM)&cr);
+            } else {
+                SendMessageW(hwnd, EM_SETSEL, (WPARAM)start, (LPARAM)end);
+            }
+        }
+        LONG EmCaret(HWND hwnd) {
+            if (ControlKind(hwnd) == kEmRich) {
+                CHARRANGE cr = {0, 0};
+                SendMessageW(hwnd, EM_EXGETSEL, 0, (LPARAM)&cr);
+                return (LONG)cr.cpMax;
+            }
+            DWORD a = 0, b = 0;
+            SendMessageW(hwnd, EM_GETSEL, (WPARAM)&a, (LPARAM)&b);
+            return (LONG)b;
+        }
+        void EmReplace(HWND hwnd, const wchar_t *t) {
+            SendMessageW(hwnd, EM_REPLACESEL, FALSE, (LPARAM)t);
+        }
+    };
+    NativeDelivery nativeDelivery_{this};
+    InterimDelivery interimDelivery_{this};
+    Delivery *delivery_ = &nativeDelivery_;
+
+    void FlushPendingDocWrites() {
+        delivery_->FlushPending();
+    }
 
     /* F9 Hanja candidates (issue #67). The window anchors to the WHOLE
      * buffered word — accumulated finalised syllables plus the in-flight
@@ -2048,6 +2474,12 @@ class CTextService : public ITfTextInputProcessor,
      * the composition, fusing the word in unstyled. Only a host that
      * refused ITfContextComposition falls back to the plain selection
      * SetText the 0.2 adapter committed with. */
+    /* The NATIVE boundary insert (the native half of the delivery seam):
+     * with a live composition the word is ALREADY document text (the
+     * composition range holds it) — the session ends the composition,
+     * fusing the word in unstyled. Only a host that refused
+     * ITfContextComposition falls back to the plain selection SetText the
+     * 0.2 adapter committed with. */
     void InsertBufferedWord(ITfContext *pic) {
         if (wordbuf_.empty())
             return;
@@ -2083,7 +2515,7 @@ class CTextService : public ITfTextInputProcessor,
                     ic_ ? hunmin_ic_preedit(ic_) : "");
             fflush(dbg);
         }
-        InsertBufferedWord(pic);
+        delivery_->Boundary(pic);
     }
 
     /* --- F9 Hanja candidate window (issue #67) ---
@@ -2110,15 +2542,6 @@ class CTextService : public ITfTextInputProcessor,
      * syllables plus the in-flight preedit. Valid only while the window is
      * open — opening may not flush anything (fcitx5's openCandidates rule:
      * hunmin_ic_flush would commit the anchor out from under the list). */
-    std::string BufferedHangul() {
-        std::string s = HunminWideToUtf8(wordbuf_);
-        if (ic_) {
-            const char *pre = hunmin_ic_preedit(ic_);
-            if (pre)
-                s += pre;
-        }
-        return s;
-    }
 
     /* The last UTF-8 character of s, by a forward walk over the code points
      * (issue #100's "last syllable": in a composed word each character is a
@@ -2145,7 +2568,7 @@ class CTextService : public ITfTextInputProcessor,
      * means the key belongs to the client in both phases; a fallback count
      * > 0 opens a syllable-anchored list (candFallback_). */
     std::pair<int, bool> HanjaListCount() {
-        std::string word = BufferedHangul();
+        std::string word = delivery_->CandidateAnchor();
         if (ctx_ && !word.empty()) {
             int n = hunmin_suggest_count(ctx_, word.c_str());
             if (n > 0)
@@ -2170,9 +2593,9 @@ class CTextService : public ITfTextInputProcessor,
     void CountToState(int n, bool fallback) {
         candFallback_ = fallback;
         if (fallback) {
-            candSource_ = LastSyllableOf(BufferedHangul());
+            candSource_ = LastSyllableOf(delivery_->CandidateAnchor());
         } else {
-            candSource_ = BufferedHangul();
+            candSource_ = delivery_->CandidateAnchor();
         }
         candCount_ = n;
         candActive_ = candCount_ > 0;
@@ -2226,22 +2649,22 @@ class CTextService : public ITfTextInputProcessor,
         std::string hanja(hunmin_suggest_text(ctx_, idx));
         if (hanja.empty())
             return;
-        /* Capture the word anchor BEFORE the reset: on a last-syllable
+        /* Capture the word anchor BEFORE the commit: on a last-syllable
          * fallback list (issue #100) the buffered word's own state is what
-         * the replacement is computed from, and after hunmin_ic_reset the
-         * in-flight preedit is gone. */
+         * the replacement is computed from, and the commit resets the
+         * in-flight preedit. The mode seam decides how (and whether) the
+         * replacement text is delivered. */
         std::string replacement = hanja;
         if (candFallback_) {
-            std::string word = BufferedHangul();
+            std::string word = delivery_->CandidateAnchor();
             std::string last = LastSyllableOf(word);
             /* Only last syllable replaced: the word prefix stays Hangul. */
             replacement = word.substr(0, word.size() - last.size()) + hanja;
         }
-        if (ic_)
-            hunmin_ic_reset(ic_); /* drop the composition the list anchored to */
+        std::wstring rep = HunminUtf8ToWide(replacement.c_str());
+        bool committed = delivery_->CandidateCommit(pic, rep);
         CloseCandidateWindow();
-        wordbuf_ = HunminUtf8ToWide(replacement.c_str());
-        InsertBufferedWord(pic);
+        (void)committed;
     }
 
     void UpdateCandidateWindow(ITfContext *pic) {
@@ -2362,6 +2785,7 @@ class CTextService : public ITfTextInputProcessor,
 static void hunmin_tsf_tray_settings_thunk(void) {
     hunmin_tsf_launch_settings((void *)&g_hunmin_ext_stub);
 }
+CTextService::InterimDelivery *CTextService::InterimDelivery::s_writer = nullptr;
 
 extern "C" HINSTANCE g_hunmin_hinst;
 /* placeholder */

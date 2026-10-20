@@ -123,6 +123,16 @@ fallback for hosts observed terminating compositions (the pre-#98 code is
 in git history; #98's native path stays for hosts that keep the
 composition); (c) the TSF interim-input route as new work.
 
+**Resolution (2026-10-20, issue #119): the ruling was "file issue to
+implement legacy support"; the interim-input route (c) landed as the
+runtime-detected legacy path** — a host-driven mid-word
+`OnCompositionTerminated` flips the service to an interim delivery (no
+composition; the word is doc text rewritten per key), composing across
+keys on this machine's RICHEDIT50W and plain-EDIT probes
+(`docs/TSF-INTERIM-INPUT-SPIKE.md` §3-D: the space now lands, fast
+typing loses nothing, the one-char Hanja rule). The sandbox rounds of
+this checklist are adjusted for the shipped shape when next run.
+
 ## The settings round trip (issue #120)
 
 Sandbox round 10 observed a save to `dubeolsik` not reflected in typing

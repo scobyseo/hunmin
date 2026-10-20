@@ -644,3 +644,12 @@
   :UNINITIALIZED cache suffix that revived the #86 hunmin.lib failure;
   -static for llvm-mingw test binaries). The fcitx5 trio is deliberately
   absent, tracked as issue #118.
+
+## [2026-10-20] create | Legacy interim input path (issue #119)
+
+- Session page for the ruled legacy support: the runtime detection (the first
+  mid-word host termination), the Delivery seam, the test-phase boundary drain,
+  the app-caret rule, the one-char Hanja ruling, the #103 tray core layered
+  under the dispatcher, and the dead overlay remnants stripped. Overturned on
+  the way: the EXP-A space row (the eaten-space artifact) and the tier-F1
+  mock's 24px fixture blind spot.
