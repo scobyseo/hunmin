@@ -221,4 +221,37 @@ TEST_F(LegacyTest, HanjaCommitReplacesOnlyTheInFlightSyllable) {
     LegacyTeardown();
 }
 
+/* The backspace at a CLOSED word: the test phase passes it (the app
+ * deletes the committed char through its own edit), and the next key's
+ * fresh-span anchor re-reads the live caret — the word after the deletion
+ * composes at the right position, never over the stale bookkeeping. */
+TEST_F(LegacyTest, BackspaceAtClosedWordPassesAndSelfHeals) {
+    LegacyBegin();
+    if (HasFatalFailure()) {
+        Teardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    for (const char *p = "dkssud"; *p; ++p)
+        KeyTerminating((WPARAM)std::toupper((unsigned char)*p));
+    FlushDocWrites();
+    Key(VK_SPACE); /* the word closes; the app would insert ' ' */
+    FlushDocWrites();
+    ASSERT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155');
+
+    BOOL testEat = TRUE;
+    TestKey(VK_BACK, &testEat);
+    EXPECT_EQ(testEat, FALSE) << "backspace at an empty in-flight passes";
+    /* The app-side deletion, emulated: the EDIT deletes the backspace
+     * through WM_CHAR (the translated char), not the raw key down. */
+    SendMessageW(ctrl, WM_CHAR, 0x08, 0);
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548')
+        << "the app deleted the committed char";
+
+    KeyTerminating((WPARAM)'L'); /* l = ㅣ: composes AFTER the deletion */
+    FlushDocWrites();
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\u3163')
+        << "the fresh span re-anchored at the live caret";
+    LegacyTeardown();
+}
+
 } // namespace

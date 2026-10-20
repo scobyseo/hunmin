@@ -1238,11 +1238,16 @@ class CTextService : public ITfTextInputProcessor,
             BoundaryFlush(pic, dbg);
             eat = FALSE;
         } else if (wParam == VK_BACK) {
-            /* Always ours: against in-flight text the engine consumes the
-             * key (the jamo deletes); at an empty buffer the engine
-             * declines and the down phase runs the boundary drain instead
-             * (the #73 flush). */
-            eat = TRUE;
+            /* Against in-flight text the engine consumes the key (the jamo
+             * deletes). At an EMPTY in-flight the engine declines — and on
+             * the interim path the key must then PASS, so the app deletes
+             * the committed char (measured: eaten = the backspace does
+             * nothing at all); the span bookkeeping self-heals at the next
+             * write (the fresh-span anchor re-reads the live caret). The
+             * native path keeps the key: its declined branch is the
+             * #98-verified composition-close shape. */
+            const char *pre = ic_ ? hunmin_ic_preedit(ic_) : "";
+            eat = (legacyMode_ && pre[0] == '\0') ? FALSE : TRUE;
         }
         if (pfEat)
             *pfEat = eat;
@@ -2298,26 +2303,32 @@ class CTextService : public ITfTextInputProcessor,
                 ReplaceSpan(hwnd, pre);
         }
 
-        /* The interim boundary drain: the span becomes exactly the
-         * boundary's final word, then the word closes past it and the
-         * engine state drops — the next word starts fresh. The bookkeeping
-         * is current here (the boundary belongs to the word just typed),
-         * so the span position is NOT re-anchored: the word lands at its
-         * bookkept position, ahead of any passthrough text the app
-         * inserted. */
+        /* The interim boundary drain: the in-flight span becomes the word
+         * (never an insert at the anchor — the word is ALREADY document
+         * text when the span is closed), then the bookkeeping closes and
+         * the engine state drops. The drain runs from the TIMER, i.e.
+         * AFTER the app inserted its boundary space and parked its own
+         * caret: measured live, the span's EmSelect left the app's caret
+         * INSIDE the word ahead of the space, so the following keys
+         * landed before the space and the backspace deleted the wrong
+         * char. The app's caret is not ours to move — saved and given
+         * back. */
         void InterimDrain() {
             HWND hwnd = ResolveControl(nullptr);
             std::wstring word;
             word.swap(svc->wordbuf_);
-            if (hwnd && !word.empty()) {
+            LONG userCaret = hwnd ? EmCaret(hwnd) : 0;
+            if (hwnd && !word.empty() && preLen_ > 0) {
                 ReplaceSpan(hwnd, word);
                 preStart_ += (LONG)word.size();
             }
             preLen_ = 0;
             if (svc->ic_)
                 hunmin_ic_reset(svc->ic_);
-            HMLOG("interim boundary: word len=%zu preStart now=%ld\n", word.size(),
-                  preStart_);
+            if (hwnd)
+                EmSelect(hwnd, userCaret, userCaret);
+            HMLOG("interim boundary: word len=%zu preStart=%ld caret=%ld\n",
+                  word.size(), preStart_, userCaret);
         }
 
         /* The class-aware EM primitives: EM_EXSETSEL/CHARRANGE for the

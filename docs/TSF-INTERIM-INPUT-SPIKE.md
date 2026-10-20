@@ -131,6 +131,40 @@ measured here on this host: **the trace shows no per-key engine reset and
 no composition lifecycle at all** — the word buffer concentrates
 doc-side, the caret bookkeeping exact per key.
 
+### §3-D Additional round facts (measured at implementation, 2026-10-20 — corrections to the rows above)
+
+The implementation rounds (the same dev host, both probes) re-measure the
+{space} row and add three host facts the spike's rounds did not capture;
+per the repo's correction convention these are dated, not rewritten into
+the table:
+
+1. **The `` row's `안녕 (2 chars)` was an artifact of the eaten
+   space, not the interim path's verdict.** The shipped predicate ate
+   `VK_SPACE` at the TEST phase (`eat=1`, unconditional in hangul mode), so
+   the spike's round never saw the space at all. With the boundary drain
+   running at the test phase, the space lands (`dkssud ` →
+   `안녕 `, 3 chars, measured both probes).
+2. **msftedit does NOT call `OnKeyDown` for an uneaten printable key.**
+   With `eat=0` at the test phase the down phase never fires — the test
+   phase is the TIP's only sight of the key. The mock's `Key()` always
+   calling `OnKeyDown` is why the mock stayed green while live broke.
+3. **The drain (any write from the timer) runs AFTER the app's own
+   boundary insert; a span select there parked the app's caret inside the
+   word, ahead of the space — following keys landed before the space and
+   the backspace deleted the wrong char.** The app's caret is not ours to
+   move: saved and given back after every drain.
+4. **The one-char Hanja ruling** (maintainer, 2026-10-20: "in interim
+   mode, only one char conversion should be supported") is implemented on
+   the same branch: the candidate anchor is the IN-FLIGHT preedit
+   (`src=녕 count=35` measured live, superseding the EXP-C whole-word
+   anchor whose multi-char candidates cannot commit without corrupting
+   the word — `안녕` + `安寧` → `안安寧`, measured); a candidate commits
+   only when exactly one char (`dkssud~1` → `안寧`), multi-char
+   candidates refused whole.
+
+The implementation carries these in the code commit on this branch
+(this commit); the spike itself stays a measurements-only record.
+
 ## 4. EXP-B — does the host render an `fInterimChar` selection?
 
 The picked measurement. Implemented per the docs' own wording (one char,
