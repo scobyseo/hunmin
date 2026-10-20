@@ -820,10 +820,18 @@ static bool settingsExeRun(HWND parent, wchar_t *exeResolved, size_t cap) {
             return false;
         }
         *wcsrchr(dir, L'\\') = L'\0';
+        /* First hit wins: the dev publish shape, the dev-checkout climb,
+         * then the INSTALLED shape (the .iss stages the publish content
+         * directly under {app}\settings-ui — measured in the installer
+         * sandbox round: without the third candidate the installed
+         * ITfFnConfigure::Show found no exe and logged a miss). */
         swprintf(exe, MAX_PATH, L"%ls\\settings-ui\\publish\\hunmin-tsf-settingsui.exe",
                  dir);
         if (GetFileAttributesW(exe) == INVALID_FILE_ATTRIBUTES)
             swprintf(exe, MAX_PATH, L"%ls\\..\\settings-ui\\publish\\hunmin-tsf-settingsui.exe",
+                     dir);
+        if (GetFileAttributesW(exe) == INVALID_FILE_ATTRIBUTES)
+            swprintf(exe, MAX_PATH, L"%ls\\settings-ui\\hunmin-tsf-settingsui.exe",
                      dir);
         if (GetFileAttributesW(exe) == INVALID_FILE_ATTRIBUTES) {
             logLine("settings-exe: not found under %ls", dir);
