@@ -68,6 +68,40 @@ survived, it does not re-assert 2026-10-18.
 7. `ctest --test-dir frontends/tsf/build-msvc -C Release -L tier-F1` green;
    `tools/docs-lint.py --build-dir <build>` 0 errors.
 
+## MEASURED (2026-10-20/21, dev host + sandbox rounds 4-5, this branch)
+
+The lane MEASURES OPEN now (premise of the 2026-10-18 "environmental"
+verdict falsified — it read our former shape):
+
+- **Dev host (23:56, real WordPad load of the re-shaped build)**:
+  `langbar AddItem hr=0x0` on every activation — never seen before any
+  shape.
+- **Sandbox fresh-VM round 4/5** (installed shape): install silent
+  `rc=0`; `DllRegisterServer` chain all `hr=0x0` (Register /
+  AddLanguageProfile / EnableLanguageProfile / ActivateProfile attempt:
+  `E_80070057` in the scripted probe — the known unmeasurable; the human
+  Win+Space selection is the activation that counts); probe+host traces:
+  `langbar AddItem hr=0x0`, mode toggles through the Han/Eng key
+  (`toggle core -> mode=…`).
+- **The hosted-indicator row measured on round 5's sandbox image**: after
+  selection the taskbar input indicator's accessible name (UIA,
+  `tray-ime-uia.ps1` over `Shell_TrayWnd`) re-labellings to
+  `트레이 입력 표시기 한국어 / Hunmin` — the indicator SHOWS the active
+  profile; no SEPARATE hosted item element appears beside it on this
+  image (count 19→21 is the round's own cmd window). So on this image a
+  hosted item's affordance is identity-through-the-profile, and the
+  per-TIP item hosting visible in the sibling jamotong measurement
+  remains to be re-measured on the DEV host with the SAME build.
+- **Round-5 bug report (sin3-p2 chosung)**: `/` `;` `'` reached the app as
+  raw symbols — the test phase answer for every feedable key OUTSIDE the
+  letters was eat=FALSE, and msftedit never calls an uninterested key's
+  down phase. Fixed with the general interested branch (hangul mode,
+  key of passage or modifier excluded, `VkToBase != 0`); the engine's
+  consume/decline at the down phase decides compose-or-pass. Regression
+  case `TsfConfigTest.Sin3P2ChosungOnTheOemRow` (`;->ㅂ` preedit assert).
+  The caret-before-symbol half rides the same unfed class (the app
+  inserted the symbol itself); re-measure at the next live round.
+
 ## Signals in the debug log (HUNMIN_TSF_DEBUG_LOG=1)
 
 - `langbar AddItem hr=0x…` — the item lane on this host.

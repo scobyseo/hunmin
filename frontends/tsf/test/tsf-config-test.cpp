@@ -26,7 +26,7 @@
 #include <string>
 
 class TsfConfigTest : public ::testing::Test {
- protected:
+  protected:
     void SetUp() override {
         _putenv_s("HUNMIN_DATA_DIR", HUNMIN_TSF_DATA_DIR);
         const char *dirs[1] = {HUNMIN_TSF_DATA_DIR};
@@ -123,6 +123,56 @@ TEST_F(TsfConfigTest, RegistryRoundTripAndUnterminatedId) {
     RegDeleteTreeA(HKEY_CURRENT_USER, "Software\\Hunmin\\TSF-selftest");
 }
 
+/* 5b. Sin3-p2's chosung row lives on the OEM punctuation keys (the user's
+ * live bug report, sandbox round 5, 2026-10-21): '/',';' and the apostrophe
+ * were answered eat=FALSE at the TEST phase, and msftedit then NEVER calls
+ * OnKeyDown for an uninterested key — the layout's jamo reached the app as
+ * raw symbols. The test phase now declares interest for every feedable key
+ * in hangul mode; the DOWN phase's engine feed decides compose-or-pass. */
+TEST_F(TsfConfigTest, Sin3P2ChosungOnTheOemRow) {
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "sin3-p2");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    ASSERT_TRUE(svc->ctx_ && svc->ic_) << "engine context on sin3-p2";
+
+    BOOL eaten = FALSE;
+    /* The test phase is now INTERESTED in the punctuation (: VkToBase maps
+     * VK_OEM_1 = ';'). U+3142 wide-escape (the ANSI-codepage rule). */
+    svc->OnTestKeyDown(mctx, VK_OEM_1, 0, &eaten);
+    EXPECT_EQ(eaten, TRUE) << "sin3-p2 chosung ';' interested in hangul mode";
+    svc->OnKeyDown(mctx, VK_OEM_1, 0, &eaten);
+    EXPECT_EQ(eaten, TRUE) << "engine consumes ';' -> compose";
+    EXPECT_STREQ(hunmin_ic_preedit(svc->ic_), "\xE3\x85\x82")
+        << "OEM_1 composes ㅂ like a chosung, not a symbol";
+
+    /* The same class on the other two reported keys. */
+    svc->OnTestKeyDown(mctx, VK_OEM_2, 0, &eaten);
+    EXPECT_EQ(eaten, TRUE) << "'/' interested";
+    svc->OnKeyDown(mctx, VK_OEM_2, 0, &eaten);
+    EXPECT_EQ(eaten, TRUE);
+    svc->OnTestKeyDown(mctx, VK_OEM_7, 0, &eaten);
+    EXPECT_EQ(eaten, TRUE) << "the apostrophe interested";
+    svc->OnKeyDown(mctx, VK_OEM_7, 0, &eaten);
+    EXPECT_EQ(eaten, TRUE);
+
+    /* And the DOWN phase still passes a key the layout does NOT define —
+     * that contract is the existing decline branch (BoundaryFlush + pass),
+     * unchanged by the interest answer; the '=' probe stays eaten here but
+     * its own consume decision is the engine's. */
+    svc->OnTestKeyDown(mctx, VK_OEM_PLUS, 0, &eaten);
+    EXPECT_EQ(eaten, TRUE) << "'=' is feedable too (interested)";
+
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+
 /* 6. Toggle bindings (Android KeyBinding.kt port): parse/match units. */
 TEST_F(TsfConfigTest, KeybindingParseAndMatchUnits) {
     HunminKeyCombo got[8];
@@ -130,7 +180,8 @@ TEST_F(TsfConfigTest, KeybindingParseAndMatchUnits) {
     EXPECT_EQ(hunmin_tsf_keybindings_parse("v1:21:0;v1:165:0;v1:32:1", got, 8), 3)
         << "parse of a 3-entry list";
     EXPECT_EQ(hunmin_tsf_keybindings_parse("v1:999:0;v1:-2:0;nonsense;v1:21:9",
-                                           got, 8), 0)
+                                           got, 8),
+              0)
         << "malformed entries parse to nothing (a bad binding never swallows a key)";
     EXPECT_EQ(hunmin_tsf_keybindings_parse("", got, 8), 0) << "empty list parses to none";
     (void)hunmin_tsf_keybindings_parse("v1:165:0", got, 8);

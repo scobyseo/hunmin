@@ -1215,6 +1215,19 @@ class CTextService : public ITfTextInputProcessor,
              * #98-verified composition-close shape. */
             const char *pre = ic_ ? hunmin_ic_preedit(ic_) : "";
             eat = (legacyMode_ && pre[0] == '\0') ? FALSE : TRUE;
+        } else if (hangulMode_ && !IsKeyOfPassage(wParam) && VkToBase(wParam) != 0 &&
+                   !IsModifierVk(wParam)) {
+            /* EVERY feedable key is interested in hangul mode, the OEM
+             * punctuation class included. Sin3-p2's jamo live on this row
+             * (; ' /;  measured 2026-10-21: the test phase answer eat=FALSE
+             * — and msftedit then NEVER calls OnKeyDown for an uninterested
+             * key — so the layout's chosung emitted as raw symbols). The
+             * DOWN phase's engine feed makes the real decision here: the
+             * key composes when the engine consumes it, and when the engine
+             * declines (a key this layout does not define) FeedEngineKey's
+             * decline branch flushes the buffered word and lets the key pass
+             * (its pfEat stays FALSE, the app inserts the symbol itself). */
+            eat = TRUE;
         }
         if (pfEat)
             *pfEat = eat;
