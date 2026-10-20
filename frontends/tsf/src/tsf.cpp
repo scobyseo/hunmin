@@ -497,16 +497,12 @@ class HunminSystemLangBarMenuExtension;
 
 wchar_t g_hunmin_ext_stub[] = L"hunmin-langbar-extension"; /* FROM_ADDRESS anchor */
 
-/* Issue #103 (the tray badge): the badge's actions land back on the ACTIVE
- * service — a left-click runs the SAME mode-switch core the toggle key
- * drives — and on the shared settings launch. Declared here so the class
- * below can register them in Activate; defined after the class (the toggle
- * reaches a private member the class owns). g_activeTrayService's lifetime
- * matches the object's activation lifetime (set in Activate, cleared in
- * Deactivate). */
-class CTextService;
-static CTextService *g_activeTrayService = nullptr;
-static void hunmin_tsf_tray_toggle_thunk(void);
+/* Issue #103 (the tray badge): the badge's menu entry lands on the shared
+ * settings launch. Declared here so the class below can register it in
+ * Activate; defined after the class. NO toggle callback: the maintainer
+ * steer (round 3, measured rounds 1-3) is that a tray-click mode change is
+ * not necessary and cannot reach the focused edit without stealing its
+ * focus — the badge is the indicator, the mode flips with the key only. */
 static void hunmin_tsf_tray_settings_thunk(void);
 
 class HunminSystemLangBarMenuExtension : public ITfSystemLangBarItemSink {
@@ -877,13 +873,11 @@ class CTextService : public ITfTextInputProcessor,
             }
         }
         UpdateConversionCompartment();
-        /* The tray badge lives with the service (issue #103): the callbacks
-         * are registered BEFORE the first update, so a click can never fire
-         * into nothing, and the pointer's lifetime matches the activation. */
-        g_activeTrayService = this;
+        /* The tray badge lives with the service (issue #103): the callback
+         * is registered BEFORE the first update, so a click can never fire
+         * into nothing. */
         {
             hunmin_tsf_tray_callbacks cbs;
-            cbs.toggle = &hunmin_tsf_tray_toggle_thunk;
             cbs.open_settings = &hunmin_tsf_tray_settings_thunk;
             hunmin_tsf_tray_set_callbacks(&cbs);
         }
@@ -1009,9 +1003,7 @@ class CTextService : public ITfTextInputProcessor,
         }
         /* Issue #103: the tray badge leaves with the service — a profile
          * switch to another IME must not leave the icon standing; the next
-         * Activate re-registers the callbacks and re-adds the icon. */
-        if (g_activeTrayService == this)
-            g_activeTrayService = nullptr;
+         * Activate re-registers the callback and re-adds the icon. */
         hunmin_tsf_tray_hide();
         clientId_ = TF_CLIENTID_NULL;
         return S_OK;
@@ -2364,13 +2356,9 @@ class CTextService : public ITfTextInputProcessor,
         return true;
     }
 };
-/* The tray badge's registered callbacks (declared above the classes). One
- * routing point per process: the badge's icon window and callbacks are
- * shared state, and g_activeTrayService is the service that owns them. */
-static void hunmin_tsf_tray_toggle_thunk(void) {
-    if (g_activeTrayService)
-        g_activeTrayService->ToggleModeCore(nullptr, nullptr);
-}
+/* The tray badge's registered callback (declared above the classes). One
+ * routing point per process: the badge's icon window and callback are
+ * shared state. */
 static void hunmin_tsf_tray_settings_thunk(void) {
     hunmin_tsf_launch_settings((void *)&g_hunmin_ext_stub);
 }

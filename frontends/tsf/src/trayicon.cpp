@@ -47,7 +47,6 @@
  * purpose and never shown. */
 
 struct hunmin_tsf_tray_callbacks {
-    void (*toggle)(void); /* left click on the badge */
     void (*open_settings)(void); /* the menu entry */
 };
 
@@ -64,10 +63,9 @@ struct TrayState {
     bool wnd_class_ready = false;
     bool added = false;
     bool promoted = false; /* the Win11 visible-in-taskbar write landed */
-    HWND host = nullptr; /* the window the user types in (WM_ACTIVATEAPP) */
     HICON icon = nullptr;
     int hangul = 1; /* last requested mode; re-applied on WM_ACTIVATEAPP */
-    hunmin_tsf_tray_callbacks cb = {nullptr, nullptr};
+    hunmin_tsf_tray_callbacks cb = {nullptr};
 };
 TrayState g_tray;
 
@@ -208,28 +206,12 @@ LRESULT CALLBACK TrayWndProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         /* Classic (version 0) icon routing: the LOWORD of lParam is the
          * mouse message. The single-entry menu never needs WM_CONTEXTMENU. */
         switch ((UINT)lparam & 0xFFFF) {
-        case WM_LBUTTONUP: {
-            /* The toggle must apply to the edit the user was typing in. The
-             * foreground AT CLICK TIME is the shell (round 2's defect: the
-             * restore went to the overflow flyout, not the edit), so the
-             * restore target is the window captured when OUR process last
-             * became foreground (WM_ACTIVATEAPP below), falling back to the
-             * click-time foreground only when nothing was captured. The
-             * tray host and our own owner window are never targets. */
-            HWND prev = GetForegroundWindow();
-            HWND target = g_tray.host ? g_tray.host : prev;
-            wchar_t cls[64];
-            bool targetIsTray = target && GetClassNameW(target, cls, 64) > 0 &&
-                                (wcscmp(cls, L"Shell_TrayWnd") == 0 ||
-                                 target == g_tray.wnd);
-            if (g_tray.cb.toggle)
-                g_tray.cb.toggle();
-            HMLOG("tray click restore target=%p host=%p prev=%p\r\n",
-                  (void *)target, (void *)g_tray.host, (void *)prev);
-            if (target && !targetIsTray && !SetForegroundWindow(target))
-                HMLOG("tray focus restore FAILED err=%lu\r\n", GetLastError());
+        case WM_LBUTTONUP:
+            /* No left-click action (maintainer steer, round 3: a mode toggle
+             * from the tray is not necessary and cannot reach the edit
+             * without stealing its focus — measured rounds 1-3). The badge
+             * is the indicator; the mode flips with the key only. */
             return 0;
-        }
         case WM_RBUTTONUP: {
             /* The owner window takes the foreground for the menu's lifetime
              * (the Shell_NotifyIcon menu rule); the click lands through
@@ -256,11 +238,6 @@ LRESULT CALLBACK TrayWndProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     }
     if (msg == WM_ACTIVATEAPP) {
         if (wparam) {
-            /* The moment our process becomes foreground is when the user was
-             * typing in it: the window THAT IS is the left-click restore
-             * target. (Round 2's defect: restoring to the click-time
-             * foreground handed focus to the shell's overflow flyout.) */
-            g_tray.host = GetForegroundWindow();
             if (!g_tray.added)
                 TrayAdd();
         } else {
