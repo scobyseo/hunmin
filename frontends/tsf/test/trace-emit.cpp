@@ -56,7 +56,6 @@ extern "C" HINSTANCE g_hunmin_hinst = nullptr;
 
 #define GetKeyState tsf_mock_GetKeyState
 /* No real tray icon from a console test process (issue #103's seam). */
-#define HUNMIN_TSF_TRAY_DISABLED
 #define private public /* NOLINT(readability-*) -- test-only access seam */
 #include "../src/tsf.cpp"
 #undef private

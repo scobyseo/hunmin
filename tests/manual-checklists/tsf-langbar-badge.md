@@ -22,13 +22,23 @@ red step here is measurement, not an unexplained failure.
    onto every system langbar item of the host thread; the item that accepts
    the advice calls its own InitMenu when its menu opens and calls
    OnMenuSelect(1) when the user selects ours. This is board row
-   TSF-SYSMENU-EXT-67.
+   TSF-SYSMENU-EXT-67. **RETIRED 2026-10-20: the implementation is removed**
+   (board row TSF-ITEM-SINK-67 records the removal) — the advice measured
+   dead as an affordance everywhere it settled, and the ruled lane is the
+   toolkit's own item (checklist `tsf-langbar-item.md`). The MEASURED RESULT
+   below stays as the record of WHY.
 3. **The mode badge on our OWN item** — an `ITfLangBarItemButton` (item GUID
    F2C70003: badges = resources 2/3, text = 한/A, right-click menu) is in the
    DLL, and its `AddItem` is REFUSED on this host: a reference item (fresh
    GUID, BTN_BUTTON only) fails identically in an uninvolved thread —
    measured, environmental. This is board row TSF-LANGBAR-67; do not debug
-   our item code for it.
+   our item code for it. **RE-shaped 2026-10-20 (issue #103): guidItem is now
+   GUID_LBI_INPUTMODE with BTN_BUTTON|SHOWNINTRAY and an implemented
+   ITfSource — the shape the sibling jamotong TIP is hosted live with on
+   this host; the old "measured, environmental" verdict measured our former
+   shape and neither a wrong GUID nor missing ITfSource support was excluded
+   by its probe. Measurements from 2026-10-20 on belong to
+   `tsf-langbar-item.md`.**
 
 ## MEASURED RESULT (2026-10-18, post-reboot re-register, this host)
 
@@ -118,9 +128,9 @@ re-measurement travels with issue #99 (the comment lists these rows).
 
 | Step result | Meaning | Next |
 |---|---|---|
-| 2: AddItem 0x80004005 | the item lane closed on this build (measured environmental) | don't debug the item; test 3/4/5 |
+| 2: AddItem 0x80004005 | the item lane refused (2026-10-18 shape; the RE-shaped item is measured in `tsf-langbar-item.md`, not here) | test 3/4/5 |
+| 3: no entry + advise OK | the system item's menu didn't display our entry (WHY the extension lane is removed) | board row TSF-SYSMENU-EXT-67 |
 | 3: entry visible | mechanism 2 lives HERE | record on issue #67's comment lane + #99 |
-| 3: no entry + advise OK | the system item's menu didn't display our entry | record one line on #99 (per-thread landing rule) |
 | 4: badge flips | mechanism 1 pick-up CONFIRMED on this build | milestone D's mode display is DONE |
 | 4: badge static + focus-flip retry | not honored for third-party TIPs on this build | record on #99; the compartment write stays (costs nothing, correct TSF) |
 | 5: capture works | the interim surface is complete | - |

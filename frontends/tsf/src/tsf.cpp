@@ -14,6 +14,15 @@
 #include <windows.h>
 #pragma comment(lib, "Shlwapi.lib")
 
+/* msctf.h pulls ctfutb.h (the langbar item interfaces); a guard for the
+ * connection errors the item's ITfSource answers with — oaidl.h carries
+ * these values on the SDK, but not every header chain includes it. */
+#ifndef CONNECT_E_NOCONNECTION
+#define CONNECT_E_NOCONNECTION ((HRESULT)0x80040200L)
+#define CONNECT_E_ADVISELIMIT ((HRESULT)0x80040201L)
+#define CONNECT_E_CANNOTCONNECT ((HRESULT)0x80040202L)
+#endif
+
 /* Debug logs land next to the DLL (build-msvc/Release inside the checkout),
  * not at a drive root: the registered InprocServer32 path is absolute, so the
  * DLL's own directory is the one clone-independent location every host
@@ -211,10 +220,6 @@ static void resolveLayoutSlot(const hunmin_ctx *ctx, const std::string &stored,
 #include "config.h"
 #include "settings.h" /* ITfFunctionProvider branch + the apply bridge */
 #include "candwindow.h"
-/* Issue #103 (ruled tray badge): the adapter's OWN tray surface. Included
- * like src/keybinding.cpp (not a target source) so the mock harness's
- * compile-out seam — HUNMIN_TSF_TRAY_DISABLED — reaches it in one TU. */
-#include "trayicon.cpp"
 /* UTF-8 <-> UTF-16 for the candidate path (issue #67): the suggest API is
  * UTF-8, the popup and the buffered word are wide. Replacements for the two
  * MultiByteToWideChar scatter patterns the adapter already carries — the
@@ -348,9 +353,15 @@ HRESULT hunmin_tsf_launch_settings(void *anchor) {
 }
 
 static const CLSID CLSID_HunminTSF = {0xF2C70001, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}};
-/* The language-bar item's own item id (ctfutb TF_LANGBARITEMINFO::guidItem;
- * a fresh slot in the same F2C7000x block, never equal to another TIP's). */
-static const GUID HunminLangBarItemGuid = {0xF2C70003, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03}};
+/* GUID_LBI_INPUTMODE {2C77A81E-41CC-4178-A3A7-5F8A987568E6} — Windows 8+ and
+ * Win11: the item the "input indicator" (the taskbar per-TIP badge) hosts in
+ * the tray MUST carry this guidItem; any other item GUID is ignored by the
+ * shell's hosted-item path (measured sibling jamotong TIP, hosted live).
+ * The MSVC SDK declares GUID_LBI_INPUTMODE as an extern (ctffunc.h), so the
+ * value would come from a link library; it is a private constant here so no
+ * library set change is needed. The item's own earlier private GUID
+ * F2C70003 (issue #67) never got past AddItem on 26200 and is retired. */
+static const GUID HunminLbiInputModeGuid = {0x2C77A81E, 0x41CC, 0x4178, {0xA3, 0xA7, 0x5F, 0x8A, 0x98, 0x75, 0x68, 0xE6}};
 /* The language profile GUID is shared state: registration enables it, so
  * unregistration must name the same GUID to remove it (issue #84). */
 static const GUID HunminProfileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
@@ -487,66 +498,12 @@ class HunminEnumDisplayAttrInfo : public IEnumTfDisplayAttributeInfo {
     virtual ~HunminEnumDisplayAttrInfo() = default;
 };
 
-/* ---- the SYSTEM langbar menu extension (docs: language-bar.md,
- * "Extending System Language Bar Items"): TSF supports adding menu items to
- * EXISTING language bar menus — the mechanism for the user's "right-click on
- * the system lang bar -> setting" ask: obtain the item via GetItem, QI it for
- * ITfSource, AdviseSink(IID_ITfSystemLangBarItemSink, this); the extended
- * service calls InitMenu when its menu shows and OnMenuSelect with our id. ---- */
-class HunminSystemLangBarMenuExtension;
-
-wchar_t g_hunmin_ext_stub[] = L"hunmin-langbar-extension"; /* FROM_ADDRESS anchor */
-
-/* Issue #103 (the tray badge): the badge's menu entry lands on the shared
- * settings launch. Declared here so the class below can register it in
- * Activate; defined after the class. NO toggle callback: the maintainer
- * steer (round 3, measured rounds 1-3) is that a tray-click mode change is
- * not necessary and cannot reach the focused edit without stealing its
- * focus — the badge is the indicator, the mode flips with the key only. */
-static void hunmin_tsf_tray_settings_thunk(void);
-
-class HunminSystemLangBarMenuExtension : public ITfSystemLangBarItemSink {
-  public:
-    LONG ref_ = 1;
-    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
-        if (!ppv)
-            return E_INVALIDARG;
-        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfSystemLangBarItemSink)) {
-            *ppv = static_cast<ITfSystemLangBarItemSink *>(this);
-            InterlockedIncrement(&ref_);
-            return S_OK;
-        }
-        *ppv = nullptr;
-        return E_NOINTERFACE;
-    }
-    STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
-    STDMETHOD_(ULONG, Release)() override {
-        ULONG r = (ULONG)InterlockedDecrement(&ref_);
-        if (r == 0)
-            delete this;
-        return r;
-    }
-    /* ITfSystemLangBarItemSink: the menu-button shape (docs: language-bar.md)
-     * — one entry, then OnMenuSelect lands on the settings surface. */
-    STDMETHOD(InitMenu)(ITfMenu *pMenu) override {
-        if (!pMenu)
-            return E_FAIL;
-        const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
-        return pMenu->AddMenuItem(1, 0, nullptr, nullptr, label,
-                                  (ULONG)wcslen(label), nullptr);
-    }
-    STDMETHOD(OnMenuSelect)(UINT wID) override {
-        if (wID != 1)
-            return S_OK;
-        return hunmin_tsf_launch_settings((void *)&g_hunmin_ext_stub);
-    }
-};
-
 class CTextService : public ITfTextInputProcessor,
                      public ITfThreadMgrEventSink,
                      public ITfKeyEventSink,
                      public ITfCompositionSink,
                      public ITfLangBarItemButton,
+                     public ITfSource,
                      public ITfDisplayAttributeProvider {
   public:
     CTextService()
@@ -599,6 +556,14 @@ class CTextService : public ITfTextInputProcessor,
             /* ctfutb.h: the language-bar button. ITfLangBarItemButton
              * derives from ITfLangBarItem, so both IIDs bind this. */
             *ppv = static_cast<ITfLangBarItemButton *>(this);
+            AddRef();
+            return S_OK;
+        } else if (IsEqualIID(riid, IID_ITfSource)) {
+            /* language-bar.md: the item MUST expose ITfSource — when the
+             * item is installed the language bar calls the item's
+             * ITfSource::AdviseSink with IID_ITfLangBarItemSink to install
+             * its change-notification sink. */
+            *ppv = static_cast<ITfSource *>(this);
             AddRef();
             return S_OK;
         } else {
@@ -689,45 +654,34 @@ class CTextService : public ITfTextInputProcessor,
         }
     }
 
-    /* The tray badge update (issue #103, the ruled tray surface). Every
-     * mode boundary goes through here so the badge can never drill from
-     * the mode state the adapter actually holds. Tracked no-ops in the
-     * mock harness (HUNMIN_TSF_TRAY_DISABLED). */
-    void UpdateTrayIcon() {
-        hunmin_tsf_tray_update(hangulMode_ ? 1 : 0);
+    /* The langbar item's change notification (issue #103, the langbar-item
+     * surface): every mode boundary notifies the kernel through the
+     * ITfLangBarItemSink the language bar installs onto the item at
+     * AddItem (language-bar.md) — the kernel then re-queries GetIcon/
+     * GetText, showing the new 한/A badge with no host restart. */
+    void UpdateLangBarItem() {
+        if (itemSink_)
+            itemSink_->OnUpdate(TF_LBI_ICON | TF_LBI_TEXT);
     }
 
-    /* The mode switch's shared core: the toggle key (OnKeyDown, focused
-     * context) and the tray badge's left-click (no context) take the SAME
-     * steps — composition boundary, flip, conversion compartment, badge,
-     * ic rebuild with the other slot's layout. pic may be null (the tray
-     * click): then the live composition, if any, ends in its own context
-     * (DetachComposition — the same contract a context switch runs) and a
-     * buffered word without an in-flight syllable is KEPT for the next
-     * real boundary rather than dropped into a null-context insert. */
+    /* The mode-switch core (issue #103): the toggle key handler is the one
+     * caller, and its context is live — flip, conversion compartment, the
+     * langbar item's notification, the composition-boundary flush, and the
+     * ic rebuild with the other slot's layout run in one place. */
     void ToggleModeCore(ITfContext *pic, FILE *dbg) {
         CloseCandidateWindow();
-        if (pic) {
-            BoundaryFlush(pic, dbg);
-        } else if (composition_ && compCtx_) {
-            DetachComposition();
-        } else if (dbg) {
-            fprintf(dbg, " mode switch without a context: %zu buffered char(s) kept\n",
-                    wordbuf_.size());
-            fflush(dbg);
-        }
+        BoundaryFlush(pic, dbg);
         hangulMode_ = !hangulMode_;
         UpdateConversionCompartment();
-        UpdateTrayIcon();
+        UpdateLangBarItem();
         if (ic_) {
             hunmin_ic_free(ic_);
             ic_ = nullptr;
         }
         if (ctx_)
             ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
-        /* Both drivers log here (the key path's dbg line above is its own):
-         * the tray thunk passes no dbg FILE*, so this gated line is the one
-         * evidence a tray toggle ran in this host at all. */
+        /* This gated line is the one evidence a mode boundary ran in this
+         * host at all: the key path's own dbg line lives in its handler. */
         HMLOG("toggle core -> mode=%s ic=%p pic=%p\r\n",
               hangulMode_ ? "hangul" : "english", (void *)ic_, (void *)pic);
     }
@@ -803,9 +757,11 @@ class CTextService : public ITfTextInputProcessor,
             delivery_ = legacyMode_ ? (Delivery *)&interimDelivery_ : &nativeDelivery_;
             HMLOG("legacy force=%d detected-mode=%d\n", interimForce_ ? 1 : 0, legacyMode_ ? 1 : 0);
         }
-        /* The language-bar button (ctfutb.h, discoverable settings entry):
-         * registered while the service is active; the desktop/floating bar
-         * shows "Hunmin 설정", clicking opens the settings window. */
+        /* THE language-bar item (issue #103, the ruled langbar surface): the
+         * mode indicator (icon 한 / A, text) AND the right-click config menu
+         * ride our own ITfLangBarItemButton, added while the service is
+         * active and removed in Deactivate (docs: language-bar.md, "Adding
+         * Items to the Language Bar"). */
         {
             ITfLangBarItemMgr *plbm = nullptr;
             HRESULT hb = ptm->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm);
@@ -832,67 +788,12 @@ class CTextService : public ITfTextInputProcessor,
             if (dbg4)
                 fclose(dbg4);
         }
-        /* The SYSTEM langbar menu extension (language-bar.md): advise our
-         * entry onto the host thread's system items (언어/키보드/도움말... —
-         * measured item list in this env); whichever accepts it will call
-         * InitMenu for our "Hunmin 설정 열기". Failures are measured, not
-         * fatal: the item-granting rule is per host build. */
-        if (threadMgr_) {
-            ITfLangBarItemMgr *plbm2 = nullptr;
-            if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfLangBarItemMgr,
-                                                     (void **)&plbm2)) &&
-                plbm2) {
-                static const GUID sysItems[] = {
-                    {0x34745C63, 0xB2F0, 0x4784, {0x8B, 0x67, 0x5E, 0x12, 0xC8, 0x70, 0x1A, 0x31}},
-                    {0x58C99D96, 0x2F9B, 0x42CE, {0x91, 0xBE, 0x37, 0xEF, 0x18, 0x60, 0xF8, 0x82}},
-                    {0x190F67A2, 0x024F, 0x40D9, {0xAA, 0xBA, 0x43, 0x9F, 0x5C, 0x80, 0x8F, 0x67}},
-                    {0xED9D5450, 0xEBE6, 0x4255, {0x82, 0x89, 0xF8, 0xA3, 0x1E, 0x68, 0x72, 0x28}},
-                };
-                if (!menExt_)
-                    menExt_ = new HunminSystemLangBarMenuExtension();
-                for (const GUID &g : sysItems) {
-                    HRESULT gr = plbm2->GetItem(g, &barItemBuf_);
-                    if (SUCCEEDED(gr) && barItemBuf_) {
-                        ITfSource *src = nullptr;
-                        if (SUCCEEDED(barItemBuf_->QueryInterface(IID_ITfSource,
-                                                                  (void **)&src)) &&
-                            src) {
-                            HRESULT ar = src->AdviseSink(
-                                IID_ITfSystemLangBarItemSink, menExt_, &menCookie_);
-                            FILE *dbg6 = tsf_log_open("hunmin-tsf-debug.log");
-                            if (dbg6) {
-                                fprintf(dbg6, "sysmenu advise cls=%08lX hr=0x%lX\n",
-                                        (unsigned long)g.Data1, (unsigned long)ar);
-                                fflush(dbg6);
-                                fclose(dbg6);
-                            }
-                            if (SUCCEEDED(ar)) {
-                                menCookie_ = menCookie_; /* cookie recorded */
-                                if (menSrc_)
-                                    menSrc_->Release();
-                                menSrc_ = src; /* released at Deactivate */
-                                menExt_->AddRef();
-                            } else {
-                                src->Release();
-                            }
-                        }
-                        barItemBuf_->Release();
-                        barItemBuf_ = nullptr;
-                    }
-                }
-                plbm2->Release();
-            }
-        }
         UpdateConversionCompartment();
-        /* The tray badge lives with the service (issue #103): the callback
-         * is registered BEFORE the first update, so a click can never fire
-         * into nothing. */
-        {
-            hunmin_tsf_tray_callbacks cbs;
-            cbs.open_settings = &hunmin_tsf_tray_settings_thunk;
-            hunmin_tsf_tray_set_callbacks(&cbs);
-        }
-        UpdateTrayIcon();
+        /* The item's first notification: the sink is only set once the
+         * language bar advises it (the item's ITfSource::AdviseSink), so an
+         * AddItem-less host (or the CTF kernel's NULL sink) simply sees a
+         * badge re-read at the next mode boundary. */
+        UpdateLangBarItem();
         if (dbg3) {
             if (ctx_)
                 fprintf(dbg3, "  layout_count=%d\n", hunmin_ctx_layout_count(ctx_));
@@ -991,14 +892,13 @@ class CTextService : public ITfTextInputProcessor,
                 plbm->Release();
             }
             langbar_registered_ = false;
-        } /* The system-menu extension's documents (language-bar.md step 4):
-         * UnadviseSink by ITS cookie, THEN the sink release. */
-        if (menSrc_ && menExt_) {
-            menSrc_->UnadviseSink(menCookie_);
-            menSrc_->Release();
-            menSrc_ = nullptr;
-            menExt_->Release();
-            menExt_ = nullptr;
+            /* The kernel-provided sink goes with the item (language-bar.md:
+             * the sink lives between AddItem and RemoveItem). */
+            if (itemSink_) {
+                itemSink_->Release();
+                itemSink_ = nullptr;
+            }
+            itemSinkCookie_ = 0;
         }
         if (ic_) {
             hunmin_ic_free(ic_);
@@ -1012,32 +912,34 @@ class CTextService : public ITfTextInputProcessor,
             lastCtx_->Release();
             lastCtx_ = nullptr;
         }
-        /* Issue #103: the tray badge leaves with the service — a profile
-         * switch to another IME must not leave the icon standing; the next
-         * Activate re-registers the callback and re-adds the icon. */
-        hunmin_tsf_tray_hide();
         clientId_ = TF_CLIENTID_NULL;
         return S_OK;
     }
     /* ---- ctfutb.h: ITfLangBarItem (the base surface the manager calls),
-     * then ITfLangBarItemButton. The tooltip-names and the click handler
-     * land the user on the settings surface (issue #67's four access
-     * points measured: this bar button + the ITfFnConfigure chain + the
-     * settings-ui exe are the ones a third-party TIP may legally reach;
-     * the Settings app keyboard page and the taskbar indicator context
-     * menu belong to the shell). ---- */
+     * then ITfLangBarItemButton. THE langbar surface for issue #103 (the
+     * ruled lane: our own item, not the system-langbar extension): the
+     * icon/text are the mode indicator, the right-click config menu
+     * lands on the shared settings launch. ---- */
     STDMETHOD(GetInfo)(TF_LANGBARITEMINFO *pInfo) override {
         if (!pInfo)
             return E_INVALIDARG;
         ZeroMemory(pInfo, sizeof *pInfo);
         pInfo->clsidService = CLSID_HunminTSF;
-        pInfo->guidItem = HunminLangBarItemGuid;
-        /* BTN_BUTTON only: the earlier combo with HIDDENBYDEFAULT|
-         * SHOWNINTRAY was in place while every AddItem answered E_FAIL
-         * (measured 2026-10-18); the console kernel's BTN item carries
-         * exactly 0x00010010, so the reduced style is the reduced
-         * hypothesis — retry AddItem with it before blaming the kernel. */
-        pInfo->dwStyle = TF_LBI_STYLE_BTN_BUTTON;
+        /* guidItem MUST be GUID_LBI_INPUTMODE: the Win8+/Win11 "input
+         * indicator" (the per-TIP badge hosted in the taskbar tray) hosts a
+         * langbar item only when this is its guidItem (measured sibling
+         * project: any other item GUID is ignored by the shell's hosted-item
+         * path). The older private GUID F2C70003 never got past AddItem. */
+        pInfo->guidItem = HunminLbiInputModeGuid;
+        /* BTN_BUTTON | SHOWNINTRAY — the shape measured live on this host
+         * by the sibling jamotong TIP, whose own item is ACTUALLY hosted by
+         * the tray input indicator with this exact pair: with BTN_BUTTON
+         * alone+F2C70003 every AddItem answered E_FAIL (measured
+         * 2026-10-18, the "reduced hypothesis" then truthed out to be
+         * wrong-headed), so the tray-style bit returns as the sibling's
+         * working shape documents it. */
+        pInfo->dwStyle = TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_SHOWNINTRAY;
+        pInfo->ulSort = 0;
         lstrcpynW(pInfo->szDescription, L"Hunmin \uC124\uC815", MAX_PATH);
         return S_OK;
     }
@@ -1058,11 +960,48 @@ class CTextService : public ITfTextInputProcessor,
         return *pbstrToolTip ? S_OK : E_OUTOFMEMORY;
     }
     STDMETHOD(OnClick)(TfLBIClick click, POINT pt, const RECT *prcArea) override {
-        (void)click;
-        (void)pt;
         (void)prcArea;
-        /* The dedicated process keeps this thread free: the TIP thread must
-         * not pump a nested modal loop while TSF holds edit cookies. */
+        if (click == TF_LBI_CLK_RIGHT) {
+            /* The right-click CONFIG MENU (issue #103, the ruled langbar
+             * surface). Measured sibling shape (BTN_BUTTON items): with
+             * BTN_BUTTON, a right click arrives as OnClick(CLK_RIGHT) and
+             * the bar's InitMenu/OnMenuSelect never fire — so the item
+             * builds its own popup here, like the reference TIPs do.
+             * Owner = the focused window (the indicator does not hand out
+             * one); TPM_RETURNCMD|TPM_NONOTIFY resolve the choice from the
+             * return value, no WM_COMMAND. */
+            HMENU menu = CreatePopupMenu();
+            if (menu) {
+                const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
+                AppendMenuW(menu, MF_STRING, 1, label);
+                POINT p = pt;
+                HMONITOR mon = MonitorFromPoint(p, MONITOR_DEFAULTTONEAREST);
+                if (mon) {
+                    MONITORINFO mi;
+                    mi.cbSize = sizeof(mi);
+                    if (GetMonitorInfoW(mon, &mi)) {
+                        if (p.x < mi.rcWork.left)
+                            p.x = mi.rcWork.left;
+                        if (p.x > mi.rcWork.right)
+                            p.x = mi.rcWork.right;
+                    }
+                }
+                HWND owner = GetFocus();
+                if (!owner)
+                    owner = GetForegroundWindow();
+                int cmd = (int)TrackPopupMenu(menu, TPM_NONOTIFY | TPM_RETURNCMD | TPM_LEFTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN,
+                                              p.x, p.y, 0, owner, nullptr);
+                DestroyMenu(menu);
+                if (cmd == 1)
+                    return hunmin_tsf_launch_settings(static_cast<void *>(this));
+            }
+            return S_OK;
+        }
+        (void)pt;
+        /* Left click = the command-button action (BTN_BUTTON). The settings
+         * launch is a DEDICATED PROCESS, not a modal loop on this thread:
+         * the TIP thread must not pump a nested message loop while TSF
+         * holds edit cookies. */
         return hunmin_tsf_launch_settings(static_cast<void *>(this));
     }
     STDMETHOD(InitMenu)(ITfMenu *pMenu) override {
@@ -1078,6 +1017,36 @@ class CTextService : public ITfTextInputProcessor,
         if (wID != 1)
             return S_OK;
         return hunmin_tsf_launch_settings(nullptr);
+    }
+    /* ---- ITfSource (language-bar.md): the language bar installs its ---
+     * ITfLangBarItemSink ONTO THE ITEM through here at AddItem; the item
+     * later calls that sink's OnUpdate to notify GetIcon/GetText changes
+     * (the mode badge) without a host restart. The sink direction is
+     * KERNEL-to-item, never the reverse. ---- */
+    STDMETHOD(AdviseSink)(REFIID riid, IUnknown *punk, DWORD *pdwCookie) override {
+        if (!punk || !pdwCookie)
+            return E_INVALIDARG;
+        *pdwCookie = 0;
+        if (!IsEqualIID(riid, IID_ITfLangBarItemSink))
+            return CONNECT_E_CANNOTCONNECT;
+        if (itemSink_)
+            return CONNECT_E_ADVISELIMIT;
+        ITfLangBarItemSink *sink = nullptr;
+        if (FAILED(punk->QueryInterface(IID_ITfLangBarItemSink, (void **)&sink)) || !sink)
+            return CONNECT_E_CANNOTCONNECT;
+        itemSink_ = sink;
+        itemSinkCookie_ = 1;
+        *pdwCookie = itemSinkCookie_;
+        return S_OK;
+    }
+    STDMETHOD(UnadviseSink)(DWORD dwCookie) override {
+        if (dwCookie == itemSinkCookie_ && itemSink_) {
+            itemSink_->Release();
+            itemSink_ = nullptr;
+            itemSinkCookie_ = 0;
+            return S_OK;
+        }
+        return CONNECT_E_NOCONNECTION;
     }
     STDMETHOD(GetIcon)(HICON *phIcon) override {
         if (!phIcon)
@@ -1332,8 +1301,7 @@ class CTextService : public ITfTextInputProcessor,
      * with the preceding-down bit set (lParam bit 30): the press must
      * toggle once, and repeats are swallowed rather than delivered to the
      * app. The steps themselves are the SHARED mode-switch core
-     * (ToggleModeCore, issue #103): the tray badge's left-click runs the
-     * same steps with no context. */
+     * (ToggleModeCore, issue #103), whose tail notifies the langbar item. */
     void ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat, FILE *dbg) {
         if (pfEat)
             *pfEat = TRUE;
@@ -2377,14 +2345,13 @@ class CTextService : public ITfTextInputProcessor,
     /* ctfutb.h ITfLangBarItemButton state: true between AddItem and
      * RemoveItem; the manager owns exactly one extra reference. */
     bool langbar_registered_ = false;
-    /* The system-menu extension advised onto the host thread's system
-     * langbar items (language-bar.md "Extending System Language Bar
-     * Items"); one entry per advised item, each tracked for its own
-     * UnadviseSink at Deactivate. */
-    HunminSystemLangBarMenuExtension *menExt_ = nullptr;
-    DWORD menCookie_ = 0;
-    ITfSource *menSrc_ = nullptr;
-    ITfLangBarItem *barItemBuf_ = nullptr;
+    /* The ITfLangBarItemSink the language bar installed onto the item
+     * (ITfSource::AdviseSink at AddItem — language-bar.md; released with
+     * the item at Deactivate). OnUpdate(TF_LBI_ICON | TF_LBI_TEXT) through
+     * it re-queries GetIcon/GetText, so the 한/A badge refreshes without a
+     * host restart. */
+    ITfLangBarItemSink *itemSink_ = nullptr;
+    DWORD itemSinkCookie_ = 0;
 
     void UpdateConversionCompartment() {
         /* The compartment the language bar reads to draw its 中/英 badge
@@ -2779,12 +2746,6 @@ class CTextService : public ITfTextInputProcessor,
         return true;
     }
 };
-/* The tray badge's registered callback (declared above the classes). One
- * routing point per process: the badge's icon window and callback are
- * shared state. */
-static void hunmin_tsf_tray_settings_thunk(void) {
-    hunmin_tsf_launch_settings((void *)&g_hunmin_ext_stub);
-}
 CTextService::InterimDelivery *CTextService::InterimDelivery::s_writer = nullptr;
 
 extern "C" HINSTANCE g_hunmin_hinst;

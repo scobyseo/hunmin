@@ -33,7 +33,6 @@ SHORT g_mockKeyState[256] = {};
 SHORT tsf_mock_GetKeyState(int vk) { return g_mockKeyState[vk & 0xFF]; }
 #define GetKeyState tsf_mock_GetKeyState
 /* No real tray icon from a console test process (issue #103's seam). */
-#define HUNMIN_TSF_TRAY_DISABLED
 
 #include "mock-tsf.h"
 #define private public
@@ -44,5 +43,6 @@ SHORT tsf_mock_GetKeyState(int vk) { return g_mockKeyState[vk & 0xFF]; }
 #include "tsf-config-test.cpp"
 #include "tsf-settings-test.cpp"
 #include "tsf-candidate-test.cpp"
+#include "tsf-langbaritem-test.cpp"
 #include "tsf-datadir-test.cpp"
 #include "tsf-legacy-test.cpp"
