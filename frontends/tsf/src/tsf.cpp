@@ -211,6 +211,10 @@ static void resolveLayoutSlot(const hunmin_ctx *ctx, const std::string &stored,
 #include "config.h"
 #include "settings.h" /* ITfFunctionProvider branch + the apply bridge */
 #include "candwindow.h"
+/* Issue #103 (ruled tray badge): the adapter's OWN tray surface. Included
+ * like src/keybinding.cpp (not a target source) so the mock harness's
+ * compile-out seam — HUNMIN_TSF_TRAY_DISABLED — reaches it in one TU. */
+#include "trayicon.cpp"
 /* UTF-8 <-> UTF-16 for the candidate path (issue #67): the suggest API is
  * UTF-8, the popup and the buffered word are wide. Replacements for the two
  * MultiByteToWideChar scatter patterns the adapter already carries — the
@@ -483,6 +487,18 @@ class HunminSystemLangBarMenuExtension;
 
 wchar_t g_hunmin_ext_stub[] = L"hunmin-langbar-extension"; /* FROM_ADDRESS anchor */
 
+/* Issue #103 (the tray badge): the badge's actions land back on the ACTIVE
+ * service — a left-click runs the SAME mode-switch core the toggle key
+ * drives — and on the shared settings launch. Declared here so the class
+ * below can register them in Activate; defined after the class (the toggle
+ * reaches a private member the class owns). g_activeTrayService's lifetime
+ * matches the object's activation lifetime (set in Activate, cleared in
+ * Deactivate). */
+class CTextService;
+static CTextService *g_activeTrayService = nullptr;
+static void hunmin_tsf_tray_toggle_thunk(void);
+static void hunmin_tsf_tray_settings_thunk(void);
+
 class HunminSystemLangBarMenuExtension : public ITfSystemLangBarItemSink {
   public:
     LONG ref_ = 1;
@@ -668,6 +684,44 @@ class CTextService : public ITfTextInputProcessor,
         }
     }
 
+    /* The tray badge update (issue #103, the ruled tray surface). Every
+     * mode boundary goes through here so the badge can never drill from
+     * the mode state the adapter actually holds. Tracked no-ops in the
+     * mock harness (HUNMIN_TSF_TRAY_DISABLED). */
+    void UpdateTrayIcon() {
+        hunmin_tsf_tray_update(hangulMode_ ? 1 : 0);
+    }
+
+    /* The mode switch's shared core: the toggle key (OnKeyDown, focused
+     * context) and the tray badge's left-click (no context) take the SAME
+     * steps — composition boundary, flip, conversion compartment, badge,
+     * ic rebuild with the other slot's layout. pic may be null (the tray
+     * click): then the live composition, if any, ends in its own context
+     * (DetachComposition — the same contract a context switch runs) and a
+     * buffered word without an in-flight syllable is KEPT for the next
+     * real boundary rather than dropped into a null-context insert. */
+    void ToggleModeCore(ITfContext *pic, FILE *dbg) {
+        CloseCandidateWindow();
+        if (pic) {
+            BoundaryFlush(pic, dbg);
+        } else if (composition_ && compCtx_) {
+            DetachComposition();
+        } else if (dbg) {
+            fprintf(dbg, " mode switch without a context: %zu buffered char(s) kept\n",
+                    wordbuf_.size());
+            fflush(dbg);
+        }
+        hangulMode_ = !hangulMode_;
+        UpdateConversionCompartment();
+        UpdateTrayIcon();
+        if (ic_) {
+            hunmin_ic_free(ic_);
+            ic_ = nullptr;
+        }
+        if (ctx_)
+            ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
+    }
+
     STDMETHOD(Activate)(ITfThreadMgr *ptm, TfClientId tid) override {
         threadMgr_ = ptm;
         clientId_ = tid;
@@ -808,6 +862,17 @@ class CTextService : public ITfTextInputProcessor,
             }
         }
         UpdateConversionCompartment();
+        /* The tray badge lives with the service (issue #103): the callbacks
+         * are registered BEFORE the first update, so a click can never fire
+         * into nothing, and the pointer's lifetime matches the activation. */
+        g_activeTrayService = this;
+        {
+            hunmin_tsf_tray_callbacks cbs;
+            cbs.toggle = &hunmin_tsf_tray_toggle_thunk;
+            cbs.open_settings = &hunmin_tsf_tray_settings_thunk;
+            hunmin_tsf_tray_set_callbacks(&cbs);
+        }
+        UpdateTrayIcon();
         if (dbg3) {
             if (ctx_)
                 fprintf(dbg3, "  layout_count=%d\n", hunmin_ctx_layout_count(ctx_));
@@ -927,6 +992,12 @@ class CTextService : public ITfTextInputProcessor,
             lastCtx_->Release();
             lastCtx_ = nullptr;
         }
+        /* Issue #103: the tray badge leaves with the service — a profile
+         * switch to another IME must not leave the icon standing; the next
+         * Activate re-registers the callbacks and re-adds the icon. */
+        if (g_activeTrayService == this)
+            g_activeTrayService = nullptr;
+        hunmin_tsf_tray_hide();
         clientId_ = TF_CLIENTID_NULL;
         return S_OK;
     }
@@ -1179,21 +1250,10 @@ class CTextService : public ITfTextInputProcessor,
             if (pfEat)
                 *pfEat = TRUE;
             const bool repeat = (lParam & (1 << 30)) != 0;
-            if (!repeat) {
-                /* A mode switch is a composition boundary: the candidate
-                 * window belongs to the composition being flushed, so it
-                 * closes with it (issue #67). */
-                CloseCandidateWindow();
-                BoundaryFlush(pic, dbg);
-                hangulMode_ = !hangulMode_;
-                UpdateConversionCompartment();
-                if (ic_) {
-                    hunmin_ic_free(ic_);
-                    ic_ = nullptr;
-                }
-                if (ctx_)
-                    ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
-            }
+            if (!repeat)
+                /* The shared mode-switch core (issue #103): the tray
+                 * badge's left-click runs the same steps with no context. */
+                ToggleModeCore(pic, dbg);
             if (dbg) {
                 fprintf(dbg, " toggle key vk=%lu repeat=%d -> %s (%s)\n",
                         (unsigned long)wParam, (int)repeat,
@@ -2289,6 +2349,17 @@ class CTextService : public ITfTextInputProcessor,
         return true;
     }
 };
+/* The tray badge's registered callbacks (declared above the classes). One
+ * routing point per process: the badge's icon window and callbacks are
+ * shared state, and g_activeTrayService is the service that owns them. */
+static void hunmin_tsf_tray_toggle_thunk(void) {
+    if (g_activeTrayService)
+        g_activeTrayService->ToggleModeCore(nullptr, nullptr);
+}
+static void hunmin_tsf_tray_settings_thunk(void) {
+    hunmin_tsf_launch_settings((void *)&g_hunmin_ext_stub);
+}
+
 extern "C" HINSTANCE g_hunmin_hinst;
 /* placeholder */
 

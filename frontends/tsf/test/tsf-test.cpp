@@ -32,6 +32,8 @@ extern "C" HINSTANCE g_hunmin_hinst = nullptr;
 SHORT g_mockKeyState[256] = {};
 SHORT tsf_mock_GetKeyState(int vk) { return g_mockKeyState[vk & 0xFF]; }
 #define GetKeyState tsf_mock_GetKeyState
+/* No real tray icon from a console test process (issue #103's seam). */
+#define HUNMIN_TSF_TRAY_DISABLED
 
 #include "mock-tsf.h"
 #define private public
