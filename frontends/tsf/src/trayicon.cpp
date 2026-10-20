@@ -64,6 +64,7 @@ struct TrayState {
     bool wnd_class_ready = false;
     bool added = false;
     bool promoted = false; /* the Win11 visible-in-taskbar write landed */
+    HWND host = nullptr; /* the window the user types in (WM_ACTIVATEAPP) */
     HICON icon = nullptr;
     int hangul = 1; /* last requested mode; re-applied on WM_ACTIVATEAPP */
     hunmin_tsf_tray_callbacks cb = {nullptr, nullptr};
@@ -174,6 +175,15 @@ bool TrayAdd(void) {
     if (!g_tray.promoted) {
         g_tray.promoted = TrayPromote();
         HMLOG("tray promote ok=%d\r\n", (int)g_tray.promoted);
+        if (g_tray.promoted) {
+            /* The taskbar reads NotifyIconSettings when the icon is CREATED
+             * (measured round 2: the write alone left the icon hidden in the
+             * overflow): one remove+re-add so the just-written promoted
+             * state applies. TrayAdd skips the promote retry (confirmed). */
+            Shell_NotifyIconW(NIM_DELETE, &g_tray.nid);
+            g_tray.added = false;
+            return TrayAdd();
+        }
     }
     return true;
 }
@@ -199,19 +209,24 @@ LRESULT CALLBACK TrayWndProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam) {
          * mouse message. The single-entry menu never needs WM_CONTEXTMENU. */
         switch ((UINT)lparam & 0xFFFF) {
         case WM_LBUTTONUP: {
-            /* The toggle must apply to the edit the user was typing in (the
-             * installer round's defect: the flip happened but the keystrokes
-             * after the click landed nowhere, because the tray click hands
-             * the foreground away). Remember the foreground window, flip,
-             * and set it back — the tray host (Shell_TrayWnd) itself is not
-             * a restore target. */
+            /* The toggle must apply to the edit the user was typing in. The
+             * foreground AT CLICK TIME is the shell (round 2's defect: the
+             * restore went to the overflow flyout, not the edit), so the
+             * restore target is the window captured when OUR process last
+             * became foreground (WM_ACTIVATEAPP below), falling back to the
+             * click-time foreground only when nothing was captured. The
+             * tray host and our own owner window are never targets. */
             HWND prev = GetForegroundWindow();
+            HWND target = g_tray.host ? g_tray.host : prev;
             wchar_t cls[64];
-            bool prevIsTray = prev && GetClassNameW(prev, cls, 64) > 0 &&
-                              wcscmp(cls, L"Shell_TrayWnd") == 0;
+            bool targetIsTray = target && GetClassNameW(target, cls, 64) > 0 &&
+                                (wcscmp(cls, L"Shell_TrayWnd") == 0 ||
+                                 target == g_tray.wnd);
             if (g_tray.cb.toggle)
                 g_tray.cb.toggle();
-            if (prev && !prevIsTray && !SetForegroundWindow(prev))
+            HMLOG("tray click restore target=%p host=%p prev=%p\r\n",
+                  (void *)target, (void *)g_tray.host, (void *)prev);
+            if (target && !targetIsTray && !SetForegroundWindow(target))
                 HMLOG("tray focus restore FAILED err=%lu\r\n", GetLastError());
             return 0;
         }
@@ -241,6 +256,11 @@ LRESULT CALLBACK TrayWndProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     }
     if (msg == WM_ACTIVATEAPP) {
         if (wparam) {
+            /* The moment our process becomes foreground is when the user was
+             * typing in it: the window THAT IS is the left-click restore
+             * target. (Round 2's defect: restoring to the click-time
+             * foreground handed focus to the shell's overflow flyout.) */
+            g_tray.host = GetForegroundWindow();
             if (!g_tray.added)
                 TrayAdd();
         } else {

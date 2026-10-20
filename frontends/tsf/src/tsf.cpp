@@ -730,6 +730,11 @@ class CTextService : public ITfTextInputProcessor,
         }
         if (ctx_)
             ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
+        /* Both drivers log here (the key path's dbg line above is its own):
+         * the tray thunk passes no dbg FILE*, so this gated line is the one
+         * evidence a tray toggle ran in this host at all. */
+        HMLOG("toggle core -> mode=%s ic=%p pic=%p\r\n",
+              hangulMode_ ? "hangul" : "english", (void *)ic_, (void *)pic);
     }
 
     STDMETHOD(Activate)(ITfThreadMgr *ptm, TfClientId tid) override {
