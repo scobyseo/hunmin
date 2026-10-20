@@ -83,15 +83,22 @@ verdict falsified — it read our former shape):
   Win+Space selection is the activation that counts); probe+host traces:
   `langbar AddItem hr=0x0`, mode toggles through the Han/Eng key
   (`toggle core -> mode=…`).
-- **The hosted-indicator row measured on round 5's sandbox image**: after
-  selection the taskbar input indicator's accessible name (UIA,
-  `tray-ime-uia.ps1` over `Shell_TrayWnd`) re-labellings to
-  `트레이 입력 표시기 한국어 / Hunmin` — the indicator SHOWS the active
-  profile; no SEPARATE hosted item element appears beside it on this
-  image (count 19→21 is the round's own cmd window). So on this image a
-  hosted item's affordance is identity-through-the-profile, and the
-  per-TIP item hosting visible in the sibling jamotong measurement
-  remains to be re-measured on the DEV host with the SAME build.
+- **The hosted-indicator row, now measured CLOSED on BOTH hosts (rounds
+  5-6 sandbox + the dev host's deep scan, 2026-10-21 01:14 — after
+  Hunmin selected in the focused Notepad):** the desktop-wide UIA tree
+  (deep-uia.ps1: the whole desktop walk, not just `Shell_TrayWnd`) holds
+  **no CTF-hosted language-bar window at all** (zero CTF/CUIHosted/
+  FloatAsset/CUAS class hits); the indicator is ONE
+  `SystemTray.NormalButton` whose name re-labels to
+  `트레이 입력 표시기 한국어 / Hunmin` — the shell's per-profile
+  identity. Every legal item shape is in place and accepted
+  (`guidItem = GUID_LBI_INPUTMODE`, `BTN_BUTTON|SHOWNINTRAY`,
+  `ITfSource`, `AddItem hr=0x0` on every fresh host) and the embedded
+  bar STILL renders no per-TIP slot: the jamotong comment's hosting rule
+  described the Win8/10-era path. The single unmeasured comparator left
+  is jamotong itself re-registered on THIS build (no DLL in tree,
+  unregister measured today) — if the maintainer revives it, measure it;
+  nothing in our item code changes before then.
 - **Round-5 bug report (sin3-p2 chosung)**: `/` `;` `'` reached the app as
   raw symbols — the test phase answer for every feedable key OUTSIDE the
   letters was eat=FALSE, and msftedit never calls an uninterested key's
