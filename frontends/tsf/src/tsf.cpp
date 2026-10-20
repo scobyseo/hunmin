@@ -28,56 +28,18 @@
  * DLL's own directory is the one clone-independent location every host
  * process can resolve, and it stays inside the workspace. Set
  * HUNMIN_TSF_LOG_DIR to override when that directory is read-only. */
+/* The logging facility lives in src/log.h (the singleton, extracted
+ * 2026-10-21 — tsf.cpp got too long and the logging thread ran through
+ * it). The free names below are thin delegates kept for the ~20 call
+ * sites' existing FILE* discipline: gate off => null, nothing written. */
+#include "log.h"
+
 bool hunmin_tsf_log_path(const char *fname, char *out, size_t cap) {
-    wchar_t dirW[MAX_PATH];
-    wchar_t envW[MAX_PATH];
-    DWORD envAttr;
-    if (GetEnvironmentVariableW(L"HUNMIN_TSF_LOG_DIR", envW, MAX_PATH) > 0 &&
-        (envAttr = GetFileAttributesW(envW)) != INVALID_FILE_ATTRIBUTES &&
-        (envAttr & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
-        lstrcpynW(dirW, envW, MAX_PATH);
-    } else {
-        HMODULE hMod = nullptr;
-        if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                                (LPCWSTR)(const void *)&hunmin_tsf_log_path, &hMod) ||
-            !hMod)
-            return false;
-        if (GetModuleFileNameW(hMod, dirW, MAX_PATH) == 0)
-            return false;
-        if (!PathRemoveFileSpecW(dirW))
-            return false;
-    }
-    char dirA[MAX_PATH * 3];
-    if (WideCharToMultiByte(CP_ACP, 0, dirW, -1, dirA, sizeof(dirA), nullptr, nullptr) == 0)
-        return false;
-    int n = snprintf(out, cap, "%s\\%s", dirA, fname);
-    return n > 0 && (size_t)n < cap;
+    return TsfLog::PathFor(fname, out, cap);
 }
-/* Maintainer instruction (2026-10-17): debug output is an option, not an
- * ambient side effect. The gate lives in tsf_log_open — the one function
- * every log site opens through — so each site's `if (dbg)` stays intact and
- * reads false while the switch is off: no file is created, nothing is
- * written. HUNMIN_TSF_DEBUG_LOG set to 1 / on / yes / true enables; the
- * variable is re-read per open, so a running session can be flipped without
- * a restart. Registration logging (DllRegisterServer) goes through the same
- * gate and stays silent when off. */
-static bool tsf_log_enabled(void) {
-    char v[16];
-    DWORD n = GetEnvironmentVariableA("HUNMIN_TSF_DEBUG_LOG", v, (DWORD)sizeof(v));
-    if (n == 0 || n >= sizeof(v))
-        return false;
-    for (DWORD i = 0; i < n && v[i]; ++i)
-        v[i] = (char)tolower((unsigned char)v[i]);
-    return strcmp(v, "1") == 0 || strcmp(v, "on") == 0 || strcmp(v, "yes") == 0 ||
-           strcmp(v, "true") == 0;
-}
-static FILE *tsf_log_open(const char *fname, const char *mode = "a") {
-    if (!tsf_log_enabled())
-        return nullptr;
-    char path[MAX_PATH];
-    if (!hunmin_tsf_log_path(fname, path, sizeof(path)))
-        return nullptr;
-    return fopen(path, mode);
+bool tsf_log_enabled(void) { return TsfLog::Instance().Enabled(); }
+FILE *tsf_log_open(const char *fname, const char *mode = "a") {
+    return TsfLog::Instance().Open(fname, mode);
 }
 
 static void HMLOG(const char *fmt, ...) {
@@ -91,6 +53,7 @@ static void HMLOG(const char *fmt, ...) {
     fflush(f);
     fclose(f);
 }
+
 /* Issue #66: ONE data source wins — the first present in priority order:
  * (1) HUNMIN_DATA_DIR (explicit override), (2) <module>\data (the shipped
  * shape; the build stages libhunmin/data beside the DLL), (3) the repo
@@ -531,6 +494,40 @@ class CTextService : public ITfTextInputProcessor,
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
         if (!ppv)
             return E_INVALIDARG;
+        /* The QI trace (the maintainer's request, the hosted-item
+         * diagnosis): one line per QI, the asked IID's lead field and
+         * the answered slot mask — the langbar's hosting decision is
+         * where the item's shape gets judged, so the log names which
+         * IID rounds the object actually gets asked for. */
+        FILE *dbgq = tsf_log_open("hunmin-tsf-debug.log");
+        if (dbgq) {
+            fprintf(dbgq, "QI riid=%08lX-%04X answered=",
+                    (unsigned long)riid.Data1, (unsigned)riid.Data2);
+            if (IsEqualIID(riid, IID_IUnknown) ||
+                IsEqualIID(riid, IID_ITfTextInputProcessor))
+                fprintf(dbgq, "tip");
+            else if (IsEqualIID(riid, IID_ITfThreadMgrEventSink))
+                fprintf(dbgq, "tmesink");
+            else if (IsEqualIID(riid, IID_ITfKeyEventSink))
+                fprintf(dbgq, "keysink");
+            else if (IsEqualIID(riid, IID_ITfCompositionSink))
+                fprintf(dbgq, "compsink");
+            else if (IsEqualIID(riid, IID_ITfFunctionProvider))
+                fprintf(dbgq, "fnprov");
+            else if (IsEqualIID(riid, IID_ITfDisplayAttributeProvider))
+                fprintf(dbgq, "dispattr");
+            else if (IsEqualIID(riid, IID_ITfLangBarItem))
+                fprintf(dbgq, "lbi");
+            else if (IsEqualIID(riid, IID_ITfLangBarItemButton))
+                fprintf(dbgq, "lblbtn");
+            else if (IsEqualIID(riid, IID_ITfSource))
+                fprintf(dbgq, "source");
+            else
+                fprintf(dbgq, "none");
+            fprintf(dbgq, " pid=%lu\n", (unsigned long)GetCurrentProcessId());
+            fflush(dbgq);
+            fclose(dbgq);
+        }
         if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfTextInputProcessor)) {
             *ppv = static_cast<ITfTextInputProcessor *>(this);
         } else if (IsEqualIID(riid, IID_ITfThreadMgrEventSink)) {
