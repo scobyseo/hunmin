@@ -653,3 +653,11 @@
   under the dispatcher, and the dead overlay remnants stripped. Overturned on
   the way: the EXP-A space row (the eaten-space artifact) and the tier-F1
   mock's 24px fixture blind spot.
+
+## [2026-10-22] create | TSF components: the DIP+SAP stages run (issues #67, #103)
+
+- Session page for the 2026-10-22 stages run (all include-.cpp seams retired
+  in both directions, the contracts in tsf.h, the key-state mock a registered
+  provider) and issue #103's closure; the shell's remaining SRP load
+  (2,320 lines, eight TSF interfaces) is the measured basis for the
+  clean-code follow-on issue.
