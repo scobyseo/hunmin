@@ -28,7 +28,7 @@
 #include <string>
 
 class TsfSettingsTest : public ::testing::Test {
- protected:
+  protected:
     void SetUp() override {
         _putenv_s("HUNMIN_DATA_DIR", HUNMIN_TSF_DATA_DIR);
         const char *dirs[1] = {HUNMIN_TSF_DATA_DIR};
