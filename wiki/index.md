@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-20 | Total pages: 46
+> Last updated: 2026-10-22 | Total pages: 47
 
 ## Concepts
 
@@ -261,3 +261,13 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   overturned: the EXP-A space row (the eaten-space artifact) and the
   tier-F1 mock's blind spot (the 24px capture EDIT rejected EM_REPLACESEL
   growth).
+
+- [[2026-10-22-tsf-component-refactor]] - the DIP+SAP stages 1-3 run on
+  the maintainer's steer: all include-.cpp seams retired in both directions
+  (the tier-F1 harness LINKS the component TUs like the DLL), the contracts in
+  tsf.h (TsfCore, Delivery + the factory/registry pair, CandBackend, Candidates,
+  HunminTsfSnapshot), the key-state mock a REGISTERED provider, the old
+  #define-private-public white box replaced by Snapshot(); board rows
+  re-pointed; tier-F1 4/4 and docs-lint 0 errors; shell still 2,320 lines with
+  eight TSF interfaces on CTextService - the measured basis for the SRP
+  follow-on.

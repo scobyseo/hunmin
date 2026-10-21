@@ -31,17 +31,16 @@
 #include "tsf-testdir.h"
 
 /*
- * Two test-only seams, both confined to this TU; the adapter source is
- * included as-is so the compiled logic is the linked DLL's logic.
+ * Two test seams, both registration-based now (the include-.cpp white-box
+ * seam is retired): the adapter source is LINKED, not included, so the
+ * compiled logic is the linked DLL's logic.
  *
- * 1. GetKeyState -> tsf_mock_GetKeyState. The live adapter reads shift from
- *    the thread's keyboard state; the mock injects it from the event's mods
- *    bit so a shifted event tests the shifted row deterministically.
- * 2. `#define private public` makes CTextService's wordbuf_/ic_/ctx_
- *    observable. That is the white-box observation channel this harness
- *    needs in place of a screen: the tier A `preedit` is the engine's
- *    in-flight buffer (readable from the adapter's own ic_), and the
- *    buffered word is the adapter's own accumulation.
+ * 1. The key-state provider: the live adapter reads shift from the
+ *    thread's keyboard state; the harness registers tsf_mock_GetKeyState
+ *    into keybinding.h's provider slot so a shifted event tests the
+ *    shifted row deterministically.
+ * 2. The shell's Snapshot() observation channel (tsf.h) exposes the
+ *    engine ic, ctx and buffered word without #define-private-public.
  */
 SHORT tsf_mock_GetKeyState(int vk);
 SHORT g_mockKeyState[256] = {};
@@ -54,12 +53,7 @@ SHORT tsf_mock_GetKeyState(int vk) {
 // the DLL build) is not linked into the harness.
 extern "C" HINSTANCE g_hunmin_hinst = nullptr;
 
-#define GetKeyState tsf_mock_GetKeyState
-/* No real tray icon from a console test process (issue #103's seam). */
-#define HUNMIN_TSF_TRAY_DISABLED
-#define private public /* NOLINT(readability-*) -- test-only access seam */
-#include "../src/tsf.cpp"
-#undef private
+#include "../src/tsf.h"
 
 namespace {
 
@@ -276,6 +270,7 @@ int main(int argc, char **argv) {
     // {"meta": {"case": ...}} lines; each case starts from a clean engine
     // and a clean mock document (docs/trace-spec.md "Multi-case batch
     // files"), the same isolation tier A gives every case.
+    auto SvcSnap = [&]() { return svc->Snapshot(); };
     auto startRun = [&]() {
         tm = new tsfmock::MockThreadMgr(); // ref 1
         ctx = new tsfmock::MockContext(); // ref 1
@@ -293,7 +288,7 @@ int main(int argc, char **argv) {
         }
         if (tm->keySinkForeground != TRUE)
             fail("AdviseKeyEventSink was called with fForeground != TRUE");
-        if (!svc->ctx_ || !svc->ic_) {
+        if (!SvcSnap().ctx || !SvcSnap().ic) {
             std::cerr << "skip: engine context unavailable (check HUNMIN_DATA_DIR / libhunmin/data)\n";
             std::exit(77);
         }
@@ -308,6 +303,10 @@ int main(int argc, char **argv) {
         dm = nullptr;
         tm = nullptr;
     };
+
+    // Register the harness's key-state snapshot as the adapter's provider
+    // (keybinding.h) - the seam the old #define GetKeyState macro carried.
+    hunmin_tsf_keystate_register(&tsf_mock_GetKeyState);
 
     startRun();
     std::cout << lines[0] << "\n";
@@ -346,7 +345,7 @@ int main(int argc, char **argv) {
         // WINDOWS-TSF-REGISTRATION.md "C&C: key-down propagation").
         g_mockKeyState[VK_SHIFT & 0xFF] =
             (mods & 0x01) ? (SHORT)0x8000 : (SHORT)0;
-        const std::wstring wordBefore = svc->wordbuf_;
+        const std::wstring wordBefore = SvcSnap().wordbuf;
         const int endsBefore = ctx->compositionEnds;
         const size_t insertsBefore = ctx->insertions.size();
 
@@ -369,7 +368,7 @@ int main(int argc, char **argv) {
         //   - no insert:          wordbuf grew (or stayed) by exactly that
         //     commit; the delta is the commit
         const std::string beforeUtf8 = wideToUtf8(wordBefore);
-        const std::string afterUtf8 = wideToUtf8(svc->wordbuf_);
+        const std::string afterUtf8 = wideToUtf8(SvcSnap().wordbuf);
         std::string commit;
         if (insertsAfter > insertsBefore) {
             if (insertedUtf8.size() < beforeUtf8.size() ||
@@ -399,7 +398,7 @@ int main(int argc, char **argv) {
         }
         // Tier A's preedit is the engine's in-flight buffer after the key.
         const std::string preedit =
-            std::string(svc->ic_ ? hunmin_ic_preedit(svc->ic_) : "");
+            std::string(SvcSnap().ic ? hunmin_ic_preedit(SvcSnap().ic) : "");
 
         // The buffering contract itself (issue #73, requirement 3 of the
         // tier): nothing may be inserted while the engine consumes keys;
@@ -441,10 +440,10 @@ int main(int argc, char **argv) {
         // preedit), so the document now carries cumulativeCommits + preedit;
         // the fallback path (a host that refused compositions) keeps the
         // 0.2 shape, document + held.
-        const std::string heldNow = wideToUtf8(svc->wordbuf_);
+        const std::string heldNow = wideToUtf8(SvcSnap().wordbuf);
         const std::string docNow = wideToUtf8(ctx->doc);
         const std::string preeditNow =
-            std::string(svc->ic_ ? hunmin_ic_preedit(svc->ic_) : "");
+            std::string(SvcSnap().ic ? hunmin_ic_preedit(SvcSnap().ic) : "");
         if (ctx->compositionStarts > 0) {
             const bool compActive = ctx->compositionActive;
             if (compActive) {

@@ -6,6 +6,10 @@ project(hunmin-tsf LANGUAGES C CXX)
 # "No tests were found" on a standalone configure (measured).
 include(CTest)
 
+# The logging singleton's inline handles need C++17 (log.h).
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # Same option as the top-level CMakeLists.txt (issue #99): this directory is
 # also configured standalone, where the top-level definition never runs —
 # the packaging build passes it here too, so the standalone TIP build links
@@ -18,15 +22,20 @@ endif()
 add_library(hunmin-tsf MODULE
     src/dllmain.cpp
     src/tsf.cpp
+    src/delivery.cpp
+    src/candidates.cpp
+    src/keybinding.cpp
     src/config.cpp
     src/settings.cpp
     src/candwindow.cpp
 )
 
-# src/keybinding.cpp is NOT a target source on purpose: it is included by
-# src/tsf.cpp so the adapter and the binding matcher share one translation
-# unit — the tier-F1 harness reaches both through its GetKeyState injection
-# seam (#define GetKeyState over the whole TU).
+# Component TUs own their caches: the shell includes no .cpp and the
+# components include no shell .cpp either (DIP + SAP, docs/
+# REFACTOR-TSF-COMPONENTS.md). src/keybinding.cpp is a compiled TU whose
+# GetKeyState source is ONE registered provider (keybinding.h,
+# hunmin_tsf_keystate_register) - the seam the old per-TU
+# #define GetKeyState macro carried.
 
 if(NOT DEFINED ENV{HUNMIN_VS2022_ROOT})
   message(WARNING "HUNMIN_VS2022_ROOT is not set; set it to your Visual Studio 2022 BuildTools root (e.g. C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools)")

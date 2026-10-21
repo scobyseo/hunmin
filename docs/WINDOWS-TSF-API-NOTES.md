@@ -73,26 +73,39 @@ is not in-document text at all.
 
 ## Other interfaces this adapter already exercises
 
-### System langbar items (ctfutb.h: ITfSystemLangBarItem / ITfSystemDeviceTypeLangBarItem)
+### The langbar item as the mode indicator + config menu (ctfutb.h, issue #103)
 
-**Measured closed on this host (Windows 11 build 10.0.26100, 2026-10-18).**
-A minimal reference item (BTN_BUTTON alone) and the full combo alike fail
-`ITfLangBarItemMgr::AddItem` with `0x80004005` from a plain thread — the same
-E_FAIL the TIP's real item gets on every activation: the refusal is
-environmental, not item-specific. The kernel enumerates exactly four
-system-owned buttons (언어, 수정, 키보드, 도움말) and no per-TIP slot.
+**The item was re-shaped (2026-10-20, maintainer steer: the langbar item, not
+the system-langbar lanes).** The 2026-10-18 measurement — every `AddItem`
+answering `0x80004005` for our item (guidItem F2C70003, BTN_BUTTON alone)
+and for a reference probe from a plain thread — recorded the ENVIRONMENT
+(blurred earlier); the re-measured sibling fact on the SAME host: a TIP
+whose item carries `guidItem = GUID_LBI_INPUTMODE`
+({2C77A81E-41CC-4178-A3A7-5F8A987568E6}), style `BTN_BUTTON | SHOWNINTRAY`,
+and an implemented `ITfSource` IS hosted live by the tray input indicator.
+That recipe is the adapter's item now:
 
-- `ITfSystemLangBarItem` / `ITfSystemDeviceTypeLangBarItem` are appearance
-  interfaces on the system's own items (the QI succeeds on the system's
-  키보드/도움말 buttons, icon mode 0): no new item, no new menu entry, and
-  not our service's mode text.
-- The MS IME's A/가 tray badge rides a system path not exposed to
-  third-party TIPs on this build; the tray input indicator's icon is the
-  active profile's static icon (registration's resource id 1).
-- The adapter's item code stays: correct per ctfutb.h (BTN_BUTTON style,
-  right-click menu via InitMenu/OnMenuSelect wired to
-  `hunmin_tsf_launch_settings` → the settings-ui exe), dormant where the
-  kernel refuses items, alive wherever one will be accepted.
+- `guidItem` MUST be `GUID_LBI_INPUTMODE` — the Win8+/Win11 "input
+  indicator" hosts a langbar item only with this GUID; other item GUIDs are
+  ignored by the shell's hosted-item path.
+- The item exposes `ITfSource::AdviseSink/UnadviseSink` (language-bar.md):
+  the language bar installs its `ITfLangBarItemSink` ONTO the item at
+  `AddItem`; the item notifies `OnUpdate(TF_LBI_ICON | TF_LBI_TEXT)` at
+  every mode boundary so the 한/A badge refreshes without a host restart.
+- With `BTN_BUTTON`, left AND right clicks arrive as `OnClick(CLK_LEFT /
+  CLK_RIGHT)`: right-click shows the one-entry config menu
+  ("Hunmin 설정 열기") → `hunmin_tsf_launch_settings` (the settings-ui
+  exe); `InitMenu`/`OnMenuSelect` stay wired for a floating-bar host that
+  routes a menu-button shape instead.
+
+**Removed (2026-10-20, "it confuses"):** the `ITfSystemLangBarItemSink`
+system-menu extension (its advice had settled on this host's system items
+yet the shell tray menu never rendered an extension entry — the tray menu
+is built from the language list, not from TSF item sinks) and the own
+`Shell_NotifyIconW` tray badge (PR #124 rounds 1-3, the overflow-visibility
+iteration stopped). The compartment write stays — correct TSF, zero cost,
+honoured wherever a build reads it.
+
 
 - `ITfThreadMgrEventSink` (activation/deactivation, context push/pop),
 - `ITfKeyEventSink` + `ITfKeystrokeMgr::AdviseKeyEventSink` (key routing,

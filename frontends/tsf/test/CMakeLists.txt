@@ -39,13 +39,16 @@ endif()
 configure_file(tsf-testdir.h.in ${CMAKE_CURRENT_BINARY_DIR}/tsf-testdir.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_executable(tsf-trace-emit trace-emit.cpp ../src/config.cpp ../src/settings.cpp
-                   ../src/candwindow.cpp)
+add_executable(tsf-trace-emit trace-emit.cpp ../src/tsf.cpp ../src/delivery.cpp
+                   ../src/candidates.cpp ../src/keybinding.cpp
+                   ../src/config.cpp ../src/settings.cpp ../src/candwindow.cpp)
 target_compile_definitions(tsf-trace-emit PRIVATE UNICODE _UNICODE)
 target_include_directories(tsf-trace-emit PRIVATE
     ${HUNMIN_TSF_REPO_ROOT}/libhunmin/include)
-# The harness includes src/tsf.cpp directly; the DLL target's own link
-# settings (def file, SUFFIX) do not apply and must not.
+# The adapter is LINKED, not included: the component TUs (delivery,
+# candidates, keybinding) compile once and the harness links them like the
+# DLL does. The DLL target's own link settings (def file, SUFFIX) do not
+# apply and must not.
 target_link_libraries(tsf-trace-emit PRIVATE
     ${HUNMIN_ENGINE_LIB}
     ole32
@@ -73,16 +76,22 @@ if(Python3_EXECUTABLE)
   endforeach()
 endif()
 
-# The four case groups ride ONE executable: tsf-test.cpp owns the white-box
-# seam once (the old four-target shape recompiled src/tsf.cpp per runner) and
-# each registered entry selects its group with --gtest_filter, so the
+# The four case groups ride ONE executable: each fragment is a standalone
+# TU now (the include-.cpp white-box seam is retired), the shell's
+# Snapshot() observation channel replaces #define-private-public, and the
+# key-state seam is the registered provider (tsf-keystate-mock.h). Each
+# registered entry selects its group with --gtest_filter, so the
 # registered COUNT and the per-group labels are what they were. The rc-77
 # skip probes run OUTSIDE the binary (tools/tsf-run-if-data.py): a gtest skip
 # reports rc 0, which reads as a pass, so the contract is decided before
 # gtest runs. add_test calls are written out literally (no loop variable)
 # because tools/docs-lint.py check 6 greps the sources for add_test(NAME id).
-add_executable(tsf-test tsf-test.cpp ../src/config.cpp
-                 ../src/settings.cpp ../src/candwindow.cpp)
+add_executable(tsf-test tsf-test.cpp
+    tsf-config-test.cpp tsf-settings-test.cpp tsf-candidate-test.cpp
+    tsf-langbaritem-test.cpp tsf-datadir-test.cpp tsf-legacy-test.cpp
+    ../src/tsf.cpp ../src/delivery.cpp ../src/candidates.cpp
+    ../src/keybinding.cpp ../src/config.cpp ../src/settings.cpp
+    ../src/candwindow.cpp)
 target_compile_definitions(tsf-test PRIVATE UNICODE _UNICODE)
 target_include_directories(tsf-test PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}

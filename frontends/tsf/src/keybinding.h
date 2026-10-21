@@ -34,6 +34,12 @@
  * is numbers end to end and the comparison is the only contract.
  */
 
+/* windows.h is now a plain include (SHORT, and the provider default's
+ * GetKeyState): the old "deliberately free of windows.h" rule served the
+ * per-TU #define GetKeyState macro seam, which is retired - the harness
+ * registers its provider (hunmin_tsf_keystate_register) instead. */
+#include <windows.h>
+
 #include <vector>
 
 #ifdef __cplusplus
@@ -79,14 +85,21 @@ unsigned int hunmin_tsf_keymods_from_state(void);
 /* The CapsLock TOGGLE state (issue #112, ruling "wire and make it common to
  * all platform"): 1 when toggled on. A toggle key reports its state in the
  * LOW bit of GetKeyState (0x0001), not the 0x8000 down bit the modifiers
- * above use — and it is deliberately NOT a HUNMIN_TSF_KEYMOD bit: bindings
+ * above use - and it is deliberately NOT a HUNMIN_TSF_KEYMOD bit: bindings
  * match three families exactly, and CapsLock must never make a bare binding
  * miss (Android's isModifierChord excludes it the same way). Read beside
  * hunmin_tsf_keymods_from_state() so host state enters the key path at one
  * seam, and fed to the engine as the "caps" option (the yethangul P
- * variable, hunmin.h:93) once per key event — the same per-event 1/0 shape
+ * variable, hunmin.h:93) once per key event - the same per-event 1/0 shape
  * fcitx5 has (engine.cpp:327) and Android since #112's alignment. */
 int hunmin_tsf_capslock_from_state(void);
+
+/* The thread input state the key decisions read. The platform provider
+ * (GetKeyState) is the default; a harness registers its own snapshot
+ * provider - the state seam the old per-TU #define GetKeyState macro
+ * carried, without the macro. NULL resets to the platform provider. */
+typedef SHORT (*HunminTsfKeyStateFn)(int vk);
+void hunmin_tsf_keystate_register(HunminTsfKeyStateFn provider);
 
 #ifdef __cplusplus
 }
