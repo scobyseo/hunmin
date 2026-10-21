@@ -1,8 +1,27 @@
 # Refactor proposal: the TSF frontend as components (DIP + SAP)
 
-Status: PROPOSAL — the staged refactor the maintainer rules on; nothing is
-implemented yet (the worktree holds the tested fold-in shape from
-`8db2cf1`, re-verified live 2026-10-21).
+Status: RUN — stages 1-3 executed 2026-10-22 on the maintainer's direction
+("remove all include cpp ... properly extract functions from class ...
+tsf.h exposes interface for extracted feature, and registration intf too
+for feature implementation"), in the
+windows-mode-indicator-right-click-to-settings-f-2 worktree; tier-F1 green
+after each build. The landed shape follows the maintainer's steer, which
+refines the design below: the CONTRACTS (TsfCore, Delivery +
+HunminDeliveryFactory/HunminDeliveryRegistry, CandBackend, Candidates,
+HunminTsfSnapshot) all live in `tsf.h`; the implementations
+(delivery.cpp's NativeDelivery/InterimDelivery, candidates.cpp's
+HunminCandidates) are registered into the shell — deliveries as factories
+through `hunmin_tsf_deliveries_register()`, switched with `UseDelivery()`;
+the candidate flow arrives through `hunmin_tsf_hanja_candidates_new()`.
+The include-.cpp seam is gone in both directions: keybinding.cpp,
+delivery.cpp and candidates.cpp are compiled TUs, and the tier-F1 harness
+LINKS them instead of including tsf.cpp — the white-box reads go through
+`CTextService::Snapshot()` (the observation channel) and the GetKeyState
+mock is a REGISTERED provider (`hunmin_tsf_keystate_register`,
+keybinding.h). The board rows that grepped the fold-in homes were
+re-pointed (TSF-LAYOUT-RESOLVE-66, TSF-INTERIM-SEAM-119,
+TSF-INTERIM-HANJA-119, TSF-LISSYLL-67; GTEST-TSF-109's seam description
+rewritten); docs-lint 0 errors.
 
 ## Where the code stands
 

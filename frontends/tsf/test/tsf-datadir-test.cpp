@@ -16,14 +16,17 @@
  * --staged): its absence is the rc-77 skip, not a failure. Its parsing is
  * this case's business.
  *
- * FRAGMENT, not a standalone TU: #included by tsf-test.cpp after the
- * white-box seam (src/tsf.cpp, mock-tsf.h, the GetKeyState mock). The ctest
- * entry `tsf-datadir-test` selects this group with --gtest_filter=Datadir.*.
+ * Standalone TU (the include-.cpp seam is retired): the ctest entry
+ * `tsf-datadir-test` selects this group with --gtest_filter=Datadir.*.
  */
 #include <gtest/gtest.h>
 
 #include <cstdio>
 #include <cstring>
+#include <windows.h>
+
+#include "../src/settings.h"
+#include "../src/tsf.h"
 
 static int countLayoutJson(const char *layoutsDirA) {
     char pattern[MAX_PATH * 2];

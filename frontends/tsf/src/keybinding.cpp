@@ -72,15 +72,28 @@ int hunmin_tsf_keybindings_match(const HunminKeyCombo *bindings, int count,
     return 0;
 }
 
+/* The thread input state: the platform provider is the default; a harness
+ * registers its snapshot provider over this one slot (keybinding.h). */
+static SHORT hunmin_tsf_platform_keystate(int vk) {
+    return GetKeyState(vk);
+}
+static HunminTsfKeyStateFn g_hunmin_tsf_keystate =
+    &hunmin_tsf_platform_keystate;
+
+void hunmin_tsf_keystate_register(HunminTsfKeyStateFn provider) {
+    g_hunmin_tsf_keystate = provider ? provider : &hunmin_tsf_platform_keystate;
+}
+
 unsigned int hunmin_tsf_keymods_from_state(void) {
     unsigned int m = 0;
-    if ((GetKeyState(VK_SHIFT) & 0x8000u) != 0u)
+    if ((g_hunmin_tsf_keystate(VK_SHIFT) & 0x8000u) != 0u)
         m |= HUNMIN_TSF_KEYMOD_SHIFT;
-    if ((GetKeyState(VK_CONTROL) & 0x8000u) != 0u)
+    if ((g_hunmin_tsf_keystate(VK_CONTROL) & 0x8000u) != 0u)
         m |= HUNMIN_TSF_KEYMOD_CTRL;
     /* Either-side Alt: a side-specific binding names VK_RMENU / VK_LMENU as
      * the vk, so the family bit only indicates "some Alt is down". */
-    if (((GetKeyState(VK_MENU) | GetKeyState(VK_LMENU) | GetKeyState(VK_RMENU)) &
+    if (((g_hunmin_tsf_keystate(VK_MENU) | g_hunmin_tsf_keystate(VK_LMENU) |
+          g_hunmin_tsf_keystate(VK_RMENU)) &
          0x8000u) != 0u)
         m |= HUNMIN_TSF_KEYMOD_ALT;
     return m;
@@ -88,5 +101,5 @@ unsigned int hunmin_tsf_keymods_from_state(void) {
 
 int hunmin_tsf_capslock_from_state(void) {
     /* Toggle key: the LOW bit carries the toggled state, never 0x8000. */
-    return (GetKeyState(VK_CAPITAL) & 0x0001u) != 0u;
+    return (g_hunmin_tsf_keystate(VK_CAPITAL) & 0x0001u) != 0u;
 }

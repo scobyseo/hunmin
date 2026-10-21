@@ -12,10 +12,10 @@
  * never reads or writes the production store HKCU\Software\Hunmin\TSF — the
  * production store stays a manual-checklist surface, not a test side effect.
  *
- * FRAGMENT, not a standalone TU: #included by tsf-test.cpp after the
- * white-box seam (src/tsf.cpp, mock-tsf.h, the GetKeyState mock). The ctest
- * entry `tsf-config-test` selects this group with --gtest_filter=TsfConfigTest.*;
- * the rc-77 skip probe lives in tools/tsf-run-if-data.py.
+ * Standalone TU (the include-.cpp seam is retired): the ctest entry
+ * `tsf-config-test` selects this group with
+ * --gtest_filter=TsfConfigTest.*; the rc-77 skip probe lives in
+ * tools/tsf-run-if-data.py.
  *
  * GoogleTest form (issue #109, option 1b): native EXPECT_* assertions, the
  * CHECK counter gone.
@@ -24,6 +24,12 @@
 
 #include <cstring>
 #include <string>
+#include <windows.h>
+
+#include "mock-tsf.h"
+#include "tsf-keystate-mock.h"
+#include "tsf-testdir.h"
+#include "../src/tsf.h"
 
 class TsfConfigTest : public ::testing::Test {
   protected:
@@ -33,6 +39,7 @@ class TsfConfigTest : public ::testing::Test {
         ctx_ = hunmin_ctx_new(dirs, 1);
         ASSERT_NE(ctx_, nullptr) << "engine context unavailable (check HUNMIN_TSF_DATA_DIR)";
         g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+        tsf_test_register_keystate();
     }
     void TearDown() override {
         if (ctx_) {
@@ -40,6 +47,8 @@ class TsfConfigTest : public ::testing::Test {
             ctx_ = nullptr;
         }
     }
+
+    HunminTsfSnapshot Snap(CTextService *s) { return s->Snapshot(); }
 
     hunmin_ctx *ctx_ = nullptr;
     HunminTsfConfig cfg_ = {}; /* the round-trip case's buffer */
@@ -79,13 +88,13 @@ TEST_F(TsfConfigTest, EmptyEnvRestoresDefaults) {
  * hold for stored values too). */
 TEST_F(TsfConfigTest, SlotResolutionAgainstTheRealData) {
     std::string out;
-    resolveLayoutSlot(ctx_, "dubeolsik", kHangulDefaultId, true, &out);
+    hunmin_tsf_resolve_layout_slot(ctx_, "dubeolsik", kHangulDefaultId, true, &out);
     EXPECT_EQ(out, "dubeolsik") << "valid hangul id kept";
-    resolveLayoutSlot(ctx_, "colemak", kHangulDefaultId, true, &out);
+    hunmin_tsf_resolve_layout_slot(ctx_, "colemak", kHangulDefaultId, true, &out);
     EXPECT_EQ(out, kHangulDefaultId) << "latin id in hangul slot -> default";
-    resolveLayoutSlot(ctx_, "no-such-layout", kHangulDefaultId, true, &out);
+    hunmin_tsf_resolve_layout_slot(ctx_, "no-such-layout", kHangulDefaultId, true, &out);
     EXPECT_EQ(out, kHangulDefaultId) << "unknown id -> default";
-    resolveLayoutSlot(ctx_, "dubeolsik", kLatinDefaultId, false, &out);
+    hunmin_tsf_resolve_layout_slot(ctx_, "dubeolsik", kLatinDefaultId, false, &out);
     EXPECT_EQ(out, kLatinDefaultId) << "hangul id in latin slot -> default";
 }
 
@@ -138,7 +147,7 @@ TEST_F(TsfConfigTest, Sin3P2ChosungOnTheOemRow) {
     mctx->AddRef();
     CTextService *svc = new CTextService();
     svc->Activate(tm, 1);
-    ASSERT_TRUE(svc->ctx_ && svc->ic_) << "engine context on sin3-p2";
+    ASSERT_TRUE(Snap(svc).ctx && Snap(svc).ic) << "engine context on sin3-p2";
 
     BOOL eaten = FALSE;
     /* The test phase is now INTERESTED in the punctuation (: VkToBase maps
@@ -147,7 +156,7 @@ TEST_F(TsfConfigTest, Sin3P2ChosungOnTheOemRow) {
     EXPECT_EQ(eaten, TRUE) << "sin3-p2 chosung ';' interested in hangul mode";
     svc->OnKeyDown(mctx, VK_OEM_1, 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "engine consumes ';' -> compose";
-    EXPECT_STREQ(hunmin_ic_preedit(svc->ic_), "\xE3\x85\x82")
+    EXPECT_STREQ(hunmin_ic_preedit(Snap(svc).ic), "\xE3\x85\x82")
         << "OEM_1 composes ㅂ like a chosung, not a symbol";
 
     /* The same class on the other two reported keys. */
@@ -212,9 +221,9 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     mctx->AddRef();
     CTextService *svc = new CTextService();
     svc->Activate(tm, 1);
-    EXPECT_EQ(svc->toggleKeys_.size(), (size_t)3)
+    EXPECT_EQ(Snap(svc).toggleKeys.size(), (size_t)3)
         << "Activate loads configured + bare Han/Eng";
-    EXPECT_TRUE(svc->ctx_ && svc->ic_ && svc->hangulMode_) << "service starts in hangul mode";
+    EXPECT_TRUE(Snap(svc).ctx && Snap(svc).ic && Snap(svc).hangulMode) << "service starts in hangul mode";
 
     // 'r' composes in dubeolsik: consumed, preedit holds the cho.
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
@@ -226,7 +235,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
      * TU under the ANSI codepage and a UTF-8 literal is a C2001 (the same
      * failure suggest-test.c had when the baseline branch was measured). */
     EXPECT_EQ(eaten, TRUE) << "dubeolsik 'r' keydown not consumed";
-    EXPECT_STREQ(hunmin_ic_preedit(svc->ic_), "\xE3\x84\xB1") << "dubeolsik 'r' -> preedit";
+    EXPECT_STREQ(hunmin_ic_preedit(Snap(svc).ic), "\xE3\x84\xB1") << "dubeolsik 'r' -> preedit";
 
     // The bare Han/Eng key (VK_HANGEUL with NO modifier — the platform
     // alternate) toggles AND is a composition boundary: the pending
@@ -235,14 +244,14 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     EXPECT_EQ(eaten, TRUE) << "test keydown: the Han/Eng key is interested";
     svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "bare Han/Eng keydown not consumed";
-    EXPECT_FALSE(svc->hangulMode_) << "bare Han/Eng toggles to english";
+    EXPECT_FALSE(Snap(svc).hangulMode) << "bare Han/Eng toggles to english";
     /* U+3131 wide-literal escape (the ANSI-codepage rule above). */
-    EXPECT_TRUE(svc->wordbuf_.empty()) << "mode boundary flushes the held word";
+    EXPECT_TRUE(Snap(svc).wordbuf.empty()) << "mode boundary flushes the held word";
     EXPECT_EQ(mctx->doc, std::wstring(1, L'\u3131')) << "mode boundary inserts once";
 
     // A repeat keydown (lParam bit 30) is swallowed without toggling.
     svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0x40000000, &eaten);
-    EXPECT_FALSE(svc->hangulMode_) << "auto-repeat does not toggle";
+    EXPECT_FALSE(Snap(svc).hangulMode) << "auto-repeat does not toggle";
 
     // Shift+Space (32, mods=1) is a configured addition; bare Space is
     // not. In english mode the key passes through either way — the
@@ -250,11 +259,11 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
     svc->OnKeyDown(mctx, VK_SPACE, 0, &eaten);
     EXPECT_EQ(eaten, FALSE) << "bare space is not a toggle (exact mods rule)";
-    EXPECT_FALSE(svc->hangulMode_) << "bare space is not a toggle (exact mods rule)";
+    EXPECT_FALSE(Snap(svc).hangulMode) << "bare space is not a toggle (exact mods rule)";
     g_mockKeyState[VK_SHIFT & 0xFF] = 0x8000;
     svc->OnKeyDown(mctx, VK_SPACE, 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "shift+space toggles back to hangul";
-    EXPECT_TRUE(svc->hangulMode_) << "shift+space toggles back to hangul";
+    EXPECT_TRUE(Snap(svc).hangulMode) << "shift+space toggles back to hangul";
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
 
     // CapsLock is no longer a toggle: it passes through.
@@ -263,7 +272,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     BOOL eatenDown = FALSE;
     svc->OnKeyDown(mctx, VK_CAPITAL, 0, &eatenDown);
     EXPECT_EQ(eatenDown, FALSE) << "caps lock keydown passes through";
-    EXPECT_TRUE(svc->hangulMode_) << "caps lock did not flip the mode";
+    EXPECT_TRUE(Snap(svc).hangulMode) << "caps lock did not flip the mode";
 
     // Edit/navigation keys are keys of passage (measured regression, this
     // session: the 0x20-0x7E fallback translated VK_UP -> '&' etc. and
@@ -288,7 +297,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
             << "edit key is a boundary: the fused text is the commit";
         EXPECT_EQ(mctx->insertions.size(), insBefore)
             << "edit key is a boundary: no plain insert on the side";
-        EXPECT_TRUE(svc->wordbuf_.empty()) << "nothing held after the edit-key boundary";
+        EXPECT_TRUE(Snap(svc).wordbuf.empty()) << "nothing held after the edit-key boundary";
     }
     /* U+3131 wide-literal escape (the ANSI-codepage rule above); the two
      * boundary deliveries so far were the toggle boundary and this

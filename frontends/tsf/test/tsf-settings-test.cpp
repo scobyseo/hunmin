@@ -12,9 +12,8 @@
  * window in a CI binary) and ITfFnConfigure::Show — those are the manual
  * checklist's surface (tests/manual-checklists/tsf-settings-window.md).
  *
- * FRAGMENT, not a standalone TU: #included by tsf-test.cpp after the
- * white-box seam (src/tsf.cpp, mock-tsf.h, the GetKeyState mock). The ctest
- * entry `tsf-settings-test` selects this group with
+ * Standalone TU (the include-.cpp seam is retired): the ctest entry
+ * `tsf-settings-test` selects this group with
  * --gtest_filter=TsfSettingsTest.*; the rc-77 skip probe lives in
  * tools/tsf-run-if-data.py.
  *
@@ -26,6 +25,13 @@
 #include <ctffunc.h>
 #include <cstring>
 #include <string>
+#include <windows.h>
+
+#include "../src/settings.h"
+#include "mock-tsf.h"
+#include "tsf-keystate-mock.h"
+#include "tsf-testdir.h"
+#include "../src/tsf.h"
 
 class TsfSettingsTest : public ::testing::Test {
   protected:
@@ -35,6 +41,7 @@ class TsfSettingsTest : public ::testing::Test {
         ctx_ = hunmin_ctx_new(dirs, 1);
         ASSERT_NE(ctx_, nullptr) << "engine context unavailable (check HUNMIN_TSF_DATA_DIR)";
         g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+        tsf_test_register_keystate();
     }
     void TearDown() override {
         releaseService();
@@ -65,6 +72,8 @@ class TsfSettingsTest : public ::testing::Test {
         dm_ = nullptr;
         tm_ = nullptr;
     }
+
+    HunminTsfSnapshot Snap() { return svc_->Snapshot(); }
 
     hunmin_ctx *ctx_ = nullptr;
     tsfmock::MockThreadMgr *tm_ = nullptr;
@@ -182,13 +191,13 @@ TEST_F(TsfSettingsTest, ApplyConfigStoreAndTheVoidPtrBridge) {
     activate();
 
     svc_->ApplyConfigStore();
-    EXPECT_EQ(svc_->hangulId_, "dubeolsik") << "applied hangul slot";
-    EXPECT_EQ(svc_->latinId_, "us-qwerty") << "applied latin slot";
+    EXPECT_EQ(Snap().hangulId, "dubeolsik") << "applied hangul slot";
+    EXPECT_EQ(Snap().latinId, "us-qwerty") << "applied latin slot";
     /* v1:21:1 (Han/Eng + Shift) + the bare 0x15: the configured chord ADDs
      * to the bare Han/Eng key. */
-    EXPECT_EQ(svc_->toggleKeys_.size(), (size_t)2);
+    EXPECT_EQ(Snap().toggleKeys.size(), (size_t)2);
     bool bareHangeul = false, shiftedHangeul = false;
-    for (const HunminKeyCombo &c : svc_->toggleKeys_) {
+    for (const HunminKeyCombo &c : Snap().toggleKeys) {
         if (c.vk == HUNMIN_TSF_VIRTUAL_HANGEUL && c.mods == 0)
             bareHangeul = true;
         if (c.vk == HUNMIN_TSF_VIRTUAL_HANGEUL && c.mods == HUNMIN_TSF_KEYMOD_SHIFT)
@@ -196,12 +205,12 @@ TEST_F(TsfSettingsTest, ApplyConfigStoreAndTheVoidPtrBridge) {
     }
     EXPECT_TRUE(bareHangeul) << "the bare Han/Eng key survives every Apply";
     EXPECT_TRUE(shiftedHangeul) << "the configured v1:21:1 chord is present";
-    EXPECT_NE(svc_->ic_, nullptr) << "the engine context is rebuilt after Apply";
+    EXPECT_NE(Snap().ic, nullptr) << "the engine context is rebuilt after Apply";
 
     /* 4. The void* bridge (settings.cpp's Show path re-applies via it). */
     _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "sebeolsik-3-90");
     hunmin_tsf_apply_config_store(svc_);
-    EXPECT_EQ(svc_->hangulId_, "sebeolsik-3-90") << "apply bridge re-read";
+    EXPECT_EQ(Snap().hangulId, "sebeolsik-3-90") << "apply bridge re-read";
     _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "");
     hunmin_tsf_apply_config_store(nullptr); /* no crash on a dead service */
 
@@ -213,6 +222,6 @@ TEST_F(TsfSettingsTest, ApplyConfigStoreAndTheVoidPtrBridge) {
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
     svc_->OnKeyDown(mctx_, 'R', 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "post-Apply keydown not consumed";
-    EXPECT_STREQ(hunmin_ic_preedit(svc_->ic_), "\xE3\x84\xB1")
+    EXPECT_STREQ(hunmin_ic_preedit(Snap().ic), "\xE3\x84\xB1")
         << "post-Apply composition still works";
 }

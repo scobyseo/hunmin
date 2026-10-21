@@ -3,113 +3,91 @@
  *
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * FRAGMENT of tsf.cpp, not a standalone TU: the delivery seam
- * (issue #119) - Delivery/NativeDelivery/InterimDelivery and the interim
- * write machinery (the deferral measurement), the entry-settle
- * FlushPendingDocWrites, and the writer's static. Included INSIDE
- * CTextService's body.
+ * The delivery seam's implementations (issue #119): NativeDelivery (the
+ * #98 composition path) and InterimDelivery (the #119 interim path for
+ * classic default-sink hosts, the deferral machinery included). Defined
+ * against the TsfCore slot and registered as factories into the shell
+ * (DIP): this TU knows nothing of CTextService.
+ *
+ * The interim deferral measurement: the EM_* writes must not run INSIDE a
+ * TSF callback - the first inline write fired a re-entrant
+ * ITfThreadMgrEventSink::OnSetFocus(NULL) storm (msftedit's TSF store
+ * settling the out-of-band selection change) and every keystroke sent
+ * while it ran was lost before reaching OnTestKeyDown. So the write is
+ * POSTED and runs on the app's UI thread from a thread timer, or at the
+ * ENTRY of the next key event, whichever comes first.
  */
-/* ---- The delivery seam (issue #119) ----
-     *
-     * The COMMON key handling (OnTestKeyDown/OnKeyDown) classifies the key
-     * and feeds the engine; it never asks which mode it is in. What the
-     * two modes DO with the engine's answer is the seam below:
-     *
-     * - NativeDelivery — the #98 composition path: the word rides a live
-     *   ITfComposition (inline start/update/end per edit session). Modern
-     *   hosts keep compositions alive (Win11 Notepad, Edge — measured).
-     * - InterimDelivery — the #119 interim path for classic (default-sink)
-     *   hosts: NO composition (nothing to terminate), the word is document
-     *   text, rewritten per key through the control's own EM_* protocol.
-     *   The doc model: [finalised word][in-flight span]; the span
-     *   [preStart_, preStart_+preLen_) is the ONLY text the mode rewrites,
-     *   always through ONE select + ONE EM_REPLACESEL (ReplaceSpan) —
-     *   piecewise span edits accumulate (measured: 1+1+1+2+2+2 chars for
-     *   7 keys; jamotong_ime's manual §8.2, artifact ㄱ가간...).
-     *   NO overlay window (maintainer instruction 2026-10-20). The styled
-     *   composition underline is NOT reproduced on this path (fInterimChar
-     *   selection: SetSelection E_INVALIDARG measured on both host
-     *   classes) — plain-text preedit is the accepted shape
-     *   (docs/TSF-INTERIM-INPUT-SPIKE.md §4-§6).
-     *
-     * A host-driven OnCompositionTerminated that fires MID-WORD flips the
-     * service native -> interim for its life (the detection measurement:
-     * classic EDIT / msftedit RICHEDIT50W terminate every key; modern
-     * hosts terminate only at real boundaries). HUNMIN_TSF_INTERIM=1
-     * overrides detection (the old spike's escape hatch). */
-struct Delivery {
-    virtual ~Delivery() = default;
-    /* The engine consumed a key (or a host termination fused the word):
-         * the word state moved, the document must follow. */
-    virtual void Consumed(ITfContext *pic) = 0;
-    /* A word boundary: declined key, mode toggle, chord, passage key. */
-    virtual void Boundary(ITfContext *pic) = 0;
-    /* The Hanja candidate lookup anchor. */
-    virtual std::string CandidateAnchor() = 0;
-    /* A picked candidate commits as `replacement` (the fallback-aware
-         * text the common side computed from the anchor). false = refused:
-         * the buffers stay intact, nothing is delivered. */
-    virtual bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) = 0;
-    /* Settle a posted doc write (the interim deferral; the native path
-         * is synchronous — a no-op). */
-    virtual void FlushPending() = 0;
-};
+#include "delivery.h"
 
-struct NativeDelivery : Delivery {
-    CTextService *svc;
-    explicit NativeDelivery(CTextService *s) : svc(s) {}
+#include "utf.h"
+
+#include <windows.h>
+#include <richedit.h> /* CHARRANGE, EM_EXSETSEL - the class-aware EM writes */
+
+/* ---- NativeDelivery: the #98 composition path ---- */
+
+class NativeDelivery : public Delivery {
+  public:
+    explicit NativeDelivery(TsfCore &core) : core_(&core) {}
     void Consumed(ITfContext *pic) override {
-        svc->CompositionWrite(pic);
+        core_->CompositionWrite(pic);
     }
     void Boundary(ITfContext *pic) override {
-        svc->InsertBufferedWord(pic);
+        core_->InsertBufferedWord(pic);
     }
     std::string CandidateAnchor() override {
         /* The whole buffered word: accumulated finalised syllables plus
-             * the in-flight preedit — the multi-syllable lookup the
-             * dictionary tables are keyed by (krdict words, idioms).
-             * fcitx5 anchors to its preedit only because it commits each
-             * syllable immediately. */
-        std::string s = HunminWideToUtf8(svc->wordbuf_);
-        if (svc->ic_) {
-            const char *pre = hunmin_ic_preedit(svc->ic_);
+         * the in-flight preedit - the multi-syllable lookup the
+         * dictionary tables are keyed by (krdict words, idioms).
+         * fcitx5 anchors to its preedit only because it commits each
+         * syllable immediately. */
+        std::string s = HunminWideToUtf8(core_->Wordbuf());
+        if (core_->Ic()) {
+            const char *pre = hunmin_ic_preedit(core_->Ic());
             if (pre)
                 s += pre;
         }
         return s;
     }
-    bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) override {
-        if (svc->ic_)
-            hunmin_ic_reset(svc->ic_); /* drop the composition the list anchored to */
-        svc->wordbuf_ = replacement;
-        svc->InsertBufferedWord(pic);
+    bool CandidateCommit(ITfContext *pic,
+                         const std::wstring &replacement) override {
+        if (core_->Ic())
+            hunmin_ic_reset(core_->Ic()); /* drop the composition the list anchored to */
+        core_->Wordbuf() = replacement;
+        core_->InsertBufferedWord(pic);
         return true;
     }
     void FlushPending() override {}
+    void CaptureDeadCopy(const std::wstring &) override {}
+    TsfCore *core_;
 };
 
-/* The interim mode's own state and writes. The deferral machinery
-     * (measured defect): the EM_* writes must not run INSIDE a TSF
-     * callback — the first inline write fired a re-entrant
-     * ITfThreadMgrEventSink::OnSetFocus(NULL) storm (msftedit's TSF store
-     * settling the out-of-band selection change) and every keystroke sent
-     * while it ran was lost before reaching OnTestKeyDown. So the write is
-     * POSTED and runs on the app's UI thread from a thread timer
-     * (SetTimer with a NULL hwnd — fires when that thread pumps, i.e.
-     * after the current key event has fully returned), or at the ENTRY of
-     * the next key event, whichever comes first. One slot suffices: the
-     * entry flush keeps it empty at every post. */
-struct InterimDelivery : Delivery {
-    CTextService *svc;
-    explicit InterimDelivery(CTextService *s) : svc(s) {}
+/* ---- InterimDelivery: the #119 interim path ----
+ *
+ * The doc model: [finalised word][in-flight span]; the span
+ * [preStart_, preStart_+preLen_) is the ONLY text the mode rewrites,
+ * always through ONE select + ONE EM_REPLACESEL (ReplaceSpan) -
+ * piecewise span edits accumulate (measured: 1+1+1+2+2+2 chars for
+ * 7 keys; jamotong_ime's manual section 8.2, artifact ㄱ가간...).
+ * NO overlay window (maintainer instruction 2026-10-20). The styled
+ * composition underline is NOT reproduced on this path (fInterimChar
+ * selection: SetSelection E_INVALIDARG measured on both host
+ * classes) - plain-text preedit is the accepted shape
+ * (docs/TSF-INTERIM-INPUT-SPIKE.md 4-6).
+ */
+class InterimDelivery : public Delivery {
+  public:
+    explicit InterimDelivery(TsfCore &core) : core_(&core) {}
 
     HWND interimHwnd_ = nullptr; /* the edit control (resolved once) */
     LONG preStart_ = 0; /* doc offset where the span begins */
     size_t preLen_ = 0; /* the span's current char count */
     std::wstring pendingDeadCopy_; /* a fused copy awaiting deletion */
-    enum PendingWrite { kPendingNone,
-                        kPendingWrite,
-                        kPendingDrain };
+    enum PendingWrite {
+        kPendingNone,
+        kPendingWrite,
+        kPendingDrain
+    };
     PendingWrite pendingWriteKind_ = kPendingNone;
     static InterimDelivery *s_writer; /* one TIP instance per thread */
     static const UINT_PTR kWriteTimerId = 1;
@@ -125,24 +103,31 @@ struct InterimDelivery : Delivery {
     void FlushPending() override {
         Dispatch();
     }
+    void CaptureDeadCopy(const std::wstring &copy) override {
+        pendingDeadCopy_ = copy;
+        preStart_ = 0;
+        preLen_ = 0;
+        Post(kPendingWrite);
+    }
     /* The one-char ruling (maintainer, 2026-10-20: "in interim mode,
-         * only one char conversion should be supported"): the finalised
-         * syllables are document text outside the span the mode rewrites,
-         * so the anchor is the IN-FLIGHT preedit only, and a candidate
-         * that is not exactly one character is refused whole — the
-         * whole-word anchor's multi-char candidates cannot commit without
-         * corrupting the word (measured: 안녕 + 安寧 → 안安寧). */
+     * only one char conversion should be supported"): the finalised
+     * syllables are document text outside the span the mode rewrites,
+     * so the anchor is the IN-FLIGHT preedit only, and a candidate
+     * that is not exactly one character is refused whole - the
+     * whole-word anchor's multi-char candidates cannot commit without
+     * corrupting the word (measured: 안녕 + 安寧 → 안安寧). */
     std::string CandidateAnchor() override {
-        const char *pre = svc->ic_ ? hunmin_ic_preedit(svc->ic_) : "";
+        const char *pre = core_->Ic() ? hunmin_ic_preedit(core_->Ic()) : "";
         return std::string(pre ? pre : "");
     }
-    bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) override {
+    bool CandidateCommit(ITfContext *pic,
+                         const std::wstring &replacement) override {
         (void)pic;
         if (replacement.size() != 1 || preLen_ == 0)
             return false; /* refused: the word stays intact */
-        if (svc->ic_)
-            hunmin_ic_reset(svc->ic_); /* drop the syllable the list anchored to */
-        svc->wordbuf_ = replacement; /* the drain rewrites the span to it */
+        if (core_->Ic())
+            hunmin_ic_reset(core_->Ic()); /* drop the syllable the list anchored to */
+        core_->Wordbuf() = replacement; /* the drain rewrites the span to it */
         Post(kPendingDrain);
         return true;
     }
@@ -153,8 +138,8 @@ struct InterimDelivery : Delivery {
         SetTimer(nullptr, kWriteTimerId, 10, WriteTimerProc);
     }
     /* Runs the queued doc write. Called from the timer and from the
-         * key events' entry (the mock tests drive it directly — they never
-         * pump). */
+     * key events' entry (the mock tests drive it directly - they never
+     * pump). */
     void Dispatch() {
         PendingWrite kind = pendingWriteKind_;
         pendingWriteKind_ = kPendingNone;
@@ -170,8 +155,8 @@ struct InterimDelivery : Delivery {
     }
 
     /* The edit control the writes go through: the key events arrive on
-         * the app's input thread, so GetFocus() is it — default-sink
-         * contexts refuse IID_ITfContextOwner (measured). */
+     * the app's input thread, so GetFocus() is it - default-sink
+     * contexts refuse IID_ITfContextOwner (measured). */
     HWND ResolveControl(ITfContext *pic) {
         if (interimHwnd_)
             return interimHwnd_;
@@ -188,8 +173,8 @@ struct InterimDelivery : Delivery {
         return hwnd;
     }
 
-    /* The ONE write primitive: the doc span becomes exactly `text` —
-         * one select, one EM_REPLACESEL. */
+    /* The ONE write primitive: the doc span becomes exactly `text` -
+     * one select, one EM_REPLACESEL. */
     void ReplaceSpan(HWND hwnd, const std::wstring &text) {
         EmSelect(hwnd, preStart_, preStart_ + (LONG)preLen_);
         EmReplace(hwnd, text.c_str());
@@ -200,16 +185,10 @@ struct InterimDelivery : Delivery {
     }
 
     /* A host termination fused the composition's text into the doc:
-         * delete that dead copy and re-anchor the span where it sat. The
-         * caret may still be unsettled when the termination fires
-         * (measured both states); an unremovable copy is dropped and the
-         * fresh-span anchor recovers. */
-    void CaptureDeadCopy(const std::wstring &copy) {
-        pendingDeadCopy_ = copy;
-        preStart_ = 0;
-        preLen_ = 0;
-        Post(kPendingWrite);
-    }
+     * delete that dead copy and re-anchor the span where it sat. The
+     * caret may still be unsettled when the termination fires
+     * (measured both states); an unremovable copy is dropped and the
+     * fresh-span anchor recovers. */
     void RemoveDeadCopy(HWND hwnd) {
         if (pendingDeadCopy_.empty())
             return;
@@ -226,24 +205,24 @@ struct InterimDelivery : Delivery {
     }
 
     /* The finalised syllables closed by the engine since the last
-         * write, taken out of the buffer. */
+     * write, taken out of the buffer. */
     std::wstring TakeFinalisedWord() {
         std::wstring f;
-        f.swap(svc->wordbuf_);
+        f.swap(core_->Wordbuf());
         return f;
     }
 
     /* The interim consumed path: the newly finalised syllables land in
-         * the document AHEAD of the in-flight span, then the span becomes
-         * the engine's current preedit. */
+     * the document AHEAD of the in-flight span, then the span becomes
+     * the engine's current preedit. */
     void InterimWrite() {
         HWND hwnd = ResolveControl(nullptr);
         if (!hwnd)
             return;
         RemoveDeadCopy(hwnd);
         /* A fresh word (no span in the doc) anchors at the live caret:
-             * the app may have inserted passthrough text (the boundary
-             * space) since the previous word closed. */
+         * the app may have inserted passthrough text (the boundary
+         * space) since the previous word closed. */
         if (preLen_ == 0)
             preStart_ = EmCaret(hwnd);
         std::wstring finalised = TakeFinalisedWord();
@@ -253,33 +232,33 @@ struct InterimDelivery : Delivery {
             preStart_ += (LONG)finalised.size();
             hunmin_logger.log("interim: appended %zu finalised chars\n", finalised.size());
         }
-        std::wstring pre = HunminUtf8ToWide(svc->ic_ ? hunmin_ic_preedit(svc->ic_) : "");
+        std::wstring pre = HunminUtf8ToWide(core_->Ic() ? hunmin_ic_preedit(core_->Ic()) : "");
         if (!pre.empty() || preLen_ > 0)
             ReplaceSpan(hwnd, pre);
     }
 
     /* The interim boundary drain: the in-flight span becomes the word
-         * (never an insert at the anchor — the word is ALREADY document
-         * text when the span is closed), then the bookkeeping closes and
-         * the engine state drops. The drain runs from the TIMER, i.e.
-         * AFTER the app inserted its boundary space and parked its own
-         * caret: measured live, the span's EmSelect left the app's caret
-         * INSIDE the word ahead of the space, so the following keys
-         * landed before the space and the backspace deleted the wrong
-         * char. The app's caret is not ours to move — saved and given
-         * back. */
+     * (never an insert at the anchor - the word is ALREADY document
+     * text when the span is closed), then the bookkeeping closes and
+     * the engine state drops. The drain runs from the TIMER, i.e.
+     * AFTER the app inserted its boundary space and parked its own
+     * caret: measured live, the span's EmSelect left the app's caret
+     * INSIDE the word ahead of the space, so the following keys
+     * landed before the space and the backspace deleted the wrong
+     * char. The app's caret is not ours to move - saved and given
+     * back. */
     void InterimDrain() {
         HWND hwnd = ResolveControl(nullptr);
         std::wstring word;
-        word.swap(svc->wordbuf_);
+        word.swap(core_->Wordbuf());
         LONG userCaret = hwnd ? EmCaret(hwnd) : 0;
         if (hwnd && !word.empty() && preLen_ > 0) {
             ReplaceSpan(hwnd, word);
             preStart_ += (LONG)word.size();
         }
         preLen_ = 0;
-        if (svc->ic_)
-            hunmin_ic_reset(svc->ic_);
+        if (core_->Ic())
+            hunmin_ic_reset(core_->Ic());
         if (hwnd)
             EmSelect(hwnd, userCaret, userCaret);
         hunmin_logger.log("interim boundary: word len=%zu preStart=%ld caret=%ld\n",
@@ -287,9 +266,11 @@ struct InterimDelivery : Delivery {
     }
 
     /* The class-aware EM primitives: EM_EXSETSEL/CHARRANGE for the
-         * msftedit richedit, EM_SETSEL for plain EDIT. */
-    enum { kEmRich = 0,
-           kEmPlain = 1 };
+     * msftedit richedit, EM_SETSEL for plain EDIT. */
+    enum {
+        kEmRich = 0,
+        kEmPlain = 1
+    };
     int ControlKind(HWND hwnd) {
         wchar_t cls[64] = {0};
         GetClassNameW(hwnd, cls, 64);
@@ -318,4 +299,27 @@ struct InterimDelivery : Delivery {
     void EmReplace(HWND hwnd, const wchar_t *t) {
         SendMessageW(hwnd, EM_REPLACESEL, FALSE, (LPARAM)t);
     }
+    TsfCore *core_;
 };
+
+InterimDelivery *InterimDelivery::s_writer = nullptr;
+
+namespace {
+class NativeDeliveryFactory : public HunminDeliveryFactory {
+  public:
+    const char *Name() const override { return HUNMIN_TSF_DELIVERY_NATIVE; }
+    Delivery *Create(TsfCore &core) override { return new NativeDelivery(core); }
+};
+class InterimDeliveryFactory : public HunminDeliveryFactory {
+  public:
+    const char *Name() const override { return HUNMIN_TSF_DELIVERY_INTERIM; }
+    Delivery *Create(TsfCore &core) override { return new InterimDelivery(core); }
+};
+} /* namespace */
+
+void hunmin_tsf_deliveries_register(HunminDeliveryRegistry &registry) {
+    static NativeDeliveryFactory nativeFactory;
+    static InterimDeliveryFactory interimFactory;
+    registry.RegisterDeliveryFactory(&nativeFactory);
+    registry.RegisterDeliveryFactory(&interimFactory);
+}

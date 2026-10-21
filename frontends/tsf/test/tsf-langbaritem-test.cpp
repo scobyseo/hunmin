@@ -10,11 +10,15 @@
  * BTN_BUTTON|SHOWNINTRAY, measured recipe of the sibling jamotong TIP), the
  * item's ITfSource (the language bar installs ITS sink through it,
  * language-bar.md), and the OnUpdate notification the 한/A badge rides at
- * every mode boundary. Fragment of tsf-test.cpp — not a standalone TU.
+ * every mode boundary. Standalone TU: the include-.cpp seam is retired (DIP + SAP, docs/REFACTOR-TSF-COMPONENTS.md).
  */
 #include <gtest/gtest.h>
 #include <vector>
 #include <windows.h>
+
+#include "mock-tsf.h"
+#include "tsf-keystate-mock.h"
+#include "../src/tsf.h"
 
 /* GUID_LBI_INPUTMODE (the constant declared extern in the SDK's ctffunc.h
  * and private in tsf.cpp): the item GUID the Win8+/Win11 input indicator
@@ -112,10 +116,11 @@ TEST(TsfLangbarItem, AdviseSinkInstallsTheKernelSinkAndOnUpdateFlows) {
 
     /* The mode boundary the key path drives: flip + notify = the 한/A badge
      * re-read, without a host restart. No threadMgr/context needed — the
-     * notification only touches the sink. */
-    svc.hangulMode_ = false;
-    ASSERT_NE(svc.itemSink_, nullptr) << "the advised sink is stored";
-    svc.UpdateLangBarItem();
+     * notification only touches the sink, and ToggleModeCore's tail IS the
+     * notify (the old shape set the mode field and called UpdateLangBarItem
+     * by hand). */
+    svc.ToggleModeCore(nullptr);
+    ASSERT_NE(svc.Snapshot().itemSink, nullptr) << "the advised sink is stored";
     ASSERT_EQ(sink->updates.size(), (size_t)1);
     EXPECT_EQ(sink->updates[0], (DWORD)(TF_LBI_ICON | TF_LBI_TEXT))
         << "the badge rides icon+text (GetIcon/GetText re-queries)";

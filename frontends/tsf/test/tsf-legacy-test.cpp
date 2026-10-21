@@ -31,9 +31,10 @@
  * test phase eating what the down phase passed), plus the control text
  * without the space.
  *
- * FRAGMENT, not a standalone TU: #included by tsf-test.cpp after the
- * white-box seam. Runs inside the one registered tsf-test entry (no
- * additional add_test; docs-lint check 6 counts literals).
+ * Standalone TU (the include-.cpp seam is retired); the fixture is the
+ * candidate fragment's (tsf-candidate-fixture.h). Runs inside the one
+ * registered tsf-test entry (no additional add_test; docs-lint check 6
+ * counts literals).
  *
  * Hangul in expected text is written as wide \uXXXX literals (MSVC rule:
  * narrow \uXXXX encodes through the ANSI codepage, measured).
@@ -41,6 +42,8 @@
 #include <gtest/gtest.h>
 
 #include <string>
+
+#include "tsf-candidate-fixture.h"
 
 namespace {
 
@@ -82,7 +85,7 @@ struct LegacyTest : public CandidateTest {
         BOOL eat = FALSE;
         svc->OnTestKeyDown(ctx, vk, 0, &eat);
         svc->OnKeyDown(ctx, vk, 0, &eat);
-        if (svc->composition_)
+        if (Snap().composition)
             svc->OnCompositionTerminated(tsfmock::MockContext::kCookie, nullptr);
     }
 
@@ -109,7 +112,7 @@ TEST_F(LegacyTest, FlipOnFirstMidWordTerminationAndCompose) {
     }
     for (const char *p = "dkssud"; *p; ++p)
         KeyTerminating((WPARAM)std::toupper((unsigned char)*p));
-    EXPECT_TRUE(svc->legacyMode_) << "first mid-word termination must flip the service";
+    EXPECT_TRUE(Snap().legacyMode) << "first mid-word termination must flip the service";
 
     FlushDocWrites();
     /* The interim write rebuilt the word: the finalised part sits in the
@@ -146,7 +149,7 @@ TEST_F(LegacyTest, BoundaryDrainNeverDuplicates) {
     }
     for (const char *p = "droa"; *p; ++p)
         KeyTerminating((WPARAM)std::toupper((unsigned char)*p));
-    EXPECT_TRUE(svc->legacyMode_);
+    EXPECT_TRUE(Snap().legacyMode);
     FlushDocWrites();
     /* whatever the buffers hold, the SECOND boundary delivery must not
      * re-run the append: the boundary is consumed once. */
@@ -206,10 +209,10 @@ TEST_F(LegacyTest, HanjaCommitReplacesOnlyTheInFlightSyllable) {
 
     BOOL openEat = TRUE;
     Key(VK_HANJA, &openEat);
-    EXPECT_TRUE(svc->candActive_) << "the per-syllable anchor must open candidates";
+    EXPECT_TRUE(Snap().candActive) << "the per-syllable anchor must open candidates";
     /* Capture the candidate the commit will take, before the commit's own
      * suggest calls invalidate the pointer (the candidate-test pattern). */
-    std::string expected(hunmin_suggest_text(svc->ctx_, 0));
+    std::string expected(hunmin_suggest_text(Snap().ctx, 0));
     ASSERT_FALSE(expected.empty()) << "candidate 0 text empty";
 
     Key((WPARAM)'1'); /* the digit submits candidate 0 */
