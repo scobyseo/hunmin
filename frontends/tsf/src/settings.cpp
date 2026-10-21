@@ -18,6 +18,7 @@
  *     with the recorded ruling's marker - display only, nothing is wired.
  */
 #include "settings.h"
+#include "log.h"
 
 #include <ctffunc.h>
 #include <imm.h>
@@ -46,28 +47,7 @@ extern bool hunmin_tsf_log_path(const char *fname, char *out, size_t cap);
  * the TIP CLSID {F2C70001-...-0001} or the profile {F2C70002-...-0002}. */
 static const GUID kProviderTypeGuid = {0xF2C70010, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10}};
 
-static void logLine(const char *fmt, ...) {
-    /* Debug log: same gate and file as the adapter's HMLOG (tsf.cpp), gated
-     * by HUNMIN_TSF_DEBUG_LOG; the two TUs stay independent, so the gate
-     * check is repeated rather than shared. */
-    char v[16];
-    DWORD n = GetEnvironmentVariableA("HUNMIN_TSF_DEBUG_LOG", v, (DWORD)sizeof(v));
-    if (n == 0 || n >= sizeof(v))
-        return;
-    char path[MAX_PATH];
-    if (!hunmin_tsf_log_path("hunmin-tsf-debug.log", path, (size_t)sizeof(path)))
-        return;
-    FILE *f = fopen(path, "a");
-    if (!f)
-        return;
-    va_list ap;
-    va_start(ap, fmt);
-    vfprintf(f, fmt, ap);
-    va_end(ap);
-    fputc('\n', f);
-    fflush(f);
-    fclose(f);
-}
+/* logLine is retired: the ONE syntax is hunmin_logger.log(...) (src/log.h; the sites carry their own trailing newline). */
 
 /* ---- the pure half: what Apply writes, what the rows contain ---- */
 
@@ -333,12 +313,12 @@ static void applyAndClose(HWND h, SettingsState *s) {
     s->cfg.hanjaKey[HUNMIN_TSF_HANJA_KEY_CAP - 1] = '\0';
     if (hunmin_tsf_config_save(HKEY_CURRENT_USER, &s->cfg)) {
         s->applied = true;
-        logLine("settings: saved hangul=%s latin=%s keys=%s hanja=%s",
-                s->cfg.hangulLayout, s->cfg.latinLayout, s->cfg.toggleKeys,
-                s->cfg.hanjaKey);
+        hunmin_logger.log("settings: saved hangul=%s latin=%s keys=%s hanja=%s\n",
+                          s->cfg.hangulLayout, s->cfg.latinLayout, s->cfg.toggleKeys,
+                          s->cfg.hanjaKey);
         EndDialog(h, 1);
     } else {
-        logLine("settings: save FAILED");
+        hunmin_logger.log("settings: save FAILED\n");
         /* The user's explicit Apply must never silently do nothing. */
         MessageBoxW(h, L"Failed to write the settings store.", L"Hunmin settings",
                     MB_OK | MB_ICONWARNING);
@@ -476,8 +456,8 @@ static void applyWindows11Look(HWND h, SettingsState *s) {
             s->font = nf; /* deleted on WM_DESTROY (dialog-owned) */
         }
     }
-    logLine("settings w11: dark=%d corner=0x%lX darkAttr=0x%lX font=%ls",
-            (int)s->dark, (unsigned long)s->hrCorner, (unsigned long)s->hrDark, want);
+    hunmin_logger.log("settings w11: dark=%d corner=0x%lX darkAttr=0x%lX font=%ls\n",
+                      (int)s->dark, (unsigned long)s->hrCorner, (unsigned long)s->hrDark, want);
 }
 
 /* ---- the key-capture hook (the maintainer instruction: set combinations
@@ -529,29 +509,29 @@ static void recordCapturedChord(HWND h, SettingsState *s, WPARAM vk) {
             std::wstring w(combo, combo + strlen(combo));
             SetWindowTextW(edit, w.c_str());
         }
-        logLine("settings: captured %s into %d", combo, s->captureTarget);
+        hunmin_logger.log("settings: captured %s into %d\n", combo, s->captureTarget);
     }
     if (g_captureHook) {
         UnhookWindowsHookEx(g_captureHook);
         g_captureHook = nullptr;
     }
     SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
-                                            ? IDC_TOGGLE_CAPTURE
-                                            : IDC_HANJA_CAPTURE),
+                                     ? IDC_TOGGLE_CAPTURE
+                                     : IDC_HANJA_CAPTURE),
                    CAPTURE_PROMPT_IDLE);
     s->captureTarget = 0;
 }
 
 /* Cancel: the button label restores, the edit keeps whatever it had. */
 static void recordCapturedAbort(HWND h, SettingsState *s) {
-    logLine("settings: capture cancelled");
+    hunmin_logger.log("settings: capture cancelled\n");
     if (g_captureHook) {
         UnhookWindowsHookEx(g_captureHook);
         g_captureHook = nullptr;
     }
     SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
-                                            ? IDC_TOGGLE_CAPTURE
-                                            : IDC_HANJA_CAPTURE),
+                                     ? IDC_TOGGLE_CAPTURE
+                                     : IDC_HANJA_CAPTURE),
                    CAPTURE_PROMPT_IDLE);
     s->captureTarget = 0;
 }
@@ -589,11 +569,11 @@ static void RecordCapturedChordArm(HWND h, SettingsState *s) {
         g_captureHook =
             SetWindowsHookExW(WH_KEYBOARD, captureKeyHook, nullptr, GetCurrentThreadId());
     SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
-                                            ? IDC_TOGGLE_CAPTURE
-                                            : IDC_HANJA_CAPTURE),
+                                     ? IDC_TOGGLE_CAPTURE
+                                     : IDC_HANJA_CAPTURE),
                    CAPTURE_PROMPT_ACTIVE);
-    logLine("settings: hook capture armed target=%d hook=%p", s->captureTarget,
-            (void *)g_captureHook);
+    hunmin_logger.log("settings: hook capture armed target=%d hook=%p\n", s->captureTarget,
+                      (void *)g_captureHook);
 }
 
 static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
@@ -644,9 +624,9 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
                          SWP_NOSIZE);
             SetForegroundWindow(h);
             GetWindowRect(h, &rc);
-            logLine("settings: initdialog rect=(%ld,%ld)-(%ld,%ld) visible=%d",
-                    (long)rc.left, (long)rc.top, (long)rc.right, (long)rc.bottom,
-                    (int)IsWindowVisible(h));
+            hunmin_logger.log("settings: initdialog rect=(%ld,%ld)-(%ld,%ld) visible=%d\n",
+                              (long)rc.left, (long)rc.top, (long)rc.right, (long)rc.bottom,
+                              (int)IsWindowVisible(h));
         }
         return TRUE;
     }
@@ -746,8 +726,8 @@ static bool settingsDialogRun(HWND parent) {
     n = hunmin_tsf_rows_for_mode(s.ctx, false, buf, HUNMIN_TSF_SETTINGS_MAX_ROWS);
     s.latinRows.assign(buf, buf + n);
     hunmin_tsf_config_load(HKEY_CURRENT_USER, &s.cfg);
-    logLine("settings: open rows hangul=%zu latin=%zu", s.hangulRows.size(),
-            s.latinRows.size());
+    hunmin_logger.log("settings: open rows hangul=%zu latin=%zu\n", s.hangulRows.size(),
+                      s.latinRows.size());
     std::vector<WORD> t = buildDialogTemplate();
     /* Template ground truth in the log: this stream is what USER32 parses,
      * and the empty-dialog defect report (2026-10-18) showed a created-but-
@@ -763,7 +743,7 @@ static bool settingsDialogRun(HWND parent) {
             snprintf(piece, sizeof piece, "%04X ", t[i]);
             hex += piece;
         }
-        logLine("settings: template words=%zu head=%s", t.size(), hex.c_str());
+        hunmin_logger.log("settings: template words=%zu head=%s\n", t.size(), hex.c_str());
     }
     /* The instance handle: from this TU's own address, not a module-name
      * lookup — the tier-F1 binary links this code and is not the TIP
@@ -778,8 +758,8 @@ static bool settingsDialogRun(HWND parent) {
                                           (LPCDLGTEMPLATEW)t.data(), parent, settingsProc,
                                           (LPARAM)&s);
     if (got == -1)
-        logLine("settings: DialogBoxIndirectParamW FAILED err=%lu", GetLastError());
-    logLine("settings: dialog closed got=%ld applied=%d", (long)got, (int)s.applied);
+        hunmin_logger.log("settings: DialogBoxIndirectParamW FAILED err=%lu\n", GetLastError());
+    hunmin_logger.log("settings: dialog closed got=%ld applied=%d\n", (long)got, (int)s.applied);
     return s.applied;
 }
 
@@ -816,7 +796,7 @@ static bool settingsExeRun(HWND parent, wchar_t *exeResolved, size_t cap) {
         wchar_t dir[MAX_PATH];
         if (hSelf == nullptr ||
             GetModuleFileNameW(hSelf, dir, (DWORD)sizeof(dir)) == 0) {
-            logLine("settings-exe: module path FAILED err=%lu", GetLastError());
+            hunmin_logger.log("settings-exe: module path FAILED err=%lu\n", GetLastError());
             return false;
         }
         *wcsrchr(dir, L'\\') = L'\0';
@@ -834,7 +814,7 @@ static bool settingsExeRun(HWND parent, wchar_t *exeResolved, size_t cap) {
             swprintf(exe, MAX_PATH, L"%ls\\settings-ui\\hunmin-tsf-settingsui.exe",
                      dir);
         if (GetFileAttributesW(exe) == INVALID_FILE_ATTRIBUTES) {
-            logLine("settings-exe: not found under %ls", dir);
+            hunmin_logger.log("settings-exe: not found under %ls\n", dir);
             return false;
         }
     }
@@ -843,7 +823,7 @@ static bool settingsExeRun(HWND parent, wchar_t *exeResolved, size_t cap) {
         exeResolved[cap - 1] = L'\0';
     }
 
-    logLine("settings-exe: launching %ls", exe);
+    hunmin_logger.log("settings-exe: launching %ls\n", exe);
     SHELLEXECUTEINFOW si = {};
     si.cbSize = sizeof(si);
     si.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
@@ -851,7 +831,7 @@ static bool settingsExeRun(HWND parent, wchar_t *exeResolved, size_t cap) {
     si.lpFile = exe;
     si.nShow = SW_SHOW;
     if (!ShellExecuteExW(&si) || si.hProcess == nullptr) {
-        logLine("settings-exe: ShellExecuteEx FAILED err=%lu", GetLastError());
+        hunmin_logger.log("settings-exe: ShellExecuteEx FAILED err=%lu\n", GetLastError());
         return false;
     }
     /* Modal per the documented contract: do not return until the dialog
@@ -860,7 +840,7 @@ static bool settingsExeRun(HWND parent, wchar_t *exeResolved, size_t cap) {
     DWORD exitCode = 0;
     GetExitCodeProcess(si.hProcess, &exitCode);
     CloseHandle(si.hProcess);
-    logLine("settings-exe: exited %lu", (unsigned long)exitCode);
+    hunmin_logger.log("settings-exe: exited %lu\n", (unsigned long)exitCode);
     return true;
 }
 
@@ -908,7 +888,7 @@ class HunminTsfConfigFn : public ITfFnConfigure {
     STDMETHOD(Show)(HWND hwndParent, LANGID langid, REFGUID rguidProfile) override {
         (void)langid;
         (void)rguidProfile;
-        logLine("ITfFnConfigure::Show pid=%lu", (unsigned long)GetCurrentProcessId());
+        hunmin_logger.log("ITfFnConfigure::Show pid=%lu\n", (unsigned long)GetCurrentProcessId());
         bool launched = settingsExeRun(hwndParent, nullptr, 0);
         /* Live re-apply, issue #71 requirement: after the exe's commit (its
          * exit), the running adapter re-reads the store WITHOUT a process
@@ -994,6 +974,6 @@ void CALLBACK HunminSettingsShow(HWND hwnd, HINSTANCE hinst, LPSTR cmdLine,
     (void)hinst;
     (void)cmdLine;
     (void)nShow;
-    logLine("HunminSettingsShow entry");
+    hunmin_logger.log("HunminSettingsShow entry\n");
     settingsDialogRun(hwnd);
 }

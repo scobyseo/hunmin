@@ -6,6 +6,10 @@ project(hunmin-tsf LANGUAGES C CXX)
 # "No tests were found" on a standalone configure (measured).
 include(CTest)
 
+# The logging singleton's inline handles need C++17 (log.h).
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # Same option as the top-level CMakeLists.txt (issue #99): this directory is
 # also configured standalone, where the top-level definition never runs —
 # the packaging build passes it here too, so the standalone TIP build links

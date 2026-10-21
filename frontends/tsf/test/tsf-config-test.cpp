@@ -79,13 +79,13 @@ TEST_F(TsfConfigTest, EmptyEnvRestoresDefaults) {
  * hold for stored values too). */
 TEST_F(TsfConfigTest, SlotResolutionAgainstTheRealData) {
     std::string out;
-    resolveLayoutSlot(ctx_, "dubeolsik", kHangulDefaultId, true, &out, nullptr);
+    resolveLayoutSlot(ctx_, "dubeolsik", kHangulDefaultId, true, &out);
     EXPECT_EQ(out, "dubeolsik") << "valid hangul id kept";
-    resolveLayoutSlot(ctx_, "colemak", kHangulDefaultId, true, &out, nullptr);
+    resolveLayoutSlot(ctx_, "colemak", kHangulDefaultId, true, &out);
     EXPECT_EQ(out, kHangulDefaultId) << "latin id in hangul slot -> default";
-    resolveLayoutSlot(ctx_, "no-such-layout", kHangulDefaultId, true, &out, nullptr);
+    resolveLayoutSlot(ctx_, "no-such-layout", kHangulDefaultId, true, &out);
     EXPECT_EQ(out, kHangulDefaultId) << "unknown id -> default";
-    resolveLayoutSlot(ctx_, "dubeolsik", kLatinDefaultId, false, &out, nullptr);
+    resolveLayoutSlot(ctx_, "dubeolsik", kLatinDefaultId, false, &out);
     EXPECT_EQ(out, kLatinDefaultId) << "hangul id in latin slot -> default";
 }
 

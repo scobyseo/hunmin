@@ -28,31 +28,7 @@
  * DLL's own directory is the one clone-independent location every host
  * process can resolve, and it stays inside the workspace. Set
  * HUNMIN_TSF_LOG_DIR to override when that directory is read-only. */
-/* The logging facility lives in src/log.h (the singleton, extracted
- * 2026-10-21 — tsf.cpp got too long and the logging thread ran through
- * it). The free names below are thin delegates kept for the ~20 call
- * sites' existing FILE* discipline: gate off => null, nothing written. */
 #include "log.h"
-
-bool hunmin_tsf_log_path(const char *fname, char *out, size_t cap) {
-    return TsfLog::PathFor(fname, out, cap);
-}
-bool tsf_log_enabled(void) { return TsfLog::Instance().Enabled(); }
-FILE *tsf_log_open(const char *fname, const char *mode = "a") {
-    return TsfLog::Instance().Open(fname, mode);
-}
-
-static void HMLOG(const char *fmt, ...) {
-    FILE *f = tsf_log_open("hunmin-tsf-debug.log");
-    if (!f)
-        return;
-    va_list ap;
-    va_start(ap, fmt);
-    vfprintf(f, fmt, ap);
-    va_end(ap);
-    fflush(f);
-    fclose(f);
-}
 
 /* Issue #66: ONE data source wins — the first present in priority order:
  * (1) HUNMIN_DATA_DIR (explicit override), (2) <module>\data (the shipped
@@ -71,7 +47,6 @@ hunmin_ctx *hunmin_ctx_from_module() {
     wchar_t modDir[MAX_PATH];
     char dirs[2][MAX_PATH * 3];
     int argc = 0;
-    FILE *dbg0 = tsf_log_open("hunmin-tsf-debug.log");
 
     HMODULE hMod = GetModuleHandleW(L"hunmin-tsf.dll");
     if (!hMod)
@@ -84,19 +59,16 @@ hunmin_ctx *hunmin_ctx_from_module() {
         (GetFileAttributesW(envW) & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
         WideCharToMultiByte(CP_UTF8, 0, envW, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
         ++argc;
-        if (dbg0) {
-            fprintf(dbg0, "env data dir: %ls\n", envW);
-            fflush(dbg0);
-        }
+        hunmin_logger.log("env data dir: %ls\n", envW);
     } else if (hMod) {
         PathRemoveFileSpecW(modDir);
         wchar_t candMod[MAX_PATH];
         PathCombineW(candMod, modDir, L"data");
         DWORD attrMod = GetFileAttributesW(candMod);
-        if (dbg0)
-            fprintf(dbg0, "candMod=%ls dir=%d\n", candMod,
-                    (attrMod != INVALID_FILE_ATTRIBUTES) &&
-                        ((attrMod & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
+        hunmin_logger.log("candMod=%ls dir=%d\n", candMod,
+                          (attrMod != INVALID_FILE_ATTRIBUTES) &&
+                              ((attrMod & FILE_ATTRIBUTE_DIRECTORY) ==
+                               FILE_ATTRIBUTE_DIRECTORY));
         if (attrMod != INVALID_FILE_ATTRIBUTES &&
             (attrMod & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
             /* Shipped shape: data beside the module. Do not also climb to the
@@ -112,10 +84,10 @@ hunmin_ctx *hunmin_ctx_from_module() {
             wchar_t cand[2 * MAX_PATH];
             PathCombineW(cand, repo, L"libhunmin\\data");
             DWORD attrRepo = GetFileAttributesW(cand);
-            if (dbg0)
-                fprintf(dbg0, "climb=%ls dir=%d\n", cand,
-                        (attrRepo != INVALID_FILE_ATTRIBUTES) &&
-                            ((attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
+            hunmin_logger.log("climb=%ls dir=%d\n", cand,
+                              (attrRepo != INVALID_FILE_ATTRIBUTES) &&
+                                  ((attrRepo & FILE_ATTRIBUTE_DIRECTORY) ==
+                                   FILE_ATTRIBUTE_DIRECTORY));
             if (attrRepo != INVALID_FILE_ATTRIBUTES &&
                 (attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
                 WideCharToMultiByte(CP_UTF8, 0, cand, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
@@ -123,10 +95,7 @@ hunmin_ctx *hunmin_ctx_from_module() {
             }
         }
     }
-    if (dbg0) {
-        fprintf(dbg0, "argc=%d hMod=%p\n", argc, (void *)hMod);
-        fclose(dbg0);
-    }
+    hunmin_logger.log("argc=%d hMod=%p\n", argc, (void *)hMod);
 
     if (argc == 0)
         return nullptr;
@@ -144,8 +113,8 @@ static const char *kLatinDefaultId = "us-qwerty";
  * hunmin_ctx_layout_mode, so a stale registry value naming a latin layout in
  * the hangul slot must degrade to the default, never to a silent mispair). */
 static void resolveLayoutSlot(const hunmin_ctx *ctx, const std::string &stored,
-                              const char *def, bool wantHangul, std::string *outId,
-                              FILE *dbg) {
+                              const char *def, bool wantHangul,
+                              std::string *outId) {
     const char *candidate = stored.c_str();
     if (candidate[0] == '\0')
         candidate = def;
@@ -162,19 +131,19 @@ static void resolveLayoutSlot(const hunmin_ctx *ctx, const std::string &stored,
                 *outId = id;
                 return;
             }
-            if (dbg) {
-                fprintf(dbg, "  config %s slot: id=%s mode=%s supported=%d -> rejected\n",
-                        wantHangul ? "hangul" : "latin", id, mode ? mode : "?",
-                        (int)hunmin_ctx_layout_supported(ctx, i));
-            }
+            hunmin_logger.log(
+                "  config %s slot: id=%s mode=%s supported=%d -> rejected\n",
+                wantHangul ? "hangul" : "latin", id, mode ? mode : "?",
+                (int)hunmin_ctx_layout_supported(ctx, i));
             break; /* found the id, wrong slot/build: fall to default */
         }
     }
     if (ctx)
         *outId = wantHangul ? kHangulDefaultId : kLatinDefaultId;
-    if (dbg && *outId != candidate)
-        fprintf(dbg, "  config %s slot: %s -> default %s\n",
-                wantHangul ? "hangul" : "latin", candidate, outId->c_str());
+    if (*outId != candidate)
+        hunmin_logger.log("  config %s slot: %s -> default %s\n",
+                          wantHangul ? "hangul" : "latin", candidate,
+                          outId->c_str());
 }
 /* The toggle-key matcher shares this TU (see frontends/tsf/CMakeLists.txt):
  * the harness's GetKeyState seam (#define GetKeyState before including this
@@ -306,12 +275,7 @@ HRESULT hunmin_tsf_launch_settings(void *anchor) {
         sei.lpParameters = cmd;
     }
     BOOL ok = ShellExecuteExW(&sei);
-    FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
-    if (dbg) {
-        fprintf(dbg, "launch settings exe=%ls hr=%ld\n", exe, (long)GetLastError());
-        fflush(dbg);
-        fclose(dbg);
-    }
+    hunmin_logger.log("launch settings exe=%ls hr=%ld\n", exe, (long)GetLastError());
     return ok ? S_OK : E_FAIL;
 }
 
@@ -499,34 +463,31 @@ class CTextService : public ITfTextInputProcessor,
          * the answered slot mask — the langbar's hosting decision is
          * where the item's shape gets judged, so the log names which
          * IID rounds the object actually gets asked for. */
-        FILE *dbgq = tsf_log_open("hunmin-tsf-debug.log");
-        if (dbgq) {
-            fprintf(dbgq, "QI riid=%08lX-%04X answered=",
-                    (unsigned long)riid.Data1, (unsigned)riid.Data2);
+        {
+            hunmin_logger.log("QI riid=%08lX-%04X answered=",
+                              (unsigned long)riid.Data1, (unsigned)riid.Data2);
             if (IsEqualIID(riid, IID_IUnknown) ||
                 IsEqualIID(riid, IID_ITfTextInputProcessor))
-                fprintf(dbgq, "tip");
+                hunmin_logger.log("tip");
             else if (IsEqualIID(riid, IID_ITfThreadMgrEventSink))
-                fprintf(dbgq, "tmesink");
+                hunmin_logger.log("tmesink");
             else if (IsEqualIID(riid, IID_ITfKeyEventSink))
-                fprintf(dbgq, "keysink");
+                hunmin_logger.log("keysink");
             else if (IsEqualIID(riid, IID_ITfCompositionSink))
-                fprintf(dbgq, "compsink");
+                hunmin_logger.log("compsink");
             else if (IsEqualIID(riid, IID_ITfFunctionProvider))
-                fprintf(dbgq, "fnprov");
+                hunmin_logger.log("fnprov");
             else if (IsEqualIID(riid, IID_ITfDisplayAttributeProvider))
-                fprintf(dbgq, "dispattr");
+                hunmin_logger.log("dispattr");
             else if (IsEqualIID(riid, IID_ITfLangBarItem))
-                fprintf(dbgq, "lbi");
+                hunmin_logger.log("lbi");
             else if (IsEqualIID(riid, IID_ITfLangBarItemButton))
-                fprintf(dbgq, "lblbtn");
+                hunmin_logger.log("lblbtn");
             else if (IsEqualIID(riid, IID_ITfSource))
-                fprintf(dbgq, "source");
+                hunmin_logger.log("source");
             else
-                fprintf(dbgq, "none");
-            fprintf(dbgq, " pid=%lu\n", (unsigned long)GetCurrentProcessId());
-            fflush(dbgq);
-            fclose(dbgq);
+                hunmin_logger.log("none");
+            hunmin_logger.log(" pid=%lu\n", (unsigned long)GetCurrentProcessId());
         }
         if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfTextInputProcessor)) {
             *ppv = static_cast<ITfTextInputProcessor *>(this);
@@ -587,15 +548,11 @@ class CTextService : public ITfTextInputProcessor,
      * swap — acceptable for an explicit Apply, recorded in
      * tests/manual-checklists/tsf-settings-window.md. */
     void ApplyConfigStore() {
-        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
-        if (dbg) {
-            fprintf(dbg, "ApplyConfigStore pid=%lu\n", (unsigned long)GetCurrentProcessId());
-            fflush(dbg);
-        }
+        hunmin_logger.log("ApplyConfigStore pid=%lu\n", (unsigned long)GetCurrentProcessId());
         HunminTsfConfig cfg;
         hunmin_tsf_config_load(HKEY_CURRENT_USER, &cfg);
-        resolveLayoutSlot(ctx_, cfg.hangulLayout, kHangulDefaultId, true, &hangulId_, dbg);
-        resolveLayoutSlot(ctx_, cfg.latinLayout, kLatinDefaultId, false, &latinId_, dbg);
+        resolveLayoutSlot(ctx_, cfg.hangulLayout, kHangulDefaultId, true, &hangulId_);
+        resolveLayoutSlot(ctx_, cfg.latinLayout, kLatinDefaultId, false, &latinId_);
         /* The mode-toggle set (Android KeyBinding semantics): configured
          * chords ADD, and the bare physical Han/Eng key is appended when
          * the store does not carry it — it must never go dead. */
@@ -609,11 +566,9 @@ class CTextService : public ITfTextInputProcessor,
                     hangeulBare = true;
             if (!hangeulBare)
                 toggleKeys_.push_back(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANGEUL, 0});
-            if (dbg) {
-                fprintf(dbg, "  toggle keys=%zu (configured bits: %s)\n", toggleKeys_.size(),
-                        cfg.toggleKeys[0] ? cfg.toggleKeys : "(none)");
-                fflush(dbg);
-            }
+            hunmin_logger.log("  toggle keys=%zu (configured bits: %s)\n",
+                              toggleKeys_.size(),
+                              cfg.toggleKeys[0] ? cfg.toggleKeys : "(none)");
         }
         /* The candidate-window key (issue #67): ONE binding from the store,
          * default the bare physical Hanja key. An unparseable binding falls
@@ -628,11 +583,8 @@ class CTextService : public ITfTextInputProcessor,
                 hanjaCombo_ = parsed[0];
             } else {
                 hanjaCombo_ = HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0};
-                if (dbg) {
-                    fprintf(dbg, "  hanja key unparseable (%s) -> default VK_HANJA\n",
-                            cfg.hanjaKey[0] ? cfg.hanjaKey : "(empty)");
-                    fflush(dbg);
-                }
+                hunmin_logger.log("  hanja key unparseable (%s) -> default VK_HANJA\n",
+                                  cfg.hanjaKey[0] ? cfg.hanjaKey : "(empty)");
             }
         }
         /* The candidate window belongs to a composition the ic swap below
@@ -644,11 +596,8 @@ class CTextService : public ITfTextInputProcessor,
         }
         if (ctx_)
             ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
-        if (dbg) {
-            fprintf(dbg, "  applied hangul=%s latin=%s ic=%p\n", hangulId_.c_str(),
-                    latinId_.c_str(), (void *)ic_);
-            fclose(dbg);
-        }
+        hunmin_logger.log("  applied hangul=%s latin=%s ic=%p\n",
+                          hangulId_.c_str(), latinId_.c_str(), (void *)ic_);
     }
 
     /* The langbar item's change notification (issue #103, the langbar-item
@@ -665,9 +614,9 @@ class CTextService : public ITfTextInputProcessor,
      * caller, and its context is live — flip, conversion compartment, the
      * langbar item's notification, the composition-boundary flush, and the
      * ic rebuild with the other slot's layout run in one place. */
-    void ToggleModeCore(ITfContext *pic, FILE *dbg) {
+    void ToggleModeCore(ITfContext *pic) {
         CloseCandidateWindow();
-        BoundaryFlush(pic, dbg);
+        BoundaryFlush(pic);
         hangulMode_ = !hangulMode_;
         UpdateConversionCompartment();
         UpdateLangBarItem();
@@ -678,9 +627,9 @@ class CTextService : public ITfTextInputProcessor,
         if (ctx_)
             ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
         /* This gated line is the one evidence a mode boundary ran in this
-         * host at all: the key path's own dbg line lives in its handler. */
-        HMLOG("toggle core -> mode=%s ic=%p pic=%p\r\n",
-              hangulMode_ ? "hangul" : "english", (void *)ic_, (void *)pic);
+         * host at all: the key path's own log line lives in its handler. */
+        hunmin_logger.log("toggle core -> mode=%s ic=%p pic=%p\r\n",
+                          hangulMode_ ? "hangul" : "english", (void *)ic_, (void *)pic);
     }
 
     STDMETHOD(Activate)(ITfThreadMgr *ptm, TfClientId tid) override {
@@ -688,17 +637,10 @@ class CTextService : public ITfTextInputProcessor,
         clientId_ = tid;
         if (ptm)
             ptm->AddRef();
-        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
-        if (dbg) {
-            fprintf(dbg, "Activate pid=%lu tid=%u\n", (unsigned long)GetCurrentProcessId(), (unsigned)tid);
-            fflush(dbg);
-            fclose(dbg);
-        }
+        hunmin_logger.log("Activate pid=%lu tid=%u\n", (unsigned long)GetCurrentProcessId(), (unsigned)tid);
         if (ptm) {
             ITfKeystrokeMgr *pks = nullptr;
-            FILE *dbg2 = tsf_log_open("hunmin-tsf-debug.log");
-            if (dbg2)
-                fprintf(dbg2, "Advise threadmgr attempt\n"), fflush(dbg2);
+            hunmin_logger.log("Advise threadmgr attempt\n");
             ITfSource *src = nullptr;
             HRESULT srch = ptm->QueryInterface(IID_ITfSource, (void **)&src);
             HRESULT tmHr = E_NOINTERFACE;
@@ -707,33 +649,20 @@ class CTextService : public ITfTextInputProcessor,
                                        &sinkCookie_);
                 src->Release();
             }
-            if (dbg2) {
-                fprintf(dbg2, "  source hr=0x%lX threadmgr advise hr=0x%lX cookie=%lu\n", (unsigned long)srch,
-                        (unsigned long)tmHr, (unsigned long)sinkCookie_);
-                fflush(dbg2);
-            }
+            hunmin_logger.log("  source hr=0x%lX threadmgr advise hr=0x%lX cookie=%lu\n",
+                              (unsigned long)srch, (unsigned long)tmHr,
+                              (unsigned long)sinkCookie_);
             HRESULT qh = ptm->QueryInterface(IID_ITfKeystrokeMgr, (void **)&pks);
-            if (dbg2) {
-                fprintf(dbg2, "Advise QI hr=0x%lX pks=%p\n", (unsigned long)qh, (void *)pks);
-                fflush(dbg2);
-            }
+            hunmin_logger.log("Advise QI hr=0x%lX pks=%p\n", (unsigned long)qh,
+                              (void *)pks);
             if (SUCCEEDED(qh) && pks) {
                 HRESULT ah = pks->AdviseKeyEventSink(clientId_, this, TRUE);
-                if (dbg2) {
-                    fprintf(dbg2, "AdviseKeyEventSink hr=0x%lX\n", (unsigned long)ah);
-                    fflush(dbg2);
-                }
+                hunmin_logger.log("AdviseKeyEventSink hr=0x%lX\n", (unsigned long)ah);
                 pks->Release();
             }
-            if (dbg2)
-                fclose(dbg2);
         }
         ctx_ = hunmin_ctx_from_module();
-        FILE *dbg3 = tsf_log_open("hunmin-tsf-debug.log");
-        if (dbg3) {
-            fprintf(dbg3, "  ctx_=%p\n", (void *)ctx_);
-            fflush(dbg3);
-        }
+        hunmin_logger.log("  ctx_=%p\n", (void *)ctx_);
 
         /* Layout wiring (issue #66), now via ApplyConfigStore() (issue #71):
          * the same re-read + rebuild the settings dialog's Apply drives on
@@ -752,7 +681,7 @@ class CTextService : public ITfTextInputProcessor,
                             (v[0] == '1' || _stricmp(v, "on") == 0 || _stricmp(v, "true") == 0);
             legacyMode_ = interimForce_;
             delivery_ = legacyMode_ ? (Delivery *)&interimDelivery_ : &nativeDelivery_;
-            HMLOG("legacy force=%d detected-mode=%d\n", interimForce_ ? 1 : 0, legacyMode_ ? 1 : 0);
+            hunmin_logger.log("legacy force=%d detected-mode=%d\n", interimForce_ ? 1 : 0, legacyMode_ ? 1 : 0);
         }
         /* THE language-bar item (issue #103, the ruled langbar surface): the
          * mode indicator (icon 한 / A, text) AND the right-click config menu
@@ -762,11 +691,7 @@ class CTextService : public ITfTextInputProcessor,
         {
             ITfLangBarItemMgr *plbm = nullptr;
             HRESULT hb = ptm->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm);
-            FILE *dbg4 = tsf_log_open("hunmin-tsf-debug.log");
-            if (dbg4) {
-                fprintf(dbg4, "langbar QI hr=0x%lX\n", (unsigned long)hb);
-                fflush(dbg4);
-            }
+            hunmin_logger.log("langbar QI hr=0x%lX\n", (unsigned long)hb);
             if (SUCCEEDED(hb) && plbm) {
                 HRESULT ai = plbm->AddItem(static_cast<ITfLangBarItem *>(this));
                 if (SUCCEEDED(ai)) {
@@ -774,16 +699,9 @@ class CTextService : public ITfTextInputProcessor,
                      * Deactivate's RemoveItem, the release there. */
                     langbar_registered_ = true;
                 }
-                FILE *dbg5 = tsf_log_open("hunmin-tsf-debug.log");
-                if (dbg5) {
-                    fprintf(dbg5, "langbar AddItem hr=0x%lX\n", (unsigned long)ai);
-                    fflush(dbg5);
-                    fclose(dbg5);
-                }
+                hunmin_logger.log("langbar AddItem hr=0x%lX\n", (unsigned long)ai);
                 plbm->Release();
             }
-            if (dbg4)
-                fclose(dbg4);
         }
         UpdateConversionCompartment();
         /* The item's first notification: the sink is only set once the
@@ -791,12 +709,8 @@ class CTextService : public ITfTextInputProcessor,
          * AddItem-less host (or the CTF kernel's NULL sink) simply sees a
          * badge re-read at the next mode boundary. */
         UpdateLangBarItem();
-        if (dbg3) {
-            if (ctx_)
-                fprintf(dbg3, "  layout_count=%d\n", hunmin_ctx_layout_count(ctx_));
-            fflush(dbg3);
-            fclose(dbg3);
-        }
+        if (ctx_)
+            hunmin_logger.log("  layout_count=%d\n", hunmin_ctx_layout_count(ctx_));
         return S_OK;
     }
     STDMETHOD(Deactivate)() override {
@@ -1107,19 +1021,18 @@ class CTextService : public ITfTextInputProcessor,
         return S_OK;
     }
     STDMETHOD(OnSetFocus)(ITfDocumentMgr *pdmFocus, ITfDocumentMgr *pdmPrevFocus) override {
-        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
-        if (dbg) {
-            fprintf(dbg, "TM-OnSetFocus pdmFocus=%p pdmPrev=%p modePid=%lu\n", (void *)pdmFocus, (void *)pdmPrevFocus,
-                    (unsigned long)GetCurrentProcessId());
-            if (pdmFocus) {
-                ITfContext *pic = nullptr;
-                HRESULT hrTop = pdmFocus->GetTop(&pic);
-                fprintf(dbg, "  GetTop hr=0x%lX pic=%p\n", (unsigned long)hrTop, (void *)pic);
-                if (pic)
-                    pic->Release();
-            }
-            fflush(dbg);
-            fclose(dbg);
+        hunmin_logger.log("TM-OnSetFocus pdmFocus=%p pdmPrev=%p modePid=%lu\n",
+                          (void *)pdmFocus, (void *)pdmPrevFocus,
+                          (unsigned long)GetCurrentProcessId());
+        if (pdmFocus) {
+            /* The view probe the trace reads; run regardless of the gate so
+             * the pic half (its Release) can never leak behind an if. */
+            ITfContext *pic = nullptr;
+            HRESULT hrTop = pdmFocus->GetTop(&pic);
+            hunmin_logger.log("  GetTop hr=0x%lX pic=%p\n", (unsigned long)hrTop,
+                              (void *)pic);
+            if (pic)
+                pic->Release();
         }
         (void)pdmFocus;
         (void)pdmPrevFocus;
@@ -1136,12 +1049,8 @@ class CTextService : public ITfTextInputProcessor,
 
     // ITfKeyEventSink
     STDMETHOD(OnSetFocus)(BOOL fFocus) override {
-        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
-        if (dbg) {
-            fprintf(dbg, "KS-OnSetFocus fFocus=%d modePid=%lu\n", (int)fFocus, (unsigned long)GetCurrentProcessId());
-            fflush(dbg);
-            fclose(dbg);
-        }
+        hunmin_logger.log("KS-OnSetFocus fFocus=%d modePid=%lu\n", (int)fFocus,
+                          (unsigned long)GetCurrentProcessId());
         (void)fFocus;
         return S_OK;
     }
@@ -1152,7 +1061,6 @@ class CTextService : public ITfTextInputProcessor,
          * classified — a keystroke storm must not reorder the doc writes
          * behind the engine state. */
         FlushPendingDocWrites();
-        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
         /* Shared predicate with OnKeyDown (the registration-work rule: test
          * and down are one decision). The configured set always contains the
          * bare Han/Eng key, so the physical key stays interested in both
@@ -1199,7 +1107,7 @@ class CTextService : public ITfTextInputProcessor,
              * is order-independent against the app's own space insertion,
              * and a host that DOES call the down re-runs the flush on the
              * already-empty buffer (a no-op). */
-            BoundaryFlush(pic, dbg);
+            BoundaryFlush(pic);
             eat = FALSE;
         } else if (wParam == VK_BACK) {
             /* Against in-flight text the engine consumes the key (the jamo
@@ -1228,11 +1136,8 @@ class CTextService : public ITfTextInputProcessor,
         }
         if (pfEat)
             *pfEat = eat;
-        if (dbg) {
-            fprintf(dbg, "OnTestKeyDown w=%lu eat=%d mode=%d\n", (unsigned long)wParam, (int)eat, (int)hangulMode_);
-            fflush(dbg);
-            fclose(dbg);
-        }
+        hunmin_logger.log("OnTestKeyDown w=%lu eat=%d mode=%d\n",
+                          (unsigned long)wParam, (int)eat, (int)hangulMode_);
         return S_OK;
     }
     STDMETHOD(OnKeyDown)(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) override {
@@ -1240,18 +1145,12 @@ class CTextService : public ITfTextInputProcessor,
          * reaches first settles the previous key's doc write. */
         FlushPendingDocWrites();
         TrackKeyContext(pic);
-        FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
-        if (dbg) {
-            fprintf(dbg, "OnKeyDown wParam=%lu ic=%p\n", (unsigned long)wParam, (void *)ic_);
-            fflush(dbg);
-        }
+        hunmin_logger.log("OnKeyDown wParam=%lu ic=%p\n", (unsigned long)wParam,
+                          (void *)ic_);
         if (pfEat)
             *pfEat = FALSE;
         if (!ic_) {
-            if (dbg) {
-                fprintf(dbg, " ic null -> pass\n");
-                fclose(dbg);
-            }
+            hunmin_logger.log(" ic null -> pass\n");
             return S_OK;
         }
         /* Each handler owns one key class and answers one question: is the
@@ -1260,29 +1159,26 @@ class CTextService : public ITfTextInputProcessor,
          * window's own key, the open window's list keys, the keys of
          * passage, and finally the composition feed. */
         if (IsModeToggle(wParam)) {
-            ApplyModeToggle(pic, wParam, lParam, pfEat, dbg);
+            ApplyModeToggle(pic, wParam, lParam, pfEat);
             return S_OK;
         }
-        if (!hangulMode_) {
-            if (dbg)
-                fclose(dbg);
+        if (!hangulMode_)
             return S_OK; // passthrough English
-        }
         if (IsCandidateToggle(wParam)) {
-            ToggleCandidateWindow(pic, wParam, pfEat, dbg);
+            ToggleCandidateWindow(pic, wParam, pfEat);
             return S_OK;
         }
-        if (candActive_ && CandidateListKey(pic, wParam, pfEat, dbg))
+        if (candActive_ && CandidateListKey(pic, wParam, pfEat))
             return S_OK;
         if (IsKeyOfPassage(wParam)) {
-            DrainAndPass(pic, wParam, pfEat, dbg, "edit key");
+            DrainAndPass(pic, wParam, pfEat, "edit key");
             return S_OK;
         }
         if (wParam >= VK_F1 && wParam <= VK_F12) {
-            DrainAndPass(pic, wParam, pfEat, dbg, "fkey");
+            DrainAndPass(pic, wParam, pfEat, "fkey");
             return S_OK;
         }
-        FeedEngineKey(pic, wParam, pfEat, dbg);
+        FeedEngineKey(pic, wParam, pfEat);
         return S_OK;
     }
 
@@ -1312,19 +1208,16 @@ class CTextService : public ITfTextInputProcessor,
      * toggle once, and repeats are swallowed rather than delivered to the
      * app. The steps themselves are the SHARED mode-switch core
      * (ToggleModeCore, issue #103), whose tail notifies the langbar item. */
-    void ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat, FILE *dbg) {
+    void ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) {
         if (pfEat)
             *pfEat = TRUE;
         const bool repeat = (lParam & (1 << 30)) != 0;
         if (!repeat)
-            ToggleModeCore(pic, dbg);
-        if (dbg) {
-            fprintf(dbg, " toggle key vk=%lu repeat=%d -> %s (%s)\n",
-                    (unsigned long)wParam, (int)repeat,
-                    hangulMode_ ? "hangul" : "english",
-                    hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
-            fclose(dbg);
-        }
+            ToggleModeCore(pic);
+        hunmin_logger.log(" toggle key vk=%lu repeat=%d -> %s (%s)\n",
+                          (unsigned long)wParam, (int)repeat,
+                          hangulMode_ ? "hangul" : "english",
+                          hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
     }
 
     bool IsCandidateToggle(WPARAM wParam) {
@@ -1339,7 +1232,7 @@ class CTextService : public ITfTextInputProcessor,
      * conditional whether the window is open or, with a candidate-bearing
      * buffer, just opened; with neither, the key belongs to the client app
      * and passes through uneaten. */
-    void ToggleCandidateWindow(ITfContext *pic, WPARAM wParam, BOOL *pfEat, FILE *dbg) {
+    void ToggleCandidateWindow(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
         if (candActive_) {
             CloseCandidateWindow();
         } else {
@@ -1347,13 +1240,9 @@ class CTextService : public ITfTextInputProcessor,
             if (candActive_)
                 UpdateCandidateWindow(pic);
         }
-        if (dbg) {
-            fprintf(dbg, " hanja key vk=%lu -> %s (src=%s count=%d)\n",
-                    (unsigned long)wParam, candActive_ ? "open" : "closed",
-                    candSource_.c_str(), candCount_);
-            fflush(dbg);
-            fclose(dbg);
-        }
+        hunmin_logger.log(" hanja key vk=%lu -> %s (src=%s count=%d)\n",
+                          (unsigned long)wParam, candActive_ ? "open" : "closed",
+                          candSource_.c_str(), candCount_);
         if (pfEat)
             *pfEat = candActive_ ? TRUE : FALSE;
     }
@@ -1363,7 +1252,7 @@ class CTextService : public ITfTextInputProcessor,
      * past the end of the count closes the window and falls through like
      * any other unhandled key — an invisible window must never swallow a
      * keystroke. Returns true when the key was ours. */
-    bool CandidateListKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat, FILE *dbg) {
+    bool CandidateListKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
         bool handled = false;
         bool submit = false;
         int submitIdx = candCursor_;
@@ -1430,11 +1319,8 @@ class CTextService : public ITfTextInputProcessor,
         }
         if (pfEat)
             *pfEat = TRUE;
-        if (dbg) {
-            fprintf(dbg, " candidate key vk=%lu cursor=%d count=%d\n", (unsigned long)wParam,
-                    candCursor_, candCount_);
-            fclose(dbg);
-        }
+        hunmin_logger.log(" candidate key vk=%lu cursor=%d count=%d\n",
+                          (unsigned long)wParam, candCursor_, candCount_);
         return true;
     }
 
@@ -1470,16 +1356,13 @@ class CTextService : public ITfTextInputProcessor,
         }
     }
 
-    void DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat, FILE *dbg,
+    void DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat,
                       const char *tag) {
-        BoundaryFlush(pic, dbg);
+        BoundaryFlush(pic);
         if (pfEat)
             *pfEat = FALSE;
-        if (dbg) {
-            fprintf(dbg, " %s vk=%lu -> boundary + passthrough\n", tag,
-                    (unsigned long)wParam);
-            fclose(dbg);
-        }
+        hunmin_logger.log(" %s vk=%lu -> boundary + passthrough\n", tag,
+                          (unsigned long)wParam);
     }
 
     /* The VK -> base half, and only that half (issue #106): the physical
@@ -1584,7 +1467,7 @@ class CTextService : public ITfTextInputProcessor,
      * A decline is a word boundary for the buffering adapter (issue #73):
      * the boundary drain runs and the key passes (pfEat stays FALSE) —
      * the fcitx/android "used=FALSE => passthrough" contract. */
-    void FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat, FILE *dbg) {
+    void FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
         /* One snapshot of the modifier state for this event. The chord rule
          * below and the shift bit handed to the engine both read it, so the
          * decision and the bit can never disagree, and the mock harness's
@@ -1601,20 +1484,14 @@ class CTextService : public ITfTextInputProcessor,
         hunmin_ic_set_option(ic_, "caps", hunmin_tsf_capslock_from_state() ? 1 : 0);
         if (mods & (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) {
             CloseCandidateWindow();
-            BoundaryFlush(pic, dbg);
+            BoundaryFlush(pic);
             if (pfEat)
                 *pfEat = FALSE;
-            if (dbg) {
-                fprintf(dbg, " ctrl/alt chord -> commit + passthrough\n");
-                fclose(dbg);
-            }
+            hunmin_logger.log(" ctrl/alt chord -> commit + passthrough\n");
             return;
         }
         if (IsModifierVk(wParam)) {
-            if (dbg) {
-                fprintf(dbg, " modifier/pass key -> leave composition\n");
-                fclose(dbg);
-            }
+            hunmin_logger.log(" modifier/pass key -> leave composition\n");
             return;
         }
         /* The case endpoint is the engine's (issue #106): the unshifted base
@@ -1622,15 +1499,12 @@ class CTextService : public ITfTextInputProcessor,
         bool consumed = hunmin_ic_process_key(
             ic_, VkToBase(wParam), (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u);
         if (!consumed) {
-            BoundaryFlush(pic, dbg);
+            BoundaryFlush(pic);
             return;
         }
         HarvestFinalised();
-        if (dbg) {
-            fprintf(dbg, " consumed, word len=%zu preedit=%s\n", wordbuf_.size(),
-                    hunmin_ic_preedit(ic_));
-            fflush(dbg);
-        }
+        hunmin_logger.log(" consumed, word len=%zu preedit=%s\n", wordbuf_.size(),
+                          hunmin_ic_preedit(ic_));
         /* Issue #119: the legacy interim path when the host was detected
          * terminating compositions mid-word (or the env said so); the #98
          * native path otherwise stays as is. The doc write is POSTED —
@@ -1668,8 +1542,8 @@ class CTextService : public ITfTextInputProcessor,
     STDMETHOD(OnCompositionTerminated)(TfEditCookie ecWrite, ITfComposition *pComposition) override {
         (void)ecWrite;
         (void)pComposition;
-        HMLOG("OnCompositionTerminated comp=%p wordbuf=%zu self=%d\n",
-              (void *)composition_, wordbuf_.size(), endingSelf_ ? 1 : 0);
+        hunmin_logger.log("OnCompositionTerminated comp=%p wordbuf=%zu self=%d\n",
+                          (void *)composition_, wordbuf_.size(), endingSelf_ ? 1 : 0);
         if (endingSelf_) {
             /* Our own EndComposition (issue #98): the composed text is
              * document text by OUR decision, so the buffers drain and the
@@ -1716,8 +1590,8 @@ class CTextService : public ITfTextInputProcessor,
             compText_.clear();
             return S_OK;
         }
-        HMLOG("legacy detection: mid-word host termination (compText=%zu wordbuf=%zu) -> interim path\n",
-              compText_.size(), wordbuf_.size());
+        hunmin_logger.log("legacy detection: mid-word host termination (compText=%zu wordbuf=%zu) -> interim path\n",
+                          compText_.size(), wordbuf_.size());
         legacyMode_ = true;
         delivery_ = &interimDelivery_;
         /* What is dead in the doc = the WHOLE composition text (compText_:
@@ -1807,8 +1681,8 @@ class CTextService : public ITfTextInputProcessor,
                             svc_->compCtx_ = ctx_;
                             ctx_->AddRef();
                         }
-                        HMLOG("composition start hr=0x%lX comp=%p\n", (unsigned long)hs,
-                              (void *)svc_->composition_);
+                        hunmin_logger.log("composition start hr=0x%lX comp=%p\n", (unsigned long)hs,
+                                          (void *)svc_->composition_);
                         sel.range->Release();
                     }
                     cc->Release();
@@ -1863,7 +1737,7 @@ class CTextService : public ITfTextInputProcessor,
                      * behaviour). */
                     svc_->endingSelf_ = true;
                     svc_->composition_->EndComposition(ec);
-                    HMLOG("composition end text=%ls\n", t_);
+                    hunmin_logger.log("composition end text=%ls\n", t_);
                     svc_->composition_->Release();
                     svc_->composition_ = nullptr;
                     if (svc_->compCtx_) {
@@ -1958,7 +1832,7 @@ class CTextService : public ITfTextInputProcessor,
                 HRESULT hrG = cm->RegisterGUID(HunminDisplayAttrGuid, &displayAttrAtom_);
                 cm->Release();
                 if (FAILED(hrG))
-                    HMLOG("display attr RegisterGUID hr=0x%lX\n", (unsigned long)hrG);
+                    hunmin_logger.log("display attr RegisterGUID hr=0x%lX\n", (unsigned long)hrG);
             }
         }
         if (displayAttrAtom_ == 0)
@@ -2197,7 +2071,7 @@ class CTextService : public ITfTextInputProcessor,
                 }
             }
             interimHwnd_ = hwnd;
-            HMLOG("interim: control hwnd=%p\n", (void *)hwnd);
+            hunmin_logger.log("interim: control hwnd=%p\n", (void *)hwnd);
             return hwnd;
         }
 
@@ -2207,9 +2081,9 @@ class CTextService : public ITfTextInputProcessor,
             EmSelect(hwnd, preStart_, preStart_ + (LONG)preLen_);
             EmReplace(hwnd, text.c_str());
             preLen_ = text.size();
-            HMLOG("interim: span now %zu chars at %ld (caret=%ld doclen=%d focused=%d)\n",
-                  text.size(), preStart_, EmCaret(hwnd),
-                  GetWindowTextLengthW(hwnd), GetFocus() == hwnd);
+            hunmin_logger.log("interim: span now %zu chars at %ld (caret=%ld doclen=%d focused=%d)\n",
+                              text.size(), preStart_, EmCaret(hwnd),
+                              GetWindowTextLengthW(hwnd), GetFocus() == hwnd);
         }
 
         /* A host termination fused the composition's text into the doc:
@@ -2232,8 +2106,8 @@ class CTextService : public ITfTextInputProcessor,
                 EmSelect(hwnd, caret - span, caret);
                 EmReplace(hwnd, L"");
                 preStart_ = caret - span;
-                HMLOG("interim: dead copy removed (%ld chars, preStart=%ld)\n",
-                      span, preStart_);
+                hunmin_logger.log("interim: dead copy removed (%ld chars, preStart=%ld)\n",
+                                  span, preStart_);
             }
             pendingDeadCopy_.clear();
         }
@@ -2264,7 +2138,7 @@ class CTextService : public ITfTextInputProcessor,
                 EmSelect(hwnd, preStart_, preStart_);
                 EmReplace(hwnd, finalised.c_str());
                 preStart_ += (LONG)finalised.size();
-                HMLOG("interim: appended %zu finalised chars\n", finalised.size());
+                hunmin_logger.log("interim: appended %zu finalised chars\n", finalised.size());
             }
             std::wstring pre = HunminUtf8ToWide(svc->ic_ ? hunmin_ic_preedit(svc->ic_) : "");
             if (!pre.empty() || preLen_ > 0)
@@ -2295,8 +2169,8 @@ class CTextService : public ITfTextInputProcessor,
                 hunmin_ic_reset(svc->ic_);
             if (hwnd)
                 EmSelect(hwnd, userCaret, userCaret);
-            HMLOG("interim boundary: word len=%zu preStart=%ld caret=%ld\n",
-                  word.size(), preStart_, userCaret);
+            hunmin_logger.log("interim boundary: word len=%zu preStart=%ld caret=%ld\n",
+                              word.size(), preStart_, userCaret);
         }
 
         /* The class-aware EM primitives: EM_EXSETSEL/CHARRANGE for the
@@ -2386,12 +2260,7 @@ class CTextService : public ITfTextInputProcessor,
                 VariantClear(&v);
                 c->Release();
             } else {
-                FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
-                if (dbg) {
-                    fprintf(dbg, " conversion compartment GONE\n");
-                    fflush(dbg);
-                    fclose(dbg);
-                }
+                hunmin_logger.log(" conversion compartment GONE\n");
             }
             cm->Release();
         }
@@ -2432,7 +2301,7 @@ class CTextService : public ITfTextInputProcessor,
                 sel.range->Release();
                 hr = S_OK;
             }
-            HMLOG("flush: insert hr=0x%lX\n", (unsigned long)hr);
+            hunmin_logger.log("flush: insert hr=0x%lX\n", (unsigned long)hr);
             return S_OK;
         }
 
@@ -2476,7 +2345,7 @@ class CTextService : public ITfTextInputProcessor,
      * mode toggle (issue #66): the in-flight syllable is flushed into the
      * buffered word, and the whole word is inserted exactly once before the
      * boundary key (or mode switch) proceeds. */
-    void BoundaryFlush(ITfContext *pic, FILE *dbg) {
+    void BoundaryFlush(ITfContext *pic) {
         const char *flushed = ic_ ? hunmin_ic_flush(ic_) : "";
         if (flushed && flushed[0]) {
             int flen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
@@ -2487,11 +2356,8 @@ class CTextService : public ITfTextInputProcessor,
                 MultiByteToWideChar(CP_UTF8, 0, flushed, -1, &wordbuf_[old], flen);
             }
         }
-        if (dbg) {
-            fprintf(dbg, " boundary, word len=%zu preedit=%s\n", wordbuf_.size(),
-                    ic_ ? hunmin_ic_preedit(ic_) : "");
-            fflush(dbg);
-        }
+        hunmin_logger.log(" boundary, word len=%zu preedit=%s\n", wordbuf_.size(),
+                          ic_ ? hunmin_ic_preedit(ic_) : "");
         delivery_->Boundary(pic);
     }
 
@@ -2770,13 +2636,12 @@ void hunmin_tsf_apply_config_store(void *svc) {
     static_cast<CTextService *>(svc)->ApplyConfigStore();
 }
 extern "C" BOOL DllRegisterServer() {
-    // logging
-    FILE *dbg = tsf_log_open("hunmin-reg-debug.log", "w");
+    // logging (the ONE syntax; the head truncates, the chain appends)
+    hunmin_reg_logger.reset();
     wchar_t guidStr[64];
     StringFromGUID2(CLSID_HunminTSF, guidStr, 64);
-    if (dbg) {
-        fwprintf(dbg, L"guid=%s\n", guidStr);
-        fflush(dbg);
+    {
+        hunmin_reg_logger.log(L"guid=%s\n", guidStr);
     }
 
     wchar_t dllPath[MAX_PATH];
@@ -2784,9 +2649,8 @@ extern "C" BOOL DllRegisterServer() {
     if (!hinst)
         hinst = GetModuleHandleW(L"hunmin-tsf.dll");
     GetModuleFileNameW(hinst, dllPath, MAX_PATH);
-    if (dbg) {
-        fwprintf(dbg, L"module=%s\n", dllPath);
-        fflush(dbg);
+    {
+        hunmin_reg_logger.log(L"module=%s\n", dllPath);
     }
 
     // COM CLSID key registration
@@ -2833,15 +2697,13 @@ extern "C" BOOL DllRegisterServer() {
     ITfInputProcessorProfiles *pProfile = nullptr;
     HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
                                   IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
-    if (dbg) {
-        fwprintf(dbg, L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
-        fflush(dbg);
+    {
+        hunmin_reg_logger.log(L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
     }
     if (SUCCEEDED(hr) && pProfile) {
         HRESULT regHr = pProfile->Register(CLSID_HunminTSF);
-        if (dbg) {
-            fwprintf(dbg, L"pProfile->Register hr=0x%lX\n", (unsigned long)regHr);
-            fflush(dbg);
+        {
+            hunmin_reg_logger.log(L"pProfile->Register hr=0x%lX\n", (unsigned long)regHr);
         }
         static const GUID profileGuid = HunminProfileGuid;
         HMODULE hSelf = nullptr;
@@ -2852,14 +2714,12 @@ extern "C" BOOL DllRegisterServer() {
         HRESULT addHr =
             pProfile->AddLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid, L"Hunmin", (ULONG)wcslen(L"Hunmin"),
                                          iconPath[0] ? iconPath : nullptr, 0, TRUE);
-        if (dbg) {
-            fwprintf(dbg, L"pProfile->AddLanguageProfile hr=0x%lX\n", (unsigned long)addHr);
-            fflush(dbg);
+        {
+            hunmin_reg_logger.log(L"pProfile->AddLanguageProfile hr=0x%lX\n", (unsigned long)addHr);
         }
         HRESULT enableHr = pProfile->EnableLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid, TRUE);
-        if (dbg) {
-            fwprintf(dbg, L"pProfile->EnableLanguageProfile hr=0x%lX\n", (unsigned long)enableHr);
-            fflush(dbg);
+        {
+            hunmin_reg_logger.log(L"pProfile->EnableLanguageProfile hr=0x%lX\n", (unsigned long)enableHr);
         }
         /* Icon index pin (measured 2026-10-18: the live profile answered
          * IconFile=<dll> IconIndex=1 — a slot with no icon — and the language
@@ -2910,42 +2770,37 @@ extern "C" BOOL DllRegisterServer() {
          */
         ITfInputProcessorProfileMgr *pProfileMgr = nullptr;
         HRESULT mgrHr = pProfile->QueryInterface(IID_ITfInputProcessorProfileMgr, (LPVOID *)&pProfileMgr);
-        if (dbg) {
-            fwprintf(dbg, L"pProfile QI(ITfInputProcessorProfileMgr) hr=0x%lX\n", (unsigned long)mgrHr);
-            fflush(dbg);
+        {
+            hunmin_reg_logger.log(L"pProfile QI(ITfInputProcessorProfileMgr) hr=0x%lX\n", (unsigned long)mgrHr);
         }
         if (SUCCEEDED(mgrHr) && pProfileMgr) {
             HRESULT actHr =
                 pProfileMgr->ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, 0x0412, CLSID_HunminTSF, profileGuid,
                                              nullptr, TF_IPPMF_FORSYSTEMALL | TF_IPPMF_ENABLEPROFILE);
-            if (dbg) {
-                fwprintf(dbg, L"pProfileMgr->ActivateProfile hr=0x%lX\n", (unsigned long)actHr);
-                fflush(dbg);
+            {
+                hunmin_reg_logger.log(L"pProfileMgr->ActivateProfile hr=0x%lX\n", (unsigned long)actHr);
             }
             TF_INPUTPROCESSORPROFILE active;
             ZeroMemory(&active, sizeof(active));
             HRESULT getHr = pProfileMgr->GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD, &active);
-            if (dbg) {
-                fwprintf(dbg, L"pProfileMgr->GetActiveProfile hr=0x%lX active.clsid={%08lX} active.profile=%08lX\n",
-                         (unsigned long)getHr, (unsigned long)active.clsid.Data1,
-                         (unsigned long)active.guidProfile.Data1);
-                fflush(dbg);
+            {
+                hunmin_reg_logger.log(L"pProfileMgr->GetActiveProfile hr=0x%lX active.clsid={%08lX} active.profile=%08lX\n",
+                                      (unsigned long)getHr, (unsigned long)active.clsid.Data1,
+                                      (unsigned long)active.guidProfile.Data1);
             }
             if (FAILED(getHr) || !IsEqualGUID(active.clsid, CLSID_HunminTSF)) {
                 /* Pre-Vista hosts, or a profile the session refused: the
                  * legacy call is the only thing left to try. */
                 HRESULT legacyHr = pProfile->ActivateLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid);
-                if (dbg) {
-                    fwprintf(dbg, L"fallback ActivateLanguageProfile hr=0x%lX\n", (unsigned long)legacyHr);
-                    fflush(dbg);
+                {
+                    hunmin_reg_logger.log(L"fallback ActivateLanguageProfile hr=0x%lX\n", (unsigned long)legacyHr);
                 }
             }
             pProfileMgr->Release();
         } else {
             HRESULT legacyHr = pProfile->ActivateLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid);
-            if (dbg) {
-                fwprintf(dbg, L"ActivateLanguageProfile (no ProfileMgr) hr=0x%lX\n", (unsigned long)legacyHr);
-                fflush(dbg);
+            {
+                hunmin_reg_logger.log(L"ActivateLanguageProfile (no ProfileMgr) hr=0x%lX\n", (unsigned long)legacyHr);
             }
         }
         pProfile->Release();
@@ -2953,9 +2808,8 @@ extern "C" BOOL DllRegisterServer() {
 
     ITfCategoryMgr *pCatMgr = nullptr;
     hr = CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
-    if (dbg) {
-        fwprintf(dbg, L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
-        fflush(dbg);
+    {
+        hunmin_reg_logger.log(L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
     }
     if (SUCCEEDED(hr) && pCatMgr) {
         HRESULT c1 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_TIP_KEYBOARD, CLSID_HunminTSF);
@@ -2966,10 +2820,9 @@ extern "C" BOOL DllRegisterServer() {
          * HunminDisplayAttrGuid, which the provider serves. */
         HRESULT c3 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
                                                CLSID_HunminTSF);
-        if (dbg) {
-            fwprintf(dbg, L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n",
-                     (unsigned long)c1, (unsigned long)c2, (unsigned long)c3);
-            fflush(dbg);
+        {
+            hunmin_reg_logger.log(L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n",
+                                  (unsigned long)c1, (unsigned long)c2, (unsigned long)c3);
         }
         pCatMgr->Release();
     }
@@ -3000,9 +2853,8 @@ extern "C" BOOL DllRegisterServer() {
         IShellLinkW *sl = nullptr;
         HRESULT lh = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
                                       IID_PPV_ARGS(&sl));
-        if (dbg)
-            fwprintf(dbg, L"shortcut CoCreate hr=0x%lX exe=%s\n", (unsigned long)lh,
-                     exe[0] ? exe : L"<rundll32>");
+        hunmin_reg_logger.log(L"shortcut CoCreate hr=0x%lX exe=%s\n", (unsigned long)lh,
+                              exe[0] ? exe : L"<rundll32>");
         if (SUCCEEDED(lh) && sl) {
             if (exe[0]) {
                 sl->SetPath(exe);
@@ -3026,10 +2878,9 @@ extern "C" BOOL DllRegisterServer() {
                     _snwprintf(link, _countof(link), L"%s\\Hunmin IME \uC124\uC815.lnk",
                                programs);
                     if (SUCCEEDED(pf->Save(link, TRUE))) {
-                        if (dbg)
-                            fwprintf(dbg, L"shortcut saved %s\n", link);
-                    } else if (dbg) {
-                        fwprintf(dbg, L"shortcut save FAILED %s\n", link);
+                        hunmin_reg_logger.log(L"shortcut saved %s\n", link);
+                    } else {
+                        hunmin_reg_logger.log(L"shortcut save FAILED %s\n", link);
                     }
                     CoTaskMemFree(programs);
                 }
@@ -3050,22 +2901,19 @@ extern "C" BOOL DllUnregisterServer() {
      * SortOrder / Assemblies) is deliberately NOT touched: registration
      * never writes it (measured, docs/WINDOWS-TSF-REGISTRATION.md), so
      * unregistering must not either. Logging follows the register flow: only
-     * tsf_log_open-mediated writes, to hunmin-reg-debug.log. */
-    FILE *dbg = tsf_log_open("hunmin-reg-debug.log", "a");
+     * hunmin_reg_logger.log() writes, to hunmin-reg-debug.log. */
     wchar_t guidStr[64];
     StringFromGUID2(CLSID_HunminTSF, guidStr, 64);
-    if (dbg) {
-        fwprintf(dbg, L"--- unregister begin guid=%s\n", guidStr);
-        fflush(dbg);
+    {
+        hunmin_reg_logger.log(L"--- unregister begin guid=%s\n", guidStr);
     }
 
     CoInitialize(nullptr);
     ITfInputProcessorProfiles *pProfile = nullptr;
     HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
                                   IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
-    if (dbg) {
-        fwprintf(dbg, L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
-        fflush(dbg);
+    {
+        hunmin_reg_logger.log(L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
     }
     if (SUCCEEDED(hr) && pProfile) {
         /* Reverse of the register order: the per-profile enablement entry the
@@ -3073,31 +2921,27 @@ extern "C" BOOL DllUnregisterServer() {
          * Profile / ProfileMgr), then Unregister() for Register(). */
         ITfInputProcessorProfileMgr *pProfileMgr = nullptr;
         HRESULT mgrHr = pProfile->QueryInterface(IID_ITfInputProcessorProfileMgr, (LPVOID *)&pProfileMgr);
-        if (dbg) {
-            fwprintf(dbg, L"pProfile QI(ITfInputProcessorProfileMgr) hr=0x%lX\n", (unsigned long)mgrHr);
-            fflush(dbg);
+        {
+            hunmin_reg_logger.log(L"pProfile QI(ITfInputProcessorProfileMgr) hr=0x%lX\n", (unsigned long)mgrHr);
         }
         if (SUCCEEDED(mgrHr) && pProfileMgr) {
             HRESULT upHr = pProfileMgr->UnregisterProfile(CLSID_HunminTSF, 0x0412, HunminProfileGuid, 0);
-            if (dbg) {
-                fwprintf(dbg, L"pProfileMgr->UnregisterProfile hr=0x%lX\n", (unsigned long)upHr);
-                fflush(dbg);
+            {
+                hunmin_reg_logger.log(L"pProfileMgr->UnregisterProfile hr=0x%lX\n", (unsigned long)upHr);
             }
             pProfileMgr->Release();
         }
         HRESULT unregHr = pProfile->Unregister(CLSID_HunminTSF);
-        if (dbg) {
-            fwprintf(dbg, L"pProfile->Unregister hr=0x%lX\n", (unsigned long)unregHr);
-            fflush(dbg);
+        {
+            hunmin_reg_logger.log(L"pProfile->Unregister hr=0x%lX\n", (unsigned long)unregHr);
         }
         pProfile->Release();
     }
 
     ITfCategoryMgr *pCatMgr = nullptr;
     hr = CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
-    if (dbg) {
-        fwprintf(dbg, L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
-        fflush(dbg);
+    {
+        hunmin_reg_logger.log(L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
     }
     if (SUCCEEDED(hr) && pCatMgr) {
         HRESULT c1 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_TIP_KEYBOARD, CLSID_HunminTSF);
@@ -3105,10 +2949,9 @@ extern "C" BOOL DllUnregisterServer() {
         /* Issue #98: mirror of the display-attribute provider registration. */
         HRESULT c3 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
                                                  CLSID_HunminTSF);
-        if (dbg) {
-            fwprintf(dbg, L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n",
-                     (unsigned long)c1, (unsigned long)c2, (unsigned long)c3);
-            fflush(dbg);
+        {
+            hunmin_reg_logger.log(L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n",
+                                  (unsigned long)c1, (unsigned long)c2, (unsigned long)c3);
         }
         pCatMgr->Release();
     }
@@ -3120,19 +2963,16 @@ extern "C" BOOL DllUnregisterServer() {
     wchar_t tipPath[256];
     swprintf(tipPath, 256, L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s", guidStr);
     LSTATUS tipSt = RegDeleteTreeW(HKEY_LOCAL_MACHINE, tipPath);
-    if (dbg) {
-        fwprintf(dbg, L"RegDeleteTreeW(HKLM %s) st=0x%lX\n", tipPath, (unsigned long)tipSt);
-        fflush(dbg);
+    {
+        hunmin_reg_logger.log(L"RegDeleteTreeW(HKLM %s) st=0x%lX\n", tipPath, (unsigned long)tipSt);
     }
 
     /* COM CLSID tree -- the only deletion the previous implementation did. */
     wchar_t clsidPath[128];
     swprintf(clsidPath, 128, L"CLSID\\%s", guidStr);
     LSTATUS clsidSt = RegDeleteTreeW(HKEY_CLASSES_ROOT, clsidPath);
-    if (dbg) {
-        fwprintf(dbg, L"RegDeleteTreeW(HKCR %s) st=0x%lX\n", clsidPath, (unsigned long)clsidSt);
-        fflush(dbg);
-        fclose(dbg);
+    {
+        hunmin_reg_logger.log(L"RegDeleteTreeW(HKCR %s) st=0x%lX\n", clsidPath, (unsigned long)clsidSt);
     }
     return TRUE;
 }
@@ -3179,26 +3019,22 @@ class CClassFactory : public IClassFactory {
 };
 
 extern "C" HRESULT DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv) {
-    FILE *dbg = tsf_log_open("hunmin-tsf-debug.log");
     wchar_t str[64];
     StringFromGUID2(rclsid, str, 64);
-    if (dbg) {
-        fwprintf(dbg, L"DllGetClassObject rclsid=%s\n", str);
-        fflush(dbg);
+    {
+        hunmin_logger.log("DllGetClassObject rclsid=%ls\n", str);
     }
     if (!IsEqualCLSID(rclsid, CLSID_HunminTSF)) {
-        if (dbg) {
-            fwprintf(dbg, L"  not registered CLSID\n");
-            fclose(dbg);
+        {
+            hunmin_logger.log("  not registered CLSID\n");
         }
         return CLASS_E_CLASSNOTAVAILABLE;
     }
     CClassFactory *factory = new CClassFactory();
     HRESULT hr = factory->QueryInterface(riid, ppv);
     factory->Release();
-    if (dbg) {
-        fwprintf(dbg, L"  hr=0x%lX\n", (unsigned long)hr);
-        fclose(dbg);
+    {
+        hunmin_logger.log("  hr=0x%lX\n", (unsigned long)hr);
     }
     return hr;
 }
