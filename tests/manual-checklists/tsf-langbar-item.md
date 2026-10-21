@@ -6,7 +6,7 @@
 row TSF-ITEM-SINK-67 (the extension advice rendered nothing in the shell
 tray menu; the tray badge lost the overflow-visibility iteration, PR #124
 rounds 1-3) and the item's hosting recipe (GUID_LBI_INPUTMODE +
-BTN_BUTTON|SHOWNINTRAY + an implemented ITfSource) is the shape the sibling
+BTN_BUTTON|BTN_MENU|SHOWNINTRAY + an implemented ITfSource) is the shape the sibling
 jamotong TIP is hosted live with on this host.
 
 ## What carries what
@@ -92,7 +92,7 @@ verdict falsified — it read our former shape):
   `SystemTray.NormalButton` whose name re-labels to
   `트레이 입력 표시기 한국어 / Hunmin` — the shell's per-profile
   identity. Every legal item shape is in place and accepted
-  (`guidItem = GUID_LBI_INPUTMODE`, `BTN_BUTTON|SHOWNINTRAY`,
+  (`guidItem = GUID_LBI_INPUTMODE`, `BTN_BUTTON|BTN_MENU|SHOWNINTRAY`,
   `ITfSource`, `AddItem hr=0x0` on every fresh host) and the embedded
   bar STILL renders no per-TIP slot: the jamotong comment's hosting rule
   described the Win8/10-era path. The single unmeasured comparator left

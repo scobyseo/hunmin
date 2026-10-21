@@ -62,8 +62,10 @@ TEST(TsfLangbarItem, GetInfoCarriesTheHostedShape) {
     EXPECT_TRUE(IsEqualGUID(info.guidItem, kGuidLbiInputMode))
         << "guidItem must be GUID_LBI_INPUTMODE: the shell input indicator "
            "hosts a langbar item only with this GUID";
-    EXPECT_EQ(info.dwStyle, (DWORD)(TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_SHOWNINTRAY))
-        << "the hosted pair, measured live on the sibling jamotong TIP";
+    EXPECT_EQ(info.dwStyle,
+              (DWORD)(TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_BTN_MENU |
+                      TF_LBI_STYLE_SHOWNINTRAY))
+        << "the hosted pair plus the menu-button bit (the config menu ride)";
     EXPECT_EQ(info.clsidService, CLSID_HunminTSF);
 }
 

@@ -928,14 +928,14 @@ class CTextService : public ITfTextInputProcessor,
          * project: any other item GUID is ignored by the shell's hosted-item
          * path). The older private GUID F2C70003 never got past AddItem. */
         pInfo->guidItem = HunminLbiInputModeGuid;
-        /* BTN_BUTTON | SHOWNINTRAY — the shape measured live on this host
-         * by the sibling jamotong TIP, whose own item is ACTUALLY hosted by
-         * the tray input indicator with this exact pair: with BTN_BUTTON
-         * alone+F2C70003 every AddItem answered E_FAIL (measured
-         * 2026-10-18, the "reduced hypothesis" then truthed out to be
-         * wrong-headed), so the tray-style bit returns as the sibling's
-         * working shape documents it. */
-        pInfo->dwStyle = TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_SHOWNINTRAY;
+        /* BTN_BUTTON | BTN_MENU | SHOWNINTRAY — the hosted pair plus the
+         * menu-button bit (maintainer steer, 2026-10-21: the config menu
+         * rides the BTN_MENU routing too, not only OnClick's own popup): a
+         * bar surface that routes menu-button style calls InitMenu/
+         * OnMenuSelect (language-bar.md), which stays wired; a
+         * BTN_BUTTON-routing surface still lands OnClick(CLK_LEFT|RIGHT). */
+        pInfo->dwStyle = TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_BTN_MENU |
+                         TF_LBI_STYLE_SHOWNINTRAY;
         pInfo->ulSort = 0;
         lstrcpynW(pInfo->szDescription, L"Hunmin \uC124\uC815", MAX_PATH);
         return S_OK;
