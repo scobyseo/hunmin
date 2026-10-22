@@ -14,6 +14,7 @@
 
 #include "candidates.h"
 #include "delivery.h"
+#include "langbar.h" /* the tear-off language-bar item (S6) */
 #include "settings.h" /* ITfFunctionProvider branch + the apply bridge */
 #include "utf.h"
 
@@ -47,9 +48,9 @@
  * hunmin_ctx_new's search path is additive by design - duplicate ids
  * across dirs are not deduped, so overlapping dirs are the caller's to
  * avoid. Measured 2026-10-17. Non-static (issue #71): the settings dialog
- * (settings.cpp) resolves data through this same function, so the dialog's
- * layout lists can never disagree with the adapter's about where data
- * came from. */
+ * (settingsdialog.cpp) resolves data through this same function, so the
+ * dialog's layout lists can never disagree with the adapter's about where
+ * the data came from. */
 hunmin_ctx *hunmin_ctx_from_module() {
     wchar_t envW[MAX_PATH];
     wchar_t modDir[MAX_PATH];
@@ -205,15 +206,6 @@ HRESULT hunmin_tsf_launch_settings(void *anchor) {
 }
 
 const CLSID CLSID_HunminTSF = {0xF2C70001, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}};
-/* GUID_LBI_INPUTMODE {2C77A81E-41CC-4178-A3A7-5F8A987568E6} - Windows 8+ and
- * Win11: the item the "input indicator" (the taskbar per-TIP badge) hosts in
- * the tray MUST carry this guidItem; any other item GUID is ignored by the
- * shell's hosted-item path (measured sibling jamotong TIP, hosted live).
- * The MSVC SDK declares GUID_LBI_INPUTMODE as an extern (ctffunc.h), so the
- * value would come from a link library; it is a private constant here so no
- * library set change is needed. The item's own earlier private GUID
- * F2C70003 (issue #67) never got past AddItem on 26200 and is retired. */
-static const GUID HunminLbiInputModeGuid = {0x2C77A81E, 0x41CC, 0x4178, {0xA3, 0xA7, 0x5F, 0x8A, 0x98, 0x75, 0x68, 0xE6}};
 /* The language profile GUID is shared state: registration enables it, so
  * unregistration must name the same GUID to remove it (issue #84). */
 static const GUID HunminProfileGuid = {0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
@@ -372,9 +364,19 @@ CTextService::CTextService()
         hunmin_logger.log("FATAL: candidate flow not built\n");
         abort();
     }
+    langbar_ = hunmin_tsf_langbar_new(*this, CLSID_HunminTSF);
+    if (!langbar_) {
+        hunmin_logger.log("FATAL: language-bar item not built\n");
+        abort();
+    }
 }
 
 CTextService::~CTextService() {
+    if (langbar_) {
+        langbar_->OnRemoved();
+        langbar_->Release();
+        langbar_ = nullptr;
+    }
     if (composition_)
         composition_->Release();
     if (compCtx_) {
@@ -435,7 +437,7 @@ STDMETHODIMP CTextService::QueryInterface(REFIID riid, void **ppv) {
         /* Issue #71: the settings surface. QI'able on the live text
          * service object, exactly the TSF-native reachability
          * mechanism; GetFunction(IID_ITfFnConfigure) then hands out the
-         * configure function (settings.cpp). */
+         * configure function (settingsprovider.cpp). */
         *ppv = hunmin_tsf_settings_new_provider(this);
         return S_OK;
     } else if (IsEqualIID(riid, IID_ITfDisplayAttributeProvider)) {
@@ -444,20 +446,17 @@ STDMETHODIMP CTextService::QueryInterface(REFIID riid, void **ppv) {
          * GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER category. */
         *ppv = static_cast<ITfDisplayAttributeProvider *>(this);
     } else if (IsEqualIID(riid, IID_ITfLangBarItem) ||
-               IsEqualIID(riid, IID_ITfLangBarItemButton)) {
-        /* ctfutb.h: the language-bar button. ITfLangBarItemButton
-         * derives from ITfLangBarItem, so both IIDs bind this. */
-        *ppv = static_cast<ITfLangBarItemButton *>(this);
-        AddRef();
-        return S_OK;
-    } else if (IsEqualIID(riid, IID_ITfSource)) {
-        /* language-bar.md: the item MUST expose ITfSource - when the
-         * item is installed the language bar calls the item's
-         * ITfSource::AdviseSink with IID_ITfLangBarItemSink to install
-         * its change-notification sink. */
-        *ppv = static_cast<ITfSource *>(this);
-        AddRef();
-        return S_OK;
+               IsEqualIID(riid, IID_ITfLangBarItemButton) ||
+               IsEqualIID(riid, IID_ITfSource)) {
+        /* S6: the language bar speaks to the TEAR-OFF item, not to the
+         * text service. Its own QI answers IUnknown, ITfLangBarItem,
+         * ITfLangBarItemButton and ITfSource, so the bar asks the item
+         * (not this object) to AdviseSink its ITfLangBarItemSink. */
+        if (!langbar_) {
+            *ppv = nullptr;
+            return E_NOINTERFACE;
+        }
+        return langbar_->QueryInterface(riid, ppv);
     } else {
         *ppv = nullptr;
         return E_NOINTERFACE;
@@ -530,8 +529,8 @@ void CTextService::ApplyConfigStore() {
 }
 
 void CTextService::UpdateLangBarItem() {
-    if (itemSink_)
-        itemSink_->OnUpdate(TF_LBI_ICON | TF_LBI_TEXT);
+    if (langbar_)
+        langbar_->Update();
 }
 
 void CTextService::ToggleModeCore(ITfContext *pic) {
@@ -613,10 +612,10 @@ STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
         HRESULT hb = ptm->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm);
         hunmin_logger.log("langbar QI hr=0x%lX\n", (unsigned long)hb);
         if (SUCCEEDED(hb) && plbm) {
-            HRESULT ai = plbm->AddItem(static_cast<ITfLangBarItem *>(this));
+            HRESULT ai = plbm->AddItem(langbar_);
             if (SUCCEEDED(ai)) {
-                /* The mgr holds a reference to us; drop it only in
-                 * Deactivate's RemoveItem, the release there. */
+                /* The mgr holds a reference to the item; it is released
+                 * only by Deactivate's RemoveItem. */
                 langbar_registered_ = true;
             }
             hunmin_logger.log("langbar AddItem hr=0x%lX\n", (unsigned long)ai);
@@ -715,22 +714,18 @@ STDMETHODIMP CTextService::Deactivate() {
     wordbuf_.clear();
     cand_->Close();
     /* Drop the language-bar item; the langbar kernel releases its
-     * reference to us, which is why RemoveItem must pass the SAME
+     * reference to the item, which is why RemoveItem must pass the SAME
      * pointer it got in AddItem. */
     if (langbar_registered_ && threadMgr_) {
         ITfLangBarItemMgr *plbm = nullptr;
         if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm)) && plbm) {
-            plbm->RemoveItem(static_cast<ITfLangBarItem *>(this));
+            plbm->RemoveItem(langbar_);
             plbm->Release();
         }
         langbar_registered_ = false;
         /* The kernel-provided sink goes with the item (language-bar.md:
          * the sink lives between AddItem and RemoveItem). */
-        if (itemSink_) {
-            itemSink_->Release();
-            itemSink_ = nullptr;
-        }
-        itemSinkCookie_ = 0;
+        langbar_->OnRemoved();
     }
     if (ic_) {
         hunmin_ic_free(ic_);
@@ -746,175 +741,6 @@ STDMETHODIMP CTextService::Deactivate() {
     }
     clientId_ = TF_CLIENTID_NULL;
     return S_OK;
-}
-
-STDMETHODIMP CTextService::GetInfo(TF_LANGBARITEMINFO *pInfo) {
-    if (!pInfo)
-        return E_INVALIDARG;
-    ZeroMemory(pInfo, sizeof *pInfo);
-    pInfo->clsidService = CLSID_HunminTSF;
-    /* guidItem MUST be GUID_LBI_INPUTMODE: the Win8+/Win11 "input
-     * indicator" (the per-TIP badge hosted in the taskbar tray) hosts a
-     * langbar item only when this is its guidItem (measured sibling
-     * project: any other item GUID is ignored by the shell's hosted-item
-     * path). The older private GUID F2C70003 never got past AddItem. */
-    pInfo->guidItem = HunminLbiInputModeGuid;
-    /* BTN_BUTTON | BTN_MENU | SHOWNINTRAY - the hosted pair plus the
-     * menu-button bit (maintainer steer, 2026-10-21: the config menu
-     * rides the BTN_MENU routing too, not only OnClick's own popup): a
-     * bar surface that routes menu-button style calls InitMenu/
-     * OnMenuSelect (language-bar.md), which stays wired; a
-     * BTN_BUTTON-routing surface still lands OnClick(CLK_LEFT|RIGHT). */
-    pInfo->dwStyle = TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_BTN_MENU |
-                     TF_LBI_STYLE_SHOWNINTRAY;
-    pInfo->ulSort = 0;
-    lstrcpynW(pInfo->szDescription, L"Hunmin \uC124\uC815", MAX_PATH);
-    return S_OK;
-}
-
-STDMETHODIMP CTextService::GetStatus(DWORD *pdwStatus) {
-    if (!pdwStatus)
-        return E_INVALIDARG;
-    *pdwStatus = 0;
-    return S_OK;
-}
-
-STDMETHODIMP CTextService::Show(BOOL fShow) {
-    (void)fShow;
-    return S_OK;
-}
-
-STDMETHODIMP CTextService::GetTooltipString(BSTR *pbstrToolTip) {
-    if (!pbstrToolTip)
-        return E_INVALIDARG;
-    *pbstrToolTip = SysAllocString(L"Hunmin \uC124\uC815 \uC5F4\uAE30");
-    return *pbstrToolTip ? S_OK : E_OUTOFMEMORY;
-}
-
-STDMETHODIMP CTextService::OnClick(TfLBIClick click, POINT pt, const RECT *prcArea) {
-    (void)prcArea;
-    if (click == TF_LBI_CLK_RIGHT) {
-        /* The right-click CONFIG MENU (issue #103, the ruled langbar
-         * surface). Measured sibling shape (BTN_BUTTON items): with
-         * BTN_BUTTON, a right click arrives as OnClick(CLK_RIGHT) and
-         * the bar's InitMenu/OnMenuSelect never fire - so the item
-         * builds its own popup here, like the reference TIPs do.
-         * Owner = the focused window (the indicator does not hand out
-         * one); TPM_RETURNCMD|TPM_NONOTIFY resolve the choice from the
-         * return value, no WM_COMMAND. */
-        HMENU menu = CreatePopupMenu();
-        if (menu) {
-            const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
-            AppendMenuW(menu, MF_STRING, 1, label);
-            POINT p = pt;
-            HMONITOR mon = MonitorFromPoint(p, MONITOR_DEFAULTTONEAREST);
-            if (mon) {
-                MONITORINFO mi;
-                mi.cbSize = sizeof(mi);
-                if (GetMonitorInfoW(mon, &mi)) {
-                    if (p.x < mi.rcWork.left)
-                        p.x = mi.rcWork.left;
-                    if (p.x > mi.rcWork.right)
-                        p.x = mi.rcWork.right;
-                }
-            }
-            HWND owner = GetFocus();
-            if (!owner)
-                owner = GetForegroundWindow();
-            int cmd = (int)TrackPopupMenu(menu, TPM_NONOTIFY | TPM_RETURNCMD | TPM_LEFTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN,
-                                          p.x, p.y, 0, owner, nullptr);
-            DestroyMenu(menu);
-            if (cmd == 1)
-                return hunmin_tsf_launch_settings(static_cast<void *>(this));
-        }
-        return S_OK;
-    }
-    (void)pt;
-    /* Left click = the command-button action (BTN_BUTTON). The settings
-     * launch is a DEDICATED PROCESS, not a modal loop on this thread:
-     * the TIP thread must not pump a nested message loop while TSF
-     * holds edit cookies. */
-    return hunmin_tsf_launch_settings(static_cast<void *>(this));
-}
-
-STDMETHODIMP CTextService::InitMenu(ITfMenu *pMenu) {
-    /* The right-click popup: one entry, "<Hunmin settings>" (id = 1);
-     * OnMenuSelect lands it on the settings window. */
-    if (!pMenu)
-        return E_FAIL;
-    const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
-    return pMenu->AddMenuItem(1, 0, nullptr, nullptr, label,
-                              (ULONG)wcslen(label), nullptr);
-}
-
-STDMETHODIMP CTextService::OnMenuSelect(UINT wID) {
-    if (wID != 1)
-        return S_OK;
-    return hunmin_tsf_launch_settings(nullptr);
-}
-
-STDMETHODIMP CTextService::AdviseSink(REFIID riid, IUnknown *punk, DWORD *pdwCookie) {
-    if (!punk || !pdwCookie)
-        return E_INVALIDARG;
-    *pdwCookie = 0;
-    if (!IsEqualIID(riid, IID_ITfLangBarItemSink))
-        return CONNECT_E_CANNOTCONNECT;
-    if (itemSink_)
-        return CONNECT_E_ADVISELIMIT;
-    ITfLangBarItemSink *sink = nullptr;
-    if (FAILED(punk->QueryInterface(IID_ITfLangBarItemSink, (void **)&sink)) || !sink)
-        return CONNECT_E_CANNOTCONNECT;
-    itemSink_ = sink;
-    itemSinkCookie_ = 1;
-    *pdwCookie = itemSinkCookie_;
-    return S_OK;
-}
-
-STDMETHODIMP CTextService::UnadviseSink(DWORD dwCookie) {
-    if (dwCookie == itemSinkCookie_ && itemSink_) {
-        itemSink_->Release();
-        itemSink_ = nullptr;
-        itemSinkCookie_ = 0;
-        return S_OK;
-    }
-    return CONNECT_E_NOCONNECTION;
-}
-
-STDMETHODIMP CTextService::GetIcon(HICON *phIcon) {
-    if (!phIcon)
-        return E_INVALIDARG;
-    /* The input MODE badge (discover: the user asked for the current
-     * input mode in the bar): unit - red Hangul badge when the
-     * hangul side is active, Latin 'A' badge in english mode; the
-     * multi-size app icon (resource 1) remains the service's own
-     * identity in the language list. LoadIconW cached-handle rules
-     * apply; nothing to free. */
-    HMODULE self = nullptr;
-    const wchar_t *which =
-        hangulMode_ ? MAKEINTRESOURCEW(2) : MAKEINTRESOURCEW(3);
-    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           (LPCWSTR)this, &self)) {
-        *phIcon = LoadIconW(self, which);
-        if (*phIcon)
-            return S_OK;
-        /* The mode badges (2/3) are non-critical: fall through to the
-         * app icon when the mirroring rc did not compile them. */
-        *phIcon = LoadIconW(self, MAKEINTRESOURCEW(1));
-        if (*phIcon)
-            return S_OK;
-    }
-    *phIcon = LoadIconW((HMODULE)NULL, IDI_APPLICATION);
-    return *phIcon ? S_OK : E_FAIL;
-}
-
-STDMETHODIMP CTextService::GetText(BSTR *pbstrText) {
-    if (!pbstrText)
-        return E_INVALIDARG;
-    /* the MODE as TEXT (the bar renders this on text-capable bars):
-     * Hangul on hangul side / Latin on the latin side */
-    *pbstrText = SysAllocString(hangulMode_ ? L"\uD55C" : L"A");
-    return *pbstrText ? S_OK : E_OUTOFMEMORY;
 }
 
 STDMETHODIMP CTextService::EnumDisplayAttributeInfo(IEnumTfDisplayAttributeInfo **ppEnum) {
@@ -1865,7 +1691,7 @@ HunminTsfSnapshot CTextService::Snapshot() {
     s.legacyMode = legacyMode_;
     s.interimForce = interimForce_;
     s.composition = composition_;
-    s.itemSink = itemSink_;
+    s.itemSink = langbar_ ? langbar_->Sink() : nullptr;
     s.toggleKeys = toggleKeys_;
     s.hangulId = hangulId_;
     s.latinId = latinId_;
@@ -1905,9 +1731,10 @@ void CTextService::UpdateConversionCompartment() {
 
 extern "C" HINSTANCE g_hunmin_hinst; /* owned by dllmain.cpp */
 
-/* Issue #71 bridge, defined in the TU that owns CTextService: settings.cpp
- * (ITfFnConfigure::Show) hands the LIVE service back through a plain void*
- * because the two TUs' headers deliberately do not entangle. */
+/* Issue #71 bridge, defined in the TU that owns CTextService:
+ * settingsprovider.cpp (ITfFnConfigure::Show) hands the LIVE service back
+ * through a plain void* because the two TUs' headers deliberately do not
+ * entangle. */
 void hunmin_tsf_apply_config_store(void *svc) {
     if (!svc)
         return;

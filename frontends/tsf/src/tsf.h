@@ -200,6 +200,16 @@ struct Candidates {
  * (tsf-langbaritem-test.cpp reads GetInfo's clsidService against it). */
 extern const CLSID CLSID_HunminTSF;
 
+class LangBarItem;
+
+/* The langbar item's READ seam on the shell (S6): the item owns the bar
+ * surface, the shell owns the mode. One question, so the item never sees
+ * the engine, the composition or the settings state. */
+struct LangBarHost {
+    virtual ~LangBarHost() = default;
+    virtual bool HangulMode() const = 0;
+};
+
 /* The shell: COM object identity unchanged, the seams implemented with
  * one-line forwards. Owns the TSF callbacks, the composition write
  * machinery, the langbar item, and the settings bridge. */
@@ -207,12 +217,11 @@ class CTextService : public ITfTextInputProcessor,
                      public ITfThreadMgrEventSink,
                      public ITfKeyEventSink,
                      public ITfCompositionSink,
-                     public ITfLangBarItemButton,
-                     public ITfSource,
                      public ITfDisplayAttributeProvider,
                      public TsfCore,
                      public CandBackend,
-                     public HunminDeliveryRegistry {
+                     public HunminDeliveryRegistry,
+                     public LangBarHost {
   public:
     CTextService();
     virtual ~CTextService();
@@ -239,17 +248,6 @@ class CTextService : public ITfTextInputProcessor,
 
     STDMETHOD(Activate)(ITfThreadMgr *ptm, TfClientId tid) override;
     STDMETHOD(Deactivate)() override;
-    STDMETHOD(GetInfo)(TF_LANGBARITEMINFO *pInfo) override;
-    STDMETHOD(GetStatus)(DWORD *pdwStatus) override;
-    STDMETHOD(Show)(BOOL fShow) override;
-    STDMETHOD(GetTooltipString)(BSTR *pbstrToolTip) override;
-    STDMETHOD(OnClick)(TfLBIClick click, POINT pt, const RECT *prcArea) override;
-    STDMETHOD(InitMenu)(ITfMenu *pMenu) override;
-    STDMETHOD(OnMenuSelect)(UINT wID) override;
-    STDMETHOD(AdviseSink)(REFIID riid, IUnknown *punk, DWORD *pdwCookie) override;
-    STDMETHOD(UnadviseSink)(DWORD dwCookie) override;
-    STDMETHOD(GetIcon)(HICON *phIcon) override;
-    STDMETHOD(GetText)(BSTR *pbstrText) override;
     STDMETHOD(EnumDisplayAttributeInfo)(
         IEnumTfDisplayAttributeInfo **ppEnum) override;
     STDMETHOD(GetDisplayAttributeInfo)(
@@ -289,6 +287,8 @@ class CTextService : public ITfTextInputProcessor,
     /* HunminDeliveryRegistry */
     void RegisterDeliveryFactory(HunminDeliveryFactory *factory) override;
     bool UseDelivery(const char *name) override;
+    /* LangBarHost */
+    bool HangulMode() const override { return hangulMode_; }
 
     /* The observation channel (tier F1). */
     HunminTsfSnapshot Snapshot();
@@ -378,14 +378,12 @@ class CTextService : public ITfTextInputProcessor,
     Delivery *delivery_ = nullptr;
     std::unique_ptr<Candidates> cand_;
 
-    /* ctfutb.h ITfLangBarItemButton state: true between AddItem and
-     * RemoveItem; the manager owns exactly one extra reference. */
+    /* The tear-off language-bar item (S6): the shell holds one reference
+     * from construction; the manager holds another only between AddItem
+     * and RemoveItem. */
+    LangBarItem *langbar_ = nullptr;
+    /* true between AddItem and RemoveItem. */
     bool langbar_registered_ = false;
-    /* The ITfLangBarItemSink the language bar installed onto the item
-     * (ITfSource::AdviseSink at AddItem - language-bar.md; released with
-     * the item at Deactivate). */
-    ITfLangBarItemSink *itemSink_ = nullptr;
-    DWORD itemSinkCookie_ = 0;
 };
 
 #endif /* HUNMIN_TSF_TSF_H_ */

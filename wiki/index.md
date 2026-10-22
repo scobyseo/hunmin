@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-22 | Total pages: 47
+> Last updated: 2026-10-22 | Total pages: 49
 
 ## Concepts
 
@@ -271,3 +271,17 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   re-pointed; tier-F1 4/4 and docs-lint 0 errors; shell still 2,320 lines with
   eight TSF interfaces on CTextService - the measured basis for the SRP
   follow-on.
+
+- [[2026-10-22-tsf-langbar-tearoff]] - stage 4 of the clean-code pass
+  (issue #127): the language-bar item becomes a tear-off COM object
+  (`langbar.h`/`langbar.cpp`), the shell drops `ITfLangBarItemButton` and
+  `ITfSource` (7 -> 5 TSF interfaces, 30 -> 19 STDMETHOD bodies), and QI/AddItem/
+  RemoveItem/Update forward to the item; tier-F1 4/4 and docs-lint 0
+  errors; the hosted tray presence is a re-measure owed, not asserted.
+
+- [[2026-10-22-tsf-settings-split]] - stage 5 of the clean-code pass
+  (issue #127): the 979-line settings TU split on the maintainer's option A
+  into `settingsrows`, `settingsdialog`, `settingslaunch` and
+  `settingsprovider`, leaving `settings.cpp` as the 25-line rundll32
+  export; two file statics became prefixed cross-TU calls and three board
+  rows were re-pointed; tier-F1 4/4 and docs-lint 0 errors.

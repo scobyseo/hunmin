@@ -141,7 +141,7 @@ the layout JSON entries (`id`, `name.ko`, `mode` — docs/SPEC-SCHEMA.md) and
 writes the store, nothing else.
 
 - Launch paths (both reach the exe):
-  1. TSF-native — `ITfFnConfigure::Show` (`frontends/tsf/src/settings.cpp`)
+  1. TSF-native — `ITfFnConfigure::Show` (`frontends/tsf/src/settingslaunch.cpp`)
      launches the exe via `ShellExecuteEx` (edge case logged, never a
      fallback to the interim dialog) and **waits on the process handle**: the
      property-sheet contract ("do not return while the dialog is open") now

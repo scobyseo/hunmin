@@ -1,0 +1,248 @@
+/*
+ * SPDX-FileCopyrightText: 2026 hunmin contributors
+ *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
+ * The language-bar item as a tear-off COM object (issues #67/#103). The
+ * behaviour moved here from CTextService unchanged; the shell forwards QI
+ * for ITfLangBarItem/ITfLangBarItemButton/ITfSource to this object.
+ */
+#include "langbar.h"
+
+#include "settings.h" /* hunmin_tsf_launch_settings */
+
+#include <cstring>
+#include <windows.h>
+
+/* GUID_LBI_INPUTMODE {2C77A81E-41CC-4178-A3A7-5F8A987568E6} - Windows 8+ and
+ * Win11: the item the "input indicator" (the taskbar per-TIP badge) hosts in
+ * the tray MUST carry this guidItem; any other item GUID is ignored by the
+ * shell's hosted-item path (measured sibling jamotong TIP, hosted live).
+ * The MSVC SDK declares GUID_LBI_INPUTMODE as an extern (ctffunc.h), so the
+ * value would come from a link library; it is a private constant here so no
+ * library set change is needed. The item's own earlier private GUID
+ * F2C70003 (issue #67) never got past AddItem on 26200 and is retired. */
+static const GUID HunminLbiInputModeGuid = {0x2C77A81E, 0x41CC, 0x4178, {0xA3, 0xA7, 0x5F, 0x8A, 0x98, 0x75, 0x68, 0xE6}};
+
+LangBarItem::LangBarItem(LangBarHost &host, const CLSID &serviceClsid)
+    : ref_(1), host_(host), serviceClsid_(serviceClsid) {}
+
+STDMETHODIMP LangBarItem::QueryInterface(REFIID riid, void **ppv) {
+    if (!ppv)
+        return E_INVALIDARG;
+    if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfLangBarItem) ||
+        IsEqualIID(riid, IID_ITfLangBarItemButton)) {
+        *ppv = static_cast<ITfLangBarItemButton *>(this);
+    } else if (IsEqualIID(riid, IID_ITfSource)) {
+        /* language-bar.md: the item MUST expose ITfSource - when the item is
+         * installed the language bar calls the item's ITfSource::AdviseSink
+         * with IID_ITfLangBarItemSink to install its change-notification
+         * sink. */
+        *ppv = static_cast<ITfSource *>(this);
+    } else {
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    AddRef();
+    return S_OK;
+}
+
+STDMETHODIMP_(ULONG)
+LangBarItem::AddRef() {
+    return (ULONG)InterlockedIncrement(&ref_);
+}
+
+STDMETHODIMP_(ULONG)
+LangBarItem::Release() {
+    ULONG r = (ULONG)InterlockedDecrement(&ref_);
+    if (r == 0)
+        delete this;
+    return r;
+}
+
+STDMETHODIMP LangBarItem::GetInfo(TF_LANGBARITEMINFO *pInfo) {
+    if (!pInfo)
+        return E_INVALIDARG;
+    ZeroMemory(pInfo, sizeof *pInfo);
+    pInfo->clsidService = serviceClsid_;
+    /* guidItem MUST be GUID_LBI_INPUTMODE: the Win8+/Win11 "input
+     * indicator" (the per-TIP badge hosted in the taskbar tray) hosts a
+     * langbar item only when this is its guidItem (measured sibling
+     * project: any other item GUID is ignored by the shell's hosted-item
+     * path). The older private GUID F2C70003 never got past AddItem. */
+    pInfo->guidItem = HunminLbiInputModeGuid;
+    /* BTN_BUTTON | BTN_MENU | SHOWNINTRAY - the hosted pair plus the
+     * menu-button bit (maintainer steer, 2026-10-21: the config menu
+     * rides the BTN_MENU routing too, not only OnClick's own popup): a
+     * bar surface that routes menu-button style calls InitMenu/
+     * OnMenuSelect (language-bar.md), which stays wired; a
+     * BTN_BUTTON-routing surface still lands OnClick(CLK_LEFT|RIGHT). */
+    pInfo->dwStyle = TF_LBI_STYLE_BTN_MENU | TF_LBI_STYLE_SHOWNINTRAY;
+    pInfo->ulSort = 0;
+    lstrcpynW(pInfo->szDescription, L"Hunmin \uC124\uC815", MAX_PATH);
+    return S_OK;
+}
+
+STDMETHODIMP LangBarItem::GetStatus(DWORD *pdwStatus) {
+    if (!pdwStatus)
+        return E_INVALIDARG;
+    *pdwStatus = 0;
+    return S_OK;
+}
+
+STDMETHODIMP LangBarItem::Show(BOOL fShow) {
+    (void)fShow;
+    return S_OK;
+}
+
+STDMETHODIMP LangBarItem::GetTooltipString(BSTR *pbstrToolTip) {
+    if (!pbstrToolTip)
+        return E_INVALIDARG;
+    *pbstrToolTip = SysAllocString(L"Hunmin \uC124\uC815 \uC5F4\uAE30");
+    return *pbstrToolTip ? S_OK : E_OUTOFMEMORY;
+}
+
+STDMETHODIMP LangBarItem::OnClick(TfLBIClick click, POINT pt, const RECT *prcArea) {
+    (void)prcArea;
+    if (click == TF_LBI_CLK_RIGHT) {
+        /* The right-click CONFIG MENU (issue #103, the ruled langbar
+         * surface). Measured sibling shape (BTN_BUTTON items): with
+         * BTN_BUTTON, a right click arrives as OnClick(CLK_RIGHT) and
+         * the bar's InitMenu/OnMenuSelect never fire - so the item
+         * builds its own popup here, like the reference TIPs do.
+         * Owner = the focused window (the indicator does not hand out
+         * one); TPM_RETURNCMD|TPM_NONOTIFY resolve the choice from the
+         * return value, no WM_COMMAND. */
+        HMENU menu = CreatePopupMenu();
+        if (menu) {
+            const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
+            AppendMenuW(menu, MF_STRING, 1, label);
+            POINT p = pt;
+            HMONITOR mon = MonitorFromPoint(p, MONITOR_DEFAULTTONEAREST);
+            if (mon) {
+                MONITORINFO mi;
+                mi.cbSize = sizeof(mi);
+                if (GetMonitorInfoW(mon, &mi)) {
+                    if (p.x < mi.rcWork.left)
+                        p.x = mi.rcWork.left;
+                    if (p.x > mi.rcWork.right)
+                        p.x = mi.rcWork.right;
+                }
+            }
+            HWND owner = GetFocus();
+            if (!owner)
+                owner = GetForegroundWindow();
+            int cmd = (int)TrackPopupMenu(menu, TPM_NONOTIFY | TPM_RETURNCMD | TPM_LEFTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN,
+                                          p.x, p.y, 0, owner, nullptr);
+            DestroyMenu(menu);
+            if (cmd == 1)
+                return hunmin_tsf_launch_settings(static_cast<void *>(this));
+        }
+        return S_OK;
+    }
+    (void)pt;
+    /* Left click = the command-button action (BTN_BUTTON). The settings
+     * launch is a DEDICATED PROCESS, not a modal loop on this thread:
+     * the TIP thread must not pump a nested message loop while TSF
+     * holds edit cookies. */
+    return hunmin_tsf_launch_settings(static_cast<void *>(this));
+}
+
+STDMETHODIMP LangBarItem::InitMenu(ITfMenu *pMenu) {
+    /* The right-click popup: one entry, "<Hunmin settings>" (id = 1);
+     * OnMenuSelect lands it on the settings window. */
+    if (!pMenu)
+        return E_FAIL;
+    const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
+    return pMenu->AddMenuItem(1, 0, nullptr, nullptr, label,
+                              (ULONG)wcslen(label), nullptr);
+}
+
+STDMETHODIMP LangBarItem::OnMenuSelect(UINT wID) {
+    if (wID != 1)
+        return S_OK;
+    return hunmin_tsf_launch_settings(nullptr);
+}
+
+STDMETHODIMP LangBarItem::AdviseSink(REFIID riid, IUnknown *punk, DWORD *pdwCookie) {
+    if (!punk || !pdwCookie)
+        return E_INVALIDARG;
+    *pdwCookie = 0;
+    if (!IsEqualIID(riid, IID_ITfLangBarItemSink))
+        return CONNECT_E_CANNOTCONNECT;
+    if (sink_)
+        return CONNECT_E_ADVISELIMIT;
+    ITfLangBarItemSink *sink = nullptr;
+    if (FAILED(punk->QueryInterface(IID_ITfLangBarItemSink, (void **)&sink)) || !sink)
+        return CONNECT_E_CANNOTCONNECT;
+    sink_ = sink;
+    sinkCookie_ = 1;
+    *pdwCookie = sinkCookie_;
+    return S_OK;
+}
+
+STDMETHODIMP LangBarItem::UnadviseSink(DWORD dwCookie) {
+    if (dwCookie == sinkCookie_ && sink_) {
+        sink_->Release();
+        sink_ = nullptr;
+        sinkCookie_ = 0;
+        return S_OK;
+    }
+    return CONNECT_E_NOCONNECTION;
+}
+
+STDMETHODIMP LangBarItem::GetIcon(HICON *phIcon) {
+    if (!phIcon)
+        return E_INVALIDARG;
+    /* The input MODE badge (discover: the user asked for the current
+     * input mode in the bar): unit - red Hangul badge when the
+     * hangul side is active, Latin 'A' badge in english mode; the
+     * multi-size app icon (resource 1) remains the service's own
+     * identity in the language list. LoadIconW cached-handle rules
+     * apply; nothing to free. */
+    HMODULE self = nullptr;
+    const wchar_t *which =
+        host_.HangulMode() ? MAKEINTRESOURCEW(2) : MAKEINTRESOURCEW(3);
+    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (LPCWSTR)this, &self)) {
+        *phIcon = LoadIconW(self, which);
+        if (*phIcon)
+            return S_OK;
+        /* The mode badges (2/3) are non-critical: fall through to the
+         * app icon when the mirroring rc did not compile them. */
+        *phIcon = LoadIconW(self, MAKEINTRESOURCEW(1));
+        if (*phIcon)
+            return S_OK;
+    }
+    *phIcon = LoadIconW((HMODULE)NULL, IDI_APPLICATION);
+    return *phIcon ? S_OK : E_FAIL;
+}
+
+STDMETHODIMP LangBarItem::GetText(BSTR *pbstrText) {
+    if (!pbstrText)
+        return E_INVALIDARG;
+    /* the MODE as TEXT (the bar renders this on text-capable bars):
+     * Hangul on hangul side / Latin on the latin side */
+    *pbstrText = SysAllocString(host_.HangulMode() ? L"\uD55C" : L"A");
+    return *pbstrText ? S_OK : E_OUTOFMEMORY;
+}
+
+void LangBarItem::Update() {
+    if (sink_)
+        sink_->OnUpdate(TF_LBI_ICON | TF_LBI_TEXT);
+}
+
+void LangBarItem::OnRemoved() {
+    /* The kernel-provided sink goes with the item (language-bar.md:
+     * the sink lives between AddItem and RemoveItem). */
+    if (sink_) {
+        sink_->Release();
+        sink_ = nullptr;
+    }
+    sinkCookie_ = 0;
+}
+
+LangBarItem *hunmin_tsf_langbar_new(LangBarHost &host, const CLSID &serviceClsid) {
+    return new LangBarItem(host, serviceClsid);
+}

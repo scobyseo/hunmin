@@ -40,8 +40,10 @@ configure_file(tsf-testdir.h.in ${CMAKE_CURRENT_BINARY_DIR}/tsf-testdir.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(tsf-trace-emit trace-emit.cpp ../src/tsf.cpp ../src/delivery.cpp
-                   ../src/candidates.cpp ../src/keybinding.cpp
-                   ../src/config.cpp ../src/settings.cpp ../src/candwindow.cpp)
+                   ../src/candidates.cpp ../src/langbar.cpp ../src/keybinding.cpp
+                   ../src/config.cpp ../src/settings.cpp ../src/settingsrows.cpp
+                   ../src/settingsdialog.cpp ../src/settingslaunch.cpp
+                   ../src/settingsprovider.cpp ../src/candwindow.cpp)
 target_compile_definitions(tsf-trace-emit PRIVATE UNICODE _UNICODE)
 target_include_directories(tsf-trace-emit PRIVATE
     ${HUNMIN_TSF_REPO_ROOT}/libhunmin/include)
@@ -90,7 +92,9 @@ add_executable(tsf-test tsf-test.cpp
     tsf-config-test.cpp tsf-settings-test.cpp tsf-candidate-test.cpp
     tsf-langbaritem-test.cpp tsf-datadir-test.cpp tsf-legacy-test.cpp
     ../src/tsf.cpp ../src/delivery.cpp ../src/candidates.cpp
-    ../src/keybinding.cpp ../src/config.cpp ../src/settings.cpp
+    ../src/langbar.cpp ../src/keybinding.cpp ../src/config.cpp
+    ../src/settings.cpp ../src/settingsrows.cpp ../src/settingsdialog.cpp
+    ../src/settingslaunch.cpp ../src/settingsprovider.cpp
     ../src/candwindow.cpp)
 target_compile_definitions(tsf-test PRIVATE UNICODE _UNICODE)
 target_include_directories(tsf-test PRIVATE

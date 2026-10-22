@@ -661,3 +661,19 @@
   provider) and issue #103's closure; the shell's remaining SRP load
   (2,320 lines, eight TSF interfaces) is the measured basis for the
   clean-code follow-on issue.
+
+## [2026-10-22] create | TSF langbar item as a tear-off (stage 4, issue #127)
+
+- Session page for the maintainer-chosen option A: `LangBarItem` becomes a
+  tear-off implementing `ITfLangBarItemButton` + `ITfSource`; the shell's
+  QI, AddItem/RemoveItem and mode notification forward to it. Measured
+  correction to the issue text (10 bases, 30 STDMETHOD bodies before) and
+  the host re-measure still owed.
+
+## [2026-10-22] create | TSF settings split by responsibility (stage 5, issue #127)
+
+- Session page for the maintainer-chosen option A: the 979-line settings TU
+  becomes `settingsrows`, `settingsdialog`, `settingslaunch` and
+  `settingsprovider`, with `settings.cpp` left as the rundll32 export; the
+  symbol moves re-pointed three board rows, and the two new cross-TU calls
+  anchor on their own module addresses.

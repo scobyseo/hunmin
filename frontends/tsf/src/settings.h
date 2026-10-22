@@ -30,6 +30,7 @@
 
 #include <windows.h>
 #include "hunmin.h"
+#include "settingsrows.h"
 
 /* The mode-toggle key bindings, Android KeyBinding.kt ported
  * (frontends/tsf/src/keybinding.h) - see above. */
@@ -50,6 +51,12 @@ void CALLBACK HunminSettingsShow(HWND hwnd, HINSTANCE hinst, LPSTR cmdLine, int 
  * comes from. */
 hunmin_ctx *hunmin_ctx_from_module(void);
 
+/* Launch the ruled settings surface (the WinUI 3 exe beside the DLL, the
+ * rundll32 HunminSettingsShow fallback). Defined in tsf.cpp; the langbar
+ * item's click/menu handlers call it with their own module address as the
+ * resolution anchor. */
+HRESULT hunmin_tsf_launch_settings(void *anchor);
+
 /* TSF-native bridge: the text service QIs for ITfFunctionProvider and gets
  * the provider object created here; svc stays a strongly referenced COM
  * pointer to the LIVE CTextService (tsf.cpp) so Apply can push the new
@@ -62,21 +69,6 @@ IUnknown *hunmin_tsf_settings_new_provider(void *svc);
  * (Factory-style void* to keep the two TUs' headers from entangling). */
 void hunmin_tsf_apply_config_store(void *svc);
 
-/* One layout row as the dialog lists it: engine list, split by
- * hunmin_ctx_layout_mode, display name from hunmin_ctx_layout_name(...,
- * 'ko'). C-shaped so the tier-F1 test can drive the collector directly. */
-#define HUNMIN_TSF_SETTINGS_TEXT_CAP 64
-#define HUNMIN_TSF_SETTINGS_MAX_ROWS 64
-typedef struct HunminTsfLayoutRow {
-    char id[HUNMIN_TSF_SETTINGS_TEXT_CAP];
-    char name[HUNMIN_TSF_SETTINGS_TEXT_CAP]; /* UTF-8 */
-    int index; /* engine list position */
-    int supported; /* 1 when the build can run it */
-} HunminTsfLayoutRow;
-
-/* Fill rows[0..cap) with the layouts whose mode matches: the exact split
- * the dialog lists each slot with (same predicate resolveLayoutSlot
- * accepts stored ids by). Returns the row count. */
-int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *rows,
-                             int cap);
+/* The layout rows and hunmin_tsf_rows_for_mode live in settingsrows.h
+ * (included above): the dialog's read half is its own TU now. */
 #endif /* HUNMIN_TSF_SETTINGS_H_ */

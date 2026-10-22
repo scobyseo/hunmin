@@ -24,9 +24,14 @@ add_library(hunmin-tsf MODULE
     src/tsf.cpp
     src/delivery.cpp
     src/candidates.cpp
+    src/langbar.cpp
     src/keybinding.cpp
     src/config.cpp
     src/settings.cpp
+    src/settingsrows.cpp
+    src/settingsdialog.cpp
+    src/settingslaunch.cpp
+    src/settingsprovider.cpp
     src/candwindow.cpp
 )
 
