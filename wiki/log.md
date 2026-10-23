@@ -731,3 +731,11 @@
 - New page: [[2026-10-22-tsf-qi-table]]. One kQiRoutes table now feeds the QI
   trace and the dispatch; log text and answer order unchanged; tsf.cpp
   575 -> 597; tier-F1 4/4.
+
+## [2026-10-22] update | Settings-exe resolver unified (S)
+
+- New page: [[2026-10-22-tsf-settings-resolver]]. Maintainer ruling
+  "deployed-first": env > <dll>\settings-ui\publish > <dll>\settings-ui > the
+  two checkout climbs, one resolver in settingspath.cpp (100). Installed
+  Start-menu shortcuts now target the WinUI exe. tsf.cpp 597 -> 571;
+  tier-F1 4/4.

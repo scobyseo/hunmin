@@ -128,26 +128,39 @@ one `kQiRoutes` table whose entries carry the trace tag and the answering
 half (`this` cast, the settings-provider factory, the langbar tear-off), and
 the same lookup feeds both the trace line and the dispatch. The log line is
 byte-identical to the old two-part write; the order of answers is unchanged.
-`tsf.cpp` is 597 lines.
+`tsf.cpp` was 597 lines.
+
+Stage S then unified the settings-exe resolution on the maintainer's
+deployed-first ruling (2026-10-22): `settingspath.cpp` (100) resolves
+`HUNMIN_TSF_SETTINGS_EXE` > `<dll>\settings-ui\publish` >
+`<dll>\settings-ui` > `<dll>\..\settings-ui\publish` >
+`<dll>\..\..\settings-ui\publish`, and `settingspath.h` (32) names that
+order once. The WinUI launcher, the langbar bridge and the Start-menu
+shortcut all call it; wait/no-wait stays with the caller (FnConfigure waits,
+the langbar does not). Consequence of the ruling: an INSTALLED Start-menu
+shortcut now targets the WinUI exe instead of falling back to rundll32.
+`tsf.cpp` is 571 lines.
 
 ## Where the code stands
 
-`frontends/tsf/src/tsf.cpp` is 597 lines (was 2,320 before stage 4, 2,146
+`frontends/tsf/src/tsf.cpp` is 571 lines (was 2,320 before stage 4, 2,146
 after it, 2,076 after the S5 extraction, 2,096 after the registration
 helpers, 1,659 after S4, 1,492 after S7, 1,384 after F, 945 after C, 575
-after K and 597 after Q; the figures here are physical lines). `CTextService` now carries the
+after K, 597 after Q and 571 after S; the figures here are physical lines).
+`CTextService` now carries the
 activation lifecycle and the document-manager callbacks; the key path lives
 in `keydispatch.cpp` (386), the composition machinery
 in `composition.cpp` (457), the DLL's exports and registration in
-`registration.cpp` (451), the shared GUIDs in `ids.cpp` (19), the preedit
-styling in `displayattr.cpp` (196), the data source in `datadir.cpp` (122),
+`registration.cpp` (442), the settings-exe resolution in `settingspath.cpp`
+(100), the shared GUIDs in `ids.cpp` (19), the preedit styling in
+`displayattr.cpp` (196), the data source in `datadir.cpp` (122),
 and the language-bar surface in `langbar.cpp` (276
 lines) behind `langbar.h` (82), alongside `delivery.cpp` (325) and
 `candidates.cpp` (345). After stage 5 the settings surface is five TUs;
 `settingsdialog.cpp` (731) is now the largest non-shell TU and
-`settings.cpp` (25) is only the export; the shell is 597. It is green
-(tier-F1) and behaves; the remaining complaint is the settings-exe resolver
-duplication (S, gated on a ruling).
+`settings.cpp` (25) is only the export; the shell is 571. It is green
+(tier-F1) and behaves; every stage of the plan has landed, and the remaining
+work in this file is ordinary feature work, not duplicated responsibility.
 
 ## The rules this refactor obeys
 
@@ -209,9 +222,9 @@ duplication (S, gated on a ruling).
    issue #71) — the settings surface split by responsibility:
    `settingsrows` reads the engine list into the dialog's rows and knows no
    window; `settingsdialog` is the interim Win32 surface (template, proc,
-   W11 look, capture); `settingslaunch` resolves and waits on the WinUI 3
-   exe; `settingsprovider.cpp` carries the TSF plumbing. `settings.cpp` is
-   the only C-linkage piece, the rundll32 export.
+   W11 look, capture); `settingslaunch` waits on the WinUI 3 exe (resolution
+   is settingspath, below); `settingsprovider.cpp` carries the TSF plumbing.
+   `settings.cpp` is the only C-linkage piece, the rundll32 export.
  10. **`datadir.h`/`datadir.cpp`** (F) — the one data source
    (`HUNMIN_DATA_DIR` > `<module>\data` > the repo climb) and the stored-layout
    slot check. The shell, the interim dialog and the tier-F1 tests share
@@ -228,6 +241,12 @@ duplication (S, gated on a ruling).
    toggles, `DrainAndPass`, `HarvestFinalised` and `FeedEngineKey`. No
    header: these are `CTextService` member definitions, declared in
    `tsf.h`; the shell keeps the lifecycle and document callbacks.
+ 13. **`settingspath.h`/`settingspath.cpp`** (S) — ONE settings-exe
+   resolver for the WinUI launcher, the langbar bridge and the Start-menu
+   shortcut. Order (maintainer ruling, deployed-first): `HUNMIN_TSF_SETTINGS_EXE`
+   > `<dll>\settings-ui\publish` > `<dll>\settings-ui` > the two checkout
+   climbs. Wait policy is the caller's: FnConfigure waits, the langbar does
+   not; the shortcut resolves for its link target.
 
 ## Staged execution (each stage lands ctest-green, then commits)
 
@@ -244,11 +263,11 @@ duplication (S, gated on a ruling).
 | 9 (C) | `composition.cpp`: the termination handler, the three edit sessions, the write/end/detach half and the engine/boundary drain out of the shell; the session classes stay nested in `tsf.h` and are defined here | low — pure relocation; the three win32 traces and the candidate group already exercise the composition lifecycle |
 | 10 (K) | `keydispatch.cpp`: the test/down/up handlers, the predicates, the toggles, `DrainAndPass`, `VkToBase`, `HarvestFinalised` and `FeedEngineKey` as member definitions | low — pure relocation; the three win32 traces drive the whole key path and the candidate group the toggle |
 | 11 (Q) | the QI answer table in `tsf.cpp`: one `kQiRoutes` list feeds the trace tag and the dispatch (this-cast, settings-provider factory, langbar tear-off) | low — the answer order and the log text are unchanged; the object identity per IID is untouched |
+| 12 (S) | `settingspath.cpp`/`settingspath.h`: one resolver for the WinUI launcher, the langbar bridge and the Start-menu shortcut; deployed-first order per the maintainer's ruling | medium — a behaviour change, not a relocation: an installed shortcut now targets the WinUI exe; verified by build + the resolver's own order, a host look at the shortcut target is owed |
 
-The `settings.cpp` split (S10) landed 2026-10-22 (stage 5), and stages 6-11
+The `settings.cpp` split (S10) landed 2026-10-22 (stage 5), and stages 6-12
 (registration, display attribute, data source, composition, key path, QI
-table) the same day. Still open from S5: the shell's duplicated settings-exe
-paths (S), gated on a maintainer ruling about candidate order.
+table, settings-exe resolver) the same day. The plan as approved is complete.
 
 The standalone TSF configure now passes `/utf-8` like the top-level engine
 build, so MSVC reads the UTF-8 sources (Korean and em dashes in comments) as

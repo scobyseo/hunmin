@@ -39,6 +39,7 @@ add_library(hunmin-tsf MODULE
     src/datadir.cpp
     src/composition.cpp
     src/keydispatch.cpp
+    src/settingspath.cpp
     src/langbar.cpp
     src/keybinding.cpp
     src/config.cpp

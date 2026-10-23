@@ -12,6 +12,7 @@
 #include "registration.h"
 
 #include "ids.h"
+#include "settingspath.h" /* the shared settings-exe resolver */
 #include "tsf.h" /* CTextService */
 
 #include <cwchar>
@@ -224,21 +225,11 @@ static void CreateStartMenuShortcut(const wchar_t *dllPath) {
     wchar_t dllDir[MAX_PATH];
     lstrcpynW(dllDir, dllPath, MAX_PATH);
     PathRemoveFileSpecW(dllDir);
-    wchar_t pub[MAX_PATH];
     wchar_t exe[MAX_PATH];
-    exe[0] = 0;
-    /* Candidate A: deployment layout - <dll dir>\settings-ui\publish. */
-    _snwprintf(pub, MAX_PATH, L"%s\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
-    if (PathFileExistsW(pub))
-        lstrcpynW(exe, pub, MAX_PATH);
-    if (!exe[0]) {
-        /* Candidate B: this worktree's layout - repo\frontends\tsf\.. */
-        _snwprintf(pub, MAX_PATH,
-                   L"%s\\..\\..\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
-        wchar_t full[MAX_PATH];
-        if (GetFullPathNameW(pub, MAX_PATH, full, nullptr) && PathFileExistsW(full))
-            lstrcpynW(exe, full, MAX_PATH);
-    }
+    /* The shared resolver: the installed <dll>\settings-ui shape now wins
+     * over checkout climbs, so an installed shortcut targets the WinUI exe
+     * instead of falling through to rundll32. */
+    hunmin_tsf_settings_exe_in_dir(dllDir, exe, MAX_PATH);
     IShellLinkW *sl = nullptr;
     HRESULT lh = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
                                   IID_PPV_ARGS(&sl));

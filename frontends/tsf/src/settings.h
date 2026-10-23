@@ -19,9 +19,9 @@
  *      configure function whose Show() LAUNCHES THE EXE and waits on the
  *      process (the property-sheet contract: not returning while the dialog
  *      is open), then makes the LIVE adapter re-read the store (Apply
- *      without a restart). Exe resolution: HUNMIN_TSF_SETTINGS_EXE >
- *      <dll dir>\settings-ui\publish\ > <dll dir>\..\settings-ui\publish\;
- *      the interim Win32 dialog is NOT reachable from Show.
+ *      without a restart). Exe resolution is the shared deployed-first
+ *      resolver in settingspath.h; the interim Win32 dialog is NOT reachable
+ *      from Show.
  *   2. Clone-independent direct launcher: frontends/tsf/show-settings.bat
  *      launches the same exe (resolved beside the DLL; InprocServer32 as
  *      fallback), falling back to the rundll32 HunminSettingsShow interim

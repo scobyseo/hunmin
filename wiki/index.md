@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-22 | Total pages: 56
+> Last updated: 2026-10-22 | Total pages: 57
 
 ## Concepts
 
@@ -327,3 +327,8 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   `kQiRoutes` list feeds the trace tag and the dispatch, replacing two
   parallel if/else chains; the log text and answer order are unchanged;
   `tsf.cpp` 575 -> 597, tier-F1 4/4.
+
+- [[2026-10-22-tsf-settings-resolver]] - the S settings-exe resolver
+  (issue #127): the maintainer's deployed-first ruling unifies the three
+  candidate lists in `settingspath.cpp` (100); an installed Start-menu
+  shortcut now targets the WinUI exe; `tsf.cpp` 597 -> 571, tier-F1 4/4.

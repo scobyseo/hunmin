@@ -17,6 +17,7 @@
 #include "displayattr.h" /* the provider forwards + DisplayAttr construction */
 #include "langbar.h" /* the tear-off language-bar item (S6) */
 #include "settings.h" /* ITfFunctionProvider branch + the apply bridge */
+#include "settingspath.h" /* the shared settings-exe resolver */
 
 #include <cstdio>
 #include <cstring>
@@ -25,13 +26,11 @@
 #include <richedit.h>
 #include <shlguid.h>
 #include <shlobj_core.h>
-#include <shlwapi.h>
 #include <shobjidl_core.h>
 #include <string>
 #include <utility>
 #include <vector>
 #include <windows.h>
-#pragma comment(lib, "Shlwapi.lib")
 
 /* Debug logs land next to the DLL (build-msvc/Release inside the checkout),
  * not at a drive root: the registered InprocServer32 path is absolute, so the
@@ -51,35 +50,10 @@ HRESULT hunmin_tsf_launch_settings(void *anchor) {
                             (LPCWSTR)anchor, &self) ||
         !GetModuleFileNameW(self, dll, MAX_PATH))
         return E_FAIL;
-    wchar_t dllDir[MAX_PATH];
-    lstrcpynW(dllDir, dll, MAX_PATH);
-    PathRemoveFileSpecW(dllDir);
+    /* Shared resolution (settingspath.cpp, deployed-first order). No exe
+     * found leaves exe empty, which selects the rundll32 fallback. */
     wchar_t exe[MAX_PATH];
-    exe[0] = 0;
-    /* The settings exe's known layouts, first hit wins:
-     * 1. <dllDir>\settings-ui\publish\ - the dev-tree publish shape
-     *    (frontends/tsf/settings-ui/build-settings-ui.bat);
-     * 2. <dllDir>\..\..\settings-ui\publish\ - the dev-checkout climb (DLL
-     *    in frontends/tsf/build-msvc/Release);
-     * 3. <dllDir>\settings-ui\ - the INSTALLED shape: the .iss stages the
-     *    publish CONTENT directly under {app}\settings-ui (measured in the
-     *    installer sandbox round: only the Start-menu shortcut pointed
-     *    there, the launcher resolved neither publish shape and fell back
-     *    to the rundll32 interim dialog). */
-    static const wchar_t *const kSettingsExeCandidates[] = {
-        L"%s\\settings-ui\\publish\\hunmin-tsf-settingsui.exe",
-        L"%s\\..\\..\\settings-ui\\publish\\hunmin-tsf-settingsui.exe",
-        L"%s\\settings-ui\\hunmin-tsf-settingsui.exe",
-    };
-    for (const wchar_t *fmt : kSettingsExeCandidates) {
-        wchar_t cand[2 * MAX_PATH];
-        wchar_t full[MAX_PATH];
-        _snwprintf(cand, _countof(cand), fmt, dllDir);
-        if (GetFullPathNameW(cand, MAX_PATH, full, nullptr) && PathFileExistsW(full)) {
-            lstrcpynW(exe, full, MAX_PATH);
-            break;
-        }
-    }
+    hunmin_tsf_settings_exe_find(anchor, exe, MAX_PATH);
     wchar_t cmd[MAX_PATH + 64];
     SHELLEXECUTEINFOW sei = {sizeof sei};
     sei.fMask = SEE_MASK_FLAG_NO_UI;
