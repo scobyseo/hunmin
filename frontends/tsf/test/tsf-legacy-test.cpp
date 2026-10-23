@@ -52,7 +52,7 @@ using utf8Wide = std::wstring; /* readability: assertions carry wide text */
 struct LegacyTest : public CandidateTest {
     HWND ctrl = nullptr;
 
-    void LegacyBegin() {
+    void LegacyBegin(bool multiline = false) {
         /* A REAL EDIT control, offscreen and tool-styled, so the interim
          * path's GetFocus()-then-EM flow runs against a true EDIT window
          * (a message-only window does not accept focus — measured). The
@@ -60,10 +60,16 @@ struct LegacyTest : public CandidateTest {
          * typed it", and a single-line EDIT without it REFUSES to grow
          * its line past the control's width — a 24px control accepted
          * exactly one hangul char and silently rejected every later
-         * insert (measured: doclen stuck at 1 through seven writes). */
+         * insert (measured: doclen stuck at 1 through seven writes).
+         * Multiline is for the Enter case only: a paragraph break needs
+         * a control that accepts one. */
+        DWORD style = WS_POPUP | ES_AUTOHSCROLL | (multiline ? ES_MULTILINE : 0);
+        /* A multiline control needs room for a second line: at 20px the
+         * EDIT swallows WM_CHAR VK_RETURN instead of inserting the break
+         * (measured; the real host control is taller). */
         ctrl = CreateWindowExW(WS_EX_TOOLWINDOW, L"EDIT", L"",
-                               WS_POPUP | ES_AUTOHSCROLL, -32000, -32000,
-                               400, 20, nullptr, nullptr, nullptr, nullptr);
+                               style, -32000, -32000,
+                               400, multiline ? 120 : 20, nullptr, nullptr, nullptr, nullptr);
         ASSERT_NE(ctrl, nullptr) << "legacy: capture EDIT not created";
         ShowWindow(ctrl, SW_SHOWNOACTIVATE);
         SetFocus(ctrl); /* the interim path resolves via GetFocus() */
@@ -168,6 +174,46 @@ TEST_F(LegacyTest, BoundaryDrainNeverDuplicates) {
     EXPECT_EQ(CtrlText(ctrl), after)
         << "second space: plain passthrough (the mock emulates no app), "
            "and the drain must not re-run";
+    LegacyTeardown();
+}
+
+/* Enter is a word boundary the TIP only sees at the TEST phase: a
+ * default-sink host inserts the paragraph break itself and moves its caret,
+ * then never calls OnKeyDown (the measured space signature). Without the
+ * test-phase drain the span stays anchored on the OLD line, so the next
+ * syllable's write selects it and drags the caret back to the end of the
+ * previous line (the reported defect). The drain must run and the next
+ * syllable must compose on the new line. */
+TEST_F(LegacyTest, EnterEndsComposingAndKeepsCaretOnNewLine) {
+    LegacyBegin(true);
+    if (HasFatalFailure()) {
+        Teardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    for (const char *p = "dkssud"; *p; ++p)
+        KeyTerminating((WPARAM)std::toupper((unsigned char)*p));
+    FlushDocWrites();
+    ASSERT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155');
+
+    BOOL enterTestEat = TRUE;
+    TestKey(VK_RETURN, &enterTestEat);
+    EXPECT_EQ(enterTestEat, FALSE) << "Enter passes at the test phase";
+    /* The app's half, emulated: the paragraph break lands at the caret
+     * before the posted drain runs (the real order on a default-sink host). */
+    LONG end = (LONG)CtrlText(ctrl).size();
+    SendMessageW(ctrl, EM_SETSEL, (WPARAM)end, (LPARAM)end);
+    SendMessageW(ctrl, WM_CHAR, L'\r', 0);
+    ASSERT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L"\r\n")
+        << "the app's break landed after the word";
+    FlushDocWrites();
+    ASSERT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L"\r\n")
+        << "Enter drains the word exactly once, ahead of the break";
+
+    KeyTerminating((WPARAM)'D'); /* d = ㅇ: a new syllable on the new line */
+    FlushDocWrites();
+    EXPECT_EQ(CtrlText(ctrl),
+              std::wstring() + L'\uC548' + L'\uB155' + L"\r\n" + L'\u3147')
+        << "the next syllable composes after the break, never back on the old line";
     LegacyTeardown();
 }
 

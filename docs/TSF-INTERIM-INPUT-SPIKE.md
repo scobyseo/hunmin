@@ -165,6 +165,25 @@ the table:
 The implementation carries these in the code commit on this branch
 (this commit); the spike itself stays a measurements-only record.
 
+### §3-E Enter at the test phase (2026-10-23, user-reported defect)
+
+Enter has the space signature of §3-D.2, but the shipped predicate left it
+out of the test-phase boundary branch: with `eat=0` the host inserted the
+paragraph break and never called `OnKeyDown`, so no drain ran. The interim
+span stayed anchored on the old line; the next syllable's span write
+selected that range and the caret jumped back to the end of the previous
+line. Measured in the tier-F1 mock with the app's break emulated:
+`안녕` + Enter + `d` → `안녕ㅇ\r\n` (the new syllable replaced `녕` before
+the break) instead of `안녕\r\nㅇ`.
+
+Fix: `VK_RETURN` joins `VK_SPACE` in the test-phase boundary branch
+(`keydispatch.cpp`), so the posted drain runs after the app's insertion
+and the position-based span bookkeeping absorbs it; the caret is the app's
+and is given back. Regression test:
+`LegacyTest.EnterEndsComposingAndKeepsCaretOnNewLine`. A multiline EDIT
+needs a client height that fits a second line (measured: a 20px control
+swallows `WM_CHAR VK_RETURN`); the test uses 120px for that reason.
+
 ## 4. EXP-B — does the host render an `fInterimChar` selection?
 
 The picked measurement. Implemented per the docs' own wording (one char,

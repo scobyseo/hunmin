@@ -58,15 +58,18 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
         eat = FALSE;
     } else if (wParam >= 'A' && wParam <= 'Z') {
         eat = TRUE;
-    } else if (wParam == VK_SPACE) {
+    } else if (wParam == VK_SPACE || wParam == VK_RETURN) {
         /* A boundary key is a key of passage (#95 contract): the app
-         * inserts the space. MEASURED on msftedit: with eat=FALSE the
-         * host NEVER calls OnKeyDown for the key - the test phase is
-         * the TIP's only sight of it - so the boundary drain runs
-         * HERE. The span bookkeeping is position-based, so the drain
-         * is order-independent against the app's own space insertion,
-         * and a host that DOES call the down re-runs the flush on the
-         * already-empty buffer (a no-op). */
+         * inserts the space / paragraph break. MEASURED on msftedit:
+         * with eat=FALSE the host NEVER calls OnKeyDown for the key -
+         * the test phase is the TIP's only sight of it - so the
+         * boundary drain runs HERE. The span bookkeeping is
+         * position-based, so the drain is order-independent against
+         * the app's own insertion, and a host that DOES call the down
+         * re-runs the flush on the already-empty buffer (a no-op).
+         * Enter must be here for the same reason and one more: if the
+         * span survives the break, the next syllable's span write
+         * selects the OLD line and drags the caret back to it. */
         BoundaryFlush(pic);
         eat = FALSE;
     } else if (wParam == VK_BACK) {
