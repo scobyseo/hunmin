@@ -705,3 +705,9 @@
 - New page: [[2026-10-22-tsf-displayattr-extraction]]. displayattr.cpp (185)
   carries the provider objects and the DisplayAttr atom channel; tsf.cpp
   1,659 -> 1,545; tier-F1 4/4.
+
+## [2026-10-22] update | Data source extracted (F)
+
+- New page: [[2026-10-22-tsf-datadir-extraction]]. datadir.cpp (122) carries
+  hunmin_ctx_from_module and the layout-slot check; tsf.cpp 1,492 -> 1,384;
+  tier-F1 4/4.

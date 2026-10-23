@@ -29,6 +29,7 @@
  */
 
 #include <windows.h>
+#include "datadir.h"
 #include "hunmin.h"
 #include "settingsrows.h"
 
@@ -44,12 +45,6 @@ extern "C" {
 /* The rundll32 entry point signature: void CALLBACK(HWND, HINSTANCE, LPSTR, int). */
 void CALLBACK HunminSettingsShow(HWND hwnd, HINSTANCE hinst, LPSTR cmdLine, int nShow);
 }
-
-/* Engine context for the dialog's layout lists. Same one-data-source-wins
- * rule as the adapter (env -> <module>\data -> repo climb); defined in
- * tsf.cpp so the dialog and the adapter cannot disagree about where data
- * comes from. */
-hunmin_ctx *hunmin_ctx_from_module(void);
 
 /* Launch the ruled settings surface (the WinUI 3 exe beside the DLL, the
  * rundll32 HunminSettingsShow fallback). Defined in tsf.cpp; the langbar

@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-22 | Total pages: 52
+> Last updated: 2026-10-22 | Total pages: 53
 
 ## Concepts
 
@@ -306,3 +306,8 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   (issue #127): the provider objects and the `DisplayAttr` GUID-atom channel
   moved to `displayattr.cpp` (196), the measured underline shape unchanged;
   `tsf.cpp` 1,659 -> 1,492, tier-F1 4/4.
+
+- [[2026-10-22-tsf-datadir-extraction]] - the F data-source cut (issue
+  #127): `hunmin_ctx_from_module` and the layout-slot check moved to
+  `datadir.cpp` (122), shared by the shell, the dialog and the tests;
+  `tsf.cpp` 1,492 -> 1,384, tier-F1 4/4.

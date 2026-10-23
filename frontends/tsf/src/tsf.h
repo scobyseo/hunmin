@@ -34,6 +34,7 @@
 #include "ids.h" /* CLSID_HunminTSF and the shared GUIDs (ids.cpp) */
 #include "keybinding.h" /* HunminKeyCombo, hunmin_tsf_keybindings_* */
 #include "config.h" /* HunminTsfConfig, hunmin_tsf_config_load */
+#include "datadir.h" /* hunmin_ctx_from_module, the layout-slot check */
 #include "log.h"
 
 /* msctf.h pulls ctfutb.h (the langbar item interfaces); a guard for the
@@ -50,16 +51,6 @@
  * ctx created from a partial data dir still gets a working layout. */
 inline constexpr char kHangulDefaultId[] = "sin3-p2";
 inline constexpr char kLatinDefaultId[] = "us-qwerty";
-
-/* Accept a stored layout id only when the engine can instantiate it AND its
- * mode matches the slot (issue #71: the dialog lists layouts split by
- * hunmin_ctx_layout_mode, so a stale registry value naming a latin layout in
- * the hangul slot must degrade to the default, never to a silent mispair).
- * Defined in tsf.cpp; the tier-F1 config test drives it directly. */
-void hunmin_tsf_resolve_layout_slot(const hunmin_ctx *ctx,
-                                    const std::string &stored,
-                                    const char *def, bool wantHangul,
-                                    std::string *outId);
 
 /* ---- The seams ---- */
 

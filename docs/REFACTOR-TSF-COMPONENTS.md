@@ -98,21 +98,29 @@ the `DisplayAttr` channel that registers the GUID atom and sets/clears the
 attribute; `displayattr.h` (40) declares the factories the shell forwards to
 and the channel the composition session calls. The provider's measured
 attribute shape and its logged `RegisterGUID` failure moved with the code
-unchanged. `tsf.cpp` is 1,492 lines.
+unchanged. `tsf.cpp` was 1,492 lines.
+
+Stage F then moved the data source out: `datadir.cpp` (122) carries
+`hunmin_ctx_from_module` (the one-data-source-wins search) and
+`hunmin_tsf_resolve_layout_slot` (the mode/slot check); `datadir.h` (31)
+declares both, and `settings.h` / `tsf.h` include it instead of repeating
+them. The settings dialog and the shell still call the same functions, so
+they cannot disagree about where data came from. `tsf.cpp` is 1,384 lines.
 
 ## Where the code stands
 
-`frontends/tsf/src/tsf.cpp` is 1,492 lines (was 2,320 before stage 4, 2,146
+`frontends/tsf/src/tsf.cpp` is 1,384 lines (was 2,320 before stage 4, 2,146
 after it, 2,076 after the S5 extraction, 2,096 after the registration
-helpers, 1,659 after S4 and 1,492 after S7; the figures here are physical
-lines). `CTextService` now carries the composition write machinery and the
+helpers, 1,659 after S4, 1,492 after S7 and 1,384 after F; the figures here
+are physical lines). `CTextService` now carries the composition write machinery and the
 key dispatch; the DLL's exports and registration live in `registration.cpp`
 (451), the shared GUIDs in `ids.cpp` (19), the preedit styling in
-`displayattr.cpp` (196), and the language-bar surface in `langbar.cpp` (276
+`displayattr.cpp` (196), the data source in `datadir.cpp` (122), and the
+language-bar surface in `langbar.cpp` (276
 lines) behind `langbar.h` (82), alongside `delivery.cpp` (325) and
 `candidates.cpp` (345). After stage 5 the settings surface is five TUs;
 `settingsdialog.cpp` (731) is now the largest non-shell TU and
-`settings.cpp` (25) is only the export; the shell is 1,492. It is green
+`settings.cpp` (25) is only the export; the shell is 1,384. It is green
 (tier-F1) and behaves; the remaining complaint is the composition/key
 machinery still inline and the un-tabled QI.
 
@@ -178,6 +186,10 @@ machinery still inline and the un-tabled QI.
    W11 look, capture); `settingslaunch` resolves and waits on the WinUI 3
    exe; `settingsprovider.cpp` carries the TSF plumbing. `settings.cpp` is
    the only C-linkage piece, the rundll32 export.
+ 10. **`datadir.h`/`datadir.cpp`** (F) — the one data source
+   (`HUNMIN_DATA_DIR` > `<module>\data` > the repo climb) and the stored-layout
+   slot check. The shell, the interim dialog and the tier-F1 tests share
+   these, which is the point: no two surfaces resolve data differently.
 
 ## Staged execution (each stage lands ctest-green, then commits)
 
@@ -190,11 +202,12 @@ machinery still inline and the un-tabled QI.
 | 5 | `settingsrows`/`settingsdialog`/`settingslaunch`/`settingsprovider`: the 979-line settings TU split by responsibility, export left behind | low — pure relocation; only the two statics become cross-TU calls, max TU 731 |
 | 6 (S4) | `registration.cpp`/`registration.h` + `ids.cpp`/`ids.h`: the register/unregister helpers, the class factory, `DllGetClassObject` and the two exports out of the shell; the shared GUIDs into `ids` | low — pure relocation; verified by link + build, the elevated regsvr32 cycle is a manual checklist |
 | 7 (S7) | `displayattr.cpp`/`displayattr.h`: the provider objects and the `DisplayAttr` atom channel out of the shell | low — pure relocation; the painted underlines need a host look (not ctest-observable), the provider shape is unchanged |
+| 8 (F) | `datadir.cpp`/`datadir.h`: the data-source search and the layout-slot check out of the shell; `settings.h`/`tsf.h` include the new header | low — pure relocation; the tier-F1 datadir and config tests already assert both functions |
 
 The `settings.cpp` split (S10) landed 2026-10-22 (stage 5), the registration
-TU (S4) and the display attribute (S7) on the same day (stages 6-7). Still
-open from S5: the shell's duplicated paths and the table-driven QI; next in
-the plan are the composition and key-dispatch TUs.
+TU (S4), the display attribute (S7) and the data source (F) on the same day
+(stages 6-8). Still open from S5: the shell's duplicated paths and the
+table-driven QI; next in the plan are the composition and key-dispatch TUs.
 
 The standalone TSF configure now passes `/utf-8` like the top-level engine
 build, so MSVC reads the UTF-8 sources (Korean and em dashes in comments) as
