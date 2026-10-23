@@ -73,9 +73,13 @@ STDMETHODIMP LangBarItem::GetInfo(TF_LANGBARITEMINFO *pInfo) {
      * path). The older private GUID F2C70003 never got past AddItem. */
     pInfo->guidItem = HunminLbiInputModeGuid;
     /* BTN_MENU | SHOWNINTRAY - the ruled shape (maintainer instruction
-     * 2026-10-22: no BTN_BUTTON). A bar surface that routes menu-button
-     * style calls InitMenu/OnMenuSelect (language-bar.md), which stays
-     * wired; OnClick stays implemented but is not advertised. */
+     * 2026-10-22: no BTN_BUTTON). Measured 2026-10-23: adding BTN_BUTTON
+     * did NOT make the Win11 tray indicator route its click here either
+     * (left-click opens the shell's language list, right-click dismisses
+     * it, and neither OnClick nor InitMenu is called), so the extra bit
+     * bought nothing and the ruling stands. A host that routes the
+     * menu-button shape calls InitMenu/OnMenuSelect (language-bar.md);
+     * OnClick stays implemented but is not advertised. */
     pInfo->dwStyle = TF_LBI_STYLE_BTN_MENU | TF_LBI_STYLE_SHOWNINTRAY;
     pInfo->ulSort = 0;
     lstrcpynW(pInfo->szDescription, L"Hunmin \uC124\uC815", MAX_PATH);
@@ -103,6 +107,7 @@ STDMETHODIMP LangBarItem::GetTooltipString(BSTR *pbstrToolTip) {
 
 STDMETHODIMP LangBarItem::OnClick(TfLBIClick click, POINT pt, const RECT *prcArea) {
     (void)prcArea;
+    hunmin_logger.log("langbar OnClick click=%d\n", (int)click);
     if (click == TF_LBI_CLK_RIGHT) {
         /* The right-click CONFIG MENU (issue #103, the ruled langbar
          * surface). Measured sibling shape (BTN_BUTTON items): with
@@ -135,7 +140,7 @@ STDMETHODIMP LangBarItem::OnClick(TfLBIClick click, POINT pt, const RECT *prcAre
                                           p.x, p.y, 0, owner, nullptr);
             DestroyMenu(menu);
             if (cmd == 1)
-                return hunmin_tsf_launch_settings(static_cast<void *>(this));
+                return hunmin_tsf_launch_settings();
         }
         return S_OK;
     }
@@ -145,12 +150,14 @@ STDMETHODIMP LangBarItem::OnClick(TfLBIClick click, POINT pt, const RECT *prcAre
      * is a DEDICATED PROCESS, not a modal loop on this thread: the TIP
      * thread must not pump a nested message loop while TSF holds edit
      * cookies. */
-    return hunmin_tsf_launch_settings(static_cast<void *>(this));
+    return hunmin_tsf_launch_settings();
 }
 
 STDMETHODIMP LangBarItem::InitMenu(ITfMenu *pMenu) {
-    /* The right-click popup: one entry, "<Hunmin settings>" (id = 1);
-     * OnMenuSelect lands it on the settings window. */
+    /* The menu-button popup (language-bar.md: InitMenu is called for a
+     * BTN_MENU item; OnMenuSelect reports the choice): one entry,
+     * "<Hunmin settings>" (id = 1). */
+    hunmin_logger.log("langbar InitMenu\n");
     if (!pMenu)
         return E_FAIL;
     const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
@@ -159,9 +166,10 @@ STDMETHODIMP LangBarItem::InitMenu(ITfMenu *pMenu) {
 }
 
 STDMETHODIMP LangBarItem::OnMenuSelect(UINT wID) {
+    hunmin_logger.log("langbar OnMenuSelect id=%u\n", (unsigned)wID);
     if (wID != 1)
         return S_OK;
-    return hunmin_tsf_launch_settings(nullptr);
+    return hunmin_tsf_launch_settings();
 }
 
 STDMETHODIMP LangBarItem::AdviseSink(REFIID riid, IUnknown *punk, DWORD *pdwCookie) {

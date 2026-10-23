@@ -42,7 +42,12 @@
  * icon) when it is deployed beside this DLL, the rundll32 entry to
  * HunminSettingsShow otherwise. A dedicated process: the TIP thread must
  * not pump a nested modal loop while TSF holds edit cookies. */
-HRESULT hunmin_tsf_launch_settings(void *anchor) {
+HRESULT hunmin_tsf_launch_settings() {
+    /* The anchor is this function's own address: it is in this DLL by
+     * construction. The former void* parameter let a caller pass null
+     * (OnMenuSelect did), GetModuleHandleExW then failed, and the menu item
+     * returned E_FAIL without launching anything. */
+    const void *anchor = (const void *)&hunmin_tsf_launch_settings;
     HMODULE self = nullptr;
     wchar_t dll[MAX_PATH] = {0};
     if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |

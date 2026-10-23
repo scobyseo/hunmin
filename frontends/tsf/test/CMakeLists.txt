@@ -116,6 +116,15 @@ target_link_libraries(tsf-test PRIVATE
     imm32
     shlwapi)
 
+# The launch stand-in for TsfLangbarItem.OnMenuSelectOneLaunchesTheSettings
+# Surface: a windowless exe beside tsf-test, selected through
+# HUNMIN_TSF_SETTINGS_EXE so the menu test exercises the real
+# hunmin_tsf_launch_settings path without starting the WinUI app.
+add_executable(tsf-settings-noop tsf-settings-noop.cpp)
+set_target_properties(tsf-settings-noop PROPERTIES WIN32_EXECUTABLE TRUE)
+target_compile_definitions(tsf-settings-noop PRIVATE UNICODE _UNICODE)
+add_dependencies(tsf-test tsf-settings-noop)
+
 set(HUNMIN_TSF_PROBE ${HUNMIN_TSF_REPO_ROOT}/tools/tsf-run-if-data.py)
 # ONE registration for the one executable (maintainer ruling, issue #109):
 # the wrapper probes BOTH data conditions (the repo tree AND the staged

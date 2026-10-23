@@ -14,6 +14,7 @@
  * every mode boundary. Standalone TU: the include-.cpp seam is retired (DIP + SAP, docs/REFACTOR-TSF-COMPONENTS.md).
  */
 #include <gtest/gtest.h>
+#include <string>
 #include <vector>
 #include <windows.h>
 
@@ -58,6 +59,79 @@ class MockItemSink : public ITfLangBarItemSink {
     }
 };
 
+/* The language bar's menu sink double: language-bar.md says a BTN_MENU
+ * item receives ITfMenu in InitMenu and the bar reports the choice through
+ * OnMenuSelect. This records what the item adds. */
+class MockMenu : public ITfMenu {
+  public:
+    LONG ref_ = 1;
+    struct Entry {
+        UINT id;
+        DWORD flags;
+        std::wstring text;
+    };
+    std::vector<Entry> entries;
+
+    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+        if (!ppv)
+            return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfMenu)) {
+            *ppv = static_cast<ITfMenu *>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
+    STDMETHOD_(ULONG, Release)() override {
+        ULONG r = (ULONG)InterlockedDecrement(&ref_);
+        if (r == 0)
+            delete this;
+        return r;
+    }
+    STDMETHOD(AddMenuItem)(UINT uId, DWORD dwFlags, HBITMAP, HBITMAP,
+                           const WCHAR *pch, ULONG cch,
+                           ITfMenu **ppMenu) override {
+        entries.push_back(Entry{uId, dwFlags, std::wstring(pch, cch)});
+        if (ppMenu)
+            *ppMenu = nullptr;
+        return S_OK;
+    }
+};
+
+/* The settings stand-in sits beside the test binary (the CMake dependency
+ * builds it there), so no absolute path is baked into the test. */
+std::wstring SiblingExe(const wchar_t *name) {
+    wchar_t path[MAX_PATH];
+    DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
+    std::wstring p(path, n);
+    size_t slash = p.find_last_of(L"\\/");
+    return p.substr(0, slash + 1) + name;
+}
+
+/* Set for one test and restored, so a later test cannot inherit a stale
+ * settings path. */
+class ScopedEnv {
+  public:
+    ScopedEnv(const wchar_t *name, const wchar_t *value) : name_(name) {
+        wchar_t buf[32767];
+        DWORD n = GetEnvironmentVariableW(name, buf, 32767);
+        had_ = n > 0 && n < 32767;
+        if (had_)
+            old_.assign(buf, n);
+        SetEnvironmentVariableW(name, value);
+    }
+    ~ScopedEnv() {
+        SetEnvironmentVariableW(name_.c_str(), had_ ? old_.c_str() : nullptr);
+    }
+
+  private:
+    std::wstring name_;
+    std::wstring old_;
+    bool had_ = false;
+};
+
 } /* namespace */
 
 TEST(TsfLangbarItem, GetInfoCarriesTheHostedShape) {
@@ -74,8 +148,55 @@ TEST(TsfLangbarItem, GetInfoCarriesTheHostedShape) {
     EXPECT_EQ(info.dwStyle,
               (DWORD)(TF_LBI_STYLE_BTN_MENU | TF_LBI_STYLE_SHOWNINTRAY))
         << "the ruled shape: the menu-button bit and the tray bit, no "
-           "BTN_BUTTON";
+           "BTN_BUTTON (adding it on 2026-10-23 did not route the Win11 "
+           "indicator's click either)";
     EXPECT_EQ(info.clsidService, CLSID_HunminTSF);
+    item->Release();
+}
+
+/* language-bar.md's menu-button contract: InitMenu adds the items, the bar
+ * calls OnMenuSelect with the chosen id. The item's one entry is the
+ * settings launch (id 1). The launch itself is not asserted here (it spawns
+ * a process); what this locks is the menu shape the user sees and the id
+ * OnMenuSelect receives. */
+TEST(TsfLangbarItem, InitMenuAddsTheOneSettingsEntry) {
+    CTextService svc;
+    ITfLangBarItemButton *item = nullptr;
+    ASSERT_EQ(svc.QueryInterface(IID_ITfLangBarItemButton, (void **)&item), S_OK);
+    ASSERT_NE(item, nullptr);
+
+    MockMenu menu;
+    EXPECT_EQ(item->InitMenu(&menu), S_OK);
+    ASSERT_EQ(menu.entries.size(), (size_t)1) << "one entry, the config menu";
+    EXPECT_EQ(menu.entries[0].id, (UINT)1);
+    EXPECT_EQ(menu.entries[0].flags, (DWORD)0) << "a plain string item";
+    EXPECT_EQ(menu.entries[0].text,
+              std::wstring(L"Hunmin \uC124\uC815 \uC5F4\uAE30"));
+
+    /* An id the item did not add is ignored (the bar may own other ids in a
+     * host that composes menus). */
+    EXPECT_EQ(item->OnMenuSelect(2), S_OK);
+    EXPECT_EQ(item->InitMenu(nullptr), E_FAIL) << "no menu to fill";
+    item->Release();
+}
+
+/* The regression for the silent menu item: OnMenuSelect used to pass a null
+ * anchor to hunmin_tsf_launch_settings, which then failed GetModuleHandleExW
+ * and returned E_FAIL before launching anything. The noop exe stands in for
+ * the WinUI surface, so the assertion is the real launch path (id 1 ->
+ * ShellExecuteExW -> S_OK), not a mock of it. */
+TEST(TsfLangbarItem, OnMenuSelectOneLaunchesTheSettingsSurface) {
+    std::wstring noop = SiblingExe(L"tsf-settings-noop.exe");
+    ASSERT_NE(GetFileAttributesW(noop.c_str()), INVALID_FILE_ATTRIBUTES)
+        << "tsf-settings-noop.exe is a build dependency of this test";
+    ScopedEnv env(L"HUNMIN_TSF_SETTINGS_EXE", noop.c_str());
+
+    CTextService svc;
+    ITfLangBarItemButton *item = nullptr;
+    ASSERT_EQ(svc.QueryInterface(IID_ITfLangBarItemButton, (void **)&item), S_OK);
+    ASSERT_NE(item, nullptr);
+    EXPECT_EQ(item->OnMenuSelect(1), S_OK)
+        << "the settings id must reach the launcher";
     item->Release();
 }
 

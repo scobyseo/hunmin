@@ -47,10 +47,11 @@ void CALLBACK HunminSettingsShow(HWND hwnd, HINSTANCE hinst, LPSTR cmdLine, int 
 }
 
 /* Launch the ruled settings surface (the WinUI 3 exe beside the DLL, the
- * rundll32 HunminSettingsShow fallback). Defined in tsf.cpp; the langbar
- * item's click/menu handlers call it with their own module address as the
- * resolution anchor. */
-HRESULT hunmin_tsf_launch_settings(void *anchor);
+ * rundll32 HunminSettingsShow fallback). Defined in tsf.cpp; the function
+ * anchors the DLL/module search on its OWN address, so a caller cannot pass
+ * an anchor that resolves no module (the former parameter did, and the
+ * BTN_MENU OnMenuSelect path passed null: the menu item launched nothing). */
+HRESULT hunmin_tsf_launch_settings();
 
 /* TSF-native bridge: the text service QIs for ITfFunctionProvider and gets
  * the provider object created here; svc stays a strongly referenced COM

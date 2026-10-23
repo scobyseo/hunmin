@@ -82,9 +82,11 @@ and for a reference probe from a plain thread — recorded the ENVIRONMENT
 (blurred earlier); the re-measured sibling fact on the SAME host: a TIP
 whose item carries `guidItem = GUID_LBI_INPUTMODE`
 ({2C77A81E-41CC-4178-A3A7-5F8A987568E6}), style `BTN_BUTTON | SHOWNINTRAY`,
-and an implemented `ITfSource` IS hosted live by the tray input indicator.
-That recipe is the adapter's item now, with one ruling change (2026-10-22):
-style `BTN_MENU | SHOWNINTRAY`, no `BTN_BUTTON`:
+and an implemented `ITfSource` IS accepted by `AddItem` (`hr=0x0`) on this
+host. What `AddItem` accepting it does NOT establish is that the Win11 tray
+indicator renders or routes clicks to it — measured 2026-10-23, it does not
+(see the last bullet). That recipe is the adapter's item now, with one
+ruling change (2026-10-22): style `BTN_MENU | SHOWNINTRAY`, no `BTN_BUTTON`:
 
 - `guidItem` MUST be `GUID_LBI_INPUTMODE` — the Win8+/Win11 "input
   indicator" hosts a langbar item only with this GUID; other item GUIDs are
@@ -98,6 +100,21 @@ style `BTN_MENU | SHOWNINTRAY`, no `BTN_BUTTON`:
   `hunmin_tsf_launch_settings` (the settings-ui exe). `OnClick` stays
   implemented but is not advertised (the former `BTN_BUTTON` recipe delivered
   left and right clicks as `OnClick(CLK_LEFT / CLK_RIGHT)`).
+- `hunmin_tsf_launch_settings()` takes no anchor and resolves the module from
+  its own address. The former `void *anchor` parameter let the
+  `OnMenuSelect` path pass null, so `GetModuleHandleExW(FROM_ADDRESS, null)`
+  failed and the item returned `E_FAIL`: the menu entry appeared but launched
+  nothing (found and fixed 2026-10-23; regression
+  `TsfLangbarItem.OnMenuSelectOneLaunchesTheSettingsSurface`).
+- **The Win11 tray indicator is not this item's click surface (measured
+  2026-10-23).** With Hunmin active the indicator's left click opens the
+  shell's language list and its right click dismisses that list; neither
+  `OnClick` nor `InitMenu` is called (the debug log shows only
+  `langbar AddItem hr=0x0`). Adding `BTN_BUTTON` to the ruled style did not
+  change it, so the extra bit was reverted. The MS IME's `한국어 /
+  Microsoft 입력기` tray icon is the IME's own `Shell_NotifyIcon`, not a TSF
+  item; the TSF langbar item remains the classic-language-bar surface and
+  the Win11 settings entry needs a different carrier.
 
 **Removed (2026-10-20, "it confuses"):** the `ITfSystemLangBarItemSink`
 system-menu extension (its advice had settled on this host's system items
