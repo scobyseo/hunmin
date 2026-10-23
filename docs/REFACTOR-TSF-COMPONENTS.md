@@ -105,24 +105,34 @@ Stage F then moved the data source out: `datadir.cpp` (122) carries
 `hunmin_tsf_resolve_layout_slot` (the mode/slot check); `datadir.h` (31)
 declares both, and `settings.h` / `tsf.h` include it instead of repeating
 them. The settings dialog and the shell still call the same functions, so
-they cannot disagree about where data came from. `tsf.cpp` is 1,384 lines.
+they cannot disagree about where data came from. `tsf.cpp` was 1,384 lines.
+
+Stage C then moved the composition machinery out: `composition.cpp` (457)
+carries `OnCompositionTerminated`, the `CompositionSession`, `CompositionWrite`
+/ `CompositionEnd` / `DetachComposition`, the `FlushSession`, the
+boundary/engine drain (`FlushEngineIntoWordbuf`, `BoundaryFlush`), the
+`RectSession` and `CaretRect`. The edit-session classes stay nested members of
+`CTextService` (declared in `tsf.h`, defined in the new TU), so they keep the
+enclosing class's access without a new seam; the delivery seam and
+`DisplayAttr` are used exactly as before. `tsf.cpp` is 945 lines.
 
 ## Where the code stands
 
-`frontends/tsf/src/tsf.cpp` is 1,384 lines (was 2,320 before stage 4, 2,146
+`frontends/tsf/src/tsf.cpp` is 945 lines (was 2,320 before stage 4, 2,146
 after it, 2,076 after the S5 extraction, 2,096 after the registration
-helpers, 1,659 after S4, 1,492 after S7 and 1,384 after F; the figures here
-are physical lines). `CTextService` now carries the composition write machinery and the
-key dispatch; the DLL's exports and registration live in `registration.cpp`
-(451), the shared GUIDs in `ids.cpp` (19), the preedit styling in
-`displayattr.cpp` (196), the data source in `datadir.cpp` (122), and the
-language-bar surface in `langbar.cpp` (276
+helpers, 1,659 after S4, 1,492 after S7, 1,384 after F and 945 after C; the
+figures here are physical lines). `CTextService` now carries the activation lifecycle, the
+key dispatch and the document-manager callbacks; the composition machinery
+lives in `composition.cpp` (457), the DLL's exports and registration in
+`registration.cpp` (451), the shared GUIDs in `ids.cpp` (19), the preedit
+styling in `displayattr.cpp` (196), the data source in `datadir.cpp` (122),
+and the language-bar surface in `langbar.cpp` (276
 lines) behind `langbar.h` (82), alongside `delivery.cpp` (325) and
 `candidates.cpp` (345). After stage 5 the settings surface is five TUs;
 `settingsdialog.cpp` (731) is now the largest non-shell TU and
-`settings.cpp` (25) is only the export; the shell is 1,384. It is green
-(tier-F1) and behaves; the remaining complaint is the composition/key
-machinery still inline and the un-tabled QI.
+`settings.cpp` (25) is only the export; the shell is 945. It is green
+(tier-F1) and behaves; the remaining complaint is the key-dispatch machinery
+still inline, the settings-exe resolver duplication and the un-tabled QI.
 
 ## The rules this refactor obeys
 
@@ -190,6 +200,13 @@ machinery still inline and the un-tabled QI.
    (`HUNMIN_DATA_DIR` > `<module>\data` > the repo climb) and the stored-layout
    slot check. The shell, the interim dialog and the tier-F1 tests share
    these, which is the point: no two surfaces resolve data differently.
+ 11. **`composition.cpp`** (C) — the native preedit machinery: the host
+   termination handler, the `CompositionSession`/`FlushSession`/`RectSession`
+   edit sessions, the write/end/detach half and the engine/boundary drain.
+   It has no header: the session classes stay nested inside `CTextService`
+   (declared in `tsf.h`) and are DEFINED here, which keeps their access to
+   the shell's composition state without widening the class's public surface.
+   Delivery and the styling are reached through their existing seams.
 
 ## Staged execution (each stage lands ctest-green, then commits)
 
@@ -203,11 +220,13 @@ machinery still inline and the un-tabled QI.
 | 6 (S4) | `registration.cpp`/`registration.h` + `ids.cpp`/`ids.h`: the register/unregister helpers, the class factory, `DllGetClassObject` and the two exports out of the shell; the shared GUIDs into `ids` | low — pure relocation; verified by link + build, the elevated regsvr32 cycle is a manual checklist |
 | 7 (S7) | `displayattr.cpp`/`displayattr.h`: the provider objects and the `DisplayAttr` atom channel out of the shell | low — pure relocation; the painted underlines need a host look (not ctest-observable), the provider shape is unchanged |
 | 8 (F) | `datadir.cpp`/`datadir.h`: the data-source search and the layout-slot check out of the shell; `settings.h`/`tsf.h` include the new header | low — pure relocation; the tier-F1 datadir and config tests already assert both functions |
+| 9 (C) | `composition.cpp`: the termination handler, the three edit sessions, the write/end/detach half and the engine/boundary drain out of the shell; the session classes stay nested in `tsf.h` and are defined here | low — pure relocation; the three win32 traces and the candidate group already exercise the composition lifecycle |
 
 The `settings.cpp` split (S10) landed 2026-10-22 (stage 5), the registration
-TU (S4), the display attribute (S7) and the data source (F) on the same day
-(stages 6-8). Still open from S5: the shell's duplicated paths and the
-table-driven QI; next in the plan are the composition and key-dispatch TUs.
+TU (S4), the display attribute (S7), the data source (F) and the composition
+machinery (C) on the same day (stages 6-9). Still open from S5: the shell's
+duplicated paths and the table-driven QI; next in the plan is the key-dispatch
+TU, then the settings-exe resolver unification (routing needs a ruling).
 
 The standalone TSF configure now passes `/utf-8` like the top-level engine
 build, so MSVC reads the UTF-8 sources (Korean and em dashes in comments) as

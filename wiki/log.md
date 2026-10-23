@@ -711,3 +711,11 @@
 - New page: [[2026-10-22-tsf-datadir-extraction]]. datadir.cpp (122) carries
   hunmin_ctx_from_module and the layout-slot check; tsf.cpp 1,492 -> 1,384;
   tier-F1 4/4.
+
+## [2026-10-22] update | Composition machinery extracted (C)
+
+- New page: [[2026-10-22-tsf-composition-extraction]]. composition.cpp (457)
+  carries the termination handler, the three edit sessions, the
+  write/end/detach half and the engine/boundary drain; the session classes
+  stay nested in tsf.h and are defined there. tsf.cpp 1,384 -> 945;
+  tier-F1 4/4.

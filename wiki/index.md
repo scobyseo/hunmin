@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-22 | Total pages: 53
+> Last updated: 2026-10-22 | Total pages: 54
 
 ## Concepts
 
@@ -311,3 +311,9 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   #127): `hunmin_ctx_from_module` and the layout-slot check moved to
   `datadir.cpp` (122), shared by the shell, the dialog and the tests;
   `tsf.cpp` 1,492 -> 1,384, tier-F1 4/4.
+
+- [[2026-10-22-tsf-composition-extraction]] - the C composition cut (issue
+  #127): the termination handler, the three edit sessions, the
+  write/end/detach half and the engine/boundary drain moved to
+  `composition.cpp` (457) as nested-class definitions, no new seam;
+  `tsf.cpp` 1,384 -> 945, tier-F1 4/4.
