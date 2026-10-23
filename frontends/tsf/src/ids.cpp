@@ -1,0 +1,19 @@
+/*
+ * SPDX-FileCopyrightText: 2026 hunmin contributors
+ *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
+ * One definition per shared GUID (ids.h). These left tsf.cpp in stage S4 so
+ * registration and the display-attribute provider can name the same values
+ * without either owning them.
+ */
+#include "ids.h"
+
+const CLSID CLSID_HunminTSF = {
+    0xF2C70001, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}};
+
+const GUID HunminProfileGuid = {
+    0xF2C70002, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}};
+
+const GUID HunminDisplayAttrGuid = {
+    0xF2C70004, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04}};

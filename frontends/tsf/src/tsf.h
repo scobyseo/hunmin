@@ -31,6 +31,7 @@
 #include <msctf.h>
 
 #include "hunmin.h"
+#include "ids.h" /* CLSID_HunminTSF and the shared GUIDs (ids.cpp) */
 #include "keybinding.h" /* HunminKeyCombo, hunmin_tsf_keybindings_* */
 #include "config.h" /* HunminTsfConfig, hunmin_tsf_config_load */
 #include "log.h"
@@ -195,10 +196,6 @@ struct Candidates {
      * the shell's snapshot (the cand* fields). */
     virtual void Observe(HunminTsfSnapshot *out) = 0;
 };
-
-/* The service CLSID, shared with the langbar-item shape test
- * (tsf-langbaritem-test.cpp reads GetInfo's clsidService against it). */
-extern const CLSID CLSID_HunminTSF;
 
 class LangBarItem;
 

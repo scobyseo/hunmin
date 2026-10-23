@@ -299,4 +299,5 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   `RegisterInputProcessorProfile`, `PinProfileIconIndex`,
   `ActivateInputProcessorProfile`, `RegisterTipCategories`,
   `CreateStartMenuShortcut`) called in their original order, with
-  `DllUnregisterServer` mirrored; the S4 TU move is still owed.
+  `DllUnregisterServer` mirrored; S4 then moved the block, both exports and
+  the class factory to `registration.cpp` with the shared GUIDs in `ids.cpp`.

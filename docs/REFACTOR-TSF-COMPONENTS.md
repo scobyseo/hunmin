@@ -81,20 +81,29 @@ key), `RegisterInputProcessorProfile()` (`Register` + `AddLanguageProfile` +
 is now the ordered list of those calls. `DllUnregisterServer()` mirrors it with
 `UnregisterInputProcessorProfile()` and `UnregisterTipCategories()`, the tree
 deletions staying inline in the documented reverse order. No call order,
-argument or log line changed; `tsf.cpp` is 2,096 lines. The S4 half still owed
-is the move itself: these helpers and the two exports belong in their own TU.
+argument or log line changed; `tsf.cpp` was 2,096 lines.
+
+Stage S4 then moved that block and the DLL's COM surface out: `registration.cpp`
+(451) carries the helpers, `DllRegisterServer`/`DllUnregisterServer`,
+`CClassFactory` and `DllGetClassObject`; `registration.h` declares only the
+three exports the DEF names, so the helpers stay private. The three shared
+GUIDs (service CLSID, language profile, display attribute) moved to `ids.h`/
+`ids.cpp` (21/19) because registration and the display-attribute provider both
+name them, and the `g_hunmin_hinst` extern moved with the only code that read
+it. `tsf.cpp` is 1,659 lines (2,320 at the start of stage 4).
 
 ## Where the code stands
 
-`frontends/tsf/src/tsf.cpp` is 2,096 lines (was 2,320 before stage 4, 2,146
-after it and 2,076 after the S5 extraction; the figures here are physical
-lines). `CTextService` still carries the
-composition write machinery, the key dispatch and the registration
-exports; the language-bar surface now lives in `langbar.cpp` (249 lines)
+`frontends/tsf/src/tsf.cpp` is 1,659 lines (was 2,320 before stage 4, 2,146
+after it, 2,076 after the S5 extraction and 2,096 after the registration
+helpers; the figures here are physical lines). `CTextService` now carries the
+composition write machinery and the key dispatch; the DLL's exports and
+registration live in `registration.cpp` (451), the shared GUIDs in `ids.cpp`
+(19), and the language-bar surface in `langbar.cpp` (249 lines)
 behind `langbar.h` (73), alongside `delivery.cpp` (307) and
-`candidates.cpp` (323). After stage 5 the settings surface is five TUs ?
+`candidates.cpp` (323). After stage 5 the settings surface is five TUs;
 `settingsdialog.cpp` (731) is now the largest non-shell TU and
-`settings.cpp` (25) is only the export; the shell is 2,096. It is green
+`settings.cpp` (25) is only the export; the shell is 1,659. It is green
 (tier-F1) and behaves; the remaining complaint is the duplication inside
 the shell and the un-tabled QI.
 
@@ -131,17 +140,23 @@ the shell and the un-tabled QI.
    seams with one-line forwards; it owns the TSF callbacks, the
    composition write machinery, one reference to the tear-off langbar item,
    and the settings bridge.
-4. **`tsf.cpp`** — the frontend's exports: the `Dll*` chain, the class
-   factory, and the free functions (`hunmin_ctx_from_module`,
-   `resolveLayoutSlot`).
-5. **`utf.h`** (extracted from the candidate path, stable, no deps) —
+4. **`tsf.cpp`** — the shell's implementations plus the free functions the
+   settings TU shares (`hunmin_ctx_from_module`, `resolveLayoutSlot`). The
+   `Dll*` chain moved out in stage S4.
+5. **`registration.h`/`registration.cpp`** (stage S4) — the DLL's COM
+   surface: the class factory, `DllGetClassObject`, `DllRegisterServer` /
+   `DllUnregisterServer` and their file-static helpers. `registration.h`
+   declares only the three names the DEF exports. The CLSID, profile and
+   display-attribute GUIDs live in `ids.h`/`ids.cpp` because registration
+   and the display-attribute provider both name them.
+6. **`utf.h`** (extracted from the candidate path, stable, no deps) —
    `HunminUtf8ToWide` / `HunminWideToUtf8`, the one conversion pair.
-6. **`langbar.h`/`langbar.cpp`** (stage 4, issues #67/#103): `LangBarItem`
+7. **`langbar.h`/`langbar.cpp`** (stage 4, issues #67/#103): `LangBarItem`
    implements `ITfLangBarItemButton` + `ITfSource` as a tear-off; the shell
    returns it from QI and passes it to `AddItem`/`RemoveItem`. The item
    reads the mode through `LangBarHost` (`tsf.h`) and owns the kernel sink,
    the hosting shape (`GUID_LBI_INPUTMODE`, `BTN_MENU|SHOWNINTRAY`), the badge and the settings menu.
-7. **`settingsrows.h`/`settingsdialog.h`/`settingslaunch.h`** (stage 5,
+8. **`settingsrows.h`/`settingsdialog.h`/`settingslaunch.h`** (stage 5,
    issue #71) — the settings surface split by responsibility:
    `settingsrows` reads the engine list into the dialog's rows and knows no
    window; `settingsdialog` is the interim Win32 surface (template, proc,
@@ -158,10 +173,15 @@ the shell and the un-tabled QI.
 | 3 | `candidates.h`/`candidates.cpp`: the flow class + `CandBackend` on the shell; the tier-F1 candidate tests read a Snapshot accessor instead of the service's private fields | medium — the white-box seam's reach shrinks |
 | 4 | `langbar.h`/`langbar.cpp`: the item as a tear-off (`ITfLangBarItemButton` + `ITfSource`); QI forwards, `AddItem`/`RemoveItem` take the item | medium — the shell's identity changes for three IIDs; the hosted-tray behaviour needs a host re-measure |
 | 5 | `settingsrows`/`settingsdialog`/`settingslaunch`/`settingsprovider`: the 979-line settings TU split by responsibility, export left behind | low — pure relocation; only the two statics become cross-TU calls, max TU 731 |
+| 6 (S4) | `registration.cpp`/`registration.h` + `ids.cpp`/`ids.h`: the register/unregister helpers, the class factory, `DllGetClassObject` and the two exports out of the shell; the shared GUIDs into `ids` | low — pure relocation; verified by link + build, the elevated regsvr32 cycle is a manual checklist |
 
-Next in the maintainer's chosen order (2026-10-22): the shell's duplicated
-paths + the table-driven QI (S5), then the registration block as its own TU
-(S4). The `settings.cpp` split (S10) landed 2026-10-22 (stage 5).
+The `settings.cpp` split (S10) landed 2026-10-22 (stage 5), the registration
+TU (S4) on the same day (stage 6). Still open from S5: the shell's duplicated
+paths and the table-driven QI.
+
+The standalone TSF configure now passes `/utf-8` like the top-level engine
+build, so MSVC reads the UTF-8 sources (Korean and em dashes in comments) as
+UTF-8 and C4819 is gone from every TU in this project.
 
 ## What stays untouched
 

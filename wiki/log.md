@@ -692,3 +692,10 @@
   order, with the unregister side mirrored and the tree deletions left inline
   in the documented reverse order. No order, argument or log line changed; the
   S4 move into its own TU is recorded as still owed.
+
+## [2026-10-22] update | Registration TU landed (S4)
+
+- Same session page updated: the helpers, exports, class factory and
+  DllGetClassObject moved to registration.cpp with the shared GUIDs in
+  ids.cpp; tsf.cpp 2,096 -> 1,659 and the standalone TSF configure now uses
+  /utf-8, clearing C4819.

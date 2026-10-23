@@ -10,6 +10,15 @@ include(CTest)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Sources are UTF-8 (comments carry Korean and em dashes). MSVC decodes in the
+# active code page by default and emits C4819 for every TU that includes such a
+# header; /utf-8 sets source AND execution charset. The top-level engine build
+# already passes the same flag (CMakeLists.txt), so this keeps the standalone
+# TSF configure equal to the packaged one.
+if(MSVC)
+  add_compile_options(/utf-8)
+endif()
+
 # Same option as the top-level CMakeLists.txt (issue #99): this directory is
 # also configured standalone, where the top-level definition never runs —
 # the packaging build passes it here too, so the standalone TIP build links
@@ -22,6 +31,8 @@ endif()
 add_library(hunmin-tsf MODULE
     src/dllmain.cpp
     src/tsf.cpp
+    src/ids.cpp
+    src/registration.cpp
     src/delivery.cpp
     src/candidates.cpp
     src/langbar.cpp

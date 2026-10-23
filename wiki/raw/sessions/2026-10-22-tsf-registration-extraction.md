@@ -60,11 +60,22 @@ unregister cycles remain the elevated manual checklist of issue #84
 (`tests/manual-checklists/tsf-unregister-cleanup.md`), unchanged by this
 pass.
 
+## Then the S4 move (same day)
+
+The plan's S4 half followed immediately: `registration.cpp` (451 lines) now
+carries the helpers, both exports and the DLL's COM surface (the class factory
+and `DllGetClassObject`), with `registration.h` declaring only the three names
+the DEF exports. The three shared GUIDs moved to `ids.cpp` (19) behind
+`ids.h` (21) because registration and the display-attribute provider both
+name them; `g_hunmin_hinst` moved with the only code that read it. `tsf.cpp`
+2,096 -> 1,659. CMake lists the two new TUs for the DLL, the mock harness and
+the trace runner. The standalone TSF configure now passes `/utf-8` (the
+engine build already did), which removes the C4819 noise from every TU.
+
 ## Next
 
-The S4 move is still owed: these helpers and the two exports belong in their
-own TU (`registration.cpp`/`registration.h`), which will also carry the GUID
-and instance globals they currently borrow from `tsf.cpp`. The rest of S5
-remains the QI logging tree and the duplicated `CaptureDeadCopy` site. See
-[[2026-10-22-tsf-settings-split]] for the stage-5 split that preceded this
-session and [[2026-10-22-tsf-langbar-tearoff]] for the stage-4 tear-off.
+The rest of S5 remains the QI logging tree and the duplicated `CaptureDeadCopy`
+site; the component plan then continues with the display attribute,
+composition and key-dispatch TUs. See [[2026-10-22-tsf-settings-split]] for
+the stage-5 split that preceded this session and
+[[2026-10-22-tsf-langbar-tearoff]] for the stage-4 tear-off.
