@@ -699,3 +699,9 @@
   DllGetClassObject moved to registration.cpp with the shared GUIDs in
   ids.cpp; tsf.cpp 2,096 -> 1,659 and the standalone TSF configure now uses
   /utf-8, clearing C4819.
+
+## [2026-10-22] update | Display-attribute provider landed (S7)
+
+- New page: [[2026-10-22-tsf-displayattr-extraction]]. displayattr.cpp (185)
+  carries the provider objects and the DisplayAttr atom channel; tsf.cpp
+  1,659 -> 1,545; tier-F1 4/4.

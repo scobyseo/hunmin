@@ -41,7 +41,8 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(tsf-trace-emit trace-emit.cpp ../src/tsf.cpp ../src/ids.cpp
                    ../src/registration.cpp ../src/delivery.cpp
-                   ../src/candidates.cpp ../src/langbar.cpp ../src/keybinding.cpp
+                   ../src/candidates.cpp ../src/displayattr.cpp
+                   ../src/langbar.cpp ../src/keybinding.cpp
                    ../src/config.cpp ../src/settings.cpp ../src/settingsrows.cpp
                    ../src/settingsdialog.cpp ../src/settingslaunch.cpp
                    ../src/settingsprovider.cpp ../src/candwindow.cpp)
@@ -94,7 +95,8 @@ add_executable(tsf-test tsf-test.cpp
     tsf-langbaritem-test.cpp tsf-datadir-test.cpp tsf-legacy-test.cpp
     ../src/tsf.cpp ../src/ids.cpp ../src/registration.cpp
     ../src/delivery.cpp ../src/candidates.cpp
-    ../src/langbar.cpp ../src/keybinding.cpp ../src/config.cpp
+    ../src/langbar.cpp ../src/displayattr.cpp ../src/keybinding.cpp
+    ../src/config.cpp
     ../src/settings.cpp ../src/settingsrows.cpp ../src/settingsdialog.cpp
     ../src/settingslaunch.cpp ../src/settingsprovider.cpp
     ../src/candwindow.cpp)

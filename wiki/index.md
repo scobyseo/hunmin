@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-22 | Total pages: 51
+> Last updated: 2026-10-22 | Total pages: 52
 
 ## Concepts
 
@@ -301,3 +301,8 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   `CreateStartMenuShortcut`) called in their original order, with
   `DllUnregisterServer` mirrored; S4 then moved the block, both exports and
   the class factory to `registration.cpp` with the shared GUIDs in `ids.cpp`.
+
+- [[2026-10-22-tsf-displayattr-extraction]] - the S7 display-attribute cut
+  (issue #127): the provider objects and the `DisplayAttr` GUID-atom channel
+  moved to `displayattr.cpp` (196), the measured underline shape unchanged;
+  `tsf.cpp` 1,659 -> 1,492, tier-F1 4/4.

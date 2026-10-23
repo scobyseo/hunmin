@@ -198,6 +198,7 @@ struct Candidates {
 };
 
 class LangBarItem;
+class DisplayAttr;
 
 /* The langbar item's READ seam on the shell (S6): the item owns the bar
  * surface, the shell owns the mode. One question, so the item never sees
@@ -329,8 +330,6 @@ class CTextService : public ITfTextInputProcessor,
     void FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat);
     void CompositionEnd(ITfContext *pic, const std::wstring &text);
     void DetachComposition();
-    void ApplyDisplayAttribute(ITfContext *ctx, TfEditCookie ec,
-                               ITfRange *range, bool clear);
     void UpdateConversionCompartment();
     void BoundaryFlush(ITfContext *pic);
 
@@ -365,7 +364,8 @@ class CTextService : public ITfTextInputProcessor,
     ITfComposition *composition_;
     ITfContext *compCtx_;
     std::wstring compText_;
-    TfGuidAtom displayAttrAtom_;
+    /* The preedit styling channel (S7): owns the GUID atom. */
+    std::unique_ptr<DisplayAttr> displayAttr_;
 
     /* Finalised syllables held for insertion at the next boundary key
      * (issue #73); drained destructively by hunmin_ic_commit(). */

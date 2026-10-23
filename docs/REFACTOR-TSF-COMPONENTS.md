@@ -62,7 +62,7 @@ engine-flush duplication was folded into `FlushEngineIntoWordbuf()`, shared
 by `BoundaryFlush`, `DetachComposition` and `Deactivate`. The same pass
 took `ApplyConfigStore`'s two parse scopes to `LoadToggleKeys` /
 `LoadHanjaKey` and its ic free+new pair, shared with `ToggleModeCore`, to
-`RebuildEngineIc`. After that pass `tsf.cpp` was 2,076 lines (was 2,146); `langbar.cpp` 278
+`RebuildEngineIc`. After that pass `tsf.cpp` was 2,076 lines (was 2,146); `langbar.cpp` 276
 and `langbar.h` 82, carrying
 `Attach`/`Detach` and the `attached_` flag that used to be the shell's
 `langbar_registered_`. Tier-F1 4/4; docs-lint 0 errors. One defect was
@@ -90,22 +90,31 @@ three exports the DEF names, so the helpers stay private. The three shared
 GUIDs (service CLSID, language profile, display attribute) moved to `ids.h`/
 `ids.cpp` (21/19) because registration and the display-attribute provider both
 name them, and the `g_hunmin_hinst` extern moved with the only code that read
-it. `tsf.cpp` is 1,659 lines (2,320 at the start of stage 4).
+it. `tsf.cpp` was 1,659 lines (2,320 at the start of stage 4).
+
+Stage S7 then moved the preedit styling out: `displayattr.cpp` (196) carries
+the two provider objects (`ITfDisplayAttributeInfo`, the one-entry enum) and
+the `DisplayAttr` channel that registers the GUID atom and sets/clears the
+attribute; `displayattr.h` (40) declares the factories the shell forwards to
+and the channel the composition session calls. The provider's measured
+attribute shape and its logged `RegisterGUID` failure moved with the code
+unchanged. `tsf.cpp` is 1,492 lines.
 
 ## Where the code stands
 
-`frontends/tsf/src/tsf.cpp` is 1,659 lines (was 2,320 before stage 4, 2,146
-after it, 2,076 after the S5 extraction and 2,096 after the registration
-helpers; the figures here are physical lines). `CTextService` now carries the
-composition write machinery and the key dispatch; the DLL's exports and
-registration live in `registration.cpp` (451), the shared GUIDs in `ids.cpp`
-(19), and the language-bar surface in `langbar.cpp` (249 lines)
-behind `langbar.h` (73), alongside `delivery.cpp` (307) and
-`candidates.cpp` (323). After stage 5 the settings surface is five TUs;
+`frontends/tsf/src/tsf.cpp` is 1,492 lines (was 2,320 before stage 4, 2,146
+after it, 2,076 after the S5 extraction, 2,096 after the registration
+helpers, 1,659 after S4 and 1,492 after S7; the figures here are physical
+lines). `CTextService` now carries the composition write machinery and the
+key dispatch; the DLL's exports and registration live in `registration.cpp`
+(451), the shared GUIDs in `ids.cpp` (19), the preedit styling in
+`displayattr.cpp` (196), and the language-bar surface in `langbar.cpp` (276
+lines) behind `langbar.h` (82), alongside `delivery.cpp` (325) and
+`candidates.cpp` (345). After stage 5 the settings surface is five TUs;
 `settingsdialog.cpp` (731) is now the largest non-shell TU and
-`settings.cpp` (25) is only the export; the shell is 1,659. It is green
-(tier-F1) and behaves; the remaining complaint is the duplication inside
-the shell and the un-tabled QI.
+`settings.cpp` (25) is only the export; the shell is 1,492. It is green
+(tier-F1) and behaves; the remaining complaint is the composition/key
+machinery still inline and the un-tabled QI.
 
 ## The rules this refactor obeys
 
@@ -156,7 +165,13 @@ the shell and the un-tabled QI.
    returns it from QI and passes it to `AddItem`/`RemoveItem`. The item
    reads the mode through `LangBarHost` (`tsf.h`) and owns the kernel sink,
    the hosting shape (`GUID_LBI_INPUTMODE`, `BTN_MENU|SHOWNINTRAY`), the badge and the settings menu.
-8. **`settingsrows.h`/`settingsdialog.h`/`settingslaunch.h`** (stage 5,
+ 8. **`displayattr.h`/`displayattr.cpp`** (S7) — the preedit styling: the
+   two provider objects (`ITfDisplayAttributeInfo` and the one-entry
+   `IEnumTfDisplayAttributeInfo`) and `DisplayAttr`, which owns the
+   `TfGuidAtom`, registers the GUID once and sets or clears the attribute
+   over a range. The shell's two provider methods are forwards; the
+   composition session calls `DisplayAttr::Apply`.
+ 9. **`settingsrows.h`/`settingsdialog.h`/`settingslaunch.h`** (stage 5,
    issue #71) — the settings surface split by responsibility:
    `settingsrows` reads the engine list into the dialog's rows and knows no
    window; `settingsdialog` is the interim Win32 surface (template, proc,
@@ -174,10 +189,12 @@ the shell and the un-tabled QI.
 | 4 | `langbar.h`/`langbar.cpp`: the item as a tear-off (`ITfLangBarItemButton` + `ITfSource`); QI forwards, `AddItem`/`RemoveItem` take the item | medium — the shell's identity changes for three IIDs; the hosted-tray behaviour needs a host re-measure |
 | 5 | `settingsrows`/`settingsdialog`/`settingslaunch`/`settingsprovider`: the 979-line settings TU split by responsibility, export left behind | low — pure relocation; only the two statics become cross-TU calls, max TU 731 |
 | 6 (S4) | `registration.cpp`/`registration.h` + `ids.cpp`/`ids.h`: the register/unregister helpers, the class factory, `DllGetClassObject` and the two exports out of the shell; the shared GUIDs into `ids` | low — pure relocation; verified by link + build, the elevated regsvr32 cycle is a manual checklist |
+| 7 (S7) | `displayattr.cpp`/`displayattr.h`: the provider objects and the `DisplayAttr` atom channel out of the shell | low — pure relocation; the painted underlines need a host look (not ctest-observable), the provider shape is unchanged |
 
 The `settings.cpp` split (S10) landed 2026-10-22 (stage 5), the registration
-TU (S4) on the same day (stage 6). Still open from S5: the shell's duplicated
-paths and the table-driven QI.
+TU (S4) and the display attribute (S7) on the same day (stages 6-7). Still
+open from S5: the shell's duplicated paths and the table-driven QI; next in
+the plan are the composition and key-dispatch TUs.
 
 The standalone TSF configure now passes `/utf-8` like the top-level engine
 build, so MSVC reads the UTF-8 sources (Korean and em dashes in comments) as

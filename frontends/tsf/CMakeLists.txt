@@ -35,6 +35,7 @@ add_library(hunmin-tsf MODULE
     src/registration.cpp
     src/delivery.cpp
     src/candidates.cpp
+    src/displayattr.cpp
     src/langbar.cpp
     src/keybinding.cpp
     src/config.cpp
