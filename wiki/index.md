@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-22 | Total pages: 55
+> Last updated: 2026-10-22 | Total pages: 56
 
 ## Concepts
 
@@ -322,3 +322,8 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   #127): test/down/up, the predicates, toggles, `DrainAndPass`,
   `HarvestFinalised` and `FeedEngineKey` moved to `keydispatch.cpp` (386)
   as member definitions; `tsf.cpp` 945 -> 575, tier-F1 4/4.
+
+- [[2026-10-22-tsf-qi-table]] - the Q QI table (issue #127): one
+  `kQiRoutes` list feeds the trace tag and the dispatch, replacing two
+  parallel if/else chains; the log text and answer order are unchanged;
+  `tsf.cpp` 575 -> 597, tier-F1 4/4.

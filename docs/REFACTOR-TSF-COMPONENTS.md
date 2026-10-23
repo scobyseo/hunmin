@@ -120,15 +120,22 @@ Stage K then moved the key path out: `keydispatch.cpp` (386) defines the
 test/down/up handlers, `TrackKeyContext`, the passage and modifier
 predicates, the mode toggle, `DrainAndPass`, `VkToBase`, `HarvestFinalised`
 and `FeedEngineKey`. These are member definitions of `CTextService`
-(declared in `tsf.h`), so no header or seam was needed. `tsf.cpp` is 575
+(declared in `tsf.h`), so no header or seam was needed. `tsf.cpp` was 575
 lines.
+
+Stage Q then tabled the QI answers: `QueryInterface` now looks the IID up in
+one `kQiRoutes` table whose entries carry the trace tag and the answering
+half (`this` cast, the settings-provider factory, the langbar tear-off), and
+the same lookup feeds both the trace line and the dispatch. The log line is
+byte-identical to the old two-part write; the order of answers is unchanged.
+`tsf.cpp` is 597 lines.
 
 ## Where the code stands
 
-`frontends/tsf/src/tsf.cpp` is 575 lines (was 2,320 before stage 4, 2,146
+`frontends/tsf/src/tsf.cpp` is 597 lines (was 2,320 before stage 4, 2,146
 after it, 2,076 after the S5 extraction, 2,096 after the registration
-helpers, 1,659 after S4, 1,492 after S7, 1,384 after F, 945 after C and 575
-after K; the figures here are physical lines). `CTextService` now carries the
+helpers, 1,659 after S4, 1,492 after S7, 1,384 after F, 945 after C, 575
+after K and 597 after Q; the figures here are physical lines). `CTextService` now carries the
 activation lifecycle and the document-manager callbacks; the key path lives
 in `keydispatch.cpp` (386), the composition machinery
 in `composition.cpp` (457), the DLL's exports and registration in
@@ -138,9 +145,9 @@ and the language-bar surface in `langbar.cpp` (276
 lines) behind `langbar.h` (82), alongside `delivery.cpp` (325) and
 `candidates.cpp` (345). After stage 5 the settings surface is five TUs;
 `settingsdialog.cpp` (731) is now the largest non-shell TU and
-`settings.cpp` (25) is only the export; the shell is 575. It is green
+`settings.cpp` (25) is only the export; the shell is 597. It is green
 (tier-F1) and behaves; the remaining complaint is the settings-exe resolver
-duplication and the un-tabled QI.
+duplication (S, gated on a ruling).
 
 ## The rules this refactor obeys
 
@@ -175,9 +182,10 @@ duplication and the un-tabled QI.
    seams with one-line forwards; it owns the TSF callbacks, the
    composition write machinery, one reference to the tear-off langbar item,
    and the settings bridge.
-4. **`tsf.cpp`** — the shell's implementations plus the free functions the
-   settings TU shares (`hunmin_ctx_from_module`, `resolveLayoutSlot`). The
-   `Dll*` chain moved out in stage S4.
+4. **`tsf.cpp`** — the shell's activation lifecycle, document-manager
+   callbacks, the registered-feature registry and the settings-exe bridge.
+   The `Dll*` chain moved out in S4, the composition in C, the key path in K;
+   the QI answers are one table (`kQiRoutes`) in this TU.
 5. **`registration.h`/`registration.cpp`** (stage S4) — the DLL's COM
    surface: the class factory, `DllGetClassObject`, `DllRegisterServer` /
    `DllUnregisterServer` and their file-static helpers. `registration.h`
@@ -235,12 +243,12 @@ duplication and the un-tabled QI.
 | 8 (F) | `datadir.cpp`/`datadir.h`: the data-source search and the layout-slot check out of the shell; `settings.h`/`tsf.h` include the new header | low — pure relocation; the tier-F1 datadir and config tests already assert both functions |
 | 9 (C) | `composition.cpp`: the termination handler, the three edit sessions, the write/end/detach half and the engine/boundary drain out of the shell; the session classes stay nested in `tsf.h` and are defined here | low — pure relocation; the three win32 traces and the candidate group already exercise the composition lifecycle |
 | 10 (K) | `keydispatch.cpp`: the test/down/up handlers, the predicates, the toggles, `DrainAndPass`, `VkToBase`, `HarvestFinalised` and `FeedEngineKey` as member definitions | low — pure relocation; the three win32 traces drive the whole key path and the candidate group the toggle |
+| 11 (Q) | the QI answer table in `tsf.cpp`: one `kQiRoutes` list feeds the trace tag and the dispatch (this-cast, settings-provider factory, langbar tear-off) | low — the answer order and the log text are unchanged; the object identity per IID is untouched |
 
-The `settings.cpp` split (S10) landed 2026-10-22 (stage 5), the registration
-TU (S4), the display attribute (S7), the data source (F), the composition
-machinery (C) and the key path (K) on the same day (stages 6-10). Still open
-from S5: the shell's duplicated paths and the table-driven QI; next is the
-settings-exe resolver unification (candidate routing needs a ruling), then Q.
+The `settings.cpp` split (S10) landed 2026-10-22 (stage 5), and stages 6-11
+(registration, display attribute, data source, composition, key path, QI
+table) the same day. Still open from S5: the shell's duplicated settings-exe
+paths (S), gated on a maintainer ruling about candidate order.
 
 The standalone TSF configure now passes `/utf-8` like the top-level engine
 build, so MSVC reads the UTF-8 sources (Korean and em dashes in comments) as

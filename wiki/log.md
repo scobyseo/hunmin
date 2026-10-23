@@ -725,3 +725,9 @@
 - New page: [[2026-10-22-tsf-keydispatch-extraction]]. keydispatch.cpp (386)
   defines the test/down/up handlers, predicates, toggles, DrainAndPass,
   HarvestFinalised and FeedEngineKey; tsf.cpp 945 -> 575; tier-F1 4/4.
+
+## [2026-10-22] update | QI answers tabled (Q)
+
+- New page: [[2026-10-22-tsf-qi-table]]. One kQiRoutes table now feeds the QI
+  trace and the dispatch; log text and answer order unchanged; tsf.cpp
+  575 -> 597; tier-F1 4/4.

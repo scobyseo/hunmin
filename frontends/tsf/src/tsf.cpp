@@ -146,78 +146,100 @@ CTextService::~CTextService() {
         lastCtx_->Release();
 }
 
+namespace {
+
+/* The QI answer table (stage Q): the IIDs the object answers, the tag the
+ * QI trace prints, and which half answers. One table feeds both the log
+ * line and the dispatch, so a new interface cannot be answered without
+ * being logged. */
+enum QiKind { kQiThis,
+              kQiSettingsProvider,
+              kQiLangBar };
+
+struct QiRoute {
+    const IID *iid;
+    const char *tag;
+    QiKind kind;
+    IUnknown *(*as)(CTextService *);
+};
+
+IUnknown *AsTip(CTextService *svc) { return static_cast<ITfTextInputProcessor *>(svc); }
+IUnknown *AsThreadMgrSink(CTextService *svc) { return static_cast<ITfThreadMgrEventSink *>(svc); }
+IUnknown *AsKeySink(CTextService *svc) { return static_cast<ITfKeyEventSink *>(svc); }
+IUnknown *AsCompositionSink(CTextService *svc) { return static_cast<ITfCompositionSink *>(svc); }
+IUnknown *AsDisplayAttrProvider(CTextService *svc) {
+    return static_cast<ITfDisplayAttributeProvider *>(svc);
+}
+
+const QiRoute kQiRoutes[] = {
+    /* IID_IUnknown answers with the ITfTextInputProcessor subobject: the
+     * class has no single IUnknown base to return. */
+    {&IID_IUnknown, "tip", kQiThis, AsTip},
+    {&IID_ITfTextInputProcessor, "tip", kQiThis, AsTip},
+    {&IID_ITfThreadMgrEventSink, "tmesink", kQiThis, AsThreadMgrSink},
+    {&IID_ITfKeyEventSink, "keysink", kQiThis, AsKeySink},
+    {&IID_ITfCompositionSink, "compsink", kQiThis, AsCompositionSink},
+    /* Issue #71: the settings surface. QI'able on the live text service
+     * object, exactly the TSF-native reachability mechanism;
+     * GetFunction(IID_ITfFnConfigure) then hands out the configure
+     * function (settingsprovider.cpp). */
+    {&IID_ITfFunctionProvider, "fnprov", kQiSettingsProvider, nullptr},
+    /* Issue #98: the display-attribute provider the app-side attribute
+     * manager looks for through the GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER
+     * category. */
+    {&IID_ITfDisplayAttributeProvider, "dispattr", kQiThis, AsDisplayAttrProvider},
+    /* S6: the language bar speaks to the TEAR-OFF item, not to the text
+     * service. Its own QI answers IUnknown, ITfLangBarItem,
+     * ITfLangBarItemButton and ITfSource, so the bar asks the item (not
+     * this object) to AdviseSink its ITfLangBarItemSink. */
+    {&IID_ITfLangBarItem, "lbi", kQiLangBar, nullptr},
+    {&IID_ITfLangBarItemButton, "lblbtn", kQiLangBar, nullptr},
+    {&IID_ITfSource, "source", kQiLangBar, nullptr},
+};
+
+const QiRoute *FindQiRoute(REFIID riid) {
+    for (const QiRoute &route : kQiRoutes)
+        if (IsEqualIID(riid, *route.iid))
+            return &route;
+    return nullptr;
+}
+
+} // namespace
+
 STDMETHODIMP CTextService::QueryInterface(REFIID riid, void **ppv) {
     if (!ppv)
         return E_INVALIDARG;
+    const QiRoute *route = FindQiRoute(riid);
     /* The QI trace (the maintainer's request, the hosted-item
      * diagnosis): one line per QI, the asked IID's lead field and
      * the answered slot mask - the langbar's hosting decision is
      * where the item's shape gets judged, so the log names which
      * IID rounds the object actually gets asked for. */
-    {
-        hunmin_logger.log("QI riid=%08lX-%04X answered=",
-                          (unsigned long)riid.Data1, (unsigned)riid.Data2);
-        if (IsEqualIID(riid, IID_IUnknown) ||
-            IsEqualIID(riid, IID_ITfTextInputProcessor))
-            hunmin_logger.log("tip");
-        else if (IsEqualIID(riid, IID_ITfThreadMgrEventSink))
-            hunmin_logger.log("tmesink");
-        else if (IsEqualIID(riid, IID_ITfKeyEventSink))
-            hunmin_logger.log("keysink");
-        else if (IsEqualIID(riid, IID_ITfCompositionSink))
-            hunmin_logger.log("compsink");
-        else if (IsEqualIID(riid, IID_ITfFunctionProvider))
-            hunmin_logger.log("fnprov");
-        else if (IsEqualIID(riid, IID_ITfDisplayAttributeProvider))
-            hunmin_logger.log("dispattr");
-        else if (IsEqualIID(riid, IID_ITfLangBarItem))
-            hunmin_logger.log("lbi");
-        else if (IsEqualIID(riid, IID_ITfLangBarItemButton))
-            hunmin_logger.log("lblbtn");
-        else if (IsEqualIID(riid, IID_ITfSource))
-            hunmin_logger.log("source");
-        else
-            hunmin_logger.log("none");
-        hunmin_logger.log(" pid=%lu\n", (unsigned long)GetCurrentProcessId());
+    hunmin_logger.log("QI riid=%08lX-%04X answered=%s pid=%lu\n",
+                      (unsigned long)riid.Data1, (unsigned)riid.Data2,
+                      route ? route->tag : "none",
+                      (unsigned long)GetCurrentProcessId());
+    if (!route) {
+        *ppv = nullptr;
+        return E_NOINTERFACE;
     }
-    if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfTextInputProcessor)) {
-        *ppv = static_cast<ITfTextInputProcessor *>(this);
-    } else if (IsEqualIID(riid, IID_ITfThreadMgrEventSink)) {
-        *ppv = static_cast<ITfThreadMgrEventSink *>(this);
-    } else if (IsEqualIID(riid, IID_ITfKeyEventSink)) {
-        *ppv = static_cast<ITfKeyEventSink *>(this);
-    } else if (IsEqualIID(riid, IID_ITfCompositionSink)) {
-        *ppv = static_cast<ITfCompositionSink *>(this);
-    } else if (IsEqualIID(riid, IID_ITfFunctionProvider)) {
-        /* Issue #71: the settings surface. QI'able on the live text
-         * service object, exactly the TSF-native reachability
-         * mechanism; GetFunction(IID_ITfFnConfigure) then hands out the
-         * configure function (settingsprovider.cpp). */
+    switch (route->kind) {
+    case kQiThis:
+        *ppv = route->as(this);
+        AddRef();
+        return S_OK;
+    case kQiSettingsProvider:
         *ppv = hunmin_tsf_settings_new_provider(this);
         return S_OK;
-    } else if (IsEqualIID(riid, IID_ITfDisplayAttributeProvider)) {
-        /* Issue #98: the display-attribute provider the app-side
-         * attribute manager looks for through the
-         * GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER category. */
-        *ppv = static_cast<ITfDisplayAttributeProvider *>(this);
-    } else if (IsEqualIID(riid, IID_ITfLangBarItem) ||
-               IsEqualIID(riid, IID_ITfLangBarItemButton) ||
-               IsEqualIID(riid, IID_ITfSource)) {
-        /* S6: the language bar speaks to the TEAR-OFF item, not to the
-         * text service. Its own QI answers IUnknown, ITfLangBarItem,
-         * ITfLangBarItemButton and ITfSource, so the bar asks the item
-         * (not this object) to AdviseSink its ITfLangBarItemSink. */
+    case kQiLangBar:
         if (!langbar_) {
             *ppv = nullptr;
             return E_NOINTERFACE;
         }
         return langbar_->QueryInterface(riid, ppv);
-    } else {
-        *ppv = nullptr;
-        return E_NOINTERFACE;
     }
-    AddRef();
-    return S_OK;
+    *ppv = nullptr;
+    return E_NOINTERFACE;
 }
 
 STDMETHODIMP_(ULONG)
