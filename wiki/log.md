@@ -719,3 +719,9 @@
   write/end/detach half and the engine/boundary drain; the session classes
   stay nested in tsf.h and are defined there. tsf.cpp 1,384 -> 945;
   tier-F1 4/4.
+
+## [2026-10-22] update | Key path extracted (K)
+
+- New page: [[2026-10-22-tsf-keydispatch-extraction]]. keydispatch.cpp (386)
+  defines the test/down/up handlers, predicates, toggles, DrainAndPass,
+  HarvestFinalised and FeedEngineKey; tsf.cpp 945 -> 575; tier-F1 4/4.

@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-22 | Total pages: 54
+> Last updated: 2026-10-22 | Total pages: 55
 
 ## Concepts
 
@@ -317,3 +317,8 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   write/end/detach half and the engine/boundary drain moved to
   `composition.cpp` (457) as nested-class definitions, no new seam;
   `tsf.cpp` 1,384 -> 945, tier-F1 4/4.
+
+- [[2026-10-22-tsf-keydispatch-extraction]] - the K key-path cut (issue
+  #127): test/down/up, the predicates, toggles, `DrainAndPass`,
+  `HarvestFinalised` and `FeedEngineKey` moved to `keydispatch.cpp` (386)
+  as member definitions; `tsf.cpp` 945 -> 575, tier-F1 4/4.

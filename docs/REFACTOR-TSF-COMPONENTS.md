@@ -114,25 +114,33 @@ boundary/engine drain (`FlushEngineIntoWordbuf`, `BoundaryFlush`), the
 `RectSession` and `CaretRect`. The edit-session classes stay nested members of
 `CTextService` (declared in `tsf.h`, defined in the new TU), so they keep the
 enclosing class's access without a new seam; the delivery seam and
-`DisplayAttr` are used exactly as before. `tsf.cpp` is 945 lines.
+`DisplayAttr` are used exactly as before. `tsf.cpp` was 945 lines.
+
+Stage K then moved the key path out: `keydispatch.cpp` (386) defines the
+test/down/up handlers, `TrackKeyContext`, the passage and modifier
+predicates, the mode toggle, `DrainAndPass`, `VkToBase`, `HarvestFinalised`
+and `FeedEngineKey`. These are member definitions of `CTextService`
+(declared in `tsf.h`), so no header or seam was needed. `tsf.cpp` is 575
+lines.
 
 ## Where the code stands
 
-`frontends/tsf/src/tsf.cpp` is 945 lines (was 2,320 before stage 4, 2,146
+`frontends/tsf/src/tsf.cpp` is 575 lines (was 2,320 before stage 4, 2,146
 after it, 2,076 after the S5 extraction, 2,096 after the registration
-helpers, 1,659 after S4, 1,492 after S7, 1,384 after F and 945 after C; the
-figures here are physical lines). `CTextService` now carries the activation lifecycle, the
-key dispatch and the document-manager callbacks; the composition machinery
-lives in `composition.cpp` (457), the DLL's exports and registration in
+helpers, 1,659 after S4, 1,492 after S7, 1,384 after F, 945 after C and 575
+after K; the figures here are physical lines). `CTextService` now carries the
+activation lifecycle and the document-manager callbacks; the key path lives
+in `keydispatch.cpp` (386), the composition machinery
+in `composition.cpp` (457), the DLL's exports and registration in
 `registration.cpp` (451), the shared GUIDs in `ids.cpp` (19), the preedit
 styling in `displayattr.cpp` (196), the data source in `datadir.cpp` (122),
 and the language-bar surface in `langbar.cpp` (276
 lines) behind `langbar.h` (82), alongside `delivery.cpp` (325) and
 `candidates.cpp` (345). After stage 5 the settings surface is five TUs;
 `settingsdialog.cpp` (731) is now the largest non-shell TU and
-`settings.cpp` (25) is only the export; the shell is 945. It is green
-(tier-F1) and behaves; the remaining complaint is the key-dispatch machinery
-still inline, the settings-exe resolver duplication and the un-tabled QI.
+`settings.cpp` (25) is only the export; the shell is 575. It is green
+(tier-F1) and behaves; the remaining complaint is the settings-exe resolver
+duplication and the un-tabled QI.
 
 ## The rules this refactor obeys
 
@@ -207,6 +215,11 @@ still inline, the settings-exe resolver duplication and the un-tabled QI.
    (declared in `tsf.h`) and are DEFINED here, which keeps their access to
    the shell's composition state without widening the class's public surface.
    Delivery and the styling are reached through their existing seams.
+ 12. **`keydispatch.cpp`** (K) — the key path: test/down/up, context
+   tracking, the passage and modifier predicates, the mode/candidate
+   toggles, `DrainAndPass`, `HarvestFinalised` and `FeedEngineKey`. No
+   header: these are `CTextService` member definitions, declared in
+   `tsf.h`; the shell keeps the lifecycle and document callbacks.
 
 ## Staged execution (each stage lands ctest-green, then commits)
 
@@ -221,12 +234,13 @@ still inline, the settings-exe resolver duplication and the un-tabled QI.
 | 7 (S7) | `displayattr.cpp`/`displayattr.h`: the provider objects and the `DisplayAttr` atom channel out of the shell | low — pure relocation; the painted underlines need a host look (not ctest-observable), the provider shape is unchanged |
 | 8 (F) | `datadir.cpp`/`datadir.h`: the data-source search and the layout-slot check out of the shell; `settings.h`/`tsf.h` include the new header | low — pure relocation; the tier-F1 datadir and config tests already assert both functions |
 | 9 (C) | `composition.cpp`: the termination handler, the three edit sessions, the write/end/detach half and the engine/boundary drain out of the shell; the session classes stay nested in `tsf.h` and are defined here | low — pure relocation; the three win32 traces and the candidate group already exercise the composition lifecycle |
+| 10 (K) | `keydispatch.cpp`: the test/down/up handlers, the predicates, the toggles, `DrainAndPass`, `VkToBase`, `HarvestFinalised` and `FeedEngineKey` as member definitions | low — pure relocation; the three win32 traces drive the whole key path and the candidate group the toggle |
 
 The `settings.cpp` split (S10) landed 2026-10-22 (stage 5), the registration
-TU (S4), the display attribute (S7), the data source (F) and the composition
-machinery (C) on the same day (stages 6-9). Still open from S5: the shell's
-duplicated paths and the table-driven QI; next in the plan is the key-dispatch
-TU, then the settings-exe resolver unification (routing needs a ruling).
+TU (S4), the display attribute (S7), the data source (F), the composition
+machinery (C) and the key path (K) on the same day (stages 6-10). Still open
+from S5: the shell's duplicated paths and the table-driven QI; next is the
+settings-exe resolver unification (candidate routing needs a ruling), then Q.
 
 The standalone TSF configure now passes `/utf-8` like the top-level engine
 build, so MSVC reads the UTF-8 sources (Korean and em dashes in comments) as
