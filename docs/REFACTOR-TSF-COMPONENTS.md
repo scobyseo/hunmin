@@ -51,18 +51,52 @@ module, same resolution). Board rows re-pointed (TSF-SETTINGS-SHOW-71,
 TSF-CAPTURE-HOOK-67, TSF-SCREEN-67); tier-F1 green (4/4, 2.7 s); docs-lint
 0 errors.
 
+Stage S5 began the same day on the maintainer's directive: an anonymous
+block in `Activate()` (or thereabouts) should be a private function, or the
+relevant class's API. `Activate()`'s three naked blocks became
+`AdviseSinks()`, `DetectLegacyMode()` and `LangBarItem::Attach()`;
+`Deactivate()`'s advice block became `UnadviseSinks()`, its local
+`DeactSession` class was replaced by the existing `InsertBufferedWord()`
+(the SetText duplication recorded in the S5 findings), and the
+engine-flush duplication was folded into `FlushEngineIntoWordbuf()`, shared
+by `BoundaryFlush`, `DetachComposition` and `Deactivate`. The same pass
+took `ApplyConfigStore`'s two parse scopes to `LoadToggleKeys` /
+`LoadHanjaKey` and its ic free+new pair, shared with `ToggleModeCore`, to
+`RebuildEngineIc`. After that pass `tsf.cpp` was 2,076 lines (was 2,146); `langbar.cpp` 278
+and `langbar.h` 82, carrying
+`Attach`/`Detach` and the `attached_` flag that used to be the shell's
+`langbar_registered_`. Tier-F1 4/4; docs-lint 0 errors. One defect was
+exposed and NOT changed: `UnadviseSinks()` nulls `threadMgr_` before
+`Deactivate()` reaches the detach, so `Detach` (and `OnRemoved`) is a no-op
+today; recorded as TSF-LANGBAR-DETACH-127 for a ruling.
+
+The maintainer then pointed the same rule at `DllRegisterServer()`. Its seven
+scopes became file-static helpers, one per registration artifact:
+`RegisterComServer()` (CLSID/InprocServer32), `RegisterTipKey()` (the HKLM TIP
+key), `RegisterInputProcessorProfile()` (`Register` + `AddLanguageProfile` +
+`EnableLanguageProfile`, anchored on the helper's own address),
+`PinProfileIconIndex()` (the two-pass IconIndex pin), `ActivateInputProcessorProfile()`
+(ProfileMgr then the legacy fallback, with its measurement comment),
+`RegisterTipCategories()` and `CreateStartMenuShortcut()`. `DllRegisterServer()`
+is now the ordered list of those calls. `DllUnregisterServer()` mirrors it with
+`UnregisterInputProcessorProfile()` and `UnregisterTipCategories()`, the tree
+deletions staying inline in the documented reverse order. No call order,
+argument or log line changed; `tsf.cpp` is 2,096 lines. The S4 half still owed
+is the move itself: these helpers and the two exports belong in their own TU.
+
 ## Where the code stands
 
-`frontends/tsf/src/tsf.cpp` is 2,146 lines (was 2,320 before stage 4; the
-figures here are physical lines). `CTextService` still carries the
+`frontends/tsf/src/tsf.cpp` is 2,096 lines (was 2,320 before stage 4, 2,146
+after it and 2,076 after the S5 extraction; the figures here are physical
+lines). `CTextService` still carries the
 composition write machinery, the key dispatch and the registration
 exports; the language-bar surface now lives in `langbar.cpp` (249 lines)
 behind `langbar.h` (73), alongside `delivery.cpp` (307) and
 `candidates.cpp` (323). After stage 5 the settings surface is five TUs ?
 `settingsdialog.cpp` (731) is now the largest non-shell TU and
-`settings.cpp` (25) is only the export; the shell remains 2,146. It is
-green (tier-F1) and behaves; the remaining complaint is the duplication
-inside the shell.
+`settings.cpp` (25) is only the export; the shell is 2,096. It is green
+(tier-F1) and behaves; the remaining complaint is the duplication inside
+the shell and the un-tabled QI.
 
 ## The rules this refactor obeys
 
@@ -106,8 +140,7 @@ inside the shell.
    implements `ITfLangBarItemButton` + `ITfSource` as a tear-off; the shell
    returns it from QI and passes it to `AddItem`/`RemoveItem`. The item
    reads the mode through `LangBarHost` (`tsf.h`) and owns the kernel sink,
-   the hosting shape (`GUID_LBI_INPUTMODE`, `BTN_BUTTON|BTN_MENU|
-   SHOWNINTRAY`), the badge and the settings menu.
+   the hosting shape (`GUID_LBI_INPUTMODE`, `BTN_MENU|SHOWNINTRAY`), the badge and the settings menu.
 7. **`settingsrows.h`/`settingsdialog.h`/`settingslaunch.h`** (stage 5,
    issue #71) — the settings surface split by responsibility:
    `settingsrows` reads the engine list into the dialog's rows and knows no

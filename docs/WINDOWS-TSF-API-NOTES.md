@@ -83,7 +83,8 @@ and for a reference probe from a plain thread — recorded the ENVIRONMENT
 whose item carries `guidItem = GUID_LBI_INPUTMODE`
 ({2C77A81E-41CC-4178-A3A7-5F8A987568E6}), style `BTN_BUTTON | SHOWNINTRAY`,
 and an implemented `ITfSource` IS hosted live by the tray input indicator.
-That recipe is the adapter's item now:
+That recipe is the adapter's item now, with one ruling change (2026-10-22):
+style `BTN_MENU | SHOWNINTRAY`, no `BTN_BUTTON`:
 
 - `guidItem` MUST be `GUID_LBI_INPUTMODE` — the Win8+/Win11 "input
   indicator" hosts a langbar item only with this GUID; other item GUIDs are
@@ -92,11 +93,11 @@ That recipe is the adapter's item now:
   the language bar installs its `ITfLangBarItemSink` ONTO the item at
   `AddItem`; the item notifies `OnUpdate(TF_LBI_ICON | TF_LBI_TEXT)` at
   every mode boundary so the 한/A badge refreshes without a host restart.
-- With `BTN_BUTTON`, left AND right clicks arrive as `OnClick(CLK_LEFT /
-  CLK_RIGHT)`: right-click shows the one-entry config menu
-  ("Hunmin 설정 열기") → `hunmin_tsf_launch_settings` (the settings-ui
-  exe); `InitMenu`/`OnMenuSelect` stay wired for a floating-bar host that
-  routes a menu-button shape instead.
+- With `BTN_MENU`, the menu-button routing calls `InitMenu`/`OnMenuSelect`:
+  the one-entry config menu ("Hunmin 설정 열기") →
+  `hunmin_tsf_launch_settings` (the settings-ui exe). `OnClick` stays
+  implemented but is not advertised (the former `BTN_BUTTON` recipe delivered
+  left and right clicks as `OnClick(CLK_LEFT / CLK_RIGHT)`).
 
 **Removed (2026-10-20, "it confuses"):** the `ITfSystemLangBarItemSink`
 system-menu extension (its advice had settled on this host's system items

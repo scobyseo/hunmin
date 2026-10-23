@@ -9,6 +9,7 @@
  */
 #include "langbar.h"
 
+#include "log.h"
 #include "settings.h" /* hunmin_tsf_launch_settings */
 
 #include <cstring>
@@ -71,12 +72,10 @@ STDMETHODIMP LangBarItem::GetInfo(TF_LANGBARITEMINFO *pInfo) {
      * project: any other item GUID is ignored by the shell's hosted-item
      * path). The older private GUID F2C70003 never got past AddItem. */
     pInfo->guidItem = HunminLbiInputModeGuid;
-    /* BTN_BUTTON | BTN_MENU | SHOWNINTRAY - the hosted pair plus the
-     * menu-button bit (maintainer steer, 2026-10-21: the config menu
-     * rides the BTN_MENU routing too, not only OnClick's own popup): a
-     * bar surface that routes menu-button style calls InitMenu/
-     * OnMenuSelect (language-bar.md), which stays wired; a
-     * BTN_BUTTON-routing surface still lands OnClick(CLK_LEFT|RIGHT). */
+    /* BTN_MENU | SHOWNINTRAY - the ruled shape (maintainer instruction
+     * 2026-10-22: no BTN_BUTTON). A bar surface that routes menu-button
+     * style calls InitMenu/OnMenuSelect (language-bar.md), which stays
+     * wired; OnClick stays implemented but is not advertised. */
     pInfo->dwStyle = TF_LBI_STYLE_BTN_MENU | TF_LBI_STYLE_SHOWNINTRAY;
     pInfo->ulSort = 0;
     lstrcpynW(pInfo->szDescription, L"Hunmin \uC124\uC815", MAX_PATH);
@@ -141,10 +140,11 @@ STDMETHODIMP LangBarItem::OnClick(TfLBIClick click, POINT pt, const RECT *prcAre
         return S_OK;
     }
     (void)pt;
-    /* Left click = the command-button action (BTN_BUTTON). The settings
-     * launch is a DEDICATED PROCESS, not a modal loop on this thread:
-     * the TIP thread must not pump a nested message loop while TSF
-     * holds edit cookies. */
+    /* Left/other-click action, kept for a host that routes a button
+     * click; the ruled style advertises no BTN_BUTTON. The settings launch
+     * is a DEDICATED PROCESS, not a modal loop on this thread: the TIP
+     * thread must not pump a nested message loop while TSF holds edit
+     * cookies. */
     return hunmin_tsf_launch_settings(static_cast<void *>(this));
 }
 
@@ -231,6 +231,34 @@ STDMETHODIMP LangBarItem::GetText(BSTR *pbstrText) {
 void LangBarItem::Update() {
     if (sink_)
         sink_->OnUpdate(TF_LBI_ICON | TF_LBI_TEXT);
+}
+
+bool LangBarItem::Attach(ITfThreadMgr *threadMgr) {
+    if (!threadMgr)
+        return false;
+    ITfLangBarItemMgr *plbm = nullptr;
+    HRESULT hb = threadMgr->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm);
+    hunmin_logger.log("langbar QI hr=0x%lX\n", (unsigned long)hb);
+    if (FAILED(hb) || !plbm)
+        return false;
+    HRESULT ai = plbm->AddItem(this);
+    if (SUCCEEDED(ai))
+        attached_ = true;
+    hunmin_logger.log("langbar AddItem hr=0x%lX\n", (unsigned long)ai);
+    plbm->Release();
+    return attached_;
+}
+
+void LangBarItem::Detach(ITfThreadMgr *threadMgr) {
+    if (!attached_ || !threadMgr)
+        return;
+    ITfLangBarItemMgr *plbm = nullptr;
+    if (SUCCEEDED(threadMgr->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm)) && plbm) {
+        plbm->RemoveItem(this);
+        plbm->Release();
+    }
+    attached_ = false;
+    OnRemoved();
 }
 
 void LangBarItem::OnRemoved() {

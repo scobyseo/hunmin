@@ -475,55 +475,62 @@ CTextService::Release() {
     return r;
 }
 
-void CTextService::ApplyConfigStore() {
-    hunmin_logger.log("ApplyConfigStore pid=%lu\n", (unsigned long)GetCurrentProcessId());
-    HunminTsfConfig cfg;
-    hunmin_tsf_config_load(HKEY_CURRENT_USER, &cfg);
-    hunmin_tsf_resolve_layout_slot(ctx_, cfg.hangulLayout, kHangulDefaultId, true, &hangulId_);
-    hunmin_tsf_resolve_layout_slot(ctx_, cfg.latinLayout, kLatinDefaultId, false, &latinId_);
-    /* The mode-toggle set (Android KeyBinding semantics): configured
-     * chords ADD, and the bare physical Han/Eng key is appended when
-     * the store does not carry it - it must never go dead. */
-    {
-        HunminKeyCombo parsed[16];
-        const int nParsed = hunmin_tsf_keybindings_parse(cfg.toggleKeys, parsed, 16);
-        toggleKeys_.assign(parsed, parsed + nParsed);
-        bool hangeulBare = false;
-        for (const HunminKeyCombo &c : toggleKeys_)
-            if (c.vk == HUNMIN_TSF_VIRTUAL_HANGEUL && c.mods == 0)
-                hangeulBare = true;
-        if (!hangeulBare)
-            toggleKeys_.push_back(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANGEUL, 0});
-        hunmin_logger.log("  toggle keys=%zu (configured bits: %s)\n",
-                          toggleKeys_.size(),
-                          cfg.toggleKeys[0] ? cfg.toggleKeys : "(none)");
+/* The mode-toggle set (Android KeyBinding semantics): configured chords
+ * ADD, and the bare physical Han/Eng key is appended when the store does not
+ * carry it - it must never go dead. */
+void CTextService::LoadToggleKeys(const HunminTsfConfig &cfg) {
+    HunminKeyCombo parsed[16];
+    const int nParsed = hunmin_tsf_keybindings_parse(cfg.toggleKeys, parsed, 16);
+    toggleKeys_.assign(parsed, parsed + nParsed);
+    bool hangeulBare = false;
+    for (const HunminKeyCombo &c : toggleKeys_)
+        if (c.vk == HUNMIN_TSF_VIRTUAL_HANGEUL && c.mods == 0)
+            hangeulBare = true;
+    if (!hangeulBare)
+        toggleKeys_.push_back(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANGEUL, 0});
+    hunmin_logger.log("  toggle keys=%zu (configured bits: %s)\n", toggleKeys_.size(),
+                      cfg.toggleKeys[0] ? cfg.toggleKeys : "(none)");
+}
+
+/* The candidate-window key (issue #67): ONE binding from the store, default
+ * the bare physical Hanja key. An unparseable binding falls back to the
+ * default rather than matching nothing - the candidate window must stay
+ * reachable, and a parse failure must never swallow a keystroke. */
+void CTextService::LoadHanjaKey(const HunminTsfConfig &cfg) {
+    HunminKeyCombo parsed[2];
+    const int nParsed = hunmin_tsf_keybindings_parse(cfg.hanjaKey, parsed, 2);
+    if (nParsed > 0) {
+        hanjaCombo_ = parsed[0];
+    } else {
+        hanjaCombo_ = HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0};
+        hunmin_logger.log("  hanja key unparseable (%s) -> default VK_HANJA\n",
+                          cfg.hanjaKey[0] ? cfg.hanjaKey : "(empty)");
     }
-    /* The candidate-window key (issue #67): ONE binding from the store,
-     * default the bare physical Hanja key. An unparseable binding falls
-     * back to the default rather than matching nothing - the candidate
-     * window must stay reachable, and a parse failure must never
-     * swallow a keystroke. */
-    {
-        HunminKeyCombo parsed[2];
-        const int nParsed =
-            hunmin_tsf_keybindings_parse(cfg.hanjaKey, parsed, 2);
-        if (nParsed > 0) {
-            hanjaCombo_ = parsed[0];
-        } else {
-            hanjaCombo_ = HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0};
-            hunmin_logger.log("  hanja key unparseable (%s) -> default VK_HANJA\n",
-                              cfg.hanjaKey[0] ? cfg.hanjaKey : "(empty)");
-        }
-    }
-    /* The candidate window belongs to a composition the ic swap below
-     * drops: close it with Apply, like the mode toggle does (issue #67). */
-    cand_->Close();
+}
+
+/* The engine instance for the CURRENT mode: the config boundary and the mode
+ * toggle both swap it, so the free+new pair has one home. */
+void CTextService::RebuildEngineIc() {
     if (ic_) {
         hunmin_ic_free(ic_);
         ic_ = nullptr;
     }
     if (ctx_)
         ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
+}
+
+void CTextService::ApplyConfigStore() {
+    hunmin_logger.log("ApplyConfigStore pid=%lu\n", (unsigned long)GetCurrentProcessId());
+    HunminTsfConfig cfg;
+    hunmin_tsf_config_load(HKEY_CURRENT_USER, &cfg);
+    hunmin_tsf_resolve_layout_slot(ctx_, cfg.hangulLayout, kHangulDefaultId, true, &hangulId_);
+    hunmin_tsf_resolve_layout_slot(ctx_, cfg.latinLayout, kLatinDefaultId, false, &latinId_);
+    LoadToggleKeys(cfg);
+    LoadHanjaKey(cfg);
+    /* The candidate window belongs to a composition the ic swap below
+     * drops: close it with Apply, like the mode toggle does (issue #67). */
+    cand_->Close();
+    RebuildEngineIc();
     hunmin_logger.log("  applied hangul=%s latin=%s ic=%p\n",
                       hangulId_.c_str(), latinId_.c_str(), (void *)ic_);
 }
@@ -539,16 +546,64 @@ void CTextService::ToggleModeCore(ITfContext *pic) {
     hangulMode_ = !hangulMode_;
     UpdateConversionCompartment();
     UpdateLangBarItem();
-    if (ic_) {
-        hunmin_ic_free(ic_);
-        ic_ = nullptr;
-    }
-    if (ctx_)
-        ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
+    RebuildEngineIc();
     /* This gated line is the one evidence a mode boundary ran in this
      * host at all: the key path's own log line lives in its handler. */
     hunmin_logger.log("toggle core -> mode=%s ic=%p pic=%p\r\n",
                       hangulMode_ ? "hangul" : "english", (void *)ic_, (void *)pic);
+}
+
+/* The two TSF advice registrations Activate needs: the thread-manager event
+ * sink and the key-event sink. Both belong to the live session; Deactivate's
+ * UnadviseSinks() undoes the key half. */
+void CTextService::AdviseSinks() {
+    if (!threadMgr_)
+        return;
+    ITfKeystrokeMgr *pks = nullptr;
+    hunmin_logger.log("Advise threadmgr attempt\n");
+    ITfSource *src = nullptr;
+    HRESULT srch = threadMgr_->QueryInterface(IID_ITfSource, (void **)&src);
+    HRESULT tmHr = E_NOINTERFACE;
+    if (SUCCEEDED(srch) && src) {
+        tmHr = src->AdviseSink(IID_ITfThreadMgrEventSink,
+                               static_cast<ITfThreadMgrEventSink *>(this), &sinkCookie_);
+        src->Release();
+    }
+    hunmin_logger.log("  source hr=0x%lX threadmgr advise hr=0x%lX cookie=%lu\n",
+                      (unsigned long)srch, (unsigned long)tmHr,
+                      (unsigned long)sinkCookie_);
+    HRESULT qh = threadMgr_->QueryInterface(IID_ITfKeystrokeMgr, (void **)&pks);
+    hunmin_logger.log("Advise QI hr=0x%lX pks=%p\n", (unsigned long)qh, (void *)pks);
+    if (SUCCEEDED(qh) && pks) {
+        HRESULT ah = pks->AdviseKeyEventSink(clientId_, this, TRUE);
+        hunmin_logger.log("AdviseKeyEventSink hr=0x%lX\n", (unsigned long)ah);
+        pks->Release();
+    }
+}
+
+void CTextService::UnadviseSinks() {
+    if (!threadMgr_)
+        return;
+    ITfKeystrokeMgr *pks = nullptr;
+    if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfKeystrokeMgr, (void **)&pks)) && pks) {
+        pks->UnadviseKeyEventSink(clientId_);
+        pks->Release();
+    }
+    threadMgr_->Release();
+    threadMgr_ = nullptr;
+}
+
+/* Issue #119: the legacy path is DETECTED at runtime (a mid-word host
+ * termination flips the service); HUNMIN_TSF_INTERIM=1 only FORCES every
+ * context onto it up front (debug/probe escape hatch). */
+void CTextService::DetectLegacyMode() {
+    char v[8] = {0};
+    interimForce_ = GetEnvironmentVariableA("HUNMIN_TSF_INTERIM", v, sizeof v) &&
+                    (v[0] == '1' || _stricmp(v, "on") == 0 || _stricmp(v, "true") == 0);
+    legacyMode_ = interimForce_;
+    UseDelivery(legacyMode_ ? HUNMIN_TSF_DELIVERY_INTERIM : HUNMIN_TSF_DELIVERY_NATIVE);
+    hunmin_logger.log("legacy force=%d detected-mode=%d\n", interimForce_ ? 1 : 0,
+                      legacyMode_ ? 1 : 0);
 }
 
 STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
@@ -557,29 +612,7 @@ STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
     if (ptm)
         ptm->AddRef();
     hunmin_logger.log("Activate pid=%lu tid=%u\n", (unsigned long)GetCurrentProcessId(), (unsigned)tid);
-    if (ptm) {
-        ITfKeystrokeMgr *pks = nullptr;
-        hunmin_logger.log("Advise threadmgr attempt\n");
-        ITfSource *src = nullptr;
-        HRESULT srch = ptm->QueryInterface(IID_ITfSource, (void **)&src);
-        HRESULT tmHr = E_NOINTERFACE;
-        if (SUCCEEDED(srch) && src) {
-            tmHr = src->AdviseSink(IID_ITfThreadMgrEventSink, static_cast<ITfThreadMgrEventSink *>(this),
-                                   &sinkCookie_);
-            src->Release();
-        }
-        hunmin_logger.log("  source hr=0x%lX threadmgr advise hr=0x%lX cookie=%lu\n",
-                          (unsigned long)srch, (unsigned long)tmHr,
-                          (unsigned long)sinkCookie_);
-        HRESULT qh = ptm->QueryInterface(IID_ITfKeystrokeMgr, (void **)&pks);
-        hunmin_logger.log("Advise QI hr=0x%lX pks=%p\n", (unsigned long)qh,
-                          (void *)pks);
-        if (SUCCEEDED(qh) && pks) {
-            HRESULT ah = pks->AdviseKeyEventSink(clientId_, this, TRUE);
-            hunmin_logger.log("AdviseKeyEventSink hr=0x%lX\n", (unsigned long)ah);
-            pks->Release();
-        }
-    }
+    AdviseSinks();
     ctx_ = hunmin_ctx_from_module();
     hunmin_logger.log("  ctx_=%p\n", (void *)ctx_);
 
@@ -590,38 +623,13 @@ STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
      * Activate() had to do anyway; no separate activation-only copy
      * exists. Activate() starts hangulMode_=true. */
     ApplyConfigStore();
-    /* Issue #119: the legacy path is DETECTED at runtime (a mid-word
-     * host termination flips the service); HUNMIN_TSF_INTERIM=1 only
-     * FORCES every context onto it up front (debug/probe escape
-     * hatch). */
-    {
-        char v[8] = {0};
-        interimForce_ = GetEnvironmentVariableA("HUNMIN_TSF_INTERIM", v, sizeof v) &&
-                        (v[0] == '1' || _stricmp(v, "on") == 0 || _stricmp(v, "true") == 0);
-        legacyMode_ = interimForce_;
-        UseDelivery(legacyMode_ ? HUNMIN_TSF_DELIVERY_INTERIM : HUNMIN_TSF_DELIVERY_NATIVE);
-        hunmin_logger.log("legacy force=%d detected-mode=%d\n", interimForce_ ? 1 : 0, legacyMode_ ? 1 : 0);
-    }
+    DetectLegacyMode();
     /* THE language-bar item (issue #103, the ruled langbar surface): the
      * mode indicator (icon 한/A, text) AND the right-click config menu
      * ride our own ITfLangBarItemButton, added while the service is
      * active and removed in Deactivate (docs: language-bar.md, "Adding
      * Items to the Language Bar"). */
-    {
-        ITfLangBarItemMgr *plbm = nullptr;
-        HRESULT hb = ptm->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm);
-        hunmin_logger.log("langbar QI hr=0x%lX\n", (unsigned long)hb);
-        if (SUCCEEDED(hb) && plbm) {
-            HRESULT ai = plbm->AddItem(langbar_);
-            if (SUCCEEDED(ai)) {
-                /* The mgr holds a reference to the item; it is released
-                 * only by Deactivate's RemoveItem. */
-                langbar_registered_ = true;
-            }
-            hunmin_logger.log("langbar AddItem hr=0x%lX\n", (unsigned long)ai);
-            plbm->Release();
-        }
-    }
+    langbar_->Attach(ptm);
     UpdateConversionCompartment();
     /* The item's first notification: the sink is only set once the
      * language bar advises it (the item's ITfSource::AdviseSink), so an
@@ -634,99 +642,22 @@ STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
 }
 
 STDMETHODIMP CTextService::Deactivate() {
-    if (threadMgr_) {
-        ITfKeystrokeMgr *pks = nullptr;
-        if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfKeystrokeMgr, (void **)&pks)) && pks) {
-            pks->UnadviseKeyEventSink(clientId_);
-            pks->Release();
-        }
-        threadMgr_->Release();
-        threadMgr_ = nullptr;
-    }
+    UnadviseSinks();
     /* A live composition (issue #98) is finalised in its own context
      * first: the composed word stays there as committed text and the
      * buffers drain, so the plain-insert path below only handles what
      * is left when no composition could ever be started. */
     DetachComposition();
-    if (lastCtx_ && ic_) {
-        const char *flushed = hunmin_ic_flush(ic_);
-        if (flushed && flushed[0]) {
-            int flen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
-            if (flen > 1) {
-                size_t old = wordbuf_.size();
-                /* flen counts the NUL terminator; text only, as above. */
-                wordbuf_.resize(old + flen - 1);
-                MultiByteToWideChar(CP_UTF8, 0, flushed, -1, &wordbuf_[old], flen);
-            }
-        }
-    }
-    if (!wordbuf_.empty() && lastCtx_) {
-        int wlen = (int)wordbuf_.size() + 1;
-        wchar_t *wbuf = new wchar_t[wlen];
-        wordbuf_.copy(wbuf, wordbuf_.size());
-        wbuf[wordbuf_.size()] = 0;
-        class DeactSession : public ITfEditSession {
-          public:
-            DeactSession(ITfContext *ctx, TfClientId cid, const wchar_t *t)
-                : ref_(1), ctx_(ctx), cid_(cid), t_(t) {}
-            STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
-                if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
-                    *ppv = this;
-                    AddRef();
-                    return S_OK;
-                }
-                *ppv = nullptr;
-                return E_NOINTERFACE;
-            }
-            STDMETHOD_(ULONG, AddRef)() override { return (ULONG)InterlockedIncrement(&ref_); }
-            STDMETHOD_(ULONG, Release)() override {
-                ULONG r = (ULONG)InterlockedDecrement(&ref_);
-                if (r == 0)
-                    delete this;
-                return r;
-            }
-            STDMETHOD(DoEditSession)(TfEditCookie ec) override {
-                TF_SELECTION sel;
-                ULONG fetched = 0;
-                if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) &&
-                    fetched == 1 && sel.range) {
-                    sel.range->SetText(ec, 0, t_, -1);
-                    sel.range->Collapse(ec, TF_ANCHOR_END);
-                    TF_SELECTION ns = sel;
-                    ctx_->SetSelection(ec, 1, &ns);
-                    sel.range->Release();
-                }
-                return S_OK;
-            }
-
-          private:
-            LONG ref_;
-            ITfContext *ctx_;
-            TfClientId cid_;
-            const wchar_t *t_;
-        };
-        DeactSession *ds = new DeactSession(lastCtx_, clientId_, wbuf);
-        HRESULT hrS = S_OK;
-        lastCtx_->RequestEditSession(clientId_, ds, TF_ES_SYNC | TF_ES_READWRITE, &hrS);
-        ds->Release();
-        delete[] wbuf;
-    }
+    if (lastCtx_)
+        FlushEngineIntoWordbuf();
+    if (!wordbuf_.empty() && lastCtx_)
+        InsertBufferedWord(lastCtx_);
     wordbuf_.clear();
     cand_->Close();
-    /* Drop the language-bar item; the langbar kernel releases its
-     * reference to the item, which is why RemoveItem must pass the SAME
-     * pointer it got in AddItem. */
-    if (langbar_registered_ && threadMgr_) {
-        ITfLangBarItemMgr *plbm = nullptr;
-        if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm)) && plbm) {
-            plbm->RemoveItem(langbar_);
-            plbm->Release();
-        }
-        langbar_registered_ = false;
-        /* The kernel-provided sink goes with the item (language-bar.md:
-         * the sink lives between AddItem and RemoveItem). */
-        langbar_->OnRemoved();
-    }
+    /* Remove the language-bar item. NOTE (recorded defect, not changed
+     * here): UnadviseSinks() above has already nulled threadMgr_, so this
+     * call is a no-op today - the same ordering the block had inline. */
+    langbar_->Detach(threadMgr_);
     if (ic_) {
         hunmin_ic_free(ic_);
         ic_ = nullptr;
@@ -1435,15 +1366,7 @@ void CTextService::CompositionEnd(ITfContext *pic, const std::wstring &text) {
 void CTextService::DetachComposition() {
     if (!composition_ || !compCtx_)
         return;
-    const char *flushed = ic_ ? hunmin_ic_flush(ic_) : "";
-    if (flushed && flushed[0]) {
-        int flen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
-        if (flen > 1) {
-            size_t old = wordbuf_.size();
-            wordbuf_.resize(old + flen - 1);
-            MultiByteToWideChar(CP_UTF8, 0, flushed, -1, &wordbuf_[old], flen);
-        }
-    }
+    FlushEngineIntoWordbuf();
     std::wstring text = wordbuf_;
     wordbuf_.clear();
     CompositionEnd(compCtx_, text);
@@ -1557,7 +1480,9 @@ void CTextService::InsertBufferedWord(ITfContext *pic) {
  * mode toggle (issue #66): the in-flight syllable is flushed into the
  * buffered word, and the whole word is inserted exactly once before the
  * boundary key (or mode switch) proceeds. */
-void CTextService::BoundaryFlush(ITfContext *pic) {
+/* The engine's in-flight syllable appended to the buffered word. Shared by
+ * the boundary drain, the deactivation drain and the composition detach. */
+void CTextService::FlushEngineIntoWordbuf() {
     const char *flushed = ic_ ? hunmin_ic_flush(ic_) : "";
     if (flushed && flushed[0]) {
         int flen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
@@ -1568,6 +1493,10 @@ void CTextService::BoundaryFlush(ITfContext *pic) {
             MultiByteToWideChar(CP_UTF8, 0, flushed, -1, &wordbuf_[old], flen);
         }
     }
+}
+
+void CTextService::BoundaryFlush(ITfContext *pic) {
+    FlushEngineIntoWordbuf();
     hunmin_logger.log(" boundary, word len=%zu preedit=%s\n", wordbuf_.size(),
                       ic_ ? hunmin_ic_preedit(ic_) : "");
     delivery_->Boundary(pic);
@@ -1741,262 +1670,330 @@ void hunmin_tsf_apply_config_store(void *svc) {
     static_cast<CTextService *>(svc)->ApplyConfigStore();
 }
 
-extern "C" BOOL DllRegisterServer() {
-    // logging (the ONE syntax; the head truncates, the chain appends)
-    hunmin_reg_logger.reset();
-    wchar_t guidStr[64];
-    StringFromGUID2(CLSID_HunminTSF, guidStr, 64);
-    {
-        hunmin_reg_logger.log(L"guid=%s\n", guidStr);
-    }
+/* --- registration helpers (S4: this block becomes its own TU) ---
+ * One helper per registration artifact, so DllRegisterServer reads as the
+ * ordered list below and each artifact logs its own outcome. */
 
-    wchar_t dllPath[MAX_PATH];
-    HINSTANCE hinst = g_hunmin_hinst;
-    if (!hinst)
-        hinst = GetModuleHandleW(L"hunmin-tsf.dll");
-    GetModuleFileNameW(hinst, dllPath, MAX_PATH);
-    {
-        hunmin_reg_logger.log(L"module=%s\n", dllPath);
-    }
-
-    // COM CLSID key registration
+static bool RegisterComServer(const wchar_t *guidStr, const wchar_t *dllPath) {
     HKEY hKey = nullptr;
-    HKEY hSub = nullptr;
     wchar_t clsidPath[128];
     swprintf(clsidPath, 128, L"CLSID\\%s", guidStr);
-
-    LSTATUS st = RegCreateKeyExW(HKEY_CLASSES_ROOT, clsidPath, 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr,
+    LSTATUS st = RegCreateKeyExW(HKEY_CLASSES_ROOT, clsidPath, 0, nullptr,
+                                 REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr,
                                  &hKey, nullptr);
     if (st != ERROR_SUCCESS)
-        return FALSE;
+        return false;
 
+    HKEY hSub = nullptr;
     wchar_t inprocPath[256];
     swprintf(inprocPath, 256, L"%s\\InprocServer32", clsidPath);
-    st = RegCreateKeyExW(HKEY_CLASSES_ROOT, inprocPath, 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &hSub,
+    st = RegCreateKeyExW(HKEY_CLASSES_ROOT, inprocPath, 0, nullptr,
+                         REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &hSub,
                          nullptr);
     if (st != ERROR_SUCCESS) {
         RegCloseKey(hKey);
-        return FALSE;
+        return false;
     }
 
-    RegSetValueExW(hSub, nullptr, 0, REG_SZ, (const BYTE *)dllPath, (DWORD)((wcslen(dllPath) + 1) * sizeof(wchar_t)));
+    RegSetValueExW(hSub, nullptr, 0, REG_SZ, (const BYTE *)dllPath,
+                   (DWORD)((wcslen(dllPath) + 1) * sizeof(wchar_t)));
     const wchar_t *model = L"Apartment";
     RegSetValueExW(hSub, L"ThreadingModel", 0, REG_SZ, (const BYTE *)model,
                    (DWORD)((wcslen(model) + 1) * sizeof(wchar_t)));
 
     RegCloseKey(hSub);
     RegCloseKey(hKey);
+    return true;
+}
 
-    // TSF TIP category registration (so it is enumerated in input settings).
+/* TSF TIP category registration (so it is enumerated in input settings). */
+static void RegisterTipKey(const wchar_t *guidStr) {
     HKEY hTIP = nullptr;
     wchar_t tipPath[256];
     swprintf(tipPath, 256, L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s", guidStr);
-    LSTATUS tipSt = RegCreateKeyExW(HKEY_LOCAL_MACHINE, tipPath, 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_WRITE,
-                                    nullptr, &hTIP, nullptr);
+    LSTATUS tipSt = RegCreateKeyExW(HKEY_LOCAL_MACHINE, tipPath, 0, nullptr,
+                                    REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr,
+                                    &hTIP, nullptr);
     if (tipSt == ERROR_SUCCESS) {
         const wchar_t *tipName = L"Hunmin";
         RegSetValueExW(hTIP, nullptr, 0, REG_SZ, (const BYTE *)tipName,
                        (DWORD)((wcslen(tipName) + 1) * sizeof(wchar_t)));
         RegCloseKey(hTIP);
     }
-    CoInitialize(nullptr);
-    ITfInputProcessorProfiles *pProfile = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
-                                  IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
-    {
-        hunmin_reg_logger.log(L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
-    }
-    if (SUCCEEDED(hr) && pProfile) {
-        HRESULT regHr = pProfile->Register(CLSID_HunminTSF);
-        {
-            hunmin_reg_logger.log(L"pProfile->Register hr=0x%lX\n", (unsigned long)regHr);
-        }
-        static const GUID profileGuid = HunminProfileGuid;
-        HMODULE hSelf = nullptr;
-        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR)(const void *)DllRegisterServer, &hSelf);
-        wchar_t iconPath[MAX_PATH] = L"";
-        if (hSelf)
-            GetModuleFileNameW(hSelf, iconPath, MAX_PATH);
-        HRESULT addHr =
-            pProfile->AddLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid, L"Hunmin", (ULONG)wcslen(L"Hunmin"),
-                                         iconPath[0] ? iconPath : nullptr, 0, TRUE);
-        {
-            hunmin_reg_logger.log(L"pProfile->AddLanguageProfile hr=0x%lX\n", (unsigned long)addHr);
-        }
-        HRESULT enableHr = pProfile->EnableLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid, TRUE);
-        {
-            hunmin_reg_logger.log(L"pProfile->EnableLanguageProfile hr=0x%lX\n", (unsigned long)enableHr);
-        }
-        /* Icon index pin (measured 2026-10-18: the live profile answered
-         * IconFile=<dll> IconIndex=1 - a slot with no icon - and the language
-         * entry rendered BLANK; user report "still no icon on langbar").
-         * AddLanguageProfile was called with uIconIndex=0 yet the stored
-         * value read 1, so registration rewrites the stored index to 0
-         * (resource id 1 IS the first icon of hunmin.ico). */
-        {
-            wchar_t lp3412[256];
-            swprintf(lp3412, _countof(lp3412),
-                     L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile\\0x00000412\\%s",
-                     guidStr, L"{F2C70002-0000-0000-0000-000000000002}");
-            for (DWORD pass = 0; pass < 2; ++pass) {
-                wchar_t ikey[192];
-                if (pass == 0)
-                    swprintf(ikey, _countof(ikey),
-                             L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile\\0x00000412",
-                             guidStr);
-                else
-                    lstrcpynW(ikey, lp3412, _countof(ikey));
-                HKEY hIk = nullptr;
-                if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, ikey, 0, KEY_SET_VALUE, &hIk) ==
-                    ERROR_SUCCESS) {
-                    DWORD zero = 0;
-                    RegSetValueExW(hIk, L"IconIndex", 0, REG_DWORD, (const BYTE *)&zero,
-                                   sizeof zero);
-                    RegCloseKey(hIk);
-                }
-            }
-        }
-        /* Activation has to be asked for on the modern interface.
-         *
-         * ITfInputProcessorProfiles::ActivateLanguageProfile returns S_OK
-         * while activating nothing beyond the calling process: measured on
-         * this machine, GetActiveLanguageProfile then still answered S_FALSE
-         * for hunmin AND for the Microsoft IME, and a fresh Notepad loaded
-         * MSCTF.dll but never hunmin-tsf.dll -- no Activate(), no key sink.
-         *
-         * Measured for ITfInputProcessorProfileMgr::ActivateProfile: neither
-         * TF_IPPMF_FORSESSION nor TF_IPPMF_FORSYSTEMALL (both with
-         * TF_IPPMF_ENABLEPROFILE) persists past the registering process --
-         * a fresh process still reports the Microsoft IME as active. What
-         * they do record is the enablement/profile entry, so the profile is
-         * selectable; selecting it (Win+Space) then loads and activates the
-         * TIP in the focused process, measured end to end. The CTF default
-         * assembly (HKCU ...CTF SortOrder index 0 / Assemblies Default) is
-         * Windows Settings' store and is deliberately not written here.
-         */
-        ITfInputProcessorProfileMgr *pProfileMgr = nullptr;
-        HRESULT mgrHr = pProfile->QueryInterface(IID_ITfInputProcessorProfileMgr, (LPVOID *)&pProfileMgr);
-        {
-            hunmin_reg_logger.log(L"pProfile QI(ITfInputProcessorProfileMgr) hr=0x%lX\n", (unsigned long)mgrHr);
-        }
-        if (SUCCEEDED(mgrHr) && pProfileMgr) {
-            HRESULT actHr =
-                pProfileMgr->ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, 0x0412, CLSID_HunminTSF, profileGuid,
-                                             nullptr, TF_IPPMF_FORSYSTEMALL | TF_IPPMF_ENABLEPROFILE);
-            {
-                hunmin_reg_logger.log(L"pProfileMgr->ActivateProfile hr=0x%lX\n", (unsigned long)actHr);
-            }
-            TF_INPUTPROCESSORPROFILE active;
-            ZeroMemory(&active, sizeof(active));
-            HRESULT getHr = pProfileMgr->GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD, &active);
-            {
-                hunmin_reg_logger.log(L"pProfileMgr->GetActiveProfile hr=0x%lX active.clsid={%08lX} active.profile=%08lX\n",
-                                      (unsigned long)getHr, (unsigned long)active.clsid.Data1,
-                                      (unsigned long)active.guidProfile.Data1);
-            }
-            if (FAILED(getHr) || !IsEqualGUID(active.clsid, CLSID_HunminTSF)) {
-                /* Pre-Vista hosts, or a profile the session refused: the
-                 * legacy call is the only thing left to try. */
-                HRESULT legacyHr = pProfile->ActivateLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid);
-                {
-                    hunmin_reg_logger.log(L"fallback ActivateLanguageProfile hr=0x%lX\n", (unsigned long)legacyHr);
-                }
-            }
-            pProfileMgr->Release();
-        } else {
-            HRESULT legacyHr = pProfile->ActivateLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid);
-            {
-                hunmin_reg_logger.log(L"ActivateLanguageProfile (no ProfileMgr) hr=0x%lX\n", (unsigned long)legacyHr);
-            }
-        }
-        pProfile->Release();
-    }
+}
 
+/* Icon index pin (measured 2026-10-18: the live profile answered
+ * IconFile=<dll> IconIndex=1 - a slot with no icon - and the language entry
+ * rendered BLANK; user report "still no icon on langbar"). AddLanguageProfile
+ * was called with uIconIndex=0 yet the stored value read 1, so registration
+ * rewrites the stored index to 0 (resource id 1 IS the first icon of
+ * hunmin.ico). */
+static void PinProfileIconIndex(const wchar_t *guidStr) {
+    wchar_t lp3412[256];
+    swprintf(lp3412, _countof(lp3412),
+             L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile\\0x00000412\\%s",
+             guidStr, L"{F2C70002-0000-0000-0000-000000000002}");
+    for (DWORD pass = 0; pass < 2; ++pass) {
+        wchar_t ikey[192];
+        if (pass == 0)
+            swprintf(ikey, _countof(ikey),
+                     L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile\\0x00000412",
+                     guidStr);
+        else
+            lstrcpynW(ikey, lp3412, _countof(ikey));
+        HKEY hIk = nullptr;
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, ikey, 0, KEY_SET_VALUE, &hIk) ==
+            ERROR_SUCCESS) {
+            DWORD zero = 0;
+            RegSetValueExW(hIk, L"IconIndex", 0, REG_DWORD, (const BYTE *)&zero,
+                           sizeof zero);
+            RegCloseKey(hIk);
+        }
+    }
+}
+
+/* Activation has to be asked for on the modern interface.
+ *
+ * ITfInputProcessorProfiles::ActivateLanguageProfile returns S_OK while
+ * activating nothing beyond the calling process: measured on this machine,
+ * GetActiveLanguageProfile then still answered S_FALSE for hunmin AND for
+ * the Microsoft IME, and a fresh Notepad loaded MSCTF.dll but never
+ * hunmin-tsf.dll -- no Activate(), no key sink.
+ *
+ * Measured for ITfInputProcessorProfileMgr::ActivateProfile: neither
+ * TF_IPPMF_FORSESSION nor TF_IPPMF_FORSYSTEMALL (both with
+ * TF_IPPMF_ENABLEPROFILE) persists past the registering process -- a fresh
+ * process still reports the Microsoft IME as active. What they do record is
+ * the enablement/profile entry, so the profile is selectable; selecting it
+ * (Win+Space) then loads and activates the TIP in the focused process,
+ * measured end to end. The CTF default assembly (HKCU ...CTF SortOrder index
+ * 0 / Assemblies Default) is Windows Settings' store and is deliberately not
+ * written here.
+ */
+static void ActivateInputProcessorProfile(ITfInputProcessorProfiles *pProfile,
+                                          REFGUID profileGuid) {
+    ITfInputProcessorProfileMgr *pProfileMgr = nullptr;
+    HRESULT mgrHr = pProfile->QueryInterface(IID_ITfInputProcessorProfileMgr,
+                                             (LPVOID *)&pProfileMgr);
+    hunmin_reg_logger.log(L"pProfile QI(ITfInputProcessorProfileMgr) hr=0x%lX\n",
+                          (unsigned long)mgrHr);
+    if (SUCCEEDED(mgrHr) && pProfileMgr) {
+        HRESULT actHr = pProfileMgr->ActivateProfile(
+            TF_PROFILETYPE_INPUTPROCESSOR, 0x0412, CLSID_HunminTSF, profileGuid,
+            nullptr, TF_IPPMF_FORSYSTEMALL | TF_IPPMF_ENABLEPROFILE);
+        hunmin_reg_logger.log(L"pProfileMgr->ActivateProfile hr=0x%lX\n",
+                              (unsigned long)actHr);
+        TF_INPUTPROCESSORPROFILE active;
+        ZeroMemory(&active, sizeof(active));
+        HRESULT getHr = pProfileMgr->GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD, &active);
+        hunmin_reg_logger.log(
+            L"pProfileMgr->GetActiveProfile hr=0x%lX active.clsid={%08lX} active.profile=%08lX\n",
+            (unsigned long)getHr, (unsigned long)active.clsid.Data1,
+            (unsigned long)active.guidProfile.Data1);
+        if (FAILED(getHr) || !IsEqualGUID(active.clsid, CLSID_HunminTSF)) {
+            /* Pre-Vista hosts, or a profile the session refused: the legacy
+             * call is the only thing left to try. */
+            HRESULT legacyHr =
+                pProfile->ActivateLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid);
+            hunmin_reg_logger.log(L"fallback ActivateLanguageProfile hr=0x%lX\n",
+                                  (unsigned long)legacyHr);
+        }
+        pProfileMgr->Release();
+    } else {
+        HRESULT legacyHr = pProfile->ActivateLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid);
+        hunmin_reg_logger.log(L"ActivateLanguageProfile (no ProfileMgr) hr=0x%lX\n",
+                              (unsigned long)legacyHr);
+    }
+}
+
+static void RegisterInputProcessorProfile(const wchar_t *guidStr) {
+    ITfInputProcessorProfiles *pProfile = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr,
+                                  CLSCTX_INPROC_SERVER,
+                                  IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
+    hunmin_reg_logger.log(L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
+    if (FAILED(hr) || !pProfile)
+        return;
+
+    HRESULT regHr = pProfile->Register(CLSID_HunminTSF);
+    hunmin_reg_logger.log(L"pProfile->Register hr=0x%lX\n", (unsigned long)regHr);
+    static const GUID profileGuid = HunminProfileGuid;
+    HMODULE hSelf = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                       (LPCWSTR)(const void *)&RegisterInputProcessorProfile, &hSelf);
+    wchar_t iconPath[MAX_PATH] = L"";
+    if (hSelf)
+        GetModuleFileNameW(hSelf, iconPath, MAX_PATH);
+    HRESULT addHr = pProfile->AddLanguageProfile(
+        CLSID_HunminTSF, 0x0412, profileGuid, L"Hunmin",
+        (ULONG)wcslen(L"Hunmin"), iconPath[0] ? iconPath : nullptr, 0, TRUE);
+    hunmin_reg_logger.log(L"pProfile->AddLanguageProfile hr=0x%lX\n",
+                          (unsigned long)addHr);
+    HRESULT enableHr = pProfile->EnableLanguageProfile(CLSID_HunminTSF, 0x0412, profileGuid, TRUE);
+    hunmin_reg_logger.log(L"pProfile->EnableLanguageProfile hr=0x%lX\n",
+                          (unsigned long)enableHr);
+    PinProfileIconIndex(guidStr);
+    ActivateInputProcessorProfile(pProfile, profileGuid);
+    pProfile->Release();
+}
+
+static void RegisterTipCategories() {
     ITfCategoryMgr *pCatMgr = nullptr;
-    hr = CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
-    {
-        hunmin_reg_logger.log(L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
+    HRESULT hr = CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER,
+                                  IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
+    hunmin_reg_logger.log(L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
+    if (FAILED(hr) || !pCatMgr)
+        return;
+    HRESULT c1 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_TIP_KEYBOARD,
+                                           CLSID_HunminTSF);
+    HRESULT c2 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_CATEGORY_OF_TIP,
+                                           CLSID_HunminTSF);
+    /* Issue #98: the display-attribute provider category - the app-side
+     * attribute manager resolves the above provider object through it, and
+     * the composition range's GUID_PROP_ATTRIBUTE value carries
+     * HunminDisplayAttrGuid, which the provider serves. */
+    HRESULT c3 = pCatMgr->RegisterCategory(CLSID_HunminTSF,
+                                           GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
+                                           CLSID_HunminTSF);
+    hunmin_reg_logger.log(
+        L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n",
+        (unsigned long)c1, (unsigned long)c2, (unsigned long)c3);
+    pCatMgr->Release();
+}
+
+/* The Start-menu entry (discoverability): "Hunmin IME 설정" under Programs.
+ * The ruled surface (the settings-ui exe) wins when it is deployed beside the
+ * DLL; the rundll32 entry into HunminSettingsShow is the fallback that always
+ * works. Deleted in unregister, mirroring the tree work. */
+static void CreateStartMenuShortcut(const wchar_t *dllPath) {
+    wchar_t dllDir[MAX_PATH];
+    lstrcpynW(dllDir, dllPath, MAX_PATH);
+    PathRemoveFileSpecW(dllDir);
+    wchar_t pub[MAX_PATH];
+    wchar_t exe[MAX_PATH];
+    exe[0] = 0;
+    /* Candidate A: deployment layout - <dll dir>\settings-ui\publish. */
+    _snwprintf(pub, MAX_PATH, L"%s\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
+    if (PathFileExistsW(pub))
+        lstrcpynW(exe, pub, MAX_PATH);
+    if (!exe[0]) {
+        /* Candidate B: this worktree's layout - repo\frontends\tsf\.. */
+        _snwprintf(pub, MAX_PATH,
+                   L"%s\\..\\..\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
+        wchar_t full[MAX_PATH];
+        if (GetFullPathNameW(pub, MAX_PATH, full, nullptr) && PathFileExistsW(full))
+            lstrcpynW(exe, full, MAX_PATH);
     }
-    if (SUCCEEDED(hr) && pCatMgr) {
-        HRESULT c1 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_TIP_KEYBOARD, CLSID_HunminTSF);
-        HRESULT c2 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_CATEGORY_OF_TIP, CLSID_HunminTSF);
-        /* Issue #98: the display-attribute provider category - the app-side
-         * attribute manager resolves the above provider object through it,
-         * and the composition range's GUID_PROP_ATTRIBUTE value carries
-         * HunminDisplayAttrGuid, which the provider serves. */
-        HRESULT c3 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
-                                               CLSID_HunminTSF);
-        {
-            hunmin_reg_logger.log(L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n",
-                                  (unsigned long)c1, (unsigned long)c2, (unsigned long)c3);
-        }
-        pCatMgr->Release();
+    IShellLinkW *sl = nullptr;
+    HRESULT lh = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
+                                  IID_PPV_ARGS(&sl));
+    hunmin_reg_logger.log(L"shortcut CoCreate hr=0x%lX exe=%s\n", (unsigned long)lh,
+                          exe[0] ? exe : L"<rundll32>");
+    if (FAILED(lh) || !sl)
+        return;
+    if (exe[0]) {
+        sl->SetPath(exe);
+    } else {
+        sl->SetPath(L"rundll32.exe");
+        wchar_t arg[MAX_PATH + 32];
+        _snwprintf(arg, _countof(arg), L"\"%s,HunminSettingsShow\"", dllPath);
+        sl->SetArguments(arg);
     }
-    /* The Start-menu entry (discoverability): "Hunmin IME 설정" under
-     * Programs. The ruled surface (the settings-ui exe) wins when it is
-     * deployed beside the DLL; the rundll32 entry into HunminSettingsShow
-     * is the fallback that always works. Deleted in unregister, mirroring
-     * the tree work. */
-    {
-        wchar_t dllDir[MAX_PATH];
-        lstrcpynW(dllDir, dllPath, MAX_PATH);
-        PathRemoveFileSpecW(dllDir);
-        wchar_t pub[MAX_PATH];
-        wchar_t exe[MAX_PATH];
-        exe[0] = 0;
-        /* Candidate A: deployment layout - <dll dir>\settings-ui\publish. */
-        _snwprintf(pub, MAX_PATH, L"%s\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
-        if (PathFileExistsW(pub))
-            lstrcpynW(exe, pub, MAX_PATH);
-        if (!exe[0]) {
-            /* Candidate B: this worktree's layout - repo\frontends\tsf\.. */
-            _snwprintf(pub, MAX_PATH,
-                       L"%s\\..\\..\\settings-ui\\publish\\hunmin-tsf-settingsui.exe", dllDir);
-            wchar_t full[MAX_PATH];
-            if (GetFullPathNameW(pub, MAX_PATH, full, nullptr) && PathFileExistsW(full))
-                lstrcpynW(exe, full, MAX_PATH);
-        }
-        IShellLinkW *sl = nullptr;
-        HRESULT lh = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
-                                      IID_PPV_ARGS(&sl));
-        hunmin_reg_logger.log(L"shortcut CoCreate hr=0x%lX exe=%s\n", (unsigned long)lh,
-                              exe[0] ? exe : L"<rundll32>");
-        if (SUCCEEDED(lh) && sl) {
-            if (exe[0]) {
-                sl->SetPath(exe);
+    sl->SetWorkingDirectory(dllDir);
+    if (exe[0])
+        sl->SetIconLocation(exe, 0); /* the settings exe's own icon
+                                      * (assets/hunmin.ico, ApplicationIcon) */
+    IPersistFile *pf = nullptr;
+    if (SUCCEEDED(sl->QueryInterface(IID_PPV_ARGS(&pf))) && pf) {
+        PWSTR programs = nullptr;
+        if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Programs, 0, nullptr, &programs)) &&
+            programs) {
+            wchar_t link[MAX_PATH + 48];
+            _snwprintf(link, _countof(link), L"%s\\Hunmin IME \uC124\uC815.lnk", programs);
+            if (SUCCEEDED(pf->Save(link, TRUE))) {
+                hunmin_reg_logger.log(L"shortcut saved %s\n", link);
             } else {
-                sl->SetPath(L"rundll32.exe");
-                wchar_t arg[MAX_PATH + 32];
-                _snwprintf(arg, _countof(arg), L"\"%s,HunminSettingsShow\"", dllPath);
-                sl->SetArguments(arg);
+                hunmin_reg_logger.log(L"shortcut save FAILED %s\n", link);
             }
-            sl->SetWorkingDirectory(dllDir);
-            if (exe[0])
-                sl->SetIconLocation(exe, 0); /* the settings exe's own icon
-                                              * (assets/hunmin.ico, ApplicationIcon) */
-            IPersistFile *pf = nullptr;
-            if (SUCCEEDED(sl->QueryInterface(IID_PPV_ARGS(&pf))) && pf) {
-                PWSTR programs = nullptr;
-                if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Programs, 0, nullptr,
-                                                   &programs)) &&
-                    programs) {
-                    wchar_t link[MAX_PATH + 48];
-                    _snwprintf(link, _countof(link), L"%s\\Hunmin IME \uC124\uC815.lnk",
-                               programs);
-                    if (SUCCEEDED(pf->Save(link, TRUE))) {
-                        hunmin_reg_logger.log(L"shortcut saved %s\n", link);
-                    } else {
-                        hunmin_reg_logger.log(L"shortcut save FAILED %s\n", link);
-                    }
-                    CoTaskMemFree(programs);
-                }
-                pf->Release();
-            }
-            sl->Release();
+            CoTaskMemFree(programs);
         }
+        pf->Release();
     }
+    sl->Release();
+}
+
+extern "C" BOOL DllRegisterServer() {
+    // logging (the ONE syntax; the head truncates, the chain appends)
+    hunmin_reg_logger.reset();
+    wchar_t guidStr[64];
+    StringFromGUID2(CLSID_HunminTSF, guidStr, 64);
+    hunmin_reg_logger.log(L"guid=%s\n", guidStr);
+
+    wchar_t dllPath[MAX_PATH];
+    HINSTANCE hinst = g_hunmin_hinst;
+    if (!hinst)
+        hinst = GetModuleHandleW(L"hunmin-tsf.dll");
+    GetModuleFileNameW(hinst, dllPath, MAX_PATH);
+    hunmin_reg_logger.log(L"module=%s\n", dllPath);
+
+    if (!RegisterComServer(guidStr, dllPath))
+        return FALSE;
+    RegisterTipKey(guidStr);
+    CoInitialize(nullptr);
+    RegisterInputProcessorProfile(guidStr);
+    RegisterTipCategories();
+    CreateStartMenuShortcut(dllPath);
     CoUninitialize();
     return TRUE;
+}
+
+static void UnregisterInputProcessorProfile() {
+    ITfInputProcessorProfiles *pProfile = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr,
+                                  CLSCTX_INPROC_SERVER,
+                                  IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
+    hunmin_reg_logger.log(L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
+    if (FAILED(hr) || !pProfile)
+        return;
+    /* Reverse of the register order: the per-profile enablement entry the
+     * ProfileMgr interface owns goes first (mirror of EnableLanguageProfile /
+     * ProfileMgr), then Unregister() for Register(). */
+    ITfInputProcessorProfileMgr *pProfileMgr = nullptr;
+    HRESULT mgrHr = pProfile->QueryInterface(IID_ITfInputProcessorProfileMgr,
+                                             (LPVOID *)&pProfileMgr);
+    hunmin_reg_logger.log(L"pProfile QI(ITfInputProcessorProfileMgr) hr=0x%lX\n",
+                          (unsigned long)mgrHr);
+    if (SUCCEEDED(mgrHr) && pProfileMgr) {
+        HRESULT upHr =
+            pProfileMgr->UnregisterProfile(CLSID_HunminTSF, 0x0412, HunminProfileGuid, 0);
+        hunmin_reg_logger.log(L"pProfileMgr->UnregisterProfile hr=0x%lX\n",
+                              (unsigned long)upHr);
+        pProfileMgr->Release();
+    }
+    HRESULT unregHr = pProfile->Unregister(CLSID_HunminTSF);
+    hunmin_reg_logger.log(L"pProfile->Unregister hr=0x%lX\n", (unsigned long)unregHr);
+    pProfile->Release();
+}
+
+static void UnregisterTipCategories() {
+    ITfCategoryMgr *pCatMgr = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER,
+                                  IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
+    hunmin_reg_logger.log(L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
+    if (FAILED(hr) || !pCatMgr)
+        return;
+    HRESULT c1 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_TIP_KEYBOARD,
+                                             CLSID_HunminTSF);
+    HRESULT c2 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_CATEGORY_OF_TIP,
+                                             CLSID_HunminTSF);
+    /* Issue #98: mirror of the display-attribute provider registration. */
+    HRESULT c3 = pCatMgr->UnregisterCategory(CLSID_HunminTSF,
+                                             GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
+                                             CLSID_HunminTSF);
+    hunmin_reg_logger.log(
+        L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n",
+        (unsigned long)c1, (unsigned long)c2, (unsigned long)c3);
+    pCatMgr->Release();
 }
 
 extern "C" BOOL DllUnregisterServer() {
@@ -2004,63 +2001,17 @@ extern "C" BOOL DllUnregisterServer() {
      * First the profile and category state the CTF COM services hold, then
      * the HKLM TIP tree under which AddLanguageProfile created subkeys, then
      * the COM CLSID tree. Windows Settings' own per-user CTF store (HKCU
-     * SortOrder / Assemblies) is deliberately NOT touched: registration
-     * never writes it (measured, docs/WINDOWS-TSF-REGISTRATION.md), so
-     * unregistering must not either. Logging follows the register flow: only
+     * SortOrder / Assemblies) is deliberately NOT touched: registration never
+     * writes it (measured, docs/WINDOWS-TSF-REGISTRATION.md), so unregistering
+     * must not either. Logging follows the register flow: only
      * hunmin_reg_logger.log() writes, to hunmin-reg-debug.log. */
     wchar_t guidStr[64];
     StringFromGUID2(CLSID_HunminTSF, guidStr, 64);
-    {
-        hunmin_reg_logger.log(L"--- unregister begin guid=%s\n", guidStr);
-    }
+    hunmin_reg_logger.log(L"--- unregister begin guid=%s\n", guidStr);
 
     CoInitialize(nullptr);
-    ITfInputProcessorProfiles *pProfile = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
-                                  IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
-    {
-        hunmin_reg_logger.log(L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
-    }
-    if (SUCCEEDED(hr) && pProfile) {
-        /* Reverse of the register order: the per-profile enablement entry the
-         * ProfileMgr interface owns goes first (mirror of EnableLanguage-
-         * Profile / ProfileMgr), then Unregister() for Register(). */
-        ITfInputProcessorProfileMgr *pProfileMgr = nullptr;
-        HRESULT mgrHr = pProfile->QueryInterface(IID_ITfInputProcessorProfileMgr, (LPVOID *)&pProfileMgr);
-        {
-            hunmin_reg_logger.log(L"pProfile QI(ITfInputProcessorProfileMgr) hr=0x%lX\n", (unsigned long)mgrHr);
-        }
-        if (SUCCEEDED(mgrHr) && pProfileMgr) {
-            HRESULT upHr = pProfileMgr->UnregisterProfile(CLSID_HunminTSF, 0x0412, HunminProfileGuid, 0);
-            {
-                hunmin_reg_logger.log(L"pProfileMgr->UnregisterProfile hr=0x%lX\n", (unsigned long)upHr);
-            }
-            pProfileMgr->Release();
-        }
-        HRESULT unregHr = pProfile->Unregister(CLSID_HunminTSF);
-        {
-            hunmin_reg_logger.log(L"pProfile->Unregister hr=0x%lX\n", (unsigned long)unregHr);
-        }
-        pProfile->Release();
-    }
-
-    ITfCategoryMgr *pCatMgr = nullptr;
-    hr = CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
-    {
-        hunmin_reg_logger.log(L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
-    }
-    if (SUCCEEDED(hr) && pCatMgr) {
-        HRESULT c1 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_TIP_KEYBOARD, CLSID_HunminTSF);
-        HRESULT c2 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_CATEGORY_OF_TIP, CLSID_HunminTSF);
-        /* Issue #98: mirror of the display-attribute provider registration. */
-        HRESULT c3 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
-                                                 CLSID_HunminTSF);
-        {
-            hunmin_reg_logger.log(L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n",
-                                  (unsigned long)c1, (unsigned long)c2, (unsigned long)c3);
-        }
-        pCatMgr->Release();
-    }
+    UnregisterInputProcessorProfile();
+    UnregisterTipCategories();
     CoUninitialize();
 
     /* HKLM TIP tree: deleted AFTER the COM calls, because the registering
@@ -2069,17 +2020,15 @@ extern "C" BOOL DllUnregisterServer() {
     wchar_t tipPath[256];
     swprintf(tipPath, 256, L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s", guidStr);
     LSTATUS tipSt = RegDeleteTreeW(HKEY_LOCAL_MACHINE, tipPath);
-    {
-        hunmin_reg_logger.log(L"RegDeleteTreeW(HKLM %s) st=0x%lX\n", tipPath, (unsigned long)tipSt);
-    }
+    hunmin_reg_logger.log(L"RegDeleteTreeW(HKLM %s) st=0x%lX\n", tipPath,
+                          (unsigned long)tipSt);
 
     /* COM CLSID tree -- the only deletion the previous implementation did. */
     wchar_t clsidPath[128];
     swprintf(clsidPath, 128, L"CLSID\\%s", guidStr);
     LSTATUS clsidSt = RegDeleteTreeW(HKEY_CLASSES_ROOT, clsidPath);
-    {
-        hunmin_reg_logger.log(L"RegDeleteTreeW(HKCR %s) st=0x%lX\n", clsidPath, (unsigned long)clsidSt);
-    }
+    hunmin_reg_logger.log(L"RegDeleteTreeW(HKCR %s) st=0x%lX\n", clsidPath,
+                          (unsigned long)clsidSt);
     return TRUE;
 }
 

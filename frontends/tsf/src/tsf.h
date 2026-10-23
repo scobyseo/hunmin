@@ -308,6 +308,17 @@ class CTextService : public ITfTextInputProcessor,
     class FlushSession;
     class RectSession;
 
+    /* Activate/Deactivate halves: the two advice registrations, the
+     * delivery-mode detection, and the engine flush the boundary paths
+     * share. */
+    void AdviseSinks();
+    void UnadviseSinks();
+    void DetectLegacyMode();
+    void FlushEngineIntoWordbuf();
+    void LoadToggleKeys(const HunminTsfConfig &cfg);
+    void LoadHanjaKey(const HunminTsfConfig &cfg);
+    void RebuildEngineIc();
+
     bool IsModeToggle(WPARAM wParam);
     void ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam,
                          BOOL *pfEat);
@@ -382,8 +393,6 @@ class CTextService : public ITfTextInputProcessor,
      * from construction; the manager holds another only between AddItem
      * and RemoveItem. */
     LangBarItem *langbar_ = nullptr;
-    /* true between AddItem and RemoveItem. */
-    bool langbar_registered_ = false;
 };
 
 #endif /* HUNMIN_TSF_TSF_H_ */

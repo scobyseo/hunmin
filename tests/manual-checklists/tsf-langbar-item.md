@@ -5,15 +5,16 @@
 `Shell_NotifyIconW` tray badge.** Both removed lanes are recorded in board
 row TSF-ITEM-SINK-67 (the extension advice rendered nothing in the shell
 tray menu; the tray badge lost the overflow-visibility iteration, PR #124
-rounds 1-3) and the item's hosting recipe (GUID_LBI_INPUTMODE +
-BTN_BUTTON|BTN_MENU|SHOWNINTRAY + an implemented ITfSource) is the shape the sibling
-jamotong TIP is hosted live with on this host.
+rounds 1-3) and the sibling jamotong TIP is hosted live on this host with
+GUID_LBI_INPUTMODE + BTN_BUTTON|BTN_MENU|SHOWNINTRAY + an implemented
+ITfSource; the maintainer ruled 2026-10-22 that OUR item carries
+BTN_MENU|SHOWNINTRAY (no BTN_BUTTON).
 
 ## What carries what
 
-- `frontends/tsf/src/tsf.cpp` — the item lives ON `CTextService` (implements
-  `ITfLangBarItemButton` + `ITfSource`): `GetInfo` carries
-  `guidItem = GUID_LBI_INPUTMODE` and `BTN_BUTTON | SHOWNINTRAY`;
+- `frontends/tsf/src/langbar.cpp` — the item is a tear-off
+  (`LangBarItem`, S6): `GetInfo` carries `guidItem = GUID_LBI_INPUTMODE`
+  and `BTN_MENU | SHOWNINTRAY` (ruled 2026-10-22, no BTN_BUTTON);
   `GetIcon`/`GetText` are the 한/A mode indicator (resources 2/3);
   `AdviseSink` accepts the kernel-provided `ITfLangBarItemSink`;
   `UpdateLangBarItem()` notifies `OnUpdate(TF_LBI_ICON|TF_LBI_TEXT)` at
@@ -21,8 +22,9 @@ jamotong TIP is hosted live with on this host.
   ("Hunmin 설정 열기") → `hunmin_tsf_launch_settings`, `InitMenu`/
   `OnMenuSelect` stay wired for a floating-bar host that routes the
   menu-button shape.
-- `Activate` adds the item (`AddItem`), `Deactivate` removes it
-  (`RemoveItem`) and releases the sink. The conversion-compartment write
+- `Activate` calls `LangBarItem::Attach` (`AddItem`), `Deactivate` calls
+  `Detach` (`RemoveItem`) and the detach releases the sink (the detach's
+  current no-op ordering is board row TSF-LANGBAR-DETACH-127). The conversion-compartment write
   (`UpdateConversionCompartment`) is unchanged.
 
 ## Why the item should host at all (the recipe's basis)
@@ -62,9 +64,11 @@ survived, it does not re-assert 2026-10-18.
    shape the exe path logged is
    `<app>\settings-ui\hunmin-tsf-settingsui.exe` (the resolver carries the
    installed shape beside the dev `publish\` shapes).
-6. Left-click opens the settings surface directly (the BTN_BUTTON command
-   action) — the mode is never flipped by a click (the round-3 steer
-   stands; the mode flips with the key only).
+6. A click routes the menu-button surface (the ruled shape is
+   BTN_MENU | SHOWNINTRAY, no BTN_BUTTON): the one-entry menu is what a
+   host shows; OnClick stays implemented but is not advertised. The mode is
+   never flipped by a click (the round-3 steer stands; the mode flips with
+   the key only).
 7. `ctest --test-dir frontends/tsf/build-msvc -C Release -L tier-F1` green;
    `tools/docs-lint.py --build-dir <build>` 0 errors.
 
@@ -92,7 +96,8 @@ verdict falsified — it read our former shape):
   `SystemTray.NormalButton` whose name re-labels to
   `트레이 입력 표시기 한국어 / Hunmin` — the shell's per-profile
   identity. Every legal item shape is in place and accepted
-  (`guidItem = GUID_LBI_INPUTMODE`, `BTN_BUTTON|BTN_MENU|SHOWNINTRAY`,
+  (`guidItem = GUID_LBI_INPUTMODE`, `BTN_MENU|SHOWNINTRAY` (re-ruled
+  2026-10-22 without BTN_BUTTON),
   `ITfSource`, `AddItem hr=0x0` on every fresh host) and the embedded
   bar STILL renders no per-TIP slot: the jamotong comment's hosting rule
   described the Win8/10-era path. The single unmeasured comparator left

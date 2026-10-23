@@ -677,3 +677,18 @@
   `settingsprovider`, with `settings.cpp` left as the rundll32 export; the
   symbol moves re-pointed three board rows, and the two new cross-TU calls
   anchor on their own module addresses.
+
+## [2026-10-22] create | Activate/Deactivate extraction and the langbar style ruling (S5 first cut, issue #127)
+
+- Session page for the maintainer's directive: the naked blocks in
+  `Activate`/`Deactivate` become private helpers, and the langbar item's
+  style is ruled to `BTN_MENU|SHOWNINTRAY` (no `BTN_BUTTON`). The detach no-op
+  exposed by the extraction is recorded as TSF-LANGBAR-DETACH-127, not fixed.
+
+## [2026-10-22] create | DllRegisterServer/DllUnregisterServer blocks extracted (S5, registration)
+
+- Session page for the same directive applied to the registration exports:
+  seven naked scopes become file-static helpers called in their original
+  order, with the unregister side mirrored and the tree deletions left inline
+  in the documented reverse order. No order, argument or log line changed; the
+  S4 move into its own TU is recorded as still owed.

@@ -8,8 +8,7 @@
  * ITfLangBarItemButton. Since S6 that object is a TEAR-OFF: the shell QIs
  * it for the three bar IIDs, the item owns the shape. These cases white-box
  * the item shape the managed surfaces depend on — GetInfo's hosting keys
- * (GUID_LBI_INPUTMODE + BTN_BUTTON|SHOWNINTRAY, measured recipe of the
- * sibling jamotong TIP), the
+ * (GUID_LBI_INPUTMODE + BTN_MENU|SHOWNINTRAY, the ruled shape), the
  * item's ITfSource (the language bar installs ITS sink through it,
  * language-bar.md), and the OnUpdate notification the 한/A badge rides at
  * every mode boundary. Standalone TU: the include-.cpp seam is retired (DIP + SAP, docs/REFACTOR-TSF-COMPONENTS.md).
@@ -73,9 +72,9 @@ TEST(TsfLangbarItem, GetInfoCarriesTheHostedShape) {
         << "guidItem must be GUID_LBI_INPUTMODE: the shell input indicator "
            "hosts a langbar item only with this GUID";
     EXPECT_EQ(info.dwStyle,
-              (DWORD)(TF_LBI_STYLE_BTN_BUTTON | TF_LBI_STYLE_BTN_MENU |
-                      TF_LBI_STYLE_SHOWNINTRAY))
-        << "the hosted pair plus the menu-button bit (the config menu ride)";
+              (DWORD)(TF_LBI_STYLE_BTN_MENU | TF_LBI_STYLE_SHOWNINTRAY))
+        << "the ruled shape: the menu-button bit and the tray bit, no "
+           "BTN_BUTTON";
     EXPECT_EQ(info.clsidService, CLSID_HunminTSF);
     item->Release();
 }

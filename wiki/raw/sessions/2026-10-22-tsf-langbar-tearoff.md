@@ -37,7 +37,8 @@ the AddItem/RemoveItem blocks.
 
 - `frontends/tsf/src/langbar.h` / `langbar.cpp`: `LangBarItem` implements
   `ITfLangBarItemButton` (hence `ITfLangBarItem`) and `ITfSource`, owns the
-  hosting shape (`GUID_LBI_INPUTMODE`, `BTN_BUTTON|BTN_MENU|SHOWNINTRAY`),
+  hosting shape (`GUID_LBI_INPUTMODE`, `BTN_MENU|SHOWNINTRAY`; the maintainer
+  removed the BTN_BUTTON bit on 2026-10-22),
   the badge (`GetIcon`/`GetText`), the click/menu handlers and the kernel
   sink. It reads the mode through `LangBarHost::HangulMode()` only.
 - `CTextService` drops the two bar interfaces (7 TSF interfaces -> 5; 9

@@ -34,7 +34,7 @@ red step here is measurement, not an unexplained failure.
    measured, environmental. This is board row TSF-LANGBAR-67; do not debug
    our item code for it. **RE-shaped 2026-10-20 (issue #103): guidItem is now
    GUID_LBI_INPUTMODE with BTN_BUTTON|SHOWNINTRAY and an implemented
-   ITfSource — the shape the sibling jamotong TIP is hosted live with on
+   ITfSource (style re-ruled 2026-10-22: BTN_MENU|SHOWNINTRAY, no BTN_BUTTON) — the shape the sibling jamotong TIP is hosted live with on
    this host; the old "measured, environmental" verdict measured our former
    shape and neither a wrong GUID nor missing ITfSource support was excluded
    by its probe. Measurements from 2026-10-20 on belong to

@@ -50,8 +50,16 @@ class LangBarItem : public ITfLangBarItemButton, public ITfSource {
 
     /* The mode boundary's one notification. */
     void Update();
-    /* Drop the kernel sink after ITfLangBarItemMgr::RemoveItem. */
+
+    /* The language-bar manager holds a reference only between these two
+     * calls, so the attached state and the kernel sink live here, next to
+     * the item the manager sees. TRUE from Attach when AddItem succeeded. */
+    bool Attach(ITfThreadMgr *threadMgr);
+    void Detach(ITfThreadMgr *threadMgr);
+    /* Drop the kernel sink after ITfLangBarItemMgr::RemoveItem (Detach does
+     * this; the shell's destructor calls it too, when no manager is left). */
     void OnRemoved();
+
     /* The tier-F1 observation channel. */
     ITfLangBarItemSink *Sink() const { return sink_; }
 
@@ -63,6 +71,7 @@ class LangBarItem : public ITfLangBarItemButton, public ITfSource {
     CLSID serviceClsid_;
     ITfLangBarItemSink *sink_ = nullptr;
     DWORD sinkCookie_ = 0;
+    bool attached_ = false;
 };
 
 /* The tear-off: refcount 1 on return; the shell holds that reference and

@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-22 | Total pages: 49
+> Last updated: 2026-10-22 | Total pages: 51
 
 ## Concepts
 
@@ -279,9 +279,24 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   RemoveItem/Update forward to the item; tier-F1 4/4 and docs-lint 0
   errors; the hosted tray presence is a re-measure owed, not asserted.
 
+- [[2026-10-22-tsf-activate-deactivate-extraction]] - the S5 first cut:
+  `Activate`/`Deactivate` naked blocks become `AdviseSinks`,
+  `UnadviseSinks`, `DetectLegacyMode`, `FlushEngineIntoWordbuf` and
+  `LangBarItem::Attach`/`Detach`; `DeactSession` reuses `InsertBufferedWord`;
+  the langbar style is ruled `BTN_MENU|SHOWNINTRAY` (no `BTN_BUTTON`); a
+  detach-ordering defect is recorded, not fixed.
+
 - [[2026-10-22-tsf-settings-split]] - stage 5 of the clean-code pass
   (issue #127): the 979-line settings TU split on the maintainer's option A
   into `settingsrows`, `settingsdialog`, `settingslaunch` and
   `settingsprovider`, leaving `settings.cpp` as the 25-line rundll32
   export; two file statics became prefixed cross-TU calls and three board
   rows were re-pointed; tier-F1 4/4 and docs-lint 0 errors.
+
+- [[2026-10-22-tsf-registration-extraction]] - the S5 registration cut:
+  `DllRegisterServer`'s seven naked scopes become file-static helpers
+  (`RegisterComServer`, `RegisterTipKey`,
+  `RegisterInputProcessorProfile`, `PinProfileIconIndex`,
+  `ActivateInputProcessorProfile`, `RegisterTipCategories`,
+  `CreateStartMenuShortcut`) called in their original order, with
+  `DllUnregisterServer` mirrored; the S4 TU move is still owed.
