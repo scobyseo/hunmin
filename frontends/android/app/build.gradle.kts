@@ -43,6 +43,47 @@ listOf("mergeDebugAssets", "mergeReleaseAssets").forEach { name ->
 }
 tasks.named("preBuild") { dependsOn(syncHunminDataInstaller) }
 
+// The JNI CMake (src/main/cpp/CMakeLists.txt) links an IMPORTED prebuilt
+// libhunmin.so that tools/build-android.sh produces; without it configure
+// fails CMakeLists.txt:74 ("Build it first: ./tools/build-android.sh ...").
+// Before this block the two stages were glued only by that prose: `gradlew
+// assembleDebug` on a fresh tree ran the CXX configure against a missing .so
+// and the failure surfaced as a misleading "C compiler identification is
+// Clang 18.0.4" process exception. Now the engine build IS a Gradle task,
+// and every task that runs the app-level CMake (configure + build, both
+// variants) cannot start before the engine .so for that ABI exists.
+//
+// build-android.sh keeps its own configure semantics deliberately (one dir
+// per ABI -- its header explains why a shared dir cannot be made safe): this
+// wiring does not fold the engine into the app's CMake, it just orders the
+// two stages. The Exec tasks are left WITHOUT outputs declarations on
+// purpose: caching on the .so mtime would skip the rebuild whenever
+// libhunmin sources changed without moving the .so; the script's own
+// incremental ninja rebuild is cheap, so re-running it is the safe default.
+val hunminAbis = listOf("x86_64", "arm64-v8a") // keep in one place: abiFilters + jniLibs srcDirs below
+// The repo root is two levels above rootProject.projectDir (= frontends/android).
+val hunminRepoRoot = rootProject.projectDir.parentFile.parentFile
+
+hunminAbis.forEach { abi ->
+    tasks.register<Exec>("buildHunmin$abi") {
+        group = "hunmin"
+        description = "Build libhunmin.so for $abi (tools/build-android.sh)"
+        workingDir = hunminRepoRoot
+        commandLine("bash", "tools/build-android.sh", abi, "24")
+        // Env-dependent build (SDK/NDK/toolchain live in the caller's env):
+        // never rank as UP-TO-DATE against a stale environment.
+        environment(System.getenv())
+        environment("ANDROID_HOME", System.getenv("ANDROID_HOME") ?: "")
+    }
+}
+
+tasks.matching { it.name.startsWith("configureCMake") || it.name.startsWith("buildCMake") }
+    .configureEach {
+        hunminAbis.firstOrNull { name.contains(it) }?.let { abi ->
+            dependsOn("buildHunmin$abi")
+        }
+    }
+
 android {
     namespace = "org.hunmin.ime"
     compileSdk = 35
@@ -229,7 +270,7 @@ android {
             // One source dir per ABI build dir, because
             // tools/build-android.sh writes to build-android/<abi>/jniLibs/<abi>/libhunmin.so
             // and AGP wants <a jniLibs root>/<abi>/libhunmin.so.
-            listOf("x86_64", "arm64-v8a").forEach { abi ->
+            hunminAbis.forEach { abi ->
                 jniLibs.srcDir(rootProject.file("../../build-android/$abi/jniLibs"))
             }
         }
