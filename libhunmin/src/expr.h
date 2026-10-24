@@ -14,11 +14,11 @@
 typedef struct hm_expr hm_expr;
 
 typedef struct {
-  uint32_t D, E, F; /* slot contents (0 = empty) */
-  uint32_t T; /* symbol-tier state (0 = none) */
-  int J; /* current jung is an absorbable right-side variant (h3) */
-  int P; /* Caps Lock */
-  const int *flags; /* user flags indexed by char (A-Z,a-z), may be NULL (all 0) */
+    uint32_t D, E, F; /* slot contents (0 = empty) */
+    uint32_t T; /* symbol-tier state (0 = none) */
+    int J; /* current jung is an absorbable right-side variant (h3) */
+    int P; /* Caps Lock */
+    const int *flags; /* user flags indexed by char (A-Z,a-z), may be NULL (all 0) */
 } hm_state;
 
 hm_expr *hm_expr_parse(const char *s, char *err, size_t errlen);

@@ -18,9 +18,9 @@
 #include <vector>
 #include <windows.h>
 
+#include "../src/tsf.h"
 #include "mock-tsf.h"
 #include "tsf-keystate-mock.h"
-#include "../src/tsf.h"
 
 /* GUID_LBI_INPUTMODE (the constant declared extern in the SDK's ctffunc.h
  * and private in langbar.cpp): the item GUID the Win8+/Win11 input indicator
@@ -32,7 +32,7 @@ namespace {
 
 /* The kernel-side sink double: records every OnUpdate mask the item sends. */
 class MockItemSink : public ITfLangBarItemSink {
-  public:
+public:
     LONG ref_ = 1;
     std::vector<DWORD> updates;
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
@@ -63,7 +63,7 @@ class MockItemSink : public ITfLangBarItemSink {
  * item receives ITfMenu in InitMenu and the bar reports the choice through
  * OnMenuSelect. This records what the item adds. */
 class MockMenu : public ITfMenu {
-  public:
+public:
     LONG ref_ = 1;
     struct Entry {
         UINT id;
@@ -90,9 +90,7 @@ class MockMenu : public ITfMenu {
             delete this;
         return r;
     }
-    STDMETHOD(AddMenuItem)(UINT uId, DWORD dwFlags, HBITMAP, HBITMAP,
-                           const WCHAR *pch, ULONG cch,
-                           ITfMenu **ppMenu) override {
+    STDMETHOD(AddMenuItem)(UINT uId, DWORD dwFlags, HBITMAP, HBITMAP, const WCHAR *pch, ULONG cch, ITfMenu **ppMenu) override {
         entries.push_back(Entry{uId, dwFlags, std::wstring(pch, cch)});
         if (ppMenu)
             *ppMenu = nullptr;
@@ -113,7 +111,7 @@ std::wstring SiblingExe(const wchar_t *name) {
 /* Set for one test and restored, so a later test cannot inherit a stale
  * settings path. */
 class ScopedEnv {
-  public:
+public:
     ScopedEnv(const wchar_t *name, const wchar_t *value) : name_(name) {
         wchar_t buf[32767];
         DWORD n = GetEnvironmentVariableW(name, buf, 32767);
@@ -122,11 +120,9 @@ class ScopedEnv {
             old_.assign(buf, n);
         SetEnvironmentVariableW(name, value);
     }
-    ~ScopedEnv() {
-        SetEnvironmentVariableW(name_.c_str(), had_ ? old_.c_str() : nullptr);
-    }
+    ~ScopedEnv() { SetEnvironmentVariableW(name_.c_str(), had_ ? old_.c_str() : nullptr); }
 
-  private:
+private:
     std::wstring name_;
     std::wstring old_;
     bool had_ = false;
@@ -142,11 +138,9 @@ TEST(TsfLangbarItem, GetInfoCarriesTheHostedShape) {
 
     TF_LANGBARITEMINFO info = {};
     ASSERT_EQ(item->GetInfo(&info), S_OK);
-    EXPECT_TRUE(IsEqualGUID(info.guidItem, kGuidLbiInputMode))
-        << "guidItem must be GUID_LBI_INPUTMODE: the shell input indicator "
-           "hosts a langbar item only with this GUID";
-    EXPECT_EQ(info.dwStyle,
-              (DWORD)(TF_LBI_STYLE_BTN_MENU | TF_LBI_STYLE_SHOWNINTRAY))
+    EXPECT_TRUE(IsEqualGUID(info.guidItem, kGuidLbiInputMode)) << "guidItem must be GUID_LBI_INPUTMODE: the shell input indicator "
+                                                                  "hosts a langbar item only with this GUID";
+    EXPECT_EQ(info.dwStyle, (DWORD)(TF_LBI_STYLE_BTN_MENU | TF_LBI_STYLE_SHOWNINTRAY))
         << "the ruled shape: the menu-button bit and the tray bit, no "
            "BTN_BUTTON (adding it on 2026-10-23 did not route the Win11 "
            "indicator's click either)";
@@ -170,8 +164,7 @@ TEST(TsfLangbarItem, InitMenuAddsTheOneSettingsEntry) {
     ASSERT_EQ(menu.entries.size(), (size_t)1) << "one entry, the config menu";
     EXPECT_EQ(menu.entries[0].id, (UINT)1);
     EXPECT_EQ(menu.entries[0].flags, (DWORD)0) << "a plain string item";
-    EXPECT_EQ(menu.entries[0].text,
-              std::wstring(L"Hunmin \uC124\uC815 \uC5F4\uAE30"));
+    EXPECT_EQ(menu.entries[0].text, std::wstring(L"Hunmin \uC124\uC815 \uC5F4\uAE30"));
 
     /* An id the item did not add is ignored (the bar may own other ids in a
      * host that composes menus). */
@@ -187,16 +180,14 @@ TEST(TsfLangbarItem, InitMenuAddsTheOneSettingsEntry) {
  * ShellExecuteExW -> S_OK), not a mock of it. */
 TEST(TsfLangbarItem, OnMenuSelectOneLaunchesTheSettingsSurface) {
     std::wstring noop = SiblingExe(L"tsf-settings-noop.exe");
-    ASSERT_NE(GetFileAttributesW(noop.c_str()), INVALID_FILE_ATTRIBUTES)
-        << "tsf-settings-noop.exe is a build dependency of this test";
+    ASSERT_NE(GetFileAttributesW(noop.c_str()), INVALID_FILE_ATTRIBUTES) << "tsf-settings-noop.exe is a build dependency of this test";
     ScopedEnv env(L"HUNMIN_TSF_SETTINGS_EXE", noop.c_str());
 
     CTextService svc;
     ITfLangBarItemButton *item = nullptr;
     ASSERT_EQ(svc.QueryInterface(IID_ITfLangBarItemButton, (void **)&item), S_OK);
     ASSERT_NE(item, nullptr);
-    EXPECT_EQ(item->OnMenuSelect(1), S_OK)
-        << "the settings id must reach the launcher";
+    EXPECT_EQ(item->OnMenuSelect(1), S_OK) << "the settings id must reach the launcher";
     item->Release();
 }
 
@@ -218,8 +209,7 @@ TEST(TsfLangbarItem, QueryInterfaceAnswersITfSource) {
     src->Release();
 
     void *unknownIid = nullptr;
-    EXPECT_EQ(svc.QueryInterface(IID_ITfCompartmentMgr, &unknownIid), E_NOINTERFACE)
-        << "an unrelated IID must still be refused";
+    EXPECT_EQ(svc.QueryInterface(IID_ITfCompartmentMgr, &unknownIid), E_NOINTERFACE) << "an unrelated IID must still be refused";
 }
 
 TEST(TsfLangbarItem, AdviseSinkInstallsTheKernelSinkAndOnUpdateFlows) {
@@ -233,8 +223,7 @@ TEST(TsfLangbarItem, AdviseSinkInstallsTheKernelSinkAndOnUpdateFlows) {
      * is refused without state, a good one stores the sink and returns
      * THIS implementation's cookie. */
     DWORD cookie = 0;
-    EXPECT_EQ(item->AdviseSink(IID_ITfCompartment, sink, &cookie), CONNECT_E_CANNOTCONNECT)
-        << "a non-ITfLangBarItemSink advice is refused";
+    EXPECT_EQ(item->AdviseSink(IID_ITfCompartment, sink, &cookie), CONNECT_E_CANNOTCONNECT) << "a non-ITfLangBarItemSink advice is refused";
     EXPECT_EQ(cookie, (DWORD)0);
 
     EXPECT_EQ(item->AdviseSink(IID_ITfLangBarItemSink, sink, &cookie), S_OK);
@@ -259,15 +248,13 @@ TEST(TsfLangbarItem, AdviseSinkInstallsTheKernelSinkAndOnUpdateFlows) {
     svc.ToggleModeCore(nullptr);
     ASSERT_NE(svc.Snapshot().itemSink, nullptr) << "the advised sink is stored";
     ASSERT_EQ(sink->updates.size(), (size_t)1);
-    EXPECT_EQ(sink->updates[0], (DWORD)(TF_LBI_ICON | TF_LBI_TEXT))
-        << "the badge rides icon+text (GetIcon/GetText re-queries)";
+    EXPECT_EQ(sink->updates[0], (DWORD)(TF_LBI_ICON | TF_LBI_TEXT)) << "the badge rides icon+text (GetIcon/GetText re-queries)";
 
     item->UnadviseSink(cookie);
     svc.UpdateLangBarItem();
     EXPECT_EQ(sink->updates.size(), (size_t)1) << "no notification after the sink is gone";
 
-    EXPECT_EQ(item->UnadviseSink(cookie), CONNECT_E_NOCONNECTION)
-        << "a stale cookie is refused";
+    EXPECT_EQ(item->UnadviseSink(cookie), CONNECT_E_NOCONNECTION) << "a stale cookie is refused";
     item->Release();
     sink->Release(); /* the seat leaves with the test */
 }
@@ -280,8 +267,7 @@ TEST(TsfLangbarItem, UnadviseSinkOnlyAnswersItsOwnCookie) {
     MockItemSink *sink = new MockItemSink();
     DWORD cookie = 0;
     EXPECT_EQ(item->AdviseSink(IID_ITfLangBarItemSink, sink, &cookie), S_OK);
-    EXPECT_EQ(item->UnadviseSink(7), CONNECT_E_NOCONNECTION)
-        << "an unadvised cookie releases nothing";
+    EXPECT_EQ(item->UnadviseSink(7), CONNECT_E_NOCONNECTION) << "an unadvised cookie releases nothing";
     EXPECT_EQ(item->UnadviseSink(cookie), S_OK);
     EXPECT_EQ(item->UnadviseSink(cookie), CONNECT_E_NOCONNECTION) << "double unadvise is refused";
     item->Release();

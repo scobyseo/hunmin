@@ -11,15 +11,15 @@
 #ifndef HUNMIN_TSF_DISPLAYATTR_H_
 #define HUNMIN_TSF_DISPLAYATTR_H_
 
-#include <windows.h>
 #include <msctf.h>
+#include <windows.h>
 
 /* The styling channel: registers the attribute GUID with the process's
  * category manager once, then sets or clears the property over the given
  * range. Owns the TfGuidAtom; one instance per shell, because the atom is
  * per-process and the shell lives one per thread. */
 class DisplayAttr {
-  public:
+public:
     DisplayAttr();
     ~DisplayAttr();
     DisplayAttr(const DisplayAttr &) = delete;
@@ -27,7 +27,7 @@ class DisplayAttr {
 
     void Apply(ITfContext *ctx, TfEditCookie ec, ITfRange *range, bool clear);
 
-  private:
+private:
     TfGuidAtom atom_;
 };
 

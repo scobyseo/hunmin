@@ -18,11 +18,11 @@
 
 #include "tsf.h"
 
-#include <windows.h>
 #include <msctf.h>
+#include <windows.h>
 
 class LangBarItem : public ITfLangBarItemButton, public ITfSource {
-  public:
+public:
     LangBarItem(LangBarHost &host, const CLSID &serviceClsid);
 
     /* IUnknown */
@@ -44,8 +44,7 @@ class LangBarItem : public ITfLangBarItemButton, public ITfSource {
     STDMETHOD(GetText)(BSTR *pbstrText) override;
 
     /* ITfSource */
-    STDMETHOD(AdviseSink)(REFIID riid, IUnknown *punk,
-                          DWORD *pdwCookie) override;
+    STDMETHOD(AdviseSink)(REFIID riid, IUnknown *punk, DWORD *pdwCookie) override;
     STDMETHOD(UnadviseSink)(DWORD dwCookie) override;
 
     /* The mode boundary's one notification. */
@@ -63,7 +62,7 @@ class LangBarItem : public ITfLangBarItemButton, public ITfSource {
     /* The tier-F1 observation channel. */
     ITfLangBarItemSink *Sink() const { return sink_; }
 
-  private:
+private:
     ~LangBarItem() = default;
 
     LONG ref_;

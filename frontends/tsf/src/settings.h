@@ -28,10 +28,10 @@
  *      dialog while it exists.
  */
 
-#include <windows.h>
 #include "datadir.h"
 #include "hunmin.h"
 #include "settingsrows.h"
+#include <windows.h>
 
 /* The mode-toggle key bindings, Android KeyBinding.kt ported
  * (frontends/tsf/src/keybinding.h) - see above. */

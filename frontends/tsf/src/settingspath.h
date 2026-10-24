@@ -26,7 +26,6 @@ bool hunmin_tsf_settings_exe_find(const void *anchor, wchar_t *exe, size_t cap);
 
 /* The candidate list for an already-known DLL directory, without the
  * environment override (the shortcut builder has the path at hand). */
-bool hunmin_tsf_settings_exe_in_dir(const wchar_t *dllDir, wchar_t *exe,
-                                    size_t cap);
+bool hunmin_tsf_settings_exe_in_dir(const wchar_t *dllDir, wchar_t *exe, size_t cap);
 
 #endif /* HUNMIN_TSF_SETTINGSPATH_H_ */

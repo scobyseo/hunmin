@@ -38,9 +38,7 @@ static const int kMaxCandidatePageSize = 10;
  * Expressed once so the test and down halves cannot drift - the same
  * shared-predicate rule the toggle binding uses. */
 static bool hunmin_tsf_candkey_eats_test(unsigned long vk) {
-    return vk == VK_RETURN || vk == VK_ESCAPE || vk == VK_PRIOR ||
-           vk == VK_NEXT || (vk >= VK_LEFT && vk <= VK_DOWN) ||
-           (vk >= '0' && vk <= '9');
+    return vk == VK_RETURN || vk == VK_ESCAPE || vk == VK_PRIOR || vk == VK_NEXT || (vk >= VK_LEFT && vk <= VK_DOWN) || (vk >= '0' && vk <= '9');
 }
 
 /* The last UTF-8 character of s, by a forward walk over the code points
@@ -53,15 +51,13 @@ static std::string LastSyllableOf(const std::string &s) {
     for (size_t i = 0; i < s.size();) {
         start = i;
         unsigned char b = (unsigned char)s[i];
-        i += (b >= 0xF0) ? 4 : (b >= 0xE0) ? 3
-                           : (b >= 0xC0)   ? 2
-                                           : 1;
+        i += (b >= 0xF0) ? 4 : (b >= 0xE0) ? 3 : (b >= 0xC0) ? 2 : 1;
     }
     return s.substr(start);
 }
 
 class HunminCandidates : public Candidates {
-  public:
+public:
     explicit HunminCandidates(CandBackend &backend) : backend_(&backend) {}
     ~HunminCandidates() override = default;
 
@@ -107,9 +103,7 @@ class HunminCandidates : public Candidates {
         } else {
             Open(pic);
         }
-        hunmin_logger.log(" hanja key vk=%lu -> %s (src=%s count=%d)\n",
-                          vk, candActive_ ? "open" : "closed",
-                          candSource_.c_str(), candCount_);
+        hunmin_logger.log(" hanja key vk=%lu -> %s (src=%s count=%d)\n", vk, candActive_ ? "open" : "closed", candSource_.c_str(), candCount_);
         if (pfEat)
             *pfEat = candActive_ ? TRUE : FALSE;
     }
@@ -186,14 +180,11 @@ class HunminCandidates : public Candidates {
         }
         if (pfEat)
             *pfEat = TRUE;
-        hunmin_logger.log(" candidate key vk=%lu cursor=%d count=%d\n",
-                          vk, candCursor_, candCount_);
+        hunmin_logger.log(" candidate key vk=%lu cursor=%d count=%d\n", vk, candCursor_, candCount_);
         return true;
     }
 
-    bool EatsListKey(unsigned long vk) const override {
-        return hunmin_tsf_candkey_eats_test(vk);
-    }
+    bool EatsListKey(unsigned long vk) const override { return hunmin_tsf_candkey_eats_test(vk); }
 
     void Observe(HunminTsfSnapshot *out) override {
         if (!out)
@@ -235,7 +226,7 @@ class HunminCandidates : public Candidates {
         return 0;
     }
 
-  private:
+private:
     /* Recompute the list state from a (count, fallback) lookup answer. */
     void CountToState(int n, bool fallback) {
         candFallback_ = fallback;
@@ -250,14 +241,10 @@ class HunminCandidates : public Candidates {
         candTop_ = 0;
     }
 
-    void PageFollowCursor() {
-        candTop_ = (candCursor_ / kMaxCandidatePageSize) * kMaxCandidatePageSize;
-    }
+    void PageFollowCursor() { candTop_ = (candCursor_ / kMaxCandidatePageSize) * kMaxCandidatePageSize; }
 
     void PageStep(int dir) {
-        int lastTop = candCount_ > 0
-                          ? ((candCount_ - 1) / kMaxCandidatePageSize) * kMaxCandidatePageSize
-                          : 0;
+        int lastTop = candCount_ > 0 ? ((candCount_ - 1) / kMaxCandidatePageSize) * kMaxCandidatePageSize : 0;
         int top = candTop_ + dir * kMaxCandidatePageSize;
         if (top < 0)
             top = 0;
@@ -268,9 +255,7 @@ class HunminCandidates : public Candidates {
         if (candCursor_ < candTop_)
             candCursor_ = candTop_;
         else if (candCursor_ >= candTop_ + kMaxCandidatePageSize)
-            candCursor_ = candTop_ + kMaxCandidatePageSize - 1 < candCount_
-                              ? candTop_ + kMaxCandidatePageSize - 1
-                              : candCount_ - 1;
+            candCursor_ = candTop_ + kMaxCandidatePageSize - 1 < candCount_ ? candTop_ + kMaxCandidatePageSize - 1 : candCount_ - 1;
     }
 
     /* fcitx5 semantics (engine.cpp:160-176): choosing a candidate drops the
@@ -323,15 +308,12 @@ class HunminCandidates : public Candidates {
         }
         HWND fontHost = haveCaret ? (gti.hwndFocus ? gti.hwndFocus : gti.hwndCaret) : nullptr;
         std::vector<std::wstring> lines;
-        int end = candCount_ < candTop_ + kMaxCandidatePageSize
-                      ? candCount_
-                      : candTop_ + kMaxCandidatePageSize;
+        int end = candCount_ < candTop_ + kMaxCandidatePageSize ? candCount_ : candTop_ + kMaxCandidatePageSize;
         hunmin_ctx *ctx = backend_->EngineContext();
         for (int i = candTop_; i < end; ++i) {
             std::wstring text(HunminUtf8ToWide(hunmin_suggest_text(ctx, i)));
             wchar_t label = (wchar_t)(((i - candTop_) == 9) ? '0' : ('1' + (i - candTop_)));
-            std::wstring line = std::wstring(i == candCursor_ ? L">> " : L"   ") + label +
-                                L". " + text;
+            std::wstring line = std::wstring(i == candCursor_ ? L">> " : L"   ") + label + L". " + text;
             lines.push_back(line);
         }
         candWnd_.Show(rc, fontHost, lines);
@@ -340,6 +322,4 @@ class HunminCandidates : public Candidates {
     CandBackend *backend_;
 };
 
-Candidates *hunmin_tsf_hanja_candidates_new(CandBackend &backend) {
-    return new HunminCandidates(backend);
-}
+Candidates *hunmin_tsf_hanja_candidates_new(CandBackend &backend) { return new HunminCandidates(backend); }

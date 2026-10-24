@@ -19,6 +19,8 @@
  */
 #include "testdir.h"
 #include "testfrontend_public.h"
+#include <algorithm>
+#include <cstdlib>
 #include <fcitx-config/rawconfig.h>
 #include <fcitx-utils/capabilityflags.h>
 #include <fcitx-utils/eventdispatcher.h>
@@ -37,8 +39,6 @@
 #include <fcitx/instance.h>
 #include <filesystem>
 #include <system_error>
-#include <algorithm>
-#include <cstdlib>
 
 using namespace fcitx;
 
@@ -78,15 +78,13 @@ static const Text &clientPanelOf(InputContext *ic) {
  * Finding the prefix by walking rather than hardcoding one is the point: a
  * wrong prefix makes every count below zero, and zero rows still satisfies a
  * "<= 12" style check, so the test would pass while asserting nothing. */
-static void walkDump(const fcitx::RawConfig &c, const std::string &path,
-                     std::string *hangulPrefix, std::string *latinPrefix) {
+static void walkDump(const fcitx::RawConfig &c, const std::string &path, std::string *hangulPrefix, std::string *latinPrefix) {
     for (auto name : c.subItems()) {
         auto sub = c.get(name);
         if (!sub) {
             continue;
         }
-        const std::string here =
-            path.empty() ? name : path + "/" + std::string(name);
+        const std::string here = path.empty() ? name : path + "/" + std::string(name);
         if (name == "HangulLayout" && hangulPrefix->empty()) {
             *hangulPrefix = here;
         }
@@ -104,8 +102,7 @@ void scheduleEvent(Instance *instance) {
         auto group = instance->inputMethodManager().currentGroup();
         group.inputMethodList().clear();
         group.inputMethodList().push_back(InputMethodGroupItem("keyboard-us"));
-        group.inputMethodList().push_back(
-            InputMethodGroupItem("hunmin").setLayout("sin3-p2"));
+        group.inputMethodList().push_back(InputMethodGroupItem("hunmin").setLayout("sin3-p2"));
         group.setDefaultInputMethod("");
         instance->inputMethodManager().setGroup(group);
 
@@ -163,8 +160,7 @@ void scheduleEvent(Instance *instance) {
         const Text &t = panelOf(ic);
         FCITX_ASSERT(t.toString() == "\uac00");
         // cursor() is a byte offset; textLength() is the byte length.
-        FCITX_ASSERT(t.cursor() == static_cast<int>(t.textLength()))
-            << "cursor " << t.cursor() << " vs textLength " << t.textLength();
+        FCITX_ASSERT(t.cursor() == static_cast<int>(t.textLength())) << "cursor " << t.cursor() << " vs textLength " << t.textLength();
         tf->call<ITestFrontend::pushCommitExpectation>("가");
         tap(uuid, Key("space"));
         FCITX_ASSERT(panelOf(ic).toString().empty());
@@ -184,49 +180,39 @@ void scheduleEvent(Instance *instance) {
         tap(uuid, Key("o"));
         FCITX_ASSERT(panelOf(ic).toString() == "\ud478");
 
-        bool accepted = tf->call<ITestFrontend::sendKeyEvent>(
-            uuid, Key(FcitxKey_F9), false);
+        bool accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9), false);
         FCITX_ASSERT(accepted) << "F9 with a candidate preedit must be consumed";
 
         auto list = ic->inputPanel().candidateList();
         FCITX_ASSERT(list) << "F9 produced no candidate list";
         FCITX_ASSERT(list->size() > 0) << "candidate list is empty for the syllable";
-        FCITX_ASSERT(list->candidate(0).comment().toString() ==
-                     "the wind blows, blown by the wind")
+        FCITX_ASSERT(list->candidate(0).comment().toString() == "the wind blows, blown by the wind")
             << "gloss is '" << list->candidate(0).comment().toString() << "'";
         // 푸 has exactly one candidate in hanja.json, U+4B0C, and no
         // frequency data -- asserted from the file rather than remembered.
         FCITX_ASSERT(list->size() == 1) << list->size();
-        FCITX_ASSERT(list->candidate(0).text().toString() == "\u4b0c")
-            << list->candidate(0).text().toString();
+        FCITX_ASSERT(list->candidate(0).text().toString() == "\u4b0c") << list->candidate(0).text().toString();
 
         // Choosing a candidate commits the Hanja in place of the preedit it
         // came from. DisplayOnlyCandidateWord would silently drop it.
         // 푸's only candidate is U+4B0C, per hanja.json.
         tf->call<ITestFrontend::pushCommitExpectation>("\u4b0c");
         list->candidate(0).select(ic);
-        FCITX_ASSERT(!ic->inputPanel().candidateList())
-            << "choosing did not close the window";
-        FCITX_ASSERT(panelOf(ic).toString().empty())
-            << "choosing left the source Hangul in the preedit";
+        FCITX_ASSERT(!ic->inputPanel().candidateList()) << "choosing did not close the window";
+        FCITX_ASSERT(panelOf(ic).toString().empty()) << "choosing left the source Hangul in the preedit";
 
         // Re-open and close with F9 instead, which must not disturb anything.
         tap(uuid, Key("p"));
         tap(uuid, Key("o"));
         FCITX_ASSERT(panelOf(ic).toString() == "\ud478");
-        accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9),
-                                                         false);
+        accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9), false);
         // First F9 re-opens, second closes: neither disturbs the preedit.
         FCITX_ASSERT(accepted);
-        FCITX_ASSERT(ic->inputPanel().candidateList())
-            << "the second F9 did not re-open the window";
-        accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9),
-                                                         false);
+        FCITX_ASSERT(ic->inputPanel().candidateList()) << "the second F9 did not re-open the window";
+        accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9), false);
         FCITX_ASSERT(accepted);
-        FCITX_ASSERT(!ic->inputPanel().candidateList())
-            << "F9 did not close the candidate window";
-        FCITX_ASSERT(panelOf(ic).toString() == "\ud478")
-            << "closing the window disturbed the preedit";
+        FCITX_ASSERT(!ic->inputPanel().candidateList()) << "F9 did not close the candidate window";
+        FCITX_ASSERT(panelOf(ic).toString() == "\ud478") << "closing the window disturbed the preedit";
 
         // ... and the pass-through case: a lone initial has no entry, so F9 is
         // not ours to consume and must reach the client.
@@ -237,18 +223,15 @@ void scheduleEvent(Instance *instance) {
         FCITX_ASSERT(panelOf(ic).toString().empty());
         tap(uuid, Key("k"));
         FCITX_ASSERT(panelOf(ic).toString() == "\u3131");
-        accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9),
-                                                         false);
+        accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9), false);
         FCITX_ASSERT(!accepted) << "F9 with no candidates must reach the client";
 
         // ... and with no composition at all. Distinct from the case above:
         // there the preedit holds a syllable that simply has no entry, here
         // it is empty, and neither may swallow F9.
-        accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9),
-                                                         false);
+        accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9), false);
         FCITX_ASSERT(!accepted) << "F9 with an empty preedit must reach the client";
-        FCITX_ASSERT(!ic->inputPanel().candidateList())
-            << "a pass-through F9 must not open a window";
+        FCITX_ASSERT(!ic->inputPanel().candidateList()) << "a pass-through F9 must not open a window";
 
         /* Known gap: openCandidates() also early-returns on an *empty*
          * preedit, before it ever calls hunmin_suggest_count(). Dropping that
@@ -285,8 +268,7 @@ void scheduleEvent(Instance *instance) {
             // while asserting nothing.
             std::string hangulBase, latinBase;
             walkDump(desc, "", &hangulBase, &latinBase);
-            FCITX_ASSERT(!hangulBase.empty() || !latinBase.empty())
-                << "no HangulLayout or LatinLayout option in the description dump";
+            FCITX_ASSERT(!hangulBase.empty() || !latinBase.empty()) << "no HangulLayout or LatinLayout option in the description dump";
 
             // The VALUE, not just the key. `valueByPath` returns a pointer for
             // any existing key, so asserting presence passed with IsEnum set to
@@ -294,11 +276,9 @@ void scheduleEvent(Instance *instance) {
             // on the value (optionwidget.cpp:546), so only "True" gives the
             // combobox.
             const std::string *isEnum = desc.valueByPath(hangulBase.empty() ? latinBase + "/IsEnum" : hangulBase + "/IsEnum");
-            FCITX_ASSERT(isEnum && *isEnum == "True")
-                << "Layout IsEnum is "
-                << (isEnum ? *isEnum : std::string("(absent)"))
-                << ", so configtool renders a text field and the user has to "
-                   "type the id";
+            FCITX_ASSERT(isEnum && *isEnum == "True") << "Layout IsEnum is " << (isEnum ? *isEnum : std::string("(absent)"))
+                                                      << ", so configtool renders a text field and the user has to "
+                                                         "type the id";
 
             // Every layout the addon offers must be one the data ships, and
             // every layout the data ships that this build can open must be
@@ -315,9 +295,7 @@ void scheduleEvent(Instance *instance) {
             int shipped = 0;
             {
                 std::error_code ec;
-                for (auto it = std::filesystem::directory_iterator(
-                         std::string(TESTING_SOURCE_DIR) + "/libhunmin/data/layouts",
-                         ec);
+                for (auto it = std::filesystem::directory_iterator(std::string(TESTING_SOURCE_DIR) + "/libhunmin/data/layouts", ec);
                      !ec && it != std::filesystem::directory_iterator(); ++it) {
                     if (it->path().extension() == ".json") {
                         shipped++;
@@ -328,8 +306,7 @@ void scheduleEvent(Instance *instance) {
             FCITX_ASSERT(shipped > 0) << "no layout files found";
 
             int rows = 0;
-            for (const std::string *b : {hangulBase.empty() ? nullptr : &hangulBase,
-                                         latinBase.empty() ? nullptr : &latinBase}) {
+            for (const std::string *b : {hangulBase.empty() ? nullptr : &hangulBase, latinBase.empty() ? nullptr : &latinBase}) {
                 if (!b)
                     continue;
                 for (int i = 0;; i++) {
@@ -343,8 +320,7 @@ void scheduleEvent(Instance *instance) {
             // data ships. A row the core cannot open is a row that fails at
             // keystroke time, and a missing one is a layout the user cannot
             // pick.
-            FCITX_ASSERT(rows == shipped)
-                << "picker offers " << rows << " layouts, data ships " << shipped;
+            FCITX_ASSERT(rows == shipped) << "picker offers " << rows << " layouts, data ships " << shipped;
 
             // Known gap, recorded rather than papered over: dropping
             // refreshLayoutList() from reloadConfig() survives this test.
@@ -358,20 +334,16 @@ void scheduleEvent(Instance *instance) {
             //
             // And every id offered has a file behind it -- a stale row would
             // otherwise survive the count.
-            for (const std::string *b : {hangulBase.empty() ? nullptr : &hangulBase,
-                                         latinBase.empty() ? nullptr : &latinBase}) {
+            for (const std::string *b : {hangulBase.empty() ? nullptr : &hangulBase, latinBase.empty() ? nullptr : &latinBase}) {
                 if (!b)
                     continue;
                 for (int i = 0;; i++) {
                     const std::string *id = desc.valueByPath(*b + "/Enum/" + std::to_string(i));
                     if (!id)
                         break;
-                    const std::string file = std::string(TESTING_SOURCE_DIR) +
-                                             "/libhunmin/data/layouts/" + *id +
-                                             ".json";
+                    const std::string file = std::string(TESTING_SOURCE_DIR) + "/libhunmin/data/layouts/" + *id + ".json";
                     std::error_code ec;
-                    FCITX_ASSERT(std::filesystem::exists(file, ec))
-                        << "picker offers '" << *id << "', which has no data file";
+                    FCITX_ASSERT(std::filesystem::exists(file, ec)) << "picker offers '" << *id << "', which has no data file";
                 }
             }
         }
@@ -394,8 +366,7 @@ void scheduleEvent(Instance *instance) {
         // -- in the order 刊 肝 間 間 干 ..., read out of the engine rather than
         // out of hanja.json, whose own order differs.
         auto kbUuid = tf->call<ITestFrontend::createInputContext>("kbapp");
-        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(
-            kbUuid, Key("Control+space"), false));
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key("Control+space"), false));
         auto *kic = instance->inputContextManager().findByUUID(kbUuid);
         FCITX_ASSERT(kic) << "no input context for the keyboard test";
         FCITX_ASSERT(instance->inputMethod(kic) == "hunmin");
@@ -403,17 +374,13 @@ void scheduleEvent(Instance *instance) {
         tap(kbUuid, Key("f"));
         tap(kbUuid, Key("s"));
         FCITX_ASSERT(panelOf(kic).toString() == "\uac04");
-        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_F9),
-                                                           false))
-            << "F9 on 간 must open the window";
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_F9), false)) << "F9 on 간 must open the window";
         auto hanList = kic->inputPanel().candidateList();
         FCITX_ASSERT(hanList) << "no window for 간";
         FCITX_ASSERT(hanList->layoutHint() == CandidateLayoutHint::Vertical)
-            << "the candidate window must be vertical, not "
-            << static_cast<int>(hanList->layoutHint());
+            << "the candidate window must be vertical, not " << static_cast<int>(hanList->layoutHint());
         FCITX_ASSERT(hanList->candidate(0).text().toString() == "\u520a")
-            << "first candidate is '"
-            << hanList->candidate(0).text().toString() << "', expected 刊";
+            << "first candidate is '" << hanList->candidate(0).text().toString() << "', expected 刊";
 
         /* THE PAGE SIZE MUST NOT EXCEED FCITX5'S LABEL CEILING (issue #45).
          *
@@ -439,58 +406,40 @@ void scheduleEvent(Instance *instance) {
          */
         {
             auto *common = dynamic_cast<CommonCandidateList *>(hanList.get());
-            FCITX_ASSERT(common)
-                << "the F9 window must be a CommonCandidateList, not "
-                << (hanList ? "something else" : "null");
-            FCITX_ASSERT(common->pageSize() <= 10)
-                << "page size is " << common->pageSize() << ", above fcitx5's "
-                << "label ceiling of 10; classicui will call label(10) and "
-                << "fcitx5 will abort";
+            FCITX_ASSERT(common) << "the F9 window must be a CommonCandidateList, not " << (hanList ? "something else" : "null");
+            FCITX_ASSERT(common->pageSize() <= 10) << "page size is " << common->pageSize() << ", above fcitx5's "
+                                                   << "label ceiling of 10; classicui will call label(10) and "
+                                                   << "fcitx5 will abort";
             // Exact, so the cap cannot silently shrink a list that already
             // fits: the page is the whole list when it fits, the ceiling when
             // it does not. 67 -> 10, and 푸's 1 -> 1.
-            FCITX_ASSERT(common->pageSize() ==
-                         std::min(common->totalSize(), 10))
-                << "page size " << common->pageSize() << " for a list of "
-                << common->totalSize();
+            FCITX_ASSERT(common->pageSize() == std::min(common->totalSize(), 10))
+                << "page size " << common->pageSize() << " for a list of " << common->totalSize();
         }
 
         // Down once moves the cursor to the second candidate, and the key is
         // ours -- an arrow key that reached the engine would type a character.
-        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_Down),
-                                                           false))
-            << "Down must be consumed by the candidate window";
-        FCITX_ASSERT(hanList->cursorIndex() == 1)
-            << "Down did not move the cursor (index " << hanList->cursorIndex()
-            << ", size=" << hanList->size() << ")";
-        FCITX_ASSERT(hanList->candidate(hanList->cursorIndex()).text().toString() == "\u809d")
-            << "cursor is not on 肝";
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_Down), false)) << "Down must be consumed by the candidate window";
+        FCITX_ASSERT(hanList->cursorIndex() == 1) << "Down did not move the cursor (index " << hanList->cursorIndex() << ", size=" << hanList->size()
+                                                  << ")";
+        FCITX_ASSERT(hanList->candidate(hanList->cursorIndex()).text().toString() == "\u809d") << "cursor is not on 肝";
 
         // Return commits the candidate under the cursor and closes the window,
         // and the source Hangul must not survive it.
         tf->call<ITestFrontend::pushCommitExpectation>("\u809d");
-        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_Return),
-                                                           false))
-            << "Return must be consumed by the candidate window";
-        FCITX_ASSERT(!kic->inputPanel().candidateList())
-            << "choosing with Return did not close the window";
-        FCITX_ASSERT(panelOf(kic).toString().empty())
-            << "choosing with Return left the source Hangul in the preedit";
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_Return), false)) << "Return must be consumed by the candidate window";
+        FCITX_ASSERT(!kic->inputPanel().candidateList()) << "choosing with Return did not close the window";
+        FCITX_ASSERT(panelOf(kic).toString().empty()) << "choosing with Return left the source Hangul in the preedit";
 
         // Escape closes without committing anything, and leaves the composition
         // exactly as it was -- which is what a cancel means.
         tap(kbUuid, Key("k"));
         tap(kbUuid, Key("f"));
         tap(kbUuid, Key("s"));
-        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_F9),
-                                                           false));
-        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_Escape),
-                                                           false))
-            << "Escape must close the candidate window";
-        FCITX_ASSERT(!kic->inputPanel().candidateList())
-            << "Escape did not close the window";
-        FCITX_ASSERT(panelOf(kic).toString() == "\uac04")
-            << "Escape must leave the composition alone";
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_F9), false));
+        FCITX_ASSERT(tf->call<ITestFrontend::sendKeyEvent>(kbUuid, Key(FcitxKey_Escape), false)) << "Escape must close the candidate window";
+        FCITX_ASSERT(!kic->inputPanel().candidateList()) << "Escape did not close the window";
+        FCITX_ASSERT(panelOf(kic).toString() == "\uac04") << "Escape must leave the composition alone";
 
         // deactivate() below flushes what is still composing, so 간 lands as a
         // commit. Stated rather than absorbed: it is the IME handing the text
@@ -505,8 +454,7 @@ void scheduleEvent(Instance *instance) {
 
 int main() {
     setenv("HUNMIN_DATA_PATH", TESTING_SOURCE_DIR "/libhunmin/data", 1);
-    setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR},
-                                {TEST_DATA_DIR});
+    setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
     char arg0[] = "testhunminui";
     char arg1[] = "--disable=all";
     char arg2[] = "--enable=testim,testfrontend,hunmin";

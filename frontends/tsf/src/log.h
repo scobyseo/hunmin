@@ -37,13 +37,13 @@
 #include <cstring>
 #include <cwchar>
 
-#include <windows.h>
 #include <shlwapi.h>
+#include <windows.h>
 
 #pragma comment(lib, "Shlwapi.lib")
 
 class BaseLogDirectory {
-  public:
+public:
     /* The directory for a log file name (never a drive root). STATIC so its
      * address stays a plain function pointer usable as the FROM_ADDRESS
      * module anchor (a member pointer is not). */
@@ -51,14 +51,12 @@ class BaseLogDirectory {
         wchar_t dirW[MAX_PATH];
         wchar_t envW[MAX_PATH];
         DWORD envAttr;
-        if (GetEnvironmentVariableW(L"HUNMIN_TSF_LOG_DIR", envW, MAX_PATH) > 0 &&
-            (envAttr = GetFileAttributesW(envW)) != INVALID_FILE_ATTRIBUTES &&
+        if (GetEnvironmentVariableW(L"HUNMIN_TSF_LOG_DIR", envW, MAX_PATH) > 0 && (envAttr = GetFileAttributesW(envW)) != INVALID_FILE_ATTRIBUTES &&
             (envAttr & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
             lstrcpynW(dirW, envW, MAX_PATH);
         } else {
             HMODULE hMod = nullptr;
-            if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                                        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                                     (LPCWSTR)(const void *)&PathFor, &hMod) ||
                 !hMod)
                 return false;
@@ -68,8 +66,7 @@ class BaseLogDirectory {
                 return false;
         }
         char dirA[MAX_PATH * 3];
-        if (WideCharToMultiByte(CP_ACP, 0, dirW, -1, dirA, sizeof(dirA), nullptr,
-                                nullptr) == 0)
+        if (WideCharToMultiByte(CP_ACP, 0, dirW, -1, dirA, sizeof(dirA), nullptr, nullptr) == 0)
             return false;
         int n = snprintf(out, cap, "%s\\%s", dirA, fname);
         return n > 0 && (size_t)n < cap;
@@ -77,9 +74,8 @@ class BaseLogDirectory {
 };
 
 /* Tag contract: kFileName = the log file name; kEnvName = the gate env var. */
-template <typename T>
-class BaseLog : public BaseLogDirectory {
-  public:
+template <typename T> class BaseLog : public BaseLogDirectory {
+public:
     static BaseLog &Instance() {
         static BaseLog log;
         return log;
@@ -94,8 +90,7 @@ class BaseLog : public BaseLogDirectory {
             return false;
         for (DWORD i = 0; i < n && v[i]; ++i)
             v[i] = (char)tolower((unsigned char)v[i]);
-        return strcmp(v, "1") == 0 || strcmp(v, "on") == 0 ||
-               strcmp(v, "yes") == 0 || strcmp(v, "true") == 0;
+        return strcmp(v, "1") == 0 || strcmp(v, "on") == 0 || strcmp(v, "yes") == 0 || strcmp(v, "true") == 0;
     }
 
     /* One gated line, narrow. */
@@ -134,7 +129,7 @@ class BaseLog : public BaseLogDirectory {
             fclose(f);
     }
 
-  private:
+private:
     FILE *openFor_(const char *mode) {
         if (!Enabled())
             return nullptr;

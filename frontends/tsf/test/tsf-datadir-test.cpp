@@ -51,8 +51,7 @@ TEST(Datadir, ModuleDirDataLoadsWithNoEnvironmentHelp) {
     _putenv_s("HUNMIN_DATA_DIR", "");
 
     char exePath[MAX_PATH * 2];
-    ASSERT_TRUE(GetModuleFileNameA(nullptr, exePath, (DWORD)sizeof(exePath)))
-        << "cannot resolve own path";
+    ASSERT_TRUE(GetModuleFileNameA(nullptr, exePath, (DWORD)sizeof(exePath))) << "cannot resolve own path";
     char *slash = strrchr(exePath, '\\');
     if (!slash)
         slash = strrchr(exePath, '/');
@@ -61,18 +60,15 @@ TEST(Datadir, ModuleDirDataLoadsWithNoEnvironmentHelp) {
     const char *exeDir = exePath;
 
     hunmin_ctx *ctx = hunmin_ctx_from_module();
-    ASSERT_NE(ctx, nullptr)
-        << "hunmin_ctx_from_module() returned NULL with HUNMIN_DATA_DIR cleared";
+    ASSERT_NE(ctx, nullptr) << "hunmin_ctx_from_module() returned NULL with HUNMIN_DATA_DIR cleared";
 
     char staged[MAX_PATH * 2];
     snprintf(staged, sizeof(staged), "%s\\data\\layouts", exeDir);
     const int files = countLayoutJson(staged);
     const int enumerated = hunmin_ctx_layout_count(ctx);
     ASSERT_GT(files, 0) << "staged layouts dir holds " << files << " json files";
-    ASSERT_EQ(files, enumerated)
-        << "staged layout files=" << files
-        << " but hunmin_ctx_layout_count=" << enumerated
-        << " (a staged layout did not parse)";
+    ASSERT_EQ(files, enumerated) << "staged layout files=" << files << " but hunmin_ctx_layout_count=" << enumerated
+                                 << " (a staged layout did not parse)";
 
     hunmin_ic *ic = hunmin_ic_new(ctx, "sin3-p2");
     ASSERT_NE(ic, nullptr) << "hunmin_ic_new(sin3-p2) returned NULL against staged data";
@@ -90,8 +86,7 @@ TEST(Datadir, ModuleDirDataLoadsWithNoEnvironmentHelp) {
      * pathological staging, not a layout assertion. */
     bool consumed = hunmin_ic_process(d, 'r');
     const char *pre = hunmin_ic_preedit(d);
-    EXPECT_TRUE(consumed && pre && pre[0])
-        << "dubeolsik 'r' inconsumed, preedit=\"" << (pre ? pre : "") << "\"";
+    EXPECT_TRUE(consumed && pre && pre[0]) << "dubeolsik 'r' inconsumed, preedit=\"" << (pre ? pre : "") << "\"";
     hunmin_ic_free(d);
     hunmin_ctx_free(ctx);
 }

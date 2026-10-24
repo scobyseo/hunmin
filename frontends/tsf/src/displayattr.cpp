@@ -20,7 +20,7 @@
 /* ITfDisplayAttributeInfo for HunminDisplayAttrGuid: one attribute, the
  * underlined-undetermined-text shape every Korean IME uses. */
 class HunminDisplayAttrInfo : public ITfDisplayAttributeInfo {
-  public:
+public:
     HunminDisplayAttrInfo() : ref_(1) {}
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
         if (!ppv)
@@ -81,13 +81,13 @@ class HunminDisplayAttrInfo : public ITfDisplayAttributeInfo {
     }
     STDMETHOD(Reset)() override { return S_OK; }
 
-  private:
+private:
     LONG ref_;
     virtual ~HunminDisplayAttrInfo() = default;
 };
 
 class HunminEnumDisplayAttrInfo : public IEnumTfDisplayAttributeInfo {
-  public:
+public:
     HunminEnumDisplayAttrInfo() : ref_(1), pos_(0) {}
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
         if (!ppv)
@@ -137,7 +137,7 @@ class HunminEnumDisplayAttrInfo : public IEnumTfDisplayAttributeInfo {
         return S_OK;
     }
 
-  private:
+private:
     LONG ref_;
     ULONG pos_;
     virtual ~HunminEnumDisplayAttrInfo() = default;
@@ -158,9 +158,7 @@ void DisplayAttr::Apply(ITfContext *ctx, TfEditCookie ec, ITfRange *range, bool 
         return;
     if (atom_ == 0) {
         ITfCategoryMgr *cm = nullptr;
-        if (SUCCEEDED(CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER,
-                                       IID_ITfCategoryMgr, (void **)&cm)) &&
-            cm) {
+        if (SUCCEEDED(CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr, (void **)&cm)) && cm) {
             HRESULT hrG = cm->RegisterGUID(HunminDisplayAttrGuid, &atom_);
             cm->Release();
             if (FAILED(hrG))
@@ -185,9 +183,7 @@ void DisplayAttr::Apply(ITfContext *ctx, TfEditCookie ec, ITfRange *range, bool 
     }
 }
 
-IEnumTfDisplayAttributeInfo *HunminDisplayAttrEnumNew() {
-    return new HunminEnumDisplayAttrInfo();
-}
+IEnumTfDisplayAttributeInfo *HunminDisplayAttrEnumNew() { return new HunminEnumDisplayAttrInfo(); }
 
 ITfDisplayAttributeInfo *HunminDisplayAttrNewForGUID(REFGUID guid) {
     if (!IsEqualGUID(guid, HunminDisplayAttrGuid))

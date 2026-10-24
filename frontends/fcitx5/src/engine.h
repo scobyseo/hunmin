@@ -19,15 +19,12 @@ namespace fcitx {
 class HunminState;
 
 class HunminEngine : public InputMethodEngine {
-  public:
+public:
     explicit HunminEngine(Instance *instance);
 
-    void activate(const fcitx::InputMethodEntry &,
-                  fcitx::InputContextEvent &) override;
-    void deactivate(const fcitx::InputMethodEntry &entry,
-                    fcitx::InputContextEvent &event) override;
-    void keyEvent(const fcitx::InputMethodEntry &entry,
-                  fcitx::KeyEvent &keyEvent) override;
+    void activate(const fcitx::InputMethodEntry &, fcitx::InputContextEvent &) override;
+    void deactivate(const fcitx::InputMethodEntry &entry, fcitx::InputContextEvent &event) override;
+    void keyEvent(const fcitx::InputMethodEntry &entry, fcitx::KeyEvent &keyEvent) override;
 
     // Layout for a given IM: the profile's per-item `Layout=` wins over the
     // addon-wide `conf/hunmin.conf` default. fcitx5 exposes this through
@@ -35,8 +32,7 @@ class HunminEngine : public InputMethodEngine {
     // accessor, and the per-item value is otherwise only written back to
     // profile without ever being read.
     std::string layoutFor(const fcitx::InputMethodEntry &entry) const;
-    void reset(const fcitx::InputMethodEntry &,
-               fcitx::InputContextEvent &) override;
+    void reset(const fcitx::InputMethodEntry &, fcitx::InputContextEvent &) override;
     void reloadConfig() override;
 
     /* Fill the layout picker's list from the core. Called before the first
@@ -52,7 +48,7 @@ class HunminEngine : public InputMethodEngine {
     hunmin_ctx *ctx() const { return ctx_; }
     auto &config() { return config_; }
 
-  private:
+private:
     Instance *instance_;
     HunminConfig config_;
     FactoryFor<HunminState> factory_;
@@ -60,10 +56,8 @@ class HunminEngine : public InputMethodEngine {
 };
 
 class HunminEngineFactory : public AddonFactory {
-  public:
-    AddonInstance *create(AddonManager *manager) override {
-        return new HunminEngine(manager->instance());
-    }
+public:
+    AddonInstance *create(AddonManager *manager) override { return new HunminEngine(manager->instance()); }
 };
 } // namespace fcitx
 

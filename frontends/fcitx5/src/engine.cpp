@@ -9,6 +9,8 @@
  */
 #include "engine.h"
 #include "modeswitch.h"
+#include <cstdlib>
+#include <cstring>
 #include <fcitx-config/iniparser.h>
 #include <fcitx-config/rawconfig.h>
 #include <fcitx-utils/capabilityflags.h>
@@ -26,8 +28,6 @@
 #include <fcitx/inputmethodmanager.h>
 #include <fcitx/inputpanel.h>
 #include <fcitx/text.h>
-#include <cstdlib>
-#include <cstring>
 
 namespace fcitx {
 
@@ -85,24 +85,22 @@ class HunminState;
  * select() is defined out of line, after HunminState, because it casts to
  * HunminState and a dynamic_cast needs the complete type. */
 class HunminCandidateWord : public CandidateWord {
-  public:
-    HunminCandidateWord(Text text, Text comment, HunminEngine *engine,
-                        InputContext *ic, std::string hanja);
+public:
+    HunminCandidateWord(Text text, Text comment, HunminEngine *engine, InputContext *ic, std::string hanja);
 
     void select(InputContext *inputContext) const override;
 
     const std::string &hanja() const { return hanja_; }
 
-  private:
+private:
     HunminEngine *engine_;
     InputContext *ic_;
     std::string hanja_;
 };
 
 class HunminState : public InputContextProperty {
-  public:
-    HunminState(HunminEngine *engine, InputContext *ic)
-        : engine_(engine), ic_(ic), switcher_(engine->ctx()) {}
+public:
+    HunminState(HunminEngine *engine, InputContext *ic) : engine_(engine), ic_(ic), switcher_(engine->ctx()) {}
 
     ~HunminState() override {
         if (hunminIc_) {
@@ -264,8 +262,7 @@ class HunminState : public InputContextProperty {
                 return;
             case FcitxKey_Page_Up:
             case FcitxKey_KP_Page_Up:
-                if (list && list->toPageable() &&
-                    list->toPageable()->hasPrev()) {
+                if (list && list->toPageable() && list->toPageable()->hasPrev()) {
                     list->toPageable()->prev();
                 }
                 updateUI();
@@ -273,8 +270,7 @@ class HunminState : public InputContextProperty {
                 return;
             case FcitxKey_Page_Down:
             case FcitxKey_KP_Page_Down:
-                if (list && list->toPageable() &&
-                    list->toPageable()->hasNext()) {
+                if (list && list->toPageable() && list->toPageable()->hasNext()) {
                     list->toPageable()->next();
                 }
                 updateUI();
@@ -291,8 +287,7 @@ class HunminState : public InputContextProperty {
                 }
                 if (list && idx < list->size()) {
                     const CandidateWord &word = list->candidate(idx);
-                    auto *hanmin = dynamic_cast<HunminCandidateWord *>(
-                        const_cast<CandidateWord *>(&word));
+                    auto *hanmin = dynamic_cast<HunminCandidateWord *>(const_cast<CandidateWord *>(&word));
                     if (hanmin) {
                         commitCandidate(hanmin->hanja());
                     }
@@ -341,8 +336,7 @@ class HunminState : public InputContextProperty {
         switcher_.record(ch); // R8 adapter; see src/modeswitch.h
 
         if (used) {
-            if (const char *commit = hunmin_ic_commit(hunminIc_);
-                commit && *commit) {
+            if (const char *commit = hunmin_ic_commit(hunminIc_); commit && *commit) {
 #ifdef HUNMIN_TRACE
                 traceEvent("commit", commit);
 #endif
@@ -395,12 +389,11 @@ class HunminState : public InputContextProperty {
         }
     }
 
-  private:
+private:
     void ensureIc(const std::string &layout) {
         // per-item profile layout wins; empty means "no override", in which
         // case the addon-wide default from conf/hunmin.conf applies.
-        const std::string &want =
-            layout.empty() ? *engine_->config().hangulLayout : layout;
+        const std::string &want = layout.empty() ? *engine_->config().hangulLayout : layout;
         if (hunminIc_ && want == layout_) {
             return;
         }
@@ -452,17 +445,13 @@ class HunminState : public InputContextProperty {
     std::string candidateSource_;
 };
 
-HunminCandidateWord::HunminCandidateWord(Text text, Text comment,
-                                         HunminEngine *engine,
-                                         InputContext *ic, std::string hanja)
-    : CandidateWord(std::move(text)), engine_(engine), ic_(ic),
-      hanja_(std::move(hanja)) {
+HunminCandidateWord::HunminCandidateWord(Text text, Text comment, HunminEngine *engine, InputContext *ic, std::string hanja)
+    : CandidateWord(std::move(text)), engine_(engine), ic_(ic), hanja_(std::move(hanja)) {
     setComment(std::move(comment));
 }
 
 void HunminCandidateWord::select(InputContext *inputContext) const {
-    auto *state = inputContext ? inputContext->property("hunminState")
-                               : nullptr;
+    auto *state = inputContext ? inputContext->property("hunminState") : nullptr;
     if (auto *hunmin = dynamic_cast<HunminState *>(state)) {
         hunmin->commitCandidate(hanja_);
     }
@@ -499,9 +488,7 @@ void HunminState::updateCandidateList() {
         if (detail.empty()) {
             detail = hunmin_suggest_kind(engine_->ctx(), i);
         }
-        list->append(std::make_unique<HunminCandidateWord>(
-            text, Text(detail), engine_, ic_,
-            hunmin_suggest_text(engine_->ctx(), i)));
+        list->append(std::make_unique<HunminCandidateWord>(text, Text(detail), engine_, ic_, hunmin_suggest_text(engine_->ctx(), i)));
     }
     /*
      * Vertical, cursor on the first, and a page that never exceeds
@@ -539,17 +526,13 @@ void HunminState::updateCandidateList() {
      * the user's intent is to pick one, and Return on an unselected cursor would
      * have to guess.
      */
-    list->setPageSize(candidateCount_ < kMaxCandidatePageSize
-                          ? candidateCount_
-                          : kMaxCandidatePageSize);
+    list->setPageSize(candidateCount_ < kMaxCandidatePageSize ? candidateCount_ : kMaxCandidatePageSize);
     list->setGlobalCursorIndex(0);
     list->setLayoutHint(CandidateLayoutHint::Vertical);
     ic_->inputPanel().setCandidateList(std::move(list));
 }
 
-HunminEngine::HunminEngine(Instance *instance)
-    : instance_(instance),
-      factory_([this](InputContext &ic) { return new HunminState(this, &ic); }) {
+HunminEngine::HunminEngine(Instance *instance) : instance_(instance), factory_([this](InputContext &ic) { return new HunminState(this, &ic); }) {
     // Data path: HUNMIN_DATA_PATH first (tests, source trees), then the
     // installed share/hunmin default.
     ctx_ = hunmin_ctx_new(nullptr, 0);
@@ -558,8 +541,7 @@ HunminEngine::HunminEngine(Instance *instance)
         ctx_ = hunmin_ctx_new(dirs, 1);
     }
     if (!ctx_) {
-        FCITX_ERROR() << "hunmin: no layout data found (HUNMIN_DATA_PATH, "
-                      << HUNMIN_DEFAULT_DATA_DIR << ")";
+        FCITX_ERROR() << "hunmin: no layout data found (HUNMIN_DATA_PATH, " << HUNMIN_DEFAULT_DATA_DIR << ")";
     }
     // Hand the configtool its layout list. This has to happen after ctx_ is
     // built (the ids and names come from it) and before the first getConfig(),
@@ -568,24 +550,18 @@ HunminEngine::HunminEngine(Instance *instance)
     // annotation would show layouts the engine can no longer open.
     refreshLayoutList();
     reloadConfig();
-    instance_->inputContextManager().registerProperty("hunminState",
-                                                      &factory_);
+    instance_->inputContextManager().registerProperty("hunminState", &factory_);
 }
 
-void HunminEngine::activate(const InputMethodEntry &,
-                            InputContextEvent &event) {
+void HunminEngine::activate(const InputMethodEntry &, InputContextEvent &event) {
     if (auto *state = event.inputContext()->propertyFor(&factory_)) {
         state->reset();
     }
 }
 
-void HunminEngine::deactivate(const InputMethodEntry &entry,
-                              InputContextEvent &event) {
-    reset(entry, event);
-}
+void HunminEngine::deactivate(const InputMethodEntry &entry, InputContextEvent &event) { reset(entry, event); }
 
-void HunminEngine::keyEvent(const InputMethodEntry &entry,
-                            KeyEvent &keyEvent) {
+void HunminEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &keyEvent) {
     if (keyEvent.isRelease()) {
         return;
     }
@@ -594,9 +570,7 @@ void HunminEngine::keyEvent(const InputMethodEntry &entry,
 }
 
 std::string HunminEngine::layoutFor(const InputMethodEntry &entry) const {
-    std::string layout = instance_->inputMethodManager()
-                             .currentGroup()
-                             .layoutFor(entry.uniqueName());
+    std::string layout = instance_->inputMethodManager().currentGroup().layoutFor(entry.uniqueName());
     // Per-profile layout wins; empty means "no override", so use the global
     // hangulLayout config as the default Hangul layout.
     if (layout.empty()) {
@@ -658,9 +632,7 @@ void HunminEngine::setConfig(const fcitx::RawConfig &rawConfig) {
     safeSaveAsIni(config_, "conf/hunmin.conf");
 }
 
-HunminState *HunminEngine::state(InputContext *ic) {
-    return ic->propertyFor(&factory_);
-}
+HunminState *HunminEngine::state(InputContext *ic) { return ic->propertyFor(&factory_); }
 
 } // namespace fcitx
 

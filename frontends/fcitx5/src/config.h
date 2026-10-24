@@ -17,9 +17,7 @@ namespace fcitx {
  * EnumAnnotation makes configtool build an EnumOptionWidget (a QComboBox)
  * instead of a text field. The list is populated from the core at runtime. */
 struct LayoutAnnotation : public EnumAnnotation {
-    void setLayouts(std::vector<std::pair<std::string, std::string>> layouts) {
-        layouts_ = std::move(layouts);
-    }
+    void setLayouts(std::vector<std::pair<std::string, std::string>> layouts) { layouts_ = std::move(layouts); }
     void dumpDescription(RawConfig &config) const {
         EnumAnnotation::dumpDescription(config);
         for (size_t i = 0; i < layouts_.size(); i++) {
@@ -28,18 +26,15 @@ struct LayoutAnnotation : public EnumAnnotation {
         }
     }
 
-  private:
+private:
     std::vector<std::pair<std::string, std::string>> layouts_;
 };
 
-FCITX_CONFIGURATION(
-    HunminConfig,
-    /* Hangul layout picker: layouts with mode="hangul" (두벌식, 세벌식, etc.) */
-    OptionWithAnnotation<std::string, LayoutAnnotation>
-        hangulLayout{this, "HangulLayout", _("한글 배열"), "sin3-p2"};
-    /* Latin layout picker: layouts with mode="latin" (QWERTY, DVORAK, COLEMAK) */
-    OptionWithAnnotation<std::string, LayoutAnnotation>
-        latinLayout{this, "LatinLayout", _("영어 배열"), "us-qwerty"};);
+FCITX_CONFIGURATION(HunminConfig,
+                    /* Hangul layout picker: layouts with mode="hangul" (두벌식, 세벌식, etc.) */
+                    OptionWithAnnotation<std::string, LayoutAnnotation> hangulLayout{this, "HangulLayout", _("한글 배열"), "sin3-p2"};
+                    /* Latin layout picker: layouts with mode="latin" (QWERTY, DVORAK, COLEMAK) */
+                    OptionWithAnnotation<std::string, LayoutAnnotation> latinLayout{this, "LatinLayout", _("영어 배열"), "us-qwerty"};);
 
 } // namespace fcitx
 

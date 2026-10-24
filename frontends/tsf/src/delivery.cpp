@@ -21,20 +21,16 @@
 
 #include "utf.h"
 
-#include <windows.h>
 #include <richedit.h> /* CHARRANGE, EM_EXSETSEL - the class-aware EM writes */
+#include <windows.h>
 
 /* ---- NativeDelivery: the #98 composition path ---- */
 
 class NativeDelivery : public Delivery {
-  public:
+public:
     explicit NativeDelivery(TsfCore &core) : core_(&core) {}
-    void Consumed(ITfContext *pic) override {
-        core_->CompositionWrite(pic);
-    }
-    void Boundary(ITfContext *pic) override {
-        core_->InsertBufferedWord(pic);
-    }
+    void Consumed(ITfContext *pic) override { core_->CompositionWrite(pic); }
+    void Boundary(ITfContext *pic) override { core_->InsertBufferedWord(pic); }
     std::string CandidateAnchor() override {
         /* The whole buffered word: accumulated finalised syllables plus
          * the in-flight preedit - the multi-syllable lookup the
@@ -49,8 +45,7 @@ class NativeDelivery : public Delivery {
         }
         return s;
     }
-    bool CandidateCommit(ITfContext *pic,
-                         const std::wstring &replacement) override {
+    bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) override {
         if (core_->Ic())
             hunmin_ic_reset(core_->Ic()); /* drop the composition the list anchored to */
         core_->Wordbuf() = replacement;
@@ -76,18 +71,14 @@ class NativeDelivery : public Delivery {
  * (docs/TSF-INTERIM-INPUT-SPIKE.md 4-6).
  */
 class InterimDelivery : public Delivery {
-  public:
+public:
     explicit InterimDelivery(TsfCore &core) : core_(&core) {}
 
     HWND interimHwnd_ = nullptr; /* the edit control (resolved once) */
     LONG preStart_ = 0; /* doc offset where the span begins */
     size_t preLen_ = 0; /* the span's current char count */
     std::wstring pendingDeadCopy_; /* a fused copy awaiting deletion */
-    enum PendingWrite {
-        kPendingNone,
-        kPendingWrite,
-        kPendingDrain
-    };
+    enum PendingWrite { kPendingNone, kPendingWrite, kPendingDrain };
     PendingWrite pendingWriteKind_ = kPendingNone;
     static InterimDelivery *s_writer; /* one TIP instance per thread */
     static const UINT_PTR kWriteTimerId = 1;
@@ -100,9 +91,7 @@ class InterimDelivery : public Delivery {
         (void)pic;
         Post(kPendingDrain);
     }
-    void FlushPending() override {
-        Dispatch();
-    }
+    void FlushPending() override { Dispatch(); }
     void CaptureDeadCopy(const std::wstring &copy) override {
         pendingDeadCopy_ = copy;
         preStart_ = 0;
@@ -120,8 +109,7 @@ class InterimDelivery : public Delivery {
         const char *pre = core_->Ic() ? hunmin_ic_preedit(core_->Ic()) : "";
         return std::string(pre ? pre : "");
     }
-    bool CandidateCommit(ITfContext *pic,
-                         const std::wstring &replacement) override {
+    bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) override {
         (void)pic;
         if (replacement.size() != 1 || preLen_ == 0)
             return false; /* refused: the word stays intact */
@@ -179,8 +167,7 @@ class InterimDelivery : public Delivery {
         EmSelect(hwnd, preStart_, preStart_ + (LONG)preLen_);
         EmReplace(hwnd, text.c_str());
         preLen_ = text.size();
-        hunmin_logger.log("interim: span now %zu chars at %ld (caret=%ld doclen=%d focused=%d)\n",
-                          text.size(), preStart_, EmCaret(hwnd),
+        hunmin_logger.log("interim: span now %zu chars at %ld (caret=%ld doclen=%d focused=%d)\n", text.size(), preStart_, EmCaret(hwnd),
                           GetWindowTextLengthW(hwnd), GetFocus() == hwnd);
     }
 
@@ -198,8 +185,7 @@ class InterimDelivery : public Delivery {
             EmSelect(hwnd, caret - span, caret);
             EmReplace(hwnd, L"");
             preStart_ = caret - span;
-            hunmin_logger.log("interim: dead copy removed (%ld chars, preStart=%ld)\n",
-                              span, preStart_);
+            hunmin_logger.log("interim: dead copy removed (%ld chars, preStart=%ld)\n", span, preStart_);
         }
         pendingDeadCopy_.clear();
     }
@@ -261,16 +247,12 @@ class InterimDelivery : public Delivery {
             hunmin_ic_reset(core_->Ic());
         if (hwnd)
             EmSelect(hwnd, userCaret, userCaret);
-        hunmin_logger.log("interim boundary: word len=%zu preStart=%ld caret=%ld\n",
-                          word.size(), preStart_, userCaret);
+        hunmin_logger.log("interim boundary: word len=%zu preStart=%ld caret=%ld\n", word.size(), preStart_, userCaret);
     }
 
     /* The class-aware EM primitives: EM_EXSETSEL/CHARRANGE for the
      * msftedit richedit, EM_SETSEL for plain EDIT. */
-    enum {
-        kEmRich = 0,
-        kEmPlain = 1
-    };
+    enum { kEmRich = 0, kEmPlain = 1 };
     int ControlKind(HWND hwnd) {
         wchar_t cls[64] = {0};
         GetClassNameW(hwnd, cls, 64);
@@ -296,9 +278,7 @@ class InterimDelivery : public Delivery {
         SendMessageW(hwnd, EM_GETSEL, (WPARAM)&a, (LPARAM)&b);
         return (LONG)b;
     }
-    void EmReplace(HWND hwnd, const wchar_t *t) {
-        SendMessageW(hwnd, EM_REPLACESEL, FALSE, (LPARAM)t);
-    }
+    void EmReplace(HWND hwnd, const wchar_t *t) { SendMessageW(hwnd, EM_REPLACESEL, FALSE, (LPARAM)t); }
     TsfCore *core_;
 };
 
@@ -306,12 +286,12 @@ InterimDelivery *InterimDelivery::s_writer = nullptr;
 
 namespace {
 class NativeDeliveryFactory : public HunminDeliveryFactory {
-  public:
+public:
     const char *Name() const override { return HUNMIN_TSF_DELIVERY_NATIVE; }
     Delivery *Create(TsfCore &core) override { return new NativeDelivery(core); }
 };
 class InterimDeliveryFactory : public HunminDeliveryFactory {
-  public:
+public:
     const char *Name() const override { return HUNMIN_TSF_DELIVERY_INTERIM; }
     Delivery *Create(TsfCore &core) override { return new InterimDelivery(core); }
 };

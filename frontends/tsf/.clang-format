@@ -1,15 +1,16 @@
 ---
-# C++ frontend style (Windows TSF): 4-space, as written in this directory.
-# Same normalisation intent as the root config (see its header): no
-# re-wrapping, no include re-sorting, no alignment ripple. clang-format picks
+# C++ frontend style (Windows TSF): 4-space, public: flush with `class`.
+# LLVM-based like the root config (see its header): wrapping, include sorting
+# and no alignment ripple. clang-format picks
 # this config automatically for files in this directory tree; there is no
 # reference beyond indentation to the fcitx5 frontend or vice versa.
+# Long lines re-wrap at 150; comment text reflows to the same limit.
 BasedOnStyle: LLVM
 Language: Cpp
 IndentWidth: 4
-ColumnLimit: 0
-SortIncludes: Never
-ReflowComments: false
+ReflowComments: true
 AlignTrailingComments: false
 DerivePointerAlignment: false
 PointerAlignment: Right
+AccessModifierOffset: -4
+ColumnLimit: 150

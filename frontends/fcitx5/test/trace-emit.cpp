@@ -11,6 +11,8 @@
  */
 #include "testdir.h"
 #include "testfrontend_public.h"
+#include <cstdio>
+#include <cstdlib>
 #include <fcitx-utils/eventdispatcher.h>
 #include <fcitx-utils/key.h>
 #include <fcitx-utils/keysym.h>
@@ -23,8 +25,6 @@
 #include <fcitx/inputmethodmanager.h>
 #include <fcitx/inputpanel.h>
 #include <fcitx/instance.h>
-#include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -62,8 +62,7 @@ std::string jsonEscape(const std::string &s) {
         default:
             if (static_cast<unsigned char>(c) < 0x20) {
                 char buf[8];
-                std::snprintf(buf, sizeof buf, "\\u%04x",
-                              static_cast<unsigned>(static_cast<unsigned char>(c)));
+                std::snprintf(buf, sizeof buf, "\\u%04x", static_cast<unsigned>(static_cast<unsigned char>(c)));
                 o += buf;
             } else {
                 o += c;
@@ -94,8 +93,7 @@ std::vector<std::string> readLines(const std::string &path) {
     return out;
 }
 
-unsigned long numberField(const std::string &line, const char *key,
-                          unsigned long fallback) {
+unsigned long numberField(const std::string &line, const char *key, unsigned long fallback) {
     const std::string pat = std::string("\"") + key + "\"";
     auto p = line.find(pat);
     if (p == std::string::npos) {
@@ -147,8 +145,7 @@ std::string stringField(const std::string &line, const char *key) {
                 o += '\r';
                 break;
             case 'u': {
-                const unsigned cp =
-                    std::strtoul(line.c_str() + p + 1, nullptr, 16);
+                const unsigned cp = std::strtoul(line.c_str() + p + 1, nullptr, 16);
                 if (cp < 0x80) {
                     o += static_cast<char>(cp);
                 } else if (cp < 0x800) {
@@ -191,8 +188,7 @@ int main(int argc, char **argv) {
         return 2;
     }
     setenv("HUNMIN_DATA_PATH", TESTING_SOURCE_DIR "/libhunmin/data", 1);
-    setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR},
-                                {TEST_DATA_DIR});
+    setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
 
     const auto lines = readLines(argv[1]);
     if (lines.empty() || lines[0].find("\"meta\"") == std::string::npos) {
@@ -218,8 +214,7 @@ int main(int argc, char **argv) {
         auto group = inst->inputMethodManager().currentGroup();
         group.inputMethodList().clear();
         group.inputMethodList().push_back(InputMethodGroupItem("keyboard-us"));
-        group.inputMethodList().push_back(
-            InputMethodGroupItem("hunmin").setLayout(layout));
+        group.inputMethodList().push_back(InputMethodGroupItem("hunmin").setLayout(layout));
         group.setDefaultInputMethod("");
         inst->inputMethodManager().setGroup(group);
 
@@ -291,8 +286,7 @@ int main(int argc, char **argv) {
                 states |= KeyState::CapsLock;
             }
 
-            const bool accepted = tf->call<ITestFrontend::sendKeyEvent>(
-                uuid, Key(static_cast<KeySym>(keysym), states), false);
+            const bool accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(static_cast<KeySym>(keysym), states), false);
 
             // Report the commit this event was expected to make. Echoed, not
             // measured: if the adapter committed something else, or nothing,
@@ -300,16 +294,12 @@ int main(int argc, char **argv) {
             // the adapter commits at most one string per keypress (invariant 2),
             // and tier A's `commit` is that same per-event buffer, so the index
             // advances once per event whether or not the commit was empty.
-            std::string commit = emitted < expectedCommits.size()
-                                     ? expectedCommits[emitted]
-                                     : std::string();
+            std::string commit = emitted < expectedCommits.size() ? expectedCommits[emitted] : std::string();
             ++emitted;
 
-            std::cout << "{\"in\": {\"keysym\": " << keysym
-                      << ", \"mods\": " << mods << "}, \"commit\": \""
-                      << jsonEscape(commit) << "\", \"preedit\": \""
-                      << jsonEscape(preeditOf(ic)) << "\", \"consumed\": "
-                      << (accepted ? "true" : "false") << "}" << std::endl;
+            std::cout << "{\"in\": {\"keysym\": " << keysym << ", \"mods\": " << mods << "}, \"commit\": \"" << jsonEscape(commit)
+                      << "\", \"preedit\": \"" << jsonEscape(preeditOf(ic)) << "\", \"consumed\": " << (accepted ? "true" : "false") << "}"
+                      << std::endl;
         }
 
         inst->deactivate();

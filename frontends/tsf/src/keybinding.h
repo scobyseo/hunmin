@@ -68,15 +68,13 @@ typedef struct HunminKeyCombo {
  * Returns the number of parsed combos; bad entries are skipped, a bad list is
  * not an error — an unparseable binding must never swallow a keystroke (the
  * Android rule: "matches nothing when unparseable"). */
-int hunmin_tsf_keybindings_parse(const char *list, HunminKeyCombo *out,
-                                 int cap);
+int hunmin_tsf_keybindings_parse(const char *list, HunminKeyCombo *out, int cap);
 
 /* Is (vk, modsState) one of the bindings? modsState is the snapshot the
  * caller built (below), NOT raw GetKeyState calls: a binding must be matched
  * against the same state the next decision sees, and the mock harness
  * injects state, so the point of truth stays outside this module. */
-int hunmin_tsf_keybindings_match(const HunminKeyCombo *bindings, int count,
-                                 unsigned int vk, unsigned int modsState);
+int hunmin_tsf_keybindings_match(const HunminKeyCombo *bindings, int count, unsigned int vk, unsigned int modsState);
 
 /* The modifier bits the current thread input state implies. Shift/Control/Alt
  * via the aggregate vks; the family rule only (the VK names a side binding). */

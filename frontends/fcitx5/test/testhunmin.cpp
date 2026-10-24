@@ -8,6 +8,7 @@
  */
 #include "testdir.h"
 #include "testfrontend_public.h"
+#include <cstdlib>
 #include <fcitx-utils/eventdispatcher.h>
 #include <fcitx-utils/key.h>
 #include <fcitx-utils/keysym.h>
@@ -19,7 +20,6 @@
 #include <fcitx/inputmethodgroup.h>
 #include <fcitx/inputmethodmanager.h>
 #include <fcitx/instance.h>
-#include <cstdlib>
 
 using namespace fcitx;
 
@@ -29,8 +29,7 @@ static void press(ICUUID uuid, const Key &key, bool expectAccepted = true) {
     auto *tf = g_instance->addonManager().addon("testfrontend");
     FCITX_ASSERT(tf);
     bool accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, key, false);
-    FCITX_ASSERT(accepted == expectAccepted)
-        << "key " << key.toString() << " accepted=" << accepted;
+    FCITX_ASSERT(accepted == expectAccepted) << "key " << key.toString() << " accepted=" << accepted;
 }
 
 void scheduleEvent(Instance *instance) {
@@ -40,24 +39,20 @@ void scheduleEvent(Instance *instance) {
 
         auto defaultGroup = instance->inputMethodManager().currentGroup();
         defaultGroup.inputMethodList().clear();
-        defaultGroup.inputMethodList().push_back(
-            InputMethodGroupItem("keyboard-us"));
+        defaultGroup.inputMethodList().push_back(InputMethodGroupItem("keyboard-us"));
         // Per-item Layout is what a real user's profile carries, and it must
         // override the addon-wide default (sin3-p2). Pins it to sin3-p2-yet so
         // the caps option below is actually consumed -- see
         // docs/FRONTEND-CONTRACT.md A3/§4; engine.cpp reads it via
         // InputMethodGroup::layoutFor().
-        defaultGroup.inputMethodList().push_back(
-            InputMethodGroupItem("hunmin").setLayout("sin3-p2-yet"));
+        defaultGroup.inputMethodList().push_back(InputMethodGroupItem("hunmin").setLayout("sin3-p2-yet"));
         defaultGroup.setDefaultInputMethod("");
         instance->inputMethodManager().setGroup(defaultGroup);
 
         auto *testfrontend = instance->addonManager().addon("testfrontend");
-        auto uuid =
-            testfrontend->call<ITestFrontend::createInputContext>("testapp");
+        auto uuid = testfrontend->call<ITestFrontend::createInputContext>("testapp");
         auto *ic = instance->inputContextManager().findByUUID(uuid);
-        FCITX_ASSERT(testfrontend->call<ITestFrontend::sendKeyEvent>(
-            uuid, Key("Control+space"), false));
+        FCITX_ASSERT(testfrontend->call<ITestFrontend::sendKeyEvent>(uuid, Key("Control+space"), false));
         FCITX_ASSERT(instance->inputMethod(ic) == "hunmin");
 
         // 가: k (cho ㄱ) f (ㅏ) compose; space flushes the syllable
@@ -111,8 +106,7 @@ void scheduleEvent(Instance *instance) {
 
 int main() {
     setenv("HUNMIN_DATA_PATH", TESTING_SOURCE_DIR "/libhunmin/data", 1);
-    setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR},
-                                {TEST_DATA_DIR});
+    setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
     char arg0[] = "testhunmin";
     char arg1[] = "--disable=all";
     char arg2[] = "--enable=testim,testfrontend,hunmin";

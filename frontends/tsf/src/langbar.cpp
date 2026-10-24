@@ -25,14 +25,12 @@
  * F2C70003 (issue #67) never got past AddItem on 26200 and is retired. */
 static const GUID HunminLbiInputModeGuid = {0x2C77A81E, 0x41CC, 0x4178, {0xA3, 0xA7, 0x5F, 0x8A, 0x98, 0x75, 0x68, 0xE6}};
 
-LangBarItem::LangBarItem(LangBarHost &host, const CLSID &serviceClsid)
-    : ref_(1), host_(host), serviceClsid_(serviceClsid) {}
+LangBarItem::LangBarItem(LangBarHost &host, const CLSID &serviceClsid) : ref_(1), host_(host), serviceClsid_(serviceClsid) {}
 
 STDMETHODIMP LangBarItem::QueryInterface(REFIID riid, void **ppv) {
     if (!ppv)
         return E_INVALIDARG;
-    if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfLangBarItem) ||
-        IsEqualIID(riid, IID_ITfLangBarItemButton)) {
+    if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfLangBarItem) || IsEqualIID(riid, IID_ITfLangBarItemButton)) {
         *ppv = static_cast<ITfLangBarItemButton *>(this);
     } else if (IsEqualIID(riid, IID_ITfSource)) {
         /* language-bar.md: the item MUST expose ITfSource - when the item is
@@ -49,9 +47,7 @@ STDMETHODIMP LangBarItem::QueryInterface(REFIID riid, void **ppv) {
 }
 
 STDMETHODIMP_(ULONG)
-LangBarItem::AddRef() {
-    return (ULONG)InterlockedIncrement(&ref_);
-}
+LangBarItem::AddRef() { return (ULONG)InterlockedIncrement(&ref_); }
 
 STDMETHODIMP_(ULONG)
 LangBarItem::Release() {
@@ -136,8 +132,8 @@ STDMETHODIMP LangBarItem::OnClick(TfLBIClick click, POINT pt, const RECT *prcAre
             HWND owner = GetFocus();
             if (!owner)
                 owner = GetForegroundWindow();
-            int cmd = (int)TrackPopupMenu(menu, TPM_NONOTIFY | TPM_RETURNCMD | TPM_LEFTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN,
-                                          p.x, p.y, 0, owner, nullptr);
+            int cmd =
+                (int)TrackPopupMenu(menu, TPM_NONOTIFY | TPM_RETURNCMD | TPM_LEFTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN, p.x, p.y, 0, owner, nullptr);
             DestroyMenu(menu);
             if (cmd == 1)
                 return hunmin_tsf_launch_settings();
@@ -161,8 +157,7 @@ STDMETHODIMP LangBarItem::InitMenu(ITfMenu *pMenu) {
     if (!pMenu)
         return E_FAIL;
     const wchar_t *label = L"Hunmin \uC124\uC815 \uC5F4\uAE30";
-    return pMenu->AddMenuItem(1, 0, nullptr, nullptr, label,
-                              (ULONG)wcslen(label), nullptr);
+    return pMenu->AddMenuItem(1, 0, nullptr, nullptr, label, (ULONG)wcslen(label), nullptr);
 }
 
 STDMETHODIMP LangBarItem::OnMenuSelect(UINT wID) {
@@ -209,11 +204,8 @@ STDMETHODIMP LangBarItem::GetIcon(HICON *phIcon) {
      * identity in the language list. LoadIconW cached-handle rules
      * apply; nothing to free. */
     HMODULE self = nullptr;
-    const wchar_t *which =
-        host_.HangulMode() ? MAKEINTRESOURCEW(2) : MAKEINTRESOURCEW(3);
-    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           (LPCWSTR)this, &self)) {
+    const wchar_t *which = host_.HangulMode() ? MAKEINTRESOURCEW(2) : MAKEINTRESOURCEW(3);
+    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)this, &self)) {
         *phIcon = LoadIconW(self, which);
         if (*phIcon)
             return S_OK;
@@ -279,6 +271,4 @@ void LangBarItem::OnRemoved() {
     sinkCookie_ = 0;
 }
 
-LangBarItem *hunmin_tsf_langbar_new(LangBarHost &host, const CLSID &serviceClsid) {
-    return new LangBarItem(host, serviceClsid);
-}
+LangBarItem *hunmin_tsf_langbar_new(LangBarHost &host, const CLSID &serviceClsid) { return new LangBarItem(host, serviceClsid); }

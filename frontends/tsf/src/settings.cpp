@@ -15,8 +15,7 @@
 
 /* The standalone export is a rundll32 signature and must stay C-linkage
  * callable by name; the implementation lives in settingsdialog.cpp. */
-void CALLBACK HunminSettingsShow(HWND hwnd, HINSTANCE hinst, LPSTR cmdLine,
-                                 int nShow) {
+void CALLBACK HunminSettingsShow(HWND hwnd, HINSTANCE hinst, LPSTR cmdLine, int nShow) {
     (void)hinst;
     (void)cmdLine;
     (void)nShow;

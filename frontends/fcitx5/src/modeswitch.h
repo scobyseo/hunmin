@@ -6,8 +6,8 @@
 #ifndef FCITX5_HUNMIN_MODESWITCH_H_
 #define FCITX5_HUNMIN_MODESWITCH_H_
 
-#include <hunmin.h>
 #include <cstdint>
+#include <hunmin.h>
 #include <string>
 #include <vector>
 
@@ -57,7 +57,7 @@ namespace fcitx {
  * docs/SPEC-MODES.md R8 and R10.
  */
 class ModeSwitchAdapter {
-  public:
+public:
     explicit ModeSwitchAdapter(hunmin_ctx *ctx) : ctx_(ctx) {}
 
     /* Feed every keystroke the Hangul context sees, so the shadow can replay
@@ -85,7 +85,7 @@ class ModeSwitchAdapter {
     size_t size() const { return word_.size(); }
     const std::vector<uint32_t> &word() const { return word_; }
 
-  private:
+private:
     hunmin_ctx *ctx_;
     std::vector<uint32_t> word_;
 };

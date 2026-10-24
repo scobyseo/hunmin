@@ -8,13 +8,13 @@
  * Tests the R8 shadow-layout adapter in isolation (no UI stack).
  * Oracle: hunmin-sim --trace expectations (tier A is authority).
  */
+#include "modeswitch.h"
 #include "testdir.h"
+#include <cstdlib>
+#include <cstring>
 #include <fcitx-utils/log.h>
 #include <fcitx-utils/testing.h>
 #include <hunmin.h>
-#include "modeswitch.h"
-#include <cstdlib>
-#include <cstring>
 #include <string>
 #include <vector>
 
@@ -40,8 +40,8 @@ static void teardown() {
 }
 
 /* Feed keys to the adapter, then judge on us-qwerty. Returns the judged text. */
-static std::string judgeWord(ModeSwitchAdapter &adapter, const std::vector<uint32_t> &keys,
-                             const std::string &latinLayout = "us-qwerty", size_t minLen = 2) {
+static std::string judgeWord(ModeSwitchAdapter &adapter, const std::vector<uint32_t> &keys, const std::string &latinLayout = "us-qwerty",
+                             size_t minLen = 2) {
     for (uint32_t ch : keys) {
         adapter.record(ch);
     }
@@ -75,15 +75,13 @@ int main() {
                 latinId = id;
                 latinCount++;
             } else {
-                FCITX_ASSERT(!strcmp(mode, "hangul"))
-                    << "layout " << id << " has mode '" << mode << "', which is neither";
+                FCITX_ASSERT(!strcmp(mode, "hangul")) << "layout " << id << " has mode '" << mode << "', which is neither";
                 hangulCount++;
             }
         }
-        FCITX_ASSERT(latinCount >= 1)
-            << "expected at least one latin layout, found " << latinCount;
-        FCITX_ASSERT(latinId == "us-qwerty")
-            << "us-qwerty must exist among latin layouts for this adapter to judge on it, but found '" << latinId << "'";
+        FCITX_ASSERT(latinCount >= 1) << "expected at least one latin layout, found " << latinCount;
+        FCITX_ASSERT(latinId == "us-qwerty") << "us-qwerty must exist among latin layouts for this adapter to judge on it, but found '" << latinId
+                                             << "'";
         // No assertion on the ORDER the scanner yields: it walks the directory
         // (ahnmatmae first), and the frontends sort by display name anyway. An
         // assertion here would pin an implementation detail of opendir() to a

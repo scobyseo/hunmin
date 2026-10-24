@@ -18,9 +18,7 @@
 
 namespace {
 
-bool Exists(const wchar_t *path) {
-    return GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES;
-}
+bool Exists(const wchar_t *path) { return GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES; }
 
 /* First hit wins, deployed shapes before climbs. Every candidate is
  * normalised with GetFullPathNameW so a ".." segment in the log and in
@@ -54,8 +52,7 @@ bool FindInDir(const wchar_t *dllDir, wchar_t *exe, size_t cap) {
 
 } // namespace
 
-bool hunmin_tsf_settings_exe_in_dir(const wchar_t *dllDir, wchar_t *exe,
-                                    size_t cap) {
+bool hunmin_tsf_settings_exe_in_dir(const wchar_t *dllDir, wchar_t *exe, size_t cap) {
     if (!dllDir || !exe || cap == 0)
         return false;
     exe[0] = L'\0';
@@ -77,10 +74,7 @@ bool hunmin_tsf_settings_exe_find(const void *anchor, wchar_t *exe, size_t cap) 
     }
 
     HMODULE self = nullptr;
-    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                            (LPCWSTR)anchor, &self) ||
-        !self) {
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)anchor, &self) || !self) {
         hunmin_logger.log("settings-exe: module lookup FAILED err=%lu\n", GetLastError());
         return false;
     }

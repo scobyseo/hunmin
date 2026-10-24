@@ -46,7 +46,7 @@ void hunmin_tsf_host_logfont(HWND fontHost, LOGFONTW *outLf);
 #include <vector>
 
 class HunminCandWindow {
-  public:
+public:
     HunminCandWindow() = default;
     ~HunminCandWindow();
 
@@ -58,11 +58,10 @@ class HunminCandWindow {
      * fontHost: the client window the text metrics should follow
      * (nullptr legal — falls back to DEFAULT_GUI_FONT).
      * lines: one entry per visible row, in draw order. */
-    void Show(const RECT &anchor, HWND fontHost,
-              const std::vector<std::wstring> &lines);
+    void Show(const RECT &anchor, HWND fontHost, const std::vector<std::wstring> &lines);
     void Hide();
 
-  private:
+private:
     HWND wnd_ = nullptr;
     HFONT font_ = nullptr; /* owned; replaced (then deleted) on every Show */
     LOGFONTW curLf_ = {}; /* the LOGFONTW font_ was created from */

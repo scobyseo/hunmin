@@ -24,7 +24,7 @@ static const GUID kProviderTypeGuid = {0xF2C70010, 0x0000, 0x0000, {0x00, 0x00, 
 /* ---- TSF-native plumbing ---- */
 
 class HunminTsfConfigFn : public ITfFnConfigure {
-  public:
+public:
     explicit HunminTsfConfigFn(IUnknown *svc) : ref_(1), svc_(svc) {
         if (svc_)
             svc_->AddRef();
@@ -36,8 +36,7 @@ class HunminTsfConfigFn : public ITfFnConfigure {
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
         if (!ppv)
             return E_INVALIDARG;
-        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfFunction) ||
-            IsEqualIID(riid, IID_ITfFnConfigure)) {
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfFunction) || IsEqualIID(riid, IID_ITfFnConfigure)) {
             *ppv = static_cast<ITfFnConfigure *>(this);
             AddRef();
             return S_OK;
@@ -77,13 +76,13 @@ class HunminTsfConfigFn : public ITfFnConfigure {
         return S_OK;
     }
 
-  private:
+private:
     LONG ref_;
     IUnknown *svc_;
 };
 
 class HunminTsfFunctionProvider : public ITfFunctionProvider {
-  public:
+public:
     explicit HunminTsfFunctionProvider(IUnknown *svc) : ref_(1), svc_(svc) {
         if (svc_)
             svc_->AddRef();
@@ -135,11 +134,9 @@ class HunminTsfFunctionProvider : public ITfFunctionProvider {
         return hr;
     }
 
-  private:
+private:
     LONG ref_;
     IUnknown *svc_;
 };
 
-IUnknown *hunmin_tsf_settings_new_provider(void *svc) {
-    return new HunminTsfFunctionProvider((IUnknown *)svc);
-}
+IUnknown *hunmin_tsf_settings_new_provider(void *svc) { return new HunminTsfFunctionProvider((IUnknown *)svc); }

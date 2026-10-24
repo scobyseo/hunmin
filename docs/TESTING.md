@@ -264,10 +264,12 @@ and `docs-lint` covers the Python by type-checking `tools/` with pyright (the
 (M5-CLOSED row). clang-tidy and clang-format are on the GitHub image and unused;
 adding CI gating for them is a separate decision about how much noise this
 project is willing to gate on. clang-format itself *is* the tree's formatting
-standard since 2026-10-17 (issue #77, option 2): a root `.clang-format` for the
-C core (2-space, compaction, `ColumnLimit: 0` so hand-shaped wraps, packed
-typedefs and single-line macros are never re-written), per-directory configs
-for the two 4-space C++ frontends, and a `.clang-format-ignore` for the vendored
+standard since 2026-10-17 (issue #77, option 2) — retuned 2026-10-24 to the
+user-requested whole-tree shape: a root `.clang-format` for the C core
+(4-space, `ColumnLimit: 150`, reflowed comments, sorted includes) and
+per-directory configs for the two C++ frontends (4-space, `public:` flush
+with `class` via `AccessModifierOffset: -4`, `ColumnLimit: 150`), plus a
+`.clang-format-ignore` for the vendored
 and generated trees. The machine-checkable state is `clang-format -n` reporting
 no changes on tracked files after a clean application commit; run
 `clang-format -i` on the files you touch and let the second pass be idempotent.
@@ -430,6 +432,16 @@ CapsLock and modifiers are now covered deliberately rather than incidentally.
 
 Between them the tiers leave no gap: the fixture proves every key has a correct native
 encoding, and the 118 traces prove the adapter applies it.
+
+**Equivalence extension (2026-10-24, requirement).** The rule in
+`docs/FRONTEND-EQUIVALENCE.md` makes this tier the cross-frontend authority:
+the same key sequence must produce the same commit, preedit, and consumed
+decision in fcitx5, Android, and TSF, and TSF's interim and native delivery
+modes must agree. The corpus must be replayed in both buffered and syllable
+commit modes; commit boundaries are not part of the expectation. The existing
+Windows emitter (`frontends/tsf/test/trace-emit.cpp`, tier F1) already replays
+the win32 dialect through the mock; it must run once per delivery mode, and
+the expectations must not be duplicated per frontend.
 
 The Android corpus **skips** (rc 77), but not because the Android frontend is missing —
 `frontends/android/` exists and is exercised by tiers E0–E2. The gap is narrower and is

@@ -67,9 +67,7 @@ struct LegacyTest : public CandidateTest {
         /* A multiline control needs room for a second line: at 20px the
          * EDIT swallows WM_CHAR VK_RETURN instead of inserting the break
          * (measured; the real host control is taller). */
-        ctrl = CreateWindowExW(WS_EX_TOOLWINDOW, L"EDIT", L"",
-                               style, -32000, -32000,
-                               400, multiline ? 120 : 20, nullptr, nullptr, nullptr, nullptr);
+        ctrl = CreateWindowExW(WS_EX_TOOLWINDOW, L"EDIT", L"", style, -32000, -32000, 400, multiline ? 120 : 20, nullptr, nullptr, nullptr, nullptr);
         ASSERT_NE(ctrl, nullptr) << "legacy: capture EDIT not created";
         ShowWindow(ctrl, SW_SHOWNOACTIVATE);
         SetFocus(ctrl); /* the interim path resolves via GetFocus() */
@@ -95,10 +93,28 @@ struct LegacyTest : public CandidateTest {
             svc->OnCompositionTerminated(tsfmock::MockContext::kCookie, nullptr);
     }
 
-    /* The mock never pumps: settle the posted doc write by hand. */
-    void FlushDocWrites() {
-        svc->FlushPendingDocWrites();
+    /* The classic-host rule, not the mock's unconditional two-phase call:
+     * after OnTestKeyDown claims a printable key the host suppresses its
+     * own insertion; it calls OnKeyDown only for a claimed key. A key the
+     * test phase passes is inserted by the app (wch) and OnKeyDown is not
+     * called at all. Returns the test-phase answer so a case can assert
+     * which branch the adapter chose. */
+    BOOL KeyHost(WPARAM vk, WPARAM wch = 0) {
+        BOOL testEat = FALSE;
+        svc->OnTestKeyDown(ctx, vk, 0, &testEat);
+        if (testEat) {
+            BOOL eat = FALSE;
+            svc->OnKeyDown(ctx, vk, 0, &eat);
+        } else if (wch) {
+            SendMessageW(ctrl, WM_CHAR, wch, 0);
+        }
+        if (Snap().composition)
+            svc->OnCompositionTerminated(tsfmock::MockContext::kCookie, nullptr);
+        return testEat;
     }
+
+    /* The mock never pumps: settle the posted doc write by hand. */
+    void FlushDocWrites() { svc->FlushPendingDocWrites(); }
 
     static std::wstring CtrlText(HWND hwnd) {
         int n = GetWindowTextLengthW(hwnd) + 1;
@@ -123,8 +139,7 @@ TEST_F(LegacyTest, FlipOnFirstMidWordTerminationAndCompose) {
     FlushDocWrites();
     /* The interim write rebuilt the word: the finalised part sits in the
      * control ahead of the live preedit. */
-    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155')
-        << "control after flip-then-type";
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155') << "control after flip-then-type";
 
     BOOL spaceEat = TRUE, spaceTestEat = TRUE;
     TestKey(VK_SPACE, &spaceTestEat);
@@ -135,13 +150,32 @@ TEST_F(LegacyTest, FlipOnFirstMidWordTerminationAndCompose) {
     /* The mock emulates no app, so the passthrough space never lands in
      * the control here — on a real host the app inserts it after the
      * drained word. The drained word itself must be there exactly once. */
-    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155')
-        << "space: the word drained once, no duplicate";
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155') << "space: the word drained once, no duplicate";
 
-    EXPECT_EQ(ctx->compositionStarts, 1)
-        << "exactly one composition (the native attempt the host killed)";
-    EXPECT_EQ(ctx->compositionEnds, 0)
-        << "the terminated composition never ended through our own path";
+    EXPECT_EQ(ctx->compositionStarts, 1) << "exactly one composition (the native attempt the host killed)";
+    EXPECT_EQ(ctx->compositionEnds, 0) << "the terminated composition never ended through our own path";
+    LegacyTeardown();
+}
+
+/* Dubeolsik maps no digit. A classic host suppresses insertion after a TRUE
+ * test claim and does not call OnKeyDown for the unconsumed key, so claiming
+ * the digit loses it (the reported interim numeric defect). The test phase
+ * must peek the engine and pass the digit; the app inserts it. */
+TEST_F(LegacyTest, DigitDeclinedAtTestPhaseIsInsertedByHost) {
+    LegacyBegin();
+    if (HasFatalFailure()) {
+        Teardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    for (const char *p = "dkssud"; *p; ++p)
+        KeyHost((WPARAM)std::toupper((unsigned char)*p));
+    FlushDocWrites();
+    ASSERT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155') << "prefix word before the digit";
+
+    BOOL digitEat = KeyHost((WPARAM)'1', L'1');
+    EXPECT_EQ(digitEat, FALSE) << "dubeolsik has no digit row: the test phase must pass it";
+    FlushDocWrites();
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L'1') << "the app's digit must follow the drained word exactly once";
     LegacyTeardown();
 }
 
@@ -171,9 +205,8 @@ TEST_F(LegacyTest, BoundaryDrainNeverDuplicates) {
     EXPECT_EQ(testEat, FALSE) << "second space also passes at the test phase";
     EXPECT_EQ(eat, FALSE) << "second space also passes";
     FlushDocWrites();
-    EXPECT_EQ(CtrlText(ctrl), after)
-        << "second space: plain passthrough (the mock emulates no app), "
-           "and the drain must not re-run";
+    EXPECT_EQ(CtrlText(ctrl), after) << "second space: plain passthrough (the mock emulates no app), "
+                                        "and the drain must not re-run";
     LegacyTeardown();
 }
 
@@ -203,16 +236,13 @@ TEST_F(LegacyTest, EnterEndsComposingAndKeepsCaretOnNewLine) {
     LONG end = (LONG)CtrlText(ctrl).size();
     SendMessageW(ctrl, EM_SETSEL, (WPARAM)end, (LPARAM)end);
     SendMessageW(ctrl, WM_CHAR, L'\r', 0);
-    ASSERT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L"\r\n")
-        << "the app's break landed after the word";
+    ASSERT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L"\r\n") << "the app's break landed after the word";
     FlushDocWrites();
-    ASSERT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L"\r\n")
-        << "Enter drains the word exactly once, ahead of the break";
+    ASSERT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L"\r\n") << "Enter drains the word exactly once, ahead of the break";
 
     KeyTerminating((WPARAM)'D'); /* d = ㅇ: a new syllable on the new line */
     FlushDocWrites();
-    EXPECT_EQ(CtrlText(ctrl),
-              std::wstring() + L'\uC548' + L'\uB155' + L"\r\n" + L'\u3147')
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L"\r\n" + L'\u3147')
         << "the next syllable composes after the break, never back on the old line";
     LegacyTeardown();
 }
@@ -234,9 +264,7 @@ TEST_F(LegacyTest, SecondWordComposesAfterTheFirst) {
         KeyTerminating((WPARAM)std::toupper((unsigned char)*p));
     FlushDocWrites();
     /* d=ㅇ l=ㅣ -> 이: the second word composes AFTER 안녕, not over it. */
-    EXPECT_EQ(CtrlText(ctrl),
-              std::wstring() + L'\uC548' + L'\uB155' + L'\uC774')
-        << "second word composes after the drained first word";
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L'\uC774') << "second word composes after the drained first word";
     LegacyTeardown();
 }
 
@@ -265,8 +293,7 @@ TEST_F(LegacyTest, HanjaCommitReplacesOnlyTheInFlightSyllable) {
     FlushDocWrites();
     std::wstring hanjaWide = utf8Of(expected.c_str());
     ASSERT_EQ(hanjaWide.size(), (size_t)1) << "the one-char ruling: candidate 0 is one char";
-    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + hanjaWide[0])
-        << "the hanja replaced the in-flight syllable; the prefix stays";
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + hanjaWide[0]) << "the hanja replaced the in-flight syllable; the prefix stays";
     LegacyTeardown();
 }
 
@@ -293,13 +320,11 @@ TEST_F(LegacyTest, BackspaceAtClosedWordPassesAndSelfHeals) {
     /* The app-side deletion, emulated: the EDIT deletes the backspace
      * through WM_CHAR (the translated char), not the raw key down. */
     SendMessageW(ctrl, WM_CHAR, 0x08, 0);
-    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548')
-        << "the app deleted the committed char";
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548') << "the app deleted the committed char";
 
     KeyTerminating((WPARAM)'L'); /* l = ㅣ: composes AFTER the deletion */
     FlushDocWrites();
-    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\u3163')
-        << "the fresh span re-anchored at the live caret";
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\u3163') << "the fresh span re-anchored at the live caret";
     LegacyTeardown();
 }
 

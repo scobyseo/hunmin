@@ -89,8 +89,7 @@ TEST_F(CandidateTest, DownClampsAndReturnStillCommits) {
     TypeAnNyeng(*this);
     Key(VK_HANJA);
     Key(VK_DOWN);
-    EXPECT_EQ(Snap().candCursor, 0)
-        << "case 4: cursor after Down on a 1-row list, want 0 (clamped)";
+    EXPECT_EQ(Snap().candCursor, 0) << "case 4: cursor after Down on a 1-row list, want 0 (clamped)";
     std::string expected(hunmin_suggest_text(Snap().ctx, 0));
     Key(VK_RETURN);
     AssertCompositionEnded(expected.c_str(), "case 4");
@@ -346,8 +345,7 @@ TEST_F(CandidateTest, FallbackCommitReplacesOnlyTheLastSyllable) {
 TEST_F(CandidateTest, ZeroAndZeroPassesThrough) {
     Begin();
     Type("rkel");
-    EXPECT_EQ(utf8(Snap().wordbuf) + std::string(hunmin_ic_preedit(Snap().ic)),
-              std::string(kAnchorGa) + "\xEB\x94\x94")
+    EXPECT_EQ(utf8(Snap().wordbuf) + std::string(hunmin_ic_preedit(Snap().ic)), std::string(kAnchorGa) + "\xEB\x94\x94")
         << "case 17: composed buffer is not ga-di";
     AssertPreedit("\xEB\x94\x94", "case 17");
     BOOL testEat = TRUE, eat = TRUE;
@@ -429,8 +427,7 @@ TEST_F(CandidateTest, CapsLockDrivesTheYethangulPVariable) {
     Begin("sin3-p2-yet");
     g_mockKeyState[VK_CAPITAL & 0xFF] = (SHORT)0x0001;
     Type("jk");
-    AssertPreedit("\xE1\x85\x81\xE1\x85\xA0",
-                  "caps 21: P=1 tier with CapsLock toggled on");
+    AssertPreedit("\xE1\x85\x81\xE1\x85\xA0", "caps 21: P=1 tier with CapsLock toggled on");
     g_mockKeyState[VK_CAPITAL & 0xFF] = 0;
     Teardown();
 

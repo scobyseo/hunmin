@@ -66,6 +66,7 @@ schema for guessing — is unaffected.
 | External text pass-through | `hunmin_ic_flush` (commits in-flight first) | voice / out-of-band text must never go through the jamo pipeline |
 | Android data path | `HunminNativeBridge.kt` ↔ `libhunmin.so` | native shim bridges Kotlin → C ABI |
 | fcitx5 addon lifecycle | `HunminEngine`, `HunminState`, `modeswitch.{h,cpp}` | `engine.cpp:106` owns the adapter; `engine.cpp:342,359` record+judge at the boundary |
+| Cross-frontend equivalence | `docs/FRONTEND-EQUIVALENCE.md` | same key sequence → same commit/preedit/consumed; TSF interim and native agree |
 
 ## 6. Version / ABI policy
 
