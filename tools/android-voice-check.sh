@@ -45,6 +45,10 @@
 
 set -uo pipefail
 
+# Device-side paths must reach adb verbatim under Git bash; host paths still
+# need MSYS conversion. See tools/android-e2e.sh for the measured failure.
+export MSYS2_ARG_CONV_EXCL='/sdcard;/data'
+
 ADB="${ADB:-adb}"
 PKG="org.hunmin.ime"
 IME="$PKG/.HunminInputMethodService"

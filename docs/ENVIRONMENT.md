@@ -720,19 +720,42 @@ worktree, from a clean tree:
 - `ctest -j16 -LE slow` — 50/54; tier-A 26/26. The four failures are
   environment-absence, not regressions (below).
 
-### Host-absent pieces (do not optimise around them silently)
+### Emulator and host-absent pieces
 
-- **Emulator acceleration**: no hypervisor driver and no WHPX
-  (`emulator -accel-check` → "Android Emulator hypervisor driver is not
-  installed"). tier E1/E2 (AVD boot, Espresso) cannot run until Android
-  Emulator Hypervisor Driver or WHPX is installed (admin) or a Hyper-V
-  feature is enabled.
-- **`builds-android` and the tier E0/E2 script tests fail here** for two
-  mechanically distinct reasons: CMake runs the committed `.sh` test commands
-  directly (no shebang exec on Windows → `BAD_COMMAND`), and `builds-android`
-  invokes `./gradlew` as a program (same class). The Linux CI job carries them.
-- `tools/android-e2e.sh` skips cleanly with no adb device, which is the
-  expected behaviour on this host.
+- **Emulator acceleration**: WHPX is installed and usable on this host
+  (`emulator -accel-check` reports `WHPX(10.0.26300) is installed and usable`,
+  measured 2026-10-24). AVD `hunmin-e2e` boots headless, so tier E2 can run
+  here. Earlier notes in this file said no hypervisor was available; that was
+  true before WHPX was enabled and is no longer the current state.
+- **`builds-android` and the tier E0/E2 script tests used to fail here** for
+  two mechanically distinct reasons, both fixed 2026-10-24 (issue #129).
+  `builds-android` invoked `./gradlew` as a program (cmd.exe rejects the dot
+  path), and CMake ran the committed `.sh` test commands directly (no shebang
+  exec on Windows -- `BAD_COMMAND`). The register now emits `gradlew.bat` on
+  Windows, and the `.sh` tiers spawn through bash: `find_program` looks in
+  Git's `bin/` and `usr/bin/` as well as `PATH`, so a default Git-for-Windows
+  install is found without the shell being on `PATH`. If no bash exists at
+  all, the test registers a Python skip (77) instead of a command-spawn
+  failure. The Linux CI job keeps the direct shebang form.
+- `tools/android-e2e.sh` installs two APKs: `app-debug.apk` and the
+  `testeditor` fixture (`frontends/android/testeditor`). The fixture replaced
+  Settings' search field as the assertion surface: it has one `EditText` with a
+  stable resource id, so the same node is tapped and read on every image.
+  `assembleDebug` builds both APKs.
+- `tools/android-golden-check.sh` tests `-f`, not `-x`, on the host
+  `hunmin-sim`: NTFS reports the Android ELF as non-executable and `chmod`
+  cannot change it. The executable bit that matters is set on the device.
+- The Android scripts set `MSYS2_ARG_CONV_EXCL='/sdcard;/data'`. Without it,
+  Git bash rewrites device-side arguments before native `adb.exe` sees them:
+  `uiautomator dump --windows /sdcard/ui.xml` wrote to
+  `C:/Program Files/Git/sdcard/ui.xml`, every dump was empty, and E2 skipped
+  without asserting anything (measured 2026-10-24). Host APK paths still need
+  the normal conversion, so the exclusion lists device prefixes only.
+- E2 resets `shared_prefs/hunmin.xml` after force-stopping the IME.
+  `hunmin.xml` holds the selected layout and the Hangul/English mode, and the
+  tier's final F9 leaves English selected; without the reset the next run typed
+  literal ASCII. The reset also guarantees the sin3-p2 default the tier's
+  expected string assumes.
 
 ### Measured Windows pitfalls fixed on this pass (see the diffs)
 

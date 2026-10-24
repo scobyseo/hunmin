@@ -25,11 +25,21 @@
 #   diagnostics on failure -- never as the assertion.
 set -euo pipefail
 
+# Git bash rewrites arguments that look like POSIX paths before native adb.exe
+# sees them, so `/sdcard/ui.xml` became `C:/Program Files/Git/sdcard/ui.xml`
+# and every dump was empty. Exclude the device-side prefixes only; host paths
+# (the APKs) must still be converted.
+export MSYS2_ARG_CONV_EXCL='/sdcard;/data'
+
 ABI="${1:-x86_64}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PKG="org.hunmin.ime"
 SVC="$PKG/.HunminInputMethodService"
 APK="$ROOT/frontends/android/app/build/outputs/apk/debug/app-debug.apk"
+EDITOR_PKG="org.hunmin.testeditor"
+EDITOR_APK="$ROOT/frontends/android/testeditor/build/outputs/apk/debug/testeditor-debug.apk"
+EDITOR_ACTIVITY="$EDITOR_PKG/.EditorActivity"
+EDITOR_ID="$EDITOR_PKG:id/editor"
 
 : "${ANDROID_HOME:=$HOME/Android/Sdk}"
 ADB="$ANDROID_HOME/platform-tools/adb"
@@ -43,6 +53,7 @@ fail() { echo "FAIL: $*" >&2; dump_diag; exit 1; }
 # was sitting right there and reported "run assembleDebug" -- advice for a step
 # that had already been run.
 [ -f "$APK" ] || skip "no APK at $APK (run frontends/android/gradlew assembleDebug)"
+[ -f "$EDITOR_APK" ] || skip "no test editor APK at $EDITOR_APK (run frontends/android/gradlew :testeditor:assembleDebug)"
 
 # --- device ----------------------------------------------------------------
 if ! "$ADB" get-state >/dev/null 2>&1; then
@@ -82,15 +93,13 @@ dump_diag() {
 echo "installing $APK"
 "$ADB" install -r -g "$APK" >/dev/null || fail "adb install failed"
 
+echo "installing $EDITOR_APK"
+"$ADB" install -r -g "$EDITOR_APK" >/dev/null \
+  || fail "adb install of the test editor failed"
+
 # Give the system time to parse the manifest and register the IME
 sleep 3
 "$ADB" shell pm list packages "$PKG" >/dev/null || fail "package not found after install"
-
-# Any key binding stored by an earlier run must not survive this one. HERE and
-# not in the section below, because SharedPreferences is cached per process:
-# deleting the file under a running app leaves the app reading the old values and
-# writing them back, which looks exactly like "the settings did not save".
-"$ADB" shell run-as "$PKG" rm -f "shared_prefs/hunmin_keys.xml" >/dev/null 2>&1 || true
 
 # An IME is unusable until the platform has it enabled AND selected. Skipping
 # this step is the most confusing possible failure mode: the app installs, the
@@ -100,55 +109,15 @@ sleep 3
 "$ADB" shell ime list -s | grep -qx "$SVC" || fail "$SVC is not the selected IME"
 
 # --- the assertion surface -------------------------------------------------
-# A real app's EditText, so the committed text exists somewhere outside hunmin.
-# Settings' search field is used because it is present on every AOSP image, has
-# no login, and is a plain EditText -- so what the user would see is exactly the
-# widget's text attribute.
-# Reset both apps, AND clear Settings' data.
+# A separate fixture APK, not Settings. The old fixture was Settings' search
+# field: it varies by image, and it restores its previous query across a
+# force-stop, which once made a correct IME look like keys were passing
+# through. `testeditor` has one EditText and one stable resource id, so the
+# same hierarchy node is tapped, read, and asserted on every API level.
 #
-# force-stop alone is NOT enough, and that was measured: Settings restores its
-# previous search query across a force-stop, so the field came back reading
-# "긴ㄴ디계디" -- leftovers from an earlier run. The comparison then failed
-# while the IME was in fact composing correctly, and the failure text pointed at
-# the keycode mapping rather than at stale state. `pm clear` is what actually
-# resets it.
-#
-# `pm clear` is destructive to the Settings app's own saved state on this
-# emulator image. That is acceptable and intended: it is a disposable AVD used
-# for this test, not a user's device. Do NOT run this against real hardware.
-"$ADB" shell am force-stop "$PKG" 2>/dev/null || true
-"$ADB" shell am force-stop com.android.settings 2>/dev/null || true
-"$ADB" shell pm clear com.android.settings >/dev/null 2>&1 || true
-"$ADB" shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
-sleep 5
-"$ADB" shell am start -n com.android.settings/.Settings >/dev/null 2>&1 \
-  || "$ADB" shell am start -a android.settings.SETTINGS >/dev/null 2>&1 \
-  || skip "cannot open Settings to obtain a focused text field"
-
-# Focus a text field.
-#
-# MEASURED, and the reason this is not three lines: Settings' search field is
-# NOT an EditText until it has been tapped. On first dump the hierarchy contains
-# com.android.settings:id/search_bar (a CardView) and a "Search settings"
-# TextView, and zero EditText nodes -- so an earlier revision that looked for an
-# EditText straight away skipped with "no EditText in the current activity",
-# which reads like the IME having no place to type rather than like the search
-# box needing one tap.
-#
-# So: tap the search bar by RESOURCE-ID (a stable platform id, unlike a
-# content-description string that varies by build and locale), then re-dump and
-# take the EditText that now exists.
-sleep 5
-# Parse "[x1,y1][x2,y2]" into four numbers.
-#
-# NOT `grep -o '[0-9]*'`, which was tried and is wrong twice over: the '*' form
-# also matches the EMPTY string between numbers, and running it over a whole
-# node picks up digits from resource-id and class before the bounds ever get
-# parsed. `[0-9]\+` over the bounds string alone is the form that works.
-#
-# The tr is what separates adjacent numbers: without it "[42,591][1038,728]"
-# yields "5911038" as one token and the arithmetic fails with a message about a
-# missing operand.
+# `pm clear` on the fixture is not destructive to a user's data: the fixture
+# holds none. The IME's own preference files are reset below, for the same
+# reason.
 parse_bounds() {
   # Extract the four numbers from a bounds string.
   local nums
@@ -166,11 +135,7 @@ dump_ui() {  # dump_ui <remote-path> -> the dump on stdout
     # the original `[ "$(printf '%s' "$dump" | wc -l)" -gt 5 ]` could never be
     # true and this function returned 1 on every call -- 5 attempts and 10 s of
     # sleeping per caller. Every tap_resource_id, every tap_text and every
-    # LIST= dump in this script depends on it, so the whole tier was walking on
-    # failed dumps. The tier still read as green because each failure ended in
-    # `skip`, which is exit 77 and ctest counts 77 as not-failed: "100% tests
-    # passed" over a tier that had asserted nothing. ${#dump} is the bash string
-    # length: exact, and no pipe to lose.
+    # LIST= dump in this script depends on it.
     [ -n "$dump" ] && [ "${#dump}" -gt 200 ] && { printf '%s' "$dump"; return 0; }
     sleep 2
   done
@@ -185,19 +150,6 @@ tap_resource_id() {
   dump="$(dump_ui /sdcard/ui.xml)" || return 1
   node="$(printf '%s' "$dump" | tr '>' '\n' | grep -m1 "resource-id=\"$rid\"" || true)"
   [ -n "$node" ] || return 1
-  # The pattern is QUOTE-FREE and contains no backslashes, both deliberately.
-  #
-  # No double quotes: a `"` inside "$( )" closes the substitution in bash, so
-  # grep -o '"bounds=[^"]*"' matches nothing and the tap silently never happens.
-  # `.` stands in for the quote character.
-  # No backslashes: inside single quotes bash hands "\[" to grep as an escaped
-  # bracket, which is one more escaping layer than this needs -- and getting it
-  # wrong produced a pattern that matched nothing with rc=1, indistinguishable
-  # from "the node is not there".
-  #
-  # Verified against a real uiautomator dump: bounds="[42,591][1038,728]".
-  # Note `[0-9]*` rather than `[0-9]+`; both work here because the surrounding
-  # dots match the brackets and quotes positionally.
   bounds="$(echo "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
   [ -n "$bounds" ] || return 1
   nums="$(parse_bounds "$bounds")"
@@ -209,57 +161,40 @@ tap_resource_id() {
   sleep 1.5
 }
 
-# Settings has TWO states and which one you get is not under our control:
-#   collapsed -- id/search_bar is a CardView, no EditText until tapped
-#   expanded  -- the search view is already open, with
-#                com.google.android.settings.intelligence:id/
-#                open_search_view_edit_text already an EditText
-# Android restores the expanded one when Settings was left mid-search, which is
-# why force-stopping it is not enough. So: take an EditText if there is one,
-# otherwise tap search_bar and take the one that appears.
-"$ADB" shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
-UI1="$("$ADB" shell cat /sdcard/ui.xml 2>/dev/null || true)"
-# `|| true` is load-bearing under `set -e`. grep exits 1 when it matches
-# nothing, and a command substitution ending in a failing pipeline aborts the
-# entire script -- so the "collapsed" branch below never ran; the ASSIGNMENT
-# died first and the script exited silently with status 1, three lines before
-# the code that would have handled the case correctly.
-find_edittext_bounds() {
-  printf '%s' "$1" | tr '>' '\n' \
-    | grep -m1 'class="android.widget.EditText"' \
-    | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true
+focus_editor() {
+  # Wake first. The AVD screen times out while the two APKs install; an
+  # activity launched behind the keyguard is not in the hierarchy, so the dump
+  # is empty and the tier skips with a message about the fixture rather than
+  # about the screen.
+  "$ADB" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+  "$ADB" shell wm dismiss-keyguard >/dev/null 2>&1 || true
+  "$ADB" shell am force-stop "$EDITOR_PKG" >/dev/null 2>&1 || true
+  "$ADB" shell pm clear "$EDITOR_PKG" >/dev/null 2>&1 || true
+  "$ADB" shell am start -n "$EDITOR_ACTIVITY" >/dev/null 2>&1 || return 1
+  sleep 2
+  tap_resource_id "$EDITOR_ID"
 }
 
-BOUNDS="$(find_edittext_bounds "$UI1")"
-
-if [ -z "$BOUNDS" ]; then
-  tap_resource_id "com.android.settings:id/search_bar" \
-    || skip "Settings exposes neither an EditText nor id/search_bar to focus"
-  "$ADB" shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
-  UI1="$("$ADB" shell cat /sdcard/ui.xml 2>/dev/null || true)"
-  BOUNDS="$(find_edittext_bounds "$UI1")"
-fi
-[ -n "$BOUNDS" ] || skip "no EditText in Settings, collapsed or expanded"
-
-NUMS="$(parse_bounds "$BOUNDS")"
-# shellcheck disable=SC2086
-set -- $NUMS
-[ $# -eq 4 ] || skip "could not parse the field bounds '$BOUNDS'"
-CX=$(( ($1 + $3) / 2 )); CY=$(( ($2 + $4) / 2 ))
-echo "tapping the text field at $CX,$CY"
-"$ADB" shell input tap "$CX" "$CY" >/dev/null 2>&1
-sleep 1
+# Force-stop BEFORE deleting prefs: SharedPreferences is cached per process, so
+# deleting the files under a running IME leaves it reading the old values and
+# writing them back. Both files matter: `hunmin.xml` holds the last layout and
+# Hangul/English mode, and the run below assumes sin3-p2 in Hangul; without this
+# reset a previous run's final F9 made the next run type literal ASCII.
+# This wipes the IME's own layout/mode prefs; E2 is an AVD tier, not a
+# phone-with-real-preferences tier.
+"$ADB" shell am force-stop "$PKG" 2>/dev/null || true
+"$ADB" shell run-as "$PKG" rm -f "shared_prefs/hunmin.xml" >/dev/null 2>&1 || true
+"$ADB" shell run-as "$PKG" rm -f "shared_prefs/hunmin_keys.xml" >/dev/null 2>&1 || true
+focus_editor || skip "cannot launch and focus the test editor ($EDITOR_ACTIVITY)"
 
 # The field must start EMPTY or the comparison below proves nothing: it would be
-# comparing the IME's output against another run's leftovers. Assert it rather
-# than assuming it, because a non-empty start is exactly the failure that
-# produced a spurious "keys are passing through" report.
+# comparing the IME's output against another run's leftovers.
 "$ADB" shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
 INITIAL="$("$ADB" shell cat /sdcard/ui.xml 2>/dev/null | tr '>' '\n' \
           | grep -m1 'class="android.widget.EditText"' | grep -o 'text=.[^"]*.' \
           | sed 's/^text=//; s/"//g')"
 echo "field starts as: '${INITIAL}'"
-if [ -n "$INITIAL" ] && [ "$INITIAL" != "Search settings" ]; then
+if [ -n "$INITIAL" ]; then
   fail "the field started with '$INITIAL' -- leftover state; the comparison " \
        "would be meaningless"
 fi
@@ -311,8 +246,7 @@ fi
 #
 # The backspace count matters and one is correct, not two: the warm-up key
 # commits a single consonant. Two backspaces deleted the empty field as well and
-# the run then saw "Search settings" -- the placeholder -- and reported it as
-# "literal ASCII reached the field".
+# the run then reported the warm-up text as "literal ASCII reached the field".
 echo "warming up (first keypress establishes focus + IME binding) ..."
 "$ADB" shell input keyevent KEYCODE_K >/dev/null
 sleep 1.5
@@ -326,7 +260,7 @@ NOW="$("$ADB" shell cat /sdcard/ui.xml 2>/dev/null | tr '>' '\n' \
       | sed 's/^text=//; s/"//g' || true)"
 echo "after warm-up the field reads: '${NOW}'"
 case "$NOW" in
-  ""|"Search settings") : ;;   # empty or still the placeholder: fine
+  "") : ;;
   *) fail "the warm-up left '${NOW}' in the field; one backspace did not clear it" ;;
 esac
 
@@ -452,29 +386,12 @@ MIC_DESC="음성 입력"
 # every way out was measured on the emulator: tapping the field does NOT
 # dismiss it (modal, keeps focus); a covered IME view is not in the hierarchy
 # so the mic is unfindable (bounds=[]) and `input tap` goes to 0,0; and
-# KEYCODE_BACK dismisses the dialog but also closes the search activity, so
-# the field is gone. What works is re-establishing the whole surface.
+# KEYCODE_BACK dismisses the dialog but also backgrounds the fixture, so the
+# field is gone. What works is re-establishing the whole surface.
 restore_surface() {
   "$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
   sleep 1
-  "$ADB" shell am force-stop com.android.settings >/dev/null 2>&1 || true
-  "$ADB" shell pm clear com.android.settings >/dev/null 2>&1 || true
-  "$ADB" shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
-  sleep 1
-  "$ADB" shell am start -n com.android.settings/.Settings >/dev/null 2>&1 || true
-  sleep 2
-  # The search bar is a CardView until tapped; tapping it opens the EditText
-  # and the IME with it (the same two-state dance the field-focus step above).
-  SB="$("$ADB" shell uiautomator dump /sdcard/ui5.xml >/dev/null 2>&1; \
-        "$ADB" shell cat /sdcard/ui5.xml 2>/dev/null | tr '>' '\n' \
-        | grep -m1 'resource-id="com.android.settings:id/search_bar"' \
-        | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
-  [ -n "$SB" ] || return 1
-  set -- $(parse_bounds "$SB")
-  [ $# -eq 4 ] || return 1
-  "$ADB" shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )) >/dev/null
-  sleep 2
-  return 0
+  focus_editor
 }
 
 find_mic() {
@@ -492,7 +409,7 @@ perm_granted() {  # the authoritative answer, read the way the app reads it
 
 MIC_BOUNDS="$(find_mic)"
 if [ -z "$MIC_BOUNDS" ]; then
-  restore_surface || fail "cannot restore the Settings search surface for the mic"
+  restore_surface || fail "cannot restore the test editor surface for the mic"
   MIC_BOUNDS="$(find_mic)"
 fi
 [ -n "$MIC_BOUNDS" ] || fail "no mic button in the IME view (content-desc $MIC_DESC) after restoring the surface; the voice half is not on screen"
@@ -728,11 +645,10 @@ echo "the list shows the F9 badge after 한/영 전환 -- the save is readable b
 
 # Now the half no unit test can cover: the IME itself must honour it. Back out
 # of the window, focus a real editor, and press the key the user just bound.
-# restore_surface, not "BACK twice and tap the search bar": the search field is a
-# CardView until it is tapped, and whether it is still a CardView depends on what
-# the earlier steps left behind. The helper resets and re-taps, which is what
-# makes the sequence below repeatable rather than order-dependent.
-restore_surface || fail "cannot restore the Settings search surface to press a bound key"
+# restore_surface, not "BACK and hope the field survived": the helper resets the
+# fixture and re-taps its editor, which is what makes the sequence below
+# repeatable rather than order-dependent.
+restore_surface || fail "cannot restore the test editor surface to press a bound key"
 
 mode_is '한' || fail "the IME is not showing 한 before the rebound key is pressed"
 "$ADB" shell input keyevent KEYCODE_F9 >/dev/null 2>&1
@@ -753,8 +669,8 @@ echo "F9, bound through the settings window, toggles 한 -> 영 in the running I
 # not name is a worse thing to leave behind than no assertion.
 #
 # Open the window first: the editor round-trip above went through
-# restore_surface, which goes HOME, so the settings activity is backgrounded and
-# its rows are not in the current dump.
+# restore_surface, which brings the fixture forward, so the settings activity is
+# backgrounded and its rows are not in the current dump.
 open_settings
 open_settings
 tap_node '키 바인딩'
@@ -772,7 +688,7 @@ echo "F9 is now bound to both 한/영 전환 and 한자 입력; both rows are st
 "$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
 
 # Leave no trace: a stored binding would silently change every later run of this
-# tier, which is the same disease as a stale Settings search query above.
+# tier, which is the same disease as a stale editor field above.
 "$ADB" shell run-as "$PKG" rm -f "$KEY_PREFS" >/dev/null 2>&1 || true
 if "$ADB" shell run-as "$PKG" test -f "$KEY_PREFS" 2>/dev/null; then
   fail "the binding file survived the reset; this tier would poison its own next run"

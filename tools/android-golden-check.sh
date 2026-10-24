@@ -22,6 +22,10 @@
 # divergence is a ctest failure rather than a discovery.
 set -uo pipefail
 
+# Device-side paths must reach adb verbatim under Git bash; host paths still
+# need MSYS conversion. See tools/android-e2e.sh for the measured failure.
+export MSYS2_ARG_CONV_EXCL='/sdcard;/data'
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DATA="${1:-$ROOT/libhunmin/data}"
 
@@ -44,7 +48,10 @@ abi=$("$ADB" shell uname -m 2>/dev/null | tr -d '\r')
 echo "device: API $api, $abi"
 
 BUILD="$ROOT/build-android/$abi"
-if [ ! -x "$BUILD/jniLibs/$abi/hunmin-sim" ]; then
+# -f, not -x: Windows checkout filesystems (NTFS via MSYS) report the Android
+# ELF as non-executable, and chmod cannot change that. The executable bit that
+# matters is set on the device with chmod below.
+if [ ! -f "$BUILD/jniLibs/$abi/hunmin-sim" ]; then
   echo "skip: no $abi build; run tools/build-android.sh $abi first" >&2
   exit 77
 fi

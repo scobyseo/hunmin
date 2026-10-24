@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  The resource id `editor` is the harness contract. tools/android-e2e.sh taps
+  `org.hunmin.testeditor:id/editor` and reads the committed text from the same
+  node, so changing the id breaks the tier rather than silently changing what
+  it observes.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Hunmin test editor"
+        android:textSize="20sp" />
+
+    <EditText
+        android:id="@+id/editor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:imeOptions="flagNoExtractUi"
+        android:inputType="text"
+        android:saveEnabled="false" />
+
+</LinearLayout>

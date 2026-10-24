@@ -404,10 +404,46 @@ if(BUILD_TESTING AND Python3_FOUND)
   endif()
   set_tests_properties(shell-lint PROPERTIES LABELS "guard" TIMEOUT 300)
 
+  # The Android tiers below are POSIX shell scripts. CMake can only exec a
+  # shebang script on a POSIX host; on Windows ctest spawns it as a Win32
+  # program and reports BAD_COMMAND in well under a second (measured
+  # 2026-10-24, issue #129). Spawn them through bash instead, which is also
+  # the form docs/ENVIRONMENT.md gives a person for running them by hand.
+  # Git's bash is NOT on PATH on a default Git-for-Windows install, so hint at
+  # both install locations before falling back to PATH (an MSYS shell has it).
+  if(WIN32)
+    find_program(HUNMIN_BASH_EXECUTABLE NAMES bash
+      HINTS "$ENV{ProgramFiles}/Git/bin" "$ENV{ProgramFiles}/Git/usr/bin")
+  endif()
+  # <out>, <test name>, then the script and its own arguments. The name is
+  # passed only so the no-bash skip can say which tier it is; the add_test
+  # itself stays literal at the call site, because tools/docs-lint.py finds a
+  # registration by reading `add_test(NAME <name>` out of this file.
+  function(hunmin_android_shell_command out name)
+    if(WIN32)
+      if(HUNMIN_BASH_EXECUTABLE)
+        set(${out} ${HUNMIN_BASH_EXECUTABLE} ${ARGN} PARENT_SCOPE)
+      else()
+        # No bash anywhere: keep the tier visible as Skipped rather than
+        # turning a missing interpreter into a command-spawn failure. Python
+        # is already required for the tier-C runners, and 77 is this tier's
+        # documented "environment absent" code.
+        # One expression and no semicolons: a ';' here would be a list
+        # separator the moment ${out} is expanded, splitting the -c program.
+        set(${out} ${Python3_EXECUTABLE} -c
+            "print('skip: no bash on PATH for ${name}', file=__import__('sys').stderr) or __import__('sys').exit(77)"
+            PARENT_SCOPE)
+      endif()
+    else()
+      set(${out} ${ARGN} PARENT_SCOPE)
+    endif()
+  endfunction()
+
   find_program(JAVA_EXECUTABLE java HINTS $ENV{JAVA_HOME}/bin)
   if(JAVA_EXECUTABLE AND DEFINED ENV{ANDROID_HOME})
-    add_test(NAME engine-android-e1
-      COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-unit.sh)
+    hunmin_android_shell_command(HUNMIN_ANDROID_E1_COMMAND engine-android-e1
+      ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-unit.sh)
+    add_test(NAME engine-android-e1 COMMAND ${HUNMIN_ANDROID_E1_COMMAND})
     set_tests_properties(engine-android-e1 PROPERTIES
       LABELS "tier-E1;slow"
       SKIP_RETURN_CODE 77 TIMEOUT 900 RUN_SERIAL TRUE)
@@ -437,9 +473,22 @@ if(BUILD_TESTING AND Python3_FOUND)
     set_tests_properties(builds-android PROPERTIES
       LABELS "guard"
       SKIP_RETURN_CODE 77 TIMEOUT 900 RUN_SERIAL TRUE)
-    add_test(NAME android-mutations
-      COMMAND ${CMAKE_COMMAND} -E env HUNMIN_MUTATION_STRATEGY=sandbox
-              ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-mutations.sh)
+    if(WIN32 AND HUNMIN_BASH_EXECUTABLE)
+      # -E env carries the strategy through to android-mutations.py, which the
+      # documented .sh entry point execs (issue #129).
+      add_test(NAME android-mutations
+        COMMAND ${CMAKE_COMMAND} -E env HUNMIN_MUTATION_STRATEGY=sandbox
+                ${HUNMIN_BASH_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-mutations.sh)
+    elseif(WIN32)
+      add_test(NAME android-mutations
+        COMMAND ${Python3_EXECUTABLE} -c
+                "print('skip: no bash on PATH for android-mutations', file=__import__('sys').stderr) or __import__('sys').exit(77)")
+    else()
+      add_test(NAME android-mutations
+        COMMAND ${CMAKE_COMMAND} -E env HUNMIN_MUTATION_STRATEGY=sandbox
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-mutations.sh)
+    endif()
     set_tests_properties(android-mutations PROPERTIES
       LABELS "tier-E1;mutation;slow"
       # No RUN_SERIAL: the sandbox strategy copies the sources out, so this
@@ -449,8 +498,9 @@ if(BUILD_TESTING AND Python3_FOUND)
   endif()
   find_program(ADB_EXECUTABLE adb HINTS $ENV{ANDROID_HOME}/platform-tools)
   if(ADB_EXECUTABLE AND EXISTS "$ENV{ANDROID_NDK}")
-    add_test(NAME engine-android-goldens
-      COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-golden-check.sh)
+    hunmin_android_shell_command(HUNMIN_ANDROID_GOLDENS_COMMAND engine-android-goldens
+      ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-golden-check.sh)
+    add_test(NAME engine-android-goldens COMMAND ${HUNMIN_ANDROID_GOLDENS_COMMAND})
     set_tests_properties(engine-android-goldens PROPERTIES
       LABELS "tier-E0"
       SKIP_RETURN_CODE 77 TIMEOUT 600 RUN_SERIAL TRUE)
@@ -458,8 +508,9 @@ if(BUILD_TESTING AND Python3_FOUND)
     # events, and the committed text read back out of a real EditText via
     # uiautomator. This is the only tier that can fail if the platform does not
     # route hardware keys to an IME at all -- a question no host tier can ask.
-    add_test(NAME engine-android-e2e
-      COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-e2e.sh)
+    hunmin_android_shell_command(HUNMIN_ANDROID_E2E_COMMAND engine-android-e2e
+      ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-e2e.sh)
+    add_test(NAME engine-android-e2e COMMAND ${HUNMIN_ANDROID_E2E_COMMAND})
     set_tests_properties(engine-android-e2e PROPERTIES
       LABELS "tier-E2"
       SKIP_RETURN_CODE 77 TIMEOUT 1200 RUN_SERIAL TRUE)
@@ -474,8 +525,9 @@ if(BUILD_TESTING AND Python3_FOUND)
     # that name (measured 2026-10-13). A tier named in three documents and
     # reachable from no `ctest -R` is the "green having measured nothing"
     # shape issue #13 records.
-    add_test(NAME engine-android-espresso
-      COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-espresso.sh)
+    hunmin_android_shell_command(HUNMIN_ANDROID_ESPRESSO_COMMAND engine-android-espresso
+      ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-espresso.sh)
+    add_test(NAME engine-android-espresso COMMAND ${HUNMIN_ANDROID_ESPRESSO_COMMAND})
     set_tests_properties(engine-android-espresso PROPERTIES
       LABELS "tier-E2"
       SKIP_RETURN_CODE 77 TIMEOUT 1800 RUN_SERIAL TRUE)
