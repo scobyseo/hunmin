@@ -18,8 +18,13 @@ extern "C" {
  * __declspec(dllimport) when consuming it. On Linux/gcc, default
  * visibility already exports everything, but the attribute makes
  * the intent explicit and survives a -fvisibility=hidden build. */
+/* A static consumer defines HUNMIN_STATIC so HUNMIN_EXPORT is empty.
+ * dllimport on a symbol defined in the archive asks the linker for the
+ * __imp_ thunks the archive does not contain. */
 #if defined(_WIN32) || defined(__CYGWIN__)
-#ifdef HUNMIN_BUILDING_DLL
+#ifdef HUNMIN_STATIC
+#define HUNMIN_EXPORT
+#elif defined(HUNMIN_BUILDING_DLL)
 #define HUNMIN_EXPORT __declspec(dllexport)
 #else
 #define HUNMIN_EXPORT __declspec(dllimport)

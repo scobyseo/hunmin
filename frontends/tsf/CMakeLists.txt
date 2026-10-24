@@ -95,6 +95,11 @@ find_library(HUNMIN_LIB
     NO_DEFAULT_PATH)
 if(HUNMIN_STATIC_LIB)
     set(HUNMIN_ENGINE_LIB ${HUNMIN_STATIC_LIB})
+    # The TIP and its harness find the archive by path, not through the
+    # hunmin_static target, so its PUBLIC HUNMIN_STATIC does not reach them.
+    # Without this, hunmin.h declares the engine symbols dllimport and the
+    # linker looks for __imp_ thunks the archive does not define.
+    add_compile_definitions(HUNMIN_STATIC)
 elseif(HUNMIN_LIB)
     message(WARNING "hunmin_static.lib not found; linking the shared engine, so "
                     "hunmin.dll must be resolvable at run time or the TIP will fail to load")

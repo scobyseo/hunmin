@@ -63,6 +63,7 @@ target_include_directories(hunmin PRIVATE third_party/cJSON libhunmin/src)
 set_target_properties(hunmin PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 0
     POSITION_INDEPENDENT_CODE ON)
 target_compile_definitions(hunmin PRIVATE
+  HUNMIN_BUILDING_DLL
   HUNMIN_DEFAULT_DATA_DIR=\"${CMAKE_INSTALL_FULL_DATADIR}/hunmin\")
 # Windows PE needs an explicit export surface for the plain 'hunmin.dll'
 # consumers. Android (and every ELF target) exports by default visibility, and
@@ -76,6 +77,7 @@ add_library(hunmin_static STATIC ${HUNMIN_CORE_SOURCES})
 target_include_directories(hunmin_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/include)
 target_include_directories(hunmin_static PRIVATE third_party/cJSON libhunmin/src)
 set_target_properties(hunmin_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(hunmin_static PUBLIC HUNMIN_STATIC)
 target_compile_definitions(hunmin_static PRIVATE
   HUNMIN_DEFAULT_DATA_DIR=\"${CMAKE_INSTALL_FULL_DATADIR}/hunmin\")
 # The static archive is an intermediate for in-tree consumers (frontends/tsf),
@@ -88,7 +90,7 @@ install(DIRECTORY libhunmin/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin)
 # ------------------------------------------------- reference golden generator
 set(HUNMIN_HAS_LIBHANGUL OFF)
 if(PkgConfig_FOUND)
-  pkg_check_modules(LIBHANGUL IMPORTED_TARGET GLOBAL libhangul)
+  pkg_check_modules(LIBHANGUL QUIET IMPORTED_TARGET GLOBAL libhangul)
   if(LIBHANGUL_FOUND)
     add_executable(gen-golden-libhangul tools/gen-golden-libhangul.c)
     target_link_libraries(gen-golden-libhangul PRIVATE PkgConfig::LIBHANGUL)
@@ -474,10 +476,15 @@ if(BUILD_TESTING AND Python3_FOUND)
       LABELS "guard"
       SKIP_RETURN_CODE 77 TIMEOUT 900 RUN_SERIAL TRUE)
     if(WIN32 AND HUNMIN_BASH_EXECUTABLE)
-      # -E env carries the strategy through to android-mutations.py, which the
-      # documented .sh entry point execs (issue #129).
+      # HUNMIN_BUILD_DIR and HUNMIN_CMAKE are explicit: the .sh entry point
+      # builds the host `hunmin` target there before the sandbox copies it, so
+      # `ctest -R android-mutations` does not depend on a previous `builds` run
+      # (issue #129).
       add_test(NAME android-mutations
-        COMMAND ${CMAKE_COMMAND} -E env HUNMIN_MUTATION_STRATEGY=sandbox
+        COMMAND ${CMAKE_COMMAND} -E env
+                HUNMIN_MUTATION_STRATEGY=sandbox
+                HUNMIN_BUILD_DIR=${CMAKE_BINARY_DIR}
+                HUNMIN_CMAKE=${CMAKE_COMMAND}
                 ${HUNMIN_BASH_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-mutations.sh)
     elseif(WIN32)
@@ -486,7 +493,10 @@ if(BUILD_TESTING AND Python3_FOUND)
                 "print('skip: no bash on PATH for android-mutations', file=__import__('sys').stderr) or __import__('sys').exit(77)")
     else()
       add_test(NAME android-mutations
-        COMMAND ${CMAKE_COMMAND} -E env HUNMIN_MUTATION_STRATEGY=sandbox
+        COMMAND ${CMAKE_COMMAND} -E env
+                HUNMIN_MUTATION_STRATEGY=sandbox
+                HUNMIN_BUILD_DIR=${CMAKE_BINARY_DIR}
+                HUNMIN_CMAKE=${CMAKE_COMMAND}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-mutations.sh)
     endif()
     set_tests_properties(android-mutations PROPERTIES

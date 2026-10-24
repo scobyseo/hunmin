@@ -15,4 +15,13 @@
 # reason the patterns live in files.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+# The sandbox copies the host engine the JNI shim loads, so build that target
+# first. CMake passes its own executable and binary dir, which makes
+# `ctest -R android-mutations` work without a previous `builds` run; a person
+# running this script directly gets the plain build/ default.
+CMAKE="${HUNMIN_CMAKE:-cmake}"
+BUILD_DIR="${HUNMIN_BUILD_DIR:-$ROOT/../build}"
+"$CMAKE" --build "$BUILD_DIR" --target hunmin
+
 exec python3 "$ROOT/android-mutations.py" "$@"
