@@ -26,13 +26,13 @@
 #include <string>
 #include <windows.h>
 
+#include "../src/tsf.h"
 #include "mock-tsf.h"
 #include "tsf-keystate-mock.h"
 #include "tsf-testdir.h"
-#include "../src/tsf.h"
 
 class TsfConfigTest : public ::testing::Test {
-  protected:
+protected:
     void SetUp() override {
         _putenv_s("HUNMIN_DATA_DIR", HUNMIN_TSF_DATA_DIR);
         const char *dirs[1] = {HUNMIN_TSF_DATA_DIR};
@@ -104,8 +104,7 @@ TEST_F(TsfConfigTest, SlotResolutionAgainstTheRealData) {
  * the same selftest key carries both, so one case owns the key's lifetime. */
 TEST_F(TsfConfigTest, RegistryRoundTripAndUnterminatedId) {
     HKEY selftest = nullptr;
-    if (RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\Hunmin\\TSF-selftest", 0,
-                        nullptr, 0, KEY_ALL_ACCESS, nullptr, &selftest, nullptr) !=
+    if (RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\Hunmin\\TSF-selftest", 0, nullptr, 0, KEY_ALL_ACCESS, nullptr, &selftest, nullptr) !=
         ERROR_SUCCESS) {
         GTEST_SKIP() << "cannot create isolated registry root for the round trip";
     }
@@ -156,8 +155,7 @@ TEST_F(TsfConfigTest, Sin3P2ChosungOnTheOemRow) {
     EXPECT_EQ(eaten, TRUE) << "sin3-p2 chosung ';' interested in hangul mode";
     svc->OnKeyDown(mctx, VK_OEM_1, 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "engine consumes ';' -> compose";
-    EXPECT_STREQ(hunmin_ic_preedit(Snap(svc).ic), "\xE3\x85\x82")
-        << "OEM_1 composes ㅂ like a chosung, not a symbol";
+    EXPECT_STREQ(hunmin_ic_preedit(Snap(svc).ic), "\xE3\x85\x82") << "OEM_1 composes ㅂ like a chosung, not a symbol";
 
     /* The same class on the other two reported keys. */
     svc->OnTestKeyDown(mctx, VK_OEM_2, 0, &eaten);
@@ -186,18 +184,14 @@ TEST_F(TsfConfigTest, Sin3P2ChosungOnTheOemRow) {
 TEST_F(TsfConfigTest, KeybindingParseAndMatchUnits) {
     HunminKeyCombo got[8];
     // bare Han/Eng + bare Right Alt (165) + Shift+Space:
-    EXPECT_EQ(hunmin_tsf_keybindings_parse("v1:21:0;v1:165:0;v1:32:1", got, 8), 3)
-        << "parse of a 3-entry list";
-    EXPECT_EQ(hunmin_tsf_keybindings_parse("v1:999:0;v1:-2:0;nonsense;v1:21:9",
-                                           got, 8),
-              0)
+    EXPECT_EQ(hunmin_tsf_keybindings_parse("v1:21:0;v1:165:0;v1:32:1", got, 8), 3) << "parse of a 3-entry list";
+    EXPECT_EQ(hunmin_tsf_keybindings_parse("v1:999:0;v1:-2:0;nonsense;v1:21:9", got, 8), 0)
         << "malformed entries parse to nothing (a bad binding never swallows a key)";
     EXPECT_EQ(hunmin_tsf_keybindings_parse("", got, 8), 0) << "empty list parses to none";
     (void)hunmin_tsf_keybindings_parse("v1:165:0", got, 8);
     EXPECT_EQ(hunmin_tsf_keybindings_match(got, 1, 165, HUNMIN_TSF_KEYMOD_SHIFT), 0)
         << "exact-modifier matching: a bare binding does not fire under a modifier";
-    EXPECT_EQ(hunmin_tsf_keybindings_match(got, 1, 165, 0), 1)
-        << "exact-modifier matching: the bare binding fires bare";
+    EXPECT_EQ(hunmin_tsf_keybindings_match(got, 1, 165, 0), 1) << "exact-modifier matching: the bare binding fires bare";
     EXPECT_EQ(hunmin_tsf_keymods_from_state(), 0) << "no modifiers in the clean mock state";
 }
 
@@ -221,8 +215,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     mctx->AddRef();
     CTextService *svc = new CTextService();
     svc->Activate(tm, 1);
-    EXPECT_EQ(Snap(svc).toggleKeys.size(), (size_t)3)
-        << "Activate loads configured + bare Han/Eng";
+    EXPECT_EQ(Snap(svc).toggleKeys.size(), (size_t)3) << "Activate loads configured + bare Han/Eng";
     EXPECT_TRUE(Snap(svc).ctx && Snap(svc).ic && Snap(svc).hangulMode) << "service starts in hangul mode";
 
     // 'r' composes in dubeolsik: consumed, preedit holds the cho.
@@ -291,12 +284,9 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
          * trace runner's rule): with the composition live (the 'r' above
          * started it) the pending word fuses through the composition
          * end; only a host that refused compositions plain-inserts. */
-        EXPECT_EQ(mctx->compositionEnds, endsBefore + 1)
-            << "edit key is a boundary: one composition-fused delivery";
-        EXPECT_EQ(mctx->compositionText, std::wstring(1, L'\u3131'))
-            << "edit key is a boundary: the fused text is the commit";
-        EXPECT_EQ(mctx->insertions.size(), insBefore)
-            << "edit key is a boundary: no plain insert on the side";
+        EXPECT_EQ(mctx->compositionEnds, endsBefore + 1) << "edit key is a boundary: one composition-fused delivery";
+        EXPECT_EQ(mctx->compositionText, std::wstring(1, L'\u3131')) << "edit key is a boundary: the fused text is the commit";
+        EXPECT_EQ(mctx->insertions.size(), insBefore) << "edit key is a boundary: no plain insert on the side";
         EXPECT_TRUE(Snap(svc).wordbuf.empty()) << "nothing held after the edit-key boundary";
     }
     /* U+3131 wide-literal escape (the ANSI-codepage rule above); the two

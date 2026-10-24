@@ -1,14 +1,14 @@
 ---
-# C++ frontend style: 4-space, as written in this directory. Same
+# C++ frontend style: 4-space, public: flush with `class`. Same normalisation
 # normalisation intent as the root config (see its header): no re-wrapping,
 # no include re-sorting, no alignment ripple. clang-format picks this config
 # automatically for files in this directory tree.
 BasedOnStyle: LLVM
 Language: Cpp
 IndentWidth: 4
-ColumnLimit: 0
-SortIncludes: Never
-ReflowComments: false
+ReflowComments: true
 AlignTrailingComments: false
 DerivePointerAlignment: false
 PointerAlignment: Right
+AccessModifierOffset: -4
+ColumnLimit: 150

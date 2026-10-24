@@ -26,8 +26,7 @@
 bool hunmin_tsf_settings_exe_run(HWND parent, wchar_t *exeResolved, size_t cap) {
     (void)parent; /* the exe owns its own window; TSF gives no meaningful one */
     wchar_t exe[MAX_PATH];
-    if (!hunmin_tsf_settings_exe_find((const void *)&hunmin_tsf_settings_exe_run, exe,
-                                      MAX_PATH))
+    if (!hunmin_tsf_settings_exe_find((const void *)&hunmin_tsf_settings_exe_run, exe, MAX_PATH))
         return false;
     if (exeResolved && cap) {
         wcsncpy(exeResolved, exe, cap - 1);

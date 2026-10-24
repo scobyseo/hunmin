@@ -13,8 +13,7 @@
 
 /* ---- the pure half: what Apply writes, what the rows contain ---- */
 
-int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *rows,
-                             int cap) {
+int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *rows, int cap) {
     int n = 0;
     if (ctx) {
         const int count = hunmin_ctx_layout_count(ctx);
@@ -31,8 +30,7 @@ int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *r
             strncpy(rows[n].id, id, HUNMIN_TSF_SETTINGS_TEXT_CAP - 1);
             rows[n].id[HUNMIN_TSF_SETTINGS_TEXT_CAP - 1] = '\0';
             const char *name = hunmin_ctx_layout_name(ctx, i, "ko");
-            strncpy(rows[n].name, (name && name[0]) ? name : id,
-                    HUNMIN_TSF_SETTINGS_TEXT_CAP - 1);
+            strncpy(rows[n].name, (name && name[0]) ? name : id, HUNMIN_TSF_SETTINGS_TEXT_CAP - 1);
             rows[n].name[HUNMIN_TSF_SETTINGS_TEXT_CAP - 1] = '\0';
             rows[n].supported = hunmin_ctx_layout_supported(ctx, i) ? 1 : 0;
             ++n;

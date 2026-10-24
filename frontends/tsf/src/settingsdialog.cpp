@@ -27,12 +27,12 @@
 
 #include <windows.h>
 
+#include <cstdio>
+#include <cstring>
 #include <ctffunc.h>
 #include <dwmapi.h>
 #include <imm.h>
 #include <msctf.h>
-#include <cstdio>
-#include <cstring>
 #include <string>
 #include <vector>
 #pragma comment(lib, "dwmapi.lib")
@@ -64,13 +64,11 @@ static std::wstring utf8ToWide(const char *s) {
 static std::string wideToStore(const std::wstring &w) {
     if (w.empty())
         return std::string();
-    int alen = WideCharToMultiByte(CP_ACP, 0, w.c_str(), (int)w.size(), nullptr, 0,
-                                   nullptr, nullptr);
+    int alen = WideCharToMultiByte(CP_ACP, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
     std::string out;
     if (alen > 0) {
         out.resize((size_t)alen);
-        WideCharToMultiByte(CP_ACP, 0, w.c_str(), (int)w.size(), &out[0], alen,
-                            nullptr, nullptr);
+        WideCharToMultiByte(CP_ACP, 0, w.c_str(), (int)w.size(), &out[0], alen, nullptr, nullptr);
     }
     return out;
 }
@@ -126,8 +124,7 @@ static void walign(std::vector<WORD> &t) {
 #define ATOM_STATIC 0x82
 #define ATOM_COMBOBOX 0x85
 
-static void addItem(std::vector<WORD> &t, DWORD style, DWORD exStyle, WORD x, WORD y,
-                    WORD cx, WORD cy, WORD id, WORD atom, const wchar_t *title) {
+static void addItem(std::vector<WORD> &t, DWORD style, DWORD exStyle, WORD x, WORD y, WORD cx, WORD cy, WORD id, WORD atom, const wchar_t *title) {
     walign(t);
     w32(t, style);
     w32(t, exStyle);
@@ -155,8 +152,7 @@ static void addItem(std::vector<WORD> &t, DWORD style, DWORD exStyle, WORD x, WO
  * dialog parity): idle = click me; capturing = the next key records.
  * Escapes, not literals: MSVC reads this TU under the ANSI codepage (949). */
 #define CAPTURE_PROMPT_IDLE L"\uD0A4 \uC785\uB825" /* 키 입력 */
-#define CAPTURE_PROMPT_ACTIVE \
-    L"\uD0A4\uB974 \uB204\uB974\uC138\uC694\u2026 (ESC \uCDE8\uC18C)" /* 키를 누르세요… (ESC 취소) */
+#define CAPTURE_PROMPT_ACTIVE L"\uD0A4\uB974 \uB204\uB974\uC138\uC694\u2026 (ESC \uCDE8\uC18C)" /* 키를 누르세요… (ESC 취소) */
 
 static std::vector<WORD> buildDialogTemplate() {
     std::vector<WORD> t;
@@ -170,8 +166,7 @@ static std::vector<WORD> buildDialogTemplate() {
      * this host contradicts it under rundll32 with no owner, and the
      * template bit is what the docs say applies when the claim does not.
      * DS_CENTER centres the ownerless launcher window. */
-    w32(t, DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU |
-               WS_VISIBLE);
+    w32(t, DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE);
     w32(t, 0); /* exStyle */
     const size_t cditOff = t.size();
     t.push_back(0); /* cdit, patched below */
@@ -190,40 +185,28 @@ static std::vector<WORD> buildDialogTemplate() {
      * edit->hint 2 dlu. The 키 입력 button beside each key field enters the
      * capture mode (WinUI 3 parity: press the chord, the dialog records
      * it; ESC cancels). */
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP, 0, 10, 5, 86, 10, 0, ATOM_STATIC,
-            TITLE_HANGUL);
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP, 0, 10, 5, 86, 10, 0, ATOM_STATIC, TITLE_HANGUL);
     addItem(t, WS_CHILD | WS_VISIBLE, 0, 106, 5, 86, 10, 0, ATOM_STATIC, TITLE_LATIN);
     /* Layout combo boxes, one per slot. */
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0,
-            10, 15, 86, 56, IDC_HANGUL_LIST, ATOM_COMBOBOX, L"");
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0,
-            106, 15, 86, 56, IDC_LATIN_LIST, ATOM_COMBOBOX, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0, 10, 15, 86, 56, IDC_HANGUL_LIST, ATOM_COMBOBOX, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0, 106, 15, 86, 56, IDC_LATIN_LIST, ATOM_COMBOBOX, L"");
     /* The mode-toggle key list row. */
     addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 42, 140, 10, 0, ATOM_STATIC, TITLE_TOGGLE);
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 0, 10,
-            52, 150, 12, IDC_TOGGLE_EDIT, ATOM_EDIT, L"");
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 164, 52, 30, 12,
-            IDC_TOGGLE_CAPTURE, ATOM_BUTTON, CAPTURE_PROMPT_IDLE);
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 66, 178, 10, IDC_HINT_TOGGLE, ATOM_STATIC,
-            HINT_TOGGLE);
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 0, 10, 52, 150, 12, IDC_TOGGLE_EDIT, ATOM_EDIT, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 164, 52, 30, 12, IDC_TOGGLE_CAPTURE, ATOM_BUTTON, CAPTURE_PROMPT_IDLE);
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 66, 178, 10, IDC_HINT_TOGGLE, ATOM_STATIC, HINT_TOGGLE);
     /* The Hanja/candidate key row (issue #67): the key that opens the
      * candidate window, default the bare physical Hanja key. */
     addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 79, 140, 10, 0, ATOM_STATIC, TITLE_HANJA);
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 0, 10,
-            89, 150, 12, IDC_HANJA_EDIT, ATOM_EDIT, L"");
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 164, 89, 30, 12,
-            IDC_HANJA_CAPTURE, ATOM_BUTTON, CAPTURE_PROMPT_IDLE);
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 103, 178, 10, IDC_HINT_HANJA, ATOM_STATIC,
-            HINT_HANJA);
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 0, 10, 89, 150, 12, IDC_HANJA_EDIT, ATOM_EDIT, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 164, 89, 30, 12, IDC_HANJA_CAPTURE, ATOM_BUTTON, CAPTURE_PROMPT_IDLE);
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 103, 178, 10, IDC_HINT_HANJA, ATOM_STATIC, HINT_HANJA);
     /* The feature row: display only, disabled, per the recorded ruling. */
     addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 116, 118, 10, 0, ATOM_STATIC, FEATURE_ROW);
-    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 132, 114, 10,
-            12, IDC_FEATURE_ROW, ATOM_BUTTON, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 132, 114, 10, 12, IDC_FEATURE_ROW, ATOM_BUTTON, L"");
     /* OK / Cancel. */
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_DEFPUSHBUTTON, 0,
-            100, 132, 44, 12, IDOK, ATOM_BUTTON, L"OK");
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 148, 132, 44,
-            12, IDCANCEL, ATOM_BUTTON, L"Cancel");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_DEFPUSHBUTTON, 0, 100, 132, 44, 12, IDOK, ATOM_BUTTON, L"OK");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 148, 132, 44, 12, IDCANCEL, ATOM_BUTTON, L"Cancel");
     /* The template declared exactly the items appended above: 7 statics +
      * 2 combos + 2 edits + 2 capture buttons + 1 checkbox + 2 buttons =
      * 16. (The count is derived from the add calls above; USER32 stops
@@ -248,19 +231,16 @@ static void applyAndClose(HWND h, SettingsState *s) {
      * combo was filled in vector order without sort). */
     int sel = (int)SendMessageW(GetDlgItem(h, IDC_HANGUL_LIST), CB_GETCURSEL, 0, 0);
     if (sel >= 0 && (size_t)sel < s->hangulRows.size())
-        strncpy(s->cfg.hangulLayout, s->hangulRows[(size_t)sel].id,
-                HUNMIN_TSF_LAYOUT_ID_CAP - 1);
+        strncpy(s->cfg.hangulLayout, s->hangulRows[(size_t)sel].id, HUNMIN_TSF_LAYOUT_ID_CAP - 1);
     sel = (int)SendMessageW(GetDlgItem(h, IDC_LATIN_LIST), CB_GETCURSEL, 0, 0);
     if (sel >= 0 && (size_t)sel < s->latinRows.size())
-        strncpy(s->cfg.latinLayout, s->latinRows[(size_t)sel].id,
-                HUNMIN_TSF_LAYOUT_ID_CAP - 1);
+        strncpy(s->cfg.latinLayout, s->latinRows[(size_t)sel].id, HUNMIN_TSF_LAYOUT_ID_CAP - 1);
     /* Toggle-key list, wide control text -> the store grammar. Fixed-cap
      * never truncates: a too-long list is exactly the store save's failure
      * path, surfaced below. */
     std::string keys = wideToStore(getEditText(h, IDC_TOGGLE_EDIT));
     if (keys.size() >= HUNMIN_TSF_TOGGLE_KEYS_CAP) {
-        MessageBoxW(h, L"Toggle key list too long.", L"Hunmin settings",
-                    MB_OK | MB_ICONWARNING);
+        MessageBoxW(h, L"Toggle key list too long.", L"Hunmin settings", MB_OK | MB_ICONWARNING);
         return; /* stay on the dialog: the user fixes the value */
     }
     strncpy(s->cfg.toggleKeys, keys.c_str(), HUNMIN_TSF_TOGGLE_KEYS_CAP - 1);
@@ -275,28 +255,24 @@ static void applyAndClose(HWND h, SettingsState *s) {
         hanjaKey = def.hanjaKey;
     }
     if (hanjaKey.size() >= HUNMIN_TSF_HANJA_KEY_CAP) {
-        MessageBoxW(h, L"Hanja key binding too long.", L"Hunmin settings",
-                    MB_OK | MB_ICONWARNING);
+        MessageBoxW(h, L"Hanja key binding too long.", L"Hunmin settings", MB_OK | MB_ICONWARNING);
         return; /* stay on the dialog: the user fixes the value */
     }
     strncpy(s->cfg.hanjaKey, hanjaKey.c_str(), HUNMIN_TSF_HANJA_KEY_CAP - 1);
     s->cfg.hanjaKey[HUNMIN_TSF_HANJA_KEY_CAP - 1] = '\0';
     if (hunmin_tsf_config_save(HKEY_CURRENT_USER, &s->cfg)) {
         s->applied = true;
-        hunmin_logger.log("settings: saved hangul=%s latin=%s keys=%s hanja=%s\n",
-                          s->cfg.hangulLayout, s->cfg.latinLayout, s->cfg.toggleKeys,
+        hunmin_logger.log("settings: saved hangul=%s latin=%s keys=%s hanja=%s\n", s->cfg.hangulLayout, s->cfg.latinLayout, s->cfg.toggleKeys,
                           s->cfg.hanjaKey);
         EndDialog(h, 1);
     } else {
         hunmin_logger.log("settings: save FAILED\n");
         /* The user's explicit Apply must never silently do nothing. */
-        MessageBoxW(h, L"Failed to write the settings store.", L"Hunmin settings",
-                    MB_OK | MB_ICONWARNING);
+        MessageBoxW(h, L"Failed to write the settings store.", L"Hunmin settings", MB_OK | MB_ICONWARNING);
     }
 }
 
-static void preselectCombo(HWND combo, const std::vector<HunminTsfLayoutRow> &rows,
-                           const char *storeId) {
+static void preselectCombo(HWND combo, const std::vector<HunminTsfLayoutRow> &rows, const char *storeId) {
     for (size_t i = 0; i < rows.size(); ++i) {
         if (strcmp(rows[i].id, storeId) == 0) {
             SendMessageW(combo, CB_SETCURSEL, (WPARAM)i, 0);
@@ -332,9 +308,7 @@ static bool systemAppsDark(void) {
      * AppsUseLightTheme 1/absent = light, 0 = dark (the dialog follows the
      * system APP theme, like the Settings app's own dark rendering). */
     HKEY k = nullptr;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER,
-                      L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-                      0, KEY_READ, &k) != ERROR_SUCCESS)
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0, KEY_READ, &k) != ERROR_SUCCESS)
         return false; /* absent key: treat as light (older hosts) */
     DWORD v = 1, type = 0, size = sizeof(v);
     RegQueryValueExW(k, L"AppsUseLightTheme", nullptr, &type, (BYTE *)&v, &size);
@@ -350,13 +324,17 @@ static bool fontFaceExists(const wchar_t *face) {
     LOGFONTW lf = {};
     lf.lfCharSet = DEFAULT_CHARSET;
     HDC dc = GetDC(nullptr);
-    EnumFontFamiliesExW(dc, &lf, [](const LOGFONTW *plf, const TEXTMETRICW *, DWORD, LPARAM lp) -> int {
-                            auto *c = (Ctx *)lp;
-                            if (_wcsicmp(plf->lfFaceName, c->face) == 0) {
-                                c->found = true;
-                                return 0;
-                            }
-                            return 1; }, (LPARAM)&ctx, 0);
+    EnumFontFamiliesExW(
+        dc, &lf,
+        [](const LOGFONTW *plf, const TEXTMETRICW *, DWORD, LPARAM lp) -> int {
+            auto *c = (Ctx *)lp;
+            if (_wcsicmp(plf->lfFaceName, c->face) == 0) {
+                c->found = true;
+                return 0;
+            }
+            return 1;
+        },
+        (LPARAM)&ctx, 0);
     ReleaseDC(nullptr, dc);
     return ctx.found;
 }
@@ -380,8 +358,7 @@ static void applyWindows11Look(HWND h, SettingsState *s) {
         s->hrDark = DwmSetWindowAttribute(h, 19, &attr, sizeof(attr));
     /* rounded corners */
     attr = DWMWCP_ROUND;
-    s->hrCorner = DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE, &attr,
-                                        sizeof(attr));
+    s->hrCorner = DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE, &attr, sizeof(attr));
     /* The Mica backdrop is GONE. Measured 2026-10-18 (defect "the dialog is
      * empty"): with DwmExtendFrameIntoClientArea(-1) + DWMSBT_MICA the
      * client is the DWM-composed surface and the dialog's own controls
@@ -394,8 +371,7 @@ static void applyWindows11Look(HWND h, SettingsState *s) {
      * WM_ERASEBKGND (below) now paints a solid mode brush instead of
      * letting the backdrop show through. */
     if (s->dark) {
-        const int ids[] = {IDC_HANGUL_LIST, IDC_LATIN_LIST, IDC_TOGGLE_EDIT,
-                           IDC_HANJA_EDIT, IDC_FEATURE_ROW};
+        const int ids[] = {IDC_HANGUL_LIST, IDC_LATIN_LIST, IDC_TOGGLE_EDIT, IDC_HANJA_EDIT, IDC_FEATURE_ROW};
         for (int id : ids) {
             HWND c = GetDlgItem(h, id);
             if (c)
@@ -410,9 +386,7 @@ static void applyWindows11Look(HWND h, SettingsState *s) {
     LOGFONTW lf = {};
     if (base)
         GetObjectW(base, sizeof(lf), &lf);
-    const wchar_t *want =
-        fontFaceExists(L"Segoe UI Variable Display") ? L"Segoe UI Variable Display"
-                                                     : L"Segoe UI";
+    const wchar_t *want = fontFaceExists(L"Segoe UI Variable Display") ? L"Segoe UI Variable Display" : L"Segoe UI";
     wchar_t have[LF_FACESIZE] = {0};
     wcscpy_s(have, lf.lfFaceName);
     if (_wcsicmp(have, want) != 0) {
@@ -423,8 +397,8 @@ static void applyWindows11Look(HWND h, SettingsState *s) {
             s->font = nf; /* deleted on WM_DESTROY (dialog-owned) */
         }
     }
-    hunmin_logger.log("settings w11: dark=%d corner=0x%lX darkAttr=0x%lX font=%ls\n",
-                      (int)s->dark, (unsigned long)s->hrCorner, (unsigned long)s->hrDark, want);
+    hunmin_logger.log("settings w11: dark=%d corner=0x%lX darkAttr=0x%lX font=%ls\n", (int)s->dark, (unsigned long)s->hrCorner,
+                      (unsigned long)s->hrDark, want);
 }
 
 /* ---- the key-capture hook (the maintainer instruction: set combinations
@@ -440,10 +414,8 @@ static HHOOK g_captureHook = nullptr;
 static HWND g_captureDlg = nullptr;
 
 static bool captureIsModifier(WPARAM vk) {
-    return vk == VK_SHIFT || vk == VK_LSHIFT || vk == VK_RSHIFT ||
-           vk == VK_CONTROL || vk == VK_LCONTROL || vk == VK_RCONTROL ||
-           vk == VK_MENU || vk == VK_LMENU || vk == VK_RMENU || vk == VK_LWIN ||
-           vk == VK_RWIN || vk == VK_APPS || vk == VK_NUMLOCK;
+    return vk == VK_SHIFT || vk == VK_LSHIFT || vk == VK_RSHIFT || vk == VK_CONTROL || vk == VK_LCONTROL || vk == VK_RCONTROL || vk == VK_MENU ||
+           vk == VK_LMENU || vk == VK_RMENU || vk == VK_LWIN || vk == VK_RWIN || vk == VK_APPS || vk == VK_NUMLOCK;
 }
 
 /* Record the chord into the armed row and stand down. */
@@ -482,10 +454,7 @@ static void recordCapturedChord(HWND h, SettingsState *s, WPARAM vk) {
         UnhookWindowsHookEx(g_captureHook);
         g_captureHook = nullptr;
     }
-    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
-                                     ? IDC_TOGGLE_CAPTURE
-                                     : IDC_HANJA_CAPTURE),
-                   CAPTURE_PROMPT_IDLE);
+    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT ? IDC_TOGGLE_CAPTURE : IDC_HANJA_CAPTURE), CAPTURE_PROMPT_IDLE);
     s->captureTarget = 0;
 }
 
@@ -496,10 +465,7 @@ static void recordCapturedAbort(HWND h, SettingsState *s) {
         UnhookWindowsHookEx(g_captureHook);
         g_captureHook = nullptr;
     }
-    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
-                                     ? IDC_TOGGLE_CAPTURE
-                                     : IDC_HANJA_CAPTURE),
-                   CAPTURE_PROMPT_IDLE);
+    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT ? IDC_TOGGLE_CAPTURE : IDC_HANJA_CAPTURE), CAPTURE_PROMPT_IDLE);
     s->captureTarget = 0;
 }
 
@@ -509,9 +475,7 @@ static LRESULT CALLBACK captureKeyHook(int code, WPARAM wp, LPARAM lp) {
         if (s && s->captureTarget != 0) {
             WPARAM vk = wp;
             bool up = (lp & (1u << 31)) != 0;
-            bool chord = (GetKeyState(VK_SHIFT) & 0x8000) ||
-                         (GetKeyState(VK_CONTROL) & 0x8000) ||
-                         (GetKeyState(VK_MENU) & 0x8000);
+            bool chord = (GetKeyState(VK_SHIFT) & 0x8000) || (GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000);
             if (!up && vk == VK_ESCAPE && !chord) {
                 recordCapturedAbort(g_captureDlg, s);
                 return 1;
@@ -533,14 +497,9 @@ static void RecordCapturedChordArm(HWND h, SettingsState *s) {
         return;
     g_captureDlg = h;
     if (!g_captureHook)
-        g_captureHook =
-            SetWindowsHookExW(WH_KEYBOARD, captureKeyHook, nullptr, GetCurrentThreadId());
-    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT
-                                     ? IDC_TOGGLE_CAPTURE
-                                     : IDC_HANJA_CAPTURE),
-                   CAPTURE_PROMPT_ACTIVE);
-    hunmin_logger.log("settings: hook capture armed target=%d hook=%p\n", s->captureTarget,
-                      (void *)g_captureHook);
+        g_captureHook = SetWindowsHookExW(WH_KEYBOARD, captureKeyHook, nullptr, GetCurrentThreadId());
+    SetWindowTextW(GetDlgItem(h, s->captureTarget == IDC_TOGGLE_EDIT ? IDC_TOGGLE_CAPTURE : IDC_HANJA_CAPTURE), CAPTURE_PROMPT_ACTIVE);
+    hunmin_logger.log("settings: hook capture armed target=%d hook=%p\n", s->captureTarget, (void *)g_captureHook);
 }
 
 static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
@@ -551,17 +510,14 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         for (const HunminTsfLayoutRow &r : s->hangulRows) {
             std::wstring d = utf8ToWide(r.name);
             d += L" (" + utf8ToWide(r.id) + L")";
-            SendMessageW(GetDlgItem(h, IDC_HANGUL_LIST), CB_ADDSTRING, 0,
-                         (LPARAM)d.c_str());
+            SendMessageW(GetDlgItem(h, IDC_HANGUL_LIST), CB_ADDSTRING, 0, (LPARAM)d.c_str());
         }
         for (const HunminTsfLayoutRow &r : s->latinRows) {
             std::wstring d = utf8ToWide(r.name);
             d += L" (" + utf8ToWide(r.id) + L")";
-            SendMessageW(GetDlgItem(h, IDC_LATIN_LIST), CB_ADDSTRING, 0,
-                         (LPARAM)d.c_str());
+            SendMessageW(GetDlgItem(h, IDC_LATIN_LIST), CB_ADDSTRING, 0, (LPARAM)d.c_str());
         }
-        preselectCombo(GetDlgItem(h, IDC_HANGUL_LIST), s->hangulRows,
-                       s->cfg.hangulLayout);
+        preselectCombo(GetDlgItem(h, IDC_HANGUL_LIST), s->hangulRows, s->cfg.hangulLayout);
         preselectCombo(GetDlgItem(h, IDC_LATIN_LIST), s->latinRows, s->cfg.latinLayout);
         /* Toggle keys into the edit. */
         std::wstring w = utf8ToWide(s->cfg.toggleKeys);
@@ -586,14 +542,11 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
             SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0);
             GetWindowRect(h, &rc);
             int w = rc.right - rc.left, ht = rc.bottom - rc.top;
-            SetWindowPos(h, HWND_TOPMOST, wa.left + ((wa.right - wa.left) - w) / 2,
-                         wa.top + ((wa.bottom - wa.top) - ht) / 2, 0, 0,
-                         SWP_NOSIZE);
+            SetWindowPos(h, HWND_TOPMOST, wa.left + ((wa.right - wa.left) - w) / 2, wa.top + ((wa.bottom - wa.top) - ht) / 2, 0, 0, SWP_NOSIZE);
             SetForegroundWindow(h);
             GetWindowRect(h, &rc);
-            hunmin_logger.log("settings: initdialog rect=(%ld,%ld)-(%ld,%ld) visible=%d\n",
-                              (long)rc.left, (long)rc.top, (long)rc.right, (long)rc.bottom,
-                              (int)IsWindowVisible(h));
+            hunmin_logger.log("settings: initdialog rect=(%ld,%ld)-(%ld,%ld) visible=%d\n", (long)rc.left, (long)rc.top, (long)rc.right,
+                              (long)rc.bottom, (int)IsWindowVisible(h));
         }
         return TRUE;
     }
@@ -693,8 +646,7 @@ bool hunmin_tsf_settings_dialog_run(HWND parent) {
     n = hunmin_tsf_rows_for_mode(s.ctx, false, buf, HUNMIN_TSF_SETTINGS_MAX_ROWS);
     s.latinRows.assign(buf, buf + n);
     hunmin_tsf_config_load(HKEY_CURRENT_USER, &s.cfg);
-    hunmin_logger.log("settings: open rows hangul=%zu latin=%zu\n", s.hangulRows.size(),
-                      s.latinRows.size());
+    hunmin_logger.log("settings: open rows hangul=%zu latin=%zu\n", s.hangulRows.size(), s.latinRows.size());
     std::vector<WORD> t = buildDialogTemplate();
     /* Template ground truth in the log: this stream is what USER32 parses,
      * and the empty-dialog defect report (2026-10-18) showed a created-but-
@@ -718,12 +670,9 @@ bool hunmin_tsf_settings_dialog_run(HWND parent) {
      * carry there). With a template pointer the instance is not deref'd,
      * but resolve it honestly anyway. */
     HMODULE hSelf = nullptr;
-    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                           GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                        (LPCWSTR)(const void *)&hunmin_tsf_settings_dialog_run, &hSelf);
-    INT_PTR got = DialogBoxIndirectParamW((HINSTANCE)hSelf,
-                                          (LPCDLGTEMPLATEW)t.data(), parent, settingsProc,
-                                          (LPARAM)&s);
+    INT_PTR got = DialogBoxIndirectParamW((HINSTANCE)hSelf, (LPCDLGTEMPLATEW)t.data(), parent, settingsProc, (LPARAM)&s);
     if (got == -1)
         hunmin_logger.log("settings: DialogBoxIndirectParamW FAILED err=%lu\n", GetLastError());
     hunmin_logger.log("settings: dialog closed got=%ld applied=%d\n", (long)got, (int)s.applied);

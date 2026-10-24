@@ -24,17 +24,17 @@
 #define HUNMIN_TSF_TSF_H_
 
 #include <memory>
+#include <msctf.h>
 #include <string>
 #include <utility>
 #include <vector>
 #include <windows.h>
-#include <msctf.h>
 
+#include "config.h" /* HunminTsfConfig, hunmin_tsf_config_load */
+#include "datadir.h" /* hunmin_ctx_from_module, the layout-slot check */
 #include "hunmin.h"
 #include "ids.h" /* CLSID_HunminTSF and the shared GUIDs (ids.cpp) */
 #include "keybinding.h" /* HunminKeyCombo, hunmin_tsf_keybindings_* */
-#include "config.h" /* HunminTsfConfig, hunmin_tsf_config_load */
-#include "datadir.h" /* hunmin_ctx_from_module, the layout-slot check */
 #include "log.h"
 
 /* msctf.h pulls ctfutb.h (the langbar item interfaces); a guard for the
@@ -114,8 +114,7 @@ struct Delivery {
     /* A picked candidate commits as `replacement` (the fallback-aware
      * text the common side computed from the anchor). false = refused:
      * the buffers stay intact, nothing is delivered. */
-    virtual bool CandidateCommit(ITfContext *pic,
-                                 const std::wstring &replacement) = 0;
+    virtual bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) = 0;
     /* Settle a posted doc write (the interim deferral; the native path
      * is synchronous - a no-op). */
     virtual void FlushPending() = 0;
@@ -154,8 +153,7 @@ struct CandBackend {
      * session against the selection (GetTextExt), falling back to the
      * thread's GUITHREADINFO caret. Screen coordinates out. False means
      * the host reported nothing drawable - the popup hide path. */
-    virtual bool CaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut,
-                           GUITHREADINFO *gtiOut) = 0;
+    virtual bool CaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut, GUITHREADINFO *gtiOut) = 0;
 };
 
 /* The candidate flow the shell drives (issue #67): the open/close/motion
@@ -211,7 +209,7 @@ class CTextService : public ITfTextInputProcessor,
                      public CandBackend,
                      public HunminDeliveryRegistry,
                      public LangBarHost {
-  public:
+public:
     CTextService();
     virtual ~CTextService();
 
@@ -237,29 +235,20 @@ class CTextService : public ITfTextInputProcessor,
 
     STDMETHOD(Activate)(ITfThreadMgr *ptm, TfClientId tid) override;
     STDMETHOD(Deactivate)() override;
-    STDMETHOD(EnumDisplayAttributeInfo)(
-        IEnumTfDisplayAttributeInfo **ppEnum) override;
-    STDMETHOD(GetDisplayAttributeInfo)(
-        REFGUID guid, ITfDisplayAttributeInfo **ppInfo) override;
+    STDMETHOD(EnumDisplayAttributeInfo)(IEnumTfDisplayAttributeInfo **ppEnum) override;
+    STDMETHOD(GetDisplayAttributeInfo)(REFGUID guid, ITfDisplayAttributeInfo **ppInfo) override;
     STDMETHOD(OnInitDocumentMgr)(ITfDocumentMgr *pdm) override;
     STDMETHOD(OnUninitDocumentMgr)(ITfDocumentMgr *pdm) override;
-    STDMETHOD(OnSetFocus)(ITfDocumentMgr *pdmFocus,
-                          ITfDocumentMgr *pdmPrevFocus) override;
+    STDMETHOD(OnSetFocus)(ITfDocumentMgr *pdmFocus, ITfDocumentMgr *pdmPrevFocus) override;
     STDMETHOD(OnPushContext)(ITfContext *pic) override;
     STDMETHOD(OnPopContext)(ITfContext *pic) override;
     STDMETHOD(OnSetFocus)(BOOL fFocus) override;
-    STDMETHOD(OnTestKeyDown)(ITfContext *pic, WPARAM wParam, LPARAM lParam,
-                             BOOL *pfEat) override;
-    STDMETHOD(OnKeyDown)(ITfContext *pic, WPARAM wParam, LPARAM lParam,
-                         BOOL *pfEat) override;
-    STDMETHOD(OnTestKeyUp)(ITfContext *pic, WPARAM wParam, LPARAM lParam,
-                           BOOL *pfEat) override;
-    STDMETHOD(OnKeyUp)(ITfContext *pic, WPARAM wParam, LPARAM lParam,
-                       BOOL *pfEat) override;
-    STDMETHOD(OnPreservedKey)(ITfContext *pic, const GUID &rguid,
-                              BOOL *pfEat) override;
-    STDMETHOD(OnCompositionTerminated)(TfEditCookie ecWrite,
-                                       ITfComposition *pComposition) override;
+    STDMETHOD(OnTestKeyDown)(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) override;
+    STDMETHOD(OnKeyDown)(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) override;
+    STDMETHOD(OnTestKeyUp)(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) override;
+    STDMETHOD(OnKeyUp)(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) override;
+    STDMETHOD(OnPreservedKey)(ITfContext *pic, const GUID &rguid, BOOL *pfEat) override;
+    STDMETHOD(OnCompositionTerminated)(TfEditCookie ecWrite, ITfComposition *pComposition) override;
 
     /* --- the seams, implemented --- */
     /* TsfCore */
@@ -271,8 +260,7 @@ class CTextService : public ITfTextInputProcessor,
     Delivery *ActiveDelivery() override { return delivery_; }
     hunmin_ctx *EngineContext() override { return ctx_; }
     hunmin_ic *EngineIc() override { return ic_; }
-    bool CaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut,
-                   GUITHREADINFO *gtiOut) override;
+    bool CaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut, GUITHREADINFO *gtiOut) override;
     /* HunminDeliveryRegistry */
     void RegisterDeliveryFactory(HunminDeliveryFactory *factory) override;
     bool UseDelivery(const char *name) override;
@@ -288,7 +276,7 @@ class CTextService : public ITfTextInputProcessor,
     void TrackKeyContext(ITfContext *pic);
     void FlushPendingDocWrites() { delivery_->FlushPending(); }
 
-  private:
+private:
     /* The composition write machinery (issue #98): one edit session
      * class makes the composition exist and shows the whole buffered
      * word in it, underlined. */
@@ -309,12 +297,10 @@ class CTextService : public ITfTextInputProcessor,
     void RebuildEngineIc();
 
     bool IsModeToggle(WPARAM wParam);
-    void ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam,
-                         BOOL *pfEat);
+    void ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat);
     bool IsCandidateToggle(WPARAM wParam);
     bool IsKeyOfPassage(WPARAM wParam);
-    void DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat,
-                      const char *tag);
+    void DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat, const char *tag);
     static uint32_t VkToBase(WPARAM wParam);
     static bool IsModifierVk(WPARAM wParam);
     void HarvestFinalised();
@@ -365,6 +351,10 @@ class CTextService : public ITfTextInputProcessor,
     bool interimForce_ = false;
     bool legacyMode_ = false; /* the mode flag; delivery_ carries the behaviour */
     bool endingSelf_ = false; /* between EndComposition entry and return */
+    /* OnTestKeyDown already fed this key because the engine declined it:
+     * the host may still call OnKeyDown, which must not feed it a second
+     * time. Cleared at the start of every test-phase classification. */
+    WPARAM testDeclinedKey_ = 0;
 
     /* The registered features (DIP): factories registered by the
      * components, the shell constructs/owns the instances. */

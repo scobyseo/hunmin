@@ -44,8 +44,7 @@ void hunmin_ctx_free(hunmin_ctx *ctx);
 int hunmin_ctx_layout_count(const hunmin_ctx *ctx);
 const char *hunmin_ctx_layout_id(const hunmin_ctx *ctx, int i);
 /* lang: "en"|"ko"|NULL(=en). */
-const char *hunmin_ctx_layout_name(const hunmin_ctx *ctx, int i,
-                                   const char *lang);
+const char *hunmin_ctx_layout_name(const hunmin_ctx *ctx, int i, const char *lang);
 /* true when this build's engine can instantiate the layout. */
 bool hunmin_ctx_layout_supported(const hunmin_ctx *ctx, int i);
 /* "hangul" | "latin" — which half of a two-mode IME this layout belongs to,
@@ -82,6 +81,13 @@ bool hunmin_ic_process(hunmin_ic *ic, uint32_t ch);
  * fcitx5 and the tier C trace runners use it. The Android adapter passes
  * base + shift through this call instead (issue #105). */
 bool hunmin_ic_process_key(hunmin_ic *ic, uint32_t base, uint32_t shift);
+
+/* Predicts whether hunmin_ic_process_key(ic, base, shift) would be consumed,
+ * WITHOUT changing ic: the return value is the same, and the commit, preedit,
+ * tier and option state are left exactly as they were. A frontend that must
+ * answer a platform "test" phase before the real key event uses this; it is a
+ * read of the engine state, not a second engine and not a queued event. */
+HUNMIN_EXPORT bool hunmin_ic_peek_key(const hunmin_ic *ic, uint32_t base, uint32_t shift);
 
 /* UTF-8 of what the last hunmin_ic_process produced; a destructive read
  * (cleared on read — deliver it once, it will not repeat), "" if none.

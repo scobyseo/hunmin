@@ -50,9 +50,7 @@ HRESULT hunmin_tsf_launch_settings() {
     const void *anchor = (const void *)&hunmin_tsf_launch_settings;
     HMODULE self = nullptr;
     wchar_t dll[MAX_PATH] = {0};
-    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                            (LPCWSTR)anchor, &self) ||
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)anchor, &self) ||
         !GetModuleFileNameW(self, dll, MAX_PATH))
         return E_FAIL;
     /* Shared resolution (settingspath.cpp, deployed-first order). No exe
@@ -77,12 +75,9 @@ HRESULT hunmin_tsf_launch_settings() {
 }
 
 CTextService::CTextService()
-    : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0),
-      ctx_(nullptr), ic_(nullptr), hangulMode_(true), hasPreeditRect_(false),
-      lastCtx_(nullptr), composition_(nullptr), compCtx_(nullptr),
-      displayAttr_(new DisplayAttr()), wordbuf_(), interimForce_(false), legacyMode_(false),
-      endingSelf_(false), hangulId_(kHangulDefaultId),
-      latinId_(kLatinDefaultId),
+    : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), ic_(nullptr), hangulMode_(true),
+      hasPreeditRect_(false), lastCtx_(nullptr), composition_(nullptr), compCtx_(nullptr), displayAttr_(new DisplayAttr()), wordbuf_(),
+      interimForce_(false), legacyMode_(false), endingSelf_(false), hangulId_(kHangulDefaultId), latinId_(kLatinDefaultId),
       hanjaCombo_(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0}) {
     /* Each component registers its own implementations; the shell
      * composes and owns them. A missing registration must be loud, not a
@@ -131,9 +126,7 @@ namespace {
  * QI trace prints, and which half answers. One table feeds both the log
  * line and the dispatch, so a new interface cannot be answered without
  * being logged. */
-enum QiKind { kQiThis,
-              kQiSettingsProvider,
-              kQiLangBar };
+enum QiKind { kQiThis, kQiSettingsProvider, kQiLangBar };
 
 struct QiRoute {
     const IID *iid;
@@ -146,9 +139,7 @@ IUnknown *AsTip(CTextService *svc) { return static_cast<ITfTextInputProcessor *>
 IUnknown *AsThreadMgrSink(CTextService *svc) { return static_cast<ITfThreadMgrEventSink *>(svc); }
 IUnknown *AsKeySink(CTextService *svc) { return static_cast<ITfKeyEventSink *>(svc); }
 IUnknown *AsCompositionSink(CTextService *svc) { return static_cast<ITfCompositionSink *>(svc); }
-IUnknown *AsDisplayAttrProvider(CTextService *svc) {
-    return static_cast<ITfDisplayAttributeProvider *>(svc);
-}
+IUnknown *AsDisplayAttrProvider(CTextService *svc) { return static_cast<ITfDisplayAttributeProvider *>(svc); }
 
 const QiRoute kQiRoutes[] = {
     /* IID_IUnknown answers with the ITfTextInputProcessor subobject: the
@@ -194,9 +185,7 @@ STDMETHODIMP CTextService::QueryInterface(REFIID riid, void **ppv) {
      * the answered slot mask - the langbar's hosting decision is
      * where the item's shape gets judged, so the log names which
      * IID rounds the object actually gets asked for. */
-    hunmin_logger.log("QI riid=%08lX-%04X answered=%s pid=%lu\n",
-                      (unsigned long)riid.Data1, (unsigned)riid.Data2,
-                      route ? route->tag : "none",
+    hunmin_logger.log("QI riid=%08lX-%04X answered=%s pid=%lu\n", (unsigned long)riid.Data1, (unsigned)riid.Data2, route ? route->tag : "none",
                       (unsigned long)GetCurrentProcessId());
     if (!route) {
         *ppv = nullptr;
@@ -244,8 +233,7 @@ void CTextService::LoadToggleKeys(const HunminTsfConfig &cfg) {
             hangeulBare = true;
     if (!hangeulBare)
         toggleKeys_.push_back(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANGEUL, 0});
-    hunmin_logger.log("  toggle keys=%zu (configured bits: %s)\n", toggleKeys_.size(),
-                      cfg.toggleKeys[0] ? cfg.toggleKeys : "(none)");
+    hunmin_logger.log("  toggle keys=%zu (configured bits: %s)\n", toggleKeys_.size(), cfg.toggleKeys[0] ? cfg.toggleKeys : "(none)");
 }
 
 /* The candidate-window key (issue #67): ONE binding from the store, default
@@ -259,8 +247,7 @@ void CTextService::LoadHanjaKey(const HunminTsfConfig &cfg) {
         hanjaCombo_ = parsed[0];
     } else {
         hanjaCombo_ = HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0};
-        hunmin_logger.log("  hanja key unparseable (%s) -> default VK_HANJA\n",
-                          cfg.hanjaKey[0] ? cfg.hanjaKey : "(empty)");
+        hunmin_logger.log("  hanja key unparseable (%s) -> default VK_HANJA\n", cfg.hanjaKey[0] ? cfg.hanjaKey : "(empty)");
     }
 }
 
@@ -287,8 +274,7 @@ void CTextService::ApplyConfigStore() {
      * drops: close it with Apply, like the mode toggle does (issue #67). */
     cand_->Close();
     RebuildEngineIc();
-    hunmin_logger.log("  applied hangul=%s latin=%s ic=%p\n",
-                      hangulId_.c_str(), latinId_.c_str(), (void *)ic_);
+    hunmin_logger.log("  applied hangul=%s latin=%s ic=%p\n", hangulId_.c_str(), latinId_.c_str(), (void *)ic_);
 }
 
 void CTextService::UpdateLangBarItem() {
@@ -305,8 +291,7 @@ void CTextService::ToggleModeCore(ITfContext *pic) {
     RebuildEngineIc();
     /* This gated line is the one evidence a mode boundary ran in this
      * host at all: the key path's own log line lives in its handler. */
-    hunmin_logger.log("toggle core -> mode=%s ic=%p pic=%p\r\n",
-                      hangulMode_ ? "hangul" : "english", (void *)ic_, (void *)pic);
+    hunmin_logger.log("toggle core -> mode=%s ic=%p pic=%p\r\n", hangulMode_ ? "hangul" : "english", (void *)ic_, (void *)pic);
 }
 
 /* The two TSF advice registrations Activate needs: the thread-manager event
@@ -321,12 +306,10 @@ void CTextService::AdviseSinks() {
     HRESULT srch = threadMgr_->QueryInterface(IID_ITfSource, (void **)&src);
     HRESULT tmHr = E_NOINTERFACE;
     if (SUCCEEDED(srch) && src) {
-        tmHr = src->AdviseSink(IID_ITfThreadMgrEventSink,
-                               static_cast<ITfThreadMgrEventSink *>(this), &sinkCookie_);
+        tmHr = src->AdviseSink(IID_ITfThreadMgrEventSink, static_cast<ITfThreadMgrEventSink *>(this), &sinkCookie_);
         src->Release();
     }
-    hunmin_logger.log("  source hr=0x%lX threadmgr advise hr=0x%lX cookie=%lu\n",
-                      (unsigned long)srch, (unsigned long)tmHr,
+    hunmin_logger.log("  source hr=0x%lX threadmgr advise hr=0x%lX cookie=%lu\n", (unsigned long)srch, (unsigned long)tmHr,
                       (unsigned long)sinkCookie_);
     HRESULT qh = threadMgr_->QueryInterface(IID_ITfKeystrokeMgr, (void **)&pks);
     hunmin_logger.log("Advise QI hr=0x%lX pks=%p\n", (unsigned long)qh, (void *)pks);
@@ -354,12 +337,10 @@ void CTextService::UnadviseSinks() {
  * context onto it up front (debug/probe escape hatch). */
 void CTextService::DetectLegacyMode() {
     char v[8] = {0};
-    interimForce_ = GetEnvironmentVariableA("HUNMIN_TSF_INTERIM", v, sizeof v) &&
-                    (v[0] == '1' || _stricmp(v, "on") == 0 || _stricmp(v, "true") == 0);
+    interimForce_ = GetEnvironmentVariableA("HUNMIN_TSF_INTERIM", v, sizeof v) && (v[0] == '1' || _stricmp(v, "on") == 0 || _stricmp(v, "true") == 0);
     legacyMode_ = interimForce_;
     UseDelivery(legacyMode_ ? HUNMIN_TSF_DELIVERY_INTERIM : HUNMIN_TSF_DELIVERY_NATIVE);
-    hunmin_logger.log("legacy force=%d detected-mode=%d\n", interimForce_ ? 1 : 0,
-                      legacyMode_ ? 1 : 0);
+    hunmin_logger.log("legacy force=%d detected-mode=%d\n", interimForce_ ? 1 : 0, legacyMode_ ? 1 : 0);
 }
 
 STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
@@ -455,16 +436,14 @@ STDMETHODIMP CTextService::OnUninitDocumentMgr(ITfDocumentMgr *pdm) {
 }
 
 STDMETHODIMP CTextService::OnSetFocus(ITfDocumentMgr *pdmFocus, ITfDocumentMgr *pdmPrevFocus) {
-    hunmin_logger.log("TM-OnSetFocus pdmFocus=%p pdmPrev=%p modePid=%lu\n",
-                      (void *)pdmFocus, (void *)pdmPrevFocus,
+    hunmin_logger.log("TM-OnSetFocus pdmFocus=%p pdmPrev=%p modePid=%lu\n", (void *)pdmFocus, (void *)pdmPrevFocus,
                       (unsigned long)GetCurrentProcessId());
     if (pdmFocus) {
         /* The view probe the trace reads; run regardless of the gate so
          * the pic half (its Release) can never leak behind an if. */
         ITfContext *pic = nullptr;
         HRESULT hrTop = pdmFocus->GetTop(&pic);
-        hunmin_logger.log("  GetTop hr=0x%lX pic=%p\n", (unsigned long)hrTop,
-                          (void *)pic);
+        hunmin_logger.log("  GetTop hr=0x%lX pic=%p\n", (unsigned long)hrTop, (void *)pic);
         if (pic)
             pic->Release();
     }
@@ -484,8 +463,7 @@ STDMETHODIMP CTextService::OnPopContext(ITfContext *pic) {
 }
 
 STDMETHODIMP CTextService::OnSetFocus(BOOL fFocus) {
-    hunmin_logger.log("KS-OnSetFocus fFocus=%d modePid=%lu\n", (int)fFocus,
-                      (unsigned long)GetCurrentProcessId());
+    hunmin_logger.log("KS-OnSetFocus fFocus=%d modePid=%lu\n", (int)fFocus, (unsigned long)GetCurrentProcessId());
     (void)fFocus;
     return S_OK;
 }
@@ -548,9 +526,7 @@ void CTextService::UpdateConversionCompartment() {
     ITfCompartmentMgr *cm = nullptr;
     if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfCompartmentMgr, (void **)&cm)) && cm) {
         ITfCompartment *c = nullptr;
-        if (SUCCEEDED(cm->GetCompartment(
-                GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION, &c)) &&
-            c) {
+        if (SUCCEEDED(cm->GetCompartment(GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION, &c)) && c) {
             VARIANT v;
             VariantInit(&v);
             v.vt = VT_I4;

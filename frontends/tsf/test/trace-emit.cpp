@@ -14,9 +14,9 @@
  * Exit 0 diff-clean output, 1 assertion failed, 2 bad input,
  * 77 skip (engine data unavailable -- the runner/toolchain-absent path).
  */
+#include <crtdbg.h>
 #include <cstdio>
 #include <cstdlib>
-#include <crtdbg.h>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -45,9 +45,7 @@
 SHORT tsf_mock_GetKeyState(int vk);
 SHORT g_mockKeyState[256] = {};
 
-SHORT tsf_mock_GetKeyState(int vk) {
-    return g_mockKeyState[vk & 0xFF];
-}
+SHORT tsf_mock_GetKeyState(int vk) { return g_mockKeyState[vk & 0xFF]; }
 
 // Definition for the extern tsf.cpp declares; dllmain.cpp (which owns it in
 // the DLL build) is not linked into the harness.
@@ -81,8 +79,7 @@ std::string jsonEscape(const std::string &s) {
         default:
             if (static_cast<unsigned char>(c) < 0x20) {
                 char buf[8];
-                std::snprintf(buf, sizeof buf, "\\u%04x",
-                              static_cast<unsigned>(static_cast<unsigned char>(c)));
+                std::snprintf(buf, sizeof buf, "\\u%04x", static_cast<unsigned>(static_cast<unsigned char>(c)));
                 o += buf;
             } else {
                 o += c;
@@ -92,8 +89,7 @@ std::string jsonEscape(const std::string &s) {
     return o;
 }
 
-unsigned long numberField(const std::string &line, const char *key,
-                          unsigned long fallback) {
+unsigned long numberField(const std::string &line, const char *key, unsigned long fallback) {
     const std::string pat = std::string("\"") + key + "\"";
     auto p = line.find(pat);
     if (p == std::string::npos)
@@ -238,8 +234,7 @@ int main(int argc, char **argv) {
     }
     const std::string platform = stringField(lines[0], "platform");
     if (platform != "win32") {
-        std::cerr << "tsf-trace-emit: corpus platform is " << platform
-                  << "; this runner replays win32 only\n";
+        std::cerr << "tsf-trace-emit: corpus platform is " << platform << "; this runner replays win32 only\n";
         return 2;
     }
 
@@ -343,8 +338,7 @@ int main(int argc, char **argv) {
         // Inject the event's own key state, then walk the documented
         // chain: OnTestKeyDown (preview), then OnKeyDown (docs/
         // WINDOWS-TSF-REGISTRATION.md "C&C: key-down propagation").
-        g_mockKeyState[VK_SHIFT & 0xFF] =
-            (mods & 0x01) ? (SHORT)0x8000 : (SHORT)0;
+        g_mockKeyState[VK_SHIFT & 0xFF] = (mods & 0x01) ? (SHORT)0x8000 : (SHORT)0;
         const std::wstring wordBefore = SvcSnap().wordbuf;
         const int endsBefore = ctx->compositionEnds;
         const size_t insertsBefore = ctx->insertions.size();
@@ -371,10 +365,8 @@ int main(int argc, char **argv) {
         const std::string afterUtf8 = wideToUtf8(SvcSnap().wordbuf);
         std::string commit;
         if (insertsAfter > insertsBefore) {
-            if (insertedUtf8.size() < beforeUtf8.size() ||
-                insertedUtf8.compare(0, beforeUtf8.size(), beforeUtf8) != 0)
-                fail("insert at event " + std::to_string(i) +
-                     " does not extend the buffered word: contract break");
+            if (insertedUtf8.size() < beforeUtf8.size() || insertedUtf8.compare(0, beforeUtf8.size(), beforeUtf8) != 0)
+                fail("insert at event " + std::to_string(i) + " does not extend the buffered word: contract break");
             commit = insertedUtf8.substr(beforeUtf8.size());
         } else if (ctx->compositionEnds > endsBefore) {
             /* Native boundary (issue #98): the word drained through the
@@ -384,29 +376,23 @@ int main(int argc, char **argv) {
              * and this event's own engine commit is its tail past the
              * previously held text. */
             const std::string fused = wideToUtf8(ctx->compositionText);
-            if (beforeUtf8 != heldExpected || fused.size() < heldExpected.size() ||
-                fused.compare(0, heldExpected.size(), heldExpected) != 0)
-                fail("event " + std::to_string(i) + ": composition fused \"" +
-                     fused + "\" does not carry held \"" + heldExpected + "\"");
+            if (beforeUtf8 != heldExpected || fused.size() < heldExpected.size() || fused.compare(0, heldExpected.size(), heldExpected) != 0)
+                fail("event " + std::to_string(i) + ": composition fused \"" + fused + "\" does not carry held \"" + heldExpected + "\"");
             commit = fused.substr(heldExpected.size());
         } else {
-            if (afterUtf8.size() < beforeUtf8.size() ||
-                afterUtf8.compare(0, beforeUtf8.size(), beforeUtf8) != 0)
-                fail("word buffer shrank without an insert at event " +
-                     std::to_string(i));
+            if (afterUtf8.size() < beforeUtf8.size() || afterUtf8.compare(0, beforeUtf8.size(), beforeUtf8) != 0)
+                fail("word buffer shrank without an insert at event " + std::to_string(i));
             commit = afterUtf8.substr(beforeUtf8.size());
         }
         // Tier A's preedit is the engine's in-flight buffer after the key.
-        const std::string preedit =
-            std::string(SvcSnap().ic ? hunmin_ic_preedit(SvcSnap().ic) : "");
+        const std::string preedit = std::string(SvcSnap().ic ? hunmin_ic_preedit(SvcSnap().ic) : "");
 
         // The buffering contract itself (issue #73, requirement 3 of the
         // tier): nothing may be inserted while the engine consumes keys;
         // at a boundary exactly one session must carry the whole word.
         if (consumedExpected) {
             if (insertsAfter != insertsBefore)
-                fail("event " + std::to_string(i) +
-                     " inserted while the engine consumed the key");
+                fail("event " + std::to_string(i) + " inserted while the engine consumed the key");
             // The composition shows the buffers (issue #98): never a plain
             // insert while the engine consumes; the composition channel
             // covers the visible text.
@@ -421,13 +407,9 @@ int main(int argc, char **argv) {
                 // both, never none.
                 const bool compEnded = ctx->compositionEnds > endsBefore;
                 const std::string fused = wideToUtf8(ctx->compositionText);
-                if (!(compEnded && fused == word) &&
-                    !(insertsAfter - insertsBefore == 1 && insertedUtf8 == word))
-                    fail("event " + std::to_string(i) +
-                         ": expected one boundary delivery of \"" + word +
-                         "\" (composition fused \"" + (compEnded ? fused : "(none)") +
-                         "\", plain inserts " +
-                         std::to_string(insertsAfter - insertsBefore) + ")");
+                if (!(compEnded && fused == word) && !(insertsAfter - insertsBefore == 1 && insertedUtf8 == word))
+                    fail("event " + std::to_string(i) + ": expected one boundary delivery of \"" + word + "\" (composition fused \"" +
+                         (compEnded ? fused : "(none)") + "\", plain inserts " + std::to_string(insertsAfter - insertsBefore) + ")");
             } else if (insertsAfter != insertsBefore) {
                 fail("event " + std::to_string(i) + " inserted with nothing pending");
             }
@@ -442,38 +424,29 @@ int main(int argc, char **argv) {
         // 0.2 shape, document + held.
         const std::string heldNow = wideToUtf8(SvcSnap().wordbuf);
         const std::string docNow = wideToUtf8(ctx->doc);
-        const std::string preeditNow =
-            std::string(SvcSnap().ic ? hunmin_ic_preedit(SvcSnap().ic) : "");
+        const std::string preeditNow = std::string(SvcSnap().ic ? hunmin_ic_preedit(SvcSnap().ic) : "");
         if (ctx->compositionStarts > 0) {
             const bool compActive = ctx->compositionActive;
             if (compActive) {
                 // Invariant: what the composition shows == held + preedit.
                 const std::string inRange = wideToUtf8(ctx->compositionText);
-                if (inRange.size() != heldNow.size() + preeditNow.size() ||
-                    inRange.compare(0, heldNow.size(), heldNow) != 0 ||
+                if (inRange.size() != heldNow.size() + preeditNow.size() || inRange.compare(0, heldNow.size(), heldNow) != 0 ||
                     inRange.compare(heldNow.size(), preeditNow.size(), preeditNow) != 0)
-                    fail("event " + std::to_string(i) +
-                         ": composition \"" + inRange + "\" != held \"" + heldNow +
-                         "\" + preedit \"" + preeditNow + "\"");
+                    fail("event " + std::to_string(i) + ": composition \"" + inRange + "\" != held \"" + heldNow + "\" + preedit \"" + preeditNow +
+                         "\"");
             }
             if (docNow.size() != cumulativeCommits.size() + preeditNow.size() ||
                 docNow.compare(0, cumulativeCommits.size(), cumulativeCommits) != 0 ||
                 docNow.compare(cumulativeCommits.size(), preeditNow.size(), preeditNow) != 0)
-                fail("committed text after event " + std::to_string(i) +
-                     ": document \"" + docNow + "\" != cumulative \"" +
-                     cumulativeCommits + "\" + preedit \"" + preeditNow + "\"");
-        } else if (cumulativeCommits.size() != heldNow.size() + docNow.size() ||
-                   cumulativeCommits.compare(0, docNow.size(), docNow) != 0 ||
+                fail("committed text after event " + std::to_string(i) + ": document \"" + docNow + "\" != cumulative \"" + cumulativeCommits +
+                     "\" + preedit \"" + preeditNow + "\"");
+        } else if (cumulativeCommits.size() != heldNow.size() + docNow.size() || cumulativeCommits.compare(0, docNow.size(), docNow) != 0 ||
                    cumulativeCommits.compare(docNow.size(), heldNow.size(), heldNow) != 0)
-            fail("committed text after event " + std::to_string(i) +
-                 ": document \"" + docNow + "\" + held \"" + heldNow +
+            fail("committed text after event " + std::to_string(i) + ": document \"" + docNow + "\" + held \"" + heldNow +
                  "\" != tier A's cumulative \"" + cumulativeCommits + "\"");
 
-        std::cout << "{\"in\": {\"vk\": " << vk << ", \"scan\": " << scan
-                  << ", \"mods\": " << mods << "}, \"commit\": \""
-                  << jsonEscape(commit) << "\", \"preedit\": \""
-                  << jsonEscape(preedit) << "\", \"consumed\": "
-                  << (eat ? "true" : "false") << "}" << std::endl;
+        std::cout << "{\"in\": {\"vk\": " << vk << ", \"scan\": " << scan << ", \"mods\": " << mods << "}, \"commit\": \"" << jsonEscape(commit)
+                  << "\", \"preedit\": \"" << jsonEscape(preedit) << "\", \"consumed\": " << (eat ? "true" : "false") << "}" << std::endl;
     }
 
     endRun();

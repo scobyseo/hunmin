@@ -33,8 +33,7 @@ hunmin_ctx *hunmin_ctx_from_module() {
 
     HMODULE hMod = GetModuleHandleW(L"hunmin-tsf.dll");
     if (!hMod)
-        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR)(const void *)hunmin_ctx_from_module,
-                           &hMod);
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR)(const void *)hunmin_ctx_from_module, &hMod);
     if (hMod)
         GetModuleFileNameW(hMod, modDir, MAX_PATH);
 
@@ -49,11 +48,8 @@ hunmin_ctx *hunmin_ctx_from_module() {
         PathCombineW(candMod, modDir, L"data");
         DWORD attrMod = GetFileAttributesW(candMod);
         hunmin_logger.log("candMod=%ls dir=%d\n", candMod,
-                          (attrMod != INVALID_FILE_ATTRIBUTES) &&
-                              ((attrMod & FILE_ATTRIBUTE_DIRECTORY) ==
-                               FILE_ATTRIBUTE_DIRECTORY));
-        if (attrMod != INVALID_FILE_ATTRIBUTES &&
-            (attrMod & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+                          (attrMod != INVALID_FILE_ATTRIBUTES) && ((attrMod & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
+        if (attrMod != INVALID_FILE_ATTRIBUTES && (attrMod & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
             /* Shipped shape: data beside the module. Do not also climb to the
              * repo - one tree in the search path, or every layout loads twice. */
             WideCharToMultiByte(CP_UTF8, 0, candMod, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
@@ -68,11 +64,8 @@ hunmin_ctx *hunmin_ctx_from_module() {
             PathCombineW(cand, repo, L"libhunmin\\data");
             DWORD attrRepo = GetFileAttributesW(cand);
             hunmin_logger.log("climb=%ls dir=%d\n", cand,
-                              (attrRepo != INVALID_FILE_ATTRIBUTES) &&
-                                  ((attrRepo & FILE_ATTRIBUTE_DIRECTORY) ==
-                                   FILE_ATTRIBUTE_DIRECTORY));
-            if (attrRepo != INVALID_FILE_ATTRIBUTES &&
-                (attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+                              (attrRepo != INVALID_FILE_ATTRIBUTES) && ((attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY));
+            if (attrRepo != INVALID_FILE_ATTRIBUTES && (attrRepo & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
                 WideCharToMultiByte(CP_UTF8, 0, cand, -1, dirs[argc], sizeof(dirs[argc]), nullptr, nullptr);
                 ++argc;
             }
@@ -86,10 +79,7 @@ hunmin_ctx *hunmin_ctx_from_module() {
     return hunmin_ctx_new(argv2, argc);
 }
 
-void hunmin_tsf_resolve_layout_slot(const hunmin_ctx *ctx,
-                                    const std::string &stored,
-                                    const char *def, bool wantHangul,
-                                    std::string *outId) {
+void hunmin_tsf_resolve_layout_slot(const hunmin_ctx *ctx, const std::string &stored, const char *def, bool wantHangul, std::string *outId) {
     const char *candidate = stored.c_str();
     if (candidate[0] == '\0')
         candidate = def;
@@ -99,24 +89,18 @@ void hunmin_tsf_resolve_layout_slot(const hunmin_ctx *ctx,
             if (!id || strcmp(id, candidate) != 0)
                 continue;
             const char *mode = hunmin_ctx_layout_mode(ctx, i); /* "hangul"|"latin" */
-            const bool modeOk =
-                wantHangul ? (mode && strcmp(mode, "hangul") == 0)
-                           : (mode && strcmp(mode, "latin") == 0);
+            const bool modeOk = wantHangul ? (mode && strcmp(mode, "hangul") == 0) : (mode && strcmp(mode, "latin") == 0);
             if (modeOk && hunmin_ctx_layout_supported(ctx, i)) {
                 *outId = id;
                 return;
             }
-            hunmin_logger.log(
-                "  config %s slot: id=%s mode=%s supported=%d -> rejected\n",
-                wantHangul ? "hangul" : "latin", id, mode ? mode : "?",
-                (int)hunmin_ctx_layout_supported(ctx, i));
+            hunmin_logger.log("  config %s slot: id=%s mode=%s supported=%d -> rejected\n", wantHangul ? "hangul" : "latin", id, mode ? mode : "?",
+                              (int)hunmin_ctx_layout_supported(ctx, i));
             break; /* found the id, wrong slot/build: fall to default */
         }
     }
     if (ctx)
         *outId = wantHangul ? kHangulDefaultId : kLatinDefaultId;
     if (*outId != candidate)
-        hunmin_logger.log("  config %s slot: %s -> default %s\n",
-                          wantHangul ? "hangul" : "latin", candidate,
-                          outId->c_str());
+        hunmin_logger.log("  config %s slot: %s -> default %s\n", wantHangul ? "hangul" : "latin", candidate, outId->c_str());
 }

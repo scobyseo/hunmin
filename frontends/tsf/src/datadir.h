@@ -23,9 +23,6 @@ hunmin_ctx *hunmin_ctx_from_module(void);
 /* Accept a stored layout id only when the engine can instantiate it AND
  * its mode matches the slot. A stale registry value naming a latin
  * layout in the hangul slot degrades to the default. */
-void hunmin_tsf_resolve_layout_slot(const hunmin_ctx *ctx,
-                                    const std::string &stored,
-                                    const char *def, bool wantHangul,
-                                    std::string *outId);
+void hunmin_tsf_resolve_layout_slot(const hunmin_ctx *ctx, const std::string &stored, const char *def, bool wantHangul, std::string *outId);
 
 #endif /* HUNMIN_TSF_DATADIR_H_ */

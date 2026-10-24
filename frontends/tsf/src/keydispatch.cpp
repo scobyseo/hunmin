@@ -16,12 +16,14 @@
 #include <string>
 
 STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) {
-    (void)pic;
     (void)lParam;
     /* The previous key's deferred doc write runs before this key is
      * classified - a keystroke storm must not reorder the doc writes
      * behind the engine state. */
     FlushPendingDocWrites();
+    /* A new classification invalidates the previous test-phase feed (the
+     * host may not have called OnKeyDown for it). */
+    testDeclinedKey_ = 0;
     /* Shared predicate with OnKeyDown (the registration-work rule: test
      * and down are one decision). The configured set always contains the
      * bare Han/Eng key, so the physical key stays interested in both
@@ -39,8 +41,7 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
         eat = TRUE;
     else if (!hangulMode_)
         eat = FALSE;
-    else if (hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam,
-                                          hunmin_tsf_keymods_from_state())) {
+    else if (hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam, hunmin_tsf_keymods_from_state())) {
         /* Mirror the down decision exactly (no look-ahead lie): the
          * window opens when the buffered word has candidates - the
          * whole-word lookup, or issue #100's last-syllable fallback
@@ -49,9 +50,7 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
          * of tables already in memory. */
         bool fallback = false;
         eat = cand_->ListCount(&fallback) > 0 ? TRUE : FALSE;
-    } else if (hangulMode_ &&
-               (hunmin_tsf_keymods_from_state() &
-                (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT))) {
+    } else if (hangulMode_ && (hunmin_tsf_keymods_from_state() & (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT))) {
         /* Mirror of the down-side chord rule: a Ctrl/Alt chord belongs
          * to the app (Ctrl+A is not composition input) - test phase
          * answers the same uneaten the down phase will act on. */
@@ -83,24 +82,39 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
          * #98-verified composition-close shape. */
         const char *pre = ic_ ? hunmin_ic_preedit(ic_) : "";
         eat = (legacyMode_ && pre[0] == '\0') ? FALSE : TRUE;
-    } else if (hangulMode_ && !IsKeyOfPassage(wParam) && VkToBase(wParam) != 0 &&
-               !IsModifierVk(wParam)) {
+    } else if (ic_ && hangulMode_ && !IsKeyOfPassage(wParam) && VkToBase(wParam) != 0 && !IsModifierVk(wParam)) {
         /* EVERY feedable key is interested in hangul mode, the OEM
          * punctuation class included. Sin3-p2's jamo live on this row
-         * (; ' /;  measured 2026-10-21: the test phase answer eat=FALSE
-         * - and msftedit then NEVER calls OnKeyDown for an uninterested
-         * key - so the layout's chosung emitted as raw symbols). The
-         * DOWN phase's engine feed makes the real decision here: the
-         * key composes when the engine consumes it, and when the engine
-         * declines (a key this layout does not define) FeedEngineKey's
-         * decline branch flushes the buffered word and lets the key pass
-         * (its pfEat stays FALSE, the app inserts the symbol itself). */
-        eat = TRUE;
+         * (; ' /;  measured 2026-10-21).
+         *
+         * The answer must be the ENGINE's answer, not "every feedable key
+         * is ours": a classic default-sink host suppresses insertion after
+         * a TRUE test claim and does not call OnKeyDown for a key the
+         * down phase would decline, so claiming an unconsumed digit loses
+         * it (the interim `dkssud1` defect). Peek on a copy of the engine
+         * state: consumed -> claim, down feeds as before; declined -> feed
+         * the real engine HERE (the decline itself commits the in-flight
+         * syllable), drain the word ahead of the host's own insertion, and
+         * pass. testDeclinedKey_ makes a down call a no-op so the key is
+         * never fed twice. */
+        const unsigned int mods = hunmin_tsf_keymods_from_state();
+        hunmin_ic_set_option(ic_, "caps", hunmin_tsf_capslock_from_state() ? 1 : 0);
+        const uint32_t base = VkToBase(wParam);
+        const uint32_t shift = (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u;
+        const bool consumed = hunmin_ic_peek_key(ic_, base, shift);
+        hunmin_logger.log(" test feed peek base=%u shift=%u consumed=%d\n", (unsigned)base, (unsigned)shift, (int)consumed);
+        if (consumed) {
+            eat = TRUE;
+        } else {
+            BOOL fed = FALSE;
+            FeedEngineKey(pic, wParam, &fed);
+            testDeclinedKey_ = wParam;
+            eat = fed ? TRUE : FALSE;
+        }
     }
     if (pfEat)
         *pfEat = eat;
-    hunmin_logger.log("OnTestKeyDown w=%lu eat=%d mode=%d\n",
-                      (unsigned long)wParam, (int)eat, (int)hangulMode_);
+    hunmin_logger.log("OnTestKeyDown w=%lu eat=%d mode=%d\n", (unsigned long)wParam, (int)eat, (int)hangulMode_);
     return S_OK;
 }
 
@@ -109,10 +123,16 @@ STDMETHODIMP CTextService::OnKeyDown(ITfContext *pic, WPARAM wParam, LPARAM lPar
      * reaches first settles the previous key's doc write. */
     FlushPendingDocWrites();
     TrackKeyContext(pic);
-    hunmin_logger.log("OnKeyDown wParam=%lu ic=%p\n", (unsigned long)wParam,
-                      (void *)ic_);
+    hunmin_logger.log("OnKeyDown wParam=%lu ic=%p\n", (unsigned long)wParam, (void *)ic_);
     if (pfEat)
         *pfEat = FALSE;
+    if (testDeclinedKey_ == wParam) {
+        /* OnTestKeyDown already fed this key and made the pass/claim
+         * decision; the host is only now asking the down phase. */
+        testDeclinedKey_ = 0;
+        hunmin_logger.log(" test-phase feed already settled -> pass\n");
+        return S_OK;
+    }
     if (!ic_) {
         hunmin_logger.log(" ic null -> pass\n");
         return S_OK;
@@ -159,8 +179,7 @@ void CTextService::TrackKeyContext(ITfContext *pic) {
 }
 
 bool CTextService::IsModeToggle(WPARAM wParam) {
-    return hunmin_tsf_keybindings_match(toggleKeys_.data(), (int)toggleKeys_.size(),
-                                        (unsigned)wParam, hunmin_tsf_keymods_from_state()) != FALSE;
+    return hunmin_tsf_keybindings_match(toggleKeys_.data(), (int)toggleKeys_.size(), (unsigned)wParam, hunmin_tsf_keymods_from_state()) != FALSE;
 }
 
 void CTextService::ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) {
@@ -169,15 +188,12 @@ void CTextService::ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam
     const bool repeat = (lParam & (1 << 30)) != 0;
     if (!repeat)
         ToggleModeCore(pic);
-    hunmin_logger.log(" toggle key vk=%lu repeat=%d -> %s (%s)\n",
-                      (unsigned long)wParam, (int)repeat,
-                      hangulMode_ ? "hangul" : "english",
+    hunmin_logger.log(" toggle key vk=%lu repeat=%d -> %s (%s)\n", (unsigned long)wParam, (int)repeat, hangulMode_ ? "hangul" : "english",
                       hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
 }
 
 bool CTextService::IsCandidateToggle(WPARAM wParam) {
-    return hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam,
-                                        hunmin_tsf_keymods_from_state()) != FALSE;
+    return hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam, hunmin_tsf_keymods_from_state()) != FALSE;
 }
 
 bool CTextService::IsKeyOfPassage(WPARAM wParam) {
@@ -204,13 +220,11 @@ bool CTextService::IsKeyOfPassage(WPARAM wParam) {
     }
 }
 
-void CTextService::DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat,
-                                const char *tag) {
+void CTextService::DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat, const char *tag) {
     BoundaryFlush(pic);
     if (pfEat)
         *pfEat = FALSE;
-    hunmin_logger.log(" %s vk=%lu -> boundary + passthrough\n", tag,
-                      (unsigned long)wParam);
+    hunmin_logger.log(" %s vk=%lu -> boundary + passthrough\n", tag, (unsigned long)wParam);
 }
 
 /* The VK -> base half, and only that half (issue #106): the physical
@@ -344,15 +358,13 @@ void CTextService::FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
     }
     /* The case endpoint is the engine's (issue #106): the unshifted base
      * plus the Shift bit from the snapshot above. */
-    bool consumed = hunmin_ic_process_key(
-        ic_, VkToBase(wParam), (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u);
+    bool consumed = hunmin_ic_process_key(ic_, VkToBase(wParam), (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u);
     if (!consumed) {
         BoundaryFlush(pic);
         return;
     }
     HarvestFinalised();
-    hunmin_logger.log(" consumed, word len=%zu preedit=%s\n", wordbuf_.size(),
-                      hunmin_ic_preedit(ic_));
+    hunmin_logger.log(" consumed, word len=%zu preedit=%s\n", wordbuf_.size(), hunmin_ic_preedit(ic_));
     /* Issue #119: the legacy interim path when the host was detected
      * terminating compositions mid-word (or the env said so); the #98
      * native path otherwise stays as is. The doc write is POSTED -

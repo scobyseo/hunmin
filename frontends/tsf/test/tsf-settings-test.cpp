@@ -22,19 +22,19 @@
  */
 #include <gtest/gtest.h>
 
-#include <ctffunc.h>
 #include <cstring>
+#include <ctffunc.h>
 #include <string>
 #include <windows.h>
 
 #include "../src/settings.h"
+#include "../src/tsf.h"
 #include "mock-tsf.h"
 #include "tsf-keystate-mock.h"
 #include "tsf-testdir.h"
-#include "../src/tsf.h"
 
 class TsfSettingsTest : public ::testing::Test {
-  protected:
+protected:
     void SetUp() override {
         _putenv_s("HUNMIN_DATA_DIR", HUNMIN_TSF_DATA_DIR);
         const char *dirs[1] = {HUNMIN_TSF_DATA_DIR};
@@ -112,10 +112,8 @@ TEST_F(TsfSettingsTest, LayoutRowSplit) {
     }
     EXPECT_TRUE(hasDubeol) << "the hangul list carries dubeolsik (the stored default slot)";
     EXPECT_TRUE(hasUsQwerty) << "the latin list carries us-qwerty";
-    EXPECT_NE(hang[0].name[0], '\0')
-        << "hangul rows carry a display name from hunmin_ctx_layout_name(..., ko)";
-    EXPECT_NE(lat[0].name[0], '\0')
-        << "latin rows carry a display name from hunmin_ctx_layout_name(..., ko)";
+    EXPECT_NE(hang[0].name[0], '\0') << "hangul rows carry a display name from hunmin_ctx_layout_name(..., ko)";
+    EXPECT_NE(lat[0].name[0], '\0') << "latin rows carry a display name from hunmin_ctx_layout_name(..., ko)";
 }
 
 /* 2. The TSF-native plumbing on the live adapter (issue #71): the text
@@ -222,6 +220,5 @@ TEST_F(TsfSettingsTest, ApplyConfigStoreAndTheVoidPtrBridge) {
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
     svc_->OnKeyDown(mctx_, 'R', 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "post-Apply keydown not consumed";
-    EXPECT_STREQ(hunmin_ic_preedit(Snap().ic), "\xE3\x84\xB1")
-        << "post-Apply composition still works";
+    EXPECT_STREQ(hunmin_ic_preedit(Snap().ic), "\xE3\x84\xB1") << "post-Apply composition still works";
 }

@@ -34,13 +34,11 @@ inline std::wstring HunminUtf8ToWide(const char *utf8) {
 inline std::string HunminWideToUtf8(const std::wstring &w) {
     if (w.empty())
         return {};
-    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(),
-                                nullptr, 0, nullptr, nullptr);
+    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
     if (n <= 0)
         return {};
     std::string s((size_t)n, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n,
-                        nullptr, nullptr);
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr, nullptr);
     return s;
 }
 

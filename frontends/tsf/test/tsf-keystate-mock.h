@@ -17,13 +17,9 @@
 
 inline SHORT g_mockKeyState[256] = {};
 
-inline SHORT tsf_mock_GetKeyState(int vk) {
-    return g_mockKeyState[vk & 0xFF];
-}
+inline SHORT tsf_mock_GetKeyState(int vk) { return g_mockKeyState[vk & 0xFF]; }
 
 /* Idempotent: registering twice replaces the slot with the same fn. */
-inline void tsf_test_register_keystate() {
-    hunmin_tsf_keystate_register(&tsf_mock_GetKeyState);
-}
+inline void tsf_test_register_keystate() { hunmin_tsf_keystate_register(&tsf_mock_GetKeyState); }
 
 #endif /* HUNMIN_TSF_TEST_KEYSTATE_MOCK_H_ */

@@ -1,34 +1,31 @@
 ---
-# Root C-core style: the tree's own compact style (2-space, brace-attached,
-# hand-shaped wraps), normalised to what machines and agents need:
+# Root C-core style: LLVM-based, normalised to what machines need:
 #
-# - ColumnLimit: 0 disables re-wrapping class-wide, so the tree's hand-shaped
-#   signature wraps, packed struct typedefs and single-line macro bodies are
-#   preserved as written. (With a column limit clang-format re-wraps them to
-#   its own shapes; measured -w churn of the C core: 1491 lines with limit 100
-#   vs 853 with limit 0 across the tree.)
+# IndentWidth: 4 (whole-tree retune 2026-10-24: user-requested; replaces the
+# earlier 2-space C-core style from issue #77).
+# ColumnLimit: 150 — long enough that the tree's hand-shaped signature wraps
+# and single-line macro bodies survive, but long lines are now wrapped at
+# 150 rather than never re-wrapped.
 # - AllowShort*: keeps the tree's unbraced single-line `if (x) y;` bodies.
-# - SortIncludes: Never: include order in C is deliberate (internal headers
-#   before system headers); never re-sorted.
+# - SortIncludes: LLVM default (sorting on) — includes are re-sorted.
 # - AlignTrailingComments: false and the AlignConsecutive* LLVM defaults
 #   (all off) keep edits local: realigning one line must not ripple into
 #   neighbours.
 #
 # C++ frontends keep their own configs: frontends/fcitx5/.clang-format and
-# frontends/tsf/.clang-format (4-space, same normalisation).
+# frontends/tsf/.clang-format (4-space, public: unindented, ColumnLimit 150).
 # Vendored and generated trees are excluded via .clang-format-ignore.
 BasedOnStyle: LLVM
 Language: Cpp
-IndentWidth: 2
-ColumnLimit: 0
+IndentWidth: 4
+ColumnLimit: 150
 AllowShortIfStatementsOnASingleLine: AllIfsAndElse
 AllowShortLoopsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: All
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortBlocksOnASingleLine: Always
 AllowShortEnumsOnASingleLine: true
-SortIncludes: Never
-ReflowComments: false
+ReflowComments: true
 AlignTrailingComments: false
 DerivePointerAlignment: false
 PointerAlignment: Right

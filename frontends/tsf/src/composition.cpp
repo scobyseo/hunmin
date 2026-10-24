@@ -21,8 +21,7 @@
 STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComposition *pComposition) {
     (void)ecWrite;
     (void)pComposition;
-    hunmin_logger.log("OnCompositionTerminated comp=%p wordbuf=%zu self=%d\n",
-                      (void *)composition_, wordbuf_.size(), endingSelf_ ? 1 : 0);
+    hunmin_logger.log("OnCompositionTerminated comp=%p wordbuf=%zu self=%d\n", (void *)composition_, wordbuf_.size(), endingSelf_ ? 1 : 0);
     if (endingSelf_) {
         /* Our own EndComposition (issue #98): the composed text is
          * document text by OUR decision, so the buffers drain and the
@@ -69,8 +68,7 @@ STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComp
         compText_.clear();
         return S_OK;
     }
-    hunmin_logger.log("legacy detection: mid-word host termination (compText=%zu wordbuf=%zu) -> interim path\n",
-                      compText_.size(), wordbuf_.size());
+    hunmin_logger.log("legacy detection: mid-word host termination (compText=%zu wordbuf=%zu) -> interim path\n", compText_.size(), wordbuf_.size());
     legacyMode_ = true;
     UseDelivery(HUNMIN_TSF_DELIVERY_INTERIM);
     /* What is dead in the doc = the WHOLE composition text (compText_:
@@ -122,7 +120,7 @@ STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComp
  * the class keeps the session code where it was; the access rules of a
  * nested member class apply). */
 class CTextService::CompositionSession : public ITfEditSession {
-  public:
+public:
     CompositionSession(ITfContext *ctx, CTextService *svc, TfClientId cid, const wchar_t *t, bool endAfter)
         : ref_(1), ctx_(ctx), svc_(svc), cid_(cid), t_(t), endAfter_(endAfter) {}
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
@@ -152,16 +150,13 @@ class CTextService::CompositionSession : public ITfEditSession {
             if (SUCCEEDED(ctx_->QueryInterface(IID_ITfContextComposition, (void **)&cc)) && cc) {
                 TF_SELECTION sel;
                 ULONG fetched = 0;
-                if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) &&
-                    fetched == 1 && sel.range) {
-                    HRESULT hs = cc->StartComposition(
-                        ec, sel.range, static_cast<ITfCompositionSink *>(svc_), &svc_->composition_);
+                if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 && sel.range) {
+                    HRESULT hs = cc->StartComposition(ec, sel.range, static_cast<ITfCompositionSink *>(svc_), &svc_->composition_);
                     if (SUCCEEDED(hs) && svc_->composition_) {
                         svc_->compCtx_ = ctx_;
                         ctx_->AddRef();
                     }
-                    hunmin_logger.log("composition start hr=0x%lX comp=%p\n", (unsigned long)hs,
-                                      (void *)svc_->composition_);
+                    hunmin_logger.log("composition start hr=0x%lX comp=%p\n", (unsigned long)hs, (void *)svc_->composition_);
                     sel.range->Release();
                 }
                 cc->Release();
@@ -227,7 +222,7 @@ class CTextService::CompositionSession : public ITfEditSession {
         return S_OK;
     }
 
-  private:
+private:
     LONG ref_;
     ITfContext *ctx_;
     CTextService *svc_;
@@ -290,9 +285,8 @@ void CTextService::DetachComposition() {
  * ITfContextComposition falls back to the plain selection SetText the
  * 0.2 adapter committed with. */
 class CTextService::FlushSession : public ITfEditSession {
-  public:
-    FlushSession(ITfContext *ctx, CTextService *svc, TfClientId cid, const wchar_t *t)
-        : ref_(1), ctx_(ctx), svc_(svc), cid_(cid), t_(t) {}
+public:
+    FlushSession(ITfContext *ctx, CTextService *svc, TfClientId cid, const wchar_t *t) : ref_(1), ctx_(ctx), svc_(svc), cid_(cid), t_(t) {}
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
         if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
             *ppv = this;
@@ -313,8 +307,7 @@ class CTextService::FlushSession : public ITfEditSession {
         TF_SELECTION sel;
         ULONG fetched = 0;
         HRESULT hr = E_NOINTERFACE;
-        if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 &&
-            sel.range) {
+        if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 && sel.range) {
             sel.range->SetText(ec, 0, t_, -1);
             sel.range->Collapse(ec, TF_ANCHOR_END);
             TF_SELECTION ns = sel;
@@ -326,7 +319,7 @@ class CTextService::FlushSession : public ITfEditSession {
         return S_OK;
     }
 
-  private:
+private:
     LONG ref_;
     ITfContext *ctx_;
     CTextService *svc_;
@@ -370,8 +363,7 @@ void CTextService::FlushEngineIntoWordbuf() {
 
 void CTextService::BoundaryFlush(ITfContext *pic) {
     FlushEngineIntoWordbuf();
-    hunmin_logger.log(" boundary, word len=%zu preedit=%s\n", wordbuf_.size(),
-                      ic_ ? hunmin_ic_preedit(ic_) : "");
+    hunmin_logger.log(" boundary, word len=%zu preedit=%s\n", wordbuf_.size(), ic_ ? hunmin_ic_preedit(ic_) : "");
     delivery_->Boundary(pic);
 }
 
@@ -380,7 +372,7 @@ void CTextService::BoundaryFlush(ITfContext *pic) {
  * thread's GUITHREADINFO caret. Screen coordinates out. False means
  * the host reported nothing drawable - the popup/overlay hide path. */
 class CTextService::RectSession : public ITfEditSession {
-  public:
+public:
     RectSession(ITfContext *ctx, CTextService *svc) : ref_(1), ctx_(ctx), svc_(svc) {}
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
         if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
@@ -403,8 +395,7 @@ class CTextService::RectSession : public ITfEditSession {
         if (SUCCEEDED(ctx_->GetActiveView(&view)) && view) {
             TF_SELECTION sel;
             ULONG fetched = 0;
-            if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 &&
-                sel.range) {
+            if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 && sel.range) {
                 RECT rc;
                 BOOL clipped = FALSE;
                 if (SUCCEEDED(view->GetTextExt(ec, sel.range, &rc, &clipped))) {
@@ -418,14 +409,13 @@ class CTextService::RectSession : public ITfEditSession {
         return S_OK;
     }
 
-  private:
+private:
     LONG ref_;
     ITfContext *ctx_;
     CTextService *svc_;
 };
 
-bool CTextService::CaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut,
-                             GUITHREADINFO *gtiOut) {
+bool CTextService::CaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut, GUITHREADINFO *gtiOut) {
     hasPreeditRect_ = false;
     RectSession *rs = new RectSession(pic, this);
     HRESULT hrRect = S_OK;
@@ -434,8 +424,7 @@ bool CTextService::CaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut,
 
     GUITHREADINFO gti = {};
     gti.cbSize = sizeof(gti);
-    bool haveCaret = GetGUIThreadInfo(GetCurrentThreadId(), &gti) != FALSE && gti.hwndCaret &&
-                     (gti.rcCaret.bottom > gti.rcCaret.top);
+    bool haveCaret = GetGUIThreadInfo(GetCurrentThreadId(), &gti) != FALSE && gti.hwndCaret && (gti.rcCaret.bottom > gti.rcCaret.top);
     *haveCaretOut = haveCaret;
     if (gtiOut)
         *gtiOut = gti;

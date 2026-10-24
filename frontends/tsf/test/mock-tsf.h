@@ -20,15 +20,15 @@
  */
 #pragma once
 #include <msctf.h>
-#include <windows.h>
 #include <string>
 #include <vector>
+#include <windows.h>
 
 // The members the interfaces declare but the adapter never calls. Their
 // exact signatures come from msctf.h; the compiler flags any drift. The
 // macro lives at header scope: a per-class define/undef lapse was exactly
 // what made every mock after the first one compile as an abstract class.
-#define TSF_MOCK_STUB(name, ...) \
+#define TSF_MOCK_STUB(name, ...)                                                                                                                     \
     STDMETHOD(name)(__VA_ARGS__) override { return E_NOTIMPL; }
 
 namespace tsfmock {
@@ -60,11 +60,9 @@ class MockContextComposition;
 // composition channel, not the plain-insert channel — the buffering contract's
 // "exactly one boundary insert" observation must stay about COMMITTED text.
 class MockRange : public ITfRange, public RefCount {
-  public:
-    MockRange(MockContext *ctx, LONG start, LONG end)
-        : ctx_(ctx), start_(start), end_(end) {}
-    MockRange(MockContext *ctx, LONG start, LONG end, bool inComposition)
-        : ctx_(ctx), start_(start), end_(end), inComposition_(inComposition) {}
+public:
+    MockRange(MockContext *ctx, LONG start, LONG end) : ctx_(ctx), start_(start), end_(end) {}
+    MockRange(MockContext *ctx, LONG start, LONG end, bool inComposition) : ctx_(ctx), start_(start), end_(end), inComposition_(inComposition) {}
     // SetText splices pchText into the document at [start_, end_) and records
     // it. cch < 0 means NUL-terminated.
     STDMETHOD(SetText)(TfEditCookie ec, DWORD dwFlags, const WCHAR *pchText, LONG cch) override;
@@ -89,29 +87,21 @@ class MockRange : public ITfRange, public RefCount {
 
     // The members ITfRange declares but the adapter never calls. Their exact
     // signatures come from msctf.h; the compiler flags any drift.
-    TSF_MOCK_STUB(GetText, TfEditCookie ec, DWORD dwFlags, WCHAR *pchText, ULONG cchMax,
-                  ULONG *pcch)
+    TSF_MOCK_STUB(GetText, TfEditCookie ec, DWORD dwFlags, WCHAR *pchText, ULONG cchMax, ULONG *pcch)
     TSF_MOCK_STUB(GetFormattedText, TfEditCookie ec, IDataObject **ppDataObject)
-    TSF_MOCK_STUB(GetEmbedded, TfEditCookie ec, REFGUID rguidService, REFIID riid,
-                  IUnknown **ppunk)
+    TSF_MOCK_STUB(GetEmbedded, TfEditCookie ec, REFGUID rguidService, REFIID riid, IUnknown **ppunk)
     TSF_MOCK_STUB(InsertEmbedded, TfEditCookie ec, DWORD dwFlags, IDataObject *pDataObject)
-    TSF_MOCK_STUB(ShiftStart, TfEditCookie ec, LONG cchReq, LONG *pcch,
-                  const TF_HALTCOND *pHalt)
-    TSF_MOCK_STUB(ShiftEnd, TfEditCookie ec, LONG cchReq, LONG *pcch,
-                  const TF_HALTCOND *pHalt)
+    TSF_MOCK_STUB(ShiftStart, TfEditCookie ec, LONG cchReq, LONG *pcch, const TF_HALTCOND *pHalt)
+    TSF_MOCK_STUB(ShiftEnd, TfEditCookie ec, LONG cchReq, LONG *pcch, const TF_HALTCOND *pHalt)
     TSF_MOCK_STUB(ShiftStartToRange, TfEditCookie ec, ITfRange *pRange, TfAnchor aPos)
     TSF_MOCK_STUB(ShiftEndToRange, TfEditCookie ec, ITfRange *pRange, TfAnchor aPos)
     TSF_MOCK_STUB(ShiftStartRegion, TfEditCookie ec, TfShiftDir dir, BOOL *pfNoRegion)
     TSF_MOCK_STUB(ShiftEndRegion, TfEditCookie ec, TfShiftDir dir, BOOL *pfNoRegion)
     TSF_MOCK_STUB(IsEmpty, TfEditCookie ec, BOOL *pfEmpty)
-    TSF_MOCK_STUB(IsEqualStart, TfEditCookie ec, ITfRange *pWith, TfAnchor aPos,
-                  BOOL *pfEqual)
-    TSF_MOCK_STUB(IsEqualEnd, TfEditCookie ec, ITfRange *pWith, TfAnchor aPos,
-                  BOOL *pfEqual)
-    TSF_MOCK_STUB(CompareStart, TfEditCookie ec, ITfRange *pWith, TfAnchor aPos,
-                  LONG *plResult)
-    TSF_MOCK_STUB(CompareEnd, TfEditCookie ec, ITfRange *pWith, TfAnchor aPos,
-                  LONG *plResult)
+    TSF_MOCK_STUB(IsEqualStart, TfEditCookie ec, ITfRange *pWith, TfAnchor aPos, BOOL *pfEqual)
+    TSF_MOCK_STUB(IsEqualEnd, TfEditCookie ec, ITfRange *pWith, TfAnchor aPos, BOOL *pfEqual)
+    TSF_MOCK_STUB(CompareStart, TfEditCookie ec, ITfRange *pWith, TfAnchor aPos, LONG *plResult)
+    TSF_MOCK_STUB(CompareEnd, TfEditCookie ec, ITfRange *pWith, TfAnchor aPos, LONG *plResult)
     TSF_MOCK_STUB(AdjustForInsert, TfEditCookie ec, ULONG cchInsert, BOOL *pfInsertOk)
     TSF_MOCK_STUB(GetGravity, TfGravity *pgStart, TfGravity *pgEnd)
     TSF_MOCK_STUB(SetGravity, TfEditCookie ec, TfGravity gStart, TfGravity gEnd)
@@ -124,7 +114,7 @@ class MockRange : public ITfRange, public RefCount {
     STDMETHOD(Clone)(ITfRange **ppClone) override;
     TSF_MOCK_STUB(GetContext, ITfContext **ppContext)
 
-  private:
+private:
     ~MockRange() = default;
     friend class MockContext;
     friend class MockComposition;
@@ -135,7 +125,7 @@ class MockRange : public ITfRange, public RefCount {
 };
 
 class MockContextView : public ITfContextView, public RefCount {
-  public:
+public:
     // GetTextExt fails on purpose: the mock has no screen geometry, which
     // drives UpdateOverlay into its no-rect caret fallback and, with no
     // caret in a console process, its hide-and-return exit. That keeps
@@ -163,19 +153,18 @@ class MockContextView : public ITfContextView, public RefCount {
     STDMETHOD_(ULONG, AddRef)() override { return RefCount::AddRef(); }
     STDMETHOD_(ULONG, Release)() override { return RefCount::Release(); }
 
-    TSF_MOCK_STUB(GetRangeFromPoint, TfEditCookie ec, const POINT *ppt, DWORD dwFlags,
-                  ITfRange **ppRange)
+    TSF_MOCK_STUB(GetRangeFromPoint, TfEditCookie ec, const POINT *ppt, DWORD dwFlags, ITfRange **ppRange)
     TSF_MOCK_STUB(GetScreenExt, RECT *prc)
     TSF_MOCK_STUB(GetWnd, HWND *phwnd)
 
-  private:
+private:
     ~MockContextView() = default;
 };
 
 // The composition object: holds the range it was started on (composition
 // channel), reports it back through GetRange, and ends the composition.
 class MockComposition : public ITfComposition, public RefCount {
-  public:
+public:
     MockComposition(MockContext *ctx, MockRange *range) : ctx_(ctx), range_(range) {}
     STDMETHOD(GetRange)(ITfRange **ppRange) override {
         if (!ppRange)
@@ -203,7 +192,7 @@ class MockComposition : public ITfComposition, public RefCount {
     TSF_MOCK_STUB(ShiftStart, TfEditCookie ecWrite, ITfRange *pNewStart)
     TSF_MOCK_STUB(ShiftEnd, TfEditCookie ecWrite, ITfRange *pNewEnd)
 
-  private:
+private:
     MockComposition() = default;
     ~MockComposition() {
         if (range_)
@@ -215,7 +204,7 @@ class MockComposition : public ITfComposition, public RefCount {
 
 // The display-attribute property channel: records SetValue/Clear.
 class MockProperty : public ITfProperty, public RefCount {
-  public:
+public:
     explicit MockProperty(MockContext *ctx) : ref_(1), ctx_(ctx) {}
     STDMETHOD(FindRange)(TfEditCookie ec, ITfRange *pRange, ITfRange **ppRange, TfAnchor aPos) override {
         (void)ec;
@@ -263,7 +252,7 @@ class MockProperty : public ITfProperty, public RefCount {
     STDMETHOD_(ULONG, AddRef)() override { return RefCount::AddRef(); }
     STDMETHOD_(ULONG, Release)() override { return RefCount::Release(); }
 
-  private:
+private:
     ~MockProperty() = default;
     LONG ref_;
     MockContext *ctx_;
@@ -273,7 +262,7 @@ class MockProperty : public ITfProperty, public RefCount {
 // TF_ES_SYNC contract the adapter relies on -- after recording it, so the
 // harness reads insertions/session count straight after OnKeyDown returns.
 class MockContext : public ITfContext, public ITfContextComposition, public RefCount {
-  public:
+public:
     static constexpr TfEditCookie kCookie = 1;
 
     std::wstring doc; // the client document text
@@ -291,8 +280,7 @@ class MockContext : public ITfContext, public ITfContextComposition, public RefC
     int attrWrites = 0; // SetValue(TF composition range)
     int attrClears = 0; // Clear on finalize
 
-    STDMETHOD(RequestEditSession)(TfClientId tid, ITfEditSession *pes, DWORD dwFlags,
-                                  HRESULT *phrSession) override {
+    STDMETHOD(RequestEditSession)(TfClientId tid, ITfEditSession *pes, DWORD dwFlags, HRESULT *phrSession) override {
         (void)tid;
         if (phrSession)
             *phrSession = E_FAIL;
@@ -310,8 +298,7 @@ class MockContext : public ITfContext, public ITfContextComposition, public RefC
             *phrSession = pes->DoEditSession(kCookie);
         return S_OK;
     }
-    STDMETHOD(GetSelection)(TfEditCookie ec, ULONG ulIndex, ULONG ulCount,
-                            TF_SELECTION *pSelection, ULONG *pcFetched) override {
+    STDMETHOD(GetSelection)(TfEditCookie ec, ULONG ulIndex, ULONG ulCount, TF_SELECTION *pSelection, ULONG *pcFetched) override {
         (void)ec;
         if (pcFetched)
             *pcFetched = 0;
@@ -326,8 +313,7 @@ class MockContext : public ITfContext, public ITfContextComposition, public RefC
             *pcFetched = 1;
         return S_OK;
     }
-    STDMETHOD(SetSelection)(TfEditCookie ec, ULONG ulCount,
-                            const TF_SELECTION *pSelection) override {
+    STDMETHOD(SetSelection)(TfEditCookie ec, ULONG ulCount, const TF_SELECTION *pSelection) override {
         (void)ec;
         if (ulCount < 1 || !pSelection || !pSelection[0].range)
             return E_INVALIDARG;
@@ -346,8 +332,7 @@ class MockContext : public ITfContext, public ITfContextComposition, public RefC
     /* ITfContextComposition (issue #98): ITfContextComposition derives
      * from IUnknown, so the context answers for it itself; the body is
      * out-of-line below the complete type (the MockRange::SetText shape). */
-    STDMETHOD(StartComposition)(TfEditCookie ecWrite, ITfRange *pCompositionRange,
-                                ITfCompositionSink *pSink,
+    STDMETHOD(StartComposition)(TfEditCookie ecWrite, ITfRange *pCompositionRange, ITfCompositionSink *pSink,
                                 ITfComposition **ppComposition) override;
 
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
@@ -379,20 +364,15 @@ class MockContext : public ITfContext, public ITfContextComposition, public RefC
     TSF_MOCK_STUB(GetStatus, TF_STATUS *pdcs)
     STDMETHOD(GetProperty)(REFGUID guidProp, ITfProperty **ppProp) override;
     TSF_MOCK_STUB(EnumCompositions, IEnumITfCompositionView **ppEnum)
-    TSF_MOCK_STUB(FindComposition, TfEditCookie ecRead, ITfRange *pTestRange,
-                  IEnumITfCompositionView **ppEnum)
-    TSF_MOCK_STUB(TakeOwnership, TfEditCookie ecWrite, ITfCompositionView *pComposer,
-                  ITfCompositionSink *pSink, ITfComposition **ppComposition)
+    TSF_MOCK_STUB(FindComposition, TfEditCookie ecRead, ITfRange *pTestRange, IEnumITfCompositionView **ppEnum)
+    TSF_MOCK_STUB(TakeOwnership, TfEditCookie ecWrite, ITfCompositionView *pComposer, ITfCompositionSink *pSink, ITfComposition **ppComposition)
     TSF_MOCK_STUB(GetAppProperty, REFGUID guidProp, ITfReadOnlyProperty **ppProp)
-    TSF_MOCK_STUB(TrackProperties, const GUID **prgProp, ULONG cProp,
-                  const GUID **prgAppProp, ULONG cAppProp,
-                  ITfReadOnlyProperty **ppProperty)
+    TSF_MOCK_STUB(TrackProperties, const GUID **prgProp, ULONG cProp, const GUID **prgAppProp, ULONG cAppProp, ITfReadOnlyProperty **ppProperty)
     TSF_MOCK_STUB(EnumProperties, IEnumTfProperties **ppEnum)
     TSF_MOCK_STUB(GetDocumentMgr, ITfDocumentMgr **ppDm)
-    TSF_MOCK_STUB(CreateRangeBackup, TfEditCookie ec, ITfRange *pRange,
-                  ITfRangeBackup **ppBackup)
+    TSF_MOCK_STUB(CreateRangeBackup, TfEditCookie ec, ITfRange *pRange, ITfRangeBackup **ppBackup)
 
-  private:
+private:
     ~MockContext() = default;
     friend class MockProperty;
     friend class MockComposition;
@@ -405,7 +385,7 @@ class MockContext : public ITfContext, public ITfContextComposition, public RefC
 };
 
 class MockDocumentMgr : public ITfDocumentMgr, public RefCount {
-  public:
+public:
     explicit MockDocumentMgr(MockContext *top) : top_(top) {}
     STDMETHOD(GetTop)(ITfContext **ppic) override {
         if (!ppic)
@@ -429,25 +409,21 @@ class MockDocumentMgr : public ITfDocumentMgr, public RefCount {
     STDMETHOD_(ULONG, AddRef)() override { return RefCount::AddRef(); }
     STDMETHOD_(ULONG, Release)() override { return RefCount::Release(); }
 
-    TSF_MOCK_STUB(CreateContext, TfClientId tidOwner, DWORD dwFlags, IUnknown *punk,
-                  ITfContext **ppic, TfEditCookie *pecTextStore)
+    TSF_MOCK_STUB(CreateContext, TfClientId tidOwner, DWORD dwFlags, IUnknown *punk, ITfContext **ppic, TfEditCookie *pecTextStore)
     TSF_MOCK_STUB(Push, ITfContext *pic)
     TSF_MOCK_STUB(Pop, DWORD dwFlags)
     TSF_MOCK_STUB(GetBase, ITfContext **ppic)
     TSF_MOCK_STUB(EnumContexts, IEnumTfContexts **ppEnum)
 
-  private:
+private:
     ~MockDocumentMgr() = default;
     MockContext *top_;
 };
 
 // One object answering for ITfThreadMgr + ITfSource + ITfKeystrokeMgr, the
 // three identities the adapter QIs out of it during Activate/Deactivate.
-class MockThreadMgr : public ITfThreadMgr,
-                      public ITfSource,
-                      public ITfKeystrokeMgr,
-                      public RefCount {
-  public:
+class MockThreadMgr : public ITfThreadMgr, public ITfSource, public ITfKeystrokeMgr, public RefCount {
+public:
     ITfKeyEventSink *keySink = nullptr;
     BOOL keySinkForeground = FALSE;
     DWORD adviseCookie = 0;
@@ -485,8 +461,7 @@ class MockThreadMgr : public ITfThreadMgr,
         eventSink_ = nullptr;
         return S_OK;
     }
-    STDMETHOD(AdviseKeyEventSink)(TfClientId tid, ITfKeyEventSink *pSink,
-                                  BOOL fForeground) override {
+    STDMETHOD(AdviseKeyEventSink)(TfClientId tid, ITfKeyEventSink *pSink, BOOL fForeground) override {
         (void)tid;
         keySink = pSink;
         keySinkForeground = fForeground;
@@ -504,8 +479,7 @@ class MockThreadMgr : public ITfThreadMgr,
     TSF_MOCK_STUB(EnumDocumentMgrs, IEnumTfDocumentMgrs **ppEnum)
     TSF_MOCK_STUB(GetFocus, ITfDocumentMgr **ppdimFocus)
     TSF_MOCK_STUB(SetFocus, ITfDocumentMgr *pdimFocus)
-    TSF_MOCK_STUB(AssociateFocus, HWND hwnd, ITfDocumentMgr *pdimNew,
-                  ITfDocumentMgr **ppdimPrev)
+    TSF_MOCK_STUB(AssociateFocus, HWND hwnd, ITfDocumentMgr *pdimNew, ITfDocumentMgr **ppdimPrev)
     TSF_MOCK_STUB(IsThreadFocus, BOOL *pfThreadFocus)
     TSF_MOCK_STUB(GetFunctionProvider, REFCLSID clsid, ITfFunctionProvider **ppFuncProv)
     TSF_MOCK_STUB(EnumFunctionProviders, IEnumTfFunctionProviders **ppEnum)
@@ -515,26 +489,21 @@ class MockThreadMgr : public ITfThreadMgr,
     TSF_MOCK_STUB(TestKeyUp, WPARAM wParam, LPARAM lParam, BOOL *pfEaten)
     TSF_MOCK_STUB(KeyDown, WPARAM wParam, LPARAM lParam, BOOL *pfEaten)
     TSF_MOCK_STUB(KeyUp, WPARAM wParam, LPARAM lParam, BOOL *pfEaten)
-    TSF_MOCK_STUB(GetPreservedKey, ITfContext *pic, const TF_PRESERVEDKEY *pprekey,
-                  GUID *pguid)
-    TSF_MOCK_STUB(IsPreservedKey, REFGUID rguid, const TF_PRESERVEDKEY *pprekey,
-                  BOOL *pfRegistered)
-    TSF_MOCK_STUB(PreserveKey, TfClientId tid, REFGUID rguid,
-                  const TF_PRESERVEDKEY *prekey, const WCHAR *pchDesc, ULONG cchDesc)
+    TSF_MOCK_STUB(GetPreservedKey, ITfContext *pic, const TF_PRESERVEDKEY *pprekey, GUID *pguid)
+    TSF_MOCK_STUB(IsPreservedKey, REFGUID rguid, const TF_PRESERVEDKEY *pprekey, BOOL *pfRegistered)
+    TSF_MOCK_STUB(PreserveKey, TfClientId tid, REFGUID rguid, const TF_PRESERVEDKEY *prekey, const WCHAR *pchDesc, ULONG cchDesc)
     TSF_MOCK_STUB(UnpreserveKey, REFGUID rguid, const TF_PRESERVEDKEY *pprekey)
-    TSF_MOCK_STUB(SetPreservedKeyDescription, REFGUID rguid, const WCHAR *pchDesc,
-                  ULONG cchDesc)
+    TSF_MOCK_STUB(SetPreservedKeyDescription, REFGUID rguid, const WCHAR *pchDesc, ULONG cchDesc)
     TSF_MOCK_STUB(GetPreservedKeyDescription, REFGUID rguid, BSTR *pbstrDesc)
     TSF_MOCK_STUB(SimulatePreservedKey, ITfContext *pic, REFGUID rguid, BOOL *pfEaten)
 
-  private:
+private:
     ~MockThreadMgr() = default;
     IUnknown *eventSink_ = nullptr;
 };
 
 // Out-of-line SetText/Collapse: they need the complete MockContext type.
-inline HRESULT
-MockRange::SetText(TfEditCookie ec, DWORD dwFlags, const WCHAR *pchText, LONG cch) {
+inline HRESULT MockRange::SetText(TfEditCookie ec, DWORD dwFlags, const WCHAR *pchText, LONG cch) {
     (void)ec;
     (void)dwFlags;
     if (!pchText)
@@ -590,9 +559,7 @@ inline HRESULT MockComposition::EndComposition(TfEditCookie ecWrite) {
     return S_OK;
 }
 
-inline HRESULT MockContext::StartComposition(TfEditCookie ecWrite,
-                                             ITfRange *pCompositionRange,
-                                             ITfCompositionSink *pSink,
+inline HRESULT MockContext::StartComposition(TfEditCookie ecWrite, ITfRange *pCompositionRange, ITfCompositionSink *pSink,
                                              ITfComposition **ppComposition) {
     (void)ecWrite;
     if (compositionActive) {

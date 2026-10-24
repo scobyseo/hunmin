@@ -27,10 +27,10 @@
 #include <string>
 #include <windows.h>
 
+#include "../src/tsf.h"
 #include "mock-tsf.h"
 #include "tsf-keystate-mock.h"
 #include "tsf-testdir.h"
-#include "../src/tsf.h"
 
 /* g_hunmin_hinst lives in the target's main TU (trace-emit.cpp / tsf-test.cpp). */
 
@@ -125,12 +125,10 @@ struct CandidateTest : public ::testing::Test {
     static std::string utf8(const std::wstring &w) {
         if (w.empty())
             return {};
-        int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0,
-                                    nullptr, nullptr);
+        int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
         std::string s(n > 0 ? (size_t)n : 0, '\0');
         if (n > 0)
-            WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n,
-                                nullptr, nullptr);
+            WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr, nullptr);
         return s;
     }
     /* The observation channel: one snapshot at read time. */
@@ -138,21 +136,14 @@ struct CandidateTest : public ::testing::Test {
 
     void AssertWordbuf(const char *utf8Expected, const char *what) {
         HunminTsfSnapshot s = Snap();
-        EXPECT_EQ(s.wordbuf,
-                  utf8Expected ? utf8Of(utf8Expected) : std::wstring())
-            << what << ": wordbuf got " << utf8(s.wordbuf) << ", want "
-            << (utf8Expected ? utf8Expected : "(empty)");
+        EXPECT_EQ(s.wordbuf, utf8Expected ? utf8Of(utf8Expected) : std::wstring())
+            << what << ": wordbuf got " << utf8(s.wordbuf) << ", want " << (utf8Expected ? utf8Expected : "(empty)");
     }
     void AssertPreedit(const char *utf8Expected, const char *what) {
         HunminTsfSnapshot s = Snap();
-        EXPECT_EQ(std::string(s.ic ? hunmin_ic_preedit(s.ic) : ""),
-                  std::string(utf8Expected ? utf8Expected : ""))
-            << what << ": preedit";
+        EXPECT_EQ(std::string(s.ic ? hunmin_ic_preedit(s.ic) : ""), std::string(utf8Expected ? utf8Expected : "")) << what << ": preedit";
     }
-    void AssertNoInsert(const char *what) {
-        EXPECT_EQ(ctx->insertions.size(), (size_t)0)
-            << what << ": insertions happened, want none";
-    }
+    void AssertNoInsert(const char *what) { EXPECT_EQ(ctx->insertions.size(), (size_t)0) << what << ": insertions happened, want none"; }
 
     /* The composition channel (issue #98): a boundary that drains a
      * pending word now ENDS the composition whose range already holds
@@ -162,16 +153,12 @@ struct CandidateTest : public ::testing::Test {
     void AssertCompositionEnded(const char *utf8Expected, const char *what) {
         EXPECT_GE(ctx->compositionEnds, 1) << what << ": no composition ended";
         EXPECT_FALSE(ctx->compositionActive) << what << ": composition left active";
-        EXPECT_EQ(utf8(ctx->compositionText),
-                  std::string(utf8Expected ? utf8Expected : ""))
-            << what << ": fused text got " << utf8(ctx->compositionText)
-            << ", want " << (utf8Expected ? utf8Expected : "(empty)");
+        EXPECT_EQ(utf8(ctx->compositionText), std::string(utf8Expected ? utf8Expected : ""))
+            << what << ": fused text got " << utf8(ctx->compositionText) << ", want " << (utf8Expected ? utf8Expected : "(empty)");
     }
     void AssertCompositionText(const char *utf8Expected, const char *what) {
-        EXPECT_EQ(utf8(ctx->compositionText),
-                  std::string(utf8Expected ? utf8Expected : ""))
-            << what << ": composition text got " << utf8(ctx->compositionText)
-            << ", want " << (utf8Expected ? utf8Expected : "(empty)");
+        EXPECT_EQ(utf8(ctx->compositionText), std::string(utf8Expected ? utf8Expected : ""))
+            << what << ": composition text got " << utf8(ctx->compositionText) << ", want " << (utf8Expected ? utf8Expected : "(empty)");
     }
 };
 

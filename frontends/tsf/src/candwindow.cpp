@@ -55,8 +55,7 @@ HunminCandWindow::~HunminCandWindow() {
         DeleteObject(font_);
 }
 
-void HunminCandWindow::Show(const RECT &anchor, HWND fontHost,
-                            const std::vector<std::wstring> &lines) {
+void HunminCandWindow::Show(const RECT &anchor, HWND fontHost, const std::vector<std::wstring> &lines) {
     if (lines.empty())
         return;
 
@@ -73,14 +72,9 @@ void HunminCandWindow::Show(const RECT &anchor, HWND fontHost,
         hunmin_tsf_host_logfont(fontHost, &lf);
         font_ = CreateFontIndirectW(&lf);
         curLf_ = lf;
-        DPI_AWARENESS_CONTEXT oldCtx =
-            fontHost ? SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(fontHost))
-                     : nullptr;
-        wnd_ = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-                               L"STATIC", nullptr, WS_POPUP | SS_LEFT,
-                               anchor.left, anchor.bottom + 2, 10, 10, nullptr,
-                               nullptr, GetModuleHandleW(L"hunmin-tsf.dll"),
-                               nullptr);
+        DPI_AWARENESS_CONTEXT oldCtx = fontHost ? SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(fontHost)) : nullptr;
+        wnd_ = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, L"STATIC", nullptr, WS_POPUP | SS_LEFT, anchor.left,
+                               anchor.bottom + 2, 10, 10, nullptr, nullptr, GetModuleHandleW(L"hunmin-tsf.dll"), nullptr);
         /* DPI awareness is a per-window creation context, like the overlay's:
          * set around creation so the popup's coordinate space matches the
          * client window the caret rect came from. */
@@ -129,8 +123,7 @@ void HunminCandWindow::Show(const RECT &anchor, HWND fontHost,
         maxSz.cy = 14;
 
     int pad = 4;
-    MoveWindow(wnd_, anchor.left, anchor.bottom + 2, maxSz.cx + pad * 2,
-               (int)lines.size() * maxSz.cy + pad * 2, TRUE);
+    MoveWindow(wnd_, anchor.left, anchor.bottom + 2, maxSz.cx + pad * 2, (int)lines.size() * maxSz.cy + pad * 2, TRUE);
     SetWindowTextW(wnd_, text.c_str());
     ShowWindow(wnd_, SW_SHOWNOACTIVATE);
 }

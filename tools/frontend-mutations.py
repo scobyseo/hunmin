@@ -62,8 +62,7 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
     # the per-item override, or it stops being the mutation it is named for.
     (
         "I5-layout-override-ignored",
-        "        const std::string &want =\n"
-        "            layout.empty() ? *engine_->config().hangulLayout : layout;",
+        "        const std::string &want = layout.empty() ? *engine_->config().hangulLayout : layout;",
         "        (void)layout;\n        const std::string &want = *engine_->config().hangulLayout;",
         True,  # I7 checks the ternary and the call site structurally
         True,

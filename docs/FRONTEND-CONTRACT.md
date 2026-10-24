@@ -5,9 +5,16 @@ exposes. Written 2026-10-02 after reading every line of the fcitx5 addon
 against the fcitx5 5.1.19 sources, because several assumptions turned out to be
 wrong and were not discoverable by re-reading our own code.
 
-Scope: `frontends/fcitx5/src/` and `frontends/android/`, and the libhunmin ABI
-they depend on. The engine core is covered by `docs/SPEC-P2.md`; this file is
-about the adapter boundary where platform events meet the engine.
+Scope: `frontends/fcitx5/src/`, `frontends/android/`, and the Windows TSF
+adapter in `frontends/tsf/src/`, plus the libhunmin ABI they depend on. The
+engine core is covered by `docs/SPEC-P2.md`; this file is about the adapter
+boundary where platform events meet the engine.
+
+**Cross-frontend equivalence is a separate, normative requirement:**
+`docs/FRONTEND-EQUIVALENCE.md`. This audit records what each adapter assumes;
+that document defines what all adapters must agree on (the same key sequence
+must yield the same commit, preedit, and consumption, and TSF's interim and
+native delivery modes must agree).
 
 Sections 1–5 are the fcitx5 addon. **§6 is the Android IME** and is written to
 the same standard: every "Assumes" line is a claim about somebody else's code

@@ -28,7 +28,6 @@ typedef struct HunminTsfLayoutRow {
 /* Fill rows[0..cap) with the layouts whose mode matches: the exact split
  * the dialog lists each slot with (same predicate resolveLayoutSlot
  * accepts stored ids by). Returns the row count. */
-int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *rows,
-                             int cap);
+int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *rows, int cap);
 
 #endif /* HUNMIN_TSF_SETTINGSROWS_H_ */

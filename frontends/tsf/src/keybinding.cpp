@@ -16,8 +16,7 @@
 #include <string.h>
 #include <windows.h>
 
-int hunmin_tsf_keybindings_parse(const char *list, HunminKeyCombo *out,
-                                 int cap) {
+int hunmin_tsf_keybindings_parse(const char *list, HunminKeyCombo *out, int cap) {
     if ((list == nullptr || list[0] == '\0') || cap <= 0 || out == nullptr)
         return 0;
     int n = 0;
@@ -31,9 +30,7 @@ int hunmin_tsf_keybindings_parse(const char *list, HunminKeyCombo *out,
             vk = strtoul(p + 3, &end, 10);
             if (end != nullptr && *end == ':') {
                 mods = strtoul(end + 1, &end, 10);
-                if (end != nullptr && (*end == ';' || *end == '\0') &&
-                    vk <= 0xFFu && mods <= 0x7u &&
-                    ((vk & 0xFFu) != 0u)) {
+                if (end != nullptr && (*end == ';' || *end == '\0') && vk <= 0xFFu && mods <= 0x7u && ((vk & 0xFFu) != 0u)) {
                     if (n < cap) {
                         out[n].vk = (unsigned)vk;
                         out[n].mods = (unsigned)mods;
@@ -53,8 +50,7 @@ int hunmin_tsf_keybindings_parse(const char *list, HunminKeyCombo *out,
     return n;
 }
 
-int hunmin_tsf_keybindings_match(const HunminKeyCombo *bindings, int count,
-                                 unsigned int vk, unsigned int modsState) {
+int hunmin_tsf_keybindings_match(const HunminKeyCombo *bindings, int count, unsigned int vk, unsigned int modsState) {
     if (bindings == nullptr)
         return 0;
     for (int i = 0; i < count; ++i) {
@@ -74,15 +70,10 @@ int hunmin_tsf_keybindings_match(const HunminKeyCombo *bindings, int count,
 
 /* The thread input state: the platform provider is the default; a harness
  * registers its snapshot provider over this one slot (keybinding.h). */
-static SHORT hunmin_tsf_platform_keystate(int vk) {
-    return GetKeyState(vk);
-}
-static HunminTsfKeyStateFn g_hunmin_tsf_keystate =
-    &hunmin_tsf_platform_keystate;
+static SHORT hunmin_tsf_platform_keystate(int vk) { return GetKeyState(vk); }
+static HunminTsfKeyStateFn g_hunmin_tsf_keystate = &hunmin_tsf_platform_keystate;
 
-void hunmin_tsf_keystate_register(HunminTsfKeyStateFn provider) {
-    g_hunmin_tsf_keystate = provider ? provider : &hunmin_tsf_platform_keystate;
-}
+void hunmin_tsf_keystate_register(HunminTsfKeyStateFn provider) { g_hunmin_tsf_keystate = provider ? provider : &hunmin_tsf_platform_keystate; }
 
 unsigned int hunmin_tsf_keymods_from_state(void) {
     unsigned int m = 0;
@@ -92,9 +83,7 @@ unsigned int hunmin_tsf_keymods_from_state(void) {
         m |= HUNMIN_TSF_KEYMOD_CTRL;
     /* Either-side Alt: a side-specific binding names VK_RMENU / VK_LMENU as
      * the vk, so the family bit only indicates "some Alt is down". */
-    if (((g_hunmin_tsf_keystate(VK_MENU) | g_hunmin_tsf_keystate(VK_LMENU) |
-          g_hunmin_tsf_keystate(VK_RMENU)) &
-         0x8000u) != 0u)
+    if (((g_hunmin_tsf_keystate(VK_MENU) | g_hunmin_tsf_keystate(VK_LMENU) | g_hunmin_tsf_keystate(VK_RMENU)) & 0x8000u) != 0u)
         m |= HUNMIN_TSF_KEYMOD_ALT;
     return m;
 }

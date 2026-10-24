@@ -432,7 +432,8 @@ if(BUILD_TESTING AND Python3_FOUND)
     # is contention measured as seconds, not a correctness problem.
     add_test(NAME builds-android
       COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_SOURCE_DIR}/frontends/android
-              ./gradlew --no-daemon assembleDebug)
+              $<IF:$<BOOL:$<PLATFORM_ID:Windows>>,gradlew.bat,./gradlew>
+              --no-daemon assembleDebug)
     set_tests_properties(builds-android PROPERTIES
       LABELS "guard"
       SKIP_RETURN_CODE 77 TIMEOUT 900 RUN_SERIAL TRUE)
