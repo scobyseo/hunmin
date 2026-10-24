@@ -124,6 +124,18 @@ loaded DLL holding the worktree, `ctfmon`/`explorer` restarts, HKCU leftovers)
 and cannot run two worktrees at once. A host without Windows Sandbox simply
 does not run the live lane; it does not fall back to the dev registry.
 
+Measured in the sandbox on 2026-10-24 with the static-CRT kit:
+
+- `tools\tsf-sandbox.ps1 -Layout dubeolsik` (the default keys) sends
+  `dkssud gksrmf\b\bdl \b\n` and gets `안녕 한ㄱ이\n`, `pass=1`. This covers a
+  literal space, two backspaces inside a composition, retyping after the
+  backspaces, a backspace over a committed space, and Enter.
+- `-Keys 'dkssud\s1'` gets `안녕!`, `pass=1` (Shift).
+- A cold Sandbox boot once sent keys before the probe window held the
+  foreground (empty text, immediate rerun passed). The probe now waits for
+  foreground and TIP activation and writes `ime-probe.log`; the rerun with the
+  long sequence passed.
+
 ## 8. Wording
 
 Quoted from the maintainer, 2026-10-24:

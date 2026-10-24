@@ -13,14 +13,17 @@
   TIP and probe logs back, unregisters, and writes done.txt. The host polls the
   out folder and reports pass=1 from result.txt.
 
+  -Keys escapes: \b backspace, \n enter, \t tab, \s<char> shift+char, \\ literal
+  backslash. A space is a literal space. -Expect accepts \n, \r, \t, \\.
+
 .EXAMPLE
   tools\tsf-sandbox.ps1 -Keys dkssud -Expect 안녕 -Layout dubeolsik
   tools\tsf-sandbox.ps1 -Keys dkssud1 -Expect 안녕1 -NoBuild
 #>
 [CmdletBinding()]
 param(
-    [string]$Keys = 'dkssud',
-    [string]$Expect = '안녕',
+    [string]$Keys = 'dkssud gksrmf\b\bdl \b\n',
+    [string]$Expect = ([string][char]0xC548 + [char]0xB155 + ' ' + [char]0xD55C + [char]0x3131 + [char]0xC774 + '\n'),
     [string]$Layout = 'dubeolsik',
     [int]$TimeoutSec = 180,
     [switch]$NoBuild,
@@ -91,7 +94,7 @@ function Build-Kit {
         "findstr /I `"VCRUNTIME MSVCP MSVCR`" `"$deps`" && (echo dynamic VC runtime imported & exit /b 1)",
         'echo == probe: console entry, static CRT ==',
         "if not exist `"$kitBuild`" mkdir `"$kitBuild`"",
-        "cl /nologo /W4 /O2 /DUNICODE /D_UNICODE /DHUNMIN_PROBE_CONSOLE `"$repo\frontends\tsf\test\ime-probe.c`" /Fe:`"$kitBuild\ime-probe.exe`" /MT /link /subsystem:console user32.lib gdi32.lib ole32.lib uuid.lib shell32.lib",
+        "cl /nologo /W4 /O2 /DUNICODE /D_UNICODE /DHUNMIN_PROBE_CONSOLE `"$repo\frontends\tsf\test\ime-probe.c`" /Fo:`"$kitBuild\ime-probe.obj`" /Fe:`"$kitBuild\ime-probe.exe`" /MT /link /subsystem:console user32.lib gdi32.lib ole32.lib uuid.lib shell32.lib",
         'if errorlevel 1 exit /b 1'
     )
 
