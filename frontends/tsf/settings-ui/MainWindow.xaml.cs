@@ -51,8 +51,13 @@ public partial class MainWindow : Window
         Title = "Hunmin TSF settings";
         // Key capture rides the root panel's KeyDown: the window has focus
         // while capturing, no global hook (maintainer instruction).
-        var root = (Panel)Content;
+        var root = (Panel)Scroller.Content;
         root.KeyDown += Root_KeyDown;
+        // The ScrollViewer measures its content with infinite height, which
+        // would collapse the star rows; sizing the grid to the viewport (never
+        // below its minimum) keeps the stretch behaviour AND gets a scrollbar
+        // when the window is dragged under it (maintainer, 2026-10-25).
+        Scroller.SizeChanged += (_, _) => FitContent();
         root.Loaded += (_, _) => root.Focus(FocusState.Programmatic);
         LoadLayouts();
         Restore();
@@ -62,12 +67,28 @@ public partial class MainWindow : Window
     // Called from App.OnLaunched via the DispatcherQueue after Activate;
     // ResizeClient only sticks down to the content's natural measure, so
     // the panel is pinned narrow here first.
+    // The panel's minimum, in DIPs. Below this the ScrollViewer scrolls instead
+    // of the rows crushing; above it the grid follows the window.
+    const double MinContentWidth = 400;
+    const double MinContentHeight = 520;
+
+    void FitContent()
+    {
+        // Exactly the viewport, never a DIP more: the ScrollViewer owns the
+        // padding, so nothing of the grid hangs past its clip.
+        RootGrid.Width = Math.Max(Scroller.ViewportWidth, MinContentWidth);
+        RootGrid.Height = Math.Max(Scroller.ViewportHeight, MinContentHeight);
+    }
+
     public void Compact()
     {
         try
         {
-            var root = (Panel)Content;
-            root.Width = 420;
+            // NO fixed Width on the root: pinning it (420 px) is what stopped
+            // the window scaling -- the layout kept the pinned width while the
+            // frame grew, so every row stayed narrow and the action buttons
+            // stayed behind their labels (maintainer, 2026-10-25). The rows
+            // stretch; only the initial client size is chosen here.
             // ResizeClient input scales with the display's DPI factor
             // (measured on this host: (500,600) -> 625x750 client px);
             // 420x560 requests land the on-screen window inside the quoted
@@ -219,6 +240,18 @@ public partial class MainWindow : Window
     }
 
     // ---- layouts ----
+    /// A candidate data directory is only usable when it carries layout files.
+    /// Measured 2026-10-25: the dev run resolved to a sibling `data` directory
+    /// that existed but was EMPTY (no `layouts/`), so the lists came up with zero
+    /// rows and the window showed two blank boxes -- the same "stale partial data
+    /// tree" the deployed path is warned about. Existence is not evidence.
+    static bool HasLayouts(string dir)
+    {
+        var layouts = Path.Combine(dir, "layouts");
+        return Directory.Exists(layouts) &&
+               Directory.EnumerateFiles(layouts, "*.json").Any();
+    }
+
     static string DataDir()
     {
         var args = Environment.GetCommandLineArgs();
@@ -232,10 +265,10 @@ public partial class MainWindow : Window
 
         var exedir = AppContext.BaseDirectory;
         var local = Path.Combine(exedir, "data");
-        if (Directory.Exists(local))
+        if (HasLayouts(local))
             return local;
         var sibling = Path.Combine(exedir, "..", "data"); // deployed: <dll dir>\data
-        if (Directory.Exists(sibling))
+        if (HasLayouts(sibling))
             return sibling;
         /* Dev-checkout climb (the same rule the DLL's loader applies): this
          * project publishes to settings-ui\publish, four levels above which
@@ -243,11 +276,15 @@ public partial class MainWindow : Window
          * had an EMPTY layout list — measured 2026-10-18, the status the
          * user reported ("layout list is not displayed"). */
         var dir = Path.GetFullPath(exedir);
-        for (int i = 0; i < 6 && dir is { Length: > 3 }; i++)
+        // Eight, not six: an in-tree `dotnet build` puts the exe at
+        // bin/Debug/net8.0-windows10.0.19041.0/win-x64, which is SEVEN levels
+        // under the repo root -- at six the climb stopped at frontends/ and the
+        // layout lists came up empty (measured 2026-10-25).
+        for (int i = 0; i < 8 && dir is { Length: > 3 }; i++)
         {
             dir = Path.GetDirectoryName(dir)!;
             var candidate = Path.Combine(dir, "libhunmin", "data");
-            if (Directory.Exists(candidate))
+            if (HasLayouts(candidate))
                 return candidate;
         }
         return sibling; // the last documented default, so callers stay honest
