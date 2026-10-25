@@ -134,8 +134,13 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
 ]
 
 
-def _run(cmd: list[str], timeout: int = 180, cwd: pathlib.Path | None = None) -> int:
-    return subprocess.run(cmd, cwd=cwd or REPO, capture_output=True, timeout=timeout).returncode
+def _run(cmd: list[str], timeout: int = 180, cwd: pathlib.Path | None = None,
+         stderr_path: pathlib.Path | None = None,
+         env: dict[str, str] | None = None) -> int:
+    proc = subprocess.run(cmd, cwd=cwd or REPO, capture_output=True, timeout=timeout, env=env)
+    if stderr_path is not None:
+        stderr_path.write_bytes(proc.stdout + proc.stderr)
+    return proc.returncode
 
 
 def _apply(text: str, old: str, new: str) -> str | None:
@@ -302,6 +307,39 @@ class Sandbox(Strategy):
     name = "sandbox"
 
     @staticmethod
+    def _parent_prefixes() -> list[str]:
+        """The prefixes this host actually built against, from the parent
+        cache. A dependency installed outside the system prefix (fcitx5 5.1.13
+        in $HOME on the WSL host) is reachable two ways -- CMake config files
+        through CMAKE_PREFIX_PATH, pkg-config files through PKG_CONFIG_PATH --
+        and a tree that needs the second fails its INITIAL BUILD in the sandbox
+        while the parent built fine. Both are derived from the same value."""
+        for cache in REPO.glob("build*/CMakeCache.txt"):
+            for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.startswith("CMAKE_PREFIX_PATH:"):
+                    value = line.partition("=")[2]
+                    return [p for p in value.split(";") if p.strip()]
+        # A build tree OUTSIDE the repo (the WSL layout keeps one in $HOME, so
+        # the glob above finds nothing) leaves only the caller's environment.
+        # Not an error: the harness then builds exactly like the shell that
+        # invoked it, which is what a pre-2026-10-25 run did.
+        return [p for p in os.environ.get("CMAKE_PREFIX_PATH", "").split(os.pathsep) if p.strip()]
+
+    @classmethod
+    def _sandbox_env(cls) -> dict[str, str]:
+        env = dict(os.environ)
+        pcs: list[str] = []
+        for prefix in cls._parent_prefixes():
+            for sub in ("lib/pkgconfig", "lib/x86_64-linux-gnu/pkgconfig", "share/pkgconfig"):
+                candidate = pathlib.Path(prefix) / sub
+                if candidate.is_dir():
+                    pcs.append(str(candidate))
+        if pcs:
+            existing = env.get("PKG_CONFIG_PATH", "")
+            env["PKG_CONFIG_PATH"] = os.pathsep.join(pcs + ([existing] if existing else []))
+        return env
+
+    @staticmethod
     def _parent_toolchain() -> list[str]:
         """The sandbox must configure like the parent tree did. A bare
         `cmake -B build` picks the platform default generator -- Visual Studio
@@ -325,7 +363,16 @@ class Sandbox(Strategy):
             if vals.get("CMAKE_GENERATOR_PLATFORM:INTERNAL"):
                 overrides += ["-A", vals["CMAKE_GENERATOR_PLATFORM:INTERNAL"].strip()]
             for key, opt in (("CMAKE_C_COMPILER:FILEPATH", "-DCMAKE_C_COMPILER="),
-                             ("CMAKE_CXX_COMPILER:FILEPATH", "-DCMAKE_CXX_COMPILER=")):
+                             ("CMAKE_CXX_COMPILER:FILEPATH", "-DCMAKE_CXX_COMPILER="),
+                             # A dependency installed OUTSIDE the system prefix
+                             # (fcitx5 5.1.13 in $HOME here) is found only
+                             # through this cache value. Without it the sandbox
+                             # configures, then fails its INITIAL BUILD, which
+                             # reads as a code failure and is not one -- the
+                             # parent tree built only because the shell that
+                             # configured it had CMAKE_PREFIX_PATH exported.
+                             ("CMAKE_PREFIX_PATH:UNINITIALIZED", "-DCMAKE_PREFIX_PATH="),
+                             ("CMAKE_PREFIX_PATH:STRING", "-DCMAKE_PREFIX_PATH=")):
                 if vals.get(key):
                     overrides.append(opt + vals[key].strip())
             break
@@ -344,8 +391,11 @@ class Sandbox(Strategy):
                   cwd=src)
         if rc != 0:
             raise SystemExit("sandbox: cmake configure failed")
-        if self._build_in(src) != 0:
-            raise SystemExit("sandbox: initial build failed")
+        log = self.dir / "initial-build.log"
+        if self._build_in(src, stderr_path=log) != 0:
+            tail = log.read_text(encoding="utf-8", errors="replace").splitlines()[-15:]
+            raise SystemExit("sandbox: initial build failed; last lines of "
+                             f"{log}:\n" + "\n".join(tail))
         return src
 
     @staticmethod
@@ -359,9 +409,10 @@ class Sandbox(Strategy):
         # future mutation turns out to need the real flags.
         return os.environ.get("HUNMIN_MUTATION_BUILD_TYPE", "")
 
-    @staticmethod
-    def _build_in(src: pathlib.Path) -> int:
-        return _run(_build_cmd(src / "build"), cwd=src, timeout=900)
+    @classmethod
+    def _build_in(cls, src: pathlib.Path, stderr_path: pathlib.Path | None = None) -> int:
+        return _run(_build_cmd(src / "build"), cwd=src, timeout=900,
+                    stderr_path=stderr_path, env=cls._sandbox_env())
 
     def engine(self) -> pathlib.Path:
         return self.dir / "src" / ENGINE_REL

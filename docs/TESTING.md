@@ -68,6 +68,17 @@ answers "what does this test cost me, and what does it do to my working tree?"
 
 Two membership facts that are not derivable from the tier name:
 
+- **The mutation sandbox inherits the parent's dependency prefixes.**
+  `tools/frontend-mutations.py` configures a copy of the tree, so a dependency
+  installed outside the system prefix (fcitx5 5.1.13 under `$HOME` on the WSL
+  host) must reach it twice: `CMAKE_PREFIX_PATH` from the parent cache, and a
+  `PKG_CONFIG_PATH` derived from it for the build. Both are handled since
+  2026-10-25; a build tree that lives OUTSIDE the repo (the WSL layout keeps one
+  in `$HOME`) has no parent cache to read, so export both before invoking ctest
+  — with neither, the sandbox reports `initial build failed`, which reads as a
+  code failure and is not one. The harness now prints the tail of its build log
+  so that message names the missing target or header instead of asserting
+  itself.
 - **`frontend-mutations` carries both `tier-D1` and `tier-D2`.** It plants each
   mutation and requires something to catch it, and what catches it is
   `ctest -R engine-d1-fcitx5` and `ctest -R engine-d2-ui`
