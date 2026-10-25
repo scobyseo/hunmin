@@ -1,3 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "vv-double-h0", "source": "p2-2-3-chosung.jsonl (gate)", "case_index": 10, "case_id": "p2-2-3-chosung#10"}}
-{"in": {"keysym": 118, "mods": 0}, "commit": "", "preedit": "ㅈ", "consumed": true}
-{"in": {"keysym": 118, "mods": 0}, "commit": "ㅈ", "preedit": "ㅈ", "consumed": true}

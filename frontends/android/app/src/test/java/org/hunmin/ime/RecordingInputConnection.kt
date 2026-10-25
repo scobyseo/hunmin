@@ -55,6 +55,9 @@ class RecordingInputConnection : InputConnection {
     var finishedComposing: Int = 0
         private set
 
+    /** Every sendKeyEvent() payload, in order. Used to assert pass-through. */
+    val sentEvents = mutableListOf<KeyEvent>()
+
     /**
      * Calls the adapter must never make. Invariant I9: no surrounding-text
      * reads, no surrounding-text rewrites.

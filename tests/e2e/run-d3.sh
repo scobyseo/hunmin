@@ -574,19 +574,38 @@ stop_fcitx() {
 # something on the way (space flushes the in-flight syllable AND is declined),
 # because both reach the client: the commit as COMMIT, the character as
 # FORWARD. Hence one trace line can produce two expected lines.
+sim_keys() { # $1 = case-file keys string; prints hunmin-sim-compatible keys
+    printf '%s' "$1" | python3 -c '
+import sys
+s = sys.stdin.read()
+s = s.replace("{BackSpace}", "\x08")
+s = s.replace("{Return}", "\x0d")
+s = s.replace("{Escape}", "")   # frontend dismisses the candidate window; sim cannot model this
+s = s.replace("{F9}", "")
+s = s.replace("{,}", ",")
+sys.stdout.write(s)
+'
+}
+
 expected_stream() { # $1=layout $2=keys
-    "$SIM" --data "$DATA" --layout "$1" --keys "$2" --trace |
+    local keys
+    keys=$(sim_keys "$2")
+    "$SIM" --data "$DATA" --layout "$1" --keys "$keys" --trace |
         python3 -c '
 import json, sys
+word = ""
 for line in sys.stdin:
     o = json.loads(line)
-    if o.get("commit"):
-        print("COMMIT:" + o["commit"])
-    if not o.get("consumed", True):
-        spec = o.get("in") or {}
-        ch = spec.get("ch")
-        if ch:
-            print("FORWARD:" + ch)
+    if o.get("consumed", True):
+        word += o.get("commit", "")
+        continue
+    boundary = word + o.get("commit", "")
+    word = ""
+    if boundary:
+        print("COMMIT:" + boundary)
+    ch = (o.get("in") or {}).get("ch")
+    if ch:
+        print("FORWARD:" + ch)
 '
 }
 
@@ -603,18 +622,28 @@ for line in sys.stdin:
 # can see the intermediate TEXT: lines; they are printed for the failure dump
 # only. That is a property of measuring a buffer, not a shortcut.
 expected_text() { # $1=layout $2=keys
-    "$SIM" --data "$DATA" --layout "$1" --keys "$2" --trace |
+    local keys
+    keys=$(sim_keys "$2")
+    "$SIM" --data "$DATA" --layout "$1" --keys "$keys" --trace | \
         python3 -c '
 import json, sys
 buf = []
+word = ""
 for line in sys.stdin:
     o = json.loads(line)
-    if o.get("commit"):
-        buf.append(o["commit"])
-    if not o.get("consumed", True):
-        ch = (o.get("in") or {}).get("ch")
-        if ch:
-            buf.append(ch)
+    if o.get("consumed", True):
+        word += o.get("commit", "")
+        continue
+    done = word + o.get("commit", "")
+    word = ""
+    if done:
+        buf.append(done)
+    ch = (o.get("in") or {}).get("ch")
+    if ch:
+        buf.append(ch)
+# Include trailing in-flight word, because the client buffer holds it.
+if word:
+    buf.append(word)
 print("TEXT:" + "".join(buf))
 '
 }
@@ -632,14 +661,14 @@ for line in sys.stdin:
 '
 }
 
-run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_commits)
-    local layout=$1 keys=$2 expect_fn=${3:-expected_commits}
+run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
+    local layout=$1 keys=$2 expect_fn=${3:-expected_stream}
     local expected actual case_lines hpid i case_ready case_id=$CASE_SEQ
     CASE_SEQ=$((CASE_SEQ + 1))
 
     if [ "$CLIENT" = "gtk" ]; then
         # The buffer is the whole assertion for a GTK client; there is no
-        # COMMIT-only variant of it. Defaulting to expected_commits here would
+        # COMMIT-only variant of it. Defaulting to expected_stream here would
         # silently compare the wrong shape, so force it.
         expect_fn=expected_text
     fi
@@ -956,6 +985,52 @@ run_candidate_case() { # $1=layout $2=keys $3=expectation text or empty
     echo "ok: [candidate/$layout/$keys] window drawn ($window), fcitx5 alive${actual:+ -> $(printf '%s' "$actual" | paste -sd'|')}"
 }
 
+run_edit_handwritten_case() { # $1=layout $2=keys $3=expected transcript
+    local layout=$1 keys=$2 expect=$3 hpid i actual case_id=$CASE_SEQ
+    CASE_SEQ=$((CASE_SEQ + 1))
+
+    for _ in 1 2 3; do
+        "${HARNESS_CMD[@]}" </dev/null >"$STAGE/commits.log" 2>"$STAGE/harness.log" &
+        hpid=$!
+        for i in $(seq 1 50); do
+            grep -q READY "$STAGE/commits.log" 2>/dev/null && break
+            kill -0 "$hpid" 2>/dev/null || break
+            sleep 0.1
+        done
+        grep -q READY "$STAGE/commits.log" 2>/dev/null && break
+        kill "$hpid" 2>/dev/null
+        wait "$hpid" 2>/dev/null
+        sleep 0.3
+        hpid=""
+    done
+    if [ -z "$hpid" ]; then
+        echo "FAIL [edit/$layout/$keys]: harness never became ready"
+        fail=1
+        return
+    fi
+    if ! python3 "$TYPER" "$DISP" "$keys" </dev/null; then
+        echo "FAIL [edit/$layout/$keys]: key injection failed"
+        kill "$hpid" 2>/dev/null
+        wait "$hpid" 2>/dev/null
+        fail=1
+        return
+    fi
+    sleep 0.2
+    actual=$(grep -E '^(COMMIT|FORWARD):' "$STAGE/commits.log" || true)
+    if [ "$actual" != "$expect" ]; then
+        echo "FAIL [edit/$layout/$keys]"
+        echo "  expected: $(printf '%s' "$expect" | paste -sd'|')"
+        echo "  actual:   $(printf '%s' "$actual" | paste -sd'|')"
+        echo "  --- client transcript ---"
+        cat "$STAGE/commits.log" | sed 's/^/  /'
+        fail=1
+    else
+        echo "ok: [edit/$layout/$keys] -> $actual"
+    fi
+    kill -TERM "$hpid" 2>/dev/null
+    wait "$hpid" 2>/dev/null
+}
+
 # ---------------------------------------------------------------- run
 cur_layout=""
 HPID=""          # live GTK harness pid for the current layout group; empty = none
@@ -976,6 +1051,12 @@ CASE_SEQ=0       # monotonic case id, used as the harness marker
 # from 8de61b1 until 2026-10-10: xim-harness.c polled stdin and drained it 256
 # bytes at a time, and cases.tsv was on stdin because the loop redirected it
 # there. See xim-harness.c and the harness note in gtk-harness.py.
+#
+# EDIT CASES (HUNMIN_D3_EDIT_CASES): an additional case file for edit-key
+# scenarios -- backspace, mode toggle, candidate window. Same shape as
+# cases.tsv, but keys may include {BackSpace}, {Return}, {F9}, {Escape}
+# and ^ (mode toggle). All edit cases use stream mode because edit keys
+# are pass-through.
 exec 3<"$CASES"
 if [ "$CLIENT" = "candidate" ]; then
     # CANDIDATE MODE: a dedicated case file, because its columns are not the
@@ -1000,6 +1081,29 @@ if [ "$CLIENT" = "candidate" ]; then
     exec 3<&-
     stop_fcitx
     exit "$fail"
+fi
+if [ -n "${HUNMIN_D3_EDIT_CASES:-}" ] && [ -f "${HUNMIN_D3_EDIT_CASES}" ]; then
+    exec 4<"$HUNMIN_D3_EDIT_CASES"
+    while IFS=$'\t' read -r -u 4 layout keys mode expect; do
+        case "$layout" in '' | \#*) continue ;; esac
+        if [ "$layout" != "$cur_layout" ]; then
+            stop_fcitx
+            if ! start_fcitx "$layout"; then
+                fail=1
+                exec 3<&-
+                exec 4<&-
+                exit 1
+            fi
+            cur_layout="$layout"
+            sleep 1.0
+        fi
+        if [ -n "$expect" ]; then
+            run_edit_handwritten_case "$layout" "$keys" "$expect"
+        else
+            run_case "$layout" "$keys" expected_stream
+        fi
+    done
+    exec 4<&-
 fi
 while IFS=$'\t' read -r -u 3 layout keys mode _; do
     case "$layout" in '' | \#*) continue ;; esac

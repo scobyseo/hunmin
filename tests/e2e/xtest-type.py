@@ -35,6 +35,7 @@ NAMED_KEYSYMS = {
     "Up": 0xFF52,
     "Page_Down": 0xFF56,
     "Page_Up": 0xFF55,
+    "BackSpace": 0xFF08,
 }
 
 

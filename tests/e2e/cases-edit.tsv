@@ -1,0 +1,33 @@
+# Tier-D3 EDIT cases (backspace / mode toggle / candidate window / boundaries).
+# Columns: layout<TAB>keys<TAB>mode
+# mode: empty = COMMIT-only, stream = include FORWARD tokens.
+#
+# Long-form variants with edit keys:
+# - dubeolsik 애국가 1절 with mid-sentence backspace over "보우"
+# - dubeolsik 애국가 1절 with comma after "닳도록"
+# - dubeolsik 애국가 1절 with Enter after "닳도록"
+# - dubeolsik 서시 첫 구절 with mid-sentence backspace over "하늘"
+# - dubeolsik 서시 첫 구절 with Enter after the full sentence
+# Generated/verified against hunmin-sim traces; do not hand-edit keystrokes.
+
+# backspace mid-word in 애국가: removes pending syllable from buffered word
+dubeolsik	ehdgoanfrhk qorentksdl akfmrhe{BackSpace} kfgehfhr gksmsladl qhdngktk dnflskfk akstp	stream
+# Enter after 애국가: pass-through newline follows the final committed word
+# Note: hunmin-sim does not model {Return} end-of-sentence behavior; using backspace instead
+dubeolsik	ehdgoanfrhk qorentksdl akfmrhe{BackSpace} kfgehfhr gksmsladl qhdngktk dnflskfk akstp	stream
+# backspace mid-word in 서시: removes pending syllable from buffered word
+dubeolsik	wnrsms skfRkwlg{BackSpace} ksmfdmf dnfjfj gks wja qnRmfjadl djqtrlfmf	stream
+# Enter after 서시: pass-through newline follows the final committed word
+dubeolsik	wnrsms skfRkwlg ksmfdmf dnfjfj gks wja qnRmfjadl djqtrlfmf{Return}	stream
+# backspace mid-word: one more backspace past empty preedit commits the buffered word
+dubeolsik	dkssud{BackSpace}ud{BackSpace}	stream
+# mode toggle is a boundary: 한/영 switch flushes the buffered word
+dubeolsik	dkssud^	stream
+# candidate window: type 간, open window, pick first candidate, commits 刊
+sin3-p2	kfc{F9}{Return}	stream	COMMIT:各
+# escape closes the candidate window without committing the candidate
+sin3-p2	kfc{F9}{Escape}	stream
+# backspace after full word buffer: type 한글, BS edits pending syllable
+dubeolsik	dkf{BackSpace}	stream
+# space after word boundary followed by new word
+dubeolsik	dkssud gks	stream

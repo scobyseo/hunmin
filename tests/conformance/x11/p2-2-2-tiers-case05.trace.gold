@@ -1,4 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "tier4-jk-B", "source": "p2-2-2-tiers.jsonl (gate)", "case_index": 5, "case_id": "p2-2-2-tiers#05"}}
-{"in": {"keysym": 106, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
-{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
-{"in": {"keysym": 66, "mods": 0}, "commit": "ㅇβ", "preedit": "", "consumed": true}

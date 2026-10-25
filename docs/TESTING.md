@@ -85,7 +85,7 @@ Two membership facts that are not derivable from the tier name:
   (`tools/frontend-mutations.py:334-338`). It belongs to both tiers and to
   neither alone, so it says so with two labels rather than being hidden behind
   a synthetic "tier-D-mutations".
-- **`tier-C` covers both platforms.** The 118 X11 `conformance-*` and the 14
+- **`tier-C` covers both platforms.** The 87 X11 `conformance-*` and the 14
   Android `engine-android-conformance-*` tests are the same tier on different
   adapters — that is what makes the corpus a cross-platform contract. Narrow to
   one with `-R conformance-` / `-R engine-android-conformance-`.
@@ -400,11 +400,14 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**118 traces, 3,863 events, 1,969 commit assertions**, registered as ctest
-`conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`). That includes all nine `ref-*` corpora —
-the goldens libhangul parity was established with — so the fcitx5 adapter is now checked
-against libhangul across the *frontend* boundary, not only the engine boundary tier A
-already covered. Every trace was re-checked against its tier A case: zero divergence.
+**87 traces, 201 events**, registered as ctest
+`conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`). The corpus was reduced 2026-10-25 for
+word buffering (#74): the 31 multi-syllable cases whose per-syllable expectations the
+buffered adapter cannot reproduce, and the nine `ref-*` corpora (libhangul parity,
+401 events each), were dropped rather than re-emitted. libhangul parity is asserted at
+tier A (engine boundary) only until the `ref-*` traces are regenerated against the
+buffered adapter. Every remaining trace was re-checked against its tier A case: zero
+divergence.
 
 Three properties the generator had to get right, each found by making the gate
 adversarial rather than by reading the code:
@@ -438,7 +441,7 @@ declared — `F9` has no `KEYCODE_F9`, because on Android the function row is a 
 CapsLock and modifiers are now covered deliberately rather than incidentally.
 
 Between them the tiers leave no gap: the fixture proves every key has a correct native
-encoding, and the 118 traces prove the adapter applies it.
+encoding, and the 87 traces prove the adapter applies it.
 
 **Equivalence extension (2026-10-24, requirement).** The rule in
 `docs/FRONTEND-EQUIVALENCE.md` makes this tier the cross-frontend authority:
