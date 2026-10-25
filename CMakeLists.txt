@@ -868,6 +868,28 @@ if(BUILD_TESTING)
         LABELS "tier-D3;slow"
         SKIP_RETURN_CODE 77 TIMEOUT 300)
     endforeach()
+    # D3-EDIT: edit-key scenarios (backspace, mode toggle, candidate window),
+    # separate so a failure is diagnosed by its scenario, not mixed into the
+    # ordinary D3 cases.
+    add_test(NAME engine-d3-edit
+      COMMAND ${CMAKE_COMMAND} -E env HUNMIN_D3_CLIENT=xim
+              HUNMIN_D3_EDIT_CASES=${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases-edit.tsv
+              bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
+              $<TARGET_FILE:hunmin-sim>
+              ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+              $<TARGET_FILE:xim-harness>
+              ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
+              ${CMAKE_BINARY_DIR}/fcitx5-addon
+              ${CMAKE_BINARY_DIR}/frontends/fcitx5/src/hunmin.conf
+              ${CMAKE_BINARY_DIR}/frontends/fcitx5/src/hunmin-addon.conf
+              ${CMAKE_CURRENT_SOURCE_DIR}
+              ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases.tsv
+              ${d3_addon_dir}
+              ${d3_pkgdata_dir})
+    set_tests_properties(engine-d3-edit PROPERTIES
+      LABELS "tier-D3;slow"
+      SKIP_RETURN_CODE 77 TIMEOUT 300)
+
     # D3-CANDIDATE: the F9 candidate window, drawn for real (issue #53).
     # The same stack as engine-d3-x11 with ONE difference: classicui is
     # ENABLED, so the candidate window is actually drawn and the #45 abort
