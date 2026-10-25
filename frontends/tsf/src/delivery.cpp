@@ -114,6 +114,31 @@ public:
         return true;
     }
 
+    bool OwnsDocumentText() const override { return true; }
+
+    /* A commit arriving from the engine (the syllable unit delivers each
+     * finalised syllable here; the buffered unit delivers only at the
+     * boundary). The text REPLACES the span's current content and the span
+     * advances past it, so the in-flight syllable lands after the delivered
+     * text instead of on top of it. Measured defect before this: with the
+     * per-syllable unit the document ended as the LAST syllable alone
+     * ("안녕" typed, "녕" in the control) because the native InsertText path
+     * wrote at the caret while the span still pointed at that range. */
+    void InsertText(ITfContext *pic, const std::wstring &text) override {
+        if (text.empty())
+            return;
+        HWND hwnd = ResolveControl(pic);
+        if (!hwnd)
+            return;
+        RemoveDeadCopy(hwnd);
+        if (preLen_ == 0 && preStart_ < 0)
+            preStart_ = EmCaret(hwnd);
+        ReplaceSpan(hwnd, text);
+        preStart_ += (LONG)text.size();
+        preLen_ = 0;
+        hunmin_logger.log("interim: delivered %zu chars, span moves to %ld\n", text.size(), preStart_);
+    }
+
     void Post(PendingWrite kind) {
         pendingWriteKind_ = kind;
         s_writer = this;

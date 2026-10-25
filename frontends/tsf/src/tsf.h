@@ -139,6 +139,14 @@ struct Delivery {
     /* A host termination fused the composition's text into the doc:
      * the mode decides what to do with the dead copy. */
     virtual void CaptureDeadCopy(const std::wstring &copy) = 0;
+    /* True when this delivery keeps the text in the DOCUMENT and rewrites it
+     * through its own protocol, so the engine's commit must be delivered HERE
+     * rather than through the composition path. The interim delivery does;
+     * the native one writes through a live ITfComposition instead. */
+    virtual bool OwnsDocumentText() const { return false; }
+    /* Deliver committed text on a delivery that owns the document. Only
+     * called when OwnsDocumentText() is true. */
+    virtual void InsertText(ITfContext *pic, const std::wstring &text) { (void)pic; (void)text; }
 };
 
 struct HunminDeliveryFactory {

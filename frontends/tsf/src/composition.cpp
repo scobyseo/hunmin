@@ -338,6 +338,14 @@ void CTextService::InsertBufferedWord(ITfContext *pic) {
 void CTextService::InsertText(ITfContext *pic, const std::wstring &text) {
     if (text.empty())
         return;
+    /* The delivery that keeps text in the document owns HOW it lands there:
+     * the interim path needs its span bookkeeping advanced, and writing at
+     * the caret instead is what truncated the word under the syllable unit
+     * (measured, tier F1 LegacyTest.CommitUnitSyllable*). */
+    if (delivery_ && delivery_->OwnsDocumentText()) {
+        delivery_->InsertText(pic, text);
+        return;
+    }
     if (composition_) {
         CompositionEnd(pic, text);
         return;
