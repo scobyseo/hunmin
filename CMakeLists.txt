@@ -631,6 +631,29 @@ if(BUILD_TESTING AND Python3_FOUND)
   # verifies that every mutation anchor still matches its source, which is what
   # keeps a rename from silently un-anchoring a mutation (2026-10-16).
   set_tests_properties(docs-lint PROPERTIES LABELS "tier-G;slow;guard")
+  # req-map: docs/REQ-MAP.md is a pointer layer (requirement -> architecture ->
+  # design -> implementation -> verification), and its whole purpose is to let
+  # duplicated prose be deleted from the other documents. That only holds if
+  # the pointers resolve, so this check fails on a dead path, an anchor with no
+  # heading or symbol behind it, an unregistered ctest id, a row missing a
+  # column, and a SPEC requirement id with no row. It reads the source
+  # add_test(NAME ...) declarations as well as this build's `ctest -N`, because
+  # the fcitx5/Android/trace tiers register only where their SDKs are present
+  # (see the header of tools/req-map-check.py).
+  # The id is written out literally: tools/docs-lint.py check 6 finds a test by
+  # grepping the sources for `add_test(NAME <id>`.
+  #
+  # `tier-G` and deliberately NOT `guard`: this costs ~1.9 s (1.7 s of it the
+  # nested `ctest -N`), and docs/TESTING.md §"The three levels" states the
+  # commit-level selection as a measured figure. Adding a fourth cheap test
+  # would make that figure wrong without a measurement of the new total, and a
+  # second home for it here is exactly what this map exists to prevent. It runs
+  # in the full suite and in CI, which is where a documentation pointer check
+  # belongs.
+  add_test(NAME req-map
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/req-map-check.py
+            --build-dir ${CMAKE_CURRENT_BINARY_DIR})
+  set_tests_properties(req-map PROPERTIES LABELS "tier-G")
   # The mode corpus tool's --selfcheck: proves the checks can fail. Runs on a
   # committed corpus when one is present, and skips (77) when it is not, so CI
   # -- which has no dump -- does not report a missing data file as a failure.

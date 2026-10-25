@@ -156,7 +156,7 @@ JNI cannot return a struct, so a key's answer is three reads of layer state:
 through `hunmin_buffered_preedit_external_text`, which delivers the word first
 and then the engine's pass-through, keeping invariant 5's ordering.
 
-TSF still carries its own `wordbuf_`; it is the rest of this issue.
+All three frontends are on the layer (§8.1): TSF keeps no `wordbuf_` — the seam exposes the layer and its two halves (commit 66a446c).
 
 ## 6. One corpus, every frontend, both TSF modes
 
