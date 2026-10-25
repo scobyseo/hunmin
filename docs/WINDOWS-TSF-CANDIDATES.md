@@ -32,9 +32,9 @@ one character at a time).
 
 ## What the adapter supplies (`frontends/tsf/src/tsf.cpp`)
 
-- **Anchor — the whole buffered word, not the preedit.** The lookup text is
-  the accumulated finalised syllables (the adapter's `wordbuf_`) plus the
-  in-flight preedit. fcitx5 anchors to its preedit only
+- **Anchor — the whole buffered word, not the preedit** (`docs/SPEC-TSF.md#§TSF9`).
+  The lookup text is the layer's finished word plus the in-flight preedit; the
+  adapter keeps no buffer of its own since issue #128. fcitx5 anchors to its preedit only
   (`frontends/fcitx5/src/hunminadapter.cpp` `openCandidates`), because it commits
   each syllable immediately; the buffered adapter holds the word, so the
   lookup must cover it. This divergence is deliberate and recorded: the
@@ -70,7 +70,7 @@ one character at a time).
   number is kept and PageUp/PageDown are what the rest of the list sits
   behind.
 - **Commit replaces the whole buffered word.** `hunmin_ic_reset()` drops the
-  composition the list was anchored to, the adapter's `wordbuf_` is
+  composition the list was anchored to, the layer's word is
   replaced by the chosen text, and the normal boundary path inserts it
   exactly once. The Hangul is never typed into the document, so there is
   nothing to delete and no surrounding-text surgery anywhere — the same
@@ -109,7 +109,7 @@ runs. Everything state-machine-shaped IS exercised: see `tsf-candidate-test`.
 
 The buffered word is editable by backspace through the engine, and the
 contract is asserted, not just claimed (`tsf-candidate-test` case 11):
-dubeolsik `dkssud` composes `안`(wordbuf) + `녕`(preedit); Backspace walks
+dubeolsik `dkssud` composes `안` (finished) + `녕` (in flight); Backspace walks
 the engine's in-flight preedit down `녕 → 녀 → ㄴ → ""` (`hunmin-sim` trace,
 2026-10-17), each step consumed, no insert, the key never reaching the app;
 one more Backspace hits the empty preedit, the engine declines, and the
@@ -134,11 +134,9 @@ insert, Esc close, toggle close, and the backspace edit walk.
 
 ## Provenance and scope
 
-- Board rows in `docs/REMAINING-WORK.md` are deliberately untouched: that
-  file is the shared status board every active session patches, and this
-  PR was built while the parallel `tsf-config-dialog` session (issue #71)
-  was still open. Rows can be added at merge time; the "no second home"
-  rule is satisfied by naming the exclusion here.
+- The board rows for this milestone live in `docs/REMAINING-WORK.md`
+  (`TSF-CANDIDATE-67`, `TSF-HANJAKEY-67`, `TSF-LISSYLL-67`); the counts below
+  are not copied there, so there is one home for a measurement.
 - Candidate counts above are data-dependent by nature: a krdict/hanja
   regeneration changes them. The TEST anchors on them are the lookup keys
   (`dkssud` → 2, `rk` → ≥11, `rkrkrk` → 0) — the counts themselves were
