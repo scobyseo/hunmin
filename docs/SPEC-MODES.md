@@ -503,6 +503,11 @@ Consequences worth stating because they are the point of the simplification:
   mode unless the structural test says otherwise. Recorded here as the measured
   cost of the ruling, not as an objection to it.
 
+**Deferred 2026-10-25:** `docs/MODES-DATA.md` and the corpus list it
+describes are left in place and revisited in a later phase when it is
+needed; the list no longer defines `english_valid`, so its sections are a
+record, not the current definition.
+
 **Not decided by this entry, and left open:** whether the corpus list, the cap
 and the MODES-DATA sections that describe them are deleted or kept as the
 record of the measurement; and whether R9's threshold (E3) is re-based now that
