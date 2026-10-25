@@ -141,6 +141,33 @@ def source_targets(value: str) -> list[str]:
     return [e.group(1).strip().strip("'\"") for e in ENTRY.finditer(value)]
 
 
+# A `path:line` citation is only evidence while the line exists. The 2026-10-22
+# extraction round cut tsf.cpp from 2,320 lines to 528, which silently turned
+# three citations in a decision page into pointers past EOF (issue #134). The
+# check is deliberately narrow: it fires only when the FILE exists and the line
+# is past its end, so a dated `raw/` record naming a path that was renamed later
+# is not flagged here (raw/ is exempt entirely).
+CITE = re.compile(r"`?([A-Za-z0-9_./-]+\.(?:c|h|cpp|kt|py|sh|md|yml|json)):(\d+)(?:-(\d+))?`?")
+
+
+def check_citation_lines(rel: str, text: str) -> None:
+    if "/raw/" in rel.replace(os.sep, "/"):
+        return
+    for m in CITE.finditer(text):
+        path, first, last = m.group(1), int(m.group(2)), m.group(3)
+        full = os.path.join(ROOT, path)
+        if not os.path.exists(full):
+            continue  # a missing path is a different defect class; not this rule
+        try:
+            n = sum(1 for _ in open(full, encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+        over = int(last) if last else first
+        if over > n:
+            err(f"{rel}: cites {path}:{over}, but that file has {n} lines "
+                f"-- a citation past EOF is not evidence")
+
+
 def check_sources_exist(rel: str, path: str, text: str) -> None:
     """Verify all `sources:` targets exist (relative to page dir or wiki root)."""
     fm = FM.match(text)
@@ -254,6 +281,7 @@ def main():
                 warn(f"{rel}: raw page has no 'ingested:' stamp")
 
         check_sources_exist(rel, path, text)
+        check_citation_lines(rel, text)
 
         for target in LINK.findall(body):
             inbound[os.path.splitext(os.path.basename(target))[0]].add(stem)
