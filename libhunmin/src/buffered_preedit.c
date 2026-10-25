@@ -279,6 +279,54 @@ const char *hunmin_buffered_preedit_external_text(hunmin_buffered_preedit *l, co
     return l->commit_out;
 }
 
+/* ----------------------------------------------------------- the key rule */
+
+/* The keys an open candidate list consumes, wherever it is drawn: navigation,
+ * page, commit and cancel. Shared because the MEANING is shared -- each
+ * frontend only says whether its list is open. */
+static bool candidate_list_key(hunmin_key_id id) {
+    switch (id) {
+    case HUNMIN_KEY_UP:
+    case HUNMIN_KEY_DOWN:
+    case HUNMIN_KEY_LEFT:
+    case HUNMIN_KEY_RIGHT:
+    case HUNMIN_KEY_PAGE_UP:
+    case HUNMIN_KEY_PAGE_DOWN:
+    case HUNMIN_KEY_ENTER:
+    case HUNMIN_KEY_ESCAPE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit *l, const hunmin_key_event *ev) {
+    if (!l || !l->ic || !ev) return HUNMIN_KEY_BOUNDARY_PASS;
+    /* The language action first: the Han/Eng key is the one key that is never
+     * composition input, whatever else is held (a repeat guard is a platform
+     * fact and stays in the adapter). */
+    if (ev->language_key) return HUNMIN_KEY_LANGUAGE_TOGGLE;
+    /* Then the frontend's open list: while it is open, these keys are the
+     * list's. A different key closes nothing here -- the frontend closes the
+     * window and re-classifies, which is its presentation decision. */
+    if (ev->candidates_open && candidate_list_key(ev->id)) return HUNMIN_KEY_CANDIDATE;
+    /* A chord belongs to the application: Ctrl+A is not composition input, and
+     * the SHIFT bit travelling beside base is a layout row, not a chord. */
+    if (ev->mods & HUNMIN_MOD_CHORD) return HUNMIN_KEY_BOUNDARY_PASS;
+    /* A named key with no list open is a boundary: Enter is a paragraph break,
+     * an arrow moves the caret -- none of them is composition input. */
+    if (ev->id != HUNMIN_KEY_TEXT) return HUNMIN_KEY_BOUNDARY_PASS;
+    /* An unmapped character key is a boundary too: the word is delivered and
+     * the key passes, which is how space and punctuation reach the client. */
+    if (ev->base == 0) return HUNMIN_KEY_BOUNDARY_PASS;
+    return HUNMIN_KEY_FEED;
+}
+
+const char *hunmin_buffered_preedit_composing(hunmin_buffered_preedit *l) {
+    if (!l || !l->ic) return "";
+    return hunmin_ic_preedit(l->ic);
+}
+
 /* ------------------------------------------------------------ Han/Eng mode
  *
  * docs/FRONTEND-EQUIVALENCE.md §4: Android delivers the Han/Eng key as a Kana

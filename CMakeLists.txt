@@ -289,6 +289,17 @@ if(BUILD_TESTING AND Python3_FOUND)
     LABELS "tier-A"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
+  # Tier A for the shared key rule (issue #128, decision C): the precedence is
+  # asserted HERE once, so the frontends keep only mapping and rendering tests.
+  add_executable(key-rule-test libhunmin/tests/key-rule-test.cpp)
+  target_link_libraries(key-rule-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(key-rule-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
+  target_include_directories(key-rule-test PRIVATE libhunmin/include)
+  add_test(NAME engine-key-rule COMMAND key-rule-test)
+  set_tests_properties(engine-key-rule PROPERTIES
+    LABELS "tier-A"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
   # Structural invariants of the fcitx5 adapter that tier D1 provably does
   # not cover (docs/FRONTEND-CONTRACT.md §4: mutation testing showed the
   # commit/flush split and the caps option can both break with D1 still green).

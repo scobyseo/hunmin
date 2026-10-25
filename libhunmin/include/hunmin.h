@@ -226,6 +226,80 @@ HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l
  * Returns the concatenation. */
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_external_text(hunmin_buffered_preedit *l, const char *text);
 
+/* --- The key rule (issue #128, decision 2026-10-25) ---
+ *
+ * Precedence is BEHAVIOUR, not presentation, so it lives here instead of being
+ * spelled out in each adapter: three frontends used to carry three copies of
+ * "a Ctrl chord is a boundary and the key passes", "an unmapped key is a
+ * boundary", "the Han/Eng key is the language action", and each copy had its own
+ * chance to drift.
+ *
+ * What stays with the frontend is everything the contract calls a frontend
+ * difference (docs/FRONTEND-EQUIVALENCE.md §3): mapping a platform key to
+ * (base, shift, mods), and saying whether a candidate list it owns is open and
+ * whether this key is one that list consumes. The rule then answers what the
+ * shared layer must do with it.
+ */
+typedef enum hunmin_key_action {
+    /* Ours: feed it and take the commit/preedit the layer produces. */
+    HUNMIN_KEY_FEED = 0,
+    /* The word is finished (or the key is not ours): deliver the word now and
+     * let the key reach the client. */
+    HUNMIN_KEY_BOUNDARY_PASS = 1,
+    /* The Han/Eng action: a boundary, then the other language takes over. */
+    HUNMIN_KEY_LANGUAGE_TOGGLE = 2,
+    /* A key of an open candidate list: the frontend routes it to the list. */
+    HUNMIN_KEY_CANDIDATE = 3
+} hunmin_key_action;
+
+/* The modifier vocabulary a frontend maps its own state onto. SHIFT is
+ * deliberately separate from the chord set: it selects a layout row, it does
+ * not make the key the application's. */
+#define HUNMIN_MOD_CTRL (1u << 0)
+#define HUNMIN_MOD_ALT (1u << 1)
+#define HUNMIN_MOD_GUI (1u << 2) /* Super / Win / Command */
+#define HUNMIN_MOD_SHIFT (1u << 3)
+#define HUNMIN_MOD_CHORD (HUNMIN_MOD_CTRL | HUNMIN_MOD_ALT | HUNMIN_MOD_GUI)
+
+/* Keys that carry no text character. The layer names them so the candidate
+ * list's key set can be shared instead of re-spelled per frontend; everything
+ * else travels as `base` (the unshifted US-QWERTY character, 0x08 for
+ * BackSpace, 0 when the platform key maps to nothing). */
+typedef enum hunmin_key_id {
+    HUNMIN_KEY_TEXT = 0, /* a character: read base */
+    HUNMIN_KEY_UP = 1,
+    HUNMIN_KEY_DOWN = 2,
+    HUNMIN_KEY_LEFT = 3,
+    HUNMIN_KEY_RIGHT = 4,
+    HUNMIN_KEY_PAGE_UP = 5,
+    HUNMIN_KEY_PAGE_DOWN = 6,
+    HUNMIN_KEY_ENTER = 7,
+    HUNMIN_KEY_ESCAPE = 8
+} hunmin_key_id;
+
+/* One key event, already translated into the shared vocabulary. */
+typedef struct hunmin_key_event {
+    uint32_t base; /* unshifted US-QWERTY character; 0 = the platform mapped nothing */
+    uint32_t shift; /* nonzero when Shift is held (the engine's shift bit) */
+    uint32_t mods; /* HUNMIN_MOD_* */
+    hunmin_key_id id; /* HUNMIN_KEY_TEXT for a character event */
+    /* The one thing only the frontend knows: whether ITS candidate window is
+     * open. The keys that window consumes are named here, not there. */
+    int candidates_open;
+    /* The frontend matched its Han/Eng binding for this key. */
+    int language_key;
+} hunmin_key_event;
+
+/* The precedence, in one place: language key, then the open candidate list's
+ * keys, then a chord, then an unmapped key, then feed. */
+HUNMIN_EXPORT hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit *l, const hunmin_key_event *ev);
+
+/* The syllable in flight alone, without the finished word and without a key.
+ * The interim delivery mode keeps the finished word as document text and
+ * rewrites only this, so the two halves the display joins have to be readable
+ * separately (docs/FRONTEND-EQUIVALENCE.md §3.3). */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_composing(hunmin_buffered_preedit *l);
+
 /* The Han/Eng action (docs/FRONTEND-EQUIVALENCE.md §4): one abstract event, so
  * an adapter's raw platform code never reaches the engine. It is a boundary -
  * whatever was composing in the old language is committed before the switch.
