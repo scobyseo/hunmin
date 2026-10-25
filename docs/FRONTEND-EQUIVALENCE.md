@@ -264,7 +264,7 @@ normalisation.
 | dimension | fcitx5 | Android | TSF | §3 |
 |---|---|---|---|---|
 | key to `(base, shift, mods)` | `kSymKeyIds` table + `KeyStates` | `HunminKeyRegistry.engineBase` + metaState | `VkToBase` + keymods | allowed, §3.1 |
-| commit unit | `CommitBehavior` config | `commit_behavior` preference | policy fixed to the buffered word; a seam exists for the corpus | allowed, §3.3 — but only two of three are user-selectable |
+| commit unit | `CommitBehavior` config | `commit_behavior` preference | `CommitUnit` (Win32 dialog and the WinUI settings row) | allowed, §3.3 — resolved 2026-10-25, commit 1430ab7 |
 | preedit presentation | client preedit, else the panel | `setComposingText` | `ITfComposition`, or the interim document span | allowed, §3.3 |
 | delivery strategies | one | one | two (native, interim) | allowed; only TSF meets classic hosts |
 | candidate anchor | `display()` | the service owns the Hanja UI | native `display()`, interim `composing()` | allowed, §3.3 |
@@ -287,10 +287,10 @@ normalisation.
    and then routes locally, Android reports no candidate window, TSF never
    reaches it. The rule is shared; the use is not. Resolving it means routing
    each frontend's list keys through the answer instead of around it.
-3. **TSF's commit unit is not user-selectable.** fcitx5 and Android read a
-   setting; TSF pins the buffered word and keeps an environment seam for the
-   corpus. The missing piece is a settings-dialog row; the layer already takes
-   the choice.
+3. **~~TSF's commit unit is not user-selectable.~~** Resolved 2026-10-25
+   (commit `1430ab7`): `CommitUnit` in the TSF config store, with the row on
+   both settings surfaces, so all three frontends now read a setting. The
+   env -> registry -> default chain keeps the corpus seam.
 4. **External text exists on Android only.** Not a defect — the voice path is
    Android's — but it means invariant 5 has no second frontend exercising it, and
    nothing would notice if the layer's pass-through regressed for others.
