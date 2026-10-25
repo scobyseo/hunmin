@@ -10,7 +10,7 @@ Status: **shape + contract reference only** — no design verdict, no implementa
 | Module | Lives in | Role | Depends on |
 |---|---|---|---|
 | **libhunmin** | `libhunmin/` | Core engine: `hunmin_ctx` (layout/load), `hunmin_ic` (per-key composition, commit/preedit, options). Stable ABI, append-only. | `data/` (JSON: layouts, compose, hanja, krdict, idioms) |
-| **fcitx5 addon** | `frontends/fcitx5/` | Thin frontend: fcitx5 `InputMethodEngine`/`InputContext` + `modeswitch.*` (R8 cross-frontend wrapper). | `libhunmin` ABI |
+| **fcitx5 addon** | `frontends/fcitx5/` | Thin frontend: fcitx5 `InputMethodEngine`/`InputContext` + `language_detect.*` (R8 cross-frontend wrapper). | `libhunmin` ABI |
 | **Android IME** | `frontends/android/` | Kotlin IME (`HunminInputMethodService`), JNI shim (`HunminNativeBridge`), layout/keys data, settings/UI. | `libhunmin` ABI (shipped as `.so`) |
 | **tools** | `tools/` | `kbd2data`, `extract_tables`, `gen-conformance`, `trace-check`, `doctor.py`, `docs-lint`, etc. | `libhunmin` dev headers |
 
@@ -20,7 +20,7 @@ Status: **shape + contract reference only** — no design verdict, no implementa
 - **Frontend owned**: key mapping, preedit/candidate display, per-IM settings, on/off *surface* (R13) — the engine owns the state, the frontend exposes it.
 - **None owned in the core**: anything that differs between frontends (adaptation of the same rule to different event spaces) belongs in the frontend, not `libhunmin`.
 
-## 3. The modeswitch question (R8) — design, now decided
+## 3. The language-detection question (R8) — design, now decided
 
 Requirement (SPEC-MODES.md): a single judgement rule, owned by one component,
 delivered identically in fcitx5, Android, and (planned) Windows. Two virtual
@@ -28,7 +28,7 @@ architectures satisfy it:
 
 - **Engine-owned** — guessing/shadow-composition inside `libhunmin`, one ctx
   rule, ABI change.
-- **Adaptor-owned** — `modeswitch.*` (fcitx5) keeps a shadow `hunmin_ctx` on the
+- **Adaptor-owned** — `language_detect.*` (fcitx5) keeps a shadow `hunmin_ctx` on the
   Latin layout and replays the buffered word at the judgement boundary.
 
 **Decision (2026-10-13): Adaptor-owned.** R8 is too heavy for the engine: it
@@ -38,7 +38,7 @@ with no measurement yet (`MODES-ENGINE-RULES.md §4`), plus a `hunmin_ctx` state
 model that is not built for dual-layout shadow sessions. The engine's job is
 composition and commit/preedit; a cross-frontend validity judgement is a
 frontend concern. The engine keeps `hunmin_ctx` as a single-layout session and
-stays ABI-stable. `modeswitch.*` remains the fcitx5 implementation; the same
+stays ABI-stable. `language_detect.*` remains the fcitx5 implementation; the same
 contract (shadow `hunmin_ctx` + per-boundary replay) is the record for what
 Android would do under the same rule, since Android also passes the judgement
 forward. No engine or core ABI change results.
@@ -65,7 +65,7 @@ schema for guessing — is unaffected.
 | Options | `hunmin_ic_set_option(ic,"caps",1)` etc. | engine-owned state; frontend surfaces it |
 | External text pass-through | `hunmin_ic_flush` (commits in-flight first) | voice / out-of-band text must never go through the jamo pipeline |
 | Android data path | `HunminNativeBridge.kt` ↔ `libhunmin.so` | native shim bridges Kotlin → C ABI |
-| fcitx5 addon lifecycle | `HunminEngine`, `HunminState`, `modeswitch.{h,cpp}` | `engine.cpp:106` owns the adapter; `engine.cpp:342,359` record+judge at the boundary |
+| fcitx5 addon lifecycle | `HunminAdapter`, `HunminState`, `language_detect.{h,cpp}` | `hunminadapter.cpp:106` owns the adapter; `hunminadapter.cpp:342,359` record+judge at the boundary |
 | Cross-frontend equivalence | `docs/FRONTEND-EQUIVALENCE.md` | same key sequence → same commit/preedit/consumed; TSF interim and native agree |
 
 ## 6. Version / ABI policy

@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
-#include "modeswitch.h"
+#include "language_detect.h"
 
 #include <fcitx-utils/log.h>
 
@@ -17,7 +17,7 @@ namespace fcitx {
  * hunmin_ic_preedit() for whatever is still composing when the word ends.
  * Reading them in the other order, or reading either twice, loses or duplicates
  * text. */
-std::string ModeSwitchAdapter::judge(const std::string &latinLayout, size_t minLen) {
+std::string LanguageDetector::judge(const std::string &latinLayout, size_t minLen) {
     std::string out;
     if (word_.size() < minLen || word_.empty()) {
         word_.clear();
@@ -29,7 +29,7 @@ std::string ModeSwitchAdapter::judge(const std::string &latinLayout, size_t minL
      * w/W/z/h/H override across the boundary. ~3 us, so correctness wins. */
     hunmin_ic *shadow = hunmin_ic_new(ctx_, latinLayout.c_str());
     if (!shadow) {
-        FCITX_ERROR() << "hunmin: modeswitch: no such layout: " << latinLayout;
+        FCITX_ERROR() << "hunmin: language_detect: no such layout: " << latinLayout;
         word_.clear();
         return out;
     }

@@ -3,7 +3,7 @@
 
 docs/FRONTEND-CONTRACT.md §5 claims those invariants are guarded. A guard
 nobody ever tries is an assumption. This file plants each known-interesting
-mutation of engine.cpp and records whether the checker and/or engine-d1-fcitx5
+mutation of hunminadapter.cpp and records whether the checker and/or engine-d1-fcitx5
 reject it, so the claims stay checkable instead of aspirational.
 
 Format, one record per mutation:
@@ -28,7 +28,7 @@ import sys
 import tempfile
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-ENGINE_REL = pathlib.Path("frontends/fcitx5/src/engine.cpp")
+ENGINE_REL = pathlib.Path("frontends/fcitx5/src/hunminadapter.cpp")
 ENGINE = REPO / ENGINE_REL
 CHECKER_REL = pathlib.Path("tools/check-frontend-invariants.py")
 CHECKER = REPO / CHECKER_REL
@@ -37,15 +37,19 @@ CHECKER = REPO / CHECKER_REL
 MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
     (
         "I1-commit-flush-both",
-        "        } else {\n            // Engine declined",
-        "        }\n        if (!used) {\n            // Engine declined",
-        True,
-        False,  # known gap: D1 has no case producing commit + in-flight syllable
-        False,  # and D2 asserts panel state, not commit routing
+        "        if (out.commit && *out.commit) {",
+        "        if (out.commit && *out.commit && used) {",
+        False,
+        True,  # #128: the adapter delivers the layer's answer, so this is no
+        True,  # longer visible structurally -- but D1's boundary commit
+        #        expectation and D2's panel assertion both reject it now
+        #        (measured 2026-10-25; the old gap was D1 having no case that
+        #        produced commit + in-flight text, and buffered delivery is
+        #        exactly that case)
     ),
     (
         "I5-caps-dropped",
-        'hunmin_ic_set_option(hunminIc_, "caps", caps ? 1 : 0);',
+        'hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);',
         "",
         True,
         True,  # closed by de0de72: D1 pins sin3-p2-yet and replays the golden
@@ -74,11 +78,11 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
     # which is why the old entry had to be replaced rather than kept.
     (
         "I3-accept-unguarded",
-        "        updateUI();\n        // Only consume what the engine actually took. A key it declined\n        // (space, backspace on an empty buffer, an unmapped keysym) belongs to\n        // the client, and that is how it reaches it. This is FRONTEND-CONTRACT\n        // \u00a75 rule 3.\n        if (used) {\n            keyEvent.filterAndAccept();\n        }",
-        "        updateUI();\n        keyEvent.filterAndAccept();",
+        "        if (used) {\n            keyEvent.filterAndAccept();\n        }",
+        "        keyEvent.filterAndAccept();",
         True,
-        True,
-        False,  # D2 never asserts acceptance, only what the panel shows
+        True,  # D1: a declined key would be swallowed instead of reaching the client
+        False,
     ),
     # Tier D2 (InputPanel presentation) -- these were found by planting them
     # while writing testhunminui; all four compile and pass D1, so without the
@@ -101,7 +105,7 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
     ),
     (
         "D2-cursor-at-zero",
-        "text.setCursor(std::strlen(preedit));",
+        "text.setCursor(std::strlen(shown));",
         "",
         False,
         False,
@@ -121,17 +125,22 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
     ),
     (
         "I4-shift-chord",
-        "modifiers |= KeyState::Ctrl;",
-        "modifiers |= KeyState::Shift_L;\n    modifiers |= KeyState::Ctrl;",
+        "if (states.test(KeyState::Ctrl)) ev.mods |= HUNMIN_MOD_CTRL;",
+        "if (states.test(KeyState::Ctrl) || states.test(KeyState::Shift_L)) ev.mods |= HUNMIN_MOD_CTRL | HUNMIN_MOD_SHIFT;",
         True,
-        False,  # does not compile; reported as a build failure below
+        True,  # every shifted letter becomes a boundary and passes: D1's uppercase cases fail
         False,
     ),
 ]
 
 
-def _run(cmd: list[str], timeout: int = 180, cwd: pathlib.Path | None = None) -> int:
-    return subprocess.run(cmd, cwd=cwd or REPO, capture_output=True, timeout=timeout).returncode
+def _run(cmd: list[str], timeout: int = 180, cwd: pathlib.Path | None = None,
+         stderr_path: pathlib.Path | None = None,
+         env: dict[str, str] | None = None) -> int:
+    proc = subprocess.run(cmd, cwd=cwd or REPO, capture_output=True, timeout=timeout, env=env)
+    if stderr_path is not None:
+        stderr_path.write_bytes(proc.stdout + proc.stderr)
+    return proc.returncode
 
 
 def _apply(text: str, old: str, new: str) -> str | None:
@@ -147,7 +156,7 @@ def _apply(text: str, old: str, new: str) -> str | None:
 MUT_TARGETS = ["hunmin", "testhunmin", "testhunminui"]
 
 # -j on every build. Measured at 2451fdc: rebuilding the two test binaries
-# after touching engine.cpp takes 3.2 s serially and 1.5 s with -j16, and this
+# after touching hunminadapter.cpp takes 3.2 s serially and 1.5 s with -j16, and this
 # runs nine times, so the missing flag was most of a third of the tier. With
 # Makefiles -- which is what this project configures -- ninja's default
 # parallelism does not apply and cmake --build inherits nothing.
@@ -238,7 +247,7 @@ class Strategy:
 
       in-tree   plant in the working tree, rebuild the shared build/.
                 No setup cost, and what a single CI run wants. For its whole
-                duration the checkout holds a deliberately broken engine.cpp
+                duration the checkout holds a deliberately broken hunminadapter.cpp
                 and build/ holds binaries built from it, so nothing else that
                 uses the fcitx5 addon may be running -- including another
                 session's ctest, which is why it was RUN_SERIAL.
@@ -261,7 +270,7 @@ class Strategy:
         raise NotImplementedError
 
     def engine(self) -> pathlib.Path:
-        """The engine.cpp this strategy mutates."""
+        """The hunminadapter.cpp this strategy mutates."""
         raise NotImplementedError
 
     def build(self) -> int:
@@ -298,6 +307,39 @@ class Sandbox(Strategy):
     name = "sandbox"
 
     @staticmethod
+    def _parent_prefixes() -> list[str]:
+        """The prefixes this host actually built against, from the parent
+        cache. A dependency installed outside the system prefix (fcitx5 5.1.13
+        in $HOME on the WSL host) is reachable two ways -- CMake config files
+        through CMAKE_PREFIX_PATH, pkg-config files through PKG_CONFIG_PATH --
+        and a tree that needs the second fails its INITIAL BUILD in the sandbox
+        while the parent built fine. Both are derived from the same value."""
+        for cache in REPO.glob("build*/CMakeCache.txt"):
+            for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.startswith("CMAKE_PREFIX_PATH:"):
+                    value = line.partition("=")[2]
+                    return [p for p in value.split(";") if p.strip()]
+        # A build tree OUTSIDE the repo (the WSL layout keeps one in $HOME, so
+        # the glob above finds nothing) leaves only the caller's environment.
+        # Not an error: the harness then builds exactly like the shell that
+        # invoked it, which is what a pre-2026-10-25 run did.
+        return [p for p in os.environ.get("CMAKE_PREFIX_PATH", "").split(os.pathsep) if p.strip()]
+
+    @classmethod
+    def _sandbox_env(cls) -> dict[str, str]:
+        env = dict(os.environ)
+        pcs: list[str] = []
+        for prefix in cls._parent_prefixes():
+            for sub in ("lib/pkgconfig", "lib/x86_64-linux-gnu/pkgconfig", "share/pkgconfig"):
+                candidate = pathlib.Path(prefix) / sub
+                if candidate.is_dir():
+                    pcs.append(str(candidate))
+        if pcs:
+            existing = env.get("PKG_CONFIG_PATH", "")
+            env["PKG_CONFIG_PATH"] = os.pathsep.join(pcs + ([existing] if existing else []))
+        return env
+
+    @staticmethod
     def _parent_toolchain() -> list[str]:
         """The sandbox must configure like the parent tree did. A bare
         `cmake -B build` picks the platform default generator -- Visual Studio
@@ -321,7 +363,16 @@ class Sandbox(Strategy):
             if vals.get("CMAKE_GENERATOR_PLATFORM:INTERNAL"):
                 overrides += ["-A", vals["CMAKE_GENERATOR_PLATFORM:INTERNAL"].strip()]
             for key, opt in (("CMAKE_C_COMPILER:FILEPATH", "-DCMAKE_C_COMPILER="),
-                             ("CMAKE_CXX_COMPILER:FILEPATH", "-DCMAKE_CXX_COMPILER=")):
+                             ("CMAKE_CXX_COMPILER:FILEPATH", "-DCMAKE_CXX_COMPILER="),
+                             # A dependency installed OUTSIDE the system prefix
+                             # (fcitx5 5.1.13 in $HOME here) is found only
+                             # through this cache value. Without it the sandbox
+                             # configures, then fails its INITIAL BUILD, which
+                             # reads as a code failure and is not one -- the
+                             # parent tree built only because the shell that
+                             # configured it had CMAKE_PREFIX_PATH exported.
+                             ("CMAKE_PREFIX_PATH:UNINITIALIZED", "-DCMAKE_PREFIX_PATH="),
+                             ("CMAKE_PREFIX_PATH:STRING", "-DCMAKE_PREFIX_PATH=")):
                 if vals.get(key):
                     overrides.append(opt + vals[key].strip())
             break
@@ -340,8 +391,11 @@ class Sandbox(Strategy):
                   cwd=src)
         if rc != 0:
             raise SystemExit("sandbox: cmake configure failed")
-        if self._build_in(src) != 0:
-            raise SystemExit("sandbox: initial build failed")
+        log = self.dir / "initial-build.log"
+        if self._build_in(src, stderr_path=log) != 0:
+            tail = log.read_text(encoding="utf-8", errors="replace").splitlines()[-15:]
+            raise SystemExit("sandbox: initial build failed; last lines of "
+                             f"{log}:\n" + "\n".join(tail))
         return src
 
     @staticmethod
@@ -349,15 +403,16 @@ class Sandbox(Strategy):
         # Deliberately NOT the main build's type. This tier asks two questions
         # -- does the mutation compile, and do the guards reject it -- and
         # neither depends on optimisation. Measured at 2451fdc: inheriting
-        # RelWithDebInfo made every engine.cpp rebuild 3.28 s instead of
+        # RelWithDebInfo made every hunminadapter.cpp rebuild 3.28 s instead of
         # 1.5 s, which over nine mutations is the difference between a 41 s
         # tier and a 17 s one. Override with $HUNMIN_MUTATION_BUILD_TYPE if a
         # future mutation turns out to need the real flags.
         return os.environ.get("HUNMIN_MUTATION_BUILD_TYPE", "")
 
-    @staticmethod
-    def _build_in(src: pathlib.Path) -> int:
-        return _run(_build_cmd(src / "build"), cwd=src, timeout=900)
+    @classmethod
+    def _build_in(cls, src: pathlib.Path, stderr_path: pathlib.Path | None = None) -> int:
+        return _run(_build_cmd(src / "build"), cwd=src, timeout=900,
+                    stderr_path=stderr_path, env=cls._sandbox_env())
 
     def engine(self) -> pathlib.Path:
         return self.dir / "src" / ENGINE_REL
@@ -408,7 +463,7 @@ def main() -> int:
     print(f"{'mutation':30} {'build':6} {'checker':9} {'d1':6} {'d2':6} verdict")
     gaps: list[str] = []
     strategy = STRATEGIES[name]()
-    # `with` is what restores: InTree puts engine.cpp back AND rebuilds,
+    # `with` is what restores: InTree puts hunminadapter.cpp back AND rebuilds,
     # Sandbox just deletes the tree. A separate try/finally here would be a
     # second, weaker copy of that contract.
     with strategy as root:
@@ -452,7 +507,7 @@ def main() -> int:
         for g in gaps:
             print("  -", g)
         return 1
-    print(f"mutation set matches its recorded expectations; engine.cpp restored "
+    print(f"mutation set matches its recorded expectations; hunminadapter.cpp restored "
           f"({name})")
     return 0
 

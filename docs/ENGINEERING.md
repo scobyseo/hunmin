@@ -161,7 +161,7 @@ three; conflating them is how a test suite starts lying about itself.
 
 **A test that cannot fail is worse than no test, because it reads green.**
 ⚠️ 2026-10-03: D1/D2/Tier C `dlopen` the addon instead of linking
-`engine.cpp`, and `copy-addon` only copied the `.conf` — so
+`hunminadapter.cpp`, and `copy-addon` only copied the `.conf` — so
 `make testhunminui` never rebuilt the library after an adapter edit. Every one
 of five planted mutations survived a green suite. Nothing in the output
 distinguishes "the test cannot fail" from "the test has nothing to catch", and

@@ -118,20 +118,26 @@ void scheduleEvent(Instance *instance) {
         // accessors, not on empty().
 
         // --- composing: each keystroke republishes the whole composition.
-        // The panel shows the engine's preedit (한글), not the key that
-        // produced it. Expectations are hunmin-sim --trace for sin3-p2 on
+        // The panel shows the layer's display string, not the key that
+        // produced it (issue #128: the adapter renders what the shared layer
+        // hands it). Expectations are hunmin-sim --trace for sin3-p2 on
         // "k f k space", so tier A stays the authority (docs/TESTING.md).
         tap(uuid, Key("k"));
         FCITX_ASSERT(panelOf(ic).toString() == "\u3131");
         tap(uuid, Key("f"));
         FCITX_ASSERT(panelOf(ic).toString() == "\uac00");
-        // the third key commits the syllable and starts a fresh composition
-        tf->call<ITestFrontend::pushCommitExpectation>("\uac00");
+        // The third key starts a new syllable. In AT_BOUNDARY commit mode --
+        // fcitx5's policy since #74/#128, the same one TSF and Android use --
+        // the finished syllable is still part of the word, so the display is
+        // the word so far plus the syllable in flight. The text the client
+        // receives at the boundary is unchanged; only the point it lands moved,
+        // and the commit boundary is explicitly not part of the contract
+        // (docs/FRONTEND-EQUIVALENCE.md §1).
         tap(uuid, Key("k"));
-        FCITX_ASSERT(panelOf(ic).toString() == "\u3131");
+        FCITX_ASSERT(panelOf(ic).toString() == "\uac00\u3131");
 
-        // --- space flushes: commit goes out and the panel is cleared
-        tf->call<ITestFrontend::pushCommitExpectation>("\u3131");
+        // --- space flushes: the whole word goes out and the panel is cleared
+        tf->call<ITestFrontend::pushCommitExpectation>("\uac00\u3131");
         tap(uuid, Key("space"));
         FCITX_ASSERT(panelOf(ic).toString().empty());
 

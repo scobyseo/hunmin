@@ -8,12 +8,17 @@ ingested: 2026-10-19
 tags: [testing, googletest, cmake, tsf, provenance]
 confidence: high
 ---
+> **Paths updated 2026-10-25.** The four options papers became one file,
+> `docs/OPTIONS-MEASURED.md`, whose sections are prefixed `MUT-`, `AND-`,
+> `TST-` and `IC-`. The section references below use the old names because
+> they were measured then; the numbering is unchanged apart from the prefix.
+
 
 # Session 2026-10-19 — the test-framework migration, ruled and shipped
 
 The session that turned issue #109 (question) into a ruling and then into the
 migration itself, on one branch. The measurements live in
-`docs/TEST-FRAMEWORK-OPTIONS.md` — figures are not duplicated here; this page
+`docs/OPTIONS-MEASURED.md` §TST — figures are not duplicated here; this page
 records the shape of the session: what was assumed, what overturned it, what
 was ruled, what shipped, what is deliberately absent.
 

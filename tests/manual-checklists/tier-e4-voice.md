@@ -45,7 +45,7 @@ not.
 | `silence` | (nothing) | no speech: the session must still end and the key return to idle |
 
 The jamo-pipeline invariant itself is already gated deterministically at tier E1
-(`HunminEngineTest`: `external text bypasses the jamo pipeline`, commits
+(`HunminAdapterTest`: `external text bypasses the jamo pipeline`, commits
 in-flight composition first, does not disturb later typing, refuses malformed
 text). **E4 does not re-test that**; it tests the path around it.
 

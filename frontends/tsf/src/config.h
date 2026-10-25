@@ -49,10 +49,16 @@ extern "C" {
 #define HUNMIN_TSF_ENV_LATIN_LAYOUT "HUNMIN_TSF_LATIN_LAYOUT"
 #define HUNMIN_TSF_ENV_TOGGLE_KEYS "HUNMIN_TSF_TOGGLE_KEYS"
 #define HUNMIN_TSF_ENV_HANJA_KEY "HUNMIN_TSF_HANJA_KEY"
+/* The commit unit (issue #128): "word" buffers the whole word and delivers it at
+ * the boundary, "syllable" delivers each syllable as the engine finalises it.
+ * The TEXT is identical either way -- only when it lands differs -- which is why
+ * this is a preference and not a behaviour fork. */
+#define HUNMIN_TSF_ENV_COMMIT_UNIT "HUNMIN_TSF_COMMIT_UNIT"
 #define HUNMIN_TSF_REGVAL_HANGUL "HangulLayout"
 #define HUNMIN_TSF_REGVAL_LATIN "LatinLayout"
 #define HUNMIN_TSF_REGVAL_TOGGLE "HangulEngKeys"
 #define HUNMIN_TSF_REGVAL_HANJAKEY "HanjaKey"
+#define HUNMIN_TSF_REGVAL_COMMITUNIT "CommitUnit"
 
 /* Slots are fixed-size: layout ids are short ASCII strings and the engine
  * compares them by exact bytes; 64 covers every id in libhunmin/data. */
@@ -64,6 +70,7 @@ extern "C" {
  * maintainer instruction: the physical Hanja key is the default candidate
  * key, not F9, and the key is selectable in the settings dialog). */
 #define HUNMIN_TSF_HANJA_KEY_CAP 32
+#define HUNMIN_TSF_COMMIT_UNIT_CAP 16
 
 typedef struct HunminTsfConfig {
     char hangulLayout[HUNMIN_TSF_LAYOUT_ID_CAP];
@@ -78,6 +85,8 @@ typedef struct HunminTsfConfig {
      * default: the physical Hanja key (VK_HANJA, bare) — the same
      * platform-alternate rule as the toggle. */
     char hanjaKey[HUNMIN_TSF_HANJA_KEY_CAP];
+    /* "word" (default) or "syllable"; see HUNMIN_TSF_ENV_COMMIT_UNIT. */
+    char commitUnit[HUNMIN_TSF_COMMIT_UNIT_CAP];
 } HunminTsfConfig;
 
 /* Fill *out from env, then registry, then defaults. root may be NULL (the

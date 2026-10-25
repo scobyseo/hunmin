@@ -136,7 +136,7 @@ and delivered identically in fcitx5, Android, and (planned) Windows. Two
 frontends must never answer differently on the same word.
 
 **The owner and the mechanism are not requirements — they are a design
-decision.** The current implementation is an *adaptor*: `frontends/fcitx5/src/modeswitch.*`
+decision.** The current implementation is an *adaptor*: `frontends/fcitx5/src/language_detect.*`
 keeps a shadow `hunmin_ctx` on the Latin layout and replays the buffered word
 at the judgement boundary. An engine-owned variant is the alternative. Both
 satisfy the requirement above. Which one wins is recorded in the R8
@@ -468,7 +468,52 @@ moment the composition buffer completes (space or symbol):
 
 Whether the second line, the symmetric rule, actually holds is left to E1.
 
-### `valid` is not a dictionary lookup (measured 2026-10-04)
+### R8-정정 — the two validities, simplified (2026-10-25)
+
+> "for SPEC-MODES, i'll simplify the req now to use english dictionary only. if
+> it is in english dict, convert to english mode. if it is not in dict and
+> composable to a word only with cho-jung or cho-jung-jong syllables."
+
+The maintainer's ruling replaces the DEFINITIONS of the two validities in the
+formula above. The formula itself — switch only when exactly one side is valid,
+otherwise keep the current mode — is unchanged.
+
+```
+english_valid  =  a lookup in the ENGLISH DICTIONARY
+
+hangul_valid   =  the buffer composes as Korean syllables of the shape
+                  (choseong + jungseong) or (choseong + jungseong + jongseong)
+                  only -- i.e. every syllable is a well-formed modern syllable
+```
+
+Consequences worth stating because they are the point of the simplification:
+
+- **The corpus list is no longer the definition.** `docs/MODES-DATA.md` §4 and its
+  50,000-entry cap described what `english_valid` must look up; under this ruling
+  the cap, the list and its stopword policy describe nothing that is still used.
+- **`hangul_valid` becomes a structural test, not a word test.** A buffer is
+  Korean-valid when it composes into well-formed syllables, whether or not the
+  result is a word a dictionary knows — so `안녕` and a novel but well-formed
+  syllable run are both valid.
+- **The trade is accepted, not overlooked.** The same section measured what the
+  dictionary costs: reproduction 86.35% → 43.87% on the 624-word evaluation,
+  because `kbs` `mbc` `sbs` `fc` `fifa` `uefa` `sk` `kt` `nhk` `cj` are Latin
+  strings Koreans type in Hangul but are absent from English dictionaries. Under
+  this ruling those buffers are not English-valid, so they stay in the current
+  mode unless the structural test says otherwise. Recorded here as the measured
+  cost of the ruling, not as an objection to it.
+
+**Deferred 2026-10-25:** `docs/MODES-DATA.md` and the corpus list it
+describes are left in place and revisited in a later phase when it is
+needed; the list no longer defines `english_valid`, so its sections are a
+record, not the current definition.
+
+**Not decided by this entry, and left open:** whether the corpus list, the cap
+and the MODES-DATA sections that describe them are deleted or kept as the
+record of the measurement; and whether R9's threshold (E3) is re-based now that
+`hangul_valid` no longer means "a word exists".
+
+### `valid` is not a dictionary lookup (measured 2026-10-04) — SUPERSEDED by R8-정정 above; kept as the measurement of what the ruling costs
 
 **What `english_valid` / `hangul_valid` in the judgement formula above must look
 up has been measured** (`docs/MODES-DATA.md` §4-7). The requirement (R8) is
@@ -496,8 +541,15 @@ only costs reproduction rate (§4-7a).
 > "짧은 단어에서 이런 변환이 일어나는 건 위험성이 크고, 단순 오타에 대한
 > 방어로도 좋지 않은 것 같아."
 
-Prohibiting automatic switching of words — this is a requirement. The numeric
-threshold is §2.E3.
+Prohibiting automatic switching of words — this is a requirement: short words
+are not switched.
+
+**The numeric threshold is not a requirement (ruled 2026-10-25).** §2.E3 is
+retired: a number here was calibrated against `hangul_valid` meaning "a word
+exists", and R8-정정 replaced that with a syllable-structure test, so the old
+number measured nothing that exists any more. What length counts as "short" is a
+design choice, made where the judgement is built and recorded there — this
+requirement says only that there is one.
 
 ## R10. Switching is not retroactive [D]
 Settled by the user. After judgement the new mode applies **from the next key

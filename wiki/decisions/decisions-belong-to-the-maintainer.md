@@ -69,7 +69,7 @@ directions — the finding reported, and the open question left open rather than
 closed:
 
 - **A second mutation that nothing catches.** Measured in a sandbox, tier E1
-  stays green, and `docs/ANDROID-MUTATION-SANDBOX.md` §5 records it with three
+  stays green, and `docs/OPTIONS-MEASURED.md` §AND-5 records it with three
   options and the note that picking one is the maintainer's. It did not quietly
   become a defect report, and the file was not deleted.
 - **A question closed against a later audit.** Both items on

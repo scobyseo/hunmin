@@ -6,17 +6,15 @@ R3, R13) are implemented as inside the engine** and its load cost.
 Status: **design direction settled, no core implementation.** The load items are
 pre-measurement.
 
-> ⚠️ **This section is the requirement, not a description of the tree.** A frontend
-> adapter implementing part of R8 exists and ships — `frontends/fcitx5/src/modeswitch.{h,cpp}`,
-> called from `engine.cpp:238`. It judges by keeping a *second* `hunmin_ctx`
-> on a Latin layout and replaying the buffered word when `hunmin_ic_preedit()` empties, which
-> is the opposite structural choice from §1 ("the mode lives in `hunmin_ctx`, and one ctx is
-> one session") and from R3's `[D]` in `SPEC-MODES.md:128-141`. It is undocumented in every
-> document until 2026-10-09, has **no committed test**, and its verification script sits in
-> the gitignored `out/`. Its own header states it judges and reports without committing, so
-> nothing user-visible depends on it yet — which is precisely why R3's objection (two
-> frontends answering differently) is not yet a live bug. **Recorded, not resolved:** which
-> design stands is the maintainer's. See `docs/REMAINING-WORK.md`.
+> **The adapter-side detector ships today, and it is the opposite structural
+> choice from §1.** `frontends/fcitx5/src/language_detect.{h,cpp}` judges by
+> holding a second `hunmin_ctx` on a Latin layout and replaying the buffered word
+> when the in-flight preedit empties — not "the mode lives in `hunmin_ctx`".
+> Since this section was written it gained a tier-D1 test
+> (`engine-d1-language-detect`) and a documented contract; what has NOT changed
+> is that its answer is discarded by the caller, so nothing user-visible depends
+> on it (issue #132). Which design stands is the maintainer's — R3's objection
+> (two frontends answering differently) bites the day the answer is used.
 
 ---
 
@@ -38,7 +36,7 @@ The romaja layout does not use the composition buffer at all, so which one is al
 unknown to ic — contamination risk.
 
 Therefore **the mode lives in `hunmin_ctx`, and one ctx is one session.** Layout switching is
-judged by the engine as a mode switch and reported via preedit/commit. The frontend keeps supplying
+judged by the engine as a language switch and reported via preedit/commit. The frontend keeps supplying
 only the layout id. Only one composition buffer exists — this structure is the premise of Plan B.
 
 - The API is append-only. Existing symbols are not touched.

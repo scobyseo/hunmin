@@ -3,8 +3,8 @@
  *
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
-#ifndef FCITX5_HUNMIN_ENGINE_H_
-#define FCITX5_HUNMIN_ENGINE_H_
+#ifndef FCITX5_HUNMIN_ADAPTER_H_
+#define FCITX5_HUNMIN_ADAPTER_H_
 
 #include "config.h"
 #include <fcitx/addonfactory.h>
@@ -18,9 +18,9 @@ namespace fcitx {
 
 class HunminState;
 
-class HunminEngine : public InputMethodEngine {
+class HunminAdapter : public InputMethodEngine {
 public:
-    explicit HunminEngine(Instance *instance);
+    explicit HunminAdapter(Instance *instance);
 
     void activate(const fcitx::InputMethodEntry &, fcitx::InputContextEvent &) override;
     void deactivate(const fcitx::InputMethodEntry &entry, fcitx::InputContextEvent &event) override;
@@ -55,10 +55,10 @@ private:
     hunmin_ctx *ctx_ = nullptr;
 };
 
-class HunminEngineFactory : public AddonFactory {
+class HunminAdapterFactory : public AddonFactory {
 public:
-    AddonInstance *create(AddonManager *manager) override { return new HunminEngine(manager->instance()); }
+    AddonInstance *create(AddonManager *manager) override { return new HunminAdapter(manager->instance()); }
 };
 } // namespace fcitx
 
-#endif // FCITX5_HUNMIN_ENGINE_H_
+#endif // FCITX5_HUNMIN_ADAPTER_H_

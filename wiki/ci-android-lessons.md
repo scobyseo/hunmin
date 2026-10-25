@@ -1,4 +1,17 @@
 ---
+title: "CI lessons from the Android job"
+created: 2026-10-08
+updated: 2026-10-25
+type: concept
+status: active
+tags: [concept, ci, android]
+sources:
+  - ../../docs/CI-TIMING.md
+  - ../../.github/workflows/ci.yml
+confidence: high
+---
+
+---
 title: "Android CI Lessons Learned"
 date: 2026-10-14
 tags: [ci, android, github-actions, emulator]
@@ -106,3 +119,14 @@ parse_bounds() {
 - GitHub Free/Pro/Team/Enterprise runners: ~14GB total, ~2-3GB free (fixed)
 - For emulator tests: use self-hosted runner or GitHub Enterprise larger runners
 - Billing issues can halt all CI runs unexpectedly
+
+## Related
+
+- [[test-scenario-guide]] — which tier runs where.
+- [[2026-10-10-ctest-labels]] — the labels these jobs select.
+
+**Tier-job mapping corrected 2026-10-25:** this page said the Android job runs
+only `E0`/`E1` and that `E2`/`E3` run locally. Measured against the workflow and
+`docs/TESTING.md`: the automated Android tiers are `E0`/`E1`/`E2`, there is no
+`E3`, and the linux job excludes `tier-E1` because the android job already runs
+those tests.

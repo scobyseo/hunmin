@@ -45,7 +45,7 @@ jobs:
       #    latent YAML-1.1 boolean bug.
       #
       # 2. The addon needs fcitx5 >= 5.1.13 (FCITX_ADDON_FACTORY_V2 at
-      #    engine.cpp:619, setComment at :461 -- both measured present from 5.1.13
+      #    hunminadapter.cpp:619, setComment at :461 -- both measured present from 5.1.13
       #    upstream). Ubuntu 24.04's fcitx5-modules-dev is 5.1.7, below the floor,
       #    so it neither configures nor compiles. This job therefore builds
       #    fcitx5 5.1.13 from source -- the same route the host took

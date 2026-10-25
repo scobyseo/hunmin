@@ -68,6 +68,17 @@ answers "what does this test cost me, and what does it do to my working tree?"
 
 Two membership facts that are not derivable from the tier name:
 
+- **The mutation sandbox inherits the parent's dependency prefixes.**
+  `tools/frontend-mutations.py` configures a copy of the tree, so a dependency
+  installed outside the system prefix (fcitx5 5.1.13 under `$HOME` on the WSL
+  host) must reach it twice: `CMAKE_PREFIX_PATH` from the parent cache, and a
+  `PKG_CONFIG_PATH` derived from it for the build. Both are handled since
+  2026-10-25; a build tree that lives OUTSIDE the repo (the WSL layout keeps one
+  in `$HOME`) has no parent cache to read, so export both before invoking ctest
+  — with neither, the sandbox reports `initial build failed`, which reads as a
+  code failure and is not one. The harness now prints the tail of its build log
+  so that message names the missing target or header instead of asserting
+  itself.
 - **`frontend-mutations` carries both `tier-D1` and `tier-D2`.** It plants each
   mutation and requires something to catch it, and what catches it is
   `ctest -R engine-d1-fcitx5` and `ctest -R engine-d2-ui`
@@ -276,7 +287,7 @@ no changes on tracked files after a clean application commit; run
 
 **Why the commit rung is cheap is not obvious and is worth stating:** the two
 real defects this ladder exists to catch were both *text* drifting from *text*.
-A rename in `engine.cpp` moved a mutation anchor out from under
+A rename in `hunminadapter.cpp` moved a mutation anchor out from under
 `frontend-mutations` and no `.deb` could be built (2026-10-16); the same class of
 drift had already broken three `ci.yml` comments and two `README.md` paragraphs.
 `docs-lint` check 7 verifies every mutation anchor against its source in
@@ -337,14 +348,10 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
 ## Tier B — ABI & data contracts 🤖
 
 - **ABI guard**: `libhunmin/tests/abi/symbols.txt` vs `nm --defined-only -g libhunmin.so`
-  (the path is under `libhunmin/`, not `tests/`); any removal/rename fails CI. There is
-  **no `make abi-accept` target** — the ABI is append-only and accepting it is a deliberate
-  act, so the procedure is to re-emit the symbol list by hand and commit it:
-  ```sh
-  nm --defined-only -g build/libhunmin.so | awk '{print $NF}' | grep '^hunmin_' | sort -u \
-    > libhunmin/tests/abi/symbols.txt
-  ```
-  The failing `abi` test prints this command, so CI hands it to whoever broke it.
+  (the path is under `libhunmin/`, not `tests/`); any removal/rename fails CI. The policy
+  and the exact re-emit command live in `AGENTS.md` §Hard rules and in
+  `libhunmin/include/hunmin.h` — not twice here — and the failing `abi` test prints the
+  command, so CI hands it to whoever broke it.
   Header compiles as C99/C11/C++17 `-Werror` on gcc/clang/**MSVC/MinGW/NDK-clang** matrix
   (portability is a tested claim, not a hope).
   ⚠️ Partly aspirational: CI builds the core on linux-gcc and mingw, and there is no
@@ -809,7 +816,7 @@ Four layers, cheap→real:
   `HunminAdapterTest` and `tools/android-mutations.py`. The tier runs the
   unmutated suite once before planting anything, because a checkout that is
   already red reports all nine as "caught" for the wrong reason; see
-  `docs/ANDROID-MUTATION-SANDBOX.md` §4.2 for the measurement and §2–3 for
+  `docs/OPTIONS-MEASURED.md` §AND-4.2 for the measurement and §AND-2/§AND-3 for
   the harness, and what its sandbox strategy costs.
   **The 2026-10-11 character-loss trio** is asserted here, because every one of
   the three bugs was invisible on the build machine and each lost text the user

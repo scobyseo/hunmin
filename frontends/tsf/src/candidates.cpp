@@ -12,7 +12,7 @@
  * continues) and the pop-up itself draws the rows.
  *
  * Page cap: kMaxCandidatePageSize, the value fcitx5's label ceiling
- * forces (ruled by the maintainer for issue #45 - engine.cpp:471-486:
+ * forces (ruled by the maintainer for issue #45 - hunminadapter.cpp:471-486:
  * 10 candidates survive, 11 abort). The TSF popup owns its own drawing
  * rather than fcitx5's label table, so it could show more rows than
  * that, but the SAME ruled number is kept: a word candidate list the
@@ -258,7 +258,7 @@ private:
             candCursor_ = candTop_ + kMaxCandidatePageSize - 1 < candCount_ ? candTop_ + kMaxCandidatePageSize - 1 : candCount_ - 1;
     }
 
-    /* fcitx5 semantics (engine.cpp:160-176): choosing a candidate drops the
+    /* fcitx5 semantics (hunminadapter.cpp:160-176): choosing a candidate drops the
      * composition it was anchored to, then commits the Hanja in its place -
      * no surrounding-text surgery anywhere. The buffered Hangul has not
      * been typed into the document yet, so nothing needs removing: the
@@ -291,7 +291,7 @@ private:
     }
 
     void Update(ITfContext *pic) {
-        if (!candActive_ || !pic || !backend_->EngineIc()) {
+        if (!candActive_ || !pic || !backend_->Layer()) {
             candWnd_.Hide();
             return;
         }

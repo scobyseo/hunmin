@@ -7,8 +7,8 @@
  * character convention, docs/trace-spec.md), commit/preedit presentation.
  * All composition logic lives in libhunmin — keep this file small (rule #4).
  */
-#include "engine.h"
-#include "modeswitch.h"
+#include "hunminadapter.h"
+#include "language_detect.h"
 #include <cstdlib>
 #include <cstring>
 #include <fcitx-config/iniparser.h>
@@ -70,7 +70,35 @@ void traceEvent(const char *kind, const std::string &text) {
 }
 
 } // namespace
-#endif
+#endif /* HUNMIN_TRACE */
+
+/* Platform symbol -> the shared key identity (issue #128). A table rather than
+ * a switch because the mapping is data: the same keys on every platform, and the
+ * adapter's job is only to name them. Everything absent here is either a
+ * character (handled by the caller) or a key the platform mapped to nothing.
+ *
+ * Outside the trace guard on purpose: this is key routing, not tracing. */
+struct SymKeyId {
+    KeySym sym;
+    hunmin_key_id id;
+};
+const SymKeyId kSymKeyIds[] = {
+    {FcitxKey_Up, HUNMIN_KEY_UP},
+    {FcitxKey_KP_Up, HUNMIN_KEY_UP},
+    {FcitxKey_Down, HUNMIN_KEY_DOWN},
+    {FcitxKey_KP_Down, HUNMIN_KEY_DOWN},
+    {FcitxKey_Left, HUNMIN_KEY_LEFT},
+    {FcitxKey_KP_Left, HUNMIN_KEY_LEFT},
+    {FcitxKey_Right, HUNMIN_KEY_RIGHT},
+    {FcitxKey_KP_Right, HUNMIN_KEY_RIGHT},
+    {FcitxKey_Page_Up, HUNMIN_KEY_PAGE_UP},
+    {FcitxKey_KP_Page_Up, HUNMIN_KEY_PAGE_UP},
+    {FcitxKey_Page_Down, HUNMIN_KEY_PAGE_DOWN},
+    {FcitxKey_KP_Page_Down, HUNMIN_KEY_PAGE_DOWN},
+    {FcitxKey_Return, HUNMIN_KEY_ENTER},
+    {FcitxKey_KP_Enter, HUNMIN_KEY_ENTER},
+    {FcitxKey_Escape, HUNMIN_KEY_ESCAPE},
+};
 
 class HunminState;
 
@@ -86,32 +114,32 @@ class HunminState;
  * HunminState and a dynamic_cast needs the complete type. */
 class HunminCandidateWord : public CandidateWord {
 public:
-    HunminCandidateWord(Text text, Text comment, HunminEngine *engine, InputContext *ic, std::string hanja);
+    HunminCandidateWord(Text text, Text comment, HunminAdapter *engine, InputContext *ic, std::string hanja);
 
     void select(InputContext *inputContext) const override;
 
     const std::string &hanja() const { return hanja_; }
 
 private:
-    HunminEngine *engine_;
+    HunminAdapter *engine_;
     InputContext *ic_;
     std::string hanja_;
 };
 
 class HunminState : public InputContextProperty {
 public:
-    HunminState(HunminEngine *engine, InputContext *ic) : engine_(engine), ic_(ic), switcher_(engine->ctx()) {}
+    HunminState(HunminAdapter *engine, InputContext *ic) : engine_(engine), ic_(ic), switcher_(engine->ctx()) {}
 
     ~HunminState() override {
-        if (hunminIc_) {
-            hunmin_ic_free(hunminIc_);
+        if (preedit_) {
+            hunmin_buffered_preedit_free(preedit_);
         }
     }
 
     /* --- Hanja candidates (P3) ---
      *
      * F9 is handled here, not in the engine: libhangul's own layout routes it
-     * through hunmin_ic_process, but F9 is outside the printable ASCII range
+     * through the engine's own process path, but F9 is outside the printable ASCII range
      * the engine accepts, so an adapter that wants a Hanja window must
      * intercept it. That does NOT require swallowing keys the engine declined
      * -- F9 is matched before the printable-ASCII test, so `used` is never
@@ -125,18 +153,18 @@ public:
      * The candidate list is held per-context, because it belongs to the
      * preedit that produced it and must not leak across focus changes. */
     bool openCandidates() {
-        const char *preedit = hunmin_ic_preedit(hunminIc_);
-        if (!preedit || !*preedit) {
+        const char *shown = hunmin_buffered_preedit_display(preedit_);
+        if (!shown || !*shown) {
             return false;
         }
-        candidateCount_ = hunmin_suggest_count(engine_->ctx(), preedit);
+        candidateCount_ = hunmin_suggest_count(engine_->ctx(), shown);
         if (candidateCount_ <= 0) {
             return false;
         }
-        /* Keep the Hangul we looked up: hunmin_ic_flush() would commit it,
+        /* Keep the Hangul we looked up: a boundary flush would commit it,
          * and the window has to stay anchored to the preedit, not to a
          * committed string. */
-        candidateSource_ = preedit;
+        candidateSource_ = shown;
         updateCandidateList();
         return true;
     }
@@ -144,7 +172,7 @@ public:
     void closeCandidates() {
         candidateCount_ = 0;
         candidateSource_.clear();
-        if (hunminIc_) {
+        if (preedit_) {
             // nullptr clears the window. CandidateList is abstract, so there
             // is no empty value to assign.
             ic_->inputPanel().setCandidateList(nullptr);
@@ -163,10 +191,10 @@ public:
      * that has to happen -- no deleteSurroundingText, which PLAN.md's P3 note
      * rules out for the F9 flow. */
     void commitCandidate(const std::string &hanja) {
-        if (hunminIc_) {
+        if (preedit_) {
             // Drop what was composing first, so the preedit the client sees
             // afterwards is empty rather than the source Hangul.
-            hunmin_ic_reset(hunminIc_);
+            hunmin_buffered_preedit_reset(preedit_);
         }
         closeCandidates();
         ic_->commitString(hanja);
@@ -177,7 +205,7 @@ public:
 
     void keyEvent(const std::string &layout, KeyEvent &keyEvent) {
         ensureIc(layout);
-        if (!hunminIc_) {
+        if (!preedit_) {
             return; // bad layout id: key passes through to the client
         }
 
@@ -185,30 +213,22 @@ public:
         if (sym == FcitxKey_Shift_L || sym == FcitxKey_Shift_R) {
             return;
         }
-        // Modifier chords (Ctrl/Alt/Super combos) belong to the client;
-        // commit what is composing and let the key through. Shift is
-        // deliberately NOT here: layouts encode shift as uppercase rows.
-        KeyStates modifiers;
-        modifiers |= KeyState::Ctrl;
-        modifiers |= KeyState::Alt;
-        modifiers |= KeyState::Super;
-        modifiers |= KeyState::Hyper;
-        if (keyEvent.key().states() & modifiers) {
-            flush();
-            updateUI();
-            return;
+
+        // CapsLock. Note key() cannot be used here: Key::normalize() rebuilds
+        // states_ down to Ctrl/Alt/Super/Mod3 and drops CapsLock entirely, so
+        // the normalized key reports sym='k' with no CapsLock bit. rawKey()
+        // keeps it. The uppercase sym still arrives there, so feed the layout
+        // the unshifted form and expose P via the caps option (SPEC-P2.md).
+        const bool caps = keyEvent.rawKey().states().test(KeyState::CapsLock);
+        if (caps && sym >= 'A' && sym <= 'Z') {
+            sym = static_cast<KeySym>(sym + 'a' - 'A');
         }
 
-        // F9 opens the Hanja window for the current preedit (P3). Handled
-        // here rather than in the engine because F9 is not a printable ASCII
-        // character: the `sym >= 0x20 && sym <= 0x7E` test below would send it
-        // to flush() and the client, so hunmin_ic_process() never sees it.
-        //
-        // Consumption is conditional here too, on candidates rather than on
-        // what the engine thought: an open window closes, a preedit with
-        // candidates opens one, and anything else returns unconsumed so F9
-        // reaches the client. Nothing about this needs the unconditional
-        // filterAndAccept() that used to sit at the tail of this method.
+        /* F9 opens the Hanja window for the current preedit (P3): presentation,
+         * so it stays here. Consumption is conditional on candidates, not on
+         * what the engine thought -- an open window closes, a preedit with
+         * candidates opens one, and anything else returns unconsumed so F9
+         * reaches the client. */
         if (sym == FcitxKey_F9) {
             if (candidateActive()) {
                 closeCandidates();
@@ -220,24 +240,40 @@ public:
             return;
         }
 
-        /*
-         * Candidate-window keys, once a window is open.
-         *
-         * The window is ours, so these keys are ours: without this block an
-         * arrow key fell through to the `sym >= 0x20 && sym <= 0x7E` test
-         * below and reached the engine as a character (or flushed), which is
-         * why choosing a Hanja needed the mouse. fcitx5 does not intercept
-         * these on its own -- a CursorMovableCandidateList only provides
-         * prevCandidate()/nextCandidate(); calling them is the input method's
-         * job -- so each key is handled explicitly and consumed.
-         *
-         * Arrows move the cursor rather than the page: the list is one page
-         * (see updateCandidateList), so Up/Down is the whole motion and
-         * Left/Right mirror it for a horizontal habit. PageUp/PageDown exist
-         * because PageableCandidateList offers them and a user reaching for
-         * them should not get a character in the document.
-         */
-        if (candidateActive()) {
+        /* Translate the platform key into the shared vocabulary ONCE. What the
+         * key MEANS is the layer's answer (issue #128, decision C): the adapter
+         * maps sym + modifier state to (base, shift, mods, key id) and reports
+         * whether its own candidate window is open; the precedence (language
+         * key, open list, chord, unmapped, feed) lives in libhunmin and is
+         * asserted once, in tier A's engine-key-rule. */
+        hunmin_key_event ev{};
+        const KeyStates states = keyEvent.key().states();
+        if (states.test(KeyState::Ctrl)) ev.mods |= HUNMIN_MOD_CTRL;
+        if (states.test(KeyState::Alt)) ev.mods |= HUNMIN_MOD_ALT;
+        if (states.test(KeyState::Super) || states.test(KeyState::Hyper)) ev.mods |= HUNMIN_MOD_GUI;
+        /* Shift is deliberately NOT in mods: it selects a layout row, and it
+         * travels as the engine's shift bit instead. */
+        for (const SymKeyId &row : kSymKeyIds)
+            if (row.sym == sym) {
+                ev.id = row.id;
+                break;
+            }
+        // A character (base 0 = the platform mapped nothing). 0x08 is BackSpace,
+        // the same convention as libhangul and the golden traces.
+        if (ev.id == HUNMIN_KEY_TEXT && sym == FcitxKey_BackSpace) ev.base = 0x08;
+        else if (ev.id == HUNMIN_KEY_TEXT && sym >= 0x20 && sym <= 0x7E) ev.base = static_cast<uint32_t>(sym);
+        /* An uppercase symbol means the row was shifted; the engine resolves
+         * the case endpoint from (base, shift) itself. */
+        uint32_t ch = ev.base; /* the case-encoded character, for R8's replay */
+        if (ev.base >= 'A' && ev.base <= 'Z') {
+            ev.shift = 1;
+            ev.base = ev.base + 'a' - 'A';
+        }
+        ev.candidates_open = candidateActive() ? 1 : 0;
+
+        const hunmin_key_action action = hunmin_buffered_preedit_classify(preedit_, &ev);
+
+        if (action == HUNMIN_KEY_CANDIDATE) {
             auto list = ic_->inputPanel().candidateList();
             switch (sym) {
             case FcitxKey_Up:
@@ -303,85 +339,76 @@ public:
             default:
                 break;
             }
-            // Any other key closes the window and falls through to the normal
-            // path below, so typing continues where the user left off instead
-            // of being swallowed by an invisible window.
+        }
+
+        if (action == HUNMIN_KEY_BOUNDARY_PASS) {
+            /* A chord, or a key the platform mapped to nothing: the layer's
+             * boundary is where the word is finished, and the key belongs to
+             * the client. The same flush + pass this adapter used to spell out
+             * in two separate branches. */
+            flush();
+            updateUI();
+            return;
+        }
+        /* HUNMIN_KEY_LANGUAGE_TOGGLE is unreachable here: fcitx5 owns its own
+         * trigger, so this adapter always reports language_key = 0. §4's shared
+         * action is what removes that asymmetry. */
+
+        // Any other key closes an open window and falls through, so typing
+        // continues where the user left off instead of being swallowed by an
+        // invisible window.
+        if (candidateActive()) {
             closeCandidates();
             updateUI();
         }
 
-        // CapsLock. Note key() cannot be used here: Key::normalize() rebuilds
-        // states_ down to Ctrl/Alt/Super/Mod3 and drops CapsLock entirely, so
-        // the normalized key reports sym='k' with no CapsLock bit. rawKey()
-        // keeps it. The uppercase sym still arrives there, so feed the layout
-        // the unshifted form and expose P via the caps option (SPEC-P2.md).
-        bool caps = keyEvent.rawKey().states().test(KeyState::CapsLock);
-        if (caps && sym >= 'A' && sym <= 'Z') {
-            sym = static_cast<KeySym>(sym + 'a' - 'A');
-        }
-        hunmin_ic_set_option(hunminIc_, "caps", caps ? 1 : 0);
+        /* The shared layer above libhunmin decides consumption, commit and
+         * preedit for every frontend (issue #128, docs/FRONTEND-EQUIVALENCE.md
+         * §5); this adapter keeps no buffer of its own. The commit POLICY is
+         * the layer's, chosen by the user (config.h CommitBehavior): AT_BOUNDARY
+         * keeps the word visible and lands it in one insert, PER_SYLLABLE
+         * delivers each syllable as the engine finalises it. */
+        hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);
+        hunmin_key_result out{};
+        const bool used = hunmin_buffered_preedit_process_key(preedit_, ev.base, ev.shift, &out) != 0;
+        switcher_.record(ch); // R8 detector; see src/language_detect.h
 
-        uint32_t ch;
-        if (sym == FcitxKey_BackSpace) {
-            ch = 0x08; // same convention as libhangul / golden traces
-        } else if (sym >= 0x20 && sym <= 0x7E) {
-            ch = static_cast<uint32_t>(sym);
-        } else {
-            flush(); // unmapped keysym: commit, then pass to the client
-            updateUI();
-            return;
-        }
-
-        bool used = hunmin_ic_process(hunminIc_, ch);
-        switcher_.record(ch); // R8 adapter; see src/modeswitch.h
-
-        if (used) {
-            if (const char *commit = hunmin_ic_commit(hunminIc_); commit && *commit) {
+        if (out.commit && *out.commit) {
 #ifdef HUNMIN_TRACE
-                traceEvent("commit", commit);
+            traceEvent("commit", out.commit);
 #endif
-                ic_->commitString(commit);
-            }
-        } else {
-            // Engine declined (space, unmapped row): flush emits the pending
-            // commit buffer *and* the in-flight syllable in one string,
-            // because hunmin_ic_flush appends via save_commit then reads out
-            // through hunmin_ic_commit. Both readers are destructive, so the
-            // two calls must never happen for the same keypress.
-            flush();
-            switcher_.judge(*engine_->config().latinLayout); // the boundary
+            ic_->commitString(out.commit);
+        }
+        if (!used) {
+            // The layer IS the boundary: it delivered the word in out.commit
+            // above. What is left is R8's judgement of the finished word.
+            switcher_.judge(*engine_->config().latinLayout);
         }
 #ifdef HUNMIN_TRACE
-        // Emitted before updateUI(), which does not disturb the engine state.
-        // hunmin_ic_commit is destructive and was already read above when used,
-        // so this second read legitimately yields "" -- the commit itself was
-        // traced at the point it was delivered.
-        traceEvent("preedit", hunminIc_ ? hunmin_ic_preedit(hunminIc_) : "");
+        traceEvent("preedit", out.preedit ? out.preedit : "");
         traceEvent(used ? "consumed" : "passed", "");
 #endif
         updateUI();
-        // Only consume what the engine actually took. A key it declined
-        // (space, backspace on an empty buffer, an unmapped keysym) belongs to
-        // the client, and that is how it reaches it. This is FRONTEND-CONTRACT
-        // §5 rule 3.
+        // Only consume what the layer actually took: a declined key belongs to
+        // the client (FRONTEND-CONTRACT §5 rule 3).
         if (used) {
             keyEvent.filterAndAccept();
         }
     }
 
     void reset() {
-        if (hunminIc_) {
-            hunmin_ic_reset(hunminIc_);
+        if (preedit_) {
+            hunmin_buffered_preedit_reset(preedit_);
         }
         switcher_.discard();
         updateUI();
     }
 
     void flush() {
-        if (!hunminIc_) {
+        if (!preedit_) {
             return;
         }
-        if (const char *s = hunmin_ic_flush(hunminIc_); s && *s) {
+        if (const char *s = hunmin_buffered_preedit_commit_word(preedit_); s && *s) {
 #ifdef HUNMIN_TRACE
             traceEvent("commit", s);
 #endif
@@ -394,18 +421,34 @@ private:
         // per-item profile layout wins; empty means "no override", in which
         // case the addon-wide default from conf/hunmin.conf applies.
         const std::string &want = layout.empty() ? *engine_->config().hangulLayout : layout;
-        if (hunminIc_ && want == layout_) {
+        /* The input unit is part of the identity of a live layer, not just a
+         * constructor argument: a user who switches CommitBehavior gets a new
+         * layer on the next key, exactly as a layout change does. Leaving it
+         * out here meant the preference saved, reloaded, and did nothing
+         * (measured by the D1 test that switches it). */
+        const int policy = (*engine_->config().commitBehavior == "syllable") ? HUNMIN_COMMIT_PER_SYLLABLE : HUNMIN_COMMIT_AT_BOUNDARY;
+        if (preedit_ && want == layout_ && policy == policy_) {
             return;
         }
-        if (hunminIc_) {
+        if (preedit_) {
             flush();
-            hunmin_ic_free(hunminIc_);
-            hunminIc_ = nullptr;
+            hunmin_buffered_preedit_free(preedit_);
+            preedit_ = nullptr;
             switcher_.discard();
         }
         layout_ = want;
-        hunminIc_ = hunmin_ic_new(engine_->ctx(), want.c_str());
-        if (!hunminIc_) {
+        /* One language: fcitx5's Han/Eng handling is its own trigger plus the
+         * R8 detector, so the layer's toggle reports "not ours" (NULL latin
+         * layout). Unifying that is docs/FRONTEND-EQUIVALENCE.md §4's next
+         * step, and it is not this migration. */
+        /* The user's choice (config.h CommitBehavior), not a hardcoded policy:
+         * both units exist in the shared layer and are selectable, because a
+         * buffered word is not what every client wants to show. Anything but
+         * the literal "syllable" means the buffered default -- a typo must not
+         * silently switch the unit. */
+        policy_ = policy;
+        preedit_ = hunmin_buffered_preedit_new(engine_->ctx(), want.c_str(), nullptr, policy_);
+        if (!preedit_) {
             FCITX_ERROR() << "hunmin: unsupported layout: " << want;
         }
     }
@@ -417,13 +460,13 @@ private:
          * client already consumed it. This is why inputPanel().reset() is not
          * simply called at the top -- that would also wipe the candidate
          * window, which must outlive the preedit it was opened from. */
-        if (hunminIc_) {
-            const char *preedit = hunmin_ic_preedit(hunminIc_);
+        if (preedit_) {
+            const char *shown = hunmin_buffered_preedit_display(preedit_);
             bool useClient = ic_->capabilityFlags().test(CapabilityFlag::Preedit);
             Text text;
-            if (preedit && *preedit) {
-                text.append(preedit);
-                text.setCursor(std::strlen(preedit));
+            if (shown && *shown) {
+                text.append(shown);
+                text.setCursor(std::strlen(shown));
             }
             /* An empty Text clears the slot, so one call covers both cases. */
             if (useClient) {
@@ -436,16 +479,17 @@ private:
         ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
     }
 
-    HunminEngine *engine_;
+    HunminAdapter *engine_;
     InputContext *ic_;
-    ModeSwitchAdapter switcher_;
-    hunmin_ic *hunminIc_ = nullptr;
+    LanguageDetector switcher_;
+    hunmin_buffered_preedit *preedit_ = nullptr;
+    int policy_ = -1; /* HUNMIN_COMMIT_*, the policy preedit_ was built with */
     std::string layout_;
     int candidateCount_ = 0;
     std::string candidateSource_;
 };
 
-HunminCandidateWord::HunminCandidateWord(Text text, Text comment, HunminEngine *engine, InputContext *ic, std::string hanja)
+HunminCandidateWord::HunminCandidateWord(Text text, Text comment, HunminAdapter *engine, InputContext *ic, std::string hanja)
     : CandidateWord(std::move(text)), engine_(engine), ic_(ic), hanja_(std::move(hanja)) {
     setComment(std::move(comment));
 }
@@ -532,7 +576,7 @@ void HunminState::updateCandidateList() {
     ic_->inputPanel().setCandidateList(std::move(list));
 }
 
-HunminEngine::HunminEngine(Instance *instance) : instance_(instance), factory_([this](InputContext &ic) { return new HunminState(this, &ic); }) {
+HunminAdapter::HunminAdapter(Instance *instance) : instance_(instance), factory_([this](InputContext &ic) { return new HunminState(this, &ic); }) {
     // Data path: HUNMIN_DATA_PATH first (tests, source trees), then the
     // installed share/hunmin default.
     ctx_ = hunmin_ctx_new(nullptr, 0);
@@ -553,15 +597,15 @@ HunminEngine::HunminEngine(Instance *instance) : instance_(instance), factory_([
     instance_->inputContextManager().registerProperty("hunminState", &factory_);
 }
 
-void HunminEngine::activate(const InputMethodEntry &, InputContextEvent &event) {
+void HunminAdapter::activate(const InputMethodEntry &, InputContextEvent &event) {
     if (auto *state = event.inputContext()->propertyFor(&factory_)) {
         state->reset();
     }
 }
 
-void HunminEngine::deactivate(const InputMethodEntry &entry, InputContextEvent &event) { reset(entry, event); }
+void HunminAdapter::deactivate(const InputMethodEntry &entry, InputContextEvent &event) { reset(entry, event); }
 
-void HunminEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &keyEvent) {
+void HunminAdapter::keyEvent(const InputMethodEntry &entry, KeyEvent &keyEvent) {
     if (keyEvent.isRelease()) {
         return;
     }
@@ -569,7 +613,7 @@ void HunminEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &keyEvent) {
     state->keyEvent(layoutFor(entry), keyEvent);
 }
 
-std::string HunminEngine::layoutFor(const InputMethodEntry &entry) const {
+std::string HunminAdapter::layoutFor(const InputMethodEntry &entry) const {
     std::string layout = instance_->inputMethodManager().currentGroup().layoutFor(entry.uniqueName());
     // Per-profile layout wins; empty means "no override", so use the global
     // hangulLayout config as the default Hangul layout.
@@ -579,14 +623,14 @@ std::string HunminEngine::layoutFor(const InputMethodEntry &entry) const {
     return layout;
 }
 
-void HunminEngine::reset(const InputMethodEntry &, InputContextEvent &event) {
+void HunminAdapter::reset(const InputMethodEntry &, InputContextEvent &event) {
     if (auto *state = event.inputContext()->propertyFor(&factory_)) {
         state->flush(); // composing text is not lost on focus change
         state->reset();
     }
 }
 
-void HunminEngine::refreshLayoutList() {
+void HunminAdapter::refreshLayoutList() {
     if (!ctx_) {
         return;
     }
@@ -618,12 +662,12 @@ void HunminEngine::refreshLayoutList() {
     config_.latinLayout.annotation().setLayouts(std::move(latinLayouts));
 }
 
-void HunminEngine::reloadConfig() {
+void HunminAdapter::reloadConfig() {
     refreshLayoutList();
     readAsIni(config_, "conf/hunmin.conf");
 }
 
-void HunminEngine::setConfig(const fcitx::RawConfig &rawConfig) {
+void HunminAdapter::setConfig(const fcitx::RawConfig &rawConfig) {
     config_.load(rawConfig, true);
     instance_->inputContextManager().foreach ([this](InputContext *ic) {
         state(ic)->reset(); // in-flight composition dropped; layout swaps
@@ -632,8 +676,8 @@ void HunminEngine::setConfig(const fcitx::RawConfig &rawConfig) {
     safeSaveAsIni(config_, "conf/hunmin.conf");
 }
 
-HunminState *HunminEngine::state(InputContext *ic) { return ic->propertyFor(&factory_); }
+HunminState *HunminAdapter::state(InputContext *ic) { return ic->propertyFor(&factory_); }
 
 } // namespace fcitx
 
-FCITX_ADDON_FACTORY_V2(hunmin, fcitx::HunminEngineFactory);
+FCITX_ADDON_FACTORY_V2(hunmin, fcitx::HunminAdapterFactory);

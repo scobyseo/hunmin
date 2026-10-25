@@ -121,6 +121,21 @@ if [ -z "$CC_BIN" ] && [ -f "$BUILD_DIR/CMakeCache.txt" ]; then
     # CMAKE_C_COMPILER_AR and friends out.
     _cache_cc="$(sed -n 's/^CMAKE_C_COMPILER:[A-Z_]*=//p' \
                        "$BUILD_DIR/CMakeCache.txt" | head -n 1)"
+    # A tree configured with --toolchain sets CMAKE_C_COMPILER as a NORMAL
+    # variable rather than a cache entry, so the line above can find
+    # nothing and this probe falls through to the PATH clang -- the
+    # MSVC-targeted one -- whose link then demands hunmin.lib, a file no
+    # mingw tree has (measured 2026-10-25: `grep -c '^CMAKE_C_COMPILER:'
+    # CMakeCache.txt` = 0 on a cmake/toolchain-mingw-w64.cmake tree, while
+    # CMakeFiles/*/CMakeCCompiler.cmake holds the compiler that built the
+    # engine). Read that file before giving up on the cache.
+    if [ -z "$_cache_cc" ]; then
+        for _f in "$BUILD_DIR"/CMakeFiles/*/CMakeCCompiler.cmake; do
+            [ -f "$_f" ] || continue
+            _cache_cc="$(sed -n 's/^set(CMAKE_C_COMPILER "\(.*\)")$/\1/p' "$_f" | head -n 1)"
+            [ -n "$_cache_cc" ] && break
+        done
+    fi
     case "$_cache_cc" in
         ""|*cl.exe|*cl) ;;                 # absent, or an MSVC tree
         *) [ -f "$_cache_cc" ] && CC_BIN="$_cache_cc" ;;

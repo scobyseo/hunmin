@@ -30,11 +30,32 @@ private:
     std::vector<std::pair<std::string, std::string>> layouts_;
 };
 
+/* Preedit/commit unit picker (issue #128): one of the two policies the shared
+ * layer implements, chosen per user instead of being fixed in the code.
+ *
+ *  word      commit the whole word at the boundary; the finished syllables stay
+ *            visible as preedit until then (issue #74's shape)
+ *  syllable  commit each syllable as the engine finalises it; the preedit is
+ *            only the syllable in flight
+ *
+ * The TEXT is identical either way (docs/FRONTEND-EQUIVALENCE.md §1), which is
+ * what makes this a safe preference rather than a behaviour fork. */
+struct CommitBehaviorAnnotation : public EnumAnnotation {
+    void dumpDescription(RawConfig &config) const {
+        EnumAnnotation::dumpDescription(config);
+        config.setValueByPath("Enum/0", "word");
+        config.setValueByPath("EnumI18n/0", _("단어 단위"));
+        config.setValueByPath("Enum/1", "syllable");
+        config.setValueByPath("EnumI18n/1", _("음절 단위"));
+    }
+};
+
 FCITX_CONFIGURATION(HunminConfig,
                     /* Hangul layout picker: layouts with mode="hangul" (두벌식, 세벌식, etc.) */
                     OptionWithAnnotation<std::string, LayoutAnnotation> hangulLayout{this, "HangulLayout", _("한글 배열"), "sin3-p2"};
                     /* Latin layout picker: layouts with mode="latin" (QWERTY, DVORAK, COLEMAK) */
-                    OptionWithAnnotation<std::string, LayoutAnnotation> latinLayout{this, "LatinLayout", _("영어 배열"), "us-qwerty"};);
+                    OptionWithAnnotation<std::string, LayoutAnnotation> latinLayout{this, "LatinLayout", _("영어 배열"), "us-qwerty"};
+                    OptionWithAnnotation<std::string, CommitBehaviorAnnotation> commitBehavior{this, "CommitBehavior", _("커밋 단위"), "word"};);
 
 } // namespace fcitx
 

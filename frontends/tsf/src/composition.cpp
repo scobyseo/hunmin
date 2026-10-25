@@ -21,7 +21,8 @@
 STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComposition *pComposition) {
     (void)ecWrite;
     (void)pComposition;
-    hunmin_logger.log("OnCompositionTerminated comp=%p wordbuf=%zu self=%d\n", (void *)composition_, wordbuf_.size(), endingSelf_ ? 1 : 0);
+    hunmin_logger.log("OnCompositionTerminated comp=%p display=%zu self=%d\n", (void *)composition_, ComposeDisplay().size(),
+                      endingSelf_ ? 1 : 0);
     if (endingSelf_) {
         /* Our own EndComposition (issue #98): the composed text is
          * document text by OUR decision, so the buffers drain and the
@@ -36,9 +37,7 @@ STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComp
             compCtx_ = nullptr;
         }
         compText_.clear();
-        wordbuf_.clear();
-        if (ic_)
-            hunmin_ic_reset(ic_);
+        ComposeReset();
         return S_OK;
     }
     /* Host-driven termination. A modern host terminates only at real
@@ -54,7 +53,7 @@ STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComp
      *     COPY of what the composition showed (compText_) - delete
      *     that copy from the control (EM), and the ic keeps composing
      *     from the same jamo state (no reset, no re-feed needed). */
-    if (wordbuf_.empty() && compText_.empty()) {
+    if (ComposeDisplay().empty() && compText_.empty()) {
         /* nothing mid-word: a real boundary under our own bookkeeping
          * must have run already - plain cleanup, old contract. */
         if (composition_) {
@@ -68,7 +67,8 @@ STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComp
         compText_.clear();
         return S_OK;
     }
-    hunmin_logger.log("legacy detection: mid-word host termination (compText=%zu wordbuf=%zu) -> interim path\n", compText_.size(), wordbuf_.size());
+    hunmin_logger.log("legacy detection: mid-word host termination (compText=%zu display=%zu) -> interim path\n", compText_.size(),
+                      ComposeDisplay().size());
     legacyMode_ = true;
     UseDelivery(HUNMIN_TSF_DELIVERY_INTERIM);
     /* What is dead in the doc = the WHOLE composition text (compText_:
@@ -81,7 +81,7 @@ STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComp
      * write re-measures the caret when the app's queue has settled
      * (the fused copy's caret was measured BOTH behind the span and
      * past it, settling differently per host). The ic keeps composing
-     * from the same jamo state (no reset) and wordbuf_ keeps the
+     * from the same jamo state (no reset) and the layer keeps the
      * finalised syllables so the write re-appends them to the doc. */
     delivery_->CaptureDeadCopy(compText_);
     /* A write posted by the terminated key is superseded: the host has
@@ -238,11 +238,7 @@ private:
 void CTextService::CompositionWrite(ITfContext *pic) {
     if (!pic)
         return;
-    std::wstring full = wordbuf_;
-    if (ic_) {
-        const char *pre = hunmin_ic_preedit(ic_);
-        full += HunminUtf8ToWide(pre);
-    }
+    std::wstring full = ComposeDisplay();
     if (full.empty() && !composition_)
         return;
     CompositionSession *cs = new CompositionSession(pic, this, clientId_, full.c_str(), false);
@@ -272,9 +268,7 @@ void CTextService::CompositionEnd(ITfContext *pic, const std::wstring &text) {
 void CTextService::DetachComposition() {
     if (!composition_ || !compCtx_)
         return;
-    FlushEngineIntoWordbuf();
-    std::wstring text = wordbuf_;
-    wordbuf_.clear();
+    std::wstring text = HunminUtf8ToWide(hunmin_buffered_preedit_commit_word(preedit_));
     CompositionEnd(compCtx_, text);
 }
 
@@ -328,42 +322,66 @@ private:
 };
 
 void CTextService::InsertBufferedWord(ITfContext *pic) {
-    if (wordbuf_.empty())
+    /* The layer's commit: word + in-flight syllable, delivered once. Reading it
+     * also clears it, so the word cannot be inserted twice. */
+    if (!preedit_)
         return;
+    const std::wstring word = HunminUtf8ToWide(hunmin_buffered_preedit_commit_word(preedit_));
+    if (word.empty())
+        return;
+    InsertText(pic, word);
+}
+
+/* Insert text that is not the layer's word: a chosen Hanja replacing the
+ * composition. With a live composition the text fuses in its place; without
+ * one it lands at the selection (a host that refused ITfContextComposition). */
+void CTextService::InsertText(ITfContext *pic, const std::wstring &text) {
+    if (text.empty())
+        return;
+    /* The delivery that keeps text in the document owns HOW it lands there:
+     * the interim path needs its span bookkeeping advanced, and writing at
+     * the caret instead is what truncated the word under the syllable unit
+     * (measured, tier F1 LegacyTest.CommitUnitSyllable*). */
+    if (delivery_ && delivery_->OwnsDocumentText()) {
+        delivery_->InsertText(pic, text);
+        return;
+    }
     if (composition_) {
-        CompositionEnd(pic, wordbuf_);
-    } else {
-        FlushSession *fs = new FlushSession(pic, this, clientId_, wordbuf_.c_str());
-        HRESULT hrFlush = S_OK;
-        if (pic)
-            pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
-        fs->Release();
+        CompositionEnd(pic, text);
+        return;
     }
-    wordbuf_.clear();
+    FlushSession *fs = new FlushSession(pic, this, clientId_, text.c_str());
+    HRESULT hrFlush = S_OK;
+    if (pic)
+        pic->RequestEditSession(clientId_, fs, TF_ES_SYNC | TF_ES_READWRITE, &hrFlush);
+    fs->Release();
 }
 
-/* One composition-boundary drain shared by the declined key path and the
- * mode toggle (issue #66): the in-flight syllable is flushed into the
- * buffered word, and the whole word is inserted exactly once before the
- * boundary key (or mode switch) proceeds. */
-/* The engine's in-flight syllable appended to the buffered word. Shared by
- * the boundary drain, the deactivation drain and the composition detach. */
-void CTextService::FlushEngineIntoWordbuf() {
-    const char *flushed = ic_ ? hunmin_ic_flush(ic_) : "";
-    if (flushed && flushed[0]) {
-        int flen = MultiByteToWideChar(CP_UTF8, 0, flushed, -1, nullptr, 0);
-        if (flen > 1) {
-            size_t old = wordbuf_.size();
-            /* flen counts the NUL terminator; text only. */
-            wordbuf_.resize(old + flen - 1);
-            MultiByteToWideChar(CP_UTF8, 0, flushed, -1, &wordbuf_[old], flen);
-        }
-    }
+/* The seam's text readers (issue #128): the layer's display and its two
+ * halves. All three are reads -- none of them consumes a key. */
+std::wstring CTextService::ComposeDisplay() {
+    return preedit_ ? HunminUtf8ToWide(hunmin_buffered_preedit_display(preedit_)) : std::wstring();
 }
 
+std::wstring CTextService::ComposeInFlight() {
+    return preedit_ ? HunminUtf8ToWide(hunmin_buffered_preedit_composing(preedit_)) : std::wstring();
+}
+
+std::wstring CTextService::TakeFinishedWord() {
+    return preedit_ ? HunminUtf8ToWide(hunmin_buffered_preedit_take_word(preedit_)) : std::wstring();
+}
+
+void CTextService::ComposeReset() {
+    if (preedit_)
+        hunmin_buffered_preedit_reset(preedit_);
+}
+
+/* One composition-boundary drain shared by the declined key path and the mode
+ * toggle (issue #66). The finalising is the LAYER's now (issue #128): its
+ * commit_word() closes the in-flight syllable and hands back the whole word,
+ * which InsertBufferedWord delivers once. */
 void CTextService::BoundaryFlush(ITfContext *pic) {
-    FlushEngineIntoWordbuf();
-    hunmin_logger.log(" boundary, word len=%zu preedit=%s\n", wordbuf_.size(), ic_ ? hunmin_ic_preedit(ic_) : "");
+    hunmin_logger.log(" boundary, display=%zu\n", ComposeDisplay().size());
     delivery_->Boundary(pic);
 }
 

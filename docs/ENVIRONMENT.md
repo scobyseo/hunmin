@@ -317,7 +317,7 @@ to report it before its clean baseline was believed.
 
 | server | source | clean-tree result |
 |---|---|---|
-| `clangd` 23.1.0 | auto-downloaded to `~/.cache/opencode/bin` | 0 in `libhunmin/src/ic.c`; 2 in `frontends/fcitx5/src/engine.cpp` (unused private fields `engine_`, `ic_` — clang-tidy class, not a live bug) |
+| `clangd` 23.1.0 | auto-downloaded to `~/.cache/opencode/bin` | 0 in `libhunmin/src/ic.c`; 2 in `frontends/fcitx5/src/hunminadapter.cpp` (unused private fields `engine_`, `ic_` — clang-tidy class, not a live bug) |
 | `pyright` 1.1.414 | `uv tool install pyright` | **29 errors / 34 files** in `tools/*.py` |
 | `bash-language-server` | auto-downloaded | 3 in `tools/android-e2e.sh`, 0 in the other 11 |
 | `yaml-ls` | auto-downloaded | 0 in `.github/workflows/ci.yml` |
@@ -399,7 +399,7 @@ bash: local: can only be used in a function      # exit 1, REACHED never printed
 `opencode debug lsp diagnostics` starts a **fresh, short-lived clangd** per
 invocation. Whatever the background index has finished by the time the response is
 built is what you get, so the first run after the index is invalidated reports
-against a partial AST. Measured on `frontends/fcitx5/src/engine.cpp`, unchanged
+against a partial AST. Measured on `frontends/fcitx5/src/hunminadapter.cpp`, unchanged
 between runs and `git diff`-clean throughout:
 
 ```
@@ -508,7 +508,7 @@ and commits `dkssud ` → `녕` against `libhunmin/data`; the inner ctest loop
 (`ctest -j16 -LE slow -LE mutation`) measured **51/52 passed, 1 failed** —
 the failure is `data-selfcheck` (tier-B), which the maintainer states **fails
 by nature on this host** (the converter-vs-committed-data divergence is the
-host's baseline, not a milestone-A regression). `engine-suggest` and
+host's baseline, not a milestone-A regression). `engine-candidates` and
 `engine-commit-text` were reported `Not Run` by the same run and did not
 execute here.
 
@@ -678,7 +678,7 @@ and costs a debugging round for nothing.
   |---|---|---|---|
   | bash → program argument (clang, cmake, java.exe, python) | a filesystem path the exe opens directly | `C:/...` mixed (`cygpath -m`) | llvm-mingw clang: "no such file or directory: /c/...hunmin-jni.c"; WindowsApps python3 globbed zero XML and reported "zero tests ran" while every result said PASS |
   | bash → `PATH` list entry | an MSYS-converted list for the Windows loader | `/c/...` (`cygpath -u`) | a `C:/...` entry is re-split at the drive colon; the JNI shim's engine resolved to a STALE `libhunmin.dll` from another build tree instead of the intended one |
-  | data-dir list (`hm_split_dirs`, `HUNMIN_DATA_PATH`) | strings strtok-split on `:` | drive letter kept: the `:` after an ASCII drive char survives | `"C:/Workspace/…"` split into `C` + `/Workspace/…` → "no layouts loaded" (fixed in `data.c`/`suggest.c`) |
+  | data-dir list (`hm_split_dirs`, `HUNMIN_DATA_PATH`) | strings strtok-split on `:` | drive letter kept: the `:` after an ASCII drive char survives | `"C:/Workspace/…"` split into `C` + `/Workspace/…` → "no layouts loaded" (fixed in `schema_loader.c`/`suggest.c`) |
   | `frontends/android/local.properties` `sdk.dir` | parsed by java `Properties.load` after bash `\` escaping | forward slashes | `C\:\Users\...` parses to `C:Users...` → AGP `SdkLocator` IOException, "file name syntax is incorrect" |
   | gradle `-cp` assembled in bash (from the classpath cache) | a `;`-joined list for the Windows JVM | strip `\r` from gradle's CRLF output | a surviving CR is part of the path: `ClassNotFoundException: TraceEmit` |
   | a committed `.sh` referenced as a ctest command or `subprocess.run` target | an executable | invoke via `bash <path>` on Windows hosts | CMake "BAD_COMMAND"; mutation runner's WinError 193 |
@@ -765,7 +765,7 @@ next host does not rediscover them:
 1. **`hm_data_load` / suggest's `resolve_dirs` split the data-dir list on `:`
    (`strtok`)** — a Windows absolute path "C:/Workspace/…" split into "C" and
    "/Workspace/…" and *every* data load failed: "no layouts loaded". Fixed with
-   the drive-letter-aware `hm_split_dirs` (`libhunmin/src/data.c`), used by
+   the drive-letter-aware `hm_split_dirs` (`libhunmin/src/schema_loader.c`), used by
    both sites. POSIX tokenisation is unchanged.
 2. **MSYS `/c/...` arguments into native Windows programs** (llvm-mingw
    clang, gradle's `ProcessBuilder("keytool")`): path conversions

@@ -13,7 +13,7 @@ gloss. The cause is not missing data: `data-orig/hanja/hanja.txt` (libhangul
 0.2.0) already carries a per-candidate comment (`한:韓:나라 이름 한, 한나라 한`),
 but `tools/hanja2data.py` parses the comment and then drops it when it writes
 `hanja.json` (`entries[key] = [e["value"] …]`). The engine's `load_hanja` in
-`libhunmin/src/suggest.c` therefore fills `detail` with `""`.
+`libhunmin/src/candidate_tables.c` therefore fills `detail` with `""`.
 
 So the fix is to *use* the gloss that is already vendored, and to decide what
 to do about the candidates that genuinely have none.
@@ -119,12 +119,12 @@ joined (word-sense distortion).
   and usage labels, keep the frequency/compat pipeline and selfcheck.
 - `libhunmin/data/hanja/hanja.json` — regenerated (grows; Korean gloss +
   English gloss + tags).
-- `libhunmin/src/suggest.c` `load_hanja` — parse v2 objects, feed `detail`
+- `libhunmin/src/candidate_tables.c` `load_hanja` — parse v2 objects, feed `detail`
   (format agreed with the frontend), and expose the usage tag.
 - `tools/doctor.py` `check_hanja` — validate v2 (was `== "hunmin.hanja/1"`).
 - `docs/SPEC-SCHEMA.md` — document v2, licence column, sort-key unchanged
   (`entries` key), candidate order unchanged.
-- `libhunmin/tests/suggest-test.c` — detail expectations currently assert `""`
+- `libhunmin/tests/candidate-tables-test.cpp` — detail expectations currently assert `""`
   for Hanja (`expect(ctx, …, "hanja", "水", "")`); update to the real glosses.
 - Android `HunminDataInstaller.DATA_SUBDIRS` already includes `hanja`, so the regenerated
   file ships; confirm the APK size budget (English glosses add ~size).

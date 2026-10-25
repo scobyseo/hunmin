@@ -283,7 +283,7 @@ int main(int argc, char **argv) {
         }
         if (tm->keySinkForeground != TRUE)
             fail("AdviseKeyEventSink was called with fForeground != TRUE");
-        if (!SvcSnap().ctx || !SvcSnap().ic) {
+        if (!SvcSnap().ctx || !SvcSnap().layer) {
             std::cerr << "skip: engine context unavailable (check HUNMIN_DATA_DIR / libhunmin/data)\n";
             std::exit(77);
         }
@@ -339,7 +339,7 @@ int main(int argc, char **argv) {
         // chain: OnTestKeyDown (preview), then OnKeyDown (docs/
         // WINDOWS-TSF-REGISTRATION.md "C&C: key-down propagation").
         g_mockKeyState[VK_SHIFT & 0xFF] = (mods & 0x01) ? (SHORT)0x8000 : (SHORT)0;
-        const std::wstring wordBefore = SvcSnap().wordbuf;
+        const std::wstring wordBefore = SvcSnap().finished;
         const int endsBefore = ctx->compositionEnds;
         const size_t insertsBefore = ctx->insertions.size();
 
@@ -362,7 +362,7 @@ int main(int argc, char **argv) {
         //   - no insert:          wordbuf grew (or stayed) by exactly that
         //     commit; the delta is the commit
         const std::string beforeUtf8 = wideToUtf8(wordBefore);
-        const std::string afterUtf8 = wideToUtf8(SvcSnap().wordbuf);
+        const std::string afterUtf8 = wideToUtf8(SvcSnap().finished);
         std::string commit;
         if (insertsAfter > insertsBefore) {
             if (insertedUtf8.size() < beforeUtf8.size() || insertedUtf8.compare(0, beforeUtf8.size(), beforeUtf8) != 0)
@@ -385,7 +385,7 @@ int main(int argc, char **argv) {
             commit = afterUtf8.substr(beforeUtf8.size());
         }
         // Tier A's preedit is the engine's in-flight buffer after the key.
-        const std::string preedit = std::string(SvcSnap().ic ? hunmin_ic_preedit(SvcSnap().ic) : "");
+        const std::string preedit = std::string(SvcSnap().layer ? hunmin_buffered_preedit_composing(SvcSnap().layer) : "");
 
         // The buffering contract itself (issue #73, requirement 3 of the
         // tier): nothing may be inserted while the engine consumes keys;
@@ -422,9 +422,9 @@ int main(int argc, char **argv) {
         // preedit), so the document now carries cumulativeCommits + preedit;
         // the fallback path (a host that refused compositions) keeps the
         // 0.2 shape, document + held.
-        const std::string heldNow = wideToUtf8(SvcSnap().wordbuf);
+        const std::string heldNow = wideToUtf8(SvcSnap().finished);
         const std::string docNow = wideToUtf8(ctx->doc);
-        const std::string preeditNow = std::string(SvcSnap().ic ? hunmin_ic_preedit(SvcSnap().ic) : "");
+        const std::string preeditNow = std::string(SvcSnap().layer ? hunmin_buffered_preedit_composing(SvcSnap().layer) : "");
         if (ctx->compositionStarts > 0) {
             const bool compActive = ctx->compositionActive;
             if (compActive) {

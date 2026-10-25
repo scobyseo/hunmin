@@ -3,8 +3,8 @@
 # test links the fcitx5 TestFrontend module (docs/TESTING.md).
 #
 # 5.1.13 is the REAL API floor, measured from upstream tags 2026-10-13
-# (issue #8): FCITX_ADDON_FACTORY_V2 (engine.cpp:619) first appears in 5.1.13,
-# and setComment (engine.cpp:461) in 5.1.9. Ubuntu 24.04 LTS ships 5.1.7, which
+# (issue #8): FCITX_ADDON_FACTORY_V2 (hunminadapter.cpp:619) first appears in 5.1.13,
+# and setComment (hunminadapter.cpp:461) in 5.1.9. Ubuntu 24.04 LTS ships 5.1.7, which
 # has NEITHER, so the addon cannot compile against the distro package -- this is
 # a genuine API gap, not just the build-macro gap. "Supports Ubuntu 24.04"
 # therefore means: CI builds fcitx5 from source and the .deb requires >= 5.1.13;

@@ -391,7 +391,7 @@ Rewriting the harness surfaced these immediately. All four cost a round each.
 |---|---|
 | `fcitx5-remote -s hunmin` selects the engine | returns **rc=0** and the active IM stays `keyboard-us`. `Instance::setCurrentInputMethod` returns silently when nothing is focused. Retrying 10x changes nothing — it is removed |
 | `DefaultIM=hunmin` in the profile selects the engine | the **second** listed item wins: `InputMethodGroup` sets `defaultInputMethod_ = inputMethodList_[1].name()` (inputmethodgroup.cpp:100). Item order is load-bearing |
-| writing `Layout=` to `data/fcitx5/conf/hunmin.conf` configures the layout | the addon reads the **profile's** per-item `Layout=` (`HunminEngine::layoutFor` → `InputMethodGroup::layoutFor`). fcitx5 never hands an addon a layout; the addon's own `hunmin.conf` has no such key |
+| writing `Layout=` to `data/fcitx5/conf/hunmin.conf` configures the layout | the addon reads the **profile's** per-item `Layout=` (`HunminAdapter::layoutFor` → `InputMethodGroup::layoutFor`). fcitx5 never hands an addon a layout; the addon's own `hunmin.conf` has no such key |
 | `FCITX_LOG_RULE=<rule>` enables debug logging | **fcitx5 never reads that variable** — grep the source, zero hits. The rule is `--verbose <rule>` (instance.cpp:1305). Every Debug line looked absent for this reason |
 
 And one that wastes a whole debugging round on its own: `XIM Key Event` is
@@ -421,11 +421,11 @@ no per-IM picker, and adding one would be wrong: two IMs sharing one
 The profile item is the only per-IM override, and it is the only place that
 should carry one.
 
-The list itself must come from the core. `HunminEngine::refreshLayoutList()`
+The list itself must come from the core. `HunminAdapter::refreshLayoutList()`
 walks `hunmin_ctx_layout_count/id/name()` and hands the rows to
 `LayoutAnnotation::dumpDescription`, which writes the `Enum/n` + `EnumI18n/n`
 rows that `fcitx5-configtool` turns into a QComboBox. Hardcoding the ids in
-`engine.h` would work and would also be a second place to edit per layout,
+`hunminadapter.h` would work and would also be a second place to edit per layout,
 violating AGENTS.md rule 1 — enforced now as invariant I11, with D2 asserting
 the rows behaviourally against the shipped data.
 

@@ -4,7 +4,7 @@ Status: **open.** Approved 2026-09-26; reopened 2026-10-05. Engine core license:
 LGPL-2.1+. Working name `hunmin`.
 
 The date on the original approval is not the date of this plan's content. A
-requirement stated on 2026-10-03 — automatic hangul/latin mode switching, no IM
+requirement stated on 2026-10-03 — automatic hangul/latin switching, no IM
 change — was written up thoroughly in `docs/SPEC-MODES.md` and **never added
 here**, so this file read as complete for a requirement that did not exist when
 it was approved. It is now **P8**, near the bottom because it is unstarted, not
@@ -134,7 +134,7 @@ frontend gets it.
   `"tier": 101/102/103` in `sin3-p2.json`; CapsLock and W modes exist as
   `hunmin_ic_set_option(ic,"caps",1)` and the `wWzHh` rules (`ic.c:610-621`).
   `seq` is no longer reserved-and-warned: `HK_SEQ` in
-  `libhunmin/src/hunmin_internal.h:18`, parsed at `data.c:92`, committed at
+  `libhunmin/src/hunmin_internal.h:18`, parsed at `schema_loader.c:92`, committed at
   `ic.c:592`, and validated rather than warned by `tools/doctor.py:57-63`.
   Oracle-grade patim/kime validation is partly covered by the P2 gate corpora
   below.
@@ -302,7 +302,7 @@ frontend gets it.
 - **P7** distribution: Debian ITP (archive precedent: fcitx5-unikey/varnam/quwei/keyman
   engine-wrapper addons), external-contributor docs, optional later fcitx5-android plugin
   port of the same addon (unscheduled).
-- **P8 ⏳** hangul/latin automatic mode switching — **the requirement, and the only
+- **P8 ⏳** hangul/latin automatic switching — **the requirement, and the only
   phase with no implementation at all.** Stated by the maintainer 2026-10-03:
   type English while in Hangul mode and the mode changes; switching must be
   **without changing IM** ("IM 변경 없이 동작 모드로 한글<->영어 변경이 되는 게 굉장히
@@ -315,8 +315,8 @@ frontend gets it.
   genuinely untouched.
 
   ⚠️ **But this line was also incomplete in the other direction.** `frontends/fcitx5/src/
-  modeswitch.{h,cpp}` implements an R8 shadow-layout adapter (shipped, wired at
-  `engine.cpp:221`). It keeps a second `hunmin_ctx` on a Latin layout beside the Hangul
+  language_detect.{h,cpp}` implements an R8 shadow-layout adapter (shipped, wired at
+  `hunminadapter.cpp:221`). It keeps a second `hunmin_ctx` on a Latin layout beside the Hangul
   one and replays the buffered word when `hunmin_ic_preedit()` goes empty. It is in
   `master`, it compiles into the addon, **no document mentioned it**, and **no committed
   test covers it** — its verification script lives in the gitignored `out/`, so the

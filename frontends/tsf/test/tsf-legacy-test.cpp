@@ -157,6 +157,87 @@ TEST_F(LegacyTest, FlipOnFirstMidWordTerminationAndCompose) {
     LegacyTeardown();
 }
 
+/* Interim delivery x both commit units (issue #128, deliverable 2 as narrowed
+ * in docs/FRONTEND-EQUIVALENCE.md 6.1).
+ *
+ * The unit is a WHEN, not a WHAT: the same text must reach the host control
+ * either way, and only the moment differs. That is what these two cases
+ * assert, on the path where it matters -- the interim delivery, where the
+ * finished text IS document text and a late or early write is visible.
+ *
+ * The observation channel is the layer seam (Snapshot().finished), not the
+ * control: under the buffered unit nothing is finalised while typing, under
+ * the syllable unit each syllable finalises as the engine does. The control
+ * text is asserted EQUAL in both, which is the invariant the unit must not
+ * break. Keys are taken from `hunmin-sim --trace`: dkssud commits
+ * the first syllable at the 4th key and leaves the second in flight.
+ */
+TEST_F(LegacyTest, CommitUnitBufferedHoldsTheWordUntilTheBoundary) {
+    _putenv_s("HUNMIN_TSF_COMMIT_UNIT", "word");
+    LegacyBegin();
+    if (HasFatalFailure()) {
+        Teardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    const std::wstring first = std::wstring(1, L'\uC548');
+    const std::wstring word = first + L'\uB155';
+
+    for (const char *p = "dkssud"; *p; ++p) {
+        KeyTerminating((WPARAM)std::toupper((unsigned char)*p));
+        FlushDocWrites();
+        /* Buffered: the layer finalises nothing until the boundary, on every
+         * key including the one where the engine commits a syllable. */
+        EXPECT_TRUE(Snap().finished.empty())
+            << "buffered unit finalised text at key " << (p - "dkssud" + 1);
+    }
+    EXPECT_EQ(CtrlText(ctrl), word) << "the display is the same word either way";
+
+    BOOL spaceEat = TRUE;
+    Key(VK_SPACE, &spaceEat);
+    EXPECT_EQ(spaceEat, FALSE) << "the boundary key passes";
+    FlushDocWrites();
+    EXPECT_EQ(CtrlText(ctrl), word) << "boundary: the word once, no duplicate";
+    LegacyTeardown();
+}
+
+TEST_F(LegacyTest, CommitUnitSyllableFinalisesAsTheEngineDoes) {
+    _putenv_s("HUNMIN_TSF_COMMIT_UNIT", "syllable");
+    LegacyBegin();
+    if (HasFatalFailure()) {
+        Teardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    const std::wstring first = std::wstring(1, L'\uC548');
+    const std::wstring word = first + L'\uB155';
+
+    int key = 0;
+    for (const char *p = "dkssud"; *p; ++p) {
+        KeyTerminating((WPARAM)std::toupper((unsigned char)*p));
+        FlushDocWrites();
+        ++key;
+        /* The syllable unit HELDS nothing: what the engine finalises is
+         * delivered at the key it finalises on, so it is already document
+         * text by the time this line runs (measured: Snapshot().finished is
+         * empty at every key, and that IS the unit's signature). */
+        EXPECT_TRUE(Snap().finished.empty())
+            << "syllable unit holds nothing at key " << key;
+        if (key >= 4) {
+            const std::wstring doc = CtrlText(ctrl);
+            EXPECT_EQ(doc.substr(0, first.size()), first)
+                << "the finalised syllable must be in the document from key " << key
+                << ", got: " << std::string(doc.begin(), doc.end());
+        }
+    }
+    EXPECT_EQ(CtrlText(ctrl), word) << "same word, delivered earlier";
+
+    BOOL spaceEat = TRUE;
+    Key(VK_SPACE, &spaceEat);
+    EXPECT_EQ(spaceEat, FALSE) << "the boundary key still passes";
+    FlushDocWrites();
+    EXPECT_EQ(CtrlText(ctrl), word) << "boundary: no duplicate under the syllable unit";
+    LegacyTeardown();
+}
+
 /* Dubeolsik maps no digit. A classic host suppresses insertion after a TRUE
  * test claim and does not call OnKeyDown for the unconsumed key, so claiming
  * the digit loses it (the reported interim numeric defect). The test phase

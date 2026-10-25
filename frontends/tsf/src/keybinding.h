@@ -89,7 +89,7 @@ unsigned int hunmin_tsf_keymods_from_state(void);
  * hunmin_tsf_keymods_from_state() so host state enters the key path at one
  * seam, and fed to the engine as the "caps" option (the yethangul P
  * variable, hunmin.h:93) once per key event - the same per-event 1/0 shape
- * fcitx5 has (engine.cpp:327) and Android since #112's alignment. */
+ * fcitx5 has (hunminadapter.cpp:327) and Android since #112's alignment. */
 int hunmin_tsf_capslock_from_state(void);
 
 /* The thread input state the key decisions read. The platform provider

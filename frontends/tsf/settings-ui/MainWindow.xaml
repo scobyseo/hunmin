@@ -2,16 +2,49 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     x:Class="Hunmin.Tsf.SettingsUi.MainWindow"
     Title="Hunmin TSF settings">
-  <!-- Compact, maintainer instruction 2026-10-17: "~480-560 px wide",
-       compact 8-12 px margins, minimal header. Key row: ONE configurable
-       binding set by key capture (한/영 전환 키; the store grammar stays
-       v1:<vk>:<mods>, one entry). -->
-  <StackPanel Margin="10" Spacing="8">
+  <!-- Compact, maintainer instruction 2026-10-17: "~480-560 px wide", compact
+       8-12 px margins, minimal header. Key rows: ONE configurable binding set by
+       key capture; the store grammar stays v1:<vk>:<mods>, one entry.
 
-    <TextBlock Text="한글 입력 설정" Style="{StaticResource SubtitleTextBlockStyle}" />
+       Layout 2026-10-25 (maintainer: "wish it scales as the dialog resizes, and
+       buttons at the right end of the dialog, not right behind the text"): a
+       Grid, not a StackPanel, so every row stretches with the window; each
+       action button owns an Auto column at the right edge; the two layout lists
+       take star rows and grow when the window grows. The root carries no fixed
+       Width (the 420 px pin in Compact() was what froze the width). -->
+  <ScrollViewer x:Name="Scroller" Padding="10" VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Auto"
+                HorizontalScrollMode="Auto">
+  <Grid x:Name="RootGrid" RowSpacing="8" ColumnSpacing="8">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" MinHeight="110" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" MinHeight="110" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
 
-    <TextBlock Text="한글 배열 (hangul)" FontSize="12" />
-    <ListView x:Name="HangulList" Height="120" SelectionMode="Single">
+    <TextBlock Grid.Row="0" Text="한글 입력 설정" Style="{StaticResource SubtitleTextBlockStyle}" />
+
+    <TextBlock Grid.Row="1" Text="한글 배열 (hangul)" FontSize="12" />
+    <ListView Grid.Row="2" x:Name="HangulList" SelectionMode="Single"
+              HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+      <ListView.ItemTemplate>
+        <DataTemplate>
+          <TextBlock FontSize="13" Text="{Binding Label}" />
+        </DataTemplate>
+      </ListView.ItemTemplate>
+    </ListView>
+
+    <TextBlock Grid.Row="3" Text="영어 배열 (latin)" FontSize="12" />
+    <ListView Grid.Row="4" x:Name="LatinList" SelectionMode="Single"
+              HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
       <ListView.ItemTemplate>
         <DataTemplate>
           <TextBlock FontSize="13"><Run Text="{Binding Label}" /></TextBlock>
@@ -19,45 +52,77 @@
       </ListView.ItemTemplate>
     </ListView>
 
-    <TextBlock Text="영어 배열 (latin)" FontSize="12" />
-    <ListView x:Name="LatinList" Height="120" SelectionMode="Single">
-      <ListView.ItemTemplate>
-        <DataTemplate>
-          <TextBlock FontSize="13"><Run Text="{Binding Label}" /></TextBlock>
-        </DataTemplate>
-      </ListView.ItemTemplate>
-    </ListView>
+    <!-- The mode-toggle key row: capture, not a text field. Column 0 holds the
+         label, value and hint; column 1 is Auto and therefore the right edge. -->
+    <Grid Grid.Row="5" ColumnSpacing="8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                  VerticalAlignment="Center">
+        <TextBlock Text="한/영 전환 키" VerticalAlignment="Center" FontSize="12" />
+        <TextBlock x:Name="ToggleKeyLabel" FontWeight="SemiBold"
+                   VerticalAlignment="Center" FontSize="13" />
+        <TextBlock x:Name="CaptureHint" Foreground="Orange" VerticalAlignment="Center"
+                   FontSize="12" />
+      </StackPanel>
+      <Button Grid.Column="1" x:Name="ToggleKeyChangeBtn" Content="변경"
+              Click="ToggleKeyChange_Click" FontSize="12" />
+    </Grid>
 
-    <!-- the mode-toggle key row: capture, not a text field -->
-    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-      <TextBlock Text="한/영 전환 키" VerticalAlignment="Center" FontSize="12" />
-      <TextBlock x:Name="ToggleKeyLabel" FontWeight="SemiBold"
-                 VerticalAlignment="Center" FontSize="13" />
-      <Button x:Name="ToggleKeyChangeBtn" Content="변경" Click="ToggleKeyChange_Click" FontSize="12" />
-      <TextBlock x:Name="CaptureHint" Foreground="Orange" VerticalAlignment="Center" FontSize="12" />
-    </StackPanel>
-
-    <!-- the Hanja/candidate key row (issue #67): opens the Hanja candidate
+    <!-- The Hanja/candidate key row (issue #67): opens the Hanja candidate
          window; default the bare physical Hanja key. Same capture flow. -->
-    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-      <TextBlock Text="한자 키" VerticalAlignment="Center" FontSize="12" />
-      <TextBlock x:Name="HanjaKeyLabel" FontWeight="SemiBold"
-                 VerticalAlignment="Center" FontSize="13" />
-      <Button x:Name="HanjaKeyChangeBtn" Content="변경" Click="HanjaKeyChange_Click" FontSize="12" />
-      <TextBlock x:Name="HanjaCaptureHint" Foreground="Orange" VerticalAlignment="Center" FontSize="12" />
-    </StackPanel>
+    <Grid Grid.Row="6" ColumnSpacing="8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                  VerticalAlignment="Center">
+        <TextBlock Text="한자 키" VerticalAlignment="Center" FontSize="12" />
+        <TextBlock x:Name="HanjaKeyLabel" FontWeight="SemiBold"
+                   VerticalAlignment="Center" FontSize="13" />
+        <TextBlock x:Name="HanjaCaptureHint" Foreground="Orange"
+                   VerticalAlignment="Center" FontSize="12" />
+      </StackPanel>
+      <Button Grid.Column="1" x:Name="HanjaKeyChangeBtn" Content="변경"
+              Click="HanjaKeyChange_Click" FontSize="12" />
+    </Grid>
 
-    <TextBlock Foreground="Gray" FontSize="11" TextWrapping="Wrap"
+    <!-- The commit unit (issue #128): when the finished text reaches the
+         document. The text is identical either way; "word" holds the whole
+         eojeol until the boundary, "syllable" delivers each syllable as the
+         engine finalises it. Same grammar as the registry value CommitUnit. -->
+    <Grid Grid.Row="7" ColumnSpacing="8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                  VerticalAlignment="Center">
+        <TextBlock Text="커밋 단위" VerticalAlignment="Center" FontSize="12" />
+        <ComboBox x:Name="CommitList" FontSize="13" MinWidth="150"
+                  SelectionChanged="CommitList_Changed">
+          <ComboBoxItem Content="단어 단위 (한 번에)" Tag="word" />
+          <ComboBoxItem Content="음절 단위" Tag="syllable" />
+        </ComboBox>
+      </StackPanel>
+    </Grid>
+
+    <TextBlock Grid.Row="8" Foreground="Gray" FontSize="11" TextWrapping="Wrap"
                Text="변경된 설정은 다음 입력 방법 활성화 시 (새 앱, win+space로 입력기 변경) 적용됩니다." />
 
-    <ToggleSwitch IsEnabled="False" FontSize="12"
+    <ToggleSwitch Grid.Row="9" IsEnabled="False" FontSize="12"
                   Header="자동 한/영 전환: 미정 (0.3)" IsOn="False" Margin="0" />
 
-    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+    <StackPanel Grid.Row="10" Orientation="Horizontal" Spacing="8"
+                HorizontalAlignment="Right">
       <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="Gray" FontSize="12" />
       <Button x:Name="ApplyBtn" Click="Apply_Click" Content="적용" FontSize="13" />
       <Button x:Name="OkBtn" Click="Ok_Click" Content="OK" FontSize="13" />
     </StackPanel>
 
-  </StackPanel>
+  </Grid>
+  </ScrollViewer>
 </Window>

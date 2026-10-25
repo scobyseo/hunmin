@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <fcitx-utils/eventdispatcher.h>
 #include <fcitx-utils/key.h>
+#include <fcitx-config/rawconfig.h>
 #include <fcitx-utils/keysym.h>
 #include <fcitx-utils/log.h>
 #include <fcitx-utils/macros.h>
@@ -43,7 +44,7 @@ void scheduleEvent(Instance *instance) {
         // Per-item Layout is what a real user's profile carries, and it must
         // override the addon-wide default (sin3-p2). Pins it to sin3-p2-yet so
         // the caps option below is actually consumed -- see
-        // docs/FRONTEND-CONTRACT.md A3/§4; engine.cpp reads it via
+        // docs/FRONTEND-CONTRACT.md A3/§4; hunminadapter.cpp reads it via
         // InputMethodGroup::layoutFor().
         defaultGroup.inputMethodList().push_back(InputMethodGroupItem("hunmin").setLayout("sin3-p2-yet"));
         defaultGroup.setDefaultInputMethod("");
@@ -69,11 +70,16 @@ void scheduleEvent(Instance *instance) {
         press(uuid, Key("space"), false);
 
         // symbol tier (sin3-p2): j opens, k swallowed as tier select,
-        // 1 commits ㅇµ
+        // 1 produces ㅇµ -- which, under the shared layer's buffered commit
+        // (issue #128 / #74), is held as preedit until the word boundary.
+        // The text is unchanged; only the point it reaches the client moved,
+        // and that is explicitly not part of the contract
+        // (docs/FRONTEND-EQUIVALENCE.md §1). Space is the boundary and passes.
         testfrontend->call<ITestFrontend::pushCommitExpectation>("ㅇµ");
         press(uuid, Key("j"));
         press(uuid, Key("k"));
         press(uuid, Key("1"));
+        press(uuid, Key("space"), false);
 
         // Empty buffer: space and backspace pass through to the client. The engine
         // declines both with nothing composing, and an unaccepted key is not
@@ -92,11 +98,52 @@ void scheduleEvent(Instance *instance) {
         press(uuid, Key(FcitxKey_J, KeyState::CapsLock));
         press(uuid, Key(FcitxKey_K, KeyState::CapsLock));
         press(uuid, Key(FcitxKey_1, KeyState::CapsLock));
+        press(uuid, Key("space"), false); // the boundary the buffered commit waits for
 
         testfrontend->call<ITestFrontend::pushCommitExpectation>("ㅇµ");
         press(uuid, Key("j"));
         press(uuid, Key("k"));
         press(uuid, Key("1"));
+        press(uuid, Key("space"), false);
+
+        // --- the input unit is the USER's choice (config CommitBehavior, issue
+        // #128): both policies exist in the shared layer and are selectable,
+        // instead of one being baked into the adapter. Set through the addon's
+        // own config surface, which is the path a settings UI takes.
+        //
+        // The committed TEXT is identical under both policies; what differs is
+        // when it reaches the client -- so these two blocks type the same keys
+        // and assert different delivery points for the same string.
+        {
+            RawConfig raw;
+            raw.setValueByPath("HangulLayout", "sin3-p2");
+            raw.setValueByPath("LatinLayout", "us-qwerty");
+            raw.setValueByPath("CommitBehavior", "syllable");
+            hunmin->setConfig(raw); // drops the in-flight composition
+        }
+        // syllable: the third key finalises 가 and delivers it immediately
+        testfrontend->call<ITestFrontend::pushCommitExpectation>("가");
+        press(uuid, Key("k"));
+        press(uuid, Key("f"));
+        press(uuid, Key("k"));
+        // ...and the boundary then delivers the ㅅ-less second syllable
+        testfrontend->call<ITestFrontend::pushCommitExpectation>("ㄱ");
+        press(uuid, Key("space"), false);
+
+        {
+            RawConfig raw;
+            raw.setValueByPath("HangulLayout", "sin3-p2");
+            raw.setValueByPath("LatinLayout", "us-qwerty");
+            raw.setValueByPath("CommitBehavior", "word");
+            hunmin->setConfig(raw);
+        }
+        // word: nothing lands until the boundary, then the whole word in one
+        // insert -- the same two syllables, one commit
+        testfrontend->call<ITestFrontend::pushCommitExpectation>("가ㄱ");
+        press(uuid, Key("k"));
+        press(uuid, Key("f"));
+        press(uuid, Key("k"));
+        press(uuid, Key("space"), false);
 
         instance->deactivate();
     });

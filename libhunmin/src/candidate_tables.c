@@ -1,4 +1,4 @@
-/* suggest.c — Hanja candidate lookup over data/hanja, data/krdict, data/idioms.
+/* candidate_tables.c — candidate lookup over data/hanja, data/krdict, data/idioms.
  *
  * Lookup is by whole Hangul: one syllable (hanja/), a word or phrase
  * (krdict/), or a four-character idiom (idioms/). Nothing here reads

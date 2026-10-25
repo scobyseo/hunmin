@@ -156,7 +156,7 @@ def loop_with_targets(fm, timer: Timer, targets: list[str], ids: list[str] | Non
     per-mutation build therefore measures "does rebuilding fewer targets after
     the fact cost anything", NOT "can the tier get away with never building
     them" -- the latter is a different experiment and its answer is in
-    docs/MUTATION-TIER-OPTIONS.md: `ctest -R` on a missing binary returns 8,
+    docs/OPTIONS-MEASURED.md §MUT: `ctest -R` on a missing binary returns 8,
     which the tier reads as a rejection.
 
     Every ctest invocation is also checked for "Not Run", because rc alone
@@ -295,7 +295,7 @@ def loop_skip_checked(fm, timer: Timer, ids: list[str] | None):
 
 
 def loop_setup_only(fm, timer: Timer):
-    """Sandbox setup, then a clean engine.cpp and nothing else.
+    """Sandbox setup, then a clean hunminadapter.cpp and nothing else.
 
     This is the per-worker cost of running the nine mutations in parallel: each
     worker needs its own copy, its own configure and its own first build

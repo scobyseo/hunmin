@@ -1,225 +1,118 @@
 # Windows TSF configuration surface (layout wiring + data loading)
 
-## Purpose
+Design record for milestone C (issues #66, #71): how `hunmin-tsf.dll` picks its
+layouts and finds its data. What must hold is `docs/SPEC-TSF.md` — TSF6 (the
+binding grammar), TSF10 (caps), TSF12 (read order), TSF13 (one data directory),
+TSF14/TSF15 (the settings surface) — cited here, not restated.
 
-Describe how `hunmin-tsf.dll` picks its layouts and finds its engine data — the
-milestone C deliverables (issues #66 and its subtask #71). This is the Windows
-companion to the fcitx5 addon config (`frontends/fcitx5/src/config.h`):
-mirrored option names so both frontends read the same two settings, one store
-per platform. The settings dialog that writes the store is #71 and is
-documented by its own work.
+Provenance: measured on Windows 11 (26200), Windows SDK 10.0.26100, VS
+BuildTools 14.44, during the 2026-10-17 milestone C work.
 
-Provenance: every rule below was measured on this host — Windows 11 (26200),
-Windows SDK 10.0.26100, VS BuildTools 14.44 — during the 2026-10-17 milestone C
-work; failures that produced each rule are named inline.
+## The store
 
-## The configuration store
+`frontends/tsf/src/config.{h,cpp}`. One per-user key,
+`HKCU\Software\Hunmin\TSF`, `REG_SZ` values `HangulLayout`, `LatinLayout`,
+`HangulEngKeys`, `HanjaKey`, `CommitUnit`; an empty string removes the value.
+The option names mirror the fcitx5 addon so both frontends read the same
+settings; there is no per-frontend store for engine state (SPEC-MODES R13
+boundary — engine options go through `hunmin_ic_set_option`).
 
-- File: `frontends/tsf/src/config.cpp` (+ `config.h`).
-- Registry: `HKCU\Software\Hunmin\TSF`, values `HangulLayout` / `LatinLayout`
-  (`REG_SZ`), written by the settings dialog (#71), read at every `Activate()`
-  and by the mode toggle.
-- Read order — first source with a non-empty value wins:
-  1. environment `HUNMIN_TSF_HANGUL_LAYOUT` / `HUNMIN_TSF_LATIN_LAYOUT` (the
-     tier-F1 seam: tests inject layouts without touching a real user's
-     registry, and empty values mean "no override", the same rule
-     `hunmin_ctx_from_module` applies to `HUNMIN_DATA_DIR`);
-  2. the registry values above;
-  3. defaults `sin3-p2` / `us-qwerty` — the fcitx5 defaults, unchanged.
-- SPEC-MODES R13 boundary holds: no per-frontend settings store for engine
-  state. The only fields here are layout ids; feature state (the autoswitch
-  row, disabled until 0.3 per the recorded 2026-10-11 ruling) stays with the
-  engine via `hunmin_ic_set_option`.
+Env seams (the tier-F1 override, empty means "no override"): 
+`HUNMIN_TSF_HANGUL_LAYOUT`, `HUNMIN_TSF_LATIN_LAYOUT`, `HUNMIN_TSF_TOGGLE_KEYS`,
+`HUNMIN_TSF_HANJA_KEY`, `HUNMIN_TSF_COMMIT_UNIT`. Defaults are the fcitx5
+defaults: `sin3-p2` / `us-qwerty`, and `CommitUnit=word`.
 
 ## Slot validation
 
-`resolveLayoutSlot()` (`frontends/tsf/src/tsf.cpp`) accepts a stored id only
-when the engine can instantiate it (`hunmin_ctx_layout_supported`) AND the
-layout's mode matches the slot (`hunmin_ctx_layout_mode`, #71's dialog lists
-them split by the same field). Anything else falls back to the fcitx5 default
-with a log line — a stale registry value naming a latin layout in the hangul
-slot degrades to a working default, never a silent mispair.
+`resolveLayoutSlot()` accepts a stored id only when the engine can instantiate
+it (`hunmin_ctx_layout_supported`) AND the layout's mode matches the slot
+(`hunmin_ctx_layout_mode`); otherwise the fcitx5 default returns with a log
+line. A stale registry value naming a latin layout in the hangul slot degrades
+to a working default, never a silent mispair. (TSF12.)
 
 ## The mode-toggle bindings
 
-Maintainer instruction (issue #66 / #71, 2026-10-17): **the Han/Eng key is the
-default toggle, and additional keys are configurable** — Right Alt, Shift+Space,
-and so on. The shape is Android's `KeyBinding.kt` ported to Windows vocabulary
-(`frontends/tsf/src/keybinding.h/.cpp`):
+Grammar `v1:<vk>:<mods>` — decimal, `;`-separated, one `REG_SZ` list; modifier
+bits `1 SHIFT 2 CTRL 4 ALT`, with the side carried by the VK itself
+(`VK_RMENU` vs `VK_LMENU`). Matching is exact per family, and a malformed entry
+parses to nothing rather than swallowing a keystroke. `Activate()` appends the
+bare `VK_HANGEUL` whenever the stored list lacks it: the physical 한/영 key is a
+platform alternate no rebinding can remove.
 
-- Grammar: `v1:<vk>:<mods>`, DECIMAL numbers, entries joined with `;` — the
-  same format Android stores (`v1:<keyCode>:<modifiers>`); the numbers are the
-  engine's own, and comparing them is the only contract. One REG_SZ list,
-  `HangulEngKeys`; env override `HUNMIN_TSF_TOGGLE_KEYS` (the tier-F1 seam).
-- Modifier bits `0x1 SHIFT 0x2 CTRL 0x4 ALT`; side selection is carried by the
-  VK itself (VK_RMENU vs VK_LMENU — the mirror of Android's side-coded
-  `META_ALT_RIGHT`).
-- Matching is exact per family (Android's `modifiersMatch`): a bare binding
-  does not fire under a modifier and a chord does not fire bare, so Shift+Space
-  and a shifted layout row never fight over the same event. A malformed entry
-  parses to nothing — a binding nobody set must not swallow a keystroke.
-- **Capture must not store VK_PROCESSKEY.** While a Korean IME is active, the
-  physical 한/Hanja keys arrive at a capture surface as VK_PROCESSKEY (0xE5 =
-  229) — the first live capture stored `v1:229:0` and bound nothing (measured
-  2026-10-18). The Win32 dialog resolves it through IMM32
-  (`ImmGetVirtualKey`) before recording; the WinUI exe has no IMM32 access and
-  instead rejects 229 with an on-screen "이 키는 IME가 가로챕니다" hint. The
-  tier-F1 harness sets `HUNMIN_TSF_HANJA_KEY`/`HUNMIN_TSF_TOGGLE_KEYS` env
-  defaults so a store a live session mutated cannot flip test expectations.
-- The **physical Han/Eng key is a platform alternate that survives every
-  rebinding** (the Android rule: "a user rebinding 한/영 must not end up with a
-  keyboard whose physical 한/영 key does nothing"): `Activate()` appends the
-  bare `VK_HANGEUL` whenever the stored list does not carry it.
-- A toggle is a composition boundary (Jamotong manual §9.5; the Android adapter
-  commits at the mode switch): the pending syllable is flushed and the buffered
-  word inserted exactly once before the engine is rebuilt with the other slot's
-  layout.
-- Auto-repeat is keydown with lParam bit 30 (preceding-down) set: the press
-  toggles once and repeats are swallowed, delivering neither a wrong toggle nor
-  the repeat to the application.
-- CapsLock is not a toggle and never selects a row in Korean input mode: the
-  adapter hands the engine the VK's unshifted base plus the Shift bit
-  (`hunmin_ic_process_key`, issue #106), and the Shift bit is the only row
-  transport — CapsLock alone composes the plain row, on every platform.
-  The engine `caps` option **is wired from the key path** (issue #112,
-  ruling 2026-10-19: "wire and make it common to all platform"): one
-  `hunmin_tsf_capslock_from_state()` read beside the modifier snapshot
-  (`frontends/tsf/src/keybinding.cpp`, the toggle LOW bit of
-  `GetKeyState(VK_CAPITAL)`), and one `hunmin_ic_set_option(ic, "caps",
-  1|0)` per key event at the snapshot in tsf.cpp — the same per-event shape
-  fcitx5 has had since engine.cpp:327 and Android since #105 (aligned to
-  1/0 per event by #112; the set-1-only shape left the P variable sticky-on
-  after the first CapsLock use). The option feeds the yethangul P variable
-  only (`hunmin.h:93`); tier F1 pins both sides — dubeolsik r under
-  CapsLock stays the plain row ㄱ, and sin3-p2-yet's j/k pair resolves the
-  P=1 tier with caps on and the plain tier with caps off (the
-  `p2-2-4-3-caps.jsonl` golden pair, replayed through the adapter).
+Three measurement-backed details the SPEC does not carry:
 
-Device-bound open question: whether Windows routes the physical Han/Eng key to
-the TIP as `VK_HANGEUL` (vs. the input hotkey system consuming it) is verified
-per host — `tests/manual-checklists/tsf-mode-toggle.md` records the steps; the
-key-state mechanics themselves (`OnKeyDown`/`OnTestKeyDown` with
-`GetKeyState`-pinned modifiers; chords like `v1:21:1` = the Han/Eng key as the
-target with Shift held, Android's voice action "Shift+KANA" shape) are covered
-by `tsf-config-test`.
+- **A capture must not store `VK_PROCESSKEY`.** While a Korean IME is active the
+  physical 한/한자 keys arrive as `VK_PROCESSKEY` (0xE5 = 229); the first live
+  capture stored `v1:229:0` and bound nothing (2026-10-18). The Win32 dialog
+  resolves it through IMM32 (`ImmGetVirtualKey`); the WinUI exe has no IMM32, so
+  it rejects 229 with an on-screen hint instead.
+- **Auto-repeat** is keydown with lParam bit 30 set: one toggle, repeats
+  swallowed, so a held key neither double-toggles nor leaks to the application.
+- **Caps Lock** is not a toggle; the adapter feeds the VK's base plus the Shift
+  bit and sets the engine `caps` option per key event (TSF10). The option feeds
+  the yethangul P variable only (`hunmin.h`); tier F1 pins both sides — dubeolsik
+  `r` under Caps Lock stays the plain row ㄱ, and sin3-p2-yet's `j`/`k` pair
+  resolves the P=1 tier with caps on.
+
+Device-bound: whether Windows routes the physical Han/Eng key to the TIP as
+`VK_HANGEUL` is verified per host
+(`tests/manual-checklists/tsf-mode-toggle.md`).
 
 ## Data loading — one source wins
 
-The adapter resolves one data tree per load, in priority order
-(`hunmin_ctx_from_module`):
+`hunmin_ctx_from_module` takes the first present: `HUNMIN_DATA_DIR` →
+`<module>\data` (the shipped shape; the build stages `libhunmin/data` beside the
+DLL and every tier-F1 executable via POST_BUILD `copy_directory`) → the
+checkout climb. **The earlier additive chain was a defect, not an
+optimisation:** once staging existed the same tree loaded twice — 15 staged
+layout files reported `hunmin_ctx_layout_count() == 30` (2026-10-17, the first
+red run of `tsf-datadir-test`), because the engine's search path is additive by
+design and does not dedupe ids. Overlapping dirs are the caller's to avoid; the
+engine contract is untouched. (TSF13.)
 
-1. `HUNMIN_DATA_DIR` (explicit override);
-2. `<module>\data` — the shipped shape: the build stages `libhunmin/data`
-   beside `hunmin-tsf.dll` and every tier-F1 executable (POST_BUILD
-   `cmake -E copy_directory`, frontends/tsf/CMakeLists.txt);
-3. the repo checkout climb (`<module>/../../../libhunmin/data`), the dev
-   convenience, reached only when neither of the above holds.
+## The settings surface
 
-The earlier additive chain (env + module dir + repo climb together) is not an
-optimisation but a defect once staging exists: `hunmin_ctx_new`'s search path
-is additive by design and does not dedupe layout ids across dirs, so the same
-tree loaded twice — 15 staged layout files reported
-`hunmin_ctx_layout_count() == 30` (measured 2026-10-17, red first run of
-`tsf-datadir-test`). Overlapping dirs are the caller's to avoid; the engine's
-contract is left untouched (no core change).
+A separate WinUI 3 exe (ruling 2026-10-17, issue #71: "B — separate WinUI 3
+settings exe via Windows App SDK; true Fluent; ~50MB+ installer weight"). Tree:
+`frontends/tsf/settings-ui/` — net8.0, unpackaged, WindowsAppSDKSelfContained +
+SelfContained, win-x64, built by `build-settings-ui.bat`. It reads the layout
+JSON (`id`, `name.ko`, `mode`) and writes the store; no engine link, no
+candidate logic.
 
+Launch paths, both reaching the same exe: `ITfFnConfigure::Show` through
+`settingslaunch.cpp` (ShellExecuteEx, waits on the process handle — the
+property-sheet contract now means one Settings host process — then re-applies
+the store to the live adapter), and `show-settings.bat` directly. Exe
+resolution: `HUNMIN_TSF_SETTINGS_EXE` → `<dll>\settings-ui\publish\…` →
+`<dll>\..\settings-ui\publish\…` (dev shape), plus the INSTALLED shape
+`<app>\settings-ui\hunmin-tsf-settingsui.exe` required by REL7. Data dir:
+`--data` → `HUNMIN_DATA_DIR` → `<exedir>\data` → parent climb.
 
-## The settings dialog (WinUI 3 exe)
+The key rows are set by CAPTURE, never typed (TSF15): [변경] starts capture, ESC
+cancels, auto-repeat is swallowed, modifier-only presses are rejected, and the
+result writes one `v1:<vk>:<mods>` entry — the physical Han/Eng alternate
+survives regardless. A fourth value, `HanjaKey` (default `v1:25:0`, the bare
+Hanja key, not F9), opens the candidate window (issue #67); an unparseable value
+falls back to the default in the adapter so the window stays reachable.
 
-The configuration UI is a **separate WinUI 3 settings exe** — the maintainer's
-ruling 2026-10-17 on issue #71 ("B — separate WinUI 3 settings exe via Windows
-App SDK; true Fluent; ~50MB+ installer weight; milestone E packaging
-implications"). It replaces the plain-Win32 dialog on the TSF surface; the
-interim dialog stays reachable only through `show-settings.bat`'s rundll32
-fallback until the Win32 TU is removed.
+Measured sizing on this host (2026-10-17, DPI scale 1.25): the WinUI exe at
+545×674 px on screen; `ResizeClient` input scales by the DPI factor, so a
+(500,600) request lands 625×750 and the compact request is tuned to the quoted
+~480–560 px band. The interim Win32 dialog's template is 216×164 DU, measuring
+493×434 px. Publish output is 495 files / 167.4 MiB fully self-contained
+(issue #68's packaging weight).
 
-Tree: `frontends/tsf/settings-ui/` — `HunminTsfSettingsUI.csproj` (net8.0,
-unpackaged, `WindowsAppSDKSelfContained=true`, `SelfContained=true`,
-win-x64), `App.xaml(.cs)`, `MainWindow.xaml(.cs)`,
-`build-settings-ui.bat`. No engine link, no candidate logic: the exe reads
-the layout JSON entries (`id`, `name.ko`, `mode` — docs/SPEC-SCHEMA.md) and
-writes the store, nothing else.
+## Tier F1 coverage
 
-- Launch paths (both reach the exe):
-  1. TSF-native — `ITfFnConfigure::Show` (`frontends/tsf/src/settingslaunch.cpp`)
-     launches the exe via `ShellExecuteEx` (edge case logged, never a
-     fallback to the interim dialog) and **waits on the process handle**: the
-     property-sheet contract ("do not return while the dialog is open") now
-     means one Settings host process. On exit it re-applies the store to the
-     live adapter (`hunmin_tsf_apply_config_store`, the #71 apply bridge).
-  2. Direct — `frontends/tsf/show-settings.bat` launches the same exe
-     (resolved beside the DLL, InprocServer32 fallback), rundll32 interim
-     dialog as fallback.
-- Exe resolution (first hit wins): `HUNMIN_TSF_SETTINGS_EXE` env >
-  `<dll dir>\settings-ui\publish\hunmin-tsf-settingsui.exe` >
-  `<dll dir>\..\settings-ui\publish\hunmin-tsf-settingsui.exe` (the
-  dev-checkout shape).
-- Data dir (same precedence the adapter uses): `--data` arg >
-  `HUNMIN_DATA_DIR` env > `<exedir>\data` > the parent-dir climb
-  (`<exedir>\..\data`, the deployed shape — the exe always sits under
-  `<dll dir>\settings-ui\`).
-- The mode-toggle key row: **one configurable binding set by key capture**
-  (ruling quoted: "한영 전환 키는 하나만 선택해도 되고, 복잡하게 입력하는 게
-  아니라 키 입력 방식을 사용하자") — [변경] starts capture ("키를
-  누르세요…", ESC cancels), the dialog's own KeyDown catches the next press,
-  auto-repeat is swallowed by the repeat bit, and modifier-only presses are
-  rejected (Android's isModifierKey mirror). The result writes ONE
-  `v1:<vk>:<mods>` entry to `HangulEngKeys`: the store's ';' list grammar is
-  unchanged, and the adapter still appends the implicit bare Han/Eng
-  platform alternate — the physical key can never be captured away.
-- Store contract untouched (config.{h,cpp} untouched): `HKCU\Software\Hunmin\TSF`,
-  `REG_SZ` values `HangulLayout` / `LatinLayout` / `HangulEngKeys`; empty
-  string removes the value (an absent toggle value leaves the physical key
-  as the toggle).
-- Issue #67 adds a fourth value: `HanjaKey`, the candidate-window open/close
-  key, ONE `v1:<vk>:<mods>` entry (the maintainer instruction of 2026-10-18:
-  the physical Hanja key is the default, not F9). Default `v1:25:0`
-  (VK_HANJA = 0x19 = 25 decimal); env override `HUNMIN_TSF_HANJA_KEY` (the
-  same empty-means-no-override seam); the interim dialog's edit row follows
-  the same grammar, an empty edit saves the default explicitly. An
-  unparseable value falls back to the default IN THE ADAPTER rather than
-  unbinding the window — the candidate window must stay reachable, and the
-  failing entry must never swallow a keystroke (the toggle-binding rule
-  above, applied to a single-entry list).
-- Compact sizing (ruling: "configuration window ... too large; make both
-  compact"), measured on this host 2026-10-17 (Windows 11 26200, the
-  display's DPI scale 1.25 with a reported 96 DPI):
-  - WinUI exe: 545x674 px on screen (client 525x655 + title bar), fixed
-    via `AppWindow.ResizeClient` post-Activate — the ResizeClient input scales
-    by the DPI factor on this host ((500,600) request → 625x750 client), so
-    the request is measured to land inside the quoted ~480-560 px band.
-  - Interim Win32 dialog: template 216x164 dialog units, measured
-    493x434 px on screen (client 472x385, per-window DPI 96 on a 125% display
-    — the dialog's own DLU conversion lands larger than the raw-DU math
-    suggests). The quoted ~340x240 target is a LARGER template in dialog
-    units than the existing 216x164, and the on-screen 493x434 px already
-    sits in the compact band — kept as the fixed small size, recorded, and
-    the exact-quoted-template question is left to the removal commit.
-- Also recorded for #68 packaging: publish output is 495 files /
-  167.4 MiB fully self-contained (the ruling's ~50 MB+ is confirmed and
-  exceeded by the runtime-carrying layout).
+`tsf-config-test` (env wins, empty env unset, defaults, save/load round trip
+against an isolated `…\TSF-selftest` root deleted on every exit path,
+unterminated-id rejection, slot resolution against the real data dir);
+`tsf-datadir-test` (staged `<module>\data` alone must load, the staged json count
+must equal `hunmin_ctx_layout_count()`); `dubeolsik-seosi.trace.in`/`.gold` (400
+events generated from the tier-A `ref-dubeolsik.jsonl` gate, gold reviewed — 400/400
+commits equal). The trace runner pins both slots from the trace's own meta, so a
+host's real TIP settings cannot move a conformance run.
 
-## Tier F1 additions (ctest, MSVC-only)
-
-- `tsf-config-test` — env wins, empty env is unset, defaults, save/load round
-  trip against an isolated `HKCU\Software\Hunmin\TSF-selftest` (deleted on
-  every exit path; never the production store), unterminated-id rejection,
-  and slot resolution against the real data dir.
-- `tsf-datadir-test` — `HUNMIN_DATA_DIR` cleared, the staged `<module>\data`
-  alone must load: the staged `layouts/*.json` count must equal
-  `hunmin_ctx_layout_count()` and dubeolsik must compose.
-- `tests/conformance/win32/dubeolsik-seosi.trace.in` + `.trace.gold` — a
-  dubeolsik replay generated from the tier A `ref-dubeolsik.jsonl` gate (400
-  events; gold reviewed, 400/400 commits equal, 153 UTF-8 bytes on both
-  sides). Before this, every win32 trace selected the hard-coded sin3-p2 and
-  could not detect a layout-wiring regression; the runner pins both slots
-  from the trace's own meta so a host's real TIP settings cannot move a
-  conformance run.
-
-Measured registration drift fixed the same day (the F1 tier had been
-registering zero tests in the documented standalone flow):
-`frontends/tsf/CMakeLists.txt` lacked `enable_testing()` — `add_test` was a
-silent no-op while ctest printed "No tests were found" and the harness still
-built — and the `if(Python3_FOUND)` guard skipped test registration whenever
-`-DPython3_EXECUTABLE=...` was passed explicitly, because `find_package` is
-skipped when a cache value exists and `Python3_FOUND` is never set.
+Registration drift fixed 2026-10-17: the subproject lacked `enable_testing()`
+(`add_test` a silent no-op) and the `if(Python3_FOUND)` guard skipped
+registration when `-DPython3_EXECUTABLE` was passed. Both are TSF18 now.

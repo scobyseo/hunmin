@@ -75,7 +75,7 @@ struct CandidateTest : public ::testing::Test {
             std::exit(77);
         }
         HunminTsfSnapshot snap = svc->Snapshot();
-        if (!snap.ctx || !snap.ic) {
+        if (!snap.ctx || !snap.layer) {
             fprintf(stderr, "skip: engine context unavailable (check HUNMIN_TSF_DATA_DIR)\n");
             Teardown();
             std::exit(77);
@@ -134,14 +134,17 @@ struct CandidateTest : public ::testing::Test {
     /* The observation channel: one snapshot at read time. */
     HunminTsfSnapshot Snap() { return svc->Snapshot(); }
 
+    /* What is held and NOT yet in the document: the layer's finished word (the
+     * display minus the syllable in flight). Named for the fact rather than for
+     * the adapter field it used to read (issue #128: that field is gone). */
     void AssertWordbuf(const char *utf8Expected, const char *what) {
         HunminTsfSnapshot s = Snap();
-        EXPECT_EQ(s.wordbuf, utf8Expected ? utf8Of(utf8Expected) : std::wstring())
-            << what << ": wordbuf got " << utf8(s.wordbuf) << ", want " << (utf8Expected ? utf8Expected : "(empty)");
+        EXPECT_EQ(s.finished, utf8Expected ? utf8Of(utf8Expected) : std::wstring())
+            << what << ": finished word got " << utf8(s.finished) << ", want " << (utf8Expected ? utf8Expected : "(empty)");
     }
     void AssertPreedit(const char *utf8Expected, const char *what) {
         HunminTsfSnapshot s = Snap();
-        EXPECT_EQ(std::string(s.ic ? hunmin_ic_preedit(s.ic) : ""), std::string(utf8Expected ? utf8Expected : "")) << what << ": preedit";
+        EXPECT_EQ(std::string(s.layer ? hunmin_buffered_preedit_composing(s.layer) : ""), std::string(utf8Expected ? utf8Expected : "")) << what << ": preedit";
     }
     void AssertNoInsert(const char *what) { EXPECT_EQ(ctx->insertions.size(), (size_t)0) << what << ": insertions happened, want none"; }
 

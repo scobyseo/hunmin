@@ -12,7 +12,7 @@ if(MSVC)
     # Every .c/.h in the tree is UTF-8 (measured 2026-10-17, `file` over all
     # sources: UTF-8 or pure ASCII, no CP949 file). Without /utf-8 MSVC decodes
     # them as CP949, which turns the UTF-8 test literals into unpairable bytes:
-    # C2001 "newline in constant" cascades (suggest-test.c:48,
+    # C2001 "newline in constant" cascades (candidate-tables-test.cpp:48,
     # commit-text-test.c:89). /utf-8 fixes BOTH charsets — source AND execution
     # — so narrow literals stay byte-correct against the UTF-8 data files.
     add_compile_options(/std:c11 /W4 /utf-8)
@@ -51,10 +51,11 @@ endif()
 set(HUNMIN_CORE_SOURCES
   libhunmin/src/version.c
   libhunmin/src/tables.c
-  libhunmin/src/data.c
+  libhunmin/src/schema_loader.c
   libhunmin/src/expr.c
   libhunmin/src/ic.c
-  libhunmin/src/suggest.c
+  libhunmin/src/buffered_preedit.c
+  libhunmin/src/candidate_tables.c
   third_party/cJSON/cJSON.c)
 
 add_library(hunmin SHARED ${HUNMIN_CORE_SOURCES})
@@ -126,7 +127,7 @@ endif()
 # ABOVE the frontend add_subdirectory calls because frontends/tsf's tier-F1
 # runners link GTest::gtest_main too. One ctest entry per binary is kept on
 # purpose -- registration shape, not the framework, is what the 30 s
-# inner-loop budget is sensitive to (docs/TEST-FRAMEWORK-OPTIONS.md, ~27 ms
+# inner-loop budget is sensitive to (docs/OPTIONS-MEASURED.md §TST, ~27 ms
 # per spawned case measured). So no gtest_discover_tests: each test
 # executable stays one add_test. A configure without network cannot fetch;
 # point FETCHCONTENT_SOURCE_DIR_GOOGLETEST at a checkout to build offline.
@@ -151,7 +152,7 @@ endif()
 # (tier D1; skipped when Fcitx5Core is unavailable)
 option(HUNMIN_FCITX5 "Build the fcitx5 addon" ON)
 if(HUNMIN_FCITX5)
-  # 5.1.13 is the real API floor (FCITX_ADDON_FACTORY_V2, engine.cpp:619),
+  # 5.1.13 is the real API floor (FCITX_ADDON_FACTORY_V2, hunminadapter.cpp:619),
   # measured from upstream tags 2026-10-13 (issue #8). Ubuntu 24.04's distro
   # 5.1.7 is below it, so CI builds fcitx5 from source; the addon's build-time
   # macro gap on a bare 5.1.7 is still handled by the local fallback in
@@ -160,7 +161,7 @@ if(HUNMIN_FCITX5)
   find_package(Fcitx5Module QUIET COMPONENTS TestFrontend)
   if(Fcitx5Core_FOUND)
     add_subdirectory(frontends/fcitx5)
-    # frontend-mutations (tier D1/D2) mutates frontends/fcitx5/src/engine.cpp
+    # frontend-mutations (tier D1/D2) mutates frontends/fcitx5/src/hunminadapter.cpp
     # and caught by testhunmin/testhunminui -- fcitx5 targets; record that the
     # tier exists so its registration far below can follow this fact.
     set(HUNMIN_HAS_FCITX5 TRUE)
@@ -238,11 +239,11 @@ if(BUILD_TESTING AND Python3_FOUND)
   set_tests_properties(expr-vectors PROPERTIES LABELS "tier-A")
   # Tier A for the P3 candidate API. Runs against libhunmin/data via
   # HUNMIN_DATA_PATH so it exercises the shipped tables, not a copy.
-  add_executable(suggest-test libhunmin/tests/suggest-test.cpp)
-  target_link_libraries(suggest-test PRIVATE hunmin GTest::gtest_main)
-  target_link_options(suggest-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
-  add_test(NAME engine-suggest COMMAND suggest-test)
-  set_tests_properties(engine-suggest PROPERTIES
+  add_executable(candidate-tables-test libhunmin/tests/candidate-tables-test.cpp)
+  target_link_libraries(candidate-tables-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(candidate-tables-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
+  add_test(NAME engine-candidates COMMAND candidate-tables-test)
+  set_tests_properties(engine-candidates PROPERTIES
     LABELS "tier-A"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
@@ -254,8 +255,8 @@ if(BUILD_TESTING AND Python3_FOUND)
   target_link_options(commit-text-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
   target_include_directories(commit-text-test PRIVATE libhunmin/include libhunmin/src third_party/cJSON)
   target_sources(commit-text-test PRIVATE
-    libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/data.c
-    libhunmin/src/expr.c libhunmin/src/ic.c libhunmin/src/suggest.c
+    libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/schema_loader.c
+    libhunmin/src/expr.c libhunmin/src/ic.c libhunmin/src/candidate_tables.c
     third_party/cJSON/cJSON.c)
   add_test(NAME engine-commit-text COMMAND commit-text-test)
   set_tests_properties(engine-commit-text PROPERTIES
@@ -272,6 +273,30 @@ if(BUILD_TESTING AND Python3_FOUND)
   target_link_options(process-key-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
   add_test(NAME engine-process-key COMMAND process-key-test)
   set_tests_properties(engine-process-key PROPERTIES
+    LABELS "tier-A"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
+  # Tier A for the shared buffered/syllable layer (issue #128,
+  # docs/FRONTEND-EQUIVALENCE.md §5). The assertions are equalities between two
+  # runs of the same key sequence (mode vs mode) and between the layer and the
+  # engine driven directly - not golden text, because the layer may not change
+  # the text, only when it is delivered.
+  add_executable(buffered-preedit-test libhunmin/tests/buffered-preedit-test.cpp)
+  target_link_libraries(buffered-preedit-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(buffered-preedit-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
+  add_test(NAME engine-buffered-preedit COMMAND buffered-preedit-test)
+  set_tests_properties(engine-buffered-preedit PROPERTIES
+    LABELS "tier-A"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
+  # Tier A for the shared key rule (issue #128, decision C): the precedence is
+  # asserted HERE once, so the frontends keep only mapping and rendering tests.
+  add_executable(key-rule-test libhunmin/tests/key-rule-test.cpp)
+  target_link_libraries(key-rule-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(key-rule-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
+  target_include_directories(key-rule-test PRIVATE libhunmin/include)
+  add_test(NAME engine-key-rule COMMAND key-rule-test)
+  set_tests_properties(engine-key-rule PROPERTIES
     LABELS "tier-A"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
@@ -543,7 +568,7 @@ if(BUILD_TESTING AND Python3_FOUND)
       SKIP_RETURN_CODE 77 TIMEOUT 1800 RUN_SERIAL TRUE)
   endif()
   # The mutation tier used to be RUN_SERIAL because it planted a deliberately
-  # broken engine.cpp in the working tree and rebuilt the shared build/, so
+  # broken hunminadapter.cpp in the working tree and rebuilt the shared build/, so
   # nothing else could run while it did. It now has strategies: the sandbox
   # one copies the sources to a temp dir and touches nothing outside it, which
   # is what makes RUN_SERIAL unnecessary. The strategy is named here rather
@@ -606,6 +631,29 @@ if(BUILD_TESTING AND Python3_FOUND)
   # verifies that every mutation anchor still matches its source, which is what
   # keeps a rename from silently un-anchoring a mutation (2026-10-16).
   set_tests_properties(docs-lint PROPERTIES LABELS "tier-G;slow;guard")
+  # req-map: docs/REQ-MAP.md is a pointer layer (requirement -> architecture ->
+  # design -> implementation -> verification), and its whole purpose is to let
+  # duplicated prose be deleted from the other documents. That only holds if
+  # the pointers resolve, so this check fails on a dead path, an anchor with no
+  # heading or symbol behind it, an unregistered ctest id, a row missing a
+  # column, and a SPEC requirement id with no row. It reads the source
+  # add_test(NAME ...) declarations as well as this build's `ctest -N`, because
+  # the fcitx5/Android/trace tiers register only where their SDKs are present
+  # (see the header of tools/req-map-check.py).
+  # The id is written out literally: tools/docs-lint.py check 6 finds a test by
+  # grepping the sources for `add_test(NAME <id>`.
+  #
+  # `tier-G` and deliberately NOT `guard`: this costs ~1.9 s (1.7 s of it the
+  # nested `ctest -N`), and docs/TESTING.md §"The three levels" states the
+  # commit-level selection as a measured figure. Adding a fourth cheap test
+  # would make that figure wrong without a measurement of the new total, and a
+  # second home for it here is exactly what this map exists to prevent. It runs
+  # in the full suite and in CI, which is where a documentation pointer check
+  # belongs.
+  add_test(NAME req-map
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/req-map-check.py
+            --build-dir ${CMAKE_CURRENT_BINARY_DIR})
+  set_tests_properties(req-map PROPERTIES LABELS "tier-G")
   # The mode corpus tool's --selfcheck: proves the checks can fail. Runs on a
   # committed corpus when one is present, and skips (77) when it is not, so CI
   # -- which has no dump -- does not report a missing data file as a failure.

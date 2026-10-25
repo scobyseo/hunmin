@@ -24,7 +24,12 @@ WIKI = os.path.join(ROOT, "wiki")
 
 FM = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 LINK = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]*)?\]\]")
-PAGE_DIRS = ("concepts", "entities", "decisions")
+# Root-level pages with frontmatter are content pages too: two of them
+# (test-scenario-guide, ci-android-lessons) sat outside every check until
+# 2026-10-25 (issue #133) while teaching a tier vocabulary the tree no longer
+# had. The framing pages (index, log, SCHEMA) carry no frontmatter and are
+# skipped by the same rule that classifies any other page.
+PAGE_DIRS = (".", "concepts", "entities", "decisions")
 RAW_DIRS = ("raw/sessions", "raw/measurements", "raw/upstream")
 VALID_STATUS = {"draft", "active", "superseded", "void"}
 REQUIRED_FM = ("title", "created", "updated", "type", "status", "tags")
@@ -141,6 +146,33 @@ def source_targets(value: str) -> list[str]:
     return [e.group(1).strip().strip("'\"") for e in ENTRY.finditer(value)]
 
 
+# A `path:line` citation is only evidence while the line exists. The 2026-10-22
+# extraction round cut tsf.cpp from 2,320 lines to 528, which silently turned
+# three citations in a decision page into pointers past EOF (issue #134). The
+# check is deliberately narrow: it fires only when the FILE exists and the line
+# is past its end, so a dated `raw/` record naming a path that was renamed later
+# is not flagged here (raw/ is exempt entirely).
+CITE = re.compile(r"`?([A-Za-z0-9_./-]+\.(?:c|h|cpp|kt|py|sh|md|yml|json)):(\d+)(?:-(\d+))?`?")
+
+
+def check_citation_lines(rel: str, text: str) -> None:
+    if "/raw/" in rel.replace(os.sep, "/"):
+        return
+    for m in CITE.finditer(text):
+        path, first, last = m.group(1), int(m.group(2)), m.group(3)
+        full = os.path.join(ROOT, path)
+        if not os.path.exists(full):
+            continue  # a missing path is a different defect class; not this rule
+        try:
+            n = sum(1 for _ in open(full, encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+        over = int(last) if last else first
+        if over > n:
+            err(f"{rel}: cites {path}:{over}, but that file has {n} lines "
+                f"-- a citation past EOF is not evidence")
+
+
 def check_sources_exist(rel: str, path: str, text: str) -> None:
     """Verify all `sources:` targets exist (relative to page dir or wiki root)."""
     fm = FM.match(text)
@@ -175,13 +207,18 @@ def check_sources_exist(rel: str, path: str, text: str) -> None:
         )
 
 
+# The wiki's own framing pages: catalog, log and schema. They are not content
+# pages, carry no frontmatter, and are checked by their own rules.
+FRAMING = {"index.md", "log.md", "SCHEMA.md"}
+
+
 def pages():
     for d in PAGE_DIRS:
         base = os.path.join(WIKI, d)
         if not os.path.isdir(base):
             continue
         for name in sorted(os.listdir(base)):
-            if name.endswith(".md"):
+            if name.endswith(".md") and not (d == "." and name in FRAMING):
                 yield os.path.join(d, name), os.path.join(base, name)
 
 
@@ -216,6 +253,7 @@ def main():
     stems = {os.path.splitext(os.path.basename(p))[0] for p in allp}
     meta = {}
     inbound = defaultdict(set)
+    outbound: dict[str, set[str]] = {}
     status = {}
 
     # Read the vocabulary once, from SCHEMA.md. If it cannot be read, every tag
@@ -253,16 +291,24 @@ def main():
                 warn(f"{rel}: raw page has no 'ingested:' stamp")
 
         check_sources_exist(rel, path, text)
+        check_citation_lines(rel, text)
 
         for target in LINK.findall(body):
             inbound[os.path.splitext(os.path.basename(target))[0]].add(stem)
+            outbound.setdefault(stem, set()).add(
+                os.path.splitext(os.path.basename(target))[0])
 
     # --- the mechanical one: a retracted page still cited from a live one ---
     retracted = {s for s, st in status.items() if st in ("void", "superseded")}
-    for src, targets in inbound.items():
+    # `inbound` is keyed by TARGET (who links here); the direction this check
+    # needs is the page that CONTAINS the link, so read the outbound map. The
+    # two were swapped here until 2026-10-25, which made the guard report the
+    # linked-to page as the offender -- and therefore never caught a live page
+    # citing a void one, which is the defect it exists to catch.
+    for src, targets in outbound.items():
         if status.get(src) not in ("active", "draft"):
             continue
-        for t in targets:
+        for t in sorted(targets):
             if t in retracted:
                 err(f"{src} (status: {status.get(src)}) links to {t} "
                     f"(status: {status.get(t)}) — a retracted page is still cited")

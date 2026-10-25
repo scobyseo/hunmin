@@ -65,6 +65,50 @@ object HunminNativeBridge {
     @JvmStatic external fun nativeLayoutMode(ctx: Long, i: Int): String
 
     /** ic = hunmin_ic_new(ctx, layout) — 0 for an unknown or unsupported id. */
+    /** The shared buffered/syllable layer (issue #128). Two languages: a null
+     *  latin layout makes the layer's Han/Eng action report "not ours".
+     *  behavior is "word" (buffered) or "syllable". */
+    @JvmStatic external fun nativeLayerNew(ctx: Long, hangul: String, latin: String?, behavior: String): Long
+
+    /** The shared key rule (issue #128): base/shift/mods/key id in, action out.
+     *  See hunmin_key_action in hunmin.h; the precedence lives in the layer. */
+    @JvmStatic external fun nativeLayerClassify(
+        layer: Long,
+        base: Int,
+        shift: Int,
+        mods: Int,
+        id: Int,
+        candidatesOpen: Boolean,
+        languageKey: Boolean,
+    ): Int
+
+    @JvmStatic external fun nativeLayerFree(layer: Long)
+
+    /** Feed one key: unshifted base + shift bit. Answers consumed. */
+    @JvmStatic external fun nativeLayerKey(layer: Long, base: Int, shift: Int): Boolean
+
+    /** What the last call delivered to the client ("" when nothing). */
+    @JvmStatic external fun nativeLayerDelivered(layer: Long): String
+
+    /** What the user should see composing (word so far + syllable in flight). */
+    @JvmStatic external fun nativeLayerDisplay(layer: Long): String
+
+    /** Commit the word now (focus loss, a chord, an unmapped key). */
+    @JvmStatic external fun nativeLayerCommitWord(layer: Long): String
+
+    /** External text such as voice input: word first, then the text. */
+    @JvmStatic external fun nativeLayerExternalText(layer: Long, text: String): String
+
+    @JvmStatic external fun nativeLayerReset(layer: Long)
+
+    @JvmStatic external fun nativeLayerSetOption(layer: Long, name: String, value: Int): Boolean
+
+    /** The layer's language action (FE7): 1 when it switched, 0 when one-language. */
+    @JvmStatic external fun nativeLayerToggleLanguage(layer: Long): Int
+
+    /** HUNMIN_LANGUAGE_HANGUL / _LATIN. */
+    @JvmStatic external fun nativeLayerLanguage(layer: Long): Int
+
     @JvmStatic external fun nativeIcNew(ctx: Long, layout: String): Long
 
     @JvmStatic external fun nativeIcFree(ic: Long)

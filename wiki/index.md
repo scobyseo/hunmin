@@ -2,7 +2,8 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-22 | Total pages: 57
+> Last updated: 2026-10-25   (no page count: three counters disagreed, so the
+> number a reader needs is the one a tool prints — `python tools/wiki-lint.py`)
 
 ## Concepts
 
@@ -15,6 +16,13 @@
 - [[where-the-practices-came-from]] — the five working rules this project runs
   on, in the maintainer's words, with the date each was given and the artefact
   it produced.
+
+- [[the-tsf-extraction-round-2026-10-22]] - the 2026-10-22 TSF
+  extraction round in one page: eleven stages, `tsf.cpp` 2,320 -> 528,
+  and the detach defect left for a ruling.
+
+- [[test-scenario-guide]] - which tier a change touches, and the CI limits each runs under.
+- [[ci-android-lessons]] - the seven Android-job fixes and the job split.
 
 ## Decisions
 
@@ -91,7 +99,7 @@
   counted its own skips as catches and reported 9/9 in 0.31s with nothing built;
   a red baseline reads as nine working mutations; the sandbox copy filter
   returned an empty copy reporting *0 MB, 100% saved*. The figures are in
-  `docs/ANDROID-MUTATION-SANDBOX.md`; what generalises is here.
+  `docs/OPTIONS-MEASURED.md` §AND; what generalises is here.
 - [[2026-10-11-b3-off-default-and-the-data-gate]] — the B3 ruling in the
   maintainer's words, and why the second half of the sentence (the separate data
   package, enabled only when present) matters as much as the first: it replaces a

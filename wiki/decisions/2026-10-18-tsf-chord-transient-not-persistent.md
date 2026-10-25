@@ -40,12 +40,13 @@ question stays settled unless a measurement moves it.
 No code change was needed: the tree already ran the transient rule. Verified
 against the shipped sources the day the ruling landed:
 
-- `frontends/tsf/src/tsf.cpp:1214-1224` — the chord block: `CloseCandidateWindow()`,
+- the chord block in `frontends/tsf/src/keydispatch.cpp` (it was in `tsf.cpp` when
+  this was ruled; the 2026-10-22 extraction moved it): `CloseCandidateWindow()`,
   `BoundaryFlush()`, `*pfEat = FALSE`, and no write to `hangulMode_`;
-- `frontends/tsf/src/tsf.cpp:959-965` — `OnTestKeyDown` answers the same
+- `OnTestKeyDown` in `frontends/tsf/src/keydispatch.cpp` answers the same
   uneaten, so the key arrives at the app in its chord sense (Ctrl+A selects
   all rather than composing a jamo of its own);
-- `frontends/tsf/src/tsf.cpp:1644-1654` — `BoundaryFlush`: the in-flight
+- `BoundaryFlush` in `frontends/tsf/src/keydispatch.cpp`: the in-flight
   syllable is flushed into the buffered word and the whole word inserts once —
   that is the "may need buffer flush" half of the user note;
 - the absence grep `frontends/tsf/src/tsf.cpp:hangulMode_ = false` (board row

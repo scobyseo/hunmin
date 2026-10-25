@@ -11,7 +11,7 @@ Rules, both taken from code/docs already in this repository:
   * key ids are the physical US positions named by their UNSHIFTED character:
     26 letters + 10 digits + 21 punctuation (SPEC-SCHEMA.md, "Key ids")
   * a letter's shifted form is its case-swapped self, which is what
-    libhunmin/src/data.c:shifted_of() does for a-z
+    libhunmin/src/schema_loader.c:shifted_of() does for a-z
 
 Usage:  python3 tools/gen-us-qwerty.py [--out FILE] [--check]
         --check  verify the committed table matches, without writing

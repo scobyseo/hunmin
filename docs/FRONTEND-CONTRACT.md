@@ -1,9 +1,15 @@
 # hunmin — frontend contract audit
 
-What each frontend file **assumes**, what role it plays, and which interface it
-exposes. Written 2026-10-02 after reading every line of the fcitx5 addon
-against the fcitx5 5.1.19 sources, because several assumptions turned out to be
-wrong and were not discoverable by re-reading our own code.
+What each frontend file **assumes**, and whether the assumption holds. Written
+2026-10-02 after reading every line of the fcitx5 addon against the fcitx5
+5.1.19 sources, because several assumptions turned out to be wrong and were not
+discoverable by re-reading our own code.
+
+**Status: a dated audit, still cited for §3–§6.** The per-assumption entries
+(A1–A13, A1′–A3′, B1–B7) are the record of what was believed and measured on
+that date — keep them. What is NOT this document's job any more: describing the
+interfaces (now `docs/SPEC-FRONTEND.md` and `docs/FRONTEND-EQUIVALENCE.md` §8)
+and stating the invariants to preserve (now `docs/SPEC-FRONTEND.md` FE1–FE12).
 
 Scope: `frontends/fcitx5/src/`, `frontends/android/`, and the Windows TSF
 adapter in `frontends/tsf/src/`, plus the libhunmin ABI they depend on. The
@@ -20,7 +26,7 @@ Sections 1–5 are the fcitx5 addon. **§6 is the Android IME** and is written t
 the same standard: every "Assumes" line is a claim about somebody else's code
 (AOSP or the NDK) and is therefore the thing most likely to rot.
 
-Read this before changing `engine.cpp`. Every "Assumes" line below is a claim
+Read this before changing `hunminadapter.cpp`. Every "Assumes" line below is a claim
 about somebody else's code (fcitx5 or libhunmin) and is therefore the thing
 most likely to rot.
 
@@ -35,8 +41,8 @@ places the wiki is imprecise.
 
 | File | Role |
 |---|---|
-| `src/engine.h` | addon entry surface: `HunminEngine : InputMethodEngine`, config struct, `HunminAdapterFactory`, the `hunmin_ctx*` handle |
-| `src/engine.cpp` | the whole adapter: key mapping, per-context state property, preedit/c commit presentation |
+| `src/hunminadapter.h` | addon entry surface: `HunminAdapter : InputMethodEngine`, config struct, `HunminAdapterFactory`, the `hunmin_ctx*` handle |
+| `src/hunminadapter.cpp` | the whole adapter: key mapping, per-context state property, preedit/c commit presentation |
 | `src/hunmin.conf.in` | `inputmethod/hunmin.conf` template → IM registration (`Addon=hunmin`) |
 | `src/hunmin-addon.conf.in.in` | `addon/hunmin.conf` template → addon registration (`Library=libhunmin`, `OnDemand=True`) |
 | `test/testhunmin.cpp` | tier D1: headless `Instance` + `testfrontend`, asserts commit strings |
@@ -49,7 +55,7 @@ per-file LOC counts, which rotted silently — they had drifted by 100+ lines wi
 no test noticing, because a number in prose cannot fail. The budget is now
 invariant **I8** in `tools/check-frontend-invariants.py` (ctest
 `frontend-invariants`): it counts code lines across every translation unit the
-adapter owns — `engine.{h,cpp}`, `config.h`, `modeswitch.{h,cpp}` — comments and
+adapter owns — `hunminadapter.{h,cpp}`, `config.h`, `language_detect.{h,cpp}` — comments and
 blanks excluded, and fails above **545**. Do not add counts back to this table;
 add a rule to the checker instead. Reading the current number:
 
@@ -60,44 +66,26 @@ python3 tools/check-frontend-invariants.py | grep I8
 The budget exists to catch *composition* logic or per-layout knowledge
 appearing in the frontend, which is rule #4's actual failure mode.
 
-## 2. The interfaces we expose
+## 2. The interfaces (a 2026-10-02 snapshot)
 
-**To fcitx5** — `HunminEngine` implements five virtuals:
+The description of what each frontend exposes, and the invariants that keep them
+equivalent, live in `docs/SPEC-FRONTEND.md` (FE1–FE12) and
+`docs/FRONTEND-EQUIVALENCE.md` §8. What stays here is the fcitx5 hook contract
+this audit was written against, because it is the shape the addon must keep.
 
 | Hook | When fcitx5 calls it | What we do |
 |---|---|---|
 | `activate(entry, icEvent)` | context becomes the active IM | `state->reset()` |
 | `deactivate(entry, icEvent)` | context stops being the active IM | delegates to `reset` |
-| `keyEvent(entry, keyEvent)` | every key press **before** the client sees it | map + `hunmin_ic_process`, then `filterAndAccept()` or let it through |
+| `keyEvent(entry, keyEvent)` | every key press **before** the client sees it | map, then feed the layer: `filterAndAccept()` or pass |
 | `reset(entry, icEvent)` | focus change / explicit reset | `flush()` then `reset()` |
 | `reloadConfig()` | addon config (re)load | `readAsIni(config_, "conf/hunmin.conf")` |
 
-Plus `getConfig()` / `setConfig()` for the addon's own `Layout` option.
-`setConfig` writes back with `safeSaveAsIni`, so the config file is
-user-visible and round-trips.
-
-**Per-context state** — `HunminState : InputContextProperty`, registered as
-`"hunminState"` on the `InputContextManager`. This is fcitx5's mechanism for
-attaching per-input-context state; the property factory is what makes
-`propertyFor(&factory_)` return the same object for the same `InputContext`.
-Our `hunmin_ic` lives here, so **two open windows get two independent engines**
-— no shared buffer between contexts. Correct for a real IME.
-
-**To the engine** — the only four libhunmin calls that matter here:
-`hunmin_ic_new`, `hunmin_ic_process`, `hunmin_ic_commit` / `hunmin_ic_flush`,
-`hunmin_ic_preedit`. Plus `hunmin_ic_set_option(ic, "caps", …)` and
-`hunmin_ic_free`.
-
-**The caps option is a common frontend contract** (issue #112, ruling
-"wire and make it common to all platform"): every frontend sets
-`hunmin_ic_set_option(ic, "caps", 1 | 0)` **per key event** from its
-platform's CapsLock state — fcitx5 from `KeyState::CapsLock`
-(engine.cpp:327), Android from `META_CAPS_LOCK_ON` (HunminAdapter.kt), the
-TSF TIP from `GetKeyState(VK_CAPITAL)`'s toggle bit read beside the modifier
-snapshot (`hunmin_tsf_capslock_from_state`, keybinding.cpp). CapsLock feeds
-the yethangul P variable only (hunmin.h:93) and selects **no** row on any
-platform — the Shift bit (or, for fcitx5, the host-resolved keysym case) is
-the only row transport.
+`getConfig()`/`setConfig()` round-trip the addon's own `Layout` option through
+`safeSaveAsIni`, so that file is user-visible. Per-context state is
+`HunminState : InputContextProperty` registered as `"hunminState"`; the engine
+handle lives there, so two open windows get two independent engines and no
+shared buffer.
 
 ## 3. Assumptions, and whether they hold
 
@@ -114,7 +102,7 @@ that a layout wanting a non-US physical key cannot be expressed here.
 
 ### A2. Shift is data, not a modifier
 
-`engine.cpp:49-64` returns early for Shift and for Ctrl/Alt/Super/Hyper, but
+`hunminadapter.cpp:49-64` returns early for Shift and for Ctrl/Alt/Super/Hyper, but
 deliberately lets Shift through as a plain character — uppercase letters
 (`FcitxKey_A`…`FcitxKey_Z`) reach the engine as-is.
 
@@ -125,7 +113,7 @@ would have to change.
 **Dual convention appended (issue #90, 2026-10-18):** the engine now also has
 the explicit-modifier entry `hunmin_ic_process_key(ic, base, shift)`
 (docs/SPEC-P2 "IC input entry points"; measurement in
-`docs/IC-INPUT-OPTIONS.md` §2-B). fcitx5 does not use it and everything in
+`docs/OPTIONS-MEASURED.md` §IC-2-B). fcitx5 does not use it and everything in
 A1–A3 above stays its contract unchanged; the value is that the case endpoint
 — the CapsLock×Shift decision each adapter otherwise re-derives, and the one
 Android shipped wrong once (A3') — now has one engine-owned home, engine-tested
@@ -136,7 +124,7 @@ itself (the fcitx5 shape).
 
 ### A3. CapsLock is inverted by the adapter
 
-`engine.cpp:66-72`: when CapsLock is down and the sym is `A`–`Z`, it lowercases
+`hunminadapter.cpp:66-72`: when CapsLock is down and the sym is `A`–`Z`, it lowercases
 the sym and sets the engine's `caps` option to 1.
 
 **Assumes** fcitx5 delivers the *shifted* letter under CapsLock, so the addon
@@ -150,7 +138,7 @@ non-US host layout.
 
 ### A4. `hunmin_ic_commit` is a destructive read — **our comment says the opposite**
 
-`engine.cpp:91-96`:
+`hunminadapter.cpp:91-96`:
 
 ```cpp
 } else {
@@ -188,7 +176,7 @@ it non-destructive. **Holds**, and it is what lets `updateUI()` be idempotent.
 
 ### A6. Context capability decides where preedit goes
 
-`engine.cpp:145-148`: `setClientPreedit` if the context advertises
+`hunminadapter.cpp:145-148`: `setClientPreedit` if the context advertises
 `CapabilityFlag::Preedit`, else `setPreedit`.
 
 **Assumes** the XIM/DBus clients set that flag and that the distinction is
@@ -208,7 +196,7 @@ the key path.** If a future feature reads preedit on focus change, this
 becomes a use-after-stale-layout bug rather than a crash.
 
 The resolved layout is now passed in per key event from
-`HunminEngine::layoutFor()`, so a profile change takes effect on the next
+`HunminAdapter::layoutFor()`, so a profile change takes effect on the next
 keystroke without `setConfig` running.
 
 ### A8. Data is found via `HUNMIN_DATA_PATH`, else the installed dir
@@ -249,10 +237,10 @@ been clearing it. D2's flush case caught the absence immediately.
 ### The tests dlopen the addon, so they must build it
 
 D1, D2 and Tier C all `dlopen` `TEST_ADDON_DIR/libhunmin.so` — they do not link
-`engine.cpp`. `add_dependencies(testhunmin copy-addon copy-im)` used to satisfy
+`hunminadapter.cpp`. `add_dependencies(testhunmin copy-addon copy-im)` used to satisfy
 that orderingly, but `copy-addon` only copies `hunmin-addon.conf`; it does not
 depend on `hunmin_addon`. So `make testhunminui` would not rebuild the library
-after an `engine.cpp` edit, and **every mutation planted in the adapter
+after an `hunminadapter.cpp` edit, and **every mutation planted in the adapter
 survived** while the tests still reported green.
 
 That is the worst possible failure shape: a test that cannot fail looks exactly
@@ -264,7 +252,7 @@ F9 path and finding all five survive a green D1/D2.
 an `add_custom_target` only orders it — it does not make it produce the
 library, so `add_dependencies` is the one that works.
 
-**How to tell it regressed.** `touch frontends/fcitx5/src/engine.cpp && make
+**How to tell it regressed.** `touch frontends/fcitx5/src/hunminadapter.cpp && make
 --build build --target testhunminui` must change the mtime of
 `build/fcitx5-addon/libhunmin.so`. If it does not, no D1/D2/Tier C result from
 that build means anything.
@@ -272,7 +260,7 @@ that build means anything.
 ## 4. Gaps in coverage
 
 Found by **mutation testing** on 2026-10-02: four realistic mutations were
-planted in `engine.cpp` and checked against both §5 and the D1 suite. Two
+planted in `hunminadapter.cpp` and checked against both §5 and the D1 suite. Two
 mutations compiled, passed D1, and slipped past every written invariant:
 
 | Mutation | build | D1 | caught by §5? |
@@ -295,7 +283,7 @@ mutations compiled, passed D1, and slipped past every written invariant:
 
 ### Per-item `Layout=` (defect, found and fixed 2026-10-02)
 
-`engine.cpp` used to read only `config().hangulLayout`, the addon-wide
+`hunminadapter.cpp` used to read only `config().hangulLayout`, the addon-wide
 `conf/hunmin.conf` option, so a `Layout=` beside an IM in the user's profile
 had no effect.
 
@@ -357,12 +345,12 @@ showed that a prose rule nobody can execute catches nothing. Run
    Hangul/Latin pickers); this check and `tools/frontend-mutations.py`'s
    `I5-layout-override-ignored` anchor name it, so both move with it.
 8. **The adapter stays inside the thin-adapter budget (rule #4).**
-   Check: code lines across `engine.{h,cpp}`, `config.h`, `modeswitch.{h,cpp}`
+   Check: code lines across `hunminadapter.{h,cpp}`, `config.h`, `language_detect.{h,cpp}`
    ≤ **545**, comments and blanks excluded. This is a measurement, not a
    description — see §1. Exceeding it means composition logic or per-layout
    knowledge has crept into the frontend, which is the failure mode rule #4
    exists to prevent. The count is of *every* translation unit the adapter
-   owns, not just `engine.{h,cpp}`, because splitting logic into a new file
+   owns, not just `hunminadapter.{h,cpp}`, because splitting logic into a new file
    would otherwise walk straight past the budget while the adapter grew. The
    limit has moved twice, each time for work that is frontend by nature and
    cannot live in the core: the F9/candidate presentation (400 → 465), and
@@ -372,7 +360,7 @@ showed that a prose rule nobody can execute catches nothing. Run
    `nextCandidate()` and calling them is the input method's job.
 9. **The Hanja window never reads or rewrites surrounding text.**
    Check (I9): no `SurroundingText` / `getSurroundingText` /
-   `deleteSurroundingText` / `setCursorPos` call anywhere in `engine.cpp`;
+   `deleteSurroundingText` / `setCursorPos` call anywhere in `hunminadapter.cpp`;
    `openCandidates()` reads `hunmin_ic_preedit()` and nothing else;
    `commitCandidate()` commits and resets rather than re-inserting.
    PLAN.md's P3 note records why from the fcitx5 wiki Q&A: many clients do not
@@ -385,7 +373,7 @@ showed that a prose rule nobody can execute catches nothing. Run
    Check (I10): `add_dependencies(copy-addon hunmin_addon)` in the frontend
    test CMake. Without it D1/D2 link a stale `libhunmin.so`: `copy-addon`
    copies a `.conf` and does not otherwise produce the library, so editing
-   `engine.cpp` does not rebuild it and the suite stays green. Found when five
+   `hunminadapter.cpp` does not rebuild it and the suite stays green. Found when five
    F9 mutations all survived a green run. A stale binary that passes is worse
    than a failing one — it is indistinguishable from a test with nothing to
    catch.
@@ -393,7 +381,7 @@ showed that a prose rule nobody can execute catches nothing. Run
 11. **The layout picker's list comes from the core, and the picker keeps it.**
     Check (I11): inside `refreshLayoutList()`, `count` is assigned from
     `hunmin_ctx_layout_count()` and `id` from `hunmin_ctx_layout_id()`; and
-    `setLayouts()` in `engine.h` stores its argument in `layouts_`. The bindings
+    `setLayouts()` in `hunminadapter.h` stores its argument in `layouts_`. The bindings
     are to those variable names deliberately — two looser forms were measured
     passing against a hardcoded picker that kept a call alive only to satisfy
     the grep. All three loosenesses are caught by D2 behaviourally; I11 is the

@@ -192,21 +192,30 @@ class HunminAdapterTest {
         // four-key test below proves the row still composes ('Q' arrives as
         // KEYCODE_Q + META_SHIFT_ON and must reach sin3-p2's symbol tier).
         assertEquals('k', HunminKeyRegistry.engineBase(keyCodeOf('k')))
-        // Shift must not be classified as a chord -- that would drop every
-        // shifted key to the client and silently break sin3-p2's symbol tiers.
-        assertFalse(HunminKeyRegistry.isModifierChord(shiftOn))
+        // The "Shift is not a chord" assertion moved to tier A's engine-key-rule
+        // (issue #128, decision C): the rule is the layer's now. What stays in
+        // this suite is the mapping -- base is unshifted under every metaState.
     }
 
+    // The chord RULE moved to tier A's engine-key-rule (issue #128, decision C).
+    // What stays in this suite is the adapter's own half: which of Android's
+    // metaState flags become the shared chord bit. That is mapping, not rule --
+    // and it is what the Android mutation `no-ctrl` plants into, measured
+    // 2026-10-25: with the rule retired and no mapping assertion left, dropping
+    // Ctrl from the mask survived the whole tier.
     @Test
-    fun `ctrl chords are refused`() {
-        assertTrue(HunminKeyRegistry.isModifierChord(ctrlOn))
-        assertTrue(HunminKeyRegistry.isModifierChord(ctrlOn or shiftOn))
-        assertTrue(HunminKeyRegistry.isModifierChord(altOn))
+    fun `ctrl, alt and meta map to the shared chord bit`() {
+        assertTrue("META_CTRL_ON must be a chord", HunminKeyRegistry.isModifierChord(ctrlOn))
+        assertTrue("META_ALT_ON must be a chord", HunminKeyRegistry.isModifierChord(altOn))
+        assertTrue("META_META_ON must be a chord", HunminKeyRegistry.isModifierChord(metaOn))
+        assertTrue(HunminKeyRegistry.isModifierChord(ctrlOn or altOn))
+        // Shift and CapsLock are the engine's, not the app's.
+        assertFalse("Shift selects a layout row", HunminKeyRegistry.isModifierChord(shiftOn))
+        assertFalse("CapsLock is the caps option", HunminKeyRegistry.isModifierChord(capsOn))
     }
 
     @Test
     fun `capslock is not a chord and the base stays unshifted`() {
-        assertFalse("CapsLock must not be a modifier chord", HunminKeyRegistry.isModifierChord(capsOn))
         // The base is the UNSHIFTED letter under every modifier combination:
         // the bits travel beside it (the shift bit verbatim via isShiftOn,
         // caps as the engine option), so no metaState can change what
@@ -338,7 +347,7 @@ class HunminAdapterTest {
 
     @Test
     fun `a flush during composition commits it instead of dropping it`() {
-        // Bug 1's core. The service flushes on a mode switch; if flush did not
+        // Bug 1's core. The service flushes on a language toggle; if flush did not
         // commit what was composing, the typed syllable would be lost exactly
         // as the user reported. flush() must also clear the preedit, or the
         // stale composition stays on screen over the committed text.
@@ -854,6 +863,28 @@ class HunminAdapterTest {
             "a session with no composition must not emit setComposingText at all",
             emptyList<String>(), ic.composings)
         engine.close()
+    }
+
+    @Test
+    fun `the language action is the layer's, not the adapter's`() {
+        // FE7 (issue #136 ruling): one abstract action, performed by the layer,
+        // so this frontend and TSF and fcitx5 cannot disagree about what a mode
+        // change is. The pair is what makes it the layer's business -- an
+        // adapter built with one slot must REFUSE, because it has nothing to
+        // switch to and the caller owns the switch then.
+        val pair = HunminAdapter(ctx, "sin3-p2", "us-qwerty")
+        assumeTrue(pair.isUsable)
+        assertTrue("an adapter with both slots must own the action", pair.ownsLanguageAction)
+        assertTrue("the layer is in Hangul before the action", pair.isHangulLanguage())
+        assertTrue("the action must be the layer's to perform", pair.toggleLanguage())
+        assertFalse("and it must switch the language", pair.isHangulLanguage())
+        pair.close()
+
+        val single = HunminAdapter(ctx, "sin3-p2")
+        assumeTrue(single.isUsable)
+        assertFalse("a one-slot adapter refuses the action", single.toggleLanguage())
+        assertFalse("and it reports no pair to own", single.ownsLanguageAction)
+        single.close()
     }
 
     @Test

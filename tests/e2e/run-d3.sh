@@ -462,7 +462,7 @@ start_fcitx() { # $1 = layout
     # bus name — dbus *activates* org.fcitx.Fcitx5 from its .service file,
     # racing a second instance against ours (observed: addon unload storm).
     # The layout must reach the addon, and the addon reads it from the PROFILE's
-    # per-item Layout= field -- HunminEngine::layoutFor() calls
+    # per-item Layout= field -- HunminAdapter::layoutFor() calls
     # InputMethodGroup::layoutFor(), which reads item.layout() out of
     # [Groups/0/Items/N]. Writing it to data/fcitx5/conf/hunmin.conf (an
     # fcitx5 *addon* config file) does nothing: fcitx5 never hands an addon the

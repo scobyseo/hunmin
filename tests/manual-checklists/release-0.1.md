@@ -146,7 +146,7 @@ dpkg -c ../hunmin_0.1.0_*.deb | grep -E 'libhunmin\.so|hunmin.*\.conf'
 
 `debian/control` requires `fcitx5-modules-dev (>= 5.1.13)` and the addon needs
 fcitx5 >= 5.1.13 for real (`FCITX_ADDON_FACTORY_V2`,
-`frontends/fcitx5/src/engine.cpp`); Ubuntu 24.04's 5.1.7 is below that floor.
+`frontends/fcitx5/src/hunminadapter.cpp`); Ubuntu 24.04's 5.1.7 is below that floor.
 
 Install and check it loads:
 
@@ -279,9 +279,9 @@ than quoting a figure.
 
 1. **`frontend-mutations` is red on master, and it blocks the `.deb`.** The
    mutation `I5-layout-override-ignored` anchors on
-   `frontends/fcitx5/src/engine.cpp` reading
+   `frontends/fcitx5/src/hunminadapter.cpp` reading
    `*engine_->config().layout`; the source now reads
-   `*engine_->config().hangulLayout` (`engine.cpp:404`), renamed by `1521fad`
+   `*engine_->config().hangulLayout` (`hunminadapter.cpp:404`), renamed by `1521fad`
    ("Add DVORAK and Colemak layouts with separate Hangul/Latin pickers"). The
    anchor is `tools/frontend-mutations.py:56-57`. The self-test fails closed, as
    designed — which is why `dpkg-buildpackage` aborts. Note that

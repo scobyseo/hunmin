@@ -13,7 +13,7 @@ Win+Space first.
 | 3 | Press Space | the composition ends; `안녕안녕` fuses into the document as ordinary text (no underline); Space reaches the document |
 | 4 | Type `dkssud`, then Backspace twice | the composition range shrinks: `안녕안` → `안녕`; no stale preedit visible |
 | 5 | Type `dkssud`, then Esc | the composition ends; `안녕` fuses into the document; typing continues |
-| 6 | Type `dkssud`, then the Han/Eng key | the composition ends; `안녕` fuses; mode switches to English |
+| 6 | Type `dkssud`, then the Han/Eng key | the composition ends; `안녕` fuses; language switches to English |
 | 7 | Type `dkssud`, then the Hanja key | the candidate popup opens over the composition; the composition text is still visible underneath |
 | 8 | Press Return (candidate selected) | the candidate text replaces the composition range; the composition ends; no duplicate |
 | 9 | Type `dkssud`, then Ctrl+A | the composition ends; `안녕` fuses; Ctrl+A selects all (not types) |

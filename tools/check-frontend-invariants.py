@@ -13,7 +13,7 @@ import pathlib
 import re
 import sys
 
-ENGINE = pathlib.Path(__file__).resolve().parents[1] / "frontends/fcitx5/src/engine.cpp"
+ENGINE = pathlib.Path(__file__).resolve().parents[1] / "frontends/fcitx5/src/hunminadapter.cpp"
 failures: list[str] = []
 
 
@@ -43,20 +43,41 @@ def main() -> int:
     raw = ENGINE.read_text()
     code = strip_comments(raw)
 
-    # I1/I2/I3 -- the process() block
-    block = between(code, "bool used = hunmin_ic_process", "void reset()")
+    # I1/I2/I3 -- the feed block.
+    #
+    # Since issue #128 the adapter drives the shared buffered/syllable layer
+    # (hunmin_buffered_preedit_*), so the block no longer reads the engine's
+    # commit itself: it hands the key to the layer and renders what it is
+    # given. The invariants it must keep are the same ones -- one delivery
+    # point for committed text, one boundary, one place that answers
+    # consumption.
+    block = between(code, "hunmin_key_event ev{}", "void reset()")
     if not block:
-        check("process() block located", False, "anchor text changed")
+        check("feed block located", False, "anchor text changed")
         return 1
-    check("I3 exactly one commit read", block.count("hunmin_ic_commit(") == 1,
-          f"found {block.count('hunmin_ic_commit(')}")
+    check("I3 exactly one commit delivery", block.count("commitString(") == 1,
+          f"found {block.count('commitString(')}")
+    check("I3 the delivered text is the layer's answer",
+          "out.commit" in block,
+          "a second read of the engine's destructive commit is how text is lost")
+    check("I3 exactly one layer feed", block.count("hunmin_buffered_preedit_process_key(") == 1,
+          f"found {block.count('hunmin_buffered_preedit_process_key(')}")
     check("I1 exactly one flush", block.count("flush();") == 1,
           f"found {block.count('flush();')}")
-    check("I1 flush guarded by else", "} else {" in block)
+    # The boundary used to be an `else` on the engine's answer; since #128 it is
+    # the layer's classified action, which is the point of the shared rule.
+    check("I1 the boundary comes from the classifier",
+          "HUNMIN_KEY_BOUNDARY_PASS" in block and "hunmin_buffered_preedit_classify(" in block,
+          "the chord/unmapped boundary must be the layer's answer, not re-derived here")
     check("I2 exactly one commitString", block.count("commitString(") == 1,
           f"found {block.count('commitString(')}")
 
-    tail = block[block.find("updateUI();"):]
+    # The candidate switch consumes its own keys (one filterAndAccept per key it
+    # routes), so the feed tail -- everything after the window-closing comment --
+    # is where "exactly one, gated on the answer" applies.
+    tail = block[block.find("if (!used) {"):]
+    if not tail:
+        tail = block[block.find("updateUI();"):]
     # I3: filterAndAccept belongs to the branch where the engine consumed the
     # key. Returning false is how space, backspace and unmapped keys reach the
     # client, and F9 does not need an exception -- it is intercepted above the
@@ -65,19 +86,23 @@ def main() -> int:
           f"found {tail.count('filterAndAccept();')}")
     check("I3 filterAndAccept gated on used", "if (used) {" in tail,
           "a key the engine declined must reach the client")
-    check("I9 modifier chords still return before the engine",
-          "states() & modifiers" in code and "return;" in
-          between(code, "states() & modifiers", "sym = "))
-
-    # I4 -- Shift must stay out of the modifier mask
-    mask = between(code, "KeyStates modifiers;", "keyEvent.key().states() & modifiers")
-    check("I4 modifier mask located", bool(mask))
+    # I9/I4 -- the modifier vocabulary is mapped into the shared event, and
+    # Shift is not a chord. Both rules used to be re-derived in this file with
+    # their own local mask; since #128 they are the layer's (tier A
+    # engine-key-rule asserts the precedence), so what is checked here is that
+    # the adapter maps faithfully and does not smuggle Shift into the chord set.
+    mask = between(code, "const KeyStates states = keyEvent.key().states();", "ev.candidates_open")
+    check("I4 modifier mapping located", bool(mask))
     if mask:
-        check("I4 Shift absent from modifier mask", "Shift" not in mask,
-              "Shift encodes layout rows; a chord would swallow it")
+        check("I4 Shift absent from the chord bits",
+              "HUNMIN_MOD_SHIFT" not in mask,
+              "Shift selects a layout row; a chord bit would swallow it")
+        check("I9 chord bits are the shared ones",
+              "HUNMIN_MOD_CTRL" in mask and "HUNMIN_MOD_ALT" in mask and "HUNMIN_MOD_GUI" in mask,
+              "the chord set must be the layer's vocabulary, not a local copy")
 
     # I5 -- caps must be handed to the engine
-    check("I5 caps option is set", 'hunmin_ic_set_option(hunminIc_, "caps"' in code)
+    check("I5 caps option is set", 'hunmin_buffered_preedit_set_option(preedit_, "caps"' in code)
     check("I5 caps driven by CapsLock key state",
           "test(KeyState::CapsLock)" in code)
 
@@ -88,12 +113,14 @@ def main() -> int:
           "layout.empty() ? *engine_->config().hangulLayout : layout" in code)
     check("I7 layout reaches the engine entry point",
           "state->keyEvent(layoutFor(entry)" in code
-          and "std::string HunminEngine::layoutFor(const InputMethodEntry &entry)" in code)
+          and "std::string HunminAdapter::layoutFor(const InputMethodEntry &entry)" in code)
 
-    # I6 -- hunmin_ic owned only by HunminState
-    decl = [ln for ln in code.splitlines() if "hunmin_ic *" in ln and "=" in ln]
-    check("I6 no stray hunmin_ic field outside HunminState",
-          all("HunminState" not in ln for ln in decl) or len(decl) <= 1,
+    # I6 -- the composing state is owned in exactly one place. It used to be
+    # the hunmin_ic; since #128 it is the shared layer handle, and the defect
+    # this guards (a second owner, so two code paths compose the same keys) is
+    # unchanged.
+    decl = [ln for ln in code.splitlines() if "hunmin_buffered_preedit *" in ln and "=" in ln]
+    check("I6 exactly one layer handle", len(decl) == 1,
           "; ".join(ln.strip()[:60] for ln in decl))
 
     # I9 -- the Hanja window must not touch surrounding text.
@@ -106,7 +133,7 @@ def main() -> int:
     # This is the one PLAN invariant with no runtime symptom: an adapter that
     # read or rewrote surrounding text would still type correctly, just less
     # portably, so no tier-A/D test could see it. It is enforced structurally.
-    # Against `code`, not `raw`: engine.cpp has a comment saying the adapter
+    # Against `code`, not `raw`: hunminadapter.cpp has a comment saying the adapter
     # deliberately avoids deleteSurroundingText, and a prose mention of the
     # forbidden call must not fail the check that forbids it.
     check("I9 adapter never reads or rewrites surrounding text",
@@ -117,15 +144,15 @@ def main() -> int:
     # ...and the candidates must come from the engine's own preedit, so there is
     # no path by which client text could reach the lookup.
     cand = between(code, "bool openCandidates()", "void closeCandidates()")
-    check("I9 candidates are looked up from the engine preedit only",
-          bool(cand and "hunmin_ic_preedit" in cand and "hunmin_suggest_count" in cand
+    check("I9 candidates are looked up from the composing text only",
+          bool(cand and "hunmin_buffered_preedit_display" in cand and "hunmin_suggest_count" in cand
                and not re.search(r"surrounding|deleteSurrounding", cand, re.I)),
-          "openCandidates() must read hunmin_ic_preedit(), nothing else")
+          "openCandidates() must read the layer's display string, nothing else")
     # Choosing a candidate replaces the composition; it must not re-insert text
     # behind it, which is what a surrounding-text rewrite would look like.
     commit = between(code, "void commitCandidate(", "const std::string &candidateSource()")
     check("I9 choosing a candidate does not re-insert text",
-          bool(commit and "commitString" in commit and "hunmin_ic_reset" in commit
+          bool(commit and "commitString" in commit and "hunmin_buffered_preedit_reset" in commit
                and not re.search(r"deleteSurrounding|setCursorPos|Surrounding", commit)),
           "commitCandidate() commits and resets, no re-insertion")
 
@@ -134,18 +161,23 @@ def main() -> int:
     # down: docs/FRONTEND-CONTRACT.md used to carry exact per-file LOC counts,
     # which rotted on every commit that added a line and were never checked.
     # Counting code lines (comments and blanks excluded) rather than raw lines
-    # keeps the budget about logic, and 400 leaves room for the F9/candidate
-    # presentation P3 will add without the rule needing re-litigating.
-    # Every file the adapter owns is counted, not just engine.{h,cpp}.
+    # keeps the budget about logic.
     #
-    # Two moves forced this. modeswitch.* is the R8 adapter's own translation
-    # unit; config.h holds HunminConfig and came out of engine.h when the
-    # adapter needed the room. Counting engine.{h,cpp} alone would have made
+    # The number is the MAINTAINER'S ruling (2026-10-25, "~700 is okay"), and it
+    # is enforced here at the value the documents state. This gate used to
+    # enforce 560 while AGENTS.md, PLAN.md and docs/TESTING.md all said ~700 --
+    # a reader tuning a file to the doc was 140 lines inside the real limit, and
+    # nothing said so. One number, one home (AGENTS.md), enforced.
+    # Every file the adapter owns is counted, not just hunminadapter.{h,cpp}.
+    #
+    # Two moves forced this. language_detect.* is the R8 detector's own translation
+    # unit; config.h holds HunminConfig and came out of hunminadapter.h when the
+    # adapter needed the room. Counting hunminadapter.{h,cpp} alone would have made
     # the config.h move look like a 23-line saving when it is a relocation --
     # the same trick a new file walks past, which is how "frontends stay thin"
     # stops being enforced.
     #
-    # 400 -> 465 is not slack. engine.{h,cpp} alone is 383 and was 397 before
+    # 400 -> 465 is not slack. hunminadapter.{h,cpp} alone is 383 and was 397 before
     # the adapter landed; the 3 lines of headroom it had were the ones the
     # comment above reserved for the F9/candidate work, which has since shipped
     # (31 lines). 465 is the honest total for what the addon now contains.
@@ -162,8 +194,8 @@ def main() -> int:
     # translation unit, which keeps the same total and only hides it.
     counted = 0
     parts = {}
-    for name in ("engine.cpp", "engine.h", "config.h",
-                 "modeswitch.cpp", "modeswitch.h"):
+    for name in ("hunminadapter.cpp", "hunminadapter.h", "config.h",
+                 "language_detect.cpp", "language_detect.h"):
         f = ENGINE.with_name(name)
         if not f.exists():
             continue
@@ -171,13 +203,13 @@ def main() -> int:
         counted += n
         parts[name] = n
     check("I8 frontend stays inside the thin-adapter budget",
-          counted <= 560,
+          counted <= 700,
           f"{counted} code LOC across " + ", ".join(f"{k}={v}" for k, v in parts.items())
-          + " (limit 560)")
+          + " (limit 700)")
 
     # I11 -- the layout picker's list comes from the core, and the picker keeps
     # it. AGENTS.md rule 1 ("layouts are data, never code") holds at the UI
-    # boundary too: a picker whose ids are written out in engine.{h,cpp} is a
+    # boundary too: a picker whose ids are written out in hunminadapter.{h,cpp} is a
     # second place to edit per layout, and the place a reader looks first.
     #
     # Bound to the loop's own variables inside refreshLayoutList(), because the
@@ -196,9 +228,9 @@ def main() -> int:
     # pass on a broken picker, the exact failure I11 exists to catch.
     engine_h = (ENGINE.with_name("config.h").read_text()
                 if ENGINE.with_name("config.h").exists()
-                else ENGINE.with_name("engine.h").read_text())
-    filler = between(ENGINE.read_text(), "void HunminEngine::refreshLayoutList()",
-                     "void HunminEngine::reloadConfig()")
+                else ENGINE.with_name("hunminadapter.h").read_text())
+    filler = between(ENGINE.read_text(), "void HunminAdapter::refreshLayoutList()",
+                     "void HunminAdapter::reloadConfig()")
     setter = between(engine_h, "void setLayouts(",
                      "void dumpDescription(RawConfig &config) const")
     check("I11 the layout picker reads the layout list from the core",
@@ -212,7 +244,7 @@ def main() -> int:
     # I10 -- the tests dlopen libhunmin.so, so building a test target must
     # rebuild the library. copy-addon only copies the .conf; without a
     # dependency on the addon target, `make testhunminui` leaves a stale .so
-    # and every mutation planted in engine.cpp survives a green D1/D2.
+    # and every mutation planted in hunminadapter.cpp survives a green D1/D2.
     addon_cmake = ENGINE.parents[1] / "test/addon/CMakeLists.txt"
     if addon_cmake.exists():
         body = addon_cmake.read_text()

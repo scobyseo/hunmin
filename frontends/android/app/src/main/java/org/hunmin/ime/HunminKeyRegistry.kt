@@ -145,7 +145,7 @@ object HunminKeyRegistry {
      *
      * KEYCODE_DEL (67) needs no special case here: it sits in [BY_KEYCODE]
      * with [BACKSPACE_ENGINE_CHAR] as its base, and the engine's
-     * already-resolved rule leaves 0x08 alone under a shift bit (data.c's
+     * already-resolved rule leaves 0x08 alone under a shift bit (schema_loader.c's
      * SHIFTED[] table has no row for it).
      */
     fun engineBase(keyCode: Int): Char? = BY_KEYCODE[keyCode]?.unshifted

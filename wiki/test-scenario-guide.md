@@ -1,4 +1,16 @@
 ---
+title: "Test scenario guide: which tier runs what"
+created: 2026-10-08
+updated: 2026-10-25
+type: concept
+status: active
+tags: [concept, testing, ci]
+sources:
+  - ../../docs/TESTING.md
+confidence: high
+---
+
+---
 title: "Test Scenario Development Guide"
 date: 2026-10-14
 tags: [testing, ci, android, development]
@@ -11,33 +23,14 @@ This guide documents the test architecture, CI lessons, and patterns for adding 
 
 ## Test Tier Architecture
 
-```
-tier A: Engine goldens (host, fast, deterministic)
-    ├── engine-goldens          # JSONL compose verification
-    └── engine-mutations        # Fuzz with known-bad inputs
+The tier vocabulary is `docs/TESTING.md` §The vocabulary — cited here, not
+restated, because this page's original table contradicted it (tier-B was written
+as "Engine on Android" when tier-B is the ABI and data contracts, tier-D as the
+Android mutation tier when tier-D1/D2/D3 are the three fcitx5 tiers, and an `E3`
+tier was listed that the tree does not have). What this page keeps is the shape
+that is not in `TESTING.md`: which tier a change touches, and the CI limits a
+tier runs under.
 
-tier B: Engine on Android (host cross-compiled, no emulator)
-    ├── engine-android-e1       # JVM unit tests with real engine
-    └── engine-android-goldens  # goldens replayed on device via adb
-
-tier C: Trace conformance (host, deterministic)
-    └── trace-check             # Replay traces against spec
-
-tier D: Mutation falsifiability (host)
-    └── android-mutations       # Proves E1 can fail
-
-tier E0: Engine on device (emulator, no IME UI)
-    └── engine-android-goldens  # Same goldens, different libc
-
-tier E1: Adapter in JVM (emulator, real engine)
-    └── engine-android-e1       # JVM tests, real engine .so
-
-tier E2: Full IME (emulator, real key events)
-    └── android-e2e             # Install APK, enable IME, type, read via uiautomator
-
-tier E3: Runtime trace (emulator, manual)
-    └── e3-trace                # Enable trace sink, drive from keyboard
-```
 
 ## CI Environment Constraints (GitHub Actions)
 
@@ -206,3 +199,9 @@ python3 tools/trace-check.py tests/conformance/... --runner build/... --emit
 4. **E0/E1 without emulator** - Engine tests don't need IME UI
 5. **Document flakiness** - uiautomator, emulator boot, disk space
 6. **Monitor billing** - CI stops silently when account has issues
+
+## Related
+
+- [[the-rules-keep-breaking]] — a tier that cannot fail is the failure this
+  guide's labelling exists to prevent.
+- [[2026-10-10-ctest-labels]] — the label design and the two silent defects.

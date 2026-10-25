@@ -5,7 +5,7 @@
  *
  * libhunmin's loader is a filesystem scanner, and that is the whole constraint
  * here. hunmin_ctx_new() opendir()s `<dir>/compose` and `<dir>/layouts` and
- * fopen()s each `*.json` (libhunmin/src/data.c, hm_data_load). An Android APK
+ * fopen()s each `*.json` (libhunmin/src/schema_loader.c, hm_data_load). An Android APK
  * is a zip: there are no directories to opendir and no stable paths to fopen.
  * So the tables ship as assets -- the one packaging mechanism Android offers --
  * and are copied out to filesDir once, on first use.
