@@ -51,7 +51,7 @@ def main() -> int:
     # given. The invariants it must keep are the same ones -- one delivery
     # point for committed text, one boundary, one place that answers
     # consumption.
-    block = between(code, 'hunmin_buffered_preedit_set_option(preedit_, "caps"', "void reset()")
+    block = between(code, "hunmin_key_event ev{}", "void reset()")
     if not block:
         check("feed block located", False, "anchor text changed")
         return 1
@@ -64,11 +64,20 @@ def main() -> int:
           f"found {block.count('hunmin_buffered_preedit_process_key(')}")
     check("I1 exactly one flush", block.count("flush();") == 1,
           f"found {block.count('flush();')}")
-    check("I1 flush guarded by else", "} else {" in block)
+    # The boundary used to be an `else` on the engine's answer; since #128 it is
+    # the layer's classified action, which is the point of the shared rule.
+    check("I1 the boundary comes from the classifier",
+          "HUNMIN_KEY_BOUNDARY_PASS" in block and "hunmin_buffered_preedit_classify(" in block,
+          "the chord/unmapped boundary must be the layer's answer, not re-derived here")
     check("I2 exactly one commitString", block.count("commitString(") == 1,
           f"found {block.count('commitString(')}")
 
-    tail = block[block.find("updateUI();"):]
+    # The candidate switch consumes its own keys (one filterAndAccept per key it
+    # routes), so the feed tail -- everything after the window-closing comment --
+    # is where "exactly one, gated on the answer" applies.
+    tail = block[block.find("if (!used) {"):]
+    if not tail:
+        tail = block[block.find("updateUI();"):]
     # I3: filterAndAccept belongs to the branch where the engine consumed the
     # key. Returning false is how space, backspace and unmapped keys reach the
     # client, and F9 does not need an exception -- it is intercepted above the
@@ -77,16 +86,20 @@ def main() -> int:
           f"found {tail.count('filterAndAccept();')}")
     check("I3 filterAndAccept gated on used", "if (used) {" in tail,
           "a key the engine declined must reach the client")
-    check("I9 modifier chords still return before the engine",
-          "states() & modifiers" in code and "return;" in
-          between(code, "states() & modifiers", "sym = "))
-
-    # I4 -- Shift must stay out of the modifier mask
-    mask = between(code, "KeyStates modifiers;", "keyEvent.key().states() & modifiers")
-    check("I4 modifier mask located", bool(mask))
+    # I9/I4 -- the modifier vocabulary is mapped into the shared event, and
+    # Shift is not a chord. Both rules used to be re-derived in this file with
+    # their own local mask; since #128 they are the layer's (tier A
+    # engine-key-rule asserts the precedence), so what is checked here is that
+    # the adapter maps faithfully and does not smuggle Shift into the chord set.
+    mask = between(code, "const KeyStates states = keyEvent.key().states();", "ev.candidates_open")
+    check("I4 modifier mapping located", bool(mask))
     if mask:
-        check("I4 Shift absent from modifier mask", "Shift" not in mask,
-              "Shift encodes layout rows; a chord would swallow it")
+        check("I4 Shift absent from the chord bits",
+              "HUNMIN_MOD_SHIFT" not in mask,
+              "Shift selects a layout row; a chord bit would swallow it")
+        check("I9 chord bits are the shared ones",
+              "HUNMIN_MOD_CTRL" in mask and "HUNMIN_MOD_ALT" in mask and "HUNMIN_MOD_GUI" in mask,
+              "the chord set must be the layer's vocabulary, not a local copy")
 
     # I5 -- caps must be handed to the engine
     check("I5 caps option is set", 'hunmin_buffered_preedit_set_option(preedit_, "caps"' in code)

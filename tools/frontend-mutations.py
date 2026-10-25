@@ -78,11 +78,11 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
     # which is why the old entry had to be replaced rather than kept.
     (
         "I3-accept-unguarded",
-        "        updateUI();\n        // Only consume what the engine actually took. A key it declined\n        // (space, backspace on an empty buffer, an unmapped keysym) belongs to\n        // the client, and that is how it reaches it. This is FRONTEND-CONTRACT\n        // \u00a75 rule 3.\n        if (used) {\n            keyEvent.filterAndAccept();\n        }",
-        "        updateUI();\n        keyEvent.filterAndAccept();",
+        "        if (used) {\n            keyEvent.filterAndAccept();\n        }",
+        "        keyEvent.filterAndAccept();",
         True,
-        True,
-        False,  # D2 never asserts acceptance, only what the panel shows
+        True,  # D1: a declined key would be swallowed instead of reaching the client
+        False,
     ),
     # Tier D2 (InputPanel presentation) -- these were found by planting them
     # while writing testhunminui; all four compile and pass D1, so without the
@@ -125,10 +125,10 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
     ),
     (
         "I4-shift-chord",
-        "modifiers |= KeyState::Ctrl;",
-        "modifiers |= KeyState::Shift_L;\n    modifiers |= KeyState::Ctrl;",
+        "if (states.test(KeyState::Ctrl)) ev.mods |= HUNMIN_MOD_CTRL;",
+        "if (states.test(KeyState::Ctrl) || states.test(KeyState::Shift_L)) ev.mods |= HUNMIN_MOD_CTRL | HUNMIN_MOD_SHIFT;",
         True,
-        False,  # does not compile; reported as a build failure below
+        True,  # every shifted letter becomes a boundary and passes: D1's uppercase cases fail
         False,
     ),
 ]

@@ -70,7 +70,35 @@ void traceEvent(const char *kind, const std::string &text) {
 }
 
 } // namespace
-#endif
+#endif /* HUNMIN_TRACE */
+
+/* Platform symbol -> the shared key identity (issue #128). A table rather than
+ * a switch because the mapping is data: the same keys on every platform, and the
+ * adapter's job is only to name them. Everything absent here is either a
+ * character (handled by the caller) or a key the platform mapped to nothing.
+ *
+ * Outside the trace guard on purpose: this is key routing, not tracing. */
+struct SymKeyId {
+    KeySym sym;
+    hunmin_key_id id;
+};
+const SymKeyId kSymKeyIds[] = {
+    {FcitxKey_Up, HUNMIN_KEY_UP},
+    {FcitxKey_KP_Up, HUNMIN_KEY_UP},
+    {FcitxKey_Down, HUNMIN_KEY_DOWN},
+    {FcitxKey_KP_Down, HUNMIN_KEY_DOWN},
+    {FcitxKey_Left, HUNMIN_KEY_LEFT},
+    {FcitxKey_KP_Left, HUNMIN_KEY_LEFT},
+    {FcitxKey_Right, HUNMIN_KEY_RIGHT},
+    {FcitxKey_KP_Right, HUNMIN_KEY_RIGHT},
+    {FcitxKey_Page_Up, HUNMIN_KEY_PAGE_UP},
+    {FcitxKey_KP_Page_Up, HUNMIN_KEY_PAGE_UP},
+    {FcitxKey_Page_Down, HUNMIN_KEY_PAGE_DOWN},
+    {FcitxKey_KP_Page_Down, HUNMIN_KEY_PAGE_DOWN},
+    {FcitxKey_Return, HUNMIN_KEY_ENTER},
+    {FcitxKey_KP_Enter, HUNMIN_KEY_ENTER},
+    {FcitxKey_Escape, HUNMIN_KEY_ESCAPE},
+};
 
 class HunminState;
 
@@ -185,30 +213,22 @@ public:
         if (sym == FcitxKey_Shift_L || sym == FcitxKey_Shift_R) {
             return;
         }
-        // Modifier chords (Ctrl/Alt/Super combos) belong to the client;
-        // commit what is composing and let the key through. Shift is
-        // deliberately NOT here: layouts encode shift as uppercase rows.
-        KeyStates modifiers;
-        modifiers |= KeyState::Ctrl;
-        modifiers |= KeyState::Alt;
-        modifiers |= KeyState::Super;
-        modifiers |= KeyState::Hyper;
-        if (keyEvent.key().states() & modifiers) {
-            flush();
-            updateUI();
-            return;
+
+        // CapsLock. Note key() cannot be used here: Key::normalize() rebuilds
+        // states_ down to Ctrl/Alt/Super/Mod3 and drops CapsLock entirely, so
+        // the normalized key reports sym='k' with no CapsLock bit. rawKey()
+        // keeps it. The uppercase sym still arrives there, so feed the layout
+        // the unshifted form and expose P via the caps option (SPEC-P2.md).
+        const bool caps = keyEvent.rawKey().states().test(KeyState::CapsLock);
+        if (caps && sym >= 'A' && sym <= 'Z') {
+            sym = static_cast<KeySym>(sym + 'a' - 'A');
         }
 
-        // F9 opens the Hanja window for the current preedit (P3). Handled
-        // here rather than in the engine because F9 is not a printable ASCII
-        // character: the `sym >= 0x20 && sym <= 0x7E` test below would send it
-        // to flush() and the client, so the engine never sees it.
-        //
-        // Consumption is conditional here too, on candidates rather than on
-        // what the engine thought: an open window closes, a preedit with
-        // candidates opens one, and anything else returns unconsumed so F9
-        // reaches the client. Nothing about this needs the unconditional
-        // filterAndAccept() that used to sit at the tail of this method.
+        /* F9 opens the Hanja window for the current preedit (P3): presentation,
+         * so it stays here. Consumption is conditional on candidates, not on
+         * what the engine thought -- an open window closes, a preedit with
+         * candidates opens one, and anything else returns unconsumed so F9
+         * reaches the client. */
         if (sym == FcitxKey_F9) {
             if (candidateActive()) {
                 closeCandidates();
@@ -220,24 +240,40 @@ public:
             return;
         }
 
-        /*
-         * Candidate-window keys, once a window is open.
-         *
-         * The window is ours, so these keys are ours: without this block an
-         * arrow key fell through to the `sym >= 0x20 && sym <= 0x7E` test
-         * below and reached the engine as a character (or flushed), which is
-         * why choosing a Hanja needed the mouse. fcitx5 does not intercept
-         * these on its own -- a CursorMovableCandidateList only provides
-         * prevCandidate()/nextCandidate(); calling them is the input method's
-         * job -- so each key is handled explicitly and consumed.
-         *
-         * Arrows move the cursor rather than the page: the list is one page
-         * (see updateCandidateList), so Up/Down is the whole motion and
-         * Left/Right mirror it for a horizontal habit. PageUp/PageDown exist
-         * because PageableCandidateList offers them and a user reaching for
-         * them should not get a character in the document.
-         */
-        if (candidateActive()) {
+        /* Translate the platform key into the shared vocabulary ONCE. What the
+         * key MEANS is the layer's answer (issue #128, decision C): the adapter
+         * maps sym + modifier state to (base, shift, mods, key id) and reports
+         * whether its own candidate window is open; the precedence (language
+         * key, open list, chord, unmapped, feed) lives in libhunmin and is
+         * asserted once, in tier A's engine-key-rule. */
+        hunmin_key_event ev{};
+        const KeyStates states = keyEvent.key().states();
+        if (states.test(KeyState::Ctrl)) ev.mods |= HUNMIN_MOD_CTRL;
+        if (states.test(KeyState::Alt)) ev.mods |= HUNMIN_MOD_ALT;
+        if (states.test(KeyState::Super) || states.test(KeyState::Hyper)) ev.mods |= HUNMIN_MOD_GUI;
+        /* Shift is deliberately NOT in mods: it selects a layout row, and it
+         * travels as the engine's shift bit instead. */
+        for (const SymKeyId &row : kSymKeyIds)
+            if (row.sym == sym) {
+                ev.id = row.id;
+                break;
+            }
+        // A character (base 0 = the platform mapped nothing). 0x08 is BackSpace,
+        // the same convention as libhangul and the golden traces.
+        if (ev.id == HUNMIN_KEY_TEXT && sym == FcitxKey_BackSpace) ev.base = 0x08;
+        else if (ev.id == HUNMIN_KEY_TEXT && sym >= 0x20 && sym <= 0x7E) ev.base = static_cast<uint32_t>(sym);
+        /* An uppercase symbol means the row was shifted; the engine resolves
+         * the case endpoint from (base, shift) itself. */
+        uint32_t ch = ev.base; /* the case-encoded character, for R8's replay */
+        if (ev.base >= 'A' && ev.base <= 'Z') {
+            ev.shift = 1;
+            ev.base = ev.base + 'a' - 'A';
+        }
+        ev.candidates_open = candidateActive() ? 1 : 0;
+
+        const hunmin_key_action action = hunmin_buffered_preedit_classify(preedit_, &ev);
+
+        if (action == HUNMIN_KEY_CANDIDATE) {
             auto list = ic_->inputPanel().candidateList();
             switch (sym) {
             case FcitxKey_Up:
@@ -303,54 +339,38 @@ public:
             default:
                 break;
             }
-            // Any other key closes the window and falls through to the normal
-            // path below, so typing continues where the user left off instead
-            // of being swallowed by an invisible window.
+        }
+
+        if (action == HUNMIN_KEY_BOUNDARY_PASS) {
+            /* A chord, or a key the platform mapped to nothing: the layer's
+             * boundary is where the word is finished, and the key belongs to
+             * the client. The same flush + pass this adapter used to spell out
+             * in two separate branches. */
+            flush();
+            updateUI();
+            return;
+        }
+        /* HUNMIN_KEY_LANGUAGE_TOGGLE is unreachable here: fcitx5 owns its own
+         * trigger, so this adapter always reports language_key = 0. §4's shared
+         * action is what removes that asymmetry. */
+
+        // Any other key closes an open window and falls through, so typing
+        // continues where the user left off instead of being swallowed by an
+        // invisible window.
+        if (candidateActive()) {
             closeCandidates();
             updateUI();
         }
 
-        // CapsLock. Note key() cannot be used here: Key::normalize() rebuilds
-        // states_ down to Ctrl/Alt/Super/Mod3 and drops CapsLock entirely, so
-        // the normalized key reports sym='k' with no CapsLock bit. rawKey()
-        // keeps it. The uppercase sym still arrives there, so feed the layout
-        // the unshifted form and expose P via the caps option (SPEC-P2.md).
-        bool caps = keyEvent.rawKey().states().test(KeyState::CapsLock);
-        if (caps && sym >= 'A' && sym <= 'Z') {
-            sym = static_cast<KeySym>(sym + 'a' - 'A');
-        }
-        hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);
-
         /* The shared layer above libhunmin decides consumption, commit and
          * preedit for every frontend (issue #128, docs/FRONTEND-EQUIVALENCE.md
-         * §5); this adapter keeps no buffer of its own any more. It maps the
-         * keysym to (base, shift) and renders what it is handed. The commit
-         * POLICY is the layer's: AT_BOUNDARY is what a client preedit wants --
-         * the word stays visible and lands in one insert (issue #74's
-         * requirement, now shared instead of per-frontend). */
-        uint32_t ch;
-        if (sym == FcitxKey_BackSpace) {
-            ch = 0x08; // same convention as libhangul / golden traces
-        } else if (sym >= 0x20 && sym <= 0x7E) {
-            ch = static_cast<uint32_t>(sym);
-        } else {
-            flush(); // unmapped keysym: commit, then pass to the client
-            updateUI();
-            return;
-        }
-
-        /* An uppercase symbol means the row was shifted; the engine resolves
-         * the case endpoint from (base, shift) itself (hunmin_ic_process_key),
-         * so the adapter stops encoding shift into the character. */
-        uint32_t base = ch;
-        uint32_t shift = 0;
-        if (base >= 'A' && base <= 'Z') {
-            shift = 1;
-            base = base + 'a' - 'A';
-        }
-
+         * §5); this adapter keeps no buffer of its own. The commit POLICY is
+         * the layer's, chosen by the user (config.h CommitBehavior): AT_BOUNDARY
+         * keeps the word visible and lands it in one insert, PER_SYLLABLE
+         * delivers each syllable as the engine finalises it. */
+        hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);
         hunmin_key_result out{};
-        const bool used = hunmin_buffered_preedit_process_key(preedit_, base, shift, &out) != 0;
+        const bool used = hunmin_buffered_preedit_process_key(preedit_, ev.base, ev.shift, &out) != 0;
         switcher_.record(ch); // R8 detector; see src/language_detect.h
 
         if (out.commit && *out.commit) {
@@ -369,10 +389,8 @@ public:
         traceEvent(used ? "consumed" : "passed", "");
 #endif
         updateUI();
-        // Only consume what the engine actually took. A key it declined
-        // (space, backspace on an empty buffer, an unmapped keysym) belongs to
-        // the client, and that is how it reaches it. This is FRONTEND-CONTRACT
-        // §5 rule 3.
+        // Only consume what the layer actually took: a declined key belongs to
+        // the client (FRONTEND-CONTRACT §5 rule 3).
         if (used) {
             keyEvent.filterAndAccept();
         }
