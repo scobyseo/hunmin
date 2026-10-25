@@ -112,8 +112,8 @@ parse_bounds() {
 
 ## Recommended CI Flow
 1. **Linux job**: All host tests (tier A/B/C/D, conformance)
-2. **Android job**: Only E0/E1 (no emulator) - pushes lib + runs JVM tests
-3. **E2/E3**: Run locally or on self-hosted runner with sufficient disk
+2. **Android job**: E0/E1/E2 — E0 (engine on device) and E1 (JVM tests) without emulator; E2 (APK e2e + Espresso) after emulator boot
+3. No E3
 
 ## Environment Notes
 - GitHub Free/Pro/Team/Enterprise runners: ~14GB total, ~2-3GB free (fixed)

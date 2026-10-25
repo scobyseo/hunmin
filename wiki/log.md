@@ -745,3 +745,24 @@
   what the round established, what it does not); each stays as a
   `superseded` stub carrying its own one-line finding. 715 live lines of
   one-stage narration become ~40 plus eleven stubs.
+
+## [2026-10-25] lint | Two wiki orphans join the checks (issue #133)
+
+- `wiki/test-scenario-guide.md` and `wiki/ci-android-lessons.md` gained
+  frontmatter (title/created/updated/type/status/tags/sources), two outbound
+  wikilinks each, and an `index.md` entry.
+- `tools/wiki-lint.py`'s page set widened to include root-level content pages
+  (`wiki/`); framing pages (`index.md`, `log.md`, `SCHEMA.md`) are excluded by
+  name. Page count moved 58 → 60.
+- `wiki/test-scenario-guide.md`: the tier table contradicted `docs/TESTING.md`;
+  replaced with a pointer to `§The vocabulary` and the three specific errors
+  named (tier-B, tier-D, E3).
+- `wiki/ci-android-lessons.md`: the Recommended CI Flow section and the tier-job
+  mapping corrected to match the workflow and `docs/TESTING.md` (automated
+  Android tiers are E0/E1/E2, no E3).
+- `wiki/index.md`: dropped the hand-maintained page count (points at
+  `python tools/wiki-lint.py` instead).
+- `tools/docs-lint.py`: the cross-check of index.md's page count removed.
+- Also: `docs/REQ-MAP.md` re-pointed after heading renames.
+
+Verified: `python tools/wiki-lint.py` → 60 pages, 0 errors; `python tools/docs-lint.py` → 0 errors.
