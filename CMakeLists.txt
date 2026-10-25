@@ -54,7 +54,7 @@ set(HUNMIN_CORE_SOURCES
   libhunmin/src/data.c
   libhunmin/src/expr.c
   libhunmin/src/ic.c
-  libhunmin/src/layer.c
+  libhunmin/src/buffered_preedit.c
   libhunmin/src/suggest.c
   third_party/cJSON/cJSON.c)
 
@@ -281,11 +281,11 @@ if(BUILD_TESTING AND Python3_FOUND)
   # runs of the same key sequence (mode vs mode) and between the layer and the
   # engine driven directly - not golden text, because the layer may not change
   # the text, only when it is delivered.
-  add_executable(layer-test libhunmin/tests/layer-test.cpp)
-  target_link_libraries(layer-test PRIVATE hunmin GTest::gtest_main)
-  target_link_options(layer-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
-  add_test(NAME engine-layer COMMAND layer-test)
-  set_tests_properties(engine-layer PROPERTIES
+  add_executable(buffered-preedit-test libhunmin/tests/buffered-preedit-test.cpp)
+  target_link_libraries(buffered-preedit-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(buffered-preedit-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
+  add_test(NAME engine-buffered-preedit COMMAND buffered-preedit-test)
+  set_tests_properties(engine-buffered-preedit PROPERTIES
     LABELS "tier-A"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")

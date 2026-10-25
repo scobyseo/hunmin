@@ -77,7 +77,7 @@ typedef struct {
 } hm_buf_t;
 
 /* The input context state lives here rather than in ic.c because the shared
- * buffered/syllable layer (layer.c) must read it: hunmin_layer_peek_key copies
+ * buffered/syllable layer (buffered_preedit.c) must read it: hunmin_buffered_preedit_peek_key copies
  * an ic by value to answer a platform "test" phase without consuming the key
  * (issue #128). Internal to the library -- never in the ABI. */
 struct hunmin_ic {

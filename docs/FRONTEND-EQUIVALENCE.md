@@ -2,7 +2,7 @@
 
 Status: **requirements recorded 2026-10-24; the three open decisions in §9 were
 taken 2026-10-25 and the layer they describe is implemented in
-`libhunmin/src/layer.c` (issue #128, phase 1). The corpus, the frontend
+`libhunmin/src/buffered_preedit.c` (issue #128, phase 1). The corpus, the frontend
 migrations and the TSF emitter extension follow on the same branch.** This
 document is the single home of the rule.
 
@@ -86,25 +86,25 @@ symbols follow the append-only ABI rule.
 
 ### 5.1 What the layer is (implemented 2026-10-25)
 
-`hunmin_layer` in `libhunmin/src/layer.c`, exported as `hunmin_layer_*`
+`hunmin_buffered_preedit` in `libhunmin/src/buffered_preedit.c`, exported as `hunmin_buffered_preedit_*`
 (`hunmin.h`, 11 symbols, appended to `libhunmin/tests/abi/symbols.txt`). It owns
 the word buffer and the boundary rule:
 
-- `hunmin_layer_key(l, base, shift, &out)` answers consumption and fills
+- `hunmin_buffered_preedit_process_key(l, base, shift, &out)` answers consumption and fills
   `out.commit` / `out.preedit`. A **declined key is the boundary**: the engine
   finalises the syllable it was holding, and that is when a buffered word is
   delivered. A frontend therefore never spells out "when a word ends" itself.
-- `HUNMIN_COMMIT_BUFFERED` holds finalised syllables and delivers the word at
-  the boundary; `HUNMIN_COMMIT_SYLLABLE` delivers each one as the engine
+- `HUNMIN_COMMIT_AT_BOUNDARY` holds finalised syllables and delivers the word at
+  the boundary; `HUNMIN_COMMIT_PER_SYLLABLE` delivers each one as the engine
   finalises it. Same text, different delivery point.
-- `hunmin_layer_mode_change()` is the Han/Eng action (§4): one abstract event,
+- `hunmin_buffered_preedit_toggle_language()` is the Han/Eng action (§4): one abstract event,
   and it is a boundary in both directions.
-- `hunmin_layer_peek_key()` is the read-only prediction a platform "test" phase
+- `hunmin_buffered_preedit_peek_key()` is the read-only prediction a platform "test" phase
   needs, over the same state the real key will consume.
 
 Tier A asserts the property the layer exists for, as equalities rather than
 golden text: mode vs mode per key, and layer vs the engine driven directly
-(`engine-layer`, `libhunmin/tests/layer-test.cpp`).
+(`engine-buffered-preedit`, `libhunmin/tests/buffered-preedit-test.cpp`).
 
 ### 5.2 A wording question this implementation exposes
 
@@ -203,9 +203,9 @@ The three questions this section used to hold were put to the maintainer with th
 options measured, and all three were answered. Quoting the chosen option in each
 case, because a paraphrase drifts:
 
-1. **The layer's API shape** — chosen: "Exported hunmin_layer_* symbols in
+1. **The layer's API shape** — chosen: "Exported hunmin_buffered_preedit_* symbols in
    libhunmin (append-only ABI, one implementation, symbols.txt grows)". The
-   alternative on the table was a static `layer.c` compiled into each frontend;
+   alternative on the table was a static `buffered_preedit.c` compiled into each frontend;
    it was not taken because it puts the same rule in three builds and #128 exists
    to have one.
 2. **The corpus record format** — chosen: "Reuse the tier-C trace format
@@ -214,7 +214,7 @@ case, because a paraphrase drifts:
    trusting: the format already carries the three per-key fields, which is what
    §6 asks for; a second format would be a second home for the same expectations.
 3. **The Han/Eng normalization** — chosen: "An abstract shared action in the
-   layer (`hunmin_layer_mode_change` / a MODE_CHANGE key class); each adapter maps
+   layer (`hunmin_buffered_preedit_toggle_language` / a MODE_CHANGE key class); each adapter maps
    its own physical key to it". So no adapter synthesizes a Kana VK.
 
 Still open, and not decided by the above:

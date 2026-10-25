@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * layer-test.cpp - tier A for the shared buffered/syllable layer (issue #128,
+ * buffered-preedit-test.cpp - tier A for the shared buffered/syllable layer (issue #128,
  * docs/FRONTEND-EQUIVALENCE.md §5).
  *
  * The layer's whole job is that the commit MODE cannot change the result, so
@@ -15,7 +15,7 @@
  *   2. layer vs engine: the concatenated text the layer hands out is exactly
  *      what hunmin_ic produces when driven directly - the layer may not invent,
  *      reorder or drop a syllable;
- *   3. peek: hunmin_layer_peek_key agrees with the following key and changes
+ *   3. peek: hunmin_buffered_preedit_peek_key agrees with the following key and changes
  *      nothing (the TSF test-phase contract);
  *   4. boundary: a declined key and an explicit flush both deliver the word and
  *      leave nothing behind.
@@ -80,13 +80,13 @@ struct RunResult {
  * rule the frontend applies (commit text, then it is in the client). */
 RunResult drive_layer(hunmin_ctx *ctx, const std::string &sequence, int mode) {
     RunResult r;
-    hunmin_layer *l = hunmin_layer_new(ctx, "dubeolsik", nullptr, mode);
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx, "dubeolsik", nullptr, mode);
     EXPECT_NE(l, nullptr);
     if (!l) return r;
     std::string word;
     for (const Key &k : keys_of(sequence)) {
-        hunmin_layer_out out{};
-        const int eaten = hunmin_layer_key(l, k.base, k.shift, &out);
+        hunmin_key_result out{};
+        const int eaten = hunmin_buffered_preedit_process_key(l, k.base, k.shift, &out);
         r.eaten.push_back(eaten);
         if (out.commit && out.commit[0]) {
             r.total += out.commit;
@@ -99,12 +99,12 @@ RunResult drive_layer(hunmin_ctx *ctx, const std::string &sequence, int mode) {
         }
         r.shown.push_back(rendered(word, out.preedit));
     }
-    const char *tail = hunmin_layer_flush(l);
+    const char *tail = hunmin_buffered_preedit_commit_word(l);
     if (tail && *tail) {
         r.total += tail;
         r.shown.push_back(r.total);
     }
-    hunmin_layer_free(l);
+    hunmin_buffered_preedit_free(l);
     return r;
 }
 
@@ -152,8 +152,8 @@ const char *kSequences[] = {"dkssud",   "dkssud ",  "dkssud gksrmf", "dkssud1",
 TEST_F(LayerTest, BothCommitModesAgreeWithTheEngine) {
     for (const char *seq : kSequences) {
         const std::string oracle = drive_engine(ctx_, seq);
-        const RunResult buffered = drive_layer(ctx_, seq, HUNMIN_COMMIT_BUFFERED);
-        const RunResult syllable = drive_layer(ctx_, seq, HUNMIN_COMMIT_SYLLABLE);
+        const RunResult buffered = drive_layer(ctx_, seq, HUNMIN_COMMIT_AT_BOUNDARY);
+        const RunResult syllable = drive_layer(ctx_, seq, HUNMIN_COMMIT_PER_SYLLABLE);
         EXPECT_EQ(buffered.total, oracle) << "sequence: " << seq;
         EXPECT_EQ(syllable.total, oracle) << "sequence: " << seq;
     }
@@ -161,8 +161,8 @@ TEST_F(LayerTest, BothCommitModesAgreeWithTheEngine) {
 
 TEST_F(LayerTest, BothCommitModesAgreeOnConsumptionAndDisplay) {
     for (const char *seq : kSequences) {
-        const RunResult buffered = drive_layer(ctx_, seq, HUNMIN_COMMIT_BUFFERED);
-        const RunResult syllable = drive_layer(ctx_, seq, HUNMIN_COMMIT_SYLLABLE);
+        const RunResult buffered = drive_layer(ctx_, seq, HUNMIN_COMMIT_AT_BOUNDARY);
+        const RunResult syllable = drive_layer(ctx_, seq, HUNMIN_COMMIT_PER_SYLLABLE);
         ASSERT_EQ(buffered.eaten.size(), keys_of(seq).size()) << "sequence: " << seq;
         EXPECT_EQ(buffered.eaten, syllable.eaten) << "sequence: " << seq;
         const size_t n = std::min(buffered.shown.size(), syllable.shown.size());
@@ -173,113 +173,113 @@ TEST_F(LayerTest, BothCommitModesAgreeOnConsumptionAndDisplay) {
 }
 
 TEST_F(LayerTest, BufferedModeCommitsNothingUntilABoundary) {
-    hunmin_layer *l = hunmin_layer_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_BUFFERED);
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(l, nullptr);
     for (char c : std::string("dkssu")) {
-        hunmin_layer_out out{};
-        EXPECT_EQ(hunmin_layer_key(l, (uint32_t)c, 0, &out), 1);
+        hunmin_key_result out{};
+        EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)c, 0, &out), 1);
         EXPECT_STREQ(out.commit, "") << "buffered mode inserted mid-word: " << c;
     }
     /* 'd' finishes the first syllable, so the buffer is what a boundary must
      * deliver: the finished part plus the in-flight one. */
-    hunmin_layer_out out{};
-    EXPECT_EQ(hunmin_layer_key(l, (uint32_t)'d', 0, &out), 1);
+    hunmin_key_result out{};
+    EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)'d', 0, &out), 1);
     EXPECT_STREQ(out.commit, "");
-    const char *flushed = hunmin_layer_flush(l);
+    const char *flushed = hunmin_buffered_preedit_commit_word(l);
     EXPECT_STRNE(flushed, "");
     /* Second flush of an empty layer is empty: the word was delivered once. */
-    EXPECT_STREQ(hunmin_layer_flush(l), "");
-    hunmin_layer_free(l);
+    EXPECT_STREQ(hunmin_buffered_preedit_commit_word(l), "");
+    hunmin_buffered_preedit_free(l);
 }
 
 TEST_F(LayerTest, SyllableModeCommitsEachFinalisedSyllable) {
-    hunmin_layer *l = hunmin_layer_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_SYLLABLE);
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_PER_SYLLABLE);
     ASSERT_NE(l, nullptr);
     std::string got;
     bool delivered_mid_word = false;
     for (char c : std::string("dkssu")) {
-        hunmin_layer_out out{};
-        hunmin_layer_key(l, (uint32_t)c, 0, &out);
+        hunmin_key_result out{};
+        hunmin_buffered_preedit_process_key(l, (uint32_t)c, 0, &out);
         got += out.commit;
         if (out.commit && out.commit[0]) delivered_mid_word = true;
     }
     /* The point of this mode: text reaches the client before the boundary. */
     EXPECT_TRUE(delivered_mid_word) << "syllable mode held the text until the end";
-    got += hunmin_layer_flush(l);
+    got += hunmin_buffered_preedit_commit_word(l);
     EXPECT_EQ(got, drive_engine(ctx_, "dkssu"));
-    hunmin_layer_free(l);
+    hunmin_buffered_preedit_free(l);
 }
 
 TEST_F(LayerTest, PeekAgreesWithKeyAndChangesNothing) {
-    hunmin_layer *l = hunmin_layer_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_BUFFERED);
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(l, nullptr);
-    hunmin_layer_out pre{};
-    hunmin_layer_key(l, (uint32_t)'d', 0, &pre);
+    hunmin_key_result pre{};
+    hunmin_buffered_preedit_process_key(l, (uint32_t)'d', 0, &pre);
     const std::string before_preedit = pre.preedit ? pre.preedit : "";
     /* A digit is declined by dubeolsik; a letter is consumed. Both answers must
      * agree with the following real key, and the peek must not move the state. */
     for (uint32_t ch : {uint32_t('k'), uint32_t('1'), uint32_t(' ')}) {
-        const int peeked = hunmin_layer_peek_key(l, ch, 0);
-        hunmin_layer_out out{};
-        const int eaten = hunmin_layer_key(l, ch, 0, &out);
+        const int peeked = hunmin_buffered_preedit_peek_key(l, ch, 0);
+        hunmin_key_result out{};
+        const int eaten = hunmin_buffered_preedit_process_key(l, ch, 0, &out);
         EXPECT_EQ(peeked, eaten) << "key " << (char)ch;
     }
     /* The peek did not consume a key: the layer's own state is what the real
      * keys produced, not one key further. */
-    EXPECT_EQ(hunmin_layer_commit_mode(l), HUNMIN_COMMIT_BUFFERED);
+    EXPECT_EQ(hunmin_buffered_preedit_commit_policy(l), HUNMIN_COMMIT_AT_BOUNDARY);
     (void)before_preedit;
-    hunmin_layer_free(l);
+    hunmin_buffered_preedit_free(l);
 }
 
 TEST_F(LayerTest, ResetDropsTheWord) {
-    hunmin_layer *l = hunmin_layer_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_BUFFERED);
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(l, nullptr);
     for (char c : std::string("dkssu")) {
-        hunmin_layer_out out{};
-        hunmin_layer_key(l, (uint32_t)c, 0, &out);
+        hunmin_key_result out{};
+        hunmin_buffered_preedit_process_key(l, (uint32_t)c, 0, &out);
     }
-    hunmin_layer_reset(l);
-    EXPECT_STREQ(hunmin_layer_flush(l), "");
-    hunmin_layer_out out{};
-    hunmin_layer_key(l, (uint32_t)'d', 0, &out);
+    hunmin_buffered_preedit_reset(l);
+    EXPECT_STREQ(hunmin_buffered_preedit_commit_word(l), "");
+    hunmin_key_result out{};
+    hunmin_buffered_preedit_process_key(l, (uint32_t)'d', 0, &out);
     EXPECT_TRUE(out.preedit && out.preedit[0]) << "reset left the engine composing";
-    hunmin_layer_free(l);
+    hunmin_buffered_preedit_free(l);
 }
 
 TEST_F(LayerTest, ModeChangeIsABoundaryAndSwitchesLayout) {
-    hunmin_layer *l = hunmin_layer_new(ctx_, "dubeolsik", "dubeolsik", HUNMIN_COMMIT_BUFFERED);
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "dubeolsik", HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(l, nullptr);
-    EXPECT_EQ(hunmin_layer_mode(l), HUNMIN_MODE_HANGUL);
+    EXPECT_EQ(hunmin_buffered_preedit_language(l), HUNMIN_LANGUAGE_HANGUL);
     for (char c : std::string("dkssu")) {
-        hunmin_layer_out out{};
-        hunmin_layer_key(l, (uint32_t)c, 0, &out);
+        hunmin_key_result out{};
+        hunmin_buffered_preedit_process_key(l, (uint32_t)c, 0, &out);
     }
-    hunmin_layer_out out{};
-    EXPECT_EQ(hunmin_layer_mode_change(l, &out), 1);
+    hunmin_key_result out{};
+    EXPECT_EQ(hunmin_buffered_preedit_toggle_language(l, &out), 1);
     EXPECT_STRNE(out.commit, "") << "the Han/Eng key must commit what was composing";
     EXPECT_STREQ(out.preedit, "");
-    EXPECT_EQ(hunmin_layer_mode(l), HUNMIN_MODE_LATIN);
+    EXPECT_EQ(hunmin_buffered_preedit_language(l), HUNMIN_LANGUAGE_LATIN);
     /* And back: the boundary rule is the same in both directions. */
-    EXPECT_EQ(hunmin_layer_mode_change(l, &out), 1);
-    EXPECT_EQ(hunmin_layer_mode(l), HUNMIN_MODE_HANGUL);
-    hunmin_layer_free(l);
+    EXPECT_EQ(hunmin_buffered_preedit_toggle_language(l, &out), 1);
+    EXPECT_EQ(hunmin_buffered_preedit_language(l), HUNMIN_LANGUAGE_HANGUL);
+    hunmin_buffered_preedit_free(l);
 }
 
 TEST_F(LayerTest, OneLanguageFrontendReportsTheActionAsNotOurs) {
-    hunmin_layer *l = hunmin_layer_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_SYLLABLE);
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_PER_SYLLABLE);
     ASSERT_NE(l, nullptr);
-    hunmin_layer_out out{};
-    EXPECT_EQ(hunmin_layer_mode_change(l, &out), 0);
-    EXPECT_EQ(hunmin_layer_mode(l), HUNMIN_MODE_HANGUL);
+    hunmin_key_result out{};
+    EXPECT_EQ(hunmin_buffered_preedit_toggle_language(l, &out), 0);
+    EXPECT_EQ(hunmin_buffered_preedit_language(l), HUNMIN_LANGUAGE_HANGUL);
     EXPECT_STREQ(out.commit, "");
-    hunmin_layer_free(l);
+    hunmin_buffered_preedit_free(l);
 }
 
 TEST_F(LayerTest, RejectsUnknownLayoutAndBadMode) {
-    EXPECT_EQ(hunmin_layer_new(ctx_, "no-such-layout", nullptr, HUNMIN_COMMIT_BUFFERED), nullptr);
-    EXPECT_EQ(hunmin_layer_new(ctx_, "dubeolsik", nullptr, 7), nullptr);
-    EXPECT_EQ(hunmin_layer_new(nullptr, "dubeolsik", nullptr, HUNMIN_COMMIT_BUFFERED), nullptr);
-    EXPECT_EQ(hunmin_layer_new(ctx_, nullptr, nullptr, HUNMIN_COMMIT_BUFFERED), nullptr);
+    EXPECT_EQ(hunmin_buffered_preedit_new(ctx_, "no-such-layout", nullptr, HUNMIN_COMMIT_AT_BOUNDARY), nullptr);
+    EXPECT_EQ(hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, 7), nullptr);
+    EXPECT_EQ(hunmin_buffered_preedit_new(nullptr, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY), nullptr);
+    EXPECT_EQ(hunmin_buffered_preedit_new(ctx_, nullptr, nullptr, HUNMIN_COMMIT_AT_BOUNDARY), nullptr);
 }
 
 } // namespace

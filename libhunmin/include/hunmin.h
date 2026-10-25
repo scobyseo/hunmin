@@ -154,7 +154,7 @@ const char *hunmin_suggest_detail(hunmin_ctx *ctx, int i);
  * from the text. */
 const char *hunmin_suggest_kind(hunmin_ctx *ctx, int i);
 
-/* --- Shared buffered / syllable preedit layer (issue #128)
+/* --- Shared buffered / syllable preedit object (issue #128)
  *
  * One level above hunmin_ic, not a second engine. It owns the word buffer and
  * answers, for every frontend, the three questions the invariant in
@@ -162,7 +162,7 @@ const char *hunmin_suggest_kind(hunmin_ctx *ctx, int i);
  * committed, what is the preedit. Frontends only map their physical key to
  * (base, shift) and render what this layer hands them.
  *
- * Two commit modes, identical text: BUFFERED holds the finalised syllables and
+ * Two commit policies, identical text: BUFFERED holds the finalised syllables and
  * commits the whole word at the boundary; SYLLABLE commits each one as the
  * engine finalises it. The commit BOUNDARY is not part of the contract; the
  * concatenation is.
@@ -171,53 +171,53 @@ const char *hunmin_suggest_kind(hunmin_ctx *ctx, int i);
  * held, and the key passes to the client) - so a frontend never has to know
  * when a word ends.
  */
-typedef struct hunmin_layer hunmin_layer;
+typedef struct hunmin_buffered_preedit hunmin_buffered_preedit;
 
-#define HUNMIN_COMMIT_BUFFERED 0
-#define HUNMIN_COMMIT_SYLLABLE 1
+#define HUNMIN_COMMIT_AT_BOUNDARY 0
+#define HUNMIN_COMMIT_PER_SYLLABLE 1
 
 /* Which layout the layer is composing with (docs/FRONTEND-EQUIVALENCE.md §4). */
-#define HUNMIN_MODE_HANGUL 0
-#define HUNMIN_MODE_LATIN 1
+#define HUNMIN_LANGUAGE_HANGUL 0
+#define HUNMIN_LANGUAGE_LATIN 1
 
 /* What one key produced. commit is what to insert now ("" if nothing), preedit
  * is what to display ("" if nothing). Both strings are owned by the layer and
- * stay valid until the next hunmin_layer_* call on it - the same lifetime rule
+ * stay valid until the next hunmin_buffered_preedit_* call on it - the same lifetime rule
  * as hunmin_ic_commit(). */
-typedef struct hunmin_layer_out {
+typedef struct hunmin_key_result {
     int consumed;
     const char *commit;
     const char *preedit;
-} hunmin_layer_out;
+} hunmin_key_result;
 
 /* hangul_layout_id is required; latin_layout_id may be NULL for a frontend
- * with one language (then hunmin_layer_mode_change reports "not ours").
- * Returns NULL for an unknown/unsupported layout or a bad commit_mode. */
-HUNMIN_EXPORT hunmin_layer *hunmin_layer_new(hunmin_ctx *ctx, const char *hangul_layout_id, const char *latin_layout_id, int commit_mode);
-HUNMIN_EXPORT void hunmin_layer_free(hunmin_layer *l);
+ * with one language (then hunmin_buffered_preedit_toggle_language reports "not ours").
+ * Returns NULL for an unknown/unsupported layout or a bad commit_policy. */
+HUNMIN_EXPORT hunmin_buffered_preedit *hunmin_buffered_preedit_new(hunmin_ctx *ctx, const char *hangul_layout_id, const char *latin_layout_id, int commit_policy);
+HUNMIN_EXPORT void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l);
 
 /* Feed one key. Returns 1 when consumed. out may be NULL when the caller only
  * needs the decision (a platform "test" phase). */
-HUNMIN_EXPORT int hunmin_layer_key(hunmin_layer *l, uint32_t base, uint32_t shift, hunmin_layer_out *out);
+HUNMIN_EXPORT int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t base, uint32_t shift, hunmin_key_result *out);
 
-/* Predict hunmin_layer_key()'s consumed answer without changing any state. */
-HUNMIN_EXPORT int hunmin_layer_peek_key(const hunmin_layer *l, uint32_t base, uint32_t shift);
+/* Predict hunmin_buffered_preedit_process_key()'s consumed answer without changing any state. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_peek_key(const hunmin_buffered_preedit *l, uint32_t base, uint32_t shift);
 
 /* Commit the buffered word and the in-flight syllable now (focus loss, a
  * mode switch, an edit key). Returns the text to insert, "" if none. */
-HUNMIN_EXPORT const char *hunmin_layer_flush(hunmin_layer *l);
-HUNMIN_EXPORT void hunmin_layer_reset(hunmin_layer *l);
-HUNMIN_EXPORT bool hunmin_layer_set_option(hunmin_layer *l, const char *name, int value);
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_commit_word(hunmin_buffered_preedit *l);
+HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
+HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);
 
 /* The Han/Eng action (docs/FRONTEND-EQUIVALENCE.md §4): one abstract event, so
  * an adapter's raw platform code never reaches the engine. It is a boundary -
  * whatever was composing in the old language is committed before the switch.
  * Returns 1 when the mode changed; 0 when this frontend has one language only
  * (the boundary commit still lands in out). */
-HUNMIN_EXPORT int hunmin_layer_mode_change(hunmin_layer *l, hunmin_layer_out *out);
-HUNMIN_EXPORT int hunmin_layer_mode(const hunmin_layer *l); /* HUNMIN_MODE_* */
-HUNMIN_EXPORT int hunmin_layer_commit_mode(const hunmin_layer *l);
-HUNMIN_EXPORT const char *hunmin_layer_layout(const hunmin_layer *l); /* active layout id */
+HUNMIN_EXPORT int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_key_result *out);
+HUNMIN_EXPORT int hunmin_buffered_preedit_language(const hunmin_buffered_preedit *l); /* HUNMIN_LANGUAGE_* */
+HUNMIN_EXPORT int hunmin_buffered_preedit_commit_policy(const hunmin_buffered_preedit *l);
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffered_preedit *l); /* active layout id */
 
 #ifdef __cplusplus
 }
