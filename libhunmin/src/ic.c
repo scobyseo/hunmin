@@ -625,7 +625,7 @@ bool hunmin_ic_process(hunmin_ic *ic, uint32_t ch) {
 bool hunmin_ic_process_key(hunmin_ic *ic, uint32_t base, uint32_t shift) {
     if (!ic) return false;
     /* The case endpoint lives here, not in the frontend: the loader's own
-     * US-QWERTY map (data.c, one home ??docs/IC-INPUT-OPTIONS.md §0-4) turns
+     * US-QWERTY map (schema_loader.c, one home ??docs/IC-INPUT-OPTIONS.md §0-4) turns
      * (base, shift) into the same ch the legacy call would have been handed.
      * When the base has NO shifted form, the character is treated as already
      * resolved and the bit selects nothing further ??that is the
@@ -704,7 +704,7 @@ const char *hunmin_ic_flush(hunmin_ic *ic) {
  * rejected one: the recogniser's output would reach the client with a hole in
  * the middle of it and nothing to indicate that.
  *
- * The decoder is spelled out here rather than shared with data.c's
+ * The decoder is spelled out here rather than shared with schema_loader.c's
  * cp_from_utf8(), which is static there and used for compose tables under a
  * different assumption (short, well-formed, trusted input). This one is fed
  * untrusted recogniser output, so it enforces what the loader never has to: no
@@ -760,7 +760,7 @@ const char *hunmin_ic_commit_text(hunmin_ic *ic, const char *text) {
     return ic->ext8;
 }
 
-/* ---------------- ctx public wrappers (in data.c's file, kept here) ------- */
+/* ---------------- ctx public wrappers (in schema_loader.c's file, kept here) ------- */
 int hunmin_ctx_layout_count(const hunmin_ctx *ctx) { return ctx ? ctx->n : 0; }
 const char *hunmin_ctx_layout_id(const hunmin_ctx *ctx, int i) { return ctx && i >= 0 && i < ctx->n ? ctx->layouts[i].id : NULL; }
 const char *hunmin_ctx_layout_name(const hunmin_ctx *ctx, int i, const char *lang) {

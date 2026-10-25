@@ -51,7 +51,7 @@ endif()
 set(HUNMIN_CORE_SOURCES
   libhunmin/src/version.c
   libhunmin/src/tables.c
-  libhunmin/src/data.c
+  libhunmin/src/schema_loader.c
   libhunmin/src/expr.c
   libhunmin/src/ic.c
   libhunmin/src/buffered_preedit.c
@@ -152,7 +152,7 @@ endif()
 # (tier D1; skipped when Fcitx5Core is unavailable)
 option(HUNMIN_FCITX5 "Build the fcitx5 addon" ON)
 if(HUNMIN_FCITX5)
-  # 5.1.13 is the real API floor (FCITX_ADDON_FACTORY_V2, engine.cpp:619),
+  # 5.1.13 is the real API floor (FCITX_ADDON_FACTORY_V2, hunminadapter.cpp:619),
   # measured from upstream tags 2026-10-13 (issue #8). Ubuntu 24.04's distro
   # 5.1.7 is below it, so CI builds fcitx5 from source; the addon's build-time
   # macro gap on a bare 5.1.7 is still handled by the local fallback in
@@ -161,7 +161,7 @@ if(HUNMIN_FCITX5)
   find_package(Fcitx5Module QUIET COMPONENTS TestFrontend)
   if(Fcitx5Core_FOUND)
     add_subdirectory(frontends/fcitx5)
-    # frontend-mutations (tier D1/D2) mutates frontends/fcitx5/src/engine.cpp
+    # frontend-mutations (tier D1/D2) mutates frontends/fcitx5/src/hunminadapter.cpp
     # and caught by testhunmin/testhunminui -- fcitx5 targets; record that the
     # tier exists so its registration far below can follow this fact.
     set(HUNMIN_HAS_FCITX5 TRUE)
@@ -255,7 +255,7 @@ if(BUILD_TESTING AND Python3_FOUND)
   target_link_options(commit-text-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
   target_include_directories(commit-text-test PRIVATE libhunmin/include libhunmin/src third_party/cJSON)
   target_sources(commit-text-test PRIVATE
-    libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/data.c
+    libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/schema_loader.c
     libhunmin/src/expr.c libhunmin/src/ic.c libhunmin/src/suggest.c
     third_party/cJSON/cJSON.c)
   add_test(NAME engine-commit-text COMMAND commit-text-test)
@@ -557,7 +557,7 @@ if(BUILD_TESTING AND Python3_FOUND)
       SKIP_RETURN_CODE 77 TIMEOUT 1800 RUN_SERIAL TRUE)
   endif()
   # The mutation tier used to be RUN_SERIAL because it planted a deliberately
-  # broken engine.cpp in the working tree and rebuilt the shared build/, so
+  # broken hunminadapter.cpp in the working tree and rebuilt the shared build/, so
   # nothing else could run while it did. It now has strategies: the sandbox
   # one copies the sources to a temp dir and touches nothing outside it, which
   # is what makes RUN_SERIAL unnecessary. The strategy is named here rather

@@ -34,7 +34,7 @@
 namespace {
 
 /* Legacy (case-encoding) character an (base, shift) event resolves to —
- * the loader's own US-QWERTY map (data.c BASE/SHIFTED, 2026-10-18 tree),
+ * the loader's own US-QWERTY map (schema_loader.c BASE/SHIFTED, 2026-10-18 tree),
  * spelled out independently. */
 uint32_t legacy_ch(uint32_t base, uint32_t shift) {
     static const char *BASE[] = {"`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "[", "]", "\\", ";", "'", ",", ".", "/", NULL};

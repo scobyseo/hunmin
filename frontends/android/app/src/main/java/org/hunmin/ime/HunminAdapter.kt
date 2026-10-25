@@ -3,7 +3,7 @@
  *
  * HunminAdapter — the Android adapter, and nothing else.
  *
- * Same shape as frontends/fcitx5/src/engine.cpp: map platform key events to the
+ * Same shape as frontends/fcitx5/src/hunminadapter.cpp: map platform key events to the
  * engine's US-QWERTY base character plus the shift bit, feed
  * hunmin_ic_process_key, present the preedit and the commit. No composition
  * logic, no per-layout knowledge, no jamo handling — PLAN.md rule #4. The JNI
@@ -146,7 +146,7 @@ class HunminAdapter(
 
         val caps = (metaState and android.view.KeyEvent.META_CAPS_LOCK_ON) != 0
         // Issue #112 (ruling "wire and make it common to all platform"): the
-        // option is fed 1/0 PER EVENT, the fcitx5 shape (engine.cpp:327).
+        // option is fed 1/0 PER EVENT, the fcitx5 shape (hunminadapter.cpp:327).
         // The earlier set-1-only feed left ic->caps sticky-on for the ic's
         // lifetime -- after the first CapsLock use every later key kept
         // resolving the P=1 tier. 0 is also a feed, not an absence.

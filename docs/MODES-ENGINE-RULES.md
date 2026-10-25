@@ -7,8 +7,8 @@ Status: **design direction settled, no core implementation.** The load items are
 pre-measurement.
 
 > ⚠️ **This section is the requirement, not a description of the tree.** A frontend
-> adapter implementing part of R8 exists and ships — `frontends/fcitx5/src/modeswitch.{h,cpp}`,
-> called from `engine.cpp:238`. It judges by keeping a *second* `hunmin_ctx`
+> adapter implementing part of R8 exists and ships — `frontends/fcitx5/src/language_detect.{h,cpp}`,
+> called from `hunminadapter.cpp:238`. It judges by keeping a *second* `hunmin_ctx`
 > on a Latin layout and replaying the buffered word when `hunmin_ic_preedit()` empties, which
 > is the opposite structural choice from §1 ("the mode lives in `hunmin_ctx`, and one ctx is
 > one session") and from R3's `[D]` in `SPEC-MODES.md:128-141`. It is undocumented in every

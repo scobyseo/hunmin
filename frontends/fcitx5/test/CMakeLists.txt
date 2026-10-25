@@ -10,16 +10,16 @@ add_test(NAME engine-d1-fcitx5 COMMAND testhunmin)
 # the top of the root CMakeLists.txt.
 set_tests_properties(engine-d1-fcitx5 PROPERTIES LABELS "tier-D1")
 
-# Tier D1: ModeSwitchAdapter unit tests (R8 adapter).
-add_executable(testmodeswitch testmodeswitch.cpp)
-target_link_libraries(testmodeswitch hunmin Fcitx5::Core)
-target_include_directories(testmodeswitch PRIVATE ${CMAKE_SOURCE_DIR}/frontends/fcitx5/src)
-add_dependencies(testmodeswitch copy-addon)
-# Link modeswitch.cpp directly since it's not part of the hunmin library
-target_sources(testmodeswitch PRIVATE ${CMAKE_SOURCE_DIR}/frontends/fcitx5/src/modeswitch.cpp)
-add_test(NAME engine-d1-modeswitch COMMAND testmodeswitch
+# Tier D1: LanguageDetector unit tests (R8 adapter).
+add_executable(testlanguagedetect testlanguagedetect.cpp)
+target_link_libraries(testlanguagedetect hunmin Fcitx5::Core)
+target_include_directories(testlanguagedetect PRIVATE ${CMAKE_SOURCE_DIR}/frontends/fcitx5/src)
+add_dependencies(testlanguagedetect copy-addon)
+# Link language_detect.cpp directly since it's not part of the hunmin library
+target_sources(testlanguagedetect PRIVATE ${CMAKE_SOURCE_DIR}/frontends/fcitx5/src/language_detect.cpp)
+add_test(NAME engine-d1-language-detect COMMAND testlanguagedetect
          ENV HUNMIN_DATA_PATH=${CMAKE_SOURCE_DIR}/libhunmin/data)
-set_tests_properties(engine-d1-modeswitch PROPERTIES LABELS "tier-D1")
+set_tests_properties(engine-d1-language-detect PROPERTIES LABELS "tier-D1")
 
 # Tier D2: assert the InputPanel preedit the adapter publishes (text,
 # clearing, cursor, and both capability branches). See docs/TESTING.md D2.

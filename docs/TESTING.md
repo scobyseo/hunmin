@@ -276,7 +276,7 @@ no changes on tracked files after a clean application commit; run
 
 **Why the commit rung is cheap is not obvious and is worth stating:** the two
 real defects this ladder exists to catch were both *text* drifting from *text*.
-A rename in `engine.cpp` moved a mutation anchor out from under
+A rename in `hunminadapter.cpp` moved a mutation anchor out from under
 `frontend-mutations` and no `.deb` could be built (2026-10-16); the same class of
 drift had already broken three `ci.yml` comments and two `README.md` paragraphs.
 `docs-lint` check 7 verifies every mutation anchor against its source in

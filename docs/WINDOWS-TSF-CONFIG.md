@@ -87,7 +87,7 @@ and so on. The shape is Android's `KeyBinding.kt` ported to Windows vocabulary
   (`frontends/tsf/src/keybinding.cpp`, the toggle LOW bit of
   `GetKeyState(VK_CAPITAL)`), and one `hunmin_ic_set_option(ic, "caps",
   1|0)` per key event at the snapshot in tsf.cpp — the same per-event shape
-  fcitx5 has had since engine.cpp:327 and Android since #105 (aligned to
+  fcitx5 has had since hunminadapter.cpp:327 and Android since #105 (aligned to
   1/0 per event by #112; the set-1-only shape left the P variable sticky-on
   after the first CapsLock use). The option feeds the yethangul P variable
   only (`hunmin.h:93`); tier F1 pins both sides — dubeolsik r under

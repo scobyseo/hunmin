@@ -3,12 +3,12 @@
  *
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * Tier D1: ModeSwitchAdapter unit tests.
+ * Tier D1: LanguageDetector unit tests.
  *
  * Tests the R8 shadow-layout adapter in isolation (no UI stack).
  * Oracle: hunmin-sim --trace expectations (tier A is authority).
  */
-#include "modeswitch.h"
+#include "language_detect.h"
 #include "testdir.h"
 #include <cstdlib>
 #include <cstring>
@@ -40,7 +40,7 @@ static void teardown() {
 }
 
 /* Feed keys to the adapter, then judge on us-qwerty. Returns the judged text. */
-static std::string judgeWord(ModeSwitchAdapter &adapter, const std::vector<uint32_t> &keys, const std::string &latinLayout = "us-qwerty",
+static std::string judgeWord(LanguageDetector &adapter, const std::vector<uint32_t> &keys, const std::string &latinLayout = "us-qwerty",
                              size_t minLen = 2) {
     for (uint32_t ch : keys) {
         adapter.record(ch);
@@ -91,14 +91,14 @@ int main() {
 
     /* 1. record() + judge() round-trip: feed "kbs" on sin3-p2, get "kbs" on us-qwerty */
     {
-        ModeSwitchAdapter adapter(g_ctx);
+        LanguageDetector adapter(g_ctx);
         std::string result = judgeWord(adapter, {'k', 'b', 's'});
         FCITX_ASSERT(result == "kbs") << "Expected 'kbs', got '" << result << "'";
     }
 
     /* 2. discard() clears buffer */
     {
-        ModeSwitchAdapter adapter(g_ctx);
+        LanguageDetector adapter(g_ctx);
         adapter.record('k');
         adapter.record('b');
         FCITX_ASSERT(adapter.size() == 2);
@@ -110,7 +110,7 @@ int main() {
 
     /* 3. empty() / size() / word() getters */
     {
-        ModeSwitchAdapter adapter(g_ctx);
+        LanguageDetector adapter(g_ctx);
         FCITX_ASSERT(adapter.empty());
         FCITX_ASSERT(adapter.size() == 0);
         FCITX_ASSERT(adapter.word().empty());
@@ -130,25 +130,25 @@ int main() {
 
     /* 4. minLen short-word guard (R9): word shorter than minLen is never switched */
     {
-        ModeSwitchAdapter adapter(g_ctx);
+        LanguageDetector adapter(g_ctx);
         /* Single key 'k' with minLen=2 (default) should return empty */
         std::string result = judgeWord(adapter, {'k'}, "us-qwerty", 2);
         FCITX_ASSERT(result.empty()) << "Single key with minLen=2 should return empty, got '" << result << "'";
 
         /* Same word with minLen=1 should return 'k' */
-        ModeSwitchAdapter adapter2(g_ctx);
+        LanguageDetector adapter2(g_ctx);
         result = judgeWord(adapter2, {'k'}, "us-qwerty", 1);
         FCITX_ASSERT(result == "k") << "Single key with minLen=1 should return 'k', got '" << result << "'";
 
         /* Two keys with minLen=2 should work */
-        ModeSwitchAdapter adapter3(g_ctx);
+        LanguageDetector adapter3(g_ctx);
         result = judgeWord(adapter3, {'k', 'b'}, "us-qwerty", 2);
         FCITX_ASSERT(result == "kb") << "Two keys with minLen=2 should return 'kb', got '" << result << "'";
     }
 
     /* 5. Non-existent latinLayout handling: error log, empty return */
     {
-        ModeSwitchAdapter adapter(g_ctx);
+        LanguageDetector adapter(g_ctx);
         adapter.record('k');
         adapter.record('b');
         adapter.record('s');
@@ -165,20 +165,20 @@ int main() {
      *
      * This test ensures the per-key commit read is preserved. */
     {
-        ModeSwitchAdapter adapter(g_ctx);
+        LanguageDetector adapter(g_ctx);
         /* "qbs" on us-qwerty: q -> 'q', b -> 'b', s -> 's' */
         std::string result = judgeWord(adapter, {'q', 'b', 's'});
         FCITX_ASSERT(result == "qbs") << "Destructive-read fix: expected 'qbs', got '" << result << "'";
 
         /* Also test with keys that would have produced multi-char commits on some layouts */
-        ModeSwitchAdapter adapter2(g_ctx);
+        LanguageDetector adapter2(g_ctx);
         result = judgeWord(adapter2, {'a', 'b', 'c'});
         FCITX_ASSERT(result == "abc") << "Expected 'abc', got '" << result << "'";
     }
 
     /* 7. Judge clears the buffer after use (whether successful or not) */
     {
-        ModeSwitchAdapter adapter(g_ctx);
+        LanguageDetector adapter(g_ctx);
         adapter.record('k');
         adapter.record('b');
         adapter.record('s');
@@ -193,7 +193,7 @@ int main() {
 
     /* 8. Mixed: record, judge, then record again (new word) */
     {
-        ModeSwitchAdapter adapter(g_ctx);
+        LanguageDetector adapter(g_ctx);
         std::string result = judgeWord(adapter, {'h', 'e', 'l', 'l', 'o'});
         FCITX_ASSERT(result == "hello");
 

@@ -596,7 +596,7 @@ def check_mutation_anchors() -> None:
 
     WHY THIS EXISTS. Measured 2026-10-16: commit 1521fad renamed the config
     accessor `config().layout` -> `config().hangulLayout` in
-    frontends/fcitx5/src/engine.cpp, and updated the invariant checker
+    frontends/fcitx5/src/hunminadapter.cpp, and updated the invariant checker
     (tools/check-frontend-invariants.py:88) in the same commit -- but not the
     `I5-layout-override-ignored` anchor in tools/frontend-mutations.py. The
     mutation could no longer be applied, so the mutation self-test failed closed

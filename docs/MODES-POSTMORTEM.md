@@ -89,7 +89,7 @@ Each entry is kept **because the wrong number looked plausible.**
   of kime 3.2.0 comes back empty. In this session this is the only claim
   about kime that has been measured.
 - **fcitx5-hangul 5.1.9 has no Hangul/Latin mode at all**
-  (no `latin|영어|ascii` in `src/engine.cpp`, `src/engine.h`; 0 Hangul/Latin
+  (no `latin|영어|ascii` in `src/hunminadapter.cpp`, `src/hunminadapter.h`; 0 Hangul/Latin
   options in `HangulConfig` besides keyboard/hanjaMode/wordCommit/autoReorder).
   The toggle is the business of the fcitx5 core. **Absence is not a judgement that this feature is unnecessary.**
 - **namu.wiki is rejected.** CC BY-**NC**-SA 2.0 KR: "This work may not be
@@ -102,7 +102,7 @@ Each entry is kept **because the wrong number looked plausible.**
 - **kime's buffer structure** — `press_key(key, commit_buf: &mut String)`
   (`core/src/lib.rs:441`, the branch point via `InputCategory` at `:468`).
   This is the shape of the adapter, and the design did not invent it.
-- **fcitx5-hangul's composition structure** — `LookupMethod`(`engine.cpp:181-231`)
+- **fcitx5-hangul's composition structure** — `LookupMethod`(`hunminadapter.cpp:181-231`)
   collects hanja across a composition and decides at completion. It is the same
   structure as kime's `commit_buf`, so there is **precedent twice**.
 - **kime's hangul/latin selection** — `latin.preferred_direct: true` hands Latin

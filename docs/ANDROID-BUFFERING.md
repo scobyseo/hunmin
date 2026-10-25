@@ -19,7 +19,7 @@ for TSF in `docs/WINDOWS-TSF-BUFFERING.md` §Adapter state):
 - `hunmin_ic_flush(ic)` finalises the in-flight syllable first (its saved
   commit buffer plus the flight remainder), which is what the boundary emits.
 
-The adapter ([`HunminAdapter`], formerly HunminEngine) applies five rules:
+The adapter ([`HunminAdapter`], formerly HunminAdapter) applies five rules:
 
 1. On a consumed key, the engine's commit is appended to [wordbuf] and never
    reaches the client directly — the client sees the accumulated word rendered

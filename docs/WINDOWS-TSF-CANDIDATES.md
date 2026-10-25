@@ -35,7 +35,7 @@ one character at a time).
 - **Anchor — the whole buffered word, not the preedit.** The lookup text is
   the accumulated finalised syllables (the adapter's `wordbuf_`) plus the
   in-flight preedit. fcitx5 anchors to its preedit only
-  (`frontends/fcitx5/src/engine.cpp` `openCandidates`), because it commits
+  (`frontends/fcitx5/src/hunminadapter.cpp` `openCandidates`), because it commits
   each syllable immediately; the buffered adapter holds the word, so the
   lookup must cover it. This divergence is deliberate and recorded: the
   dictionary tables are keyed by words (`krdict`, idioms), so a preedit-only
@@ -50,7 +50,7 @@ one character at a time).
   (`HUNMIN_TSF_HANJA_KEY`) can bind it. An unparseable stored binding falls
   back to the default rather than matching nothing — the window must stay
   reachable. One shared predicate makes OK and test phases one decision.
-- **Keyboard flow** (= fcitx5's, engine.cpp `keyEvent` candidate block):
+- **Keyboard flow** (= fcitx5's, hunminadapter.cpp `keyEvent` candidate block):
 
 | Key | While the window is open | Window closed |
 |---|---|---|
@@ -63,7 +63,7 @@ one character at a time).
 | any other key | close and fall through — typing continues instead of being swallowed | normal path |
 
 - **Page cap = 10** (`kMaxCandidatePageSize`), the value the fcitx5 label
-  ceiling forced and the maintainer ruled for issue #45 (engine.cpp
+  ceiling forced and the maintainer ruled for issue #45 (hunminadapter.cpp
   471-486: 10 candidates survive, 11 abort; 67-row lists measured ~2000px).
   The TSF popup draws its own rows, not fcitx5's label table, so it *could*
   show more — but the digits can only reach one page, so the same ruled

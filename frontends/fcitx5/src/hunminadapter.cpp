@@ -7,8 +7,8 @@
  * character convention, docs/trace-spec.md), commit/preedit presentation.
  * All composition logic lives in libhunmin — keep this file small (rule #4).
  */
-#include "engine.h"
-#include "modeswitch.h"
+#include "hunminadapter.h"
+#include "language_detect.h"
 #include <cstdlib>
 #include <cstring>
 #include <fcitx-config/iniparser.h>
@@ -86,21 +86,21 @@ class HunminState;
  * HunminState and a dynamic_cast needs the complete type. */
 class HunminCandidateWord : public CandidateWord {
 public:
-    HunminCandidateWord(Text text, Text comment, HunminEngine *engine, InputContext *ic, std::string hanja);
+    HunminCandidateWord(Text text, Text comment, HunminAdapter *engine, InputContext *ic, std::string hanja);
 
     void select(InputContext *inputContext) const override;
 
     const std::string &hanja() const { return hanja_; }
 
 private:
-    HunminEngine *engine_;
+    HunminAdapter *engine_;
     InputContext *ic_;
     std::string hanja_;
 };
 
 class HunminState : public InputContextProperty {
 public:
-    HunminState(HunminEngine *engine, InputContext *ic) : engine_(engine), ic_(ic), switcher_(engine->ctx()) {}
+    HunminState(HunminAdapter *engine, InputContext *ic) : engine_(engine), ic_(ic), switcher_(engine->ctx()) {}
 
     ~HunminState() override {
         if (hunminIc_) {
@@ -333,7 +333,7 @@ public:
         }
 
         bool used = hunmin_ic_process(hunminIc_, ch);
-        switcher_.record(ch); // R8 adapter; see src/modeswitch.h
+        switcher_.record(ch); // R8 adapter; see src/language_detect.h
 
         if (used) {
             if (const char *commit = hunmin_ic_commit(hunminIc_); commit && *commit) {
@@ -436,16 +436,16 @@ private:
         ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
     }
 
-    HunminEngine *engine_;
+    HunminAdapter *engine_;
     InputContext *ic_;
-    ModeSwitchAdapter switcher_;
+    LanguageDetector switcher_;
     hunmin_ic *hunminIc_ = nullptr;
     std::string layout_;
     int candidateCount_ = 0;
     std::string candidateSource_;
 };
 
-HunminCandidateWord::HunminCandidateWord(Text text, Text comment, HunminEngine *engine, InputContext *ic, std::string hanja)
+HunminCandidateWord::HunminCandidateWord(Text text, Text comment, HunminAdapter *engine, InputContext *ic, std::string hanja)
     : CandidateWord(std::move(text)), engine_(engine), ic_(ic), hanja_(std::move(hanja)) {
     setComment(std::move(comment));
 }
@@ -532,7 +532,7 @@ void HunminState::updateCandidateList() {
     ic_->inputPanel().setCandidateList(std::move(list));
 }
 
-HunminEngine::HunminEngine(Instance *instance) : instance_(instance), factory_([this](InputContext &ic) { return new HunminState(this, &ic); }) {
+HunminAdapter::HunminAdapter(Instance *instance) : instance_(instance), factory_([this](InputContext &ic) { return new HunminState(this, &ic); }) {
     // Data path: HUNMIN_DATA_PATH first (tests, source trees), then the
     // installed share/hunmin default.
     ctx_ = hunmin_ctx_new(nullptr, 0);
@@ -553,15 +553,15 @@ HunminEngine::HunminEngine(Instance *instance) : instance_(instance), factory_([
     instance_->inputContextManager().registerProperty("hunminState", &factory_);
 }
 
-void HunminEngine::activate(const InputMethodEntry &, InputContextEvent &event) {
+void HunminAdapter::activate(const InputMethodEntry &, InputContextEvent &event) {
     if (auto *state = event.inputContext()->propertyFor(&factory_)) {
         state->reset();
     }
 }
 
-void HunminEngine::deactivate(const InputMethodEntry &entry, InputContextEvent &event) { reset(entry, event); }
+void HunminAdapter::deactivate(const InputMethodEntry &entry, InputContextEvent &event) { reset(entry, event); }
 
-void HunminEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &keyEvent) {
+void HunminAdapter::keyEvent(const InputMethodEntry &entry, KeyEvent &keyEvent) {
     if (keyEvent.isRelease()) {
         return;
     }
@@ -569,7 +569,7 @@ void HunminEngine::keyEvent(const InputMethodEntry &entry, KeyEvent &keyEvent) {
     state->keyEvent(layoutFor(entry), keyEvent);
 }
 
-std::string HunminEngine::layoutFor(const InputMethodEntry &entry) const {
+std::string HunminAdapter::layoutFor(const InputMethodEntry &entry) const {
     std::string layout = instance_->inputMethodManager().currentGroup().layoutFor(entry.uniqueName());
     // Per-profile layout wins; empty means "no override", so use the global
     // hangulLayout config as the default Hangul layout.
@@ -579,14 +579,14 @@ std::string HunminEngine::layoutFor(const InputMethodEntry &entry) const {
     return layout;
 }
 
-void HunminEngine::reset(const InputMethodEntry &, InputContextEvent &event) {
+void HunminAdapter::reset(const InputMethodEntry &, InputContextEvent &event) {
     if (auto *state = event.inputContext()->propertyFor(&factory_)) {
         state->flush(); // composing text is not lost on focus change
         state->reset();
     }
 }
 
-void HunminEngine::refreshLayoutList() {
+void HunminAdapter::refreshLayoutList() {
     if (!ctx_) {
         return;
     }
@@ -618,12 +618,12 @@ void HunminEngine::refreshLayoutList() {
     config_.latinLayout.annotation().setLayouts(std::move(latinLayouts));
 }
 
-void HunminEngine::reloadConfig() {
+void HunminAdapter::reloadConfig() {
     refreshLayoutList();
     readAsIni(config_, "conf/hunmin.conf");
 }
 
-void HunminEngine::setConfig(const fcitx::RawConfig &rawConfig) {
+void HunminAdapter::setConfig(const fcitx::RawConfig &rawConfig) {
     config_.load(rawConfig, true);
     instance_->inputContextManager().foreach ([this](InputContext *ic) {
         state(ic)->reset(); // in-flight composition dropped; layout swaps
@@ -632,8 +632,8 @@ void HunminEngine::setConfig(const fcitx::RawConfig &rawConfig) {
     safeSaveAsIni(config_, "conf/hunmin.conf");
 }
 
-HunminState *HunminEngine::state(InputContext *ic) { return ic->propertyFor(&factory_); }
+HunminState *HunminAdapter::state(InputContext *ic) { return ic->propertyFor(&factory_); }
 
 } // namespace fcitx
 
-FCITX_ADDON_FACTORY_V2(hunmin, fcitx::HunminEngineFactory);
+FCITX_ADDON_FACTORY_V2(hunmin, fcitx::HunminAdapterFactory);

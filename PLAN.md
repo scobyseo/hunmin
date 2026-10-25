@@ -134,7 +134,7 @@ frontend gets it.
   `"tier": 101/102/103` in `sin3-p2.json`; CapsLock and W modes exist as
   `hunmin_ic_set_option(ic,"caps",1)` and the `wWzHh` rules (`ic.c:610-621`).
   `seq` is no longer reserved-and-warned: `HK_SEQ` in
-  `libhunmin/src/hunmin_internal.h:18`, parsed at `data.c:92`, committed at
+  `libhunmin/src/hunmin_internal.h:18`, parsed at `schema_loader.c:92`, committed at
   `ic.c:592`, and validated rather than warned by `tools/doctor.py:57-63`.
   Oracle-grade patim/kime validation is partly covered by the P2 gate corpora
   below.
@@ -315,8 +315,8 @@ frontend gets it.
   genuinely untouched.
 
   ⚠️ **But this line was also incomplete in the other direction.** `frontends/fcitx5/src/
-  modeswitch.{h,cpp}` implements an R8 shadow-layout adapter (shipped, wired at
-  `engine.cpp:221`). It keeps a second `hunmin_ctx` on a Latin layout beside the Hangul
+  language_detect.{h,cpp}` implements an R8 shadow-layout adapter (shipped, wired at
+  `hunminadapter.cpp:221`). It keeps a second `hunmin_ctx` on a Latin layout beside the Hangul
   one and replays the buffered word when `hunmin_ic_preedit()` goes empty. It is in
   `master`, it compiles into the addon, **no document mentioned it**, and **no committed
   test covers it** — its verification script lives in the gitignored `out/`, so the

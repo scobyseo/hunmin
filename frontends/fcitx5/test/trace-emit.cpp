@@ -171,7 +171,7 @@ std::string stringField(const std::string &line, const char *key) {
 }
 
 // The adapter picks one of two accessors depending on the context's capability
-// (engine.cpp updateUI()); tier C must observe whichever one it used, exactly as
+// (hunminadapter.cpp updateUI()); tier C must observe whichever one it used, exactly as
 // a client would. Both are read so the trace does not depend on the branch.
 std::string preeditOf(InputContext *ic) {
     if (ic->capabilityFlags().test(CapabilityFlag::Preedit)) {
@@ -249,7 +249,7 @@ int main(int argc, char **argv) {
         }
 
         // Teardown contributes one commit that no trace line records:
-        // deactivate() flushes the in-flight syllable (engine.cpp reset()), and
+        // deactivate() flushes the in-flight syllable (hunminadapter.cpp reset()), and
         // ~TestFrontend asserts the queue is empty. That flush is correct
         // adapter behaviour -- composing text is not lost on focus change -- so
         // it is asserted rather than suppressed: its text is exactly the last
@@ -279,7 +279,7 @@ int main(int argc, char **argv) {
             const unsigned long mods = numberField(line, "mods", 0);
 
             // The adapter's only modifier input is CapsLock, read from
-            // rawKey().states() (engine.cpp); layouts encode Shift as the
+            // rawKey().states() (hunminadapter.cpp); layouts encode Shift as the
             // uppercase row, so Shift must not be synthesised here.
             KeyStates states;
             if (mods & 0x02) { // X LockMask

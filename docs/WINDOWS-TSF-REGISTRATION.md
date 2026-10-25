@@ -169,7 +169,7 @@ process regardless of PATH or file placement.
                 |      overlay window (STATIC, caret-anchored)   |
                 |                                                |
                 |  engine (libhunmin, linked statically)         |
-                |    version.c tables.c data.c expr.c            |
+                |    version.c tables.c schema_loader.c expr.c            |
                 |    ic.c suggest.c + third_party/cJSON          |
                 +------------------------------------------------+
                   deps (dumpbin -DEPENDENTS, measured):

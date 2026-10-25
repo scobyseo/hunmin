@@ -295,7 +295,7 @@ def loop_skip_checked(fm, timer: Timer, ids: list[str] | None):
 
 
 def loop_setup_only(fm, timer: Timer):
-    """Sandbox setup, then a clean engine.cpp and nothing else.
+    """Sandbox setup, then a clean hunminadapter.cpp and nothing else.
 
     This is the per-worker cost of running the nine mutations in parallel: each
     worker needs its own copy, its own configure and its own first build

@@ -1,4 +1,4 @@
-/* data.c — load hunmin layout/compose JSON (docs/SPEC-SCHEMA.md). LGPL-2.1+ */
+/* schema_loader.c — load hunmin layout/compose JSON (docs/SPEC-SCHEMA.md). LGPL-2.1+ */
 #include "cJSON.h"
 #include "hunmin_internal.h"
 
@@ -586,7 +586,7 @@ out:
  * ':' in "C:/x" marks the drive, not a separator. Positional rule -- a ':'
  * directly after the token's first character, when that character is an
  * ASCII letter and the next char is '/' or '\\', is part of the token.
- * Paths joined with '/' (data.c's snprintf "%s/layouts") still re-split
+ * Paths joined with '/' (schema_loader.c's snprintf "%s/layouts") still re-split
  * identically, so ctx->data_dir round-trips. Measured failure without it:
  * "C:/Workspace/..." split into "C" and "/Workspace/...", and every
  * opendir("C") failed -- "no layouts loaded" on Windows. */

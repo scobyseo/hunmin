@@ -71,7 +71,7 @@ every subprocess. Three runs, sandbox strategy, unoptimised, this host:
 
 Unattributed time is under 20 ms in every run, so the breakdown is complete.
 
-**Reading it: 67 % is compiling `engine.cpp` nine times.** Setup (copy +
+**Reading it: 67 % is compiling `hunminadapter.cpp` nine times.** Setup (copy +
 configure + first build) is 26 %, and the three guards together are 8 %.
 
 ### 1.1 The per-mutation build is one translation unit
@@ -80,7 +80,7 @@ Instrumenting the compile and link separately, in a prepared build tree:
 
 | step | time | share |
 |---|---|---|
-| compile `engine.cpp` | 1.544–1.602 s | **91 %** |
+| compile `hunminadapter.cpp` | 1.544–1.602 s | **91 %** |
 | link `libhunmin.so` (the addon) | 0.063–0.093 s | 5 % |
 | make bookkeeping (no-op targets) | 0.335 s | 4 % |
 
@@ -88,7 +88,7 @@ Two structural facts, both verified by mtime rather than inferred:
 
 - **`testhunmin` and `testhunminui` are never recompiled or relinked.** They
   `dlopen` the addon at runtime (`testhunminui.cpp:302` says so in a comment),
-  so a changed `engine.cpp` leaves both binaries byte-identical and untouched.
+  so a changed `hunminadapter.cpp` leaves both binaries byte-identical and untouched.
   `MUT_TARGETS = ["hunmin", "testhunmin", "testhunminui"]` therefore names two
   targets the mutation cannot affect.
 - **Preprocessing is free** (`-E -P`: 0.005 s against 1.544 s). The cost is
@@ -244,12 +244,12 @@ source repeatedly — the nine-way loop above does not.
 
 ### 4.2 Precompiled objects — fast, and it only relocates the cost
 
-Copying a known-good `engine.cpp.o` back over the mutated one and relinking:
+Copying a known-good `hunminadapter.cpp.o` back over the mutated one and relinking:
 
 | approach | time |
 |---|---|
 | baseline: compile + link | 1.692 s |
-| restore a prebuilt `engine.cpp.o`, then link | 0.062 s |
+| restore a prebuilt `hunminadapter.cpp.o`, then link | 0.062 s |
 | link only, no compile (theoretical floor) | 0.063 s |
 
 Object reuse is as fast as the floor — **but** producing those nine objects
@@ -260,7 +260,7 @@ correctness (which object belongs to which mutation) becomes the tier's problem.
 ### 4.3 Precompiled headers — measured, and worse
 
 A PCH over the addon's own headers builds to **126 MB**, and compiling
-`engine.cpp` against it **did not finish within 120 s**, against 1.587 s
+`hunminadapter.cpp` against it **did not finish within 120 s**, against 1.587 s
 without. The fcitx5 headers are template-heavy; forcing them all into one
 image is a large cost paid on every compile. **Negative result, measured.**
 
@@ -268,7 +268,7 @@ image is a large cost paid on every compile. **Negative result, measured.**
 
 The obvious remaining idea is to move the mutated regions into their own small
 TU so the big one is compiled once. It was not attempted, because the mutation
-anchors are statements inside `HunminEngine::process()` and `updateUI()` — they
+anchors are statements inside `HunminAdapter::process()` and `updateUI()` — they
 depend on `this`, on `ic_`, on `engine_->config()`, and are read from the member
 functions themselves. Any split that made them separately compilable would
 restructure the adapter along the lines the I8 thin-adapter budget measures, to
@@ -335,7 +335,7 @@ CMakeCache.txt was created.
 
 Copying a prebuilt sandbox and rewriting absolute paths (118 files, 0.113 s)
 also fails to help: the post-copy build recompiles **everything** — 7 C objects,
-`engine.cpp`, `modeswitch.cpp`, both test binaries — because the rewrite
+`hunminadapter.cpp`, `language_detect.cpp`, both test binaries — because the rewrite
 invalidates every dependency file. Setup stays at 5.53 s.
 
 ---
@@ -437,7 +437,7 @@ $ python3 tools/frontend-mutations.py --strategy in-tree   → rc=0, 9/9 correct
 ```
 
 `git status` afterwards: `tools/frontend-mutations.py` unmodified,
-`frontends/fcitx5/src/engine.cpp` unmodified, tree clean apart from the two new
+`frontends/fcitx5/src/hunminadapter.cpp` unmodified, tree clean apart from the two new
 harness files.
 
 **The harnesses are experiments and are marked as such** in their module

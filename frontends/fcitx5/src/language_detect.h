@@ -3,8 +3,8 @@
  *
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
-#ifndef FCITX5_HUNMIN_MODESWITCH_H_
-#define FCITX5_HUNMIN_MODESWITCH_H_
+#ifndef FCITX5_HUNMIN_LANGUAGE_DETECT_H_
+#define FCITX5_HUNMIN_LANGUAGE_DETECT_H_
 
 #include <cstdint>
 #include <hunmin.h>
@@ -56,9 +56,9 @@ namespace fcitx {
  * the Latin layout set are the maintainer's decisions; see
  * docs/SPEC-MODES.md R8 and R10.
  */
-class ModeSwitchAdapter {
+class LanguageDetector {
 public:
-    explicit ModeSwitchAdapter(hunmin_ctx *ctx) : ctx_(ctx) {}
+    explicit LanguageDetector(hunmin_ctx *ctx) : ctx_(ctx) {}
 
     /* Feed every keystroke the Hangul context sees, so the shadow can replay
      * the word when it ends. Cheap: a push_back. */
@@ -92,4 +92,4 @@ private:
 
 } // namespace fcitx
 
-#endif // FCITX5_HUNMIN_MODESWITCH_H_
+#endif // FCITX5_HUNMIN_LANGUAGE_DETECT_H_

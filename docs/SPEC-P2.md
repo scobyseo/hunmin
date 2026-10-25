@@ -159,7 +159,7 @@ explicit-modifier key entry point; the case endpoint moves into the engine.
 
 **This is engine-interface behaviour justification (hard rule), recorded
 2026-10-18.** The wrapper reuses the loader's own US-QWERTY shift map
-(`data.c` `BASE[]`/`SHIFTED[]`, one home -- §0-4 of the options doc):
+(`schema_loader.c` `BASE[]`/`SHIFTED[]`, one home -- §0-4 of the options doc):
 `hunmin_ic_process_key(ic, base, shift)` maps `(base, shift)` to the same
 `ch` the legacy call was always handed. No new US table, no layout-JSON
 change, no expression or state-machine change; `hunmin_ic_process` is

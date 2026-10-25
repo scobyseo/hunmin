@@ -403,7 +403,7 @@ TEST_F(CandidateTest, InjectedShiftSelectsTheShiftRow) {
  * CapsLock; measured against the tree that premise is wrong: the option
  * feeds only the yethangul P variable (hunmin.h:93), and both other
  * frontends leave the row plain under caps alone (fcitx5 even UNDOES the
- * host's uppercase sym, engine.cpp:324-326). The common behaviour is the
+ * host's uppercase sym, hunminadapter.cpp:324-326). The common behaviour is the
  * plain row, pinned here through the real engine. */
 TEST_F(CandidateTest, CapsLockFeedsTheOptionButSelectsNoRow) {
     Begin();

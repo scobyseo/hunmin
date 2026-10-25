@@ -13,7 +13,7 @@ import pathlib
 import re
 import sys
 
-ENGINE = pathlib.Path(__file__).resolve().parents[1] / "frontends/fcitx5/src/engine.cpp"
+ENGINE = pathlib.Path(__file__).resolve().parents[1] / "frontends/fcitx5/src/hunminadapter.cpp"
 failures: list[str] = []
 
 
@@ -88,7 +88,7 @@ def main() -> int:
           "layout.empty() ? *engine_->config().hangulLayout : layout" in code)
     check("I7 layout reaches the engine entry point",
           "state->keyEvent(layoutFor(entry)" in code
-          and "std::string HunminEngine::layoutFor(const InputMethodEntry &entry)" in code)
+          and "std::string HunminAdapter::layoutFor(const InputMethodEntry &entry)" in code)
 
     # I6 -- hunmin_ic owned only by HunminState
     decl = [ln for ln in code.splitlines() if "hunmin_ic *" in ln and "=" in ln]
@@ -106,7 +106,7 @@ def main() -> int:
     # This is the one PLAN invariant with no runtime symptom: an adapter that
     # read or rewrote surrounding text would still type correctly, just less
     # portably, so no tier-A/D test could see it. It is enforced structurally.
-    # Against `code`, not `raw`: engine.cpp has a comment saying the adapter
+    # Against `code`, not `raw`: hunminadapter.cpp has a comment saying the adapter
     # deliberately avoids deleteSurroundingText, and a prose mention of the
     # forbidden call must not fail the check that forbids it.
     check("I9 adapter never reads or rewrites surrounding text",
@@ -136,16 +136,16 @@ def main() -> int:
     # Counting code lines (comments and blanks excluded) rather than raw lines
     # keeps the budget about logic, and 400 leaves room for the F9/candidate
     # presentation P3 will add without the rule needing re-litigating.
-    # Every file the adapter owns is counted, not just engine.{h,cpp}.
+    # Every file the adapter owns is counted, not just hunminadapter.{h,cpp}.
     #
     # Two moves forced this. modeswitch.* is the R8 adapter's own translation
-    # unit; config.h holds HunminConfig and came out of engine.h when the
-    # adapter needed the room. Counting engine.{h,cpp} alone would have made
+    # unit; config.h holds HunminConfig and came out of hunminadapter.h when the
+    # adapter needed the room. Counting hunminadapter.{h,cpp} alone would have made
     # the config.h move look like a 23-line saving when it is a relocation --
     # the same trick a new file walks past, which is how "frontends stay thin"
     # stops being enforced.
     #
-    # 400 -> 465 is not slack. engine.{h,cpp} alone is 383 and was 397 before
+    # 400 -> 465 is not slack. hunminadapter.{h,cpp} alone is 383 and was 397 before
     # the adapter landed; the 3 lines of headroom it had were the ones the
     # comment above reserved for the F9/candidate work, which has since shipped
     # (31 lines). 465 is the honest total for what the addon now contains.
@@ -162,8 +162,8 @@ def main() -> int:
     # translation unit, which keeps the same total and only hides it.
     counted = 0
     parts = {}
-    for name in ("engine.cpp", "engine.h", "config.h",
-                 "modeswitch.cpp", "modeswitch.h"):
+    for name in ("hunminadapter.cpp", "hunminadapter.h", "config.h",
+                 "language_detect.cpp", "language_detect.h"):
         f = ENGINE.with_name(name)
         if not f.exists():
             continue
@@ -177,7 +177,7 @@ def main() -> int:
 
     # I11 -- the layout picker's list comes from the core, and the picker keeps
     # it. AGENTS.md rule 1 ("layouts are data, never code") holds at the UI
-    # boundary too: a picker whose ids are written out in engine.{h,cpp} is a
+    # boundary too: a picker whose ids are written out in hunminadapter.{h,cpp} is a
     # second place to edit per layout, and the place a reader looks first.
     #
     # Bound to the loop's own variables inside refreshLayoutList(), because the
@@ -196,9 +196,9 @@ def main() -> int:
     # pass on a broken picker, the exact failure I11 exists to catch.
     engine_h = (ENGINE.with_name("config.h").read_text()
                 if ENGINE.with_name("config.h").exists()
-                else ENGINE.with_name("engine.h").read_text())
-    filler = between(ENGINE.read_text(), "void HunminEngine::refreshLayoutList()",
-                     "void HunminEngine::reloadConfig()")
+                else ENGINE.with_name("hunminadapter.h").read_text())
+    filler = between(ENGINE.read_text(), "void HunminAdapter::refreshLayoutList()",
+                     "void HunminAdapter::reloadConfig()")
     setter = between(engine_h, "void setLayouts(",
                      "void dumpDescription(RawConfig &config) const")
     check("I11 the layout picker reads the layout list from the core",
@@ -212,7 +212,7 @@ def main() -> int:
     # I10 -- the tests dlopen libhunmin.so, so building a test target must
     # rebuild the library. copy-addon only copies the .conf; without a
     # dependency on the addon target, `make testhunminui` leaves a stale .so
-    # and every mutation planted in engine.cpp survives a green D1/D2.
+    # and every mutation planted in hunminadapter.cpp survives a green D1/D2.
     addon_cmake = ENGINE.parents[1] / "test/addon/CMakeLists.txt"
     if addon_cmake.exists():
         body = addon_cmake.read_text()

@@ -158,7 +158,7 @@ This is why two of the three cases started passing at the same moment.
 
 The last failure was `dkssuds` producing `ㅎ|곈` instead of `안|녕` — wrong
 text, not lost keys, which is what made it worth chasing rather than another
-plumbing bug. `HunminEngine::layoutFor()` calls `InputMethodGroup::layoutFor()`,
+plumbing bug. `HunminAdapter::layoutFor()` calls `InputMethodGroup::layoutFor()`,
 which reads the **per-item `Layout=` field in the profile**. But `start_fcitx`
 wrote it to `data/fcitx5/conf/hunmin.conf` — an fcitx5 *addon* config file
 that the addon never reads. fcitx5 does not pass a layout to addons, and the
@@ -241,7 +241,7 @@ commit stream matches tier A for all three cases.
 ### Why the candidate window stays out of D3 — measured, not assumed
 
 An F9 Hanja-window case *was* added here and then removed, because it could not
-fail. Two mutations of `frontends/fcitx5/src/engine.cpp` — deleting
+fail. Two mutations of `frontends/fcitx5/src/hunminadapter.cpp` — deleting
 `keyEvent.filterAndAccept()` in the F9 branch, and adding `flush()` at the top
 of `openCandidates()` — both left D3 green, while both turned tier D2 red:
 

@@ -3,7 +3,7 @@
 
 docs/FRONTEND-CONTRACT.md §5 claims those invariants are guarded. A guard
 nobody ever tries is an assumption. This file plants each known-interesting
-mutation of engine.cpp and records whether the checker and/or engine-d1-fcitx5
+mutation of hunminadapter.cpp and records whether the checker and/or engine-d1-fcitx5
 reject it, so the claims stay checkable instead of aspirational.
 
 Format, one record per mutation:
@@ -28,7 +28,7 @@ import sys
 import tempfile
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-ENGINE_REL = pathlib.Path("frontends/fcitx5/src/engine.cpp")
+ENGINE_REL = pathlib.Path("frontends/fcitx5/src/hunminadapter.cpp")
 ENGINE = REPO / ENGINE_REL
 CHECKER_REL = pathlib.Path("tools/check-frontend-invariants.py")
 CHECKER = REPO / CHECKER_REL
@@ -147,7 +147,7 @@ def _apply(text: str, old: str, new: str) -> str | None:
 MUT_TARGETS = ["hunmin", "testhunmin", "testhunminui"]
 
 # -j on every build. Measured at 2451fdc: rebuilding the two test binaries
-# after touching engine.cpp takes 3.2 s serially and 1.5 s with -j16, and this
+# after touching hunminadapter.cpp takes 3.2 s serially and 1.5 s with -j16, and this
 # runs nine times, so the missing flag was most of a third of the tier. With
 # Makefiles -- which is what this project configures -- ninja's default
 # parallelism does not apply and cmake --build inherits nothing.
@@ -238,7 +238,7 @@ class Strategy:
 
       in-tree   plant in the working tree, rebuild the shared build/.
                 No setup cost, and what a single CI run wants. For its whole
-                duration the checkout holds a deliberately broken engine.cpp
+                duration the checkout holds a deliberately broken hunminadapter.cpp
                 and build/ holds binaries built from it, so nothing else that
                 uses the fcitx5 addon may be running -- including another
                 session's ctest, which is why it was RUN_SERIAL.
@@ -261,7 +261,7 @@ class Strategy:
         raise NotImplementedError
 
     def engine(self) -> pathlib.Path:
-        """The engine.cpp this strategy mutates."""
+        """The hunminadapter.cpp this strategy mutates."""
         raise NotImplementedError
 
     def build(self) -> int:
@@ -349,7 +349,7 @@ class Sandbox(Strategy):
         # Deliberately NOT the main build's type. This tier asks two questions
         # -- does the mutation compile, and do the guards reject it -- and
         # neither depends on optimisation. Measured at 2451fdc: inheriting
-        # RelWithDebInfo made every engine.cpp rebuild 3.28 s instead of
+        # RelWithDebInfo made every hunminadapter.cpp rebuild 3.28 s instead of
         # 1.5 s, which over nine mutations is the difference between a 41 s
         # tier and a 17 s one. Override with $HUNMIN_MUTATION_BUILD_TYPE if a
         # future mutation turns out to need the real flags.
@@ -408,7 +408,7 @@ def main() -> int:
     print(f"{'mutation':30} {'build':6} {'checker':9} {'d1':6} {'d2':6} verdict")
     gaps: list[str] = []
     strategy = STRATEGIES[name]()
-    # `with` is what restores: InTree puts engine.cpp back AND rebuilds,
+    # `with` is what restores: InTree puts hunminadapter.cpp back AND rebuilds,
     # Sandbox just deletes the tree. A separate try/finally here would be a
     # second, weaker copy of that contract.
     with strategy as root:
@@ -452,7 +452,7 @@ def main() -> int:
         for g in gaps:
             print("  -", g)
         return 1
-    print(f"mutation set matches its recorded expectations; engine.cpp restored "
+    print(f"mutation set matches its recorded expectations; hunminadapter.cpp restored "
           f"({name})")
     return 0
 

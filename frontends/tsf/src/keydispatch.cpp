@@ -229,7 +229,7 @@ void CTextService::DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat, con
 
 /* The VK -> base half, and only that half (issue #106): the physical
  * key's UNSHIFTED US-QWERTY character. The shift column the adapter
- * used to carry is the engine's own map (data.c BASE/SHIFTED), selected
+ * used to carry is the engine's own map (schema_loader.c BASE/SHIFTED), selected
  * in the engine by the Shift bit that travels beside the base
  * (FRONTEND-CONTRACT.md A3'). */
 uint32_t CTextService::VkToBase(WPARAM wParam) {
@@ -339,7 +339,7 @@ void CTextService::FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
     /* The engine caps option, fed per event beside the modifier snapshot
      * (issue #112, ruling "wire and make it common to all platform"):
      * one set per key event, 1 when the platform CapsLock is toggled on,
-     * 0 when off - the shape fcitx5 has had all along (engine.cpp:327).
+     * 0 when off - the shape fcitx5 has had all along (hunminadapter.cpp:327).
      * The option feeds the yethangul P variable only (hunmin.h:93); it
      * selects NO row - the Shift bit stays the only row transport
      * (the engine's case endpoint, hunmin_ic_process_key). */

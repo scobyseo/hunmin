@@ -14,7 +14,7 @@ The engine already keeps the data:
 - `hunmin_ic_preedit(ic)` is the buffering state.
 - `hunmin_ic_commit(ic)` and `hunmin_ic_flush(ic)` finalize pending syllables.
 
-TSF should therefore follow `frontends/fcitx5/src/engine.cpp` and this buffering rule:
+TSF should therefore follow `frontends/fcitx5/src/hunminadapter.cpp` and this buffering rule:
 
 1. On every key, map exactly as fcitx5 does.
    - Modifier-only combinations: leave composition and pass through, or flush when a

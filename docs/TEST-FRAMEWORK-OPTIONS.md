@@ -42,9 +42,9 @@ relied on.
    tsf-datadir-test.cpp asserts by exit code with no shared macro, and
    trace-emit.cpp emits traces instead of asserting.
 4. **"fcitx5: same trace-emit.cpp pattern" — verified,** plus three more
-   runner executables (testhunmin.cpp, testhunminui.cpp, testmodeswitch.cpp)
+   runner executables (testhunmin.cpp, testhunminui.cpp, testlanguagedetect.cpp)
    with 5 / 69 / 35 assertion sites, registered as `engine-d1-fcitx5`,
-   `engine-d1-modeswitch`, `engine-d2-ui`.
+   `engine-d1-language-detect`, `engine-d2-ui`.
 5. **"Android: JUnit, outside C++ scope" — verified** (9 `.kt` files under
    `frontends/android/app/src/test`). Nothing below touches it.
 6. **"gmock brings no COM QI support; the QI/vtable plumbing stays

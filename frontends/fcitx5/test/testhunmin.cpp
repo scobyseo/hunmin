@@ -43,7 +43,7 @@ void scheduleEvent(Instance *instance) {
         // Per-item Layout is what a real user's profile carries, and it must
         // override the addon-wide default (sin3-p2). Pins it to sin3-p2-yet so
         // the caps option below is actually consumed -- see
-        // docs/FRONTEND-CONTRACT.md A3/§4; engine.cpp reads it via
+        // docs/FRONTEND-CONTRACT.md A3/§4; hunminadapter.cpp reads it via
         // InputMethodGroup::layoutFor().
         defaultGroup.inputMethodList().push_back(InputMethodGroupItem("hunmin").setLayout("sin3-p2-yet"));
         defaultGroup.setDefaultInputMethod("");

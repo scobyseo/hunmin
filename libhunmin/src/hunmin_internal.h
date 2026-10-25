@@ -1,4 +1,4 @@
-/* internal structures shared by data.c / ic.c */
+/* internal structures shared by schema_loader.c / ic.c */
 #ifndef HUNMIN_INTERNAL_H
 #define HUNMIN_INTERNAL_H
 
@@ -100,7 +100,7 @@ struct hunmin_ic {
     bool opt_non_choseong_combi; /* true */
 };
 
-/* data.c */
+/* schema_loader.c */
 hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs);
 void hm_data_free(hunmin_ctx *ctx);
 /* Shifted form of a US-QWERTY base character under the loader's map (0 when
@@ -113,7 +113,7 @@ uint32_t hm_shifted_of(uint32_t base);
  * split into "" and "/a". The rule is positional -- a ':' right after the
  * token's first character when that character is an ASCII letter and the next
  * char is '/' or '\\' is kept, every other ':' separates. Used by both
- * hm_data_load (data.c) and the suggest layer's resolve_dirs (suggest.c);
+ * hm_data_load (schema_loader.c) and the suggest layer's resolve_dirs (suggest.c);
  * the recorded ctx->data_dir rejoins with ':' and re-parses consistently.
  * Returns the number of dirs (0..max); buffer must be writable and is NUL-
  * terminated in place. */

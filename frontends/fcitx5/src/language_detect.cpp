@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
-#include "modeswitch.h"
+#include "language_detect.h"
 
 #include <fcitx-utils/log.h>
 
@@ -17,7 +17,7 @@ namespace fcitx {
  * hunmin_ic_preedit() for whatever is still composing when the word ends.
  * Reading them in the other order, or reading either twice, loses or duplicates
  * text. */
-std::string ModeSwitchAdapter::judge(const std::string &latinLayout, size_t minLen) {
+std::string LanguageDetector::judge(const std::string &latinLayout, size_t minLen) {
     std::string out;
     if (word_.size() < minLen || word_.empty()) {
         word_.clear();
