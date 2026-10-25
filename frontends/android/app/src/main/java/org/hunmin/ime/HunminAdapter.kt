@@ -58,6 +58,7 @@ class HunminAdapter(
          * consumption, commit and preedit for every frontend, so this adapter
          * keeps no buffer of its own. */
         fun layerNew(ctx: Long, hangul: String, latin: String?, behavior: String): Long
+        fun layerClassify(layer: Long, base: Int, shift: Int, mods: Int, id: Int, candidatesOpen: Boolean, languageKey: Boolean): Int
         fun layerFree(layer: Long)
         fun layerKey(layer: Long, base: Int, shift: Int): Boolean
         fun layerDelivered(layer: Long): String
@@ -77,6 +78,10 @@ class HunminAdapter(
         override fun layerNew(ctx: Long, hangul: String, latin: String?, behavior: String) =
             HunminNativeBridge.nativeLayerNew(ctx, hangul, latin, behavior)
         override fun layerFree(layer: Long) = HunminNativeBridge.nativeLayerFree(layer)
+        override fun layerClassify(
+            layer: Long, base: Int, shift: Int, mods: Int, id: Int,
+            candidatesOpen: Boolean, languageKey: Boolean,
+        ) = HunminNativeBridge.nativeLayerClassify(layer, base, shift, mods, id, candidatesOpen, languageKey)
         override fun layerKey(layer: Long, base: Int, shift: Int) =
             HunminNativeBridge.nativeLayerKey(layer, base, shift)
         override fun layerDelivered(layer: Long) = HunminNativeBridge.nativeLayerDelivered(layer)
@@ -129,8 +134,24 @@ class HunminAdapter(
     fun onKey(keyCode: Int, metaState: Int, ic_: InputConnection): Boolean {
         if (layer == 0L) return false
 
-        if (HunminKeyRegistry.isModifierChord(metaState)) {
-            // A chord cannot compose: it is a word boundary AND a pass-through.
+        /* The key's MEANING is the layer's answer (issue #128, decision C): the
+         * adapter maps the platform key into the shared vocabulary -- unshifted
+         * base, shift bit, chord bits; this path has no candidate window of its
+         * own -- and the precedence (chord, unmapped, feed) is asserted once in
+         * tier A's engine-key-rule instead of here. */
+        val base0 = HunminKeyRegistry.engineBase(keyCode)
+        val action = native.layerClassify(
+            layer,
+            base0?.code ?: 0,
+            if (HunminKeyRegistry.isShiftOn(metaState)) 1 else 0,
+            if (HunminKeyRegistry.isModifierChord(metaState)) HUNMIN_MOD_CHORD else 0,
+            HUNMIN_KEY_TEXT,
+            false,
+            false,
+        )
+        if (action == HUNMIN_KEY_BOUNDARY_PASS) {
+            // A chord or an unmapped key cannot compose: it is a word boundary
+            // AND a pass-through, and the key then reaches the client.
             commitWord(ic_)
             return false
         }
@@ -143,10 +164,12 @@ class HunminAdapter(
         // resolving the P=1 tier. 0 is also a feed, not an absence.
         native.layerSetOption(layer, "caps", if (caps) 1 else 0)
 
-        val base = HunminKeyRegistry.engineBase(keyCode)
+        val base = base0
         if (base == null) {
             // Unmapped key: word boundary first, then pass through -- space,
-            // Enter, punctuation reach the client AFTER the word lands.
+            // Enter, punctuation reach the client AFTER the word lands. The
+            // classifier already answered the same way above; this keeps the
+            // non-null type for the mapping below.
             commitWord(ic_)
             return false
         }
@@ -323,6 +346,13 @@ class HunminAdapter(
     }
 
     companion object {
+        /* The shared key vocabulary (hunmin.h). Literals rather than a JNI call
+         * per constant: they are contract values, and tier A's engine-key-rule
+         * is what pins their meaning. */
+        private const val HUNMIN_MOD_CHORD = 0x07 /* CTRL | ALT | GUI */
+        private const val HUNMIN_KEY_TEXT = 0
+        private const val HUNMIN_KEY_BOUNDARY_PASS = 1
+
         /** Editor info hint: we do our own composition, so say so. */
         const val IME_FLAG_NO_PERSONALIZED_LEARNING: Int =
             EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING

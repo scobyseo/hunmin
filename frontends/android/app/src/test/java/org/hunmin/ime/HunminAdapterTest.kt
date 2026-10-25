@@ -192,21 +192,30 @@ class HunminAdapterTest {
         // four-key test below proves the row still composes ('Q' arrives as
         // KEYCODE_Q + META_SHIFT_ON and must reach sin3-p2's symbol tier).
         assertEquals('k', HunminKeyRegistry.engineBase(keyCodeOf('k')))
-        // Shift must not be classified as a chord -- that would drop every
-        // shifted key to the client and silently break sin3-p2's symbol tiers.
-        assertFalse(HunminKeyRegistry.isModifierChord(shiftOn))
+        // The "Shift is not a chord" assertion moved to tier A's engine-key-rule
+        // (issue #128, decision C): the rule is the layer's now. What stays in
+        // this suite is the mapping -- base is unshifted under every metaState.
     }
 
+    // The chord RULE moved to tier A's engine-key-rule (issue #128, decision C).
+    // What stays in this suite is the adapter's own half: which of Android's
+    // metaState flags become the shared chord bit. That is mapping, not rule --
+    // and it is what the Android mutation `no-ctrl` plants into, measured
+    // 2026-10-25: with the rule retired and no mapping assertion left, dropping
+    // Ctrl from the mask survived the whole tier.
     @Test
-    fun `ctrl chords are refused`() {
-        assertTrue(HunminKeyRegistry.isModifierChord(ctrlOn))
-        assertTrue(HunminKeyRegistry.isModifierChord(ctrlOn or shiftOn))
-        assertTrue(HunminKeyRegistry.isModifierChord(altOn))
+    fun `ctrl, alt and meta map to the shared chord bit`() {
+        assertTrue("META_CTRL_ON must be a chord", HunminKeyRegistry.isModifierChord(ctrlOn))
+        assertTrue("META_ALT_ON must be a chord", HunminKeyRegistry.isModifierChord(altOn))
+        assertTrue("META_META_ON must be a chord", HunminKeyRegistry.isModifierChord(metaOn))
+        assertTrue(HunminKeyRegistry.isModifierChord(ctrlOn or altOn))
+        // Shift and CapsLock are the engine's, not the app's.
+        assertFalse("Shift selects a layout row", HunminKeyRegistry.isModifierChord(shiftOn))
+        assertFalse("CapsLock is the caps option", HunminKeyRegistry.isModifierChord(capsOn))
     }
 
     @Test
     fun `capslock is not a chord and the base stays unshifted`() {
-        assertFalse("CapsLock must not be a modifier chord", HunminKeyRegistry.isModifierChord(capsOn))
         // The base is the UNSHIFTED letter under every modifier combination:
         // the bits travel beside it (the shift bit verbatim via isShiftOn,
         // caps as the engine option), so no metaState can change what

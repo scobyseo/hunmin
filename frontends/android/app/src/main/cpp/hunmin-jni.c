@@ -273,6 +273,27 @@ JNIEXPORT jlong JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerNew(JN
     return (jlong)(intptr_t)p;
 }
 
+/* The shared key rule (issue #128, decision C): the adapter maps the platform
+ * key into the shared vocabulary and this answers what it means. The precedence
+ * is asserted once, in tier A's engine-key-rule. */
+JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerClassify(JNIEnv *env, jclass k, jlong layer, jint base, jint shift,
+                                                                                 jint mods, jint id, jboolean candidates_open,
+                                                                                 jboolean language_key) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    if (!l) return (jint)HUNMIN_KEY_BOUNDARY_PASS;
+    hunmin_key_event ev;
+    memset(&ev, 0, sizeof ev);
+    ev.base = (uint32_t)base;
+    ev.shift = (uint32_t)shift;
+    ev.mods = (uint32_t)mods;
+    ev.id = (hunmin_key_id)id;
+    ev.candidates_open = candidates_open ? 1 : 0;
+    ev.language_key = language_key ? 1 : 0;
+    return (jint)hunmin_buffered_preedit_classify(l, &ev);
+}
+
 JNIEXPORT void JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerFree(JNIEnv *env, jclass k, jlong layer) {
     (void)env;
     (void)k;

@@ -70,6 +70,18 @@ object HunminNativeBridge {
      *  behavior is "word" (buffered) or "syllable". */
     @JvmStatic external fun nativeLayerNew(ctx: Long, hangul: String, latin: String?, behavior: String): Long
 
+    /** The shared key rule (issue #128): base/shift/mods/key id in, action out.
+     *  See hunmin_key_action in hunmin.h; the precedence lives in the layer. */
+    @JvmStatic external fun nativeLayerClassify(
+        layer: Long,
+        base: Int,
+        shift: Int,
+        mods: Int,
+        id: Int,
+        candidatesOpen: Boolean,
+        languageKey: Boolean,
+    ): Int
+
     @JvmStatic external fun nativeLayerFree(layer: Long)
 
     /** Feed one key: unshifted base + shift bit. Answers consumed. */
