@@ -90,18 +90,25 @@ indirectly; no test asserts "the host's trigger reached the slot".
 
 A frontend distributes the data it needs with the terms that data is under, and
 records where generated tables came from. *Ruling:* `docs/SPEC-OVERVIEW.md#§A10`.
-*Implementation:* `libhunmin/data/krdict/LICENSE.md`,
-`tools/krdict2data.py` (writes the provenance `meta.json`). *Refuted by:* `none`
-— enforced by review; `docs-lint` checks that a quoted figure has a home, not
-that a licence file exists.
+*Implementation:* `libhunmin/data` + `tools/doctor.py` (the terms check is
+proposed, not yet built). *Refuted by:* `none`.
+
+**Measured 2026-10-25, and partial:** `hanja/`, `idioms/`, `krdict/` each carry
+`LICENSE.md`; `layouts/` (15 layouts — derived work of libhangul's kbd tables and
+pat.im's `ist.xml`) and `compose/` (ahn/modern/modern-full) carry **neither a
+licence nor a provenance `meta.json`**. The proposed fix is a `tools/doctor.py`
+terms check plus the two missing statements, so the discrepancy fails a test
+before it is resolved.
 
 ### FE15. The frontend/library boundary is append-only
 
 A frontend built against one version of the library keeps working against later
 ones; adding capability never removes or redefines an exported symbol. *Ruling:*
 `docs/SPEC-OVERVIEW.md#§A13`. *Implementation:*
-`libhunmin/tests/abi/symbols.txt`. *Refuted by:* the `abi` test (runner-side;
-not registered on this Windows host, where the symbol diff is a review step).
+`libhunmin/tests/abi/symbols.txt`. *Refuted by:* the `abi` test
+(`tier-B;guard`, `add_test(NAME abi)`; WSL runs it as part of the ladder).
+**Recorded discrepancy:** registered `NOT WIN32`, so a Windows host never runs
+it — there the symbol diff is a review step.
 
 ### FE8. Text from outside the keyboard is not composed
 
