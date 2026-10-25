@@ -1,4 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2-yet", "case": "jk1", "source": "manual-sin3-p2-yet.jsonl (manual)", "case_index": 14, "case_id": "manual-sin3-p2-yet#14"}}
-{"in": {"keysym": 106, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
-{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
-{"in": {"keysym": 49, "mods": 0}, "commit": "ㅇµ", "preedit": "", "consumed": true}

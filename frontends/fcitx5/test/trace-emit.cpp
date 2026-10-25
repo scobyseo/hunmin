@@ -113,6 +113,26 @@ unsigned long numberField(const std::string &line, const char *key, unsigned lon
     return std::strtoul(line.c_str() + p, nullptr, 0);
 }
 
+bool boolField(const std::string &line, const char *key) {
+    const std::string pat = std::string("\"") + key + "\"";
+    auto p = line.find(pat);
+    if (p == std::string::npos) {
+        return false;
+    }
+    p = line.find(':', p + pat.size());
+    if (p == std::string::npos) {
+        return false;
+    }
+    ++p;
+    while (p < line.size() && std::isspace(static_cast<unsigned char>(line[p]))) {
+        ++p;
+    }
+    if (p >= line.size()) {
+        return false;
+    }
+    return line[p] == 't' || line[p] == 'T';
+}
+
 std::string stringField(const std::string &line, const char *key) {
     const std::string pat = std::string("\"") + key + "\"";
     auto p = line.find(pat);
@@ -232,43 +252,52 @@ int main(int argc, char **argv) {
         // commits are then ASSERTED against them -- TestFrontend aborts on the
         // first mismatch. That is stronger than observation: a wrong commit
         // cannot pass silently, it kills the process.
-        std::vector<std::string> expectedCommits;
+        // Word-buffered expectations: the adapter commits whole words at
+        // boundaries (declined keys / teardown), not per-syllable. Collect
+        // per-syllable commits into per-word buckets and push one expectation
+        // per word.
+        std::vector<std::string> wordBufferedCommits;
+        std::vector<std::string> perEventExpected;
+        std::string currentWord;
+
         for (size_t i = 1; i < lines.size(); ++i) {
             if (lines[i].find("\"meta\"") != std::string::npos) {
                 continue;
             }
-            expectedCommits.push_back(stringField(lines[i], "commit"));
+            bool consumed = boolField(lines[i], "consumed");
+            std::string commit = stringField(lines[i], "commit");
+            std::string expectedCommit;
+
+            if (!commit.empty()) {
+                currentWord += commit;
+            }
+            if (!consumed) {
+                // Boundary: the buffered word commits before the declined key
+                expectedCommit = currentWord;
+                wordBufferedCommits.push_back(currentWord);
+                currentWord = "";
+            }
+            perEventExpected.push_back(expectedCommit);
         }
 
-        // Only NON-EMPTY expectations are pushed, because commitString() is
-        // not called at all for the events that commit nothing.
-        for (const std::string &c : expectedCommits) {
+        // Teardown flushes the last buffered word.
+        const std::string tail = stringField(lines.back(), "preedit");
+        if (!tail.empty()) {
+            currentWord += tail;
+        }
+        if (!currentWord.empty()) {
+            wordBufferedCommits.push_back(currentWord);
+        }
+
+        for (const std::string &c : wordBufferedCommits) {
             if (!c.empty()) {
                 tf->call<ITestFrontend::pushCommitExpectation>(c);
             }
         }
 
-        // Teardown contributes one commit that no trace line records:
-        // deactivate() flushes the in-flight syllable (hunminadapter.cpp reset()), and
-        // ~TestFrontend asserts the queue is empty. That flush is correct
-        // adapter behaviour -- composing text is not lost on focus change -- so
-        // it is asserted rather than suppressed: its text is exactly the last
-        // event's preedit, which the trace already states. Pushing it as the
-        // final expectation turns the destructor's own assert into a check that
-        // teardown flushed what the composition held. tier A has the same
-        // shape, ending on an open syllable.
-        // The teardown flush is emitted ONLY when the composition is non-empty
-        // (flush() guards on hunmin_ic_flush() returning non-empty), so a tail
-        // expectation is pushed exactly when the last event left a preedit.
-        const std::string tail = stringField(lines.back(), "preedit");
-        if (!tail.empty()) {
-            tf->call<ITestFrontend::pushCommitExpectation>(tail);
-        }
-
         // One entry per event: the adapter commits at most one string per
-        // keypress (FRONTEND-CONTRACT invariant 2) and tier A's `commit` is
-        // that same per-event buffer, so the index advances once per event
-        // whether or not this one committed anything.
+        // keypress (FRONTEND-CONTRACT invariant 2). Under word buffering,
+        // most events commit nothing; only boundary events carry a commit.
         size_t emitted = 0;
         for (size_t i = 1; i < lines.size(); ++i) {
             const std::string &line = lines[i];
@@ -294,7 +323,7 @@ int main(int argc, char **argv) {
             // the adapter commits at most one string per keypress (invariant 2),
             // and tier A's `commit` is that same per-event buffer, so the index
             // advances once per event whether or not the commit was empty.
-            std::string commit = emitted < expectedCommits.size() ? expectedCommits[emitted] : std::string();
+            std::string commit = emitted < perEventExpected.size() ? perEventExpected[emitted] : std::string();
             ++emitted;
 
             std::cout << "{\"in\": {\"keysym\": " << keysym << ", \"mods\": " << mods << "}, \"commit\": \"" << jsonEscape(commit)
