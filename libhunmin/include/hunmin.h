@@ -294,6 +294,12 @@ typedef struct hunmin_key_event {
  * keys, then a chord, then an unmapped key, then feed. */
 HUNMIN_EXPORT hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit *l, const hunmin_key_event *ev);
 
+/* The finished syllables alone, REMOVED from the layer (the in-flight syllable
+ * stays composing). The interim delivery keeps the finished word as document
+ * text and appends only what has newly finished, so it needs the two halves
+ * separately and needs this one to advance. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_take_word(hunmin_buffered_preedit *l);
+
 /* The syllable in flight alone, without the finished word and without a key.
  * The interim delivery mode keeps the finished word as document text and
  * rewrites only this, so the two halves the display joins have to be readable

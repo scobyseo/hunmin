@@ -322,6 +322,13 @@ hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit
     return HUNMIN_KEY_FEED;
 }
 
+const char *hunmin_buffered_preedit_take_word(hunmin_buffered_preedit *l) {
+    if (!l || !l->ic) return "";
+    const char *out = set_commit(l, l->word ? l->word : "");
+    word_clear(l);
+    return out;
+}
+
 const char *hunmin_buffered_preedit_composing(hunmin_buffered_preedit *l) {
     if (!l || !l->ic) return "";
     return hunmin_ic_preedit(l->ic);
