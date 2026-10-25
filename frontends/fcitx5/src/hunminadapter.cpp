@@ -103,15 +103,15 @@ public:
     HunminState(HunminAdapter *engine, InputContext *ic) : engine_(engine), ic_(ic), switcher_(engine->ctx()) {}
 
     ~HunminState() override {
-        if (hunminIc_) {
-            hunmin_ic_free(hunminIc_);
+        if (preedit_) {
+            hunmin_buffered_preedit_free(preedit_);
         }
     }
 
     /* --- Hanja candidates (P3) ---
      *
      * F9 is handled here, not in the engine: libhangul's own layout routes it
-     * through hunmin_ic_process, but F9 is outside the printable ASCII range
+     * through the engine's own process path, but F9 is outside the printable ASCII range
      * the engine accepts, so an adapter that wants a Hanja window must
      * intercept it. That does NOT require swallowing keys the engine declined
      * -- F9 is matched before the printable-ASCII test, so `used` is never
@@ -125,18 +125,18 @@ public:
      * The candidate list is held per-context, because it belongs to the
      * preedit that produced it and must not leak across focus changes. */
     bool openCandidates() {
-        const char *preedit = hunmin_ic_preedit(hunminIc_);
-        if (!preedit || !*preedit) {
+        const char *shown = hunmin_buffered_preedit_display(preedit_);
+        if (!shown || !*shown) {
             return false;
         }
-        candidateCount_ = hunmin_suggest_count(engine_->ctx(), preedit);
+        candidateCount_ = hunmin_suggest_count(engine_->ctx(), shown);
         if (candidateCount_ <= 0) {
             return false;
         }
-        /* Keep the Hangul we looked up: hunmin_ic_flush() would commit it,
+        /* Keep the Hangul we looked up: a boundary flush would commit it,
          * and the window has to stay anchored to the preedit, not to a
          * committed string. */
-        candidateSource_ = preedit;
+        candidateSource_ = shown;
         updateCandidateList();
         return true;
     }
@@ -144,7 +144,7 @@ public:
     void closeCandidates() {
         candidateCount_ = 0;
         candidateSource_.clear();
-        if (hunminIc_) {
+        if (preedit_) {
             // nullptr clears the window. CandidateList is abstract, so there
             // is no empty value to assign.
             ic_->inputPanel().setCandidateList(nullptr);
@@ -163,10 +163,10 @@ public:
      * that has to happen -- no deleteSurroundingText, which PLAN.md's P3 note
      * rules out for the F9 flow. */
     void commitCandidate(const std::string &hanja) {
-        if (hunminIc_) {
+        if (preedit_) {
             // Drop what was composing first, so the preedit the client sees
             // afterwards is empty rather than the source Hangul.
-            hunmin_ic_reset(hunminIc_);
+            hunmin_buffered_preedit_reset(preedit_);
         }
         closeCandidates();
         ic_->commitString(hanja);
@@ -177,7 +177,7 @@ public:
 
     void keyEvent(const std::string &layout, KeyEvent &keyEvent) {
         ensureIc(layout);
-        if (!hunminIc_) {
+        if (!preedit_) {
             return; // bad layout id: key passes through to the client
         }
 
@@ -202,7 +202,7 @@ public:
         // F9 opens the Hanja window for the current preedit (P3). Handled
         // here rather than in the engine because F9 is not a printable ASCII
         // character: the `sym >= 0x20 && sym <= 0x7E` test below would send it
-        // to flush() and the client, so hunmin_ic_process() never sees it.
+        // to flush() and the client, so the engine never sees it.
         //
         // Consumption is conditional here too, on candidates rather than on
         // what the engine thought: an open window closes, a preedit with
@@ -319,8 +319,15 @@ public:
         if (caps && sym >= 'A' && sym <= 'Z') {
             sym = static_cast<KeySym>(sym + 'a' - 'A');
         }
-        hunmin_ic_set_option(hunminIc_, "caps", caps ? 1 : 0);
+        hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);
 
+        /* The shared layer above libhunmin decides consumption, commit and
+         * preedit for every frontend (issue #128, docs/FRONTEND-EQUIVALENCE.md
+         * §5); this adapter keeps no buffer of its own any more. It maps the
+         * keysym to (base, shift) and renders what it is handed. The commit
+         * POLICY is the layer's: AT_BOUNDARY is what a client preedit wants --
+         * the word stays visible and lands in one insert (issue #74's
+         * requirement, now shared instead of per-frontend). */
         uint32_t ch;
         if (sym == FcitxKey_BackSpace) {
             ch = 0x08; // same convention as libhangul / golden traces
@@ -332,31 +339,33 @@ public:
             return;
         }
 
-        bool used = hunmin_ic_process(hunminIc_, ch);
-        switcher_.record(ch); // R8 adapter; see src/language_detect.h
+        /* An uppercase symbol means the row was shifted; the engine resolves
+         * the case endpoint from (base, shift) itself (hunmin_ic_process_key),
+         * so the adapter stops encoding shift into the character. */
+        uint32_t base = ch;
+        uint32_t shift = 0;
+        if (base >= 'A' && base <= 'Z') {
+            shift = 1;
+            base = base + 'a' - 'A';
+        }
 
-        if (used) {
-            if (const char *commit = hunmin_ic_commit(hunminIc_); commit && *commit) {
+        hunmin_key_result out{};
+        const bool used = hunmin_buffered_preedit_process_key(preedit_, base, shift, &out) != 0;
+        switcher_.record(ch); // R8 detector; see src/language_detect.h
+
+        if (out.commit && *out.commit) {
 #ifdef HUNMIN_TRACE
-                traceEvent("commit", commit);
+            traceEvent("commit", out.commit);
 #endif
-                ic_->commitString(commit);
-            }
-        } else {
-            // Engine declined (space, unmapped row): flush emits the pending
-            // commit buffer *and* the in-flight syllable in one string,
-            // because hunmin_ic_flush appends via save_commit then reads out
-            // through hunmin_ic_commit. Both readers are destructive, so the
-            // two calls must never happen for the same keypress.
-            flush();
-            switcher_.judge(*engine_->config().latinLayout); // the boundary
+            ic_->commitString(out.commit);
+        }
+        if (!used) {
+            // The layer IS the boundary: it delivered the word in out.commit
+            // above. What is left is R8's judgement of the finished word.
+            switcher_.judge(*engine_->config().latinLayout);
         }
 #ifdef HUNMIN_TRACE
-        // Emitted before updateUI(), which does not disturb the engine state.
-        // hunmin_ic_commit is destructive and was already read above when used,
-        // so this second read legitimately yields "" -- the commit itself was
-        // traced at the point it was delivered.
-        traceEvent("preedit", hunminIc_ ? hunmin_ic_preedit(hunminIc_) : "");
+        traceEvent("preedit", out.preedit ? out.preedit : "");
         traceEvent(used ? "consumed" : "passed", "");
 #endif
         updateUI();
@@ -370,18 +379,18 @@ public:
     }
 
     void reset() {
-        if (hunminIc_) {
-            hunmin_ic_reset(hunminIc_);
+        if (preedit_) {
+            hunmin_buffered_preedit_reset(preedit_);
         }
         switcher_.discard();
         updateUI();
     }
 
     void flush() {
-        if (!hunminIc_) {
+        if (!preedit_) {
             return;
         }
-        if (const char *s = hunmin_ic_flush(hunminIc_); s && *s) {
+        if (const char *s = hunmin_buffered_preedit_commit_word(preedit_); s && *s) {
 #ifdef HUNMIN_TRACE
             traceEvent("commit", s);
 #endif
@@ -394,18 +403,22 @@ private:
         // per-item profile layout wins; empty means "no override", in which
         // case the addon-wide default from conf/hunmin.conf applies.
         const std::string &want = layout.empty() ? *engine_->config().hangulLayout : layout;
-        if (hunminIc_ && want == layout_) {
+        if (preedit_ && want == layout_) {
             return;
         }
-        if (hunminIc_) {
+        if (preedit_) {
             flush();
-            hunmin_ic_free(hunminIc_);
-            hunminIc_ = nullptr;
+            hunmin_buffered_preedit_free(preedit_);
+            preedit_ = nullptr;
             switcher_.discard();
         }
         layout_ = want;
-        hunminIc_ = hunmin_ic_new(engine_->ctx(), want.c_str());
-        if (!hunminIc_) {
+        /* One language: fcitx5's Han/Eng handling is its own trigger plus the
+         * R8 detector, so the layer's toggle reports "not ours" (NULL latin
+         * layout). Unifying that is docs/FRONTEND-EQUIVALENCE.md §4's next
+         * step, and it is not this migration. */
+        preedit_ = hunmin_buffered_preedit_new(engine_->ctx(), want.c_str(), nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+        if (!preedit_) {
             FCITX_ERROR() << "hunmin: unsupported layout: " << want;
         }
     }
@@ -417,13 +430,13 @@ private:
          * client already consumed it. This is why inputPanel().reset() is not
          * simply called at the top -- that would also wipe the candidate
          * window, which must outlive the preedit it was opened from. */
-        if (hunminIc_) {
-            const char *preedit = hunmin_ic_preedit(hunminIc_);
+        if (preedit_) {
+            const char *shown = hunmin_buffered_preedit_display(preedit_);
             bool useClient = ic_->capabilityFlags().test(CapabilityFlag::Preedit);
             Text text;
-            if (preedit && *preedit) {
-                text.append(preedit);
-                text.setCursor(std::strlen(preedit));
+            if (shown && *shown) {
+                text.append(shown);
+                text.setCursor(std::strlen(shown));
             }
             /* An empty Text clears the slot, so one call covers both cases. */
             if (useClient) {
@@ -439,7 +452,7 @@ private:
     HunminAdapter *engine_;
     InputContext *ic_;
     LanguageDetector switcher_;
-    hunmin_ic *hunminIc_ = nullptr;
+    hunmin_buffered_preedit *preedit_ = nullptr;
     std::string layout_;
     int candidateCount_ = 0;
     std::string candidateSource_;

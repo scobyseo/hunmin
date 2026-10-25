@@ -117,6 +117,30 @@ the observable quantity: **committed-so-far + preedit is equal per key**, and
 the concatenation is equal. Whether the rule should be worded that way is the
 maintainer's call; it is recorded here rather than silently rewritten.
 
+### 5.3 Frontends on the layer
+
+**fcitx5, 2026-10-25.** `HunminState` holds a `hunmin_buffered_preedit` instead
+of a `hunmin_ic` and owns no buffer of its own: it maps the keysym to
+`(base, shift)`, inserts `out.commit`, renders `out.preedit`, and lets a declined
+key be the boundary. The policy is `HUNMIN_COMMIT_AT_BOUNDARY`, which is what
+#74 asked this frontend for; the text the client receives is unchanged, the point
+it lands is the word boundary.
+
+What moved with it, because each of these encoded the old per-syllable shape and
+would otherwise have been a stale assertion:
+
+- `testhunmin` (tier D1) and `testhunminui` (tier D2): the preedit expectations
+  now show the word plus the syllable in flight, and the symbol-tier cases gain
+  the space that is their boundary. The committed TEXT is identical.
+- `tools/check-frontend-invariants.py`: its feed-block anchors and two I9
+  patterns followed the code ("one commit delivery from the layer's answer").
+- `tools/frontend-mutations.py`: three patterns were re-anchored. One of them,
+  `I1-commit-flush-both`, is now rejected by BOTH tiers where it used to be a
+  recorded gap -- buffered delivery is exactly the "commit plus in-flight
+  syllable in one key" case D1 never had.
+
+TSF and Android still carry their own buffers; they are the rest of this issue.
+
 ## 6. One corpus, every frontend, both TSF modes
 
 Input behavior is defined once and run everywhere:

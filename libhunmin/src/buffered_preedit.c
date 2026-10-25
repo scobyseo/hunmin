@@ -223,6 +223,11 @@ const char *hunmin_buffered_preedit_commit_word(hunmin_buffered_preedit *l) {
     return boundary(l);
 }
 
+const char *hunmin_buffered_preedit_display(hunmin_buffered_preedit *l) {
+    if (!l || !l->ic) return "";
+    return build_preedit(l);
+}
+
 void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
     if (!l || !l->ic) return;
     hunmin_ic_reset(l->ic);

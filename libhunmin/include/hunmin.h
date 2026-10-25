@@ -206,6 +206,11 @@ HUNMIN_EXPORT int hunmin_buffered_preedit_peek_key(const hunmin_buffered_preedit
 /* Commit the buffered word and the in-flight syllable now (focus loss, a
  * language toggle, an edit key). Returns the text to insert, "" if none. */
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_commit_word(hunmin_buffered_preedit *l);
+
+/* The display string for the word in flight, without consuming a key: a
+ * candidate window or a Hanja lookup asks between keys. Same lifetime rule as
+ * above. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_display(hunmin_buffered_preedit *l);
 HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
 HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);
 

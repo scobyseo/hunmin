@@ -69,11 +69,16 @@ void scheduleEvent(Instance *instance) {
         press(uuid, Key("space"), false);
 
         // symbol tier (sin3-p2): j opens, k swallowed as tier select,
-        // 1 commits ㅇµ
+        // 1 produces ㅇµ -- which, under the shared layer's buffered commit
+        // (issue #128 / #74), is held as preedit until the word boundary.
+        // The text is unchanged; only the point it reaches the client moved,
+        // and that is explicitly not part of the contract
+        // (docs/FRONTEND-EQUIVALENCE.md §1). Space is the boundary and passes.
         testfrontend->call<ITestFrontend::pushCommitExpectation>("ㅇµ");
         press(uuid, Key("j"));
         press(uuid, Key("k"));
         press(uuid, Key("1"));
+        press(uuid, Key("space"), false);
 
         // Empty buffer: space and backspace pass through to the client. The engine
         // declines both with nothing composing, and an unaccepted key is not
@@ -92,11 +97,13 @@ void scheduleEvent(Instance *instance) {
         press(uuid, Key(FcitxKey_J, KeyState::CapsLock));
         press(uuid, Key(FcitxKey_K, KeyState::CapsLock));
         press(uuid, Key(FcitxKey_1, KeyState::CapsLock));
+        press(uuid, Key("space"), false); // the boundary the buffered commit waits for
 
         testfrontend->call<ITestFrontend::pushCommitExpectation>("ㅇµ");
         press(uuid, Key("j"));
         press(uuid, Key("k"));
         press(uuid, Key("1"));
+        press(uuid, Key("space"), false);
 
         instance->deactivate();
     });

@@ -37,15 +37,19 @@ CHECKER = REPO / CHECKER_REL
 MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
     (
         "I1-commit-flush-both",
-        "        } else {\n            // Engine declined",
-        "        }\n        if (!used) {\n            // Engine declined",
-        True,
-        False,  # known gap: D1 has no case producing commit + in-flight syllable
-        False,  # and D2 asserts panel state, not commit routing
+        "        if (out.commit && *out.commit) {",
+        "        if (out.commit && *out.commit && used) {",
+        False,
+        True,  # #128: the adapter delivers the layer's answer, so this is no
+        True,  # longer visible structurally -- but D1's boundary commit
+        #        expectation and D2's panel assertion both reject it now
+        #        (measured 2026-10-25; the old gap was D1 having no case that
+        #        produced commit + in-flight text, and buffered delivery is
+        #        exactly that case)
     ),
     (
         "I5-caps-dropped",
-        'hunmin_ic_set_option(hunminIc_, "caps", caps ? 1 : 0);',
+        'hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);',
         "",
         True,
         True,  # closed by de0de72: D1 pins sin3-p2-yet and replays the golden
@@ -101,7 +105,7 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
     ),
     (
         "D2-cursor-at-zero",
-        "text.setCursor(std::strlen(preedit));",
+        "text.setCursor(std::strlen(shown));",
         "",
         False,
         False,

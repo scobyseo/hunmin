@@ -43,13 +43,25 @@ def main() -> int:
     raw = ENGINE.read_text()
     code = strip_comments(raw)
 
-    # I1/I2/I3 -- the process() block
-    block = between(code, "bool used = hunmin_ic_process", "void reset()")
+    # I1/I2/I3 -- the feed block.
+    #
+    # Since issue #128 the adapter drives the shared buffered/syllable layer
+    # (hunmin_buffered_preedit_*), so the block no longer reads the engine's
+    # commit itself: it hands the key to the layer and renders what it is
+    # given. The invariants it must keep are the same ones -- one delivery
+    # point for committed text, one boundary, one place that answers
+    # consumption.
+    block = between(code, 'hunmin_buffered_preedit_set_option(preedit_, "caps"', "void reset()")
     if not block:
-        check("process() block located", False, "anchor text changed")
+        check("feed block located", False, "anchor text changed")
         return 1
-    check("I3 exactly one commit read", block.count("hunmin_ic_commit(") == 1,
-          f"found {block.count('hunmin_ic_commit(')}")
+    check("I3 exactly one commit delivery", block.count("commitString(") == 1,
+          f"found {block.count('commitString(')}")
+    check("I3 the delivered text is the layer's answer",
+          "out.commit" in block,
+          "a second read of the engine's destructive commit is how text is lost")
+    check("I3 exactly one layer feed", block.count("hunmin_buffered_preedit_process_key(") == 1,
+          f"found {block.count('hunmin_buffered_preedit_process_key(')}")
     check("I1 exactly one flush", block.count("flush();") == 1,
           f"found {block.count('flush();')}")
     check("I1 flush guarded by else", "} else {" in block)
@@ -77,7 +89,7 @@ def main() -> int:
               "Shift encodes layout rows; a chord would swallow it")
 
     # I5 -- caps must be handed to the engine
-    check("I5 caps option is set", 'hunmin_ic_set_option(hunminIc_, "caps"' in code)
+    check("I5 caps option is set", 'hunmin_buffered_preedit_set_option(preedit_, "caps"' in code)
     check("I5 caps driven by CapsLock key state",
           "test(KeyState::CapsLock)" in code)
 
@@ -90,10 +102,12 @@ def main() -> int:
           "state->keyEvent(layoutFor(entry)" in code
           and "std::string HunminAdapter::layoutFor(const InputMethodEntry &entry)" in code)
 
-    # I6 -- hunmin_ic owned only by HunminState
-    decl = [ln for ln in code.splitlines() if "hunmin_ic *" in ln and "=" in ln]
-    check("I6 no stray hunmin_ic field outside HunminState",
-          all("HunminState" not in ln for ln in decl) or len(decl) <= 1,
+    # I6 -- the composing state is owned in exactly one place. It used to be
+    # the hunmin_ic; since #128 it is the shared layer handle, and the defect
+    # this guards (a second owner, so two code paths compose the same keys) is
+    # unchanged.
+    decl = [ln for ln in code.splitlines() if "hunmin_buffered_preedit *" in ln and "=" in ln]
+    check("I6 exactly one layer handle", len(decl) == 1,
           "; ".join(ln.strip()[:60] for ln in decl))
 
     # I9 -- the Hanja window must not touch surrounding text.
@@ -117,15 +131,15 @@ def main() -> int:
     # ...and the candidates must come from the engine's own preedit, so there is
     # no path by which client text could reach the lookup.
     cand = between(code, "bool openCandidates()", "void closeCandidates()")
-    check("I9 candidates are looked up from the engine preedit only",
-          bool(cand and "hunmin_ic_preedit" in cand and "hunmin_suggest_count" in cand
+    check("I9 candidates are looked up from the composing text only",
+          bool(cand and "hunmin_buffered_preedit_display" in cand and "hunmin_suggest_count" in cand
                and not re.search(r"surrounding|deleteSurrounding", cand, re.I)),
-          "openCandidates() must read hunmin_ic_preedit(), nothing else")
+          "openCandidates() must read the layer's display string, nothing else")
     # Choosing a candidate replaces the composition; it must not re-insert text
     # behind it, which is what a surrounding-text rewrite would look like.
     commit = between(code, "void commitCandidate(", "const std::string &candidateSource()")
     check("I9 choosing a candidate does not re-insert text",
-          bool(commit and "commitString" in commit and "hunmin_ic_reset" in commit
+          bool(commit and "commitString" in commit and "hunmin_buffered_preedit_reset" in commit
                and not re.search(r"deleteSurrounding|setCursorPos|Surrounding", commit)),
           "commitCandidate() commits and resets, no re-insertion")
 
