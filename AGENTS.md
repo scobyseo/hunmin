@@ -250,6 +250,11 @@ REQ id          docs/SPEC-*.md            the requirement text, and the only hom
   -> verification   ctest id or command    what fails when it stops being true
 ```
 
+The root is `docs/SPEC-OVERVIEW.md`: the seven abstract requirements (A1-A7) in
+the maintainer's words. Every other SPEC id is a way of satisfying one of them,
+and each A entry names its children -- an abstract requirement with no child is
+the finding that file exists to expose.
+
 The map is `docs/REQ-MAP.md`; `tools/req-map-check.py` (ctest `req-map`) fails
 when a pointer names a path that does not exist, a `verified by` ctest id is not
 registered, or a SPEC requirement has no row.
