@@ -146,7 +146,7 @@ TEST_F(TsfConfigTest, Sin3P2ChosungOnTheOemRow) {
     mctx->AddRef();
     CTextService *svc = new CTextService();
     svc->Activate(tm, 1);
-    ASSERT_TRUE(Snap(svc).ctx && Snap(svc).ic) << "engine context on sin3-p2";
+    ASSERT_TRUE(Snap(svc).ctx && Snap(svc).layer) << "engine context on sin3-p2";
 
     BOOL eaten = FALSE;
     /* The test phase is now INTERESTED in the punctuation (: VkToBase maps
@@ -155,7 +155,7 @@ TEST_F(TsfConfigTest, Sin3P2ChosungOnTheOemRow) {
     EXPECT_EQ(eaten, TRUE) << "sin3-p2 chosung ';' interested in hangul mode";
     svc->OnKeyDown(mctx, VK_OEM_1, 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "engine consumes ';' -> compose";
-    EXPECT_STREQ(hunmin_ic_preedit(Snap(svc).ic), "\xE3\x85\x82") << "OEM_1 composes ㅂ like a chosung, not a symbol";
+    EXPECT_STREQ(hunmin_buffered_preedit_composing(Snap(svc).layer), "\xE3\x85\x82") << "OEM_1 composes ㅂ like a chosung, not a symbol";
 
     /* The same class on the other two reported keys. */
     svc->OnTestKeyDown(mctx, VK_OEM_2, 0, &eaten);
@@ -216,7 +216,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     CTextService *svc = new CTextService();
     svc->Activate(tm, 1);
     EXPECT_EQ(Snap(svc).toggleKeys.size(), (size_t)3) << "Activate loads configured + bare Han/Eng";
-    EXPECT_TRUE(Snap(svc).ctx && Snap(svc).ic && Snap(svc).hangulMode) << "service starts in hangul mode";
+    EXPECT_TRUE(Snap(svc).ctx && Snap(svc).layer && Snap(svc).hangulMode) << "service starts in hangul mode";
 
     // 'r' composes in dubeolsik: consumed, preedit holds the cho.
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
@@ -228,7 +228,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
      * TU under the ANSI codepage and a UTF-8 literal is a C2001 (the same
      * failure candidate-tables-test.cpp had when the baseline branch was measured). */
     EXPECT_EQ(eaten, TRUE) << "dubeolsik 'r' keydown not consumed";
-    EXPECT_STREQ(hunmin_ic_preedit(Snap(svc).ic), "\xE3\x84\xB1") << "dubeolsik 'r' -> preedit";
+    EXPECT_STREQ(hunmin_buffered_preedit_composing(Snap(svc).layer), "\xE3\x84\xB1") << "dubeolsik 'r' -> preedit";
 
     // The bare Han/Eng key (VK_HANGEUL with NO modifier — the platform
     // alternate) toggles AND is a composition boundary: the pending
@@ -239,7 +239,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     EXPECT_EQ(eaten, TRUE) << "bare Han/Eng keydown not consumed";
     EXPECT_FALSE(Snap(svc).hangulMode) << "bare Han/Eng toggles to english";
     /* U+3131 wide-literal escape (the ANSI-codepage rule above). */
-    EXPECT_TRUE(Snap(svc).wordbuf.empty()) << "mode boundary flushes the held word";
+    EXPECT_TRUE(Snap(svc).finished.empty()) << "mode boundary flushes the held word";
     EXPECT_EQ(mctx->doc, std::wstring(1, L'\u3131')) << "mode boundary inserts once";
 
     // A repeat keydown (lParam bit 30) is swallowed without toggling.
@@ -287,7 +287,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
         EXPECT_EQ(mctx->compositionEnds, endsBefore + 1) << "edit key is a boundary: one composition-fused delivery";
         EXPECT_EQ(mctx->compositionText, std::wstring(1, L'\u3131')) << "edit key is a boundary: the fused text is the commit";
         EXPECT_EQ(mctx->insertions.size(), insBefore) << "edit key is a boundary: no plain insert on the side";
-        EXPECT_TRUE(Snap(svc).wordbuf.empty()) << "nothing held after the edit-key boundary";
+        EXPECT_TRUE(Snap(svc).finished.empty()) << "nothing held after the edit-key boundary";
     }
     /* U+3131 wide-literal escape (the ANSI-codepage rule above); the two
      * boundary deliveries so far were the toggle boundary and this

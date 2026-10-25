@@ -12,6 +12,7 @@
 #include "tsf.h"
 
 #include "delivery.h" /* HUNMIN_TSF_DELIVERY_INTERIM */
+#include "utf.h"      /* HunminUtf8ToWide: the layer speaks UTF-8 */
 
 #include <string>
 
@@ -80,9 +81,9 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
          * write (the fresh-span anchor re-reads the live caret). The
          * native path keeps the key: its declined branch is the
          * #98-verified composition-close shape. */
-        const char *pre = ic_ ? hunmin_ic_preedit(ic_) : "";
+        const char *pre = preedit_ ? hunmin_buffered_preedit_display(preedit_) : "";
         eat = (legacyMode_ && pre[0] == '\0') ? FALSE : TRUE;
-    } else if (ic_ && hangulMode_ && !IsKeyOfPassage(wParam) && VkToBase(wParam) != 0 && !IsModifierVk(wParam)) {
+    } else if (preedit_ && hangulMode_ && !IsKeyOfPassage(wParam) && VkToBase(wParam) != 0 && !IsModifierVk(wParam)) {
         /* EVERY feedable key is interested in hangul mode, the OEM
          * punctuation class included. Sin3-p2's jamo live on this row
          * (; ' /;  measured 2026-10-21).
@@ -98,10 +99,10 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
          * pass. testDeclinedKey_ makes a down call a no-op so the key is
          * never fed twice. */
         const unsigned int mods = hunmin_tsf_keymods_from_state();
-        hunmin_ic_set_option(ic_, "caps", hunmin_tsf_capslock_from_state() ? 1 : 0);
+        hunmin_buffered_preedit_set_option(preedit_, "caps", hunmin_tsf_capslock_from_state() ? 1 : 0);
         const uint32_t base = VkToBase(wParam);
         const uint32_t shift = (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u;
-        const bool consumed = hunmin_ic_peek_key(ic_, base, shift);
+        const bool consumed = hunmin_buffered_preedit_peek_key(preedit_, base, shift);
         hunmin_logger.log(" test feed peek base=%u shift=%u consumed=%d\n", (unsigned)base, (unsigned)shift, (int)consumed);
         if (consumed) {
             eat = TRUE;
@@ -123,7 +124,7 @@ STDMETHODIMP CTextService::OnKeyDown(ITfContext *pic, WPARAM wParam, LPARAM lPar
      * reaches first settles the previous key's doc write. */
     FlushPendingDocWrites();
     TrackKeyContext(pic);
-    hunmin_logger.log("OnKeyDown wParam=%lu ic=%p\n", (unsigned long)wParam, (void *)ic_);
+    hunmin_logger.log("OnKeyDown wParam=%lu layer=%p\n", (unsigned long)wParam, (void *)preedit_);
     if (pfEat)
         *pfEat = FALSE;
     if (testDeclinedKey_ == wParam) {
@@ -133,7 +134,7 @@ STDMETHODIMP CTextService::OnKeyDown(ITfContext *pic, WPARAM wParam, LPARAM lPar
         hunmin_logger.log(" test-phase feed already settled -> pass\n");
         return S_OK;
     }
-    if (!ic_) {
+    if (!preedit_) {
         hunmin_logger.log(" ic null -> pass\n");
         return S_OK;
     }
@@ -299,24 +300,6 @@ bool CTextService::IsModifierVk(WPARAM wParam) {
     }
 }
 
-/* Word buffering (issue #73, adapter-side; no libhunmin change):
- * hunmin_ic_commit() is a destructive read of every syllable the
- * engine finalised so far, so the adapter accumulates it instead of
- * inserting per syllable. The word size includes no NUL: the buffer
- * holds text only, or every later insert would stop at the embedded
- * NUL after the first syllable. */
-void CTextService::HarvestFinalised() {
-    const char *commit = hunmin_ic_commit(ic_);
-    if (!commit || !commit[0])
-        return;
-    int clen = MultiByteToWideChar(CP_UTF8, 0, commit, -1, nullptr, 0);
-    if (clen <= 1)
-        return;
-    size_t old = wordbuf_.size();
-    wordbuf_.resize(old + clen - 1);
-    MultiByteToWideChar(CP_UTF8, 0, commit, -1, &wordbuf_[old], clen);
-}
-
 /* The composition feed: the engine decides consumed/declined. A chord
  * (Ctrl/Alt) is application input, not composition input - measured
  * defect 2026-10-18: the letter inside a Ctrl/Alt chord still fed the
@@ -343,28 +326,47 @@ void CTextService::FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
      * The option feeds the yethangul P variable only (hunmin.h:93); it
      * selects NO row - the Shift bit stays the only row transport
      * (the engine's case endpoint, hunmin_ic_process_key). */
-    hunmin_ic_set_option(ic_, "caps", hunmin_tsf_capslock_from_state() ? 1 : 0);
-    if (mods & (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) {
+    hunmin_buffered_preedit_set_option(preedit_, "caps", hunmin_tsf_capslock_from_state() ? 1 : 0);
+    if (IsModifierVk(wParam)) {
+        /* A bare modifier is not text and must not disturb the composition. */
+        hunmin_logger.log(" modifier/pass key -> leave composition\n");
+        return;
+    }
+    /* The key's MEANING is the layer's (issue #128, decision C): the adapter
+     * maps the VK to (base, shift, mods) and the precedence -- chord, unmapped
+     * -- is asserted once in tier A's engine-key-rule. The boundaries here used
+     * to be two hand-written branches that had to agree with fcitx5's. */
+    hunmin_key_event ev{};
+    ev.base = VkToBase(wParam);
+    ev.shift = (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u;
+    ev.mods = (mods & (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) ? HUNMIN_MOD_CHORD : 0u;
+    ev.id = HUNMIN_KEY_TEXT; /* a TSF key of passage never reaches this path */
+    if (hunmin_buffered_preedit_classify(preedit_, &ev) != HUNMIN_KEY_FEED) {
         cand_->Close();
         BoundaryFlush(pic);
         if (pfEat)
             *pfEat = FALSE;
-        hunmin_logger.log(" ctrl/alt chord -> commit + passthrough\n");
+        hunmin_logger.log(" classifier: boundary -> commit + passthrough\n");
         return;
     }
-    if (IsModifierVk(wParam)) {
-        hunmin_logger.log(" modifier/pass key -> leave composition\n");
-        return;
-    }
-    /* The case endpoint is the engine's (issue #106): the unshifted base
-     * plus the Shift bit from the snapshot above. */
-    bool consumed = hunmin_ic_process_key(ic_, VkToBase(wParam), (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u);
+    hunmin_key_result out{};
+    const bool consumed = hunmin_buffered_preedit_process_key(preedit_, ev.base, ev.shift, &out) != 0;
     if (!consumed) {
-        BoundaryFlush(pic);
+        /* A key the engine declines is a boundary AND a pass-through: the layer
+         * has already delivered the word in out.commit, which starts the
+         * delivery exactly as the old BoundaryFlush did. */
+        if (out.commit && *out.commit)
+            InsertText(pic, HunminUtf8ToWide(out.commit));
+        delivery_->Boundary(pic);
         return;
     }
-    HarvestFinalised();
-    hunmin_logger.log(" consumed, word len=%zu preedit=%s\n", wordbuf_.size(), hunmin_ic_preedit(ic_));
+    /* A per-syllable commit unit would hand text back on a consumed key; the
+     * buffered unit (TSF's, see RebuildLayer) hands back nothing until the
+     * boundary. Inserting whatever came back covers both without the adapter
+     * knowing which unit is in use. */
+    if (out.commit && *out.commit)
+        InsertText(pic, HunminUtf8ToWide(out.commit));
+    hunmin_logger.log(" consumed, display len=%zu preedit=%s\n", ComposeDisplay().size(), out.preedit ? out.preedit : "");
     /* Issue #119: the legacy interim path when the host was detected
      * terminating compositions mid-word (or the env said so); the #98
      * native path otherwise stays as is. The doc write is POSTED -

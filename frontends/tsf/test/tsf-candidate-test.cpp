@@ -157,7 +157,7 @@ TEST_F(CandidateTest, EscClosesAndTypingContinues) {
      * the preedit grows (engine composes; the exact glyph is the
      * engine's business, asserted nonempty). */
     Key('d');
-    std::string now(hunmin_ic_preedit(Snap().ic));
+    std::string now(hunmin_buffered_preedit_composing(Snap().layer));
     EXPECT_FALSE(now.empty()) << "case 7: preedit empty after resuming typing";
     AssertNoInsert("case 7 (resumed typing)");
     Teardown();
@@ -287,7 +287,7 @@ TEST_F(CandidateTest, UnboundF9IsAKeyOfPassage) {
     EXPECT_EQ(eat, FALSE) << "case 14: unbound F9 eaten in down phase";
     EXPECT_FALSE(Snap().candActive) << "case 14: unbound F9 opened the window";
     AssertCompositionEnded(kAnchorAnNyeng, "case 14");
-    EXPECT_TRUE(Snap().wordbuf.empty()) << "case 14: nothing held after the F-key boundary";
+    EXPECT_TRUE(Snap().finished.empty()) << "case 14: nothing held after the F-key boundary";
     Teardown();
 }
 
@@ -345,7 +345,7 @@ TEST_F(CandidateTest, FallbackCommitReplacesOnlyTheLastSyllable) {
 TEST_F(CandidateTest, ZeroAndZeroPassesThrough) {
     Begin();
     Type("rkel");
-    EXPECT_EQ(utf8(Snap().wordbuf) + std::string(hunmin_ic_preedit(Snap().ic)), std::string(kAnchorGa) + "\xEB\x94\x94")
+    EXPECT_EQ(utf8(Snap().finished) + std::string(hunmin_buffered_preedit_composing(Snap().layer)), std::string(kAnchorGa) + "\xEB\x94\x94")
         << "case 17: composed buffer is not ga-di";
     AssertPreedit("\xEB\x94\x94", "case 17");
     BOOL testEat = TRUE, eat = TRUE;

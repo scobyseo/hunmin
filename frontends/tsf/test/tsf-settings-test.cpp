@@ -203,7 +203,7 @@ TEST_F(TsfSettingsTest, ApplyConfigStoreAndTheVoidPtrBridge) {
     }
     EXPECT_TRUE(bareHangeul) << "the bare Han/Eng key survives every Apply";
     EXPECT_TRUE(shiftedHangeul) << "the configured v1:21:1 chord is present";
-    EXPECT_NE(Snap().ic, nullptr) << "the engine context is rebuilt after Apply";
+    EXPECT_NE(Snap().layer, nullptr) << "the engine context is rebuilt after Apply";
 
     /* 4. The void* bridge (settings.cpp's Show path re-applies via it). */
     _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "sebeolsik-3-90");
@@ -220,5 +220,5 @@ TEST_F(TsfSettingsTest, ApplyConfigStoreAndTheVoidPtrBridge) {
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
     svc_->OnKeyDown(mctx_, 'R', 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "post-Apply keydown not consumed";
-    EXPECT_STREQ(hunmin_ic_preedit(Snap().ic), "\xE3\x84\xB1") << "post-Apply composition still works";
+    EXPECT_STREQ(hunmin_buffered_preedit_composing(Snap().layer), "\xE3\x84\xB1") << "post-Apply composition still works";
 }

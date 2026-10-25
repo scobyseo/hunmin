@@ -291,7 +291,7 @@ private:
     }
 
     void Update(ITfContext *pic) {
-        if (!candActive_ || !pic || !backend_->EngineIc()) {
+        if (!candActive_ || !pic || !backend_->Layer()) {
             candWnd_.Hide();
             return;
         }

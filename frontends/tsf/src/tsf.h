@@ -60,8 +60,10 @@ inline constexpr char kLatinDefaultId[] = "us-qwerty";
  * Declared before the interfaces: Candidates::Observe references it. */
 struct HunminTsfSnapshot {
     hunmin_ctx *ctx = nullptr;
-    hunmin_ic *ic = nullptr;
-    std::wstring wordbuf;
+    hunmin_buffered_preedit *layer = nullptr;
+    std::wstring display; /* what the user sees composing */
+    std::wstring composing; /* the syllable in flight alone */
+    std::wstring finished; /* display minus composing: held, not yet delivered */
     bool hangulMode = true;
     bool legacyMode = false;
     bool interimForce = false;
@@ -81,10 +83,26 @@ struct HunminTsfSnapshot {
  * implementation may drive of the shell. */
 struct TsfCore {
     virtual ~TsfCore() = default;
-    virtual hunmin_ic *Ic() = 0;
-    virtual std::wstring &Wordbuf() = 0;
+    /* The shared layer (issue #128): it owns the word and answers commit and
+     * preedit. The adapter keeps no buffer of its own -- `wordbuf_` and the
+     * accessor that handed it out are gone, which is what this seam change is
+     * for.
+     *
+     * The two halves are exposed separately because the interim delivery keeps
+     * the finished word as DOCUMENT text and rewrites only the syllable in
+     * flight, while the native delivery shows the whole display in one
+     * composition. */
+    virtual hunmin_buffered_preedit *Layer() = 0;
+    virtual std::wstring ComposeDisplay() = 0; /* finished word + in-flight */
+    virtual std::wstring ComposeInFlight() = 0; /* the syllable in flight */
+    virtual std::wstring TakeFinishedWord() = 0; /* the finished half, removed */
+    virtual void ComposeReset() = 0;
     virtual void CompositionWrite(ITfContext *pic) = 0;
+    /* Deliver the layer's word now (the boundary). */
     virtual void InsertBufferedWord(ITfContext *pic) = 0;
+    /* Insert text that is not the layer's (a chosen Hanja replacing the
+     * composition). */
+    virtual void InsertText(ITfContext *pic, const std::wstring &text) = 0;
 };
 
 /* The mode-delivery seam (issue #119). The COMMON key handling classifies
@@ -148,7 +166,7 @@ struct CandBackend {
     virtual ~CandBackend() = default;
     virtual Delivery *ActiveDelivery() = 0;
     virtual hunmin_ctx *EngineContext() = 0;
-    virtual hunmin_ic *EngineIc() = 0;
+    virtual hunmin_buffered_preedit *Layer() = 0;
     /* The caret rect shared by the candidate popup: one read-only edit
      * session against the selection (GetTextExt), falling back to the
      * thread's GUITHREADINFO caret. Screen coordinates out. False means
@@ -252,14 +270,17 @@ public:
 
     /* --- the seams, implemented --- */
     /* TsfCore */
-    hunmin_ic *Ic() override { return ic_; }
-    std::wstring &Wordbuf() override { return wordbuf_; }
+    hunmin_buffered_preedit *Layer() override { return preedit_; }
+    std::wstring ComposeDisplay() override;
+    std::wstring ComposeInFlight() override;
+    std::wstring TakeFinishedWord() override;
+    void ComposeReset() override;
+    void InsertText(ITfContext *pic, const std::wstring &text) override;
     void CompositionWrite(ITfContext *pic) override;
     void InsertBufferedWord(ITfContext *pic) override;
     /* CandBackend */
     Delivery *ActiveDelivery() override { return delivery_; }
     hunmin_ctx *EngineContext() override { return ctx_; }
-    hunmin_ic *EngineIc() override { return ic_; }
     bool CaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut, GUITHREADINFO *gtiOut) override;
     /* HunminDeliveryRegistry */
     void RegisterDeliveryFactory(HunminDeliveryFactory *factory) override;
@@ -291,10 +312,10 @@ private:
     void AdviseSinks();
     void UnadviseSinks();
     void DetectLegacyMode();
-    void FlushEngineIntoWordbuf();
+
     void LoadToggleKeys(const HunminTsfConfig &cfg);
     void LoadHanjaKey(const HunminTsfConfig &cfg);
-    void RebuildEngineIc();
+    void RebuildLayer();
 
     bool IsModeToggle(WPARAM wParam);
     void ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat);
@@ -315,7 +336,9 @@ private:
     TfClientId clientId_;
     DWORD sinkCookie_;
     hunmin_ctx *ctx_;
-    hunmin_ic *ic_;
+    /* The shared buffered/syllable layer (issue #128): owns the word, the
+     * boundary and the commit unit. Nothing adapter-side buffers text. */
+    hunmin_buffered_preedit *preedit_;
     bool hangulMode_;
     /* The resolved layout pair (issue #66): hangulMode_ switches between
      * these, config-read at Activate and re-read by the settings dialog
@@ -343,10 +366,6 @@ private:
     std::wstring compText_;
     /* The preedit styling channel (S7): owns the GUID atom. */
     std::unique_ptr<DisplayAttr> displayAttr_;
-
-    /* Finalised syllables held for insertion at the next boundary key
-     * (issue #73); drained destructively by hunmin_ic_commit(). */
-    std::wstring wordbuf_;
 
     bool interimForce_ = false;
     bool legacyMode_ = false; /* the mode flag; delivery_ carries the behaviour */

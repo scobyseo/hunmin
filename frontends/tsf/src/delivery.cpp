@@ -37,19 +37,14 @@ public:
          * dictionary tables are keyed by (krdict words, idioms).
          * fcitx5 anchors to its preedit only because it commits each
          * syllable immediately. */
-        std::string s = HunminWideToUtf8(core_->Wordbuf());
-        if (core_->Ic()) {
-            const char *pre = hunmin_ic_preedit(core_->Ic());
-            if (pre)
-                s += pre;
-        }
-        return s;
+        return HunminWideToUtf8(core_->ComposeDisplay());
     }
     bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) override {
-        if (core_->Ic())
-            hunmin_ic_reset(core_->Ic()); /* drop the composition the list anchored to */
-        core_->Wordbuf() = replacement;
-        core_->InsertBufferedWord(pic);
+        core_->ComposeReset(); /* drop the composition the list anchored to */
+        /* The chosen Hanja is not the layer's word, so it does not go through
+         * the layer: the composition is ended WITH it, which replaces the
+         * composed text in place instead of appending after it. */
+        core_->InsertText(pic, replacement);
         return true;
     }
     void FlushPending() override {}
@@ -78,6 +73,7 @@ public:
     LONG preStart_ = 0; /* doc offset where the span begins */
     size_t preLen_ = 0; /* the span's current char count */
     std::wstring pendingDeadCopy_; /* a fused copy awaiting deletion */
+    std::wstring pendingReplacement_; /* a chosen Hanja replacing the span */
     enum PendingWrite { kPendingNone, kPendingWrite, kPendingDrain };
     PendingWrite pendingWriteKind_ = kPendingNone;
     static InterimDelivery *s_writer; /* one TIP instance per thread */
@@ -106,16 +102,14 @@ public:
      * whole-word anchor's multi-char candidates cannot commit without
      * corrupting the word (measured: 안녕 + 安寧 → 안安寧). */
     std::string CandidateAnchor() override {
-        const char *pre = core_->Ic() ? hunmin_ic_preedit(core_->Ic()) : "";
-        return std::string(pre ? pre : "");
+        return HunminWideToUtf8(core_->ComposeInFlight());
     }
     bool CandidateCommit(ITfContext *pic, const std::wstring &replacement) override {
         (void)pic;
         if (replacement.size() != 1 || preLen_ == 0)
             return false; /* refused: the word stays intact */
-        if (core_->Ic())
-            hunmin_ic_reset(core_->Ic()); /* drop the syllable the list anchored to */
-        core_->Wordbuf() = replacement; /* the drain rewrites the span to it */
+        core_->ComposeReset(); /* drop the syllable the list anchored to */
+        pendingReplacement_ = replacement; /* the drain rewrites the span to it */
         Post(kPendingDrain);
         return true;
     }
@@ -190,14 +184,6 @@ public:
         pendingDeadCopy_.clear();
     }
 
-    /* The finalised syllables closed by the engine since the last
-     * write, taken out of the buffer. */
-    std::wstring TakeFinalisedWord() {
-        std::wstring f;
-        f.swap(core_->Wordbuf());
-        return f;
-    }
-
     /* The interim consumed path: the newly finalised syllables land in
      * the document AHEAD of the in-flight span, then the span becomes
      * the engine's current preedit. */
@@ -211,14 +197,14 @@ public:
          * space) since the previous word closed. */
         if (preLen_ == 0)
             preStart_ = EmCaret(hwnd);
-        std::wstring finalised = TakeFinalisedWord();
+        std::wstring finalised = core_->TakeFinishedWord();
         if (!finalised.empty()) {
             EmSelect(hwnd, preStart_, preStart_);
             EmReplace(hwnd, finalised.c_str());
             preStart_ += (LONG)finalised.size();
             hunmin_logger.log("interim: appended %zu finalised chars\n", finalised.size());
         }
-        std::wstring pre = HunminUtf8ToWide(core_->Ic() ? hunmin_ic_preedit(core_->Ic()) : "");
+        std::wstring pre = core_->ComposeInFlight();
         if (!pre.empty() || preLen_ > 0)
             ReplaceSpan(hwnd, pre);
     }
@@ -235,16 +221,17 @@ public:
      * back. */
     void InterimDrain() {
         HWND hwnd = ResolveControl(nullptr);
-        std::wstring word;
-        word.swap(core_->Wordbuf());
+        std::wstring word = pendingReplacement_;
+        pendingReplacement_.clear();
+        if (word.empty())
+            word = core_->TakeFinishedWord();
         LONG userCaret = hwnd ? EmCaret(hwnd) : 0;
         if (hwnd && !word.empty() && preLen_ > 0) {
             ReplaceSpan(hwnd, word);
             preStart_ += (LONG)word.size();
         }
         preLen_ = 0;
-        if (core_->Ic())
-            hunmin_ic_reset(core_->Ic());
+        core_->ComposeReset();
         if (hwnd)
             EmSelect(hwnd, userCaret, userCaret);
         hunmin_logger.log("interim boundary: word len=%zu preStart=%ld caret=%ld\n", word.size(), preStart_, userCaret);

@@ -75,8 +75,8 @@ HRESULT hunmin_tsf_launch_settings() {
 }
 
 CTextService::CTextService()
-    : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), ic_(nullptr), hangulMode_(true),
-      hasPreeditRect_(false), lastCtx_(nullptr), composition_(nullptr), compCtx_(nullptr), displayAttr_(new DisplayAttr()), wordbuf_(),
+    : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), preedit_(nullptr), hangulMode_(true),
+      hasPreeditRect_(false), lastCtx_(nullptr), composition_(nullptr), compCtx_(nullptr), displayAttr_(new DisplayAttr()),
       interimForce_(false), legacyMode_(false), endingSelf_(false), hangulId_(kHangulDefaultId), latinId_(kLatinDefaultId),
       hanjaCombo_(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0}) {
     /* Each component registers its own implementations; the shell
@@ -112,8 +112,8 @@ CTextService::~CTextService() {
         compCtx_->Release();
         compCtx_ = nullptr;
     }
-    if (ic_)
-        hunmin_ic_free(ic_);
+    if (preedit_)
+        hunmin_buffered_preedit_free(preedit_);
     if (ctx_)
         hunmin_ctx_free(ctx_);
     if (lastCtx_)
@@ -253,13 +253,21 @@ void CTextService::LoadHanjaKey(const HunminTsfConfig &cfg) {
 
 /* The engine instance for the CURRENT mode: the config boundary and the mode
  * toggle both swap it, so the free+new pair has one home. */
-void CTextService::RebuildEngineIc() {
-    if (ic_) {
-        hunmin_ic_free(ic_);
-        ic_ = nullptr;
+void CTextService::RebuildLayer() {
+    if (preedit_) {
+        hunmin_buffered_preedit_free(preedit_);
+        preedit_ = nullptr;
     }
-    if (ctx_)
-        ic_ = hunmin_ic_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
+    if (ctx_) {
+        /* One language per layer: the mode toggle swaps hangul/latin ids, and
+         * the Han/Eng action is this adapter's own (issue #66), so the layer's
+         * toggle reports "not ours". The commit unit is AT_BOUNDARY: TSF's
+         * native composition shows the whole word, so the word must not land in
+         * the document until the boundary. Exposing the choice as a settings
+         * row is the remaining UI work, not a code change here. */
+        preedit_ = hunmin_buffered_preedit_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str(), nullptr,
+                                               HUNMIN_COMMIT_AT_BOUNDARY);
+    }
 }
 
 void CTextService::ApplyConfigStore() {
@@ -273,8 +281,8 @@ void CTextService::ApplyConfigStore() {
     /* The candidate window belongs to a composition the ic swap below
      * drops: close it with Apply, like the mode toggle does (issue #67). */
     cand_->Close();
-    RebuildEngineIc();
-    hunmin_logger.log("  applied hangul=%s latin=%s ic=%p\n", hangulId_.c_str(), latinId_.c_str(), (void *)ic_);
+    RebuildLayer();
+    hunmin_logger.log("  applied hangul=%s latin=%s layer=%p\n", hangulId_.c_str(), latinId_.c_str(), (void *)preedit_);
 }
 
 void CTextService::UpdateLangBarItem() {
@@ -288,10 +296,10 @@ void CTextService::ToggleModeCore(ITfContext *pic) {
     hangulMode_ = !hangulMode_;
     UpdateConversionCompartment();
     UpdateLangBarItem();
-    RebuildEngineIc();
+    RebuildLayer();
     /* This gated line is the one evidence a mode boundary ran in this
      * host at all: the key path's own log line lives in its handler. */
-    hunmin_logger.log("toggle core -> mode=%s ic=%p pic=%p\r\n", hangulMode_ ? "hangul" : "english", (void *)ic_, (void *)pic);
+    hunmin_logger.log("toggle core -> mode=%s ic=%p pic=%p\r\n", hangulMode_ ? "hangul" : "english", (void *)preedit_, (void *)pic);
 }
 
 /* The two TSF advice registrations Activate needs: the thread-manager event
@@ -385,19 +393,17 @@ STDMETHODIMP CTextService::Deactivate() {
      * buffers drain, so the plain-insert path below only handles what
      * is left when no composition could ever be started. */
     DetachComposition();
+    // The layer finalises on commit_word, which InsertBufferedWord calls.
     if (lastCtx_)
-        FlushEngineIntoWordbuf();
-    if (!wordbuf_.empty() && lastCtx_)
-        InsertBufferedWord(lastCtx_);
-    wordbuf_.clear();
+        InsertBufferedWord(lastCtx_); /* commits nothing when the word is empty */
     cand_->Close();
     /* Remove the language-bar item. NOTE (recorded defect, not changed
      * here): UnadviseSinks() above has already nulled threadMgr_, so this
      * call is a no-op today - the same ordering the block had inline. */
     langbar_->Detach(threadMgr_);
-    if (ic_) {
-        hunmin_ic_free(ic_);
-        ic_ = nullptr;
+    if (preedit_) {
+        hunmin_buffered_preedit_free(preedit_);
+        preedit_ = nullptr;
     }
     if (ctx_) {
         hunmin_ctx_free(ctx_);
@@ -499,8 +505,14 @@ bool CTextService::UseDelivery(const char *name) {
 HunminTsfSnapshot CTextService::Snapshot() {
     HunminTsfSnapshot s;
     s.ctx = ctx_;
-    s.ic = ic_;
-    s.wordbuf = wordbuf_;
+    s.layer = preedit_;
+    s.display = ComposeDisplay();
+    s.composing = ComposeInFlight();
+    /* The finished half is the display without its in-flight tail. Computed
+     * rather than taken, because taking would advance the layer -- a snapshot
+     * is a read. */
+    if (s.composing.size() <= s.display.size())
+        s.finished = s.display.substr(0, s.display.size() - s.composing.size());
     s.hangulMode = hangulMode_;
     s.legacyMode = legacyMode_;
     s.interimForce = interimForce_;
