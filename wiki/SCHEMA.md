@@ -119,6 +119,13 @@ Add a tag here BEFORE using it.
   because a scope boundary is recorded rather than chosen: it constrains future
   measurements instead of answering an open question.
 
+## Page
+
+A **page** is any `.md` file with frontmatter under `wiki/`. The three framing
+files (`index.md`, `log.md`, `SCHEMA.md`) carry no frontmatter and are
+structural, not content pages. `tools/wiki-lint.py` counts content pages;
+`tools/docs-lint.py` counts all `.md` files including framing pages.
+
 ## Page thresholds
 
 - **Create** when a subject appears in 2+ sources or is central to one.
