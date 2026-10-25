@@ -816,7 +816,7 @@ Four layers, cheap→real:
   `HunminAdapterTest` and `tools/android-mutations.py`. The tier runs the
   unmutated suite once before planting anything, because a checkout that is
   already red reports all nine as "caught" for the wrong reason; see
-  `docs/ANDROID-MUTATION-SANDBOX.md` §4.2 for the measurement and §2–3 for
+  `docs/OPTIONS-MEASURED.md` §AND-4.2 for the measurement and §AND-2/§AND-3 for
   the harness, and what its sandbox strategy costs.
   **The 2026-10-11 character-loss trio** is asserted here, because every one of
   the three bugs was invisible on the build machine and each lost text the user

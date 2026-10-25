@@ -113,7 +113,7 @@ would have to change.
 **Dual convention appended (issue #90, 2026-10-18):** the engine now also has
 the explicit-modifier entry `hunmin_ic_process_key(ic, base, shift)`
 (docs/SPEC-P2 "IC input entry points"; measurement in
-`docs/IC-INPUT-OPTIONS.md` §2-B). fcitx5 does not use it and everything in
+`docs/OPTIONS-MEASURED.md` §IC-2-B). fcitx5 does not use it and everything in
 A1–A3 above stays its contract unchanged; the value is that the case endpoint
 — the CapsLock×Shift decision each adapter otherwise re-derives, and the one
 Android shipped wrong once (A3') — now has one engine-owned home, engine-tested

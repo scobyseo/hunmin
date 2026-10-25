@@ -163,7 +163,7 @@
 - `tools/android-mutations.sh` counted its own skips as catches: *"PASS: all 9
   planted mutations were caught"*, exit 0, 0.31 s, nothing built. A checkout
   whose suite was already red read the same way. Both closed. Measurements in
-  `docs/ANDROID-MUTATION-SANDBOX.md`; the two parts that generalise on
+  `docs/OPTIONS-MEASURED.md` §AND; the two parts that generalise on
   [[2026-10-10-mutation-tiers-measuring-nothing]].
 - A `LABELS` property on every `add_test` registration, plus
   `tools/ctest-select.sh`, which prints the selection **and every omitted test**
@@ -208,7 +208,7 @@
   (new; `AGENTS.md` can state each rule in one line but not the reason it
   survives). The five "green while measuring nothing" instances →
   `concepts/the-rules-keep-breaking.md`, with the two mechanical defences. The
-  mutation-tier detail → `docs/ANDROID-MUTATION-SANDBOX.md` pointers.
+  mutation-tier detail → `docs/OPTIONS-MEASURED.md` §AND pointers.
 - **Kept against the compression default.** `raw/sessions/
   2026-10-03-requirement-shaped.md` — seven quotations the requirement rests on
   exist nowhere in `docs/`, and a paraphrase drifts.
@@ -469,7 +469,7 @@
   and that "CI carries the burden from day one" for P6; its job table was two
   jobs out of date. `docs/TESTING.md`'s ABI bullet claimed "CI builds the core
   on linux-gcc, mingw and MSVC". All three are corrected, and
-  `docs/MUTATION-TIER-OPTIONS.md` §6.1's "four jobs, no nightly" is corrected
+  `docs/OPTIONS-MEASURED.md` §6.1's "four jobs, no nightly" is corrected
   with them. While the job is disabled, **no job compiles the core with `cl`**.
 - **Not done, deliberately, and tracked elsewhere:** whether the F9 candidate
   window gets a ctest tier, a CI job, or neither is a tier-design decision. It

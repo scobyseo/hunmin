@@ -99,7 +99,7 @@
   counted its own skips as catches and reported 9/9 in 0.31s with nothing built;
   a red baseline reads as nine working mutations; the sandbox copy filter
   returned an empty copy reporting *0 MB, 100% saved*. The figures are in
-  `docs/ANDROID-MUTATION-SANDBOX.md`; what generalises is here.
+  `docs/OPTIONS-MEASURED.md` §AND; what generalises is here.
 - [[2026-10-11-b3-off-default-and-the-data-gate]] — the B3 ruling in the
   maintainer's words, and why the second half of the sentence (the separate data
   package, enabled only when present) matters as much as the first: it replaces a

@@ -106,7 +106,7 @@ against tier A.
 read its runner's skip exit as "caught" — nine of nine, exit 0, in 0.31 s, with
 nothing built. The fcitx5 one held the whole suite hostage because it rewrote
 the working tree. Both now plant their mutations in a sandbox and change
-nothing outside it. See `docs/MUTATION-TIER-OPTIONS.md`.
+nothing outside it. See `docs/OPTIONS-MEASURED.md` §MUT.
 
 **And a status board went stale.** `docs/REMAINING-WORK.md` §7 is the record:
 eleven of its open items had already been closed by commits, and a mechanical

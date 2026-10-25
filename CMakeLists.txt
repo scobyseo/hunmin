@@ -127,7 +127,7 @@ endif()
 # ABOVE the frontend add_subdirectory calls because frontends/tsf's tier-F1
 # runners link GTest::gtest_main too. One ctest entry per binary is kept on
 # purpose -- registration shape, not the framework, is what the 30 s
-# inner-loop budget is sensitive to (docs/TEST-FRAMEWORK-OPTIONS.md, ~27 ms
+# inner-loop budget is sensitive to (docs/OPTIONS-MEASURED.md §TST, ~27 ms
 # per spawned case measured). So no gtest_discover_tests: each test
 # executable stays one add_test. A configure without network cannot fetch;
 # point FETCHCONTENT_SOURCE_DIR_GOOGLETEST at a checkout to build offline.

@@ -156,7 +156,7 @@ def loop_with_targets(fm, timer: Timer, targets: list[str], ids: list[str] | Non
     per-mutation build therefore measures "does rebuilding fewer targets after
     the fact cost anything", NOT "can the tier get away with never building
     them" -- the latter is a different experiment and its answer is in
-    docs/MUTATION-TIER-OPTIONS.md: `ctest -R` on a missing binary returns 8,
+    docs/OPTIONS-MEASURED.md §MUT: `ctest -R` on a missing binary returns 8,
     which the tier reads as a rejection.
 
     Every ctest invocation is also checked for "Not Run", because rc alone

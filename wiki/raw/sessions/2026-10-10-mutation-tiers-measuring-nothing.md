@@ -7,11 +7,16 @@ status: active
 ingested: 2026-10-10
 tags: [mutation, android, testing, sandbox, tmpfs]
 sources:
-  - ../../../docs/ANDROID-MUTATION-SANDBOX.md (the Android measurements, authoritative)
-  - ../../../docs/MUTATION-TIER-OPTIONS.md (the fcitx5 tier's own measurements)
+  - ../../../docs/OPTIONS-MEASURED.md (the Android measurements, authoritative, section AND)
+  - ../../../docs/OPTIONS-MEASURED.md (the fcitx5 tier's own measurements, section MUT)
   - ../../../docs/D3-ROOT-CAUSE.md (the shape both of these had)
 confidence: high
 ---
+> **Paths updated 2026-10-25.** The four options papers became one file,
+> `docs/OPTIONS-MEASURED.md`, whose sections are prefixed `MUT-`, `AND-`,
+> `TST-` and `IC-`. The section references below use the old names because
+> they were measured then; the numbering is unchanged apart from the prefix.
+
 
 # Two mutation tiers that were green while measuring nothing
 

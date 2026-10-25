@@ -154,7 +154,7 @@ Findings recorded while building them:
 
 The engine's composition input is the case-encoding `char` event
 (`hunmin_ic_process(ic, ch)`, libhangul/golden parity). Direction from the
-close of #87: option B of `docs/IC-INPUT-OPTIONS.md` -- append an
+close of #87: option B of `docs/OPTIONS-MEASURED.md` §IC-2 -- append an
 explicit-modifier key entry point; the case endpoint moves into the engine.
 
 **This is engine-interface behaviour justification (hard rule), recorded
@@ -172,7 +172,7 @@ arrives pre-resolved).
 - When the base is a lowercase letter or one of the 21 punctuation base keys,
   `base` names a physical key: `shift=0` selects the plain row, `shift=1`
   selects the shifted row at `keys[shifted_of(base)]` -- exactly the addressing
-  the loader materialises (docs/IC-INPUT-OPTIONS.md §1).
+  the loader materialises (docs/OPTIONS-MEASURED.md §IC-1).
 - When `base` is *itself* an already-shifted form (an uppercase letter, a
   shifted punctuation, or any non-US-QWERTY codepoint), `shifted_of(base)` is
   zero and nothing further is selected: the character reaches the engine as-is
