@@ -739,3 +739,9 @@
   two checkout climbs, one resolver in settingspath.cpp (100). Installed
   Start-menu shortcuts now target the WinUI exe. tsf.cpp 597 -> 571;
   tier-F1 4/4.
+
+- New page: [[the-tsf-extraction-round-2026-10-22]]. The eleven
+  2026-10-22 TSF session pages fold into one subject page (stage table,
+  what the round established, what it does not); each stays as a
+  `superseded` stub carrying its own one-line finding. 715 live lines of
+  one-stage narration become ~40 plus eleven stubs.

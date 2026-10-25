@@ -20,8 +20,9 @@ Session record. The durable artefact is **`docs/ORCHESTRATION.md`** plus
 not: the shape of the failure that motivated the work, and the four places the
 documents were wrong about what Orca actually does.
 
-The predecessor of this page is [[2026-10-10-orca-probe]] and its companion
-[[2026-10-10-orca-worktree-probe]], both retracted because a host toolchain fact
+The predecessor of this page is the 2026-10-10 orca probe and its worktree
+companion (both `superseded` stubs under `raw/measurements/`; their findings now
+live in `docs/ENVIRONMENT.md`), retracted because a host toolchain fact
 belongs in `docs/`, not here. That retraction was correct and is not reversed by this
 page — but it left one thing unwritten, which is the thing this session measured: the
 **orchestration layer** below `worktree create`. The probe had stopped one level too

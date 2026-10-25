@@ -216,6 +216,7 @@ def main():
     stems = {os.path.splitext(os.path.basename(p))[0] for p in allp}
     meta = {}
     inbound = defaultdict(set)
+    outbound: dict[str, set[str]] = {}
     status = {}
 
     # Read the vocabulary once, from SCHEMA.md. If it cannot be read, every tag
@@ -256,13 +257,20 @@ def main():
 
         for target in LINK.findall(body):
             inbound[os.path.splitext(os.path.basename(target))[0]].add(stem)
+            outbound.setdefault(stem, set()).add(
+                os.path.splitext(os.path.basename(target))[0])
 
     # --- the mechanical one: a retracted page still cited from a live one ---
     retracted = {s for s, st in status.items() if st in ("void", "superseded")}
-    for src, targets in inbound.items():
+    # `inbound` is keyed by TARGET (who links here); the direction this check
+    # needs is the page that CONTAINS the link, so read the outbound map. The
+    # two were swapped here until 2026-10-25, which made the guard report the
+    # linked-to page as the offender -- and therefore never caught a live page
+    # citing a void one, which is the defect it exists to catch.
+    for src, targets in outbound.items():
         if status.get(src) not in ("active", "draft"):
             continue
-        for t in targets:
+        for t in sorted(targets):
             if t in retracted:
                 err(f"{src} (status: {status.get(src)}) links to {t} "
                     f"(status: {status.get(t)}) — a retracted page is still cited")

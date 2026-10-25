@@ -1,59 +1,25 @@
 ---
 title: "Settings-exe resolver unified on the deployed-first ruling (S)"
 created: 2026-10-22
-updated: 2026-10-22
+updated: 2026-10-25
 type: session
-status: active
-ingested: 2026-10-22
+status: superseded
+superseded_by: [[the-tsf-extraction-round-2026-10-22]]
 tags: [session, windows, tsf, refactor, settings, issue-127, issue-71]
 sources:
-  - ../../../docs/REFACTOR-TSF-COMPONENTS.md
-  - ../../../frontends/tsf/src/settingspath.cpp
-  - ../../../docs/REMAINING-WORK.md
+  - ../../docs/REFACTOR-TSF-COMPONENTS.md
 confidence: high
 ---
 
-## What was directed
+# Settings-exe resolver unified on the deployed-first ruling (S)
 
-The plan's last stage had one open question: the three settings-exe
-resolvers disagreed about candidates and depth. Measured before the
-question:
+**Superseded 2026-10-25 by [[the-tsf-extraction-round-2026-10-22]]**, which
+carries this stage in the round's stage table. The page stays because the
+record that the stage ran — and what it measured at the time — is evidence.
 
-| Caller | Candidates (before) |
-|---|---|
-| `settingslaunch.cpp` (FnConfigure) | env > `<dll>\settings-ui\publish` > `<dll>\..\settings-ui\publish` > `<dll>\settings-ui`, waits |
-| `tsf.cpp:hunmin_tsf_launch_settings` (langbar) | `<dll>\settings-ui\publish` > `<dll>\..\..\settings-ui\publish` > `<dll>\settings-ui`, no env, no wait |
-| `registration.cpp:CreateStartMenuShortcut` | `<dll>\settings-ui\publish` > `<dll>\..\..\settings-ui\publish`, no installed candidate |
+What this session established, in one line: three resolvers that disagreed about candidate order became one, on the maintainer's "deployed-first" ruling: env → `<dll>\settings-ui\publish` → `<dll>\settings-ui` → the two checkout climbs. The stage that completed the plan.
 
-The consequence was concrete: in an installed tree the .iss stages the
-publish content under `{app}\settings-ui`, so FnConfigure found the exe while
-the Start-menu shortcut fell back to rundll32.
+## Related
 
-The maintainer ruled **deployed-first**: env > `<dll>\settings-ui\publish` >
-`<dll>\settings-ui` > `<dll>\..\settings-ui\publish` >
-`<dll>\..\..\settings-ui\publish`.
-
-## Shipped
-
-- `settingspath.cpp` (100) / `settingspath.h` (32): `hunmin_tsf_settings_exe_find`
-  (anchor -> DLL dir, env override) and `hunmin_tsf_settings_exe_in_dir` (the
-  shortcut has the dir already). The header names the order once.
-- `settingslaunch.cpp` (56) keeps only the wait + ShellExecuteEx;
-  `hunmin_tsf_launch_settings` keeps only the rundll32 fallback;
-  `CreateStartMenuShortcut` uses the shared list. `registration.cpp` 451 -> 442,
-  `tsf.cpp` 597 -> 571.
-- Consequence, per the ruling: an installed Start-menu shortcut now targets
-  the WinUI exe instead of rundll32. A host look at the shortcut target after
-  an elevated install is the check; it is not ctest-observable.
-
-## Verification
-
-Clean build, no warnings; tier-F1 4/4; docs-lint 0 errors. The three callers
-now share one candidate list, and `TSF-SETTINGS-SHOW-71` records the new
-order.
-
-## Next
-
-The approved plan is complete. Remaining items on the board are feature work
-and the host-side re-measures recorded in `docs/REMAINING-WORK.md`, not
-refactor stages. See [[2026-10-22-tsf-qi-table]] for the preceding stage.
+- [[the-tsf-extraction-round-2026-10-22]] — the round this stage belongs to.
+- [[2026-10-22-tsf-settings-split]] — the neighbouring stage (itself superseded).

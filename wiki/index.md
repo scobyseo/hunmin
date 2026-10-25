@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-22 | Total pages: 57
+> Last updated: 2026-10-22 | Total pages: 58
 
 ## Concepts
 
@@ -15,6 +15,10 @@
 - [[where-the-practices-came-from]] — the five working rules this project runs
   on, in the maintainer's words, with the date each was given and the artefact
   it produced.
+
+- [[the-tsf-extraction-round-2026-10-22]] - the 2026-10-22 TSF
+  extraction round in one page: eleven stages, `tsf.cpp` 2,320 -> 528,
+  and the detach defect left for a ruling.
 
 ## Decisions
 
