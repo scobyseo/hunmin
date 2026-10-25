@@ -242,6 +242,99 @@ JNIEXPORT jstring JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeCommitTex
     return str_or_empty(env, r);
 }
 
+/* ===================== hunmin_buffered_preedit ==========================
+ *
+ * The shared buffered/syllable layer (issue #128, docs/FRONTEND-EQUIVALENCE.md
+ * §5). JNI cannot return a struct, so a key's answer is read through three
+ * calls on the same object: layerKey -> layerDelivered -> layerDisplay. They
+ * are reads of state the layer already holds, not a second computation.
+ *
+ * "behavior" is the commit unit: "syllable" selects HUNMIN_COMMIT_PER_SYLLABLE,
+ * anything else the buffered word (a typo must not silently change the unit).
+ */
+
+JNIEXPORT jlong JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerNew(JNIEnv *env, jclass k, jlong ctx, jstring hangul, jstring latin,
+                                                                              jstring behavior) {
+    (void)k;
+    hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
+    char *h = dup_java_string(env, hangul);
+    char *l = latin ? dup_java_string(env, latin) : NULL;
+    char *b = behavior ? dup_java_string(env, behavior) : NULL;
+    if (!h) {
+        free(l);
+        free(b);
+        return 0;
+    }
+    const int policy = (b && strcmp(b, "syllable") == 0) ? HUNMIN_COMMIT_PER_SYLLABLE : HUNMIN_COMMIT_AT_BOUNDARY;
+    hunmin_buffered_preedit *p = hunmin_buffered_preedit_new(c, h, l, policy);
+    free(h);
+    free(l);
+    free(b);
+    return (jlong)(intptr_t)p;
+}
+
+JNIEXPORT void JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerFree(JNIEnv *env, jclass k, jlong layer) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit_free((hunmin_buffered_preedit *)(intptr_t)layer);
+}
+
+JNIEXPORT jboolean JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerKey(JNIEnv *env, jclass k, jlong layer, jint base, jint shift) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    return (l && hunmin_buffered_preedit_process_key(l, (uint32_t)base, (uint32_t)shift, NULL)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jstring JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerDelivered(JNIEnv *env, jclass k, jlong layer) {
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    return str_or_empty(env, l ? hunmin_buffered_preedit_delivered(l) : NULL);
+}
+
+JNIEXPORT jstring JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerDisplay(JNIEnv *env, jclass k, jlong layer) {
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    return str_or_empty(env, l ? hunmin_buffered_preedit_display(l) : NULL);
+}
+
+JNIEXPORT jstring JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerCommitWord(JNIEnv *env, jclass k, jlong layer) {
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    return str_or_empty(env, l ? hunmin_buffered_preedit_commit_word(l) : NULL);
+}
+
+JNIEXPORT jstring JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerExternalText(JNIEnv *env, jclass k, jlong layer, jstring text) {
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    if (!l) return (*env)->NewStringUTF(env, "");
+    char *x = dup_java_string(env, text);
+    if (!x) return (*env)->NewStringUTF(env, "");
+    const char *out = hunmin_buffered_preedit_external_text(l, x);
+    free(x);
+    return str_or_empty(env, out);
+}
+
+JNIEXPORT void JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerReset(JNIEnv *env, jclass k, jlong layer) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    if (l) hunmin_buffered_preedit_reset(l);
+}
+
+JNIEXPORT jboolean JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerSetOption(JNIEnv *env, jclass k, jlong layer, jstring name, jint value) {
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    char *n = dup_java_string(env, name);
+    if (!l || !n) {
+        free(n);
+        return JNI_FALSE;
+    }
+    jboolean ok = hunmin_buffered_preedit_set_option(l, n, value) ? JNI_TRUE : JNI_FALSE;
+    free(n);
+    return ok;
+}
+
 /* ===================== hanja candidates (P3) ============================ */
 
 JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeSuggestCount(JNIEnv *env, jclass k, jlong ctx, jstring hangul) {

@@ -98,7 +98,7 @@ the word buffer and the boundary rule:
   the boundary; `HUNMIN_COMMIT_PER_SYLLABLE` delivers each one as the engine
   finalises it. Same text, different delivery point.
 - **Both are selectable per user, not baked in** (2026-10-25): fcitx5 exposes the
-  choice as its `PreeditMode` option (`word`/`syllable`, `frontends/fcitx5/src/config.h`).
+  choice as its `CommitBehavior` option (`word`/`syllable`, `frontends/fcitx5/src/config.h`).
   The policy is part of a live layer's identity -- switching it rebuilds the layer
   the same way a layout change does -- and a D1 case types one key sequence under
   both policies to show the units differ while the text does not. Android and TSF
@@ -145,7 +145,18 @@ would otherwise have been a stale assertion:
   recorded gap -- buffered delivery is exactly the "commit plus in-flight
   syllable in one key" case D1 never had.
 
-TSF and Android still carry their own buffers; they are the rest of this issue.
+**Android, 2026-10-25.** `HunminAdapter` holds a `hunmin_buffered_preedit` and its
+`wordbuf` is gone: `onKey` feeds `layerKey`, inserts whatever `layerDelivered`
+returns, and shows `layerDisplay`. The commit unit comes from the
+`commit_behavior` preference (`word` | `syllable`, default `word`), read by the
+service at session start, so a change takes effect on the next input session.
+
+JNI cannot return a struct, so a key's answer is three reads of layer state:
+`layerKey` -> `layerDelivered` -> `layerDisplay`. External text (voice) goes
+through `hunmin_buffered_preedit_external_text`, which delivers the word first
+and then the engine's pass-through, keeping invariant 5's ordering.
+
+TSF still carries its own `wordbuf_`; it is the rest of this issue.
 
 ## 6. One corpus, every frontend, both TSF modes
 

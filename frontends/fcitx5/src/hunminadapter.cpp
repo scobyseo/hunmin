@@ -404,11 +404,11 @@ private:
         // case the addon-wide default from conf/hunmin.conf applies.
         const std::string &want = layout.empty() ? *engine_->config().hangulLayout : layout;
         /* The input unit is part of the identity of a live layer, not just a
-         * constructor argument: a user who switches PreeditMode gets a new
+         * constructor argument: a user who switches CommitBehavior gets a new
          * layer on the next key, exactly as a layout change does. Leaving it
          * out here meant the preference saved, reloaded, and did nothing
          * (measured by the D1 test that switches it). */
-        const int policy = (*engine_->config().preeditMode == "syllable") ? HUNMIN_COMMIT_PER_SYLLABLE : HUNMIN_COMMIT_AT_BOUNDARY;
+        const int policy = (*engine_->config().commitBehavior == "syllable") ? HUNMIN_COMMIT_PER_SYLLABLE : HUNMIN_COMMIT_AT_BOUNDARY;
         if (preedit_ && want == layout_ && policy == policy_) {
             return;
         }
@@ -423,7 +423,7 @@ private:
          * R8 detector, so the layer's toggle reports "not ours" (NULL latin
          * layout). Unifying that is docs/FRONTEND-EQUIVALENCE.md §4's next
          * step, and it is not this migration. */
-        /* The user's choice (config.h PreeditMode), not a hardcoded policy:
+        /* The user's choice (config.h CommitBehavior), not a hardcoded policy:
          * both units exist in the shared layer and are selectable, because a
          * buffered word is not what every client wants to show. Anything but
          * the literal "syllable" means the buffered default -- a typo must not

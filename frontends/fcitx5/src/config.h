@@ -40,7 +40,7 @@ private:
  *
  * The TEXT is identical either way (docs/FRONTEND-EQUIVALENCE.md §1), which is
  * what makes this a safe preference rather than a behaviour fork. */
-struct PreeditModeAnnotation : public EnumAnnotation {
+struct CommitBehaviorAnnotation : public EnumAnnotation {
     void dumpDescription(RawConfig &config) const {
         EnumAnnotation::dumpDescription(config);
         config.setValueByPath("Enum/0", "word");
@@ -55,7 +55,7 @@ FCITX_CONFIGURATION(HunminConfig,
                     OptionWithAnnotation<std::string, LayoutAnnotation> hangulLayout{this, "HangulLayout", _("한글 배열"), "sin3-p2"};
                     /* Latin layout picker: layouts with mode="latin" (QWERTY, DVORAK, COLEMAK) */
                     OptionWithAnnotation<std::string, LayoutAnnotation> latinLayout{this, "LatinLayout", _("영어 배열"), "us-qwerty"};
-                    OptionWithAnnotation<std::string, PreeditModeAnnotation> preeditMode{this, "PreeditMode", _("입력 단위"), "word"};);
+                    OptionWithAnnotation<std::string, CommitBehaviorAnnotation> commitBehavior{this, "CommitBehavior", _("커밋 단위"), "word"};);
 
 } // namespace fcitx
 

@@ -39,26 +39,33 @@ import android.view.inputmethod.EditorInfo
  * independent. The fcitx5 addon attaches the same thing to a per-InputContext
  * property for the same reason (FRONTEND-CONTRACT §2).
  *
- * @param commitText injected so tier E1 can drive the voice path with no device
- *   and no JNI; production passes [HunminNativeBridge]::nativeCommitText.
+ * @param native the engine surface, injectable so tier E1 can drive the voice
+ *   path with no device; production is [JniOps].
  */
 class HunminAdapter(
     private val ctx: Long,
     layoutId: String,
+    /** The commit unit (issue #128): "word" buffers until the word boundary,
+     *  "syllable" delivers each syllable as the engine finalises it. Both
+     *  produce the same text; the choice is the user's (setting `commit_behavior`). */
+    private val commitBehavior: String = "word",
     private val native: NativeOps = JniOps,
 ) : AutoCloseable {
 
     /** The native surface, narrowed to what this class calls. */
     interface NativeOps {
-        fun icNew(ctx: Long, layout: String): Long
-        fun icFree(ic: Long)
-        fun processKey(ic: Long, base: Int, shift: Int): Boolean
-        fun commit(ic: Long): String
-        fun preedit(ic: Long): String
-        fun flush(ic: Long): String
-        fun reset(ic: Long)
-        fun setOption(ic: Long, name: String, value: Int): Boolean
-        fun commitText(ic: Long, text: String): String
+        /* The shared buffered/syllable layer (issue #128): one object answers
+         * consumption, commit and preedit for every frontend, so this adapter
+         * keeps no buffer of its own. */
+        fun layerNew(ctx: Long, hangul: String, latin: String?, behavior: String): Long
+        fun layerFree(layer: Long)
+        fun layerKey(layer: Long, base: Int, shift: Int): Boolean
+        fun layerDelivered(layer: Long): String
+        fun layerDisplay(layer: Long): String
+        fun layerCommitWord(layer: Long): String
+        fun layerExternalText(layer: Long, text: String): String
+        fun layerReset(layer: Long)
+        fun layerSetOption(layer: Long, name: String, value: Int): Boolean
         // Hanja candidates (P3)
         fun suggestCount(ctx: Long, hangul: String): Int
         fun suggestText(ctx: Long, i: Int): String
@@ -67,17 +74,19 @@ class HunminAdapter(
     }
 
     private object JniOps : NativeOps {
-        override fun icNew(ctx: Long, layout: String) = HunminNativeBridge.nativeIcNew(ctx, layout)
-        override fun icFree(ic: Long) = HunminNativeBridge.nativeIcFree(ic)
-        override fun processKey(ic: Long, base: Int, shift: Int) =
-            HunminNativeBridge.nativeProcessKey(ic, base, shift)
-        override fun commit(ic: Long) = HunminNativeBridge.nativeCommit(ic)
-        override fun preedit(ic: Long) = HunminNativeBridge.nativePreedit(ic)
-        override fun flush(ic: Long) = HunminNativeBridge.nativeFlush(ic)
-        override fun reset(ic: Long) = HunminNativeBridge.nativeReset(ic)
-        override fun setOption(ic: Long, name: String, value: Int) =
-            HunminNativeBridge.nativeSetOption(ic, name, value)
-        override fun commitText(ic: Long, text: String) = HunminNativeBridge.nativeCommitText(ic, text)
+        override fun layerNew(ctx: Long, hangul: String, latin: String?, behavior: String) =
+            HunminNativeBridge.nativeLayerNew(ctx, hangul, latin, behavior)
+        override fun layerFree(layer: Long) = HunminNativeBridge.nativeLayerFree(layer)
+        override fun layerKey(layer: Long, base: Int, shift: Int) =
+            HunminNativeBridge.nativeLayerKey(layer, base, shift)
+        override fun layerDelivered(layer: Long) = HunminNativeBridge.nativeLayerDelivered(layer)
+        override fun layerDisplay(layer: Long) = HunminNativeBridge.nativeLayerDisplay(layer)
+        override fun layerCommitWord(layer: Long) = HunminNativeBridge.nativeLayerCommitWord(layer)
+        override fun layerExternalText(layer: Long, text: String) =
+            HunminNativeBridge.nativeLayerExternalText(layer, text)
+        override fun layerReset(layer: Long) = HunminNativeBridge.nativeLayerReset(layer)
+        override fun layerSetOption(layer: Long, name: String, value: Int) =
+            HunminNativeBridge.nativeLayerSetOption(layer, name, value)
         // Hanja candidates (P3)
         override fun suggestCount(ctx: Long, hangul: String) = HunminNativeBridge.nativeSuggestCount(ctx, hangul)
         override fun suggestText(ctx: Long, i: Int) = HunminNativeBridge.nativeSuggestText(ctx, i)
@@ -85,31 +94,13 @@ class HunminAdapter(
         override fun suggestKind(ctx: Long, i: Int) = HunminNativeBridge.nativeSuggestKind(ctx, i)
     }
 
-    /**
-     * The word buffer — the adapter-side accumulation this frontend adds over
-     * the fcitx5 shape (issue #75, mirroring the TSF adapter's `wordbuf_`).
-     *
-     * Finalised text read from `hunmin_ic_commit()` accumulates here instead of
-     * being committed per syllable; the FIRST boundary key (the engine
-     * declining a key: space, Enter, punctuation, backspace, unmapped) commits
-     * the whole buffered word plus the engine's remaining text in ONE
-     * commitText, and the boundary key then passes through. The user sees the
-     * accumulated word rendered via the client preedit path (updatePreedit),
-     * which is what "buffer preedit until word completion as frontend adapter"
-     * means — the engine already keeps every piece of state this needs:
-     * `hunmin_ic_commit()` is a destructive drain of the finalised syllables so
-     * far, and nothing in `libhunmin` changed for this (`docs/WINDOWS-TSF-BUFFERING.md`
-     * §Adapter state measured the same property for the TSF frontend).
-     */
-    private var wordbuf: String = ""
-
     /** 0 when the layout id is unknown or unsupported — the engine declines. */
-    private var ic: Long = native.icNew(ctx, layoutId)
+    private var layer: Long = native.layerNew(ctx, layoutId, null, commitBehavior)
 
-    /** The layout this ic was built for; a mismatch forces a rebuild. */
-    val layout: String = if (ic != 0L) layoutId else ""
+    /** The layout this layer was built for; a mismatch forces a rebuild. */
+    val layout: String = if (layer != 0L) layoutId else ""
 
-    val isUsable: Boolean get() = ic != 0L
+    val isUsable: Boolean get() = layer != 0L
 
     // ---------------------------------------------------------------- keys
 
@@ -136,7 +127,7 @@ class HunminAdapter(
      * whether the platform has already delivered a matching `up`.
      */
     fun onKey(keyCode: Int, metaState: Int, ic_: InputConnection): Boolean {
-        if (ic == 0L) return false
+        if (layer == 0L) return false
 
         if (HunminKeyRegistry.isModifierChord(metaState)) {
             // A chord cannot compose: it is a word boundary AND a pass-through.
@@ -150,7 +141,7 @@ class HunminAdapter(
         // The earlier set-1-only feed left ic->caps sticky-on for the ic's
         // lifetime -- after the first CapsLock use every later key kept
         // resolving the P=1 tier. 0 is also a feed, not an absence.
-        native.setOption(ic, "caps", if (caps) 1 else 0)
+        native.layerSetOption(layer, "caps", if (caps) 1 else 0)
 
         val base = HunminKeyRegistry.engineBase(keyCode)
         if (base == null) {
@@ -175,35 +166,15 @@ class HunminAdapter(
         // bit passes verbatim, so CapsLock+Shift now composes the shifted
         // row; that delta is recorded in A3' and reversing it would be a
         // one-line change here awaiting a ruling.
-        val used = native.processKey(
-            ic, base.code, if (HunminKeyRegistry.isShiftOn(metaState)) 1 else 0)
-        if (used) {
-            // Read the destructive buffer exactly once. An empty string means
-            // the key contributed no complete text yet, which is the normal case
-            // while a syllable is composing.
-            //
-            // hunmin_ic_commit is destructive: a trace written after this point
-            // would see "" for every commit and look like nothing was ever
-            // committed while the user watched syllables appear.
-            //
-            // The syllable goes into [wordbuf], not into the client: the word
-            // accumulates until a boundary key (this function's decline paths
-            // and the service's Space handler) delivers it once. This is the
-            // word-boundary buffering of issue #75.
-            val commit = native.commit(ic)
-            delivered = commit
-            if (commit.isNotEmpty()) wordbuf += commit
-        } else {
-            // Boundary key (a word boundary): one flush of the engine state
-            // and ONE commitText carrying the whole word plus whatever the
-            // engine still held. On the decline path the engine has already
-            // moved the in-flight syllable into its commit buffer
-            // (ic_push() -> save_commit() before returning false), so
-            // hunmin_ic_commit() and hunmin_ic_flush() return the same text
-            // there -- flush is kept because it is what a decline MEANS, for
-            // any future layout that declines without saving.
-            delivered = commitWord(ic_)
-        }
+        val used = native.layerKey(
+            layer, base.code, if (HunminKeyRegistry.isShiftOn(metaState)) 1 else 0)
+        /* One delivery point: whatever the layer decided to hand the client
+         * belongs in the client, in the unit the user chose (word at the
+         * boundary, or per syllable). A declined key is a boundary the layer
+         * has ALREADY delivered, so there is no second path here -- the shape
+         * the three adapters used to spell out separately. */
+        delivered = native.layerDelivered(layer)
+        if (delivered.isNotEmpty()) ic_.commitText(delivered, 1)
         updatePreedit(ic_)
         if (tracing) {
             HunminTraceRecorder.event(keyCode, metaState, tracedChar, delivered,
@@ -220,7 +191,7 @@ class HunminAdapter(
      *
      * Named for what it now DOES rather than inherited from raw ABI naming:
      * hunmin_ic_flush only ends the engine's composition; this joins that
-     * remainder with [wordbuf] and hands the WHOLE word to the client in one
+     * remainder with the word and hands the WHOLE word to the client in one
      * commitText. It is the word boundary primitive of issue #75 -- a call
      * site needs it when the word in progress is done because a key that is
      * not a layout key arrived, the user switched mode or layout, or the
@@ -229,10 +200,8 @@ class HunminAdapter(
      * @return what reached the client ("" when there was nothing).
      */
     fun commitWord(ic_: InputConnection): String {
-        if (ic == 0L) return ""
-        val s = native.flush(ic)
-        val word = wordbuf + s
-        wordbuf = ""
+        if (layer == 0L) return ""
+        val word = native.layerCommitWord(layer)
         if (word.isNotEmpty()) ic_.commitText(word, 1)
         // The commit replaces the composing region's text one-for-one -- the
         // client was shown exactly [word] as composing text -- but the region
@@ -263,7 +232,7 @@ class HunminAdapter(
      * drops the syllable without committing it, so only the Hanja lands.
      */
     fun commitHanja(ic_: InputConnection, hanja: String) {
-        if (ic == 0L) return
+        if (layer == 0L) return
         // The buffered word is part of the composition being replaced: the
         // Hanja lands ONE FOR ONE for word + in-flight, never after it.
         reset(ic_)
@@ -280,14 +249,10 @@ class HunminAdapter(
      * the spoken text, in the order the user produced them.
      */
     fun commitExternalText(ic_: InputConnection, text: String) {
-        if (ic == 0L) return
-        // The typed word is buffered here, not in the engine, so deliver it
-        // first: the committed order stays "typed, then spoken".
-        if (wordbuf.isNotEmpty()) {
-            ic_.commitText(wordbuf, 1)
-            wordbuf = ""
-        }
-        val out = native.commitText(ic, text)
+        if (layer == 0L) return
+        // The layer delivers the typed word first, then the engine appends the
+        // spoken text, so the committed order stays "typed, then spoken".
+        val out = native.layerExternalText(layer, text)
         if (out.isNotEmpty()) ic_.commitText(out, 1)
         // The preedit the client was showing is now stale -- either committed
         // by the pass-through or dropped with it -- so it must be cleared
@@ -298,11 +263,10 @@ class HunminAdapter(
 
     /** Drop the composition silently, as on focus change. */
     fun reset(ic_: InputConnection) {
-        if (ic == 0L) return
-        native.reset(ic)
-        // The buffered word is part of what the client was shown as composing
-        // text; keeping it would leave a word the engine has already forgotten.
-        wordbuf = ""
+        if (layer == 0L) return
+        // The word is the layer's now, so dropping it is one call: leaving it
+        // would show a word the engine has already forgotten.
+        native.layerReset(layer)
         updatePreedit(ic_)
     }
 
@@ -321,7 +285,7 @@ class HunminAdapter(
     fun suggestKind(i: Int): String = native.suggestKind(ctx, i)
 
     /** Get the current preedit text for this engine's input context. */
-    fun preedit(): String = if (ic != 0L) wordbuf + native.preedit(ic) else ""
+    fun preedit(): String = if (layer != 0L) native.layerDisplay(layer) else ""
 
     /**
      * Push the current preedit to the client.
@@ -343,19 +307,18 @@ class HunminAdapter(
      * The guard is held by tier E1, not by a device test.
      */
     fun updatePreedit(ic_: InputConnection) {
-        if (ic == 0L) return
-        // What the user reads is the whole word: everything already finalised
-        // and buffered here, then the engine's in-flight syllable.
-        val shown = wordbuf + native.preedit(ic)
+        if (layer == 0L) return
+        // What the user reads: the layer's display string.
+        val shown = native.layerDisplay(layer)
         if (shown.isEmpty() && !composing) return
         ic_.setComposingText(shown, 1)
         composing = shown.isNotEmpty()
     }
 
     override fun close() {
-        if (ic != 0L) {
-            native.icFree(ic)
-            ic = 0L
+        if (layer != 0L) {
+            native.layerFree(layer)
+            layer = 0L
         }
     }
 

@@ -34,6 +34,11 @@ import android.view.inputmethod.InputConnection
 class HunminInputMethodService : InputMethodService() {
 
     companion object {
+        /** SharedPreferences key for the commit unit; values [COMMIT_WORD] / [COMMIT_SYLLABLE]. */
+        const val KEY_COMMIT_BEHAVIOR = "commit_behavior"
+        const val COMMIT_WORD = "word"
+        const val COMMIT_SYLLABLE = "syllable"
+
         private const val TAG = "HunminIme"
 
         /**
@@ -168,6 +173,19 @@ class HunminInputMethodService : InputMethodService() {
      * context is not usable before `onCreate`, and `onStartInput` is the
      * first place that reads it back.
      */
+    /**
+     * The commit unit (issue #128): `word` buffers the whole word and delivers
+     * it at the boundary, `syllable` delivers each syllable as the engine
+     * finalises it. The TEXT is identical; only the point it reaches the client
+     * changes, which is why this is a preference and not a behaviour fork.
+     *
+     * Read at construction time, like the layout ids: a change takes effect on
+     * the next input session, and the layer is rebuilt because the policy is
+     * part of its identity.
+     */
+    private val commitBehavior: String
+        get() = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_COMMIT_BEHAVIOR, COMMIT_WORD) ?: COMMIT_WORD
+
     private val modeStore: HangulModeRepository by lazy {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         HangulModeRepository(
@@ -259,8 +277,8 @@ class HunminInputMethodService : InputMethodService() {
         super.onStartInput(info, restarting)
         engine?.close()
         latinEngine?.close()
-        engine = if (ctx == 0L) null else HunminAdapter(ctx, layoutId)
-        latinEngine = if (ctx == 0L) null else HunminAdapter(ctx, latinLayoutId)
+        engine = if (ctx == 0L) null else HunminAdapter(ctx, layoutId, commitBehavior)
+        latinEngine = if (ctx == 0L) null else HunminAdapter(ctx, latinLayoutId, commitBehavior)
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
@@ -825,7 +843,7 @@ class HunminInputMethodService : InputMethodService() {
         }
         currentInputConnection?.let { current.commitWord(it) }
         current.close()
-        val next = HunminAdapter(ctx, id)
+        val next = HunminAdapter(ctx, id, commitBehavior)
         if (!next.isUsable) {
             // Refuse rather than leave the IME with no engine: the user would
             // get silence instead of the layout they asked for.

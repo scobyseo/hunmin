@@ -220,6 +220,12 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_delivered(const hunmin_buffere
 HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
 HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);
 
+/* External text (voice input, per PLAN.md invariant 5) through the layer: the
+ * buffered word is delivered first, then the engine's pass-through appends the
+ * text, so the order is "typed, then spoken" and nothing is composed twice.
+ * Returns the concatenation. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_external_text(hunmin_buffered_preedit *l, const char *text);
+
 /* The Han/Eng action (docs/FRONTEND-EQUIVALENCE.md §4): one abstract event, so
  * an adapter's raw platform code never reaches the engine. It is a boundary -
  * whatever was composing in the old language is committed before the switch.

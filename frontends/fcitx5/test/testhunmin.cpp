@@ -106,7 +106,7 @@ void scheduleEvent(Instance *instance) {
         press(uuid, Key("1"));
         press(uuid, Key("space"), false);
 
-        // --- the input unit is the USER's choice (config PreeditMode, issue
+        // --- the input unit is the USER's choice (config CommitBehavior, issue
         // #128): both policies exist in the shared layer and are selectable,
         // instead of one being baked into the adapter. Set through the addon's
         // own config surface, which is the path a settings UI takes.
@@ -118,7 +118,7 @@ void scheduleEvent(Instance *instance) {
             RawConfig raw;
             raw.setValueByPath("HangulLayout", "sin3-p2");
             raw.setValueByPath("LatinLayout", "us-qwerty");
-            raw.setValueByPath("PreeditMode", "syllable");
+            raw.setValueByPath("CommitBehavior", "syllable");
             hunmin->setConfig(raw); // drops the in-flight composition
         }
         // syllable: the third key finalises 가 and delivers it immediately
@@ -134,7 +134,7 @@ void scheduleEvent(Instance *instance) {
             RawConfig raw;
             raw.setValueByPath("HangulLayout", "sin3-p2");
             raw.setValueByPath("LatinLayout", "us-qwerty");
-            raw.setValueByPath("PreeditMode", "word");
+            raw.setValueByPath("CommitBehavior", "word");
             hunmin->setConfig(raw);
         }
         // word: nothing lands until the boundary, then the whole word in one

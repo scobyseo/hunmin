@@ -246,6 +246,39 @@ bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *
     return hunmin_ic_set_option(l->ic, name, value);
 }
 
+/* ---------------------------------------------------------- external text */
+
+const char *hunmin_buffered_preedit_external_text(hunmin_buffered_preedit *l, const char *text) {
+    if (!l || !l->ic) return "";
+    /* The word first: it belongs to the keyboard and was typed before the
+     * recogniser produced anything. boundary() also finalises the in-flight
+     * syllable into it, so the engine is left with nothing composing and the
+     * passthrough call cannot compose a second syllable on top.
+     *
+     * The word lives in commit_out, which reserving may MOVE, so it is copied
+     * aside before anything else allocates -- reading it afterwards would be a
+     * use-after-realloc. */
+    const char *word = boundary(l);
+    const size_t wn = word ? strlen(word) : 0;
+    char *held = NULL;
+    if (wn) {
+        held = malloc(wn + 1);
+        if (!held) return word;
+        memcpy(held, word, wn + 1);
+    }
+    const char *rest = hunmin_ic_commit_text(l->ic, text);
+    const size_t rn = rest ? strlen(rest) : 0;
+    if (!reserve(&l->commit_out, &l->commitcap, wn + rn + 1)) {
+        free(held);
+        return "";
+    }
+    if (wn) memcpy(l->commit_out, held, wn);
+    if (rn) memcpy(l->commit_out + wn, rest, rn);
+    l->commit_out[wn + rn] = 0;
+    free(held);
+    return l->commit_out;
+}
+
 /* ------------------------------------------------------------ Han/Eng mode
  *
  * docs/FRONTEND-EQUIVALENCE.md §4: Android delivers the Han/Eng key as a Kana
