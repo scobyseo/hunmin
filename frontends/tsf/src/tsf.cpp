@@ -261,12 +261,13 @@ void CTextService::RebuildLayer() {
     if (ctx_) {
         /* One language per layer: the mode toggle swaps hangul/latin ids, and
          * the Han/Eng action is this adapter's own (issue #66), so the layer's
-         * toggle reports "not ours". The commit unit is AT_BOUNDARY: TSF's
-         * native composition shows the whole word, so the word must not land in
-         * the document until the boundary. Exposing the choice as a settings
-         * row is the remaining UI work, not a code change here. */
-        preedit_ = hunmin_buffered_preedit_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str(), nullptr,
-                                               HUNMIN_COMMIT_AT_BOUNDARY);
+         * toggle reports "not ours".
+         *
+         * The commit unit is the user's (issue #128, commitUnit_): "word" is the
+         * default because TSF's native composition shows the whole word, and
+         * "syllable" is the same text delivered earlier. */
+        const int policy = (strcmp(commitUnit_, "syllable") == 0) ? HUNMIN_COMMIT_PER_SYLLABLE : HUNMIN_COMMIT_AT_BOUNDARY;
+        preedit_ = hunmin_buffered_preedit_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str(), nullptr, policy);
     }
 }
 
@@ -274,6 +275,9 @@ void CTextService::ApplyConfigStore() {
     hunmin_logger.log("ApplyConfigStore pid=%lu\n", (unsigned long)GetCurrentProcessId());
     HunminTsfConfig cfg;
     hunmin_tsf_config_load(HKEY_CURRENT_USER, &cfg);
+    /* The commit unit the layer is built with (issue #128), from the same
+     * env -> registry -> default chain every other setting uses. */
+    snprintf(commitUnit_, sizeof commitUnit_, "%s", cfg.commitUnit);
     hunmin_tsf_resolve_layout_slot(ctx_, cfg.hangulLayout, kHangulDefaultId, true, &hangulId_);
     hunmin_tsf_resolve_layout_slot(ctx_, cfg.latinLayout, kLatinDefaultId, false, &latinId_);
     LoadToggleKeys(cfg);

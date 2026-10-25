@@ -39,6 +39,11 @@ public partial class MainWindow : Window
      * (issue #67's store value, same grammar). ESC keeps the stored one. */
     int _captureTargetRow = 0;
     const string ValHanja = "HanjaKey";
+    /* The commit unit (issue #128): "word" (default) or "syllable". */
+    const string ValCommit = "CommitUnit";
+    /* Restore() writes the combo's selection, and SelectionChanged fires for
+     * that too; the flag keeps a restore from being saved back as an edit. */
+    bool _restoringCommit;
 
     public MainWindow()
     {
@@ -332,6 +337,9 @@ public partial class MainWindow : Window
          * The default IS the physical key, so the row shows what the
          * adapter will do either way. */
         _storedHanja = (key?.GetValue(ValHanja) as string) ?? "";
+        _restoringCommit = true;
+        CommitList.SelectedIndex = ((key?.GetValue(ValCommit) as string) == "syllable") ? 1 : 0;
+        _restoringCommit = false;
         var hanja = ParseSingle(_storedHanja);
         _storedHasHanja = _storedHanja.Trim().Length > 0;
         if (hanja is null)
@@ -415,6 +423,14 @@ public partial class MainWindow : Window
     bool _hanjaCaptured = false;
     string _storedHanja = "";
     bool _storedHasHanja = false;
+    void CommitList_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_restoringCommit) return;
+        string tag = (CommitList.SelectedItem as ComboBoxItem)?.Tag as string ?? "word";
+        using var key = Registry.CurrentUser.CreateSubKey(RegRoot);
+        if (key != null) Set(key, ValCommit, tag);
+    }
+
     void Set(RegistryKey key, string name, string value)
     {
         if (value.Length > 0)

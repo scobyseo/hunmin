@@ -8,6 +8,7 @@
  */
 #include "config.h"
 
+#include <stdio.h>
 #include <string.h>
 
 static void copyStr(const char *src, char *dst, size_t cap) {
@@ -88,6 +89,15 @@ extern "C" int hunmin_tsf_config_load(HKEY root, HunminTsfConfig *out) {
      * = decimal 25, bare) is the default, the same platform-alternate rule
      * the toggle binding carries. */
     fromReg += loadSlot(root, HUNMIN_TSF_ENV_HANJA_KEY, HUNMIN_TSF_REGVAL_HANJAKEY, "v1:25:0", out->hanjaKey, HUNMIN_TSF_HANJA_KEY_CAP);
+    /* The commit unit (issue #128). Default "word": TSF's native composition
+     * shows the whole word, so that is the unit its preedit already displays.
+     * Both units exist in the shared layer and produce the same text. */
+    fromReg += loadSlot(root, HUNMIN_TSF_ENV_COMMIT_UNIT, HUNMIN_TSF_REGVAL_COMMITUNIT, "word", out->commitUnit,
+                        HUNMIN_TSF_COMMIT_UNIT_CAP);
+    /* Anything but the literal "syllable" means the buffered word -- a typo in
+     * the registry must not silently change the unit. */
+    if (strcmp(out->commitUnit, "syllable") != 0)
+        snprintf(out->commitUnit, HUNMIN_TSF_COMMIT_UNIT_CAP, "%s", "word");
     return fromReg;
 }
 
@@ -95,7 +105,8 @@ extern "C" BOOL hunmin_tsf_config_save(HKEY root, const HunminTsfConfig *cfg) {
     if (!root || !cfg)
         return FALSE;
     if (memchr(cfg->hangulLayout, '\0', HUNMIN_TSF_LAYOUT_ID_CAP) == nullptr || memchr(cfg->latinLayout, '\0', HUNMIN_TSF_LAYOUT_ID_CAP) == nullptr ||
-        memchr(cfg->toggleKeys, '\0', HUNMIN_TSF_TOGGLE_KEYS_CAP) == nullptr || memchr(cfg->hanjaKey, '\0', HUNMIN_TSF_HANJA_KEY_CAP) == nullptr)
+        memchr(cfg->toggleKeys, '\0', HUNMIN_TSF_TOGGLE_KEYS_CAP) == nullptr || memchr(cfg->hanjaKey, '\0', HUNMIN_TSF_HANJA_KEY_CAP) == nullptr ||
+        memchr(cfg->commitUnit, '\0', HUNMIN_TSF_COMMIT_UNIT_CAP) == nullptr)
         return FALSE; /* unterminated field: reject, never truncate */
     HKEY key = nullptr;
     if (RegCreateKeyExA(root, HUNMIN_TSF_CONFIG_ROOT_RELPATH, 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
@@ -103,11 +114,12 @@ extern "C" BOOL hunmin_tsf_config_save(HKEY root, const HunminTsfConfig *cfg) {
     struct {
         const char *name;
         const char *value;
-    } vals[4] = {{HUNMIN_TSF_REGVAL_HANGUL, cfg->hangulLayout},
+    } vals[5] = {{HUNMIN_TSF_REGVAL_HANGUL, cfg->hangulLayout},
                  {HUNMIN_TSF_REGVAL_LATIN, cfg->latinLayout},
                  {HUNMIN_TSF_REGVAL_TOGGLE, cfg->toggleKeys},
-                 {HUNMIN_TSF_REGVAL_HANJAKEY, cfg->hanjaKey}};
-    for (int i = 0; i < 4; ++i) {
+                 {HUNMIN_TSF_REGVAL_HANJAKEY, cfg->hanjaKey},
+                 {HUNMIN_TSF_REGVAL_COMMITUNIT, cfg->commitUnit}};
+    for (int i = 0; i < 5; ++i) {
         if (RegSetValueExA(key, vals[i].name, 0, REG_SZ, (const BYTE *)vals[i].value, (DWORD)strlen(vals[i].value) + 1) != ERROR_SUCCESS) {
             RegCloseKey(key);
             return FALSE;

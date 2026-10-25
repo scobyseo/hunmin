@@ -344,6 +344,9 @@ private:
      * these, config-read at Activate and re-read by the settings dialog
      * (#71). Defaults match the fcitx5 addon config. */
     std::string hangulId_, latinId_;
+    /* The commit unit the layer is built with (issue #128): "word" or
+     * "syllable", from HunminTsfConfig. ApplyConfigStore refreshes it. */
+    char commitUnit_[HUNMIN_TSF_COMMIT_UNIT_CAP] = "word";
     /* Mode-toggle bindings (maintainer instruction: the Han/Eng key is the
      * default; additional keys configure through the store). Always carries
      * the bare physical Han/Eng key - the platform alternate that survives

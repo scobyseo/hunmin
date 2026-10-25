@@ -46,6 +46,7 @@
 #define IDC_HANJA_EDIT 1005
 #define IDC_TOGGLE_CAPTURE 1006
 #define IDC_HANJA_CAPTURE 1007
+#define IDC_COMMIT_LIST 1008
 #define IDC_HINT_HANJA 2002
 #define IDC_HINT_TOGGLE 2001
 
@@ -147,6 +148,9 @@ static void addItem(std::vector<WORD> &t, DWORD style, DWORD exStyle, WORD x, WO
 #define HINT_TOGGLE L"\uC608: v1:165:0;v1:32:1" /* e.g. */
 #define TITLE_HANJA L"\uD55C\uC790 \uD0A4" /* 한자 키 — the candidate-window key label */
 #define HINT_HANJA L"\uC608: v1:25:0" /* e.g.: v1:25:0 (25 = the Hanja key, the default) */
+#define TITLE_COMMIT L"\uCEE4\uBC0B \uB2E8\uC704" /* 커밋 단위 — when text reaches the document */
+#define COMMIT_WORD_ROW L"\uB2E8\uC5B4 \uB2E8\uC704 (\uD55C \uBC88\uC5D0)" /* 단어 단위 (한 번에) */
+#define COMMIT_SYL_ROW L"\uC74C\uC808 \uB2E8\uC704" /* 음절 단위 */
 #define FEATURE_ROW L"\uC790\uB3D9 \uD55C/\uC605 \uC804\uD658: \uBBF8\uC815 (0.3)"
 /* The capture button's two labels (WinUI 3의 key-capture flow, interim
  * dialog parity): idle = click me; capturing = the next key records.
@@ -173,7 +177,7 @@ static std::vector<WORD> buildDialogTemplate() {
     t.push_back(0); /* x */
     t.push_back(0); /* y */
     t.push_back(200);
-    t.push_back(150);
+    t.push_back(174);
     t.push_back(0); /* menu: none */
     t.push_back(0); /* class: standard dialog */
     wstr(t, L"Hunmin settings");
@@ -201,19 +205,23 @@ static std::vector<WORD> buildDialogTemplate() {
     addItem(t, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, 0, 10, 89, 150, 12, IDC_HANJA_EDIT, ATOM_EDIT, L"");
     addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 164, 89, 30, 12, IDC_HANJA_CAPTURE, ATOM_BUTTON, CAPTURE_PROMPT_IDLE);
     addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 103, 178, 10, IDC_HINT_HANJA, ATOM_STATIC, HINT_HANJA);
+    /* The commit unit (issue #128): when the finished text reaches the
+     * document. Same text either way, so this is a preference, not a mode. */
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 116, 140, 10, 0, ATOM_STATIC, TITLE_COMMIT);
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0, 10, 126, 86, 56, IDC_COMMIT_LIST, ATOM_COMBOBOX, L"");
     /* The feature row: display only, disabled, per the recorded ruling. */
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 116, 118, 10, 0, ATOM_STATIC, FEATURE_ROW);
-    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 132, 114, 10, 12, IDC_FEATURE_ROW, ATOM_BUTTON, L"");
+    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 140, 118, 10, 0, ATOM_STATIC, FEATURE_ROW);
+    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 132, 138, 10, 12, IDC_FEATURE_ROW, ATOM_BUTTON, L"");
     /* OK / Cancel. */
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_DEFPUSHBUTTON, 0, 100, 132, 44, 12, IDOK, ATOM_BUTTON, L"OK");
-    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 148, 132, 44, 12, IDCANCEL, ATOM_BUTTON, L"Cancel");
-    /* The template declared exactly the items appended above: 7 statics +
-     * 2 combos + 2 edits + 2 capture buttons + 1 checkbox + 2 buttons =
-     * 16. (The count is derived from the add calls above; USER32 stops
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_DEFPUSHBUTTON, 0, 100, 156, 44, 12, IDOK, ATOM_BUTTON, L"OK");
+    addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 148, 156, 44, 12, IDCANCEL, ATOM_BUTTON, L"Cancel");
+    /* The template declared exactly the items appended above: 8 statics +
+     * 3 combos + 2 edits + 2 capture buttons + 1 checkbox + 2 buttons =
+     * 18. (The count is derived from the add calls above; USER32 stops
      * parsing at cdit, so a wrong number here either truncates children or
      * reads garbage as the first item — the empty-dialog defect
      * instrumentation kept the initdialog kids count as the guard.) */
-    t[cditOff] = 16;
+    t[cditOff] = 18;
     return t;
 }
 
@@ -235,6 +243,10 @@ static void applyAndClose(HWND h, SettingsState *s) {
     sel = (int)SendMessageW(GetDlgItem(h, IDC_LATIN_LIST), CB_GETCURSEL, 0, 0);
     if (sel >= 0 && (size_t)sel < s->latinRows.size())
         strncpy(s->cfg.latinLayout, s->latinRows[(size_t)sel].id, HUNMIN_TSF_LAYOUT_ID_CAP - 1);
+    /* Commit unit (issue #128): index 0 is the buffered word, 1 the syllable. */
+    sel = (int)SendMessageW(GetDlgItem(h, IDC_COMMIT_LIST), CB_GETCURSEL, 0, 0);
+    strncpy(s->cfg.commitUnit, sel == 1 ? "syllable" : "word", HUNMIN_TSF_COMMIT_UNIT_CAP - 1);
+    s->cfg.commitUnit[HUNMIN_TSF_COMMIT_UNIT_CAP - 1] = '\0';
     /* Toggle-key list, wide control text -> the store grammar. Fixed-cap
      * never truncates: a too-long list is exactly the store save's failure
      * path, surfaced below. */
@@ -519,6 +531,11 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         }
         preselectCombo(GetDlgItem(h, IDC_HANGUL_LIST), s->hangulRows, s->cfg.hangulLayout);
         preselectCombo(GetDlgItem(h, IDC_LATIN_LIST), s->latinRows, s->cfg.latinLayout);
+        /* Commit unit (issue #128): two literal rows, index == the store value. */
+        SendMessageW(GetDlgItem(h, IDC_COMMIT_LIST), CB_ADDSTRING, 0, (LPARAM)COMMIT_WORD_ROW);
+        SendMessageW(GetDlgItem(h, IDC_COMMIT_LIST), CB_ADDSTRING, 0, (LPARAM)COMMIT_SYL_ROW);
+        SendMessageW(GetDlgItem(h, IDC_COMMIT_LIST), CB_SETCURSEL,
+                     (WPARAM)(strcmp(s->cfg.commitUnit, "syllable") == 0 ? 1 : 0), 0);
         /* Toggle keys into the edit. */
         std::wstring w = utf8ToWide(s->cfg.toggleKeys);
         SetWindowTextW(GetDlgItem(h, IDC_TOGGLE_EDIT), w.c_str());

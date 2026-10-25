@@ -47,6 +47,19 @@
       <TextBlock x:Name="HanjaCaptureHint" Foreground="Orange" VerticalAlignment="Center" FontSize="12" />
     </StackPanel>
 
+    <!-- The commit unit (issue #128): when the finished text reaches the
+         document. The text is identical either way; "word" holds the whole
+         eojeol until the boundary, "syllable" delivers each syllable as the
+         engine finalises it. Same grammar as the registry value CommitUnit. -->
+    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+      <TextBlock Text="커밋 단위" VerticalAlignment="Center" FontSize="12" />
+      <ComboBox x:Name="CommitList" FontSize="13" MinWidth="132"
+                SelectionChanged="CommitList_Changed">
+        <ComboBoxItem Content="단어 단위 (한 번에)" Tag="word" />
+        <ComboBoxItem Content="음절 단위" Tag="syllable" />
+      </ComboBox>
+    </StackPanel>
+
     <TextBlock Foreground="Gray" FontSize="11" TextWrapping="Wrap"
                Text="변경된 설정은 다음 입력 방법 활성화 시 (새 앱, win+space로 입력기 변경) 적용됩니다." />
 
