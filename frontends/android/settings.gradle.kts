@@ -18,3 +18,4 @@ dependencyResolutionManagement {
 rootProject.name = "hunmin-ime"
 include(":app")
 include(":keymaps")
+include(":testeditor")

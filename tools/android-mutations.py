@@ -143,16 +143,44 @@ fm = _load("frontend_mutations", "tools/frontend-mutations.py")
 
 
 def _engine_chain(build: pathlib.Path) -> dict[str, pathlib.Path]:
-    """Every name in the libhunmin.so link chain, mapped to what it resolves to.
+    """Every file the host JNI shim needs, mapped to what it resolves to.
 
-    build-host-jni.sh links with -L$ROOT/build -lhunmin and bakes that same
-    directory into the shim's RUNPATH, so the sandbox needs libhunmin.so for
-    the link AND the SONAME (libhunmin.so.0) for the run, both inside its own
-    build/. Missing either, the shim silently falls back to the main checkout's
-    engine -- which is the isolation this strategy exists to provide.
+    build-host-jni.sh links with -L$BUILD_DIR -lhunmin and, on ELF hosts, bakes
+    that directory into the shim's RUNPATH. The sandbox needs the engine for
+    the link and, on ELF, the SONAME (libhunmin.so.0) for the run, both inside
+    its own build/. Missing either, the shim silently falls back to the main
+    checkout's engine -- which is the isolation this strategy exists to
+    provide.
+
+    On Windows the link input is the import library (libhunmin.dll.a for the
+    mingw path) and the run input is libhunmin.dll; there is no SONAME link.
+    A multi-config generator keeps both under Release/ or Debug/, so search
+    those too, matching build-host-jni.sh.
     """
+    if platform.system() == "Windows":
+        roots = (build, build / "Release", build / "Debug")
+
+        def first(names: tuple[str, ...]) -> pathlib.Path | None:
+            for root in roots:
+                for name in names:
+                    path = root / name
+                    if path.is_file():
+                        return path
+            return None
+
+        dll = first(("libhunmin.dll", "hunmin.dll"))
+        implib = first(("libhunmin.dll.a", "hunmin.lib"))
+        if dll is None or implib is None:
+            raise SystemExit(
+                f"FAIL: host engine not found under {build}; "
+                f"run 'cmake --build {build} --target hunmin' first")
+        return {dll.name: dll.resolve(), implib.name: implib.resolve()}
+
     out: dict[str, pathlib.Path] = {}
     link = build / "libhunmin.so"
+    if not link.is_file():
+        raise SystemExit(
+            f"FAIL: {link} missing; run 'cmake --build {build} --target hunmin' first")
     while True:
         out[link.name] = link.resolve()
         if not link.is_symlink():
@@ -208,7 +236,8 @@ class InTree(Strategy):
     name = "in-tree"
 
     def __enter__(self) -> pathlib.Path:
-        self._backup = {f: (REPO / KOTLIN / f).read_text() for _, f, _, _ in MUTATIONS}
+        self._backup = {f: (REPO / KOTLIN / f).read_text(encoding="utf-8")
+                        for _, f, _, _ in MUTATIONS}
         return REPO
 
     def source(self, filename: str) -> pathlib.Path:
@@ -216,7 +245,7 @@ class InTree(Strategy):
 
     def restore(self) -> None:
         for name, text in self._backup.items():
-            (REPO / KOTLIN / name).write_text(text)
+            (REPO / KOTLIN / name).write_text(text, encoding="utf-8")
 
 
 class Sandbox(Strategy):
@@ -360,7 +389,7 @@ def main() -> int:
             return 1
 
         sources = {f: strategy.source(f) for _, f, _, _ in MUTATIONS}
-        pristine = {f: p.read_text() for f, p in sources.items()}
+        pristine = {f: p.read_text(encoding="utf-8") for f, p in sources.items()}
         passed = failed = known = 0
         for label, filename, pattern, expect_caught in MUTATIONS:
             target = sources[filename]
@@ -404,7 +433,7 @@ def main() -> int:
                           f"the expect_caught=False list and say what closed it.",
                           file=sys.stderr)
                 failed += 1
-            target.write_text(pristine[filename])
+            target.write_text(pristine[filename], encoding="utf-8")
 
     say()
     if failed:

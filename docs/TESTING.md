@@ -854,18 +854,23 @@ Four layers, cheap→real:
   no such window. Verified on the platform: `mShowInInputMethodPicker=true`, the
   service binds, and one `input keyevent KEYCODE_K` alone produces `ㄱ` in the
   field.
-  Four measured platform facts the harness encodes, each of which produced a
-  misleading result first: (1) `input text` injects *characters*, never reaching
-  `onKeyDown` — the text appears whether or not an IME is installed, so it
-  proves nothing; `input keyevent KEYCODE_*` is the key path. (2) The first key
-  after the tap is warm-up: it lands before the IME window is bound, so the run
-  spends one key and removes it with one backspace. (3) Settings restores its
-  previous search query across a force-stop, so `pm clear` is what actually
-  resets it — otherwise a run compares against the previous run's leftovers and
-  reports "keys are passing through". (4) Settings' search field is a `CardView`
-  until tapped; there is no `EditText` on the first dump.
-  ⚠️ `pm clear com.android.settings` is destructive to that app's saved state.
-  Fine on the disposable `hunmin-e2e` AVD, **not** on real hardware.
+  The editor is the `testeditor` APK (`frontends/android/testeditor`), a
+  separate fixture with one `EditText` whose id is
+  `org.hunmin.testeditor:id/editor`. It replaced Settings' search field, whose
+  widget differs by image and which restores its previous query across a
+  force-stop; `pm clear` on the fixture starts every run empty, and clearing it
+  cannot destroy a user's data because it holds none.
+  Each run force-stops the IME and removes `shared_prefs/hunmin.xml` (the selected
+  layout and the Hangul/English mode). The tier's final F9 leaves English
+  selected; without the reset the next run typed literal ASCII. The reset wipes
+  the IME's own layout/mode prefs, so E2 is an AVD tier.
+  Measured platform facts the harness encodes: (1) `input text` injects
+  *characters*, never reaching `onKeyDown` -- the text appears whether or not an
+  IME is installed, so it proves nothing; `input keyevent KEYCODE_*` is the key
+  path. (2) The first key after the tap is warm-up: it lands before the IME
+  window is bound, so the run spends one key and removes it with one backspace.
+  (3) `uiautomator dump` writes the hierarchy as one line; the harness waits on
+  byte size, not line count.
 - **E2 Espresso instrumentation** ✅ (2026-10-13, `ctest engine-android-espresso`,
   `tools/android-espresso.sh`): the suite under `app/src/androidTest/`, run through
   `am instrument` on the AVD. It is registered because of issue #13: the suite
@@ -936,10 +941,10 @@ Four layers, cheap→real:
   never added to the view tree, so the state was right and the screen was not. No
   other tier can see that class: E1 asserts the state value, E2 samples a moment
   chosen by the harness.
-  Not registered in ctest, like E3: a test that only passes when someone is at the
-  keyboard is not a regression test. ⚠️ its `focus_editor` step force-stops
-  `com.android.settings` but does **not** `pm clear` it, so a real device's saved
-  Settings state survives; that is deliberate and differs from E2's AVD routine.
+  Not registered in ctest, like E3: a test that only passes when someone is at
+  the keyboard is not a regression test. The script does not start, clear, or
+  force-stop an editor: it waits for the person to focus a text field and then
+  asserts the keyboard is up, so no app's saved state is touched.
 - **E2 planned extensions**: GitHub Actions android emulator (x86_64,
   API ≥ 30, `-no-window`):
   `adb shell ime enable/set org.hunmin.ime/.HunminService` →

@@ -98,7 +98,7 @@ build_apk() {
     export HUNMIN_RELEASE_STORE="$ks"
     ./tools/build-android.sh "$ABI" 24
     cd frontends/android
-    ./gradlew --no-daemon assembleRelease
+    ./gradlew --no-daemon :app:assembleRelease
     local apk="app/build/outputs/apk/release/app-release.apk"
     [ -f "$apk" ] || { echo "apk: no artefact at $apk" >&2; exit 1; }
     printf '  %s bytes  ->  %s\n' "$(stat -c %s "$apk")" "$ROOT/frontends/android/$apk"
