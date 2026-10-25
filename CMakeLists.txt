@@ -54,6 +54,7 @@ set(HUNMIN_CORE_SOURCES
   libhunmin/src/data.c
   libhunmin/src/expr.c
   libhunmin/src/ic.c
+  libhunmin/src/layer.c
   libhunmin/src/suggest.c
   third_party/cJSON/cJSON.c)
 
@@ -272,6 +273,19 @@ if(BUILD_TESTING AND Python3_FOUND)
   target_link_options(process-key-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
   add_test(NAME engine-process-key COMMAND process-key-test)
   set_tests_properties(engine-process-key PROPERTIES
+    LABELS "tier-A"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
+  # Tier A for the shared buffered/syllable layer (issue #128,
+  # docs/FRONTEND-EQUIVALENCE.md §5). The assertions are equalities between two
+  # runs of the same key sequence (mode vs mode) and between the layer and the
+  # engine driven directly - not golden text, because the layer may not change
+  # the text, only when it is delivered.
+  add_executable(layer-test libhunmin/tests/layer-test.cpp)
+  target_link_libraries(layer-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(layer-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
+  add_test(NAME engine-layer COMMAND layer-test)
+  set_tests_properties(engine-layer PROPERTIES
     LABELS "tier-A"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")

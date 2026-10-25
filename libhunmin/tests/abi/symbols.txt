@@ -17,6 +17,17 @@ hunmin_ic_process
 hunmin_ic_process_key
 hunmin_ic_reset
 hunmin_ic_set_option
+hunmin_layer_commit_mode
+hunmin_layer_flush
+hunmin_layer_free
+hunmin_layer_key
+hunmin_layer_layout
+hunmin_layer_mode
+hunmin_layer_mode_change
+hunmin_layer_new
+hunmin_layer_peek_key
+hunmin_layer_reset
+hunmin_layer_set_option
 hunmin_suggest_count
 hunmin_suggest_detail
 hunmin_suggest_kind

@@ -1,9 +1,10 @@
 # Cross-frontend equivalence
 
-Status: **requirements recorded 2026-10-24; implementation tracked in issue
-#128. The interim numeric defect is being fixed directly in the current
-session.** This document is the single home of the rule. It is not a design
-verdict: the shared API shape still needs a maintainer decision.
+Status: **requirements recorded 2026-10-24; the three open decisions in §9 were
+taken 2026-10-25 and the layer they describe is implemented in
+`libhunmin/src/layer.c` (issue #128, phase 1). The corpus, the frontend
+migrations and the TSF emitter extension follow on the same branch.** This
+document is the single home of the rule.
 
 Source: maintainer instructions in the TSF frontend refactor session,
 2026-10-24. Exact wording is quoted in "Wording" below so a paraphrase cannot
@@ -82,6 +83,39 @@ current libhunmin implementation.
 
 The layer is a libhunmin extension, not a per-frontend reimplementation. New
 symbols follow the append-only ABI rule.
+
+### 5.1 What the layer is (implemented 2026-10-25)
+
+`hunmin_layer` in `libhunmin/src/layer.c`, exported as `hunmin_layer_*`
+(`hunmin.h`, 11 symbols, appended to `libhunmin/tests/abi/symbols.txt`). It owns
+the word buffer and the boundary rule:
+
+- `hunmin_layer_key(l, base, shift, &out)` answers consumption and fills
+  `out.commit` / `out.preedit`. A **declined key is the boundary**: the engine
+  finalises the syllable it was holding, and that is when a buffered word is
+  delivered. A frontend therefore never spells out "when a word ends" itself.
+- `HUNMIN_COMMIT_BUFFERED` holds finalised syllables and delivers the word at
+  the boundary; `HUNMIN_COMMIT_SYLLABLE` delivers each one as the engine
+  finalises it. Same text, different delivery point.
+- `hunmin_layer_mode_change()` is the Han/Eng action (§4): one abstract event,
+  and it is a boundary in both directions.
+- `hunmin_layer_peek_key()` is the read-only prediction a platform "test" phase
+  needs, over the same state the real key will consume.
+
+Tier A asserts the property the layer exists for, as equalities rather than
+golden text: mode vs mode per key, and layer vs the engine driven directly
+(`engine-layer`, `libhunmin/tests/layer-test.cpp`).
+
+### 5.2 A wording question this implementation exposes
+
+§1 says "the same preedit string after each key", but §1 and §5 also make the
+commit boundary a frontend choice — and those two cannot both hold literally: a
+buffered frontend shows the finished syllables of the word as preedit while a
+syllable frontend has already committed them, so their preedit strings differ by
+exactly the text one of them has delivered. The implementation therefore asserts
+the observable quantity: **committed-so-far + preedit is equal per key**, and
+the concatenation is equal. Whether the rule should be worded that way is the
+maintainer's call; it is recorded here rather than silently rewritten.
 
 ## 6. One corpus, every frontend, both TSF modes
 
@@ -163,11 +197,29 @@ Quoted from the maintainer, 2026-10-24:
 > should be possible to clean up dev env setting after test, to make the
 > worktree deletable.
 
-## 9. Open decisions
+## 9. Decisions taken 2026-10-25
 
-- The shared layer's API shape and whether it is a new set of libhunmin
-  symbols or a separate static layer over the same ABI.
-- The corpus record format and whether per-key assertions are mandatory for
-  every frontend or only for the shared layer and tier C.
-- Whether the Han/Eng normalization is an abstract shared action at the
-  adapter boundary or a canonical Kana VK passed to the shared layer.
+The three questions this section used to hold were put to the maintainer with the
+options measured, and all three were answered. Quoting the chosen option in each
+case, because a paraphrase drifts:
+
+1. **The layer's API shape** — chosen: "Exported hunmin_layer_* symbols in
+   libhunmin (append-only ABI, one implementation, symbols.txt grows)". The
+   alternative on the table was a static `layer.c` compiled into each frontend;
+   it was not taken because it puts the same rule in three builds and #128 exists
+   to have one.
+2. **The corpus record format** — chosen: "Reuse the tier-C trace format
+   (`*.trace.in` with per-key consumed/commit/preedit) as the one corpus; extend
+   the win32 dialect to both delivery and both commit modes". Measure before
+   trusting: the format already carries the three per-key fields, which is what
+   §6 asks for; a second format would be a second home for the same expectations.
+3. **The Han/Eng normalization** — chosen: "An abstract shared action in the
+   layer (`hunmin_layer_mode_change` / a MODE_CHANGE key class); each adapter maps
+   its own physical key to it". So no adapter synthesizes a Kana VK.
+
+Still open, and not decided by the above:
+
+- The §5.2 wording question (preedit equality against a free commit boundary).
+- Whether per-key assertions are mandatory for every frontend's own tests, or only
+  for the shared layer and tier C (§6 allows a frontend test to drive a different
+  interface; it forbids a second copy of the expectations).

@@ -66,6 +66,40 @@ struct hunmin_ctx {
     char *data_dir;
 };
 
+#define STR_CAP 64 /* ucschar buffer capacity (libhangul parity) */
+#define UTF8_CAP 256 /* getter output capacity */
+
+typedef struct {
+    ucschar cho, jung, jong;
+    uint8_t jvar;
+    ucschar stack[12];
+    int index;
+} hm_buf_t;
+
+/* The input context state lives here rather than in ic.c because the shared
+ * buffered/syllable layer (layer.c) must read it: hunmin_layer_peek_key copies
+ * an ic by value to answer a platform "test" phase without consuming the key
+ * (issue #128). Internal to the library -- never in the ABI. */
+struct hunmin_ic {
+    hm_layout *L;
+    hm_buf_t b;
+    ucschar commit[STR_CAP], preedit[STR_CAP];
+    char commit8[UTF8_CAP], preedit8[UTF8_CAP];
+    /* External-text passthrough output (hunmin_ic_commit_text). Not one of the
+     * fixed buffers above: voice text is unbounded, and the point of the call is
+     * that a sentence is not truncated to a syllable's worth. Owned, freed with
+     * the ic, and handed out under the same lifetime rule as commit8. */
+    char *ext8;
+    size_t extcap;
+    uint32_t T; /* symbol-tier state (0/101..103) */
+    int caps; /* Caps Lock (expression var P) */
+    int flag_ovr[128]; /* 전처리수식 override (w/W/z/h/H), -1 = layout */
+    int flags_eff[128]; /* effective flags seen by expressions */
+    bool opt_auto_reorder; /* libhangul ic_new defaults */
+    bool opt_combi_on_double; /* false */
+    bool opt_non_choseong_combi; /* true */
+};
+
 /* data.c */
 hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs);
 void hm_data_free(hunmin_ctx *ctx);
