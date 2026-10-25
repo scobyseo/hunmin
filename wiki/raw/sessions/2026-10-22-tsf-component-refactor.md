@@ -6,8 +6,6 @@ type: session
 status: superseded
 superseded_by: [[the-tsf-extraction-round-2026-10-22]]
 tags: [session, windows, tsf, refactor, issue-67, issue-103, legacy, interim]
-sources:
-  - ../../docs/REFACTOR-TSF-COMPONENTS.md
 confidence: high
 ---
 

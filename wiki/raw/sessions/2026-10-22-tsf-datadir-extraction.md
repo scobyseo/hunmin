@@ -6,8 +6,6 @@ type: session
 status: superseded
 superseded_by: [[the-tsf-extraction-round-2026-10-22]]
 tags: [session, windows, tsf, refactor, datadir, issue-127, issue-66]
-sources:
-  - ../../docs/REFACTOR-TSF-COMPONENTS.md
 confidence: high
 ---
 
