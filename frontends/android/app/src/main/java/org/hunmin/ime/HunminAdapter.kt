@@ -31,6 +31,10 @@ package org.hunmin.ime
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.EditorInfo
 
+/** hunmin.h's HUNMIN_LANGUAGE_HANGUL; the layer reports its language as this value. */
+private const val HUNMIN_LANGUAGE_HANGUL = 0 /* hunmin.h: HANGUL 0, LATIN 1 */
+
+
 /**
  * One editing session's engine state.
  *
@@ -45,6 +49,10 @@ import android.view.inputmethod.EditorInfo
 class HunminAdapter(
     private val ctx: Long,
     layoutId: String,
+    /** The latin slot (FE7). When present the layer owns BOTH slots and the
+     *  language action is `toggleLanguage()`; when absent the adapter is a
+     *  one-language frontend and the caller performs the switch. */
+    private val latinLayoutId: String? = null,
     /** The commit unit (issue #128): "word" buffers until the word boundary,
      *  "syllable" delivers each syllable as the engine finalises it. Both
      *  produce the same text; the choice is the user's (setting `commit_behavior`). */
@@ -67,6 +75,10 @@ class HunminAdapter(
         fun layerExternalText(layer: Long, text: String): String
         fun layerReset(layer: Long)
         fun layerSetOption(layer: Long, name: String, value: Int): Boolean
+        /** The layer's language action (FE7); true when it switched. */
+        fun layerToggleLanguage(layer: Long): Boolean
+        /** HUNMIN_LANGUAGE_* as the layer reports it. */
+        fun layerLanguage(layer: Long): Int
         // Hanja candidates (P3)
         fun suggestCount(ctx: Long, hangul: String): Int
         fun suggestText(ctx: Long, i: Int): String
@@ -92,6 +104,9 @@ class HunminAdapter(
         override fun layerReset(layer: Long) = HunminNativeBridge.nativeLayerReset(layer)
         override fun layerSetOption(layer: Long, name: String, value: Int) =
             HunminNativeBridge.nativeLayerSetOption(layer, name, value)
+        override fun layerToggleLanguage(layer: Long) =
+            HunminNativeBridge.nativeLayerToggleLanguage(layer) != 0
+        override fun layerLanguage(layer: Long) = HunminNativeBridge.nativeLayerLanguage(layer)
         // Hanja candidates (P3)
         override fun suggestCount(ctx: Long, hangul: String) = HunminNativeBridge.nativeSuggestCount(ctx, hangul)
         override fun suggestText(ctx: Long, i: Int) = HunminNativeBridge.nativeSuggestText(ctx, i)
@@ -100,7 +115,25 @@ class HunminAdapter(
     }
 
     /** 0 when the layout id is unknown or unsupported — the engine declines. */
-    private var layer: Long = native.layerNew(ctx, layoutId, null, commitBehavior)
+    /* TWO slots, so the language action is the layer's (FE7): the layer holds
+     * both ids and switches between them, which is what lets the three
+     * frontends share one definition of a mode change. Until 2026-10-25 this
+     * passed `null` for the latin slot and the service did the switch. */
+    private var layer: Long = native.layerNew(ctx, layoutId, latinLayoutId, commitBehavior)
+
+    /** The layer holds both slots, so it can perform the language action. */
+    val ownsLanguageAction: Boolean get() = layer != 0L && latinLayoutId != null
+
+    /** The language action (FE7): boundary, switch and other-slot attach, done
+     *  by the layer. False means this adapter is one-language. */
+    fun toggleLanguage(): Boolean {
+        if (layer == 0L || latinLayoutId == null) return false
+        return native.layerToggleLanguage(layer)
+    }
+
+    /** True when the layer is in Hangul; meaningful only with both slots. */
+    fun isHangulLanguage(): Boolean =
+        layer != 0L && native.layerLanguage(layer) == HUNMIN_LANGUAGE_HANGUL
 
     /** The layout this layer was built for; a mismatch forces a rebuild. */
     val layout: String = if (layer != 0L) layoutId else ""

@@ -277,8 +277,13 @@ class HunminInputMethodService : InputMethodService() {
         super.onStartInput(info, restarting)
         engine?.close()
         latinEngine?.close()
-        engine = if (ctx == 0L) null else HunminAdapter(ctx, layoutId, commitBehavior)
-        latinEngine = if (ctx == 0L) null else HunminAdapter(ctx, latinLayoutId, commitBehavior)
+        /* The hangul adapter carries TWO slots (FE7): the layer performs the
+         * language action, so `latinEngine` survives only for the paths that
+         * still address the latin slot directly. */
+        engine = if (ctx == 0L) null else HunminAdapter(ctx, layoutId, latinLayoutId, commitBehavior)
+        /* The latin adapter is ONE-language on purpose: it is addressed directly
+         * by the voice/latin paths, and the pair lives on `engine` (FE7). */
+        latinEngine = if (ctx == 0L) null else HunminAdapter(ctx, latinLayoutId, null, commitBehavior)
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
@@ -468,6 +473,23 @@ class HunminInputMethodService : InputMethodService() {
 
     /** Toggle between Hangul and English (Latin) mode. */
     private fun toggleHangulEnglish() {
+        /* The layer's action first (FE7): it commits the pending word at the
+         * boundary, switches language and attaches the other slot's layout, in
+         * the same place every frontend does it. Only a one-language adapter
+         * falls through to the hand-rolled swap below. */
+        val target0 = currentInputConnection
+        val eng = engine
+        if (eng != null && eng.toggleLanguage()) {
+            isHangulMode = eng.isHangulLanguage()
+            modeStore.remember(KEY_HANGUL_MODE, isHangulMode)
+            if (target0 != null) eng.updatePreedit(target0)
+            Log.i(TAG, "hunmin: language action by the layer -> ${if (isHangulMode) "한글" else "English"}")
+            showModeToast(if (isHangulMode) "한글" else "English")
+            picker?.setMicState(if (isHangulMode) VoiceState.IDLE else VoiceState.ERROR)
+            picker?.setMode(isHangulMode)
+            picker?.setActiveLayout(currentLayout())
+            return
+        }
         isHangulMode = !isHangulMode
         modeStore.remember(KEY_HANGUL_MODE, isHangulMode)
         val target = currentInputConnection ?: return

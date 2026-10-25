@@ -356,6 +356,26 @@ JNIEXPORT jboolean JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerSet
     return ok;
 }
 
+/* The language action (FE7): the layer performs the boundary, the switch and
+ * the other layout's attach, so this adapter does not own a mode of its own.
+ * Returns 1 when the layer switched, 0 when it is a one-language frontend. */
+JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerToggleLanguage(JNIEnv *env, jclass k, jlong layer) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    if (!l)
+        return 0;
+    return (jint)hunmin_buffered_preedit_toggle_language(l, NULL);
+}
+
+/* The language the layer is in now (HUNMIN_LANGUAGE_*). */
+JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerLanguage(JNIEnv *env, jclass k, jlong layer) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    return l ? (jint)hunmin_buffered_preedit_language(l) : 0;
+}
+
 /* ===================== hanja candidates (P3) ============================ */
 
 JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeSuggestCount(JNIEnv *env, jclass k, jlong ctx, jstring hangul) {

@@ -103,6 +103,12 @@ object HunminNativeBridge {
 
     @JvmStatic external fun nativeLayerSetOption(layer: Long, name: String, value: Int): Boolean
 
+    /** The layer's language action (FE7): 1 when it switched, 0 when one-language. */
+    @JvmStatic external fun nativeLayerToggleLanguage(layer: Long): Int
+
+    /** HUNMIN_LANGUAGE_HANGUL / _LATIN. */
+    @JvmStatic external fun nativeLayerLanguage(layer: Long): Int
+
     @JvmStatic external fun nativeIcNew(ctx: Long, layout: String): Long
 
     @JvmStatic external fun nativeIcFree(ic: Long)

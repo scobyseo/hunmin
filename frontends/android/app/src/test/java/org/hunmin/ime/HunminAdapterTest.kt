@@ -866,6 +866,28 @@ class HunminAdapterTest {
     }
 
     @Test
+    fun `the language action is the layer's, not the adapter's`() {
+        // FE7 (issue #136 ruling): one abstract action, performed by the layer,
+        // so this frontend and TSF and fcitx5 cannot disagree about what a mode
+        // change is. The pair is what makes it the layer's business -- an
+        // adapter built with one slot must REFUSE, because it has nothing to
+        // switch to and the caller owns the switch then.
+        val pair = HunminAdapter(ctx, "sin3-p2", "us-qwerty")
+        assumeTrue(pair.isUsable)
+        assertTrue("an adapter with both slots must own the action", pair.ownsLanguageAction)
+        assertTrue("the layer is in Hangul before the action", pair.isHangulLanguage())
+        assertTrue("the action must be the layer's to perform", pair.toggleLanguage())
+        assertFalse("and it must switch the language", pair.isHangulLanguage())
+        pair.close()
+
+        val single = HunminAdapter(ctx, "sin3-p2")
+        assumeTrue(single.isUsable)
+        assertFalse("a one-slot adapter refuses the action", single.toggleLanguage())
+        assertFalse("and it reports no pair to own", single.ownsLanguageAction)
+        single.close()
+    }
+
+    @Test
     fun `a composition IS cleared afterwards, so the client is not left stale`() {
         // The other half: the guard above must not stop the engine from clearing
         // a composition it really did put there, or the last syllable stays on
