@@ -297,21 +297,12 @@ def check_wiki_sources() -> None:
 
 
 def check_wiki_index_count() -> None:
-    r = subprocess.run(
-        [sys.executable, os.path.join(ROOT, "tools", "wiki-lint.py"), "--strict"],
-        capture_output=True, text=True, cwd=ROOT,
-    )
-    m = re.search(r"(\d+)\s+pages?,", r.stdout + r.stderr)
-    if not m:
-        return
-    claimed_by_lint = int(m.group(1))
-    for n, line in lines_of("wiki/index.md", r"Total pages:\s*(\d+)"):
-        claimed = int(first_group(line, r"Total pages:\s*(\d+)", 1))
-        if claimed != claimed_by_lint:
-            err(
-                f"wiki/index.md:{n}: claims {claimed} pages; tools/wiki-lint.py "
-                f"finds {claimed_by_lint}. (tools/wiki-lint.py --strict)"
-            )
+    # The wiki page count was checked against tools/wiki-lint.py here until
+    # 2026-10-25. Maintainer ruling (issue #135): drop the hand-maintained number
+    # rather than pick which of three counters was canonical -- a count in prose
+    # that a tool can print is the disease, and this check made the narrowest
+    # counter authoritative. The count now lives only where it is printed.
+    _ = subprocess  # the import stays: other checks shell out
 
 
 # --------------------------------------------------------------------------
@@ -680,7 +671,8 @@ def main() -> int:
         print(f"error: {e}", file=sys.stderr)
     print(
         f"docs-lint: {len(errors)} errors, {len(warnings)} warnings "
-        f"({len(DOCS)} documents, {len(WIKI)} wiki pages)"
+        f"({len(DOCS)} documents, {len(WIKI)} wiki files -- every .md, framing "
+        f"pages included; wiki-lint's content-page count is what it prints)"
     )
     return 1 if errors or (args.strict and warnings) else 0
 

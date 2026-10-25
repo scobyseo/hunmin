@@ -24,7 +24,12 @@ WIKI = os.path.join(ROOT, "wiki")
 
 FM = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 LINK = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]*)?\]\]")
-PAGE_DIRS = ("concepts", "entities", "decisions")
+# Root-level pages with frontmatter are content pages too: two of them
+# (test-scenario-guide, ci-android-lessons) sat outside every check until
+# 2026-10-25 (issue #133) while teaching a tier vocabulary the tree no longer
+# had. The framing pages (index, log, SCHEMA) carry no frontmatter and are
+# skipped by the same rule that classifies any other page.
+PAGE_DIRS = (".", "concepts", "entities", "decisions")
 RAW_DIRS = ("raw/sessions", "raw/measurements", "raw/upstream")
 VALID_STATUS = {"draft", "active", "superseded", "void"}
 REQUIRED_FM = ("title", "created", "updated", "type", "status", "tags")
@@ -202,13 +207,18 @@ def check_sources_exist(rel: str, path: str, text: str) -> None:
         )
 
 
+# The wiki's own framing pages: catalog, log and schema. They are not content
+# pages, carry no frontmatter, and are checked by their own rules.
+FRAMING = {"index.md", "log.md", "SCHEMA.md"}
+
+
 def pages():
     for d in PAGE_DIRS:
         base = os.path.join(WIKI, d)
         if not os.path.isdir(base):
             continue
         for name in sorted(os.listdir(base)):
-            if name.endswith(".md"):
+            if name.endswith(".md") and not (d == "." and name in FRAMING):
                 yield os.path.join(d, name), os.path.join(base, name)
 
 
