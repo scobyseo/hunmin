@@ -1,9 +1,15 @@
 # hunmin — frontend contract audit
 
-What each frontend file **assumes**, what role it plays, and which interface it
-exposes. Written 2026-10-02 after reading every line of the fcitx5 addon
-against the fcitx5 5.1.19 sources, because several assumptions turned out to be
-wrong and were not discoverable by re-reading our own code.
+What each frontend file **assumes**, and whether the assumption holds. Written
+2026-10-02 after reading every line of the fcitx5 addon against the fcitx5
+5.1.19 sources, because several assumptions turned out to be wrong and were not
+discoverable by re-reading our own code.
+
+**Status: a dated audit, still cited for §3–§6.** The per-assumption entries
+(A1–A13, A1′–A3′, B1–B7) are the record of what was believed and measured on
+that date — keep them. What is NOT this document's job any more: describing the
+interfaces (now `docs/SPEC-FRONTEND.md` and `docs/FRONTEND-EQUIVALENCE.md` §8)
+and stating the invariants to preserve (now `docs/SPEC-FRONTEND.md` FE1–FE12).
 
 Scope: `frontends/fcitx5/src/`, `frontends/android/`, and the Windows TSF
 adapter in `frontends/tsf/src/`, plus the libhunmin ABI they depend on. The
@@ -60,44 +66,26 @@ python3 tools/check-frontend-invariants.py | grep I8
 The budget exists to catch *composition* logic or per-layout knowledge
 appearing in the frontend, which is rule #4's actual failure mode.
 
-## 2. The interfaces we expose
+## 2. The interfaces (a 2026-10-02 snapshot)
 
-**To fcitx5** — `HunminAdapter` implements five virtuals:
+The description of what each frontend exposes, and the invariants that keep them
+equivalent, live in `docs/SPEC-FRONTEND.md` (FE1–FE12) and
+`docs/FRONTEND-EQUIVALENCE.md` §8. What stays here is the fcitx5 hook contract
+this audit was written against, because it is the shape the addon must keep.
 
 | Hook | When fcitx5 calls it | What we do |
 |---|---|---|
 | `activate(entry, icEvent)` | context becomes the active IM | `state->reset()` |
 | `deactivate(entry, icEvent)` | context stops being the active IM | delegates to `reset` |
-| `keyEvent(entry, keyEvent)` | every key press **before** the client sees it | map + `hunmin_ic_process`, then `filterAndAccept()` or let it through |
+| `keyEvent(entry, keyEvent)` | every key press **before** the client sees it | map, then feed the layer: `filterAndAccept()` or pass |
 | `reset(entry, icEvent)` | focus change / explicit reset | `flush()` then `reset()` |
 | `reloadConfig()` | addon config (re)load | `readAsIni(config_, "conf/hunmin.conf")` |
 
-Plus `getConfig()` / `setConfig()` for the addon's own `Layout` option.
-`setConfig` writes back with `safeSaveAsIni`, so the config file is
-user-visible and round-trips.
-
-**Per-context state** — `HunminState : InputContextProperty`, registered as
-`"hunminState"` on the `InputContextManager`. This is fcitx5's mechanism for
-attaching per-input-context state; the property factory is what makes
-`propertyFor(&factory_)` return the same object for the same `InputContext`.
-Our `hunmin_ic` lives here, so **two open windows get two independent engines**
-— no shared buffer between contexts. Correct for a real IME.
-
-**To the engine** — the only four libhunmin calls that matter here:
-`hunmin_ic_new`, `hunmin_ic_process`, `hunmin_ic_commit` / `hunmin_ic_flush`,
-`hunmin_ic_preedit`. Plus `hunmin_ic_set_option(ic, "caps", …)` and
-`hunmin_ic_free`.
-
-**The caps option is a common frontend contract** (issue #112, ruling
-"wire and make it common to all platform"): every frontend sets
-`hunmin_ic_set_option(ic, "caps", 1 | 0)` **per key event** from its
-platform's CapsLock state — fcitx5 from `KeyState::CapsLock`
-(hunminadapter.cpp:327), Android from `META_CAPS_LOCK_ON` (HunminAdapter.kt), the
-TSF TIP from `GetKeyState(VK_CAPITAL)`'s toggle bit read beside the modifier
-snapshot (`hunmin_tsf_capslock_from_state`, keybinding.cpp). CapsLock feeds
-the yethangul P variable only (hunmin.h:93) and selects **no** row on any
-platform — the Shift bit (or, for fcitx5, the host-resolved keysym case) is
-the only row transport.
+`getConfig()`/`setConfig()` round-trip the addon's own `Layout` option through
+`safeSaveAsIni`, so that file is user-visible. Per-context state is
+`HunminState : InputContextProperty` registered as `"hunminState"`; the engine
+handle lives there, so two open windows get two independent engines and no
+shared buffer.
 
 ## 3. Assumptions, and whether they hold
 
