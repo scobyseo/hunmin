@@ -235,6 +235,54 @@ checks all of that mechanically.
 measurements, not rulings, and see
 `wiki/decisions/decisions-belong-to-the-maintainer.md`.
 
+## Requirement traceability
+
+**A requirement has one home: `docs/SPEC-*.md`.** The chain below is how it
+reaches code and how code proves it, and it is recorded once — as pointers, never
+as restatements:
+
+```
+REQ id          docs/SPEC-*.md            the requirement text, and the only home for it
+  -> architecture  docs/architecture.md   which module owns it, which symbol is the seam
+  -> design        a design doc, or the   why the mechanism is shaped that way
+                   comment above the code
+  -> implementation  symbols and headings  where it is built (never line numbers)
+  -> verification   ctest id or command    what fails when it stops being true
+```
+
+The map is `docs/REQ-MAP.md`; `tools/req-map-check.py` (ctest `req-map`) fails
+when a pointer names a path that does not exist, a `verified by` ctest id is not
+registered, or a SPEC requirement has no row.
+
+**Rules that keep it a map and not a second copy:**
+
+- **Requirement text lives in the SPEC and nowhere else.** Other documents cite
+  the id (or the SPEC heading) — a sentence of requirement prose anywhere else is
+  the duplication this exists to prevent.
+- **A requirement stated outside a SPEC moves into one.** `SPEC-*.md` files may be
+  merged, split, reorganized or renamed for that; the ids inside them are stable
+  once cited, and changing an id is a rename (one commit, every reference).
+- **Pointers name symbols and headings, never `file:line`.** Line numbers rot on
+  every edit — measured 2026-10-25: `docs/` carried 193 `file:line` citations, and
+  three rename commits rewrote 228 doc lines across 27 documents with no content
+  change. A rename must not require a documentation edit.
+- **`none` is a legal cell, and it is a finding.** A requirement with no
+  implementation is a roadmap item; a requirement with no verification is a claim
+  nobody can check. Both are countable, and neither may be smoothed over by
+  writing prose that reads as if the link existed.
+- **Prose that the map makes redundant is deleted**, not flagged. That is the
+  point of the index: a fact with one home plus a pointer is a fact that cannot
+  drift.
+
+**Issues carry the REQ id.** A task issue names the requirement(s) it advances in
+its title or body, and its Verification checklist is the map's `verified by` cell
+for those rows — so closing an issue and updating the board are the same act seen
+from two sides. A new requirement gets its SPEC entry and its map row BEFORE the
+issue is worked, because an issue that invents a requirement is a requirement
+nobody ruled on. `docs/REMAINING-WORK.md` §7.5 keeps the closure state; the map
+keeps the index. A `none` implementation cell beside a `-CLOSED` board row is a
+contradiction to resolve, not a row to prefer.
+
 ## GitHub issue tracking
 
 Use GitHub Issues as the working surface and external coordination point; PRs are
@@ -247,7 +295,8 @@ changes without a commit, which is the disease `docs/REMAINING-WORK.md` §7
 describes.
 
 **The one idea.** An issue carries a measurement or a request for a ruling, not a
-decision. GitHub is where work is assigned, claimed and closed; what this repo
+decision. Every task issue names the REQ ids it advances — see "Requirement
+traceability" above for the five-step chain and the map that records it. GitHub is where work is assigned, claimed and closed; what this repo
 calls a verdict lives in `docs/` and the wiki, and only the maintainer makes it.
 
 **Scope of the policy.**
