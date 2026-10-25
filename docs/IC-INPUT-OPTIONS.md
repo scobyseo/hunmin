@@ -1,8 +1,11 @@
 # IC-INPUT-OPTIONS — the case-encoding `ch` input, measured
 
-**Status: measurements only. No option is ruled out, and none is rejected.
-The choice is the maintainer's** (issue #87 states the same: "the design
-options should be presented as comparable, not decided here").
+**Status: DECIDED — option B (append an explicit-modifier entry point), at the
+close of issue #87, recorded 2026-10-18 in `docs/SPEC-P2.md` §"IC input entry
+points".** This document is the evidence for that choice, kept as measured; the
+rejected options stay so the cost of the choice is on the record. The engine
+surface it produced is `hunmin_ic_process_key(ic, base, shift)`, and
+`hunmin_ic_process` is byte-for-byte unchanged.
 
 Produced 2026-10-17 on branch
 `scobyseo/engine-question-replace-the-case-encoding-ch-inp` (base `0b9e0e7`),
