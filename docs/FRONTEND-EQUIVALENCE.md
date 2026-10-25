@@ -240,7 +240,66 @@ Measured in the sandbox on 2026-10-24 with the static-CRT kit:
   foreground and TIP activation and writes `ime-probe.log`; the rerun with the
   long sequence passed.
 
-## 8. Wording
+## 8. The three frontends, measured 2026-10-25
+
+Read from the three trees after the #128 migration, not from the design. §3 says
+which differences are permitted; this section records which ones the code
+actually has, so a later reader can tell an allowed difference from an unfinished
+normalisation.
+
+### 8.1 Shared
+
+| | fcitx5 | Android | TSF |
+|---|---|---|---|
+| composing state | `hunmin_buffered_preedit` | same, through JNI | same, through `TsfCore` |
+| word buffer | none | none | none |
+| key rule | `hunmin_buffered_preedit_classify()` | same, through `nativeLayerClassify` | same |
+| `caps` option | per key event | per key event | per key event |
+| boundary | a declined key, or the classifier's `BOUNDARY_PASS` | same | same |
+| preedit source | `display()` | `display()` | `display()`, and `composing()` for the interim span |
+| external text | — | the layer's pass-through | — |
+
+### 8.2 Differences
+
+| dimension | fcitx5 | Android | TSF | §3 |
+|---|---|---|---|---|
+| key to `(base, shift, mods)` | `kSymKeyIds` table + `KeyStates` | `HunminKeyRegistry.engineBase` + metaState | `VkToBase` + keymods | allowed, §3.1 |
+| commit unit | `CommitBehavior` config | `commit_behavior` preference | policy fixed to the buffered word; a seam exists for the corpus | allowed, §3.3 — but only two of three are user-selectable |
+| preedit presentation | client preedit, else the panel | `setComposingText` | `ITfComposition`, or the interim document span | allowed, §3.3 |
+| delivery strategies | one | one | two (native, interim) | allowed; only TSF meets classic hosts |
+| candidate anchor | `display()` | the service owns the Hanja UI | native `display()`, interim `composing()` | allowed, §3.3 |
+| candidate key routing | the adapter's own switch | none in the adapter | the adapter's own window | allowed — but see 8.3 (2) |
+| Han/Eng | not in the addon: fcitx owns the trigger | Kana VK to `KeyAction.HANGUL_ENG` | `ToggleModeCore` plus configurable bindings | **open**, §4 |
+| R8 language detection | yes: `language_detect.cpp` | no | no | allowed; R8 is adaptor-owned |
+| voice / external text | — | yes | — | allowed, but invariant 5 is exercised on one frontend only |
+
+### 8.3 Open asymmetries, to be resolved where the platform allows
+
+1. **Han/Eng is not normalised (§4).** TSF and Android each own a mechanism and
+   fcitx5 has none in the addon. `hunmin_buffered_preedit_toggle_language()`
+   exists and no frontend calls it, because each carries a layout-pair model the
+   layer's two-slot version does not yet describe. Resolving it means deciding
+   that model first; the verification is a tier-A case plus one per frontend
+   driving the same abstract action.
+   *Environmental part:* fcitx5's trigger belongs to fcitx, so the addon cannot
+   see a Han/Eng key. What the platform allows is the mapping, not the key.
+2. **The classifier's `CANDIDATE` answer is used by one frontend.** fcitx5 asks
+   and then routes locally, Android reports no candidate window, TSF never
+   reaches it. The rule is shared; the use is not. Resolving it means routing
+   each frontend's list keys through the answer instead of around it.
+3. **TSF's commit unit is not user-selectable.** fcitx5 and Android read a
+   setting; TSF pins the buffered word and keeps an environment seam for the
+   corpus. The missing piece is a settings-dialog row; the layer already takes
+   the choice.
+4. **External text exists on Android only.** Not a defect — the voice path is
+   Android's — but it means invariant 5 has no second frontend exercising it, and
+   nothing would notice if the layer's pass-through regressed for others.
+
+Not on this list, deliberately: the per-frontend key mapping, the presentation
+APIs, and TSF's two delivery modes. Those are the differences §3 permits, and
+normalising them would be the thing that reintroduces drift.
+
+## 9. Wording
 
 Quoted from the maintainer, 2026-10-24:
 
@@ -267,7 +326,7 @@ Quoted from the maintainer, 2026-10-24:
 > should be possible to clean up dev env setting after test, to make the
 > worktree deletable.
 
-## 9. Decisions taken 2026-10-25
+## 10. Decisions taken 2026-10-25
 
 The three questions this section used to hold were put to the maintainer with the
 options measured, and all three were answered. Quoting the chosen option in each
