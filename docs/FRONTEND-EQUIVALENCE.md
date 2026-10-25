@@ -174,6 +174,35 @@ Input behavior is defined once and run everywhere:
 - A per-frontend test may drive a different interface, but it must not carry a
   second copy of the expectations.
 
+### 6.1 The commit unit is not a corpus dimension on TSF (decided 2026-10-25)
+
+The TSF tier-F1 corpus runs the **buffered** unit only. The unit axis is asserted
+where it is cheap and real:
+
+- tier A `engine-buffered-preedit` — the two units produce identical text, by
+  equality over the same key sequences;
+- fcitx5 D1 — one key sequence typed under both units, against one set of
+  `hunmin-sim --trace` expectations;
+- Android E1 — 116 cases on the buffered unit, the one Android ships.
+
+**Why not the corpus, measured rather than assumed.** A `PER_SYLLABLE` run of
+`tests/conformance/win32/prose.trace.in` through `tsf-trace-emit` fails at event
+3 (`expected "ㅂ", got "ㅊ"`), and the cause is structural: under that unit one
+consumed key both *ends* the composition with the finalised syllable and
+*immediately opens the next one* showing the syllable now in flight. By the time
+the emitter reads anything, `MockContext.compositionText` — and a document delta
+read the same way — describes the NEW composition, because the mock records the
+fused text on more than one channel when a close and an open land in one event.
+
+So the emitter cannot derive "what reached the document" from the fields the
+mock has, and a variant registered today would assert a mock artefact rather than
+the path. What would change this: one observation field on `MockContext` for the
+text a composition actually fused with (set where the mock handles
+`EndComposition`) -- recorded as a work item on issue #107, which owns the
+unmodelled mock surfaces. With that, both units derive correctly and the corpus can own
+the axis. Interim × both units stays in the sandbox lane (§7) for the same
+reason: a real client distinguishes what the mock conflates.
+
 ## 7. Live TSF tests
 
 Requirement: a live TSF run must not leave the worktree registered or otherwise
