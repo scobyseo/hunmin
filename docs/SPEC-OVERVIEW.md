@@ -181,35 +181,42 @@ except on the runner-side `abi` test.
 
 ## Child index — every requirement id and its parent
 
+Derived from `docs/REQ-MAP.md`, whose `parent` column `tools/req-map-check.py`
+enforces (a requirement with no parent, or an abstract requirement with no child,
+fails the build). This table is a rendered view, not a second home: change the
+map and rerun.
+
 | id | parent | id | parent |
 |---|---|---|---|
-| R1 | A9 | R2 | A9 |
-| R3 | A9 | R4 | A9 |
-| R5 | A9 | R6 | A9 |
-| R7 | A9 | R8 | A9 |
+| FE12 | A1 | TSF13 | A1 |
+| FE1 | A2 | FE2 | A2 |
+| TSF2 | A2 | FE3 | A2 |
+| FE6 | A2 | FE9 | A2 |
+| FE11 | A2 | TSF9 | A3 |
+| TSF10 | A3 | TSF11 | A3 |
+| TSF1 | A4 | TSF3 | A4 |
+| FE4 | A4 | TSF4 | A4 |
+| FE5 | A4 | TSF5 | A4 |
+| TSF6 | A5 | TSF12 | A5 |
+| TSF14 | A5 | TSF15 | A5 |
+| TSF16 | A5 | FE10 | A6 |
+| REL13 | A6 | TSF18 | A6 |
+| REL14 | A7 | TSF7 | A8 |
+| TSF8 | A8 | R1 | A9 |
+| R2 | A9 | R3 | A9 |
+| R4 | A9 | R5 | A9 |
+| R6 | A9 | FE7 | A9 |
+| R7 | A9 | R7-정정 | A9 |
+| R8 | A9 | R8-정정 | A9 |
 | R9 | A9 | R10 | A9 |
 | R11 | A9 | R12 | A9 |
-| R13 | A9 | R7-정정 | A9 |
-| R8-정정 | A9 | R13-정정 | A9 |
-| FE1 | A2 | FE2 | A2 |
-| FE3 | A2 | FE4 | A2 |
-| FE5 | A2 | FE6 | A2 |
-| FE7 | A9 | FE8 | A12 |
-| FE9 | A2 | FE10 | A6 |
-| FE11 | A2 | FE12 | A2 |
-| TSF1 | A4 | TSF2 | A2 |
-| TSF3 | A4 | TSF4 | A4 |
-| TSF5 | A4 | TSF6 | A5 |
-| TSF7 | A8 | TSF8 | A8 |
-| TSF9 | A3 | TSF10 | A3 |
-| TSF11 | A3 | TSF12 | A5 |
-| TSF13 | A1 | TSF14 | A5 |
-| TSF15 | A5 | TSF16 | A5 |
-| TSF17 | A11 | TSF18 | A6 |
+| FE13 | A9 | R13 | A9 |
+| R13-정정 | A9 | FE14 | A10 |
 | REL1 | A11 | REL2 | A11 |
 | REL3 | A11 | REL4 | A11 |
 | REL5 | A11 | REL6 | A11 |
 | REL7 | A11 | REL8 | A11 |
 | REL9 | A11 | REL10 | A11 |
 | REL11 | A11 | REL12 | A11 |
-| REL13 | A6 | | |
+| TSF17 | A11 | FE8 | A12 |
+| FE15 | A13 | | |

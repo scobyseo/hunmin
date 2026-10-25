@@ -64,14 +64,44 @@ common to all platform". *Implementation:*
 `libhunmin/include/hunmin.h#hunmin_ic_set_option`. *Refuted by:*
 `engine-key-rule`, `engine-buffered-preedit`.
 
-### FE7. Han/Eng maps to one abstract action
+### FE7. A platform key maps to the one abstract action
 
-Every frontend maps its own Han/Eng key to the engine's single language action
-instead of implementing the switch locally. *Ruling:*
-`docs/FRONTEND-EQUIVALENCE.md#§4`. *Implementation:*
+A frontend that owns a Han/Eng key maps it to the engine's single language
+action, and performs no switch of its own. *Ruling:* the maintainer's split,
+2026-10-25 — the requirement binds the platforms that own a key, and the platform
+that owns the trigger has the duty FE13 states. *Implementation:*
 `libhunmin/include/hunmin.h#hunmin_buffered_preedit_toggle_language`.
-*Refuted by:* `none` — **unmet**: the symbol exists and no frontend calls it
-(`docs/FRONTEND-EQUIVALENCE.md#§8`).
+*Refuted by:* `tsf-test` (`CandidateTest.ModeToggleIsABoundaryWithTheWindowOpen`),
+`tsf-test` (`TsfConfigTest.AdapterKeyDriveOverTheMockLayer`), tier E1's
+`the language action is the layer's, not the adapter's`. **Implemented** on the
+two frontends that own a key (TSF, Android); fcitx5 is FE13's case, not this
+one's.
+
+### FE13. Where the platform owns the trigger, the duty is the mapping
+
+A frontend whose host owns the language trigger does not implement the switch; it
+ensures that the language the host decides reaches the engine as the layout slot
+to use. *Ruling:* the maintainer's split, 2026-10-25. *Implementation:*
+`frontends/fcitx5/src/hunminadapter.cpp#HunminState` (the slot is chosen at
+`Activate`). *Refuted by:* `none` — the mapping is exercised by the fcitx5 tiers
+indirectly; no test asserts "the host's trigger reached the slot".
+
+### FE14. Data and its terms travel together
+
+A frontend distributes the data it needs with the terms that data is under, and
+records where generated tables came from. *Ruling:* `docs/SPEC-OVERVIEW.md#§A10`.
+*Implementation:* `libhunmin/data/krdict/LICENSE.md`,
+`tools/krdict2data.py` (writes the provenance `meta.json`). *Refuted by:* `none`
+— enforced by review; `docs-lint` checks that a quoted figure has a home, not
+that a licence file exists.
+
+### FE15. The frontend/library boundary is append-only
+
+A frontend built against one version of the library keeps working against later
+ones; adding capability never removes or redefines an exported symbol. *Ruling:*
+`docs/SPEC-OVERVIEW.md#§A13`. *Implementation:*
+`libhunmin/tests/abi/symbols.txt`. *Refuted by:* the `abi` test (runner-side;
+not registered on this Windows host, where the symbol diff is a review step).
 
 ### FE8. Text from outside the keyboard is not composed
 

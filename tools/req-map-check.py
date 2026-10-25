@@ -55,7 +55,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_MAP = "docs/REQ-MAP.md"
 
 COLUMNS = ("REQ", "requirement", "architecture", "design", "implementation",
-           "verified by", "status")
+           "verified by", "status", "parent")
 
 # `R8`, `R7-정정`, `4-7`, `4-3b`, `1.4` -- the section keys this repo's
 # requirement-bearing documents actually use. Kept as one regex because both
@@ -253,6 +253,35 @@ def map_rows(path: str) -> tuple[list[list[str]], list[str]]:
     return rows, problems
 
 
+
+def check_parents(rows: list[list[str]]) -> None:
+    """The requirement tree is only closed if the map says so (issue #136 ruling,
+    2026-10-25): every requirement id names one of A1-A13, and every A has at
+    least one child. Before this the tree was closed by a prose child index in
+    SPEC-OVERVIEW, and nothing failed when a new id arrived without a parent."""
+    known = {f"A{i}" for i in range(1, 14)}
+    children = {a: 0 for a in known}
+    for cells in rows:
+        cols = dict(zip(COLUMNS, cells[:-1]))
+        rid = cols["REQ"].strip()
+        parent = cols.get("parent", "").strip().strip("`")
+        if rid in known:
+            if parent not in ("-", "none", ""):
+                fail(rid, f"parent: an abstract requirement cannot have a parent (`{parent}`)")
+            continue
+        if parent not in known:
+            fail(rid, f"parent: `{parent or '(empty)'}` is not one of A1-A13 -- a "
+                      f"requirement with no abstract parent is a requirement nobody rooted")
+            continue
+        children[parent] += 1
+    childless = sorted(a for a, n in children.items() if n == 0)
+    if childless:
+        fail("tree", f"parent: {', '.join(childless)} name(s) no child requirement -- an "
+                     f"abstract requirement that nothing satisfies is the finding that file "
+                     f"exists to expose")
+
+
+
 def spec_requirement_ids() -> dict[str, list[str]]:
     """{spec file: [ids]} from each SPEC's own requirement section.
 
@@ -322,6 +351,7 @@ def main() -> int:
     else:
         print(f"note: {len(ids)} tests registered in {args.build_dir}")
 
+    check_parents(rows)
     seen: dict[str, str] = {}
     for cells in rows:
         line = cells[-1].rsplit(":", 1)[-1]

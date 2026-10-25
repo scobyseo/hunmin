@@ -135,6 +135,15 @@ that adds a test. *Ruling:* `AGENTS.md` time budgets.
 *Implementation:* `tools/ci-time-budget.sh`, `.github/workflows/ci.yml`.
 *Verified by:* `tools/ci-time-budget.sh` itself.
 
+### REL14. Work reaches the tree through an issue, and a decision is the maintainer's
+
+A change is proposed as an issue carrying its measurement, worked on a branch, and
+merged by pull request; an agent measures and reports, and records no verdict.
+*Ruling:* `AGENTS.md` §Working rules and §GitHub issue tracking.
+*Implementation:* `tools/orchestrate.sh`, `docs/ORCHESTRATION.md`.
+*Verified by:* `none` — a process requirement; what it buys is read from the
+record, not asserted by a test.
+
 ## Not requirements (recorded so they are not promoted by accident)
 
 These read like obligations and are measurements a tool derives:

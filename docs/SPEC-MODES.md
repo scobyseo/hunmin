@@ -541,8 +541,15 @@ only costs reproduction rate (§4-7a).
 > "짧은 단어에서 이런 변환이 일어나는 건 위험성이 크고, 단순 오타에 대한
 > 방어로도 좋지 않은 것 같아."
 
-Prohibiting automatic switching of words — this is a requirement. The numeric
-threshold is §2.E3.
+Prohibiting automatic switching of words — this is a requirement: short words
+are not switched.
+
+**The numeric threshold is not a requirement (ruled 2026-10-25).** §2.E3 is
+retired: a number here was calibrated against `hangul_valid` meaning "a word
+exists", and R8-정정 replaced that with a syllable-structure test, so the old
+number measured nothing that exists any more. What length counts as "short" is a
+design choice, made where the judgement is built and recorded there — this
+requirement says only that there is one.
 
 ## R10. Switching is not retroactive [D]
 Settled by the user. After judgement the new mode applies **from the next key
