@@ -312,45 +312,15 @@ nothing notices. That is the argument for §6.
 ## 6. Keeping this from going stale — **superseded by §7, kept because a retracted
 claim stays marked**
 
-The instruction was to propose a way to work without document inconsistency. The
-observation above says the inconsistency is mechanical: **a figure lives in prose and
-nothing checks it.** So the check should be mechanical too, and it should live next to
-`tools/doctor.py`, which already gates data.
+The proposals made here were, in order of value: do not write a figure into two
+places; distinguish a prediction from a status; re-verify at merge rather than
+at write; keep the "what remains" list honest about its own corrections. All
+four were implemented — `tools/docs-lint.py` exists and is ctest `docs-lint` —
+**and the board still went stale**, in a section none of those checks reads.
+§7 says why, and §7's assertion table is the guard that closes it.
 
-Proposed, in order of value per unit of work:
-
-1. **`tools/docs-lint.py`, registered in ctest** — assert the small set of facts that
-   prose cannot be trusted to hold: the ctest count, the trace count, the `abbreviations`
-   rule from `docs/GLOSSARY.md`, and that every `sources:` entry in the wiki resolves.
-   Each is a mechanical fact about the tree with exactly one right answer. Registering it
-   means a stale count fails a build instead of surviving until a reader notices.
-   *This is the one that would have caught most of §5.*
-
-2. **Do not write a figure into two places.** AGENTS.md already says this for
-   `docs/MODES-DATA.md` vs `wiki/raw/measurements/`, and the rule is sound — it just is not
-   applied to *counts*. Prefer "`ctest` is green" over a bare count, and when a
-   number matters, write the command that produces it.
-
-3. **Distinguish a prediction from a status.** §5's candidate line was a *prediction*
-   ("impossible until P3 adds candidates") that was true and outlived its subject. When a
-   document records something as conditional, mark it conditional in a way a reader can
-   check later — "until P3 adds candidates" should have been a link to the commit that
-   made it false.
-
-4. **Re-verify on the merge, not on the write.** Some of §5 arrived because two sessions
-   wrote about the same tree at different times (this session's own base moved twice
-   mid-task). A doc change that touches a count should be re-checked at merge
-   time, not authored from a stale checkout.
-
-5. **Keep the "what remains" list honest about corrections.** §5 exists because deleting
-   the wrong claim would destroy the evidence that the mistake happened — the same rule the
-   wiki already applies to retracted pages. A `REMAINING-WORK.md` that silently drops its
-   own history cannot be audited.
-
-**Why this section is superseded.** Items 1–5 were all implemented — `tools/docs-lint.py`
-exists and is ctest test `docs-lint` — **and the board still went stale**, in a document
-section none of those checks reads. §7 says why, and §7's assertion table is the guard
-that closes it. This section stays, marked, for the same reason §5 does.
+The proposals are not reproduced: their implementation is the tool, and the
+outcome is §7. What stays is that they were made and that they were not enough.
 
 ---
 

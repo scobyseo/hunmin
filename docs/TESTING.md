@@ -348,14 +348,10 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
 ## Tier B — ABI & data contracts 🤖
 
 - **ABI guard**: `libhunmin/tests/abi/symbols.txt` vs `nm --defined-only -g libhunmin.so`
-  (the path is under `libhunmin/`, not `tests/`); any removal/rename fails CI. There is
-  **no `make abi-accept` target** — the ABI is append-only and accepting it is a deliberate
-  act, so the procedure is to re-emit the symbol list by hand and commit it:
-  ```sh
-  nm --defined-only -g build/libhunmin.so | awk '{print $NF}' | grep '^hunmin_' | sort -u \
-    > libhunmin/tests/abi/symbols.txt
-  ```
-  The failing `abi` test prints this command, so CI hands it to whoever broke it.
+  (the path is under `libhunmin/`, not `tests/`); any removal/rename fails CI. The policy
+  and the exact re-emit command live in `AGENTS.md` §Hard rules and in
+  `libhunmin/include/hunmin.h` — not twice here — and the failing `abi` test prints the
+  command, so CI hands it to whoever broke it.
   Header compiles as C99/C11/C++17 `-Werror` on gcc/clang/**MSVC/MinGW/NDK-clang** matrix
   (portability is a tested claim, not a hope).
   ⚠️ Partly aspirational: CI builds the core on linux-gcc and mingw, and there is no
