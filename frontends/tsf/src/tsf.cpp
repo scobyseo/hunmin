@@ -17,7 +17,8 @@
 #include "displayattr.h" /* the provider forwards + DisplayAttr construction */
 #include "langbar.h" /* the tear-off language-bar item (S6) */
 #include "settings.h" /* ITfFunctionProvider branch + the apply bridge */
-#include "settingspath.h" /* the shared settings-exe resolver */
+#include "settingspath.h"
+#include "utf.h" /* HunminUtf8ToWide for the layer's commit text */ /* the shared settings-exe resolver */
 
 #include <cstdio>
 #include <cstring>
@@ -259,15 +260,18 @@ void CTextService::RebuildLayer() {
         preedit_ = nullptr;
     }
     if (ctx_) {
-        /* One language per layer: the mode toggle swaps hangul/latin ids, and
-         * the Han/Eng action is this adapter's own (issue #66), so the layer's
-         * toggle reports "not ours".
+        /* TWO languages, so the language action is the layer's (FE7): the layer
+         * holds both ids and switches between them, which is what lets TSF,
+         * fcitx5 and Android share one definition of a mode change. Until
+         * 2026-10-25 this passed `nullptr` for the latin slot and did the
+         * switch adapter-side, so the layer answered "not ours".
          *
          * The commit unit is the user's (issue #128, commitUnit_): "word" is the
          * default because TSF's native composition shows the whole word, and
          * "syllable" is the same text delivered earlier. */
         const int policy = (strcmp(commitUnit_, "syllable") == 0) ? HUNMIN_COMMIT_PER_SYLLABLE : HUNMIN_COMMIT_AT_BOUNDARY;
-        preedit_ = hunmin_buffered_preedit_new(ctx_, hangulMode_ ? hangulId_.c_str() : latinId_.c_str(), nullptr, policy);
+        preedit_ = hunmin_buffered_preedit_new(ctx_, hangulId_.c_str(), latinId_.c_str(), policy);
+        hangulMode_ = (hunmin_buffered_preedit_language(preedit_) == HUNMIN_LANGUAGE_HANGUL);
     }
 }
 
@@ -296,11 +300,21 @@ void CTextService::UpdateLangBarItem() {
 
 void CTextService::ToggleModeCore(ITfContext *pic) {
     cand_->Close();
-    BoundaryFlush(pic);
-    hangulMode_ = !hangulMode_;
+    /* The language action is the LAYER's (FE7): the boundary, the switch and
+     * the other layout's ic attach, in one place, so the three frontends cannot
+     * disagree about what a mode change is. The layer is the state afterwards --
+     * rebuilding it here would reset the mode to the configured default, which
+     * is why there is no RebuildLayer on this path. What stays adapter-side is
+     * what the layer cannot know: the candidate window closing above, and the
+     * host surfaces below. */
+    hunmin_key_result out;
+    const int switched = hunmin_buffered_preedit_toggle_language(preedit_, &out);
+    if (out.commit && out.commit[0])
+        InsertText(pic, HunminUtf8ToWide(out.commit));
+    if (switched)
+        hangulMode_ = (hunmin_buffered_preedit_language(preedit_) == HUNMIN_LANGUAGE_HANGUL);
     UpdateConversionCompartment();
     UpdateLangBarItem();
-    RebuildLayer();
     /* This gated line is the one evidence a mode boundary ran in this
      * host at all: the key path's own log line lives in its handler. */
     hunmin_logger.log("toggle core -> mode=%s ic=%p pic=%p\r\n", hangulMode_ ? "hangul" : "english", (void *)preedit_, (void *)pic);
