@@ -1,8 +1,17 @@
 # TEST-FRAMEWORK-OPTIONS — what a test-framework migration would cost, measured
 
-**Status: measurements only. No option is recommended, and none is ruled out.**
-Every section reports what a choice costs and what it would change.
-The choice is the maintainer's.
+**Status: DECIDED 2026-10-19 — option 1b (GoogleTest + gmock, fetched at
+configure time via FetchContent), shipped as issue #109.** The comparison below
+is the evidence for that ruling, kept as measured; the "no option is
+recommended" framing it was written under no longer applies, and the three
+rejected options stay so the cost of the choice is on the record.
+
+What the ruling bought, measured after it landed: llvm-mingw builds gtest+gmock
+in 4.3 s and MSVC Release in 19.9 s per fresh build tree; the URL fetch form
+fails TLS on this Windows host, so the `GIT_REPOSITORY` form is what runs (7.2 s
+cold). Tier F1's four runner entries merged into one executable at the same
+direction, taking the MSVC-tree registered count 59 → 56 and the option-1
+surface 13 → 10.
 
 Produced 2026-10-19 on `scobyseo/ci-test-framework-migration-google-test-gmock-wh`
 (base 5d4206d), Windows 11 host, llvm-mingw 20261006 msvcrt and VS 2022
@@ -221,7 +230,7 @@ matcher-level introspection on the COM mock's interaction records.
 | 3 Catch2/doctest | lighter, not measured | C++-only reach | same reach as 2 | migrates | 7 | not measured here |
 | 4 keep hand-rolled | none | unchanged | unchanged | unchanged | 0 | 0 |
 
-Under every option: `trace-check.py` and the `.trace.in` differential
+The chosen row is **1b**. Under every option: `trace-check.py` and the `.trace.in` differential
 contract stay; the 31 data-driven golden entries and the lint/schema gates
 are untouched; the registered-entry count cannot shrink below the 3 + 4 + 3
 code-driven entries listed in §1 (each hand-rolled binary maps to at least
