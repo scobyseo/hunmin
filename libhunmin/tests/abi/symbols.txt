@@ -1,6 +1,7 @@
 hunmin_abi_version
 hunmin_buffered_preedit_commit_policy
 hunmin_buffered_preedit_commit_word
+hunmin_buffered_preedit_delivered
 hunmin_buffered_preedit_display
 hunmin_buffered_preedit_free
 hunmin_buffered_preedit_language

@@ -228,6 +228,11 @@ const char *hunmin_buffered_preedit_display(hunmin_buffered_preedit *l) {
     return build_preedit(l);
 }
 
+const char *hunmin_buffered_preedit_delivered(const hunmin_buffered_preedit *l) {
+    if (!l || !l->commit_out) return "";
+    return l->commit_out;
+}
+
 void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
     if (!l || !l->ic) return;
     hunmin_ic_reset(l->ic);

@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <fcitx-utils/eventdispatcher.h>
 #include <fcitx-utils/key.h>
+#include <fcitx-config/rawconfig.h>
 #include <fcitx-utils/keysym.h>
 #include <fcitx-utils/log.h>
 #include <fcitx-utils/macros.h>
@@ -103,6 +104,45 @@ void scheduleEvent(Instance *instance) {
         press(uuid, Key("j"));
         press(uuid, Key("k"));
         press(uuid, Key("1"));
+        press(uuid, Key("space"), false);
+
+        // --- the input unit is the USER's choice (config PreeditMode, issue
+        // #128): both policies exist in the shared layer and are selectable,
+        // instead of one being baked into the adapter. Set through the addon's
+        // own config surface, which is the path a settings UI takes.
+        //
+        // The committed TEXT is identical under both policies; what differs is
+        // when it reaches the client -- so these two blocks type the same keys
+        // and assert different delivery points for the same string.
+        {
+            RawConfig raw;
+            raw.setValueByPath("HangulLayout", "sin3-p2");
+            raw.setValueByPath("LatinLayout", "us-qwerty");
+            raw.setValueByPath("PreeditMode", "syllable");
+            hunmin->setConfig(raw); // drops the in-flight composition
+        }
+        // syllable: the third key finalises 가 and delivers it immediately
+        testfrontend->call<ITestFrontend::pushCommitExpectation>("가");
+        press(uuid, Key("k"));
+        press(uuid, Key("f"));
+        press(uuid, Key("k"));
+        // ...and the boundary then delivers the ㅅ-less second syllable
+        testfrontend->call<ITestFrontend::pushCommitExpectation>("ㄱ");
+        press(uuid, Key("space"), false);
+
+        {
+            RawConfig raw;
+            raw.setValueByPath("HangulLayout", "sin3-p2");
+            raw.setValueByPath("LatinLayout", "us-qwerty");
+            raw.setValueByPath("PreeditMode", "word");
+            hunmin->setConfig(raw);
+        }
+        // word: nothing lands until the boundary, then the whole word in one
+        // insert -- the same two syllables, one commit
+        testfrontend->call<ITestFrontend::pushCommitExpectation>("가ㄱ");
+        press(uuid, Key("k"));
+        press(uuid, Key("f"));
+        press(uuid, Key("k"));
         press(uuid, Key("space"), false);
 
         instance->deactivate();

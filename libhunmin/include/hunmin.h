@@ -211,6 +211,12 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_commit_word(hunmin_buffered_pr
  * candidate window or a Hanja lookup asks between keys. Same lifetime rule as
  * above. */
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_display(hunmin_buffered_preedit *l);
+
+/* The text the LAST hunmin_buffered_preedit_* call delivered for the client,
+ * "" when nothing. It is the out.commit field of that call, kept readable so a
+ * binding that cannot return a struct through its own ABI (JNI: the Android
+ * adapter) reads the same answer a C frontend gets. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_delivered(const hunmin_buffered_preedit *l);
 HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
 HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);
 

@@ -97,6 +97,12 @@ the word buffer and the boundary rule:
 - `HUNMIN_COMMIT_AT_BOUNDARY` holds finalised syllables and delivers the word at
   the boundary; `HUNMIN_COMMIT_PER_SYLLABLE` delivers each one as the engine
   finalises it. Same text, different delivery point.
+- **Both are selectable per user, not baked in** (2026-10-25): fcitx5 exposes the
+  choice as its `PreeditMode` option (`word`/`syllable`, `frontends/fcitx5/src/config.h`).
+  The policy is part of a live layer's identity -- switching it rebuilds the layer
+  the same way a layout change does -- and a D1 case types one key sequence under
+  both policies to show the units differ while the text does not. Android and TSF
+  take the same choice from their own settings when they are migrated.
 - `hunmin_buffered_preedit_toggle_language()` is the Han/Eng action (§4): one abstract event,
   and it is a boundary in both directions.
 - `hunmin_buffered_preedit_peek_key()` is the read-only prediction a platform "test" phase
