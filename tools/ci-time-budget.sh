@@ -4,7 +4,7 @@
 # ci-time-budget.sh -- measure the local suite against the CI job's budget,
 # and say plainly where local and CI cannot agree.
 #
-# WHY THIS EXISTS. The linux job's ceiling is 5 minutes
+# WHY THIS EXISTS. The linux job's ceiling is 3 minutes
 # (.github/workflows/ci.yml), and the inner loop and slow tiers have their own
 # budgets (AGENTS.md / docs/TESTING.md). A budget nobody measures locally is a
 # budget discovered by a red CI run, and a red CI run costs a CI debug cycle --

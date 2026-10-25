@@ -161,8 +161,13 @@ def main() -> int:
     # down: docs/FRONTEND-CONTRACT.md used to carry exact per-file LOC counts,
     # which rotted on every commit that added a line and were never checked.
     # Counting code lines (comments and blanks excluded) rather than raw lines
-    # keeps the budget about logic, and 400 leaves room for the F9/candidate
-    # presentation P3 will add without the rule needing re-litigating.
+    # keeps the budget about logic.
+    #
+    # The number is the MAINTAINER'S ruling (2026-10-25, "~700 is okay"), and it
+    # is enforced here at the value the documents state. This gate used to
+    # enforce 560 while AGENTS.md, PLAN.md and docs/TESTING.md all said ~700 --
+    # a reader tuning a file to the doc was 140 lines inside the real limit, and
+    # nothing said so. One number, one home (AGENTS.md), enforced.
     # Every file the adapter owns is counted, not just hunminadapter.{h,cpp}.
     #
     # Two moves forced this. language_detect.* is the R8 detector's own translation
@@ -198,9 +203,9 @@ def main() -> int:
         counted += n
         parts[name] = n
     check("I8 frontend stays inside the thin-adapter budget",
-          counted <= 560,
+          counted <= 700,
           f"{counted} code LOC across " + ", ".join(f"{k}={v}" for k, v in parts.items())
-          + " (limit 560)")
+          + " (limit 700)")
 
     # I11 -- the layout picker's list comes from the core, and the picker keeps
     # it. AGENTS.md rule 1 ("layouts are data, never code") holds at the UI
