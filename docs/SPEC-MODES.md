@@ -136,7 +136,7 @@ and delivered identically in fcitx5, Android, and (planned) Windows. Two
 frontends must never answer differently on the same word.
 
 **The owner and the mechanism are not requirements — they are a design
-decision.** The current implementation is an *adaptor*: `frontends/fcitx5/src/modeswitch.*`
+decision.** The current implementation is an *adaptor*: `frontends/fcitx5/src/language_detect.*`
 keeps a shadow `hunmin_ctx` on the Latin layout and replays the buffered word
 at the judgement boundary. An engine-owned variant is the alternative. Both
 satisfy the requirement above. Which one wins is recorded in the R8

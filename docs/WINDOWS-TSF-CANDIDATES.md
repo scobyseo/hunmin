@@ -10,7 +10,7 @@ The candidate lookup is engine-owned and already existed before this
 milestone (P3): `hunmin_suggest_count/text/detail/kind` over the three tables
 in `libhunmin/data/` — `hanja/` (single syllable → ordered candidates),
 `krdict/` (words, 국립국어원 한국어기초사전-derived) and `idioms/`. Lookup is
-by the whole Hangul word, never per character (`libhunmin/src/suggest.c`,
+by the whole Hangul word, never per character (`libhunmin/src/candidate_tables.c`,
 `hunmin.h` "Hanja candidates (P3)").
 
 Measured against the shipped tables (2026-10-17, scratch probe over

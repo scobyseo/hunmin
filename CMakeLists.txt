@@ -12,7 +12,7 @@ if(MSVC)
     # Every .c/.h in the tree is UTF-8 (measured 2026-10-17, `file` over all
     # sources: UTF-8 or pure ASCII, no CP949 file). Without /utf-8 MSVC decodes
     # them as CP949, which turns the UTF-8 test literals into unpairable bytes:
-    # C2001 "newline in constant" cascades (suggest-test.c:48,
+    # C2001 "newline in constant" cascades (candidate-tables-test.cpp:48,
     # commit-text-test.c:89). /utf-8 fixes BOTH charsets — source AND execution
     # — so narrow literals stay byte-correct against the UTF-8 data files.
     add_compile_options(/std:c11 /W4 /utf-8)
@@ -55,7 +55,7 @@ set(HUNMIN_CORE_SOURCES
   libhunmin/src/expr.c
   libhunmin/src/ic.c
   libhunmin/src/buffered_preedit.c
-  libhunmin/src/suggest.c
+  libhunmin/src/candidate_tables.c
   third_party/cJSON/cJSON.c)
 
 add_library(hunmin SHARED ${HUNMIN_CORE_SOURCES})
@@ -239,11 +239,11 @@ if(BUILD_TESTING AND Python3_FOUND)
   set_tests_properties(expr-vectors PROPERTIES LABELS "tier-A")
   # Tier A for the P3 candidate API. Runs against libhunmin/data via
   # HUNMIN_DATA_PATH so it exercises the shipped tables, not a copy.
-  add_executable(suggest-test libhunmin/tests/suggest-test.cpp)
-  target_link_libraries(suggest-test PRIVATE hunmin GTest::gtest_main)
-  target_link_options(suggest-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
-  add_test(NAME engine-suggest COMMAND suggest-test)
-  set_tests_properties(engine-suggest PROPERTIES
+  add_executable(candidate-tables-test libhunmin/tests/candidate-tables-test.cpp)
+  target_link_libraries(candidate-tables-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(candidate-tables-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
+  add_test(NAME engine-candidates COMMAND candidate-tables-test)
+  set_tests_properties(engine-candidates PROPERTIES
     LABELS "tier-A"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
@@ -256,7 +256,7 @@ if(BUILD_TESTING AND Python3_FOUND)
   target_include_directories(commit-text-test PRIVATE libhunmin/include libhunmin/src third_party/cJSON)
   target_sources(commit-text-test PRIVATE
     libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/schema_loader.c
-    libhunmin/src/expr.c libhunmin/src/ic.c libhunmin/src/suggest.c
+    libhunmin/src/expr.c libhunmin/src/ic.c libhunmin/src/candidate_tables.c
     third_party/cJSON/cJSON.c)
   add_test(NAME engine-commit-text COMMAND commit-text-test)
   set_tests_properties(engine-commit-text PROPERTIES

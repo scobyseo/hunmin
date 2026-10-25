@@ -345,7 +345,7 @@ void CTextService::InsertBufferedWord(ITfContext *pic) {
 /* One composition-boundary drain shared by the declined key path and the
  * mode toggle (issue #66): the in-flight syllable is flushed into the
  * buffered word, and the whole word is inserted exactly once before the
- * boundary key (or mode switch) proceeds. */
+ * boundary key (or language toggle) proceeds. */
 /* The engine's in-flight syllable appended to the buffered word. Shared by
  * the boundary drain, the deactivation drain and the composition detach. */
 void CTextService::FlushEngineIntoWordbuf() {

@@ -4,7 +4,7 @@ Status: **open.** Approved 2026-09-26; reopened 2026-10-05. Engine core license:
 LGPL-2.1+. Working name `hunmin`.
 
 The date on the original approval is not the date of this plan's content. A
-requirement stated on 2026-10-03 — automatic hangul/latin mode switching, no IM
+requirement stated on 2026-10-03 — automatic hangul/latin switching, no IM
 change — was written up thoroughly in `docs/SPEC-MODES.md` and **never added
 here**, so this file read as complete for a requirement that did not exist when
 it was approved. It is now **P8**, near the bottom because it is unstarted, not
@@ -302,7 +302,7 @@ frontend gets it.
 - **P7** distribution: Debian ITP (archive precedent: fcitx5-unikey/varnam/quwei/keyman
   engine-wrapper addons), external-contributor docs, optional later fcitx5-android plugin
   port of the same addon (unscheduled).
-- **P8 ⏳** hangul/latin automatic mode switching — **the requirement, and the only
+- **P8 ⏳** hangul/latin automatic switching — **the requirement, and the only
   phase with no implementation at all.** Stated by the maintainer 2026-10-03:
   type English while in Hangul mode and the mode changes; switching must be
   **without changing IM** ("IM 변경 없이 동작 모드로 한글<->영어 변경이 되는 게 굉장히

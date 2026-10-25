@@ -170,7 +170,7 @@ process regardless of PATH or file placement.
                 |                                                |
                 |  engine (libhunmin, linked statically)         |
                 |    version.c tables.c schema_loader.c expr.c            |
-                |    ic.c suggest.c + third_party/cJSON          |
+                |    ic.c candidate_tables.c + third_party/cJSON          |
                 +------------------------------------------------+
                   deps (dumpbin -DEPENDENTS, measured):
                   ole32 user32 shlwapi gdi32 advapi32 kernel32

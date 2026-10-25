@@ -119,7 +119,7 @@ verification that covers it:
   confirmed `#106B21`, white keycaps), the night set the dark slate the HUD
   always had. Because F1 already routed every HUD surface through the
   `hunmin_hud_*` token names — the dialogs, the capture UI, the
-  CompactTheme cache, the dialog drawable — the mode switch needed no code
+  CompactTheme cache, the dialog drawable — the language toggle needed no code
   change beyond the two resource files: every HUD element follows
   automatically, which is the "common to other UI elements" the ruling
   asked for. Measured: every pair AA in both palettes (day: on-panel

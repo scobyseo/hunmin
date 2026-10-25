@@ -12,7 +12,7 @@ the Hunmin profile with Win+Space first.
 | 3 | Press Return | `安寧` appears once; no leftover Hangul; popup gone |
 | 4 | Type `dkssud`, the Hanja key, press `2` | the second sense's text commits once (same hanja, the meaning differs in the krdict list) |
 | 5 | Type `dkssud`, the Hanja key, press Esc, type `d` | popup closes, typing continues (the preedit keeps the word), nothing inserted |
-| 6 | Type `dkssud`, the Hanja key, press the Han/Eng key | popup closes, the buffered `안녕` inserts once, mode switches to English |
+| 6 | Type `dkssud`, the Hanja key, press the Han/Eng key | popup closes, the buffered `안녕` inserts once, language switches to English |
 | 7 | Type `rkrkrk` (`가가가` — zero candidates), press the Hanja key | no popup (zero candidates); both phases of the key behave like a pass-through |
 | 8 | Type `rk` (`가`, hanja-table fallback list), the Hanja key, PageDown | the popup pages by 10 rows; digits pick from the page |
 | 9 | Popup in WordPad (rich edit control) after changing font size | popup face/size follows the edit control's selection font |

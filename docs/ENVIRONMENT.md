@@ -508,7 +508,7 @@ and commits `dkssud ` → `녕` against `libhunmin/data`; the inner ctest loop
 (`ctest -j16 -LE slow -LE mutation`) measured **51/52 passed, 1 failed** —
 the failure is `data-selfcheck` (tier-B), which the maintainer states **fails
 by nature on this host** (the converter-vs-committed-data divergence is the
-host's baseline, not a milestone-A regression). `engine-suggest` and
+host's baseline, not a milestone-A regression). `engine-candidates` and
 `engine-commit-text` were reported `Not Run` by the same run and did not
 execute here.
 

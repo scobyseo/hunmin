@@ -71,7 +71,7 @@ and so on. The shape is Android's `KeyBinding.kt` ported to Windows vocabulary
   keyboard whose physical 한/영 key does nothing"): `Activate()` appends the
   bare `VK_HANGEUL` whenever the stored list does not carry it.
 - A toggle is a composition boundary (Jamotong manual §9.5; the Android adapter
-  commits at the mode switch): the pending syllable is flushed and the buffered
+  commits at the language toggle): the pending syllable is flushed and the buffered
   word inserted exactly once before the engine is rebuilt with the other slot's
   layout.
 - Auto-repeat is keydown with lParam bit 30 (preceding-down) set: the press

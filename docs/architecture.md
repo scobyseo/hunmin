@@ -20,7 +20,7 @@ Status: **shape + contract reference only** — no design verdict, no implementa
 - **Frontend owned**: key mapping, preedit/candidate display, per-IM settings, on/off *surface* (R13) — the engine owns the state, the frontend exposes it.
 - **None owned in the core**: anything that differs between frontends (adaptation of the same rule to different event spaces) belongs in the frontend, not `libhunmin`.
 
-## 3. The modeswitch question (R8) — design, now decided
+## 3. The language-detection question (R8) — design, now decided
 
 Requirement (SPEC-MODES.md): a single judgement rule, owned by one component,
 delivered identically in fcitx5, Android, and (planned) Windows. Two virtual

@@ -12,7 +12,7 @@
  * renders the list unconditionally, so an out-of-range index must not crash it.
  *
  * GoogleTest form (issue #109, option 1b): one original section = one TEST_F
- * case, and the executable is still ONE ctest entry (engine-suggest), because
+ * case, and the executable is still ONE ctest entry (engine-candidates), because
  * registration shape -- not the framework -- is what the 30 s inner-loop
  * budget is sensitive to (docs/TEST-FRAMEWORK-OPTIONS.md §2).
  */

@@ -228,7 +228,7 @@ public:
      * language bar installs onto the item at AddItem. */
     void UpdateLangBarItem();
 
-    /* The mode-switch core (issue #103): flip, conversion compartment,
+    /* The language-toggle core (issue #103): flip, conversion compartment,
      * langbar notification, the composition-boundary flush, and the ic
      * rebuild with the other slot's layout, in one place. */
     void ToggleModeCore(ITfContext *pic);

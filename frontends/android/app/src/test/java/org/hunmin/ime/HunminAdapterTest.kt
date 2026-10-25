@@ -338,7 +338,7 @@ class HunminAdapterTest {
 
     @Test
     fun `a flush during composition commits it instead of dropping it`() {
-        // Bug 1's core. The service flushes on a mode switch; if flush did not
+        // Bug 1's core. The service flushes on a language toggle; if flush did not
         // commit what was composing, the typed syllable would be lost exactly
         // as the user reported. flush() must also clear the preedit, or the
         // stale composition stays on screen over the committed text.

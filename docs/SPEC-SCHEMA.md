@@ -71,13 +71,13 @@ Three separate schemas, each `{"version":…,"schema":"hunmin.<name>/…","entri
 its own directory; merging them would drag CC-BY-SA 2.0 KR (`krdict`) under the LGPL
 parts of the project.
 
-Consumed by `hunmin_suggest_count()` and friends (`libhunmin/src/suggest.c`), which
+Consumed by `hunmin_suggest_count()` and friends (`libhunmin/src/candidate_tables.c`), which
 binary-searches each table. **The sort order of every file is therefore load-bearing:**
 it must be sorted by the field the engine searches — `entries` key for `hanja`, `ko`
 for `krdict`, `reading` for `idioms`, all in UTF-8 byte order. `idioms` was first
 generated sorted by `hanja`, which left every idiom lookup silently missing until a
 tier-A test caught it. Each converter now sorts by its own search key and the
-ordering is asserted by `libhunmin/tests/suggest-test.c`.
+ordering is asserted by `libhunmin/tests/candidate-tables-test.cpp`.
 
 Candidate order returned to a caller: idioms, then words, then bare syllable
 candidates. Glossed senses therefore lead a lookup. `krdict` is not length-gated —
@@ -111,7 +111,7 @@ plus an English gloss and a conservative usage tag from Unihan 18.0.0:
   /`学` are missed (Korea uses them in personal names) rather than mislabelled.
   A wrong tag is worse than a missing one.
 
-`load_hanja` (`libhunmin/src/suggest.c`) builds `detail` as `"ko | en [tag]"`,
+`load_hanja` (`libhunmin/src/candidate_tables.c`) builds `detail` as `"ko | en [tag]"`,
 dropping empty halves and the bar, so a frontend renders it verbatim with no new
 ABI symbol. The candidate `entries` key is still the sort key and upstream
 frequency order is unchanged. Coverage (top-64 window): 39% Korean gloss,

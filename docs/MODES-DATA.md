@@ -739,7 +739,7 @@ in the hangul/latin mode research, which is what §4-7's hangul numbers were.
    *reached* using krdict, the conclusion must be re-derived without it or held
    open. §4-7c is the one place where that had not happened.
 
-**What is unaffected — the hanja path.** `libhunmin/src/suggest.c`,
+**What is unaffected — the hanja path.** `libhunmin/src/candidate_tables.c`,
 `tools/krdict2data.py`, `tools/fetch-krdict.sh`, `docs/SPEC-SCHEMA.md`'s Hanja
 files section and the deb packaging of `libhunmin/data/krdict/` are the hanja
 conversion feature and are **outside this boundary**. They are not "uses of

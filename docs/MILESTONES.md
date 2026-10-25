@@ -16,7 +16,7 @@ places"). Item ids (B1–B9, §2's items, W/N rows) are cited, never restated.
 |---|---|
 | 0.1 | fcitx5 + Android first edition |
 | 0.2 | Windows TSF frontend (P6) |
-| 0.3 | 자동 한/영 전환 (the modeswitch feature, R8/E5) |
+| 0.3 | 자동 한/영 전환 (the language detection feature, R8/E5) |
 | 0.4 | 소프트 키보드 — 두벌식 + QWERTY + 기호 입력 |
 | 1.0 | after a usage-polish pass |
 
@@ -47,7 +47,7 @@ B9 — so what is left on it is the measurement list further down and whatever
   to the maintainer: whether `local.properties` is the permanent canonical
   keystore, and whether the throwaway-key fallback stays.
 - ~~**B3** — ON or OFF by default.~~ **DECIDED 2026-10-11: OFF by default until
-  0.3**, so the modeswitch feature and everything `REMAINING-WORK.md` §2 holds
+  0.3**, so the language detection feature and everything `REMAINING-WORK.md` §2 holds
   hostage to B1 leave the 0.1 lane. The ruling and the separate-data-package
   direction are in `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`.
 - ~~**B4** — the 한/영 key (E5). Voice-input stage 2 (Right Alt + Enter

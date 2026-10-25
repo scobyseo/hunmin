@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What R8's mode switch would cost and recover: sin3-p2 alone vs + qwerty.
+"""What R8's language switch would cost and recover: sin3-p2 alone vs + qwerty.
 
 WHY THIS REPLACES THE OBVIOUS COMPARISON
 -----------------------------------------
@@ -19,7 +19,7 @@ things that actually decide the design:
 
   2. COST. There is no API to change an input context's layout after
      hunmin_ic_new() -- `ic->L` is fixed at construction and hunmin_ic_set_option
-     takes only caps/w/W/z/h/H. So a mode switch means destroying and rebuilding
+     takes only caps/w/W/z/h/H. So a language switch means destroying and rebuilding
      the context. This measures what that would lose: the composing buffer and
      the flag overrides.
 

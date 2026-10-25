@@ -32,7 +32,7 @@ relied on.
    correction.** The pair sits at `libhunmin/tests/commit-text-test.c:23-38`
    (16 lines including the `static int failures` counter), not 22-33. Three C
    executables carry 63 assertion sites total: 28 in commit-text-test.c,
-   11 in process-key-test.c, 24 in suggest-test.c.
+   11 in process-key-test.c, 24 in candidate-tables-test.cpp.
 3. **"mock-tsf.h, ~643 lines" — corrected: 658 lines** at base 5d4206d. The
    tier-F1 C++ surface is also wider than the issue's framing (mock + trace
    runner): five files totalling about 2,390 lines, of which the mock is 658

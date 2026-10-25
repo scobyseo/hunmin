@@ -367,7 +367,7 @@ def check_wiki_index_count() -> None:
 # a malformed row, an unknown kind, a missing assertion for a listed item,
 # or an assertion block that disappeared are all errors. This check was
 # observed rejecting a deliberately planted stale row (M1's `path-absent`
-# row for the modeswitch test, which now exists) before being committed,
+# row for the language-detection test, which now exists) before being committed,
 # and rejecting a row whose kind was misspelled.
 #
 # WHAT THIS CHECK REFUSES TO DO

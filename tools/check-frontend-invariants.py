@@ -138,7 +138,7 @@ def main() -> int:
     # presentation P3 will add without the rule needing re-litigating.
     # Every file the adapter owns is counted, not just hunminadapter.{h,cpp}.
     #
-    # Two moves forced this. modeswitch.* is the R8 adapter's own translation
+    # Two moves forced this. language_detect.* is the R8 detector's own translation
     # unit; config.h holds HunminConfig and came out of hunminadapter.h when the
     # adapter needed the room. Counting hunminadapter.{h,cpp} alone would have made
     # the config.h move look like a 23-line saving when it is a relocation --

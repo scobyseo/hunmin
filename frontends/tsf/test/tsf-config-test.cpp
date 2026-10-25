@@ -226,7 +226,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     svc->OnKeyDown(mctx, 'R', 0, &eaten);
     /* dubeolsik 'r' = U+3131 (ㄱ); escapes, not literals: MSVC reads this
      * TU under the ANSI codepage and a UTF-8 literal is a C2001 (the same
-     * failure suggest-test.c had when the baseline branch was measured). */
+     * failure candidate-tables-test.cpp had when the baseline branch was measured). */
     EXPECT_EQ(eaten, TRUE) << "dubeolsik 'r' keydown not consumed";
     EXPECT_STREQ(hunmin_ic_preedit(Snap(svc).ic), "\xE3\x84\xB1") << "dubeolsik 'r' -> preedit";
 

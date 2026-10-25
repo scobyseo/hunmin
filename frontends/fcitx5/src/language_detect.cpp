@@ -29,7 +29,7 @@ std::string LanguageDetector::judge(const std::string &latinLayout, size_t minLe
      * w/W/z/h/H override across the boundary. ~3 us, so correctness wins. */
     hunmin_ic *shadow = hunmin_ic_new(ctx_, latinLayout.c_str());
     if (!shadow) {
-        FCITX_ERROR() << "hunmin: modeswitch: no such layout: " << latinLayout;
+        FCITX_ERROR() << "hunmin: language_detect: no such layout: " << latinLayout;
         word_.clear();
         return out;
     }

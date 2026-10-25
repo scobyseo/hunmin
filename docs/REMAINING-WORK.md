@@ -445,7 +445,7 @@ The design properties that make it a guard rather than a comment:
   version of the board produced `rc=1` with exactly the missing-block error, because the
   board carried no assertions at all. Planting a deliberately stale row
   (`path-absent frontends/fcitx5/test/testlanguagedetect.cpp | absent` — false since
-  the mode-switch test was added) produces the per-row error naming the file, the
+  the language-detection test was added) produces the per-row error naming the file, the
   line and the evidence. A guard never seen rejecting anything is a comment.
 - **It refuses a `run` kind.** "Is the R8 shrinker path exercised" and "has a BT-keyboard
   device been signed off" are facts about a *signed release build on an emulator* and a

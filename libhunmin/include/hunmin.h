@@ -204,7 +204,7 @@ HUNMIN_EXPORT int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l
 HUNMIN_EXPORT int hunmin_buffered_preedit_peek_key(const hunmin_buffered_preedit *l, uint32_t base, uint32_t shift);
 
 /* Commit the buffered word and the in-flight syllable now (focus loss, a
- * mode switch, an edit key). Returns the text to insert, "" if none. */
+ * language toggle, an edit key). Returns the text to insert, "" if none. */
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_commit_word(hunmin_buffered_preedit *l);
 HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
 HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);

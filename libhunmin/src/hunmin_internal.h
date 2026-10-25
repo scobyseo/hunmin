@@ -113,7 +113,7 @@ uint32_t hm_shifted_of(uint32_t base);
  * split into "" and "/a". The rule is positional -- a ':' right after the
  * token's first character when that character is an ASCII letter and the next
  * char is '/' or '\\' is kept, every other ':' separates. Used by both
- * hm_data_load (schema_loader.c) and the suggest layer's resolve_dirs (suggest.c);
+ * hm_data_load (schema_loader.c) and the candidate layer's resolve_dirs (candidate_tables.c);
  * the recorded ctx->data_dir rejoins with ':' and re-parses consistently.
  * Returns the number of dirs (0..max); buffer must be writable and is NUL-
  * terminated in place. */

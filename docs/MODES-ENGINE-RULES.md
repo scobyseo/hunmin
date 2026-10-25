@@ -38,7 +38,7 @@ The romaja layout does not use the composition buffer at all, so which one is al
 unknown to ic — contamination risk.
 
 Therefore **the mode lives in `hunmin_ctx`, and one ctx is one session.** Layout switching is
-judged by the engine as a mode switch and reported via preedit/commit. The frontend keeps supplying
+judged by the engine as a language switch and reported via preedit/commit. The frontend keeps supplying
 only the layout id. Only one composition buffer exists — this structure is the premise of Plan B.
 
 - The API is append-only. Existing symbols are not touched.
