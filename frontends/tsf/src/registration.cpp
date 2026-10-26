@@ -13,8 +13,8 @@
 
 #include "ids.h"
 #include "registrationseam.h" /* the outside-world seam (issue #107) */
-#include "settingspath.h"     /* the shared settings-exe resolver */
-#include "tsf.h"              /* CTextService */
+#include "settingspath.h" /* the shared settings-exe resolver */
+#include "tsf.h" /* CTextService */
 
 #include <cwchar>
 #include <msctf.h>
@@ -32,9 +32,7 @@ extern "C" HINSTANCE g_hunmin_hinst; /* owned by dllmain.cpp */
  * the platform call, so production behaviour is the same sequence of the same
  * calls; tier F1 installs doubles and drives THIS code (registrationseam.h). */
 
-static HRESULT SeamCoCreate(REFCLSID rclsid, REFIID riid, void **ppv) {
-    return CoCreateInstance(rclsid, nullptr, CLSCTX_INPROC_SERVER, riid, ppv);
-}
+static HRESULT SeamCoCreate(REFCLSID rclsid, REFIID riid, void **ppv) { return CoCreateInstance(rclsid, nullptr, CLSCTX_INPROC_SERVER, riid, ppv); }
 
 static LONG SeamCreateKey(HKEY root, const wchar_t *path, HKEY *out) {
     return RegCreateKeyExW(root, path, 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, out, nullptr);
@@ -60,15 +58,13 @@ static HRESULT SeamProgramsFolder(wchar_t *out, DWORD cap) {
     return hr;
 }
 
-static const HunminRegSeam kPlatformSeam = {SeamCoCreate,   SeamCreateKey,   SeamOpenKey,     SeamSetValue,
-                                            SeamCloseKey,   SeamDeleteTree,  SeamProgramsFolder};
+static const HunminRegSeam kPlatformSeam = {SeamCoCreate, SeamCreateKey, SeamOpenKey, SeamSetValue, SeamCloseKey, SeamDeleteTree, SeamProgramsFolder};
 
 static const HunminRegSeam *g_regSeam = nullptr;
 
 const HunminRegSeam *hunmin_tsf_regseam() { return g_regSeam ? g_regSeam : &kPlatformSeam; }
 
 void hunmin_tsf_regseam_install(const HunminRegSeam *seam) { g_regSeam = seam; }
-
 
 /* --- registration helpers (S4: this block becomes its own TU) ---
  * One helper per registration artifact, so DllRegisterServer reads as the
