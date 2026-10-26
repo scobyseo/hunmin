@@ -56,6 +56,26 @@ function Resolve-Installer {
 
 $setup = Resolve-Installer $Installer
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+
+function Wait-SandboxIdle {
+    # A second Windows Sandbox launch fails ("duplicated instance") while the
+    # previous one is still tearing down, and the guest's own `shutdown /t 5`
+    # finishes AFTER done.txt lands. Wait for the workers to go, then give the
+    # service ~10 s before the next launch (measured: back-to-back launches
+    # produced an empty out folder and no guest at all).
+    param([int]$TimeoutSec = 120)
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        $alive = @(Get-Process -Name WindowsSandbox, vmmemWindowsSandbox -ErrorAction SilentlyContinue)
+        if ($alive.Count -eq 0) { break }
+        Start-Sleep -Seconds 2
+    }
+    $alive = @(Get-Process -Name WindowsSandbox, vmmemWindowsSandbox -ErrorAction SilentlyContinue)
+    if ($alive.Count -gt 0) { Write-Host "warning: a sandbox worker is still alive; the next launch may fail" }
+    Start-Sleep -Seconds 10
+}
+
+Wait-SandboxIdle
 $run = Join-Path $repo "build-tsf-sandbox\edge-$stamp"
 $kit = Join-Path $run 'kit'
 $out = Join-Path $run 'out'

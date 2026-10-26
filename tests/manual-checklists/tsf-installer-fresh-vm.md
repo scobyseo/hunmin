@@ -223,7 +223,7 @@ document text must be exactly `안녕 `.
 |---|---|---|---|
 | Notepad | dev host, installed image | `안녕 ` | `applied hangul=dubeolsik`, six `consumed` rows, one `composition start`, one `composition end` at the space, no `interim:` row |
 | Edge | dev host, installed image | `안녕 ` | same shape |
-| Edge | Windows Sandbox, installer | `안녕 ` (dubeolsik) / `ㅎ곈디 ` (sin3-p2, the store default) | 3 of 5 rounds native; 2 flipped (below); 4 of 5 texts correct |
+| Edge | Windows Sandbox, installer | `안녕 ` (dubeolsik) / `ㅎ곈디 ` (sin3-p2, the store default) | 10 rounds: 8 native, 2 flipped (below), 9 of 10 texts correct |
 
 Reproduce the rows (the dev-host driver sets the store layout for the round and
 restores it afterwards; the sandbox driver installs the mapped package, the ruled
@@ -240,10 +240,23 @@ delivery path is readable from the same run as the text.
 
 ### The finding: a mid-word flip on Chromium loses the word
 
-Two Edge rounds on the dev host typed within a second of the window taking the
-foreground and both lost the in-flight word; the same round with a settle of 3 s
-or 5 s is native and green. The trace of the failure (run dir
-`build-tsf-devhost/edge-20261026-162444`):
+On the dev host's Edge, typing within a second of the window taking the
+foreground terminates the composition mid-word (`OnCompositionTerminated ...
+self=0`), the runtime detector takes the interim path, and on Chromium the
+interim writes report `doclen=0 focused=0` — the control it resolved has neither
+text nor focus — so the chained syllables never reach the document:
+
+| settle after the window is foreground | rounds | texts read back |
+|---|---|---|
+| 0 s | 4 | `아 `, `안 `, `안녀 `, `안 ` — all short of the engine's `안녕 ` |
+| 1 s | 2 | `안녕 ` |
+| 2 s | 2 | `안녕 ` |
+| 3 s | 1 | `안녕 ` |
+| 5 s | 1 | `안녕 ` |
+
+The trigger is therefore host timing, and the threshold sits between 0 s and 1 s
+(it is not measured inside that interval). The trace of a lost round
+(`build-tsf-devhost/edge-20261026-180953`):
 
 ```text
  consumed, display len=1 preedit=아
@@ -254,26 +267,29 @@ interim: span now 1 chars at 0 (caret=0 doclen=0 focused=1)
 interim: span now 1 chars at 1 (caret=0 doclen=0 focused=0)
 ```
 
-The document kept `아 ` where the engine produced `안녕 `. Two things are
-measured here and they are separable:
+Two things are separable here: the flip is #119's designed fallback and is
+measured healthy on the probe hosts (RICHEDIT50W, plain EDIT — the word composes
+across keys after it), while on Chromium its writes land nowhere. A flip at the
+boundary key is harmless by comparison: `install-20261026-161908` flips at the
+space and the final text is still correct.
 
-1. **The trigger is host timing, not layout.** The same image, keys and layout
-   are green once the first key lands ~3 s after the window is foreground, and
-   red when it lands immediately (2 of 2). The interval between 0 s and 3 s is
-   not measured. One sandbox round shows the same signature without a timing
-   change of ours (`install-20261026-161448`: termination after key 1, text `ㅎ `
-   where the layout produces `ㅎ곈디 `), so the trigger is not only our driver.
-2. **The consequence is the interim path's, on Chromium.** The flip is #119's
-   designed fallback, and on the probe hosts (RICHEDIT50W, plain EDIT) the word
-   then composes across keys. Here the interim writes report `doclen=0
-   focused=0` — the control it resolved has neither text nor focus — so the
-   chained syllables never reach the document. A flip at the boundary key is
-   harmless by comparison: `install-20261026-161908` flips at the space and the
-   final text is still correct.
+**In the sandbox the same signature occurred once in ten rounds and did not
+recur.** `install-20261026-161448` terminated after key 1 and kept `ㅎ ` where the
+layout produces `ㅎ곈디 `; nine repeats of that configuration (same installer,
+same keys, same early typing) then took the native path with the correct text.
+So the reproducible half is the dev-host timing above; the sandbox instance is a
+single measurement, consistent with the same mechanism, that repetition did not
+reach.
 
 Reproduce the failure:
 `python3 tools/tsf-devhost-round.py --host edge --layout dubeolsik --keys 'dkssud '
 --expect '안녕 ' --settle 0`.
+
+Consecutive sandbox rounds need a pause: a second `WindowsSandbox.exe` launch
+inside the previous instance's teardown fails as a duplicated instance and yields
+an empty out folder with no guest at all (measured: `install-20261026-180452`
+after `...180417` completed with no pause between them). `tools/tsf-edge-round.ps1` waits for the sandbox workers to exit and
+then ~10 s before it launches.
 
 Not measured by these rounds: any modern host other than Notepad and Edge; the
 candidate-window row on a modern host (the Hanja key is still exercised only on
