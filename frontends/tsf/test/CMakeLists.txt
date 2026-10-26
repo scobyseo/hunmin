@@ -93,6 +93,7 @@ endif()
 add_executable(tsf-test tsf-test.cpp
     tsf-config-test.cpp tsf-settings-test.cpp tsf-candidate-test.cpp
     tsf-langbaritem-test.cpp tsf-datadir-test.cpp tsf-legacy-test.cpp
+    tsf-registration-test.cpp tsf-session-test.cpp mock-tsf-registration.cpp
     ../src/tsf.cpp ../src/ids.cpp ../src/registration.cpp
     ../src/delivery.cpp ../src/candidates.cpp
     ../src/langbar.cpp ../src/displayattr.cpp ../src/datadir.cpp

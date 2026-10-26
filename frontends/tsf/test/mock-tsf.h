@@ -420,6 +420,144 @@ private:
     MockContext *top_;
 };
 
+// ---- Session doubles (issue #107): the surfaces the adapter reaches through
+// the thread manager once it has one. Activate() writes the conversion
+// compartment and attaches the language-bar item, and Deactivate() is expected
+// to undo both; before these doubles every one of those calls answered
+// E_NOINTERFACE and the paths ran unobserved.
+class MockCompartmentMgr;
+
+// One SetValue on a compartment: what the adapter asked the host to publish.
+struct CompartmentWrite {
+    GUID guid;
+    VARTYPE vt;
+    LONG value;
+};
+
+// ITfCompartment: the per-thread state the language bar reads (the 中/英
+// badge). Every SetValue lands in the MANAGER's list: the compartment object is
+// released before the assertion runs (a real GetCompartment hands back an owned
+// object, and the adapter releases it).
+class MockCompartment : public ITfCompartment, public RefCount {
+public:
+    MockCompartment(MockCompartmentMgr *mgr, REFGUID guid) : mgr_(mgr), guid_(guid) {}
+    STDMETHOD(SetValue)(TfClientId tid, const VARIANT *pvarValue) override; /* out-of-line */
+    STDMETHOD(GetValue)(VARIANT *pvarValue) override {
+        if (!pvarValue)
+            return E_INVALIDARG;
+        *pvarValue = last_;
+        return S_OK;
+    }
+
+    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+        if (!ppv)
+            return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfCompartment)) {
+            *ppv = static_cast<ITfCompartment *>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    STDMETHOD_(ULONG, AddRef)() override { return RefCount::AddRef(); }
+    STDMETHOD_(ULONG, Release)() override { return RefCount::Release(); }
+
+private:
+    ~MockCompartment() = default;
+    MockCompartmentMgr *mgr_;
+    GUID guid_;
+    VARIANT last_ = {};
+};
+
+// ITfCompartmentMgr: GetCompartment answers the conversion compartment the
+// adapter writes at Activate / every mode toggle / ApplyConfigStore.
+class MockCompartmentMgr : public ITfCompartmentMgr, public RefCount {
+public:
+    // present = FALSE models a host with no such compartment -- the adapter's
+    // "conversion compartment GONE" branch.
+    bool present = true;
+    std::vector<CompartmentWrite> writes;
+    std::vector<GUID> asked; // every GetCompartment guid, in order
+
+    STDMETHOD(GetCompartment)(REFGUID rguid, ITfCompartment **ppcomp) override;
+    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+        if (!ppv)
+            return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfCompartmentMgr)) {
+            *ppv = static_cast<ITfCompartmentMgr *>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    STDMETHOD_(ULONG, AddRef)() override { return RefCount::AddRef(); }
+    STDMETHOD_(ULONG, Release)() override { return RefCount::Release(); }
+
+    TSF_MOCK_STUB(ClearCompartment, TfClientId tid, REFGUID rguid)
+    TSF_MOCK_STUB(EnumCompartments, IEnumGUID **ppEnum)
+
+private:
+    friend class MockThreadMgr; /* holds these by value */
+    ~MockCompartmentMgr() = default;
+};
+
+// ITfLangBarItemMgr: what LangBarItem::Attach()/Detach() call. addItemHr models
+// the MEASURED host fact from issue #67 -- on this host AddItem answered
+// 0x80004005 (E_FAIL) for any new item, whatever the item's own shape, so the
+// item never reached the bar. The contract's answer is S_OK; the quirk is opted
+// into by a test that says so, never the default.
+class MockLangBarItemMgr : public ITfLangBarItemMgr, public RefCount {
+public:
+    HRESULT addItemHr = S_OK;
+    // Pointers only: a live language bar holds its own reference, and the item
+    // belongs to the service here. Identity, order and count are what the
+    // assertions read.
+    std::vector<ITfLangBarItem *> added;
+    std::vector<ITfLangBarItem *> removed;
+
+    STDMETHOD(AddItem)(ITfLangBarItem *punk) override {
+        if (FAILED(addItemHr))
+            return addItemHr;
+        added.push_back(punk);
+        return S_OK;
+    }
+    STDMETHOD(RemoveItem)(ITfLangBarItem *punk) override {
+        removed.push_back(punk);
+        return S_OK;
+    }
+
+    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
+        if (!ppv)
+            return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfLangBarItemMgr)) {
+            *ppv = static_cast<ITfLangBarItemMgr *>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    STDMETHOD_(ULONG, AddRef)() override { return RefCount::AddRef(); }
+    STDMETHOD_(ULONG, Release)() override { return RefCount::Release(); }
+
+    TSF_MOCK_STUB(EnumItems, IEnumTfLangBarItems **ppEnum)
+    TSF_MOCK_STUB(GetItem, REFGUID rguid, ITfLangBarItem **ppItem)
+    TSF_MOCK_STUB(AdviseItemSink, ITfLangBarItemSink *punk, DWORD *pdwCookie, REFGUID rguidItem)
+    TSF_MOCK_STUB(UnadviseItemSink, DWORD dwCookie)
+    TSF_MOCK_STUB(GetItemFloatingRect, DWORD dwThreadId, REFGUID rguid, RECT *prc)
+    TSF_MOCK_STUB(GetItemsStatus, ULONG ulCount, const GUID *prgguid, DWORD *pdwStatus)
+    TSF_MOCK_STUB(GetItemNum, ULONG *pulCount)
+    TSF_MOCK_STUB(GetItems, ULONG ulCount, ITfLangBarItem **ppItem, TF_LANGBARITEMINFO *pInfo, DWORD *pdwStatus, ULONG *pcFetched)
+    TSF_MOCK_STUB(AdviseItemsSink, ULONG ulCount, ITfLangBarItemSink **ppunk, const GUID *pguidItem, DWORD *pdwCookie)
+    TSF_MOCK_STUB(UnadviseItemsSink, ULONG ulCount, DWORD *pdwCookie)
+
+private:
+    friend class MockThreadMgr; /* holds these by value */
+    ~MockLangBarItemMgr() = default;
+};
+
 // One object answering for ITfThreadMgr + ITfSource + ITfKeystrokeMgr, the
 // three identities the adapter QIs out of it during Activate/Deactivate.
 class MockThreadMgr : public ITfThreadMgr, public ITfSource, public ITfKeystrokeMgr, public RefCount {
@@ -427,6 +565,22 @@ public:
     ITfKeyEventSink *keySink = nullptr;
     BOOL keySinkForeground = FALSE;
     DWORD adviseCookie = 0;
+
+    /* Issue #107: both advice registrations, recorded per call, so
+     * the advise/unadvise pairing is an observation and not a claim. */
+    struct KeySinkAdvice {
+        TfClientId tid;
+        ITfKeyEventSink *sink;
+        BOOL foreground;
+    };
+    std::vector<KeySinkAdvice> keySinkAdvises;
+    std::vector<TfClientId> keySinkUnadvises;
+    std::vector<DWORD> eventSinkAdvises;
+    std::vector<DWORD> eventSinkUnadvises;
+
+    /* The session doubles the adapter reaches through QI (issue #107). */
+    MockCompartmentMgr compartmentMgr;
+    MockLangBarItemMgr langBarMgr;
 
     STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
         if (!ppv)
@@ -437,7 +591,21 @@ public:
             *ppv = static_cast<ITfSource *>(this);
         else if (IsEqualIID(riid, IID_ITfKeystrokeMgr))
             *ppv = static_cast<ITfKeystrokeMgr *>(this);
-        else {
+        else if (IsEqualIID(riid, IID_ITfCompartmentMgr)) {
+            /* The member doubles are EMBEDDED, not heap objects: their own
+             * AddRef/Release pair is what the caller owns, so the ref must
+             * move on the member. Adding this object's ref instead made the
+             * adapter's Release() drop the member's count to 0 and free a
+             * subobject of this one (measured: STATUS_HEAP_CORRUPTION,
+             * 0xC0000374, in the first config case that activated). */
+            *ppv = static_cast<ITfCompartmentMgr *>(&compartmentMgr);
+            compartmentMgr.AddRef();
+            return S_OK;
+        } else if (IsEqualIID(riid, IID_ITfLangBarItemMgr)) {
+            *ppv = static_cast<ITfLangBarItemMgr *>(&langBarMgr);
+            langBarMgr.AddRef();
+            return S_OK;
+        } else {
             *ppv = nullptr;
             return E_NOINTERFACE;
         }
@@ -454,21 +622,32 @@ public:
         eventSink_ = punk;
         if (pdwCookie)
             *pdwCookie = ++adviseCookie;
+        eventSinkAdvises.push_back(adviseCookie);
         return S_OK;
     }
     STDMETHOD(UnadviseSink)(DWORD dwCookie) override {
-        (void)dwCookie;
+        eventSinkUnadvises.push_back(dwCookie);
+        /* A cookie the manager never handed out is refused, as the real
+         * ITfSource::UnadviseSink does -- so a test that reads this list
+         * cannot mistake a stale cookie for a working unadvise. */
+        if (adviseCookie == 0 || dwCookie != adviseCookie)
+            return E_INVALIDARG;
         eventSink_ = nullptr;
+        adviseCookie = 0;
         return S_OK;
     }
+    /* ITfKeystrokeMgr::AdviseKeyEventSink has no cookie: the pairing is
+     * (tid, sink), which is what the list records. */
     STDMETHOD(AdviseKeyEventSink)(TfClientId tid, ITfKeyEventSink *pSink, BOOL fForeground) override {
-        (void)tid;
         keySink = pSink;
         keySinkForeground = fForeground;
+        keySinkAdvises.push_back(KeySinkAdvice{tid, pSink, fForeground});
         return S_OK;
     }
     STDMETHOD(UnadviseKeyEventSink)(TfClientId tid) override {
-        (void)tid;
+        keySinkUnadvises.push_back(tid);
+        if (!keySink)
+            return E_INVALIDARG;
         keySink = nullptr;
         return S_OK;
     }
@@ -619,6 +798,33 @@ inline HRESULT MockProperty::GetType(GUID *pguid) {
     if (!pguid)
         return E_INVALIDARG;
     *pguid = GUID_PROP_ATTRIBUTE;
+    return S_OK;
+}
+
+// ---- Out-of-line bodies for the session doubles (issue #107): they touch a
+// complete MockCompartmentMgr, the shape MockRange::SetText already uses.
+inline HRESULT MockCompartmentMgr::GetCompartment(REFGUID rguid, ITfCompartment **ppcomp) {
+    if (!ppcomp)
+        return E_INVALIDARG;
+    asked.push_back(rguid);
+    if (!present) {
+        *ppcomp = nullptr;
+        return E_FAIL;
+    }
+    *ppcomp = new MockCompartment(this, rguid);
+    return S_OK;
+}
+
+inline HRESULT MockCompartment::SetValue(TfClientId tid, const VARIANT *pvarValue) {
+    (void)tid;
+    if (!pvarValue)
+        return E_INVALIDARG;
+    last_ = *pvarValue;
+    CompartmentWrite w;
+    w.guid = guid_;
+    w.vt = pvarValue->vt;
+    w.value = pvarValue->vt == VT_I4 ? pvarValue->lVal : 0;
+    mgr_->writes.push_back(w);
     return S_OK;
 }
 
