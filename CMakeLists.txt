@@ -812,19 +812,28 @@ if(BUILD_TESTING)
                       "forwarded keys and D3 will not observe pass-through keys")
     endif()
     message(STATUS "D3: XIM harness links ${D3_IMDKIT_SO}")
+    # Tier D3: one gtest executable, five registered case groups selected
+    # with --gtest_filter. The shell runner stays in tests/e2e/run-d3.sh;
+    # this wrapper reports through gtest so the fcitx5 tier fits the same
+    # one-binary / one-add_test shape as the engine and TSF tiers
+    # (issue #118).
+    add_executable(testfcitx5d3 frontends/fcitx5/test/testfcitx5d3.cpp)
+    target_link_libraries(testfcitx5d3 PRIVATE GTest::gtest_main)
     add_test(NAME engine-d3-x11
-      COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
-              $<TARGET_FILE:hunmin-sim>
-              ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
-              $<TARGET_FILE:xim-harness>
-              ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
-              ${CMAKE_BINARY_DIR}/fcitx5-addon
-              ${CMAKE_CURRENT_BINARY_DIR}/frontends/fcitx5/src/hunmin.conf
-              ${CMAKE_CURRENT_BINARY_DIR}/frontends/fcitx5/src/hunmin-addon.conf
-              ${CMAKE_CURRENT_SOURCE_DIR}
-              ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases.tsv
-              ${d3_addon_dir}
-              ${d3_pkgdata_dir})
+      COMMAND testfcitx5d3
+              --mode x11
+              --run-d3 ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
+              --sim $<TARGET_FILE:hunmin-sim>
+              --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+              --harness $<TARGET_FILE:xim-harness>
+              --typer ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
+              --addon-dir ${CMAKE_BINARY_DIR}/fcitx5-addon
+              --im-conf ${CMAKE_CURRENT_BINARY_DIR}/frontends/fcitx5/src/hunmin.conf
+              --addon-conf ${CMAKE_CURRENT_BINARY_DIR}/frontends/fcitx5/src/hunmin-addon.conf
+              --src ${CMAKE_CURRENT_SOURCE_DIR}
+              --cases ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases.tsv
+              --sys-addon-dir ${d3_addon_dir}
+              --sys-pkgdatadir ${d3_pkgdata_dir})
     set_tests_properties(engine-d3-x11 PROPERTIES
       LABELS "tier-D3;slow"
       SKIP_RETURN_CODE 77 TIMEOUT 300)
@@ -847,23 +856,25 @@ if(BUILD_TESTING)
     #
     # Skips rc 77 when the GTK runtime, the fcitx5 IM module or (for GTK 4)
     # xdotool is missing; none of them need sudo to install and this host has
-    # no sudo. run-d3.sh does the probing.
+    # no sudo. The gtest wrapper probes these before gtest runs and exits
+    # 77 directly.
     foreach(gtkver 3 4)
       add_test(NAME engine-d3-gtk${gtkver}
-        COMMAND ${CMAKE_COMMAND} -E env HUNMIN_D3_CLIENT=gtk
-                HUNMIN_GTK=${gtkver}.0
-                bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
-                $<TARGET_FILE:hunmin-sim>
-                ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/gtk-harness.py
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
-                ${CMAKE_BINARY_DIR}/fcitx5-addon
-                ${CMAKE_BINARY_DIR}/frontends/fcitx5/src/hunmin.conf
-                ${CMAKE_BINARY_DIR}/frontends/fcitx5/src/hunmin-addon.conf
-                ${CMAKE_CURRENT_SOURCE_DIR}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases.tsv
-                ${d3_addon_dir}
-                ${d3_pkgdata_dir})
+        COMMAND testfcitx5d3
+                --mode gtk${gtkver}
+                --gtk-ver ${gtkver}.0
+                --run-d3 ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
+                --sim $<TARGET_FILE:hunmin-sim>
+                --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+                --harness ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/gtk-harness.py
+                --typer ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
+                --addon-dir ${CMAKE_BINARY_DIR}/fcitx5-addon
+                --im-conf ${CMAKE_CURRENT_BINARY_DIR}/frontends/fcitx5/src/hunmin.conf
+                --addon-conf ${CMAKE_CURRENT_BINARY_DIR}/frontends/fcitx5/src/hunmin-addon.conf
+                --src ${CMAKE_CURRENT_SOURCE_DIR}
+                --cases ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases.tsv
+                --sys-addon-dir ${d3_addon_dir}
+                --sys-pkgdatadir ${d3_pkgdata_dir})
       set_tests_properties(engine-d3-gtk${gtkver} PROPERTIES
         LABELS "tier-D3;slow"
         SKIP_RETURN_CODE 77 TIMEOUT 300)
@@ -872,20 +883,21 @@ if(BUILD_TESTING)
     # separate so a failure is diagnosed by its scenario, not mixed into the
     # ordinary D3 cases.
     add_test(NAME engine-d3-edit
-      COMMAND ${CMAKE_COMMAND} -E env HUNMIN_D3_CLIENT=xim
-              HUNMIN_D3_EDIT_CASES=${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases-edit.tsv
-              bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
-              $<TARGET_FILE:hunmin-sim>
-              ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
-              $<TARGET_FILE:xim-harness>
-              ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
-              ${CMAKE_BINARY_DIR}/fcitx5-addon
-              ${CMAKE_BINARY_DIR}/frontends/fcitx5/src/hunmin.conf
-              ${CMAKE_BINARY_DIR}/frontends/fcitx5/src/hunmin-addon.conf
-              ${CMAKE_CURRENT_SOURCE_DIR}
-              ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases.tsv
-              ${d3_addon_dir}
-              ${d3_pkgdata_dir})
+      COMMAND testfcitx5d3
+              --mode edit
+              --edit-cases ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases-edit.tsv
+              --run-d3 ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
+              --sim $<TARGET_FILE:hunmin-sim>
+              --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+              --harness $<TARGET_FILE:xim-harness>
+              --typer ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
+              --addon-dir ${CMAKE_BINARY_DIR}/fcitx5-addon
+              --im-conf ${CMAKE_CURRENT_BINARY_DIR}/frontends/fcitx5/src/hunmin.conf
+              --addon-conf ${CMAKE_CURRENT_BINARY_DIR}/frontends/fcitx5/src/hunmin-addon.conf
+              --src ${CMAKE_CURRENT_SOURCE_DIR}
+              --cases ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases.tsv
+              --sys-addon-dir ${d3_addon_dir}
+              --sys-pkgdatadir ${d3_pkgdata_dir})
     set_tests_properties(engine-d3-edit PROPERTIES
       LABELS "tier-D3;slow"
       SKIP_RETURN_CODE 77 TIMEOUT 300)
@@ -903,19 +915,20 @@ if(BUILD_TESTING)
     # probing inside run-d3.sh, same DISPLAY reservation, so it cannot
     # collide with a concurrent engine-d3-x11 run.
     add_test(NAME engine-d3-candidate
-      COMMAND ${CMAKE_COMMAND} -E env HUNMIN_D3_CLIENT=candidate
-              bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
-              $<TARGET_FILE:hunmin-sim>
-              ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
-              $<TARGET_FILE:xim-harness>
-              ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
-              ${CMAKE_BINARY_DIR}/fcitx5-addon
-              ${CMAKE_BINARY_DIR}/frontends/fcitx5/src/hunmin.conf
-              ${CMAKE_BINARY_DIR}/frontends/fcitx5/src/hunmin-addon.conf
-              ${CMAKE_CURRENT_SOURCE_DIR}
-              ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases-candidate.tsv
-              ${d3_addon_dir}
-              ${d3_pkgdata_dir})
+      COMMAND testfcitx5d3
+              --mode candidate
+              --run-d3 ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
+              --sim $<TARGET_FILE:hunmin-sim>
+              --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+              --harness $<TARGET_FILE:xim-harness>
+              --typer ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
+              --addon-dir ${CMAKE_BINARY_DIR}/fcitx5-addon
+              --im-conf ${CMAKE_CURRENT_BINARY_DIR}/frontends/fcitx5/src/hunmin.conf
+              --addon-conf ${CMAKE_CURRENT_BINARY_DIR}/frontends/fcitx5/src/hunmin-addon.conf
+              --src ${CMAKE_CURRENT_SOURCE_DIR}
+              --cases ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases-candidate.tsv
+              --sys-addon-dir ${d3_addon_dir}
+              --sys-pkgdatadir ${d3_pkgdata_dir})
     set_tests_properties(engine-d3-candidate PROPERTIES
       LABELS "tier-D3;slow"
       SKIP_RETURN_CODE 77 TIMEOUT 300)

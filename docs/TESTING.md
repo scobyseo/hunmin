@@ -507,7 +507,7 @@ Four layers, cheap→real:
   *below* X (XKB → fcitx5 XIM → addon → libhunmin → client buffer) is real.
   Test bodies = golden sequences from Tier A, expectations computed at run time by
   `hunmin-sim --trace` so tier A stays the single source of truth → expected COMMIT lines.
-  Runner: `tests/e2e/run-d3.sh` (ctest `engine-d3-x11`, skips rc 77 without Xvfb/fcitx5).
+  Runner: `testfcitx5d3` wrapping `tests/e2e/run-d3.sh` (ctest `engine-d3-x11`, skips rc 77 without Xvfb/fcitx5).
   ✅ Status: **green** (2026-10-03). All three cases pass and the full `ctest`
   suite passes (ctest is green with `-DHUNMIN_TRACE_BUILD=ON`,
   up from 140 at the P5 merge, which added
