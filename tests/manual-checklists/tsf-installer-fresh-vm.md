@@ -281,6 +281,8 @@ So the reproducible half is the dev-host timing above; the sandbox instance is a
 single measurement, consistent with the same mechanism, that repetition did not
 reach.
 
+Tracked as issue #144 (measurement only; no fix attempted here).
+
 Reproduce the failure:
 `python3 tools/tsf-devhost-round.py --host edge --layout dubeolsik --keys 'dkssud '
 --expect '안녕 ' --settle 0`.
@@ -294,5 +296,7 @@ then ~10 s before it launches.
 Not measured by these rounds: any modern host other than Notepad and Edge; the
 candidate-window row on a modern host (the Hanja key is still exercised only on
 classic hosts); the installer's own rows, which the 2026-10-20 rounds above
-carry. `docs/REMAINING-WORK.md` is untouched here on purpose — parallel sessions
-patch that board, so the row for this measurement lands after the merge.
+carry. `docs/REMAINING-WORK.md` carries the assertion rows for this measurement
+(item `TSF-MODERNHOST-126`) and for the flip below (`TSF-CHROMIUM-FLIP-144`);
+the board is a shared file, so those rows were added at the close, after the
+measurements were done, rather than while rounds were still running.
