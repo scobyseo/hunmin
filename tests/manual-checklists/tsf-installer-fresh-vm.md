@@ -197,3 +197,106 @@ on classic hosts, where the source is always empty per the finding above) —
 and, pending the maintainer's ruling on that finding, the classic-host
 (rows 2-8 on `EDIT`/`RICHEDIT50W`) story entirely: they are where the
 native-TSF-only shape is measured broken.
+
+## The modern-host row of issue #119, measured (issue #126, 2026-10-26)
+
+Issue #126 asks for the one row of #119's verification checklist that no ctest
+covers: *"modern hosts unchanged: Notepad (dev host) and Edge (sandbox round)
+compose with no double delivery"*. Measured on the dev host (Windows 11
+10.0.26300) from branch `scobyseo/windows-119s-modern-host-no-double-delivery-row`
+at `e73cf57`.
+
+The machine's install was stale before the round:
+`C:\Program Files\Hunmin IME\hunmin-tsf.dll` was the 2026-10-24 09:32 package,
+which predates the #128 shared-layer commits (`81cb3f8`, `66a446c`, `1430ab7`,
+`7c007a6`, `8b8a2f9`, all 2026-10-25). The rounds ran this branch's image: the
+dev-host rounds on a hash-verified swap into the installed path
+(`sha256 9227b54d...`), the sandbox rounds on `hunmin-0.2.0-setup.exe` built by
+`tools/build-windows-installer.sh` from the same tree.
+
+The oracle for each row is the engine driven directly, never a hand-written
+string: `./build-mingw/hunmin-sim.exe --data libhunmin/data --layout dubeolsik
+--keys 'dkssud '` commits `안` then `녕` and passes the space through, so the
+document text must be exactly `안녕 `.
+
+| host | vehicle | text read back | delivery trace |
+|---|---|---|---|
+| Notepad | dev host, installed image | `안녕 ` | `applied hangul=dubeolsik`, six `consumed` rows, one `composition start`, one `composition end` at the space, no `interim:` row |
+| Edge | dev host, installed image | `안녕 ` | same shape |
+| Edge | Windows Sandbox, installer | `안녕 ` (dubeolsik) / `ㅎ곈디 ` (sin3-p2, the store default) | 10 rounds: 8 native, 2 flipped (below), 9 of 10 texts correct |
+
+Reproduce the rows (the dev-host driver sets the store layout for the round and
+restores it afterwards; the sandbox driver installs the mapped package, the ruled
+vehicle for a sandbox round):
+
+```sh
+python3 tools/tsf-devhost-round.py --host notepad --layout dubeolsik --keys 'dkssud ' --expect '안녕 '
+python3 tools/tsf-devhost-round.py --host edge    --layout dubeolsik --keys 'dkssud ' --expect '안녕 '
+powershell -File tools/tsf-edge-round.ps1 -Keys 'dkssud ' -Expect '안녕 ' -Layout dubeolsik
+```
+
+The run dir each driver prints carries `result.json` plus the TIP log, so the
+delivery path is readable from the same run as the text.
+
+### The finding: a mid-word flip on Chromium loses the word
+
+On the dev host's Edge, typing within a second of the window taking the
+foreground terminates the composition mid-word (`OnCompositionTerminated ...
+self=0`), the runtime detector takes the interim path, and on Chromium the
+interim writes report `doclen=0 focused=0` — the control it resolved has neither
+text nor focus — so the chained syllables never reach the document:
+
+| settle after the window is foreground | rounds | texts read back |
+|---|---|---|
+| 0 s | 4 | `아 `, `안 `, `안녀 `, `안 ` — all short of the engine's `안녕 ` |
+| 1 s | 2 | `안녕 ` |
+| 2 s | 2 | `안녕 ` |
+| 3 s | 1 | `안녕 ` |
+| 5 s | 1 | `안녕 ` |
+
+The trigger is therefore host timing, and the threshold sits between 0 s and 1 s
+(it is not measured inside that interval). The trace of a lost round
+(`build-tsf-devhost/edge-20261026-180953`):
+
+```text
+ consumed, display len=1 preedit=아
+OnCompositionTerminated comp=000001F724523380 display=1 self=0
+legacy detection: mid-word host termination (compText=1 display=1) -> interim path
+interim: control hwnd=00000000001C0546
+interim: span now 1 chars at 0 (caret=0 doclen=0 focused=1)
+interim: span now 1 chars at 1 (caret=0 doclen=0 focused=0)
+```
+
+Two things are separable here: the flip is #119's designed fallback and is
+measured healthy on the probe hosts (RICHEDIT50W, plain EDIT — the word composes
+across keys after it), while on Chromium its writes land nowhere. A flip at the
+boundary key is harmless by comparison: `install-20261026-161908` flips at the
+space and the final text is still correct.
+
+**In the sandbox the same signature occurred once in ten rounds and did not
+recur.** `install-20261026-161448` terminated after key 1 and kept `ㅎ ` where the
+layout produces `ㅎ곈디 `; nine repeats of that configuration (same installer,
+same keys, same early typing) then took the native path with the correct text.
+So the reproducible half is the dev-host timing above; the sandbox instance is a
+single measurement, consistent with the same mechanism, that repetition did not
+reach.
+
+Tracked as issue #144 (measurement only; no fix attempted here).
+
+Reproduce the failure:
+`python3 tools/tsf-devhost-round.py --host edge --layout dubeolsik --keys 'dkssud '
+--expect '안녕 ' --settle 0`.
+
+Consecutive sandbox rounds need a pause: a second `WindowsSandbox.exe` launch
+inside the previous instance's teardown fails as a duplicated instance and yields
+an empty out folder with no guest at all (measured: `install-20261026-180452`
+after `...180417` completed with no pause between them). `tools/tsf-edge-round.ps1` waits for the sandbox workers to exit and
+then ~10 s before it launches.
+
+Not measured by these rounds: any modern host other than Notepad and Edge; the
+candidate-window row on a modern host (the Hanja key is still exercised only on
+classic hosts); the installer's own rows, which the 2026-10-20 rounds above
+carry. `docs/REMAINING-WORK.md` carries the assertion rows for this measurement
+(item `TSF-MODERNHOST-126`) and for the flip below (`TSF-CHROMIUM-FLIP-144`);
+the board is a shared file, so those rows were added at the close, after the
+measurements were done, rather than while rounds were still running.
