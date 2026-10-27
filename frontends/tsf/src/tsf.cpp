@@ -322,7 +322,7 @@ void CTextService::ToggleModeCore(ITfContext *pic) {
 
 /* The two TSF advice registrations Activate needs: the thread-manager event
  * sink and the key-event sink. Both belong to the live session; Deactivate's
- * UnadviseSinks() undoes the key half. */
+ * UnadviseSinks() withdraws both (issue #145). */
 void CTextService::AdviseSinks() {
     if (!threadMgr_)
         return;
@@ -346,14 +346,37 @@ void CTextService::AdviseSinks() {
     }
 }
 
+/* The undo of AdviseSinks(): both registrations, and nothing else. The
+ * thread-manager REFERENCE is dropped separately (ReleaseThreadMgr) because
+ * Deactivate still needs a live manager after the advice comes off -- the
+ * language-bar item is removed through it. */
 void CTextService::UnadviseSinks() {
     if (!threadMgr_)
         return;
+    /* The event sink first. A cookie of 0 means AdviseSink was refused (or
+     * never ran), and ITfSource::UnadviseSink would answer E_INVALIDARG for
+     * it, so the registration is only undone when it was actually made. */
+    if (sinkCookie_) {
+        ITfSource *src = nullptr;
+        if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfSource, (void **)&src)) && src) {
+            const HRESULT uhr = src->UnadviseSink(sinkCookie_);
+            hunmin_logger.log("Unadvise threadmgr event sink cookie=%lu hr=0x%lX\n", (unsigned long)sinkCookie_, (unsigned long)uhr);
+            src->Release();
+        }
+        sinkCookie_ = 0;
+    }
     ITfKeystrokeMgr *pks = nullptr;
     if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfKeystrokeMgr, (void **)&pks)) && pks) {
         pks->UnadviseKeyEventSink(clientId_);
         pks->Release();
     }
+}
+
+/* The release half, so that Deactivate's teardown can keep using the manager
+ * between unadvising and letting go of it (issue #145). */
+void CTextService::ReleaseThreadMgr() {
+    if (!threadMgr_)
+        return;
     threadMgr_->Release();
     threadMgr_ = nullptr;
 }
@@ -405,6 +428,10 @@ STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
 }
 
 STDMETHODIMP CTextService::Deactivate() {
+    /* The advice comes off first, so no new event reaches a session that is
+     * tearing down. The manager REFERENCE outlives it (ReleaseThreadMgr at
+     * the end): the language-bar item is removed through that same manager
+     * below, and a manager that is already gone cannot remove it. */
     UnadviseSinks();
     /* A live composition (issue #98) is finalised in its own context
      * first: the composed word stays there as committed text and the
@@ -415,9 +442,10 @@ STDMETHODIMP CTextService::Deactivate() {
     if (lastCtx_)
         InsertBufferedWord(lastCtx_); /* commits nothing when the word is empty */
     cand_->Close();
-    /* Remove the language-bar item. NOTE (recorded defect, not changed
-     * here): UnadviseSinks() above has already nulled threadMgr_, so this
-     * call is a no-op today - the same ordering the block had inline. */
+    /* Remove the language-bar item while the manager is still alive
+     * (issue #145: this used to run after UnadviseSinks() had nulled it,
+     * which made the call a no-op and left the bar holding an item whose
+     * service had gone). */
     langbar_->Detach(threadMgr_);
     if (preedit_) {
         hunmin_buffered_preedit_free(preedit_);
@@ -431,6 +459,7 @@ STDMETHODIMP CTextService::Deactivate() {
         lastCtx_->Release();
         lastCtx_ = nullptr;
     }
+    ReleaseThreadMgr();
     clientId_ = TF_CLIENTID_NULL;
     return S_OK;
 }

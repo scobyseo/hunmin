@@ -342,6 +342,11 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   surfaces observed, and the finding that the mocks saw what code comments
   had carried for a week - #145 (two Deactivate defects) and #146 (two
   mirror questions).
+- [[2026-10-27-tsf-deactivate-teardown-fix]] - the #145 fix: `UnadviseSinks()`
+  withdraws both advices and the new `ReleaseThreadMgr()` drops the manager
+  reference last, so the language-bar `RemoveItem` is reached; the two cases
+  that encoded the defects flipped, with the pre-fix tree measured red
+  against them.
 - [[2026-10-22-tsf-settings-resolver]] - the S settings-exe resolver
   (issue #127): the maintainer's deployed-first ruling unifies the three
   candidate lists in `settingspath.cpp` (100); an installed Start-menu

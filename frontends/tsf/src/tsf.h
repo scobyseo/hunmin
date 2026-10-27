@@ -316,9 +316,11 @@ private:
 
     /* Activate/Deactivate halves: the two advice registrations, the
      * delivery-mode detection, and the engine flush the boundary paths
-     * share. */
+     * share. UnadviseSinks() withdraws the advice only; ReleaseThreadMgr()
+     * drops the manager reference, last, after the lang-bar item is off. */
     void AdviseSinks();
     void UnadviseSinks();
+    void ReleaseThreadMgr();
     void DetectLegacyMode();
 
     void LoadToggleKeys(const HunminTsfConfig &cfg);

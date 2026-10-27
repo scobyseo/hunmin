@@ -24,8 +24,9 @@ BTN_MENU|SHOWNINTRAY (no BTN_BUTTON).
   its own address). `OnClick` is implemented but not advertised under
   `BTN_MENU`.
 - `Activate` calls `LangBarItem::Attach` (`AddItem`), `Deactivate` calls
-  `Detach` (`RemoveItem`) and the detach releases the sink (the detach's
-  current no-op ordering is board row TSF-LANGBAR-DETACH-127). The conversion-compartment write
+  `Detach` (`RemoveItem`) and the detach releases the sink. The ordering was
+  fixed 2026-10-27 (#145): the manager reference is dropped after the detach,
+  so `RemoveItem` is reached (board row TSF-DEACTIVATE-LANGBAR-145). The conversion-compartment write
   (`UpdateConversionCompartment`) is unchanged.
 
 ## Why the item should host at all (the recipe's basis)
