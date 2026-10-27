@@ -766,3 +766,16 @@
 - Also: `docs/REQ-MAP.md` re-pointed after heading renames.
 
 Verified: `python tools/wiki-lint.py` → 60 pages, 0 errors; `python tools/docs-lint.py` → 0 errors.
+
+## [2026-10-27] create | The #107 mock-surface session page
+
+- `wiki/raw/sessions/2026-10-26-tsf-mock-unmodelled-surfaces.md`: the
+  registration seam and why it covers the registry, the four surfaces now
+  observed (registration, compartment, lang-bar manager, key-sink advice),
+  the measurements (tier-F1 49 -> 64 cases, the mutation guard, the
+  pyright red that named the tool and not the claim) and the two items left
+  for a ruling: #145 and #146.
+- `wiki/index.md`: one sessions entry.
+
+Verified: `python tools/wiki-lint.py` and `python tools/docs-lint.py`,
+both 0 errors.
