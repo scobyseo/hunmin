@@ -1007,7 +1007,22 @@ Four layers, cheap→real:
   a standalone `frontends/tsf` configure, which needs its own `enable_testing()`
   (now present — before it, ctest reported "No tests were found" while the
   harness built) and `-DPython3_EXECUTABLE` passed explicitly works only with
-  the executable-keyed guard. Not yet covered: a backspace boundary (no sin3-p2
+  the executable-keyed guard.
+  Issue #107 extended the harness from the key/buffering path to the TSF
+  surfaces the adapter had only ever exercised by hand:
+  `tsf-registration-test.cpp` drives `DllRegisterServer`/`DllUnregisterServer`
+  over the registration seam (`frontends/tsf/src/registrationseam.h`, whose
+  DEFAULT table is the platform call itself) and asserts the
+  register-to-unregister mirror, the parameters (CLSID, 0x0412, the profile
+  GUID, the category GUIDs) and both activation branches;
+  `tsf-session-test.cpp` covers the conversion-compartment writes, the
+  key-event-sink advise/unadvise pairing, and the language-bar
+  AddItem/RemoveItem path including the measured `0x80004005` refusal.
+  Neither asserts what the real msctf servers do to the registry: that stays
+  the elevated cycle in `tests/manual-checklists/tsf-unregister-cleanup.md`,
+  and a green run here does not close it.
+
+  Not yet covered: a backspace boundary (no sin3-p2
   tier-A golden carries one) and overlay-window
   presentation (needs real HWNDs, stubbed via `ITfContextView::GetTextExt`).
 - **F2 TAT** (Microsoft TSF Accommodation Tool, the official TIP stress-tester) driven on

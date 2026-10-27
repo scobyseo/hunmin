@@ -12,6 +12,7 @@
 #include "registration.h"
 
 #include "ids.h"
+#include "registrationseam.h" /* the outside-world seam (issue #107) */
 #include "settingspath.h" /* the shared settings-exe resolver */
 #include "tsf.h" /* CTextService */
 
@@ -26,46 +27,87 @@
 
 extern "C" HINSTANCE g_hunmin_hinst; /* owned by dllmain.cpp */
 
+/* --- the seam in force (issue #107) ---
+ * Every outside-world call below goes through this table. The default table IS
+ * the platform call, so production behaviour is the same sequence of the same
+ * calls; tier F1 installs doubles and drives THIS code (registrationseam.h). */
+
+static HRESULT SeamCoCreate(REFCLSID rclsid, REFIID riid, void **ppv) { return CoCreateInstance(rclsid, nullptr, CLSCTX_INPROC_SERVER, riid, ppv); }
+
+static LONG SeamCreateKey(HKEY root, const wchar_t *path, HKEY *out) {
+    return RegCreateKeyExW(root, path, 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, out, nullptr);
+}
+
+static LONG SeamOpenKey(HKEY root, const wchar_t *path, HKEY *out) { return RegOpenKeyExW(root, path, 0, KEY_SET_VALUE, out); }
+
+static LONG SeamSetValue(HKEY key, const wchar_t *name, DWORD type, const void *data, DWORD bytes) {
+    return RegSetValueExW(key, name, 0, type, (const BYTE *)data, bytes);
+}
+
+static void SeamCloseKey(HKEY key) { RegCloseKey(key); }
+
+static LONG SeamDeleteTree(HKEY root, const wchar_t *path) { return RegDeleteTreeW(root, path); }
+
+static HRESULT SeamProgramsFolder(wchar_t *out, DWORD cap) {
+    PWSTR programs = nullptr;
+    HRESULT hr = SHGetKnownFolderPath(FOLDERID_Programs, 0, nullptr, &programs);
+    if (SUCCEEDED(hr) && programs)
+        lstrcpynW(out, programs, (int)cap);
+    if (programs)
+        CoTaskMemFree(programs);
+    return hr;
+}
+
+static const HunminRegSeam kPlatformSeam = {SeamCoCreate, SeamCreateKey, SeamOpenKey, SeamSetValue, SeamCloseKey, SeamDeleteTree, SeamProgramsFolder};
+
+static const HunminRegSeam *g_regSeam = nullptr;
+
+const HunminRegSeam *hunmin_tsf_regseam() { return g_regSeam ? g_regSeam : &kPlatformSeam; }
+
+void hunmin_tsf_regseam_install(const HunminRegSeam *seam) { g_regSeam = seam; }
+
 /* --- registration helpers (S4: this block becomes its own TU) ---
  * One helper per registration artifact, so DllRegisterServer reads as the
  * ordered list below and each artifact logs its own outcome. */
 
 static bool RegisterComServer(const wchar_t *guidStr, const wchar_t *dllPath) {
+    const HunminRegSeam *seam = hunmin_tsf_regseam();
     HKEY hKey = nullptr;
     wchar_t clsidPath[128];
     swprintf(clsidPath, 128, L"CLSID\\%s", guidStr);
-    LSTATUS st = RegCreateKeyExW(HKEY_CLASSES_ROOT, clsidPath, 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &hKey, nullptr);
+    LSTATUS st = seam->reg_create_key(HKEY_CLASSES_ROOT, clsidPath, &hKey);
     if (st != ERROR_SUCCESS)
         return false;
 
     HKEY hSub = nullptr;
     wchar_t inprocPath[256];
     swprintf(inprocPath, 256, L"%s\\InprocServer32", clsidPath);
-    st = RegCreateKeyExW(HKEY_CLASSES_ROOT, inprocPath, 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &hSub, nullptr);
+    st = seam->reg_create_key(HKEY_CLASSES_ROOT, inprocPath, &hSub);
     if (st != ERROR_SUCCESS) {
-        RegCloseKey(hKey);
+        seam->reg_close_key(hKey);
         return false;
     }
 
-    RegSetValueExW(hSub, nullptr, 0, REG_SZ, (const BYTE *)dllPath, (DWORD)((wcslen(dllPath) + 1) * sizeof(wchar_t)));
+    seam->reg_set_value(hSub, nullptr, REG_SZ, dllPath, (DWORD)((wcslen(dllPath) + 1) * sizeof(wchar_t)));
     const wchar_t *model = L"Apartment";
-    RegSetValueExW(hSub, L"ThreadingModel", 0, REG_SZ, (const BYTE *)model, (DWORD)((wcslen(model) + 1) * sizeof(wchar_t)));
+    seam->reg_set_value(hSub, L"ThreadingModel", REG_SZ, model, (DWORD)((wcslen(model) + 1) * sizeof(wchar_t)));
 
-    RegCloseKey(hSub);
-    RegCloseKey(hKey);
+    seam->reg_close_key(hSub);
+    seam->reg_close_key(hKey);
     return true;
 }
 
 /* TSF TIP category registration (so it is enumerated in input settings). */
 static void RegisterTipKey(const wchar_t *guidStr) {
+    const HunminRegSeam *seam = hunmin_tsf_regseam();
     HKEY hTIP = nullptr;
     wchar_t tipPath[256];
     swprintf(tipPath, 256, L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s", guidStr);
-    LSTATUS tipSt = RegCreateKeyExW(HKEY_LOCAL_MACHINE, tipPath, 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &hTIP, nullptr);
+    LSTATUS tipSt = seam->reg_create_key(HKEY_LOCAL_MACHINE, tipPath, &hTIP);
     if (tipSt == ERROR_SUCCESS) {
         const wchar_t *tipName = L"Hunmin";
-        RegSetValueExW(hTIP, nullptr, 0, REG_SZ, (const BYTE *)tipName, (DWORD)((wcslen(tipName) + 1) * sizeof(wchar_t)));
-        RegCloseKey(hTIP);
+        seam->reg_set_value(hTIP, nullptr, REG_SZ, tipName, (DWORD)((wcslen(tipName) + 1) * sizeof(wchar_t)));
+        seam->reg_close_key(hTIP);
     }
 }
 
@@ -76,6 +118,7 @@ static void RegisterTipKey(const wchar_t *guidStr) {
  * rewrites the stored index to 0 (resource id 1 IS the first icon of
  * hunmin.ico). */
 static void PinProfileIconIndex(const wchar_t *guidStr) {
+    const HunminRegSeam *seam = hunmin_tsf_regseam();
     wchar_t lp3412[256];
     swprintf(lp3412, _countof(lp3412), L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile\\0x00000412\\%s", guidStr,
              L"{F2C70002-0000-0000-0000-000000000002}");
@@ -86,10 +129,10 @@ static void PinProfileIconIndex(const wchar_t *guidStr) {
         else
             lstrcpynW(ikey, lp3412, _countof(ikey));
         HKEY hIk = nullptr;
-        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, ikey, 0, KEY_SET_VALUE, &hIk) == ERROR_SUCCESS) {
+        if (seam->reg_open_key(HKEY_LOCAL_MACHINE, ikey, &hIk) == ERROR_SUCCESS) {
             DWORD zero = 0;
-            RegSetValueExW(hIk, L"IconIndex", 0, REG_DWORD, (const BYTE *)&zero, sizeof zero);
-            RegCloseKey(hIk);
+            seam->reg_set_value(hIk, L"IconIndex", REG_DWORD, &zero, sizeof zero);
+            seam->reg_close_key(hIk);
         }
     }
 }
@@ -140,7 +183,8 @@ static void ActivateInputProcessorProfile(ITfInputProcessorProfiles *pProfile, R
 
 static void RegisterInputProcessorProfile(const wchar_t *guidStr) {
     ITfInputProcessorProfiles *pProfile = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER, IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
+    HRESULT hr = hunmin_tsf_regseam()->co_create(CLSID_TF_InputProcessorProfiles, IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
+
     hunmin_reg_logger.log(L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
     if (FAILED(hr) || !pProfile)
         return;
@@ -165,7 +209,7 @@ static void RegisterInputProcessorProfile(const wchar_t *guidStr) {
 
 static void RegisterTipCategories() {
     ITfCategoryMgr *pCatMgr = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
+    HRESULT hr = hunmin_tsf_regseam()->co_create(CLSID_TF_CategoryMgr, IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
     hunmin_reg_logger.log(L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
     if (FAILED(hr) || !pCatMgr)
         return;
@@ -195,7 +239,8 @@ static void CreateStartMenuShortcut(const wchar_t *dllPath) {
      * instead of falling through to rundll32. */
     hunmin_tsf_settings_exe_in_dir(dllDir, exe, MAX_PATH);
     IShellLinkW *sl = nullptr;
-    HRESULT lh = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&sl));
+    HRESULT lh = hunmin_tsf_regseam()->co_create(CLSID_ShellLink, __uuidof(IShellLinkW), (void **)&sl);
+
     hunmin_reg_logger.log(L"shortcut CoCreate hr=0x%lX exe=%s\n", (unsigned long)lh, exe[0] ? exe : L"<rundll32>");
     if (FAILED(lh) || !sl)
         return;
@@ -213,8 +258,8 @@ static void CreateStartMenuShortcut(const wchar_t *dllPath) {
                                       * (assets/hunmin.ico, ApplicationIcon) */
     IPersistFile *pf = nullptr;
     if (SUCCEEDED(sl->QueryInterface(IID_PPV_ARGS(&pf))) && pf) {
-        PWSTR programs = nullptr;
-        if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Programs, 0, nullptr, &programs)) && programs) {
+        wchar_t programs[MAX_PATH] = L"";
+        if (SUCCEEDED(hunmin_tsf_regseam()->programs_folder(programs, MAX_PATH)) && programs[0]) {
             wchar_t link[MAX_PATH + 48];
             _snwprintf(link, _countof(link), L"%s\\Hunmin IME \uC124\uC815.lnk", programs);
             if (SUCCEEDED(pf->Save(link, TRUE))) {
@@ -222,7 +267,6 @@ static void CreateStartMenuShortcut(const wchar_t *dllPath) {
             } else {
                 hunmin_reg_logger.log(L"shortcut save FAILED %s\n", link);
             }
-            CoTaskMemFree(programs);
         }
         pf->Release();
     }
@@ -256,7 +300,7 @@ extern "C" BOOL DllRegisterServer() {
 
 static void UnregisterInputProcessorProfile() {
     ITfInputProcessorProfiles *pProfile = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER, IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
+    HRESULT hr = hunmin_tsf_regseam()->co_create(CLSID_TF_InputProcessorProfiles, IID_ITfInputProcessorProfiles, (LPVOID *)&pProfile);
     hunmin_reg_logger.log(L"pProfile CoCreate hr=0x%lX\n", (unsigned long)hr);
     if (FAILED(hr) || !pProfile)
         return;
@@ -278,7 +322,7 @@ static void UnregisterInputProcessorProfile() {
 
 static void UnregisterTipCategories() {
     ITfCategoryMgr *pCatMgr = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
+    HRESULT hr = hunmin_tsf_regseam()->co_create(CLSID_TF_CategoryMgr, IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
     hunmin_reg_logger.log(L"pCatMgr CoCreate hr=0x%lX\n", (unsigned long)hr);
     if (FAILED(hr) || !pCatMgr)
         return;
@@ -314,13 +358,13 @@ extern "C" BOOL DllUnregisterServer() {
      * through AddLanguageProfile. */
     wchar_t tipPath[256];
     swprintf(tipPath, 256, L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s", guidStr);
-    LSTATUS tipSt = RegDeleteTreeW(HKEY_LOCAL_MACHINE, tipPath);
+    LSTATUS tipSt = hunmin_tsf_regseam()->reg_delete_tree(HKEY_LOCAL_MACHINE, tipPath);
     hunmin_reg_logger.log(L"RegDeleteTreeW(HKLM %s) st=0x%lX\n", tipPath, (unsigned long)tipSt);
 
     /* COM CLSID tree -- the only deletion the previous implementation did. */
     wchar_t clsidPath[128];
     swprintf(clsidPath, 128, L"CLSID\\%s", guidStr);
-    LSTATUS clsidSt = RegDeleteTreeW(HKEY_CLASSES_ROOT, clsidPath);
+    LSTATUS clsidSt = hunmin_tsf_regseam()->reg_delete_tree(HKEY_CLASSES_ROOT, clsidPath);
     hunmin_reg_logger.log(L"RegDeleteTreeW(HKCR %s) st=0x%lX\n", clsidPath, (unsigned long)clsidSt);
     return TRUE;
 }

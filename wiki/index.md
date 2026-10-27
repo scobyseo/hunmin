@@ -336,6 +336,12 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   parallel if/else chains; the log text and answer order are unchanged;
   `tsf.cpp` 575 -> 597, tier-F1 4/4.
 
+- [[2026-10-26-tsf-mock-unmodelled-surfaces]] - the mock harness reaches
+  the surfaces it had only stubbed (issue #107): one seam wider than the
+  issue asked for (the registry is destructive to leave unseamed), four
+  surfaces observed, and the finding that the mocks saw what code comments
+  had carried for a week - #145 (two Deactivate defects) and #146 (two
+  mirror questions).
 - [[2026-10-22-tsf-settings-resolver]] - the S settings-exe resolver
   (issue #127): the maintainer's deployed-first ruling unifies the three
   candidate lists in `settingspath.cpp` (100); an installed Start-menu

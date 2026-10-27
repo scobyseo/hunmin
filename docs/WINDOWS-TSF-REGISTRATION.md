@@ -95,6 +95,39 @@ The HKCU SortOrder/Assemblies store is untouched: registration never writes it
 — the probes live in `tests/manual-checklists/tsf-unregister-cleanup.md`
 (TSF17).
 
+## The seam tier F1 drives (issue #107)
+
+Every outside-world call in the flow above goes through `HunminRegSeam`
+(`frontends/tsf/src/registrationseam.h`): COM activation, the HKCR/HKLM key
+writes, opens and tree deletions, the Programs folder and the shell link. The
+default table IS the platform call, so production runs the same calls in the
+same order with one indirection; `hunmin_tsf_regseam_install(NULL)` restores
+it. The seam covers the registry and not only `CoCreateInstance`, because
+registration writes HKCR/HKLM (elevation only) and unregistration DELETES
+both trees: an unseamed harness is either access-denied or, elevated,
+destructive to the machine's real TIP registration.
+
+Tier F1 (`frontends/tsf/test/tsf-registration-test.cpp`) runs that code over
+the doubles in `mock-tsf-registration.h` and asserts, per artifact, what the
+adapter asked for and in what order. It does NOT assert what the real msctf
+servers write to the registry; the elevated-cycle measurement above stays
+device-bound and is not closed by the mock tier.
+
+Two corrections to the flow lists above, measured 2026-10-26 against the
+shipped `registration.cpp`:
+
+- Step 6 registers THREE categories, not two: `GUID_TFCAT_TIP_KEYBOARD`,
+  `GUID_TFCAT_CATEGORY_OF_TIP` and (issue #98)
+  `GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER`. The unregister mirror carries all
+  three.
+- The flow also pins the profile's stored `IconIndex` to 0 (two HKLM key
+  opens after `AddLanguageProfile`) and writes a Start-menu entry
+  (`<Programs>\Hunmin IME <settings>.lnk`, pointing at the settings exe when
+  it is deployed, else `rundll32`). Neither step is in the list above, and
+  unregistration does not remove the shortcut - a measured asymmetry,
+  recorded by `TsfRegistration.TheStartMenuShortcutIsNeverRemoved` and left
+  for the maintainer to rule on.
+
 ## Module view
 
 The DLL is the single registered artefact and is self-contained: the engine is
