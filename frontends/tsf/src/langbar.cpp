@@ -250,11 +250,17 @@ bool LangBarItem::Attach(ITfThreadMgr *threadMgr) {
 }
 
 void LangBarItem::Detach(ITfThreadMgr *threadMgr) {
+    /* Logged before the guards: a live round has to tell "the detach was never
+     * called", "called with no manager" (#145's defect, before the fix) and
+     * "RemoveItem refused" apart, and only the first is visible from the
+     * caller. */
+    hunmin_logger.log("langbar detach attached=%d tm=%p\n", attached_ ? 1 : 0, (void *)threadMgr);
     if (!attached_ || !threadMgr)
         return;
     ITfLangBarItemMgr *plbm = nullptr;
     if (SUCCEEDED(threadMgr->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm)) && plbm) {
-        plbm->RemoveItem(this);
+        const HRESULT ri = plbm->RemoveItem(this);
+        hunmin_logger.log("langbar RemoveItem hr=0x%lX\n", (unsigned long)ri);
         plbm->Release();
     }
     attached_ = false;
