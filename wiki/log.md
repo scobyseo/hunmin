@@ -779,3 +779,22 @@ Verified: `python tools/wiki-lint.py` → 60 pages, 0 errors; `python tools/docs
 
 Verified: `python tools/wiki-lint.py` and `python tools/docs-lint.py`,
 both 0 errors.
+
+## [2026-10-27] create | The #145 Deactivate teardown fix
+
+- `frontends/tsf/src/tsf.cpp` + `tsf.h`: `UnadviseSinks()` withdraws the
+  `ITfThreadMgrEventSink` advice (with the cookie `Activate` was handed) as
+  well as the key-event sink, and a new `ReleaseThreadMgr()` drops the
+  manager reference; `Deactivate()` calls it last, so the language-bar
+  `Detach` runs against a live manager and `RemoveItem` is reached.
+- `frontends/tsf/test/tsf-session-test.cpp`: the two cases that encoded the
+  defects flipped to assert the pairing (`DeactivateUnadvisesTheThreadManagerEventSink`,
+  `DeactivateRemovesTheLangBarItem`), plus a refused-advice variant proving
+  no `UnadviseSink(0)` is issued when the manager never advised;
+  `mock-tsf.h` gained `adviseSinkHr` for it.
+- `docs/REMAINING-WORK.md`: two rows re-pointed and re-stated, the
+  TSF-LANGBAR-DETACH-127 note flipped to fixed; tier-F1 4/4 green.
+- `wiki/raw/sessions/2026-10-27-tsf-deactivate-teardown-fix.md`: one page.
+
+Verified: `python tools/wiki-lint.py` and `python tools/docs-lint.py`,
+both 0 errors.

@@ -66,9 +66,13 @@ took `ApplyConfigStore`'s two parse scopes to `LoadToggleKeys` /
 and `langbar.h` 82, carrying
 `Attach`/`Detach` and the `attached_` flag that used to be the shell's
 `langbar_registered_`. Tier-F1 4/4; docs-lint 0 errors. One defect was
-exposed and NOT changed: `UnadviseSinks()` nulls `threadMgr_` before
-`Deactivate()` reaches the detach, so `Detach` (and `OnRemoved`) is a no-op
-today; recorded as TSF-LANGBAR-DETACH-127 for a ruling.
+exposed and NOT changed there: `UnadviseSinks()` nulled `threadMgr_` before
+`Deactivate()` reached the detach, so `Detach` (and `OnRemoved`) was a no-op;
+recorded as TSF-LANGBAR-DETACH-127 for a ruling. **Fixed 2026-10-27 under
+#145**: `UnadviseSinks()` now withdraws both advice registrations and nothing
+else, a new `ReleaseThreadMgr()` drops the manager reference after the
+detach, and the same #145 change unadvises the thread-manager event sink the
+extraction had left live.
 
 The maintainer then pointed the same rule at `DllRegisterServer()`. Its seven
 scopes became file-static helpers, one per registration artifact:

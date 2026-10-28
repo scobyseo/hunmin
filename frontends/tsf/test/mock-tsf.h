@@ -564,6 +564,9 @@ class MockThreadMgr : public ITfThreadMgr, public ITfSource, public ITfKeystroke
 public:
     ITfKeyEventSink *keySink = nullptr;
     BOOL keySinkForeground = FALSE;
+    /* A host whose ITfSource::AdviseSink refuses: the service then holds no
+     * cookie and must not unadvise one (issue #145). */
+    HRESULT adviseSinkHr = S_OK;
     DWORD adviseCookie = 0;
 
     /* Issue #107: both advice registrations, recorded per call, so
@@ -619,6 +622,8 @@ public:
     STDMETHOD(AdviseSink)(REFIID riid, IUnknown *punk, DWORD *pdwCookie) override {
         if (!IsEqualIID(riid, IID_ITfThreadMgrEventSink))
             return E_NOINTERFACE;
+        if (FAILED(adviseSinkHr))
+            return adviseSinkHr;
         eventSink_ = punk;
         if (pdwCookie)
             *pdwCookie = ++adviseCookie;

@@ -144,32 +144,47 @@ TEST_F(TsfSessionTest, DeactivateUnadvisesTheKeySinkWithTheSameClientId) {
     EXPECT_EQ(tm_->keySink, nullptr) << "the manager no longer holds our sink";
 }
 
-/* RECORDED DEFECT (measured 2026-10-26, this fragment): Activate advises the
- * thread-manager EVENT sink, and Deactivate never unadvises it --
- * UnadviseSinks() handles only ITfKeystrokeMgr. The cookie is still live after
- * Deactivate returns. Asserted as today's behaviour so a fix is a deliberate
- * test change; reported in the PR as a finding, not ruled here. */
-TEST_F(TsfSessionTest, DeactivateLeavesTheThreadManagerEventSinkAdvised) {
+/* Issue #145 (fix side of the 2026-10-26 measurement): the thread-manager
+ * EVENT sink advised in Activate is withdrawn in Deactivate, with the cookie
+ * Activate was handed -- UnadviseSinks() used to handle only ITfKeystrokeMgr
+ * and leave this advice live past the service's own teardown. */
+TEST_F(TsfSessionTest, DeactivateUnadvisesTheThreadManagerEventSink) {
     ASSERT_EQ(svc_->Activate(tm_, 7), S_OK);
     ASSERT_EQ(tm_->eventSinkAdvises.size(), (size_t)1) << "the event sink IS advised";
-    EXPECT_NE(tm_->adviseCookie, (DWORD)0);
+    const DWORD cookie = tm_->adviseCookie;
+    ASSERT_NE(cookie, (DWORD)0);
 
     ASSERT_EQ(svc_->Deactivate(), S_OK);
-    EXPECT_TRUE(tm_->eventSinkUnadvises.empty()) << "recorded defect: no UnadviseSink on the way out";
-    EXPECT_NE(tm_->adviseCookie, (DWORD)0) << "recorded defect: the event-sink advice is still live";
+    ASSERT_EQ(tm_->eventSinkUnadvises.size(), (size_t)1) << "exactly one unadvise, no stray repeats";
+    EXPECT_EQ(tm_->eventSinkUnadvises[0], cookie) << "the cookie Activate was handed, not some other";
+    EXPECT_EQ(tm_->adviseCookie, (DWORD)0) << "the manager no longer holds the event sink";
 }
 
-/* RECORDED DEFECT (same measurement): Deactivate calls Detach() with a
- * threadMgr_ that UnadviseSinks() has already nulled, so
- * ITfLangBarItemMgr::RemoveItem is never called and the item is dropped without
- * telling the bar (src/tsf.cpp's own "recorded defect, not changed here" note).
- * Under a host that DID attach, the bar is left holding a removed item. */
-TEST_F(TsfSessionTest, DeactivateNeverRemovesTheLangBarItem) {
+/* A refused advice leaves no cookie to withdraw: the service must not call
+ * ITfSource::UnadviseSink(0) on the way out (it would be E_INVALIDARG against
+ * the real manager). The never-advised side of the same fix. */
+TEST_F(TsfSessionTest, DeactivateWithARefusedEventSinkAdviceUnadvisesNothing) {
+    tm_->adviseSinkHr = E_FAIL;
     ASSERT_EQ(svc_->Activate(tm_, 7), S_OK);
-    ASSERT_EQ(tm_->langBarMgr.added.size(), (size_t)1);
+    EXPECT_TRUE(tm_->eventSinkAdvises.empty()) << "the manager advised nothing, so there is a cookie of nothing";
+    EXPECT_EQ(tm_->adviseCookie, (DWORD)0);
 
     ASSERT_EQ(svc_->Deactivate(), S_OK);
-    EXPECT_TRUE(tm_->langBarMgr.removed.empty()) << "recorded defect: RemoveItem is never reached";
+    EXPECT_TRUE(tm_->eventSinkUnadvises.empty()) << "no cookie, no unadvise";
+}
+
+/* Issue #145 (same fix, the other defect): the language-bar item is removed
+ * through a manager that is still alive. Deactivate used to call Detach()
+ * after UnadviseSinks() had nulled threadMgr_, so RemoveItem was never
+ * reached and the bar kept an item whose service had gone. */
+TEST_F(TsfSessionTest, DeactivateRemovesTheLangBarItem) {
+    ASSERT_EQ(svc_->Activate(tm_, 7), S_OK);
+    ASSERT_EQ(tm_->langBarMgr.added.size(), (size_t)1);
+    ITfLangBarItem *added = tm_->langBarMgr.added[0];
+
+    ASSERT_EQ(svc_->Deactivate(), S_OK);
+    ASSERT_EQ(tm_->langBarMgr.removed.size(), (size_t)1) << "exactly one RemoveItem";
+    EXPECT_EQ((void *)tm_->langBarMgr.removed[0], (void *)added) << "the item that was added, not another";
 }
 
 /* Both defects are invisible when the host never attached anything, which is
