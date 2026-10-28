@@ -18,6 +18,21 @@
 
 #include <string>
 
+namespace {
+/* The interim path writes the document through EDIT-family window messages
+ * (EM_REPLACESEL), so the host test that matters is the CONTROL CLASS, not a
+ * guess about the host's TSF support: EDIT, RichEdit20W, RICHEDIT50W. */
+bool IsClassicEditHost() {
+    HWND focus = GetFocus();
+    if (!focus)
+        return false;
+    wchar_t cls[64] = {0};
+    if (!GetClassNameW(focus, cls, 64))
+        return false;
+    return _wcsnicmp(cls, L"EDIT", 4) == 0 || _wcsnicmp(cls, L"RICHEDIT", 8) == 0;
+}
+} /* namespace */
+
 STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComposition *pComposition) {
     (void)ecWrite;
     (void)pComposition;
@@ -67,28 +82,44 @@ STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComp
         compText_.clear();
         return S_OK;
     }
-    hunmin_logger.log("legacy detection: mid-word host termination (compText=%zu display=%zu) -> interim path\n", compText_.size(),
-                      ComposeDisplay().size());
-    legacyMode_ = true;
-    UseDelivery(HUNMIN_TSF_DELIVERY_INTERIM);
-    /* What is dead in the doc = the WHOLE composition text (compText_:
-     * nothing under this composition was ours to keep there - the
-     * interim path rebuilds the word from the LIVE buffers and live
-     * ic state). Delete the dead copy at the POSTED write - never
-     * inline here: this handler runs inside the host's TSF callback,
-     * where the EM writes fire the re-entrant focus storm that eats
-     * keystrokes (measured). One path for every caret state: the
-     * write re-measures the caret when the app's queue has settled
-     * (the fused copy's caret was measured BOTH behind the span and
-     * past it, settling differently per host). The ic keeps composing
-     * from the same jamo state (no reset) and the layer keeps the
-     * finalised syllables so the write re-appends them to the doc. */
-    delivery_->CaptureDeadCopy(compText_);
-    /* A write posted by the terminated key is superseded: the host has
-     * fused the composition text itself and the re-bookkeeping above
-     * recomputes the span. The posted write runs as THIS flip's dead
-     * copy removal instead. */
-    delivery_->CaptureDeadCopy(compText_);
+    /* Classify the host before choosing the recovery. The interim path's
+     * doc writes are EDIT-family window messages (EM_REPLACESEL), so it can
+     * serve only a host whose control IS one of those. Measured 2026-10-28
+     * (issue #144): Chromium terminates a composition ONCE, mid-word, while
+     * its window is settling, and the focused window there is not an edit
+     * control at all - the flip turned every later syllable into a write
+     * into nothing (`interim: span now ... doclen=0`), while the SAME host
+     * composed the whole word on the native path, leaving only the fused
+     * copy behind (`ㅇ안녕 `). So:
+     *   - an EDIT-family control => the per-key terminator #119 measured:
+     *     flip to the interim path (unchanged);
+     *   - anything else => a TSF-capable host whose termination is not a
+     *     verdict about its control: stay native and hand the fused copy to
+     *     the next composition, which REPLACES it instead of appending
+     *     after it. */
+    if (IsClassicEditHost()) {
+        hunmin_logger.log("legacy detection: mid-word host termination (compText=%zu display=%zu) -> interim path\n", compText_.size(),
+                          ComposeDisplay().size());
+        legacyMode_ = true;
+        UseDelivery(HUNMIN_TSF_DELIVERY_INTERIM);
+        /* What is dead in the doc = the WHOLE composition text (compText_:
+         * nothing under this composition was ours to keep there - the
+         * interim path rebuilds the word from the LIVE buffers and live
+         * ic state). Delete the dead copy at the POSTED write - never
+         * inline here: this handler runs inside the host's TSF callback,
+         * where the EM writes fire the re-entrant focus storm that eats
+         * keystrokes (measured). One path for every caret state: the
+         * write re-measures the caret when the app's queue has settled
+         * (the fused copy's caret was measured BOTH behind the span and
+         * past it, settling differently per host). The ic keeps composing
+         * from the same jamo state (no reset) and the layer keeps the
+         * finalised syllables so the write re-appends them to the doc. */
+        delivery_->CaptureDeadCopy(compText_);
+    } else {
+        hunmin_logger.log("native recovery: mid-word host termination (compText=%zu) on a non-edit host -> native path, re-adopt the fused copy\n",
+                          compText_.size());
+        hostFusedCopy_ = compText_;
+    }
     if (composition_) {
         composition_->Release();
         composition_ = nullptr;
@@ -151,6 +182,11 @@ public:
                 TF_SELECTION sel;
                 ULONG fetched = 0;
                 if (SUCCEEDED(ctx_->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) && fetched == 1 && sel.range) {
+                    /* A host that fused our last composition into its document
+                     * (issue #144) keeps that copy: start this composition one
+                     * range earlier so its first write REPLACES the copy
+                     * instead of appending after it. */
+                    svc_->AdoptHostFusedCopy(ec, sel.range);
                     HRESULT hs = cc->StartComposition(ec, sel.range, static_cast<ITfCompositionSink *>(svc_), &svc_->composition_);
                     if (SUCCEEDED(hs) && svc_->composition_) {
                         svc_->compCtx_ = ctx_;
@@ -230,6 +266,38 @@ private:
     const wchar_t *t_;
     bool endAfter_;
 };
+
+/* Take back the text a non-edit host fused into its document when it
+ * terminated our composition (issue #144). Returns true when the selection
+ * range now starts at that copy; the document is then the arbiter, never the
+ * bookkeeping: the range's own text must BE the copy, because the caret is
+ * the app's to move and a blind backward shift would eat unrelated text. The
+ * copy is consumed either way - a host that moved the caret keeps the residue
+ * (the pre-#144 failure) instead of losing a character. */
+bool CTextService::AdoptHostFusedCopy(TfEditCookie ec, ITfRange *sel) {
+    std::wstring want;
+    want.swap(hostFusedCopy_);
+    if (want.empty() || !sel)
+        return false;
+    const LONG len = (LONG)want.size();
+    LONG moved = 0;
+    if (FAILED(sel->ShiftStart(ec, -len, &moved, nullptr)) || moved != -len) {
+        hunmin_logger.log("native recovery: re-adopt refused (shift moved=%ld of %ld)\n", moved, len);
+        return false;
+    }
+    std::wstring have(want.size() + 1, L'\0');
+    ULONG got = 0;
+    const HRESULT hr = sel->GetText(ec, 0, &have[0], (ULONG)want.size(), &got);
+    if (FAILED(hr) || got != (ULONG)want.size() || wcsncmp(have.c_str(), want.c_str(), want.size()) != 0) {
+        /* Not ours to take: give the anchor back where it was. */
+        sel->ShiftStart(ec, moved, nullptr, nullptr);
+        hunmin_logger.log("native recovery: re-adopt refused (hr=0x%lX got=%lu of %ld: the document does not carry the fused copy)\n",
+                          (unsigned long)hr, (unsigned long)got, len);
+        return false;
+    }
+    hunmin_logger.log("native recovery: re-adopted %ld fused chars into the next composition\n", len);
+    return true;
+}
 
 /* The write half of the composition lifecycle: one edit session makes
  * the composition exist (if not yet) and shows the whole buffered word
@@ -359,17 +427,11 @@ void CTextService::InsertText(ITfContext *pic, const std::wstring &text) {
 
 /* The seam's text readers (issue #128): the layer's display and its two
  * halves. All three are reads -- none of them consumes a key. */
-std::wstring CTextService::ComposeDisplay() {
-    return preedit_ ? HunminUtf8ToWide(hunmin_buffered_preedit_display(preedit_)) : std::wstring();
-}
+std::wstring CTextService::ComposeDisplay() { return preedit_ ? HunminUtf8ToWide(hunmin_buffered_preedit_display(preedit_)) : std::wstring(); }
 
-std::wstring CTextService::ComposeInFlight() {
-    return preedit_ ? HunminUtf8ToWide(hunmin_buffered_preedit_composing(preedit_)) : std::wstring();
-}
+std::wstring CTextService::ComposeInFlight() { return preedit_ ? HunminUtf8ToWide(hunmin_buffered_preedit_composing(preedit_)) : std::wstring(); }
 
-std::wstring CTextService::TakeFinishedWord() {
-    return preedit_ ? HunminUtf8ToWide(hunmin_buffered_preedit_take_word(preedit_)) : std::wstring();
-}
+std::wstring CTextService::TakeFinishedWord() { return preedit_ ? HunminUtf8ToWide(hunmin_buffered_preedit_take_word(preedit_)) : std::wstring(); }
 
 void CTextService::ComposeReset() {
     if (preedit_)

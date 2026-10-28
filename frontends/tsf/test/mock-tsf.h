@@ -87,11 +87,14 @@ public:
 
     // The members ITfRange declares but the adapter never calls. Their exact
     // signatures come from msctf.h; the compiler flags any drift.
-    TSF_MOCK_STUB(GetText, TfEditCookie ec, DWORD dwFlags, WCHAR *pchText, ULONG cchMax, ULONG *pcch)
+    // GetText/ShiftStart ARE called now (issue #144: the composition start
+    // re-adopts the copy a non-edit host fused, which needs a backward
+    // shift plus the document's own text as the arbiter).
+    STDMETHOD(GetText)(TfEditCookie ec, DWORD dwFlags, WCHAR *pchText, ULONG cchMax, ULONG *pcch) override;
     TSF_MOCK_STUB(GetFormattedText, TfEditCookie ec, IDataObject **ppDataObject)
     TSF_MOCK_STUB(GetEmbedded, TfEditCookie ec, REFGUID rguidService, REFIID riid, IUnknown **ppunk)
     TSF_MOCK_STUB(InsertEmbedded, TfEditCookie ec, DWORD dwFlags, IDataObject *pDataObject)
-    TSF_MOCK_STUB(ShiftStart, TfEditCookie ec, LONG cchReq, LONG *pcch, const TF_HALTCOND *pHalt)
+    STDMETHOD(ShiftStart)(TfEditCookie ec, LONG cchReq, LONG *pcch, const TF_HALTCOND *pHalt) override;
     TSF_MOCK_STUB(ShiftEnd, TfEditCookie ec, LONG cchReq, LONG *pcch, const TF_HALTCOND *pHalt)
     TSF_MOCK_STUB(ShiftStartToRange, TfEditCookie ec, ITfRange *pRange, TfAnchor aPos)
     TSF_MOCK_STUB(ShiftEndToRange, TfEditCookie ec, ITfRange *pRange, TfAnchor aPos)
@@ -275,6 +278,11 @@ public:
     bool compositionActive = false;
     int compositionStarts = 0;
     int compositionEnds = 0;
+    /* The host's OWN terminations (issue #144: the sink fired by the host,
+     * not by the adapter's EndComposition) and where the composition it
+     * killed ended - the caret the adapter's re-adoption reads. */
+    int hostTerminations = 0;
+    LONG compositionEnd = 0;
     std::wstring compositionText; // last full composition-range content
     std::vector<std::wstring> compositionInsertions; // one per composition-range SetText
     int attrWrites = 0; // SetValue(TF composition range)
@@ -327,6 +335,16 @@ public:
             return E_INVALIDARG;
         *ppView = new MockContextView();
         return S_OK;
+    }
+
+    /* The host ends the live composition ITSELF (issue #144) - the sink call
+     * the adapter's OnCompositionTerminated sees, preceded by what the host
+     * did to its own store: the text the composition showed is ordinary
+     * document text now, and the selection sits collapsed after it. */
+    void HostTerminateComposition() {
+        compositionActive = false;
+        ++hostTerminations;
+        selStart_ = selEnd_ = compositionEnd;
     }
 
     /* ITfContextComposition (issue #98): ITfContextComposition derives
@@ -711,6 +729,45 @@ inline HRESULT MockRange::SetText(TfEditCookie ec, DWORD dwFlags, const WCHAR *p
         ctx_->insertions.push_back(text);
     }
     end_ = start_ + static_cast<LONG>(text.size());
+    // Where the composition it currently spans ENDS - the caret a host
+    // termination (issue #144) leaves the selection on.
+    if (inComposition_)
+        ctx_->compositionEnd = end_;
+    return S_OK;
+}
+
+inline HRESULT MockRange::GetText(TfEditCookie ec, DWORD dwFlags, WCHAR *pchText, ULONG cchMax, ULONG *pcch) {
+    (void)ec;
+    (void)dwFlags;
+    if (pcch)
+        *pcch = 0;
+    if (!pchText || !pcch)
+        return E_INVALIDARG;
+    const LONG start = start_ < 0 ? 0 : (start_ > (LONG)ctx_->doc.size() ? (LONG)ctx_->doc.size() : start_);
+    const LONG end = end_ < start ? start : (end_ > (LONG)ctx_->doc.size() ? (LONG)ctx_->doc.size() : end_);
+    ULONG n = (ULONG)(end - start);
+    if (n > cchMax)
+        n = cchMax;
+    ctx_->doc.copy(pchText, (size_t)n, (size_t)start);
+    *pcch = n;
+    return S_OK;
+}
+
+inline HRESULT MockRange::ShiftStart(TfEditCookie ec, LONG cchReq, LONG *pcch, const TF_HALTCOND *pHalt) {
+    (void)ec;
+    (void)pHalt;
+    /* The start anchor moves, clamped to the document (msctf: *pcch reports
+     * how far it actually moved). The adapter's only use is the backward
+     * shift of issue #144's re-adoption. */
+    LONG want = start_ + cchReq;
+    if (want < 0)
+        want = 0;
+    if (want > end_)
+        want = end_;
+    const LONG moved = want - start_;
+    start_ = want;
+    if (pcch)
+        *pcch = moved;
     return S_OK;
 }
 

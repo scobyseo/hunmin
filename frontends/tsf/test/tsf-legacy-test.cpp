@@ -409,4 +409,93 @@ TEST_F(LegacyTest, BackspaceAtClosedWordPassesAndSelfHeals) {
     LegacyTeardown();
 }
 
+/* Issue #144: a host that is NOT an EDIT-family control terminated the
+ * composition mid-word ONCE (measured on Chromium/Edge: while its window is
+ * settling; the focused window there is neither an EDIT nor a RICHEDIT, and
+ * EM_REPLACESEL reaches nothing in it). The interim path cannot serve such a
+ * host, so the adapter must NOT flip: it stays native and the next composition
+ * REPLACES the copy the host fused instead of appending after it. The capture
+ * window here is a BUTTON for exactly that class test. */
+struct NonEditHostTest : public CandidateTest {
+    HWND win = nullptr;
+
+    void HostBegin() {
+        /* The buffered unit is this case's shape (the composition holds the
+         * whole word); the sibling CommitUnit case leaves the env at
+         * "syllable" and its per-syllable commits would add a composition end
+         * and a restart to the counts asserted below. */
+        _putenv_s("HUNMIN_TSF_COMMIT_UNIT", "word");
+        win =
+            CreateWindowExW(WS_EX_TOOLWINDOW, L"BUTTON", L"", WS_POPUP | BS_PUSHBUTTON, -32000, -32000, 200, 40, nullptr, nullptr, nullptr, nullptr);
+        ASSERT_NE(win, nullptr) << "non-edit host window not created";
+        ShowWindow(win, SW_SHOWNOACTIVATE);
+        SetFocus(win);
+        Begin();
+    }
+
+    void HostTeardown() {
+        if (win) {
+            DestroyWindow(win);
+            win = nullptr;
+        }
+        Teardown();
+    }
+};
+
+TEST_F(NonEditHostTest, MidWordTerminationKeepsNativeAndReplacesTheFusedCopy) {
+    HostBegin();
+    if (HasFatalFailure()) {
+        HostTeardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    ASSERT_EQ(GetFocus(), win) << "the non-edit capture window must hold the focus";
+
+    /* Key 1: the composition is written (the mock's document holds it, as a
+     * real host's store does), then the HOST ends it itself. */
+    Key((WPARAM)'D');
+    ASSERT_EQ(ctx->doc, std::wstring() + L'\u3147') << "the first key's composition is document text";
+    ctx->HostTerminateComposition();
+    svc->OnCompositionTerminated(tsfmock::MockContext::kCookie, nullptr);
+    EXPECT_FALSE(Snap().legacyMode) << "a non-edit host must not flip to the interim path";
+    EXPECT_EQ(Snap().composition, nullptr) << "the terminated composition is released";
+
+    for (const char *p = "kssud"; *p; ++p)
+        Key((WPARAM)std::toupper((unsigned char)*p));
+
+    /* The re-adopted copy was REPLACED: the document is the engine's word
+     * (dkssud -> 안녕) with none of the killed composition's text in front of
+     * it. Before the fix the same sequence left ㅇ안녕 in the document. */
+    EXPECT_EQ(ctx->doc, std::wstring() + L'\uC548' + L'\uB155') << "the fused copy is replaced, not duplicated";
+    EXPECT_EQ(ctx->compositionStarts, 2) << "the killed composition plus its re-adopted successor";
+    EXPECT_EQ(ctx->compositionEnds, 0) << "the terminating host never ends through our own path";
+    EXPECT_EQ(ctx->hostTerminations, 1) << "one host termination, one re-adoption (Chromium's measured shape)";
+    HostTeardown();
+}
+
+/* Issue #144's open question: a non-edit host that terminates on EVERY key (the
+ * prior art's restricted text stores). The class test keeps such a host native,
+ * so each key re-adopts the copy the previous termination fused; whether that
+ * COMPOSES or ACCUMULATES is what this case measures. */
+TEST_F(NonEditHostTest, PerKeyTerminatingNonEditHostComposesAcrossKeys) {
+    HostBegin();
+    if (HasFatalFailure()) {
+        HostTeardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    ASSERT_EQ(GetFocus(), win) << "the non-edit capture window must hold the focus";
+
+    for (const char *p = "dkssud"; *p; ++p) {
+        Key((WPARAM)std::toupper((unsigned char)*p));
+        if (Snap().composition) {
+            ctx->HostTerminateComposition();
+            svc->OnCompositionTerminated(tsfmock::MockContext::kCookie, nullptr);
+        }
+    }
+
+    EXPECT_EQ(ctx->doc, std::wstring() + L'\uC548' + L'\uB155') << "per-key termination still composes: the word, not the accumulation";
+    EXPECT_EQ(ctx->hostTerminations, 6) << "every key's composition is terminated by the host";
+    EXPECT_FALSE(Snap().legacyMode) << "a non-edit host never flips";
+    HostTeardown();
+}
+
 } // namespace

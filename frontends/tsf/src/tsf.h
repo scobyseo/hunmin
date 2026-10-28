@@ -313,6 +313,10 @@ private:
     /* The boundary insert and the caret-rect fetch edit sessions. */
     class FlushSession;
     class RectSession;
+    /* Issue #144: take back the text a non-edit host fused into its document
+     * when it terminated our composition, so the next composition replaces it
+     * rather than appending after it. */
+    bool AdoptHostFusedCopy(TfEditCookie ec, ITfRange *sel);
 
     /* Activate/Deactivate halves: the two advice registrations, the
      * delivery-mode detection, and the engine flush the boundary paths
@@ -377,6 +381,13 @@ private:
     ITfComposition *composition_;
     ITfContext *compCtx_;
     std::wstring compText_;
+    /* Issue #144: a host that is NOT a classic edit control terminated our
+     * composition mid-word and fused the composition text into its own
+     * document. The native path stays (the interim path's EM writes reach
+     * nothing there); the next composition re-adopts this copy - it starts
+     * one range earlier, so its first write replaces the copy instead of
+     * appending after it. Consumed by the next composition start. */
+    std::wstring hostFusedCopy_;
     /* The preedit styling channel (S7): owns the GUID atom. */
     std::unique_ptr<DisplayAttr> displayAttr_;
 

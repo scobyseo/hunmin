@@ -31,9 +31,17 @@ ctest-measurable.
 ### TSF3. The interim path is detected, not configured
 
 The first host-driven mid-word `OnCompositionTerminated` that is not our own
-flips the service to the interim delivery for its life. *Ruling:* issue #119 —
-"file issue to implement legacy support". *Implementation:*
-`frontends/tsf/src/composition.cpp#CaptureDeadCopy`. *Refuted by:* `tsf-test`.
+flips the service to the interim delivery for its life — provided the focused
+window is an EDIT-family control (`EDIT`, `RichEdit20W`, `RICHEDIT50W`), the
+only kind the interim path's `EM_REPLACESEL` writes reach. Any other host keeps
+the native path, and the composition text that host fused into its document is
+re-adopted by the next composition, which starts one range earlier so its first
+write replaces the copy. *Ruling:* issue #119 — "file issue to implement legacy
+support". The class condition is measurement from issue #144 (2026-10-28,
+`docs/TSF-INTERIM-INPUT-SPIKE.md#§3-F`; *ruled* 2026-10-29 (maintainer
+instruction, issue #144: "merge and close").
+*Implementation:* `frontends/tsf/src/composition.cpp#IsClassicEditHost`.
+*Refuted by:* `tsf-test`.
 
 ### TSF4. Interim text is document text
 
