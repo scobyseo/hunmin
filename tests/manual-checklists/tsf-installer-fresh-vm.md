@@ -287,10 +287,16 @@ Tracked as issue #144 (measurement only; no fix attempted here).
 needs an EDIT-family focused window, and a host that is not one keeps the native
 path with the fused copy re-adopted by the next composition. The same command
 exits 0: `--settle 0` gives `안녕 ` in 4 of 4 rounds (`native recovery:
-re-adopted 1-2 fused chars` in the trace), `--settle 3` in 2 of 2. The shape and
-the experiment rows behind it are in
+re-adopted 1-2 fused chars` in the trace), `--settle 3` in 2 of 2, and the
+Notepad row (`--host notepad --settle 2`, 2 rounds) is the #126 modern-host shape
+unchanged. The shape and the experiment rows behind it are in
 `docs/TSF-INTERIM-INPUT-SPIKE.md` §3-F; the sandbox instance of this signature
 was not re-run.
+
+A Notepad round needs a FRESH process: Win11 Notepad is a packaged app, and a
+leftover instance keeps the environment it was started with, so the TIP writes no
+log in the run dir and the round fails as `profile not activated; applied rows:
+[]`. The driver now closes stale Notepad windows first (`close_stale_notepad`).
 
 Reproduce the failure:
 `python3 tools/tsf-devhost-round.py --host edge --layout dubeolsik --keys 'dkssud '

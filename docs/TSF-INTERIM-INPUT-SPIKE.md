@@ -207,6 +207,7 @@ dubeolsik --keys 'dkssud '`:
 | flip disabled (experiment) | 3 s | 1 | `안녕 ` | no host termination |
 | class-gated flip + re-adoption | 0 s | 4 | `안녕 ` | `native recovery: re-adopted 1-2 fused chars`, then `composition start` |
 | class-gated flip + re-adoption | 3 s | 2 | `안녕 ` | no termination in either round, no recovery row |
+| class-gated flip + re-adoption, Notepad | 2 s | 2 | `안녕 ` | one `composition start`, one `composition end` at the space, no `interim:`/`recovery` row — the modern-host shape of #126, unchanged |
 
 The experiment rows are the finding: on Chromium the host terminates the
 composition ONCE, and everything after it composes natively — the only

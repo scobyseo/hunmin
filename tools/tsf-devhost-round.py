@@ -193,8 +193,49 @@ def read_document():
     return clipboard_text()
 
 
+def close_stale_notepad(tries=8, pause=0.4):
+    """Close every Notepad window before launching the round's own.
+
+    Win11 Notepad is a PACKAGED app: `notepad.exe` hands off to the AppX
+    process, and a process that is ALREADY running keeps the environment it
+    was started with. A leftover instance from an earlier attempt therefore
+    holds no HUNMIN_TSF_LOG_DIR/HUNMIN_TSF_DEBUG_LOG, the TIP writes no log in
+    the run dir, and the activation wait fails as "profile not activated;
+    applied rows: []" — measured twice (2026-10-28) before the cause was seen.
+    Close the stale windows first, and say so when one refuses to go (a dirty
+    document opens a save prompt and the round cannot proceed).
+    """
+    def notepad_windows():
+        found = []
+
+        @ctypes.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
+        def cb(hwnd, lparam):
+            cls = ctypes.create_unicode_buffer(256)
+            user32.GetClassNameW(hwnd, cls, 256)
+            if cls.value == "Notepad":
+                found.append(hwnd)
+            return True
+
+        user32.EnumWindows(cb, 0)
+        return found
+
+    stale = notepad_windows()
+    if not stale:
+        return 0
+    for hwnd in stale:
+        user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
+    for _ in range(tries):
+        time.sleep(pause)
+        if not notepad_windows():
+            return len(stale)
+    raise RuntimeError(
+        "a stale Notepad window refused to close (a dirty document opens a save prompt); "
+        "the round cannot launch a fresh process that carries the log env vars")
+
+
 def run_notepad(run_dir, log_path, keys, hwnd_hint=None):
     env = dict(os.environ, HUNMIN_TSF_DEBUG_LOG="1", HUNMIN_TSF_LOG_DIR=run_dir)
+    close_stale_notepad()
     subprocess.Popen(["notepad.exe"], env=env,
                      creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
     # Win11 Notepad is a packaged app: the process we spawn hands the window to
