@@ -130,8 +130,27 @@ private:
 
 } /* namespace */
 
+/* The item is INSTALLED by UpdateLangBarItem(ptm) -- the ruled call site
+ * (maintainer ruling 2026-10-29), the same seam Activate drives in a host:
+ * QI ITfLangBarItemMgr on the thread manager, then AddItem. A case that needs
+ * the item object runs it first. */
+/* MockThreadMgr is refcounted with a private destructor (heap only, like the
+ * session fixture's tm_), so a case holds it through this handle. */
+struct MockTm {
+    tsfmock::MockThreadMgr *ptr = new tsfmock::MockThreadMgr();
+    ~MockTm() { ptr->Release(); }
+    tsfmock::MockThreadMgr *get() const { return ptr; }
+};
+
+void InstallItem(CTextService &svc, tsfmock::MockThreadMgr *tm) {
+    svc.UpdateLangBarItem(tm);
+    ASSERT_EQ(tm->langBarMgr.added.size(), (size_t)1) << "the ruled install: AddItem reached the manager";
+}
+
 TEST(TsfLangbarItem, GetInfoCarriesTheHostedShape) {
+    MockTm tm;
     CTextService svc;
+    InstallItem(svc, tm.get());
     ITfLangBarItemButton *item = nullptr;
     ASSERT_EQ(svc.QueryInterface(IID_ITfLangBarItemButton, (void **)&item), S_OK);
     ASSERT_NE(item, nullptr);
@@ -154,7 +173,9 @@ TEST(TsfLangbarItem, GetInfoCarriesTheHostedShape) {
  * a process); what this locks is the menu shape the user sees and the id
  * OnMenuSelect receives. */
 TEST(TsfLangbarItem, InitMenuAddsTheOneSettingsEntry) {
+    MockTm tm;
     CTextService svc;
+    InstallItem(svc, tm.get());
     ITfLangBarItemButton *item = nullptr;
     ASSERT_EQ(svc.QueryInterface(IID_ITfLangBarItemButton, (void **)&item), S_OK);
     ASSERT_NE(item, nullptr);
@@ -179,11 +200,13 @@ TEST(TsfLangbarItem, InitMenuAddsTheOneSettingsEntry) {
  * the WinUI surface, so the assertion is the real launch path (id 1 ->
  * ShellExecuteExW -> S_OK), not a mock of it. */
 TEST(TsfLangbarItem, OnMenuSelectOneLaunchesTheSettingsSurface) {
+    MockTm tm;
     std::wstring noop = SiblingExe(L"tsf-settings-noop.exe");
     ASSERT_NE(GetFileAttributesW(noop.c_str()), INVALID_FILE_ATTRIBUTES) << "tsf-settings-noop.exe is a build dependency of this test";
     ScopedEnv env(L"HUNMIN_TSF_SETTINGS_EXE", noop.c_str());
 
     CTextService svc;
+    InstallItem(svc, tm.get());
     ITfLangBarItemButton *item = nullptr;
     ASSERT_EQ(svc.QueryInterface(IID_ITfLangBarItemButton, (void **)&item), S_OK);
     ASSERT_NE(item, nullptr);
@@ -192,7 +215,9 @@ TEST(TsfLangbarItem, OnMenuSelectOneLaunchesTheSettingsSurface) {
 }
 
 TEST(TsfLangbarItem, QueryInterfaceAnswersITfSource) {
+    MockTm tm;
     CTextService svc;
+    InstallItem(svc, tm.get());
     /* language-bar.md: the language bar QIs the item for ITfSource at
      * AddItem to install its sink — a missing answer broke the item lane
      * before the item code ever got a refusal diagnosis. */
@@ -213,7 +238,9 @@ TEST(TsfLangbarItem, QueryInterfaceAnswersITfSource) {
 }
 
 TEST(TsfLangbarItem, AdviseSinkInstallsTheKernelSinkAndOnUpdateFlows) {
+    MockTm tm;
     CTextService svc;
+    InstallItem(svc, tm.get());
     ITfSource *item = nullptr;
     ASSERT_EQ(svc.QueryInterface(IID_ITfSource, (void **)&item), S_OK);
     ASSERT_NE(item, nullptr);
@@ -251,7 +278,7 @@ TEST(TsfLangbarItem, AdviseSinkInstallsTheKernelSinkAndOnUpdateFlows) {
     EXPECT_EQ(sink->updates[0], (DWORD)(TF_LBI_ICON | TF_LBI_TEXT)) << "the badge rides icon+text (GetIcon/GetText re-queries)";
 
     item->UnadviseSink(cookie);
-    svc.UpdateLangBarItem();
+    svc.UpdateLangBarItem(nullptr);
     EXPECT_EQ(sink->updates.size(), (size_t)1) << "no notification after the sink is gone";
 
     EXPECT_EQ(item->UnadviseSink(cookie), CONNECT_E_NOCONNECTION) << "a stale cookie is refused";
@@ -260,7 +287,9 @@ TEST(TsfLangbarItem, AdviseSinkInstallsTheKernelSinkAndOnUpdateFlows) {
 }
 
 TEST(TsfLangbarItem, UnadviseSinkOnlyAnswersItsOwnCookie) {
+    MockTm tm;
     CTextService svc;
+    InstallItem(svc, tm.get());
     ITfSource *item = nullptr;
     ASSERT_EQ(svc.QueryInterface(IID_ITfSource, (void **)&item), S_OK);
     ASSERT_NE(item, nullptr);
@@ -272,4 +301,23 @@ TEST(TsfLangbarItem, UnadviseSinkOnlyAnswersItsOwnCookie) {
     EXPECT_EQ(item->UnadviseSink(cookie), CONNECT_E_NOCONNECTION) << "double unadvise is refused";
     item->Release();
     sink->Release();
+}
+
+/* The ruling's case: Activate's install half lives in UpdateLangBarItem(ptm).
+ * One AddItem per installation (not one per mode boundary), through the manager
+ * the thread manager hands out, and the installed item is the object the shell
+ * reaches by QI. */
+TEST(TsfLangbarItem, UpdateLangBarItemInstallsOnceThroughTheThreadManager) {
+    MockTm tm;
+    CTextService svc;
+    svc.UpdateLangBarItem(tm.get());
+    ASSERT_EQ(tm.get()->langBarMgr.added.size(), (size_t)1) << "the install reached ITfLangBarItemMgr::AddItem";
+
+    ITfLangBarItemButton *item = nullptr;
+    ASSERT_EQ(svc.QueryInterface(IID_ITfLangBarItemButton, (void **)&item), S_OK);
+    EXPECT_EQ((void *)tm.get()->langBarMgr.added[0], (void *)static_cast<ITfLangBarItem *>(item)) << "the added item is the service's own";
+
+    svc.UpdateLangBarItem(tm.get()); /* a mode boundary: a notification, not a second AddItem */
+    EXPECT_EQ(tm.get()->langBarMgr.added.size(), (size_t)1) << "installed once, notified after";
+    item->Release();
 }

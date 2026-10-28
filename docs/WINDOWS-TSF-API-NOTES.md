@@ -106,15 +106,47 @@ ruling change (2026-10-22): style `BTN_MENU | SHOWNINTRAY`, no `BTN_BUTTON`:
   failed and the item returned `E_FAIL`: the menu entry appeared but launched
   nothing (found and fixed 2026-10-23; regression
   `TsfLangbarItem.OnMenuSelectOneLaunchesTheSettingsSurface`).
-- **The Win11 tray indicator is not this item's click surface (measured
-  2026-10-23).** With Hunmin active the indicator's left click opens the
-  shell's language list and its right click dismisses that list; neither
-  `OnClick` nor `InitMenu` is called (the debug log shows only
-  `langbar AddItem hr=0x0`). Adding `BTN_BUTTON` to the ruled style did not
-  change it, so the extra bit was reverted. The MS IME's `한국어 /
+- **The item IS hosted, and the bar renders it (measured 2026-10-29, first
+  time: issue #68).** A live Notepad round on the standalone build logged the
+  whole install from `Activate` and, immediately after `AddItem`, the bar's own
+  render queries:
+
+  ```
+  langbar QI hr=0x0
+  langbar GetInfo style=0x20002 guid=2C77A81E
+  langbar AdviseSink riid=57DBE1A0      <- IID_ITfLangBarItemSink: HOSTED
+  langbar AddItem hr=0x0
+  langbar GetText hangul=1
+  langbar GetIcon hangul=1              <- RENDERED
+  ```
+
+  A Han/Eng toggle then re-queried `GetText`/`GetIcon` with `hangul=0`, so the
+  한/A badge follows the mode with no host restart. `AdviseSink` is the
+  observable language-bar.md names for "the item is installed"; it had never
+  been logged before, which is why `AddItem hr=0x0` alone could not settle
+  whether the bar hosted the item.
+- **What the Win11 indicator actually paints is the PROFILE, not the item
+  (measured 2026-10-29).** The tray holds one button per language profile:
+  `트레이 입력 표시기 한국어 / Hunmin / 입력 방법을 전환하려면 …`
+  (`SystemTray.NormalButton`, 55x60 px) — no per-item slot, and no CTF-hosted
+  window of its own, which is why the 2026-10-21 UIA window scan read "nothing"
+  and was taken for "not hosted". The item's rendering is consumed by the
+  language-bar surface behind that button; its click is still the shell's
+  (below), so the two facts stand together: hosted and rendered, not clickable.
+- **The install lives in `UpdateLangBarItem(ITfThreadMgr*)` (ruled
+  2026-10-29).** That function creates the item, obtains `ITfLangBarItemMgr`
+  with `ITfThreadMgr::QueryInterface(IID_ITfLangBarItemMgr)` and calls
+  `AddItem`; `Activate` and every mode boundary call it, and `Deactivate`
+  obtains the manager the same way for `RemoveItem`. The item no longer
+  resolves a manager of its own, and it is no longer built in the constructor —
+  nothing can QI it before the service installs it.
+- **The Win11 tray indicator routes no click to the item (measured
+  2026-10-23, unchanged).** With Hunmin active the indicator's left click opens
+  the shell's language list and its right click dismisses that list; neither
+  `OnClick` nor `InitMenu` is called. Adding `BTN_BUTTON` to the ruled style did
+  not change it, so the extra bit was reverted. The MS IME's `한국어 /
   Microsoft 입력기` tray icon is the IME's own `Shell_NotifyIcon`, not a TSF
-  item; the TSF langbar item remains the classic-language-bar surface and
-  the Win11 settings entry needs a different carrier.
+  item; the Win11 settings entry needs a different carrier.
 
 **Removed (2026-10-20, "it confuses"):** the `ITfSystemLangBarItemSink`
 system-menu extension (its advice had settled on this host's system items

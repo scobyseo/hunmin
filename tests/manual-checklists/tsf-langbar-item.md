@@ -154,3 +154,65 @@ verdict falsified — it read our former shape):
 - `langbar InitMenu` / `langbar OnMenuSelect id=<n>` — the menu-button
   route: which handler the host called and with which id.
 - `launch settings exe=<path>` — the menu entry's resolved exe.
+
+## MEASURED 2026-10-29 — hosting, rendering and the mode refresh (issue #68)
+
+First round in this file's history that separates "the manager accepted the
+item" from "the language bar hosts it". The observable is the one
+language-bar.md names: *"When the item is installed, the language bar installs
+an ITfLangBarItemSink sink by calling the item's ITfSource::AdviseSink with
+IID_ITfLangBarItemSink."* It had never been logged, so every earlier round read
+`AddItem hr=0x0` and stopped there.
+
+Round: dev host, `tools/tsf-devhost-round.py --host notepad --layout dubeolsik
+--keys 'dkssud '` against the standalone build (registered by
+`frontends/tsf/register-tsf.bat`'s DLL path), text read back `안녕 ` —
+green. The whole install runs from `Activate`, and the bar answers:
+
+```text
+langbar QI hr=0x0
+langbar GetInfo style=0x20002 guid=2C77A81E
+langbar AdviseSink riid=57DBE1A0
+langbar AddItem hr=0x0
+langbar GetText hangul=1
+langbar GetIcon hangul=1
+```
+
+- `style=0x20002` = `TF_LBI_STYLE_BTN_MENU | TF_LBI_STYLE_SHOWNINTRAY` (the
+  ruled shape), `guid=2C77A81E` = `GUID_LBI_INPUTMODE`.
+- `AdviseSink riid=57DBE1A0` = `IID_ITfLangBarItemSink`: the bar HOSTS the item.
+- `GetText`/`GetIcon` immediately after `AddItem`: the bar RENDERS it.
+- A Han/Eng toggle then re-queried both with `hangul=0` (`toggle core ->
+  mode=english` in the same log), so the 한/A badge follows the mode with no host
+  restart.
+
+### Correction to the 2026-10-21 verdict
+
+The "hosted-indicator row measured CLOSED" entry above was read off a UIA scan
+for a CTF-hosted window. That scan is still correct about what it looked at —
+there is no CTF window — but it cannot see inside the shell's indicator, and
+"no window" was taken for "not hosted". Re-read on the same host today, the
+tray holds exactly one input-indicator button:
+
+```text
+ControlType.Button | name='트레이 입력 표시기 한국어
+Hunmin
+
+입력 방법을 전환하려면 Windows 키 + 스페이스를 누르세요.' | cls='SystemTray.NormalButton' | rect=2917,1940,55,60
+```
+
+So the accurate fact is two-part and both halves hold: **the item is hosted and
+rendered** (log rows above), and **the Win11 indicator paints one button per
+language PROFILE** — the profile identity (`한국어` + the profile description
+`Hunmin`) — with no per-item slot. The click surface is still the shell's
+(2026-10-23 row 5, unchanged).
+
+### Where the install runs
+
+`UpdateLangBarItem(ITfThreadMgr *ptm)` is the install site (maintainer ruling
+2026-10-29): it creates the item, obtains `ITfLangBarItemMgr` with
+`ITfThreadMgr::QueryInterface(IID_ITfLangBarItemMgr)` and calls `AddItem`;
+`Activate` and every mode boundary call it, `Deactivate` obtains the manager the
+same way for `RemoveItem`. Tier-F1 pin:
+`TsfLangbarItem.UpdateLangBarItemInstallsOnceThroughTheThreadManager` (one
+`AddItem` per installation, not one per boundary).
