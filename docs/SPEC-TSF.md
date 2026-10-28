@@ -38,7 +38,8 @@ the native path, and the composition text that host fused into its document is
 re-adopted by the next composition, which starts one range earlier so its first
 write replaces the copy. *Ruling:* issue #119 — "file issue to implement legacy
 support". The class condition is measurement from issue #144 (2026-10-28,
-`docs/TSF-INTERIM-INPUT-SPIKE.md#§3-F`) and awaits the maintainer's ruling.
+`docs/TSF-INTERIM-INPUT-SPIKE.md#§3-F`; *ruled* 2026-10-29 (maintainer
+instruction, issue #144: "merge and close").
 *Implementation:* `frontends/tsf/src/composition.cpp#IsClassicEditHost`.
 *Refuted by:* `tsf-test`.
 
