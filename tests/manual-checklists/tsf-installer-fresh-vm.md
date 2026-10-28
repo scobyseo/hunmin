@@ -283,6 +283,15 @@ reach.
 
 Tracked as issue #144 (measurement only; no fix attempted here).
 
+**Fixed 2026-10-28 (issue #144), measured on this dev host:** the flip now
+needs an EDIT-family focused window, and a host that is not one keeps the native
+path with the fused copy re-adopted by the next composition. The same command
+exits 0: `--settle 0` gives `안녕 ` in 4 of 4 rounds (`native recovery:
+re-adopted 1-2 fused chars` in the trace), `--settle 3` in 2 of 2. The shape and
+the experiment rows behind it are in
+`docs/TSF-INTERIM-INPUT-SPIKE.md` §3-F; the sandbox instance of this signature
+was not re-run.
+
 Reproduce the failure:
 `python3 tools/tsf-devhost-round.py --host edge --layout dubeolsik --keys 'dkssud '
 --expect '안녕 ' --settle 0`.

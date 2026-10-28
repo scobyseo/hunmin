@@ -184,6 +184,58 @@ and is given back. Regression test:
 needs a client height that fits a second line (measured: a 20px control
 swallows `WM_CHAR VK_RETURN`); the test uses 120px for that reason.
 
+### §3-F A one-off termination is not a classic host (2026-10-28, issue #144)
+
+Issue #144 measured a mid-word flip on Chromium (Edge, dev host, Windows 11
+10.0.26300) that LOST the word: the host terminated the composition once
+while its window was settling, the detector flipped the service, and the
+interim writes reported `doclen=0 focused=0` — the resolved window there is
+Chromium's own, not an EDIT-family control, so `EM_REPLACESEL` reaches
+nothing. The premise the flip rested on (§6's "non-EDIT hosts" row: "the
+`EM_REPLACESEL` path is meaningless — `GetFocus` resolves nothing
+TSF-shaped") was measured for the interim path's WRITES but never for the
+host CLASS, and a one-off termination was read as a per-key one.
+
+Measured this session, `tools/tsf-devhost-round.py --host edge --layout
+dubeolsik --keys 'dkssud '`:
+
+| shape of the build | settle | rounds | text | trace |
+|---|---|---|---|---|
+| shipped flip (any mid-word termination) | 0 s | 4 (issue #144's round, 2026-10-26) | `아 `, `안 `, `안녀 `, `안 ` | `legacy detection` → `interim: span ... doclen=0` per key |
+| shipped flip (any mid-word termination) | 3 s | 1 (this session) | `안 ` | the flip fires here too, and the word is lost the same way |
+| flip disabled (experiment) | 0 s | 1 | `ㅇ안녕 ` | ONE host termination, then `composition start` — the native path composes the rest |
+| flip disabled (experiment) | 3 s | 1 | `안녕 ` | no host termination |
+| class-gated flip + re-adoption | 0 s | 4 | `안녕 ` | `native recovery: re-adopted 1-2 fused chars`, then `composition start` |
+| class-gated flip + re-adoption | 3 s | 2 | `안녕 ` | no termination in either round, no recovery row |
+
+The experiment rows are the finding: on Chromium the host terminates the
+composition ONCE, and everything after it composes natively — the only
+residue is the copy the host fused into its document (`ㅇ` in `ㅇ안녕 `).
+
+Shipped shape (this branch, tier F1 `tsf-test` green, 66 cases):
+
+- the flip needs an EDIT-family focused window (`EDIT`, `RichEdit20W`,
+  `RICHEDIT50W` — `IsClassicEditHost()` in `composition.cpp`), the only
+  windows the interim path can write through. The classic probe rows (tier
+  F1 `LegacyTest`, a real EDIT capture control) are unchanged and still flip
+  on key 1;
+- any other host keeps the native path and hands the fused copy to the next
+  composition, which starts one range earlier so its first write REPLACES the
+  copy instead of appending after it. The document's own text is the arbiter
+  (`ITfRange::GetText` against the copy): a caret the host moved refuses the
+  shift instead of eating unrelated characters;
+- regression test `NonEditHostTest.MidWordTerminationKeepsNativeAndReplacesTheFusedCopy`
+  (a focused BUTTON — the non-edit class — with the mock host ending the
+  composition itself). Against the pre-fix sources it fails with the fused
+  copy left alone and the flip taken.
+
+Still unmeasured: a non-EDIT host that terminates on EVERY key (the prior
+art's restricted stores). That host now stays native and re-adopts per key;
+whether that composes or accumulates is not measured anywhere yet. The
+Windows Sandbox round (`tools/tsf-sandbox.ps1`) was not re-run this session —
+the interim path's EDIT-host behaviour it covers is unchanged by the class
+test, and tier F1's `LegacyTest` group carries the same signature.
+
 ## 4. EXP-B — does the host render an `fInterimChar` selection?
 
 The picked measurement. Implemented per the docs' own wording (one char,
