@@ -1,7 +1,7 @@
 ---
 title: "Deactivate stops leaking the event-sink advice and the lang-bar item (issue #145)"
 created: 2026-10-27
-updated: 2026-10-27
+updated: 2026-10-28
 type: session
 status: current
 tags: [session, windows, tsf, deactivate, advice, langbar, issue-145, issue-127]
@@ -44,8 +44,38 @@ against the real manager — is never issued) and the pre-existing
   `eventSinkUnadvises` empty, `langBarMgr.removed` empty — and green again on
   restore. A flipped expectation that passes against the old code would have
   proven nothing.
-- Not measured: any live host symptom. The hypothesis in #145 (a duplicate
-  tray item after a reload) is still unmeasured; the tier is the doubles.
+
+## Live round on a real image (2026-10-28)
+
+The doubles are the tier; a real kernel is the field. Run through the repo's
+own live lane — `tools/tsf-sandbox.ps1`, a disposable Windows Sandbox, the TIP
+registered in-guest by `regsvr32`, `frontends/tsf/test/ime-probe.c` as the host
+app, `HUNMIN_TSF_LOG_DIR` mapped back — twice, same case, only the sources
+different:
+
+| Line | pre-fix (`f7e66d0`) | fixed |
+|---|---|---|
+| event-sink advice | *(no unadvise at all)* | `Unadvise threadmgr event sink cookie=67108866 hr=0x0` |
+| detach | `langbar detach attached=1 tm=0000000000000000` | `langbar detach attached=1 tm=000002622D3C60E0` |
+| `RemoveItem` | never reached | `langbar RemoveItem hr=0x0` |
+| committed text | `text=안녕 한ㄱ이 pass=1` | identical |
+
+Two premises this corrected: `AddItem` answers `0x0` on a clean image (the
+`0x80004005` is this dev host's registration, not the item's shape), and the
+host accepts the unadvise — a leaked advice is silent, not fatal. The
+user-visible hypothesis in #145 (a duplicate tray item after a reload) stays
+unmeasured, and so does cookie accumulation across repeated cycles inside one
+process; each round is one process.
+
+Getting there cost a host repair worth recording: the sandbox refused to start
+for a day — the guest booted and then reset itself (`Hyper-V-Worker` 18601 then
+18515, compute teardown `0xC0370110`) through both the `.wsb` shell and the
+`wsb` CLI, while WSL2 booted fine on the same HCS stack. `dism /restorehealth`,
+`sfc`, the feature state and the container services were all healthy; a plain
+reboot did not help; `dism /disable-feature` + reboot (which re-staged the
+component) did. The persisted guest delta carried no hunmin traces, so an
+unclean in-guest uninstall was excluded as the cause.
+
 
 ## Related
 
