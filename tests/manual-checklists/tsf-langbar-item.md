@@ -216,3 +216,32 @@ language PROFILE** — the profile identity (`한국어` + the profile descripti
 same way for `RemoveItem`. Tier-F1 pin:
 `TsfLangbarItem.UpdateLangBarItemInstallsOnceThroughTheThreadManager` (one
 `AddItem` per installation, not one per boundary).
+
+### What the indicator PAINTS, measured by template match (2026-10-29)
+
+`GetIcon`/`GetText` being called proves the bar asked for the item's
+representation; it does not prove the tray paints it. Measured by capturing the
+indicator's own image element (UIA `ControlType.Image`, `rect=2935,1960,20,20`)
+in both modes and matching it against the TIP's shipped icons:
+
+| candidate | MAE vs the 20x20 tray glyph |
+|---|---|
+| profile icon (`assets/hunmin.ico`, the language-profile icon) | **8.5** |
+| mode badge, resource 2 (Hangul) | 37.8 |
+| mode badge, resource 3 (Latin) | 39.2 |
+
+And the glyph did **not** change when the mode did: a Han/Eng toggle
+(`toggle core -> mode=english` in the same run's log) left the captured 20x20
+image identical (red 62 / gold 76 / blue 0 in both captures).
+
+So the accurate statement is: **the bar hosts and queries the item, and the
+Win11 input indicator paints the PROFILE icon for the profile, constant per
+profile — not the item's per-mode badge.** Any future "the mode badge is on
+screen" claim has to come from a capture that differs between modes, not from
+the render queries alone.
+
+Method note: the capture must be per-monitor-DPI-aware. Without that context
+`CopyFromScreen` yields the LOGICAL virtual screen (2560x1600) while UIA reports
+PHYSICAL pixels (3200x2000), so a crop in UIA coordinates lands outside the
+image and reads as blank wallpaper — which is exactly how the first attempt of
+this round wasted a cycle.

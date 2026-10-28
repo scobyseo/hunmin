@@ -130,9 +130,16 @@ ruling change (2026-10-22): style `BTN_MENU | SHOWNINTRAY`, no `BTN_BUTTON`:
   `트레이 입력 표시기 한국어 / Hunmin / 입력 방법을 전환하려면 …`
   (`SystemTray.NormalButton`, 55x60 px) — no per-item slot, and no CTF-hosted
   window of its own, which is why the 2026-10-21 UIA window scan read "nothing"
-  and was taken for "not hosted". The item's rendering is consumed by the
-  language-bar surface behind that button; its click is still the shell's
-  (below), so the two facts stand together: hosted and rendered, not clickable.
+  and was taken for "not hosted". Its click is still the shell's (below), so
+  the facts stand together: hosted, queried, not clickable.
+- **What that button PAINTS is the profile icon, not the item's mode badge
+  (measured 2026-10-29, template match).** The indicator's image element
+  (20x20) matches `assets/hunmin.ico` with MAE **8.5**, against 37.8 for the
+  Hangul badge (resource 2) and 39.2 for the Latin badge (resource 3), and the
+  captured glyph is byte-identical across a Han/Eng toggle. `GetIcon`/`GetText`
+  being called is the bar's render QUERY; the visible glyph is the profile's.
+  A "the 한/A badge is on screen" claim therefore needs a capture that differs
+  between modes.
 - **The install lives in `UpdateLangBarItem(ITfThreadMgr*)` (ruled
   2026-10-29).** That function creates the item, obtains `ITfLangBarItemMgr`
   with `ITfThreadMgr::QueryInterface(IID_ITfLangBarItemMgr)` and calls
