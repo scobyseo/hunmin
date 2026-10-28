@@ -472,4 +472,30 @@ TEST_F(NonEditHostTest, MidWordTerminationKeepsNativeAndReplacesTheFusedCopy) {
     HostTeardown();
 }
 
+/* Issue #144's open question: a non-edit host that terminates on EVERY key (the
+ * prior art's restricted text stores). The class test keeps such a host native,
+ * so each key re-adopts the copy the previous termination fused; whether that
+ * COMPOSES or ACCUMULATES is what this case measures. */
+TEST_F(NonEditHostTest, PerKeyTerminatingNonEditHostComposesAcrossKeys) {
+    HostBegin();
+    if (HasFatalFailure()) {
+        HostTeardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    ASSERT_EQ(GetFocus(), win) << "the non-edit capture window must hold the focus";
+
+    for (const char *p = "dkssud"; *p; ++p) {
+        Key((WPARAM)std::toupper((unsigned char)*p));
+        if (Snap().composition) {
+            ctx->HostTerminateComposition();
+            svc->OnCompositionTerminated(tsfmock::MockContext::kCookie, nullptr);
+        }
+    }
+
+    EXPECT_EQ(ctx->doc, std::wstring() + L'\uC548' + L'\uB155') << "per-key termination still composes: the word, not the accumulation";
+    EXPECT_EQ(ctx->hostTerminations, 6) << "every key's composition is terminated by the host";
+    EXPECT_FALSE(Snap().legacyMode) << "a non-edit host never flips";
+    HostTeardown();
+}
+
 } // namespace

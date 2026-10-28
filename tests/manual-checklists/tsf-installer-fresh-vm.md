@@ -290,8 +290,12 @@ exits 0: `--settle 0` gives `안녕 ` in 4 of 4 rounds (`native recovery:
 re-adopted 1-2 fused chars` in the trace), `--settle 3` in 2 of 2, and the
 Notepad row (`--host notepad --settle 2`, 2 rounds) is the #126 modern-host shape
 unchanged. The shape and the experiment rows behind it are in
-`docs/TSF-INTERIM-INPUT-SPIKE.md` §3-F; the sandbox instance of this signature
-was not re-run.
+`docs/TSF-INTERIM-INPUT-SPIKE.md` §3-F. Both sandbox rows are green from this
+tree's build: the probe (RICHEDIT50W) still flips and composes `안녕`, and the
+Edge round installed from `hunmin-0.2.0-setup.exe` reads `안녕 ` with one
+composition start/end and no flip. The Chromium startup race itself does not
+recur in the sandbox (no account popup), so the sandbox row cannot exercise the
+recovery path — only the dev host can.
 
 A Notepad round needs a FRESH process: Win11 Notepad is a packaged app, and a
 leftover instance keeps the environment it was started with, so the TIP writes no
