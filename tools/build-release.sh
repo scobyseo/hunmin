@@ -87,15 +87,22 @@ build_apk() {
     # keystore is then read, not generated, and this block is unused.
     local ks="$ROOT/build/release-ci.keystore"
     mkdir -p "$ROOT/build"
+    # keytool and Gradle are NATIVE programs: on an MSYS host they cannot read a
+    # /c/... path, and keytool reports it as FileNotFoundException (measured
+    # 2026-10-29 on this Windows host). build-android.sh already normalises the
+    # same way for cmake/ninja; do it once here and use the native form for both
+    # the keytool call and the exported variable.
+    local ks_win="$ks"
+    command -v cygpath >/dev/null 2>&1 && ks_win="$(cygpath -m "$ks")"
     if [ ! -f "$ks" ]; then
-        keytool -genkeypair -keystore "$ks" -storepass android -alias hunmin \
+        keytool -genkeypair -keystore "$ks_win" -storepass android -alias hunmin \
             -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
             -dname 'CN=hunmin-ci,O=hunmin,L=CI,C=KR'
     fi
     # Handed to Gradle via the environment, matching the CI android-release job,
     # so the same build.gradle.kts branch runs locally and in CI. build.gradle.kts
     # reads HUNMIN_RELEASE_STORE when set -- see the signingConfigs block there.
-    export HUNMIN_RELEASE_STORE="$ks"
+    export HUNMIN_RELEASE_STORE="$ks_win"
     ./tools/build-android.sh "$ABI" 24
     cd frontends/android
     ./gradlew --no-daemon :app:assembleRelease

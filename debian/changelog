@@ -1,3 +1,21 @@
+hunmin (0.2.0) unstable; urgency=medium
+
+  * Windows TSF frontend (milestone 0.2): the TIP builds with MSVC and
+    registers through its own DllRegisterServer (CLSID, CTF TIP tree,
+    Korean language profile, categories), composes inline through the
+    shared buffering layer, serves Hanja candidates from the bundled
+    tables, and ships a WinUI 3 settings surface.
+  * Windows installation package: hunmin-0.2.0-setup.exe (Inno Setup),
+    static CRT so a clean image needs no VC redist, data staged beside
+    the DLL, Start-menu entry, uninstall that mirrors registration.
+  * The TIP declares GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT, so the Win11 input
+    indicator gives it an entry of its own; GetIcon serves the per-mode
+    badge and the entry's click launches the settings exe.
+  * fcitx5 addon: engine, layout tables and behaviour fixes since 0.1.
+  * Android: same feature set, rebuilt against the 0.2.0 engine.
+
+ -- Seo Bon Keun <scobyseo@gmail.com>  Thu, 29 Oct 2026 22:20:00 +0900
+
 hunmin (0.1.0) unstable; urgency=medium
 
   * Initial release. libhunmin Hangul input engine (layouts as data,
