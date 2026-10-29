@@ -55,6 +55,15 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 STAGE="$ROOT/build/release-$TAG"
 NOTES="$ROOT/docs/release-notes/$TAG.md"
 
+# git and gh are NATIVE programs: on an MSYS host they cannot resolve /c/...
+# paths, and the failure reads "fatal: cannot change to '/c/...'" (measured
+# 2026-10-29 on the first --yes run of this script). Everything handed to them
+# goes through this native form.
+ROOT_NATIVE="$ROOT"; STAGE_NATIVE="$STAGE"; NOTES_NATIVE="$NOTES"
+if command -v cygpath >/dev/null 2>&1; then
+    ROOT_NATIVE=$(cygpath -m "$ROOT"); STAGE_NATIVE=$(cygpath -m "$STAGE"); NOTES_NATIVE=$(cygpath -m "$NOTES")
+fi
+
 # channel:staged-name:source-path
 CHANNELS=(
     "windows:hunmin-$VERSION-setup.exe:$ROOT/build-msvc/installer/hunmin-$VERSION-setup.exe"
@@ -109,20 +118,24 @@ if [ "$fail" != 0 ] && [ "$DRY_RUN" = 0 ]; then
 fi
 
 step "3. annotated tag"
-do_or_print "git -C '$ROOT' tag -a '$TAG' -m 'hunmin $TAG'"
+do_or_print "git -C '$ROOT_NATIVE' tag -a '$TAG' -m 'hunmin $TAG'"
 
 step "4. push the tag"
-do_or_print "git -C '$ROOT' push origin '$TAG'"
+do_or_print "git -C '$ROOT_NATIVE' push origin '$TAG'"
 
 step "5. create the release and upload the assets"
 ASSET_ARGS=()
 for entry in "${CHANNELS[@]}"; do
-    rest="${entry#*:}"; name="${rest%%:*}"; ASSET_ARGS+=("'$STAGE/$name'")
+    rest="${entry#*:}"; name="${rest%%:*}"; ASSET_ARGS+=("'$STAGE_NATIVE/$name'")
 done
-do_or_print "gh release create '$TAG' --repo scobyseo/hunmin --title 'hunmin $TAG' --notes-file '$NOTES' ${ASSET_ARGS[*]}"
+do_or_print "gh release create '$TAG' --repo scobyseo/hunmin --title 'hunmin $TAG' --notes-file '$NOTES_NATIVE' ${ASSET_ARGS[*]}"
 
 step "6. verify (existence, then reachability)"
-do_or_print "gh release view '$TAG' --repo scobyseo/hunmin --json tagName,isDraft,assets --jq '.tagName, .isDraft, [.assets[].name] | @tsv'"
+# One array into @tsv. The first form piped each scalar through @tsv, which gh
+# rejects ('@tsv cannot be applied to: string ("0.2.0")') -- measured on the
+# 0.2.0 run, where the step printed nothing and the release was proved by the
+# asset download and hash comparison instead.
+do_or_print "gh release view '$TAG' --repo scobyseo/hunmin --json tagName,isDraft,assets --jq '[.tagName, (.isDraft|tostring), ([.assets[].name]|join(\",\"))] | @tsv'"
 say "  anonymous fetch of each asset URL (expect 404 while the repo is private):"
 for entry in "${CHANNELS[@]}"; do
     rest="${entry#*:}"; name="${rest%%:*}"
