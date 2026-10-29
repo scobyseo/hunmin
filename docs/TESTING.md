@@ -272,7 +272,12 @@ cache it compiles only `libhunmin` — the fcitx5 addon and the Android frontend
 skip by name. It runs no tier tests beyond `abi`/`schema-contract`, and no
 linting of C or Kotlin: `shell-lint` covers the shell at `-S error` severity,
 and `docs-lint` covers the Python by type-checking `tools/` with pyright (the
-(M5-CLOSED row). clang-tidy and clang-format are on the GitHub image and unused;
+(M5-CLOSED row). That check is evaluated on whatever host runs it, and `tools/`
+holds Windows host tools: `pyrightconfig.json` pins `pythonPlatform` to `Windows`
+so a Linux build resolves `winreg` instead of reporting every attribute of it as
+unknown (measured 2026-10-29 on the .deb gate: 21 errors on Linux, all `winreg`
+in `tools/tsf-devhost-round.py`; 0 with the setting on either platform).
+clang-tidy and clang-format are on the GitHub image and unused;
 adding CI gating for them is a separate decision about how much noise this
 project is willing to gate on. clang-format itself *is* the tree's formatting
 standard since 2026-10-17 (issue #77, option 2) — retuned 2026-10-24 to the
