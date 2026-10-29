@@ -44,8 +44,8 @@ echo "=== $VERSION: $ROOT -> $DEST (log: $LOG)"
 rm -rf "$DEST"
 mkdir -p "$DEST"
 rsync -a \
-  --exclude 'build' --exclude 'build-*' --exclude '.git' \
-  --exclude 'build-android' --exclude 'build-msvc' --exclude 'build-tsf-devhost' \
+  --exclude '/build' --exclude '/build-*' --exclude '/.git' \
+  --exclude '/build-android' --exclude '/build-msvc' --exclude '/build-tsf-devhost' \
   "$ROOT"/ "$DEST"/
 
 # (1) LF-normalise the text files; binary assets keep their bytes.
@@ -55,6 +55,17 @@ find "$DEST" -type f \
      -o -name '*.in' -o -name '*.yml' -o -name '*.toml' -o -name '*.rules' -o -name '*.kts' \) \
   -exec sed -i 's/\r$//' {} +
 find "$DEST/debian" -type f -exec sed -i 's/\r$//' {} +
+
+# The /mnt/c mount reports every file as 0777, so a plain copy makes
+# debian/hunmin.docs executable -- dpkg then treats it as a config script and
+# the install stage dies with 'debian/hunmin.docs (executable config) returned
+# exit code 2' (measured 2026-10-29, after the suite had already passed).
+# Normalise: data files 644, and only the files that must run 755.
+find "$DEST" -type f -exec chmod 644 {} +
+chmod 755 "$DEST"/debian/rules "$DEST"/debian/*.postinst "$DEST"/debian/*.preinst 2>/dev/null
+find "$DEST/tools" "$DEST/tests" -name '*.sh' -exec chmod 755 {} + 2>/dev/null
+chmod 755 "$DEST/frontends/android/gradlew" 2>/dev/null
+echo "=== file modes normalised"
 
 cd "$DEST" || exit 1
 
