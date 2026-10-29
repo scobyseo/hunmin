@@ -508,6 +508,9 @@ bool CTextService::CaretRect(ITfContext *pic, RECT *rcOut, bool *haveCaretOut, G
     *haveCaretOut = haveCaret;
     if (gtiOut)
         *gtiOut = gti;
+    hunmin_logger.log("caret: preedit=%d have=%d hwndCaret=%p rc=(%ld,%ld,%ld,%ld) hrRect=0x%lX\n", hasPreeditRect_ ? 1 : 0, haveCaret ? 1 : 0,
+                      (void *)gti.hwndCaret, (long)gti.rcCaret.left, (long)gti.rcCaret.top, (long)gti.rcCaret.right, (long)gti.rcCaret.bottom,
+                      (unsigned long)hrRect);
     if (!hasPreeditRect_ && !haveCaret)
         return false;
     RECT rc = hasPreeditRect_ ? preeditRect_ : gti.rcCaret;
