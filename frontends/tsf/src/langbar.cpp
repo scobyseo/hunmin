@@ -25,6 +25,13 @@
  * F2C70003 (issue #67) never got past AddItem on 26200 and is retired. */
 static const GUID HunminLbiInputModeGuid = {0x2C77A81E, 0x41CC, 0x4178, {0xA3, 0xA7, 0x5F, 0x8A, 0x98, 0x75, 0x68, 0xE6}};
 
+namespace {
+/* A CODE address in this DLL, usable as the FROM_ADDRESS module anchor: a
+ * member-function pointer is not a plain pointer, and the item object lives on
+ * the heap (no module owns that address). log.h uses the same shape. */
+void LangBarModuleAnchor() {}
+} // namespace
+
 LangBarItem::LangBarItem(LangBarHost &host, const CLSID &serviceClsid) : ref_(1), host_(host), serviceClsid_(serviceClsid) {}
 
 STDMETHODIMP LangBarItem::QueryInterface(REFIID riid, void **ppv) {
@@ -214,10 +221,17 @@ STDMETHODIMP LangBarItem::GetIcon(HICON *phIcon) {
      * apply; nothing to free. */
     /* GetIcon is only ever called BY a bar that renders the item: it is the
      * render-side observable, the sibling of GetInfo's AddItem answer. */
-    hunmin_logger.log("langbar GetIcon hangul=%d\n", host_.HangulMode() ? 1 : 0);
     HMODULE self = nullptr;
     const wchar_t *which = host_.HangulMode() ? MAKEINTRESOURCEW(2) : MAKEINTRESOURCEW(3);
-    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)this, &self)) {
+    hunmin_logger.log("langbar GetIcon hangul=%d res=%d\n", host_.HangulMode() ? 1 : 0, (int)(INT_PTR)which);
+    /* The module anchor must be a CODE address inside this DLL:
+     * GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS resolves an address's module, and
+     * this object lives on the heap, so anchoring on `this` made the call fail
+     * every time and every icon fell through to IDI_APPLICATION -- measured
+     * 2026-10-29 (issue #68): the tray entry showed the Windows default icon
+     * whatever the mode. Same shape as log.h's PathFor anchor. */
+    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (LPCWSTR)(const void *)&LangBarModuleAnchor, &self)) {
         *phIcon = LoadIconW(self, which);
         if (*phIcon)
             return S_OK;
