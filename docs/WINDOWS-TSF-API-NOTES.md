@@ -153,6 +153,13 @@ ruling change (2026-10-22): style `BTN_MENU | SHOWNINTRAY`, no `BTN_BUTTON`:
   toggle even though the shell re-queries `GetInfo`/`GetText`/`GetIcon` with
   the new mode each time (verified with `BTN_MENU` and with
   `BTN_BUTTON|SHOWNINTRAY` + a layout-name `GetText`).
+  **CORRECTED 2026-10-29, same day, after the anchor fix below:** the glyph DOES
+  follow the mode. `GetIcon` now logs `hangul=1 res=2` / `hangul=0 res=3`, the
+  captured 20x20 changes across a Han/Eng toggle, and template match scores
+  10.0 (Hangul badge) / 8.8 (Latin badge) against 37.9-38.9 for the app icon.
+  The earlier "identical across a toggle" reading was the bug: with the module
+  anchor on a heap pointer every call returned `IDI_APPLICATION`.
+
 - **The install lives in `UpdateLangBarItem(ITfThreadMgr*)` (ruled
   2026-10-29).** That function creates the item, obtains `ITfLangBarItemMgr`
   with `ITfThreadMgr::QueryInterface(IID_ITfLangBarItemMgr)` and calls

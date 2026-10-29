@@ -273,3 +273,23 @@ What the entry does and does not do, measured in the same rounds:
   the sibling IME ships). So the entry is an entry, not yet a mode indicator.
 - The langbar item on its own, in either style, produces no entry at all — that
   was the earlier experiment, re-run after the category existed.
+
+### CORRECTED 2026-10-29 (same day) — the mode badge and the click both work
+
+Two readings in the section above were artefacts of the measurement, not of the
+shell:
+
+- **The glyph does follow the mode.** The "pixel-identical across a toggle"
+  result came from `GetIcon` anchoring its module lookup on `this` — a heap
+  pointer, so `GetModuleHandleExW(FROM_ADDRESS)` failed and every call returned
+  `LoadIconW(NULL, IDI_APPLICATION)`. Fixed in `langbar.cpp` (a namespace-scope
+  function is the anchor). Measured after the fix on the installed package:
+  `langbar GetIcon hangul=1 res=2` and `hangul=0 res=3`, the captured 20x20
+  changes on toggle, template match 10.0 to the Hangul badge / 8.8 to the Latin
+  badge against 37.9-38.9 for the app icon.
+- **The item is clickable.** Driven through UI Automation (`InvokePattern` on
+  the `SystemTray.NormalButton`), the TIP logs `langbar OnClick click=2` then
+  `launch settings exe=C:\Program Files\Hunmin IME\settings-ui\hunmin-tsf-settingsui.exe hr=0`,
+  and `WinUIDesktopWin32WindowClass` / `Hunmin TSF settings` (456x639 at 26,26)
+  appears. Raw `SendInput` right-clicks never reach the XAML tray island — that
+  was the limit of the earlier method, not a shell behaviour.
