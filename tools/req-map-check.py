@@ -195,6 +195,17 @@ def source_registration(test_id: str) -> str:
             continue
         if re.search(rf"add_test\(\s*NAME\s+{re.escape(test_id)}\b", text):
             return rel
+        # A test registered from a LOOP has no literal `add_test(NAME <id>`, so
+        # the search above cannot see it and the row reads dead on any build
+        # where that tier does not register. Measured 2026-10-29 on a Linux
+        # build: `add_test(NAME tsf-mock-${name}` (frontends/tsf/test) made
+        # FE1/FE4/FE10/TSF9/A2 fail with "neither registered in the build nor
+        # declared by any add_test(NAME ...)" -- five true rows reported dead.
+        # A loop's literal prefix is the declaration, so match that too; an id
+        # that is not a prefix-extension of any registration still fails.
+        for prefix in re.findall(r"add_test\(\s*NAME\s+([A-Za-z0-9_.\-]+)\$\{", text):
+            if test_id.startswith(prefix):
+                return rel
     return ""
 
 

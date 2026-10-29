@@ -94,11 +94,10 @@ CTextService::CTextService()
         hunmin_logger.log("FATAL: candidate flow not built\n");
         abort();
     }
-    langbar_ = hunmin_tsf_langbar_new(*this, CLSID_HunminTSF);
-    if (!langbar_) {
-        hunmin_logger.log("FATAL: language-bar item not built\n");
-        abort();
-    }
+    /* The language-bar item is NOT built here: it is created and installed by
+     * UpdateLangBarItem(ptm), the ruled install site (maintainer ruling
+     * 2026-10-29) -- the shell asks for the item only after the service adds
+     * it, so nothing can QI it before then. */
 }
 
 CTextService::~CTextService() {
@@ -293,9 +292,27 @@ void CTextService::ApplyConfigStore() {
     hunmin_logger.log("  applied hangul=%s latin=%s layer=%p\n", hangulId_.c_str(), latinId_.c_str(), (void *)preedit_);
 }
 
-void CTextService::UpdateLangBarItem() {
-    if (langbar_)
-        langbar_->Update();
+void CTextService::UpdateLangBarItem(ITfThreadMgr *ptm) {
+    /* THE install site (maintainer ruling 2026-10-29): the item is created
+     * here, added here, and notified here. language-bar.md, "Adding Items to
+     * the Language Bar": obtain ITfLangBarItemMgr with ITfThreadMgr::QueryInterface,
+     * then call AddItem -- the manager belongs to the caller, not to the item. */
+    if (!langbar_)
+        langbar_ = hunmin_tsf_langbar_new(*this, CLSID_HunminTSF);
+    if (!langbar_)
+        return;
+    if (!langbar_->Attached() && ptm) {
+        ITfLangBarItemMgr *plbm = nullptr;
+        const HRESULT q = ptm->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm);
+        hunmin_logger.log("langbar QI hr=0x%lX\n", (unsigned long)q);
+        if (plbm) {
+            langbar_->Attach(plbm);
+            plbm->Release();
+        }
+    }
+    /* Every later call is the badge refresh: OnUpdate(TF_LBI_ICON|TF_LBI_TEXT)
+     * over the kernel sink the bar advised at AddItem. */
+    langbar_->Update();
 }
 
 void CTextService::ToggleModeCore(ITfContext *pic) {
@@ -314,7 +331,7 @@ void CTextService::ToggleModeCore(ITfContext *pic) {
     if (switched)
         hangulMode_ = (hunmin_buffered_preedit_language(preedit_) == HUNMIN_LANGUAGE_HANGUL);
     UpdateConversionCompartment();
-    UpdateLangBarItem();
+    UpdateLangBarItem(threadMgr_);
     /* This gated line is the one evidence a mode boundary ran in this
      * host at all: the key path's own log line lives in its handler. */
     hunmin_logger.log("toggle core -> mode=%s ic=%p pic=%p\r\n", hangulMode_ ? "hangul" : "english", (void *)preedit_, (void *)pic);
@@ -411,17 +428,12 @@ STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
     ApplyConfigStore();
     DetectLegacyMode();
     /* THE language-bar item (issue #103, the ruled langbar surface): the
-     * mode indicator (icon 한/A, text) AND the right-click config menu
-     * ride our own ITfLangBarItemButton, added while the service is
-     * active and removed in Deactivate (docs: language-bar.md, "Adding
-     * Items to the Language Bar"). */
-    langbar_->Attach(ptm);
+     * mode indicator (icon 한/A, text) AND the right-click config menu ride our
+     * own ITfLangBarItemButton. The install itself is UpdateLangBarItem's
+     * (maintainer ruling 2026-10-29): create the item, obtain
+     * ITfLangBarItemMgr with ITfThreadMgr::QueryInterface, AddItem. */
+    UpdateLangBarItem(ptm);
     UpdateConversionCompartment();
-    /* The item's first notification: the sink is only set once the
-     * language bar advises it (the item's ITfSource::AdviseSink), so an
-     * AddItem-less host (or the CTF kernel's NULL sink) simply sees a
-     * badge re-read at the next mode boundary. */
-    UpdateLangBarItem();
     if (ctx_)
         hunmin_logger.log("  layout_count=%d\n", hunmin_ctx_layout_count(ctx_));
     return S_OK;
@@ -442,11 +454,22 @@ STDMETHODIMP CTextService::Deactivate() {
     if (lastCtx_)
         InsertBufferedWord(lastCtx_); /* commits nothing when the word is empty */
     cand_->Close();
-    /* Remove the language-bar item while the manager is still alive
-     * (issue #145: this used to run after UnadviseSinks() had nulled it,
-     * which made the call a no-op and left the bar holding an item whose
-     * service had gone). */
-    langbar_->Detach(threadMgr_);
+    /* Remove the language-bar item while the manager is still alive, through a
+     * manager obtained the same way Activate obtained its own (language-bar.md:
+     * "either uses the same ITfLangBarItemMgr interface used to add the items
+     * or obtains another instance"). Kept before ReleaseThreadMgr() -- issue
+     * #145: this used to run after UnadviseSinks() had nulled the thread
+     * manager, which made the call a no-op and left the bar holding an item
+     * whose service had gone. */
+    if (threadMgr_) {
+        ITfLangBarItemMgr *plbm = nullptr;
+        if (SUCCEEDED(threadMgr_->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm)) && plbm) {
+            langbar_->Detach(plbm);
+            plbm->Release();
+        } else {
+            langbar_->Detach(nullptr);
+        }
+    }
     if (preedit_) {
         hunmin_buffered_preedit_free(preedit_);
         preedit_ = nullptr;

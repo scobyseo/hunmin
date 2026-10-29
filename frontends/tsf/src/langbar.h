@@ -50,14 +50,19 @@ public:
     /* The mode boundary's one notification. */
     void Update();
 
-    /* The language-bar manager holds a reference only between these two
-     * calls, so the attached state and the kernel sink live here, next to
-     * the item the manager sees. TRUE from Attach when AddItem succeeded. */
-    bool Attach(ITfThreadMgr *threadMgr);
-    void Detach(ITfThreadMgr *threadMgr);
+    /* The language-bar manager is the CALLER's. language-bar.md ("Adding Items
+     * to the Language Bar"): the service obtains ITfLangBarItemMgr with
+     * ITfThreadMgr::QueryInterface and then calls AddItem/RemoveItem itself,
+     * from Activate/Deactivate. The item therefore never resolves a manager of
+     * its own, and the documented call site is the one that runs. */
+    bool Attach(ITfLangBarItemMgr *mgr);
+    void Detach(ITfLangBarItemMgr *mgr);
     /* Drop the kernel sink after ITfLangBarItemMgr::RemoveItem (Detach does
      * this; the shell's destructor calls it too, when no manager is left). */
     void OnRemoved();
+
+    /* TRUE between a successful AddItem and the RemoveItem that follows it. */
+    bool Attached() const { return attached_; }
 
     /* The tier-F1 observation channel. */
     ITfLangBarItemSink *Sink() const { return sink_; }

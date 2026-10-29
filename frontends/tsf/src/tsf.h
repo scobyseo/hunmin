@@ -249,10 +249,11 @@ public:
      * in the adapter (never two that could drift). */
     void ApplyConfigStore();
 
-    /* The langbar item's change notification (issue #103): every mode
-     * boundary notifies the kernel through the ITfLangBarItemSink the
-     * language bar installs onto the item at AddItem. */
-    void UpdateLangBarItem();
+    /* The langbar item's change notification (issue #103) AND its install site
+     * (maintainer ruling 2026-10-29): the caller passes the thread manager it
+     * holds, the function obtains ITfLangBarItemMgr from it, adds the item, and
+     * notifies the kernel sink the bar installed at AddItem. */
+    void UpdateLangBarItem(ITfThreadMgr *ptm);
 
     /* The language-toggle core (issue #103): flip, conversion compartment,
      * langbar notification, the composition-boundary flush, and the ic

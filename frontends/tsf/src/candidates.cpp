@@ -303,6 +303,7 @@ private:
              * candidate state stays open - a host that reports no window
              * geometry today may report it after the next focus, and the
              * next Hanja/arrow key redraws. */
+            hunmin_logger.log("cand: no metrics -> window hidden (active=%d haveCaret=%d)\n", candActive_ ? 1 : 0, haveCaret ? 1 : 0);
             candWnd_.Hide();
             return;
         }

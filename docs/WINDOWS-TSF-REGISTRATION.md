@@ -41,8 +41,13 @@ step logs to `<module dir>\hunmin-reg-debug.log`.
    evidence-bearing step: `GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD)` inside the
    registering process, CLSID logged. The legacy `ActivateLanguageProfile` runs
    as fallback only.
-6. `ITfCategoryMgr::RegisterCategory` for `GUID_TFCAT_TIP_KEYBOARD` and
-   `GUID_TFCAT_CATEGORY_OF_TIP`.
+6. `ITfCategoryMgr::RegisterCategory` for `GUID_TFCAT_TIP_KEYBOARD`,
+   `GUID_TFCAT_CATEGORY_OF_TIP`, `GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER`
+   (issue #98) and `GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT`
+   `{25504FB4-7BAB-4BC1-9C69-CF81890F0EF5}` (issue #68, measured 2026-10-29:
+   without this category the Win11 input indicator gives the TIP no entry of
+   its own — see `tests/manual-checklists/tsf-langbar-item.md`). All four are
+   unregistered in the mirror.
 
 `frontends/tsf/register-tsf.bat` wraps it: paths from `%~dp0`, notepad killed
 first, both logs deleted first, `regsvr32` output and the reg log printed after.

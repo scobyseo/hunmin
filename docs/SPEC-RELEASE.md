@@ -14,10 +14,14 @@ extracts from a measured board note.
 
 ### REL1
 
-The release version is `0.1.0`; the `-pN` suffix names the Android
+The release version is `0.2.0`; the `-pN` suffix names the Android
 build phase and is never the release number. *Ruling:* issue #9, 2026-10-12 —
-"the release is 0.1.0 and the -pN suffix is the Android build phase".
-*Implementation:* `frontends/android/app/build.gradle.kts`,
+"the release is 0.1.0 and the -pN suffix is the Android build phase", superseded
+for this release by the maintainer's 2026-10-29 release instruction — "this task
+is to release v0.2 ; so open PR, merge, release, and close the issue" — which
+sets the version to `0.2.0` in `CMakeLists.txt`, `debian/changelog` and the tag,
+with `frontends/android/app/build.gradle.kts` carrying `0.2.0-p5` and
+`versionCode = 2`. *Implementation:* `frontends/android/app/build.gradle.kts`,
 `docs/MILESTONES.md`. *Verified by:* board row `VERSION-CONVENTION`.
 
 ### REL2

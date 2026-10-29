@@ -154,3 +154,142 @@ verdict falsified — it read our former shape):
 - `langbar InitMenu` / `langbar OnMenuSelect id=<n>` — the menu-button
   route: which handler the host called and with which id.
 - `launch settings exe=<path>` — the menu entry's resolved exe.
+
+## MEASURED 2026-10-29 — hosting, rendering and the mode refresh (issue #68)
+
+First round in this file's history that separates "the manager accepted the
+item" from "the language bar hosts it". The observable is the one
+language-bar.md names: *"When the item is installed, the language bar installs
+an ITfLangBarItemSink sink by calling the item's ITfSource::AdviseSink with
+IID_ITfLangBarItemSink."* It had never been logged, so every earlier round read
+`AddItem hr=0x0` and stopped there.
+
+Round: dev host, `tools/tsf-devhost-round.py --host notepad --layout dubeolsik
+--keys 'dkssud '` against the standalone build (registered by
+`frontends/tsf/register-tsf.bat`'s DLL path), text read back `안녕 ` —
+green. The whole install runs from `Activate`, and the bar answers:
+
+```text
+langbar QI hr=0x0
+langbar GetInfo style=0x20002 guid=2C77A81E
+langbar AdviseSink riid=57DBE1A0
+langbar AddItem hr=0x0
+langbar GetText hangul=1
+langbar GetIcon hangul=1
+```
+
+- `style=0x20002` = `TF_LBI_STYLE_BTN_MENU | TF_LBI_STYLE_SHOWNINTRAY` (the
+  ruled shape), `guid=2C77A81E` = `GUID_LBI_INPUTMODE`.
+- `AdviseSink riid=57DBE1A0` = `IID_ITfLangBarItemSink`: the bar HOSTS the item.
+- `GetText`/`GetIcon` immediately after `AddItem`: the bar RENDERS it.
+- A Han/Eng toggle then re-queried both with `hangul=0` (`toggle core ->
+  mode=english` in the same log), so the 한/A badge follows the mode with no host
+  restart.
+
+### Correction to the 2026-10-21 verdict
+
+The "hosted-indicator row measured CLOSED" entry above was read off a UIA scan
+for a CTF-hosted window. That scan is still correct about what it looked at —
+there is no CTF window — but it cannot see inside the shell's indicator, and
+"no window" was taken for "not hosted". Re-read on the same host today, the
+tray holds exactly one input-indicator button:
+
+```text
+ControlType.Button | name='트레이 입력 표시기 한국어
+Hunmin
+
+입력 방법을 전환하려면 Windows 키 + 스페이스를 누르세요.' | cls='SystemTray.NormalButton' | rect=2917,1940,55,60
+```
+
+So the accurate fact is two-part and both halves hold: **the item is hosted and
+rendered** (log rows above), and **the Win11 indicator paints one button per
+language PROFILE** — the profile identity (`한국어` + the profile description
+`Hunmin`) — with no per-item slot. The click surface is still the shell's
+(2026-10-23 row 5, unchanged).
+
+### Where the install runs
+
+`UpdateLangBarItem(ITfThreadMgr *ptm)` is the install site (maintainer ruling
+2026-10-29): it creates the item, obtains `ITfLangBarItemMgr` with
+`ITfThreadMgr::QueryInterface(IID_ITfLangBarItemMgr)` and calls `AddItem`;
+`Activate` and every mode boundary call it, `Deactivate` obtains the manager the
+same way for `RemoveItem`. Tier-F1 pin:
+`TsfLangbarItem.UpdateLangBarItemInstallsOnceThroughTheThreadManager` (one
+`AddItem` per installation, not one per boundary).
+
+### What the indicator PAINTS, measured by template match (2026-10-29)
+
+`GetIcon`/`GetText` being called proves the bar asked for the item's
+representation; it does not prove the tray paints it. Measured by capturing the
+indicator's own image element (UIA `ControlType.Image`, `rect=2935,1960,20,20`)
+in both modes and matching it against the TIP's shipped icons:
+
+| candidate | MAE vs the 20x20 tray glyph |
+|---|---|
+| profile icon (`assets/hunmin.ico`, the language-profile icon) | **8.5** |
+| mode badge, resource 2 (Hangul) | 37.8 |
+| mode badge, resource 3 (Latin) | 39.2 |
+
+And the glyph did **not** change when the mode did: a Han/Eng toggle
+(`toggle core -> mode=english` in the same run's log) left the captured 20x20
+image identical (red 62 / gold 76 / blue 0 in both captures).
+
+So the accurate statement is: **the bar hosts and queries the item, and the
+Win11 input indicator paints the PROFILE icon for the profile, constant per
+profile — not the item's per-mode badge.** Any future "the mode badge is on
+screen" claim has to come from a capture that differs between modes, not from
+the render queries alone.
+
+Method note: the capture must be per-monitor-DPI-aware. Without that context
+`CopyFromScreen` yields the LOGICAL virtual screen (2560x1600) while UIA reports
+PHYSICAL pixels (3200x2000), so a crop in UIA coordinates lands outside the
+image and reads as blank wallpaper — which is exactly how the first attempt of
+this round wasted a cycle.
+
+### The tray entry is the capability category (measured 2026-10-29, issue #68)
+
+The item's own shape was never the thing that decides whether the shell gives a
+TIP an entry in the Win11 input indicator. Measured on this host, same session:
+
+| registered `GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT` | tray indicator entries with Hunmin active |
+|---|---|
+| no | `한국어 / Hunmin` — one, the language profile |
+| yes `{25504FB4-7BAB-4BC1-9C69-CF81890F0EF5}` | `Hunmin 설정 열기` **plus** `한국어 / Hunmin` |
+
+The category `{25504FB4-7BAB-4BC1-9C69-CF81890F0EF5}` is documented as "TIP
+supports inclusion in the System Tray"; the sibling 날개셋 IME carries it
+(alongside `CCF05DD7`/input-mode-compartment, `49D2F9CE`, `49D2F9CF`,
+`364215D9`, `364215DA`) and so does the Microsoft Korean IME, while Hunmin
+carried only keyboard/TIP/display-attribute.
+
+What the entry does and does not do, measured in the same rounds:
+
+- its accessible name is `GetTooltipString` (`Hunmin 설정 열기`);
+- the shell re-queries the item on every mode boundary —
+  `langbar GetInfo style=0x20002`, `GetText hangul=0`, `GetIcon hangul=0` all
+  appear after `toggle core -> mode=english` — but the 20x20 glyph and the
+  label stay **pixel-identical** across the toggle, and stay identical with
+  `dwStyle = BTN_BUTTON | SHOWNINTRAY` and a layout-name `GetText` (the shape
+  the sibling IME ships). So the entry is an entry, not yet a mode indicator.
+- The langbar item on its own, in either style, produces no entry at all — that
+  was the earlier experiment, re-run after the category existed.
+
+### CORRECTED 2026-10-29 (same day) — the mode badge and the click both work
+
+Two readings in the section above were artefacts of the measurement, not of the
+shell:
+
+- **The glyph does follow the mode.** The "pixel-identical across a toggle"
+  result came from `GetIcon` anchoring its module lookup on `this` — a heap
+  pointer, so `GetModuleHandleExW(FROM_ADDRESS)` failed and every call returned
+  `LoadIconW(NULL, IDI_APPLICATION)`. Fixed in `langbar.cpp` (a namespace-scope
+  function is the anchor). Measured after the fix on the installed package:
+  `langbar GetIcon hangul=1 res=2` and `hangul=0 res=3`, the captured 20x20
+  changes on toggle, template match 10.0 to the Hangul badge / 8.8 to the Latin
+  badge against 37.9-38.9 for the app icon.
+- **The item is clickable.** Driven through UI Automation (`InvokePattern` on
+  the `SystemTray.NormalButton`), the TIP logs `langbar OnClick click=2` then
+  `launch settings exe=C:\Program Files\Hunmin IME\settings-ui\hunmin-tsf-settingsui.exe hr=0`,
+  and `WinUIDesktopWin32WindowClass` / `Hunmin TSF settings` (456x639 at 26,26)
+  appears. Raw `SendInput` right-clicks never reach the XAML tray island — that
+  was the limit of the earlier method, not a shell behaviour.

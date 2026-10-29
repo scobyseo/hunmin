@@ -10,6 +10,8 @@
  */
 #include "candwindow.h"
 
+#include "log.h" /* the Show/Hide observables a live round reads */
+
 #include <richedit.h>
 #include <string>
 
@@ -56,8 +58,10 @@ HunminCandWindow::~HunminCandWindow() {
 }
 
 void HunminCandWindow::Show(const RECT &anchor, HWND fontHost, const std::vector<std::wstring> &lines) {
-    if (lines.empty())
+    if (lines.empty()) {
+        hunmin_logger.log("cand: show skipped (no lines)\n");
         return;
+    }
 
     /* Text first: the window is sized from what it must draw. */
     std::wstring text;
@@ -126,9 +130,16 @@ void HunminCandWindow::Show(const RECT &anchor, HWND fontHost, const std::vector
     MoveWindow(wnd_, anchor.left, anchor.bottom + 2, maxSz.cx + pad * 2, (int)lines.size() * maxSz.cy + pad * 2, TRUE);
     SetWindowTextW(wnd_, text.c_str());
     ShowWindow(wnd_, SW_SHOWNOACTIVATE);
+    hunmin_logger.log("cand: shown hwnd=%p at=(%ld,%ld) size=(%ld,%ld) lines=%d visible=%d\n", (void *)wnd_, (long)anchor.left,
+                      (long)(anchor.bottom + 2), (long)(maxSz.cx + pad * 2), (long)((int)lines.size() * maxSz.cy + pad * 2),
+                      (int)lines.size(), IsWindowVisible(wnd_) ? 1 : 0);
 }
 
 void HunminCandWindow::Hide() {
-    if (wnd_)
+    if (wnd_) {
+        const bool wasVisible = IsWindowVisible(wnd_) != FALSE;
         ShowWindow(wnd_, SW_HIDE);
+        if (wasVisible)
+            hunmin_logger.log("cand: hidden hwnd=%p\n", (void *)wnd_);
+    }
 }

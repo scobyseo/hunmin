@@ -25,6 +25,13 @@
  * F2C70003 (issue #67) never got past AddItem on 26200 and is retired. */
 static const GUID HunminLbiInputModeGuid = {0x2C77A81E, 0x41CC, 0x4178, {0xA3, 0xA7, 0x5F, 0x8A, 0x98, 0x75, 0x68, 0xE6}};
 
+namespace {
+/* A CODE address in this DLL, usable as the FROM_ADDRESS module anchor: a
+ * member-function pointer is not a plain pointer, and the item object lives on
+ * the heap (no module owns that address). log.h uses the same shape. */
+void LangBarModuleAnchor() {}
+} // namespace
+
 LangBarItem::LangBarItem(LangBarHost &host, const CLSID &serviceClsid) : ref_(1), host_(host), serviceClsid_(serviceClsid) {}
 
 STDMETHODIMP LangBarItem::QueryInterface(REFIID riid, void **ppv) {
@@ -79,6 +86,10 @@ STDMETHODIMP LangBarItem::GetInfo(TF_LANGBARITEMINFO *pInfo) {
     pInfo->dwStyle = TF_LBI_STYLE_BTN_MENU | TF_LBI_STYLE_SHOWNINTRAY;
     pInfo->ulSort = 0;
     lstrcpynW(pInfo->szDescription, L"Hunmin \uC124\uC815", MAX_PATH);
+    /* The shape the bar judged, logged where the bar reads it: a live round
+     * can then tell a refused item (AddItem hr) from an accepted item the
+     * indicator never asks about (no GetIcon/GetText afterwards). */
+    hunmin_logger.log("langbar GetInfo style=0x%X guid=%08lX\n", (unsigned)pInfo->dwStyle, (unsigned long)pInfo->guidItem.Data1);
     return S_OK;
 }
 
@@ -171,6 +182,11 @@ STDMETHODIMP LangBarItem::AdviseSink(REFIID riid, IUnknown *punk, DWORD *pdwCook
     if (!punk || !pdwCookie)
         return E_INVALIDARG;
     *pdwCookie = 0;
+    /* THE hosting observable (language-bar.md): "when the item is installed,
+     * the language bar installs an ITfLangBarItemSink sink by calling the
+     * item's ITfSource::AdviseSink". A round that sees this line has a bar
+     * that HOSTS the item; a round that does not has only AddItem's answer. */
+    hunmin_logger.log("langbar AdviseSink riid=%08lX\n", (unsigned long)riid.Data1);
     if (!IsEqualIID(riid, IID_ITfLangBarItemSink))
         return CONNECT_E_CANNOTCONNECT;
     if (sink_)
@@ -203,9 +219,19 @@ STDMETHODIMP LangBarItem::GetIcon(HICON *phIcon) {
      * multi-size app icon (resource 1) remains the service's own
      * identity in the language list. LoadIconW cached-handle rules
      * apply; nothing to free. */
+    /* GetIcon is only ever called BY a bar that renders the item: it is the
+     * render-side observable, the sibling of GetInfo's AddItem answer. */
     HMODULE self = nullptr;
     const wchar_t *which = host_.HangulMode() ? MAKEINTRESOURCEW(2) : MAKEINTRESOURCEW(3);
-    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)this, &self)) {
+    hunmin_logger.log("langbar GetIcon hangul=%d res=%d\n", host_.HangulMode() ? 1 : 0, (int)(INT_PTR)which);
+    /* The module anchor must be a CODE address inside this DLL:
+     * GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS resolves an address's module, and
+     * this object lives on the heap, so anchoring on `this` made the call fail
+     * every time and every icon fell through to IDI_APPLICATION -- measured
+     * 2026-10-29 (issue #68): the tray entry showed the Windows default icon
+     * whatever the mode. Same shape as log.h's PathFor anchor. */
+    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (LPCWSTR)(const void *)&LangBarModuleAnchor, &self)) {
         *phIcon = LoadIconW(self, which);
         if (*phIcon)
             return S_OK;
@@ -225,6 +251,7 @@ STDMETHODIMP LangBarItem::GetText(BSTR *pbstrText) {
     /* the MODE as TEXT (the bar renders this on text-capable bars):
      * Hangul on hangul side / Latin on the latin side */
     *pbstrText = SysAllocString(host_.HangulMode() ? L"\uD55C" : L"A");
+    hunmin_logger.log("langbar GetText hangul=%d\n", host_.HangulMode() ? 1 : 0);
     return *pbstrText ? S_OK : E_OUTOFMEMORY;
 }
 
@@ -233,36 +260,26 @@ void LangBarItem::Update() {
         sink_->OnUpdate(TF_LBI_ICON | TF_LBI_TEXT);
 }
 
-bool LangBarItem::Attach(ITfThreadMgr *threadMgr) {
-    if (!threadMgr)
+bool LangBarItem::Attach(ITfLangBarItemMgr *plbm) {
+    if (!plbm)
         return false;
-    ITfLangBarItemMgr *plbm = nullptr;
-    HRESULT hb = threadMgr->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm);
-    hunmin_logger.log("langbar QI hr=0x%lX\n", (unsigned long)hb);
-    if (FAILED(hb) || !plbm)
-        return false;
-    HRESULT ai = plbm->AddItem(this);
+    const HRESULT ai = plbm->AddItem(this);
     if (SUCCEEDED(ai))
         attached_ = true;
     hunmin_logger.log("langbar AddItem hr=0x%lX\n", (unsigned long)ai);
-    plbm->Release();
     return attached_;
 }
 
-void LangBarItem::Detach(ITfThreadMgr *threadMgr) {
+void LangBarItem::Detach(ITfLangBarItemMgr *plbm) {
     /* Logged before the guards: a live round has to tell "the detach was never
      * called", "called with no manager" (#145's defect, before the fix) and
      * "RemoveItem refused" apart, and only the first is visible from the
      * caller. */
-    hunmin_logger.log("langbar detach attached=%d tm=%p\n", attached_ ? 1 : 0, (void *)threadMgr);
-    if (!attached_ || !threadMgr)
+    hunmin_logger.log("langbar detach attached=%d mgr=%p\n", attached_ ? 1 : 0, (void *)plbm);
+    if (!attached_ || !plbm)
         return;
-    ITfLangBarItemMgr *plbm = nullptr;
-    if (SUCCEEDED(threadMgr->QueryInterface(IID_ITfLangBarItemMgr, (void **)&plbm)) && plbm) {
-        const HRESULT ri = plbm->RemoveItem(this);
-        hunmin_logger.log("langbar RemoveItem hr=0x%lX\n", (unsigned long)ri);
-        plbm->Release();
-    }
+    const HRESULT ri = plbm->RemoveItem(this);
+    hunmin_logger.log("langbar RemoveItem hr=0x%lX\n", (unsigned long)ri);
     attached_ = false;
     OnRemoved();
 }
