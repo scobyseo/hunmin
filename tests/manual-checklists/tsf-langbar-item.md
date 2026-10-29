@@ -245,3 +245,31 @@ Method note: the capture must be per-monitor-DPI-aware. Without that context
 PHYSICAL pixels (3200x2000), so a crop in UIA coordinates lands outside the
 image and reads as blank wallpaper — which is exactly how the first attempt of
 this round wasted a cycle.
+
+### The tray entry is the capability category (measured 2026-10-29, issue #68)
+
+The item's own shape was never the thing that decides whether the shell gives a
+TIP an entry in the Win11 input indicator. Measured on this host, same session:
+
+| registered `GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT` | tray indicator entries with Hunmin active |
+|---|---|
+| no | `한국어 / Hunmin` — one, the language profile |
+| yes `{25504FB4-7BAB-4BC1-9C69-CF81890F0EF5}` | `Hunmin 설정 열기` **plus** `한국어 / Hunmin` |
+
+The category `{25504FB4-7BAB-4BC1-9C69-CF81890F0EF5}` is documented as "TIP
+supports inclusion in the System Tray"; the sibling 날개셋 IME carries it
+(alongside `CCF05DD7`/input-mode-compartment, `49D2F9CE`, `49D2F9CF`,
+`364215D9`, `364215DA`) and so does the Microsoft Korean IME, while Hunmin
+carried only keyboard/TIP/display-attribute.
+
+What the entry does and does not do, measured in the same rounds:
+
+- its accessible name is `GetTooltipString` (`Hunmin 설정 열기`);
+- the shell re-queries the item on every mode boundary —
+  `langbar GetInfo style=0x20002`, `GetText hangul=0`, `GetIcon hangul=0` all
+  appear after `toggle core -> mode=english` — but the 20x20 glyph and the
+  label stay **pixel-identical** across the toggle, and stay identical with
+  `dwStyle = BTN_BUTTON | SHOWNINTRAY` and a layout-name `GetText` (the shape
+  the sibling IME ships). So the entry is an entry, not yet a mode indicator.
+- The langbar item on its own, in either style, produces no entry at all — that
+  was the earlier experiment, re-run after the category existed.

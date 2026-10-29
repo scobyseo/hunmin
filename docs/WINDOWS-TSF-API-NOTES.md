@@ -140,6 +140,19 @@ ruling change (2026-10-22): style `BTN_MENU | SHOWNINTRAY`, no `BTN_BUTTON`:
   being called is the bar's render QUERY; the visible glyph is the profile's.
   A "the 한/A badge is on screen" claim therefore needs a capture that differs
   between modes.
+- **The tray ENTRY is a capability category, not an item shape (measured
+  2026-10-29, issue #68).** `GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT`
+  (`{25504FB4-7BAB-4BC1-9C69-CF81890F0EF5}`, "TIP supports inclusion in the
+  System Tray") is what makes the Win11 input indicator give the TIP an entry
+  of its own: with it registered the tray gains
+  `트레이 입력 표시기 Hunmin 설정 열기` beside the profile button; without it
+  there is only the profile button. The sibling 날개셋 IME and the Microsoft
+  Korean IME both declare it; Hunmin did not. Measured consequences of the
+  entry, which are NOT yet a mode indicator: its accessible name is
+  `GetTooltipString`, and its glyph/name stay identical across a Han/Eng
+  toggle even though the shell re-queries `GetInfo`/`GetText`/`GetIcon` with
+  the new mode each time (verified with `BTN_MENU` and with
+  `BTN_BUTTON|SHOWNINTRAY` + a layout-name `GetText`).
 - **The install lives in `UpdateLangBarItem(ITfThreadMgr*)` (ruled
   2026-10-29).** That function creates the item, obtains `ITfLangBarItemMgr`
   with `ITfThreadMgr::QueryInterface(IID_ITfLangBarItemMgr)` and calls

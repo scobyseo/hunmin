@@ -207,6 +207,19 @@ static void RegisterInputProcessorProfile(const wchar_t *guidStr) {
     pProfile->Release();
 }
 
+/* GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT {25504FB4-7BAB-4BC1-9C69-CF81890F0EF5}.
+ * Predefined Category Values (MS Learn): "TIP supports inclusion in the System
+ * Tray. This is used for text services that do not set the
+ * TF_IPP_CAPS_IMMERSIVESUPPORT flag but are still compatible with the System
+ * Tray." msctf.h declares the symbol EXTERN_C and the data lives in a library
+ * this target does not link, so the value is a private constant here, the same
+ * way langbar.cpp carries GUID_LBI_INPUTMODE.
+ *
+ * Measured 2026-10-29 (issue #68): this is one of the categories the sibling
+ * 날개셋 IME and the Microsoft Korean IME both declare, and the only one of
+ * that set Hunmin was missing. */
+static const GUID HunminTipcapSystraySupportGuid = {0x25504fb4, 0x7bab, 0x4bc1, {0x9c, 0x69, 0xcf, 0x81, 0x89, 0x0f, 0x0e, 0xf5}};
+
 static void RegisterTipCategories() {
     ITfCategoryMgr *pCatMgr = nullptr;
     HRESULT hr = hunmin_tsf_regseam()->co_create(CLSID_TF_CategoryMgr, IID_ITfCategoryMgr, (LPVOID *)&pCatMgr);
@@ -220,8 +233,13 @@ static void RegisterTipCategories() {
      * the composition range's GUID_PROP_ATTRIBUTE value carries
      * HunminDisplayAttrGuid, which the provider serves. */
     HRESULT c3 = pCatMgr->RegisterCategory(CLSID_HunminTSF, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER, CLSID_HunminTSF);
-    hunmin_reg_logger.log(L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n", (unsigned long)c1, (unsigned long)c2,
-                          (unsigned long)c3);
+    /* The tray capability (measured 2026-10-29, issue #68): the shell only
+     * gives a TIP an entry of its own in the input indicator when it declares
+     * SYSTRAYSUPPORT -- the category the sibling 날개셋 IME and the Microsoft
+     * Korean IME both carry, and Hunmin did not. */
+    HRESULT c4 = pCatMgr->RegisterCategory(CLSID_HunminTSF, HunminTipcapSystraySupportGuid, CLSID_HunminTSF);
+    hunmin_reg_logger.log(L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX systray=0x%lX\n", (unsigned long)c1,
+                          (unsigned long)c2, (unsigned long)c3, (unsigned long)c4);
     pCatMgr->Release();
 }
 
@@ -330,8 +348,11 @@ static void UnregisterTipCategories() {
     HRESULT c2 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_CATEGORY_OF_TIP, CLSID_HunminTSF);
     /* Issue #98: mirror of the display-attribute provider registration. */
     HRESULT c3 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER, CLSID_HunminTSF);
-    hunmin_reg_logger.log(L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX\n", (unsigned long)c1, (unsigned long)c2,
-                          (unsigned long)c3);
+    /* Mirror of the tray capability (issue #68): a category left behind by an
+     * uninstall keeps the shell offering a TIP that is no longer registered. */
+    HRESULT c4 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, HunminTipcapSystraySupportGuid, CLSID_HunminTSF);
+    hunmin_reg_logger.log(L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX systray=0x%lX\n", (unsigned long)c1,
+                          (unsigned long)c2, (unsigned long)c3, (unsigned long)c4);
     pCatMgr->Release();
 }
 
