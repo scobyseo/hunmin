@@ -36,6 +36,49 @@ the ambient `python3` resolves to `~/work/.venv/bin/python3`, so any script that
 out to bare `python3` (D3's `xtest-type.py` does) silently inherits that stack. Pass an
 explicit interpreter, or activate `tools/.venv` first.
 
+## Host change — 2026-10-31: builds run on native Linux, not a WSL guest
+
+The 0.2 stretch (2026-10-16 … 10-29) ran on a Windows host with a WSL Ubuntu
+25.10 guest; `tools/build-deb-wsl.sh`, the "Windows development environment"
+sections below, and `docs/release-notes/0.2.0.md` are that record and stay as
+written. The host the work runs on now is native:
+
+```
+$ lsb_release -ds          Ubuntu 26.04.1 LTS
+$ lsb_release -cs          resolute
+$ uname -r                 7.0.0-38-generic
+$ systemd-detect-virt      none
+$ ls -d /mnt/c             (absent)
+$ git config core.filemode true
+$ dpkg-query -W debhelper  13.31ubuntu1
+$ dpkg-query -W dpkg-dev   1.23.7ubuntu1
+```
+
+So `dpkg-buildpackage`, `tools/release-gate.sh` and `tools/build-release.sh deb`
+run here directly — the .deb route is not a foreign-checkout one any more.
+`tools/build-deb-wsl.sh` still runs, and it is what built the artifact measured
+for #150/#154 on 2026-10-31, because one of the three traps it handles is not a
+WSL fact at all:
+
+| trap, as that script's header states it | what it actually is | applies here? |
+|---|---|---|
+| the worktree is a CRLF checkout | a checkout made on the **Windows** side (`core.autocrlf`) | no — a native clone is LF |
+| debhelper 13.31 passes `-DFETCHCONTENT_FULLY_DISCONNECTED=ON` | an **Ubuntu 25.10 / 26.04 debhelper version** fact | **yes** |
+| files under `/mnt/c` report 0777 and ignore `chmod` | drvfs, i.e. genuinely WSL-at-`/mnt/c` | no |
+
+The middle one was measured here: a plain `dpkg-buildpackage -us -uc -b` dies at
+`dh_auto_configure` with `FETCHCONTENT_FULLY_DISCONNECTED is set to true, which
+requires the source directory for dependency googletest to already be populated`
+and then `Target "candidate-tables-test" links to: GTest::gtest_main but the
+target was not found`. Pre-populating `obj-x86_64-linux-gnu/_deps/googletest-src`
+and passing `-nc` — exactly what that script does — is the fix on this host too.
+
+A consequence worth knowing before trusting a committed mode bit: on that WSL
+layout `git` ignores `core.filemode` and `/mnt/c` returns 0777, so exec bits do
+not survive checkout there. They do here (`core.filemode true`), which is why
+`tools/*.sh` being 100755 is checkable on this host and only a convention on
+that one.
+
 ## This host is not an fcitx5 desktop
 
 The session input method is **kime**, not fcitx5. That matters before any

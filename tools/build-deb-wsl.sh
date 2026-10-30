@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# build-deb-wsl.sh — build the release .deb on a Windows host, inside WSL.
+# build-deb-wsl.sh — build the release .deb from a Windows-host checkout, in WSL.
 #
 # Why this exists: tools/build-release.sh deb is the Linux route (it is what CI
-# runs). On this host the distribution is a WSL guest, and three host facts make
-# a naive `wsl.exe bash -c 'dpkg-buildpackage'` fail in ways that look like code
+# runs, and what applies on the current host -- native Ubuntu 26.04, see
+# docs/ENVIRONMENT.md "Host change -- 2026-10-31"). This script is for the case
+# where the checkout itself lives on the WINDOWS side and the build runs in its
+# WSL guest: there, three host facts make a naive
+# `wsl.exe bash -c 'dpkg-buildpackage'` fail in ways that look like code
 # breakage. Each is handled below and each was measured on 2026-10-29:
 #
 #  1. The worktree is a CRLF checkout. The package build runs ctest, where the
@@ -19,6 +22,18 @@
 #     deletes the build dir, taking the checkout from (2) with it. -nc skips
 #     that clean. The cost is that the caller must not rely on a stale tree:
 #     the working copy is recreated from scratch on every run.
+#
+# Only two of those three are Windows/WSL facts. (2) is the debhelper VERSION:
+# 13.31 passes the flag unconditionally and Ubuntu 25.10/26.04 ship it, so the
+# same configure failure happens on a NATIVE Ubuntu 26.04 host -- measured
+# 2026-10-31 there, `dpkg-buildpackage -us -uc -b` died with
+#   CMake Error ... Target "candidate-tables-test" links to: GTest::gtest_main
+#     but the target was not found.
+# and the pre-populate + -nc steps below are what fixed it there too. (1) is a
+# checkout made on the Windows side (core.autocrlf), not a property of WSL; (3)
+# is drvfs at /mnt/c. So this script is still the right tool for a WSL guest,
+# and its middle step is also the right tool for any host whose debhelper is
+# 13.31 or newer.
 #
 # Usage:
 #   tools/build-deb-wsl.sh                 # from the Windows side: wsl.exe bash tools/build-deb-wsl.sh
