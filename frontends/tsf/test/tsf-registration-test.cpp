@@ -40,6 +40,11 @@ namespace {
  * constant -- the test must not share a symbol with the code it grades. */
 const GUID kGuidSystraySupport = {0x25504fb4, 0x7bab, 0x4bc1, {0x9c, 0x69, 0xcf, 0x81, 0x89, 0x0f, 0x0e, 0xf5}};
 
+/* GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT {13A016DF-560B-46CD-947A-4C3AF1E0E35D},
+ * also a literal: measured 2026-10-31, this is the capability a packaged host
+ * (Windows Terminal is MSIX) filters on before it offers a TIP at all. */
+const GUID kGuidImmersiveSupport = {0x13a016df, 0x560b, 0x46cd, {0x94, 0x7a, 0x4c, 0x3a, 0xf1, 0xe0, 0xe3, 0x5d}};
+
 /* The CLSID as the registration helpers stringify it (StringFromGUID2), so the
  * expected registry paths are derived, never typed. */
 std::wstring ClsidString() {
@@ -124,17 +129,19 @@ TEST(TsfRegistration, RegisterWritesTheDocumentedArtifactSet) {
     EXPECT_LT(d.trace.indexOf(L"ActivateProfile"), d.trace.indexOf(L"GetActiveProfile"));
 
     /* 4. The four categories, in this order: keyboard, TIP, display-attribute
-     * provider (issue #98's provider category), and the tray capability
+     * provider (issue #98's provider category), the tray capability
      * (measured 2026-10-29, issue #68: without GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT
      * the shell gives the TIP no entry of its own in the Win11 input indicator;
      * the sibling 날개셋 IME and the Microsoft Korean IME both carry it). The
      * value is a literal here because msctf.h declares the symbol and the data
      * lives in a library registration.cpp does not link. */
-    ASSERT_EQ(d.categoryMgr.registered.size(), (size_t)4) << "four categories, not the doc's two";
+    ASSERT_EQ(d.categoryMgr.registered.size(), (size_t)5) << "five categories, not the doc's two";
     EXPECT_TRUE(IsEqualGUID(d.categoryMgr.registered[0], GUID_TFCAT_TIP_KEYBOARD));
     EXPECT_TRUE(IsEqualGUID(d.categoryMgr.registered[1], GUID_TFCAT_CATEGORY_OF_TIP));
     EXPECT_TRUE(IsEqualGUID(d.categoryMgr.registered[2], GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER));
     EXPECT_TRUE(IsEqualGUID(d.categoryMgr.registered[3], kGuidSystraySupport)) << "GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT, the tray entry";
+    EXPECT_TRUE(IsEqualGUID(d.categoryMgr.registered[4], kGuidImmersiveSupport))
+        << "GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT: measured 2026-10-31 — without it Windows Terminal (MSIX) never cycles the TIP";
 
     /* 5. The icon-index pin (measured 2026-10-18: a stored IconIndex of 1
      * rendered the language entry blank, so registration rewrites 0). Both the
@@ -162,10 +169,11 @@ TEST(TsfRegistration, UnregisterMirrorsEveryRegisteredArtifact) {
     ASSERT_EQ(DllUnregisterServer(), TRUE);
 
     /* The unregister tail, exactly: the profile's own enablement entry, then
-     * Unregister, then the four category mirrors, then the two trees. */
+     * Unregister, then the five category mirrors, then the two trees. */
     std::vector<std::wstring> tail(d.trace.events.begin() + (std::ptrdiff_t)mark, d.trace.events.end());
     const std::vector<std::wstring> expected = {L"UnregisterProfile",  L"Unregister",    L"UnregisterCategory", L"UnregisterCategory",
-                                                L"UnregisterCategory", L"UnregisterCategory", L"RegDeleteTree", L"RegDeleteTree"};
+                                                L"UnregisterCategory", L"UnregisterCategory", L"UnregisterCategory",
+                                                L"RegDeleteTree",      L"RegDeleteTree"};
     ASSERT_EQ(tail.size(), expected.size()) << "no unregister step is missing and none is extra";
     for (size_t i = 0; i < expected.size(); ++i)
         EXPECT_EQ(tail[i], expected[i]) << "unregister step " << i;

@@ -193,6 +193,16 @@ static void RegisterInputProcessorProfile(const wchar_t *guidStr) {
     pProfile->Release();
 }
 
+/* GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT {13A016DF-560B-46CD-947A-4C3AF1E0E35D}.
+ * Measured 2026-10-31: this is the category that decides whether a TIP is
+ * offered inside an IMMERSIVE (packaged) host. Windows Terminal (MSIX) cycles
+ * MS IME and 날개셋 with Win+Space and never reached Hunmin; the registry diff
+ * against 날개셋's registration showed this category present there and absent
+ * here. Same treatment as the SYSTRAYSUPPORT value below: the symbol is
+ * EXTERN_C in msctf.h, the data lives in a library this target does not link,
+ * so the value is a private constant. */
+static const GUID HunminTipcapImmersiveSupportGuid = {0x13a016df, 0x560b, 0x46cd, {0x94, 0x7a, 0x4c, 0x3a, 0xf1, 0xe0, 0xe3, 0x5d}};
+
 /* GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT {25504FB4-7BAB-4BC1-9C69-CF81890F0EF5}.
  * Predefined Category Values (MS Learn): "TIP supports inclusion in the System
  * Tray. This is used for text services that do not set the
@@ -224,8 +234,12 @@ static void RegisterTipCategories() {
      * SYSTRAYSUPPORT -- the category the sibling 날개셋 IME and the Microsoft
      * Korean IME both carry, and Hunmin did not. */
     HRESULT c4 = pCatMgr->RegisterCategory(CLSID_HunminTSF, HunminTipcapSystraySupportGuid, CLSID_HunminTSF);
-    hunmin_reg_logger.log(L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX systray=0x%lX\n", (unsigned long)c1,
-                          (unsigned long)c2, (unsigned long)c3, (unsigned long)c4);
+    /* The immersive capability (measured 2026-10-31): without it a packaged
+     * host -- Windows Terminal is MSIX -- does not cycle this TIP at all, so
+     * it could not be selected there while notepad-type hosts worked. */
+    HRESULT c5 = pCatMgr->RegisterCategory(CLSID_HunminTSF, HunminTipcapImmersiveSupportGuid, CLSID_HunminTSF);
+    hunmin_reg_logger.log(L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX systray=0x%lX immersive=0x%lX\n",
+                          (unsigned long)c1, (unsigned long)c2, (unsigned long)c3, (unsigned long)c4, (unsigned long)c5);
     pCatMgr->Release();
 }
 
@@ -288,8 +302,11 @@ static void UnregisterTipCategories() {
     /* Mirror of the tray capability (issue #68): a category left behind by an
      * uninstall keeps the shell offering a TIP that is no longer registered. */
     HRESULT c4 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, HunminTipcapSystraySupportGuid, CLSID_HunminTSF);
-    hunmin_reg_logger.log(L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX systray=0x%lX\n", (unsigned long)c1,
-                          (unsigned long)c2, (unsigned long)c3, (unsigned long)c4);
+    /* Mirror of the immersive capability (2026-10-31): a package-visible TIP
+     * left registered keeps the entry in a packaged host after uninstall. */
+    HRESULT c5 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, HunminTipcapImmersiveSupportGuid, CLSID_HunminTSF);
+    hunmin_reg_logger.log(L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX systray=0x%lX immersive=0x%lX\n",
+                          (unsigned long)c1, (unsigned long)c2, (unsigned long)c3, (unsigned long)c4, (unsigned long)c5);
     pCatMgr->Release();
 }
 
