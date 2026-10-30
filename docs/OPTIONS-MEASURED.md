@@ -1,12 +1,14 @@
-# OPTIONS-MEASURED — four cost questions, measured
+# OPTIONS-MEASURED — five cost questions, measured
 
 Four documents that were one genre: a question nobody had priced, the options
 priced against each other, and the maintainer left to choose. They are one file
 now — the four shared preambles and provenance blocks were the duplication, and
 each section keeps its own status, because two of the four have been decided
-since they were written.
+since they were written. §URM arrived later, as a section rather than a fifth
+document, because an issue that asks a question and leaves it open belongs in
+the file that already holds the open ones.
 
-Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`) so a
+Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`) so a
 cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
 is the android sandbox's §4.2.
 
@@ -16,6 +18,7 @@ is the android sandbox's §4.2.
 | AND | what `android-mutations` costs, and what isolation buys | open |
 | TST | what a test-framework migration would cost | **decided: option 1b**, shipped (#109) |
 | IC | the case-encoding `ch` input | **decided: option B**, recorded (#87 close) |
+| URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | open (#146) |
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
 find the optimum design, not to judge one candidate", and a decision is the
@@ -1273,3 +1276,263 @@ keystreams).
   red before any frontend moved.
 - Issue #87 stays open and decision-gated: closing it records a ruling
   only the maintainer can make.
+
+
+## URM — Unregister mirror: the Start-menu shortcut and `RemoveLanguageProfile`
+
+**Measurement only / no option recommended / the choice is the maintainer's.**
+Issue #146 asks two questions about whether `DllUnregisterServer` is a complete
+mirror of `DllRegisterServer`, and it names, for the first question, the single
+fact that would change the answer: "whether the Inno Setup uninstaller deletes
+the Start-menu entry". That fact is measured in §URM-1, and it does not read the
+way the issue presumed — the uninstaller does delete a Start-menu entry, but a
+different one, in a different folder, written by a different program.
+
+### URM-0 The premise, checked first
+
+The issue's own sentences, each re-measured against the tree and the host.
+
+1. **"Registration writes `<Programs>\Hunmin IME 설정.lnk`"** — *verified as a
+   path expression, corrected as a location.* The code asks for
+   `FOLDERID_Programs` (`frontends/tsf/src/registration.cpp`, `SeamProgramsFolder`).
+   `FOLDERID_Programs` is the **per-user** Start-menu folder
+   (`%APPDATA%\Microsoft\Windows\Start Menu\Programs`); the all-users folder is
+   `FOLDERID_CommonPrograms` (`%ProgramData%\…\Programs`). The installer writes
+   to the all-users one. Both files exist on this host — see §URM-1.
+2. **"pointing at the settings exe when it is deployed beside the DLL, else
+   `rundll32 <dll>,HunminSettingsShow`"** — *verified, and measured live*: the
+   installed shortcut's target is
+   `C:\Program Files\Hunmin IME\settings-ui\hunmin-tsf-settingsui.exe`.
+3. **"`DllUnregisterServer` deletes only two things"** — *verified*. The
+   unregister tail is eight steps, no file operation among them:
+   `UnregisterProfile`, `Unregister`, four `UnregisterCategory`, then
+   `RegDeleteTreeW` on `HKLM\SOFTWARE\Microsoft\CTF\TIP\{CLSID}` and on
+   `HKCR\CLSID\{CLSID}` — asserted verbatim by
+   `TsfRegistration.UnregisterMirrorsEveryRegisteredArtifact`.
+4. **"an unregister-then-move-the-checkout leaves a dead Start-menu entry that
+   resolves to nothing"** — *corrected, narrower.* That is the checkout case
+   only: with no `settings-ui` beside the DLL, the link is the `rundll32` form
+   and its argument is the DLL's absolute path, so moving the checkout kills it.
+   On an installed product the link carries the settings-exe path and survives a
+   checkout move untouched; it dies at **uninstall** instead, when `{app}` goes.
+   Both end dead; the trigger differs, and the second one is the shipped case.
+5. **"the installer's uninstall path may already handle it (not measured
+   here)"** — *measured, and the answer is "a different artefact"*. Inno's own
+   uninstall log (`C:\Program Files\Hunmin IME\unins000.dat`, read as the list
+   the uninstaller replays) records the all-users group directory
+   `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Hunmin IME` and the
+   `.lnk` inside it. The per-user path is **not** in that log: decoding the log
+   and searching for `AppData` returns nothing. So the uninstaller removes its
+   own entry and leaves the DLL's.
+6. **"nothing calls `RemoveLanguageProfile`"** — *verified*: the issue's own
+   command, `grep -c "RemoveLanguageProfile" frontends/tsf/src/registration.cpp`,
+   returns 0.
+7. **"Unregistering relies on `UnregisterProfile` + `Unregister` + the HKLM tree
+   deletion"** — *verified, with one omission*: the HKCR CLSID tree is deleted
+   too, and so are the four categories. The issue's list is the profile half.
+8. **Premise the issue does not state, which binds both questions:**
+   `docs/WINDOWS-TSF-REGISTRATION.md`'s "the HKCU SortOrder/Assemblies store is
+   untouched: registration never writes it" is true for `SortOrder` and
+   `Assemblies`, and **not** true of HKCU as a whole. `EnableLanguageProfile` is
+   documented as enabling a profile "for the current user", and the `Enable`
+   value is under **HKCU**, not HKLM — measured in §URM-2, and corrected in that
+   document in this branch. So registration already writes one per-user key, and
+   the mirror's HKLM tree deletion cannot reach it; whether `UnregisterProfile`
+   removes it is the unmeasured half of question 2.
+
+### URM-1 The two Start-menu writers, and the folder mismatch
+
+| writer | code | folder | resolved path on this host | who deletes it |
+|---|---|---|---|---|
+| `DllRegisterServer` | `CreateStartMenuShortcut` (`registration.cpp`) | `FOLDERID_Programs` — **per-user** | `C:\Users\pc\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Hunmin IME 설정.lnk` (2198 bytes) | nothing, today |
+| the installer | `[Icons]` in `frontends/tsf/installer/hunmin.iss` | `{group}` = `{commonprograms}\{DefaultGroupName}` — **all users** | `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Hunmin IME\Hunmin IME 설정.lnk` (1109 bytes) | Inno's uninstaller — that path is in `unins000.dat`; the per-user one is not |
+
+Both files were written in the same minute by the same install
+(2026-10-29 22:11) and both target the same executable, so the one visible
+effect on a machine with the product installed is **two Start-menu entries with
+the same name** — one at the top level of Programs, one inside a `Hunmin IME`
+folder. Measured by listing both folders; this is the state the maintainer's
+own desktop is in now.
+
+Three consequences — the first two measured, the third read from the code:
+
+- **The uninstaller and the DLL are not two writers of one artefact** — they are
+  two writers of two artefacts in two hierarchies. That is what settles the
+  issue's deciding question: deleting the DLL's `.lnk` in `DllUnregisterServer`
+  would not fight the uninstaller, because the uninstaller never touches that
+  path.
+- **Per-machine registration, per-user artifact.** Registration is elevated and
+  writes HKLM/HKCR, but the shortcut lands in the profile of whoever ran
+  `regsvr32`. A machine-wide install therefore gives the Start-menu entry to the
+  installing account only; another account on the same machine gets none.
+- **The DLL's shortcut is the only artefact in the flow whose read-side is a
+  filesystem path a user may rewrite.** Renaming it is not detectable — the code
+  recomputes the name and would write a fresh one, leaving the renamed one.
+
+### URM-2 The registry surface question 2 sits on
+
+Measured on this host with the 0.2.0 package registered
+(`HKCR\CLSID\{…}\InprocServer32` → `C:\Program Files\Hunmin IME\hunmin-tsf.dll`).
+The HKLM TIP tree holds 20 keys: the default `Hunmin`, `Enable = 1`, the four
+category pairs under `Category\Category` and `Category\Item`, and
+
+```
+HKLM\SOFTWARE\Microsoft\CTF\TIP\{F2C70001-…-0001}\LanguageProfile\0x00000412
+    IconIndex = 0x0
+    …\{F2C70002-…-0002}   Description = Hunmin
+                          IconFile    = C:\Program Files\Hunmin IME\hunmin-tsf.dll
+                          IconIndex   = 0x0
+```
+
+The per-user halves, which the unregister flow does not read at all:
+
+```
+HKCU\SOFTWARE\Microsoft\CTF\TIP\{F2C70001-…-0001}\LanguageProfile\0x00000412\{F2C70002-…-0002}
+    Enable = 0x1
+HKCU\Software\Microsoft\CTF\SortOrder\AssemblyItem\0x00000412\{34745C63-…}\00000001
+    CLSID = {F2C70001-…-0001}   Profile = {F2C70002-…-0002}   KeyboardLayout = 0
+```
+
+The calls involved, by their own documentation, one line each:
+
+- `ITfInputProcessorProfiles::AddLanguageProfile` — "Creates a language profile
+  that consists of a specific text service and a specific language identifier."
+- `ITfInputProcessorProfiles::RemoveLanguageProfile` — "Removes a language
+  profile." Its counter-call is `AddLanguageProfile`.
+- `ITfInputProcessorProfiles::Unregister` — "Removes a text service from TSF."
+  Its counter-call is `Register`.
+- `ITfInputProcessorProfileMgr::UnregisterProfile` — "unregisters the text
+  service and the profile", and its counter-call is the profile registration
+  path this flow uses.
+
+What the tree already settles, without an elevated round: **the HKLM language
+profile cannot outlive the unregister flow**, because
+`RegDeleteTreeW(HKLM\…\TIP\{CLSID})` deletes the whole subtree including
+`LanguageProfile`. `RemoveLanguageProfile` therefore cannot add anything to the
+HKLM side. What it could add — and what `Unregister`/`UnregisterProfile` may or
+may not remove — is the **per-user** `Enable` value and the SortOrder slot.
+Attribution needs the per-call evidence, not another mock: the log line each
+call already writes (`hunmin-reg-debug.log`) plus a before/after snapshot of the
+HKCU keys, in the elevated round
+`tests/manual-checklists/tsf-unregister-cleanup.md` describes and #84 still owes.
+That checklist was extended in this branch to snapshot the two keys above and
+both Start-menu paths, because without them the round cannot answer either
+question.
+
+### URM-3 Question 1 — the surviving shortcut
+
+**A — delete it in unregister (mirror the write).**
+Cost: the seam gains a file operation. `HunminRegSeam` has seven entries and no
+file delete; `IPersistFile` has no delete either, so the call is `DeleteFileW`
+and tier F1 needs a double for it, plus a delete counter beside
+`trace.shortcutSaves`. The path must be recomputed exactly as the write does
+(`programs_folder` + the same name) so a hand-renamed link is left alone — a
+rename is not detectable and would then be preserved, which is the honest
+outcome. Gain: the one artefact registration creates without a mirror gets one;
+`regsvr32 /u` on a checkout stops leaving a dead entry behind. Loss: an
+unregister that runs on a never-registered machine now attempts a delete (it
+must tolerate the absent file). What would change the answer: a decision that
+the DLL should not write a shortcut at all (option C), which makes A moot.
+
+**B — leave it, and let the documentation carry the asymmetry.**
+Cost: zero code; the sentence already exists
+(`docs/WINDOWS-TSF-REGISTRATION.md` §"The seam tier F1 drives"). Gain: nothing
+but the record. Loss: the dead entry survives uninstall in its checkout form, and
+the duplicate name survives while installed. What would change the answer:
+nothing measured — B is the status quo restated, so it is the option the other
+three are measured against.
+
+**C — stop writing it from the DLL; let the installer own the Start-menu
+entry.**
+Cost: `CreateStartMenuShortcut` and the `rundll32` fallback leave
+`DllRegisterServer`; the F1 tests that assert the save
+(`TsfRegistration.TheStartMenuShortcutIsNeverRemoved`,
+`…ARefusedShortcutSaveStillRegisters`) lose their subject and would be deleted;
+`docs/WINDOWS-TSF-REGISTRATION.md`'s flow loses a step. Gain: one writer, one
+artefact, in the hierarchy that matches per-machine registration. Loss: a
+checkout-registered DLL (no installer) stops being discoverable, which is
+exactly what the `rundll32` fallback was added for. What would change the
+answer: evidence that the checkout workflow does not need the entry — this
+branch did not measure a developer actually using it.
+
+**D — keep writing it, but to `FOLDERID_CommonPrograms`, and delete in
+unregister.**
+Cost: A's seam work plus one constant, and the `{group}` name collision with
+the installer's folder becomes visible in one place (either coincide into one
+entry — impossible, the paths differ by a directory level — or stay two entries
+until the installer's `[Icons]` entry is dropped). Gain: the entry matches the
+per-machine registration and every account gets it; the duplicate at the top
+level disappears if the installer's entry is dropped in the same change. Loss:
+an all-users write needs elevation, which `DllRegisterServer` already has, but a
+non-elevated `regsvr32` (the per-user dev registration path) would then fail to
+write the shortcut at all instead of writing it to a folder it can reach. What
+would change the answer: whether a non-elevated registration is a supported
+path — measured today only in `frontends/tsf/register-tsf.bat`, which does not
+elevate itself.
+
+### URM-4 Question 2 — `RemoveLanguageProfile`
+
+**E — status quo.** `UnregisterProfile` + `Unregister` + four category
+unregisters + the two tree deletions. The HKLM side is provably covered by the
+tree deletion (§URM-2). The per-user `Enable` and SortOrder slot are covered
+only if msctf's own unregister calls do it — unmeasured. Cost: 0. What would
+change the answer: the elevated round showing residue after the flow.
+
+**F — add `RemoveLanguageProfile` before `UnregisterProfile`.** Cost: one COM
+call and one mock expectation; the unregister tail's asserted order changes from
+eight steps to nine. Gain: the register side's `AddLanguageProfile` gets its
+documented inverse, which is the *shape* the issue is asking about. Loss: the
+checklist's own rule — "the mirror is exact, not more: do not add calls that
+remove state registration never wrote" — and the risk of a call that removes a
+profile `UnregisterProfile` already removed, which must then tolerate a failure.
+What would change the answer: the round showing the `Enable` value or a profile
+entry surviving E.
+
+**G — decide only after the elevated round.** Cost: it is environment-bound and
+owed from #84, so the lane is idle until an elevated session runs
+`tests/manual-checklists/tsf-unregister-cleanup.md`. Gain: the answer becomes a
+measurement of msctf rather than a reading of its documentation. What would
+change the answer: nothing — the round is the discriminator, and the checklist
+now names the per-user keys that make it decisive.
+
+### URM-5 Summary
+
+| option | `registration.cpp` | seam + tier F1 | `hunmin.iss` | docs | user-visible |
+|---|---|---|---|---|---|
+| A delete the DLL's `.lnk` | + a delete step in the unregister tail | +1 seam entry (file delete), +1 trace counter, 1 new assertion | — | asymmetry paragraph becomes "mirrored" | dead entry gone after `regsvr32 /u`; duplicate name while installed stays |
+| B leave it | 0 | 0 | — | already recorded | dead entry after uninstall (installed case); duplicate name |
+| C installer owns it | − the shortcut step and the rundll32 fallback | − the save assertions | — | flow loses a step | one entry, one writer; checkout registration undiscoverable |
+| D write to all-users + delete | A's delete + one constant | A's seam work | `[Icons]` entry becomes redundant if the names are unified | both documents change | every account gets the entry; one entry if the installer's goes |
+| E status quo (Q2) | 0 | 0 | — | — | residue iff msctf leaves any |
+| F add `RemoveLanguageProfile` | +1 call | unregister tail 8 → 9 steps | — | mirror list grows | none observable unless E leaves residue |
+| G wait for the round | 0 until measured | 0 | — | checklist extended here | — |
+
+### URM-6 Provenance
+
+- Host: Windows 11, worktree
+  `C:\Workspace\hunmin\tsf-is-the-unregister-mirror-complete-the-start`, branch
+  `scobyseo/tsf-is-the-unregister-mirror-complete-the-start`, base `950490e`.
+  The host carries the 0.2.0 package installed at `C:\Program Files\Hunmin IME`
+  and registered, which is what makes the two-shortcut and registry
+  measurements possible without an elevated round of our own.
+- Commands as measurements: `ls` of both Start-menu folders; a Python read of
+  both `.lnk` files' UTF-16 string tables for their targets; `reg query … /s` of
+  the HKLM TIP tree, the HKCR CLSID tree and the HKCU CTF tree; a decode of
+  `unins000.dat` searched for `AppData` (absent) and for `Start Menu` (the
+  all-users pair); `grep -c "RemoveLanguageProfile"` in `registration.cpp`.
+- Changed files: `docs/OPTIONS-MEASURED.md` (this section and the header table),
+  `docs/WINDOWS-TSF-REGISTRATION.md` (the `Enable` hive corrected, the
+  Start-menu asymmetry restated with the folder measured),
+  `tests/manual-checklists/tsf-unregister-cleanup.md` (the per-user snapshot and
+  the two shortcut paths).
+- **Read but not executed, labelled:** the uninstaller's deletion is inferred
+  from its own recorded uninstall log, not from running an uninstall; Inno's
+  `{group}` resolution is the documented rule corroborated by the path in that
+  log. The checkout case of premise 4 and the non-elevated registration path in
+  option D are read from code and from `register-tsf.bat`, not driven.
+- Deliberately untouched: `docs/REMAINING-WORK.md` and `AGENTS.md` (shared
+  mutable files, and the board rows for this issue are the maintainer's to flip
+  at close), `frontends/tsf/src/registration.cpp` and the tier-F1 tests — no
+  option here has been implemented.
+- Issue #146 stays open and decision-gated: closing it records a ruling only the
+  maintainer can make, and question 2 additionally needs the elevated round.

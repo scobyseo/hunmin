@@ -60,7 +60,10 @@ HKCR\CLSID\{F2C70001-...-0001}\InprocServer32
     ThreadingModel = Apartment
 HKLM\SOFTWARE\Microsoft\CTF\TIP\{F2C70001-...-0001}          (default) = "Hunmin"
 HKLM\SOFTWARE\Microsoft\CTF\TIP\{...}\LanguageProfile\0x00000412\{F2C70002-...-0002}
-    Enable = 0x1
+    Description = Hunmin   IconFile = <the DLL's absolute path>   IconIndex = 0x0
+HKCU\SOFTWARE\Microsoft\CTF\TIP\{...}\LanguageProfile\0x00000412\{F2C70002-...-0002}
+    Enable = 0x1                                             <- per-user (see the
+                                                                correction below)
 HKCU\Software\Microsoft\CTF\Assemblies\0x00000412\{34745C63-...-1A31}
     Default = {A028AE76-01B1-46C2-99C4-ACD9858AE02F}      <- Microsoft IME
     Profile = {B5FE1F02-D5F2-4445-9C03-C568F23C99A1}
@@ -71,6 +74,15 @@ HKCU\...\SortOrder\AssemblyItem\0x00000412\{34745C63-...}\00000001
     CLSID = {F2C70001-...}   Profile = {F2C70002-...}      <- slot 1 = Hunmin, listed
 HKCU\...\SortOrder\Language\00000000 = 00000412
 ```
+
+**Correction, measured 2026-10-30 (issue #146):** the `Enable` value is per-user,
+under HKCU — this list had it under the HKLM profile key, where the HKLM side in
+fact carries `Description`/`IconFile`/`IconIndex` and no `Enable` (the HKLM *root*
+key carries a separate `Enable = 1` as a string, written by msctf — this file
+contains no such write, only the `EnableLanguageProfile` call). The documentation
+agrees with the measurement:
+`EnableLanguageProfile` "enables or disables a language profile for the current
+user". The consequence for the mirror is in the section below.
 
 ## Activation model (measured)
 
@@ -92,13 +104,17 @@ Registering makes the profile *enabled and listed*, not *active*.
 
 `DllUnregisterServer` reverses the flow in the same `CoInitialize` scope:
 `UnregisterProfile({CLSID}, 0x0412, {profile})` → `Unregister({CLSID})` →
-`UnregisterCategory` for both categories →
+`UnregisterCategory` for the four categories →
 `RegDeleteTreeW(HKLM\SOFTWARE\Microsoft\CTF\TIP\{CLSID})` (after the COM calls,
 because `AddLanguageProfile` created the subkeys) → `RegDeleteTreeW(HKCR\CLSID\{CLSID})`.
 The HKCU SortOrder/Assemblies store is untouched: registration never writes it
-(measured above). The elevated cycle itself is **not yet measured** on this host
-— the probes live in `tests/manual-checklists/tsf-unregister-cleanup.md`
-(TSF17).
+(measured above). The HKCU `Enable` value **is** registration's own write
+(`EnableLanguageProfile`, per-user) and the HKLM tree deletion cannot reach it;
+whether the COM unregister calls remove it is unmeasured — question 2 of issue
+#146, in `docs/OPTIONS-MEASURED.md` §URM. The elevated cycle itself is **not yet
+measured** on this host — the probes live in
+`tests/manual-checklists/tsf-unregister-cleanup.md` (TSF17), extended
+2026-10-30 to snapshot the HKCU keys and both Start-menu paths.
 
 ## The seam tier F1 drives (issue #107)
 
@@ -132,6 +148,18 @@ shipped `registration.cpp`:
   unregistration does not remove the shortcut - a measured asymmetry,
   recorded by `TsfRegistration.TheStartMenuShortcutIsNeverRemoved` and left
   for the maintainer to rule on.
+
+  **Measured 2026-10-30 (issue #146): there are TWO Start-menu entries, in two
+  folders, written by two programs.** The DLL asks for `FOLDERID_Programs`,
+  which is the *per-user* Programs folder
+  (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Hunmin IME 설정.lnk`); the
+  installer's `[Icons]` entry lands in the *all-users* one
+  (`%ProgramData%\Microsoft\Windows\Start Menu\Programs\Hunmin IME\…`), and
+  Inno's uninstall log (`unins000.dat`) records that one and only that one.
+  A machine with the product installed therefore shows the same name twice, and
+  the DLL's entry belongs to whichever account ran `regsvr32` even though the
+  registration it mirrors is per-machine. The options are in
+  `docs/OPTIONS-MEASURED.md` §URM-1 and §URM-3.
 
 ## Module view
 
