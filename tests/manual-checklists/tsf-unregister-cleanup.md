@@ -57,5 +57,10 @@ fired — which since the 2026-10-30 ruling (option C, `docs/OPTIONS-MEASURED.md
   mirror must not clean it. Measurement only; the ruling on stale slots is the
   maintainer's (docs/REMAINING-WORK.md row TSF-UNREG-84).
 
-Status: **measured on this host with elevation — record the date and the post
-state in `docs/WINDOWS-TSF-REGISTRATION.md` §"Unregister state".**
+Status: **measured elevated 2026-10-30/31 against the shipped DLL** — the results,
+per call, are in `docs/WINDOWS-TSF-REGISTRATION.md` §"Unregister state". What the
+round showed, in one line each: `Unregister` alone deletes the HKLM TIP tree;
+`UnregisterProfile` removes the profile's values; `RemoveLanguageProfile` is
+callable (`S_OK` present, `E_FAIL` absent) and adds nothing; the per-user
+`Enable` value survives the whole flow; the shipped DLL writes no Start-menu
+entry.

@@ -18,7 +18,7 @@ is the android sandbox's §4.2.
 | AND | what `android-mutations` costs, and what isolation buys | open |
 | TST | what a test-framework migration would cost | **decided: option 1b**, shipped (#109) |
 | IC | the case-encoding `ch` input | **decided: option B**, recorded (#87 close) |
-| URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | **Q1 decided: option C**, shipped (#146); Q2 open, elevated-round gated |
+| URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | **Q1 decided: option C**, shipped (#146); Q2 measured 2026-10-30 — the residue is the per-user `Enable` key, one ruling away |
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
 find the optimum design, not to judge one candidate", and a decision is the
@@ -1281,9 +1281,10 @@ keystreams).
 ## URM — Unregister mirror: the Start-menu shortcut and `RemoveLanguageProfile`
 
 **Decided: option C** (the installer owns the Start-menu entry), ruled
-2026-10-30; the implementation and its verification are in §URM-7. The
-measurements that produced the choice are unchanged below, and what is still
-open is question 2 (§URM-4), which needs the elevated round.
+2026-10-30; the implementation and its verification are in §URM-7, and the
+elevated round that closes question 2 is recorded in §URM-4 (choosing E survives;
+the residue is a per-user key nobody in the flow removes). The measurements that
+produced both are unchanged below.
 Issue #146 asks two questions about whether `DllUnregisterServer` is a complete
 mirror of `DllRegisterServer`, and it named, for the first question, the single
 fact that would change the answer: "whether the Inno Setup uninstaller deletes
@@ -1505,6 +1506,30 @@ owed from #84, so the lane is idle until an elevated session runs
 measurement of msctf rather than a reading of its documentation. What would
 change the answer: nothing — the round is the discriminator, and the checklist
 now names the per-user keys that make it decisive.
+
+**Measured 2026-10-30, elevated — question 2 is answered, and not by
+`RemoveLanguageProfile`.** The full rundown is
+`docs/WINDOWS-TSF-REGISTRATION.md` §"Unregister state"; one line per finding:
+
+- **E is sufficient on the HKLM side.** `Unregister` alone deletes the whole
+  `CTF\TIP\{CLSID}` tree including `LanguageProfile`, and `UnregisterProfile`
+  removes the profile's values. In a healthy cycle the four `UnregisterCategory`
+  calls and the HKLM `RegDeleteTree` return `E_FAIL` / `0x2` — harmless
+  redundancy kept for the partially-removed state, which the two-run edge
+  exercises (`UnregisterProfile` → `E_FAIL` on an absent profile, `Unregister` →
+  `S_OK`, `regsvr32 /u` exits 0).
+- **F buys a shape, not a removal.** `RemoveLanguageProfile` returns `S_OK`
+  against a present profile and removes nothing `UnregisterProfile` left behind;
+  it returns `E_FAIL` when the profile is absent. It never touched the one
+  artefact that does survive.
+- **The residue is per-user.** `HKCU\SOFTWARE\Microsoft\CTF\TIP\{CLSID}\LanguageProfile\0x0412\{profile}\Enable = 0x1`
+  is still present after `UnregisterProfile` + `Unregister` + `regsvr32 /u`.
+  Registration wrote it (`EnableLanguageProfile`), so a literal mirror would
+  delete it — nothing in msctf does, and no option here did. Deleting it means a
+  `RegDeleteTree` on that HKCU subtree in `DllUnregisterServer`, which crosses
+  the line the #84 boundary drew in the other direction ("registration never
+  writes HKCU") — that premise is corrected in the registration document, and
+  the choice is the maintainer's.
 
 ### URM-5 Summary
 

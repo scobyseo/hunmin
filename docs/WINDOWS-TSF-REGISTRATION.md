@@ -121,11 +121,52 @@ because `AddLanguageProfile` created the subkeys) → `RegDeleteTreeW(HKCR\CLSID
 The HKCU SortOrder/Assemblies store is untouched: registration never writes it
 (measured above). The HKCU `Enable` value **is** registration's own write
 (`EnableLanguageProfile`, per-user) and the HKLM tree deletion cannot reach it;
-whether the COM unregister calls remove it is unmeasured — question 2 of issue
-#146, in `docs/OPTIONS-MEASURED.md` §URM. The elevated cycle itself is **not yet
-measured** on this host — the probes live in
-`tests/manual-checklists/tsf-unregister-cleanup.md` (TSF17), extended
-2026-10-30 to snapshot the HKCU keys and both Start-menu paths.
+whether the COM unregister calls remove it is measured in the section below.
+The elevated cycle itself is **measured** — see §"Unregister state".
+
+## Unregister state (measured 2026-10-30, elevated)
+
+The cycle `tests/manual-checklists/tsf-unregister-cleanup.md` owed from #84 was
+run elevated on this host, against the SHIPPED DLL (the stage build the installer
+carries, `build-msvc\installer\stage\hunmin-tsf.dll`), with the log gate on
+(`HUNMIN_TSF_DEBUG_LOG=1`, `HUNMIN_TSF_LOG_DIR` set) and with ONE msctf unregister
+call at a time through a throwaway probe, so each removal is attributed rather
+than inferred from a single before/after pair.
+
+| step | HKCR CLSID | HKLM CTF TIP tree | HKCU `…\{profile}\Enable` | what the reg log said |
+|---|---|---|---|---|
+| register | present, `InprocServer32` = that DLL | present: default `Hunmin`, `Enable=1`, four category pairs, profile `Description`/`IconFile`/`IconIndex` | `0x1` | `Register`, `AddLanguageProfile`, `EnableLanguageProfile`, `ActivateProfile`, `GetActiveProfile active.clsid={F2C70001}`, four `RegisterCategory` — all `0x0` |
+| `UnregisterProfile` alone | untouched | still present; the profile's VALUES gone (`Description`/`IconFile` removed) | `0x1`, untouched | `UnregisterProfile hr=0x0` |
+| `Unregister` alone | untouched | **GONE** — the whole tree, categories and `LanguageProfile` included | `0x1`, untouched | `Unregister hr=0x0` |
+| `regsvr32 /u` on top | removed by our `RegDeleteTree` (`st=0x0`) | already gone (`st=0x2`, ERROR_FILE_NOT_FOUND) | `0x1`, untouched | four `UnregisterCategory` all `0x80004005` |
+
+Three facts that change what the mirror's code means:
+
+1. **`Unregister` alone deletes the HKLM TIP tree and its categories.** In a
+   healthy cycle the four `UnregisterCategory` calls and the HKLM `RegDeleteTree`
+   return `E_FAIL` / `0x2`: they are redundancy that costs nothing, and they earn
+   their place only against a partially-removed state (a crashed register, a
+   half-deleted tree). That is what the "run `/u` twice" edge exercises:
+   `UnregisterProfile` on an absent profile returns `E_FAIL`, `Unregister` returns
+   `S_OK`, and `regsvr32 /u` still exits 0.
+2. **The per-user `Enable` value survives the whole flow.**
+   `HKCU\SOFTWARE\Microsoft\CTF\TIP\{CLSID}\LanguageProfile\0x0412\{profile}\Enable = 0x1`
+   is still there after `UnregisterProfile` + `Unregister` + `regsvr32 /u`. Nothing
+   in msctf removes it and the mirror never touches HKCU, yet `EnableLanguageProfile`
+   is registration's own write — so a literal mirror would have to delete it, and no
+   API in the flow does.
+3. **`RemoveLanguageProfile` is callable and adds nothing.** Against a present
+   profile it returns `S_OK`, and the HKLM profile values are already gone
+   (`UnregisterProfile` removed them); against an absent profile it returns
+   `E_FAIL`. In neither case did it remove the per-user `Enable`. The never-called
+   inverse is therefore not a gap in the HKLM mirror; the residual artefact is the
+   HKCU key, and no msctf call in the flow owns it.
+
+Also measured in the same round: the SortOrder slot for our profile stays in the
+user's language list after unregistering (stale, as the checklist predicted), and
+the shipped DLL writes NO Start-menu entry — the pre-ruling per-user `.lnk` was
+deleted and did not come back across a register → unregister → register cycle
+(issue #146, option C).
 
 ## The seam tier F1 drives (issue #107)
 
