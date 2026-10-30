@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -172,9 +173,28 @@ def _build_cmd(target_dir: pathlib.Path) -> list[str]:
             "-j", JOBS]
 
 _COPY_IGNORE_BASENAMES = (
-    ".git", "build", "build-android", "__pycache__", ".gradle", ".cxx",
-    "node_modules", "Testing", ".mypy_cache",
+    ".git", "__pycache__", ".gradle", ".cxx", "node_modules", "Testing",
+    ".mypy_cache",
 )
+
+# Build output, matched by PATTERN and by TYPE: any DIRECTORY named `build`,
+# `obj`, or one of their `-suffixed` variants (`build-trace`, `build-mingw`,
+# `build-msvc`, `build-tsf-devhost`, debhelper's `obj-x86_64-linux-gnu`, .NET's
+# `obj`). The isdir test is not decoration: `build*` as a plain fnmatch pattern
+# would also drop real sources, because ten tracked files carry such a basename
+# (tools/build-release.sh, build-android.sh, build-host-jni.sh,
+# build-deb-wsl.sh, build-modes-corpus.py, frontends/.../build.gradle.kts, ...).
+#
+# `.gitignore` already treats `build*/` and `obj-*/` as build state at any
+# depth, and this tier builds in the repo, so a copy that keeps them copies
+# gigabytes -- and copies them while another build is deleting from them.
+# Measured 2026-10-31 inside `dpkg-buildpackage` (issue #154):
+# frontend-mutations died at shutil.copytree with
+#   [Errno 2] No such file or directory:
+#     .../obj-x86_64-linux-gnu/CMakeFiles/Progress
+# because `cmake --build` removed the entry between listdir and stat. Excluding
+# the directory removes the writer together with the bytes.
+_BUILD_STATE_DIR = re.compile(r"^(?:build|obj)(?:-.+)?$")
 
 # Whole directories, named by their path RELATIVE TO THE REPO ROOT.
 #
@@ -204,6 +224,11 @@ def _copy_ignore(path: str, names: list[str]) -> set[str]:
     copy; see _check_copy, which exists because of how easy that is.
     """
     ignored = set(shutil.ignore_patterns(*_COPY_IGNORE_BASENAMES)(path, names))
+    # Type-aware: a DIRECTORY that is build output, whatever it is called.
+    for name in names:
+        if name not in ignored and _BUILD_STATE_DIR.match(name) \
+                and os.path.isdir(os.path.join(path, name)):
+            ignored.add(name)
     try:
         here = pathlib.Path(path).relative_to(REPO).as_posix()
     except ValueError:  # not under the repo; basename rules still apply
@@ -234,6 +259,23 @@ def _check_copy(src: pathlib.Path, dst: pathlib.Path) -> None:
         raise SystemExit(
             f"sandbox: {_COPY_IGNORE_CONTROL} is missing from the copy -- the "
             f"ignore rule is excluding more than it should")
+    # Both sides of the type-aware build-state rule, checked on the top level
+    # (where a build tree in this repo lives -- `build`/`obj-*` beside the
+    # CMakeLists). A directory must be gone; a FILE whose name only looks like
+    # build output must survive, because a basename pattern would have dropped
+    # it (tools/build-release.sh and nine siblings, issue #154).
+    for name in sorted(os.listdir(src)):
+        if not _BUILD_STATE_DIR.match(name):
+            continue
+        here, there = src / name, dst / name
+        if here.is_dir() and there.exists():
+            raise SystemExit(
+                f"sandbox: the build tree {name}/ was copied -- build state must "
+                f"not enter the sandbox (a concurrent build is writing in it)")
+        if here.is_file() and not there.exists():
+            raise SystemExit(
+                f"sandbox: {name} was excluded by a build-output pattern but it "
+                f"is a tracked file -- the rule must test the entry's type")
 
 
 class Strategy:
