@@ -9,10 +9,12 @@
  *
  * What this asserts is the ADAPTER's call order and parameters - the CLSID,
  * LANGID 0x0412, the profile GUID, the three category GUIDs, the registry paths
- * and values, the shortcut. It does NOT assert what the real msctf servers
+ * and values. It does NOT assert what the real msctf servers
  * write to the registry: that stays the elevated-cycle measurement in
  * tests/manual-checklists/tsf-unregister-cleanup.md (TSF17), and nothing here
- * closes or downgrades it.
+ * closes or downgrades it. It also asserts what the flow does NOT do: no file
+ * is written, since the Start-menu entry belongs to the installer (ruling of
+ * 2026-10-30, issue #146).
  *
  * Standalone TU: the groups share the one `tsf-test` registration (issue #109's
  * merged shape), selected by --gtest_filter where a caller wants one group.
@@ -140,10 +142,9 @@ TEST(TsfRegistration, RegisterWritesTheDocumentedArtifactSet) {
     EXPECT_EQ(d.trace.count(L"RegOpenKey"), 2) << "the pin opens the language-profile key and the profile key";
     EXPECT_TRUE(ContainsSubstring(d.trace.writes, L"\\LanguageProfile\\0x00000412|IconIndex|0"));
 
-    /* 6. The Start-menu entry, and nothing deleted on the way in. */
-    EXPECT_EQ(d.trace.shortcutSaves, 1) << "one .lnk written";
-    EXPECT_EQ(d.trace.shortcutSavedAs, d.trace.programsFolder + std::wstring(L"\\Hunmin IME \uC124\uC815.lnk"))
-        << "the shipped name, in the Programs folder";
+    /* 6. No file written, nothing deleted. Since the ruling of 2026-10-30
+     * (issue #146) the Start-menu entry belongs to the installer alone; see
+     * RegistrationWritesNoFile for the guard that keeps it that way. */
     EXPECT_TRUE(d.trace.deletes.empty()) << "registration deletes nothing";
 }
 
@@ -193,17 +194,18 @@ TEST(TsfRegistration, UnregisterMirrorsEveryRegisteredArtifact) {
         << "AddLanguageProfile has no direct mirror call - recorded as a finding in the PR, not changed here";
 }
 
-/* The measured asymmetry: register writes a Start-menu shortcut, unregister
- * removes neither it nor anything else outside the two trees. Recorded so the
- * next reader does not assume the mirror is total; the ruling on whether
- * unregistration should delete the .lnk belongs to the maintainer. */
-TEST(TsfRegistration, TheStartMenuShortcutIsNeverRemoved) {
+/* The ruled shape (2026-10-30, issue #146): the DLL writes NO file, so the
+ * Start-menu entry has one writer — the installer. The seam carries neither a
+ * Programs folder nor a shell link any more, so a shortcut re-added to this
+ * flow surfaces as an activation the doubles do not recognise. */
+TEST(TsfRegistration, RegistrationWritesNoFile) {
     tsfmock::RegistrationDoubles d;
     d.Install();
     ASSERT_EQ(DllRegisterServer(), TRUE);
+    EXPECT_EQ(d.trace.count(L"CoCreateUnknown"), 0) << "no activation outside the two msctf services (a shell link would land here)";
+
     ASSERT_EQ(DllUnregisterServer(), TRUE);
-    EXPECT_EQ(d.trace.shortcutSaves, 1) << "exactly the one registration-time save";
-    EXPECT_EQ(d.trace.count(L"ShellLink::SetPath"), 1) << "unregistering builds no link and deletes none";
+    EXPECT_EQ(d.trace.count(L"CoCreateUnknown"), 0) << "nor on the way out";
 }
 
 /* The activation branch: a host that answers GetActiveProfile with OUR profile
@@ -231,16 +233,4 @@ TEST(TsfRegistration, LegacyFallbackRunsWhenTheHostReportsNothingActive) {
     EXPECT_TRUE(IsEqualGUID(d.profiles.activatedClsid, CLSID_HunminTSF));
     EXPECT_EQ(d.profiles.activatedLangid, (LANGID)0x0412);
     EXPECT_TRUE(IsEqualGUID(d.profiles.activatedProfile, HunminProfileGuid));
-}
-
-/* A host whose IPersistFile::Save fails must not turn registration into a
- * failure: the shortcut is a convenience, the TIP registration is the product. */
-TEST(TsfRegistration, ARefusedShortcutSaveStillRegisters) {
-    tsfmock::RegistrationDoubles d;
-    d.Install();
-    d.trace.programsFolder.clear(); /* the seam answers S_OK with no path */
-
-    EXPECT_EQ(DllRegisterServer(), TRUE) << "a missing Programs folder does not fail registration";
-    EXPECT_EQ(d.trace.shortcutSaves, 0);
-    EXPECT_TRUE(IsEqualGUID(d.profiles.registeredClsid, CLSID_HunminTSF)) << "the TIP half still ran";
 }

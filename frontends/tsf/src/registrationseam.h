@@ -5,11 +5,14 @@
  *
  * The registration flow's one outside-world seam (issue #107).
  *
- * DllRegisterServer / DllUnregisterServer reach outside this process four
- * ways: COM activation (the three msctf services and the shell link), the
- * HKCR/HKLM registry trees, the Start-menu folder, and the .lnk that is
- * written there. All four go through this table, so tier F1 can run the SAME
- * registration code against doubles.
+ * DllRegisterServer / DllUnregisterServer reach outside this process three
+ * ways: COM activation (the two msctf services the flow drives), the
+ * HKCR/HKLM registry trees, and the tree deletions. All three go through this
+ * table, so tier F1 can run the SAME registration code against doubles.
+ *
+ * The Start-menu entry left this seam when the ruling of 2026-10-30 (issue
+ * #146) gave it to the installer: the DLL writes no file any more, so there is
+ * no file operation to double.
  *
  * The default table is the platform call itself - one indirection, no
  * behaviour change - and hunmin_tsf_regseam_install(NULL) restores it. That is
@@ -30,8 +33,8 @@
 #include <windows.h>
 
 typedef struct HunminRegSeam {
-    /* COM activation for CLSID_TF_InputProcessorProfiles, CLSID_TF_CategoryMgr
-     * and CLSID_ShellLink (the platform table always asks for
+    /* COM activation for CLSID_TF_InputProcessorProfiles and
+     * CLSID_TF_CategoryMgr (the platform table always asks for
      * CLSCTX_INPROC_SERVER). */
     HRESULT (*co_create)(REFCLSID rclsid, REFIID riid, void **ppv);
     /* RegCreateKeyExW(root, path, KEY_WRITE, REG_OPTION_NON_VOLATILE). */
@@ -43,8 +46,6 @@ typedef struct HunminRegSeam {
     void (*reg_close_key)(HKEY key);
     /* RegDeleteTreeW. */
     LONG (*reg_delete_tree)(HKEY root, const wchar_t *path);
-    /* FOLDERID_Programs as an absolute path (SHGetKnownFolderPath). */
-    HRESULT (*programs_folder)(wchar_t *out, DWORD cap);
 } HunminRegSeam;
 
 /* The table in force: the installed one, else the platform's. */

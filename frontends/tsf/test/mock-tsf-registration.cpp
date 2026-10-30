@@ -200,41 +200,6 @@ HRESULT MockCategoryMgr::UnregisterCategory(REFCLSID rclsid, REFGUID rcatid, REF
     return S_OK;
 }
 
-/* ---- the shell link ---- */
-
-HRESULT MockShellLink::SetPath(LPCWSTR pszFile) {
-    trace_.shortcutTarget.assign(pszFile ? pszFile : L"");
-    trace_.event(L"ShellLink::SetPath");
-    return S_OK;
-}
-
-HRESULT MockShellLink::SetArguments(LPCWSTR pszArgs) {
-    trace_.shortcutArguments.assign(pszArgs ? pszArgs : L"");
-    trace_.event(L"ShellLink::SetArguments");
-    return S_OK;
-}
-
-HRESULT MockShellLink::SetWorkingDirectory(LPCWSTR pszDir) {
-    trace_.shortcutWorkingDirectory.assign(pszDir ? pszDir : L"");
-    trace_.event(L"ShellLink::SetWorkingDirectory");
-    return S_OK;
-}
-
-HRESULT MockShellLink::SetIconLocation(LPCWSTR pszIconPath, int iIcon) {
-    iconPath.assign(pszIconPath ? pszIconPath : L"");
-    iconIndex = iIcon;
-    trace_.event(L"ShellLink::SetIconLocation");
-    return S_OK;
-}
-
-HRESULT MockShellLink::Save(LPCOLESTR pszFileName, BOOL fRemember) {
-    (void)fRemember;
-    trace_.shortcutSavedAs.assign(pszFileName ? pszFileName : L"");
-    trace_.shortcutSaves++;
-    trace_.event(L"ShellLink::Save");
-    return S_OK;
-}
-
 /* ---- the seam table, built from the active set ---- */
 
 static RegistrationDoubles *g_doubles = nullptr;
@@ -247,9 +212,12 @@ static HRESULT SeamCoCreate(REFCLSID rclsid, REFIID riid, void **ppv) {
         object = static_cast<ITfInputProcessorProfiles *>(&g_doubles->profiles);
     else if (IsEqualCLSID(rclsid, CLSID_TF_CategoryMgr))
         object = static_cast<ITfCategoryMgr *>(&g_doubles->categoryMgr);
-    else if (IsEqualCLSID(rclsid, CLSID_ShellLink))
-        object = static_cast<IShellLinkW *>(&g_doubles->shellLink);
     else {
+        /* Recorded, not silently failed: the seam no longer knows a shell link
+         * (the installer owns the Start-menu entry, ruling of 2026-10-30,
+         * issue #146), so an unrecognised activation is how a re-added file
+         * write shows up in a test. */
+        g_doubles->trace.event(L"CoCreateUnknown");
         *ppv = nullptr;
         return REGDB_E_CLASSNOTREG;
     }
@@ -275,21 +243,13 @@ static void SeamCloseKey(HKEY key) {
 
 static LONG SeamDeleteTree(HKEY root, const wchar_t *path) { return g_doubles ? g_doubles->registry.DeleteTree(root, path) : ERROR_ACCESS_DENIED; }
 
-static HRESULT SeamProgramsFolder(wchar_t *out, DWORD cap) {
-    if (!g_doubles || !out || cap == 0)
-        return E_FAIL;
-    lstrcpynW(out, g_doubles->trace.programsFolder.c_str(), (int)cap);
-    return S_OK;
-}
-
-RegistrationDoubles::RegistrationDoubles() : registry(trace), profileMgr(trace), profiles(trace, &profileMgr), categoryMgr(trace), shellLink(trace) {
+RegistrationDoubles::RegistrationDoubles() : registry(trace), profileMgr(trace), profiles(trace, &profileMgr), categoryMgr(trace) {
     seam.co_create = SeamCoCreate;
     seam.reg_create_key = SeamCreateKey;
     seam.reg_open_key = SeamOpenKey;
     seam.reg_set_value = SeamSetValue;
     seam.reg_close_key = SeamCloseKey;
     seam.reg_delete_tree = SeamDeleteTree;
-    seam.programs_folder = SeamProgramsFolder;
 }
 
 void RegistrationDoubles::Install() {

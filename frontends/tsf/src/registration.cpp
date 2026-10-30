@@ -13,24 +13,20 @@
 
 #include "ids.h"
 #include "registrationseam.h" /* the outside-world seam (issue #107) */
-#include "settingspath.h" /* the shared settings-exe resolver */
 #include "tsf.h" /* CTextService */
 
 #include <cwchar>
 #include <msctf.h>
-#include <shlobj.h>
-#include <shlobj_core.h>
-#include <shlwapi.h>
-#include <shobjidl_core.h>
 #include <windows.h>
-#pragma comment(lib, "Shlwapi.lib")
 
 extern "C" HINSTANCE g_hunmin_hinst; /* owned by dllmain.cpp */
 
 /* --- the seam in force (issue #107) ---
  * Every outside-world call below goes through this table. The default table IS
  * the platform call, so production behaviour is the same sequence of the same
- * calls; tier F1 installs doubles and drives THIS code (registrationseam.h). */
+ * calls; tier F1 installs doubles and drives THIS code (registrationseam.h).
+ * The Start-menu entry is not here any more: the installer owns it (ruled
+ * 2026-10-30, issue #146 — see docs/WINDOWS-TSF-REGISTRATION.md). */
 
 static HRESULT SeamCoCreate(REFCLSID rclsid, REFIID riid, void **ppv) { return CoCreateInstance(rclsid, nullptr, CLSCTX_INPROC_SERVER, riid, ppv); }
 
@@ -48,17 +44,7 @@ static void SeamCloseKey(HKEY key) { RegCloseKey(key); }
 
 static LONG SeamDeleteTree(HKEY root, const wchar_t *path) { return RegDeleteTreeW(root, path); }
 
-static HRESULT SeamProgramsFolder(wchar_t *out, DWORD cap) {
-    PWSTR programs = nullptr;
-    HRESULT hr = SHGetKnownFolderPath(FOLDERID_Programs, 0, nullptr, &programs);
-    if (SUCCEEDED(hr) && programs)
-        lstrcpynW(out, programs, (int)cap);
-    if (programs)
-        CoTaskMemFree(programs);
-    return hr;
-}
-
-static const HunminRegSeam kPlatformSeam = {SeamCoCreate, SeamCreateKey, SeamOpenKey, SeamSetValue, SeamCloseKey, SeamDeleteTree, SeamProgramsFolder};
+static const HunminRegSeam kPlatformSeam = {SeamCoCreate, SeamCreateKey, SeamOpenKey, SeamSetValue, SeamCloseKey, SeamDeleteTree};
 
 static const HunminRegSeam *g_regSeam = nullptr;
 
@@ -243,54 +229,6 @@ static void RegisterTipCategories() {
     pCatMgr->Release();
 }
 
-/* The Start-menu entry (discoverability): "Hunmin IME 설정" under Programs.
- * The ruled surface (the settings-ui exe) wins when it is deployed beside the
- * DLL; the rundll32 entry into HunminSettingsShow is the fallback that always
- * works. Deleted in unregister, mirroring the tree work. */
-static void CreateStartMenuShortcut(const wchar_t *dllPath) {
-    wchar_t dllDir[MAX_PATH];
-    lstrcpynW(dllDir, dllPath, MAX_PATH);
-    PathRemoveFileSpecW(dllDir);
-    wchar_t exe[MAX_PATH];
-    /* The shared resolver: the installed <dll>\settings-ui shape now wins
-     * over checkout climbs, so an installed shortcut targets the WinUI exe
-     * instead of falling through to rundll32. */
-    hunmin_tsf_settings_exe_in_dir(dllDir, exe, MAX_PATH);
-    IShellLinkW *sl = nullptr;
-    HRESULT lh = hunmin_tsf_regseam()->co_create(CLSID_ShellLink, __uuidof(IShellLinkW), (void **)&sl);
-
-    hunmin_reg_logger.log(L"shortcut CoCreate hr=0x%lX exe=%s\n", (unsigned long)lh, exe[0] ? exe : L"<rundll32>");
-    if (FAILED(lh) || !sl)
-        return;
-    if (exe[0]) {
-        sl->SetPath(exe);
-    } else {
-        sl->SetPath(L"rundll32.exe");
-        wchar_t arg[MAX_PATH + 32];
-        _snwprintf(arg, _countof(arg), L"\"%s,HunminSettingsShow\"", dllPath);
-        sl->SetArguments(arg);
-    }
-    sl->SetWorkingDirectory(dllDir);
-    if (exe[0])
-        sl->SetIconLocation(exe, 0); /* the settings exe's own icon
-                                      * (assets/hunmin.ico, ApplicationIcon) */
-    IPersistFile *pf = nullptr;
-    if (SUCCEEDED(sl->QueryInterface(IID_PPV_ARGS(&pf))) && pf) {
-        wchar_t programs[MAX_PATH] = L"";
-        if (SUCCEEDED(hunmin_tsf_regseam()->programs_folder(programs, MAX_PATH)) && programs[0]) {
-            wchar_t link[MAX_PATH + 48];
-            _snwprintf(link, _countof(link), L"%s\\Hunmin IME \uC124\uC815.lnk", programs);
-            if (SUCCEEDED(pf->Save(link, TRUE))) {
-                hunmin_reg_logger.log(L"shortcut saved %s\n", link);
-            } else {
-                hunmin_reg_logger.log(L"shortcut save FAILED %s\n", link);
-            }
-        }
-        pf->Release();
-    }
-    sl->Release();
-}
-
 extern "C" BOOL DllRegisterServer() {
     // logging (the ONE syntax; the head truncates, the chain appends)
     hunmin_reg_logger.reset();
@@ -311,7 +249,6 @@ extern "C" BOOL DllRegisterServer() {
     CoInitialize(nullptr);
     RegisterInputProcessorProfile(guidStr);
     RegisterTipCategories();
-    CreateStartMenuShortcut(dllPath);
     CoUninitialize();
     return TRUE;
 }
