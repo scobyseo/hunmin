@@ -35,7 +35,7 @@ step logs to `<module dir>\hunmin-reg-debug.log`.
 4. `CoInitialize` + `CoCreateInstance(CLSID_TF_InputProcessorProfiles)` →
    `Register({CLSID})` → `AddLanguageProfile({CLSID}, 0x0412, {profile},
    L"Hunmin", icon = <module path>)` → `EnableLanguageProfile(..., TRUE)`
-   (`Enable = 0x1` under the profile key).
+   (per-user `Enable = 0x1` — see the correction under the registry table).
 5. `ITfInputProcessorProfileMgr::ActivateProfile(…,
    TF_IPPMF_FORSYSTEMALL | TF_IPPMF_ENABLEPROFILE)`, then the only
    evidence-bearing step: `GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD)` inside the
@@ -48,6 +48,17 @@ step logs to `<module dir>\hunmin-reg-debug.log`.
    without this category the Win11 input indicator gives the TIP no entry of
    its own — see `tests/manual-checklists/tsf-langbar-item.md`). All four are
    unregistered in the mirror.
+
+**The flow writes no file.** The Start-menu entry `Hunmin IME 설정` is the
+installer's `[Icons]` entry and nothing else — ruled 2026-10-30 (issue #146,
+option C of `docs/OPTIONS-MEASURED.md` §URM-3). `DllRegisterServer` used to
+write a second one into the per-user Programs folder; measured on 2026-10-30,
+those were two different files in two different Start-menu hierarchies, so an
+installed machine showed the name twice. Both the write and the `rundll32
+<dll>,HunminSettingsShow` fallback left the registration flow with the ruling;
+`HunminSettingsShow` itself stays exported (the interim dialog is still
+reachable, and `ITfFnConfigure` launches the settings exe through the shared
+resolver).
 
 `frontends/tsf/register-tsf.bat` wraps it: paths from `%~dp0`, notepad killed
 first, both logs deleted first, `regsvr32` output and the reg log printed after.
@@ -120,7 +131,7 @@ measured** on this host — the probes live in
 
 Every outside-world call in the flow above goes through `HunminRegSeam`
 (`frontends/tsf/src/registrationseam.h`): COM activation, the HKCR/HKLM key
-writes, opens and tree deletions, the Programs folder and the shell link. The
+writes, opens and tree deletions. The
 default table IS the platform call, so production runs the same calls in the
 same order with one indirection; `hunmin_tsf_regseam_install(NULL)` restores
 it. The seam covers the registry and not only `CoCreateInstance`, because
@@ -142,24 +153,19 @@ shipped `registration.cpp`:
   `GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER`. The unregister mirror carries all
   three.
 - The flow also pins the profile's stored `IconIndex` to 0 (two HKLM key
-  opens after `AddLanguageProfile`) and writes a Start-menu entry
-  (`<Programs>\Hunmin IME <settings>.lnk`, pointing at the settings exe when
-  it is deployed, else `rundll32`). Neither step is in the list above, and
-  unregistration does not remove the shortcut - a measured asymmetry,
-  recorded by `TsfRegistration.TheStartMenuShortcutIsNeverRemoved` and left
-  for the maintainer to rule on.
+  opens after `AddLanguageProfile`). That step is not in the list above.
 
-  **Measured 2026-10-30 (issue #146): there are TWO Start-menu entries, in two
-  folders, written by two programs.** The DLL asks for `FOLDERID_Programs`,
-  which is the *per-user* Programs folder
-  (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Hunmin IME 설정.lnk`); the
-  installer's `[Icons]` entry lands in the *all-users* one
-  (`%ProgramData%\Microsoft\Windows\Start Menu\Programs\Hunmin IME\…`), and
-  Inno's uninstall log (`unins000.dat`) records that one and only that one.
-  A machine with the product installed therefore shows the same name twice, and
-  the DLL's entry belongs to whichever account ran `regsvr32` even though the
-  registration it mirrors is per-machine. The options are in
-  `docs/OPTIONS-MEASURED.md` §URM-1 and §URM-3.
+  **The Start-menu asymmetry is closed, not documented (measured and ruled
+  2026-10-30, issue #146).** There were TWO Start-menu entries, in two folders,
+  written by two programs: the DLL's, in the *per-user* Programs folder
+  (`FOLDERID_Programs`), and the installer's `[Icons]` entry in the *all-users*
+  one (`{group}`), which is the only one in Inno's uninstall log
+  (`unins000.dat`). The ruling is option C of `docs/OPTIONS-MEASURED.md`
+  §URM-3: the installer owns the entry, the DLL writes none, and the
+  registration seam therefore carries no Programs-folder or shell-link call any
+  more. `TsfRegistration.RegistrationWritesNoFile` pins it — a shell link
+  re-added to the flow surfaces as an `CoCreateUnknown` activation the doubles
+  do not recognise.
 
 ## Module view
 

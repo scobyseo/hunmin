@@ -15,8 +15,9 @@ Run it (one elevated PowerShell/CMD session; worktree paths absolute):
 3. reg query "HKLM\SOFTWARE\Microsoft\CTF\TIP\{F2C70001-0000-0000-0000-000000000001}" /s
 4. reg query "HKCU\SOFTWARE\Microsoft\CTF\TIP\{F2C70001-0000-0000-0000-000000000001}" /s
 5. reg query "HKCU\Software\Microsoft\CTF\SortOrder\AssemblyItem" /s   (record slots)
-6. dir "%APPDATA%\Microsoft\Windows\Start Menu\Programs\*.lnk"
-   dir "%ProgramData%\Microsoft\Windows\Start Menu\Programs\Hunmin IME"
+6. dir "%ProgramData%\Microsoft\Windows\Start Menu\Programs\Hunmin IME"
+   (the installer's entry; the DLL writes no shortcut since the 2026-10-30
+   ruling, issue #146, so the per-user folder must NOT gain one)
 7. regsvr32.exe /u C:\...\frontends\tsf\build-msvc\Release\hunmin-tsf.dll
 8. repeat 2-6
 9. reg query "HKCR\CLSID\{F2C70001-...-0001}"  -> absent
@@ -29,9 +30,9 @@ Run it (one elevated PowerShell/CMD session; worktree paths absolute):
 
 Steps 4 and 6 were added 2026-10-30 (issue #146): without the HKCU TIP tree
 snapshot the round cannot say whether the unregister calls remove the per-user
-`Enable` value, and without the two Start-menu paths it cannot say which
-shortcut survived — the DLL's (per-user, `FOLDERID_Programs`) or the
-installer's (all-users, `{group}`).
+`Enable` value, and without the Start-menu paths it cannot say which writer
+fired — which since the 2026-10-30 ruling (option C, `docs/OPTIONS-MEASURED.md`
+§URM-3) must be the installer alone.
 
 ## What to look for, and why each probe is there
 
@@ -40,9 +41,9 @@ installer's (all-users, `{group}`).
 | 3 after 1 | `TIP\{CLSID}` with default `= Hunmin`, `LanguageProfile\0x00000412\{F2C70002-...-0002}` `Description`/`IconFile`/`IconIndex`; the `Enable` value is NOT here | the keys registration writes directly / through `AddLanguageProfile` |
 | 4 after 1 | `HKCU\...\TIP\{CLSID}\LanguageProfile\0x00000412\{...}\Enable = 0x1` | the per-user half `EnableLanguageProfile` writes — the key the HKLM tree deletion cannot reach |
 | 5 after 1 | SortOrder slot for `{F2C70001-...-0001}` may appear (Windows' own store) | the deliberately-untouched state: unregister must NOT delete it |
-| 6 after 1 | the DLL's `.lnk` in the per-user folder; the installer's in the all-users folder only when the installer ran | which of the two Start-menu writers fired on this run |
+| 6 after 1 | the installer's entry in the all-users folder only when the installer ran; the per-user folder gains NOTHING (the DLL stopped writing a shortcut on 2026-10-30, issue #146) | which Start-menu writer fired on this run |
 | 9 after 7 | both `{CLSID}` trees gone; log `hunmin-reg-debug.log` (module dir, opened append) shows `pProfileMgr->UnregisterProfile hr=`, `pProfile->Unregister hr=`, `UnregisterCategory keyboard=`, `UnregisterCategory category=`, `RegDeleteTreeW(HKLM ...) st=0x0`, `RegDeleteTreeW(HKCR ...) st=0x0` | which COM call removed which piece of state — the measurement the implementation comment in `frontends/tsf/src/tsf.cpp` (`DllUnregisterServer`) still owes |
-| 4 and 6 after 7 | the per-user `Enable` value and the per-user `.lnk` are the two artefacts whose removal is NOT explained by the tree deletions | if `Enable` is gone, one of the two COM unregister calls removed it (name which, from the log order); if the `.lnk` is gone, something outside this DLL removed it |
+| 4 after 7 | the per-user `Enable` value is the one artefact whose removal the tree deletions cannot explain; the per-user Start-menu folder must still hold no `Hunmin IME 설정.lnk` | if `Enable` is gone, one of the two COM unregister calls removed it (name which, from the log order); a `.lnk` reappearing means a pre-ruling build is still registered |
 | log absent-state | if a COM unregister hr is non-zero but the state is gone, record which single call actually did it | the mirror is exact, not more: do not add calls that remove state registration never wrote |
 
 ## Worse-case edges, recorded rather than hidden

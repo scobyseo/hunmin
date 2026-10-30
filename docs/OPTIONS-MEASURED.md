@@ -18,7 +18,7 @@ is the android sandbox's §4.2.
 | AND | what `android-mutations` costs, and what isolation buys | open |
 | TST | what a test-framework migration would cost | **decided: option 1b**, shipped (#109) |
 | IC | the case-encoding `ch` input | **decided: option B**, recorded (#87 close) |
-| URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | open (#146) |
+| URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | **Q1 decided: option C**, shipped (#146); Q2 open, elevated-round gated |
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
 find the optimum design, not to judge one candidate", and a decision is the
@@ -1280,11 +1280,14 @@ keystreams).
 
 ## URM — Unregister mirror: the Start-menu shortcut and `RemoveLanguageProfile`
 
-**Measurement only / no option recommended / the choice is the maintainer's.**
+**Decided: option C** (the installer owns the Start-menu entry), ruled
+2026-10-30; the implementation and its verification are in §URM-7. The
+measurements that produced the choice are unchanged below, and what is still
+open is question 2 (§URM-4), which needs the elevated round.
 Issue #146 asks two questions about whether `DllUnregisterServer` is a complete
-mirror of `DllRegisterServer`, and it names, for the first question, the single
+mirror of `DllRegisterServer`, and it named, for the first question, the single
 fact that would change the answer: "whether the Inno Setup uninstaller deletes
-the Start-menu entry". That fact is measured in §URM-1, and it does not read the
+the Start-menu entry". That fact is measured in §URM-1, and it did not read the
 way the issue presumed — the uninstaller does delete a Start-menu entry, but a
 different one, in a different folder, written by a different program.
 
@@ -1344,7 +1347,7 @@ The issue's own sentences, each re-measured against the tree and the host.
 
 | writer | code | folder | resolved path on this host | who deletes it |
 |---|---|---|---|---|
-| `DllRegisterServer` | `CreateStartMenuShortcut` (`registration.cpp`) | `FOLDERID_Programs` — **per-user** | `C:\Users\pc\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Hunmin IME 설정.lnk` (2198 bytes) | nothing, today |
+| `DllRegisterServer` | `CreateStartMenuShortcut` (`registration.cpp`) | `FOLDERID_Programs` — **per-user** | `C:\Users\pc\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Hunmin IME 설정.lnk` (2198 bytes) | nothing, today — and since the 2026-10-30 ruling the DLL writes no `.lnk` at all (§URM-7) |
 | the installer | `[Icons]` in `frontends/tsf/installer/hunmin.iss` | `{group}` = `{commonprograms}\{DefaultGroupName}` — **all users** | `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Hunmin IME\Hunmin IME 설정.lnk` (1109 bytes) | Inno's uninstaller — that path is in `unins000.dat`; the per-user one is not |
 
 Both files were written in the same minute by the same install
@@ -1470,6 +1473,14 @@ would change the answer: whether a non-elevated registration is a supported
 path — measured today only in `frontends/tsf/register-tsf.bat`, which does not
 elevate itself.
 
+**Ruling, 2026-10-30 — "C"** (the maintainer's answer to the four options as
+presented above; quoted verbatim, and the reason A was measured first survives
+in §URM-1: the uninstaller never touches the DLL's path, so A would not have
+been a second writer — C was chosen for the single-writer shape, not because A
+was impossible). The implementation is §URM-7. A, B and D are not taken; D
+remains the shape that would matter if a non-elevated registration ever needed a
+Start-menu entry the installer cannot see.
+
 ### URM-4 Question 2 — `RemoveLanguageProfile`
 
 **E — status quo.** `UnregisterProfile` + `Unregister` + four category
@@ -1501,7 +1512,7 @@ now names the per-user keys that make it decisive.
 |---|---|---|---|---|---|
 | A delete the DLL's `.lnk` | + a delete step in the unregister tail | +1 seam entry (file delete), +1 trace counter, 1 new assertion | — | asymmetry paragraph becomes "mirrored" | dead entry gone after `regsvr32 /u`; duplicate name while installed stays |
 | B leave it | 0 | 0 | — | already recorded | dead entry after uninstall (installed case); duplicate name |
-| C installer owns it | − the shortcut step and the rundll32 fallback | − the save assertions | — | flow loses a step | one entry, one writer; checkout registration undiscoverable |
+| **C installer owns it — DECIDED 2026-10-30** | − the shortcut step and the rundll32 fallback | − the Programs-folder seam entry, − the shell-link double, − two tests, + `RegistrationWritesNoFile` | — (the entry is unchanged; it is now the only one) | flow loses a step, the asymmetry becomes the ruling | one entry, one writer; checkout registration undiscoverable |
 | D write to all-users + delete | A's delete + one constant | A's seam work | `[Icons]` entry becomes redundant if the names are unified | both documents change | every account gets the entry; one entry if the installer's goes |
 | E status quo (Q2) | 0 | 0 | — | — | residue iff msctf leaves any |
 | F add `RemoveLanguageProfile` | +1 call | unregister tail 8 → 9 steps | — | mirror list grows | none observable unless E leaves residue |
@@ -1536,3 +1547,43 @@ now names the per-user keys that make it decisive.
   option here has been implemented.
 - Issue #146 stays open and decision-gated: closing it records a ruling only the
   maintainer can make, and question 2 additionally needs the elevated round.
+
+### URM-7 The ruling as implemented (option C)
+
+What left the registration flow, all of it found by following the ruling rather
+than by choosing extra work:
+
+- `CreateStartMenuShortcut` and its call in `DllRegisterServer`
+  (`frontends/tsf/src/registration.cpp`), with the `rundll32
+  <dll>,HunminSettingsShow` fallback it carried. `HunminSettingsShow` stays
+  exported — the interim dialog is still reachable, and `ITfFnConfigure` runs the
+  settings exe through `settingspath.cpp`.
+- The `programs_folder` seam entry (`frontends/tsf/src/registrationseam.h`): the
+  seam reaches outside the process three ways now, not four, because the flow
+  writes no file. Its platform double, and the mock's
+  `IShellLinkW`/`IPersistFile` class, went with it.
+- `hunmin_tsf_settings_exe_in_dir` (`settingspath.h/.cpp`): its only caller was
+  the shortcut builder, so the header no longer exports it. The resolver
+  `hunmin_tsf_settings_exe_find` is unchanged and still serves the langbar and
+  `ITfFnConfigure`.
+- The two tests that asserted the save
+  (`TsfRegistration.TheStartMenuShortcutIsNeverRemoved`,
+  `…ARefusedShortcutSaveStillRegisters`), replaced by one that pins the ruled
+  shape positively-when-absent: `TsfRegistration.RegistrationWritesNoFile`
+  asserts zero `CoCreateUnknown` activations around a register+unregister cycle,
+  and the doubles record that event for any CLSID they do not model — so a shell
+  link re-added to the flow fails a test instead of silently rebuilding a
+  shortcut.
+
+Verification, on this host: MSVC (`Visual Studio 18 2026`, x64) —
+`hunmin_static` built, the tree reconfigured, `tsf-test` and `hunmin-tsf` built,
+`ctest --test-dir build-msvc -C Release -L tier-F1` runs the tier, and
+`tsf-test.exe --gtest_filter='TsfRegistration.*'` is green (5/5). The `tsf-test`
+ctest entry is red on this build tree at BASELINE too: 15 `CandidateTest` cases
+fail identically with the change stashed (measured by rebuilding from the
+stash), so that red is the tree's, not this ruling's.
+
+What the ruling does NOT settle: a checkout-registered DLL (no installer) now
+writes no Start-menu entry at all, which was option C's named loss and is
+recorded, not hidden. And question 2 (§URM-4) is untouched — nothing here calls
+`RemoveLanguageProfile`.
