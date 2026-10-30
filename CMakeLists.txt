@@ -137,6 +137,23 @@ if(BUILD_TESTING AND Python3_FOUND)
     GIT_REPOSITORY https://github.com/google/googletest.git
     GIT_TAG        v1.17.0
     GIT_SHALLOW    TRUE)
+  # GoogleTest is test-only and must not contribute install rules (issue #150).
+  # Every install() the subproject declares -- headers, libgtest*.a/libgmock*.a,
+  # the pkg-config files and the GTest* CMake package config -- is gated on its
+  # own INSTALL_GTEST switch, which defaults ON. At that default the fetched SDK
+  # lands in `cmake --install` and therefore in the .deb: staged from this tree
+  # with -DINSTALL_GTEST=ON, 52 of 88 installed files are gtest/gmock (40
+  # headers, 4 static libs, 4 .pc, 4 CMake config files; measured 2026-10-30),
+  # claiming /usr/include/gtest, /usr/include/gmock and
+  # /usr/lib/<triplet>/cmake/GTest* from libgtest-dev. With the switch OFF the
+  # same command stages 36 files and no gtest/gmock path at all.
+  # The 0.2.0 artifact was built before this default changed (issue #150), so
+  # the fix reaches the next package build, not that one.
+  # A cache option rather than a plain set(), so an explicit
+  # -DINSTALL_GTEST=ON still asks for the SDK on purpose: googletest's own
+  # option() sees the existing cache entry and leaves it alone (CMP0077 NEW,
+  # cmake_minimum_required 3.22).
+  option(INSTALL_GTEST "Install the fetched GoogleTest SDK alongside hunmin" OFF)
   FetchContent_MakeAvailable(googletest)
   # A C++ test binary built by llvm-mingw depends on the toolchain's runtime
   # DLLs (libstdc++-6.dll, libgcc_s_seh-1.dll, libwinpthread-1.dll), which are
