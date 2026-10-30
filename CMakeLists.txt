@@ -148,7 +148,11 @@ if(BUILD_TESTING AND Python3_FOUND)
   # /usr/lib/<triplet>/cmake/GTest* from libgtest-dev. With the switch OFF the
   # same command stages 36 files and no gtest/gmock path at all.
   # The 0.2.0 artifact was built before this default changed (issue #150), so
-  # the fix reaches the next package build, not that one.
+  # the fix reaches the next package build, not that one. The switch is the
+  # whole difference at the artifact level, measured 2026-10-31 by running
+  # `dpkg-buildpackage -b` in a copy of this tree twice: switch ON -> the .deb
+  # has 121 file-list entries and 46 under include/g(test|mock) (0.2.0's own
+  # numbers); switch OFF -> 60 entries, 0.
   # A cache option rather than a plain set(), so an explicit
   # -DINSTALL_GTEST=ON still asks for the SDK on purpose: googletest's own
   # option() sees the existing cache entry and leaves it alone (CMP0077 NEW,
