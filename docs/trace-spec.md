@@ -36,6 +36,7 @@ remaining lines are events.
 | `layout` | hunmin layout id the frontend was configured with. |
 | `case` | free-form label; ties the trace back to the tier A case it replays. |
 | `source` | optional provenance: which `tests/golden/*.jsonl` case this replays. |
+| `excluded` | optional provenance: the source golden's cases this platform cannot encode, e.g. `[{"case": "k/", "state": ["caps"]}]`. A trace carrying it covers every case of that golden **except** these; the omission lives in the artefact rather than in a terminal. `tools/gen-conformance.py` writes it (win32 refuses caps cases — see `in` below). |
 
 `meta` is required and must be the first line. A runner must reject a trace whose `meta`
 is absent or malformed — a trace without provenance is not a test.

@@ -347,6 +347,11 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   reference last, so the language-bar `RemoveItem` is reached; the two cases
   that encoded the defects flipped, with the pre-fix tree measured red
   against them.
+- [[2026-10-31-milestone-f-win32-conformance-corpus]] - milestone F: the win32
+  corpus grew 3 -> 11 traces by porting the eight tier-A families x11 replays
+  (106 cases / 688 events, tier-F1 12/12); the work exposed a generator that
+  emitted a caps-on case at `mods: 0` and asserted caps-off text, now excluded
+  with `meta.excluded`; four gaps filed as #184-#187.
 - [[2026-10-22-tsf-settings-resolver]] - the S settings-exe resolver
   (issue #127): the maintainer's deployed-first ruling unifies the three
   candidate lists in `settingspath.cpp` (100); an installed Start-menu

@@ -193,10 +193,13 @@ BUILDERS = {"x11": x11_event, "android": android_event, "win32": win32_event}
 
 
 def parse_golden(golden: pathlib.Path, a, build, build_named):
-    """One golden -> (cases, unsupported, head).
+    """One golden -> (cases, unsupported, head, excluded).
 
     cases are (name, body_lines); each body line carries the platform-native
-    event plus the expectation copied verbatim from tier A.
+    event plus the expectation copied verbatim from tier A. `excluded` names the
+    cases this platform cannot encode (with the offending state), which the
+    caller writes into the trace's meta so the omission is visible in the
+    artefact rather than only in a terminal.
     """
     src = golden.read_text(encoding="utf-8").splitlines()
     head = json.loads(src[0])
@@ -220,22 +223,38 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
     current: dict = {}
     unsupported: set[str] = set()
     cases: list[tuple[str, list[str]]] = []
+    excluded: list[dict] = []  # cases this platform cannot encode, and why
     body: list[str] = []
     name = "case"
+    refused = ""  # option state that makes the CURRENT case unencodable here
     previous_preedit = ""
     for line in src[1:]:
         rec = json.loads(line)
         if "meta" in rec and "case" in rec["meta"]:  # case separator
-            if body:
+            if refused:
+                excluded.append({"case": name, "state": [refused]})
+            elif body:
                 cases.append((name, body))
             body = []
             previous_preedit = ""
+            refused = ""
             name = rec["meta"]["case"]
             # per-case engine state, minus the label itself
             current = {k: v for k, v in rec["meta"].items() if k != "case"}
             for k in current:
                 if k in OPTION_KEYS:
                     unsupported.add(k)
+            # win32 has no caps encoding: its adapter models the key as a mode
+            # toggle, so a trace cannot say "this case ran with Caps Lock on".
+            # Emitting the case at mods=0 anyway asserts the caps-OFF text against
+            # a caps-ON expectation -- measured on manual-sin3-p2-yet's `k/`
+            # case, which fails at its second key: the adapter composes 고 where
+            # tier A recorded commit ㄱ + preedit ㅋ. So the case is EXCLUDED and
+            # the exclusion is written into the emitted meta, rather than
+            # silently emitting a trace that asserts the wrong thing.
+            if a.platform == "win32" and current.get("caps"):
+                refused = "caps"
+                unsupported.discard("caps")
             continue
         # tier A writes inputs two ways: {"ch": "q"} for a character and
         # {"key": "backspace"} for a named key (docs/SPEC-SCHEMA.md "Reference
@@ -269,11 +288,9 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
         if a.platform == "x11" and current.get("caps"):
             # X11 is the only platform that encodes Caps Lock in `mods`
             # (LockMask). Android applies the same bit below for historical
-            # corpus; win32 refuses caps cases outright (see OPTION_KEYS note)
-            # because its adapter models the key as a mode toggle.
+            # corpus; win32 has no encoding at all, so a caps case is excluded
+            # at the separator above rather than emitted at mods=0.
             event["mods"] = event.get("mods", 0) | X_LOCK_MASK
-        if a.platform == "win32" and current.get("caps"):
-            unsupported.add("caps")
         previous_preedit = rec.get("preedit", "")
         line = json.dumps(
                 {
@@ -284,12 +301,16 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
                 },
                 ensure_ascii=False,
             )
+        if refused:
+            continue  # excluded case: its events are not emitted at all
         body.append(line)
 
-    if body:
+    if refused:
+        excluded.append({"case": name, "state": [refused]})
+    elif body:
         cases.append((name, body))
-    unsupported -= {"caps"}
-    return cases, unsupported, head
+    unsupported -= {"caps"}  # encoded in x11 mods; win32 excludes the case instead
+    return cases, unsupported, head, excluded
 
 
 def main() -> int:
@@ -319,26 +340,31 @@ def main() -> int:
     build = BUILDERS[a.platform]
     build_named = NAMED_BUILDERS[a.platform]
 
-    all_cases, unsupported, head = parse_golden(a.golden, a, build, build_named)
+    all_cases, unsupported, head, excluded = parse_golden(a.golden, a, build, build_named)
     for extra in a.extra_golden:
-        cases_e, unsupported_e, _ = parse_golden(extra, a, build, build_named)
+        cases_e, unsupported_e, _, excluded_e = parse_golden(extra, a, build, build_named)
         all_cases += cases_e
         unsupported |= unsupported_e
+        excluded += excluded_e
     cases = all_cases
 
-    out_lines = [
-        json.dumps(
-            {
-                "meta": {
-                    "platform": a.platform,
-                    "layout": a.layout,
-                    "case": a.case,
-                    "source": f"{a.golden.name} ({head['meta'].get('source', 'gate')})",
-                }
-            },
-            ensure_ascii=False,
-        )
-    ]
+    meta = {
+        "platform": a.platform,
+        "layout": a.layout,
+        "case": a.case,
+        "source": f"{a.golden.name} ({head['meta'].get('source', 'gate')})",
+    }
+    if excluded:
+        # Provenance for what this trace does NOT cover. A corpus without it
+        # reads as "every tier-A case of this golden is replayed here", which is
+        # the silent omission AGENTS.md's provenance rule exists to prevent.
+        meta["excluded"] = excluded
+    out_lines = [json.dumps({"meta": meta}, ensure_ascii=False)]
+    if excluded:
+        print(f"{a.out}: excluded {len(excluded)} case(s) with no {a.platform} "
+              "encoding: "
+              + ", ".join(f"{e['case']} ({'+'.join(e['state'])})" for e in excluded),
+              file=sys.stderr)
 
     if unsupported:
         raise SystemExit(

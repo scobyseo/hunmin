@@ -798,3 +798,29 @@ both 0 errors.
 
 Verified: `python tools/wiki-lint.py` and `python tools/docs-lint.py`,
 both 0 errors.
+
+## [2026-10-31] create | Milestone F: the win32 corpus replays the eight x11 tier-A families (#69)
+
+- `tests/conformance/win32/`: eight new `*.trace.in` + `*.trace.gold` pairs,
+  one per tier-A family x11 replays (`p2-2-1-basic`, `dkssud-combo`,
+  `p2-2-3-chosung`, `p2-2-4-1-yetrules`, `p2-2-4-2-eung`, `p2-3-swapped`,
+  `manual-sin3-p2`, `manual-sin3-p2-yet`), batched per family. Corpus 3 -> 11
+  traces / 106 cases / 688 events over four layouts; tier-F1 12/12 green on
+  `build-msvc` Release; each gold identical to the `.in` expectations from
+  tier A on all 688 events.
+- `tools/gen-conformance.py`: a caps case is now EXCLUDED for win32 instead of
+  being emitted at `mods: 0` with a caps-on expectation (the blanket
+  `unsupported -= {"caps"}` washed the refusal it had just recorded; measured
+  failure — composed 고 where tier A records commit ㄱ + preedit ㅋ), and the
+  exclusion is written into `meta.excluded`.
+- `docs/trace-spec.md`: `meta.excluded` documented as a meta field.
+- `docs/TESTING.md` tier F1: the corpus breadth, the measured counts and the
+  caps gap.
+- `docs/REMAINING-WORK.md`: five rows (TSF-CORPUS-69, TSF-CAPS-EXCL-184,
+  TSF-DELIVERY-MODES-185, TRACE-LAYOUTS-186, TRACE-X11-PARITY-187).
+- Filed #184 (caps-on sequences, ruling), #185 (both TSF delivery modes),
+  #186 (11 of 15 layouts uncovered), #187 (x11 omits cases win32 replays).
+- `wiki/raw/sessions/2026-10-31-milestone-f-win32-conformance-corpus.md`: one page.
+
+Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
+`python3 tools/wiki-lint.py` (0 errors).

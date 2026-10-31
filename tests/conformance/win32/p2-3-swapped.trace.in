@@ -1,0 +1,61 @@
+{"meta": {"platform": "win32", "layout": "sin3-p2", "case": "p2-3-swapped", "source": "p2-3-swapped.jsonl (gate)"}}
+{"meta": {"case": "gap", "case_index": 1}}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "개", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "갭", "consumed": true}
+{"meta": {"case": "nap", "case_index": 2}}
+{"in": {"vk": 72, "scan": 35, "mods": 0}, "commit": "", "preedit": "ㄴ", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "내", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "냅", "consumed": true}
+{"meta": {"case": "dap", "case_index": 3}}
+{"in": {"vk": 85, "scan": 22, "mods": 0}, "commit": "", "preedit": "ㄷ", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "대", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "댑", "consumed": true}
+{"meta": {"case": "raep", "case_index": 4}}
+{"in": {"vk": 89, "scan": 21, "mods": 0}, "commit": "", "preedit": "ㄹ", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "래", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "랩", "consumed": true}
+{"meta": {"case": "maep", "case_index": 5}}
+{"in": {"vk": 73, "scan": 23, "mods": 0}, "commit": "", "preedit": "ㅁ", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "매", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "맵", "consumed": true}
+{"meta": {"case": "baep", "case_index": 6}}
+{"in": {"vk": 186, "scan": 39, "mods": 0}, "commit": "", "preedit": "ㅂ", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "배", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "뱁", "consumed": true}
+{"meta": {"case": "aep", "case_index": 7}}
+{"in": {"vk": 74, "scan": 36, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "애", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "앱", "consumed": true}
+{"meta": {"case": "caep", "case_index": 8}}
+{"in": {"vk": 191, "scan": 53, "mods": 0}, "commit": "", "preedit": "ㅋ", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "캐", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "캡", "consumed": true}
+{"meta": {"case": "taep", "case_index": 9}}
+{"in": {"vk": 222, "scan": 40, "mods": 0}, "commit": "", "preedit": "ㅌ", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "태", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "탭", "consumed": true}
+{"meta": {"case": "haep", "case_index": 10}}
+{"in": {"vk": 77, "scan": 50, "mods": 0}, "commit": "", "preedit": "ㅎ", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "해", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "햅", "consumed": true}
+{"meta": {"case": "gyeop", "case_index": 11}}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 84, "scan": 20, "mods": 0}, "commit": "", "preedit": "겨", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "겹", "consumed": true}
+{"meta": {"case": "ryeop", "case_index": 12}}
+{"in": {"vk": 89, "scan": 21, "mods": 0}, "commit": "", "preedit": "ㄹ", "consumed": true}
+{"in": {"vk": 84, "scan": 20, "mods": 0}, "commit": "", "preedit": "려", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "렵", "consumed": true}
+{"meta": {"case": "byeorp", "case_index": 13}}
+{"in": {"vk": 186, "scan": 39, "mods": 0}, "commit": "", "preedit": "ㅂ", "consumed": true}
+{"in": {"vk": 84, "scan": 20, "mods": 0}, "commit": "", "preedit": "벼", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "볍", "consumed": true}
+{"meta": {"case": "yeop", "case_index": 14}}
+{"in": {"vk": 74, "scan": 36, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 84, "scan": 20, "mods": 0}, "commit": "", "preedit": "여", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "엽", "consumed": true}
+{"meta": {"case": "hyeop", "case_index": 15}}
+{"in": {"vk": 77, "scan": 50, "mods": 0}, "commit": "", "preedit": "ㅎ", "consumed": true}
+{"in": {"vk": 84, "scan": 20, "mods": 0}, "commit": "", "preedit": "혀", "consumed": true}
+{"in": {"vk": 69, "scan": 18, "mods": 0}, "commit": "", "preedit": "협", "consumed": true}
