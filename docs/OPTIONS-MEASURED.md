@@ -1697,7 +1697,7 @@ moved) says it.
 | | Android | TSF | fcitx5 |
 |---|---|---|---|
 | the Han/Eng action | `hunmin_buffered_preedit_toggle_language()` over JNI (`frontends/android/app/src/main/cpp/hunmin-jni.c`) | the same symbol, from `ToggleModeCore` (`frontends/tsf/src/tsf.cpp`) | **not in the addon.** fcitx's own trigger owns the key (FE13; `docs/FRONTEND-EQUIVALENCE.md` §4, §8.3(1)) |
-| the physical key | `platformAlternates` of `KeyAction.HANGUL_ENG`: bare `ALT_RIGHT`, `LANGUAGE_SWITCH`, KANA `218` — no default chord | `{VK_HANGEUL (0x15), mods 0}` appended by `LoadToggleKeys()` whatever the store says | none; a 한/영 keysym never reaches `keyEvent()` |
+| the physical key | `platformAlternates` of `KeyAction.HANGUL_ENG`: bare `ALT_RIGHT`, `LANGUAGE_SWITCH`, KANA `218` — no default chord | `{VK_HANGEUL (0x15), mods 0}` appended by `LoadToggleKeys()` whatever the store says | none by default: `Hangul` is one of fcitx's default `triggerKeys`, consumed before the addon (§E5-2 addendum) |
 | stored form | `"v1:<keycode>:<normalised metaState>"`, one per row | `"v1:<vk>:<mods>;…"`, a list per action (`toggleKeys`, `hanjaKey`) | — |
 | remap path | yes: settings window, per action | yes: registry/env list + settings dialog | — |
 | does a compound arrive as a distinct event? | **yes, with no code change**: `modifiersMatch()` compares Shift by equality and Alt/Ctrl by family, so a bare alternate does not fire under a modifier | **yes**: `hunmin_tsf_keybindings_match()` compares the three family bits exactly | — |
@@ -1711,8 +1711,8 @@ asks for one value with three readers; §E5-3 counts the edits that takes.
 | chord | Android | TSF | fcitx5 |
 |---|---|---|---|
 | bare 한/영 | `HANGUL_ENG` (three keycodes) | `HANGUL_ENG` (VK_HANGEUL) | fcitx trigger, outside the addon |
-| **Shift + 한/영** | `VOICE` when the keyboard reports 218 (`defaults = Shift+KANA`); free when it reports `LANGUAGE_SWITCH` or bare `ALT_RIGHT` | free: exact-bit match means the bare toggle does not fire, and Shift is not part of the chord rule | not representable |
-| **Alt / Ctrl + 한/영** | free in the binding layer, but bare `ALT_RIGHT` *is* a 한/영 keycode on some keyboards, so the compound is only expressible against KANA / `LANGUAGE_SWITCH` | **intercepted before any handler.** `keydispatch.cpp` `OnTestKeyDown` answers uneaten for a Ctrl/Alt chord in hangul mode, and the measured note there records that a host never calls `OnKeyDown` for a key its test phase passes — the ruled transient-chord rule (2026-10-18, issue #101). The chord would not arrive unless that rule is carved out. | not representable |
+| **Shift + 한/영** | `VOICE` when the keyboard reports 218 (`defaults = Shift+KANA`); free when it reports `LANGUAGE_SWITCH` or bare `ALT_RIGHT` | free: exact-bit match means the bare toggle does not fire, and Shift is not part of the chord rule | the keysym is a legal `Key` with a Shift state, but the press is eaten by fcitx's trigger first (§E5-2 addendum) |
+| **Alt / Ctrl + 한/영** | free in the binding layer, but bare `ALT_RIGHT` *is* a 한/영 keycode on some keyboards, so the compound is only expressible against KANA / `LANGUAGE_SWITCH` | **intercepted before any handler.** `keydispatch.cpp` `OnTestKeyDown` answers uneaten for a Ctrl/Alt chord in hangul mode, and the measured note there records that a host never calls `OnKeyDown` for a key its test phase passes — the ruled transient-chord rule (2026-10-18, issue #101). The chord would not arrive unless that rule is carved out. | same as Shift: legal as `Key(FcitxKey_Hangul, Alt)`, eaten by the trigger first |
 | Shift + 한자 key | `HANJA` alternate is EISU `212`, bare | `VK_HANJA (0x19)`, bare | — |
 | Shift + Space | consumed as a boundary before the action loop (`onKeyDown` commits the word, then `" "`) | same shape (`VK_SPACE` boundary branch) | free keysym the addon does see |
 | F9 | keycode 139 declared; no phone input source measured | `VK_F9` unclaimed | the Hanja window (P3) |
@@ -1720,6 +1720,60 @@ asks for one value with three readers; §E5-3 counts the edits that takes.
 Two of these are the real prices: **Shift+한/영 already means 음성 입력 on the Samsung
 keycode 218**, and **Alt/Ctrl + 한/영 cannot reach a TSF handler at all** without editing a
 rule the maintainer ruled on 2026-10-18.
+
+#### E5-2 addendum — fcitx5: not as a modifier; as an event, in two ways (measured 2026-10-31)
+
+The question "can the 한/영 key be a modifier in fcitx5" splits into two, and they have
+different answers. Read from fcitx5 `master` on 2026-10-31 (LGPL-2.1; read for semantics,
+nothing copied) — `fcitx-utils/keysym.h`, `fcitx-utils/key.cpp`, `fcitx/instance.h`,
+`fcitx/instance.cpp`, `fcitx/globalconfig.cpp`. **Read, not run:** no fcitx5 host was
+driven here.
+
+**As a modifier: no, and it is structural.** Modifiers in fcitx5 are XKB mod bits, not
+keys. `enum class KeyState` is a closed set — `Shift`, `CapsLock`, `Ctrl`(`Mod1`),
+`Alt`, `NumLock`(`Mod2`), `Hyper`(`Mod3`), `Super`(`Mod4`), `Mod5`, `Meta`,
+`MousePressed`, `Repeat` — and there is no bit a Hangul key could occupy. `Key::isModifier()`
+is a hard-coded keysym membership test (`Control_L/R`, `Meta_L/R`, `Alt_L/R`,
+`Super_L/R`, `Hyper_L/R`, `Shift_L/R`); `FcitxKey_Hangul` is not in it. And `Key::check()`
+with `Key::normalize()` mask every incoming key's states down to
+`{Ctrl, Alt, Shift, Super, Mod3}` before comparing — a state bit that is not one of those
+five is dropped before any binding is consulted. So "Hangul + X" is not a `Key` fcitx5 can
+represent, and no addon can extend the enum.
+
+The only way to make the *physical* key a modifier is the XKB keymap (`modifier_map`
+assigning it to `Mod3`/`Mod4`, or mapping it to `Hyper_L`), which is a system-wide
+keymap edit outside the IME. It also changes what the key *is*: it stops reporting
+`FcitxKey_Hangul`, so fcitx's own `Hangul` trigger and any `FcitxKey_Hangul` binding stop
+matching, and only `Mod3`/`Super` survive the mask above (`Mod5` is dropped).
+
+**As an event: yes, but not by the default path.** `HotkeyConfig::triggerKeys` defaults to
+`{Control+space, Zenkaku_Hankaku, Hangul}` (`globalconfig.cpp`), and the trigger watcher is
+registered at `EventWatcherPhase::InputMethod` in `instance.cpp` and calls
+`keyEvent.filterAndAccept()` on a match — so under the shipped defaults the press is
+consumed before the addon's `keyEvent` runs at all. That is `docs/FRONTEND-EQUIVALENCE.md`
+§4/§8.3(1)'s "fcitx owns the trigger", and it is **a default configuration, not an API
+limit**. Two routes exist:
+
+1. **The user removes `Hangul` from TriggerKeys.** The keysym then reaches the IM phase
+   and the addon can match `keyEvent.key().check(FcitxKey_Hangul)` and consume it. A chord
+   is legal on the addon side too: `Key(FcitxKey_Hangul, KeyState::Alt)`.
+2. **The addon registers at `EventWatcherPhase::PreInputMethod`**, which runs before the
+   trigger watcher. `Instance::watchEvent()` is public, and `fcitx/instance.h` documents
+   that phase for exactly this: "Useful for addons that want to implement an independent
+   mode … Check a hotkey in PostInputMethod phase to trigger the mode; handle all the key
+   event in PreInputMethod phase just like regular input method."
+
+Route 2 is the one that matters for E5, and it is not free: it **shadows the user's global
+trigger** — 한/영 would stop switching input methods for anyone using the addon, which is a
+behaviour change to a setting the user owns, made by an addon rather than by the config
+they can see. Route 1 has the mirror-image cost: the assignment only works after a global
+setting is changed, so "identical in all environments" becomes "identical once configured".
+
+One more measured negative: the shipped Korean IME, `fcitx5-hangul`, does not attempt any
+of this. Its `keyEvent` flushes and returns on any `Ctrl`/`Alt`/`Shift`/`Super`/`Hyper`
+state (`src/engine.cpp`), and it never binds `FcitxKey_Hangul` — it relies on the global
+trigger. So there is no prior art in fcitx5 for the 한/영 key meaning anything beyond the
+trigger.
 
 ### E5-3 The options
 
@@ -1734,9 +1788,10 @@ covers only one; and it must be moved **above `VOICE`** in `byPrecedence()`, or 
 stays 음성 입력 — which reorders the conflict warning too (three tests pin the order).
 *TSF:* free chord, but a new action and a third stored list (`toggleKeys`, `hanjaKey`, and
 this), plus the settings row.
-*fcitx5:* **not representable** — the addon never sees the key. So this option satisfies
-"identical in all environments" only if the addon starts intercepting `FcitxKey_Hangul` /
-`FcitxKey_Hangul_Hanja`, which fcitx also owns as its trigger.
+*fcitx5:* expressible in two ways, neither of them as a modifier (§E5-2 addendum): the
+addon registers a `PreInputMethod` watcher and matches `Key(FcitxKey_Hangul, Shift)`,
+shadowing the user's global trigger; or the user removes `Hangul` from TriggerKeys and the
+addon matches it in its own `keyEvent`.
 *Loses:* the one-key-two-meanings ambiguity is now on the key whose second meaning is
 "voice input" on the most common Android keyboard.
 
@@ -1744,7 +1799,8 @@ this), plus the settings row.
 *Android:* free, with the caveat that bare Right Alt is itself 한/영 on some hardware.
 *TSF:* blocked by the transient chord rule (§E5-2) — carving it out touches the 2026-10-18
 ruling and its test-phase mirror, which is the largest single edit in this table.
-*fcitx5:* as option 1.
+*fcitx5:* as option 1, with the chord written `Key(FcitxKey_Hangul, Alt)` and the same
+shadowing or configuration cost.
 *Loses:* the autoswitch switch would be the exception to "a Ctrl/Alt chord belongs to the
 app", on every Windows host.
 
@@ -1773,8 +1829,8 @@ need one settings item each, and the engine still needs the state (§E5-0 premis
 and the 0.3 row would show 미정 forever.
 
 **6 — a key combination that is not built on 한/영 (e.g. Shift + Space).**
-*Cost:* the only option measured here that can be *identical on all three* without
-intercepting fcitx's trigger, because space is a keysym the addon already maps. It needs a
+*Cost:* the only option that needs no change to fcitx's trigger behaviour at all, because
+space is a keysym the addon already maps and no trigger list contains it. It needs a
 carve-out above the space boundary branch on Android and TSF (`onKeyDown`'s
 `KEYCODE_SPACE` branch, `VK_SPACE` in `keydispatch.cpp`), and one engine symbol for the
 state.
@@ -1796,9 +1852,11 @@ ruling says all five of these — otherwise the implementer decides the rest by 
    Right Alt on Android, VK_HANGEUL on Windows, and on fcitx5 *nothing the addon sees*.
 4. **What the compound does when it meets a shipped chord**: Shift+KANA = 음성 입력,
    TSF's transient Ctrl/Alt rule, Android's and TSF's space boundary.
-5. **Whether "identical in all environments" is met by a chord the addon can see, or
-   whether the addon may intercept fcitx's trigger keys** — this one sentence decides
-   options 1, 2, 3 and 6.
+5. **Whether the addon may take the 한/영 press away from fcitx's global trigger** — by a
+   `PreInputMethod` watcher (works with no configuration, shadows the user's own TriggerKeys
+   setting) or by requiring that setting to change (no shadowing, but the assignment only
+   works once configured). Either answer is implementable; they differ in who owns the key
+   (§E5-2 addendum). This one sentence decides options 1, 2, 3 and 6.
 
 The engine-side prerequisite is the same for every option and is the one piece that can be
 built before the ruling: one append-only symbol that exposes the assignment (and R13-정정's
@@ -1808,8 +1866,8 @@ state), so the three frontends read one value instead of holding three.
 
 | option | mechanism | Android | TSF | fcitx5 | loses |
 |---|---|---|---|---|---|
-| 1 Shift+한/영 | chord | alternate list + precedence reorder | new action + store entry | not representable | Shift+KANA means 음성 입력 |
-| 2 Alt/Ctrl+한/영 | chord | free (Alt caveat) | blocked by the transient chord rule | not representable | exception to "chords belong to the app" |
+| 1 Shift+한/영 | chord | alternate list + precedence reorder | new action + store entry | `PreInputMethod` watcher (shadows the trigger), or a TriggerKeys edit | Shift+KANA means 음성 입력 |
+| 2 Alt/Ctrl+한/영 | chord | free (Alt caveat) | blocked by the transient chord rule | same two routes as 1 | exception to "chords belong to the app" |
 | 3 reversed | chord-less | 3 re-mappings | 3 re-mappings | 3 re-mappings | the key's own purpose; contradicts R13's wording |
 | 4 double press | sequence | clock | clock | clock | silent toggles on a misfire; no measurement |
 | 5 UI only | — | smallest | smallest | smallest | R13's stated preference |
@@ -1817,9 +1875,10 @@ state), so the three frontends read one value instead of holding three.
 
 **If a starting point is wanted rather than a menu:** option 1 keeps the key the user
 already reaches for and needs no new mechanism on two of three frontends; the deciding cost
-is fcitx5, where the addon cannot see the key at all — and the answer that would change
-this is whether the addon may intercept fcitx's trigger keysym (§E5-4 item 5), which is a
-separate ruling, not a measurement.
+is fcitx5, where the key is currently fcitx's own trigger — and since the addon *can* take
+it (§E5-2 addendum), the question that would change this is not "is it possible" but
+"may an addon shadow the user's TriggerKeys setting", which is a separate ruling, not a
+measurement.
 
 ### E5-6 Provenance
 
@@ -1838,6 +1897,13 @@ separate ruling, not a measurement.
   here, so the transient-chord interception is the code's shape, corroborated by the
   2026-10-18 record, not a fresh run. Android's on-device behaviour is likewise unrun: no
   device or emulator.
+- The fcitx5 half (§E5-2 addendum) is read from upstream source, fetched 2026-10-31 from
+  `gitlab.com/fcitx/fcitx5` (`master`): `src/lib/fcitx-utils/keysym.h`, `key.cpp`,
+  `src/lib/fcitx/instance.h`, `instance.cpp`, `globalconfig.cpp`; and
+  `gitlab.com/fcitx/fcitx5-hangul` `src/engine.cpp` for the prior-art check. LGPL-2.1 — read
+  for semantics, nothing copied. No fcitx5 host was driven here, and no fcitx5 tree exists on
+  this box (no cmake, no headers), so every claim in that addendum is code-shape, not
+  observed keystrokes. The version the tree requires (>= 5.1.13) is what CI builds.
 - Changed files: `docs/OPTIONS-MEASURED.md` (this section and the header table),
   `docs/SPEC-MODES.md` §E5 and `docs/MODES-ENGINE-RULES.md` §3 (a one-line pointer each —
   no requirement text moves).
