@@ -440,6 +440,11 @@ STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
 }
 
 STDMETHODIMP CTextService::Deactivate() {
+    /* A key-up can be lost with the session (focus leaving the app, the TIP
+     * unloading): the armed Han/Eng press dies here, or the next keystroke of
+     * the next session would read as its compound press. */
+    toggleArmed_ = false;
+    armedVk_ = 0;
     /* The advice comes off first, so no new event reaches a session that is
      * tearing down. The manager REFERENCE outlives it (ReleaseThreadMgr at
      * the end): the language-bar item is removed through that same manager
@@ -540,7 +545,13 @@ STDMETHODIMP CTextService::OnPopContext(ITfContext *pic) {
 
 STDMETHODIMP CTextService::OnSetFocus(BOOL fFocus) {
     hunmin_logger.log("KS-OnSetFocus fFocus=%d modePid=%lu\n", (int)fFocus, (unsigned long)GetCurrentProcessId());
-    (void)fFocus;
+    if (!fFocus) {
+        /* The key stream ends with the focus: an armed Han/Eng press cannot
+         * outlive it, or the first key of the next document would read as its
+         * compound press (the key-up is never delivered once focus is gone). */
+        toggleArmed_ = false;
+        armedVk_ = 0;
+    }
     return S_OK;
 }
 
@@ -584,6 +595,7 @@ HunminTsfSnapshot CTextService::Snapshot() {
     if (s.composing.size() <= s.display.size())
         s.finished = s.display.substr(0, s.display.size() - s.composing.size());
     s.hangulMode = hangulMode_;
+    s.langHoldArmed = toggleArmed_;
     s.legacyMode = legacyMode_;
     s.interimForce = interimForce_;
     s.composition = composition_;

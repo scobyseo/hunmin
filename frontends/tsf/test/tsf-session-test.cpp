@@ -89,6 +89,13 @@ TEST_F(TsfSessionTest, TheModeToggleRepublishesTheLatinSide) {
     svc_->OnTestKeyDown(mctx_, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
     svc_->OnKeyDown(mctx_, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
     ASSERT_EQ(eaten, TRUE) << "the bare Han/Eng key is consumed as the toggle";
+    /* The toggle lands on the RELEASE: the press is armed on the down so a
+     * following key can still be the compound press (the Han/Eng key as a
+     * held prefix). */
+    ASSERT_TRUE(Snap().langHoldArmed) << "the press is armed, not yet applied";
+    ASSERT_TRUE(Snap().hangulMode) << "nothing happened on the down";
+    svc_->OnKeyUp(mctx_, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
+    ASSERT_EQ(eaten, TRUE) << "the single press is the toggle, and its up is ours too";
     ASSERT_FALSE(Snap().hangulMode) << "the toggle reached the latin side";
 
     ASSERT_EQ(tm_->compartmentMgr.writes.size(), (size_t)2) << "Activate + one mode boundary";

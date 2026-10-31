@@ -144,8 +144,25 @@ STDMETHODIMP CTextService::OnKeyDown(ITfContext *pic, WPARAM wParam, LPARAM lPar
      * window's own key, the open window's list keys, the keys of
      * passage, and finally the composition feed. */
     if (IsModeToggle(wParam)) {
+        /* The Han/Eng key as a MODIFIER-shaped prefix (E5 probe, measured in
+         * docs/OPTIONS-MEASURED.md "Han/Eng key as a modifier"): the press is
+         * armed and the key-up decides it. A key that is itself a modifier
+         * (Alt as 한/영) keeps the immediate toggle -- Alt+A must stay the
+         * application's chord, not become a mode prefix. */
+        if (IsHoldPrefix(wParam)) {
+            ArmModeToggle(wParam, pfEat);
+            return S_OK;
+        }
         ApplyModeToggle(pic, wParam, lParam, pfEat);
         return S_OK;
+    }
+    /* Any other key arriving while the Han/Eng press is still armed IS the
+     * compound press E5 asks about. Its action is undecided (issue #159), so
+     * the resolution is recorded and the key continues down this same path
+     * unchanged: the chord must be observable without inventing a behaviour
+     * the maintainer has not ruled. */
+    if (toggleArmed_) {
+        ResolveHoldChord(wParam);
     }
     if (!hangulMode_)
         return S_OK; // passthrough English
@@ -191,6 +208,47 @@ void CTextService::ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam
         ToggleModeCore(pic);
     hunmin_logger.log(" toggle key vk=%lu repeat=%d -> %s (%s)\n", (unsigned long)wParam, (int)repeat, hangulMode_ ? "hangul" : "english",
                       hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
+}
+
+/* The Han/Eng key as a held prefix (E5 probe; docs/OPTIONS-MEASURED.md
+ * "Han/Eng key as a modifier"). A non-modifier key that matches the toggle set
+ * is ARMED instead of applied: the same press is either a single press (the
+ * key-up toggles) or the first half of a compound press (a different key-down
+ * resolves it). Before this the toggle fired on the key-down, which made "hold
+ * 한/영 and press X" indistinguishable from "toggle, then type X" -- the
+ * distinction E5 needs before any compound assignment can exist. */
+bool CTextService::IsHoldPrefix(WPARAM wParam) {
+    /* A modifier used as 한/영 (Right Alt, the platform alternate Android's
+     * KeyAction.HANGUL_ENG also carries) keeps its immediate toggle: holding
+     * Alt and typing A is an application chord today, and turning that into a
+     * mode prefix would change what those users type. Only a key the system
+     * does not treat as a modifier -- the physical Han/Eng key -- can be a
+     * compose-style prefix, because nothing else consumes it. */
+    return !IsModifierVk(wParam);
+}
+
+void CTextService::ArmModeToggle(WPARAM wParam, BOOL *pfEat) {
+    if (pfEat)
+        *pfEat = TRUE; /* ours: the press never reaches the client */
+    if (toggleArmed_ && armedVk_ == wParam)
+        return; /* auto-repeat: still one press */
+    toggleArmed_ = true;
+    armedVk_ = wParam;
+    hunmin_logger.log(" langkey down vk=%lu held=%d -> armed (key-up toggles, a key meanwhile is the compound press)\n", (unsigned long)wParam,
+                      hunmin_tsf_vk_held((unsigned int)wParam) ? 1 : 0);
+}
+
+void CTextService::ResolveHoldChord(WPARAM wParam) {
+    /* The press was a prefix, not a toggle: clear it and leave wParam to the
+     * ordinary path below. The action of the compound press is UNDECIDED
+     * (issue #159, SPEC-MODES E5), so nothing is performed -- it is recorded.
+     * held= is the platform fact a mock harness cannot settle: whether Windows
+     * still reports the Han/Eng vk as down while the second key arrives. */
+    const WPARAM prefix = armedVk_;
+    toggleArmed_ = false;
+    armedVk_ = 0;
+    hunmin_logger.log(" langchord prefix-vk=%lu chord-vk=%lu held=%d -> compound press (action undecided, issue #159)\n", (unsigned long)prefix,
+                      (unsigned long)wParam, hunmin_tsf_vk_held((unsigned int)prefix) ? 1 : 0);
 }
 
 bool CTextService::IsCandidateToggle(WPARAM wParam) {
@@ -386,9 +444,18 @@ STDMETHODIMP CTextService::OnTestKeyUp(ITfContext *pic, WPARAM wParam, LPARAM lP
 }
 
 STDMETHODIMP CTextService::OnKeyUp(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) {
-    (void)pic;
-    (void)wParam;
     (void)lParam;
+    if (toggleArmed_ && wParam == armedVk_) {
+        /* The armed Han/Eng press was released without a chord: THAT is the
+         * single press, and the toggle lands here instead of on the key-down.
+         * The key-up is eaten too -- the client never saw the down, so letting
+         * the up through would hand it half a key. */
+        toggleArmed_ = false;
+        armedVk_ = 0;
+        ApplyModeToggle(pic, wParam, 0, pfEat);
+        hunmin_logger.log(" langkey up vk=%lu -> single press, toggled on release\n", (unsigned long)wParam);
+        return S_OK;
+    }
     if (pfEat)
         *pfEat = FALSE;
     return S_OK;

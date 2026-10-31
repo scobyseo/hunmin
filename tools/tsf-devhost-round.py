@@ -92,6 +92,47 @@ def type_char(ch):
         send_vk(0x10, up=True)
 
 
+LANG_VK = 0x15  # VK_HANGEUL: the physical Han/Eng key on Korean hardware
+
+
+def split_tokens(keys):
+    """--keys is characters plus {token}s.
+
+    Tokens exist because the Han/Eng key is not typed, it is PRESSED AND HELD
+    (E5, issue #159): `{L}` is a single press (the toggle), `{L+xy}` holds it
+    while typing xy (the compound press). Everything else stays one character
+    per key so the ordinary golden rounds read as before.
+    """
+    out = []
+    i = 0
+    while i < len(keys):
+        if keys[i] == "{":
+            j = keys.find("}", i)
+            if j < 0:
+                raise SystemExit("unterminated token in --keys")
+            out.append(("token", keys[i + 1:j]))
+            i = j + 1
+            continue
+        out.append(("char", keys[i]))
+        i += 1
+    return out
+
+
+def run_token(token):
+    if token == "L":
+        tap(LANG_VK)
+        return
+    if token.startswith("L+"):
+        send_vk(LANG_VK)
+        try:
+            for ch in token[2:]:
+                type_char(ch)
+        finally:
+            send_vk(LANG_VK, up=True)
+        return
+    raise SystemExit("unknown token {%s}" % token)
+
+
 def enumerate_windows():
     out = []
 
@@ -351,10 +392,15 @@ def main():
             time.sleep(0.8)
 
         typed = []
-        for ch in args.keys:
+        for kind, ch in split_tokens(args.keys):
             if user32.GetForegroundWindow() != hwnd and not focus(hwnd):
                 result["focus_lost_before"] = ch
                 break
+            if kind == "token":
+                run_token(ch)
+                typed.append("{%s}" % ch)
+                time.sleep(0.35)
+                continue
             type_char(ch)
             typed.append(ch)
             time.sleep(0.35)
@@ -378,7 +424,8 @@ def main():
         if os.path.exists(log_path):
             rows = [l for l in open(log_path, encoding="utf-8", errors="replace").read().splitlines()
                     if any(t in l for t in ("applied hangul", "legacy", "composition", "consumed",
-                                            "interim:", "flush:", "boundary"))]
+                                            "interim:", "flush:", "boundary",
+                                            "langkey", "langchord"))]
             result["trace"] = rows
             with open(os.path.join(run_dir, "result.json"), "w", encoding="utf-8") as f:
                 json.dump(result, f, ensure_ascii=False, indent=2)
