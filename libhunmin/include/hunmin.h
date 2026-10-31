@@ -368,6 +368,15 @@ HUNMIN_EXPORT void hunmin_buffered_preedit_special_host(hunmin_buffered_preedit 
  * this is the one call that can invoke the host. */
 HUNMIN_EXPORT int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key_event *ev);
 
+/* Predicts hunmin_buffered_preedit_special() WITHOUT calling the host: the same
+ * three answers (function > 0, 0 not a chord, -1 bound but nothing would service
+ * it), and no state changes. A frontend that must answer a platform "test" phase
+ * before the real key event uses this, because test and down are one decision:
+ * claiming a key in the test and passing it in the down loses it, which is a
+ * measured defect class here (`dkssud1`, the interim default-sink host). Same
+ * role as hunmin_ic_peek_key() and hunmin_buffered_preedit_peek_key(). */
+HUNMIN_EXPORT int hunmin_buffered_preedit_special_peek(const hunmin_buffered_preedit *l, const hunmin_key_event *ev);
+
 /* Stable identifier for a function ("voice", "autoswitch", "" for NONE). The
  * dialogs and the logs use this instead of spelling a name per frontend. */
 HUNMIN_EXPORT const char *hunmin_special_name(hunmin_special_function fn);

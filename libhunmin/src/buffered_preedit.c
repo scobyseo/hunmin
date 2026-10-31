@@ -404,7 +404,7 @@ void hunmin_buffered_preedit_special_host(hunmin_buffered_preedit *l, const hunm
     l->special_host_set = false;
 }
 
-int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key_event *ev) {
+int hunmin_buffered_preedit_special_peek(const hunmin_buffered_preedit *l, const hunmin_key_event *ev) {
     if (!l || !ev || !ev->language_key) return 0;
     const unsigned want = special_want(ev);
     if (!want) return 0; /* the single press: the classifier answers TOGGLE */
@@ -415,10 +415,19 @@ int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key
         if (l->special_mods[fn] != want) continue;
         if (!l->special_host_set) return -1;
         if (l->special_host.supports && !l->special_host.supports(l->special_host.user, (hunmin_special_function)fn)) return -1;
-        if (l->special_host.perform) l->special_host.perform(l->special_host.user, (hunmin_special_function)fn);
         return fn;
     }
     return 0;
+}
+
+int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key_event *ev) {
+    /* One resolver, two entry points: the peek answers a platform "test" phase
+     * and this performs. A second copy of the loop is how the gesture the test
+     * claims and the gesture the down services would drift apart. */
+    const int fn = hunmin_buffered_preedit_special_peek(l, ev);
+    if (fn <= 0) return fn;
+    if (l->special_host.perform) l->special_host.perform(l->special_host.user, (hunmin_special_function)fn);
+    return fn;
 }
 
 const char *hunmin_special_name(hunmin_special_function fn) {
