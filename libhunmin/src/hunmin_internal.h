@@ -119,4 +119,19 @@ uint32_t hm_shifted_of(uint32_t base);
  * terminated in place. */
 int hm_split_dirs(const char *env, char *buf, size_t bufsz, const char *dirs[], int max);
 
+/* wordset.c -- the english word set behind R8-정정's `english_valid`
+ * (docs/SPEC-MODES.md, ruling 2026-11-01: hunspell en_US base + user words).
+ * Internal: the ABI surface is the hunmin_buffered_preedit_english* wrappers in
+ * buffered_preedit.c, so this stays out of hunmin.h. */
+typedef struct hm_wordset hm_wordset;
+hm_wordset *hm_wordset_new(void);
+void hm_wordset_free(hm_wordset *w);
+/* 1 loaded, -1 absent (a normal state under B3's data gate), 0 a malformed
+ * file -- a broken JSON list must not read as "no english words exist". */
+int hm_wordset_load_json(hm_wordset *w, const char *path);
+int hm_wordset_load_words(hm_wordset *w, const char *path);
+int hm_wordset_add(hm_wordset *w, const char *word);
+int hm_wordset_has(const hm_wordset *w, const char *word);
+int hm_wordset_ready(const hm_wordset *w);
+
 #endif

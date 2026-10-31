@@ -50,6 +50,7 @@ struct hunmin_buffered_preedit {
     unsigned special_mods[HUNMIN_SPECIAL_LIMIT];
     hunmin_special_host special_host;
     bool special_host_set;
+    hm_wordset *english; /* the modes judgement's data (R8-정정-2); NULL until asked for */
 };
 
 /* ---------------------------------------------------------------- buffers */
@@ -169,6 +170,7 @@ hunmin_buffered_preedit *hunmin_buffered_preedit_new(hunmin_ctx *ctx, const char
 void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l) {
     if (!l) return;
     if (l->ic) hunmin_ic_free(l->ic);
+    if (l->english) hm_wordset_free(l->english);
     free(l->hangul_id);
     free(l->latin_id);
     free(l->word);
@@ -497,4 +499,43 @@ int hunmin_buffered_preedit_commit_policy(const hunmin_buffered_preedit *l) { re
 const char *hunmin_buffered_preedit_layout_id(const hunmin_buffered_preedit *l) {
     if (!l) return NULL;
     return l->hangul_mode ? l->hangul_id : l->latin_id;
+}
+
+/* ------------------------------------------------- english words (R8-정정) */
+
+/* The set is created on the first call that needs it and stays for the life of
+ * the layer, so a frontend may load the dictionary once at construction and
+ * reload only the user's words when its setting changes. */
+static hm_wordset *english_set(hunmin_buffered_preedit *l, bool create) {
+    if (!l) return NULL;
+    if (!l->english && create) l->english = hm_wordset_new();
+    return l->english;
+}
+
+int hunmin_buffered_preedit_load_english(hunmin_buffered_preedit *l, const char *path) {
+    hm_wordset *w = english_set(l, true);
+    if (!w) return 0;
+    if (!path || !*path) return -1;
+    return hm_wordset_load_json(w, path);
+}
+
+int hunmin_buffered_preedit_load_user_words(hunmin_buffered_preedit *l, const char *path) {
+    hm_wordset *w = english_set(l, true);
+    if (!w) return 0;
+    if (!path || !*path) return -1;
+    return hm_wordset_load_words(w, path);
+}
+
+int hunmin_buffered_preedit_add_user_word(hunmin_buffered_preedit *l, const char *word) {
+    hm_wordset *w = english_set(l, true);
+    return w ? hm_wordset_add(w, word) : 0;
+}
+
+int hunmin_buffered_preedit_english_valid(const hunmin_buffered_preedit *l, const char *word) {
+    if (!l || !hm_wordset_ready(l->english)) return 0;
+    return hm_wordset_has(l->english, word);
+}
+
+int hunmin_buffered_preedit_english_ready(const hunmin_buffered_preedit *l) {
+    return l ? hm_wordset_ready(l->english) : 0;
 }

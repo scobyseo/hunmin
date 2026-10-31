@@ -56,6 +56,7 @@ set(HUNMIN_CORE_SOURCES
   libhunmin/src/ic.c
   libhunmin/src/buffered_preedit.c
   libhunmin/src/candidate_tables.c
+  libhunmin/src/wordset.c
   third_party/cJSON/cJSON.c)
 
 add_library(hunmin SHARED ${HUNMIN_CORE_SOURCES})
@@ -307,6 +308,19 @@ if(BUILD_TESTING AND Python3_FOUND)
   target_link_options(buffered-preedit-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
   add_test(NAME engine-buffered-preedit COMMAND buffered-preedit-test)
   set_tests_properties(engine-buffered-preedit PROPERTIES
+    LABELS "tier-A"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
+  # Tier A for the english word set (SPEC-MODES R8-정정, ruling 2026-11-01:
+  # hunspell en_US + a user dictionary). Asserts all three data states, because
+  # B3 makes "no dictionary installed" a normal state: absent answers 0 and is
+  # not an error, loaded answers for English and not for the kbs/fifa gap, and
+  # a user word is found exactly where a base word is.
+  add_executable(wordset-test libhunmin/tests/wordset-test.cpp)
+  target_link_libraries(wordset-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(wordset-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
+  add_test(NAME engine-wordset COMMAND wordset-test)
+  set_tests_properties(engine-wordset PROPERTIES
     LABELS "tier-A"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")

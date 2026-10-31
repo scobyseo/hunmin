@@ -215,8 +215,10 @@ def main() -> int:
     # The platform authority, read once: the declared-unreachable check below
     # needs it, and so does the agreement check further down.
     jar = android_jar()
-    has_jar = jar is not None and shutil.which("javap") is not None
-    live = javap_keycodes(jar) if has_jar else {}
+    if jar is not None and shutil.which("javap") is None:
+        jar = None  # no reader for the jar: unverified is the honest state
+    has_jar = jar is not None
+    live = javap_keycodes(jar) if jar is not None else {}
 
     if not a.json:
         print(f"{len(keys)} keys used across {len(list(LAYOUTS.glob('*.json')))} layouts "
