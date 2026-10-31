@@ -241,7 +241,10 @@ instead.
 keycode table against `android.jar` via `javap`; without a JDK it prints a skip
 and exits 0. That is deliberate — CI's linux job has no SDK, and failing there
 would make the gate unusable rather than honest about the gap — but it means a
-green `keymap-fixture` on a bare host has NOT checked the Android column.
+green `keymap-fixture` on a bare host has NOT checked the Android column. It also needs a
+keysym header: `libxkbcommon-dev` (`xkbcommon-keysyms.h`, `XKB_KEY_*`) or `libx11-dev`
+(`X11/keysymdef.h`, `XK_*`) — both are parsed, and the X11 one is what a host without
+libxkbcommon-dev has.
 
 **Why this one, and what it cost.** A first pass chose
 `@landicefu/android-adb-mcp-server` (npm's top hit for "adb mcp", 10 tools) and

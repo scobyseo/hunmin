@@ -99,12 +99,21 @@ ANDROID_KEYCODES = {
     "SPACE": 62, "TAB": 61, "ENTER": 66, "DEL": 67, "ESCAPE": 111,
     "DPAD_UP": 19, "DPAD_DOWN": 20, "DPAD_LEFT": 21, "DPAD_RIGHT": 22,
 }
-# F9 has no Android keycode: KEYCODE_F9 does not exist, because on Android the
-# function row is a modifier COMBINATION (e.g. KEYCODE_1 with META_CTRL_ON).
-# That is a platform fact, and it is the same fact that forces the F9 flow into
-# the adapter on every platform -- hunmin_ic_process() only ever sees a
-# printable ASCII character. The adapter intercepts it by keysym.
-ANDROID_UNREACHABLE = {"F9"}
+# Keys with no AOSP keycode at all: layout key -> the KEYCODE_* name it would be.
+#
+# This is a DECLARATION, and when an android.jar is available it is checked
+# against the platform's own constant table -- not against the fixture's tables
+# below, which would only prove the fixture agrees with itself.
+#
+# It is EMPTY, and both halves of why matter. Every layout key is printable ASCII
+# and every printable key has an AOSP keycode. F9 was listed here on the belief
+# that "KEYCODE_F9 does not exist"; measured 2026-10-31 out of android.jar,
+# `KeyEvent.KEYCODE_F9` is 139, so the belief was false and F9 is no longer a
+# layout key at all (0 named keys across the 15 layouts). What is true is
+# narrower and is not a keycode fact: no on-screen input source on a phone
+# produces 139, which is why the F9 flow lives in the adapters
+# (docs/OPTIONS-MEASURED.md §E5-0).
+ANDROID_UNREACHABLE: dict[str, str] = {}
 
 failures: list[str] = []
 
@@ -203,6 +212,12 @@ def main() -> int:
     printable = {k for k in keys if 0x20 <= ord(k) <= 0x7E}
     named = keys - printable
 
+    # The platform authority, read once: the declared-unreachable check below
+    # needs it, and so does the agreement check further down.
+    jar = android_jar()
+    has_jar = jar is not None and shutil.which("javap") is not None
+    live = javap_keycodes(jar) if has_jar else {}
+
     if not a.json:
         print(f"{len(keys)} keys used across {len(list(LAYOUTS.glob('*.json')))} layouts "
               f"({len(printable)} printable, {len(named)} named)")
@@ -212,15 +227,24 @@ def main() -> int:
     missing_x11 = sorted(k for k in keys if x11_keysym(k) is None)
     check("every layout key has an X11 keysym", not missing_x11, str(missing_x11[:8]))
 
-    # Android cannot express F9; that is a platform fact, not a gap in the table,
-    # and it must be declared rather than silently missing.
+    # Android: a key with no keycode must be DECLARED, and the declaration must
+    # be true of the PLATFORM -- checked against android.jar when one is present,
+    # never against the tables above (that check would only prove the fixture
+    # agrees with itself, which is how the false F9 claim survived).
     unreachable = sorted(k for k in keys if android_keycode(k) is None)
     undeclared = [k for k in unreachable if k not in ANDROID_UNREACHABLE]
     check("every key unreachable on Android is declared as such", not undeclared,
           f"undeclared: {undeclared} -- add to ANDROID_UNREACHABLE with a reason")
-    check("Android's declared-unreachable set is actually unreachable",
-          all(android_keycode(k) is None for k in ANDROID_UNREACHABLE),
-          f"F9 resolves to {android_keycode('F9')}, so the claim is false")
+    if has_jar:
+        # javap_keycodes() keys are the names WITHOUT the KEYCODE_ prefix.
+        wrong_decl = [(k, c, f"KEYCODE_{c} = {live[c]}") for k, c in ANDROID_UNREACHABLE.items()
+                      if c in live]
+        check("Android's declared-unreachable set is unreachable per android.jar",
+              not wrong_decl, f"{wrong_decl} -- the platform HAS that keycode")
+    else:
+        check("Android's declared-unreachable set is unreachable (fixture table; no jar)",
+              all(android_keycode(k) is None for k in ANDROID_UNREACHABLE),
+              "declared unreachable but the fixture's own table resolves it")
 
     # --- the adapter's accepted range, which is what tier C replays ----------
     out_of_range = sorted(k for k in keys if not 0x20 <= ord(k) <= 0x7E)
@@ -229,8 +253,7 @@ def main() -> int:
           f"{out_of_range} would hit flush() and reach the client instead of the engine")
 
     # --- Android: verify against android.jar when a JDK is available ----------
-    jar = android_jar()
-    if jar is None or not shutil.which("javap"):
+    if not has_jar:
         # Skip, not fail: CI's linux job has no JDK or SDK. The table is
         # unverifiable there, which is a coverage gap to record (TESTING.md
         # tier E), not a defect in the tool.
@@ -262,7 +285,7 @@ def main() -> int:
     # definition, so only the named ones need a header constant.
     # xkbcommon spells these XKB_KEY_*, older X11 headers XF86XK_*.
     defs = {m.group(1): int(m.group(2), 16) for m in
-            re.finditer(r"#define\s+(?:XKB_KEY|XVK_|XF86XK)_(\w+)\s+"
+            re.finditer(r"#define\s+(?:XKB_KEY|XF86XK|XVK|XK)_(\w+)\s+"
                         r"(0x[0-9a-fA-F]+)\b", src)}
     check(f"{hdr.name} exposes keysym defines to parse", len(defs) > 100,
           f"{len(defs)} defines")

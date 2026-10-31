@@ -1883,16 +1883,22 @@ KEYCODE_LANGUAGE_SWITCH 204   KEYCODE_ALT_RIGHT 58       (289 KEYCODE_* fields i
 
 The binding layer already accepts it: `frontends/android/app/src/test/java/org/hunmin/ime/KeyBindingTest.kt`
 binds `KeyEvent.KEYCODE_F9` in three cases (free chord, conflict with 한자, 한/영 rebind).
-**The fixture's own check is circular** and is what keeps the wrong sentence alive:
-`tools/keymap-fixture.py` sets `ANDROID_UNREACHABLE = {"F9"}` with the comment "KEYCODE_F9
-does not exist", and the check that is supposed to confirm it —
-"Android's declared-unreachable set is actually unreachable" — asks `android_keycode("F9")`,
-which returns `None` **because the fixture's own tables** (`ANDROID_NAMED`,
-`ANDROID_CHAR_KEYCODE`, `ANDROID_KEYCODES`) carry no F9 entry. That is exactly the failure
+**The fixture's own check was circular, and that is what kept the wrong sentence alive:**
+`tools/keymap-fixture.py` set `ANDROID_UNREACHABLE = {"F9"}` with the comment "KEYCODE_F9
+does not exist", and the check meant to confirm it asked `android_keycode("F9")` — which
+returned `None` **because the fixture's own tables** carry no F9 entry. That is the failure
 mode `docs/TESTING.md` says the fixture avoids ("checked against the platform's own header
-rather than against a table that would merely restate the code under test"); it holds for
-the X11 keysyms and not here. On this host the jar comparison skips anyway —
-`skip: no android.jar or javap -- Android keycodes unverified`.
+rather than against a table that would merely restate the code under test"), true for the
+X11 keysyms and not here.
+
+**Fixed 2026-10-31**, in the tool rather than in prose: `ANDROID_UNREACHABLE` is now empty
+(no layout key lacks an AOSP keycode), and the declaration is verified against
+`android.jar` — planting `{"F9": "F9"}` now fails with
+`('F9', 'F9', 'KEYCODE_F9 = 139') -- the platform HAS that keycode`, which is the check
+doing its job instead of restating itself. The same pass fixed a second defect found while
+running it: the header parser accepted `XKB_KEY_*`/`XF86XK_*` but not X11's `XK_*`, so on a
+host whose only keysym header is `/usr/include/X11/keysymdef.h` it parsed **0 defines** and
+failed; it now reads 2,111.
 
 **What survives is the constraint that matters for E5, and it is not a keycode absence:**
 no measured *input source* on a phone produces keyCode 139 (the F row is a modifier
@@ -2188,10 +2194,9 @@ and Shift is a free slot a frontend or a store may bind, not the default for eit
   `HUNMIN_DATA_PATH=libhunmin/data /tmp/keyrule_probe` — 13 assertions, all ok. That
   probe is scratch, not committed: the repo's copy of the same matrix is the gtest case,
   and it was not compiled here.
-- **Deliberately untouched**, and named as a follow-up rather than fixed here:
-  `tools/keymap-fixture.py`'s circular claim and `ANDROID_UNREACHABLE`, the F9 sentence in
-  `docs/TESTING.md` and the stale `:280-281` citation in `docs/REMAINING-WORK.md` B4.
-  Correcting them is a test-tooling change with its own verification; it does not depend on
-  the E5 ruling, and the E5 ruling does not depend on it.
+- **Fixed after it, as its own change with its own verification** (it neither depended on
+  the E5 ruling nor was blocked by it): `tools/keymap-fixture.py`'s circular
+  `ANDROID_UNREACHABLE` claim, its missing `XK_*` header support, and the false sentence
+  the pair kept alive in `docs/TESTING.md`. Planted-failure checked, not just green.
 - Issue #159 stays open and decision-gated: nothing here chooses, and a ruling is the
   maintainer's (`wiki/decisions/decisions-belong-to-the-maintainer.md`).
