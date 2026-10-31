@@ -127,6 +127,15 @@ registration (`IconFile=<install path>`, `IconIndex=0x0`), krdict + settings
 exe present, silent uninstall exit 0, both `{CLSID}` trees gone, the tree
 removed down to the uninstaller's own pending self-delete.
 
+That scripted half was re-run 2026-10-31 against the 0.2.0 package rebuilt from this branch on a clean
+`10.0.26100.9711` image, because #146 changed what registration writes: install
+rc 0, uninstall rc 0, both `{CLSID}` trees gone, the tree removed, **five**
+categories including `GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT`, and **one**
+Start-menu entry — the installer's — with no per-user file. The same run
+recorded the per-user `Enable` residue surviving uninstall (row 9b). The table
+and the reproductions are in `tests/manual-checklists/tsf-installer-fresh-vm.md`
+§"Round 2026-10-31".
+
 ## Provenance
 
 Produced 2026-10-19 on the issue worktree

@@ -319,3 +319,40 @@ carry. `docs/REMAINING-WORK.md` carries the assertion rows for this measurement
 (item `TSF-MODERNHOST-126`) and for the flip below (`TSF-CHROMIUM-FLIP-144`);
 the board is a shared file, so those rows were added at the close, after the
 measurements were done, rather than while rounds were still running.
+
+## Round 2026-10-31 — the 0.2.0 package rebuilt, one Start-menu writer (issue #146)
+
+Windows Sandbox, clean image `10.0.26100.9711`, the package built from branch
+`scobyseo/tsf-is-the-unregister-mirror-complete-the-start`, driven through the
+`wsb` CLI (`start` → `share` → `exec --run-as System`) with the guest log in the
+mapped folder. Guest steps in one batch: silent install → registry and tree
+snapshots → silent uninstall → leftover snapshots. `HUNMIN_TSF_DEBUG_LOG=1` set
+before the install so the installer's own `regsvr32` wrote
+`hunmin-reg-debug.log` into the mapped folder.
+
+| # | assertion | measured |
+|---|---|---|
+| 1 | silent install exits 0 on the clean image, no VC redist | `install rc=0` |
+| 2 | `HKCR\…\InprocServer32` → the INSTALL path | `C:\Program Files\Hunmin IME\hunmin-tsf.dll`, `ThreadingModel=Apartment` |
+| 3 | HKLM CTF TIP: profile + categories | `Description=Hunmin`, `IconFile=<install path>`, `IconIndex=0x0`; **five** `Category\Category` keys — `{046B8C80-…}` display-attribute, `{13A016DF-…}` **IMMERSIVESUPPORT**, `{25504FB4-…}` systray, `{34745C63-…}` TIP, `{534C48C1-…}` category-of-TIP |
+| 4 | HKCU Enablement after install | `HKCU\…\TIP\{CLSID}\LanguageProfile\0x0412\{profile}\Enable = 0x1` |
+| 5 | staged tree | `data\krdict\krdict.json`, `data\layouts\sin3-p2.json`, `settings-ui\hunmin-tsf-settingsui.exe`, `hunmin-tsf.dll` 534528 B |
+| 6 | **exactly ONE Start-menu entry, the installer's** | all-users: `Hunmin IME 설정.lnk`; per-user: "cannot find the path specified" (no file) — the #146 ruling holds on a fresh account |
+| 7 | the installer's own regsvr32 log | `Register hr=0`, `AddLanguageProfile hr=0`, `EnableLanguageProfile hr=0`, `RegisterCategory keyboard/category/dispattr/systray/immersive = 0` — all five, immersive included |
+| 8 | silent uninstall exits 0 | `uninstall rc=0` |
+| 9 | both `{CLSID}` trees gone | HKCR CLSID and HKLM CTF TIP both "unable to find" |
+| 9b | **per-user residue survives, on a CLEAN image** | `HKCU\…\TIP\{CLSID}\LanguageProfile\0x0412\{profile}\Enable = 0x1` still present after install + uninstall; `HKCU\Software\Microsoft\CTF\SortOrder` untouched/absent |
+| 10 | install dir residue | "File Not Found" — the tree is gone |
+
+Row 6 is the one this round adds to the 2026-10-20 set: before the ruling the
+DLL also wrote a per-user shortcut, so a fresh account saw two entries. Row 9b
+is the Q2 residue, reproduced where no prior session could have written it —
+so it is the TIP's own `EnableLanguageProfile`, not a dev-host artefact.
+
+Not covered here: the interactive half (Win+Space icon, typed composition,
+candidate window) — unchanged from the 2026-10-20 rounds, and the WT packaged-host
+row is measured on the dev host in `docs/WINDOWS-TSF-REGISTRATION.md`
+§"Packaged hosts".
+
+Reproduce: `build/round146`-style guest batch; the round's own log was
+`vm-round.log` in the mapped installer folder (a `wsb` share, not committed).

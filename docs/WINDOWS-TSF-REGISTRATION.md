@@ -159,7 +159,11 @@ Three facts that change what the mirror's code means:
    is still there after `UnregisterProfile` + `Unregister` + `regsvr32 /u`. Nothing
    in msctf removes it and the mirror never touches HKCU, yet `EnableLanguageProfile`
    is registration's own write — so a literal mirror would have to delete it, and no
-   API in the flow does.
+   API in the flow does. **Reproduced 2026-10-31 on a clean Windows Sandbox image**
+   (`10.0.26100.9711`, install then uninstall, no prior session to blame):
+   `tests/manual-checklists/tsf-installer-fresh-vm.md` row 9b. So the residue is
+   the TIP's own write, not a dev-host artefact, and `HKCU\…\SortOrder` is
+   untouched on a fresh profile.
 3. **`RemoveLanguageProfile` is callable and adds nothing.** Against a present
    profile it returns `S_OK`, and the HKLM profile values are already gone
    (`UnregisterProfile` removed them); against an absent profile it returns

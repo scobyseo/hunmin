@@ -1484,11 +1484,15 @@ Start-menu entry the installer cannot see.
 
 ### URM-4 Question 2 — `RemoveLanguageProfile`
 
-**E — status quo.** `UnregisterProfile` + `Unregister` + four category
+**E — status quo.** `UnregisterProfile` + `Unregister` + five category
 unregisters + the two tree deletions. The HKLM side is provably covered by the
 tree deletion (§URM-2). The per-user `Enable` and SortOrder slot are covered
-only if msctf's own unregister calls do it — unmeasured. Cost: 0. What would
-change the answer: the elevated round showing residue after the flow.
+only if msctf's own unregister calls do it — measured 2026-10-30: they do not
+(§"Unregister state" in `docs/WINDOWS-TSF-REGISTRATION.md`), and the residue
+reproduced on a clean Windows Sandbox image 2026-10-31
+(`tests/manual-checklists/tsf-installer-fresh-vm.md` row 9b). Cost: 0. What
+would change the answer: an msctf call that turns out to remove the per-user
+value — the elevated round found none, and F does not remove it either.
 
 **F — add `RemoveLanguageProfile` before `UnregisterProfile`.** Cost: one COM
 call and one mock expectation; the unregister tail's asserted order changes from
