@@ -191,6 +191,79 @@ TEST_F(KeyRuleTest, ComposingIsTheInFlightSyllableOnly) {
     EXPECT_STREQ(hunmin_buffered_preedit_composing(l_), "ㄴ") << "reading the halves must not consume";
 }
 
+/* ---- the compound press's dispatch (E5, ruled 2026-10-31) ------------------ */
+
+TEST_F(KeyRuleTest, TheEngineResolvesAndServicesTheCompoundPress) {
+    /* The frontend seeds the binding (its default, then its store) and
+     * registers what it can do; the engine resolves the event and calls it.
+     * Nothing is bound until then -- which is how a platform that has no
+     * implementation refuses a function instead of swallowing the press. */
+    hunmin_key_event ev = ch('d');
+    ev.language_key = 1;
+    ev.mods = HUNMIN_MOD_ALT;
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0) << "an unbound chord is not ours";
+
+    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_VOICE, HUNMIN_MOD_ALT));
+    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_VOICE), HUNMIN_MOD_ALT)
+        << "the dialog reads this value";
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1) << "bound but no host: refused";
+
+    int performed = 0;
+    hunmin_special_host host{};
+    host.user = &performed;
+    host.perform = [](void *user, hunmin_special_function fn) { *(int *)user = (int)fn; };
+    hunmin_buffered_preedit_special_host(l_, &host);
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), HUNMIN_SPECIAL_VOICE);
+    EXPECT_EQ(performed, (int)HUNMIN_SPECIAL_VOICE);
+
+    /* supports() == 0 is the platform's refusal: resolved, serviced by nobody. */
+    hunmin_special_host refusing{};
+    refusing.user = &performed;
+    refusing.supports = [](void *, hunmin_special_function) { return 0; };
+    refusing.perform = host.perform;
+    performed = 0;
+    hunmin_buffered_preedit_special_host(l_, &refusing);
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1);
+    EXPECT_EQ(performed, 0) << "a refusal must not perform";
+
+    /* Withdrawing the host is the other refusal. */
+    hunmin_buffered_preedit_special_host(l_, nullptr);
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1);
+}
+
+TEST_F(KeyRuleTest, TwoFunctionsTwoChordsAndShiftIsNeither) {
+    hunmin_key_event ev = ch('d');
+    ev.language_key = 1;
+    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_VOICE, HUNMIN_MOD_ALT));
+    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_AUTOSWITCH, HUNMIN_MOD_CTRL));
+    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_AUTOSWITCH), HUNMIN_MOD_CTRL);
+
+    ev.mods = HUNMIN_MOD_CTRL;
+    /* No host on this layer, so the answer is the refusal, not the name; what
+     * this case pins is WHICH function the chord resolved to, via the chord
+     * table, and that an unbound chord stays NONE. */
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1);
+    ev.mods = HUNMIN_MOD_GUI;
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0) << "an unbound chord is not ours";
+
+    /* SHIFT is a layout row: binding it is a no-op unbind, and a shift-only
+     * press never resolves to a function. */
+    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_VOICE, HUNMIN_MOD_SHIFT));
+    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_VOICE), 0);
+    ev.mods = HUNMIN_MOD_SHIFT;
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0);
+
+    /* The single press is the toggle, not a special function. */
+    ev.mods = 0;
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0);
+    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE);
+
+    /* And an ordinary key with Alt is still the application's. */
+    ev.language_key = 0;
+    ev.mods = HUNMIN_MOD_ALT;
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0);
+}
+
 } // namespace
 
 int main(int argc, char **argv) {

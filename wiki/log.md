@@ -849,3 +849,11 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   the bare Hanja key (`docs/SPEC-TSF.md` §TSF9, issue #67) and Android carries
   `KEYCODE_EISU` as a `platformAlternates` entry, while Android's *row* reads "not set"
   because it is an alternate and not a default.
+
+## [2026-10-31] create | The special functions are engine-resolved, frontend-implemented (#159)
+
+- `wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md`:
+  the maintainer's paragraph verbatim (frontend supplies key codes, engine processes and
+  invokes the frontend interface, an unsupported platform refuses), the five-symbol shape
+  that implements it, and the four things it leaves open — the per-function default chord
+  most of all, because choosing it per frontend is the divergence the ruling removes.

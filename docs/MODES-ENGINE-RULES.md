@@ -122,6 +122,34 @@ composition is stored when no store crosses platforms.
 - This hook must be processed before inference — pressing the hangul/latin key while inference
   is on is the signal "do not do this automatically".
 
+## The special-function dispatch (implemented 2026-10-31)
+
+Ruled the same day, in the maintainer's words: *"each frontend can have default key code and
+custom ones and provide it to engine. then engine processes them and invoke frontend side
+interface which implements the feature or processes by itself. if the feature is not
+supported at the platform, it can just refuse to service."* Recorded in
+`wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md`.
+
+The split it fixes, which is what removes the three coexisting mechanisms:
+
+| who | owns |
+|---|---|
+| frontend | the platform key codes (default + custom), mapping them to `hunmin_key_event` with `language_key` and `mods`, and the **implementation** of a function it alone can perform |
+| engine | the binding `function → chord bits`, the resolution of one event to one function, the refusal, and the functions it can perform itself |
+
+The seam is five append-only symbols (`hunmin.h`): `hunmin_buffered_preedit_special_bind()`
+(the frontend seeds the table from its default, then its store), `..._special_chord()` (the
+dialog reads what is bound), `..._special_host()` (registers `{user, supports, perform}`),
+`..._special()` (resolve and service; returns the function, `0` for not-ours, `-1` for
+refused) and `hunmin_special_name()` (one spelling for dialogs and logs). The classifier
+stays pure: `classify()` answers `HUNMIN_KEY_LANGUAGE_CHORD` for the gesture and never runs
+foreign code — `..._special()` is the one call that can, and the frontend makes it.
+
+Two consequences worth keeping in view: the table is **empty until a frontend seeds it**, so
+the per-function default chord is a value that still has to be chosen (once, or the
+divergence comes straight back); and a refusal is `-1`, which the frontend answers by passing
+the key through — a refusal that swallowed the press would be a dead key.
+
 ## Can it be expressed as data
 
 AGENTS.md: "Layouts are data, never code." The earlier reading here was that the key

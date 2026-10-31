@@ -306,6 +306,64 @@ typedef struct hunmin_key_event {
  * keys, then a chord, then an unmapped key, then feed. */
 HUNMIN_EXPORT hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit *l, const hunmin_key_event *ev);
 
+/* ------------------------------------------------------- special functions */
+/* The compound press (a chord modifier held with the Han/Eng key) carries a
+ * named function instead of switching languages. The maintainer's words, which
+ * this shape implements (2026-10-31): "each frontend can have default key code
+ * and custom ones and provide it to engine. then engine processes them and
+ * invoke frontend side interface which implements the feature or processes by
+ * itself. if the feature is not supported at the platform, it can just refuse
+ * to service."
+ *
+ * So the split is: the FRONTEND owns the platform key codes and the feature
+ * implementations; the ENGINE owns the binding (function -> chord bits), the
+ * resolution of one key event to one function, and the refusal. The engine
+ * never sees a key code: it sees hunmin_key_event, already translated. */
+
+typedef enum hunmin_special_function {
+    /* Not a function: the event was not a bound compound press. */
+    HUNMIN_SPECIAL_NONE = 0,
+    /* Start voice input. Engine-blind: whoever can record implements it. */
+    HUNMIN_SPECIAL_VOICE = 1,
+    /* Flip the automatic Hangul/English switch (R13-정정's state). */
+    HUNMIN_SPECIAL_AUTOSWITCH = 2,
+    /* Bound for the table; append new functions ABOVE this line and bump it,
+     * because the values are ABI and the table is sized by it. */
+    HUNMIN_SPECIAL_LIMIT = 3
+} hunmin_special_function;
+
+/* What a frontend must provide for the engine to service a function: whether it
+ * can (0 = refuse, and that is a legal answer -- a platform without a recorder
+ * refuses VOICE rather than pretending) and how to do it. Either may be NULL;
+ * a NULL supports means "yes", a NULL perform means "resolved, nothing done". */
+typedef struct hunmin_special_host {
+    void *user;
+    int (*supports)(void *user, hunmin_special_function fn);
+    void (*perform)(void *user, hunmin_special_function fn);
+} hunmin_special_host;
+
+/* Bind fn to a chord (HUNMIN_MOD_CTRL/ALT/GUI; SHIFT is a layout row and is
+ * masked out). mods == 0 unbinds. The frontend calls this with its default at
+ * startup and again when its store changes, which is what keeps the value in
+ * ONE place while the platform keeps its own key codes. */
+HUNMIN_EXPORT bool hunmin_buffered_preedit_special_bind(hunmin_buffered_preedit *l, hunmin_special_function fn, unsigned mods);
+/* The chord currently bound to fn, or 0. This is what a settings dialog shows. */
+HUNMIN_EXPORT unsigned hunmin_buffered_preedit_special_chord(const hunmin_buffered_preedit *l, hunmin_special_function fn);
+/* Register the implementation. NULL withdraws it (and then nothing is serviced). */
+HUNMIN_EXPORT void hunmin_buffered_preedit_special_host(hunmin_buffered_preedit *l, const hunmin_special_host *host);
+
+/* Resolve one key event and service it. Returns the function performed (> 0),
+ * 0 when the event is not a bound compound press, or -1 when it IS one and
+ * nothing could service it -- no host, or the host refused. The frontend passes
+ * the key through on -1, which is how an unsupported platform degrades instead
+ * of swallowing the press. Pure resolution first: the classifier stays pure, and
+ * this is the one call that can invoke the host. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key_event *ev);
+
+/* Stable identifier for a function ("voice", "autoswitch", "" for NONE). The
+ * dialogs and the logs use this instead of spelling a name per frontend. */
+HUNMIN_EXPORT const char *hunmin_special_name(hunmin_special_function fn);
+
 /* The finished syllables alone, REMOVED from the layer (the in-flight syllable
  * stays composing). The interim delivery keeps the finished word as document
  * text and appends only what has newly finished, so it needs the two halves

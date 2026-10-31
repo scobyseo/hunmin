@@ -43,6 +43,13 @@ struct hunmin_buffered_preedit {
     size_t commitcap;
     char *preedit_out;
     size_t preeditcap;
+    /* The compound press's assignment (docs/SPEC-MODES.md §E5): function ->
+     * chord bits, seeded by the frontend from its default and its store, and
+     * the host that services a resolved function. Zero/absent = not bound,
+     * which is how a platform refuses a function it has no implementation for. */
+    unsigned special_mods[HUNMIN_SPECIAL_LIMIT];
+    hunmin_special_host special_host;
+    bool special_host_set;
 };
 
 /* ---------------------------------------------------------------- buffers */
@@ -327,6 +334,64 @@ hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit
      * the key passes, which is how space and punctuation reach the client. */
     if (ev->base == 0) return HUNMIN_KEY_BOUNDARY_PASS;
     return HUNMIN_KEY_FEED;
+}
+
+/* ------------------------------------------------------ special functions */
+/* The binding lives here, not in the frontends (R13-정정: one value, three
+ * readers), but it is empty until a frontend seeds it -- the platform owns its
+ * key codes, the engine owns the assignment and the resolution. */
+
+bool hunmin_buffered_preedit_special_bind(hunmin_buffered_preedit *l, hunmin_special_function fn, unsigned mods) {
+    if (!l) return false;
+    if (fn <= HUNMIN_SPECIAL_NONE || fn >= HUNMIN_SPECIAL_LIMIT) return false;
+    /* Only chord bits: SHIFT selects a layout row (see hunmin.h), so a shift
+     * bit arriving here is dropped rather than turned into a special function. */
+    mods &= HUNMIN_MOD_CHORD;
+    l->special_mods[fn] = mods;
+    return true;
+}
+
+unsigned hunmin_buffered_preedit_special_chord(const hunmin_buffered_preedit *l, hunmin_special_function fn) {
+    if (!l || fn <= HUNMIN_SPECIAL_NONE || fn >= HUNMIN_SPECIAL_LIMIT) return 0;
+    return l->special_mods[fn];
+}
+
+void hunmin_buffered_preedit_special_host(hunmin_buffered_preedit *l, const hunmin_special_host *host) {
+    if (!l) return;
+    if (host) {
+        l->special_host = *host;
+        l->special_host_set = true;
+        return;
+    }
+    memset(&l->special_host, 0, sizeof l->special_host);
+    l->special_host_set = false;
+}
+
+int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key_event *ev) {
+    if (!l || !ev || !ev->language_key) return 0;
+    const unsigned want = ev->mods & HUNMIN_MOD_CHORD;
+    if (!want) return 0; /* the single press: the classifier answers TOGGLE */
+    /* Lowest number wins when two functions are bound to one chord; the dialog
+     * shows the binding, and the refusal below is what an unserviceable one
+     * looks like. */
+    for (int fn = HUNMIN_SPECIAL_NONE + 1; fn < HUNMIN_SPECIAL_LIMIT; ++fn) {
+        if (l->special_mods[fn] != want) continue;
+        if (!l->special_host_set) return -1;
+        if (l->special_host.supports && !l->special_host.supports(l->special_host.user, (hunmin_special_function)fn)) return -1;
+        if (l->special_host.perform) l->special_host.perform(l->special_host.user, (hunmin_special_function)fn);
+        return fn;
+    }
+    return 0;
+}
+
+const char *hunmin_special_name(hunmin_special_function fn) {
+    switch (fn) {
+    case HUNMIN_SPECIAL_VOICE: return "voice";
+    case HUNMIN_SPECIAL_AUTOSWITCH: return "autoswitch";
+    case HUNMIN_SPECIAL_NONE:
+    case HUNMIN_SPECIAL_LIMIT:
+    default: return "";
+    }
 }
 
 const char *hunmin_buffered_preedit_take_word(hunmin_buffered_preedit *l) {

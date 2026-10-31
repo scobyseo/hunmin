@@ -96,6 +96,13 @@
   configurable in the settings dialog. What it does not close: whether F9 stays
   accepted as an alternate (the conformance corpus drives `{F9}`), and the
   engine-vs-frontend store question it shares with the E5 assignment.
+- [[2026-10-31-special-functions-engine-resolved-frontend-implemented]] — the
+  mechanism behind that assignment: the frontend supplies its key codes, the engine
+  owns the function→chord binding, the resolution and the refusal, and it invokes
+  a registered frontend host for functions it cannot perform. What it does not
+  close: which chord each function gets (the table starts empty and the default is
+  still to be chosen once), what a refusal does to the key, and whether the engine
+  also owns the `autoswitch` state.
 - [[space-emission-ownership]] — **contested.** The measurement is not in
   dispute: the engine declines the space and every frontend forwards it. But
   the log and `docs/REMAINING-WORK.md` B5 record the *decision* as closed with

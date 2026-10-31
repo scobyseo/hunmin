@@ -14,6 +14,10 @@ hunmin_buffered_preedit_peek_key
 hunmin_buffered_preedit_process_key
 hunmin_buffered_preedit_reset
 hunmin_buffered_preedit_set_option
+hunmin_buffered_preedit_special
+hunmin_buffered_preedit_special_bind
+hunmin_buffered_preedit_special_chord
+hunmin_buffered_preedit_special_host
 hunmin_buffered_preedit_take_word
 hunmin_buffered_preedit_toggle_language
 hunmin_ctx_free
@@ -34,6 +38,7 @@ hunmin_ic_process
 hunmin_ic_process_key
 hunmin_ic_reset
 hunmin_ic_set_option
+hunmin_special_name
 hunmin_suggest_count
 hunmin_suggest_detail
 hunmin_suggest_kind

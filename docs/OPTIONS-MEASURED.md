@@ -2123,8 +2123,20 @@ route the Han/Eng press through it. That routing *is* the per-frontend work:
 
 | frontend | what it owes | the test that would settle it |
 |---|---|---|
-| Android | in the service's action loop, the `HANGUL_ENG` match must call `layerClassify` with `languageKey = true` and the event's metaState-derived `mods`, then dispatch on the answer: `TOGGLE` → `toggleHangulEnglish()`, `CHORD` → the special function. Today the loop returns `true` before the engine is asked, so the engine's answer is never consulted | a `HunminAdapterTest` case: `layerClassify` with `languageKey=1, mods=ALT` → `4`; and a service-level case that Alt+KANA dispatches the special function and does **not** toggle. There is no substitute for the JVM run: `./gradlew :app:testDebugUnitTest` needs JDK + SDK 35, and this host has neither (only `platforms/android-30`) |
-| fcitx5 | three things before any test can pass: report `language_key = 1` for the `Hangul` keysym, stop returning early on releases (a hold state needs the release), and get the keysym past fcitx's trigger (`TriggerKeys` or a `PreInputMethod` watcher — §E5-2 addendum) | a tier-D1 case in `testhunmin`: feed `FcitxKey_Hangul` with the Alt state and assert `HUNMIN_KEY_LANGUAGE_CHORD` + the special function, plus a release-order case. Not writable here: no fcitx5 tree on this host |
+| Android | seed the layer's table from its default and its store (`..._special_bind`), register a host whose `perform` starts the recorder, and stop letting the action loop answer before the engine: the `HANGUL_ENG` match must build the event with `languageKey = true` and the metaState-derived `mods`, then call `..._special()` — `>0` serviced, `0` not a compound, `-1` refused (pass the key through) | a `HunminAdapterTest` case: `layerClassify` with `languageKey=1, mods=ALT` → `4`, plus a service-level case that a bound function is performed and the language did **not** toggle. There is no substitute for the JVM run: `./gradlew :app:testDebugUnitTest` needs JDK + SDK 35, and this host has neither (only `platforms/android-30`) |
+| fcitx5 | three things before any test can pass: report `language_key = 1` for the `Hangul` keysym, stop returning early on releases (a hold state needs the release), and get the keysym past fcitx's trigger (`TriggerKeys` or a `PreInputMethod` watcher — §E5-2 addendum). Then the same three calls as Android, with a host that refuses `VOICE` (`supports()` → 0), because there is no recorder on the platform | a tier-D1 case in `testhunmin`: feed `FcitxKey_Hangul` with the Alt state and assert `..._special()` returns the bound function and the refusal path returns `-1`, plus a release-order case. Not writable here: no fcitx5 tree on this host |
+
+**The dispatch has a home too, ruled the same day** (the maintainer's paragraph quoted in
+`docs/MODES-ENGINE-RULES.md` §3): the frontend supplies the key codes and the function
+implementations, the engine owns each `function → chord` binding, resolves one event to one
+function and refuses what nobody can service. Five append-only symbols carry it —
+`hunmin_buffered_preedit_special_bind/_special_chord/_special_host/_special` and
+`hunmin_special_name` — and `libhunmin/tests/abi/symbols.txt` moved from 41 to 46 lines by
+the `nm` command the abi test prints, with the gcc-built `.so` as the source (the diff is
+exactly those five, nothing dropped). Two `engine-key-rule` cases pin the semantics: a bound
+chord services the function once, an unbound one is not ours, a host that refuses or a
+missing host answers `-1`, and SHIFT never binds (masked out, so `Shift+한/영` cannot become
+a special function by accident).
 
 **The one decision this exposes, and it is not mine:** the engine's chord vocabulary is
 Ctrl / Alt / GUI, and Android already ships **Shift**+한/영 as 음성 입력
@@ -2135,7 +2147,9 @@ first one, and Android's VOICE default moves with it), or **(b)** SHIFT is admit
 the language key specifically, widening the rule the comment in `hunmin.h` currently
 forbids. (a) keeps one rule; (b) keeps the shipped Android gesture. Both are expressible
 in the engine as it stands now — (b) is one condition, (a) is one binding change — so the
-cost is the same and the difference is which gesture the user learns.
+cost is the same and the difference is which gesture the user learns. Since the table now
+starts empty, this is also the *seeding* question: whichever answer holds has to be the
+value every frontend seeds, or the divergence the ruling removed comes straight back.
 
 ### E5-7 Provenance
 
