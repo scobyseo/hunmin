@@ -314,9 +314,11 @@ extern "C" BOOL DllUnregisterServer() {
     /* Mirror of DllRegisterServer, applied in reverse order (issue #84).
      * First the profile and category state the CTF COM services hold, then
      * the HKLM TIP tree under which AddLanguageProfile created subkeys, then
-     * the COM CLSID tree. Windows Settings' own per-user CTF store (HKCU
-     * SortOrder / Assemblies) is deliberately NOT touched: registration never
-     * writes it (measured, docs/WINDOWS-TSF-REGISTRATION.md), so unregistering
+     * the COM CLSID tree, then the per-user profile tree that
+     * EnableLanguageProfile created (ruling 2026-10-31, §URM-4 option A).
+     * Windows Settings' own per-user CTF store (HKCU SortOrder / Assemblies)
+     * is still deliberately NOT touched: registration never writes it
+     * (measured, docs/WINDOWS-TSF-REGISTRATION.md), so unregistering
      * must not either. Logging follows the register flow: only
      * hunmin_reg_logger.log() writes, to hunmin-reg-debug.log. */
     wchar_t guidStr[64];
@@ -341,6 +343,23 @@ extern "C" BOOL DllUnregisterServer() {
     swprintf(clsidPath, 128, L"CLSID\\%s", guidStr);
     LSTATUS clsidSt = hunmin_tsf_regseam()->reg_delete_tree(HKEY_CLASSES_ROOT, clsidPath);
     hunmin_reg_logger.log(L"RegDeleteTreeW(HKCR %s) st=0x%lX\n", clsidPath, (unsigned long)clsidSt);
+
+    /* The per-user profile tree (ruling 2026-10-31, option A of
+     * docs/OPTIONS-MEASURED.md §URM-4). EnableLanguageProfile on the
+     * registering side writes
+     * HKCU\SOFTWARE\Microsoft\CTF\TIP\{CLSID}\LanguageProfile\0x0412\{profile}\Enable,
+     * and no msctf call in the flow removes it -- measured elevated on this
+     * host (2026-10-30) and reproduced on a clean Windows Sandbox image
+     * (2026-10-31, tests/manual-checklists/tsf-installer-fresh-vm.md row 9b).
+     * It is registration's own write, so the mirror deletes it. Only the
+     * account that ran the registration is touched, which is the scope of that
+     * write: another user's per-user state came from their own session and is
+     * not ours to remove. Windows' own per-user store (SortOrder, Assemblies)
+     * is still untouched, because registration never writes it. */
+    wchar_t userProfilePath[256];
+    swprintf(userProfilePath, 256, L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile", guidStr);
+    LSTATUS userSt = hunmin_tsf_regseam()->reg_delete_tree(HKEY_CURRENT_USER, userProfilePath);
+    hunmin_reg_logger.log(L"RegDeleteTreeW(HKCU %s) st=0x%lX\n", userProfilePath, (unsigned long)userSt);
     return TRUE;
 }
 

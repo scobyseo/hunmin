@@ -169,11 +169,11 @@ TEST(TsfRegistration, UnregisterMirrorsEveryRegisteredArtifact) {
     ASSERT_EQ(DllUnregisterServer(), TRUE);
 
     /* The unregister tail, exactly: the profile's own enablement entry, then
-     * Unregister, then the five category mirrors, then the two trees. */
+     * Unregister, then the five category mirrors, then the three trees. */
     std::vector<std::wstring> tail(d.trace.events.begin() + (std::ptrdiff_t)mark, d.trace.events.end());
     const std::vector<std::wstring> expected = {L"UnregisterProfile",  L"Unregister",    L"UnregisterCategory", L"UnregisterCategory",
                                                 L"UnregisterCategory", L"UnregisterCategory", L"UnregisterCategory",
-                                                L"RegDeleteTree",      L"RegDeleteTree"};
+                                                L"RegDeleteTree",      L"RegDeleteTree", L"RegDeleteTree"};
     ASSERT_EQ(tail.size(), expected.size()) << "no unregister step is missing and none is extra";
     for (size_t i = 0; i < expected.size(); ++i)
         EXPECT_EQ(tail[i], expected[i]) << "unregister step " << i;
@@ -188,10 +188,20 @@ TEST(TsfRegistration, UnregisterMirrorsEveryRegisteredArtifact) {
     for (size_t i = 0; i < registered.size() && i < d.categoryMgr.unregistered.size(); ++i)
         EXPECT_TRUE(IsEqualGUID(d.categoryMgr.unregistered[i], registered[i])) << "category " << i << " mirrors its registration";
 
-    /* Both trees, HKLM first. */
-    ASSERT_EQ(d.trace.deletes.size(), (size_t)2);
+    /* Three trees, HKLM first, HKCR then the per-user profile tree. The last
+     * one is the ruling of 2026-10-31 (§URM-4 option A): EnableLanguageProfile
+     * wrote HKCU\...\LanguageProfile\0x0412\{profile}\Enable and nothing in
+     * msctf removes it, so the mirror does. */
+    ASSERT_EQ(d.trace.deletes.size(), (size_t)3);
     EXPECT_EQ(d.trace.deletes[0], TipKey()) << "the HKLM TIP tree (AddLanguageProfile wrote under it)";
     EXPECT_EQ(d.trace.deletes[1], ClsidKey()) << "then the COM CLSID tree";
+    EXPECT_EQ(d.trace.deletes[2], L"HKCU|SOFTWARE\\Microsoft\\CTF\\TIP\\{F2C70001-0000-0000-0000-000000000001}\\LanguageProfile")
+        << "then the per-user profile tree (EnableLanguageProfile wrote under it)";
+
+    /* Windows' own per-user store is never touched: registration does not
+     * write SortOrder or Assemblies, so no deletion may name them. */
+    for (const std::wstring &deleted : d.trace.deletes)
+        EXPECT_EQ(deleted.find(L"SortOrder"), std::wstring::npos) << "HKCU SortOrder is Windows', not ours";
 
     /* Recorded, not fixed: AddLanguageProfile's own inverse
      * (ITfInputProcessorProfiles::RemoveLanguageProfile) is never called. The
