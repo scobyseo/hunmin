@@ -1484,7 +1484,15 @@ Start-menu entry the installer cannot see.
 
 ### URM-4 Question 2 — `RemoveLanguageProfile`
 
-**E — status quo.** `UnregisterProfile` + `Unregister` + five category
+**RULED 2026-10-31: option A.** The maintainer chose to delete the per-user
+tree in `DllUnregisterServer` — implemented, tier F1 updated (three tree
+deletions, HKCU last, and no deletion may name `SortOrder`), and measured
+elevated: `LanguageProfile` exits 1 after `regsvr32 /u`, `SortOrder` and
+`Assemblies` unchanged, the absent-state re-run still exits 0. The empty
+`HKCU\…\CTF\TIP\{CLSID}` container stays: msctf creates it, not this
+registration. The measurement text below is kept as it was written.
+
+**E — status quo (not taken).** `UnregisterProfile` + `Unregister` + five category
 unregisters + the two tree deletions. The HKLM side is provably covered by the
 tree deletion (§URM-2). The per-user `Enable` and SortOrder slot are covered
 only if msctf's own unregister calls do it — measured 2026-10-30: they do not

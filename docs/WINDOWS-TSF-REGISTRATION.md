@@ -120,13 +120,16 @@ Registering makes the profile *enabled and listed*, not *active*.
 
 `DllUnregisterServer` reverses the flow in the same `CoInitialize` scope:
 `UnregisterProfile({CLSID}, 0x0412, {profile})` → `Unregister({CLSID})` →
-`UnregisterCategory` for the four categories →
+`UnregisterCategory` for the five categories →
 `RegDeleteTreeW(HKLM\SOFTWARE\Microsoft\CTF\TIP\{CLSID})` (after the COM calls,
-because `AddLanguageProfile` created the subkeys) → `RegDeleteTreeW(HKCR\CLSID\{CLSID})`.
+because `AddLanguageProfile` created the subkeys) → `RegDeleteTreeW(HKCR\CLSID\{CLSID})`
+→ `RegDeleteTreeW(HKCU\SOFTWARE\Microsoft\CTF\TIP\{CLSID}\LanguageProfile)`
+(ruling 2026-10-31, §URM-4 option A of `docs/OPTIONS-MEASURED.md`).
 The HKCU SortOrder/Assemblies store is untouched: registration never writes it
 (measured above). The HKCU `Enable` value **is** registration's own write
 (`EnableLanguageProfile`, per-user) and the HKLM tree deletion cannot reach it;
-whether the COM unregister calls remove it is measured in the section below.
+measured: no COM unregister call removes it either, so the third tree deletion
+does — see §"Unregister state".
 The elevated cycle itself is **measured** — see §"Unregister state".
 
 ## Unregister state (measured 2026-10-30, elevated)
@@ -154,7 +157,8 @@ Three facts that change what the mirror's code means:
    half-deleted tree). That is what the "run `/u` twice" edge exercises:
    `UnregisterProfile` on an absent profile returns `E_FAIL`, `Unregister` returns
    `S_OK`, and `regsvr32 /u` still exits 0.
-2. **The per-user `Enable` value survives the whole flow.**
+2. **The per-user `Enable` value survives the whole flow** — until the mirror
+   deletes it (ruling 2026-10-31, below).
    `HKCU\SOFTWARE\Microsoft\CTF\TIP\{CLSID}\LanguageProfile\0x0412\{profile}\Enable = 0x1`
    is still there after `UnregisterProfile` + `Unregister` + `regsvr32 /u`. Nothing
    in msctf removes it and the mirror never touches HKCU, yet `EnableLanguageProfile`
@@ -164,6 +168,16 @@ Three facts that change what the mirror's code means:
    `tests/manual-checklists/tsf-installer-fresh-vm.md` row 9b. So the residue is
    the TIP's own write, not a dev-host artefact, and `HKCU\…\SortOrder` is
    untouched on a fresh profile.
+   **Resolved 2026-10-31 (ruling: option A).** `DllUnregisterServer` now deletes
+   `HKCU\SOFTWARE\Microsoft\CTF\TIP\{CLSID}\LanguageProfile` through the same
+   seam call as the other two trees. Measured on the dev host, elevated, one call
+   at a time: register → the tree is there with `Enable = 0x1`; `regsvr32 /s /u` →
+   `reg query …\LanguageProfile` exits **1** (gone); `HKCU\…\SortOrder` and
+   `HKCU\…\Assemblies` byte-identical before and after; a second `regsvr32 /u` on
+   the absent state still exits 0. What remains under HKCU is the EMPTY container
+   `HKCU\SOFTWARE\Microsoft\CTF\TIP\{CLSID}`, which msctf creates when it first
+   enables the profile — not a value this registration wrote, so the mirror does
+   not claim it and the rule "remove what you wrote" leaves it alone.
 3. **`RemoveLanguageProfile` is callable and adds nothing.** Against a present
    profile it returns `S_OK`, and the HKLM profile values are already gone
    (`UnregisterProfile` removed them); against an absent profile it returns
@@ -212,9 +226,9 @@ writes, opens and tree deletions. The
 default table IS the platform call, so production runs the same calls in the
 same order with one indirection; `hunmin_tsf_regseam_install(NULL)` restores
 it. The seam covers the registry and not only `CoCreateInstance`, because
-registration writes HKCR/HKLM (elevation only) and unregistration DELETES
-both trees: an unseamed harness is either access-denied or, elevated,
-destructive to the machine's real TIP registration.
+registration writes HKCR/HKLM and the per-user profile tree (elevation only for the
+first two) and unregistration DELETES three trees: an unseamed harness is either
+access-denied or, elevated, destructive to the machine's real TIP registration.
 
 Tier F1 (`frontends/tsf/test/tsf-registration-test.cpp`) runs that code over
 the doubles in `mock-tsf-registration.h` and asserts, per artifact, what the
