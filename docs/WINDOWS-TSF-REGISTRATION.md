@@ -43,11 +43,16 @@ step logs to `<module dir>\hunmin-reg-debug.log`.
    as fallback only.
 6. `ITfCategoryMgr::RegisterCategory` for `GUID_TFCAT_TIP_KEYBOARD`,
    `GUID_TFCAT_CATEGORY_OF_TIP`, `GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER`
-   (issue #98) and `GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT`
+   (issue #98), `GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT`
    `{25504FB4-7BAB-4BC1-9C69-CF81890F0EF5}` (issue #68, measured 2026-10-29:
    without this category the Win11 input indicator gives the TIP no entry of
-   its own — see `tests/manual-checklists/tsf-langbar-item.md`). All four are
-   unregistered in the mirror.
+   its own — see `tests/manual-checklists/tsf-langbar-item.md`) and
+   `GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT` `{13A016DF-560B-46CD-947A-4C3AF1E0E35D}`
+   (measured 2026-10-31: a PACKAGED host offers a TIP only when it declares
+   this — Windows Terminal, MSIX, cycled MS IME and 날개셋 with Win+Space and
+   never reached Hunmin, and `Win+Space` set the active profile to Hunmin while
+   the DLL was still never loaded into `WindowsTerminal.exe` — see §"Packaged
+   hosts"). All five are unregistered in the mirror.
 
 **The flow writes no file.** The Start-menu entry `Hunmin IME 설정` is the
 installer's `[Icons]` entry and nothing else — ruled 2026-10-30 (issue #146,
@@ -168,6 +173,33 @@ the shipped DLL writes NO Start-menu entry — the pre-ruling per-user `.lnk` wa
 deleted and did not come back across a register → unregister → register cycle
 (issue #146, option C).
 
+## Packaged hosts (measured 2026-10-31)
+
+A PACKAGED host — Windows Terminal ships as MSIX — only offers a TIP that
+declares `GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT`
+`{13A016DF-560B-46CD-947A-4C3AF1E0E35D}`. Hunmin did not, and the symptom was
+exact: with a WT pane focused, `Win+Space` cycled MS IME and 날개셋 and never
+reached Hunmin, `GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD)` nevertheless
+reported Hunmin, and `hunmin-tsf.dll` was never loaded into
+`WindowsTerminal.exe` or `OpenConsole.exe` — while the same build was mapped in
+`explorer.exe`, `Notepad.exe`, `msedgewebview2.exe` and an Electron terminal and
+composed correctly in Notepad.
+
+The diff that found it: compare the `Category\Category` sets of a working IME
+and ours.
+
+```
+날개셋  {5CC2EDB1-…}  Category\Category\{13a016df-560b-46cd-947a-4c3af1e0e35d}   IMMERSIVESUPPORT
+                      …also {364215d9-…} COMLESS, {49d2f9ce-…} SECUREMODE,
+                      {49d2f9cf-…} UIELEMENTENABLED, {ccf05dd7-…} INPUTMODECOMPARTMENT
+Hunmin  {F2C70001-…}  none of those
+```
+
+Registering IMMERSIVESUPPORT alone made the TIP appear in WT's `Win+Space`
+cycle and compose there (maintainer-confirmed, 2026-10-31). The other four are
+NOT declared: only the capability whose absence matched the symptom is claimed,
+so a regression in the others cannot hide behind this one.
+
 ## The seam tier F1 drives (issue #107)
 
 Every outside-world call in the flow above goes through `HunminRegSeam`
@@ -192,7 +224,9 @@ shipped `registration.cpp`:
 - Step 6 registers THREE categories, not two: `GUID_TFCAT_TIP_KEYBOARD`,
   `GUID_TFCAT_CATEGORY_OF_TIP` and (issue #98)
   `GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER`. The unregister mirror carries all
-  three.
+  three. **Superseded 2026-10-31: step 6 registers five — add
+  `GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT` (issue #68) and
+  `GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT` (see §"Packaged hosts").**
 - The flow also pins the profile's stored `IconIndex` to 0 (two HKLM key
   opens after `AddLanguageProfile`). That step is not in the list above.
 
