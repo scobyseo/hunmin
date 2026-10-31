@@ -1,0 +1,36 @@
+{
+  "what": "the english word set behind SPEC-MODES R8-정정's `english_valid`",
+  "source": {
+    "name": "hunspell en_US (SCOWL size 60 family)",
+    "dic": "en_US.dic",
+    "dic_sha256": "f0b1a234bd178bdd01875b2a392a9647f888b8fe879f79c52aae62c2759b3647",
+    "aff": "en_US.aff",
+    "aff_sha256": "e746c882dd6f303c2c46e7452804b9201115a6942cfeb15f18f8edf774d2e24e",
+    "declared_version": "Version 2020.12.07",
+    "upstream": "https://github.com/LibreOffice/dictionaries (en/)"
+  },
+  "method": {
+    "expansion": "one level of hunspell SFX/PFX via tools/modes-dict-probe.py expand(); continuation classes and COMPOUNDRULE not applied",
+    "lowercased": true,
+    "word_shape": "^[a-z]+(?:['-][a-z]+)*$"
+  },
+  "counts": {
+    "stems": 48262,
+    "expanded_forms": 118173,
+    "shipped": 118150,
+    "dropped": {
+      "not_word_shaped": 23
+    }
+  },
+  "licence": {
+    "how": "SCOWL collective work: permission to use, copy, modify, distribute and sell, provided the copyright notice and this permission notice appear in copies and supporting documentation. The .aff is BSD. Full text: libhunmin/data/modes/LICENSE.md",
+    "redistributable": true
+  },
+  "does_not_represent": [
+    "capitalisation (every form is lowercased)",
+    "inflections outside one affix level (continuation classes skipped)",
+    "compound words (COMPOUNDRULE not applied)",
+    "korean-typed latin strings such as kbs/mbc/fifa -- absent from every english dictionary (docs/MODES-DATA.md 4-7d); the user dictionary is the ruled answer to that gap"
+  ],
+  "generator": "tools/en-us2data.py"
+}
