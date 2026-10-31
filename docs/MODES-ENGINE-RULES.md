@@ -161,6 +161,37 @@ gesture recognised and the gesture serviced cannot drift. An ordinary character 
 reaches a SHIFT binding (capitalize keeps working), and a chord with no binding — Shift
 included — still answers the plain toggle.
 
+### Windows (TSF) — the second frontend on the dispatch (2026-10-31)
+
+`frontends/tsf` wires the same five symbols. What the adapter owns and what it asks:
+
+- **The physical key with ANY modifiers is the entry point** (`IsLanguageKeyVk`), while
+  the plain toggle keeps its old exact-modifier match. The distinction is measured, not
+  stylistic: the exact match is what keeps a configured `Shift+Space` binding from firing
+  bare, and it is also why a `Ctrl+한/영` press never reached the layer at all until the
+  bare-only lookup was added — and why that lookup matches **bare entries only** (a
+  configured alias whose key is Space turned every ordinary space into the language key
+  once).
+- **A host is registered per layer** (`RebuildLayer`), beside the layer's construction.
+  `supports()` answers per function: `AUTOSWITCH` is serviceable and the perform records
+  the request (the state itself is 0.3's data-gated feature, issue #2 — the same shape
+  Android's `toggleAutoHangulEnglish` has), `VOICE` **refuses** because this frontend has
+  no recogniser, which is exactly the ruling's "if the feature is not supported at the
+  platform, it can just refuse to service". A refusal passes the key: nothing is
+  swallowed.
+- **The test phase asks the engine, not a guess.** `hunmin_buffered_preedit_special_peek()`
+  was added for this: TSF answers `OnTestKeyDown` before `OnKeyDown`, and a host told
+  "mine" in the test that then does not receive the down drops the key (the measured
+  `dkssud1` defect class). The peek runs the same resolver without calling the host, so
+  test and down are one decision — the same role `hunmin_ic_peek_key()` has.
+- **`HUNMIN_MOD_GUI` never reaches the engine from TSF**: `hunmin_tsf_keymods_from_state()`
+  derives SHIFT/CTRL/ALT only, so a GUI chord bound in the table simply does not fire on
+  Windows. Recorded, not fixed — the modifier vocabulary is the frontend's, by the ruling.
+
+Pinned by `TsfConfigTest.TheHanEngKeyCarriesTheSpecialFunctionOnAChord` (performed /
+refused / unbound-is-the-toggle, all three) and, on the engine side,
+`KeyRuleTest.ThePeekAnswersWhatTheCallWouldDoAndPerformsNothing`.
+
 ## Can it be expressed as data
 
 AGENTS.md: "Layouts are data, never code." The earlier reading here was that the key

@@ -242,6 +242,34 @@ TEST_F(KeyRuleTest, TheEngineResolvesAndServicesTheCompoundPress) {
     EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1);
 }
 
+TEST_F(KeyRuleTest, ThePeekAnswersWhatTheCallWouldDoAndPerformsNothing) {
+    /* A platform "test" phase asks before the real key arrives, and test and
+     * down must be one decision: the peek answers, the call performs. */
+    hunmin_key_event ev = ch('d');
+    ev.language_key = 1;
+    ev.mods = HUNMIN_MOD_ALT; /* VOICE by the ruled default */
+
+    EXPECT_EQ(hunmin_buffered_preedit_special_peek(l_, &ev), -1) << "bound, no host: refused";
+
+    int performed = 0;
+    hunmin_special_host host{};
+    host.user = &performed;
+    host.perform = [](void *user, hunmin_special_function fn) { *(int *)user = (int)fn; };
+    hunmin_buffered_preedit_special_host(l_, &host);
+
+    EXPECT_EQ(hunmin_buffered_preedit_special_peek(l_, &ev), HUNMIN_SPECIAL_VOICE) << "the peek resolves";
+    EXPECT_EQ(performed, 0) << "the peek must not perform";
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), HUNMIN_SPECIAL_VOICE) << "and the call agrees";
+    EXPECT_EQ(performed, (int)HUNMIN_SPECIAL_VOICE);
+
+    hunmin_key_event single = ch('d');
+    single.language_key = 1; /* no chord: the single press */
+    EXPECT_EQ(hunmin_buffered_preedit_special_peek(l_, &single), 0) << "no chord, nothing to resolve";
+    single.language_key = 0;
+    single.mods = HUNMIN_MOD_ALT;
+    EXPECT_EQ(hunmin_buffered_preedit_special_peek(l_, &single), 0) << "a character chord is not a language chord";
+}
+
 TEST_F(KeyRuleTest, AStoreOverrideWins) {
     hunmin_key_event ev = ch('d');
     ev.language_key = 1;

@@ -1778,6 +1778,18 @@ Pinned by `TsfConfigTest.HanEngHoldIsAPrefixNotAToggle` (three outcomes) plus th
 updated drive case and candidate/session fixtures, which now send the release a
 real host sends. `ctest --test-dir build-msvc -C Release -L tier-F1` → 12/12.
 
+**Correction, later the same day: shape A was reverted when the ruling picked
+shape B.** The arm-and-settle-on-release mechanism exists only to tell a single
+press from a *held* 한/영, and the ruled compound is a modifier + 한/영 chord,
+which needs no press/release distinction at all. Carrying both would have moved
+the single press to the key release for no gain, so the Windows frontend went
+back to the key-down toggle and the case above was replaced by
+`TsfConfigTest.TheHanEngKeyCarriesTheSpecialFunctionOnAChord`. What survives
+from the measurement is §HEK-2's platform rows -- that Windows reports the held
+`VK_HANGEUL` as down, and that a second key arrives while it is held -- which is
+what made the chord believable before it was built. See
+`docs/MODES-ENGINE-RULES.md` §3 for what replaced it.
+
 ### HEK-4 The options
 
 **A — Han/Eng held as a modifier (the shape measured above).** Gain: the E5
