@@ -1,4 +1,4 @@
-# OPTIONS-MEASURED — five cost questions, measured
+# OPTIONS-MEASURED — six cost questions, measured
 
 Four documents that were one genre: a question nobody had priced, the options
 priced against each other, and the maintainer left to choose. They are one file
@@ -8,9 +8,10 @@ since they were written. §URM arrived later, as a section rather than a fifth
 document, because an issue that asks a question and leaves it open belongs in
 the file that already holds the open ones.
 
-Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`) so a
-cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
-is the android sandbox's §4.2.
+Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`, `E5-`) so
+a cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2` is the
+android sandbox's §4.2, and `§E5-3` is the 한/영 assignment's option list (the key is the
+SPEC id because that is what the issue and the board row cite).
 
 | section | question | status |
 |---|---|---|
@@ -19,6 +20,7 @@ is the android sandbox's §4.2.
 | TST | what a test-framework migration would cost | **decided: option 1b**, shipped (#109) |
 | IC | the case-encoding `ch` input | **decided: option B**, recorded (#87 close) |
 | URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | **Q1 decided: option C**, shipped (#146); Q2 measured 2026-10-30 — the residue is the per-user `Enable` key, one ruling away |
+| E5 | the 한/영 key: what each single-press / compound-press assignment costs | open (#159) |
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
 find the optimum design, not to judge one candidate", and a decision is the
@@ -1624,3 +1626,225 @@ What the ruling does NOT settle: a checkout-registered DLL (no installer) now
 writes no Start-menu entry at all, which was option C's named loss and is
 recorded, not hidden. And question 2 (§URM-4) is untouched — nothing here calls
 `RemoveLanguageProfile`.
+
+---
+
+## E5 — the 한/영 key: what each single-press / compound-press assignment costs
+
+Status: **open** (issue #159). The requirement is `docs/SPEC-MODES.md` §E5 and the
+hook's placement is `docs/MODES-ENGINE-RULES.md` §3; neither is restated here. What is
+priced here is the assignment those two leave open, and the two *mechanisms* the words
+"단일 입력 / 복합 입력" can mean.
+
+The maintainer's question, verbatim (E5):
+
+> 지금은 한영키를 단순히 한/영 전환을 위해서만 쓰는데, 단일 입력이면 전환, 복합 입력이면
+> 특수 키로 만들어도 괜찮지 않을까? 이 기능을 끄고 켜는 데 쓸 수 있을 것 같은데.
+
+**복합 입력 has two readings and they are different mechanisms, not two spellings of
+one:** a **chord** (a second key held down with 한/영) and a **sequence** (the same key
+pressed twice, which needs a clock). §E5-3 prices both, because a chord fits the key
+layers that exist and a sequence does not.
+
+### E5-0 The premises, checked first
+
+Four premises are carried by the issue, `docs/SPEC-MODES.md` §E5 and
+`docs/MODES-ENGINE-RULES.md` §3. `AGENTS.md` asks for stated premises to be checked as
+carefully as one's own result, so each was run against the tree before anything was
+priced.
+
+| # | premise | verdict |
+|---|---|---|
+| 1 | F9 is occupied by 전처리수식 (the preprocessing expression) | **does not hold as stated.** The 전처리수식 keys are the `flags` overrides on `z`, `h`, `H` (and `w`, `W` in the yet variant) in `libhunmin/data/layouts/sin3-p2.json` — pat.im §2-6, recorded in `docs/SPEC-P2.md` §"ist file anatomy". F9 is a key of **no** layout: 15 layouts × 47 key entries, **0 named (non-printable) keys** — `tools/keymap-fixture.py` prints that count on this tree. F9's only claim in the tree is the fcitx5 adapter's Hanja window (`frontends/fcitx5/src/hunminadapter.cpp` `keyEvent`, `FcitxKey_F9` → the P3 flow): a frontend's window key, not a layout key. |
+| 2 | Android has no AOSP keycode for F9 | **does not hold as stated.** `android.view.KeyEvent.KEYCODE_F9` exists and is **139**; see below. What is true is narrower and is *not* about the keycode. |
+| 3 | the 0.1 half shipped the feature inert | **holds.** `KeyAction.AUTO_TOGGLE` has `defaults = emptyList()`, the service's dispatch skips the action (`if (action == KeyAction.AUTO_TOGGLE) continue`), and the settings row renders disabled at 미정 (0.3). Ruled 2026-10-12, `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`. |
+| 4 | the assignment must be a value the engine holds (R13-정정) | **holds as a requirement; the tree cannot express it.** `grep -rn autoswitch libhunmin/ frontends/ tests/` → **0**. `hunmin_ic_set_option()` accepts one name (`caps`); `hunmin_buffered_preedit_set_option()` takes the same shape; no exported symbol returns a key binding. So the value named on screen has no home today, and nothing can diverge from it yet only because nothing shows it. |
+
+**Premise 2, measured.** `javap` is not installed on this host, so
+`android/view/KeyEvent.class` was read out of `~/Android/Sdk/platforms/android-30/android.jar`
+directly (constant pool + `ConstantValue` attributes) — the same method the fixture's own
+comment records for API 35 with `javap -constants`:
+
+```
+KEYCODE_F9 139   KEYCODE_KANA 218   KEYCODE_EISU 212
+KEYCODE_LANGUAGE_SWITCH 204   KEYCODE_ALT_RIGHT 58       (289 KEYCODE_* fields in total)
+```
+
+The binding layer already accepts it: `frontends/android/app/src/test/java/org/hunmin/ime/KeyBindingTest.kt`
+binds `KeyEvent.KEYCODE_F9` in three cases (free chord, conflict with 한자, 한/영 rebind).
+**The fixture's own check is circular** and is what keeps the wrong sentence alive:
+`tools/keymap-fixture.py` sets `ANDROID_UNREACHABLE = {"F9"}` with the comment "KEYCODE_F9
+does not exist", and the check that is supposed to confirm it —
+"Android's declared-unreachable set is actually unreachable" — asks `android_keycode("F9")`,
+which returns `None` **because the fixture's own tables** (`ANDROID_NAMED`,
+`ANDROID_CHAR_KEYCODE`, `ANDROID_KEYCODES`) carry no F9 entry. That is exactly the failure
+mode `docs/TESTING.md` says the fixture avoids ("checked against the platform's own header
+rather than against a table that would merely restate the code under test"); it holds for
+the X11 keysyms and not here. On this host the jar comparison skips anyway —
+`skip: no android.jar or javap -- Android keycodes unverified`.
+
+**What survives is the constraint that matters for E5, and it is not a keycode absence:**
+no measured *input source* on a phone produces keyCode 139 (the F row is a modifier
+combination in hardware), so a phone's on-screen keyboard cannot send F9 while a USB or
+Bluetooth keyboard can, and no measurement of that exists in the tree. F9 is therefore
+available to every *binding layer* in this repo and unavailable to the *phone keyboard* —
+the distinction E5 needs, and neither the sentence in `docs/TESTING.md` nor the one in
+`docs/REMAINING-WORK.md` B4 (which also cites `docs/TESTING.md:280-281`, a line that has
+moved) says it.
+
+### E5-1 What each frontend does with the 한/영 key today
+
+| | Android | TSF | fcitx5 |
+|---|---|---|---|
+| the Han/Eng action | `hunmin_buffered_preedit_toggle_language()` over JNI (`frontends/android/app/src/main/cpp/hunmin-jni.c`) | the same symbol, from `ToggleModeCore` (`frontends/tsf/src/tsf.cpp`) | **not in the addon.** fcitx's own trigger owns the key (FE13; `docs/FRONTEND-EQUIVALENCE.md` §4, §8.3(1)) |
+| the physical key | `platformAlternates` of `KeyAction.HANGUL_ENG`: bare `ALT_RIGHT`, `LANGUAGE_SWITCH`, KANA `218` — no default chord | `{VK_HANGEUL (0x15), mods 0}` appended by `LoadToggleKeys()` whatever the store says | none; a 한/영 keysym never reaches `keyEvent()` |
+| stored form | `"v1:<keycode>:<normalised metaState>"`, one per row | `"v1:<vk>:<mods>;…"`, a list per action (`toggleKeys`, `hanjaKey`) | — |
+| remap path | yes: settings window, per action | yes: registry/env list + settings dialog | — |
+| does a compound arrive as a distinct event? | **yes, with no code change**: `modifiersMatch()` compares Shift by equality and Alt/Ctrl by family, so a bare alternate does not fire under a modifier | **yes**: `hunmin_tsf_keybindings_match()` compares the three family bits exactly | — |
+| precedence / ownership order | `HANGUL_ENG` 0 < `VOICE` 1 < `AUTO_TOGGLE` 2 < `HANJA` 3 (`KeyAction.byPrecedence()`) | toggle first (`IsModeToggle`), then the candidate window, then the chord rule | — |
+
+So the tree holds **three** assignments of one abstract action, plus one absence. R13-정정
+asks for one value with three readers; §E5-3 counts the edits that takes.
+
+### E5-2 The collision map — measured, per platform
+
+| chord | Android | TSF | fcitx5 |
+|---|---|---|---|
+| bare 한/영 | `HANGUL_ENG` (three keycodes) | `HANGUL_ENG` (VK_HANGEUL) | fcitx trigger, outside the addon |
+| **Shift + 한/영** | `VOICE` when the keyboard reports 218 (`defaults = Shift+KANA`); free when it reports `LANGUAGE_SWITCH` or bare `ALT_RIGHT` | free: exact-bit match means the bare toggle does not fire, and Shift is not part of the chord rule | not representable |
+| **Alt / Ctrl + 한/영** | free in the binding layer, but bare `ALT_RIGHT` *is* a 한/영 keycode on some keyboards, so the compound is only expressible against KANA / `LANGUAGE_SWITCH` | **intercepted before any handler.** `keydispatch.cpp` `OnTestKeyDown` answers uneaten for a Ctrl/Alt chord in hangul mode, and the measured note there records that a host never calls `OnKeyDown` for a key its test phase passes — the ruled transient-chord rule (2026-10-18, issue #101). The chord would not arrive unless that rule is carved out. | not representable |
+| Shift + 한자 key | `HANJA` alternate is EISU `212`, bare | `VK_HANJA (0x19)`, bare | — |
+| Shift + Space | consumed as a boundary before the action loop (`onKeyDown` commits the word, then `" "`) | same shape (`VK_SPACE` boundary branch) | free keysym the addon does see |
+| F9 | keycode 139 declared; no phone input source measured | `VK_F9` unclaimed | the Hanja window (P3) |
+
+Two of these are the real prices: **Shift+한/영 already means 음성 입력 on the Samsung
+keycode 218**, and **Alt/Ctrl + 한/영 cannot reach a TSF handler at all** without editing a
+rule the maintainer ruled on 2026-10-18.
+
+### E5-3 The options
+
+Each is stated as mechanism, what it costs in this tree, and what it loses. Nothing here
+is a verdict: the costs are comparable, and one of them buys a smaller diff for a larger
+loss, which is the kind of trade only the maintainer can weigh.
+
+**1 — single = manual toggle, compound = Shift + 한/영 (the proposed reading).**
+*Android:* no change to the binding layer, but `AUTO_TOGGLE` needs a **second alternate
+list** of its own, because 한/영 arrives as any of three keycodes and one stored chord
+covers only one; and it must be moved **above `VOICE`** in `byPrecedence()`, or Shift+KANA
+stays 음성 입력 — which reorders the conflict warning too (three tests pin the order).
+*TSF:* free chord, but a new action and a third stored list (`toggleKeys`, `hanjaKey`, and
+this), plus the settings row.
+*fcitx5:* **not representable** — the addon never sees the key. So this option satisfies
+"identical in all environments" only if the addon starts intercepting `FcitxKey_Hangul` /
+`FcitxKey_Hangul_Hanja`, which fcitx also owns as its trigger.
+*Loses:* the one-key-two-meanings ambiguity is now on the key whose second meaning is
+"voice input" on the most common Android keyboard.
+
+**2 — single = manual toggle, compound = Alt/Ctrl + 한/영.**
+*Android:* free, with the caveat that bare Right Alt is itself 한/영 on some hardware.
+*TSF:* blocked by the transient chord rule (§E5-2) — carving it out touches the 2026-10-18
+ruling and its test-phase mirror, which is the largest single edit in this table.
+*fcitx5:* as option 1.
+*Loses:* the autoswitch switch would be the exception to "a Ctrl/Alt chord belongs to the
+app", on every Windows host.
+
+**3 — reverse: single = autoswitch on/off, compound = manual toggle.**
+*Cost:* the largest prerequisite of any option, because the autoswitch state does not exist
+in the engine (§E5-0 premise 4), so this is the only one that cannot ship without new
+engine surface *and* three re-mappings; and it takes the single press away from the
+interaction the physical key exists for on all three platforms.
+*Loses:* R13 said on/off is "a key combination"; a single press is not a combination, so
+this reading needs R13 re-read, not just E5 answered.
+
+**4 — compound = the 한/영 key pressed twice.**
+*Cost:* a clock. Every layer decides one event at a time and statelessly
+(`KeyBindings.matches`, `hunmin_tsf_keybindings_match`, `fcitx5 keyEvent`), and the
+engine's key path takes `(base, shift, mods)` with no time. Putting the window in each
+frontend is three copies of one rule (R3); putting it in the engine needs a per-event clock
+seam that does not exist.
+*Loses:* a mistimed second press — the natural reaction when a switch misfires — silently
+toggles a feature the user did not aim at. Nothing in the tree measures double-press timing.
+
+**5 — no compound: the single press stays the toggle, and on/off is reachable in the UI
+only.**
+*Cost:* the smallest in the tree — Android already has the disabled row, TSF and fcitx5
+need one settings item each, and the engine still needs the state (§E5-0 premise 4).
+*Loses:* R13's stated preference ("the most preferred way is a key combination, not UI"),
+and the 0.3 row would show 미정 forever.
+
+**6 — a key combination that is not built on 한/영 (e.g. Shift + Space).**
+*Cost:* the only option measured here that can be *identical on all three* without
+intercepting fcitx's trigger, because space is a keysym the addon already maps. It needs a
+carve-out above the space boundary branch on Android and TSF (`onKeyDown`'s
+`KEYCODE_SPACE` branch, `VK_SPACE` in `keydispatch.cpp`), and one engine symbol for the
+state.
+*Loses:* discoverability — Shift+Space is the 한/영 convention of other IMEs, so it reads
+as a language switch rather than as a feature switch; and it does not use the key the
+question is about, so it answers R13 without answering E5.
+
+### E5-4 What a ruling has to include
+
+The issue's own verification line ("the assignment appears once in the engine, each
+frontend's row reads it, one tier-A case drives the action") is satisfiable only when the
+ruling says all five of these — otherwise the implementer decides the rest by default:
+
+1. **The shape:** which press is which action, and by which mechanism — a chord, or a
+   sequence with a window.
+2. **Fixed or remappable.** If remappable, which store owns it; today three do
+   (Android preferences, TSF registry/env, and fcitx5 nothing).
+3. **What counts as "the 한/영 key" on each platform** — 218 / `LANGUAGE_SWITCH` / bare
+   Right Alt on Android, VK_HANGEUL on Windows, and on fcitx5 *nothing the addon sees*.
+4. **What the compound does when it meets a shipped chord**: Shift+KANA = 음성 입력,
+   TSF's transient Ctrl/Alt rule, Android's and TSF's space boundary.
+5. **Whether "identical in all environments" is met by a chord the addon can see, or
+   whether the addon may intercept fcitx's trigger keys** — this one sentence decides
+   options 1, 2, 3 and 6.
+
+The engine-side prerequisite is the same for every option and is the one piece that can be
+built before the ruling: one append-only symbol that exposes the assignment (and R13-정정's
+state), so the three frontends read one value instead of holding three.
+
+### E5-5 Summary
+
+| option | mechanism | Android | TSF | fcitx5 | loses |
+|---|---|---|---|---|---|
+| 1 Shift+한/영 | chord | alternate list + precedence reorder | new action + store entry | not representable | Shift+KANA means 음성 입력 |
+| 2 Alt/Ctrl+한/영 | chord | free (Alt caveat) | blocked by the transient chord rule | not representable | exception to "chords belong to the app" |
+| 3 reversed | chord-less | 3 re-mappings | 3 re-mappings | 3 re-mappings | the key's own purpose; contradicts R13's wording |
+| 4 double press | sequence | clock | clock | clock | silent toggles on a misfire; no measurement |
+| 5 UI only | — | smallest | smallest | smallest | R13's stated preference |
+| 6 Shift+Space | chord | boundary carve-out | boundary carve-out | **works** | discoverability; does not answer E5 |
+
+**If a starting point is wanted rather than a menu:** option 1 keeps the key the user
+already reaches for and needs no new mechanism on two of three frontends; the deciding cost
+is fcitx5, where the addon cannot see the key at all — and the answer that would change
+this is whether the addon may intercept fcitx's trigger keysym (§E5-4 item 5), which is a
+separate ruling, not a measurement.
+
+### E5-6 Provenance
+
+- Host: Linux, worktree
+  `~/orca/workspaces/hunmin/modes-ruling-the-han-eng-key-assignment-e5-singl-2`, branch
+  `scobyseo/modes-ruling-the-han-eng-key-assignment-e5-singl-2`, base `cc65c62`.
+- Commands as measurements: `grep -rn autoswitch libhunmin/ frontends/ tests/` (0);
+  `grep -rn "hunmin_buffered_preedit_toggle_language" …` (definition + two call sites);
+  `python3 tools/keymap-fixture.py` — its own summary line is the layout census
+  (`47 keys used across 15 layouts (47 printable, 0 named)`), and it skips both
+  platform-file checks on this host; a JSON read of every `libhunmin/data/layouts/*.json`
+  for `keys` and `flags`; a constant-pool parse of `android.jar` (API 30) for the
+  `KEYCODE_*` values quoted in §E5-0.
+- Read, not executed, labelled as such: the TSF behaviour is read from
+  `keydispatch.cpp` / `keybinding.cpp` / `tsf.cpp` on Linux — no Windows host was used
+  here, so the transient-chord interception is the code's shape, corroborated by the
+  2026-10-18 record, not a fresh run. Android's on-device behaviour is likewise unrun: no
+  device or emulator.
+- Changed files: `docs/OPTIONS-MEASURED.md` (this section and the header table),
+  `docs/SPEC-MODES.md` §E5 and `docs/MODES-ENGINE-RULES.md` §3 (a one-line pointer each —
+  no requirement text moves).
+- **Deliberately untouched**, and named as a follow-up rather than fixed here:
+  `tools/keymap-fixture.py`'s circular claim and `ANDROID_UNREACHABLE`, the F9 sentence in
+  `docs/TESTING.md` and the stale `:280-281` citation in `docs/REMAINING-WORK.md` B4.
+  Correcting them is a test-tooling change with its own verification; it does not depend on
+  the E5 ruling, and the E5 ruling does not depend on it.
+- Issue #159 stays open and decision-gated: nothing here chooses, and a ruling is the
+  maintainer's (`wiki/decisions/decisions-belong-to-the-maintainer.md`).

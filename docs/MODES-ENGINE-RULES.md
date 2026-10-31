@@ -88,8 +88,12 @@ mutual exclusivity of the options truly holds at the moment we decide to move th
 ## Allocation (SPEC-MODES E5 — UNDECIDED)
 
 Settled by the user: via a key combination, no UI, identical in all environments.
-UNDECIDED: what single input and compound input each do. The F9 constraint applies
-(preedit-string occupied, no AOSP keycode on Android — AGENTS.md).
+UNDECIDED: what single input and compound input each do. The F9 constraint
+recorded here — preedit-string occupies F9, no AOSP keycode on Android — was
+measured 2026-10-31 and does not hold as written: F9 is no layout key, and
+`KeyEvent.KEYCODE_F9` is 139. What constrains the allocation is the per-platform
+collision map, priced in `docs/OPTIONS-MEASURED.md` §E5-0 and §E5-2 (option list
+§E5-3); read that rather than this paragraph when choosing.
 
 ## Where to place it
 

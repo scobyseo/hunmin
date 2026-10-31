@@ -748,7 +748,12 @@ R13 settled that on/off is a key combination. **What a single input and a
 compound input each do is undecided.** Candidates: single = manual Hangul/English
 switch, compound = automatic-switch on/off. The fact that F9 is already occupied
 by the preprocessing expression, and that Android has no AOSP keycode, is what
-constrains this assignment.
+constrains this assignment. *(Both halves of that sentence were measured
+2026-10-31 and neither holds as stated — F9 is no layout key and the
+전처리수식 keys are `flags` overrides, `KeyEvent.KEYCODE_F9` is 139; what
+actually constrains the assignment is the per-platform collision map.
+Measurement: `docs/OPTIONS-MEASURED.md` §E5-0 and §E5-2. The pricing of every
+candidate below is §E5-3 and does not restate this requirement.)*
 
 **R13-정정 added one more requirement to this item.** The assignment is now shown
 verbatim as instructions in the UI (surface B), so **there is not a single
