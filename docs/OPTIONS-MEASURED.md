@@ -1810,7 +1810,9 @@ switch on/off") cannot be built on any frontend.
   worktree's `build-msvc/frontends/tsf/Release/hunmin-tsf.dll`, loaded via a
   per-user `HKCU\Software\Classes\CLSID\{F2C70001-…-0001}\InprocServer32`
   override; the installed machine-wide registration was left untouched.
-- Android rows: `adb -s emulator-5554 shell input keyevent <code>` against the
+- Android rows: `tools/android-langkey-round.sh -s emulator-5554` (the committed
+  sweep: it installs, selects the IME, injects the candidate keycodes and prints
+  the onKeyDown rows) against the
   debug APK plus `testeditor`, read back from `logcat -s HunminIme` and
   `dumpsys input_method`.
 - **Read but not executed**: every fcitx5 claim (no Linux host in this session),
