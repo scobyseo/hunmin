@@ -341,13 +341,18 @@ before the install so the installer's own `regsvr32` wrote
 | 7 | the installer's own regsvr32 log | `Register hr=0`, `AddLanguageProfile hr=0`, `EnableLanguageProfile hr=0`, `RegisterCategory keyboard/category/dispattr/systray/immersive = 0` — all five, immersive included |
 | 8 | silent uninstall exits 0 | `uninstall rc=0` |
 | 9 | both `{CLSID}` trees gone | HKCR CLSID and HKLM CTF TIP both "unable to find" |
-| 9b | **per-user residue survives, on a CLEAN image** | `HKCU\…\TIP\{CLSID}\LanguageProfile\0x0412\{profile}\Enable = 0x1` still present after install + uninstall; `HKCU\Software\Microsoft\CTF\SortOrder` untouched/absent |
+| 9b | per-user tree after uninstall | **before the ruling of 2026-10-31:** `HKCU\…\TIP\{CLSID}\LanguageProfile\0x0412\{profile}\Enable = 0x1` survived install + uninstall on this clean image. **After it (option A, round re-run from a fresh environment against the rebuilt package):** `reg query …\LanguageProfile` exits **1 — gone**; `HKCU\…\CTF\TIP\{CLSID}` remains as an EMPTY container (msctf's, not this registration's); `SortOrder` and `Assemblies` absent/untouched on a fresh profile |
 | 10 | install dir residue | "File Not Found" — the tree is gone |
 
 Row 6 is the one this round adds to the 2026-10-20 set: before the ruling the
 DLL also wrote a per-user shortcut, so a fresh account saw two entries. Row 9b
 is the Q2 residue, reproduced where no prior session could have written it —
 so it is the TIP's own `EnableLanguageProfile`, not a dev-host artefact.
+
+That residue is what the maintainer ruled on; the round was then re-run from a fresh
+environment against the package carrying the fix, which is the `1 — gone` cell above.
+Both numbers are kept — the residue is the evidence the ruling was made on, and
+deleting it from the record would delete the reason it exists.
 
 Not covered here: the interactive half (Win+Space icon, typed composition,
 candidate window) — unchanged from the 2026-10-20 rounds, and the WT packaged-host
