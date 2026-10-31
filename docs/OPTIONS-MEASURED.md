@@ -2135,21 +2135,23 @@ function and refuses what nobody can service. Five append-only symbols carry it 
 the `nm` command the abi test prints, with the gcc-built `.so` as the source (the diff is
 exactly those five, nothing dropped). Two `engine-key-rule` cases pin the semantics: a bound
 chord services the function once, an unbound one is not ours, a host that refuses or a
-missing host answers `-1`, and SHIFT never binds (masked out, so `Shift+한/영` cannot become
-a special function by accident).
+missing host answers `-1`, an ordinary character never reaches a SHIFT binding, and an
+unbound Shift+한/영 stays the toggle rather than becoming a dead key.
 
-**The one decision this exposes, and it is not mine:** the engine's chord vocabulary is
-Ctrl / Alt / GUI, and Android already ships **Shift**+한/영 as 음성 입력
-(`KeyAction.VOICE`, `defaults = Shift+KANA`) — a chord the shared rule will never see as a
-chord, because Shift is a row bit and because Android's loop acts before the engine. So
-either **(a)** the special functions move into the chord vocabulary (Alt+한/영 for the
-first one, and Android's VOICE default moves with it), or **(b)** SHIFT is admitted for
-the language key specifically, widening the rule the comment in `hunmin.h` currently
-forbids. (a) keeps one rule; (b) keeps the shipped Android gesture. Both are expressible
-in the engine as it stands now — (b) is one condition, (a) is one binding change — so the
-cost is the same and the difference is which gesture the user learns. Since the table now
-starts empty, this is also the *seeding* question: whichever answer holds has to be the
-value every frontend seeds, or the divergence the ruling removed comes straight back.
+**The defaults are ruled too (2026-10-31, confirmed from the listed options):** `VOICE =
+Alt`, `AUTOSWITCH = Ctrl`, shipped by the engine so a frontend that seeds nothing still
+agrees; a store override replaces one entry. Android's own default moves accordingly —
+`KeyAction.VOICE` was `Shift + KANA` and is now `Alt + KANA` (`KeyBinding.kt`), with
+`KeyBindingTest` asserting both the new default and that Shift+KANA no longer fires it.
+**Shift is admitted as a special-combination modifier for the language key only** ("it is
+used with normal characters, work as capitalize. but with special combination such as shift
++ han/eng, it should be able to do special work"): the event already carries Shift in its own
+field, `special_want()` reads it there, and no character event can reach a SHIFT binding —
+capitalize keeps working. A chord nobody bound still answers the toggle, so an unassigned
+Shift+한/영 is not a dead key.
+
+The Shift question that used to sit here is therefore closed: the shipped table is Alt/Ctrl,
+and Shift is a free slot a frontend or a store may bind, not the default for either function.
 
 ### E5-7 Provenance
 

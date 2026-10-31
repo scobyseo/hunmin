@@ -760,9 +760,14 @@ surface each frontend already has. The ruling is recorded in
 options and the per-platform collision map are `docs/OPTIONS-MEASURED.md` §E5.
 
 **What the ruling left as parameters, not as requirement gaps** (each is still open and
-each is the maintainer's): which modifier carries which function (Android already ships
-`Shift`+한/영 as 음성 입력), whether the addon may shadow fcitx5's default `Hangul`
-trigger, and where a changed composition is stored when no store crosses platforms.
+each is the maintainer's): ~~which modifier carries which function~~ **decided the same day** —
+`VOICE = Alt + 한/영`, `AUTOSWITCH = Ctrl + 한/영`, shipped as the engine's defaults, with
+SHIFT available as a special-combination slot ("if it is used with normal characters, work as
+capitalize. but with special combination such as shift + han/eng, it should be able to do
+special work") and a refusal passing the key through
+(`wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md`).
+Still open: whether the addon may shadow fcitx5's default `Hangul` trigger, and where a
+changed composition is stored when no store crosses platforms.
 
 The sentence the earlier revision of this item rested on — that F9 is occupied by the
 preprocessing expression and that Android has no AOSP keycode — was measured 2026-10-31

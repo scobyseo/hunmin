@@ -173,6 +173,30 @@ object HunminKeyRegistry {
         (metaState and CHORD_MASK) != 0
 
     /**
+     * The engine's own modifier bits (hunmin.h `HUNMIN_MOD_*`) for this event.
+     *
+     * One bit per family rather than the lumped CHORD_MASK: the engine's
+     * special-function table is keyed on them one at a time (VOICE is ALT,
+     * AUTOSWITCH is CTRL — ruled 2026-10-31), so "some chord is held" is not
+     * enough to resolve a function. Shift is deliberately absent for the same
+     * reason it is absent from CHORD_MASK: it selects a layout row. The
+     * Shift+한/영 combination is expressed on the language-key path through the
+     * engine's separate `shift` argument, not through this mask.
+     */
+    fun engineMods(metaState: Int): Int {
+        var mods = 0
+        if ((metaState and META_CTRL_ON) != 0) mods = mods or ENGINE_MOD_CTRL
+        if ((metaState and META_ALT_ON) != 0) mods = mods or ENGINE_MOD_ALT
+        if ((metaState and META_META_ON) != 0) mods = mods or ENGINE_MOD_GUI
+        return mods
+    }
+
+    /* hunmin.h HUNMIN_MOD_* — contract values, pinned by EngineModsTest. */
+    private const val ENGINE_MOD_CTRL = 0x1
+    private const val ENGINE_MOD_ALT = 0x2
+    private const val ENGINE_MOD_GUI = 0x4
+
+    /**
      * Ctrl/Alt/Meta and their left/right variants. Shift and CapsLock are
      * deliberately absent: Shift is a layout row (invariant 4) and CapsLock is
      * the `caps` engine option.

@@ -255,12 +255,16 @@ typedef enum hunmin_key_action {
      * language (docs/SPEC-MODES.md §E5, ruled 2026-10-31). Appended after
      * CANDIDATE rather than inserted, because the values are ABI.
      *
-     * SHIFT is deliberately NOT a chord bit here (HUNMIN_MOD_SHIFT is a layout
-     * row, see §"The modifier vocabulary" above): a shift-only Han/Eng press is
-     * still the plain toggle, so `Shift+한/영` means whatever a frontend's own
-     * binding says and never silently becomes a special function. Whether a
-     * platform maps a special function onto SHIFT anyway is that frontend's
-     * binding decision, not this rule's. */
+     * SHIFT is admitted HERE and only here: with an ordinary character it
+     * selects a layout row (`HUNMIN_MOD_SHIFT` is not part of the chord set),
+     * while Shift + the language key is a special combination by ruling
+     * (2026-10-31: "if it is used with normal characters, work as capitalize.
+     * but with special combination such as shift + han/eng, it should be able
+     * to do special work"). A binding on SHIFT alone therefore only ever fires
+     * from the language key; no character event can reach it.
+     *
+     * An unbound chord stays the plain toggle, so a platform with nothing bound
+     * never ends up with a dead Shift+한/영. */
     HUNMIN_KEY_LANGUAGE_CHORD = 4
 } hunmin_key_action;
 
@@ -342,12 +346,16 @@ typedef struct hunmin_special_host {
     void (*perform)(void *user, hunmin_special_function fn);
 } hunmin_special_host;
 
-/* Bind fn to a chord (HUNMIN_MOD_CTRL/ALT/GUI; SHIFT is a layout row and is
- * masked out). mods == 0 unbinds. The frontend calls this with its default at
- * startup and again when its store changes, which is what keeps the value in
- * ONE place while the platform keeps its own key codes. */
+/* Bind fn to a chord (HUNMIN_MOD_CTRL/ALT/GUI, or SHIFT for the Shift+한/영
+ * combination -- Shift is a layout row for characters but a special combination
+ * with the language key, by the 2026-10-31 ruling). mods == 0 unbinds. The engine
+ * ships the ruled defaults (Table A: VOICE = Alt, AUTOSWITCH = Ctrl) so the three
+ * frontends cannot disagree about a table nobody seeded; a frontend calls this
+ * only to apply its own store, which is what keeps the value in ONE place on both
+ * sides -- the platform keeps its key codes, the engine keeps the assignment. */
 HUNMIN_EXPORT bool hunmin_buffered_preedit_special_bind(hunmin_buffered_preedit *l, hunmin_special_function fn, unsigned mods);
-/* The chord currently bound to fn, or 0. This is what a settings dialog shows. */
+/* The chord currently bound to fn, or 0. This is what a settings dialog shows,
+ * and on a fresh layer it is the engine's default. */
 HUNMIN_EXPORT unsigned hunmin_buffered_preedit_special_chord(const hunmin_buffered_preedit *l, hunmin_special_function fn);
 /* Register the implementation. NULL withdraws it (and then nothing is serviced). */
 HUNMIN_EXPORT void hunmin_buffered_preedit_special_host(hunmin_buffered_preedit *l, const hunmin_special_host *host);

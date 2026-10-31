@@ -258,12 +258,15 @@ enum class KeyAction(
         prefKey = "voice",
         label = "음성 입력",
         precedence = 1,
-        // Shift + KANA, by the maintainer's instruction 2026-10-11 — the same
-        // physical 한/영 key the other two actions use, with a modifier to
-        // separate it. This replaces the old Alt+V default, which is also what
-        // `docs/REMAINING-WORK.md`'s voice table has to say now (its stage-1 row
-        // reads "Right Alt + V" and was describing the same chord).
-        defaults = listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_SHIFT)),
+        // Alt + the 한/영 key. Two rulings stack here: the 2026-10-31 assignment
+        // (modifier + 한/영 is the special-function namespace, on all three
+        // frontends, and the engine owns the default chord) replaces the
+        // 2026-10-11 Shift + KANA instruction. Shift is not a chord bit in the
+        // engine -- it selects a layout row -- so the default had to move to the
+        // engine's chord vocabulary to be one rule instead of three; the engine's
+        // own default is HUNMIN_MOD_ALT for VOICE (docs/SPEC-MODES.md §E5,
+        // wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md).
+        defaults = listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_ALT_LEFT)),
     ),
     AUTO_TOGGLE(
         prefKey = "auto_toggle",

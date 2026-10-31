@@ -145,10 +145,21 @@ refused) and `hunmin_special_name()` (one spelling for dialogs and logs). The cl
 stays pure: `classify()` answers `HUNMIN_KEY_LANGUAGE_CHORD` for the gesture and never runs
 foreign code — `..._special()` is the one call that can, and the frontend makes it.
 
-Two consequences worth keeping in view: the table is **empty until a frontend seeds it**, so
-the per-function default chord is a value that still has to be chosen (once, or the
-divergence comes straight back); and a refusal is `-1`, which the frontend answers by passing
-the key through — a refusal that swallowed the press would be a dead key.
+Two consequences worth keeping in view: the engine **ships the ruled defaults** (`VOICE = Alt`,
+`AUTOSWITCH = Ctrl`, 2026-10-31) so a frontend that seeds nothing still agrees with the other
+two, and a frontend that has its own store replaces one entry; and a refusal is `-1`, which the
+frontend answers by passing the key through — a refusal that swallowed the press would be a
+dead key.
+
+**SHIFT is a special combination with the language key, and nothing else.** The ruling is the
+maintainer's, verbatim: *"make shift to be available for special key combination. if it is used
+with normal characters, work as capitalize. but with special combination such as shift + han/eng,
+it should be able to do special work."* The engine does not widen `HUNMIN_MOD_CHORD` for this:
+the event already carries Shift in its own field, and the language-key branch adds it —
+`special_want()` = chord bits | SHIFT, called by both `classify()` and `..._special()` so the
+gesture recognised and the gesture serviced cannot drift. An ordinary character therefore never
+reaches a SHIFT binding (capitalize keeps working), and a chord with no binding — Shift
+included — still answers the plain toggle.
 
 ## Can it be expressed as data
 

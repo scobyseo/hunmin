@@ -145,13 +145,14 @@ class KeyBindingTest {
 
     @Test
     fun `a stored binding replaces the default`() {
-        // 음성 is the action that still has a default (Shift + KANA), so it is
-        // the one where "replaces" is a claim that can be wrong.
+        // 음성 is the action that still has a default (Alt + KANA since the
+        // 2026-10-31 ruling), so it is the one where "replaces" is a claim that
+        // can be wrong.
         val store = MapStore()
-        val shiftKana = KeyEvent.META_SHIFT_ON
-        assertTrue("Shift+KANA is the default 음성 trigger", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, shiftKana))
+        val altKana = KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON
+        assertTrue("Alt+KANA is the default 음성 trigger", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, altKana))
         KeyBindings.set(store, KeyAction.VOICE, KeyCombo(KeyEvent.KEYCODE_F9, 0))
-        assertFalse("after rebinding, the old chord must not fire", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, shiftKana))
+        assertFalse("after rebinding, the old chord must not fire", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, altKana))
         assertTrue(KeyBindings.matches(store, KeyAction.VOICE, KeyEvent.KEYCODE_F9, 0))
     }
 
@@ -193,14 +194,18 @@ class KeyBindingTest {
     }
 
     @Test
-    fun `voice defaults to Shift plus KANA`() {
+    fun `voice defaults to Alt plus KANA`() {
+        // Ruled 2026-10-31: VOICE = Alt (the engine's HUNMIN_MOD_ALT default),
+        // replacing the 2026-10-11 Shift+KANA instruction. Shift stays available
+        // as a special-combination modifier but is no longer this action's default.
         val store = MapStore()
         assertEquals(
-            listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_SHIFT)),
+            listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_ALT_LEFT)),
             KeyBindings.combos(store, KeyAction.VOICE),
         )
-        assertTrue(KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, KeyEvent.META_SHIFT_ON))
+        assertTrue(KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON))
         assertFalse("bare KANA is 한/영, not 음성", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, 0))
+        assertFalse("Shift+KANA is no longer the 음성 default", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, KeyEvent.META_SHIFT_ON))
     }
 
     @Test

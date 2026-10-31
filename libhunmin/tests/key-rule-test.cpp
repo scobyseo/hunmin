@@ -134,13 +134,18 @@ TEST_F(KeyRuleTest, TheLanguageKeyWinsOverEverythingElse) {
             << "mods=" << mods;
         ev.candidates_open = 0;
     }
-    /* SHIFT is a layout row, not a chord: a shift-only press is still the
-     * toggle. This is the shape Android's Shift+한/영 binding must therefore
-     * NOT rely on -- a frontend that wants Shift to carry a special function
-     * binds it itself (docs/OPTIONS-MEASURED.md §E5-3, §HEK-2). */
+    /* SHIFT is a layout row for characters, and it is NOT in HUNMIN_MOD_CHORD:
+     * a shift bit in `mods` is ignored. With the language key, Shift is a
+     * special combination *when a function is bound to it* -- see
+     * ShiftIsASpecialCombinationOnlyWithTheLanguageKey; with the shipped
+     * defaults (VOICE = Alt, AUTOSWITCH = Ctrl) nothing is bound to Shift, so
+     * this press is still the toggle. */
     ev.mods = HUNMIN_MOD_SHIFT;
     EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE);
     ev.mods = 0;
+    ev.shift = 1;
+    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE);
+    ev.shift = 0;
 }
 
 TEST_F(KeyRuleTest, TheListBeatsTheChordRule) {
@@ -194,18 +199,18 @@ TEST_F(KeyRuleTest, ComposingIsTheInFlightSyllableOnly) {
 /* ---- the compound press's dispatch (E5, ruled 2026-10-31) ------------------ */
 
 TEST_F(KeyRuleTest, TheEngineResolvesAndServicesTheCompoundPress) {
-    /* The frontend seeds the binding (its default, then its store) and
-     * registers what it can do; the engine resolves the event and calls it.
-     * Nothing is bound until then -- which is how a platform that has no
-     * implementation refuses a function instead of swallowing the press. */
+    /* The engine ships the ruled defaults (Table A), so three frontends that
+     * seed nothing still agree; a store override replaces one entry. */
+    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_VOICE), HUNMIN_MOD_ALT);
+    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_AUTOSWITCH), HUNMIN_MOD_CTRL);
+
     hunmin_key_event ev = ch('d');
     ev.language_key = 1;
-    ev.mods = HUNMIN_MOD_ALT;
+    ev.mods = HUNMIN_MOD_GUI;
     EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0) << "an unbound chord is not ours";
 
-    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_VOICE, HUNMIN_MOD_ALT));
-    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_VOICE), HUNMIN_MOD_ALT)
-        << "the dialog reads this value";
+    /* Bound by default, but no host: resolved and refused. */
+    ev.mods = HUNMIN_MOD_ALT;
     EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1) << "bound but no host: refused";
 
     int performed = 0;
@@ -231,27 +236,17 @@ TEST_F(KeyRuleTest, TheEngineResolvesAndServicesTheCompoundPress) {
     EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1);
 }
 
-TEST_F(KeyRuleTest, TwoFunctionsTwoChordsAndShiftIsNeither) {
+TEST_F(KeyRuleTest, AStoreOverrideWins) {
     hunmin_key_event ev = ch('d');
     ev.language_key = 1;
-    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_VOICE, HUNMIN_MOD_ALT));
-    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_AUTOSWITCH, HUNMIN_MOD_CTRL));
-    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_AUTOSWITCH), HUNMIN_MOD_CTRL);
 
+    /* The store's value replaces the default, and the dialog reads the live one. */
+    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_AUTOSWITCH, HUNMIN_MOD_ALT));
+    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_AUTOSWITCH), HUNMIN_MOD_ALT);
     ev.mods = HUNMIN_MOD_CTRL;
-    /* No host on this layer, so the answer is the refusal, not the name; what
-     * this case pins is WHICH function the chord resolved to, via the chord
-     * table, and that an unbound chord stays NONE. */
-    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1);
-    ev.mods = HUNMIN_MOD_GUI;
-    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0) << "an unbound chord is not ours";
-
-    /* SHIFT is a layout row: binding it is a no-op unbind, and a shift-only
-     * press never resolves to a function. */
-    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_VOICE, HUNMIN_MOD_SHIFT));
-    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_VOICE), 0);
-    ev.mods = HUNMIN_MOD_SHIFT;
-    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0);
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0) << "the default chord was replaced";
+    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_AUTOSWITCH, HUNMIN_MOD_CTRL));
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1) << "restored, and still refused for want of a host";
 
     /* The single press is the toggle, not a special function. */
     ev.mods = 0;
@@ -262,6 +257,41 @@ TEST_F(KeyRuleTest, TwoFunctionsTwoChordsAndShiftIsNeither) {
     ev.language_key = 0;
     ev.mods = HUNMIN_MOD_ALT;
     EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0);
+}
+
+TEST_F(KeyRuleTest, ShiftIsASpecialCombinationOnlyWithTheLanguageKey) {
+    /* Ruled 2026-10-31: "if it is used with normal characters, work as
+     * capitalize. but with special combination such as shift + han/eng, it should
+     * be able to do special work." So one bit, two meanings, and the event's
+     * language_key is what separates them. */
+    hunmin_key_event ev = ch('d');
+    ev.shift = 1; /* Shift held, no language key: a layout row */
+    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_FEED)
+        << "Shift + a letter is the shifted row, not a chord";
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0);
+
+    /* Unbound Shift + 한/영 is still the toggle, not a dead key. */
+    ev.language_key = 1;
+    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE);
+
+    /* Bind it, and the same event becomes the compound press. */
+    EXPECT_TRUE(hunmin_buffered_preedit_special_bind(l_, HUNMIN_SPECIAL_VOICE, HUNMIN_MOD_SHIFT));
+    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_VOICE), HUNMIN_MOD_SHIFT);
+    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_CHORD);
+
+    int performed = 0;
+    hunmin_special_host host{};
+    host.user = &performed;
+    host.perform = [](void *user, hunmin_special_function fn) { *(int *)user = (int)fn; };
+    hunmin_buffered_preedit_special_host(l_, &host);
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), HUNMIN_SPECIAL_VOICE);
+    EXPECT_EQ(performed, (int)HUNMIN_SPECIAL_VOICE);
+
+    /* Shift+Alt is its own chord: a binding on SHIFT alone must not fire for it. */
+    ev.mods = HUNMIN_MOD_ALT;
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0) << "exact chord match, not a superset";
+    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE)
+        << "no binding for Shift+Alt, and VOICE was rebound away from Alt";
 }
 
 } // namespace
