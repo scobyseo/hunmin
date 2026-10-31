@@ -67,6 +67,10 @@ struct HunminTsfSnapshot {
     bool hangulMode = true;
     bool legacyMode = false;
     bool interimForce = false;
+    /* The Han/Eng key is down and its press is still undecided (E5 probe:
+     * single press = toggle on release, a following key = the compound
+     * press). Read by the tier F1 case that pins both outcomes. */
+    bool langHoldArmed = false;
     ITfComposition *composition = nullptr;
     ITfLangBarItemSink *itemSink = nullptr;
     std::vector<HunminKeyCombo> toggleKeys;
@@ -334,6 +338,15 @@ private:
 
     bool IsModeToggle(WPARAM wParam);
     void ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat);
+    /* The Han/Eng key as a MODIFIER-shaped prefix (docs/OPTIONS-MEASURED.md
+     * "Han/Eng key as a modifier"). A press is armed here instead of toggling;
+     * the key-up decides whether it was a single press, and a different key
+     * arriving while it is held is the compound press. Only keys that are not
+     * themselves modifiers arm -- Alt as 한/영 keeps the immediate toggle, so
+     * Alt+A stays an application chord instead of becoming a mode prefix. */
+    bool IsHoldPrefix(WPARAM wParam);
+    void ArmModeToggle(WPARAM wParam, BOOL *pfEat);
+    void ResolveHoldChord(WPARAM wParam);
     bool IsCandidateToggle(WPARAM wParam);
     bool IsKeyOfPassage(WPARAM wParam);
     void DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat, const char *tag);
@@ -367,6 +380,13 @@ private:
      * the bare physical Han/Eng key - the platform alternate that survives
      * every rebinding, the rule Android's KeyAction.HANGUL_ENG encodes. */
     std::vector<HunminKeyCombo> toggleKeys_;
+    /* The armed Han/Eng press (E5 probe). armedVk_ is the vkey whose key-up
+     * decides the single press; a different key-down while it is armed is the
+     * compound press. Cleared by the key-up, by a chord, and wherever the key
+     * stream itself ends (focus change / deactivation), so a lost key-up
+     * cannot leave the next keystroke looking like a chord. */
+    bool toggleArmed_ = false;
+    WPARAM armedVk_ = 0;
     /* The candidate-window key (issue #67): ONE binding, default the bare
      * physical Hanja key, re-read by ApplyConfigStore with everything else.
      * F9 is deliberately NOT in the default set any more (maintainer
