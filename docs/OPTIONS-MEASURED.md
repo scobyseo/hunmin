@@ -1,4 +1,4 @@
-# OPTIONS-MEASURED — seven cost questions, measured
+# OPTIONS-MEASURED — eight cost questions, measured
 
 Four documents that were one genre: a question nobody had priced, the options
 priced against each other, and the maintainer left to choose. They are one file
@@ -6,15 +6,15 @@ now — the four shared preambles and provenance blocks were the duplication, an
 each section keeps its own status, because two of the four have been decided
 since they were written. §URM arrived later, as a section rather than a fifth
 document, because an issue that asks a question and leaves it open belongs in
-the file that already holds the open ones.
+the file that already holds the open ones; §HEK, §E5 and §EDW followed the same way.
 
 Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`, `HEK-`,
-`E5-`) so a cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
+`E5-`, `EDW-`) so a cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
 is the android sandbox's §4.2. `HEK` and `E5` are the two halves of issue #159 and are
 deliberately separate, because they answer different questions: **§HEK** measures whether
 each environment can deliver the gesture at all (key shapes), and **§E5** prices what the
 gesture *means* (the assignment). §HEK-4's shapes and §E5-3's assignments are not
-alternatives to each other.
+alternatives to each other. §EDW (issue #160) is a third subject and cites itself.
 
 | section | question | status |
 |---|---|---|
@@ -25,6 +25,7 @@ alternatives to each other.
 | URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | **Q1 decided: option C**, shipped (#146); Q2 measured 2026-10-30 — the residue is the per-user `Enable` key, one ruling away |
 | HEK | whether the Han/Eng key can act as a held modifier in each frontend environment, and what the compound press would cost | measured per environment (Windows live, Android emulator, fcitx5 read-only); the **compound's action is decided** 2026-10-31 — `docs/SPEC-MODES.md` §E5, §E5 status below | 
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
+| EDW | which English dictionary R8-정정's `english_valid` looks up, under what licence, and whether it ships separately | **decided 2026-11-01: hunspell `en_US` + a user dictionary, shipped in-tree for now** (#160); four candidate dictionaries and the corpus-list baseline were priced on one probe. The curated supplement is deferred; the separate-distribution split is #190 |
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
 find the optimum design, not to judge one candidate", and a decision is the
@@ -2212,3 +2213,240 @@ and Shift is a free slot a frontend or a store may bind, not the default for eit
   the pair kept alive in `docs/TESTING.md`. Planted-failure checked, not just green.
 - Issue #159 stays open and decision-gated: nothing here chooses, and a ruling is the
   maintainer's (`wiki/decisions/decisions-belong-to-the-maintainer.md`).
+## EDW — which English dictionary `english_valid` looks up (issue #160)
+
+**Measurements only. No option is recommended here and nothing is decided; the
+choice is the maintainer's.** Issue #160 asks for three things that are one
+question — the source, its licence, and whether the artefact ships separately —
+so all three are priced below on one probe, and can be compared.
+
+Produced 2026-11-01 on branch `scobyseo/modes-ruling-which-english-dictionary-its-licenc`
+(base `master` at `0d72312`), Windows 11, `python3` 3.13. Deliberately **not**
+touched by this branch: `docs/REMAINING-WORK.md` and `AGENTS.md`, which parallel
+sessions patch.
+
+### EDW-0 The premise, checked first
+
+The issue's claims in its own words, each measured:
+
+1. "**The tree has no such data**: `libhunmin/data/` holds `compose, hanja,
+   idioms, krdict, layouts` only" — **verified** (`ls -d libhunmin/data/*/`).
+2. "`docs/SPEC-MODES.md` R8-정정 defines `english_valid` as 'a lookup in the
+   ENGLISH DICTIONARY'" — **verified verbatim**, and one thing the issue does
+   not say is worth stating: that definition has **no consumer in the tree yet**.
+   `grep -rn english_valid libhunmin/ frontends/` returns 0; all 23 hits are in
+   `docs/` and `tools/`. So this ruling gates an unimplemented path, and nothing
+   in the engine breaks while the source stays unnamed.
+3. "a dictionary filter drops reproduction 86.35% → 43.87% on the 624-word
+   evaluation" — **not re-derivable on this host**, and the reason is not a
+   defect: both inputs live outside the repository by licence and size
+   (`~/work/wikicorpus/full/latin.txt`,
+   `~/work/aihub-records-corpus/624-en-mixed.txt`), and the AIHub terms are
+   use-and-training only. What was measured instead:
+   - **§4-7d's dictionary has a name now.** `/usr/share/dict/words` on Debian is
+     the `wamerican` package (2020.12.07, 104,334 lines), and the `README_en_US.txt`
+     shipped with the hunspell dictionary states "the normal (non-large)
+     dictionaries correspond to SCOWL size 60". The 43.87% figure was measured
+     against one member of a **family** whose members share a vocabulary size
+     and a licence — which is what makes the other members' cost predictable
+     instead of guessed.
+   - **A second instrument**: `tools/modes-dict-probe.py` walks ko.wikipedia
+     through the MediaWiki API using the stripper and token rule of
+     `tools/build-modes-corpus.py` (imported from it, never re-typed — that file
+     exists because both of those steps were once wrong). Two disjoint walks:
+     **A** = 3,000 pages from `가` (4,769 forms / 16,815 tokens), which builds
+     the corpus-list baseline; **B** = 3,000 pages from `히` (2,987 forms /
+     12,018 tokens), the holdout every candidate is scored on.
+4. The premise the issue does **not** state, which every option inherits:
+   R8-정정 defers the fate of the 50,000 cap and of the corpus list, so any
+   dictionary choice re-opens "what happens to `docs/MODES-DATA.md` §4". And
+   §4-7a records that a dictionary calls markup valid — `px km cm align center
+   style` are all in `/usr/share/dict/words` — a precision cost a harvested list
+   does not have. It is re-measured per candidate in EDW-2.
+
+### EDW-1 What `english_valid` asks of the data
+
+One membership test on the Latin reading of the keys, once per finished buffer
+(space or symbol); the three-line judgement formula in `docs/SPEC-MODES.md` R8
+decides from that one bit plus `hangul_valid`, which is structural and needs no
+data at all. So the artefact is
+a **word set**, not a lexicon: no senses, no part of speech, no definitions, and
+no morphology *output* — but morphology *coverage* matters, because a buffer that
+completes as `dogs` or `played` has to be found. Measured (EDW-2): one level of
+affix expansion is worth +4.39pp on the holdout, i.e. it is a real property of
+the data, not an implementation detail.
+
+| cost | value | how measured |
+|---|---|---|
+| in-memory, 8 B per slot at 50% load | 0.82 MB for 102,485 forms | `len(words) * 8`, the model MODES-DATA §4-7a uses |
+| plain text list, one form per line | 985 KB (`wamerican`'s 102,485) | `wc -c` |
+| JSON array of the same forms | 1.30 MB raw / 275 KB gzipped | `json.dumps` + `gzip -9` |
+| hunspell `.dic` + `.aff` | 555 KB raw / 192 KB gzipped | `ls -l`, `gzip -9` |
+
+Case has to be folded by the loader: the dictionaries ship lowercase plus some
+capitalised and `'s` forms, the buffer is whatever the layout produced. Every
+number below is lowercased on both sides, and the tool prints that it did.
+
+### EDW-2 The candidates, measured on the holdout
+
+Token-weighted coverage of B, `python3 tools/modes-dict-probe.py measure …`:
+
+| candidate | licence | entries | ships | embed | cover (raw) | cover (≥2 chars) |
+|---|---|---|---|---|---|---|
+| SCOWL-60 `wamerican` 2020.12.07 | permissive, notice | 102,485 | 0.99 MB | 0.82 MB | 69.90% | 62.59% |
+| hunspell `en_US` stems | same (SCOWL) | 48,262 | 0.55 MB | 0.39 MB | 68.41% | 60.75% |
+| hunspell `en_US` + affixes | same (SCOWL) + BSD `.aff` | 118,173 | 0.55 MB | 0.95 MB | 71.94% | 65.14% |
+| `english-words` (dwyl) | Unlicense | 370,105 | 4.23 MB | 2.96 MB | 70.75% | 63.66% |
+| `google-10000-english` | **none stated** | 10,000 | 0.08 MB | 0.08 MB | 66.58% | 58.48% |
+| corpus list (all of A) | CC BY-SA 4.0 (Wikipedia) | 4,769 | — | 0.04 MB | 66.16% | 57.95% |
+
+Five things this table says, and one it cannot:
+
+- **Among general English dictionaries the choice is worth ~3pp** (60.75–65.14%
+  at ≥2 chars), while licence, size and provenance differ by everything. The
+  source that decides the licence question barely moves the reproduction
+  question.
+- **Affix expansion is a data property**: the same SCOWL stems score 60.75% raw
+  stems, 65.14% expanded — the gap is not in the dictionary choice.
+- **A frequency-capped 10,000-entry list costs 2–4pp** against a 48,000–102,000
+  entry one (58.48% vs 60.75% and 62.59%), the same direction as MODES-DATA
+  §4-7a's cap table measured on its own instrument.
+- **Every dictionary counts markup as valid**: `px km cm align center style` are
+  found in all three general dictionaries (`px` is absent from the two
+  harvested lists). §4-7a's finding is a property of the class, not of one list.
+- **What it cannot say**: this is a 3,000-page sample, so the corpus-list row is
+  not comparable with §4-7's 86.35%. There the list had 50,000 entries harvested
+  from a whole dump and was scored on typed text; here it has 4,769 entries and
+  only 806 of B's 2,987 forms (780 at ≥2 chars) are among them. The rows compare
+  **candidates on one probe**, which is what the ruling needs; they do not
+  reproduce the absolute figures, which need the corpora that are not in the
+  repo.
+
+The 10 named tokens — the mechanism §4-7d says halves reproduction — replicate
+exactly, at every size:
+
+| candidate | has | missing |
+|---|---|---|
+| SCOWL-60 / `wamerican` | 0 / 10 | `kbs mbc sbs fc fifa uefa sk kt nhk cj` |
+| hunspell `en_US` | 2 / 10 | `kbs mbc sbs fc fifa uefa nhk cj` (`sk kt` present) |
+| `english-words` | 3 / 10 | `kbs mbc sbs fifa uefa nhk cj` (`fc sk kt` present) |
+| `google-10k` | 3 / 10 | `kbs mbc sbs fifa uefa kt nhk` (`fc sk cj` present) |
+
+### EDW-3 What a supplement buys, and what it costs in licence
+
+The dictionary is not where the loss is, so the obvious repair is dictionary +
+a list of the forms it lacks. Measured on the same probe (SCOWL-60 plus the
+top-k word-shaped forms of A that SCOWL lacks, scored on B, ≥2 chars):
+
+| added forms | cover on B | gain | added embed |
+|---|---|---|---|
+| 0 | 62.59% | — | — |
+| 100 | 71.16% | +8.57pp | 0.001 MB |
+| 250 | 72.19% | +9.59pp | 0.002 MB |
+| 500 | 72.77% | +10.17pp | 0.004 MB |
+| 1,000 | 73.99% | +11.39pp | 0.008 MB |
+| 2,000 | 75.53% | +12.93pp | 0.016 MB |
+
+2,425 of A's word-shaped forms are missing from SCOWL-60 — 35.78% of A's
+word-shaped tokens.
+The curve flattens at ~2,000 because that is where A's vocabulary runs out; it is
+a ceiling of the sample, not of the design. The forms at the top are `fc` `png`
+`fifa` `isbn` `uefa` `nhk` `mbc` `kbs` plus markup (`colspan`, `text-align`), so
+the supplement is organisations, file formats and residue — the thing §4-7d
+identified — and a curated list of those is small in bytes and large in gain.
+
+**The licence consequence is the point of this subsection.** A supplement
+harvested from Wikipedia prose is CC BY-SA and pulls the ShareAlike question back
+in, in a directory of its own at best (`libhunmin/data/krdict/` is the precedent);
+a supplement written by hand has no upstream to attribute, but then its content
+is decided by a person, not measured. Neither is priced further here: it is a
+ruling, not a measurement.
+
+### EDW-4 Where the artefact ships — B3's mechanics, priced per surface
+
+B3's wording is the constraint, quoted in the decision page
+(`wiki/decisions/2026-10-11-auto-switch-off-by-default.md`):
+
+> 자동변환에 필요한 사전이든 뭐든 추가 데이터는 별도 배포를 가정하고 그 데이터가
+> 있을때만 기능을 켤 수 있게 하면 transition이 용이할 거 같아.
+
+That same page rules the *mechanism* out of scope — "The mechanism (data format,
+presence detection, package name) is design work, not ruled" — so what follows
+prices four mechanisms, not four decisions.
+
+| surface | what a separate artefact costs today |
+|---|---|
+| Debian | `debian/control` has one `Package: hunmin`; a second package is a new stanza plus splitting `install(DIRECTORY libhunmin/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin)` in the top-level `CMakeLists.txt`, plus `debian/copyright` and `changelog` entries |
+| Windows installer | `frontends/tsf/installer/hunmin.iss` ships `data\` whole (krdict already sits in its own tree for ShareAlike isolation); an optional component is a `[Components]` entry with `Flags: unchecked` |
+| Android | assets are staged by a `Sync` from `libhunmin/data` that already excludes `krdict/**` (`frontends/android/app/build.gradle.kts`); data that must not ship needs a download step or an asset flavour — the only surface with a runtime path |
+| engine | the presence gate has a precedent: `libhunmin/src/candidate_tables.c` keeps `loaded` as 0 untried / 1 loaded / **-1 absent**; the same three-state answer at the judgement boundary needs no new ABI symbol |
+
+Four mechanisms, each with what it buys and what it costs:
+
+- **In `libhunmin/data/modes/`, shipped whole.** Cheapest: one directory, its
+  `LICENSE.md` (the `hanja`/`idioms`/`krdict` convention), a `docs/SPEC-SCHEMA.md`
+  section, one provenance `meta.json`. It requires a **permissive** source —
+  SCOWL and `english-words` qualify, a Wikipedia-derived list does not without
+  the krdict-style isolation. And it makes B3's gate a build-time option rather
+  than a distribution fact, because the data can no longer be absent.
+- **As a separate package** (`hunmin`-adjacent deb binary, installer component,
+  Android download): the B3 shape as written, at the cost of the three surfaces
+  above; the gate stays real because absence is a real state.
+- **Downloaded on first use**: no data in any package and the licence stays at
+  the host, but it adds a network at a moment the person is typing, an integrity
+  and hosting answer, and a failure mode on the two frontends whose users may be
+  offline.
+- **No data at all**: `english_valid` would have no source, which is R8-정정
+  reverted — an option only in the sense that the requirement could change.
+
+### EDW-5 Summary
+
+| option | ABI | data | tier A goldens | tier C corpora | adapters | where it decides |
+|---|---|---|---|---|---|---|
+| SCOWL-60 in-tree | none | +0.99 MB, licence + notice | none (judgement tables, not text) | none | none | licence/attribution only |
+| `en_US` + affixes in-tree | none | +0.55 MB, SCOWL + BSD | none | none | loader gains affix expansion or ships the expanded set | same, plus a build step |
+| `english-words` in-tree | none | +4.23 MB, Unlicense | none | none | none | size, and no provenance per form |
+| dictionary + curated supplement | none | +dictionary, +≈16 KB at 2,000 forms | a new engine test (no tier carries the judgement: it is unimplemented) | none | none | who curates, and under what licence |
+| separate artefact (any source) | none | none in the tree | the presence-gated case in that same new test | none | deb splits, installer component, Android download | B3's gate, made real |
+| corpus list only | none | +6.53 MB at 815,822 forms (MODES-DATA §4-7a) | the pre-정정 definition's cases | none | none | ShareAlike, and §4's fate |
+
+Nothing here is a verdict. The measurements that would change a reader's choice
+are named: a typed-text probe (the 624 set, or another AIHub vertical) would move
+the coverage ranking; a 50,000-form harvest from a full dump would make the
+corpus-list row comparable with §4-7; and the supplement's plateau at ~2,000
+forms is a property of this sample's vocabulary, so a larger harvest would move
+that knee.
+
+### EDW-6 Provenance
+
+- Host: Windows 11, `python3` 3.13.14 (`mwparserfromhell` 0.7.2 installed into it
+  for the walk). No Linux host in this session, so nothing here is a statement
+  about the fcitx5 frontend.
+- Instrument: `tools/modes-dict-probe.py`, new on this branch.
+  - `fetch --pages 3000 --start 가 --out <A>` and `--start 히 --out <B>`: the two
+    walks. `meta.json` beside each records source, timestamp, page count, the
+    token rule and stripper it borrowed, the licence, and what the sample does
+    **not** represent (typed text, the 624 set, sentence replay, a
+    frequency-ordered corpus of its own).
+  - `measure` on B with `--corpus-list <A>`; its output is the EDW-2 table.
+- Candidate files, fetched 2026-10-31 into a gitignored `build/edl/`, none
+  committed: `wamerican` 2020.12.07 (`apt-get download` + `dpkg-deb -x`, no root
+  needed), hunspell `en_US` from `LibreOffice/dictionaries` (its README names
+  SCOWL 2020.12.07 as the base; the `.aff` carries a 2024-01-29 changelog entry,
+  so it is the same family one revision later), `dwyl/english-words`
+  `words_alpha.txt`, `first20hours/google-10000-english`.
+- Licences read at the source, not summarised from memory: `debian/copyright`
+  inside the `wamerican` package (SCOWL's permission notice, verbatim),
+  `README_en_US.txt` (SCOWL lineage, "SCOWL size 60"), the `.aff`'s BSD note in
+  the same file, `dwyl/english-words`'s `LICENSE.md` (Unlicense),
+  `first20hours/google-10000-english`'s repo licence (`NOASSERTION` via the
+  GitHub API), and `rspeer/wordfreq`'s README — whose licence section refuses
+  the separable-list form this ruling would need: "No. The CSV format does not
+  have any space for attribution or license information, and therefore does not
+  follow the CC-By-SA license."
+- **Read but not executed**: nothing in EDW-4 is measured — the deb/installer/
+  Android rows are read off the packaging files named there. The one test that
+  would make them measured is a presence-gated judgement case in tier F1, which
+  cannot exist before the judgement does.
+- Changed by this branch: `docs/OPTIONS-MEASURED.md` (this section and the
+  header table), `README.md` (its index row), `tools/modes-dict-probe.py` (new).
