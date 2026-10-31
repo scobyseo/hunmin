@@ -153,7 +153,7 @@ names the limitation if shipped unmeasured; the measurement record lives in
 | [`docs/HOWTO-NEW-LAYOUT.md`](docs/HOWTO-NEW-LAYOUT.md) | adding a layout without touching code |
 | [`docs/D3-ROOT-CAUSE.md`](docs/D3-ROOT-CAUSE.md) | why tier D3 looked green while measuring nothing |
 | [`docs/D3-PERFORMANCE.md`](docs/D3-PERFORMANCE.md) | where tier D3's wall clock goes, and the case-count defect it hid |
-| [`docs/OPTIONS-MEASURED.md`](docs/OPTIONS-MEASURED.md) | five priced questions and their rulings: the mutation tier, the android sandbox, the test framework, the `ch` input, the TSF unregister mirror |
+| [`docs/OPTIONS-MEASURED.md`](docs/OPTIONS-MEASURED.md) | six priced questions and their rulings: the mutation tier, the android sandbox, the test framework, the `ch` input, the TSF unregister mirror, and whether the Han/Eng key can act as a held modifier |
 | [`docs/REMAINING-WORK.md`](docs/REMAINING-WORK.md) | what is left, what is blocked on whom, and the assertions that keep it honest |
 | [`docs/MILESTONES.md`](docs/MILESTONES.md) | the release plan (0.1 / 0.2 / 0.3 / 0.4 / 1.0) and which lane each open item sits in |
 | [`wiki/`](wiki/) | how we got here: session records, overturned verdicts, open decisions |
