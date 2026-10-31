@@ -33,7 +33,12 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
      * and in Korean input mode it is ignored outright (the engine's
      * case-encoding convention). */
     BOOL eat = FALSE;
-    if (IsModeToggle(wParam))
+    if (IsLanguageKeyVk(wParam))
+        /* The compound press and the plain toggle are answered by the same
+         * predicate the down uses (LanguageKeyEaten asks the engine's peek), so
+         * a refused chord passes in both phases instead of being lost. */
+        eat = LanguageKeyEaten(wParam);
+    else if (IsModeToggle(wParam))
         eat = TRUE;
     else if (cand_->Active() && cand_->EatsListKey((unsigned long)wParam))
         /* While the candidate window is open its keys are ours, on the
@@ -143,26 +148,19 @@ STDMETHODIMP CTextService::OnKeyDown(ITfContext *pic, WPARAM wParam, LPARAM lPar
      * precedence: the toggle, the mode passthrough, the candidate
      * window's own key, the open window's list keys, the keys of
      * passage, and finally the composition feed. */
-    if (IsModeToggle(wParam)) {
-        /* The Han/Eng key as a MODIFIER-shaped prefix (E5 probe, measured in
-         * docs/OPTIONS-MEASURED.md "Han/Eng key as a modifier"): the press is
-         * armed and the key-up decides it. A key that is itself a modifier
-         * (Alt as 한/영) keeps the immediate toggle -- Alt+A must stay the
-         * application's chord, not become a mode prefix. */
-        if (IsHoldPrefix(wParam)) {
-            ArmModeToggle(wParam, pfEat);
-            return S_OK;
-        }
-        ApplyModeToggle(pic, wParam, lParam, pfEat);
+    if (IsLanguageKeyVk(wParam)) {
+        /* The ruled two-part meaning (SPEC-MODES §E5, 2026-10-31): the bare
+         * press (and any chord nothing is bound to) is the manual switch, a
+         * chord with a function bound is that function. Which is which is the
+         * engine's answer, not the adapter's. */
+        ApplyLanguageKeyPress(pic, wParam, lParam, pfEat);
         return S_OK;
     }
-    /* Any other key arriving while the Han/Eng press is still armed IS the
-     * compound press E5 asks about. Its action is undecided (issue #159), so
-     * the resolution is recorded and the key continues down this same path
-     * unchanged: the chord must be observable without inventing a behaviour
-     * the maintainer has not ruled. */
-    if (toggleArmed_) {
-        ResolveHoldChord(wParam);
+    if (IsModeToggle(wParam)) {
+        /* A configured chord that is NOT the language key (Shift+Space, Right
+         * Alt): the plain toggle, exact-modifier matched as before. */
+        ApplyModeToggle(pic, wParam, lParam, pfEat);
+        return S_OK;
     }
     if (!hangulMode_)
         return S_OK; // passthrough English
@@ -200,6 +198,24 @@ bool CTextService::IsModeToggle(WPARAM wParam) {
     return hunmin_tsf_keybindings_match(toggleKeys_.data(), (int)toggleKeys_.size(), (unsigned)wParam, hunmin_tsf_keymods_from_state()) != FALSE;
 }
 
+bool CTextService::IsLanguageKeyVk(WPARAM wParam) {
+    /* The VK of a configured language key, whatever modifiers are held: the
+     * binding match above is EXACT (a bare binding does not fire under a
+     * modifier, and that rule is what keeps Shift+Space distinct), so the
+     * compound press -- the same physical key with a chord modifier -- is
+     * recognised here and settled by the engine's table. Without this the
+     * chord never reached the layer at all (measured: Ctrl+한/영 fell through
+     * to the composition feed). */
+    for (const HunminKeyCombo &c : toggleKeys_)
+        /* Only a BARE entry names the language key. A configured chord such as
+         * Shift+Space is a language-key ALIAS, not the physical key: its key is
+         * Space, and treating Space as the language key would make the compound
+         * press eat an ordinary space (measured). */
+        if (c.vk == (unsigned int)wParam && c.mods == 0)
+            return true;
+    return false;
+}
+
 void CTextService::ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) {
     if (pfEat)
         *pfEat = TRUE;
@@ -210,45 +226,98 @@ void CTextService::ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam
                       hangulMode_ ? hangulId_.c_str() : latinId_.c_str());
 }
 
-/* The Han/Eng key as a held prefix (E5 probe; docs/OPTIONS-MEASURED.md
- * "Han/Eng key as a modifier"). A non-modifier key that matches the toggle set
- * is ARMED instead of applied: the same press is either a single press (the
- * key-up toggles) or the first half of a compound press (a different key-down
- * resolves it). Before this the toggle fired on the key-down, which made "hold
- * 한/영 and press X" indistinguishable from "toggle, then type X" -- the
- * distinction E5 needs before any compound assignment can exist. */
-bool CTextService::IsHoldPrefix(WPARAM wParam) {
-    /* A modifier used as 한/영 (Right Alt, the platform alternate Android's
-     * KeyAction.HANGUL_ENG also carries) keeps its immediate toggle: holding
-     * Alt and typing A is an application chord today, and turning that into a
-     * mode prefix would change what those users type. Only a key the system
-     * does not treat as a modifier -- the physical Han/Eng key -- can be a
-     * compose-style prefix, because nothing else consumes it. */
-    return !IsModifierVk(wParam);
+/* The Han/Eng key's two positions (SPEC-MODES §E5, ruled 2026-10-31): the bare
+ * press is the manual switch, a chord modifier held with it is the
+ * special-function namespace. The engine holds the assignment -- which chord
+ * carries which function -- so this translates the platform state into the
+ * shared key event and lets the layer answer; a per-frontend table of modifiers
+ * is exactly what R13-정정 forbids.
+ *
+ * The event carries `language_key`, which is the flag the classifier reads
+ * first: that is why a chord on the language key can never be mistaken for
+ * composition input, and why Shift travels in its own field (Shift + 한/영 is a
+ * special combination by ruling, while Shift + a character is still a row). */
+hunmin_key_event CTextService::LanguageKeyEvent(WPARAM wParam) const {
+    const unsigned int mods = hunmin_tsf_keymods_from_state();
+    hunmin_key_event ev{};
+    ev.base = VkToBase(wParam);
+    ev.shift = (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u;
+    if (mods & HUNMIN_TSF_KEYMOD_CTRL) ev.mods |= HUNMIN_MOD_CTRL;
+    if (mods & HUNMIN_TSF_KEYMOD_ALT) ev.mods |= HUNMIN_MOD_ALT;
+    ev.id = HUNMIN_KEY_TEXT;
+    ev.language_key = 1;
+    return ev;
 }
 
-void CTextService::ArmModeToggle(WPARAM wParam, BOOL *pfEat) {
+/* The language key, in both of its positions (SPEC-MODES §E5, ruled
+ * 2026-10-31). The engine answers which one this press is: a chord with a
+ * function bound is that function, everything else -- the bare press, and a
+ * chord nothing is bound to -- is the manual switch, so no press of the key is
+ * ever dead. A chord that IS a function is consumed: performed when a host can
+ * service it, passed to the client when none can (the ruling's degradation for
+ * a platform without the feature: "it can just refuse to service"). */
+void CTextService::ApplyLanguageKeyPress(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) {
+    const hunmin_key_event ev = LanguageKeyEvent(wParam);
+    if (hunmin_buffered_preedit_classify(preedit_, &ev) != HUNMIN_KEY_LANGUAGE_CHORD) {
+        /* The bare press, and a chord nothing is bound to: the plain toggle. */
+        ApplyModeToggle(pic, wParam, lParam, pfEat);
+        return;
+    }
+    const int fn = hunmin_buffered_preedit_special(preedit_, &ev);
+    if (fn > 0) {
+        /* The function performed. It is a boundary like any other action: what
+         * was composing belongs to the text before it. */
+        BoundaryFlush(pic);
+        cand_->Close();
+        if (pfEat)
+            *pfEat = TRUE;
+        hunmin_logger.log(" langchord vk=%lu fn=%s -> performed\n", (unsigned long)wParam, hunmin_special_name((hunmin_special_function)fn));
+        return;
+    }
+    /* -1: bound, but nothing here can service it (no host, or the host refused).
+     * The key passes and nothing is swallowed. */
     if (pfEat)
-        *pfEat = TRUE; /* ours: the press never reaches the client */
-    if (toggleArmed_ && armedVk_ == wParam)
-        return; /* auto-repeat: still one press */
-    toggleArmed_ = true;
-    armedVk_ = wParam;
-    hunmin_logger.log(" langkey down vk=%lu held=%d -> armed (key-up toggles, a key meanwhile is the compound press)\n", (unsigned long)wParam,
-                      hunmin_tsf_vk_held((unsigned int)wParam) ? 1 : 0);
+        *pfEat = FALSE;
+    hunmin_logger.log(" langchord vk=%lu -> refused by this platform, key passes\n", (unsigned long)wParam);
 }
 
-void CTextService::ResolveHoldChord(WPARAM wParam) {
-    /* The press was a prefix, not a toggle: clear it and leave wParam to the
-     * ordinary path below. The action of the compound press is UNDECIDED
-     * (issue #159, SPEC-MODES E5), so nothing is performed -- it is recorded.
-     * held= is the platform fact a mock harness cannot settle: whether Windows
-     * still reports the Han/Eng vk as down while the second key arrives. */
-    const WPARAM prefix = armedVk_;
-    toggleArmed_ = false;
-    armedVk_ = 0;
-    hunmin_logger.log(" langchord prefix-vk=%lu chord-vk=%lu held=%d -> compound press (action undecided, issue #159)\n", (unsigned long)prefix,
-                      (unsigned long)wParam, hunmin_tsf_vk_held((unsigned int)prefix) ? 1 : 0);
+/* The same answer for the platform's "test" phase. Test and down are ONE
+ * decision: a host that is told "mine" in the test but then not given the key in
+ * the down drops the press, so the test asks the engine's own peek rather than
+ * guessing from the binding (measured defect class: `dkssud1`). */
+bool CTextService::LanguageKeyEaten(WPARAM wParam) {
+    const hunmin_key_event ev = LanguageKeyEvent(wParam);
+    if (hunmin_buffered_preedit_classify(preedit_, &ev) != HUNMIN_KEY_LANGUAGE_CHORD)
+        return true; /* the plain toggle: ours */
+    return hunmin_buffered_preedit_special_peek(preedit_, &ev) > 0;
+}
+
+int CTextService::SpecialSupports(void *user, hunmin_special_function fn) {
+    (void)user;
+    /* What THIS platform can do, answered honestly per function: a refusal is a
+     * legal, measured answer and the key passes instead of being swallowed.
+     * Voice input has no Windows implementation in this frontend yet (Android
+     * has a recogniser, TSF has none), so VOICE refuses here; the automatic
+     * switch's dispatch is serviceable -- its data gate is the 0.3 feature
+     * (2026-10-12 ruling), not this binding. */
+    switch (fn) {
+    case HUNMIN_SPECIAL_VOICE:
+        return 0;
+    case HUNMIN_SPECIAL_AUTOSWITCH:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+void CTextService::SpecialPerform(hunmin_special_function fn) {
+    /* The engine resolved the gesture and this is the platform half. VOICE never
+     * arrives (supports() refuses it). AUTOSWITCH flips the state the engine
+     * owns -- the state itself is 0.3's data-gated feature (issue #2), so what
+     * lands here today is the request, recorded, exactly as Android's service
+     * does (`toggleAutoHangulEnglish`, "not yet implemented"). */
+    lastSpecial_ = (int)fn;
+    hunmin_logger.log(" special perform fn=%s\n", hunmin_special_name(fn));
 }
 
 bool CTextService::IsCandidateToggle(WPARAM wParam) {
@@ -444,18 +513,9 @@ STDMETHODIMP CTextService::OnTestKeyUp(ITfContext *pic, WPARAM wParam, LPARAM lP
 }
 
 STDMETHODIMP CTextService::OnKeyUp(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) {
+    (void)pic;
+    (void)wParam;
     (void)lParam;
-    if (toggleArmed_ && wParam == armedVk_) {
-        /* The armed Han/Eng press was released without a chord: THAT is the
-         * single press, and the toggle lands here instead of on the key-down.
-         * The key-up is eaten too -- the client never saw the down, so letting
-         * the up through would hand it half a key. */
-        toggleArmed_ = false;
-        armedVk_ = 0;
-        ApplyModeToggle(pic, wParam, 0, pfEat);
-        hunmin_logger.log(" langkey up vk=%lu -> single press, toggled on release\n", (unsigned long)wParam);
-        return S_OK;
-    }
     if (pfEat)
         *pfEat = FALSE;
     return S_OK;

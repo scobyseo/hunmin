@@ -249,7 +249,23 @@ typedef enum hunmin_key_action {
     /* The Han/Eng action: a boundary, then the other language takes over. */
     HUNMIN_KEY_LANGUAGE_TOGGLE = 2,
     /* A key of an open candidate list: the frontend routes it to the list. */
-    HUNMIN_KEY_CANDIDATE = 3
+    HUNMIN_KEY_CANDIDATE = 3,
+    /* The Han/Eng key pressed WITH a chord modifier held: the compound press,
+     * which carries the frontend's special functions instead of toggling the
+     * language (docs/SPEC-MODES.md §E5, ruled 2026-10-31). Appended after
+     * CANDIDATE rather than inserted, because the values are ABI.
+     *
+     * SHIFT is admitted HERE and only here: with an ordinary character it
+     * selects a layout row (`HUNMIN_MOD_SHIFT` is not part of the chord set),
+     * while Shift + the language key is a special combination by ruling
+     * (2026-10-31: "if it is used with normal characters, work as capitalize.
+     * but with special combination such as shift + han/eng, it should be able
+     * to do special work"). A binding on SHIFT alone therefore only ever fires
+     * from the language key; no character event can reach it.
+     *
+     * An unbound chord stays the plain toggle, so a platform with nothing bound
+     * never ends up with a dead Shift+한/영. */
+    HUNMIN_KEY_LANGUAGE_CHORD = 4
 } hunmin_key_action;
 
 /* The modifier vocabulary a frontend maps its own state onto. SHIFT is
@@ -293,6 +309,77 @@ typedef struct hunmin_key_event {
 /* The precedence, in one place: language key, then the open candidate list's
  * keys, then a chord, then an unmapped key, then feed. */
 HUNMIN_EXPORT hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit *l, const hunmin_key_event *ev);
+
+/* ------------------------------------------------------- special functions */
+/* The compound press (a chord modifier held with the Han/Eng key) carries a
+ * named function instead of switching languages. The maintainer's words, which
+ * this shape implements (2026-10-31): "each frontend can have default key code
+ * and custom ones and provide it to engine. then engine processes them and
+ * invoke frontend side interface which implements the feature or processes by
+ * itself. if the feature is not supported at the platform, it can just refuse
+ * to service."
+ *
+ * So the split is: the FRONTEND owns the platform key codes and the feature
+ * implementations; the ENGINE owns the binding (function -> chord bits), the
+ * resolution of one key event to one function, and the refusal. The engine
+ * never sees a key code: it sees hunmin_key_event, already translated. */
+
+typedef enum hunmin_special_function {
+    /* Not a function: the event was not a bound compound press. */
+    HUNMIN_SPECIAL_NONE = 0,
+    /* Start voice input. Engine-blind: whoever can record implements it. */
+    HUNMIN_SPECIAL_VOICE = 1,
+    /* Flip the automatic Hangul/English switch (R13-정정's state). */
+    HUNMIN_SPECIAL_AUTOSWITCH = 2,
+    /* Bound for the table; append new functions ABOVE this line and bump it,
+     * because the values are ABI and the table is sized by it. */
+    HUNMIN_SPECIAL_LIMIT = 3
+} hunmin_special_function;
+
+/* What a frontend must provide for the engine to service a function: whether it
+ * can (0 = refuse, and that is a legal answer -- a platform without a recorder
+ * refuses VOICE rather than pretending) and how to do it. Either may be NULL;
+ * a NULL supports means "yes", a NULL perform means "resolved, nothing done". */
+typedef struct hunmin_special_host {
+    void *user;
+    int (*supports)(void *user, hunmin_special_function fn);
+    void (*perform)(void *user, hunmin_special_function fn);
+} hunmin_special_host;
+
+/* Bind fn to a chord (HUNMIN_MOD_CTRL/ALT/GUI, or SHIFT for the Shift+한/영
+ * combination -- Shift is a layout row for characters but a special combination
+ * with the language key, by the 2026-10-31 ruling). mods == 0 unbinds. The engine
+ * ships the ruled defaults (Table A: VOICE = Alt, AUTOSWITCH = Ctrl) so the three
+ * frontends cannot disagree about a table nobody seeded; a frontend calls this
+ * only to apply its own store, which is what keeps the value in ONE place on both
+ * sides -- the platform keeps its key codes, the engine keeps the assignment. */
+HUNMIN_EXPORT bool hunmin_buffered_preedit_special_bind(hunmin_buffered_preedit *l, hunmin_special_function fn, unsigned mods);
+/* The chord currently bound to fn, or 0. This is what a settings dialog shows,
+ * and on a fresh layer it is the engine's default. */
+HUNMIN_EXPORT unsigned hunmin_buffered_preedit_special_chord(const hunmin_buffered_preedit *l, hunmin_special_function fn);
+/* Register the implementation. NULL withdraws it (and then nothing is serviced). */
+HUNMIN_EXPORT void hunmin_buffered_preedit_special_host(hunmin_buffered_preedit *l, const hunmin_special_host *host);
+
+/* Resolve one key event and service it. Returns the function performed (> 0),
+ * 0 when the event is not a bound compound press, or -1 when it IS one and
+ * nothing could service it -- no host, or the host refused. The frontend passes
+ * the key through on -1, which is how an unsupported platform degrades instead
+ * of swallowing the press. Pure resolution first: the classifier stays pure, and
+ * this is the one call that can invoke the host. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key_event *ev);
+
+/* Predicts hunmin_buffered_preedit_special() WITHOUT calling the host: the same
+ * three answers (function > 0, 0 not a chord, -1 bound but nothing would service
+ * it), and no state changes. A frontend that must answer a platform "test" phase
+ * before the real key event uses this, because test and down are one decision:
+ * claiming a key in the test and passing it in the down loses it, which is a
+ * measured defect class here (`dkssud1`, the interim default-sink host). Same
+ * role as hunmin_ic_peek_key() and hunmin_buffered_preedit_peek_key(). */
+HUNMIN_EXPORT int hunmin_buffered_preedit_special_peek(const hunmin_buffered_preedit *l, const hunmin_key_event *ev);
+
+/* Stable identifier for a function ("voice", "autoswitch", "" for NONE). The
+ * dialogs and the logs use this instead of spelling a name per frontend. */
+HUNMIN_EXPORT const char *hunmin_special_name(hunmin_special_function fn);
 
 /* The finished syllables alone, REMOVED from the layer (the in-flight syllable
  * stays composing). The interim delivery keeps the finished word as document

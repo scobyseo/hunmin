@@ -100,15 +100,9 @@ struct CandidateTest : public ::testing::Test {
         svc->OnTestKeyDown(ctx, vk, 0, pfEat ? pfEat : &ignore);
     }
     void Key(WPARAM vk, BOOL *pfEat = nullptr) {
-        BOOL testEat = FALSE, eat = FALSE, upEat = FALSE;
+        BOOL testEat = FALSE, eat = FALSE;
         svc->OnTestKeyDown(ctx, vk, 0, &testEat);
         svc->OnKeyDown(ctx, vk, 0, &eat);
-        /* The release too: a real host sends key-up for every key, and the
-         * bare Han/Eng toggle now LANDS on it (the Han/Eng key as a held
-         * prefix, docs/OPTIONS-MEASURED.md). A fixture that stopped at the
-         * down would leave the toggle armed and every toggle assertion
-         * reading as "the mode never changed". */
-        svc->OnKeyUp(ctx, vk, 0, &upEat);
         if (pfEat)
             *pfEat = eat;
         (void)testEat;

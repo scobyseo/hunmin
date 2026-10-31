@@ -739,16 +739,41 @@ even when the implementation is finished.
 manual interventions** (②b) is also a scoring target, so the two numbers needed
 now are two. Both are undecided.
 
-## E5. Assignment of the Hangul/English key [E]
+## E5. Assignment of the Hangul/English key [D]
 > 지금은 한영키를 단순히 한/영 전환을 위해서만 쓰는데, 단일 입력이면 전환,
 > 복합 입력이면 특수 키로 만들어도 괜찮지 않을까? 이 기능을 끄고 켜는 데
 > 쓸 수 있을 것 같은데.
 
-R13 settled that on/off is a key combination. **What a single input and a
-compound input each do is undecided.** Candidates: single = manual Hangul/English
-switch, compound = automatic-switch on/off. The fact that F9 is already occupied
-by the preprocessing expression, and that Android has no AOSP keycode, is what
-constrains this assignment.
+**DECIDED 2026-10-31.** The maintainer, verbatim (issue #159):
+
+> okay then let's decide to use modifier + han/eng for special functions such as voice
+> input or auto-mode switch config ; for all three frontends
+
+> it is default behavior and we should be able to select a new key composition through
+> config dialog.
+
+So: a single press is the manual Hangul/English switch; a modifier held with 한/영 is the
+**special-function namespace** (voice input, auto-mode switch, …), it is the **default**,
+and the composition is **selectable in the config dialog** — i.e. remappable, through the
+surface each frontend already has. The ruling is recorded in
+`wiki/decisions/2026-10-31-han-eng-modifier-compound-special-functions.md`; the priced
+options and the per-platform collision map are `docs/OPTIONS-MEASURED.md` §E5.
+
+**What the ruling left as parameters, not as requirement gaps** (each is still open and
+each is the maintainer's): ~~which modifier carries which function~~ **decided the same day** —
+`VOICE = Alt + 한/영`, `AUTOSWITCH = Ctrl + 한/영`, shipped as the engine's defaults, with
+SHIFT available as a special-combination slot ("if it is used with normal characters, work as
+capitalize. but with special combination such as shift + han/eng, it should be able to do
+special work") and a refusal passing the key through
+(`wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md`).
+Still open: whether the addon may shadow fcitx5's default `Hangul` trigger, and where a
+changed composition is stored when no store crosses platforms.
+
+The sentence the earlier revision of this item rested on — that F9 is occupied by the
+preprocessing expression and that Android has no AOSP keycode — was measured 2026-10-31
+and **neither half holds as stated**: F9 is no layout key and the 전처리수식 keys are
+`flags` overrides, and `KeyEvent.KEYCODE_F9` is 139. What constrains the assignment is the
+per-platform collision map (`docs/OPTIONS-MEASURED.md` §E5-2).
 
 **R13-정정 added one more requirement to this item.** The assignment is now shown
 verbatim as instructions in the UI (surface B), so **there is not a single
@@ -758,28 +783,33 @@ actually works diverge, that is not allowed:
 - The assignment must be **a value the engine holds**, and the UI reads it. If
   each frontend knew the assignment on its own, the three frontends would each
   advertise a different key (R13-정정).
-- Whether the assignment can be **changed** is undecided. If it can be changed, a
-  key remap path is needed, and that is a feature hunmin does not have now.
+- ~~Whether the assignment can be **changed** is undecided.~~ **DECIDED 2026-10-31:**
+  it can — the composition is selectable in the config dialog (see the ruling above).
+  What that costs is a key-remap path, which hunmin did not have; the engine-owned value
+  it requires is the same one the bullet above requires.
 - **The ON/OFF default is DECIDED 2026-10-11** — OFF by default until release
   0.3, with the feature's additional data shipped separately and the feature
   enable-able only where that data is present (maintainer's ruling, quoted in
   `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`; see R13 above).
-  What remains undecided in E5 is the **assignment**, not the default.
 - **The 0.1 shipping state is DECIDED 2026-10-12** — the feature is **disabled
   by default in 0.1, by disabling the default key composition** (maintainer's
   ruling, issue #2, quoted in
   `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`): the
   Android `AUTO_TOGGLE` default chord (Right Alt + Enter) is removed, the
-  dispatch skips the action, and the settings row shows 미정 (0.3). This rules
-  the *shipping state*, not the assignment: **the assignment (single vs
-  compound) remains undecided** and stays a 0.3-lane question (`docs/MILESTONES.md`).
+  dispatch skips the action, and the settings row shows 미정 (0.3). This ruled
+  the *shipping state*, not the assignment. ~~**the assignment (single vs
+  compound) remains undecided**~~ — **DECIDED 2026-10-31** (see the ruling at the
+  head of this item): single = manual switch, compound = special-function
+  namespace, on all three frontends, remappable through the config dialog.
 
-**What is a measurement:** the assignment itself is not a measurement target but
-a design decision. After confirming the Android/F9 constraint (documented), raise
-the status to `[D]`. ~~The default is decided from the result of a usability
-evaluation.~~ The default was ruled on 2026-10-11 (OFF until 0.3, data-gated; see
-E5's default bullet above and the wiki decision page) — no usability evaluation
-was needed for it, and none is owed for it.
+**What is a measurement:** the assignment itself was a design decision, not a
+measurement target, and it is now ruled; the constraint that was supposed to
+precede it (Android/F9) did not hold and was corrected instead of confirmed
+(measurement: `docs/OPTIONS-MEASURED.md` §E5-0). ~~The default is decided from
+the result of a usability evaluation.~~ The auto-switch *on/off* default was
+ruled on 2026-10-11 (OFF until 0.3, data-gated; see E5's default bullet above and
+the wiki decision page) — no usability evaluation was needed for it, and none is
+owed for it. What remains is implementation, and the parameters named above.
 
 ## E6. Display method — the flicker (도깨비) [E]
 A risk the user pointed at directly.

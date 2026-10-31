@@ -407,3 +407,156 @@ JNIEXPORT jstring JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeSuggestKi
     hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
     return str_or_empty(env, c ? hunmin_suggest_kind(c, i) : NULL);
 }
+
+/* --- special functions -----------------------------------------------------
+ *
+ * The ruling of 2026-10-31: modifier + 한/영 is the namespace for special
+ * functions, the ENGINE owns which chord means which function, and the frontend
+ * implements the function and may refuse it. That split needs exactly one thing
+ * here: the engine calls back into Kotlin for supports/perform, the same host
+ * shape the TSF frontend installs with plain function pointers. Nothing in this
+ * file decides WHICH function a chord means -- that is hunmin.h's table and
+ * hunmin_buffered_preedit_special()'s loop, shared with the other two frontends.
+ *
+ * One host per process, not per layer: the IME service is a singleton, and a
+ * per-layer host would leave a freed layer pointing at whatever object was
+ * registered first (the Kotlin handle would outlive it).
+ */
+static JavaVM *g_vm = NULL;
+static jobject g_special_host = NULL;
+static jmethodID g_special_supports = NULL;
+static jmethodID g_special_perform = NULL;
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
+    (void)reserved;
+    g_vm = vm;
+    return JNI_VERSION_1_6;
+}
+
+static JNIEnv *special_env(void) {
+    JNIEnv *env = NULL;
+    if (!g_vm) return NULL;
+    if ((*g_vm)->GetEnv(g_vm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) return NULL;
+    return env;
+}
+
+static int special_supports_cb(void *user, hunmin_special_function fn) {
+    (void)user;
+    JNIEnv *env = special_env();
+    if (!env || !g_special_host || !g_special_supports) return 0;
+    jboolean r = (*env)->CallBooleanMethod(env, g_special_host, g_special_supports, (jint)fn);
+    /* A Kotlin exception in a host callback must not unwind through the engine:
+     * the engine is C and has no notion of a pending exception. Treated as a
+     * refusal, which is the safe direction -- the key then passes through
+     * instead of being swallowed by a half-run function. */
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionDescribe(env);
+        (*env)->ExceptionClear(env);
+        return 0;
+    }
+    return r ? 1 : 0;
+}
+
+static void special_perform_cb(void *user, hunmin_special_function fn) {
+    (void)user;
+    JNIEnv *env = special_env();
+    if (!env || !g_special_host || !g_special_perform) return;
+    (*env)->CallVoidMethod(env, g_special_host, g_special_perform, (jint)fn);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionDescribe(env);
+        (*env)->ExceptionClear(env);
+    }
+}
+
+/* nativeLayerSpecialHost(layer, host) — host is a HunminSpecialHost, or null to
+ * unregister. The object is held by a global reference until the next call: the
+ * Kotlin side keeps the instance alive for the service's lifetime, and this
+ * reference is what makes that a rule rather than a hope. */
+JNIEXPORT void JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerSpecialHost(JNIEnv *env, jclass k, jlong layer, jobject host) {
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+
+    if (g_special_host) {
+        (*env)->DeleteGlobalRef(env, g_special_host);
+        g_special_host = NULL;
+    }
+    g_special_supports = NULL;
+    g_special_perform = NULL;
+    if (!l) return;
+
+    if (!host) {
+        hunmin_buffered_preedit_special_host(l, NULL);
+        return;
+    }
+
+    jclass cls = (*env)->GetObjectClass(env, host);
+    jmethodID supports = (*env)->GetMethodID(env, cls, "specialSupports", "(I)Z");
+    jmethodID perform = (*env)->GetMethodID(env, cls, "specialPerform", "(I)V");
+    (*env)->DeleteLocalRef(env, cls);
+    if (!supports || !perform) {
+        /* Registering a host whose callbacks cannot be found would answer
+         * "refused" for every chord and look like a platform limitation. Refuse
+         * to register instead, so the frontend's bug is a null host. */
+        if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+        hunmin_buffered_preedit_special_host(l, NULL);
+        return;
+    }
+    g_special_host = (*env)->NewGlobalRef(env, host);
+    g_special_supports = supports;
+    g_special_perform = perform;
+
+    hunmin_special_host h;
+    memset(&h, 0, sizeof h);
+    h.supports = special_supports_cb;
+    h.perform = special_perform_cb;
+    hunmin_buffered_preedit_special_host(l, &h);
+}
+
+static void special_event(hunmin_key_event *ev, jint base, jint shift, jint mods) {
+    memset(ev, 0, sizeof *ev);
+    ev->base = (uint32_t)base;
+    ev->shift = (uint32_t)shift;
+    ev->mods = (uint32_t)mods;
+    ev->id = HUNMIN_KEY_TEXT;
+    /* The whole point of the entry point: the caller matched its 한/영 binding
+     * for this key. The engine checks the chord and the table from here. */
+    ev->language_key = 1;
+}
+
+/* >0 the function performed, -1 bound but this frontend refuses, 0 not a chord. */
+JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerSpecial(JNIEnv *env, jclass k, jlong layer, jint base, jint shift, jint mods) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    if (!l) return 0;
+    hunmin_key_event ev;
+    special_event(&ev, base, shift, mods);
+    return (jint)hunmin_buffered_preedit_special(l, &ev);
+}
+
+/* The same three answers WITHOUT calling the host -- a platform "test" phase. */
+JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerSpecialPeek(JNIEnv *env, jclass k, jlong layer, jint base, jint shift, jint mods) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    if (!l) return 0;
+    hunmin_key_event ev;
+    special_event(&ev, base, shift, mods);
+    return (jint)hunmin_buffered_preedit_special_peek(l, &ev);
+}
+
+JNIEXPORT jboolean JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerSpecialBind(JNIEnv *env, jclass k, jlong layer, jint fn, jint mods) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    if (!l) return JNI_FALSE;
+    return hunmin_buffered_preedit_special_bind(l, (hunmin_special_function)fn, (unsigned)mods) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerSpecialChord(JNIEnv *env, jclass k, jlong layer, jint fn) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    if (!l) return 0;
+    return (jint)hunmin_buffered_preedit_special_chord(l, (hunmin_special_function)fn);
+}

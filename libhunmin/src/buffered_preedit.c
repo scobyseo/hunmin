@@ -43,6 +43,13 @@ struct hunmin_buffered_preedit {
     size_t commitcap;
     char *preedit_out;
     size_t preeditcap;
+    /* The compound press's assignment (docs/SPEC-MODES.md §E5): function ->
+     * chord bits, seeded by the frontend from its default and its store, and
+     * the host that services a resolved function. Zero/absent = not bound,
+     * which is how a platform refuses a function it has no implementation for. */
+    unsigned special_mods[HUNMIN_SPECIAL_LIMIT];
+    hunmin_special_host special_host;
+    bool special_host_set;
 };
 
 /* ---------------------------------------------------------------- buffers */
@@ -123,6 +130,16 @@ static void attach_ic(hunmin_buffered_preedit *l, const char *layout_id) {
     if (layout_id) l->ic = hunmin_ic_new(l->ctx, layout_id);
 }
 
+/* The ruled defaults (2026-10-31, Table A): the two functions that exist get a
+ * chord the engine owns, so a frontend that seeds nothing still agrees with the
+ * other two. A frontend overrides one with hunmin_buffered_preedit_special_bind()
+ * from its store; the dialog reads whichever is live. */
+static const unsigned kSpecialDefaultMods[HUNMIN_SPECIAL_LIMIT] = {
+    /* NONE */ 0u,
+    /* VOICE */ HUNMIN_MOD_ALT,
+    /* AUTOSWITCH */ HUNMIN_MOD_CTRL,
+};
+
 hunmin_buffered_preedit *hunmin_buffered_preedit_new(hunmin_ctx *ctx, const char *hangul_layout_id, const char *latin_layout_id, int commit_policy) {
     if (!ctx || !hangul_layout_id) return NULL;
     if (commit_policy != HUNMIN_COMMIT_AT_BOUNDARY && commit_policy != HUNMIN_COMMIT_PER_SYLLABLE) return NULL;
@@ -133,6 +150,7 @@ hunmin_buffered_preedit *hunmin_buffered_preedit_new(hunmin_ctx *ctx, const char
     l->latin_id = dup_or_null(latin_layout_id);
     l->commit_policy = commit_policy;
     l->hangul_mode = true;
+    memcpy(l->special_mods, kSpecialDefaultMods, sizeof l->special_mods);
     if (!l->hangul_id) {
         hunmin_buffered_preedit_free(l);
         return NULL;
@@ -300,12 +318,43 @@ static bool candidate_list_key(hunmin_key_id id) {
     }
 }
 
+/* The chord an event carries for the language key: the chord bits it maps onto
+ * plus SHIFT when Shift was held. Both classify() and special() read this one
+ * function, so the gesture the rule recognises and the gesture the dispatch
+ * services cannot drift apart. */
+static unsigned special_want(const hunmin_key_event *ev) {
+    unsigned want = ev->mods & HUNMIN_MOD_CHORD;
+    if (ev->shift) want |= HUNMIN_MOD_SHIFT;
+    return want;
+}
+
+/* Is any function bound to this chord? Used by classify() so an unbound chord
+ * degrades to the plain toggle instead of becoming a dead key. */
+static bool special_bound(const hunmin_buffered_preedit *l, unsigned want) {
+    for (int fn = HUNMIN_SPECIAL_NONE + 1; fn < HUNMIN_SPECIAL_LIMIT; ++fn)
+        if (l->special_mods[fn] == want) return true;
+    return false;
+}
+
 hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit *l, const hunmin_key_event *ev) {
     if (!l || !l->ic || !ev) return HUNMIN_KEY_BOUNDARY_PASS;
     /* The language action first: the Han/Eng key is the one key that is never
      * composition input, whatever else is held (a repeat guard is a platform
      * fact and stays in the adapter). */
-    if (ev->language_key) return HUNMIN_KEY_LANGUAGE_TOGGLE;
+    if (ev->language_key) {
+        /* The compound press is whichever chord has a function bound to it
+         * (ruled 2026-10-31, docs/SPEC-MODES.md §E5). SHIFT is admitted HERE and
+         * only here: for characters it is a layout row (ev->shift selects a row),
+         * while Shift + the language key is a special combination by ruling --
+         * "if it is used with normal characters, work as capitalize. but with
+         * special combination such as shift + han/eng, it should be able to do
+         * special work."
+         *
+         * An unbound chord answers TOGGLE rather than CHORD: a platform with
+         * nothing bound must not turn Shift+한/영 into a dead key. */
+        if (special_want(ev) && special_bound(l, special_want(ev))) return HUNMIN_KEY_LANGUAGE_CHORD;
+        return HUNMIN_KEY_LANGUAGE_TOGGLE;
+    }
     /* Then the frontend's open list: while it is open, these keys are the
      * list's. A different key closes nothing here -- the frontend closes the
      * window and re-classifies, which is its presentation decision. */
@@ -320,6 +369,75 @@ hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit
      * the key passes, which is how space and punctuation reach the client. */
     if (ev->base == 0) return HUNMIN_KEY_BOUNDARY_PASS;
     return HUNMIN_KEY_FEED;
+}
+
+/* ------------------------------------------------------ special functions */
+/* The binding lives here, not in the frontends (R13-정정: one value, three
+ * readers), but it is empty until a frontend seeds it -- the platform owns its
+ * key codes, the engine owns the assignment and the resolution. */
+
+bool hunmin_buffered_preedit_special_bind(hunmin_buffered_preedit *l, hunmin_special_function fn, unsigned mods) {
+    if (!l) return false;
+    if (fn <= HUNMIN_SPECIAL_NONE || fn >= HUNMIN_SPECIAL_LIMIT) return false;
+    /* Chord bits, plus SHIFT: Shift is a layout row for CHARACTERS, but with the
+     * language key it is a special combination by ruling (2026-10-31). The
+     * distinction lives in special_want(): the shift bit reaches a binding only
+     * from the language key, never from an ordinary key's row. */
+    mods &= (HUNMIN_MOD_CHORD | HUNMIN_MOD_SHIFT);
+    l->special_mods[fn] = mods;
+    return true;
+}
+
+unsigned hunmin_buffered_preedit_special_chord(const hunmin_buffered_preedit *l, hunmin_special_function fn) {
+    if (!l || fn <= HUNMIN_SPECIAL_NONE || fn >= HUNMIN_SPECIAL_LIMIT) return 0;
+    return l->special_mods[fn];
+}
+
+void hunmin_buffered_preedit_special_host(hunmin_buffered_preedit *l, const hunmin_special_host *host) {
+    if (!l) return;
+    if (host) {
+        l->special_host = *host;
+        l->special_host_set = true;
+        return;
+    }
+    memset(&l->special_host, 0, sizeof l->special_host);
+    l->special_host_set = false;
+}
+
+int hunmin_buffered_preedit_special_peek(const hunmin_buffered_preedit *l, const hunmin_key_event *ev) {
+    if (!l || !ev || !ev->language_key) return 0;
+    const unsigned want = special_want(ev);
+    if (!want) return 0; /* the single press: the classifier answers TOGGLE */
+    /* Lowest number wins when two functions are bound to one chord; the dialog
+     * shows the binding, and the refusal below is what an unserviceable one
+     * looks like. */
+    for (int fn = HUNMIN_SPECIAL_NONE + 1; fn < HUNMIN_SPECIAL_LIMIT; ++fn) {
+        if (l->special_mods[fn] != want) continue;
+        if (!l->special_host_set) return -1;
+        if (l->special_host.supports && !l->special_host.supports(l->special_host.user, (hunmin_special_function)fn)) return -1;
+        return fn;
+    }
+    return 0;
+}
+
+int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key_event *ev) {
+    /* One resolver, two entry points: the peek answers a platform "test" phase
+     * and this performs. A second copy of the loop is how the gesture the test
+     * claims and the gesture the down services would drift apart. */
+    const int fn = hunmin_buffered_preedit_special_peek(l, ev);
+    if (fn <= 0) return fn;
+    if (l->special_host.perform) l->special_host.perform(l->special_host.user, (hunmin_special_function)fn);
+    return fn;
+}
+
+const char *hunmin_special_name(hunmin_special_function fn) {
+    switch (fn) {
+    case HUNMIN_SPECIAL_VOICE: return "voice";
+    case HUNMIN_SPECIAL_AUTOSWITCH: return "autoswitch";
+    case HUNMIN_SPECIAL_NONE:
+    case HUNMIN_SPECIAL_LIMIT:
+    default: return "";
+    }
 }
 
 const char *hunmin_buffered_preedit_take_word(hunmin_buffered_preedit *l) {

@@ -258,12 +258,15 @@ enum class KeyAction(
         prefKey = "voice",
         label = "음성 입력",
         precedence = 1,
-        // Shift + KANA, by the maintainer's instruction 2026-10-11 — the same
-        // physical 한/영 key the other two actions use, with a modifier to
-        // separate it. This replaces the old Alt+V default, which is also what
-        // `docs/REMAINING-WORK.md`'s voice table has to say now (its stage-1 row
-        // reads "Right Alt + V" and was describing the same chord).
-        defaults = listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_SHIFT)),
+        // Alt + the 한/영 key. Two rulings stack here: the 2026-10-31 assignment
+        // (modifier + 한/영 is the special-function namespace, on all three
+        // frontends, and the engine owns the default chord) replaces the
+        // 2026-10-11 Shift + KANA instruction. Shift is not a chord bit in the
+        // engine -- it selects a layout row -- so the default had to move to the
+        // engine's chord vocabulary to be one rule instead of three; the engine's
+        // own default is HUNMIN_MOD_ALT for VOICE (docs/SPEC-MODES.md §E5,
+        // wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md).
+        defaults = listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_ALT_LEFT)),
     ),
     AUTO_TOGGLE(
         prefKey = "auto_toggle",
@@ -283,16 +286,22 @@ enum class KeyAction(
         prefKey = "hanja",
         label = "한자 입력",
         precedence = 3,
-        // Also no default: EISU is the fixed 한자 key (see [platformAlternates]),
-        // so a chord default would only ever shadow it.
-        defaults = emptyList(),
+        // The maintainer's instruction 2026-10-31: "set hanja key default for
+        // hanja input - it is also configurable through setting dialog", and the
+        // key is platform specific. On Android that key is EISU (212), AOSP's
+        // かな/한글 toggle key.
+        //
+        // A DEFAULT, not a [platformAlternates] entry, and the difference is the
+        // "configurable" half: a stored binding replaces [defaults], so the user
+        // can take EISU away, while an alternate keeps firing beside whatever the
+        // row says -- which would make the key impossible to reassign and make
+        // the window's "not set" a lie about a key that does fire.
+        defaults = listOf(KeyCombo(EISU_KEYCODE)),
         platformAlternates = listOf(
-            // EISU — the maintainer's fixed 한자 입력 key, 2026-10-11. AOSP's
-            // かな/한글 toggle keycode; on keyboards that have it, 한자 is that
-            // key. It is an alternate and not a default precisely so that a
-            // keyboard without EISU can bind something else instead: the row is
-            // empty, the fixed key still works, and the user chooses.
-            KeyCombo(EISU_KEYCODE),
+            // These two stay alternates: they are keyboard conventions that hold
+            // whatever the row says, they were not what the ruling named, and a
+            // keyboard without EISU would otherwise have no 한자 key at all
+            // unless the user configured one.
             KeyCombo(KeyEvent.KEYCODE_ALT_RIGHT, KeyBinding.META_SHIFT),
             KeyCombo(KeyEvent.KEYCODE_LANGUAGE_SWITCH, KeyBinding.META_SHIFT),
         ),
@@ -342,6 +351,21 @@ object KeyBindings {
         listOfNotNull(stored(store, action)) + action.defaults.takeIf {
             store.read(action.prefKey) == null
         }.orEmpty()
+
+    /**
+     * Is [keyCode] the 한/영 key, whatever modifiers are held?
+     *
+     * The compound press needs this and cannot use [matches]: "Alt + 한/영" is not
+     * a chord any row lists -- the modifier is the NAMESPACE for special
+     * functions (ruled 2026-10-31), not part of the assignment -- so matching with
+     * the modifiers in the way would miss every compound press it must resolve.
+     * The key set is the same one the toggle uses: the stored binding, the
+     * defaults in force, and the platform alternates.
+     */
+    fun isLanguageKey(store: KeyBindingRepository, keyCode: Int): Boolean {
+        val all = combos(store, KeyAction.HANGUL_ENG) + KeyAction.HANGUL_ENG.platformAlternates
+        return all.any { it.keyCode == keyCode }
+    }
 
     fun set(store: KeyBindingRepository, action: KeyAction, combo: KeyCombo) {
         store.write(action.prefKey, combo.encode())

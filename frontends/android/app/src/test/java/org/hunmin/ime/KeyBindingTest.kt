@@ -145,13 +145,14 @@ class KeyBindingTest {
 
     @Test
     fun `a stored binding replaces the default`() {
-        // 음성 is the action that still has a default (Shift + KANA), so it is
-        // the one where "replaces" is a claim that can be wrong.
+        // 음성 is the action that still has a default (Alt + KANA since the
+        // 2026-10-31 ruling), so it is the one where "replaces" is a claim that
+        // can be wrong.
         val store = MapStore()
-        val shiftKana = KeyEvent.META_SHIFT_ON
-        assertTrue("Shift+KANA is the default 음성 trigger", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, shiftKana))
+        val altKana = KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON
+        assertTrue("Alt+KANA is the default 음성 trigger", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, altKana))
         KeyBindings.set(store, KeyAction.VOICE, KeyCombo(KeyEvent.KEYCODE_F9, 0))
-        assertFalse("after rebinding, the old chord must not fire", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, shiftKana))
+        assertFalse("after rebinding, the old chord must not fire", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, altKana))
         assertTrue(KeyBindings.matches(store, KeyAction.VOICE, KeyEvent.KEYCODE_F9, 0))
     }
 
@@ -169,10 +170,10 @@ class KeyBindingTest {
 
     @Test
     fun `with nothing stored the fixed keys answer and the old chord defaults do not`() {
-        // The maintainer's instruction 2026-10-11: 한/영 전환 and 한자 입력 have no
-        // default, because they are physical keys on a Korean keyboard. Alt+Z and
-        // Alt+X are therefore NOT triggers any more -- that is a behaviour change
-        // and this test is where it is pinned down rather than discovered.
+        // 한/영 has no default (a physical key on a Korean keyboard) and 한자 has
+        // EISU as its platform default since the 2026-10-31 ruling. Alt+Z and
+        // Alt+X are NOT triggers any more -- that is a behaviour change and this
+        // test is where it is pinned down rather than discovered.
         val store = MapStore()
         val altLeft = KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON
         val altRight = KeyEvent.META_ALT_ON or KeyEvent.META_ALT_RIGHT_ON
@@ -186,21 +187,48 @@ class KeyBindingTest {
         assertFalse("Alt+X is no longer a 한자 trigger", KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_X, altLeft))
         assertNull(KeyBindings.stored(store, KeyAction.HANGUL_ENG))
         assertTrue(KeyBindings.combos(store, KeyAction.HANGUL_ENG).isEmpty())
-        assertTrue(KeyBindings.combos(store, KeyAction.HANJA).isEmpty())
+        // EISU is 한자's DEFAULT now, not one of its alternates: the window shows
+        // it (the row is not "not set") and a rebind replaces it.
+        assertEquals(listOf(KeyCombo(EISU_KEYCODE)), KeyBindings.combos(store, KeyAction.HANJA))
         // Unused locals kept readable: the assertions above are clearer with the
         // chords spelled out than with a bare zero.
         assertTrue(altLeft != altRight)
     }
 
     @Test
-    fun `voice defaults to Shift plus KANA`() {
+    fun `the hanja default is EISU and a rebind takes it away`() {
+        // The ruling's "configurable" half. A platform alternate would keep
+        // firing beside the stored chord, so the physical 한자 key could never be
+        // reassigned and the settings window's row would describe nothing.
+        val store = MapStore()
+        assertEquals(listOf(KeyCombo(EISU_KEYCODE)), KeyBindings.combos(store, KeyAction.HANJA))
+        assertTrue(KeyBindings.matches(store, KeyAction.HANJA, EISU_KEYCODE, 0))
+
+        KeyBindings.set(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_F9))
+        assertEquals(listOf(KeyCombo(KeyEvent.KEYCODE_F9)), KeyBindings.combos(store, KeyAction.HANJA))
+        assertTrue(KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_F9, 0))
+        assertFalse("EISU was replaced, not shadowed", KeyBindings.matches(store, KeyAction.HANJA, EISU_KEYCODE, 0))
+        // The keyboard conventions are still there: they are alternates, not
+        // defaults, and a rebind never removes them.
+        assertTrue(
+            "Shift+Right Alt still opens 한자",
+            KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_ALT_RIGHT, KeyEvent.META_SHIFT_ON),
+        )
+    }
+
+    @Test
+    fun `voice defaults to Alt plus KANA`() {
+        // Ruled 2026-10-31: VOICE = Alt (the engine's HUNMIN_MOD_ALT default),
+        // replacing the 2026-10-11 Shift+KANA instruction. Shift stays available
+        // as a special-combination modifier but is no longer this action's default.
         val store = MapStore()
         assertEquals(
-            listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_SHIFT)),
+            listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_ALT_LEFT)),
             KeyBindings.combos(store, KeyAction.VOICE),
         )
-        assertTrue(KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, KeyEvent.META_SHIFT_ON))
+        assertTrue(KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON))
         assertFalse("bare KANA is 한/영, not 음성", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, 0))
+        assertFalse("Shift+KANA is no longer the 음성 default", KeyBindings.matches(store, KeyAction.VOICE, KANA_KEYCODE, KeyEvent.META_SHIFT_ON))
     }
 
     @Test

@@ -88,14 +88,6 @@ unsigned int hunmin_tsf_keymods_from_state(void) {
     return m;
 }
 
-int hunmin_tsf_vk_held(unsigned int vk) {
-    /* The 0x8000 down bit, exactly as the modifier snapshot reads it, through
-     * the same provider so the mock harness's injected state answers here too.
-     * A toggle key (CapsLock) reports its state in the LOW bit and must not be
-     * asked this question; nothing on the key path does. */
-    return (g_hunmin_tsf_keystate((int)vk) & 0x8000u) != 0u;
-}
-
 int hunmin_tsf_capslock_from_state(void) {
     /* Toggle key: the LOW bit carries the toggled state, never 0x8000. */
     return (g_hunmin_tsf_keystate(VK_CAPITAL) & 0x0001u) != 0u;

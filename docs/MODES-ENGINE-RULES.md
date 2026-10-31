@@ -85,11 +85,35 @@ mutual exclusivity of the options truly holds at the moment we decide to move th
 `hunmin_ic_set_option()` has a precedent of accepting a preedit-string override
 (`ic.c:610`). A new option is added here.
 
-## Allocation (SPEC-MODES E5 — UNDECIDED)
+## Allocation (SPEC-MODES E5 — DECIDED 2026-10-31)
 
-Settled by the user: via a key combination, no UI, identical in all environments.
-UNDECIDED: what single input and compound input each do. The F9 constraint applies
-(preedit-string occupied, no AOSP keycode on Android — AGENTS.md).
+The maintainer ruled (verbatim, issue #159; recorded in
+`wiki/decisions/2026-10-31-han-eng-modifier-compound-special-functions.md`): a single
+press is the manual switch, and **modifier + 한/영 is the special-function namespace** —
+voice input, auto-mode switch — as the **default**, **selectable in the config dialog**,
+**on all three frontends**.
+
+Three consequences for this document:
+
+- **The value is an engine option, not a layout row.** The earlier question here ("the
+  key combination placement can go in as a layout row, and that fits the convention
+  better") is now answered by the requirement plus a measurement: the key must behave
+  identically in every layout, and no layout can name it — 15 layouts, 47 keys each,
+  **0 non-printable keys** (`tools/keymap-fixture.py`). So the hook stays top-level and
+  the assignment is a value the engine holds (R13-정정), which the frontends read and the
+  dialog writes.
+- **It has to be readable as instructions, not computable per frontend.** The dialog
+  shows the composition, so the engine owes a way to *describe* it (the R13-정정
+  "explainable" bullet), beside the value itself.
+- **The per-platform physical key stays the frontend's.** The engine holds the *semantic*
+  assignment (which modifier carries which function); each frontend maps it to its own
+  keycode (KANA 218 / `LANGUAGE_SWITCH` / bare `ALT_RIGHT`; `VK_HANGEUL`; fcitx5's
+  `FcitxKey_Hangul`, which needs the trigger-ownership answer first — collision map:
+  `docs/OPTIONS-MEASURED.md` §E5-2).
+
+Still open, and named in the ruling record: which modifier carries which function,
+whether the addon may shadow fcitx5's default `Hangul` trigger, and where a changed
+composition is stored when no store crosses platforms.
 
 ## Where to place it
 
@@ -98,11 +122,85 @@ UNDECIDED: what single input and compound input each do. The F9 constraint appli
 - This hook must be processed before inference — pressing the hangul/latin key while inference
   is on is the signal "do not do this automatically".
 
+## The special-function dispatch (implemented 2026-10-31)
+
+Ruled the same day, in the maintainer's words: *"each frontend can have default key code and
+custom ones and provide it to engine. then engine processes them and invoke frontend side
+interface which implements the feature or processes by itself. if the feature is not
+supported at the platform, it can just refuse to service."* Recorded in
+`wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md`.
+
+The split it fixes, which is what removes the three coexisting mechanisms:
+
+| who | owns |
+|---|---|
+| frontend | the platform key codes (default + custom), mapping them to `hunmin_key_event` with `language_key` and `mods`, and the **implementation** of a function it alone can perform |
+| engine | the binding `function → chord bits`, the resolution of one event to one function, the refusal, and the functions it can perform itself |
+
+The seam is five append-only symbols (`hunmin.h`): `hunmin_buffered_preedit_special_bind()`
+(the frontend seeds the table from its default, then its store), `..._special_chord()` (the
+dialog reads what is bound), `..._special_host()` (registers `{user, supports, perform}`),
+`..._special()` (resolve and service; returns the function, `0` for not-ours, `-1` for
+refused) and `hunmin_special_name()` (one spelling for dialogs and logs). The classifier
+stays pure: `classify()` answers `HUNMIN_KEY_LANGUAGE_CHORD` for the gesture and never runs
+foreign code — `..._special()` is the one call that can, and the frontend makes it.
+
+Two consequences worth keeping in view: the engine **ships the ruled defaults** (`VOICE = Alt`,
+`AUTOSWITCH = Ctrl`, 2026-10-31) so a frontend that seeds nothing still agrees with the other
+two, and a frontend that has its own store replaces one entry; and a refusal is `-1`, which the
+frontend answers by passing the key through — a refusal that swallowed the press would be a
+dead key.
+
+**SHIFT is a special combination with the language key, and nothing else.** The ruling is the
+maintainer's, verbatim: *"make shift to be available for special key combination. if it is used
+with normal characters, work as capitalize. but with special combination such as shift + han/eng,
+it should be able to do special work."* The engine does not widen `HUNMIN_MOD_CHORD` for this:
+the event already carries Shift in its own field, and the language-key branch adds it —
+`special_want()` = chord bits | SHIFT, called by both `classify()` and `..._special()` so the
+gesture recognised and the gesture serviced cannot drift. An ordinary character therefore never
+reaches a SHIFT binding (capitalize keeps working), and a chord with no binding — Shift
+included — still answers the plain toggle.
+
+### Windows (TSF) — the second frontend on the dispatch (2026-10-31)
+
+`frontends/tsf` wires the same five symbols. What the adapter owns and what it asks:
+
+- **The physical key with ANY modifiers is the entry point** (`IsLanguageKeyVk`), while
+  the plain toggle keeps its old exact-modifier match. The distinction is measured, not
+  stylistic: the exact match is what keeps a configured `Shift+Space` binding from firing
+  bare, and it is also why a `Ctrl+한/영` press never reached the layer at all until the
+  bare-only lookup was added — and why that lookup matches **bare entries only** (a
+  configured alias whose key is Space turned every ordinary space into the language key
+  once).
+- **A host is registered per layer** (`RebuildLayer`), beside the layer's construction.
+  `supports()` answers per function: `AUTOSWITCH` is serviceable and the perform records
+  the request (the state itself is 0.3's data-gated feature, issue #2 — the same shape
+  Android's `toggleAutoHangulEnglish` has), `VOICE` **refuses** because this frontend has
+  no recogniser, which is exactly the ruling's "if the feature is not supported at the
+  platform, it can just refuse to service". A refusal passes the key: nothing is
+  swallowed.
+- **The test phase asks the engine, not a guess.** `hunmin_buffered_preedit_special_peek()`
+  was added for this: TSF answers `OnTestKeyDown` before `OnKeyDown`, and a host told
+  "mine" in the test that then does not receive the down drops the key (the measured
+  `dkssud1` defect class). The peek runs the same resolver without calling the host, so
+  test and down are one decision — the same role `hunmin_ic_peek_key()` has.
+- **`HUNMIN_MOD_GUI` never reaches the engine from TSF**: `hunmin_tsf_keymods_from_state()`
+  derives SHIFT/CTRL/ALT only, so a GUI chord bound in the table simply does not fire on
+  Windows. Recorded, not fixed — the modifier vocabulary is the frontend's, by the ruling.
+
+Pinned by `TsfConfigTest.TheHanEngKeyCarriesTheSpecialFunctionOnAChord` (performed /
+refused / unbound-is-the-toggle, all three) and, on the engine side,
+`KeyRuleTest.ThePeekAnswersWhatTheCallWouldDoAndPerformsNothing`.
+
 ## Can it be expressed as data
 
-AGENTS.md: "Layouts are data, never code." The key combination placement can go in
-as a layout row, and going that way fits the convention better. Which way to go is tied to the
-E5 decision.
+AGENTS.md: "Layouts are data, never code." The earlier reading here was that the key
+combination placement could go in as a layout row. **E5's ruling closes that off:** the
+key must behave identically in every layout while the hook is the physical 한/영 key,
+which no layout names (0 non-printable keys across 15 layouts), and the composition has
+to be readable and changeable from the config dialog. So it is an engine-held option
+whose *semantics* are data-shaped (a function→modifier table) and whose *storage* is the
+existing `set_option` path — not a row in any layout file.
 
 ---
 

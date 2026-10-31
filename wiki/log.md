@@ -824,3 +824,36 @@ both 0 errors.
 
 Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 `python3 tools/wiki-lint.py` (0 errors).
+
+## [2026-10-31] create | E5's assignment ruled: modifier + 한/영, default and remappable (#159)
+
+- `wiki/decisions/2026-10-31-han-eng-modifier-compound-special-functions.md`: the
+  maintainer's two sentences verbatim (compound = the special-function namespace, on all
+  three frontends; default behaviour, composition selectable in the config dialog), and
+  the sub-decisions that were *not* made, listed rather than absorbed.
+- Consequential updates, not wiki actions: `docs/SPEC-MODES.md` §E5 (assignment decided
+  → `[D]`, remaining parameters named), `docs/MODES-ENGINE-RULES.md` §3 (the hook's
+  allocation), `docs/OPTIONS-MEASURED.md` §E5 header row (§E5-3's option 1/2 family is
+  what was chosen; the modifier-per-function slot stays open), `docs/REMAINING-WORK.md`
+  B4 (the "assignment still open" clause is superseded).
+- No implementation: the tree has no `autoswitch` option and no compound hook on any of
+  the three frontends, and this box has no cmake, no Windows host, no device.
+
+## [2026-10-31] create | The Hanja key is the default; F9 was a test scaffold
+
+- `wiki/decisions/2026-10-31-hanja-key-default-f9-was-a-test-scaffold.md`: the
+  maintainer's sentence verbatim, the three parts of what it rules, and the two things
+  it leaves open (F9 as an accepted alternate, because the conformance corpus drives it;
+  and the store question it shares with the E5 assignment).
+- What already matched, recorded rather than re-implemented: TSF's `hanjaKey` default is
+  the bare Hanja key (`docs/SPEC-TSF.md` §TSF9, issue #67) and Android carries
+  `KEYCODE_EISU` as a `platformAlternates` entry, while Android's *row* reads "not set"
+  because it is an alternate and not a default.
+
+## [2026-10-31] create | The special functions are engine-resolved, frontend-implemented (#159)
+
+- `wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md`:
+  the maintainer's paragraph verbatim (frontend supplies key codes, engine processes and
+  invokes the frontend interface, an unsupported platform refuses), the five-symbol shape
+  that implements it, and the four things it leaves open — the per-function default chord
+  most of all, because choosing it per frontend is the divergence the ruling removes.

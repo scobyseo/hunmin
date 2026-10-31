@@ -441,8 +441,13 @@ have an encoding on each platform, checked against **the platform's own header**
 (`/usr/include/xkbcommon/xkbcommon-keysyms.h`, 2,630 defines parsed) rather than against a
 table that would merely restate the code under test. It asserts the printable range really
 is ASCII-keysym, that named values match, and that anything unreachable on Android is
-declared — `F9` has no `KEYCODE_F9`, because on Android the function row is a modifier
-*combination*, which is the same fact that forces F9 into the adapter everywhere.
+declared. Two corrections, measured 2026-10-31: **`F9` is not an unreachable key** —
+`KeyEvent.KEYCODE_F9` is 139, and the fixture had been asserting the opposite against its
+own table, so `ANDROID_UNREACHABLE` is now empty and the declaration is verified against
+`android.jar` (planting F9 there now fails). And the authority may be either header —
+`xkbcommon-keysyms.h` (`XKB_KEY_*`) or `X11/keysymdef.h` (`XK_*`); the parser only accepted
+the first, which left a host without libxkbcommon-dev at "0 defines". That is the same fact
+that forces the F9 *flow* into the adapter everywhere, but it is not a keycode fact.
 CapsLock and modifiers are now covered deliberately rather than incidentally.
 
 Between them the tiers leave no gap: the fixture proves every key has a correct native

@@ -232,18 +232,13 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
 
     // The bare Han/Eng key (VK_HANGEUL with NO modifier — the platform
     // alternate) toggles AND is a composition boundary: the pending
-    // syllable is flushed and the word inserted exactly once. The toggle
-    // LANDS ON THE RELEASE now (the Han/Eng key as a held prefix): the down
-    // arms the press and eats it, the up applies it.
+    // syllable is flushed and the word inserted exactly once. A bare press is
+    // the manual switch (SPEC-MODES §E5, ruled 2026-10-31); a chord modifier
+    // with it is the special functions, pinned in the case below.
     svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "test keydown: the Han/Eng key is interested";
     svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "bare Han/Eng keydown not consumed";
-    EXPECT_TRUE(Snap(svc).langHoldArmed) << "the down arms the press";
-    EXPECT_TRUE(Snap(svc).hangulMode) << "the down is not the toggle";
-    svc->OnKeyUp(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    EXPECT_EQ(eaten, TRUE) << "the release is ours too (the client never saw the down)";
-    EXPECT_FALSE(Snap(svc).langHoldArmed) << "the release resolved the press";
     EXPECT_FALSE(Snap(svc).hangulMode) << "bare Han/Eng toggles to english";
     /* U+3131 wide-literal escape (the ANSI-codepage rule above). */
     EXPECT_TRUE(Snap(svc).finished.empty()) << "mode boundary flushes the held word";
@@ -256,19 +251,14 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
 
     // Shift+Space (32, mods=1) is a configured addition; bare Space is
     // not. In english mode the key passes through either way — the
-    // assertion is the eat flag and the fact the mode unchanged. A
-    // configured NON-modifier key is held-prefixed like the physical one,
-    // so its toggle lands on the release.
+    // assertion is the eat flag and the fact the mode unchanged.
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
     svc->OnKeyDown(mctx, VK_SPACE, 0, &eaten);
     EXPECT_EQ(eaten, FALSE) << "bare space is not a toggle (exact mods rule)";
     EXPECT_FALSE(Snap(svc).hangulMode) << "bare space is not a toggle (exact mods rule)";
     g_mockKeyState[VK_SHIFT & 0xFF] = 0x8000;
     svc->OnKeyDown(mctx, VK_SPACE, 0, &eaten);
-    EXPECT_EQ(eaten, TRUE) << "shift+space is the configured chord";
-    EXPECT_TRUE(Snap(svc).langHoldArmed) << "a configured non-modifier key arms too";
-    EXPECT_FALSE(Snap(svc).hangulMode) << "the chord's toggle is not applied on the down";
-    svc->OnKeyUp(mctx, VK_SPACE, 0, &eaten);
+    EXPECT_EQ(eaten, TRUE) << "shift+space toggles back to hangul";
     EXPECT_TRUE(Snap(svc).hangulMode) << "shift+space toggles back to hangul";
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
 
@@ -314,17 +304,21 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     dm->Release();
     tm->Release();
 }
-
-/* The Han/Eng key as a held prefix (E5 probe, docs/OPTIONS-MEASURED.md
- * "Han/Eng key as a modifier"). THREE outcomes of one physical key, pinned
- * separately because telling them apart is exactly what the E5 assignment
- * has to be able to do:
- *   1. press + release with nothing between -> the single press: toggles
- *   2. an auto-repeat keydown of the press  -> still one press
- *   3. a DIFFERENT key while it is held     -> the compound press
- * The compound press performs nothing: its action is undecided (issue #159),
- * so the second key simply takes its ordinary path. */
-TEST_F(TsfConfigTest, HanEngHoldIsAPrefixNotAToggle) {
+/* The Han/Eng key's two positions (SPEC-MODES §E5, ruled 2026-10-31): the bare
+ * press is the manual switch, and a chord modifier held with it is the
+ * special-function namespace -- engine-resolved, frontend-performed. Three
+ * outcomes, each pinned here because they are what the assignment has to keep
+ * apart:
+ *   1. a chord with a function bound AND a host that services it -> performed,
+ *      and the mode does NOT switch;
+ *   2. a chord bound to a function this platform refuses (VOICE has no Windows
+ *      implementation) -> the key PASSES, in both the test and the down phase;
+ *   3. a chord with nothing bound -> the engine degrades it to the plain
+ *      toggle, so no key is ever dead.
+ * The binding itself is the engine's value: this case reads it back through
+ * hunmin_buffered_preedit_special_chord(), which is what the settings dialog
+ * shows (R13-정정: the dialog advertises what is honoured). */
+TEST_F(TsfConfigTest, TheHanEngKeyCarriesTheSpecialFunctionOnAChord) {
     _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "dubeolsik");
     _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
     _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
@@ -339,52 +333,45 @@ TEST_F(TsfConfigTest, HanEngHoldIsAPrefixNotAToggle) {
     ASSERT_TRUE(Snap(svc).hangulMode) << "the service starts in hangul mode";
     BOOL eaten = FALSE;
 
-    /* 1. Single press: the down arms and is eaten, the up applies the toggle. */
-    svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    EXPECT_EQ(eaten, TRUE) << "the press is ours on the down";
-    EXPECT_TRUE(Snap(svc).langHoldArmed) << "the down only arms";
-    EXPECT_TRUE(Snap(svc).hangulMode) << "the down is not the toggle";
-    svc->OnKeyUp(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    EXPECT_EQ(eaten, TRUE) << "the release is ours";
-    EXPECT_FALSE(Snap(svc).langHoldArmed) << "the release resolved the press";
-    EXPECT_FALSE(Snap(svc).hangulMode) << "single press = toggle";
-    svc->OnKeyUp(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    EXPECT_EQ(eaten, FALSE) << "a second release is not ours";
+    /* The engine's ruled defaults, read through the live layer: VOICE = Alt,
+     * AUTOSWITCH = Ctrl. This is the dialog's source of truth. */
+    hunmin_buffered_preedit *layer = Snap(svc).layer;
+    ASSERT_NE(layer, nullptr);
+    EXPECT_EQ(hunmin_buffered_preedit_special_chord(layer, HUNMIN_SPECIAL_VOICE), HUNMIN_MOD_ALT);
+    EXPECT_EQ(hunmin_buffered_preedit_special_chord(layer, HUNMIN_SPECIAL_AUTOSWITCH), HUNMIN_MOD_CTRL);
 
-    /* Back to hangul for outcomes 2 and 3. */
+    /* 1. Ctrl + 한/영: AUTOSWITCH is bound and this host services it. */
+    g_mockKeyState[VK_CONTROL & 0xFF] = (SHORT)0x8000;
+    svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
+    EXPECT_EQ(eaten, TRUE) << "a serviceable chord is claimed in the test phase";
     svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    svc->OnKeyUp(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    ASSERT_TRUE(Snap(svc).hangulMode) << "two presses = two toggles";
+    EXPECT_EQ(eaten, TRUE) << "and consumed in the down";
+    EXPECT_TRUE(Snap(svc).hangulMode) << "a chord is NOT a mode switch";
+    EXPECT_EQ(Snap(svc).lastSpecial, (int)HUNMIN_SPECIAL_AUTOSWITCH) << "the engine resolved AUTOSWITCH and the host performed it";
+    g_mockKeyState[VK_CONTROL & 0xFF] = 0;
 
-    /* 2. Auto-repeat of the same press: re-arms, never a second toggle. */
+    /* 2. Alt + 한/영: VOICE is bound but this platform has no recogniser, so the
+     * host refuses -- and a refused chord must not be claimed by the test, or
+     * the host never delivers the down at all (the `dkssud1` defect class). */
+    g_mockKeyState[VK_MENU & 0xFF] = (SHORT)0x8000;
+    svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
+    EXPECT_EQ(eaten, FALSE) << "a refused chord is not claimed in the test";
     svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0x40000000, &eaten);
-    EXPECT_EQ(eaten, TRUE) << "the repeat is swallowed too";
-    EXPECT_TRUE(Snap(svc).langHoldArmed) << "the repeat is the same press";
-    EXPECT_TRUE(Snap(svc).hangulMode) << "a repeat is not a second toggle";
-    svc->OnKeyUp(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    EXPECT_FALSE(Snap(svc).hangulMode) << "one press, one toggle";
-    svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    svc->OnKeyUp(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    ASSERT_TRUE(Snap(svc).hangulMode) << "back to hangul for the chord";
+    EXPECT_EQ(eaten, FALSE) << "the refused chord passes in the down too";
+    EXPECT_TRUE(Snap(svc).hangulMode) << "a refused chord is not a mode switch either";
+    g_mockKeyState[VK_MENU & 0xFF] = 0;
 
-    /* 3. The compound press: 'R' arrives while the Han/Eng key is still down.
-     * The prefix resolves as a chord, the mode does NOT flip, and 'R' still
-     * composes -- the chord's action is undecided, so nothing is performed. */
-    g_mockKeyState[HUNMIN_TSF_VIRTUAL_HANGEUL & 0xFF] = (SHORT)0x8000;
+    /* 3. Ctrl+Alt + 한/영: nothing is bound to that chord, so the engine
+     * degrades it to the plain toggle rather than leaving a dead key. */
+    g_mockKeyState[VK_CONTROL & 0xFF] = (SHORT)0x8000;
+    g_mockKeyState[VK_MENU & 0xFF] = (SHORT)0x8000;
+    svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
+    EXPECT_EQ(eaten, TRUE) << "an unbound chord is still ours (it is a toggle)";
     svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    EXPECT_TRUE(Snap(svc).langHoldArmed) << "the prefix is held";
-    svc->OnTestKeyDown(mctx, 'R', 0, &eaten);
-    svc->OnKeyDown(mctx, 'R', 0, &eaten);
-    EXPECT_EQ(eaten, TRUE) << "the chord's second key keeps its ordinary handling";
-    EXPECT_FALSE(Snap(svc).langHoldArmed) << "the chord consumed the prefix";
-    EXPECT_TRUE(Snap(svc).hangulMode) << "the compound press is NOT a toggle";
-    /* U+3131 wide-literal escape (the ANSI-codepage rule above). */
-    EXPECT_STREQ(hunmin_buffered_preedit_composing(Snap(svc).layer), "\xE3\x84\xB1") << "the second key still composes";
-    svc->OnKeyUp(mctx, 'R', 0, &eaten);
-    svc->OnKeyUp(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
-    EXPECT_TRUE(Snap(svc).hangulMode) << "the prefix's late release performs nothing";
-    g_mockKeyState[HUNMIN_TSF_VIRTUAL_HANGEUL & 0xFF] = 0;
+    EXPECT_EQ(eaten, TRUE);
+    EXPECT_FALSE(Snap(svc).hangulMode) << "an unbound chord is the plain toggle";
+    g_mockKeyState[VK_CONTROL & 0xFF] = 0;
+    g_mockKeyState[VK_MENU & 0xFF] = 0;
 
     svc->Release();
     mctx->Release();
