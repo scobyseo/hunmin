@@ -118,21 +118,27 @@ TEST_F(KeyRuleTest, TheLanguageKeyWinsOverEverythingElse) {
     ev.candidates_open = 1;
     EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE);
     ev.candidates_open = 0;
-    /* With a CHORD modifier beside it the press is the compound one, which
-     * carries a special function instead of toggling (ruled 2026-10-31,
-     * docs/SPEC-MODES.md §E5). Before that ruling this case was pinned as
-     * LANGUAGE_TOGGLE; the ruling is what changed it. */
-    for (uint32_t mods : {HUNMIN_MOD_CTRL, HUNMIN_MOD_ALT, HUNMIN_MOD_GUI,
-                          HUNMIN_MOD_ALT | HUNMIN_MOD_CTRL}) {
+    /* A chord is the compound press only when a function is BOUND to it: the
+     * engine ships VOICE = Alt and AUTOSWITCH = Ctrl (ruled 2026-10-31), so those
+     * two answer LANGUAGE_CHORD, and a chord with nothing bound still answers
+     * TOGGLE -- an unassigned chord must not become a dead key. Before the ruling
+     * this case was pinned as LANGUAGE_TOGGLE for every chord; the ruling is what
+     * changed it, and the binding table is what decides. */
+    for (uint32_t mods : {HUNMIN_MOD_CTRL, HUNMIN_MOD_ALT}) {
         ev.mods = mods;
         EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_CHORD)
-            << "mods=" << mods;
+            << "bound mods=" << mods;
         /* A list being open does not change that: the language key is still
          * the one key that is never the list's. */
         ev.candidates_open = 1;
         EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_CHORD)
-            << "mods=" << mods;
+            << "bound mods=" << mods;
         ev.candidates_open = 0;
+    }
+    for (uint32_t mods : {HUNMIN_MOD_GUI, (uint32_t)(HUNMIN_MOD_ALT | HUNMIN_MOD_CTRL)}) {
+        ev.mods = mods;
+        EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE)
+            << "unbound mods=" << mods;
     }
     /* SHIFT is a layout row for characters, and it is NOT in HUNMIN_MOD_CHORD:
      * a shift bit in `mods` is ignored. With the language key, Shift is a
