@@ -305,7 +305,14 @@ hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit
     /* The language action first: the Han/Eng key is the one key that is never
      * composition input, whatever else is held (a repeat guard is a platform
      * fact and stays in the adapter). */
-    if (ev->language_key) return HUNMIN_KEY_LANGUAGE_TOGGLE;
+    if (ev->language_key) {
+        /* With a chord modifier beside it, the press is the COMPOUND one and
+         * carries a special function instead of switching languages (ruled
+         * 2026-10-31, docs/SPEC-MODES.md §E5). SHIFT is not a chord bit: it is
+         * a layout row, and a shift-only press is still the toggle. */
+        if (ev->mods & HUNMIN_MOD_CHORD) return HUNMIN_KEY_LANGUAGE_CHORD;
+        return HUNMIN_KEY_LANGUAGE_TOGGLE;
+    }
     /* Then the frontend's open list: while it is open, these keys are the
      * list's. A different key closes nothing here -- the frontend closes the
      * window and re-classifies, which is its presentation decision. */

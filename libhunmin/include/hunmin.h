@@ -249,7 +249,19 @@ typedef enum hunmin_key_action {
     /* The Han/Eng action: a boundary, then the other language takes over. */
     HUNMIN_KEY_LANGUAGE_TOGGLE = 2,
     /* A key of an open candidate list: the frontend routes it to the list. */
-    HUNMIN_KEY_CANDIDATE = 3
+    HUNMIN_KEY_CANDIDATE = 3,
+    /* The Han/Eng key pressed WITH a chord modifier held: the compound press,
+     * which carries the frontend's special functions instead of toggling the
+     * language (docs/SPEC-MODES.md §E5, ruled 2026-10-31). Appended after
+     * CANDIDATE rather than inserted, because the values are ABI.
+     *
+     * SHIFT is deliberately NOT a chord bit here (HUNMIN_MOD_SHIFT is a layout
+     * row, see §"The modifier vocabulary" above): a shift-only Han/Eng press is
+     * still the plain toggle, so `Shift+한/영` means whatever a frontend's own
+     * binding says and never silently becomes a special function. Whether a
+     * platform maps a special function onto SHIFT anyway is that frontend's
+     * binding decision, not this rule's. */
+    HUNMIN_KEY_LANGUAGE_CHORD = 4
 } hunmin_key_action;
 
 /* The modifier vocabulary a frontend maps its own state onto. SHIFT is

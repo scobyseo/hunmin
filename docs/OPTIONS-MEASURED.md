@@ -2098,7 +2098,46 @@ it (§E5-2 addendum), the question that would change this is not "is it possible
 "may an addon shadow the user's TriggerKeys setting", which is a separate ruling, not a
 measurement.
 
-### E5-6 Provenance
+### E5-6 The shared rule now answers the compound — and what each frontend owes
+
+**Engine (changed 2026-10-31, verified here).** `HUNMIN_KEY_LANGUAGE_CHORD = 4` is
+appended to `hunmin_key_action` (`libhunmin/include/hunmin.h`) and
+`hunmin_buffered_preedit_classify()` now answers it when `language_key` is set **and**
+`mods & HUNMIN_MOD_CHORD` (Ctrl / Alt / GUI). SHIFT is deliberately not a chord bit — it
+is a layout row, so a shift-only press stays the plain toggle. `engine-key-rule`'s
+`TheLanguageKeyWinsOverEverythingElse` was pinned to the old answer (chord → toggle) and
+is updated with the ruling as the reason.
+
+Verified on this host without cmake or gtest — a standalone probe compiled against
+`libhunmin/src/*.c` and run over `libhunmin/data` (13 assertions: bare = 2, ctrl/alt/gui/
+alt+ctrl = 4 with and without a list open, shift-only = 2, Ctrl+A = 1, plain letter = 0).
+All passed. The gtest case carries the same matrix; **it was not compiled here** (no
+cmake, no gtest), so `ctest -R engine-key-rule` on a real build is still owed.
+
+**The rule is inert in all three frontends today, measured:** no caller passes
+`language_key = 1`. Android's `HunminAdapter.onKey` hard-codes `false` at the
+`layerClassify` call (the JNI parameter exists, `hunmin-jni.c`), fcitx5 documents
+"this adapter always reports language_key = 0" (`hunminadapter.cpp`), and TSF builds no
+`language_key` at all. So the branch is reachable only from tier A until the frontends
+route the Han/Eng press through it. That routing *is* the per-frontend work:
+
+| frontend | what it owes | the test that would settle it |
+|---|---|---|
+| Android | in the service's action loop, the `HANGUL_ENG` match must call `layerClassify` with `languageKey = true` and the event's metaState-derived `mods`, then dispatch on the answer: `TOGGLE` → `toggleHangulEnglish()`, `CHORD` → the special function. Today the loop returns `true` before the engine is asked, so the engine's answer is never consulted | a `HunminAdapterTest` case: `layerClassify` with `languageKey=1, mods=ALT` → `4`; and a service-level case that Alt+KANA dispatches the special function and does **not** toggle. There is no substitute for the JVM run: `./gradlew :app:testDebugUnitTest` needs JDK + SDK 35, and this host has neither (only `platforms/android-30`) |
+| fcitx5 | three things before any test can pass: report `language_key = 1` for the `Hangul` keysym, stop returning early on releases (a hold state needs the release), and get the keysym past fcitx's trigger (`TriggerKeys` or a `PreInputMethod` watcher — §E5-2 addendum) | a tier-D1 case in `testhunmin`: feed `FcitxKey_Hangul` with the Alt state and assert `HUNMIN_KEY_LANGUAGE_CHORD` + the special function, plus a release-order case. Not writable here: no fcitx5 tree on this host |
+
+**The one decision this exposes, and it is not mine:** the engine's chord vocabulary is
+Ctrl / Alt / GUI, and Android already ships **Shift**+한/영 as 음성 입력
+(`KeyAction.VOICE`, `defaults = Shift+KANA`) — a chord the shared rule will never see as a
+chord, because Shift is a row bit and because Android's loop acts before the engine. So
+either **(a)** the special functions move into the chord vocabulary (Alt+한/영 for the
+first one, and Android's VOICE default moves with it), or **(b)** SHIFT is admitted for
+the language key specifically, widening the rule the comment in `hunmin.h` currently
+forbids. (a) keeps one rule; (b) keeps the shipped Android gesture. Both are expressible
+in the engine as it stands now — (b) is one condition, (a) is one binding change — so the
+cost is the same and the difference is which gesture the user learns.
+
+### E5-7 Provenance
 
 - Host: Linux, worktree
   `~/orca/workspaces/hunmin/modes-ruling-the-han-eng-key-assignment-e5-singl-2`, branch
@@ -2125,6 +2164,14 @@ measurement.
 - Changed files: `docs/OPTIONS-MEASURED.md` (this section and the header table),
   `docs/SPEC-MODES.md` §E5 and `docs/MODES-ENGINE-RULES.md` §3 (a one-line pointer each —
   no requirement text moves).
+- Changed by §E5-6 (engine): `libhunmin/include/hunmin.h` (the appended enum value),
+  `libhunmin/src/buffered_preedit.c` (`classify`), `libhunmin/tests/key-rule-test.cpp`
+  (the pin, updated). Verification: a standalone C probe compiled against
+  `libhunmin/src/*.c` + `third_party/cJSON/cJSON.c` with
+  `gcc -std=c11 -Ilibhunmin/include -Ilibhunmin/src -Ithird_party/cJSON`, run as
+  `HUNMIN_DATA_PATH=libhunmin/data /tmp/keyrule_probe` — 13 assertions, all ok. That
+  probe is scratch, not committed: the repo's copy of the same matrix is the gtest case,
+  and it was not compiled here.
 - **Deliberately untouched**, and named as a follow-up rather than fixed here:
   `tools/keymap-fixture.py`'s circular claim and `ANDROID_UNREACHABLE`, the F9 sentence in
   `docs/TESTING.md` and the stale `:280-281` citation in `docs/REMAINING-WORK.md` B4.

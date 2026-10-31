@@ -114,12 +114,33 @@ TEST_F(KeyRuleTest, TheLanguageKeyWinsOverEverythingElse) {
     hunmin_key_event ev = ch('d');
     ev.language_key = 1;
     EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE);
-    /* Even held with a chord, and even while a list is open. */
-    ev.mods = HUNMIN_MOD_CTRL;
-    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE);
-    ev.mods = 0;
+    /* Even while a list is open. */
     ev.candidates_open = 1;
     EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE);
+    ev.candidates_open = 0;
+    /* With a CHORD modifier beside it the press is the compound one, which
+     * carries a special function instead of toggling (ruled 2026-10-31,
+     * docs/SPEC-MODES.md §E5). Before that ruling this case was pinned as
+     * LANGUAGE_TOGGLE; the ruling is what changed it. */
+    for (uint32_t mods : {HUNMIN_MOD_CTRL, HUNMIN_MOD_ALT, HUNMIN_MOD_GUI,
+                          HUNMIN_MOD_ALT | HUNMIN_MOD_CTRL}) {
+        ev.mods = mods;
+        EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_CHORD)
+            << "mods=" << mods;
+        /* A list being open does not change that: the language key is still
+         * the one key that is never the list's. */
+        ev.candidates_open = 1;
+        EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_CHORD)
+            << "mods=" << mods;
+        ev.candidates_open = 0;
+    }
+    /* SHIFT is a layout row, not a chord: a shift-only press is still the
+     * toggle. This is the shape Android's Shift+한/영 binding must therefore
+     * NOT rely on -- a frontend that wants Shift to carry a special function
+     * binds it itself (docs/OPTIONS-MEASURED.md §E5-3, §HEK-2). */
+    ev.mods = HUNMIN_MOD_SHIFT;
+    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE);
+    ev.mods = 0;
 }
 
 TEST_F(KeyRuleTest, TheListBeatsTheChordRule) {
