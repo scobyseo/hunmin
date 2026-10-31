@@ -21,9 +21,15 @@
 # fresh-vm.md and stays outside this script.
 #
 # Host requirements (the toolchain's home is docs/ENVIRONMENT.md):
-#   - VS2022 BuildTools (vcvarsall.bat), for the MSVC TIP build
+#   - Visual Studio BuildTools (vcvarsall.bat), for the MSVC TIP build
 #   - a dotnet SDK, for the settings-ui publish
 #   - Inno Setup 6 (ISCC.exe; override with ISCC= if installed elsewhere)
+#
+# The VS generator and the vcvars location are both HOST facts, so both are
+# overridable: HUNMIN_CMAKE_GENERATOR (default the VS 17 2022 generator) and
+# HUNMIN_VS2022_ROOT (the VS install root, any VS version). Measured 2026-10-30
+# on a host whose only VS is "18 2026" BuildTools: the pinned generator fails
+# at configure with "could not find any instance", before any build starts.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -33,11 +39,16 @@ TSF_BUILD="frontends/tsf/$BUILD"
 OUT="$BUILD/installer"
 STAGE="$OUT/stage"
 APP_VERSION=0.2.0
+GENERATOR="${HUNMIN_CMAKE_GENERATOR:-Visual Studio 17 2022}"
 
 # --- toolchain locations: env override first, then the known shapes ------
 VSVARS="${HUNMIN_VS2022_ROOT:-}/VC/Auxiliary/Build/vcvarsall.bat"
 if [ ! -f "$VSVARS" ]; then
-  VSVARS="C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvarsall.bat"
+  for c in "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools" \
+           "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools" \
+           "C:/Program Files/Microsoft Visual Studio/2022/Community"; do
+    [ -f "$c/VC/Auxiliary/Build/vcvarsall.bat" ] && VSVARS="$c/VC/Auxiliary/Build/vcvarsall.bat" && break
+  done
 fi
 [ -f "$VSVARS" ] || { echo "vcvarsall.bat not found; set HUNMIN_VS2022_ROOT" >&2; exit 1; }
 
@@ -64,12 +75,12 @@ mkdir -p "$OUT"
   echo "call \"$(cygpath -w "$VSVARS")\" x64"
   echo 'if errorlevel 1 exit /b 1'
   echo 'echo == core: MSVC Release, static CRT =='
-  echo 'cmake -S . -B build-msvc -G "Visual Studio 17 2022" -A x64 -DHUNMIN_MSVC_STATIC_RUNTIME=ON'
+  echo "cmake -S . -B build-msvc -G \"$GENERATOR\" -A x64 -DHUNMIN_MSVC_STATIC_RUNTIME=ON"
   echo 'if errorlevel 1 exit /b 1'
   echo 'cmake --build build-msvc --config Release --target hunmin_static'
   echo 'if errorlevel 1 exit /b 1'
   echo 'echo == TIP: standalone MSVC Release, static CRT =='
-  echo 'cmake -S frontends\tsf -B frontends\tsf\build-msvc -G "Visual Studio 17 2022" -A x64 -DHUNMIN_MSVC_STATIC_RUNTIME=ON'
+  echo "cmake -S frontends\\tsf -B frontends\\tsf\\build-msvc -G \"$GENERATOR\" -A x64 -DHUNMIN_MSVC_STATIC_RUNTIME=ON"
   echo 'if errorlevel 1 exit /b 1'
   echo 'cmake --build frontends\tsf\build-msvc --config Release --target hunmin-tsf'
   echo 'if errorlevel 1 exit /b 1'

@@ -9,7 +9,7 @@
  *
  * What these record is the ADAPTER'S call order and parameters -- CLSIDs,
  * LANGID 0x0412, the profile GUID, the category GUIDs, the registry paths and
- * values, the shortcut's target. They do NOT represent what the real msctf
+ * values. They do NOT represent what the real msctf
  * servers write to the registry: which COM call removes which tree stays the
  * elevated-cycle measurement in tests/manual-checklists/tsf-unregister-cleanup.md,
  * and a green test here neither closes it nor downgrades it.
@@ -22,7 +22,6 @@
 #pragma once
 #include <cstddef>
 #include <msctf.h>
-#include <shobjidl_core.h>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -41,14 +40,6 @@ struct RegTrace {
     std::vector<std::wstring> created; // "<root>|<path>" per create/open
     std::vector<std::wstring> writes; // "<path>|<name>|<value>"
     std::vector<std::wstring> deletes; // "<root>|<path>"
-
-    /* The Start-menu folder the seam hands out and what the link recorded. */
-    std::wstring programsFolder = L"X:\\Programs";
-    std::wstring shortcutTarget;
-    std::wstring shortcutArguments;
-    std::wstring shortcutWorkingDirectory;
-    std::wstring shortcutSavedAs;
-    int shortcutSaves = 0;
 
     void event(const wchar_t *name) { events.push_back(name); }
     int count(const wchar_t *name) const {
@@ -243,68 +234,6 @@ private:
     RegTrace &trace_;
 };
 
-/* The shell link + its IPersistFile: what the Start-menu entry records. */
-class MockShellLink : public IShellLinkW, public IPersistFile, public RefCount {
-public:
-    MockShellLink(RegTrace &trace) : trace_(trace) {}
-
-    STDMETHOD(SetPath)(LPCWSTR pszFile) override;
-    STDMETHOD(SetArguments)(LPCWSTR pszArgs) override;
-    STDMETHOD(SetWorkingDirectory)(LPCWSTR pszDir) override;
-    STDMETHOD(SetIconLocation)(LPCWSTR pszIconPath, int iIcon) override;
-    STDMETHOD(Save)(LPCOLESTR pszFileName, BOOL fRemember) override;
-    STDMETHOD(GetClassID)(CLSID *pClassID) override {
-        if (!pClassID)
-            return E_INVALIDARG;
-        *pClassID = CLSID_ShellLink;
-        return S_OK;
-    }
-
-    std::wstring iconPath;
-    int iconIndex = -1;
-
-    STDMETHOD(QueryInterface)(REFIID riid, void **ppv) override {
-        if (!ppv)
-            return E_INVALIDARG;
-        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IShellLinkW))
-            *ppv = static_cast<IShellLinkW *>(this);
-        else if (IsEqualIID(riid, IID_IPersistFile) || IsEqualIID(riid, IID_IPersist))
-            *ppv = static_cast<IPersistFile *>(this);
-        else {
-            *ppv = nullptr;
-            return E_NOINTERFACE;
-        }
-        AddRef();
-        return S_OK;
-    }
-    STDMETHOD_(ULONG, AddRef)() override { return RefCount::AddRef(); }
-    STDMETHOD_(ULONG, Release)() override { return RefCount::Release(); }
-
-    TSF_MOCK_STUB(GetPath, LPWSTR pszFile, int cch, WIN32_FIND_DATAW *pfd, DWORD fFlags)
-    TSF_MOCK_STUB(GetIDList, PIDLIST_ABSOLUTE *ppidl)
-    TSF_MOCK_STUB(SetIDList, PCIDLIST_ABSOLUTE pidl)
-    TSF_MOCK_STUB(GetDescription, LPWSTR pszName, int cch)
-    TSF_MOCK_STUB(SetDescription, LPCWSTR pszName)
-    TSF_MOCK_STUB(GetWorkingDirectory, LPWSTR pszDir, int cch)
-    TSF_MOCK_STUB(GetArguments, LPWSTR pszArgs, int cch)
-    TSF_MOCK_STUB(GetHotkey, WORD *pwHotkey)
-    TSF_MOCK_STUB(SetHotkey, WORD wHotkey)
-    TSF_MOCK_STUB(GetShowCmd, int *piShowCmd)
-    TSF_MOCK_STUB(SetShowCmd, int iShowCmd)
-    TSF_MOCK_STUB(GetIconLocation, LPWSTR pszIconPath, int cch, int *piIcon)
-    TSF_MOCK_STUB(SetRelativePath, LPCWSTR pszPathRel, DWORD dwReserved)
-    TSF_MOCK_STUB(Resolve, HWND hwnd, DWORD fFlags)
-    TSF_MOCK_STUB(IsDirty, void)
-    TSF_MOCK_STUB(Load, LPCOLESTR pszFileName, DWORD dwMode)
-    TSF_MOCK_STUB(SaveCompleted, LPCOLESTR pszFileName)
-    TSF_MOCK_STUB(GetCurFile, LPOLESTR *ppszFileName)
-
-private:
-    friend struct RegistrationDoubles;
-    ~MockShellLink() = default;
-    RegTrace &trace_;
-};
-
 /* The whole double set + the seam table built from it. The constructor wires
  * the table; Install()/the destructor swap the process's seam. */
 struct RegistrationDoubles {
@@ -313,7 +242,6 @@ struct RegistrationDoubles {
     MockInputProcessorProfileMgr profileMgr;
     MockInputProcessorProfiles profiles;
     MockCategoryMgr categoryMgr;
-    MockShellLink shellLink;
     HunminRegSeam seam;
 
     RegistrationDoubles();

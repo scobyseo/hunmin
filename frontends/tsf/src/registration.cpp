@@ -13,24 +13,20 @@
 
 #include "ids.h"
 #include "registrationseam.h" /* the outside-world seam (issue #107) */
-#include "settingspath.h" /* the shared settings-exe resolver */
 #include "tsf.h" /* CTextService */
 
 #include <cwchar>
 #include <msctf.h>
-#include <shlobj.h>
-#include <shlobj_core.h>
-#include <shlwapi.h>
-#include <shobjidl_core.h>
 #include <windows.h>
-#pragma comment(lib, "Shlwapi.lib")
 
 extern "C" HINSTANCE g_hunmin_hinst; /* owned by dllmain.cpp */
 
 /* --- the seam in force (issue #107) ---
  * Every outside-world call below goes through this table. The default table IS
  * the platform call, so production behaviour is the same sequence of the same
- * calls; tier F1 installs doubles and drives THIS code (registrationseam.h). */
+ * calls; tier F1 installs doubles and drives THIS code (registrationseam.h).
+ * The Start-menu entry is not here any more: the installer owns it (ruled
+ * 2026-10-30, issue #146 — see docs/WINDOWS-TSF-REGISTRATION.md). */
 
 static HRESULT SeamCoCreate(REFCLSID rclsid, REFIID riid, void **ppv) { return CoCreateInstance(rclsid, nullptr, CLSCTX_INPROC_SERVER, riid, ppv); }
 
@@ -48,17 +44,7 @@ static void SeamCloseKey(HKEY key) { RegCloseKey(key); }
 
 static LONG SeamDeleteTree(HKEY root, const wchar_t *path) { return RegDeleteTreeW(root, path); }
 
-static HRESULT SeamProgramsFolder(wchar_t *out, DWORD cap) {
-    PWSTR programs = nullptr;
-    HRESULT hr = SHGetKnownFolderPath(FOLDERID_Programs, 0, nullptr, &programs);
-    if (SUCCEEDED(hr) && programs)
-        lstrcpynW(out, programs, (int)cap);
-    if (programs)
-        CoTaskMemFree(programs);
-    return hr;
-}
-
-static const HunminRegSeam kPlatformSeam = {SeamCoCreate, SeamCreateKey, SeamOpenKey, SeamSetValue, SeamCloseKey, SeamDeleteTree, SeamProgramsFolder};
+static const HunminRegSeam kPlatformSeam = {SeamCoCreate, SeamCreateKey, SeamOpenKey, SeamSetValue, SeamCloseKey, SeamDeleteTree};
 
 static const HunminRegSeam *g_regSeam = nullptr;
 
@@ -207,6 +193,16 @@ static void RegisterInputProcessorProfile(const wchar_t *guidStr) {
     pProfile->Release();
 }
 
+/* GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT {13A016DF-560B-46CD-947A-4C3AF1E0E35D}.
+ * Measured 2026-10-31: this is the category that decides whether a TIP is
+ * offered inside an IMMERSIVE (packaged) host. Windows Terminal (MSIX) cycles
+ * MS IME and 날개셋 with Win+Space and never reached Hunmin; the registry diff
+ * against 날개셋's registration showed this category present there and absent
+ * here. Same treatment as the SYSTRAYSUPPORT value below: the symbol is
+ * EXTERN_C in msctf.h, the data lives in a library this target does not link,
+ * so the value is a private constant. */
+static const GUID HunminTipcapImmersiveSupportGuid = {0x13a016df, 0x560b, 0x46cd, {0x94, 0x7a, 0x4c, 0x3a, 0xf1, 0xe0, 0xe3, 0x5d}};
+
 /* GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT {25504FB4-7BAB-4BC1-9C69-CF81890F0EF5}.
  * Predefined Category Values (MS Learn): "TIP supports inclusion in the System
  * Tray. This is used for text services that do not set the
@@ -238,57 +234,13 @@ static void RegisterTipCategories() {
      * SYSTRAYSUPPORT -- the category the sibling 날개셋 IME and the Microsoft
      * Korean IME both carry, and Hunmin did not. */
     HRESULT c4 = pCatMgr->RegisterCategory(CLSID_HunminTSF, HunminTipcapSystraySupportGuid, CLSID_HunminTSF);
-    hunmin_reg_logger.log(L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX systray=0x%lX\n", (unsigned long)c1,
-                          (unsigned long)c2, (unsigned long)c3, (unsigned long)c4);
+    /* The immersive capability (measured 2026-10-31): without it a packaged
+     * host -- Windows Terminal is MSIX -- does not cycle this TIP at all, so
+     * it could not be selected there while notepad-type hosts worked. */
+    HRESULT c5 = pCatMgr->RegisterCategory(CLSID_HunminTSF, HunminTipcapImmersiveSupportGuid, CLSID_HunminTSF);
+    hunmin_reg_logger.log(L"RegisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX systray=0x%lX immersive=0x%lX\n",
+                          (unsigned long)c1, (unsigned long)c2, (unsigned long)c3, (unsigned long)c4, (unsigned long)c5);
     pCatMgr->Release();
-}
-
-/* The Start-menu entry (discoverability): "Hunmin IME 설정" under Programs.
- * The ruled surface (the settings-ui exe) wins when it is deployed beside the
- * DLL; the rundll32 entry into HunminSettingsShow is the fallback that always
- * works. Deleted in unregister, mirroring the tree work. */
-static void CreateStartMenuShortcut(const wchar_t *dllPath) {
-    wchar_t dllDir[MAX_PATH];
-    lstrcpynW(dllDir, dllPath, MAX_PATH);
-    PathRemoveFileSpecW(dllDir);
-    wchar_t exe[MAX_PATH];
-    /* The shared resolver: the installed <dll>\settings-ui shape now wins
-     * over checkout climbs, so an installed shortcut targets the WinUI exe
-     * instead of falling through to rundll32. */
-    hunmin_tsf_settings_exe_in_dir(dllDir, exe, MAX_PATH);
-    IShellLinkW *sl = nullptr;
-    HRESULT lh = hunmin_tsf_regseam()->co_create(CLSID_ShellLink, __uuidof(IShellLinkW), (void **)&sl);
-
-    hunmin_reg_logger.log(L"shortcut CoCreate hr=0x%lX exe=%s\n", (unsigned long)lh, exe[0] ? exe : L"<rundll32>");
-    if (FAILED(lh) || !sl)
-        return;
-    if (exe[0]) {
-        sl->SetPath(exe);
-    } else {
-        sl->SetPath(L"rundll32.exe");
-        wchar_t arg[MAX_PATH + 32];
-        _snwprintf(arg, _countof(arg), L"\"%s,HunminSettingsShow\"", dllPath);
-        sl->SetArguments(arg);
-    }
-    sl->SetWorkingDirectory(dllDir);
-    if (exe[0])
-        sl->SetIconLocation(exe, 0); /* the settings exe's own icon
-                                      * (assets/hunmin.ico, ApplicationIcon) */
-    IPersistFile *pf = nullptr;
-    if (SUCCEEDED(sl->QueryInterface(IID_PPV_ARGS(&pf))) && pf) {
-        wchar_t programs[MAX_PATH] = L"";
-        if (SUCCEEDED(hunmin_tsf_regseam()->programs_folder(programs, MAX_PATH)) && programs[0]) {
-            wchar_t link[MAX_PATH + 48];
-            _snwprintf(link, _countof(link), L"%s\\Hunmin IME \uC124\uC815.lnk", programs);
-            if (SUCCEEDED(pf->Save(link, TRUE))) {
-                hunmin_reg_logger.log(L"shortcut saved %s\n", link);
-            } else {
-                hunmin_reg_logger.log(L"shortcut save FAILED %s\n", link);
-            }
-        }
-        pf->Release();
-    }
-    sl->Release();
 }
 
 extern "C" BOOL DllRegisterServer() {
@@ -311,7 +263,6 @@ extern "C" BOOL DllRegisterServer() {
     CoInitialize(nullptr);
     RegisterInputProcessorProfile(guidStr);
     RegisterTipCategories();
-    CreateStartMenuShortcut(dllPath);
     CoUninitialize();
     return TRUE;
 }
@@ -351,8 +302,11 @@ static void UnregisterTipCategories() {
     /* Mirror of the tray capability (issue #68): a category left behind by an
      * uninstall keeps the shell offering a TIP that is no longer registered. */
     HRESULT c4 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, HunminTipcapSystraySupportGuid, CLSID_HunminTSF);
-    hunmin_reg_logger.log(L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX systray=0x%lX\n", (unsigned long)c1,
-                          (unsigned long)c2, (unsigned long)c3, (unsigned long)c4);
+    /* Mirror of the immersive capability (2026-10-31): a package-visible TIP
+     * left registered keeps the entry in a packaged host after uninstall. */
+    HRESULT c5 = pCatMgr->UnregisterCategory(CLSID_HunminTSF, HunminTipcapImmersiveSupportGuid, CLSID_HunminTSF);
+    hunmin_reg_logger.log(L"UnregisterCategory keyboard=0x%lX category=0x%lX dispattr=0x%lX systray=0x%lX immersive=0x%lX\n",
+                          (unsigned long)c1, (unsigned long)c2, (unsigned long)c3, (unsigned long)c4, (unsigned long)c5);
     pCatMgr->Release();
 }
 
@@ -360,9 +314,11 @@ extern "C" BOOL DllUnregisterServer() {
     /* Mirror of DllRegisterServer, applied in reverse order (issue #84).
      * First the profile and category state the CTF COM services hold, then
      * the HKLM TIP tree under which AddLanguageProfile created subkeys, then
-     * the COM CLSID tree. Windows Settings' own per-user CTF store (HKCU
-     * SortOrder / Assemblies) is deliberately NOT touched: registration never
-     * writes it (measured, docs/WINDOWS-TSF-REGISTRATION.md), so unregistering
+     * the COM CLSID tree, then the per-user profile tree that
+     * EnableLanguageProfile created (ruling 2026-10-31, §URM-4 option A).
+     * Windows Settings' own per-user CTF store (HKCU SortOrder / Assemblies)
+     * is still deliberately NOT touched: registration never writes it
+     * (measured, docs/WINDOWS-TSF-REGISTRATION.md), so unregistering
      * must not either. Logging follows the register flow: only
      * hunmin_reg_logger.log() writes, to hunmin-reg-debug.log. */
     wchar_t guidStr[64];
@@ -387,6 +343,23 @@ extern "C" BOOL DllUnregisterServer() {
     swprintf(clsidPath, 128, L"CLSID\\%s", guidStr);
     LSTATUS clsidSt = hunmin_tsf_regseam()->reg_delete_tree(HKEY_CLASSES_ROOT, clsidPath);
     hunmin_reg_logger.log(L"RegDeleteTreeW(HKCR %s) st=0x%lX\n", clsidPath, (unsigned long)clsidSt);
+
+    /* The per-user profile tree (ruling 2026-10-31, option A of
+     * docs/OPTIONS-MEASURED.md §URM-4). EnableLanguageProfile on the
+     * registering side writes
+     * HKCU\SOFTWARE\Microsoft\CTF\TIP\{CLSID}\LanguageProfile\0x0412\{profile}\Enable,
+     * and no msctf call in the flow removes it -- measured elevated on this
+     * host (2026-10-30) and reproduced on a clean Windows Sandbox image
+     * (2026-10-31, tests/manual-checklists/tsf-installer-fresh-vm.md row 9b).
+     * It is registration's own write, so the mirror deletes it. Only the
+     * account that ran the registration is touched, which is the scope of that
+     * write: another user's per-user state came from their own session and is
+     * not ours to remove. Windows' own per-user store (SortOrder, Assemblies)
+     * is still untouched, because registration never writes it. */
+    wchar_t userProfilePath[256];
+    swprintf(userProfilePath, 256, L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile", guidStr);
+    LSTATUS userSt = hunmin_tsf_regseam()->reg_delete_tree(HKEY_CURRENT_USER, userProfilePath);
+    hunmin_reg_logger.log(L"RegDeleteTreeW(HKCU %s) st=0x%lX\n", userProfilePath, (unsigned long)userSt);
     return TRUE;
 }
 

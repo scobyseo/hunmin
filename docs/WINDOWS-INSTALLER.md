@@ -12,7 +12,7 @@ what is measured, and what only a clean machine can still measure.
 |---|---|---|
 | `<install>\hunmin-tsf.dll` | the TIP | registered by the installer; the engine is static-linked inside it (the static archive is an intermediate, not an installed artifact — top-level `CMakeLists.txt`) |
 | `<install>\data\...` | `libhunmin/data` shipped whole | the loader resolves `<module>\data` first (`hunmin_ctx_from_module`, `frontends/tsf/src/tsf.cpp`), so the installed IME serves word/idiom Hanja candidates from the installed tables; `krdict\` stays its own directory tree (CC-BY-SA ShareAlike isolation) |
-| `<install>\settings-ui\...` | the self-contained WinUI 3 settings exe publish (issue #71's ruled settings surface) | the Start-menu entry points here; the interim dialog stays reachable as the rundll32 fallback |
+| `<install>\settings-ui\...` | the self-contained WinUI 3 settings exe publish (issue #71's ruled settings surface) | the Start-menu entry points here, and that entry is the installer's alone: `DllRegisterServer` writes no `.lnk` (ruled 2026-10-30, issue #146). The interim dialog stays reachable as the rundll32 fallback |
 | `<install>\LICENCE.txt`, `LICENSE.txt` | the licence page text, the LGPL-2.1-or-later text | the attribution terms in the package itself, beside `data\*\LICENSE.md` |
 
 Default install dir: `C:\Program Files\Hunmin IME` (per-machine —
@@ -35,10 +35,13 @@ onto the issue's checklist):
    blank). A nonzero exit re-runs regsvr32 visibly and fails the install
    loudly — a half-installed IME whose profile points at a registration
    that never happened is the failure mode this avoids;
-3. Start menu: `Hunmin IME 설정` → `settings-ui\hunmin-tsf-settingsui.exe`;
+3. Start menu: `Hunmin IME 설정` → `settings-ui\hunmin-tsf-settingsui.exe`.
+   This is the ONLY Start-menu writer, and Inno's uninstall log is what removes
+   it (ruled 2026-10-30, issue #146: the DLL stopped writing a per-user `.lnk`
+   of the same name, which used to appear beside this one);
 4. uninstall: `regsvr32 /u /s` BEFORE file deletion, and `DllUnregisterServer`
    removes the full registered state (issue #84: the CLSID tree, the HKLM
-   CTF TIP tree, the two categories, the language profile). Windows' own
+   CTF TIP tree, the four categories, the language profile). Windows' own
    HKCU CTF SortOrder/Assemblies store is deliberately not touched —
    registration never writes it (the #84 boundary, re-measured per round by
    `tests/manual-checklists/tsf-installer-fresh-vm.md`).
@@ -123,6 +126,15 @@ logs in the checklist): silent install exit 0 with no VC redist, install-path
 registration (`IconFile=<install path>`, `IconIndex=0x0`), krdict + settings
 exe present, silent uninstall exit 0, both `{CLSID}` trees gone, the tree
 removed down to the uninstaller's own pending self-delete.
+
+That scripted half was re-run 2026-10-31 against the 0.2.0 package rebuilt from this branch on a clean
+`10.0.26100.9711` image, because #146 changed what registration writes: install
+rc 0, uninstall rc 0, both `{CLSID}` trees gone, the tree removed, **five**
+categories including `GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT`, and **one**
+Start-menu entry — the installer's — with no per-user file. The same run
+recorded the per-user `Enable` residue surviving uninstall (row 9b). The table
+and the reproductions are in `tests/manual-checklists/tsf-installer-fresh-vm.md`
+§"Round 2026-10-31".
 
 ## Provenance
 

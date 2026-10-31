@@ -9,10 +9,12 @@
  *
  * What this asserts is the ADAPTER's call order and parameters - the CLSID,
  * LANGID 0x0412, the profile GUID, the three category GUIDs, the registry paths
- * and values, the shortcut. It does NOT assert what the real msctf servers
+ * and values. It does NOT assert what the real msctf servers
  * write to the registry: that stays the elevated-cycle measurement in
  * tests/manual-checklists/tsf-unregister-cleanup.md (TSF17), and nothing here
- * closes or downgrades it.
+ * closes or downgrades it. It also asserts what the flow does NOT do: no file
+ * is written, since the Start-menu entry belongs to the installer (ruling of
+ * 2026-10-30, issue #146).
  *
  * Standalone TU: the groups share the one `tsf-test` registration (issue #109's
  * merged shape), selected by --gtest_filter where a caller wants one group.
@@ -37,6 +39,11 @@ namespace {
  * a library the TIP does not link, so registration.cpp carries its own private
  * constant -- the test must not share a symbol with the code it grades. */
 const GUID kGuidSystraySupport = {0x25504fb4, 0x7bab, 0x4bc1, {0x9c, 0x69, 0xcf, 0x81, 0x89, 0x0f, 0x0e, 0xf5}};
+
+/* GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT {13A016DF-560B-46CD-947A-4C3AF1E0E35D},
+ * also a literal: measured 2026-10-31, this is the capability a packaged host
+ * (Windows Terminal is MSIX) filters on before it offers a TIP at all. */
+const GUID kGuidImmersiveSupport = {0x13a016df, 0x560b, 0x46cd, {0x94, 0x7a, 0x4c, 0x3a, 0xf1, 0xe0, 0xe3, 0x5d}};
 
 /* The CLSID as the registration helpers stringify it (StringFromGUID2), so the
  * expected registry paths are derived, never typed. */
@@ -122,17 +129,19 @@ TEST(TsfRegistration, RegisterWritesTheDocumentedArtifactSet) {
     EXPECT_LT(d.trace.indexOf(L"ActivateProfile"), d.trace.indexOf(L"GetActiveProfile"));
 
     /* 4. The four categories, in this order: keyboard, TIP, display-attribute
-     * provider (issue #98's provider category), and the tray capability
+     * provider (issue #98's provider category), the tray capability
      * (measured 2026-10-29, issue #68: without GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT
      * the shell gives the TIP no entry of its own in the Win11 input indicator;
      * the sibling 날개셋 IME and the Microsoft Korean IME both carry it). The
      * value is a literal here because msctf.h declares the symbol and the data
      * lives in a library registration.cpp does not link. */
-    ASSERT_EQ(d.categoryMgr.registered.size(), (size_t)4) << "four categories, not the doc's two";
+    ASSERT_EQ(d.categoryMgr.registered.size(), (size_t)5) << "five categories, not the doc's two";
     EXPECT_TRUE(IsEqualGUID(d.categoryMgr.registered[0], GUID_TFCAT_TIP_KEYBOARD));
     EXPECT_TRUE(IsEqualGUID(d.categoryMgr.registered[1], GUID_TFCAT_CATEGORY_OF_TIP));
     EXPECT_TRUE(IsEqualGUID(d.categoryMgr.registered[2], GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER));
     EXPECT_TRUE(IsEqualGUID(d.categoryMgr.registered[3], kGuidSystraySupport)) << "GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT, the tray entry";
+    EXPECT_TRUE(IsEqualGUID(d.categoryMgr.registered[4], kGuidImmersiveSupport))
+        << "GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT: measured 2026-10-31 — without it Windows Terminal (MSIX) never cycles the TIP";
 
     /* 5. The icon-index pin (measured 2026-10-18: a stored IconIndex of 1
      * rendered the language entry blank, so registration rewrites 0). Both the
@@ -140,10 +149,9 @@ TEST(TsfRegistration, RegisterWritesTheDocumentedArtifactSet) {
     EXPECT_EQ(d.trace.count(L"RegOpenKey"), 2) << "the pin opens the language-profile key and the profile key";
     EXPECT_TRUE(ContainsSubstring(d.trace.writes, L"\\LanguageProfile\\0x00000412|IconIndex|0"));
 
-    /* 6. The Start-menu entry, and nothing deleted on the way in. */
-    EXPECT_EQ(d.trace.shortcutSaves, 1) << "one .lnk written";
-    EXPECT_EQ(d.trace.shortcutSavedAs, d.trace.programsFolder + std::wstring(L"\\Hunmin IME \uC124\uC815.lnk"))
-        << "the shipped name, in the Programs folder";
+    /* 6. No file written, nothing deleted. Since the ruling of 2026-10-30
+     * (issue #146) the Start-menu entry belongs to the installer alone; see
+     * RegistrationWritesNoFile for the guard that keeps it that way. */
     EXPECT_TRUE(d.trace.deletes.empty()) << "registration deletes nothing";
 }
 
@@ -161,10 +169,11 @@ TEST(TsfRegistration, UnregisterMirrorsEveryRegisteredArtifact) {
     ASSERT_EQ(DllUnregisterServer(), TRUE);
 
     /* The unregister tail, exactly: the profile's own enablement entry, then
-     * Unregister, then the four category mirrors, then the two trees. */
+     * Unregister, then the five category mirrors, then the three trees. */
     std::vector<std::wstring> tail(d.trace.events.begin() + (std::ptrdiff_t)mark, d.trace.events.end());
     const std::vector<std::wstring> expected = {L"UnregisterProfile",  L"Unregister",    L"UnregisterCategory", L"UnregisterCategory",
-                                                L"UnregisterCategory", L"UnregisterCategory", L"RegDeleteTree", L"RegDeleteTree"};
+                                                L"UnregisterCategory", L"UnregisterCategory", L"UnregisterCategory",
+                                                L"RegDeleteTree",      L"RegDeleteTree", L"RegDeleteTree"};
     ASSERT_EQ(tail.size(), expected.size()) << "no unregister step is missing and none is extra";
     for (size_t i = 0; i < expected.size(); ++i)
         EXPECT_EQ(tail[i], expected[i]) << "unregister step " << i;
@@ -179,10 +188,20 @@ TEST(TsfRegistration, UnregisterMirrorsEveryRegisteredArtifact) {
     for (size_t i = 0; i < registered.size() && i < d.categoryMgr.unregistered.size(); ++i)
         EXPECT_TRUE(IsEqualGUID(d.categoryMgr.unregistered[i], registered[i])) << "category " << i << " mirrors its registration";
 
-    /* Both trees, HKLM first. */
-    ASSERT_EQ(d.trace.deletes.size(), (size_t)2);
+    /* Three trees, HKLM first, HKCR then the per-user profile tree. The last
+     * one is the ruling of 2026-10-31 (§URM-4 option A): EnableLanguageProfile
+     * wrote HKCU\...\LanguageProfile\0x0412\{profile}\Enable and nothing in
+     * msctf removes it, so the mirror does. */
+    ASSERT_EQ(d.trace.deletes.size(), (size_t)3);
     EXPECT_EQ(d.trace.deletes[0], TipKey()) << "the HKLM TIP tree (AddLanguageProfile wrote under it)";
     EXPECT_EQ(d.trace.deletes[1], ClsidKey()) << "then the COM CLSID tree";
+    EXPECT_EQ(d.trace.deletes[2], L"HKCU|SOFTWARE\\Microsoft\\CTF\\TIP\\{F2C70001-0000-0000-0000-000000000001}\\LanguageProfile")
+        << "then the per-user profile tree (EnableLanguageProfile wrote under it)";
+
+    /* Windows' own per-user store is never touched: registration does not
+     * write SortOrder or Assemblies, so no deletion may name them. */
+    for (const std::wstring &deleted : d.trace.deletes)
+        EXPECT_EQ(deleted.find(L"SortOrder"), std::wstring::npos) << "HKCU SortOrder is Windows', not ours";
 
     /* Recorded, not fixed: AddLanguageProfile's own inverse
      * (ITfInputProcessorProfiles::RemoveLanguageProfile) is never called. The
@@ -193,17 +212,18 @@ TEST(TsfRegistration, UnregisterMirrorsEveryRegisteredArtifact) {
         << "AddLanguageProfile has no direct mirror call - recorded as a finding in the PR, not changed here";
 }
 
-/* The measured asymmetry: register writes a Start-menu shortcut, unregister
- * removes neither it nor anything else outside the two trees. Recorded so the
- * next reader does not assume the mirror is total; the ruling on whether
- * unregistration should delete the .lnk belongs to the maintainer. */
-TEST(TsfRegistration, TheStartMenuShortcutIsNeverRemoved) {
+/* The ruled shape (2026-10-30, issue #146): the DLL writes NO file, so the
+ * Start-menu entry has one writer — the installer. The seam carries neither a
+ * Programs folder nor a shell link any more, so a shortcut re-added to this
+ * flow surfaces as an activation the doubles do not recognise. */
+TEST(TsfRegistration, RegistrationWritesNoFile) {
     tsfmock::RegistrationDoubles d;
     d.Install();
     ASSERT_EQ(DllRegisterServer(), TRUE);
+    EXPECT_EQ(d.trace.count(L"CoCreateUnknown"), 0) << "no activation outside the two msctf services (a shell link would land here)";
+
     ASSERT_EQ(DllUnregisterServer(), TRUE);
-    EXPECT_EQ(d.trace.shortcutSaves, 1) << "exactly the one registration-time save";
-    EXPECT_EQ(d.trace.count(L"ShellLink::SetPath"), 1) << "unregistering builds no link and deletes none";
+    EXPECT_EQ(d.trace.count(L"CoCreateUnknown"), 0) << "nor on the way out";
 }
 
 /* The activation branch: a host that answers GetActiveProfile with OUR profile
@@ -231,16 +251,4 @@ TEST(TsfRegistration, LegacyFallbackRunsWhenTheHostReportsNothingActive) {
     EXPECT_TRUE(IsEqualGUID(d.profiles.activatedClsid, CLSID_HunminTSF));
     EXPECT_EQ(d.profiles.activatedLangid, (LANGID)0x0412);
     EXPECT_TRUE(IsEqualGUID(d.profiles.activatedProfile, HunminProfileGuid));
-}
-
-/* A host whose IPersistFile::Save fails must not turn registration into a
- * failure: the shortcut is a convenience, the TIP registration is the product. */
-TEST(TsfRegistration, ARefusedShortcutSaveStillRegisters) {
-    tsfmock::RegistrationDoubles d;
-    d.Install();
-    d.trace.programsFolder.clear(); /* the seam answers S_OK with no path */
-
-    EXPECT_EQ(DllRegisterServer(), TRUE) << "a missing Programs folder does not fail registration";
-    EXPECT_EQ(d.trace.shortcutSaves, 0);
-    EXPECT_TRUE(IsEqualGUID(d.profiles.registeredClsid, CLSID_HunminTSF)) << "the TIP half still ran";
 }

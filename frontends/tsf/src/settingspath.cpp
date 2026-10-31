@@ -6,8 +6,10 @@
  * settingspath.cpp - the shared settings-exe resolver (stage S), replacing
  * the three divergent copies. Candidate order is the maintainer's
  * deployed-first ruling: the installed shape outranks checkout climbs, so
- * an installed Start-menu shortcut now targets the WinUI exe instead of
- * falling back to rundll32.
+ * every launcher (the langbar, `ITfFnConfigure`) finds the same installed
+ * WinUI exe instead of falling back to rundll32. The Start-menu entry is the
+ * installer's absolute-path [Icons] entry and never passes through here
+ * (ruling of 2026-10-30, issue #146).
  */
 #include "settingspath.h"
 
@@ -51,13 +53,6 @@ bool FindInDir(const wchar_t *dllDir, wchar_t *exe, size_t cap) {
 }
 
 } // namespace
-
-bool hunmin_tsf_settings_exe_in_dir(const wchar_t *dllDir, wchar_t *exe, size_t cap) {
-    if (!dllDir || !exe || cap == 0)
-        return false;
-    exe[0] = L'\0';
-    return FindInDir(dllDir, exe, cap);
-}
 
 bool hunmin_tsf_settings_exe_find(const void *anchor, wchar_t *exe, size_t cap) {
     if (!exe || cap == 0)
