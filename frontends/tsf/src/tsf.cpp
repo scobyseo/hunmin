@@ -270,6 +270,17 @@ void CTextService::RebuildLayer() {
          * "syllable" is the same text delivered earlier. */
         const int policy = (strcmp(commitUnit_, "syllable") == 0) ? HUNMIN_COMMIT_PER_SYLLABLE : HUNMIN_COMMIT_AT_BOUNDARY;
         preedit_ = hunmin_buffered_preedit_new(ctx_, hangulId_.c_str(), latinId_.c_str(), policy);
+        if (preedit_) {
+            /* The engine resolves a compound press and calls back into this host
+             * for the platform half (SPEC-MODES §E5, ruled 2026-10-31). It is
+             * registered once per layer, beside the layer's construction, so a
+             * rebuilt layer cannot end up with the previous host's state. */
+            hunmin_special_host host{};
+            host.user = this;
+            host.supports = &CTextService::SpecialSupports;
+            host.perform = [](void *user, hunmin_special_function fn) { static_cast<CTextService *>(user)->SpecialPerform(fn); };
+            hunmin_buffered_preedit_special_host(preedit_, &host);
+        }
         hangulMode_ = (hunmin_buffered_preedit_language(preedit_) == HUNMIN_LANGUAGE_HANGUL);
     }
 }
@@ -440,11 +451,6 @@ STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
 }
 
 STDMETHODIMP CTextService::Deactivate() {
-    /* A key-up can be lost with the session (focus leaving the app, the TIP
-     * unloading): the armed Han/Eng press dies here, or the next keystroke of
-     * the next session would read as its compound press. */
-    toggleArmed_ = false;
-    armedVk_ = 0;
     /* The advice comes off first, so no new event reaches a session that is
      * tearing down. The manager REFERENCE outlives it (ReleaseThreadMgr at
      * the end): the language-bar item is removed through that same manager
@@ -545,13 +551,7 @@ STDMETHODIMP CTextService::OnPopContext(ITfContext *pic) {
 
 STDMETHODIMP CTextService::OnSetFocus(BOOL fFocus) {
     hunmin_logger.log("KS-OnSetFocus fFocus=%d modePid=%lu\n", (int)fFocus, (unsigned long)GetCurrentProcessId());
-    if (!fFocus) {
-        /* The key stream ends with the focus: an armed Han/Eng press cannot
-         * outlive it, or the first key of the next document would read as its
-         * compound press (the key-up is never delivered once focus is gone). */
-        toggleArmed_ = false;
-        armedVk_ = 0;
-    }
+    (void)fFocus;
     return S_OK;
 }
 
@@ -595,12 +595,12 @@ HunminTsfSnapshot CTextService::Snapshot() {
     if (s.composing.size() <= s.display.size())
         s.finished = s.display.substr(0, s.display.size() - s.composing.size());
     s.hangulMode = hangulMode_;
-    s.langHoldArmed = toggleArmed_;
     s.legacyMode = legacyMode_;
     s.interimForce = interimForce_;
     s.composition = composition_;
     s.itemSink = langbar_ ? langbar_->Sink() : nullptr;
     s.toggleKeys = toggleKeys_;
+    s.lastSpecial = lastSpecial_;
     s.hangulId = hangulId_;
     s.latinId = latinId_;
     if (cand_)

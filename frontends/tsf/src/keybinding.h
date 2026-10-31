@@ -80,11 +80,6 @@ int hunmin_tsf_keybindings_match(const HunminKeyCombo *bindings, int count, unsi
  * via the aggregate vks; the family rule only (the VK names a side binding). */
 unsigned int hunmin_tsf_keymods_from_state(void);
 
-/* The down state of one virtual key, through the same provider the modifier
- * snapshot reads (keybinding.h): the mock harness injects state here, so a
- * key's held fact is measured at one seam instead of two. 1 when down. */
-int hunmin_tsf_vk_held(unsigned int vk);
-
 /* The CapsLock TOGGLE state (issue #112, ruling "wire and make it common to
  * all platform"): 1 when toggled on. A toggle key reports its state in the
  * LOW bit of GetKeyState (0x0001), not the 0x8000 down bit the modifiers
