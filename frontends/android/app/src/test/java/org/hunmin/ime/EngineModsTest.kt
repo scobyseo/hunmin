@@ -53,18 +53,19 @@ class EngineModsTest {
         // The ruled Table A (2026-10-31): VOICE = Alt, AUTOSWITCH = Ctrl, and the
         // engine ships both. Android's shipped Shift+KANA default is the value
         // that moved.
+        // An anonymous store: a second private top-level `MapStore` in this
+        // package collides with KeyBindingTest's own (measured by the compiler,
+        // not assumed).
+        val store = object : KeyBindingRepository {
+            private val values = mutableMapOf<String, String>()
+            override fun read(key: String): String? = values[key]
+            override fun write(key: String, value: String) {
+                values[key] = value
+            }
+        }
         assertEquals(
             listOf(KeyCombo(KANA_KEYCODE, KeyBinding.META_ALT_LEFT)),
-            KeyBindings.combos(MapStore(), KeyAction.VOICE),
+            KeyBindings.combos(store, KeyAction.VOICE),
         )
-    }
-}
-
-/** In-memory store, the shape KeyBindingTest uses for the same reason. */
-private class MapStore : KeyBindingRepository {
-    private val values = mutableMapOf<String, String>()
-    override fun read(key: String): String? = values[key]
-    override fun write(key: String, value: String) {
-        values[key] = value
     }
 }
