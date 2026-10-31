@@ -286,16 +286,22 @@ enum class KeyAction(
         prefKey = "hanja",
         label = "한자 입력",
         precedence = 3,
-        // Also no default: EISU is the fixed 한자 key (see [platformAlternates]),
-        // so a chord default would only ever shadow it.
-        defaults = emptyList(),
+        // The maintainer's instruction 2026-10-31: "set hanja key default for
+        // hanja input - it is also configurable through setting dialog", and the
+        // key is platform specific. On Android that key is EISU (212), AOSP's
+        // かな/한글 toggle key.
+        //
+        // A DEFAULT, not a [platformAlternates] entry, and the difference is the
+        // "configurable" half: a stored binding replaces [defaults], so the user
+        // can take EISU away, while an alternate keeps firing beside whatever the
+        // row says -- which would make the key impossible to reassign and make
+        // the window's "not set" a lie about a key that does fire.
+        defaults = listOf(KeyCombo(EISU_KEYCODE)),
         platformAlternates = listOf(
-            // EISU — the maintainer's fixed 한자 입력 key, 2026-10-11. AOSP's
-            // かな/한글 toggle keycode; on keyboards that have it, 한자 is that
-            // key. It is an alternate and not a default precisely so that a
-            // keyboard without EISU can bind something else instead: the row is
-            // empty, the fixed key still works, and the user chooses.
-            KeyCombo(EISU_KEYCODE),
+            // These two stay alternates: they are keyboard conventions that hold
+            // whatever the row says, they were not what the ruling named, and a
+            // keyboard without EISU would otherwise have no 한자 key at all
+            // unless the user configured one.
             KeyCombo(KeyEvent.KEYCODE_ALT_RIGHT, KeyBinding.META_SHIFT),
             KeyCombo(KeyEvent.KEYCODE_LANGUAGE_SWITCH, KeyBinding.META_SHIFT),
         ),

@@ -170,10 +170,10 @@ class KeyBindingTest {
 
     @Test
     fun `with nothing stored the fixed keys answer and the old chord defaults do not`() {
-        // The maintainer's instruction 2026-10-11: 한/영 전환 and 한자 입력 have no
-        // default, because they are physical keys on a Korean keyboard. Alt+Z and
-        // Alt+X are therefore NOT triggers any more -- that is a behaviour change
-        // and this test is where it is pinned down rather than discovered.
+        // 한/영 has no default (a physical key on a Korean keyboard) and 한자 has
+        // EISU as its platform default since the 2026-10-31 ruling. Alt+Z and
+        // Alt+X are NOT triggers any more -- that is a behaviour change and this
+        // test is where it is pinned down rather than discovered.
         val store = MapStore()
         val altLeft = KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON
         val altRight = KeyEvent.META_ALT_ON or KeyEvent.META_ALT_RIGHT_ON
@@ -187,10 +187,33 @@ class KeyBindingTest {
         assertFalse("Alt+X is no longer a 한자 trigger", KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_X, altLeft))
         assertNull(KeyBindings.stored(store, KeyAction.HANGUL_ENG))
         assertTrue(KeyBindings.combos(store, KeyAction.HANGUL_ENG).isEmpty())
-        assertTrue(KeyBindings.combos(store, KeyAction.HANJA).isEmpty())
+        // EISU is 한자's DEFAULT now, not one of its alternates: the window shows
+        // it (the row is not "not set") and a rebind replaces it.
+        assertEquals(listOf(KeyCombo(EISU_KEYCODE)), KeyBindings.combos(store, KeyAction.HANJA))
         // Unused locals kept readable: the assertions above are clearer with the
         // chords spelled out than with a bare zero.
         assertTrue(altLeft != altRight)
+    }
+
+    @Test
+    fun `the hanja default is EISU and a rebind takes it away`() {
+        // The ruling's "configurable" half. A platform alternate would keep
+        // firing beside the stored chord, so the physical 한자 key could never be
+        // reassigned and the settings window's row would describe nothing.
+        val store = MapStore()
+        assertEquals(listOf(KeyCombo(EISU_KEYCODE)), KeyBindings.combos(store, KeyAction.HANJA))
+        assertTrue(KeyBindings.matches(store, KeyAction.HANJA, EISU_KEYCODE, 0))
+
+        KeyBindings.set(store, KeyAction.HANJA, KeyCombo(KeyEvent.KEYCODE_F9))
+        assertEquals(listOf(KeyCombo(KeyEvent.KEYCODE_F9)), KeyBindings.combos(store, KeyAction.HANJA))
+        assertTrue(KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_F9, 0))
+        assertFalse("EISU was replaced, not shadowed", KeyBindings.matches(store, KeyAction.HANJA, EISU_KEYCODE, 0))
+        // The keyboard conventions are still there: they are alternates, not
+        // defaults, and a rebind never removes them.
+        assertTrue(
+            "Shift+Right Alt still opens 한자",
+            KeyBindings.matches(store, KeyAction.HANJA, KeyEvent.KEYCODE_ALT_RIGHT, KeyEvent.META_SHIFT_ON),
+        )
     }
 
     @Test
