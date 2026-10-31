@@ -83,6 +83,19 @@
   rule already matches. What the ruling does not close: the tier-F1
   behavioural pin waits on ctrl/alt mods bits trace-spec.md does not define,
   and the chord-chain order ahead of the chord block is recorded, not decided.
+- [[2026-10-31-han-eng-modifier-compound-special-functions]] — E5's assignment
+  ruled: single press stays the manual Hangul/English switch, and modifier +
+  한/영 is the **namespace** for special functions (voice input, auto-mode
+  switch), on all three frontends. What it does not close: which modifier
+  carries which function, whether the addon may shadow fcitx5's default
+  `Hangul` trigger, fixed vs remappable, and the fact that the auto-switch state
+  still does not exist in the engine.
+- [[2026-10-31-hanja-key-default-f9-was-a-test-scaffold]] — the Hanja key is the
+  default trigger for 한자 입력 (EISU / `VK_HANJA` / the `Hangul_Hanja` keysym),
+  F9 was a test scaffold and is not the product default, and the binding is
+  configurable in the settings dialog. What it does not close: whether F9 stays
+  accepted as an alternate (the conformance corpus drives `{F9}`), and the
+  engine-vs-frontend store question it shares with the E5 assignment.
 - [[space-emission-ownership]] — **contested.** The measurement is not in
   dispute: the engine declines the space and every frontend forwards it. But
   the log and `docs/REMAINING-WORK.md` B5 record the *decision* as closed with

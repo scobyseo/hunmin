@@ -85,15 +85,35 @@ mutual exclusivity of the options truly holds at the moment we decide to move th
 `hunmin_ic_set_option()` has a precedent of accepting a preedit-string override
 (`ic.c:610`). A new option is added here.
 
-## Allocation (SPEC-MODES E5 — UNDECIDED)
+## Allocation (SPEC-MODES E5 — DECIDED 2026-10-31)
 
-Settled by the user: via a key combination, no UI, identical in all environments.
-UNDECIDED: what single input and compound input each do. The F9 constraint
-recorded here — preedit-string occupies F9, no AOSP keycode on Android — was
-measured 2026-10-31 and does not hold as written: F9 is no layout key, and
-`KeyEvent.KEYCODE_F9` is 139. What constrains the allocation is the per-platform
-collision map, priced in `docs/OPTIONS-MEASURED.md` §E5-0 and §E5-2 (option list
-§E5-3); read that rather than this paragraph when choosing.
+The maintainer ruled (verbatim, issue #159; recorded in
+`wiki/decisions/2026-10-31-han-eng-modifier-compound-special-functions.md`): a single
+press is the manual switch, and **modifier + 한/영 is the special-function namespace** —
+voice input, auto-mode switch — as the **default**, **selectable in the config dialog**,
+**on all three frontends**.
+
+Three consequences for this document:
+
+- **The value is an engine option, not a layout row.** The earlier question here ("the
+  key combination placement can go in as a layout row, and that fits the convention
+  better") is now answered by the requirement plus a measurement: the key must behave
+  identically in every layout, and no layout can name it — 15 layouts, 47 keys each,
+  **0 non-printable keys** (`tools/keymap-fixture.py`). So the hook stays top-level and
+  the assignment is a value the engine holds (R13-정정), which the frontends read and the
+  dialog writes.
+- **It has to be readable as instructions, not computable per frontend.** The dialog
+  shows the composition, so the engine owes a way to *describe* it (the R13-정정
+  "explainable" bullet), beside the value itself.
+- **The per-platform physical key stays the frontend's.** The engine holds the *semantic*
+  assignment (which modifier carries which function); each frontend maps it to its own
+  keycode (KANA 218 / `LANGUAGE_SWITCH` / bare `ALT_RIGHT`; `VK_HANGEUL`; fcitx5's
+  `FcitxKey_Hangul`, which needs the trigger-ownership answer first — collision map:
+  `docs/OPTIONS-MEASURED.md` §E5-2).
+
+Still open, and named in the ruling record: which modifier carries which function,
+whether the addon may shadow fcitx5's default `Hangul` trigger, and where a changed
+composition is stored when no store crosses platforms.
 
 ## Where to place it
 
@@ -104,9 +124,13 @@ collision map, priced in `docs/OPTIONS-MEASURED.md` §E5-0 and §E5-2 (option li
 
 ## Can it be expressed as data
 
-AGENTS.md: "Layouts are data, never code." The key combination placement can go in
-as a layout row, and going that way fits the convention better. Which way to go is tied to the
-E5 decision.
+AGENTS.md: "Layouts are data, never code." The earlier reading here was that the key
+combination placement could go in as a layout row. **E5's ruling closes that off:** the
+key must behave identically in every layout while the hook is the physical 한/영 key,
+which no layout names (0 non-printable keys across 15 layouts), and the composition has
+to be readable and changeable from the config dialog. So it is an engine-held option
+whose *semantics* are data-shaped (a function→modifier table) and whose *storage* is the
+existing `set_option` path — not a row in any layout file.
 
 ---
 
