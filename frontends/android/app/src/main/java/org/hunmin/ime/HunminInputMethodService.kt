@@ -207,6 +207,43 @@ class HunminInputMethodService : InputMethodService() {
     private fun fires(action: KeyAction, keyCode: Int, metaState: Int): Boolean =
         KeyBindings.matches(keyBindings, action, keyCode, metaState)
 
+    /**
+     * What this frontend can do with the engine's special functions, and how.
+     *
+     * The engine asks [supports] before it performs anything; false is the
+     * refusal the ruling allows ("if the feature is not supported at the
+     * platform, it can just refuse to service"). On Android:
+     *
+     *  - VOICE is supported: [startVoiceInput] drives the platform recogniser and
+     *    asks for RECORD_AUDIO itself, so the chord is consumed and the user gets
+     *    the permission prompt (or the session) instead of a key that silently
+     *    reaches the editor.
+     *  - AUTOSWITCH is NOT, and the reason is policy already ruled on: the
+     *    auto-switch behaviour is disabled by default in 0.1 (maintainer ruling
+     *    2026-10-12, issue #2). Claiming it here would consume Ctrl+한/영 and
+     *    perform a feature that does nothing. It refuses instead, so the chord
+     *    passes through like any unhandled shortcut -- and the refusal becomes a
+     *    real feature the day that ruling is revisited, without moving the key.
+     *
+     * The object handed over is [HunminSpecialHost]: JNI looks its two methods up
+     * by name, which is why the callbacks live there and not here.
+     */
+    private val specialServices = object : SpecialServices {
+        override fun supports(fn: Int): Boolean = when (fn) {
+            SpecialFunction.VOICE -> true
+            else -> false
+        }
+
+        override fun perform(fn: Int) {
+            when (fn) {
+                SpecialFunction.VOICE -> startVoiceInput()
+                SpecialFunction.AUTOSWITCH -> toggleAutoHangulEnglish()
+            }
+        }
+    }
+
+    private val specialHost = HunminSpecialHost(specialServices)
+
     override fun onCreate() {
         super.onCreate()
         registerTraceReceiver()
@@ -284,6 +321,11 @@ class HunminInputMethodService : InputMethodService() {
         /* The latin adapter is ONE-language on purpose: it is addressed directly
          * by the voice/latin paths, and the pair lives on `engine` (FE7). */
         latinEngine = if (ctx == 0L) null else HunminAdapter(ctx, latinLayoutId, null, commitBehavior)
+        /* The special-function host (ruled 2026-10-31) is registered on BOTH
+         * layers: the chord is resolved by whichever engine is composing, and a
+         * host on only the hangul one would make Alt+한/영 dead in English mode. */
+        engine?.registerSpecialHost(specialHost)
+        latinEngine?.registerSpecialHost(specialHost)
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
@@ -365,6 +407,29 @@ class HunminInputMethodService : InputMethodService() {
         // them. Checked before the space handling and the four bindings, or a
         // chord being captured would also compose and fire its action.
         if (KeyCaptureSession.feed(KeyEvent.ACTION_DOWN, keyCode, event.metaState)) return true
+
+        /* Modifier + 한/영 is the special-function NAMESPACE (ruled 2026-10-31):
+         * the engine owns which chord means which function, this service
+         * implements it or refuses. Placed above the four configurable actions
+         * because the table is the engine's -- a stored KeyAction chord must not
+         * pre-empt the ruled assignment -- and above the toggle because the
+         * single press is what falls through here.
+         *
+         *  >0  performed, consume the key
+         *  -1  bound but refused: NOT a toggle, and the key passes to the app
+         *      (silently turning it into a toggle is how Shift+한/영 would start
+         *      switching modes on a platform that cannot service the function)
+         *   0  not a compound press: fall through to the toggle below */
+        if (KeyBindings.isLanguageKey(keyBindings, keyCode)) {
+            val chordEngine = if (isHangulMode) engine else latinEngine
+            val mods = HunminKeyRegistry.engineMods(event.metaState)
+            val shift = if (event.isShiftPressed) 1 else 0
+            if (chordEngine != null && (mods != 0 || shift != 0)) {
+                val fn = chordEngine.special(0, shift, mods)
+                if (fn > 0) return true
+                if (fn < 0) return super.onKeyDown(keyCode, event)
+            }
+        }
 
         // Debug logging for keycodes. metaState is printed raw because the
         // binding layer normalises it -- seeing the delivered bits is the point.

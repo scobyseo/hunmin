@@ -79,6 +79,13 @@ class HunminAdapter(
         fun layerToggleLanguage(layer: Long): Boolean
         /** HUNMIN_LANGUAGE_* as the layer reports it. */
         fun layerLanguage(layer: Long): Int
+        /* The special-function host and resolver (hunmin.h): the engine owns
+         * which chord means which function, this adapter only carries it. */
+        fun layerSpecialHost(layer: Long, host: HunminSpecialHost?)
+        fun layerSpecial(layer: Long, base: Int, shift: Int, mods: Int): Int
+        fun layerSpecialPeek(layer: Long, base: Int, shift: Int, mods: Int): Int
+        fun layerSpecialBind(layer: Long, fn: Int, mods: Int): Boolean
+        fun layerSpecialChord(layer: Long, fn: Int): Int
         // Hanja candidates (P3)
         fun suggestCount(ctx: Long, hangul: String): Int
         fun suggestText(ctx: Long, i: Int): String
@@ -107,6 +114,16 @@ class HunminAdapter(
         override fun layerToggleLanguage(layer: Long) =
             HunminNativeBridge.nativeLayerToggleLanguage(layer) != 0
         override fun layerLanguage(layer: Long) = HunminNativeBridge.nativeLayerLanguage(layer)
+        override fun layerSpecialHost(layer: Long, host: HunminSpecialHost?) =
+            HunminNativeBridge.nativeLayerSpecialHost(layer, host)
+        override fun layerSpecial(layer: Long, base: Int, shift: Int, mods: Int) =
+            HunminNativeBridge.nativeLayerSpecial(layer, base, shift, mods)
+        override fun layerSpecialPeek(layer: Long, base: Int, shift: Int, mods: Int) =
+            HunminNativeBridge.nativeLayerSpecialPeek(layer, base, shift, mods)
+        override fun layerSpecialBind(layer: Long, fn: Int, mods: Int) =
+            HunminNativeBridge.nativeLayerSpecialBind(layer, fn, mods)
+        override fun layerSpecialChord(layer: Long, fn: Int) =
+            HunminNativeBridge.nativeLayerSpecialChord(layer, fn)
         // Hanja candidates (P3)
         override fun suggestCount(ctx: Long, hangul: String) = HunminNativeBridge.nativeSuggestCount(ctx, hangul)
         override fun suggestText(ctx: Long, i: Int) = HunminNativeBridge.nativeSuggestText(ctx, i)
@@ -164,6 +181,42 @@ class HunminAdapter(
      * [HunminInputMethodService.onKeyDown], which is the only place that knows
      * whether the platform has already delivered a matching `up`.
      */
+    /**
+     * Register the special-function host (the ruling of 2026-10-31). Null
+     * unregisters. The host asks this frontend whether it can service a function
+     * before the engine performs it, and a "no" leaves the chord unconsumed.
+     */
+    fun registerSpecialHost(host: HunminSpecialHost?) {
+        if (layer != 0L) native.layerSpecialHost(layer, host)
+    }
+
+    /**
+     * Ask the ENGINE what this modifier + 한/영 press means.
+     *
+     * >0  a function was performed by the host
+     * -1  bound, but this frontend refused (or no host) -- the key is NOT a
+     *     toggle and the caller passes it through
+     *  0  not a compound press: the single press, which the caller treats as the
+     *     한/영 toggle
+     *
+     * base is 0 because a language key has no character; the flag is what the
+     * engine reads.
+     */
+    fun special(base: Int, shift: Int, mods: Int): Int =
+        if (layer == 0L) 0 else native.layerSpecial(layer, base, shift, mods)
+
+    /** The same answer without performing anything (a platform "test" phase). */
+    fun specialPeek(base: Int, shift: Int, mods: Int): Int =
+        if (layer == 0L) 0 else native.layerSpecialPeek(layer, base, shift, mods)
+
+    /** The chord a function holds right now; 0 when unbound. Reads the engine's
+     *  table, which is what the settings window must display. */
+    fun specialChord(fn: Int): Int = if (layer == 0L) 0 else native.layerSpecialChord(layer, fn)
+
+    /** Seed or override one function's chord, the dialog's write path. */
+    fun specialBind(fn: Int, mods: Int): Boolean =
+        layer != 0L && native.layerSpecialBind(layer, fn, mods)
+
     fun onKey(keyCode: Int, metaState: Int, ic_: InputConnection): Boolean {
         if (layer == 0L) return false
 

@@ -82,6 +82,27 @@ object HunminNativeBridge {
         languageKey: Boolean,
     ): Int
 
+    /**
+     * The special-function host (hunmin.h hunmin_special_host): the object the
+     * engine calls back into for supports/perform. Its two methods are looked up
+     * by name in hunmin-jni.c, so [HunminSpecialHost] owns them and nothing here
+     * may rename them. null unregisters.
+     */
+    @JvmStatic external fun nativeLayerSpecialHost(layer: Long, host: HunminSpecialHost?)
+
+    /** >0 the function performed, -1 bound but this frontend refuses, 0 not a
+     *  chord (the single press, which the classifier answers as a toggle). */
+    @JvmStatic external fun nativeLayerSpecial(layer: Long, base: Int, shift: Int, mods: Int): Int
+
+    /** The same three answers without calling the host -- the test phase. */
+    @JvmStatic external fun nativeLayerSpecialPeek(layer: Long, base: Int, shift: Int, mods: Int): Int
+
+    /** Seed or override one function's chord bits (the dialog's write path). */
+    @JvmStatic external fun nativeLayerSpecialBind(layer: Long, fn: Int, mods: Int): Boolean
+
+    /** The chord a function currently holds: 0 when unbound. */
+    @JvmStatic external fun nativeLayerSpecialChord(layer: Long, fn: Int): Int
+
     @JvmStatic external fun nativeLayerFree(layer: Long)
 
     /** Feed one key: unshifted base + shift bit. Answers consumed. */

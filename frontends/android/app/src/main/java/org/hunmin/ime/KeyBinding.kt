@@ -352,6 +352,21 @@ object KeyBindings {
             store.read(action.prefKey) == null
         }.orEmpty()
 
+    /**
+     * Is [keyCode] the 한/영 key, whatever modifiers are held?
+     *
+     * The compound press needs this and cannot use [matches]: "Alt + 한/영" is not
+     * a chord any row lists -- the modifier is the NAMESPACE for special
+     * functions (ruled 2026-10-31), not part of the assignment -- so matching with
+     * the modifiers in the way would miss every compound press it must resolve.
+     * The key set is the same one the toggle uses: the stored binding, the
+     * defaults in force, and the platform alternates.
+     */
+    fun isLanguageKey(store: KeyBindingRepository, keyCode: Int): Boolean {
+        val all = combos(store, KeyAction.HANGUL_ENG) + KeyAction.HANGUL_ENG.platformAlternates
+        return all.any { it.keyCode == keyCode }
+    }
+
     fun set(store: KeyBindingRepository, action: KeyAction, combo: KeyCombo) {
         store.write(action.prefKey, combo.encode())
     }
