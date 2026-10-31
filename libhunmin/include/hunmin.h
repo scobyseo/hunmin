@@ -403,6 +403,52 @@ HUNMIN_EXPORT int hunmin_buffered_preedit_language(const hunmin_buffered_preedit
 HUNMIN_EXPORT int hunmin_buffered_preedit_commit_policy(const hunmin_buffered_preedit *l);
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffered_preedit *l); /* active layout id */
 
+/* ---------------------------------------------- english words (R8-정정)
+ *
+ * The data half of the modes judgement: `english_valid` is "a lookup in the
+ * ENGLISH DICTIONARY" (docs/SPEC-MODES.md R8-정정), and the maintainer's ruling
+ * of 2026-11-01 fixed the source -- hunspell en_US, with a user dictionary the
+ * person can extend. docs/OPTIONS-MEASURED.md §EDW is the measurement behind
+ * that choice.
+ *
+ * TWO SOURCES, ONE SET. The shipped list and the user's words are looked up
+ * together, so `..._english_valid` answers without asking which file a word
+ * came from. Loading is lazy (status 0 = untried, 1 = loaded, -1 = absent),
+ * because B3 ships this data separately: an absent base dictionary is a normal
+ * state in which the judgement must answer "not english", not fail.
+ *
+ * The USER file is plain text, one word per line, `#` for comments -- a person
+ * edits it. It is deliberately not the JSON the shipped list uses.
+ *
+ * Reloading is the CALLER's decision: there is no file watching and no stat per
+ * lookup, so a frontend calls ..._load_user_words again when its setting
+ * changes. Add a word at runtime with ..._add_user_word and persist it in the
+ * frontend's own store -- that is the "editing" half of the same mechanism.
+ *
+ * Nothing here decides to switch modes; the judgement that consumes it is not
+ * implemented yet (issue: modes judgement).
+ */
+
+/* Path to the shipped list (libhunmin/data/modes/en-US.json). Returns 1 loaded,
+ * -1 absent, 0 malformed. An absent file leaves the set empty and not ready. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_load_english(hunmin_buffered_preedit *l, const char *path);
+
+/* Add the user's words from a text file (one per line, `#` comments). Returns
+ * 1 loaded, -1 absent (also normal), 0 error. Merges; it does not replace. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_load_user_words(hunmin_buffered_preedit *l, const char *path);
+
+/* Add one word at runtime (the frontend's editing path). Returns 1 accepted. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_add_user_word(hunmin_buffered_preedit *l, const char *word);
+
+/* 1 when the word is in the shipped list or the user's words, 0 otherwise --
+ * including while no dictionary is loaded, so a caller can ask before it has
+ * decided whether the feature is available. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_english_valid(const hunmin_buffered_preedit *l, const char *word);
+
+/* 1 when the shipped list is loaded, i.e. when the feature's data is present
+ * (B3's gate). -1 is never reported here: audit that with the load call. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_english_ready(const hunmin_buffered_preedit *l);
+
 #ifdef __cplusplus
 }
 #endif
