@@ -1027,8 +1027,30 @@ Four layers, cheap→real:
   the elevated cycle in `tests/manual-checklists/tsf-unregister-cleanup.md`,
   and a green run here does not close it.
 
-  Not yet covered: a backspace boundary (no sin3-p2
-  tier-A golden carries one) and overlay-window
+  Milestone F (issue #69) widened the win32 corpus from 3 traces to the
+  families the x11 corpus replays: `p2-2-1-basic` and its `sin3-p2` alias run
+  (`dkssud-combo`), `p2-2-3-chosung`, `p2-2-4-1-yetrules`, `p2-2-4-2-eung`,
+  `p2-3-swapped`, `manual-sin3-p2` and `manual-sin3-p2-yet`. All eight are
+  generated from the same tier-A goldens with
+  `tools/gen-conformance.py --platform win32 --batch` and golded with
+  `tools/trace-check.py --emit`. Measured 2026-10-31: 11 traces / 106 cases /
+  688 events over four layouts (dubeolsik, sin3-p2, sin3-p2-basic,
+  sin3-p2-yet), 12/12 green on `ctest --test-dir build-msvc -C Release -L
+  tier-F1`. Each emitted `.gold` was diffed against the `.in` expectations the
+  generator copies verbatim from tier A — identical on all 688 events, so
+  nothing was accepted blind.
+
+  One case is **excluded, not replayed**: `manual-sin3-p2-yet`'s caps-on `k/`.
+  Win32 has no caps encoding (docs/trace-spec.md "`in` — the native event"), and
+  emitting it at `mods: 0` asserts caps-off keys against a caps-on expectation —
+  measured: the adapter composes 고 where tier A records commit ㄱ + preedit ㅋ.
+  `tools/gen-conformance.py` therefore refuses a caps case for win32 and writes
+  the refusal into the trace's `meta.excluded`, so
+  `tests/conformance/win32/manual-sin3-p2-yet.trace.in` covers 14 of the
+  golden's 15 cases and says so in the artefact.
+
+  Not yet covered: caps-on key sequences on win32 (excluded, above), a backspace
+  boundary (no sin3-p2 tier-A golden carries one) and overlay-window
   presentation (needs real HWNDs, stubbed via `ITfContextView::GetTextExt`).
 - **F2 TAT** (Microsoft TSF Accommodation Tool, the official TIP stress-tester) driven on
   a Windows runner; plus UIAutomation-based text assertions in Notepad/test edit control

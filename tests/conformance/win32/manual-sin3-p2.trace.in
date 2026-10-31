@@ -1,0 +1,50 @@
+{"meta": {"platform": "win32", "layout": "sin3-p2", "case": "manual-sin3-p2", "source": "manual-sin3-p2.jsonl (manual)"}}
+{"meta": {"case": "k", "case_index": 1}}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"meta": {"case": "kf", "case_index": 2}}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 70, "scan": 33, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}
+{"meta": {"case": "k/f", "case_index": 3}}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 191, "scan": 53, "mods": 0}, "commit": "", "preedit": "고", "consumed": true}
+{"in": {"vk": 70, "scan": 33, "mods": 0}, "commit": "", "preedit": "과", "consumed": true}
+{"meta": {"case": ";f", "case_index": 4}}
+{"in": {"vk": 186, "scan": 39, "mods": 0}, "commit": "", "preedit": "ㅂ", "consumed": true}
+{"in": {"vk": 70, "scan": 33, "mods": 0}, "commit": "", "preedit": "바", "consumed": true}
+{"meta": {"case": "kfq", "case_index": 5}}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 70, "scan": 33, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}
+{"in": {"vk": 81, "scan": 16, "mods": 0}, "commit": "", "preedit": "갓", "consumed": true}
+{"meta": {"case": "kfx", "case_index": 6}}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 70, "scan": 33, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}
+{"in": {"vk": 88, "scan": 45, "mods": 0}, "commit": "", "preedit": "갔", "consumed": true}
+{"meta": {"case": "kfcq", "case_index": 7}}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 70, "scan": 33, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}
+{"in": {"vk": 67, "scan": 46, "mods": 0}, "commit": "", "preedit": "각", "consumed": true}
+{"in": {"vk": 81, "scan": 16, "mods": 0}, "commit": "", "preedit": "갃", "consumed": true}
+{"meta": {"case": "qf", "case_index": 8}}
+{"in": {"vk": 81, "scan": 16, "mods": 0}, "commit": "", "preedit": "ㅅ", "consumed": true}
+{"in": {"vk": 70, "scan": 33, "mods": 0}, "commit": "ㅅ", "preedit": "ㅍ", "consumed": true}
+{"meta": {"case": "id", "case_index": 9}}
+{"in": {"vk": 73, "scan": 23, "mods": 0}, "commit": "", "preedit": "ㅁ", "consumed": true}
+{"in": {"vk": 68, "scan": 32, "mods": 0}, "commit": "", "preedit": "미", "consumed": true}
+{"meta": {"case": "kd", "case_index": 10}}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 68, "scan": 32, "mods": 0}, "commit": "", "preedit": "기", "consumed": true}
+{"meta": {"case": "cq", "case_index": 11}}
+{"in": {"vk": 67, "scan": 46, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 81, "scan": 16, "mods": 0}, "commit": "ㄱ", "preedit": "ㅅ", "consumed": true}
+{"meta": {"case": "cQ", "case_index": 12}}
+{"in": {"vk": 67, "scan": 46, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 81, "scan": 16, "mods": 1}, "commit": "", "preedit": "ㄳ", "consumed": true}
+{"meta": {"case": "jk1", "case_index": 13}}
+{"in": {"vk": 74, "scan": 36, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 49, "scan": 2, "mods": 0}, "commit": "ㅇµ", "preedit": "", "consumed": true}
+{"meta": {"case": "jk11", "case_index": 14}}
+{"in": {"vk": 74, "scan": 36, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 49, "scan": 2, "mods": 0}, "commit": "ㅇµ", "preedit": "", "consumed": true}
+{"in": {"vk": 49, "scan": 2, "mods": 0}, "commit": "1", "preedit": "", "consumed": true}

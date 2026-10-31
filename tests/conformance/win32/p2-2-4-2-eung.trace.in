@@ -1,0 +1,19 @@
+{"meta": {"platform": "win32", "layout": "sin3-p2-yet", "case": "p2-2-4-2-eung", "source": "p2-2-4-2-eung.jsonl (gate)"}}
+{"meta": {"case": "ng-g", "case_index": 1}}
+{"in": {"vk": 65, "scan": 30, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 67, "scan": 46, "mods": 0}, "commit": "", "preedit": "ᅟᅠᇬ", "consumed": true}
+{"meta": {"case": "ng-m", "case_index": 2}}
+{"in": {"vk": 65, "scan": 30, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 90, "scan": 44, "mods": 0}, "commit": "", "preedit": "ᅟᅠퟵ", "consumed": true}
+{"meta": {"case": "ng-s", "case_index": 3}}
+{"in": {"vk": 65, "scan": 30, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 81, "scan": 16, "mods": 0}, "commit": "", "preedit": "ㆂ", "consumed": true}
+{"meta": {"case": "ng-ng", "case_index": 4}}
+{"in": {"vk": 65, "scan": 30, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 65, "scan": 30, "mods": 0}, "commit": "", "preedit": "ᅟᅠᇮ", "consumed": true}
+{"meta": {"case": "ng-k", "case_index": 5}}
+{"in": {"vk": 65, "scan": 30, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 84, "scan": 20, "mods": 0}, "commit": "", "preedit": "ᅟᅠᇯ", "consumed": true}
+{"meta": {"case": "ng-h", "case_index": 6}}
+{"in": {"vk": 65, "scan": 30, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 68, "scan": 32, "mods": 0}, "commit": "", "preedit": "ᅟᅠퟶ", "consumed": true}
