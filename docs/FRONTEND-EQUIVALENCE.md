@@ -213,8 +213,10 @@ judgements taken in order, and the mode after the boundary, with per-key
 delivery timing where the timing is the assertion (R6's digit run). Its cases
 are the lines of SPEC-MODES R8's formula and the guards around it: the two
 switch directions, both-valid and both-invalid, R9's guard from each side, R4's
-boundary-only moment, R13's off-is-the-identity state, and E1's 0.3 gate
-sentence typed as one stream.
+boundary-only moment, R13's off-is-the-identity state, E1's 0.3 gate sentence
+typed as one stream, and the 세벌식 최종 cases R6 is actually about (its digit row
+is the jongseong jamo ᇂ ᆻ ᆸ, so committing each key on its own is what R6
+forbids).
 
 It is driven by `hunmin-sim --judge`, which sits on `hunmin_buffered_preedit`
 and performs the frontend half of the rule (read `take_judgement`, act on it),
