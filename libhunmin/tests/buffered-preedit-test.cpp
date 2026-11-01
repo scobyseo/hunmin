@@ -292,8 +292,8 @@ TEST_F(LayerTest, RejectsUnknownLayoutAndBadMode) {
  * the same keys produce unbuffered — losslessness is the property a flush can
  * break); every mid-word commit is on a syllable boundary rather than inside a
  * UTF-8 sequence; and no single commit exceeds the cap. What it does NOT pin:
- * judgement. Nothing judges yet (#168), and whether an overflow half is judged
- * before it is committed is that call site's question. */
+ * judgement. The shipped judgement runs at the boundary only (#164), so a flushed
+ * half is committed unjudged and the remainder is judged as its own word. */
 TEST_F(LayerTest, TheCapCommitsTheFirstHalfAndLosesNothing) {
     const size_t kCap = 256; /* hunmin_internal.h WORD_CAP, the default */
     const int kSyllables = 200; /* 600 B if nothing capped it */

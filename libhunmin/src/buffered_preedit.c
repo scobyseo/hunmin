@@ -189,10 +189,14 @@ static const char *set_commit_n(hunmin_buffered_preedit *l, const char *s, size_
  * Three things it deliberately does NOT do, each a decision taken when it was
  * written rather than an omission:
  *
- *  - it does not JUDGE. Nothing judges yet (#168); whether an overflow half is
- *    judged before it is committed is that call site's question, and the cap is
- *    only reached at 682 syllables, so the answer cannot change any reachable
- *    behaviour (docs/OPTIONS-MEASURED.md §BND-2).
+ *  - it does not JUDGE. The judgement (#164's judge_boundary) runs only in
+ *    boundary(), so a flushed half is committed in the current language unjudged,
+ *    and the word that later reaches the boundary is judged against the REMAINDER:
+ *    keys_clear() below empties the reading's raw material, so latin_reading()
+ *    replays only the tail's keys (measured: after three flushes of a 400-key word
+ *    the boundary's reading is the 61 keys still uncommitted, not 400 —
+ *    docs/OPTIONS-MEASURED.md §BND-2). That is "the remainder is its own word",
+ *    which is the only reading the layer still has.
  *  - it does not cut on a byte: the half backs up to a UTF-8 lead byte, so a
  *    syllable is never delivered as a fragment.
  *  - it drops the Latin key log instead of splitting it. The reading is what the

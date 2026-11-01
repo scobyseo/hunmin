@@ -211,12 +211,16 @@ current language, unjudged — while the remainder keeps composing.
   it is what a very long word loses.
 
 **R4's judgement moment is otherwise unchanged: still exactly one per word.** The
-flush does not judge, so `§E6`'s flicker stays inert at this cap.
+flush itself judges nothing — the judgement runs only in `boundary()` (#164) — so
+`§E6`'s flicker stays inert at this cap. What the boundary judges after a flush is
+the **remainder**: the flush empties the reading's key log, so the judgement sees
+the tail's own reading and key count (measured: a 400-key word flushed three times
+reaches the boundary with a 61-key reading, `docs/OPTIONS-MEASURED.md` §BND-2).
+A flushed half is therefore never judged, by construction rather than by omission.
 
-**Not decided by this entry:** whether a flushed half is judged (that is #168's
-call site); whether a frontend gets a settings row for the value; and what preedit
-length an application actually tolerates — 256 B bounds the layer, not the
-application, and that measurement is still absent.
+**Not decided by this entry:** whether a frontend gets a settings row for the
+value; and what preedit length an application actually tolerates — 256 B bounds the
+layer, not the application, and that measurement is still absent.
 
 ### Why a symbol is a termination condition — the user's explanation is wrong, the conclusion is right [E]
 
@@ -847,8 +851,12 @@ improvement becomes 0. **R4's "extend to the end" can be amended depending on th
 result of this evaluation** — once the cap is fixed, "in groups of at most N
 characters" is added to R4.
 
-## E3. Short-word threshold [E]
-R9 requires "do not switch when it is short", but there is no N. The requirement
+## E3. Short-word threshold [D] — value ruled 2026-11-01, §R9/§MRO
+*The paragraphs below are the item as written while N was open; the value that
+closed it, and the unit question it still leaves, are in the note at the end of this
+section.*
+
+R9 requires "do not switch when it is short", but there is no N.
 does not even settle whether the measure is "in syllables" or "in keystrokes".
 
 **R7-정정 changes the scoring criterion of this item.** The threshold N is set on
@@ -866,11 +874,16 @@ on/off",** not "permits errors". Therefore:
 of misfires in each direction, (b) the number of manual on/off toggles. Find the
 N at which (b) is minimal.
 
-*Priced 2026-11-01:* `docs/OPTIONS-MEASURED.md` §BND-3 counts what each N
-partitions — every `a`–`z` string of length 1–4, classified by the two validities
-— and names the corpus that would weight those classes. The method sentence above
-still asks for a measured N while R9 makes N a design-time choice; that conflict
-is the maintainer's to settle, not this note's.
+*Value ruled 2026-11-01, and priced 2026-11-01:* R9 carries the number (the
+maintainer's "3자 이상이면 판단하자", §MRO) and `libhunmin/src/buffered_preedit.c`
+carries it as `JUDGE_MIN_KEYS 3`. **The two do not say the same unit** — the
+ruling's words are three *characters*, the shipped guard counts three *key inputs* —
+and `docs/OPTIONS-MEASURED.md` §BND-3 measures the difference: its sweep is in keys
+typed, so `안녕` (two characters, six keys) is judged by the shipped rule and would
+not be by a character rule. That discrepancy is recorded, not resolved here. The
+item's own method sentence above still asks for a measured N while R9 makes N a
+design-time choice; the ruling answered it by choosing, which is the maintainer's
+call and not this note's.
 
 ## E4. Metric pass line [E]
 R12 said success is "enough if the number of keystrokes goes down", but **how

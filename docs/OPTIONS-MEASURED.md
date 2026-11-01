@@ -3294,7 +3294,7 @@ the flush treats the Latin key log (dropped, fail-closed) — are recorded in
 | 2 | it is "the effective ceiling on buffer extension" | it is not reached: the commit is cleared at the entry of every `hunmin_ic_process*` call, and a finished syllable is at most three characters, so the longest single read measured over a 30-syllable run is **1 character**. The buffer that actually grows is the shared layer's `word`, a heap string with no ceiling (§BND-2) | **corrected** — the ceiling is elsewhere, and it is a different buffer |
 | 3 | "the engine's boundary code" is where a ruled cap would be cited | the shipped path's buffer is `hunmin_buffered_preedit`'s `word` (`libhunmin/src/buffered_preedit.c`, `word_append`), and all three frontends go through that object: `frontends/fcitx5/src/hunminadapter.cpp`, `frontends/tsf/src/keydispatch.cpp`, and Android's `HunminAdapter` through its `layerKey` call. A cap on `hunmin_ic`'s arrays would bound nothing a frontend sees | **corrected** — the issue's verification step names the wrong layer |
 | 4 | "E3's numeric threshold was retired 2026-10-25 … R9 now says only that a threshold exists" | verified: R9 reads "**The numeric threshold is not a requirement (ruled 2026-10-25).** §2.E3 is retired … a design choice, made where the judgement is built and recorded there" | **verified**, and the method conflict is real: §2.E3 still prescribes "set N to 2, 3, 4 and measure … find the N at which (b) is minimal" |
-| 5 | "judging once at the delimiter (R4) means the display never flips mid-word" | verified structurally: `boundary()` is the only place a word is completed, and `build_preedit()` renders `word` plus the in-flight syllable in the layer's current language only. Nothing in the object can show one language and then another while a word is open | **verified** — with the caveat that no judgement is shipped yet (#168), so "judging once" is a specification, not behaviour |
+| 5 | "judging once at the delimiter (R4) means the display never flips mid-word" | verified structurally: `boundary()` is the only place a word is completed, and `build_preedit()` renders `word` plus the in-flight syllable in the layer's current language only. Nothing in the object can show one language and then another while a word is open | **verified**, and now shipped: the judgement is `judge_boundary()` inside `boundary()` (#164, `f9f5992`, merged 2026-11-01), called once per finished word |
 
 Two premises the issue does not state, and every option inherits them:
 
@@ -3419,6 +3419,15 @@ that never sees a delimiter — reaching 4 KiB needs **4,095 consecutive letter 
 with no space and no symbol**, which no delivered text does but a stuck key or a
 replayed paste could.
 
+**The cap and the shipped judgement interact in exactly one place, measured.** The
+judgement is `boundary()`'s (#164), so a flush commutes a half **unjudged** — and
+because the flush empties the reading's key log, the word that later reaches the
+boundary is judged against the **remainder**: a 400-key word (`가` × 200) flushed
+three times arrives at the boundary with a **61-key** reading, not 400. So the
+remainder is treated as its own word, which is the only reading the layer still
+holds; the alternative (halving the key log) would describe a word the buffer no
+longer contains.
+
 **What a flush at half does, and what it must also do.** Flushing the first half
 at overflow (as implemented: 128 bytes of the 256, about 42 syllables) commits text
 at a boundary that is not a delimiter, which R4 did not authorise — R4's sentence
@@ -3473,6 +3482,12 @@ that string's rendering through the 두벌식 layout.
 | 3 | 17,576 | 212 (1.21%) | **1,066 (6.07%)** | **2,238 (12.73%)** | 14,060 (80.00%) | 0.775 |
 | 4 | 456,976 | 230 (0.05%) | **3,239 (0.71%)** | **31,214 (6.83%)** | 422,293 (92.41%) | 0.745 |
 
+**The value is no longer chosen here: R9 records the maintainer's "3자 이상이면
+판단하자" (§MRO, ruled 2026-11-01) and `libhunmin/src/buffered_preedit.c` carries it
+as `JUDGE_MIN_KEYS 3`.** The table below is what that N partitions, and it is in
+**keys typed** — the same unit as the shipped guard — so the `1` row is what N=2
+removes and the `3` row is what ships at N=3:
+
 Read plainly — these are the facts a threshold N is a choice between:
 
 - **At N = 1 there is no threshold to speak of: all 26 one-letter buffers are
@@ -3484,6 +3499,14 @@ Read plainly — these are the facts a threshold N is a choice between:
   12.73%. A single N applies to both, so its cost is not symmetric — and the
   hangul-only column is conditional on E1, the symmetric rule, which is still
   unmeasured.
+- **The ruling's words and the shipped guard do not count the same thing, and the
+  difference is measurable.** The ruling says three *characters*; the guard counts
+  three *key inputs*, and its own comment argues the choice ("`안녕` is two syllables
+  from six keys, and two letters on the Latin reading would let `an`/`at`/`of`
+  switch"). Under the shipped rule `안녕` is judged (6 keys); under a character rule
+  it would not (2 characters). Which one the requirement text should say is the
+  maintainer's, and §BND-1's 2–3× conversion is the size of the gap: every Korean
+  syllable is 2–3 keys.
 - **The threshold's price on the English side, in the oracle's own terms:** forms
   at or below N are 26 (N=1), 374 (N=2), 1,655 (N=3), 5,268 (N=4) — 0.02%, 0.32%,
   1.40%, 4.46% of 118,150. Those forms could never switch automatically while the
@@ -3494,7 +3517,7 @@ Where it could live, and what each home costs:
 
 | home | cost today |
 |---|---|
-| a constant in the judgement's own rule (`boundary()`, #168) | none — #168 is unimplemented, so the constant arrives with its first implementation and R9's "recorded where the judgement is built" is met as written |
+| a constant in the judgement's own rule (`boundary()`) — **what shipped**: `JUDGE_MIN_KEYS 3` above `judge_boundary()` | none — the constant arrived with the judgement's first implementation (#164), so R9's "recorded where the judgement is built" is met as written |
 | an `hunmin_ic_set_option` value | the option namespace has exactly `caps` and `autoswitch`; a third name is an ABI-compatible addition, but it makes a requirement a runtime preference, which nothing has asked for |
 | a `docs/SPEC-SCHEMA.md` key | the schema has no length key at all; a new section plus `tools/doctor.py` validation, for a value that is a design parameter, not data |
 | a per-layout field | the one thing `AGENTS.md` forbids by name ("no per-layout anything in the core") |
@@ -3509,11 +3532,12 @@ missing input.
 
 ### BND-4 E6 — what moving judgement inside the word would cost
 
-Today that cost is zero by construction: one boundary per word, and the display is
-`word` plus the in-flight syllable in one language (§BND-0 row 5). The price of the
-alternative is countable over the same oracle: judge at every prefix, and count how
-often the judged language changes more than once inside one form — a flip away from
-the current mode and back, which is the 도깨비 the maintainer described.
+As shipped, that cost is zero by construction: `judge_boundary()` is called once, in
+`boundary()`, over the finished word (#164), and the display is `word` + the
+in-flight syllable in one language (§BND-0 row 5). The price of the alternative is
+countable over the same oracle: judge at every prefix, and count how often the judged
+language **changes more than once** inside one form — a flip away from the current
+mode and back, which is the 도깨비 the maintainer described.
 
 | | forms | share of 85,718 |
 |---|---|---|
@@ -3548,8 +3572,8 @@ than the item currently makes.
 | item | options priced | ABI | data / schema | tier-A goldens | engine code | gradeable today against |
 |---|---|---|---|---|---|---|
 | E2 | A, B, C, D (§BND-2) — **B selected, shipped** | none — the cap is a name-value option (`word_cap`), not a symbol | none | `engine-buffered-preedit`'s two cap cases | `word_flush_half` / `word_cap` in `buffered_preedit.c` | `tools/modes-boundary-probe.py buffer` — the pre-ruling and post-ruling rows, and both tests fail with `WORD_CAP` 0 |
-| E3 | a constant, an option, a schema key, a per-layout field (§BND-3) | an option name would be additive | schema work only for the schema option | a golden per direction per N | the judgement call site (#168) | the sweep's four columns; **no** corpus for the weights |
-| E6 | one boundary (A, B, C) versus per-key (D) | none | none | a flicker golden needs a per-key display mode first | `build_preedit` and `boundary` | §BND-4's flip counts over the oracle; felt experience: unmeasured |
+| E3 | a constant (shipped), an option, a schema key, a per-layout field (§BND-3) | an option name would be additive | schema work only for the schema option | a golden per direction per N | `JUDGE_MIN_KEYS` and `judge_boundary()` in `buffered_preedit.c` | the sweep's four columns; the shipped guard's own cases in `engine-wordset`; **no** corpus for the weights |
+| E6 | one boundary (shipped) versus per-key | none | none | a flicker golden needs a per-key display mode first | `build_preedit`, `boundary`, `judge_boundary` | §BND-4's flip counts over the oracle; felt experience: unmeasured |
 
 No option changes the ABI, and none needs new data. That is the summary of the
 whole section: **all three items are parameters of one function's behaviour, and
@@ -3585,6 +3609,13 @@ R4's single judgement point for per-key in E6 — rather than a mechanism.**
   evaluable item's own text. The one factual fix made in this commit is the file
   citation inside it, which named `ic.c` for a constant that lives in
   `hunmin_internal.h`; the reasoning is §BND-0 row 1.
+- **Re-measured after rebasing onto master `d1e90fb`, where #164 had merged the
+  judgement itself**: `judge_boundary()` now runs in `boundary()` and R9's guard is
+  `JUDGE_MIN_KEYS 3`, so §BND-0 row 5, §BND-2, §BND-3 and §BND-4 were corrected from
+  "not implemented" to what ships, and the unit gap between the ruling's "three
+  characters" and the guard's three keys was added. The cap and the judgement were
+  built independently and combined without a conflict; the flush/reading
+  measurement above is the one place they meet.
 - **The ruling landed on the same branch, so the probe now measures the shipped
   behaviour as well as the pre-ruling one.** §BND-2 carries both tables; the
   post-ruling rows come from the same command, and the two cap tests fail when
