@@ -15,8 +15,10 @@
  *     hunmin_ctx_layout_supported;
  *   - the mode-toggle key list row, editing the HangulEngKeys
  *     "v1:<vk>:<mods>;..." grammar (keybinding.h);
- *   - a feature row for the automatic Han/Eng switch, DISABLED and labelled
- *     with the recorded ruling's marker - display only, nothing is wired.
+ *   - the automatic Han/Eng switch (issue #175, R13-정정 surface B): a checkbox
+ *     whose label, key name and enablement all come from the ENGINE
+ *     (hunmin_tsf_autoswitch_row), so the dialog spells neither the value nor
+ *     the key, and says why it is disabled when the dictionary is absent.
  */
 #include "settingsdialog.h"
 
@@ -83,6 +85,9 @@ struct SettingsState {
     std::vector<HunminTsfLayoutRow> latinRows;
     int hangulSel = -1; /* row index preselected; vector index == combo index */
     int latinSel = -1;
+    /* The automatic-switch row (issue #175), derived from the engine before the
+     * dialog opens; the checkbox shows its label/state and Apply writes it. */
+    HunminTsfAutoswitchRow featureRow = {};
     /* The ids, in display order: the OK handler needs the id the user
      * picked, and CBS without sort keeps the added order. */
     bool applied = false;
@@ -151,7 +156,6 @@ static void addItem(std::vector<WORD> &t, DWORD style, DWORD exStyle, WORD x, WO
 #define TITLE_COMMIT L"\uCEE4\uBC0B \uB2E8\uC704" /* 커밋 단위 — when text reaches the document */
 #define COMMIT_WORD_ROW L"\uB2E8\uC5B4 \uB2E8\uC704 (\uD55C \uBC88\uC5D0)" /* 단어 단위 (한 번에) */
 #define COMMIT_SYL_ROW L"\uC74C\uC808 \uB2E8\uC704" /* 음절 단위 */
-#define FEATURE_ROW L"\uC790\uB3D9 \uD55C/\uC605 \uC804\uD658: \uBBF8\uC815 (0.3)"
 /* The capture button's two labels (WinUI 3의 key-capture flow, interim
  * dialog parity): idle = click me; capturing = the next key records.
  * Escapes, not literals: MSVC reads this TU under the ANSI codepage (949). */
@@ -209,19 +213,22 @@ static std::vector<WORD> buildDialogTemplate() {
      * document. Same text either way, so this is a preference, not a mode. */
     addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 116, 140, 10, 0, ATOM_STATIC, TITLE_COMMIT);
     addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0, 10, 126, 86, 56, IDC_COMMIT_LIST, ATOM_COMBOBOX, L"");
-    /* The feature row: display only, disabled, per the recorded ruling. */
-    addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 140, 118, 10, 0, ATOM_STATIC, FEATURE_ROW);
-    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTO3STATE | WS_DISABLED, 0, 132, 138, 10, 12, IDC_FEATURE_ROW, ATOM_BUTTON, L"");
+    /* The automatic-switch row (issue #175, R13-정정 surface B): a CHECKBOX that
+     * reads and writes the engine's one state. The label, the key it advertises
+     * and whether the control is usable all come from
+     * hunmin_tsf_autoswitch_row(), so the dialog never spells "Ctrl+한/영" and
+     * never decides on its own that the feature is unavailable. */
+    addItem(t, WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP, 0, 6, 140, 186, 12, IDC_FEATURE_ROW, ATOM_BUTTON, L"");
     /* OK / Cancel. */
     addItem(t, WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | BS_DEFPUSHBUTTON, 0, 100, 156, 44, 12, IDOK, ATOM_BUTTON, L"OK");
     addItem(t, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, 148, 156, 44, 12, IDCANCEL, ATOM_BUTTON, L"Cancel");
-    /* The template declared exactly the items appended above: 8 statics +
+    /* The template declared exactly the items appended above: 7 statics +
      * 3 combos + 2 edits + 2 capture buttons + 1 checkbox + 2 buttons =
-     * 18. (The count is derived from the add calls above; USER32 stops
+     * 17. (The count is derived from the add calls above; USER32 stops
      * parsing at cdit, so a wrong number here either truncates children or
      * reads garbage as the first item — the empty-dialog defect
      * instrumentation kept the initdialog kids count as the guard.) */
-    t[cditOff] = 18;
+    t[cditOff] = 17;
     return t;
 }
 
@@ -272,10 +279,16 @@ static void applyAndClose(HWND h, SettingsState *s) {
     }
     strncpy(s->cfg.hanjaKey, hanjaKey.c_str(), HUNMIN_TSF_HANJA_KEY_CAP - 1);
     s->cfg.hanjaKey[HUNMIN_TSF_HANJA_KEY_CAP - 1] = '\0';
+    /* The automatic switch (issue #175): the checkbox writes the STORE's copy of
+     * a state the engine owns; the adapter hands it to the layer on the next
+     * Apply (hunmin_buffered_preedit_set_option), and the engine refuses it where
+     * its data is absent either way. The control is disabled in that case, so a
+     * refused ON is never recorded from here. */
+    s->cfg.autoswitch = SendMessageW(GetDlgItem(h, IDC_FEATURE_ROW), BM_GETCHECK, 0, 0) == BST_CHECKED ? 1 : 0;
     if (hunmin_tsf_config_save(HKEY_CURRENT_USER, &s->cfg)) {
         s->applied = true;
-        hunmin_logger.log("settings: saved hangul=%s latin=%s keys=%s hanja=%s\n", s->cfg.hangulLayout, s->cfg.latinLayout, s->cfg.toggleKeys,
-                          s->cfg.hanjaKey);
+        hunmin_logger.log("settings: saved hangul=%s latin=%s keys=%s hanja=%s autoswitch=%d\n", s->cfg.hangulLayout, s->cfg.latinLayout, s->cfg.toggleKeys,
+                          s->cfg.hanjaKey, s->cfg.autoswitch);
         EndDialog(h, 1);
     } else {
         hunmin_logger.log("settings: save FAILED\n");
@@ -542,6 +555,17 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         /* The candidate-window key into its edit (issue #67). */
         std::wstring hk = utf8ToWide(s->cfg.hanjaKey);
         SetWindowTextW(GetDlgItem(h, IDC_HANJA_EDIT), hk.c_str());
+        /* The automatic-switch row (issue #175): the engine's label (which names
+         * the key it honours), the engine's value, and -- when B3's data gate
+         * says the dictionary is not installed -- a DISABLED control whose label
+         * says why. "off by choice" and "off, data missing" must be tellable
+         * apart (R13-정정). */
+        {
+            HWND box = GetDlgItem(h, IDC_FEATURE_ROW);
+            SetWindowTextW(box, utf8ToWide(s->featureRow.label).c_str());
+            SendMessageW(box, BM_SETCHECK, (WPARAM)(s->featureRow.value ? BST_CHECKED : BST_UNCHECKED), 0);
+            EnableWindow(box, s->featureRow.available ? TRUE : FALSE);
+        }
         /* Windows 11 look: corners, dark title bar in dark mode, Variable
          * font. Logged HRESULTs are the measurement (see the manual
          * checklist). */
@@ -663,7 +687,18 @@ bool hunmin_tsf_settings_dialog_run(HWND parent) {
     n = hunmin_tsf_rows_for_mode(s.ctx, false, buf, HUNMIN_TSF_SETTINGS_MAX_ROWS);
     s.latinRows.assign(buf, buf + n);
     hunmin_tsf_config_load(HKEY_CURRENT_USER, &s.cfg);
-    hunmin_logger.log("settings: open rows hangul=%zu latin=%zu\n", s.hangulRows.size(), s.latinRows.size());
+    /* The automatic-switch row (issue #175): resolved against the SAME layout
+     * pair the adapter will build its layer from, so the engine's answer here
+     * is the one the TIP will hold after Apply. Nothing about the feature is
+     * decided in the dialog. */
+    {
+        std::string hangulId, latinId;
+        hunmin_tsf_resolve_layout_slot(s.ctx, s.cfg.hangulLayout, "sin3-p2", true, &hangulId);
+        hunmin_tsf_resolve_layout_slot(s.ctx, s.cfg.latinLayout, "us-qwerty", false, &latinId);
+        hunmin_tsf_autoswitch_row(s.ctx, hangulId.c_str(), latinId.c_str(), s.cfg.autoswitch, &s.featureRow);
+    }
+    hunmin_logger.log("settings: open rows hangul=%zu latin=%zu autoswitch=%d available=%d key=%s\n", s.hangulRows.size(), s.latinRows.size(),
+                      s.featureRow.value, s.featureRow.available, s.featureRow.key);
     std::vector<WORD> t = buildDialogTemplate();
     /* Template ground truth in the log: this stream is what USER32 parses,
      * and the empty-dialog defect report (2026-10-18) showed a created-but-

@@ -42,6 +42,67 @@ decision. A key must not be typeable in one mode and not the other.
 The original defect (digits `1`-`0` not insertable in interim dubeolsik) is an
 instance of this rule.
 
+### 2.1 Open finding: the automatic switch cannot judge in interim mode (measured 2026-11-01, issue #175)
+
+The rule above covers this feature too, and interim mode does not satisfy it yet.
+Measured on the tree that implements R8's judgement (#164/#175):
+
+- **Native mode delivers the judged word.** `TsfConfigTest.TheAutomaticSwitchFlipsTheModeAtTheBoundary`
+  types `sms` (는, well-formed Hangul → stay) then `english` (a dictionary word,
+  not Hangul → switch to Latin); the mode moves and the document text is
+  `는english`.
+- **Interim mode cannot, and the cause is structural, not a missing call.**
+  `InterimWrite` moves the layer's FINISHED word into the document on every key
+  (`core_->TakeFinishedWord()` → `hunmin_buffered_preedit_take_word`, which
+  REMOVES it from the layer) so the span stays one syllable wide, and
+  `InterimDrain` then closes with `core_->ComposeReset()` rather than
+  `hunmin_buffered_preedit_commit_word()`. At the boundary the layer therefore
+  holds only the syllable still in flight: there is no whole word to judge, and
+  the frozen log line is `interim boundary: word len=0`. Calling the judgement
+  there would answer on a tail (`hangul_valid` on one syllable, `latin_out` from
+  the intact key log) and could only deliver a fragment — R10 forbids the
+  reassembly the whole-word answer would need, because the earlier syllables are
+  already client text.
+
+So the interim mode's text model (progressive commit into the host document) is
+what blocks it, and the fix is a choice between two shapes, neither of which is
+a missing wire-up:
+
+1. **Hold the word in the span while `autoswitch` is on**: the span grows to the
+   whole display and is rewritten each key (one select + one replace, as now) and
+   once at the boundary with the judged word. The judgement then runs exactly as
+   in native mode. Cost: the span's per-key write is the whole word instead of
+   one syllable on the mode that exists because hosts kill compositions, so it
+   needs a live-host round (caret, undo, a host that terminates a long span).
+2. **Name the asymmetry**: interim mode keeps no judgement (the feature is
+   native-only), recorded here as a deliberate difference and covered by a
+   separate issue.
+
+Until one is ruled, tier F1 pins the NATIVE decision and the interim mode is
+unchanged; no test asserts the interim half of this feature, so nothing claims
+the equivalence the rule states.
+
+### 2.2 Open finding: the reverse direction (English → Hangul) never reaches the engine in TSF (measured 2026-11-01, issue #175)
+
+R8's E1 line (ruled 2026-11-01, "E1도 당연히 지원해야지") judges a word typed in
+Latin mode, and the 0.3 gate is the maintainer's own mixed sentence
+(`English는 좋은 Language입니다`, tier A `WordSetTest.TheZeroThreeGateMixedSentenceWorksInOneStream`).
+TSF feeds the engine only in Hangul mode: `OnTestKeyDown` answers `eat = FALSE`
+for everything once `hangulMode_` is false, and `OnKeyDown` returns at the
+`if (!hangulMode_) return S_OK; // passthrough English` branch. Measured with the
+adapter on the shipped data, autoswitch ON: after `english` + space switches the
+mode to Latin, `sms` + space leaves `hangulMode` Latin, the client document
+unchanged, and the test phase for `D` answers `eat = 0` (the key is the app's).
+
+So the E1 half of the judgement cannot fire on TSF while that passthrough stands.
+It is not a wire-up: R5 (`자동변환 기능이 꺼져있을 때 … 글자 단위로 commit 되어야 해`)
+requires per-character commit in English mode when the feature is OFF, so the
+passthrough is the ruled behaviour for that state — what is unmeasured is whether
+autoswitch ON changes it (feed the engine in Latin mode, let the layer deliver
+per character as it already does, and judge at the boundary). That question
+belongs to the equivalence issue #180 and needs a ruling before TSF can claim the
+0.3 gate.
+
 ## 3. Allowed differences
 
 1. **Physical-key mapping.** Each frontend maps its platform event to the

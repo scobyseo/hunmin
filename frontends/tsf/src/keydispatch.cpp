@@ -481,10 +481,14 @@ void CTextService::FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
     if (!consumed) {
         /* A key the engine declines is a boundary AND a pass-through: the layer
          * has already delivered the word in out.commit, which starts the
-         * delivery exactly as the old BoundaryFlush did. */
+         * delivery exactly as the old BoundaryFlush did. It also ALREADY judged
+         * that word (the decline is the boundary), so the judgement is taken
+         * here and acted on -- a second delivery drain would ask the layer for a
+         * word it no longer holds, and its boundary is what replaces the
+         * judgement with -1 (issue #175: that is how the answer used to be
+         * discarded before it was read). */
         if (out.commit && *out.commit)
             InsertText(pic, HunminUtf8ToWide(out.commit));
-        delivery_->Boundary(pic);
         /* The engine judged the word it just delivered; the mode change is the
          * frontend's half (ruled 2026-11-01, #164). Asked after the delivery so
          * the text inserted above is the one the judgement was made on. */

@@ -271,6 +271,14 @@ void CTextService::RebuildLayer() {
         const int policy = (strcmp(commitUnit_, "syllable") == 0) ? HUNMIN_COMMIT_PER_SYLLABLE : HUNMIN_COMMIT_AT_BOUNDARY;
         preedit_ = hunmin_buffered_preedit_new(ctx_, hangulId_.c_str(), latinId_.c_str(), policy);
         if (preedit_) {
+            /* R13-정정's ON/OFF (issue #175) is applied once per rebuild, before
+             * anything can judge: the layer's state is the engine's, and this is
+             * the one place the stored preference reaches it. The engine REFUSES
+             * the value where its word list is absent (B3, #169), so a stale
+             * stored 1 on a machine without the data leaves the feature off
+             * rather than half-enabled -- which is why the dialog reads the
+             * value back from the layer instead of from the store. */
+            hunmin_buffered_preedit_set_option(preedit_, "autoswitch", autoswitch_ ? 1 : 0);
             /* R8's judgement needs the English list (R8-정정-2, ruled
              * 2026-11-01). Loaded per layer, from the same data dirs the
              * layouts came from; absent data is a normal state (B3) and the
@@ -297,6 +305,7 @@ void CTextService::ApplyConfigStore() {
     /* The commit unit the layer is built with (issue #128), from the same
      * env -> registry -> default chain every other setting uses. */
     snprintf(commitUnit_, sizeof commitUnit_, "%s", cfg.commitUnit);
+    autoswitch_ = cfg.autoswitch;
     hunmin_tsf_resolve_layout_slot(ctx_, cfg.hangulLayout, kHangulDefaultId, true, &hangulId_);
     hunmin_tsf_resolve_layout_slot(ctx_, cfg.latinLayout, kLatinDefaultId, false, &latinId_);
     LoadToggleKeys(cfg);
@@ -626,6 +635,9 @@ HunminTsfSnapshot CTextService::Snapshot() {
     s.hangulMode = hangulMode_;
     s.legacyMode = legacyMode_;
     s.interimForce = interimForce_;
+    /* The ENGINE's answer, not the stored one: a refused value reads 0 here. */
+    int autoswitch = 0;
+    s.autoswitch = (preedit_ && hunmin_buffered_preedit_get_option(preedit_, "autoswitch", &autoswitch)) ? autoswitch : 0;
     s.composition = composition_;
     s.itemSink = langbar_ ? langbar_->Sink() : nullptr;
     s.toggleKeys = toggleKeys_;

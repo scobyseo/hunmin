@@ -441,10 +441,19 @@ void CTextService::ComposeReset() {
 /* One composition-boundary drain shared by the declined key path and the mode
  * toggle (issue #66). The finalising is the LAYER's now (issue #128): its
  * commit_word() closes the in-flight syllable and hands back the whole word,
- * which InsertBufferedWord delivers once. */
+ * which InsertBufferedWord delivers once.
+ *
+ * R8's judgement is taken HERE, after the delivery and before the next key
+ * (issue #175). It has to be this drain and not only the declined-key path: a
+ * boundary key on TSF (space, Enter) is settled in OnTestKeyDown and PASSED, so
+ * the host never calls the down phase and the declined branch never runs --
+ * measured with tier F1's TsfConfigTest.TheAutomaticSwitch* before this call
+ * existed, the mode never moved. take_judgement is consuming, so the redundant
+ * call on the declined path costs one and does nothing. */
 void CTextService::BoundaryFlush(ITfContext *pic) {
     hunmin_logger.log(" boundary, display=%zu\n", ComposeDisplay().size());
     delivery_->Boundary(pic);
+    ApplyJudgement(pic);
 }
 
 /* The caret rect the candidate popup anchors to: one read-only edit

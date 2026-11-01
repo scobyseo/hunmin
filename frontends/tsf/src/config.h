@@ -54,11 +54,20 @@ extern "C" {
  * The TEXT is identical either way -- only when it lands differs -- which is why
  * this is a preference and not a behaviour fork. */
 #define HUNMIN_TSF_ENV_COMMIT_UNIT "HUNMIN_TSF_COMMIT_UNIT"
+/* The automatic Hangul/English switch, "0"/"1" (docs/SPEC-MODES.md §R13-정정,
+ * issue #175). The STATE is the engine's -- hunmin_ic_set_option(ic,
+ * "autoswitch") is the single source of truth -- and this slot is only how a
+ * separate settings process hands the person's choice to the next Activate();
+ * nothing here is read at judgement time. The engine vetoes it where its data
+ * is absent (B3), so a stored 1 on a machine without the word list comes back 0.
+ */
+#define HUNMIN_TSF_ENV_AUTOSWITCH "HUNMIN_TSF_AUTOSWITCH"
 #define HUNMIN_TSF_REGVAL_HANGUL "HangulLayout"
 #define HUNMIN_TSF_REGVAL_LATIN "LatinLayout"
 #define HUNMIN_TSF_REGVAL_TOGGLE "HangulEngKeys"
 #define HUNMIN_TSF_REGVAL_HANJAKEY "HanjaKey"
 #define HUNMIN_TSF_REGVAL_COMMITUNIT "CommitUnit"
+#define HUNMIN_TSF_REGVAL_AUTOSWITCH "Autoswitch"
 
 /* Slots are fixed-size: layout ids are short ASCII strings and the engine
  * compares them by exact bytes; 64 covers every id in libhunmin/data. */
@@ -87,6 +96,11 @@ typedef struct HunminTsfConfig {
     char hanjaKey[HUNMIN_TSF_HANJA_KEY_CAP];
     /* "word" (default) or "syllable"; see HUNMIN_TSF_ENV_COMMIT_UNIT. */
     char commitUnit[HUNMIN_TSF_COMMIT_UNIT_CAP];
+    /* R13-정정's ON/OFF, as a person's preference: 0 = off (the B3 default),
+     * 1 = on. The layer is told with hunmin_buffered_preedit_set_option(l,
+     * "autoswitch", …) once per rebuild, and the engine's own refusal (data
+     * absent, issue #169) wins over this value. */
+    int autoswitch;
 } HunminTsfConfig;
 
 /* Fill *out from env, then registry, then defaults. root may be NULL (the

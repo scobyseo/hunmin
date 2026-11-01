@@ -22,6 +22,7 @@
  */
 #include <gtest/gtest.h>
 
+#include <cctype>
 #include <cstring>
 #include <string>
 #include <windows.h>
@@ -82,6 +83,18 @@ TEST_F(TsfConfigTest, EmptyEnvRestoresDefaults) {
     _putenv_s(HUNMIN_TSF_ENV_HANJA_KEY, "");
     hunmin_tsf_config_load(nullptr, &cfg);
     EXPECT_STREQ(cfg.hanjaKey, "v1:25:0") << "empty env hanja key -> default";
+    /* R13-정정's ON/OFF (issue #175): OFF is the B3 default, and the flag is
+     * spelled "1" -- anything else in the store is OFF (fail-closed). */
+    EXPECT_EQ(cfg.autoswitch, 0) << "autoswitch defaults OFF (B3)";
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
+    hunmin_tsf_config_load(nullptr, &cfg);
+    EXPECT_EQ(cfg.autoswitch, 1) << "env override reaches the flag";
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "yes");
+    hunmin_tsf_config_load(nullptr, &cfg);
+    EXPECT_EQ(cfg.autoswitch, 0) << "a typo must not enable the feature";
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    hunmin_tsf_config_load(nullptr, &cfg);
+    EXPECT_EQ(cfg.autoswitch, 0) << "empty env autoswitch -> default";
 }
 
 /* 3. Slot resolution against the real data (issue #71's list split must
@@ -112,6 +125,7 @@ TEST_F(TsfConfigTest, RegistryRoundTripAndUnterminatedId) {
     strcpy_s(write.hangulLayout, "sebeolsik-3-90");
     strcpy_s(write.latinLayout, "dvorak");
     strcpy_s(write.hanjaKey, "v1:120:0");
+    write.autoswitch = 1; /* R13-정정's ON/OFF (issue #175) */
     EXPECT_EQ(hunmin_tsf_config_save(selftest, &write), TRUE) << "save returned FALSE";
     int rc = hunmin_tsf_config_load(selftest, &cfg_);
     EXPECT_GE(rc, 1) << "load from registry failed entirely";
@@ -121,6 +135,7 @@ TEST_F(TsfConfigTest, RegistryRoundTripAndUnterminatedId) {
     EXPECT_STREQ(cfg_.hangulLayout, "sebeolsik-3-90") << "round trip hangul";
     EXPECT_STREQ(cfg_.latinLayout, "dvorak") << "round trip latin";
     EXPECT_STREQ(cfg_.hanjaKey, "v1:120:0") << "round trip hanja key";
+    EXPECT_EQ(cfg_.autoswitch, 1) << "round trip autoswitch (R13-정정's ON/OFF)";
 
     /* 5. An unterminated id is rejected, never truncated. */
     HunminTsfConfig bad = {};
@@ -378,3 +393,84 @@ TEST_F(TsfConfigTest, TheHanEngKeyCarriesTheSpecialFunctionOnAChord) {
     dm->Release();
     tm->Release();
 }
+
+/* R13-정정's surface A, performed by the ADAPTER (issue #175). The ruling of
+ * 2026-11-01 (#164) splits the work: the ENGINE judges and delivers the word,
+ * the FRONTEND adopts the mode it answers. This case pins the adapter half for
+ * the two buffers the issue names -- one English-valid, one Hangul-valid -- so
+ * the DECISION is asserted and not merely that a switch can happen:
+ *   `english` typed in dubeolsik is a dictionary word and is not well-formed
+ *   Hangul, so the mode must move to Latin; `sms` (는) is well-formed Hangul,
+ *   so the mode must stay.
+ * Both verdicts are tier A's own for the same buffers on the shipped dictionary
+ * (wordset-test, TheZeroThreeGateMixedSentenceWorksInOneStream) -- nothing is
+ * typed here. The committed text is the same either way: the judgement changes
+ * the MODE, never the word (R10).
+ *
+ * The boundary is a SPACE, which on a real TSF host reaches the adapter in the
+ * TEST phase (the key passes, so the host never calls the down phase -- the
+ * `dkssud1` shape): that is why the judgement has to be taken at the boundary
+ * drain, not only where a key is declined. */
+TEST_F(TsfConfigTest, TheAutomaticSwitchFlipsTheModeAtTheBoundary) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
+    _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "dubeolsik");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    ASSERT_TRUE(Snap(svc).hangulMode) << "the service starts in hangul mode";
+
+    /* The stored preference reached the engine's ONE state (R13-정정: the
+     * frontend holds no copy, it reads the engine's answer). */
+    hunmin_buffered_preedit *layer = Snap(svc).layer;
+    ASSERT_NE(layer, nullptr);
+    int on = 0;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(layer, "autoswitch", &on)) << "the layer answers the option R13-정정 names";
+    EXPECT_EQ(on, 1) << "the stored value reached the layer";
+
+    auto type = [&](const char *keys) {
+        for (const char *p = keys; *p; ++p) {
+            BOOL eat = FALSE;
+            svc->OnTestKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+            svc->OnKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+        }
+        BOOL eat = FALSE;
+        svc->OnTestKeyDown(mctx, VK_SPACE, 0, &eat);
+        EXPECT_EQ(eat, FALSE) << "a boundary key passes (it is the app's space)";
+        svc->OnKeyDown(mctx, VK_SPACE, 0, &eat);
+    };
+
+    /* 1. A Hangul-valid buffer: 는 is well-formed Hangul, so R8 answers "keep
+     * the current mode" and nothing switches. */
+    type("sms");
+    EXPECT_TRUE(Snap(svc).hangulMode) << "a Hangul-valid word must not switch the mode";
+
+    /* 2. An English-valid buffer: `english` reads as a dictionary word and is
+     * not well-formed Hangul, so the mode must be Latin from the next key. */
+    type("english");
+    EXPECT_FALSE(Snap(svc).hangulMode) << "an English-valid word must switch the mode to Latin";
+
+    /* The word landed in the client, in the language the judgement decided,
+     * and nothing was reassembled (R10): 는 then english. */
+    EXPECT_EQ(mctx->doc, std::wstring(L"\uB294") + L"english") << "the judged words are the delivered text";
+
+    /* Process-wide seams back to their defaults: this binary runs every case in
+     * one process and a sibling must not inherit autoswitch ON (the measured
+     * leak trap: a case that passes under --gtest_filter and fails in the suite). */
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+

@@ -177,6 +177,39 @@ TEST_F(TsfSettingsTest, FunctionProviderAndConfigureFunction) {
     fnUnk->Release();
 }
 
+/* 2b. R13-정정 surface B (issue #175): the settings row is DERIVED from the
+ * engine. The dialog spells neither the value nor the key, so this case pins
+ * what the engine supplies: the chord it holds for HUNMIN_SPECIAL_AUTOSWITCH
+ * appears in the label, the label carries the platform's name for the physical
+ * Han/Eng key, and the value it reports is the engine's answer -- a stored 1
+ * that the engine refused (data absent) must read 0 with `available` 0, which
+ * is how "off by choice" and "off, data missing" stay tellable apart. */
+TEST_F(TsfSettingsTest, TheAutomaticSwitchRowComesFromTheEngine) {
+    HunminTsfAutoswitchRow row;
+
+    /* The installed tree: the data gate passes, the chord is the engine's
+     * default (Ctrl), and the stored 1 round-trips through the layer. */
+    hunmin_tsf_autoswitch_row(ctx_, "dubeolsik", "us-qwerty", 1, &row);
+    EXPECT_EQ(row.available, 1) << "libhunmin/data carries modes/en-US.json";
+    EXPECT_EQ(row.value, 1) << "the stored value reached the engine and came back";
+    EXPECT_STREQ(row.key, "Ctrl+\xED\x95\x9C/\xEC\x98\x81") << "the chord is the engine's, the key name is the platform's (UTF-8 한/영)";
+    EXPECT_NE(std::string(row.label).find(row.key), std::string::npos) << "the label names the key: '" << row.label << "'";
+
+    /* Stored OFF: the same row, unchecked -- the value is read, not assumed. */
+    hunmin_tsf_autoswitch_row(ctx_, "dubeolsik", "us-qwerty", 0, &row);
+    EXPECT_EQ(row.available, 1);
+    EXPECT_EQ(row.value, 0) << "off by choice is a value the engine answers";
+
+    /* No context at all is the "data missing" state as far as the row can tell:
+     * the control is disabled AND the label says why (R13-정정: discoverability
+     * applies to the disabled state too). */
+    hunmin_tsf_autoswitch_row(nullptr, nullptr, nullptr, 1, &row);
+    EXPECT_EQ(row.available, 0) << "no data gate answer means not available";
+    EXPECT_EQ(row.value, 0) << "a stored 1 cannot be shown as ON when the data is absent";
+    EXPECT_NE(std::string(row.label).find(row.key), std::string::npos) << "the disabled row still names the key: '" << row.label << "'";
+    EXPECT_NE(row.label[0], '\0') << "a disabled row that says nothing is the defect this guards";
+}
+
 /* 3. ApplyConfigStore re-reads the store into the LIVE adapter (env
  * seam, never a registry write): layouts and toggle keys move without
  * a process restart. 4. The void* bridge (settings.cpp's Show path
