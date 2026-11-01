@@ -161,6 +161,41 @@ gesture recognised and the gesture serviced cannot drift. An ordinary character 
 reaches a SHIFT binding (capitalize keeps working), and a chord with no binding — Shift
 included — still answers the plain toggle.
 
+### The value the `AUTOSWITCH` function flips (issue #165, 2026-11-01)
+
+R13-정정 says the on/off state is **one** value and the engine owns it, with a key
+combination and a settings surface as two paths onto the same state. The state now
+exists, and only the state: what the surfaces are wired to is listed here so the gap
+is a recorded one and not a surprise.
+
+| what | measured fact |
+|---|---|
+| the name | `"autoswitch"`, accepted by `hunmin_ic_set_option()` and through the layer by `hunmin_buffered_preedit_set_option()`. Value contract is the one `"caps"` already has: coerced by `!!`, so any non-zero is ON (appended to the ABI, `libhunmin/tests/abi/symbols.txt` 52 → 54) |
+| the default | OFF with no option call at all — the B3 ruling of 2026-10-11 (the feature's additional data ships separately and the option is the transition lever) |
+| the query | `hunmin_ic_get_option()` / `hunmin_buffered_preedit_get_option()`, returning the value through an out-parameter. An unknown name answers `false` and leaves the caller's int untouched; the `w/W/z/h/H` overrides answer `-1` for "not overridden, the layout default", which is a value and not an unknown name |
+| where it lives | a field on `hunmin_ic`, and `attach_ic()` carries it across the ic re-creation a language toggle performs. Without that carry, a settings surface writes ON and the next 한/영 press silently restores OFF — measured red by `KeyRuleTest.TheAutoswitchStateSurvivesALanguageToggle` against the pre-carry code. `hunmin_ic_reset()` does **not** clear it: a preference is not input state |
+| the key beside it | already the engine's, unchanged: `hunmin_buffered_preedit_special_chord(l, HUNMIN_SPECIAL_AUTOSWITCH)` answers the ruled default `Ctrl` (Table A, 2026-10-31), so a dialog that shows value + chord spells neither of them itself |
+
+**What this does not wire, and why it is not this issue's to wire.** Nothing flips the
+value yet. `hunmin_buffered_preedit_special()` resolves `AUTOSWITCH` and hands it to the
+registered host's `perform`, which in TSF records the request and in Android logs
+"not yet implemented" — so today the option is writable and readable and the chord
+performs the platform half only. The open question is the one the 2026-10-31 record left
+open (*"whether the engine also owns the `autoswitch` state the function flips"*,
+`wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md`):
+if it does, the transition belongs in `..._special()` beside the resolution, one line,
+before the host is called; if it does not, each frontend's `perform` writes the value
+through the same option. Either way the value keeps one home — the difference is who
+owns the **transition**, and that is a ruling, not a measurement. The B3 data gate adds
+a second unruled piece: nothing here refuses to turn the feature ON when the data the
+feature needs is absent, because "where the data gate is checked" is 0.3 design
+(`docs/SPEC-MODES.md` §R13-정정, the default bullet).
+
+Pinned by `KeyRuleTest.TheAutoswitchOptionIsOneValueTheLayerReadsBack` (default, both
+writes, the `!!` coercion, the unknown-name rejection, the chord) and
+`KeyRuleTest.TheAutoswitchStateSurvivesALanguageToggle` (the carry, both directions, and
+`reset()` leaving it alone).
+
 ### Windows (TSF) — the second frontend on the dispatch (2026-10-31)
 
 `frontends/tsf` wires the same five symbols. What the adapter owns and what it asks:

@@ -124,8 +124,21 @@ const char *hunmin_ic_preedit(hunmin_ic *ic);
 
 /* "caps" -> Caps Lock state for expression var P (yethangul modes);
  * "w"/"W"/"z"/"h"/"H" -> 전처리수식 override (pat.im/1136 §2-6), cleared by
- * hunmin_ic_reset (layout defaults return). */
+ * hunmin_ic_reset (layout defaults return);
+ * "autoswitch" -> R13-정정's one on/off state for the automatic Hangul/English
+ * switch (docs/SPEC-MODES.md §R13-정정). OFF on a fresh ic and NOT cleared by
+ * hunmin_ic_reset: it is a person's preference, not input state. The key
+ * surface that would toggle it is HUNMIN_SPECIAL_AUTOSWITCH, whose chord the
+ * engine already holds (hunmin_buffered_preedit_special_chord). */
 bool hunmin_ic_set_option(hunmin_ic *ic, const char *name, int value);
+
+/* Reads back what hunmin_ic_set_option() writes; the same names, one home. The
+ * frontends' settings surfaces read the value through this instead of keeping a
+ * copy (R13-정정: a per-frontend settings store is what this state exists to
+ * avoid). Returns false for a name the engine does not know and leaves *out
+ * untouched; the w/W/z/H/h overrides answer -1 for "not overridden, the layout
+ * default", which is a value and not an unknown name. */
+bool hunmin_ic_get_option(const hunmin_ic *ic, const char *name, int *out);
 
 void hunmin_ic_reset(hunmin_ic *ic); /* drop composition silently */
 const char *hunmin_ic_flush(hunmin_ic *ic); /* commit in-flight syllable */
@@ -240,6 +253,14 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_display(hunmin_buffered_preedi
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_delivered(const hunmin_buffered_preedit *l);
 HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
 HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);
+
+/* The layer's read of the same options: R13-정정's settings surface asks this for
+ * "autoswitch" and shows the answer, instead of keeping a copy of a state the
+ * engine owns. Same contract as hunmin_ic_get_option() -- false for an unknown
+ * name, *out untouched. The key that toggles it is
+ * hunmin_buffered_preedit_special_chord(l, HUNMIN_SPECIAL_AUTOSWITCH), which is
+ * also the engine's (a frontend never spells the chord itself). */
+HUNMIN_EXPORT bool hunmin_buffered_preedit_get_option(const hunmin_buffered_preedit *l, const char *name, int *out);
 
 /* External text (voice input, per PLAN.md invariant 5) through the layer: the
  * buffered word is delivered first, then the engine's pass-through appends the

@@ -660,10 +660,39 @@ bool hunmin_ic_set_option(hunmin_ic *ic, const char *name, int value) {
         ic->caps = !!value;
         return true;
     }
+    /* R13-정정's one on/off state: the settings UI writes it and reads it back
+     * here, and the key surface reads the same field, so the two surfaces can
+     * only agree. Coerced by !! like "caps" -- the layer's option contract is
+     * one name-to-int channel, not a per-option value grammar. */
+    if (!strcmp(name, "autoswitch")) {
+        ic->autoswitch = !!value;
+        return true;
+    }
     /* 전처리수식 variables (pat.im/1136 §2-6): w W z h H */
     if (name[0] && !name[1] && strchr("wWzHh", name[0])) {
         ic->flag_ovr[(unsigned char)name[0]] = !!value;
         flags_rebuild(ic);
+        return true;
+    }
+    return false;
+}
+
+bool hunmin_ic_get_option(const hunmin_ic *ic, const char *name, int *out) {
+    if (!ic || !name || !out) return false;
+    if (!strcmp(name, "caps")) {
+        *out = ic->caps;
+        return true;
+    }
+    if (!strcmp(name, "autoswitch")) {
+        *out = ic->autoswitch;
+        return true;
+    }
+    /* The 전처리수식 overrides answer their stored value, -1 included: "the
+     * layout's default" is a state a reader wants to see (hunmin_ic_reset
+     * restoring it is what makes -1 meaningful), so it is a value and not an
+     * unknown name. */
+    if (name[0] && !name[1] && strchr("wWzHh", name[0])) {
+        *out = ic->flag_ovr[(unsigned char)name[0]];
         return true;
     }
     return false;
