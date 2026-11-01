@@ -75,6 +75,10 @@ class HunminAdapter(
         fun layerExternalText(layer: Long, text: String): String
         fun layerReset(layer: Long)
         fun layerSetOption(layer: Long, name: String, value: Int): Boolean
+        /** R13-정정's read half: the engine's answer, null for an unknown name. */
+        fun layerGetOption(layer: Long, name: String): IntArray?
+        /** B3's data gate (issue #169): whether this install carries the list. */
+        fun ctxAutoswitchDataPresent(ctx: Long): Boolean
         /** The layer's language action (FE7); true when it switched. */
         fun layerToggleLanguage(layer: Long): Boolean
         /** HUNMIN_LANGUAGE_* as the layer reports it. */
@@ -113,6 +117,10 @@ class HunminAdapter(
         override fun layerReset(layer: Long) = HunminNativeBridge.nativeLayerReset(layer)
         override fun layerSetOption(layer: Long, name: String, value: Int) =
             HunminNativeBridge.nativeLayerSetOption(layer, name, value)
+        override fun layerGetOption(layer: Long, name: String): IntArray? =
+            HunminNativeBridge.nativeLayerGetOption(layer, name)
+        override fun ctxAutoswitchDataPresent(ctx: Long) =
+            HunminNativeBridge.nativeCtxAutoswitchDataPresent(ctx)
         override fun layerToggleLanguage(layer: Long) =
             HunminNativeBridge.nativeLayerToggleLanguage(layer) != 0
         override fun layerLanguage(layer: Long) = HunminNativeBridge.nativeLayerLanguage(layer)
@@ -230,6 +238,41 @@ class HunminAdapter(
     /** The chord a function holds right now; 0 when unbound. Reads the engine's
      *  table, which is what the settings window must display. */
     fun specialChord(fn: Int): Int = if (layer == 0L) 0 else native.layerSpecialChord(layer, fn)
+
+    // ------------------------------------------------- R13-정정's one value
+
+    /**
+     * The engine's automatic-switch value: 1 on, 0 off, null when this layer
+     * cannot answer at all (freed, or an engine without the option).
+     *
+     * Read, never cached (docs/SPEC-MODES.md §R13-정정): the key chord, the
+     * settings row and the judgement all address this one field, so a frontend
+     * that remembered it would be the second copy the requirement forbids. A
+     * null is reported as null rather than as 0 because "off" and "cannot say"
+     * are different things to a settings row.
+     */
+    fun autoswitch(): Int? =
+        if (layer == 0L) null else native.layerGetOption(layer, "autoswitch")?.firstOrNull()
+
+    /**
+     * Write the value, then return what the ENGINE answered -- deliberately not
+     * what was asked for.
+     *
+     * `set_option` refuses ON when the modes data is absent (B3's gate, issue
+     * #169) and coerces any non-zero to 1, so the caller must store the
+     * read-back rather than its own intent; the same rule makes the value the
+     * settings row shows the value the judgement will read. Null when the layer
+     * could not answer after the write.
+     */
+    fun setAutoswitch(on: Boolean): Int? {
+        if (layer == 0L) return null
+        native.layerSetOption(layer, "autoswitch", if (on) 1 else 0)
+        return autoswitch()
+    }
+
+    /** Whether the automatic switch can be enabled on THIS install (B3's data
+     *  gate). The frontend asks; it does not run a presence test of its own. */
+    fun autoswitchDataPresent(): Boolean = native.ctxAutoswitchDataPresent(ctx)
 
     /** Seed or override one function's chord, the dialog's write path. */
     fun specialBind(fn: Int, mods: Int): Boolean =

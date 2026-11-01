@@ -1001,14 +1001,19 @@ actually works diverge, that is not allowed:
   0.3, with the feature's additional data shipped separately and the feature
   enable-able only where that data is present (maintainer's ruling, quoted in
   `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`; see R13 above).
-- **The 0.1 shipping state is DECIDED 2026-10-12** — the feature is **disabled
-  by default in 0.1, by disabling the default key composition** (maintainer's
-  ruling, issue #2, quoted in
+- ~~**The 0.1 shipping state is DECIDED 2026-10-12**~~ — the feature is
+  ~~**disabled by default in 0.1, by disabling the default key composition**~~
+  (maintainer's ruling, issue #2, quoted in
   `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`): the
   Android `AUTO_TOGGLE` default chord (Right Alt + Enter) is removed, the
-  dispatch skips the action, and the settings row shows 미정 (0.3). This ruled
-  the *shipping state*, not the assignment. ~~**the assignment (single vs
-  compound) remains undecided**~~ — **DECIDED 2026-10-31** (see the ruling at the
+  dispatch skips the action, and the settings row shows 미정 (0.3). **SUPERSEDED
+  2026-11-02 (issue #174):** the engine half landed (#164/#165/#169) and the
+  Android frontend now implements it — the `AUTO_TOGGLE` dispatch fires, it
+  writes the engine's `autoswitch` value, and the settings list reports the
+  engine's value and the engine's chord. The default chord stays unbound; the
+  ruled assignment is the engine's Ctrl+한/영. That ruled the *shipping state*,
+  not the assignment. The assignment (single vs
+  compound) is **DECIDED 2026-10-31** (see the ruling at the
   head of this item): single = manual switch, compound = special-function
   namespace, on all three frontends, remappable through the config dialog.
 

@@ -187,8 +187,17 @@ class OverlayActivity : AppCompatActivity() {
         fun labelOf(mode: LayoutMode, id: String?): String =
             entries?.firstOrNull { it.id == id && it.mode == mode }?.label ?: "—"
 
-        data class SettingItem(val title: String, val badge: String, val onClick: () -> Unit)
+        data class SettingItem(
+            val title: String,
+            val badge: String,
+            /** False renders the row dimmed and inert: a control that cannot
+             *  take effect is not offered (R13-정정's discoverability rule applies
+             *  to the disabled state too, so [badge] says why). */
+            val enabled: Boolean = true,
+            val onClick: () -> Unit,
+        )
 
+        val autoSwitch = autoSwitchState()
         val rows = listOf(
             SettingItem("한글 배열", labelOf(LayoutMode.HANGUL, ImeSettings.layoutChoice(LayoutMode.HANGUL))) {
                 showLayoutSection(LayoutMode.HANGUL)
@@ -198,6 +207,20 @@ class OverlayActivity : AppCompatActivity() {
             },
             SettingItem("창 스타일", ImeSettings.toolbarStyle().label) {
                 showStyleSection()
+            },
+            /* R13-정정's surface B, and the row issue #174 asks for: the value
+             * and the key are the ENGINE's, read at dialog time. Nothing here
+             * remembers them -- the chord writes the same option. */
+            SettingItem(
+                "자동 한/영 전환",
+                autoSwitch.badge,
+                enabled = autoSwitch.toggleable,
+            ) {
+                if (autoSwitch.toggleable) {
+                    ImeSettings.onAutoSwitchChosen(autoSwitch.on != 1)
+                    dialog?.dismiss()
+                    showSettingsDialog()
+                }
             },
             SettingItem("키 바인딩", "단축키 관리 ➔") {
                 showKeyBindingSection()
@@ -237,14 +260,16 @@ class OverlayActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = dp(38) // Reduced from 52dp to 38dp
                 setPadding(dp(8), dp(4), dp(8), dp(4))
-                isClickable = true
-                val outValue = TypedValue()
-                theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-                setBackgroundResource(outValue.resourceId)
+                isClickable = item.enabled
+                if (item.enabled) {
+                    val outValue = TypedValue()
+                    theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                    setBackgroundResource(outValue.resourceId)
 
-                setOnClickListener {
-                    dialog?.dismiss()
-                    item.onClick()
+                    setOnClickListener {
+                        dialog?.dismiss()
+                        item.onClick()
+                    }
                 }
             }
 
@@ -252,7 +277,7 @@ class OverlayActivity : AppCompatActivity() {
                 text = item.title
                 textSize = 15f
                 setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(palette.textPrimary)
+                setTextColor(if (item.enabled) palette.textPrimary else palette.textSecondary)
                 maxLines = 1
                 // The value is the variable-width half (a layout name can be long,
                 // a title never is), so the title takes its exact width and the
@@ -268,7 +293,7 @@ class OverlayActivity : AppCompatActivity() {
                 text = item.badge
                 textSize = 13f
                 setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
-                setTextColor(palette.accent)
+                setTextColor(if (item.enabled) palette.accent else palette.textSecondary)
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 gravity = Gravity.END
@@ -385,6 +410,40 @@ class OverlayActivity : AppCompatActivity() {
     }
 
     /**
+     * What the automatic-switch row says and whether it can be pressed.
+     *
+     * Every field comes from the ENGINE, read at dialog time: the value from
+     * `hunmin_buffered_preedit_get_option`, the key from the engine's chord
+     * table, and the data answer from B3's gate (docs/SPEC-MODES.md §R13-정정,
+     * issues #165/#169). Nothing is remembered here, which is what makes the row
+     * and the chord one state instead of two that agree until they don't.
+     *
+     * The four answers are four different sentences on purpose:
+     *  - no IME running  -> the row cannot be answered at all,
+     *  - data missing    -> disabled, and the reason is the missing data,
+     *  - off             -> the user's choice, pressable,
+     *  - on              -> the user's choice, pressable.
+     */
+    private data class AutoSwitchState(val on: Int?, val badge: String, val toggleable: Boolean)
+
+    private fun autoSwitchState(): AutoSwitchState {
+        if (!ImeSettings.connected) {
+            return AutoSwitchState(null, "입력기가 실행 중이 아닙니다", toggleable = false)
+        }
+        val on = ImeSettings.autoSwitchValue()
+            ?: return AutoSwitchState(null, "알 수 없음", toggleable = false)
+        val key = SpecialFunction.chordLabel(ImeSettings.autoSwitchChord() ?: 0)
+        if (!ImeSettings.autoSwitchDataPresent()) {
+            /* B3's gate. Saying "꺼짐" would be true and useless: the control
+             * cannot be turned on here at all, and the row has to say why. */
+            return AutoSwitchState(on, "사용할 수 없음 (자동 전환 사전 없음)", toggleable = false)
+        }
+        val state = if (on == 1) "켜짐" else "꺼짐"
+        val badge = if (key.isEmpty()) state else "$state · $key"
+        return AutoSwitchState(on, badge, toggleable = true)
+    }
+
+    /**
      * Compact Keybinding List with crisp physical keycap aesthetics
      */
     private fun showKeyBindingSection() {
@@ -420,40 +479,33 @@ class OverlayActivity : AppCompatActivity() {
             val chordText = combos.firstOrNull()?.let { describe(it) } ?: NOT_SET
             val isCustomized = chordText != NOT_SET
 
-            // 자동 한/영 토글 is disabled by default in 0.1 (maintainer ruling
-            // 2026-10-12, issue #2): the row shows 미정, not a chord, and does
-            // not open the capture dialog -- advertising a binding whose action
-            // is a log-only stub would be exactly the R13-정정 divergence the
-            // spec forbids (what the screen says and what the key does). The
-            // row stays visible so the feature's existence is discoverable,
-            // with the 0.3 lane named as where an assignment can appear.
-            val disabled = action == KeyAction.AUTO_TOGGLE
-            val shownText = if (disabled) TBD_0_3 else chordText
+            // 자동 한/영 토글 is a LIVE action again (issue #174): the engine
+            // feature landed (#164/#165/#169), so a chord stored here flips the
+            // engine's own `autoswitch` value. Its row no longer says 미정: the
+            // ruled ASSIGNMENT is the engine's Ctrl+한/영 (docs/SPEC-MODES.md
+            // §E5), which the settings list names, and this row is an extra,
+            // user-chosen binding on the same state -- not a second assignment.
 
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = dp(38) // Reduced height
                 setPadding(dp(8), dp(4), dp(8), dp(4))
-                isClickable = !disabled
-                if (!disabled) {
-                    val outValue = TypedValue()
-                    theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-                    setBackgroundResource(outValue.resourceId)
+                isClickable = true
+                val outValue = TypedValue()
+                theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+                setBackgroundResource(outValue.resourceId)
 
-                    setOnClickListener {
-                        dialog?.dismiss()
-                        showKeyCaptureDialog(action)
-                    }
+                setOnClickListener {
+                    dialog?.dismiss()
+                    showKeyCaptureDialog(action)
                 }
             }
 
             val tvTitle = TextView(this).apply {
                 text = action.label
                 textSize = 13f
-                // A disabled row reads as disabled: dimmed, like the fixed-key
-                // badges rather than the primary text.
-                setTextColor(if (disabled) palette.textSecondary else palette.textPrimary)
+                setTextColor(palette.textPrimary)
                 maxLines = 1
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -463,10 +515,10 @@ class OverlayActivity : AppCompatActivity() {
 
             // Keycap style box
             val tvBadge = TextView(this).apply {
-                text = shownText
+                text = chordText
                 textSize = 12f
                 setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
-                setTextColor(if (isCustomized && !disabled) palette.textPrimary else palette.textSecondary)
+                setTextColor(if (isCustomized) palette.textPrimary else palette.textSecondary)
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 gravity = Gravity.END
@@ -477,8 +529,8 @@ class OverlayActivity : AppCompatActivity() {
                 )
                 setPadding(dp(8), dp(4), dp(8), dp(4))
                 background = GradientDrawable().apply {
-                setColor(if (isCustomized && !disabled) palette.accentBg else palette.keyBg)
-                    setStroke(dp(1), if (isCustomized && !disabled) palette.accent else palette.keyBorder)
+                    setColor(if (isCustomized) palette.accentBg else palette.keyBg)
+                    setStroke(dp(1), if (isCustomized) palette.accent else palette.keyBorder)
                     cornerRadius = dp(6).toFloat()
                 }
             }
@@ -778,13 +830,6 @@ class OverlayActivity : AppCompatActivity() {
         /** Shown for an action with no binding; the fixed keys still answer. */
         const val NOT_SET = "설정 안 됨 (고정 키 사용)"
 
-        /**
-         * The 자동 한/영 토글 row's badge while the feature is disabled by
-         * default in 0.1 (maintainer ruling 2026-10-12, issue #2): not a chord
-         * and not "not set" -- the assignment is undecided and the 0.3 lane is
-         * where it can appear, so that is what the badge says.
-         */
-        const val TBD_0_3 = "미정 (0.3)"
         const val ACTION_SHOW_HANJA = "org.hunmin.ime.action.SHOW_HANJA"
         const val ACTION_SHOW_SETTINGS = "org.hunmin.ime.action.SHOW_SETTINGS"
         const val ACTION_SHOW_TOAST = "org.hunmin.ime.action.SHOW_TOAST"

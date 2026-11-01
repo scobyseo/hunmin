@@ -64,6 +64,12 @@ object HunminNativeBridge {
     /** "hangul" | "latin" — the layout JSON's `mode` (docs/SPEC-SCHEMA.md). */
     @JvmStatic external fun nativeLayoutMode(ctx: Long, i: Int): String
 
+    /** B3's data gate (docs/SPEC-MODES.md §R13-정정, issue #169): whether the
+     *  modes word list this install can find. False means the automatic switch
+     *  cannot be enabled at all, and the settings row says so instead of
+     *  offering a control that never fires. */
+    @JvmStatic external fun nativeCtxAutoswitchDataPresent(ctx: Long): Boolean
+
     /** ic = hunmin_ic_new(ctx, layout) — 0 for an unknown or unsupported id. */
     /** The shared buffered/syllable layer (issue #128). Two languages: a null
      *  latin layout makes the layer's Han/Eng action report "not ours".
@@ -123,6 +129,10 @@ object HunminNativeBridge {
     @JvmStatic external fun nativeLayerReset(layer: Long)
 
     @JvmStatic external fun nativeLayerSetOption(layer: Long, name: String, value: Int): Boolean
+
+    /** The read half of the same option surface (R13-정정): a one-element array
+     *  holding the value, or null for a name the engine does not know. */
+    @JvmStatic external fun nativeLayerGetOption(layer: Long, name: String): IntArray?
 
     /** The layer's language action (FE7): 1 when it switched, 0 when one-language. */
     @JvmStatic external fun nativeLayerToggleLanguage(layer: Long): Int

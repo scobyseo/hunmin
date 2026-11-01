@@ -150,6 +150,18 @@ JNIEXPORT jstring JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayoutMod
     return str_or_empty(env, (c && i >= 0) ? hunmin_ctx_layout_mode(c, i) : NULL);
 }
 
+/* B3's data gate as the settings row needs it (issue #169): "installed / not
+ * installed" for the modes word list, answered by the same directory search the
+ * other data tables use. Paired with nativeLayerGetOption(layer, "autoswitch")
+ * it is what tells "off, chosen" (0, present) from "off, data missing" (0,
+ * absent) -- the frontend must not run a presence test of its own. */
+JNIEXPORT jboolean JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeCtxAutoswitchDataPresent(JNIEnv *env, jclass k, jlong ctx) {
+    (void)env;
+    (void)k;
+    hunmin_ctx *c = (hunmin_ctx *)(intptr_t)ctx;
+    return (c && hunmin_ctx_autoswitch_data_present(c)) ? JNI_TRUE : JNI_FALSE;
+}
+
 /* ===================== hunmin_ic ======================================== */
 
 JNIEXPORT jlong JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeIcNew(JNIEnv *env, jclass k, jlong ctx, jstring layout) {
@@ -358,6 +370,31 @@ JNIEXPORT jboolean JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerSet
     jboolean ok = hunmin_buffered_preedit_set_option(l, n, value) ? JNI_TRUE : JNI_FALSE;
     free(n);
     return ok;
+}
+
+/* R13-정정's read half (issue #165): the settings row asks the ENGINE what the
+ * value is instead of keeping a copy. Returns a one-element array -- the value
+ * -- or NULL for a name the engine does not know, so "unknown name" is
+ * distinguishable from "-1, the layout default" (a real value of w/W/z/H/h).
+ * An int[] rather than a sentinel because the option surface already uses every
+ * int, and a sentinel there would be a second spelling of the same ambiguity. */
+JNIEXPORT jintArray JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerGetOption(JNIEnv *env, jclass k, jlong layer, jstring name) {
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    char *n = dup_java_string(env, name);
+    if (!l || !n) {
+        free(n);
+        return NULL;
+    }
+    int value = 0;
+    const bool ok = hunmin_buffered_preedit_get_option(l, n, &value);
+    free(n);
+    if (!ok) return NULL;
+    jintArray out = (*env)->NewIntArray(env, 1);
+    if (!out) return NULL;
+    const jint one[1] = {(jint)value};
+    (*env)->SetIntArrayRegion(env, out, 0, 1, one);
+    return out;
 }
 
 /* The language action (FE7): the layer performs the boundary, the switch and

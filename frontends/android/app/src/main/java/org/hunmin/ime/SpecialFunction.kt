@@ -28,6 +28,35 @@ object SpecialFunction {
 
     /** Flip the automatic Hangul/English switch. */
     const val AUTOSWITCH = 2
+
+    /**
+     * The name of a chord, from the ENGINE's own modifier bits (hunmin.h
+     * `HUNMIN_MOD_*`) — the frontend names the modifiers it prints, the engine
+     * names the function and holds the assignment (docs/SPEC-MODES.md §R13-정정:
+     * "the UI has to know which key it is ... this information is provided by
+     * the engine").
+     *
+     * The 한/영 half is not a bit: it is the platform's own language key, which
+     * is why it is spelled here and the modifier is not. An empty answer means
+     * the engine holds no chord for the function, and the row must say so rather
+     * than invent one.
+     */
+    fun chordLabel(mods: Int): String {
+        if (mods == 0) return ""
+        val parts = mutableListOf<String>()
+        if (mods and MOD_CTRL != 0) parts += "Ctrl"
+        if (mods and MOD_ALT != 0) parts += "Alt"
+        if (mods and MOD_SHIFT != 0) parts += "Shift"
+        if (mods and MOD_GUI != 0) parts += "Win"
+        if (parts.isEmpty()) return ""
+        return parts.joinToString("+") + "+한/영"
+    }
+
+    /* hunmin.h HUNMIN_MOD_* — contract values, pinned by EngineModsTest. */
+    private const val MOD_CTRL = 0x1
+    private const val MOD_ALT = 0x2
+    private const val MOD_GUI = 0x4
+    private const val MOD_SHIFT = 0x8
 }
 
 /**
