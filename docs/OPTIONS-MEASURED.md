@@ -39,7 +39,7 @@ issue states are not what the tree does.
 | B1 | whether the board's B1 ("the hangul judgement source") is still a blocker at all now that `hangul_valid` is a structural test | **decided 2026-11-01: option A — B1 retired** (#161); the Hangul half is answered by R8-정정, the English half is decided and shipped by R8-정정-2 |
 | PAS | the pass lines for the two scored metrics (keystroke saving, manual toggles) — in which unit each can be graded at all | open (#162); the arithmetic is measured, no number is chosen. Both validity halves and the autoswitch state shipped 2026-11-01, but the judgement the numbers grade is still #168 and the harness that would run them is still #181 — so the units are priced and the corpus that fixes them is named as the missing input, not the number |
 | MRO | who owns the modes judgement — the shared layer, which already holds the buffer, both layouts and the mode, or each adapter | **decided 2026-11-01: option C** (#164) — the engine judges, the frontend performs the switch; the same ruling sets R9's threshold at three **key inputs** (unit clarified 2026-11-01, §R9). The material is measured in three places and the formula in none; the fcitx5 act still needs an input method to switch to |
-| BND | the three parameters of the judgement boundary: where the buffer must end (E2), what counts as a short word (E3), and whether judgement ever moves inside the word (E6) | **E2 decided 2026-11-01 (issue #163): option B at 256 B, configurable** — implemented, the preedit bounded and lossless at every length; **E3's value came from §MRO's ruling** — three key inputs (2026-11-01, unit clarified the same day) — and this section measures what that N partitions; **E6 open** — its cost is 94.18% of dictionary forms flicking back if judgement ran per key, and the shipped judgement runs once per word |
+| BND | the three parameters of the judgement boundary: where the buffer must end (E2), what counts as a short word (E3), and whether judgement ever moves inside the word (E6) | **E2 decided 2026-11-01 (issue #163): option B at 256 B, configurable** — implemented, the preedit bounded and lossless at every length; **E3's value came from §MRO's ruling** — three key inputs (2026-11-01, unit clarified the same day) — and this section measures what that N partitions; **E6 decided 2026-11-01: both timings, per-key by default** — `judge_timing` is an option, 64.05% of dictionary forms flick back inside the word under the default (94.18% without R9's guard), and the delivered text is identical in both timings |
 
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
@@ -3478,12 +3478,12 @@ string of length 1–4 is a thing a person can type, `english_valid` is the ship
 `en-US.json` membership test, and `hangul_valid` is the engine's own predicate over
 that string's rendering through the 두벌식 layout.
 
-| length | strings | both valid (R8 keeps the mode) | **english only, switches to English** | **hangul only, switches to Hangul (E1)** | neither (keeps the mode) | rendered chars per key |
-|---|---|---|---|---|---|---|
-| 1 | 26 | 0 | **26 (100%)** | 0 | 0 | 1.000 |
-| 2 | 676 | 80 (11.83%) | **268 (39.64%)** | **88 (13.02%)** | 240 (35.50%) | 0.862 |
-| 3 | 17,576 | 212 (1.21%) | **1,066 (6.07%)** | **2,238 (12.73%)** | 14,060 (80.00%) | 0.775 |
-| 4 | 456,976 | 230 (0.05%) | **3,239 (0.71%)** | **31,214 (6.83%)** | 422,293 (92.41%) | 0.745 |
+| length (keys) | strings | both valid (R8 keeps the mode) | english only | hangul only (E1) | neither (keeps the mode) | **switches to English, after R9's guard** | **switches to Hangul, after R9's guard** | rendered chars per key |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 26 | 0 | 26 | 0 | 0 | **0** | **0** | 1.000 |
+| 2 | 676 | 80 (11.83%) | 268 (39.64%) | 88 (13.02%) | 240 (35.50%) | **0** | **0** | 0.862 |
+| 3 | 17,576 | 212 (1.21%) | 1,066 (6.07%) | 2,238 (12.73%) | 14,060 (80.00%) | **1,066 (6.07%)** | **2,238 (12.73%)** | 0.775 |
+| 4 | 456,976 | 230 (0.05%) | 3,239 (0.71%) | 31,214 (6.83%) | 422,293 (92.41%) | **3,239 (0.71%)** | **31,214 (6.83%)** | 0.745 |
 
 **The value is no longer chosen here: R9 records the maintainer's "3자 이상이면
 판단하자" (§MRO, ruled 2026-11-01) and its unit, named the same day — "키입력 세개로
@@ -3493,10 +3493,13 @@ so the `1` row is what N=2 removes and the `3` row is what ships at N=3:
 
 Read plainly — these are the facts a threshold N is a choice between:
 
-- **At N = 1 there is no threshold to speak of: all 26 one-letter buffers are
-  English words and not one renders as a syllable**, so a one-letter buffer always
-  switches. Any N of 2 or more removes that class entirely, and 26 buffers is the
-  whole size of what N = 2 protects.
+- **At N = 1 and N = 2 nothing switches at all — because of R9's guard, not because
+  of the validities.** All 26 one-letter buffers are English words and none renders
+  as a syllable, and 268 of the 676 two-letter strings are English-only: without the
+  guard those would switch. The shipped `JUDGE_MIN_KEYS 3` is what removes both rows,
+  so the first switchable length is 3 and the guard — not the validity pair — is the
+  reason the two shortest rows are empty. (An earlier draft of this section read the
+  unguarded columns as the behaviour; the two right-hand columns are the correction.)
 - **The two directions have different sizes at every length.** A 3-letter buffer
   that switches to English is 6.07% of that space; one that switches to Hangul is
   12.73%. A single N applies to both, so its cost is not symmetric — and the
@@ -3534,12 +3537,30 @@ missing input.
 
 ### BND-4 E6 — what moving judgement inside the word would cost
 
-As shipped, that cost is zero by construction: `judge_boundary()` is called once, in
-`boundary()`, over the finished word (#164), and the display is `word` + the
-in-flight syllable in one language (§BND-0 row 5). The price of the alternative is
-countable over the same oracle: judge at every prefix, and count how often the judged
-language **changes more than once** inside one form — a flip away from the current
-mode and back, which is the 도깨비 the maintainer described.
+**Ruled 2026-11-01: both timings ship, per-key is the default** — *"옵션처리하자.
+설정할 수 있게. default는 B로."* So this is no longer a choice between two futures:
+`judge_timing` selects the display (1 = per key, the default; 0 = boundary only) and
+`docs/SPEC-MODES.md` §E6 carries the ruling. What follows is the price of the default,
+and it is the 도깨비 the item describes.
+
+The boundary timing's cost is zero by construction: `judge_boundary()` is called
+once, in `boundary()`, over the finished word (#164), and the display is `word` +
+the in-flight syllable in one language (§BND-0 row 5). The price of the alternative
+is countable over the same oracle: judge at every prefix, and count how often the
+judged language **changes more than once** inside one form — a flip away from the
+current mode and back.
+
+**R9's three-key guard is part of the count.** A buffer under
+`JUDGE_MIN_KEYS` key inputs is judged by nothing, so the first two keys of a word can
+never flip, and the pre-guard figures (measured before the guard existed in this
+sweep) are larger than what ships:
+
+| | without the guard | **with the guard (shipped)** |
+|---|---|---|
+| forms that flip at least once | 82,408 (96.1%) | **83,746 (97.7%)** |
+| forms that flip **back** inside the word | 80,730 (94.18%) | **54,903 (64.05%)** |
+| mean changes per form | 2.95 | **2.59** |
+| deepest | `alphabetically`, 12 | **`alphabetically`, 11** |
 
 | | forms | share of 85,718 |
 |---|---|---|
@@ -3549,16 +3570,35 @@ mode and back, which is the 도깨비 the maintainer described.
 | mean flips per form, all forms | 2.95 | — |
 | deepest | `alphabetically`, 12 | — |
 
-Distribution of flips: 2 → 43,135 forms, 3 → 253, 4 → 30,659, 6 → 6,095, 8 → 559,
-10 → 27, 12 → 2. The even numbers dominate because the pattern is English, back to
-Hangul, English again: a prefix that is a dictionary word arrives, then a prefix
-that is not (`algebraicall` before `algebraically`), then it recovers.
+Distribution of flips, with the guard: 0 → 1,972 forms, 1 → 28,843, 2 → 253,
+3 → 41,526, 5 → 11,804, 7 → 1,244, 9 → 72, 11 → 4. The odd values dominate because
+the first flip is the intended switch and every further pair is a flip back: a prefix
+that is a dictionary word arrives, then a prefix that is not (`algebraicall` before
+`algebraically`), then it recovers.
 
 Two limits on that number, stated rather than hidden: it is over dictionary forms
 typed in Hangul mode, not over what people type, and it counts the Hangul to
 English direction only — the English to Hangul direction's display is not
 implemented (E1). What it establishes is the order of magnitude: per-key judgement
 does not flicker on an edge case, it flickers on almost every English word.
+
+**What the maintainer's own mixed sentence would need — measured, and it is not
+E6.** `English는 좋은 Language입니다` typed in one stream through the shipped build
+(`autoswitch` on, shipped dictionary, `judge_timing` at its default):
+
+| word | keys | preedit while typing | delivered at the space | judgement | mode after |
+|---|---|---|---|---|---|
+| `English` | `english` (+Shift) | `ㄸ 뚜 뚷 뚜히 뚜히ㅑ 뚜히ㅑㄴ` then **`English`** | `English` | switch to Latin | **Latin** |
+| `는` | `sms` | `s sm sms` | `sms` | none | Latin |
+| `좋은` | `whdms` | `whdms` | `whdms` | none | Latin |
+| `Language` | `language` (+Shift) | Latin | `Language` | none | Latin |
+| `입니다` | `dlqkTek` | Latin | `dlqkTek` | none | Latin |
+
+The first word works, including its capitalisation. Everything after it is
+delivered as raw Latin, because `judge_boundary()` only fires in Hangul mode: the
+return direction (English → Hangul) does not exist, and that is **E1**, not E6. The
+sentence needs E1 ruled; E6 only decides what the person sees *while* one word is
+typed, which the table's first row shows.
 
 **The coupling, stated once.** E2 and E6 are not independent choices, and which E2
 option is picked decides whether E6 is live at all: with A, B or C the flicker
@@ -3575,7 +3615,7 @@ than the item currently makes.
 |---|---|---|---|---|---|---|
 | E2 | A, B, C, D (§BND-2) — **B selected, shipped** | none — the cap is a name-value option (`word_cap`), not a symbol | none | `engine-buffered-preedit`'s two cap cases | `word_flush_half` / `word_cap` in `buffered_preedit.c` | `tools/modes-boundary-probe.py buffer` — the pre-ruling and post-ruling rows, and both tests fail with `WORD_CAP` 0 |
 | E3 | a constant (shipped), an option, a schema key, a per-layout field (§BND-3) | an option name would be additive | schema work only for the schema option | a golden per direction per N | `JUDGE_MIN_KEYS` and `judge_boundary()` in `buffered_preedit.c` | the sweep's four columns; the shipped guard's own cases in `engine-wordset`; **no** corpus for the weights |
-| E6 | one boundary (shipped) versus per-key | none | none | a flicker golden needs a per-key display mode first | `build_preedit`, `boundary`, `judge_boundary` | §BND-4's flip counts over the oracle; felt experience: unmeasured |
+| E6 | both, as an option — **per-key default, shipped** | none — `judge_timing` is a name-value option | none | `TheJudgementTimingChangesTheDisplayAndNeverTheText`, `PerKeyTimingFlickersOnAnEnglishWordAndBoundaryTimingDoesNot` | `judged_display` / `build_preedit` in `buffered_preedit.c` | §BND-4's flip counts, guarded and unguarded, and the tier-A equality between the two timings; felt experience: unmeasured |
 
 No option changes the ABI, and none needs new data. That is the summary of the
 whole section: **all three items are parameters of one function's behaviour, and
@@ -3625,10 +3665,12 @@ R4's single judgement point for per-key in E6 — rather than a mechanism.**
   `WORD_CAP` is 0 (they were confirmed that way, then restored).
 - **Parallel-session scope:** this branch touches `docs/OPTIONS-MEASURED.md`
   (this section and the header table), `README.md` (its index row and count),
-  `docs/SPEC-MODES.md` (§R4-정정, §E2's marker and file citation, pointers from
-  §E3/§E6), `libhunmin/src/buffered_preedit.c` and `libhunmin/src/hunmin_internal.h`
-  (the cap and its option), `libhunmin/include/hunmin.h` (the option's contract),
-  `libhunmin/tests/buffered-preedit-test.cpp` (the two cap cases) and
-  `tools/modes-boundary-probe.py`. It does not touch `docs/REMAINING-WORK.md`,
-  `AGENTS.md`, `PLAN.md`, the wiki, or any frontend — the threshold (E3) and the
-  flicker (E6) are unruled, and #168 owns the judgement this cap sits above.
+  `docs/SPEC-MODES.md` (§R4-정정, §R9's unit, §E2/§E3/§E6's markers, the §E6 ruling,
+  the §E2 file citation), `libhunmin/src/buffered_preedit.c` and
+  `libhunmin/src/hunmin_internal.h` (the cap, the judgement timing and their
+  options), `libhunmin/include/hunmin.h` (both options' contract),
+  `libhunmin/tests/buffered-preedit-test.cpp` (the cap cases),
+  `libhunmin/tests/wordset-test.cpp` (the timing cases) and
+  `tools/modes-boundary-probe.py` (the guard-aware sweep and the reading). It does
+  not touch `docs/REMAINING-WORK.md`, `AGENTS.md`, `PLAN.md`, the wiki, or any
+  frontend: no frontend exposes either option yet, and E1 remains unruled.

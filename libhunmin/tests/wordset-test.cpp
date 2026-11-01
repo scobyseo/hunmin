@@ -487,6 +487,112 @@ hunmin_buffered_preedit *pair_layer(hunmin_ctx *ctx, int autoswitch,
 
 } // namespace
 
+/* E6 (docs/SPEC-MODES.md §E6, ruled 2026-11-01: the maintainer chose this as the
+ * DEFAULT — "옵션처리하자. 설정할 수 있게. default는 B로."). The option is
+ * `judge_timing`: 1 = the judgement is shown at every key (the flicker the item
+ * describes), 0 = only at the boundary. What must hold either way is that the
+ * DELIVERED text does not move: the timing changes when a language is shown, never
+ * what is committed or which mode the frontend is told to adopt. That equality is
+ * the whole contract, so it is asserted as an equality between the two runs rather
+ * than against typed syllables. */
+namespace {
+
+/* Does this preedit show the judged (Latin) language rather than the current one?
+ * The reading is ASCII; a Hangul layout's rendering is syllables and jamo. */
+bool shows_latin(const char *preedit) {
+    for (const char *p = preedit ? preedit : ""; *p; ++p)
+        if (*p >= 'a' && *p <= 'z') return true;
+    return false;
+}
+
+/* How many times the displayed language changes while `keys` is typed, counting the
+ * first key's answer as coming from the current mode (Hangul). */
+int display_changes(hunmin_buffered_preedit *l, const char *keys) {
+    bool was_latin = false;
+    int changes = 0;
+    for (const char *p = keys; *p; ++p) {
+        hunmin_key_result out{};
+        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, &out);
+        const bool latin = shows_latin(out.preedit);
+        if (latin != was_latin) ++changes;
+        was_latin = latin;
+    }
+    return changes;
+}
+
+} // namespace
+
+TEST_F(WordSetTest, JudgeTimingIsAnOptionAndDefaultsToPerKey) {
+    hunmin_buffered_preedit *l = pair_layer(ctx_, 1);
+    ASSERT_NE(l, nullptr);
+    int timing = -1;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l, "judge_timing", &timing));
+    EXPECT_EQ(1, timing) << "the maintainer's chosen default is per key";
+    EXPECT_TRUE(hunmin_buffered_preedit_set_option(l, "judge_timing", 0));
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l, "judge_timing", &timing));
+    EXPECT_EQ(0, timing);
+    EXPECT_FALSE(hunmin_buffered_preedit_set_option(l, "judge_timing", 2)) << "only the two timings exist";
+    hunmin_buffered_preedit_free(l);
+}
+
+TEST_F(WordSetTest, TheJudgementTimingChangesTheDisplayAndNeverTheText) {
+    const char *words[] = {"hello", "alphabetically", "the", "kbs", "dkssud", "on"};
+    for (const char *w : words) {
+        hunmin_buffered_preedit *per_key = pair_layer(ctx_, 1);
+        hunmin_buffered_preedit *boundary = pair_layer(ctx_, 1);
+        ASSERT_NE(per_key, nullptr);
+        ASSERT_NE(boundary, nullptr);
+        ASSERT_TRUE(hunmin_buffered_preedit_set_option(per_key, "judge_timing", 1));
+        ASSERT_TRUE(hunmin_buffered_preedit_set_option(boundary, "judge_timing", 0));
+
+        const int per_key_changes = display_changes(per_key, w);
+        const int boundary_changes = display_changes(boundary, w);
+        const WordRun per_key_run = type_and_judge(per_key, " ");
+        const WordRun boundary_run = type_and_judge(boundary, " ");
+
+        EXPECT_EQ(boundary_run.commit, per_key_run.commit) << "the timing changed the delivered text: " << w;
+        EXPECT_EQ(boundary_run.mode, per_key_run.mode) << "the timing changed the mode the frontend adopts: " << w;
+        /* At the boundary only the word is shown in the current mode and the answer
+         * arrives once, at the space: so nothing during typing may be Latin. */
+        EXPECT_EQ(0, boundary_changes) << "boundary timing showed the judged language while typing: " << w;
+        /* Per key shows whatever the judgement says at that key -- which is the
+         * flicker the item names, not a defect: it is the chosen default. */
+        EXPECT_GE(per_key_changes, 0) << w;
+        hunmin_buffered_preedit_free(per_key);
+        hunmin_buffered_preedit_free(boundary);
+    }
+}
+
+TEST_F(WordSetTest, PerKeyTimingFlickersOnAnEnglishWordAndBoundaryTimingDoesNot) {
+    /* The measured shape (docs/OPTIONS-MEASURED.md §BND-4), with R9's three-key
+     * guard applied: the first two keys of any word are never judged, so a flip can
+     * only start at key 3. `hello` therefore flips once (Hangul, Hangul, Hangul,
+     * Latin, Latin); `alphabetically` flips back and forth 11 times. The count is a
+     * property of the dictionary, not of this rule, so the assertion is the
+     * property: a word that changes language inside itself. */
+    hunmin_buffered_preedit *per_key = pair_layer(ctx_, 1);
+    ASSERT_NE(per_key, nullptr);
+    EXPECT_EQ(1, display_changes(per_key, "hello"))
+        << "`hello` flips once, at the key where the guard stops applying";
+    hunmin_buffered_preedit_free(per_key);
+
+    hunmin_buffered_preedit *deep = pair_layer(ctx_, 1);
+    ASSERT_NE(deep, nullptr);
+    EXPECT_GT(display_changes(deep, "alphabetically"), 1) << "a long English word flips back";
+    hunmin_buffered_preedit_free(deep);
+
+    hunmin_buffered_preedit *boundary = pair_layer(ctx_, 1);
+    ASSERT_NE(boundary, nullptr);
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(boundary, "judge_timing", 0));
+    EXPECT_EQ(0, display_changes(boundary, "hello")) << "the boundary timing has no mid-word flip";
+    /* The same layer, one key later: `display_changes` typed the word, so the space
+     * is what completes it. */
+    const WordRun r = type_and_judge(boundary, " ");
+    EXPECT_EQ("hello", r.commit);
+    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, r.mode);
+    hunmin_buffered_preedit_free(boundary);
+}
+
 TEST_F(WordSetTest, AutoswitchOffIsTheIdentityPath) {
     hunmin_buffered_preedit *off = pair_layer(ctx_, 0);
     ASSERT_NE(off, nullptr);

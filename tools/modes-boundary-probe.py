@@ -21,16 +21,20 @@ WHAT IT MEASURES, and the unit each number is in:
           much of the population sits at each length.
   space   the short-word threshold's decision surface, exhaustively. Every
           `a`-`z` string of length 1..N is a thing a person can type; classify
-          it by (english_valid, hangul_valid of its Hangul-layout rendering),
+          `english_valid`, hangul_valid of its Hangul-layout rendering),
           which is R8's pair. `english_valid ∧ ¬hangul_valid` switches to
           English, `¬english_valid ∧ hangul_valid` switches to Hangul (the
-          symmetric rule, E1), and a threshold N means "no switch below N".
+          symmetric rule, E1), and R9's guard means "no switch below three key
+          inputs" -- so the table carries both the validity classes and the
+          class each one leaves after the guard.
           The four classes are counted, not sampled: the space is small enough.
-  prefix  what moving judgement inside the word would cost (E6). For each
-          dictionary form, the R8 decision at every prefix; a word whose
-          decision reverses after it has already switched is one that would
-          flicker (도깨비) if judgement ran per key. Counted over the whole
-          shipped list, not a sample.
+  prefix  what showing the judgement at every key costs (E6, now the shipped
+          default): for each dictionary form, the R8 decision at every prefix, and
+          how often the displayed language changes inside the word -- the 도깨비
+          flicker. R9's three-key guard is applied, because a buffer under it is
+          judged by nothing; the unguarded figure is 94.18% and the guarded one
+          64.05%, so the guard is quoted as part of the measurement. Counted over
+          the whole shipped list, not a sample.
   buffer  where the buffer actually ends today (E2), measured, not read: the
           shared layer is driven key by key past its cap (256 B since R4-정정,
           2026-11-01) and the preedit, the mid-word commits and the total
@@ -78,6 +82,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # option -- the probe reports the layer's live value, not this constant).
 STR_CAP = 64
 WORD_CAP_BYTES = 256
+JUDGE_MIN_KEYS = 3  # R9's guard, ruled 2026-11-01: judge from three KEY INPUTS
 BYTES_PER_SYLLABLE = 3  # UTF-8: every modern syllable is 3 bytes
 
 
@@ -242,11 +247,20 @@ def measure_words(forms):
     }
 
 
-def measure_space(engine, forms, hangul_layout, max_len):
+def measure_space(engine, forms, hangul_layout, max_len, judge_min_keys=JUDGE_MIN_KEYS):
+    """Every a-z string of length 1..max_len, classified by R8's pair.
+
+    `would_switch` is the class AFTER R9's guard: a buffer shorter than
+    `judge_min_keys` key inputs is judged by nothing at all (the shipped
+    `JUDGE_MIN_KEYS`), so the length-1 and length-2 rows can never switch in
+    practice -- the validities still say what they say, and the column pair
+    (x_only vs x_only_and_guarded) is the size of what the guard removes.
+    """
     words = set(forms)
     rows = []
     for n in range(1, max_len + 1):
         tally = {"both": 0, "english_only": 0, "hangul_only": 0, "neither": 0}
+        guarded = {"english_only": 0, "hangul_only": 0}
         examples = {"both": [], "english_only": [], "hangul_only": [], "neither": []}
         rendered_chars = 0
         total = 0
@@ -261,9 +275,11 @@ def measure_space(engine, forms, hangul_layout, max_len):
                    "english_only" if e else
                    "hangul_only" if h else "neither")
             tally[cls] += 1
+            if n >= judge_min_keys and cls in guarded:
+                guarded[cls] += 1
             if len(examples[cls]) < 4:
                 examples[cls].append(s)
-        rows.append({"len": n, "total": total, "classes": tally, "examples": examples,
+        rows.append({"len": n, "total": total, "classes": tally, "guarded": guarded, "examples": examples,
                      "rendered_chars_per_key": rendered_chars / (total * n) if n else 0.0})
     return rows
 
@@ -299,8 +315,15 @@ def measure_prefix(engine, forms, hangul_layout):
         def note(text, _k=k, _d=decisions, _s=state):
             # english_valid asks about the LATIN prefix typed so far (that is what
             # the dictionary lookup takes); hangul_valid asks about the rendering.
+            # R9's guard applies: a buffer under JUDGE_MIN_KEYS key inputs is judged
+            # by nothing, so its display stays in the current mode whatever the
+            # validities say -- which is why the shipped guard also removes the
+            # first two chances of a flicker in every word.
             i = _s["i"]
             _s["i"] += 1
+            if i + 1 < JUDGE_MIN_KEYS:
+                _d.append("hangul")
+                return
             _d.append(r8_decision(_k[: i + 1] in words, engine.hangul_valid(text)))
 
         engine.render(k, hangul_layout, prefix_cb=note)
@@ -427,11 +450,12 @@ def main(argv):
         print("  tail: %s" % " ".join("<=%d:%d" % (r["chars"], r["forms_le"]) for r in w["tail"]))
     if "space" in result:
         print("SPACE — every a-z string of length 1..%d, typed on %s" % (args.max_len, args.hangul_layout))
-        print("  len | total | both | english_only | hangul_only | neither | switches-at-or-above")
+        print("  len | total | both | english_only | hangul_only | neither | switches to EN (after the guard) | switches to Hangul (after the guard)")
         for r in result["space"]:
             c = r["classes"]
-            print("  %3d | %5d | %4d | %12d | %11d | %7d"
-                  % (r["len"], r["total"], c["both"], c["english_only"], c["hangul_only"], c["neither"]))
+            print("  %3d | %5d | %4d | %12d | %11d | %7d | %5d | %5d"
+                  % (r["len"], r["total"], c["both"], c["english_only"], c["hangul_only"], c["neither"],
+                     r["guarded"]["english_only"], r["guarded"]["hangul_only"]))
             print("      english_only examples %s" % " ".join(r["examples"]["english_only"]))
             print("      hangul_only  examples %s" % " ".join(r["examples"]["hangul_only"]))
     if "prefix" in result:

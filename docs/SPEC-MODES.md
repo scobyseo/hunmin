@@ -978,7 +978,7 @@ ruled on 2026-10-11 (OFF until 0.3, data-gated; see E5's default bullet above an
 the wiki decision page) — no usability evaluation was needed for it, and none is
 owed for it. What remains is implementation, and the parameters named above.
 
-## E6. Display method — the flicker (도깨비) [E]
+## E6. Display method — the flicker (도깨비) [D] — ruled 2026-11-01, an option, default per key
 A risk the user pointed at directly.
 
 > 그 와중에 한글 모드이면 일단 한글로 preedit을 제공하다가, 확실히 영어인게
@@ -1002,6 +1002,33 @@ problem comes back in real time. **The two options are mutually exclusive.**
 times it would flip is: `docs/OPTIONS-MEASURED.md` §BND-4 counts it over the
 shipped dictionary, and §BND-2 shows that the exclusivity above holds only if the
 buffer cap is small — a cap in kilobytes never creates the second judgement point.
+
+### Ruling 2026-11-01 — the timing is an option, and per-key is the default [D]
+
+> "옵션처리하자. 설정할 수 있게. default는 B로."
+
+So both timings ship and a frontend may switch between them; the default is the
+flicker, not the quiet boundary.
+
+- **The option:** `hunmin_buffered_preedit_set_option(l, "judge_timing", v)` — `1`
+  (default) shows the judged language at **every key**, `0` judges at the **boundary
+  only** (the pre-ruling display). Read with `..._get_option`; any other value is
+  refused. No frontend exposes it yet, so the default is what ships in all three.
+- **What changes is the display, not the text.** The word is still delivered once,
+  at the boundary, in the language `judge_boundary()` decides there, and
+  `take_judgement` still answers once per word — so R10 (nothing retroactive) and
+  the one-switch-per-word the frontends perform are untouched. The tier-A cases pin
+  the equality (`TheJudgementTimingChangesTheDisplayAndNeverTheText`).
+- **What the default costs, measured with R9's three-key guard applied:** 64.05% of
+  the shipped dictionary's forms change language at least once inside the word (mean
+  2.59 changes, `alphabetically` 11). Without the guard the same figure is 94.18%,
+  mean 2.95 — the guard removes the first two chances in every word, which is why it
+  is quoted separately.
+- **It is not the mixed-sentence case.** `English는 좋은 Language입니다` typed in one
+  stream still does not work, and E6 was never the reason: the judgement only fires
+  in Hangul mode, so after the first switch every later Korean word is delivered as
+  Latin (`sms`, `whdms`, `dlqkTek`). That is the symmetric rule — E1 — and it is
+  still unruled (measured in §BND-4).
 
 ## E7. How to prove identical behaviour on Android/Windows [E]
 R3 was a decision and the implementation direction is fixed too (an engine rule).
