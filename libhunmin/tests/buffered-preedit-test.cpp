@@ -78,9 +78,9 @@ struct RunResult {
 /* Drive the layer over a key sequence. `word_committed` accumulates the text
  * that belongs to the current word; a boundary clears it, which is exactly the
  * rule the frontend applies (commit text, then it is in the client). */
-RunResult drive_layer(hunmin_ctx *ctx, const std::string &sequence, int mode) {
+RunResult drive_layer(hunmin_ctx *ctx, const std::string &sequence, int mode, const char *layout = "dubeolsik") {
     RunResult r;
-    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx, "dubeolsik", nullptr, mode);
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx, layout, nullptr, mode);
     EXPECT_NE(l, nullptr);
     if (!l) return r;
     std::string word;
@@ -110,8 +110,8 @@ RunResult drive_layer(hunmin_ctx *ctx, const std::string &sequence, int mode) {
 
 /* The oracle: the engine alone, no layer. Its output is the reference text the
  * layer must reproduce in both modes. */
-std::string drive_engine(hunmin_ctx *ctx, const std::string &sequence) {
-    hunmin_ic *ic = hunmin_ic_new(ctx, "dubeolsik");
+std::string drive_engine(hunmin_ctx *ctx, const std::string &sequence, const char *layout = "dubeolsik") {
+    hunmin_ic *ic = hunmin_ic_new(ctx, layout);
     std::string total;
     for (const Key &k : keys_of(sequence)) {
         const bool eaten = hunmin_ic_process_key(ic, k.base, k.shift);
@@ -457,6 +457,113 @@ TEST_F(LayerTest, EachFlushedHalfIsTheNextPrefixAndTheRemainderFlushesCleanly) {
     hunmin_key_result out{};
     EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)'d', 0, &out), 1);
     EXPECT_TRUE(out.preedit && out.preedit[0]) << "the layer stopped composing after a capped word";
+    hunmin_buffered_preedit_free(l);
+}
+
+/* ------------------------------------------------------- digit runs (R6)
+ *
+ * docs/SPEC-MODES.md §R6: in the ON state the composition buffer holds digit
+ * runs too, because in sebeolsik the digit keys are not digits. Two shapes are
+ * pinned here, measured 2026-11-01 (issue #171) before either case was written:
+ *
+ *   sin3-p2        a digit key resolves to a literal, and the ENGINE commits it
+ *                  per key (`1` → commit "1", preedit ""). Buffered mode still
+ *                  holds it: preedit `1`, `12`, `123`; the boundary delivers
+ *                  the run whole. Without the layer's word buffer the digit run
+ *                  would be in the client before the second digit was typed,
+ *                  which is the break R6 names.
+ *   sebeolsik-final the digit keys are jamo (`1`=ᇂ, `2`=ᆻ, …), so the run
+ *                  composes as Hangul and the engine commits a syllable per key
+ *                  exactly as it does for letters.
+ *   symbol tier     sin3-p2 reaches `T == 101/102/103` through a key whose
+ *                  expression enters the tier (measured: `j` = ᄋ then `k` =
+ *                  tier 101, `l` = 102, `;` = 103), and the NEXT key resolves at
+ *                  that tier (`1` → µ / ① / ⑪). The tier is single-shot — the
+ *                  second digit of the run is a plain digit again — and a
+ *                  tier-resolved character is committed like any other literal,
+ *                  so the layer holds it for the same reason.
+ *
+ * What these do NOT pin: no digit escapes early because of being a digit. The
+ * one early delivery there is, R4-정정's word cap, is counted in BYTES and is
+ * therefore reached by a digit run at 256 keys rather than 85 syllables — the
+ * last case pins that it is the same rule, not a second one.
+ */
+TEST_F(LayerTest, DigitRunIsHeldInTheBufferNotCommittedPerDigit) {
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "sin3-p2", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    const char *run = "123";
+    std::string shown;
+    for (const char *k = run; *k; ++k) {
+        hunmin_key_result out{};
+        EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)*k, 0, &out), 1)
+            << "a digit of a sebeolsik run was not composition input: " << *k;
+        EXPECT_STREQ(out.commit, "") << "the digit escaped the buffer at key " << *k;
+        shown = out.preedit ? out.preedit : "";
+        EXPECT_EQ(shown, std::string(run, size_t(k - run) + 1)) << "the buffer does not hold the run so far";
+    }
+    /* The boundary is the declined key a frontend passes on: the whole run goes
+     * out once, and nothing is left composing. */
+    hunmin_key_result out{};
+    EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)' ', 0, &out), 0);
+    EXPECT_STREQ(out.commit, run) << "the boundary did not deliver the digit run whole";
+    EXPECT_STREQ(out.preedit, "");
+    hunmin_buffered_preedit_free(l);
+}
+
+TEST_F(LayerTest, DigitResolvedAtASymbolTierIsHeldToo) {
+    /* `j` `k` enters tier 101 in sin3-p2; `1` at that tier is µ, which is a
+     * literal the engine commits — the same class as a plain digit. */
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "sin3-p2", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    for (const char *k = "jk"; *k; ++k) {
+        hunmin_key_result out{};
+        EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)*k, 0, &out), 1) << "key " << *k;
+        EXPECT_STREQ(out.commit, "") << "key " << *k << " delivered early";
+    }
+    hunmin_key_result out{};
+    EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)'1', 0, &out), 1);
+    EXPECT_STREQ(out.commit, "") << "the tier-resolved digit escaped the buffer";
+    EXPECT_EQ(std::string(out.preedit ? out.preedit : ""), "\u3147\u00b5") << "tier 101 for `1` is µ";
+    out = hunmin_key_result{};
+    EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)' ', 0, &out), 0);
+    EXPECT_EQ(std::string(out.commit ? out.commit : ""), "\u3147\u00b5");
+    hunmin_buffered_preedit_free(l);
+}
+
+TEST_F(LayerTest, DigitRunsAgreeWithTheEngineInBothCommitModes) {
+    for (const char *layout : {"sin3-p2", "sebeolsik-final"}) {
+        for (const char *seq : {"1234567890", "dks123", "dks12", "jk1", "1"}) {
+            const std::string oracle = drive_engine(ctx_, seq, layout);
+            const RunResult buffered = drive_layer(ctx_, seq, HUNMIN_COMMIT_AT_BOUNDARY, layout);
+            const RunResult syllable = drive_layer(ctx_, seq, HUNMIN_COMMIT_PER_SYLLABLE, layout);
+            EXPECT_EQ(buffered.total, oracle) << layout << " " << seq << " (buffered)";
+            EXPECT_EQ(syllable.total, oracle) << layout << " " << seq << " (syllable)";
+        }
+    }
+}
+
+TEST_F(LayerTest, TheCapCountsDigitRunsInBytesLikeSyllables) {
+    /* The cap is R4-정정's, in bytes: 4 B is four digits but one syllable, so a
+     * run of five digits flushes its first half at the fifth key. Nothing is
+     * delivered before the cap, which is the part R6 cares about. */
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "sin3-p2", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "word_cap", 4));
+    std::string delivered;
+    std::string preedit;
+    for (const char *k = "12345"; *k; ++k) {
+        hunmin_key_result out{};
+        ASSERT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)*k, 0, &out), 1) << "key " << *k;
+        delivered += out.commit ? out.commit : "";
+        preedit = out.preedit ? out.preedit : "";
+        const size_t held = delivered.size() + preedit.size();
+        EXPECT_FALSE(*k < '5' && !delivered.empty()) << "a digit under the cap was delivered early";
+        EXPECT_LE(held, 5u) << "the preedit outgrew the cap plus one key";
+    }
+    EXPECT_EQ(delivered, "12") << "the flush is the first half of a 5-byte word";
+    EXPECT_EQ(preedit, "345") << "the tail keeps composing";
+    EXPECT_EQ(delivered + hunmin_buffered_preedit_commit_word(l), std::string("12345"))
+        << "the digits were lost or reordered across the flush";
     hunmin_buffered_preedit_free(l);
 }
 

@@ -110,6 +110,8 @@ class Engine:
         L.hunmin_ic_commit.argtypes = [ctypes.c_void_p]
         L.hunmin_ic_preedit.restype = ctypes.c_char_p
         L.hunmin_ic_preedit.argtypes = [ctypes.c_void_p]
+        L.hunmin_ic_flush.restype = ctypes.c_char_p
+        L.hunmin_ic_flush.argtypes = [ctypes.c_void_p]
         L.hunmin_hangul_valid.restype = ctypes.c_int
         L.hunmin_hangul_valid.argtypes = [ctypes.c_char_p]
         L.hunmin_buffered_preedit_new.restype = ctypes.c_void_p
@@ -154,6 +156,61 @@ class Engine:
         finally:
             self.lib.hunmin_ic_free(ic)
         return "".join(out) + pre
+
+    def key_trace(self, layout, keys):
+        """The RAW engine, key by key: (consumed, commit read after that key, preedit).
+        The commit is read after every key because `hunmin_ic_process*` clears it on
+        entry, so one late read keeps only the last key's text."""
+        ic = self.lib.hunmin_ic_new(self.ctx, layout.encode())
+        if not ic:
+            raise SystemExit("layout unavailable: %s" % layout)
+        rows = []
+        try:
+            for k in keys:
+                consumed = self.lib.hunmin_ic_process_key(ic, ord(k), 0)
+                rows.append({
+                    "key": k,
+                    "consumed": int(consumed),
+                    "commit": (self.lib.hunmin_ic_commit(ic) or b"").decode(),
+                    "preedit": (self.lib.hunmin_ic_preedit(ic) or b"").decode(),
+                })
+        finally:
+            self.lib.hunmin_ic_free(ic)
+        return rows
+
+    def digit_run(self, layout, keys, boundary_key=" "):
+        """The SHARED layer fed a run of digit keys, then one boundary key.
+
+        R6 (docs/SPEC-MODES.md §R6, issue #171) is a statement about THIS object: the
+        ON buffer holds a digit run. So the measurement is per key — what the layer
+        delivers, what it holds — and the question is where a digit leaves it.
+        Returns the per-key rows, every early commit (a digit that left before the
+        boundary), and what the boundary key delivered."""
+        layer = self.lib.hunmin_buffered_preedit_new(self.ctx, layout.encode(), b"us-qwerty", 0)
+        if not layer:
+            raise SystemExit("layer unavailable: %s" % layout)
+        rows, early = [], []
+        try:
+            for k in keys:
+                out = KeyResult()
+                self.lib.hunmin_buffered_preedit_process_key(layer, ord(k), 0, ctypes.byref(out))
+                commit = (out.commit or b"").decode()
+                rows.append({"key": k, "consumed": int(out.consumed), "commit": commit,
+                             "preedit": (out.preedit or b"").decode()})
+                if commit:
+                    early.append({"key": k, "commit": commit})
+            out = KeyResult()
+            self.lib.hunmin_buffered_preedit_process_key(layer, ord(boundary_key), 0, ctypes.byref(out))
+            boundary = {"key": boundary_key, "consumed": int(out.consumed),
+                        "commit": (out.commit or b"").decode(),
+                        "preedit": (out.preedit or b"").decode()}
+            # Anything the boundary left composing is delivered by the explicit flush a
+            # frontend calls on focus loss; without it a layer that held the run and
+            # never handed it over would read as "held" and lose the text.
+            tail = (self.lib.hunmin_buffered_preedit_commit_word(layer) or b"").decode()
+        finally:
+            self.lib.hunmin_buffered_preedit_free(layer)
+        return {"rows": rows, "early": early, "boundary": boundary, "tail": tail}
 
     def buffer_run(self, syllables, keys_per_syllable="dks", layout="dubeolsik"):
         """One word of `syllables` syllables through the SHARED layer
@@ -393,6 +450,89 @@ def measure_buffer(engine):
             "word_cap": cap_seen}
 
 
+def measure_digits(engine):
+    """R6's measurement (docs/SPEC-MODES.md §R6, issue #171): where a digit run
+    actually ends in the ON buffer.
+
+    The requirement is that digits are composition input in the ON state, so a
+    frontend must not commit them on arrival. Three shapes are measured, because
+    "a digit run" is three different things on the layouts that ship:
+
+      sin3-p2          a digit key resolves to a literal and the ENGINE commits it
+                       per key — so the buffer, not the engine, is what decides
+                       whether the run survives.
+      sebeolsik-final  the digit keys ARE jamo, so the run composes as Hangul and
+                       the engine's own per-syllable commit applies.
+      symbol tier      sin3-p2's `T == 101/102/103`: a key whose expression enters
+                       the tier, then a digit that resolves at it. The tier is
+                       single-shot, so only the first digit of a run is resolved.
+
+    For each, the raw engine's per-key answer is measured beside the layer's, and
+    the run is checked three ways: held (the preedit accumulated it), committed
+    (the boundary delivered it whole), and leaked (any digit delivered before the
+    boundary). It ends with the cap's interaction, because that is the only
+    delivery in this layer that happens before the boundary."""
+    cases = [
+        ("sin3-p2", "1234567890", "plain digit run"),
+        ("sin3-p2", "dks123", "Hangul syllable, then a digit run"),
+        ("sin3-p2", "jk1", "digit resolved at symbol tier 101"),
+        ("sin3-p2", "jl1", "digit resolved at symbol tier 102"),
+        ("sin3-p2", "j;1", "digit resolved at symbol tier 103"),
+        ("sebeolsik-final", "1234567890", "digit keys as jamo"),
+        ("sebeolsik-final", "dks123", "Hangul syllable, then digit keys as jamo"),
+    ]
+    rows = []
+    for layout, keys, note in cases:
+        raw = engine.key_trace(layout, keys)
+        lay = engine.digit_run(layout, keys)
+        # The engine's total text for these keys: every per-key commit, then the
+        # flush that finalises whatever was still composing (what a frontend's
+        # boundary does). Read per key for the reason key_trace records.
+        ic = engine.lib.hunmin_ic_new(engine.ctx, layout.encode())
+        parts = []
+        for k in keys:
+            engine.lib.hunmin_ic_process_key(ic, ord(k), 0)
+            c = engine.lib.hunmin_ic_commit(ic)
+            if c:
+                parts.append(c.decode())
+        parts.append((engine.lib.hunmin_ic_flush(ic) or b"").decode())
+        engine.lib.hunmin_ic_free(ic)
+        engine_total = "".join(parts)
+        delivered = "".join(r["commit"] for r in lay["rows"]) + lay["boundary"]["commit"] + lay["tail"]
+        rows.append({
+            "layout": layout,
+            "keys": keys,
+            "note": note,
+            "raw": raw,
+            "layer": lay,
+            "digits_consumed": sum(1 for r in raw if r["consumed"]),
+            "raw_per_key_commits": sum(1 for r in raw if r["commit"]),
+            "layer_early_commits": lay["early"],
+            "layer_boundary_commit": lay["boundary"]["commit"],
+            "layer_total": delivered,
+            "engine_total": engine_total,
+            "lossless": delivered == engine_total,
+        })
+
+    # The cap, the one early delivery in this layer: is it counted in bytes (so a
+    # digit run reaches it at 256 keys) or in keys? A cap of 4 B with five digits
+    # answers it: 4 digits fit, the fifth flushes the first two.
+    layer = None
+    cap_rows = []
+    try:
+        layer = engine.lib.hunmin_buffered_preedit_new(engine.ctx, b"sin3-p2", b"us-qwerty", 0)
+        engine.lib.hunmin_buffered_preedit_set_option(layer, b"word_cap", 4)
+        for k in "1234567890":
+            out = KeyResult()
+            engine.lib.hunmin_buffered_preedit_process_key(layer, ord(k), 0, ctypes.byref(out))
+            cap_rows.append({"key": k, "commit": (out.commit or b"").decode(),
+                             "preedit": (out.preedit or b"").decode()})
+    finally:
+        if layer:
+            engine.lib.hunmin_buffered_preedit_free(layer)
+    return {"runs": rows, "cap_4_bytes": cap_rows}
+
+
 # ---------------------------------------------------------------------- main
 
 
@@ -408,7 +548,7 @@ def find_lib(explicit):
 
 def main(argv):
     ap = argparse.ArgumentParser(description="price SPEC-MODES E2/E3/E6 against the shipped tree")
-    ap.add_argument("what", choices=["words", "space", "prefix", "buffer", "all"])
+    ap.add_argument("what", choices=["words", "space", "prefix", "buffer", "digits", "all"])
     ap.add_argument("--data", default=os.path.join(ROOT, "libhunmin", "data"))
     ap.add_argument("--lib", default=None)
     ap.add_argument("--hangul-layout", default="dubeolsik")
@@ -421,7 +561,7 @@ def main(argv):
               "forms": len(forms), "hangul_layout": args.hangul_layout}
     if args.what in ("words", "all"):
         result["words"] = measure_words(forms)
-    if args.what in ("space", "prefix", "buffer", "all"):
+    if args.what in ("space", "prefix", "buffer", "digits", "all"):
         engine = Engine(find_lib(args.lib), args.data)
         result["lib"] = os.path.relpath(find_lib(args.lib), ROOT).replace(os.sep, "/")
         if args.what in ("space", "all"):
@@ -430,6 +570,8 @@ def main(argv):
             result["prefix"] = measure_prefix(engine, forms, args.hangul_layout)
         if args.what in ("buffer", "all"):
             result["buffer"] = measure_buffer(engine)
+        if args.what in ("digits", "all"):
+            result["digits"] = measure_digits(engine)
 
     if args.json:
         json.dump(result, sys.stdout, indent=2)
@@ -481,6 +623,22 @@ def main(argv):
                   "one late read keeps %d and loses %d"
                   % (r["syllables"], r["longest_single_read"], r["chars_read_per_key"],
                      r["kept_by_one_late_read"], r["lost_by_one_late_read"]))
+    if "digits" in result:
+        d = result["digits"]
+        print("DIGITS — R6: the ON buffer's word against the engine's per-key commit")
+        print("  layout           keys         what                            engine commits/key | layer preedit after last key | early | boundary commit | lossless")
+        for r in d["runs"]:
+            last = r["layer"]["rows"][-1]
+            print("  %-16s %-12s %-31s %3d | %-24r | %d | %-13r | %s"
+                  % (r["layout"], r["keys"], r["note"], r["raw_per_key_commits"],
+                     last["preedit"], len(r["layer_early_commits"]),
+                     r["layer_boundary_commit"], r["lossless"]))
+        for r in d["runs"]:
+            for e in r["layer_early_commits"]:
+                print("  EARLY: %s %r delivered %r before the boundary" % (r["layout"], e["key"], e["commit"]))
+        print("  cap 4 B on sin3-p2, digits 1..0 — the cap is BYTES, so this is four digits:")
+        for c in d["cap_4_bytes"]:
+            print("    %s commit %r preedit %r" % (c["key"], c["commit"], c["preedit"]))
     return 0
 
 
