@@ -901,3 +901,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Marked `decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md` superseded
   (kept, not deleted: the 2026-10-13 decision is what the question had to be asked
   against) and added it to `index.md`.
+- Created `raw/sessions/2026-11-01-modes-ownership-retires-the-detector.md`
+  (the #164 session: what it created, what it overturned, what it left pending
+  with an issue number each) and added it to `index.md`.
+

@@ -473,6 +473,20 @@ DESIGN-REVIEW-F3-F10 | grep | frontends/android/app/src/main/java/org/hunmin/ime
 HANGUL-VALID-166 | ctest | engine-hangul-valid | registered | issue #166: the structural rule and its widened 옛한글 variant (SPEC-MODES §R8-정정, §R8-정정-3). The tier GENERATES the property — the 11,172-syllable block, the extended jamo sets, and the negative half — instead of sampling it, and pins the layout split 12 compose / 6 old-Hangul / 3 Latin
 HANGUL-CAPABILITY-166 | grep | libhunmin/src/schema_loader.c:compute_capability | present | issue #166: the per-layout answers are derived at load from the layout's own keys and combination table, so a new layout cannot declare them wrongly and the answer cannot drift from the data; answered by hunmin_ctx_layout_autoswitch_capable / hunmin_ctx_layout_old_hangul
 HANGUL-ABI-166 | grep | libhunmin/tests/abi/symbols.txt:hunmin_hangul_valid_old | present | the widened rule is an APPENDED ABI symbol (with hunmin_hangul_valid and the two layout answers); the `abi` ctest audits this list on a host where it registers (not WIN32)
+# ----------------------------------------------------------------  issue #164 (2026-11-01)
+# The judgement is the engine's and the switch is each frontend's (docs/OPTIONS-MEASURED.md
+# §MRO, ruled 2026-11-01). Rows assert what shipped, and assert ABSENCE for what did not:
+# a board with no absent rows reads greener than the tree.
+JUDGE-164 | grep | libhunmin/src/buffered_preedit.c:judge_boundary | present | issue #164: R8's formula runs once, at the boundary, over the finished word — one place, and the word is delivered in the judged language (R10)
+JUDGE-ABI-164 | grep | libhunmin/tests/abi/symbols.txt:hunmin_buffered_preedit_take_judgement | present | the answer is an APPENDED symbol, not a widened hunmin_key_result (callers stack-allocate it and tools/abi-check.sh compares names only)
+JUDGE-TEST-164 | ctest | engine-wordset | registered | tier-A cases for the formula's three lines, the both-valid/both-invalid pair, the three-key threshold, take-once, no-dictionary and the declines
+JUDGE-TSF-164 | grep | frontends/tsf/src/tsf.cpp:take_judgement | present | TSF performs the mode half (ApplyJudgement: layer switch + compartment + langbar)
+JUDGE-ANDROID-164 | grep | frontends/android/app/src/main/cpp/hunmin-jni.c:take_judgement | present | Android performs it through the service (the mode there is which adapter receives the next key)
+JUDGE-FCITX5-164 | grep | frontends/fcitx5/src/hunminadapter.cpp:take_judgement | present | fcitx5 performs it through the layer, and builds a TWO-language layer since 2026-11-01 (the Latin slot used to be NULL)
+JUDGE-DETECTOR-GONE-164 | path-absent | frontends/fcitx5/src/language_detect.cpp | absent | the detector retired with its 206-line test; the replay it implemented lives in buffered_preedit.c#latin_reading
+JUDGE-D1-RETIRED-164 | ctest | engine-d1-language-detect | absent | its id left the registered set, and the six REQ-MAP rows that cited it now cite engine-wordset / engine-d1-fcitx5
+JUDGE-FCITX5-SETTINGS-164 | grep | frontends/fcitx5/src/config.h:autoswitch | absent | NOT SHIPPED: the ON/OFF surface on fcitx5 is issue #176 (three options exist, none of them this one)
+JUDGE-PERSIST-164 | grep | frontends/tsf/src/config.h:autoSwitch | absent | NOT SHIPPED: no frontend stores the state (the TSF config struct has no field for it); it flips through the ruled chord and lives with the layer, so a rebuilt layer starts from the engine default. Tracked as issue #203; #176 carries the fcitx5 settings half
 # ----------------------------------------------------------------  decision-blocked
 # B1..B9 are maintainer rulings, not tree facts. AGENTS.md: "네 멋대로 기각하지마."
 # They carry no assertion row, by construction, and their absence from this table

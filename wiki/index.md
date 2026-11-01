@@ -376,6 +376,10 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   reference last, so the language-bar `RemoveItem` is reached; the two cases
   that encoded the defects flipped, with the pre-fix tree measured red
   against them.
+- [[2026-11-01-modes-ownership-retires-the-detector]] - the #164 session: §MRO's
+  pricing, the ruling implemented on all three frontends (engine judges, frontend
+  switches), `language_detect.*` retired with six `REQ-MAP` rows re-pointed, and
+  the two TSF defects the live session found routed to #175.
 - [[2026-10-31-milestone-f-win32-conformance-corpus]] - milestone F: the win32
   corpus grew 3 -> 11 traces by porting the eight tier-A families x11 replays
   (106 cases / 688 events, tier-F1 12/12); the work exposed a generator that
