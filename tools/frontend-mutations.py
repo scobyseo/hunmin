@@ -41,8 +41,11 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
         # Re-anchored 2026-11-01 (issue #164): the one commit point now also
         # carries the text the mode switch's own boundary produced, so the
         # guard's subject is the delivery expression, not just out.commit.
-        "        if ((out.commit && *out.commit) || !switched.empty()) {",
-        "        if (((out.commit && *out.commit) || !switched.empty()) && used) {",
+        # Re-anchored again the same day (issue #176): the engine's strings are
+        # copied before the judgement runs (they are borrowed until the next
+        # engine call), so the expression names the copies.
+        "        if (!justDelivered.empty() || !switched.empty()) {",
+        "        if ((!justDelivered.empty() || !switched.empty()) && used) {",
         False,
         True,  # #128: the adapter delivers the layer's answer, so this is no
         True,  # longer visible structurally -- but D1's boundary commit
@@ -133,6 +136,19 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
         "if (states.test(KeyState::Ctrl) || states.test(KeyState::Shift_L)) ev.mods |= HUNMIN_MOD_CTRL | HUNMIN_MOD_SHIFT;",
         True,
         True,  # every shifted letter becomes a boundary and passes: D1's uppercase cases fail
+        False,
+    ),
+    (
+        # Issue #176's fourth checklist item. A rebuilt layer (config apply,
+        # layout change) starts from the engine's default OFF, so the stored
+        # value has to be re-applied when one is built. Without this the row can
+        # say ON while the next word is no longer judged: D1 types `hello`
+        # around a rebuild and the second delivery is the Hangul reading.
+        "I12-autoswitch-not-reapplied",
+        "engine_->recordAutoswitch(applyAutoswitch(*engine_->config().autoswitch ? 1 : 0));",
+        "engine_->recordAutoswitch(applyAutoswitch(0));",
+        False,  # the checker does not model the row; D1 is the guard
+        True,
         False,
     ),
 ]

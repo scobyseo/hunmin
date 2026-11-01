@@ -43,6 +43,23 @@ public:
     const fcitx::Configuration *getConfig() const override { return &config_; }
     void setConfig(const fcitx::RawConfig &rawConfig) override;
 
+    /* The automatic-switch row (issue #176, docs/SPEC-MODES.md §R13-정정).
+     *
+     * One value, two surfaces: this pushes the stored value into every live
+     * layer and keeps what the ENGINE holds, which is what the dialog shows.
+     * The engine's B3 data gate can refuse ON, so the answer is taken from the
+     * engine rather than assumed from the config file.
+     */
+    int pushAutoswitch(int want);
+    /* A rebuilt layer was given the stored value; `held` is what the engine
+     * accepted. The row must not claim more than that. */
+    void recordAutoswitch(int held);
+    /* The key the engine reports for the function, and whether the data the
+     * feature needs is installed: the row's label and its reason. */
+    void refreshAutoswitchRow();
+    unsigned autoswitchChord() const { return autoswitchChord_; }
+    bool autoswitchDataPresent() const { return autoswitchDataPresent_; }
+
     HunminState *state(InputContext *ic);
 
     hunmin_ctx *ctx() const { return ctx_; }
@@ -53,6 +70,10 @@ private:
     HunminConfig config_;
     FactoryFor<HunminState> factory_;
     hunmin_ctx *ctx_ = nullptr;
+    /* The engine's answers for the row, refreshed at load and on a config
+     * reload; see refreshAutoswitchRow(). */
+    unsigned autoswitchChord_ = HUNMIN_MOD_CTRL;
+    bool autoswitchDataPresent_ = false;
 };
 
 class HunminAdapterFactory : public AddonFactory {

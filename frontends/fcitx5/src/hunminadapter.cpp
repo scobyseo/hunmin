@@ -371,21 +371,31 @@ public:
         hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);
         hunmin_key_result out{};
         const bool used = hunmin_buffered_preedit_process_key(preedit_, ev.base, ev.shift, &out) != 0;
+        /* Both strings the engine just produced are borrowed -- valid only until
+         * the next hunmin_* call -- and applyJudgement() below makes two of them
+         * (take_judgement, then a possible toggle that re-creates the ic). Read
+         * after that, `out.commit` is whatever the rewritten buffer holds, which
+         * on the boundary key that both delivers a word and switches language is
+         * nothing: measured with `hello` + a switch, the word vanished from the
+         * client. Copy first.
+         */
+        const std::string justDelivered = out.commit ? std::string(out.commit) : std::string();
+        const std::string justComposing = out.preedit ? std::string(out.preedit) : std::string();
         /* The judgement belongs to the word that just ended, delivered or
          * declined: ask before anything else can start the next word. Its text
          * joins the same delivery, after the word, because R10 means the word
          * is already the judged language and nothing is rewritten. */
         const std::string switched = applyJudgement();
 
-        if ((out.commit && *out.commit) || !switched.empty()) {
-            const std::string delivered = (out.commit ? std::string(out.commit) : std::string()) + switched;
+        if (!justDelivered.empty() || !switched.empty()) {
+            const std::string delivered = justDelivered + switched;
 #ifdef HUNMIN_TRACE
             traceEvent("commit", delivered.c_str());
 #endif
             ic_->commitString(delivered.c_str());
         }
 #ifdef HUNMIN_TRACE
-        traceEvent("preedit", out.preedit ? out.preedit : "");
+        traceEvent("preedit", justComposing.c_str());
         traceEvent(used ? "consumed" : "passed", "");
 #endif
         updateUI();
@@ -420,14 +430,38 @@ public:
         if (!hunmin_buffered_preedit_toggle_language(preedit_, &out)) {
             return {};
         }
+        /* Copied before the next engine call, for the same reason the caller
+         * copies `justDelivered` before this function runs: `out.commit` is
+         * borrowed until the following hunmin_* call, and layout_id() below is
+         * one. */
+        const std::string boundary = (out.commit && *out.commit) ? std::string(out.commit) : std::string();
         FCITX_INFO() << "hunmin: autoswitch -> " << hunmin_buffered_preedit_layout_id(preedit_);
         updateUI();
         /* Whatever the boundary the switch performs was holding. Empty in the
          * normal case -- the word that triggered the switch arrived in the
          * caller's own out.commit -- but it belongs to the same delivery, so it
          * is returned rather than committed here (one commit point per key). */
-        return (out.commit && *out.commit) ? std::string(out.commit) : std::string();
+        return boundary;
     }
+
+    /* R13-정정's on/off state, pushed into the live layer and read back: what
+     * this returns is what the ENGINE holds, not what the caller asked for, so
+     * the row can show the engine's answer. The engine refuses ON where the
+     * modes word list is missing (B3's data gate, issue #169), and that refusal
+     * is the half no frontend is allowed to re-implement. */
+    int applyAutoswitch(int want) {
+        if (!preedit_) {
+            return want; // no layer yet: ensureIc() seeds one from the stored value
+        }
+        hunmin_buffered_preedit_set_option(preedit_, "autoswitch", want);
+        int held = want;
+        if (!hunmin_buffered_preedit_get_option(preedit_, "autoswitch", &held)) {
+            held = want; // unknown name: nothing to read back, keep the request
+        }
+        return held;
+    }
+
+    bool hasLayer() const { return preedit_ != nullptr; }
 
     void reset() {
         if (preedit_) {
@@ -488,6 +522,13 @@ private:
              * absent data is a normal state (B3) and the judgement then
              * abstains rather than calling every word not-English. */
             hunmin_buffered_preedit_load_english_shipped(preedit_);
+            /* The preference belongs to the person, not to the layer: a rebuilt
+             * layer (config apply, layout change) starts from the engine's
+             * default OFF, so the stored value is re-applied here. What the
+             * engine accepts is recorded back, because the data gate can refuse
+             * ON and the row must not claim a state the engine does not hold
+             * (issue #176's fourth checklist item). */
+            engine_->recordAutoswitch(applyAutoswitch(*engine_->config().autoswitch ? 1 : 0));
         }
     }
 
@@ -630,8 +671,12 @@ HunminAdapter::HunminAdapter(Instance *instance) : instance_(instance), factory_
     // because the data directory can change under a config reload -- a stale
     // annotation would show layouts the engine can no longer open.
     refreshLayoutList();
-    reloadConfig();
+    /* Registered BEFORE reloadConfig(): the reload pushes the stored autoswitch
+     * value into every live layer (issue #176), and asking a context for a
+     * property whose factory is not yet registered aborts fcitx5
+     * (InputContextManager::property asserts factory->manager_ == this). */
     instance_->inputContextManager().registerProperty("hunminState", &factory_);
+    reloadConfig();
 }
 
 void HunminAdapter::activate(const InputMethodEntry &, InputContextEvent &event) {
@@ -702,10 +747,67 @@ void HunminAdapter::refreshLayoutList() {
 void HunminAdapter::reloadConfig() {
     refreshLayoutList();
     readAsIni(config_, "conf/hunmin.conf");
+    /* A stored preference can outlive the data package that enables it. The
+     * engine's gate is what decides whether it can be held, so the row's two
+     * answers are read first and then the value is pushed and reconciled
+     * (issue #176). Order matters: pushAutoswitch() consults the presence this
+     * refresh records, so doing it the other way round would reconcile a valid
+     * stored ON to OFF on the first load. */
+    refreshAutoswitchRow();
+    pushAutoswitch(*config_.autoswitch ? 1 : 0);
+}
+
+int HunminAdapter::pushAutoswitch(int want) {
+    /* With no live layer there is nothing to ask, so the gate answers directly:
+     * it is the same answer the option writer gives (issue #169 computes it once
+     * per context for exactly this pair of readers). */
+    int held = (want && autoswitchDataPresent_) ? 1 : 0;
+    instance_->inputContextManager().foreach ([&](InputContext *ic) {
+        if (auto *s = state(ic); s && s->hasLayer()) {
+            /* The live layer is asked, not assumed: the engine refuses ON where
+             * the word list is missing. */
+            held = s->applyAutoswitch(want);
+        }
+        return true;
+    });
+    if (held != want) {
+        config_.autoswitch.setValue(held != 0);
+    }
+    return held;
+}
+
+void HunminAdapter::recordAutoswitch(int held) {
+    const bool value = held != 0;
+    if (*config_.autoswitch != value) {
+        config_.autoswitch.setValue(value);
+    }
+}
+
+void HunminAdapter::refreshAutoswitchRow() {
+    autoswitchDataPresent_ = ctx_ && hunmin_ctx_autoswitch_data_present(ctx_);
+    /* The key is the engine's, and it lives on a LAYER (special_bind), not on the
+     * context, so the row reads it from a probe built the way ensureIc() builds
+     * one. A rebuilt layer starts from the engine's default table, so the probe
+     * answers what a fresh key press would honour -- which is the only thing the
+     * row is entitled to advertise. */
+    if (ctx_) {
+        if (hunmin_buffered_preedit *probe = hunmin_buffered_preedit_new(ctx_, config_.hangulLayout->c_str(), config_.latinLayout->c_str(), HUNMIN_COMMIT_AT_BOUNDARY)) {
+            if (const unsigned chord = hunmin_buffered_preedit_special_chord(probe, HUNMIN_SPECIAL_AUTOSWITCH)) {
+                autoswitchChord_ = chord;
+            }
+            hunmin_buffered_preedit_free(probe);
+        }
+    }
+    config_.autoswitch.annotation().setChord(autoswitchChord_);
+    config_.autoswitch.annotation().setDataPresent(autoswitchDataPresent_);
 }
 
 void HunminAdapter::setConfig(const fcitx::RawConfig &rawConfig) {
     config_.load(rawConfig, true);
+    /* The dialog's tick reaches the engine here and what comes back is what is
+     * stored: fcitx5's config surface is the persistence, the engine's option is
+     * the one value both surfaces read (R13-정정's "no second copy"). */
+    pushAutoswitch(*config_.autoswitch ? 1 : 0);
     instance_->inputContextManager().foreach ([this](InputContext *ic) {
         state(ic)->reset(); // in-flight composition dropped; layout swaps
         return true; // lazily on the next key (ensureIc)

@@ -85,7 +85,10 @@ add_subdirectory(addon)
 add_subdirectory(inputmethod)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_executable(testhunmin testhunmin.cpp)
-target_link_libraries(testhunmin Fcitx5::Core Fcitx5::Module::TestFrontend)
+# `hunmin` for the include directory alone: the test reads the config surface's
+# own annotation (config.h -> <hunmin.h>) to assert the row names the key the
+# engine reports (issue #176).
+target_link_libraries(testhunmin Fcitx5::Core Fcitx5::Module::TestFrontend hunmin)
 add_dependencies(testhunmin copy-addon copy-im copy-test-modules)
 add_test(NAME engine-d1-fcitx5 COMMAND testhunmin)
 # LABELS is a test property, not an add_test() keyword -- see the note at
