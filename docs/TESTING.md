@@ -358,6 +358,20 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   has no Makefile; the script is the command.
   Sources: pat.im worked examples (갭/겹, `cq`→ㄱㅅ, `cQ`→ㄳ, 있 repeat, tier samples),
   kime test expectations (transcribed facts, clean-room), one case per line of SPEC-P2.md.
+- **Judgement corpus** `tests/golden/judgement-r8.jsonl` — the SPEC-MODES R8
+  formula and the guards around it (both switch directions, both-valid and
+  both-invalid, R9's three-key boundary from each side, R4's boundary-only
+  moment, R6's digit run, and the OFF identity state). One case per line: the
+  input (`layout`, `latin`, `mode`, `autoswitch`, `keys`) plus the engine's own
+  answer (`commit`, `judged[]`, `mode_after`, and `step_commits` where delivery
+  timing is the point). It is driven through `hunmin_buffered_preedit`, not the
+  `hunmin_ic` the corpus above drives, because the judgement lives in the shared
+  layer: `hunmin-sim --judge-check tests/golden/judgement-r8.jsonl`, ctest
+  `engine-golden-judgement`. Replay one case by hand with
+  `hunmin-sim --data libhunmin/data --layout dubeolsik --latin us-qwerty --judge
+  --autoswitch 1 --keys 'hello ' --trace`. Regen for review:
+  `python3 tools/gen-judgement-golden.py --sim build/hunmin-sim` — the expected
+  values are read back from the engine, never typed.
 - **Property fuzz** (`-fsanitize=fuzzer,address,undefined`, corpus = jamo key streams):
   invariants only — every committed string NFC-valid & re-decomposes to current-buffer
   jamo; `press` never leaks (LSan); state always resettable; preedit length bounded.

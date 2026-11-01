@@ -203,6 +203,35 @@ unmodelled mock surfaces. With that, both units derive correctly and the corpus 
 the axis. Interim × both units stays in the sandbox lane (§7) for the same
 reason: a real client distinguishes what the mock conflates.
 
+### 6.2 The judgement corpus, and what it does not yet cover (2026-11-01, #178)
+
+The first corpus that carries a JUDGEMENT rather than only text is
+`tests/golden/judgement-r8.jsonl` (ctest `engine-golden-judgement`). Each line is
+a case the engine can replay: the input (`layout`, `latin`, `mode`,
+`autoswitch`, `keys`) and the engine's own answer — the delivered text, the
+judgements taken in order, and the mode after the boundary, with per-key
+delivery timing where the timing is the assertion (R6's digit run). Its cases
+are the lines of SPEC-MODES R8's formula and the guards around it: the two
+switch directions, both-valid and both-invalid, R9's guard from each side, R4's
+boundary-only moment, R13's off-is-the-identity state, and E1's 0.3 gate
+sentence typed as one stream.
+
+It is driven by `hunmin-sim --judge`, which sits on `hunmin_buffered_preedit`
+and performs the frontend half of the rule (read `take_judgement`, act on it),
+and the expected values come back from the engine through
+`tools/gen-judgement-golden.py` — never typed. Replay one case:
+`hunmin-sim --data libhunmin/data --layout dubeolsik --latin us-qwerty --judge
+--autoswitch 1 --keys 'hello ' --trace`.
+
+**What this does not yet do, stated so it is not assumed:** the frontends do not
+read this corpus. §6's requirement is that fcitx5, Android and the TSF mock run
+the same expectations; today the fcitx5 D1, Android E1 and TSF F1 corpora are
+separate files, so a judgement case is asserted once, against the shared layer,
+and equality at the frontend tiers is still owed. The commit-unit axis of §6.1
+is likewise not in this corpus: every case uses `HUNMIN_COMMIT_AT_BOUNDARY`, and
+the judgement cannot run in PER_SYLLABLE at all (its earlier syllables are
+already in the client, which is R10's constraint).
+
 ## 7. Live TSF tests
 
 Requirement: a live TSF run must not leave the worktree registered or otherwise
