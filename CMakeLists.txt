@@ -57,6 +57,7 @@ set(HUNMIN_CORE_SOURCES
   libhunmin/src/buffered_preedit.c
   libhunmin/src/candidate_tables.c
   libhunmin/src/wordset.c
+  libhunmin/src/hangul_valid.c
   third_party/cJSON/cJSON.c)
 
 add_library(hunmin SHARED ${HUNMIN_CORE_SOURCES})
@@ -321,6 +322,19 @@ if(BUILD_TESTING AND Python3_FOUND)
   target_link_options(wordset-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
   add_test(NAME engine-wordset COMMAND wordset-test)
   set_tests_properties(engine-wordset PROPERTIES
+    LABELS "tier-A"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
+  # Tier A for the structural half of the judgement (SPEC-MODES R8-정정, issue
+  # #166): `hangul_valid` is a predicate over a finished buffer's rendered text
+  # -- cho+jung or cho+jung+jong only -- and consults no data, so this binary
+  # carries literal cases for the rule and engine-derived cases for the
+  # renderings the engine actually produces.
+  add_executable(hangul-valid-test libhunmin/tests/hangul-valid-test.cpp)
+  target_link_libraries(hangul-valid-test PRIVATE hunmin GTest::gtest_main)
+  target_link_options(hangul-valid-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
+  add_test(NAME engine-hangul-valid COMMAND hangul-valid-test)
+  set_tests_properties(engine-hangul-valid PROPERTIES
     LABELS "tier-A"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")

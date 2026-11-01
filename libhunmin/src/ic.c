@@ -774,5 +774,19 @@ const char *hunmin_ctx_layout_mode(const hunmin_ctx *ctx, int i) {
     if (!ctx || i < 0 || i >= ctx->n) return NULL;
     return ctx->layouts[i].mode == HM_MODE_LATIN ? "latin" : "hangul";
 }
+bool hunmin_ctx_layout_autoswitch_capable(const hunmin_ctx *ctx, int i) {
+    /* Derived at load from the layout's keys and combination table
+     * (schema_loader.c compute_capability): a layout whose keys emit no
+     * conjoining jamo has no syllables for the judgement to be right or wrong
+     * about, which is the Latin layouts and nothing else. */
+    return ctx && i >= 0 && i < ctx->n && ctx->layouts[i].composes_hangul;
+}
+bool hunmin_ctx_layout_old_hangul(const hunmin_ctx *ctx, int i) {
+    /* 1 when this layout can emit a jamo outside the modern 19/21/28. The caller
+     * then judges with hunmin_hangul_valid_old(); every other layout uses the
+     * modern rule, because widening it there would accept shapes its composer
+     * cannot produce. */
+    return ctx && i >= 0 && i < ctx->n && ctx->layouts[i].old_hangul;
+}
 hunmin_ctx *hunmin_ctx_new(const char *const *dirs, int ndirs) { return hm_data_load(dirs, ndirs); }
 void hunmin_ctx_free(hunmin_ctx *ctx) { hm_data_free(ctx); }

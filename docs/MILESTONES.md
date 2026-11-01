@@ -33,8 +33,8 @@ blocked item; B1–B9 remain the maintainer's rulings wherever they are named.
 
 The release closes with four decisions and two measurements. No engine work is on
 the path. All four decisions are recorded below — this lane named B3, B4, B8 and
-B9 — so what is left on it is the measurement list further down and whatever
-`REMAINING-WORK.md` §2 holds behind B1, which is the 0.3 lane's.
+B9 — so what is left on it is the measurement list further down and
+`REMAINING-WORK.md` §2, which is the 0.3 lane's.
 
 **Must be decided to ship (from `REMAINING-WORK.md` §1):**
 
@@ -47,8 +47,8 @@ B9 — so what is left on it is the measurement list further down and whatever
   to the maintainer: whether `local.properties` is the permanent canonical
   keystore, and whether the throwaway-key fallback stays.
 - ~~**B3** — ON or OFF by default.~~ **DECIDED 2026-10-11: OFF by default until
-  0.3**, so the language detection feature and everything `REMAINING-WORK.md` §2 holds
-  hostage to B1 leave the 0.1 lane. The ruling and the separate-data-package
+  0.3**, so the language detection feature and `REMAINING-WORK.md` §2 leave the
+    0.1 lane. The ruling and the separate-data-package
   direction are in `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`.
 - ~~**B4** — the 한/영 key (E5). Voice-input stage 2 (Right Alt + Enter
   auto-toggle) is a stub in the tree; 0.1 either ships it inert or ships it
@@ -66,7 +66,8 @@ B9 — so what is left on it is the measurement list further down and whatever
   frontend; `docs/SPEC-MODES.md` R3 is requirement-only and `docs/architecture.md`
   records the owner and the mechanism. Ruling quoted in
   `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md` (issue #3,
-  `a5c46dc`). R8's engine integration stays blocked on B1 and leaves with it.
+  `a5c46dc`). R8's engine integration leaves with it — and it now waits on the
+  judgement's implementation (#166, #168), not on a source: B1 retired 2026-11-01.
 
 **Must be measured before shipping (environment-bound, not decision-gated):**
 
@@ -154,11 +155,14 @@ direction; the mechanism is new work:
   the data is installed. `hunmin_ic_set_option()` is the precedent for the on/off
   option itself (`docs/SPEC-MODES.md` R13); nothing yet is the precedent for the
   data gate.
-- The lane inherits **everything §2 of `REMAINING-WORK.md` holds hostage to B1**:
+- The lane inherits **all five items of `REMAINING-WORK.md` §2**, restated 2026-11-01
+  after B1's retirement:
 
-- B1 (the hangul judgement source) is the root; §2's five items are its children
-  (③-bis wrong-direction switch metric, E1 symmetry, E2/E3/E6/E7 thresholds,
-  third-party correctness 두/세벌식, word-list schema).
+- They are no longer children of a source question. §2's five items (③-bis
+  wrong-direction switch metric, E1 symmetry, E2/E3/E6/E7 thresholds, third-party
+  correctness 두/세벌식, word-list schema) now wait on the judgement's implementation
+  (#166, #168), on a harness (#181), or on their own rulings (#163, #180) — E1 is
+  the one with no owner.
 - B2 — the pass lines for all three metrics — is the exit gate: the feature is
   shippable when its own metrics have a number the maintainer set.
 - B4's key assignment lands here rather than in 0.1.

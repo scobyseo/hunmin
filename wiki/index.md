@@ -31,6 +31,12 @@
   later instances where it bound.
 - [[the-outstanding-decisions]] — D1 hangul judgement method, D2 E1 symmetry,
   D3 whether 119 may inform a shipped list, D4 whether this wiki stays.
+- [[2026-11-01-b1-retired-the-hangul-judgement-needs-no-source]] — B1 retired by the
+  maintainer's "want to select A": the Hangul half is a structure test and the
+  English half is shipped, so board §2 waits on implementation, not on a source.
+- [[2026-11-01-old-hangul-layouts-get-the-widened-rule]] — the same shape rule with the
+  extended jamo sets, used only where a layout composes 옛한글, and the per-layout
+  answer derived from the layout data.
 - [[2026-10-05-closed-questions]] — the romaja registration is correct as it
   stands, and the coding corpus was curiosity; both closed by the maintainer,
   with the reasoning so neither is re-raised.

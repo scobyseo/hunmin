@@ -80,7 +80,7 @@ is a decision. These are the items an agent may measure but may not settle.
 
 | # | Question | Where | Why blocked |
 |---|---|---|---|
-| B1 | **The hangul judgement source** — what R8's `hangul_valid` looks up | `wiki/decisions/the-outstanding-decisions.md:20-33`, `docs/MODES-DATA.md:652` | (a) corpus top-N rejected by measurement; (b) dictionary lookup weakened because the 45.42% coverage came from a hanja-filtered subset; (c) combination test provisionally adopted, but krdict is outside the 2026-10-05 scope boundary and **no replacement source inside the boundary has been chosen**. Everything in §2 inherits this. |
+| B1 | **The hangul judgement source** — what R8's `hangul_valid` looks up ✅ **RETIRED 2026-11-01** | `docs/OPTIONS-MEASURED.md` §B1 (the priced options), `docs/SPEC-MODES.md` §R8-정정 and §R8-정정-2 | Maintainer, verbatim: *"want to select A"* — option A of §B1: the row has no surviving content. **Hangul half:** `hangul_valid` is a syllable-structure test, so it looks nothing up. **English half:** `en_US` + a user dictionary, shipped (`libhunmin/data/modes/en-US.json`, `hunmin_buffered_preedit_english_valid`) and closed as #160. §2's items therefore no longer descend from this row; they wait on the judgement's implementation (#166, #168), on a harness (#181), or on their own rulings (#163, #180). **Left open with R8-정정, not decided by this retirement:** whether the corpus list, its 50,000 cap and the `MODES-DATA` sections describing them are deleted or kept as the record — no issue yet |
 | B2 | **Pass lines for all three metrics** | `docs/MODES-METRICS.md:118-122` | *"there is no **how much** … grading is impossible."* Not a measurement; a number only the maintainer can set. |
 | B3 | **ON or OFF by default** ✅ **DECIDED 2026-10-11** | `docs/SPEC-MODES.md:555-557`, `docs/SPEC-MODES.md:701-708` | Maintainer: OFF by default until release 0.3; the feature's additional data ships separately and the feature enables only where that data is present. Ruling quoted verbatim in `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`. E5's *assignment* half remains open (see B4). |
 | B4 | **E5 — the 한/영 key** ✅ **DECIDED 2026-10-12 (0.1 half)** | `docs/SPEC-MODES.md:680-709`, `docs/MODES-ENGINE-RULES.md:77-81` | Maintainer: **the feature is disabled by default in 0.1, by disabling the default key composition** — the AUTO_TOGGLE default chord (Right Alt + Enter) is removed, the dispatch skips the action, and the settings row shows 미정 (0.3). Ruling quoted in `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`. What remains open is the **E5 assignment itself** (single vs compound meaning), which lands in the 0.3 lane per `docs/MILESTONES.md`. The F9 constraint (occupied by 전처리수식, no `KEYCODE_F9` on Android — `docs/TESTING.md:280-281`) still applies to that future assignment. **MEASURED 2026-10-31: neither half of that constraint holds as stated** — F9 is no layout key (15 layouts, 0 named keys; the 전처리수식 keys are the `flags` overrides on z/h/H/w/W), and `KeyEvent.KEYCODE_F9` is 139. What applies instead is the per-platform collision map. Pricing: `docs/OPTIONS-MEASURED.md` §E5-0, §E5-2, §E5-3. **Assignment DECIDED 2026-10-31** (issue #159): single press = manual switch, modifier + 한/영 = the special-function namespace (voice input, auto-mode switch), it is the default, the composition is selectable in the config dialog, on all three frontends — quoted in `wiki/decisions/2026-10-31-han-eng-modifier-compound-special-functions.md`, requirement in `docs/SPEC-MODES.md` §E5. Still open inside that ruling: which modifier carries which function, whether the addon may shadow fcitx5's default `Hangul` trigger, and where a changed composition is stored. **한자 입력 DECIDED the same day**: the Hanja key is the default (EISU / `VK_HANJA` / `Hangul_Hanja`), F9 was a test scaffold, configurable in the settings dialog — `wiki/decisions/2026-10-31-hanja-key-default-f9-was-a-test-scaffold.md`. |
@@ -88,21 +88,23 @@ is a decision. These are the items an agent may measure but may not settle.
 | B6 | **D3 — is a frequency list derived from AIHub 119 a reshaping?** | `the-outstanding-decisions.md:41-47` | Licence question. *"probably no, but it has not been settled and should not be assumed either way."* |
 | B7 | **D4 — does the wiki stay?** | `the-outstanding-decisions.md:49-60`, `status: active`, `contested: true` | Adopted *"to be re-evaluated later"*, against three named criteria. |
 | B8 | **The keystore path in `build.gradle.kts:77`** | §3 W3 | ✅ **DECIDED 2026-10-13** | Maintainer: the keystore config lives in gitignored `local.properties` (`frontends/android/local.properties`); nothing in committed build config hardcodes a host path. `app` and `keymaps` both resolve `storeFile`/`storePassword`/`keyPassword`/`keyAlias` from `local.properties`, honor the `HUNMIN_RELEASE_STORE` env override (CI `android-release` job + `tools/build-release.sh`), and generate a throwaway release key at build time when no keystore is present. Ruling quoted in `wiki/decisions/2026-10-13-b8-keystore-path-resolved.md`. What remains: the maintainer picks whether `local.properties` is the permanent canonical keystore and whether to keep the throwaway-key fallback. |
-| B9 | **The R8 adapter's structural divergence from R3** | §3 M1 | ✅ **DECIDED 2026-10-14** | R3 `[D]` put guessing in the engine while `language_detect.*` put it in the fcitx5 addon. The maintainer's ruling: **R8 is adaptor-owned** — the requirement is one judgement rule owned by one component and identical on every frontend; the owner and the mechanism are a design decision, not a requirement. Ruling quoted in `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md`; `docs/SPEC-MODES.md` R3 rewritten requirement-only and `docs/architecture.md` added. Landed in `a5c46dc`, closed as issue #3. **Not decided by this:** R8's own engine integration stays blocked on B1, and §2's M1–M5 with it — the ruling settled *which component owns the judgement*, not the data it judges from. |
+| B9 | **The R8 adapter's structural divergence from R3** | §3 M1 | ✅ **DECIDED 2026-10-14** | R3 `[D]` put guessing in the engine while `language_detect.*` put it in the fcitx5 addon. The maintainer's ruling: **R8 is adaptor-owned** — the requirement is one judgement rule owned by one component and identical on every frontend; the owner and the mechanism are a design decision, not a requirement. Ruling quoted in `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md`; `docs/SPEC-MODES.md` R3 rewritten requirement-only and `docs/architecture.md` added. Landed in `a5c46dc`, closed as issue #3. **Not decided by this:** the ruling settled *which component owns the judgement*, not the data it judges from — and that data question was answered later: B1 retired 2026-11-01 (§B1), so R8's engine integration now waits on the judgement's implementation (#166, #168), not on a source. |
 
 ---
 
-## 2. Blocked behind B1 — measurable only once the source is chosen
+## 2. Formerly blocked behind B1 — restated 2026-11-01
 
-Not blocked on anything else; they are simply downstream of the judgement source.
+B1 retired on 2026-11-01 (option A of `docs/OPTIONS-MEASURED.md` §B1). None of
+these five waits on a word source any more; the last column says what each waits
+on instead.
 
-| # | Work | Where |
-|---|---|---|
-| M1 | **③-bis wrong-direction switch metric** | `docs/MODES-METRICS.md:66` `NOT MEASURED` — needs the same source R8 does |
-| M2 | **E1 — does the symmetric rule hold** (english→hangul)? | `the-outstanding-decisions.md:39` *"Not yet measured."* Was measurable via krdict's `pos`; that route left scope, so it must be re-derived inside the boundary. |
-| M3 | **E2 / E3 / E6 / E7** thresholds (buffer cap N, short-word N, flicker) | `docs/SPEC-MODES.md:622-742`, all `[E]` |
-| M4 | **Third-party correctness**, both 두벌식 and 세벌식 | `PLAN.md:301` *"not started"* |
-| M5 | **Word-list schema** — `docs/SPEC-SCHEMA.md` has no word-list section | `docs/MODES-DATA.md:140-155`. Undecided: `debian/copyright` wording, whether to store pos/frequency/level, 조사/어미 attachment. |
+| # | Work | Where | What it waits on now |
+|---|---|---|---|
+| M1 | **③-bis wrong-direction switch metric** | `docs/MODES-METRICS.md` §1.4 `NOT MEASURED` | the judgement and its harness: issue #168 (the call site) and #181 (the harness). The validity pair is a structural predicate plus the shipped `en_US` list, so there is no source to choose first |
+| M2 | **E1 — does the symmetric rule hold** (english→hangul)? | `wiki/decisions/the-outstanding-decisions.md` D2 | nothing but its own measurement, and **it has no owner**. Under `docs/SPEC-MODES.md` §R8-정정 it needs a corpus of typed Korean (outside the repo, passed as a path) and `libhunmin/data/modes/en-US.json`; the krdict `pos` route it named is gone with the word test |
+| M3 | **E2 / E3 / E6 / E7** thresholds (buffer cap N, short-word N, flicker) | `docs/SPEC-MODES.md` §E2–§E7, all `[E]` | E3 is retired by R9 (2026-10-25, and #163 holds the method conflict that leaves); E2 and E6 are issue #163, E7 is #180 |
+| M4 | **Third-party correctness**, both 두벌식 and 세벌식 | `PLAN.md` P8 table, *"not started"* | nothing judgement-related: it is composition correctness and belongs to the P2 lane, whose oracles already exist (pat.im worked examples, kime facts) |
+| M5 | **Word-list schema** | `docs/SPEC-SCHEMA.md` | answered for the shipped list: the document carries "English word list (`data/modes/`)" — the JSON shape, `meta.json` and the user dictionary's plain-text format — and `debian/copyright` carries the SCOWL entry. The pos/frequency/level and 조사/어미 questions were about a Korean list that no longer exists; the delete-or-keep question is on B1's row |
 
 **Naming collision, and it is a real defect in this board.** §2's M1–M5 and §3's
 M1–M5 are different items with the same labels. Two sessions reading different
@@ -268,11 +270,12 @@ satisfied: `frontends/fcitx5/test/testlanguagedetect.cpp` was added and ctest
 | 5 | Mic button visual state (idle/listening/error) | ✅ Done | `LayoutPicker.setMicState(VoiceState)`; the dock binds it as a green capsule (`res/drawable/toolbar_mic_active.xml`) and styles B and C as a coloured icon |
 | 6 | IME switch button in picker | ✅ Done | Shows system `showInputMethodPicker()` |
 | 7 | Configurable key bindings | ✅ Done 2026-10-11 | `KeyBinding.kt` + the key settings window. Stored as `v1:<keyCode>:<modifiers>` in `hunmin_keys`; the four triggers are read by `HunminInputMethodService.onKeyDown`. Measured by tier E2's settings-window section: a key captured in the window is persisted, displayed back, and fires in the running IME. GitHub issue #12. |
-| 8 | Auto Hangul/English detection engine integration | 🔒 Blocked on B1 | The 0.1 half of B4 was decided 2026-10-12: the feature ships inert in 0.1 (default key composition disabled — `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`). What remains is the engine integration itself, gated on B1 as before, and the E5 key assignment, which lands in the 0.3 lane. The ON/OFF default was ruled 2026-10-11: OFF until 0.3, feature enable-able only when its separately-distributed data is present — `wiki/decisions/2026-10-11-auto-switch-off-by-default.md` |
+| 8 | Auto Hangul/English detection engine integration | ⏳ Waits on the judgement (#166, #168) | The 0.1 half of B4 was decided 2026-10-12: the feature ships inert in 0.1 (default key composition disabled — `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`). What remains is the engine integration itself — the structural test (#166) and the call site that applies the R8 formula (#168) — plus the E5 key assignment, which landed 2026-10-31 and ships in the 0.3 lane. **Not gated on B1:** that row retired 2026-11-01 (§B1). The ON/OFF default was ruled 2026-10-11: OFF until 0.3, feature enable-able only when its separately-distributed data is present — `wiki/decisions/2026-10-11-auto-switch-off-by-default.md` |
 
-**Evidence that would change this:** if B1 is answered quickly, §2 becomes the
-critical path and should jump ahead of everything here — P8 is the phase with no
-engine implementation at all, and it is the maintainer's own stated requirement.
+**Evidence that would change this:** B1 is retired (2026-11-01, §B1), which is the
+condition this line named, so §2 is the critical path now and should jump ahead of
+everything here — P8 is the phase with no engine implementation at all, and it is
+the maintainer's own stated requirement.
 
 ---
 
@@ -465,6 +468,10 @@ DESIGN-REVIEW-TRACKED | path-present | docs/ANDROID-IME-REVIEW.md | present | re
 DESIGN-REVIEW-F5 | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:buildDock | absent | issue #21 verification: grep -n 'buildDock' frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt shows no call site (F5 evidence)
 DESIGN-REVIEW-F1-F2 | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:Color.parseColor | absent | issue #21 verification: grep Color.parseColor OverlayActivity.kt returns nothing (F1, F2 fills)
 DESIGN-REVIEW-F3-F10 | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:dialogWidth | present | issue #21 fill: dialog sized off window size class, not physical pixels (F10); HUD day/night pair shared via hunmin_hud_* tokens (F3)
+# ----------------------------------------------------------------  issue #161 / #166 (2026-11-01)
+HANGUL-VALID-166 | ctest | engine-hangul-valid | registered | issue #166: the structural rule and its widened 옛한글 variant (SPEC-MODES §R8-정정, §R8-정정-3). The tier GENERATES the property — the 11,172-syllable block, the extended jamo sets, and the negative half — instead of sampling it, and pins the layout split 12 compose / 6 old-Hangul / 3 Latin
+HANGUL-CAPABILITY-166 | grep | libhunmin/src/schema_loader.c:compute_capability | present | issue #166: the per-layout answers are derived at load from the layout's own keys and combination table, so a new layout cannot declare them wrongly and the answer cannot drift from the data; answered by hunmin_ctx_layout_autoswitch_capable / hunmin_ctx_layout_old_hangul
+HANGUL-ABI-166 | grep | libhunmin/tests/abi/symbols.txt:hunmin_hangul_valid_old | present | the widened rule is an APPENDED ABI symbol (with hunmin_hangul_valid and the two layout answers); the `abi` ctest audits this list on a host where it registers (not WIN32)
 # ----------------------------------------------------------------  decision-blocked
 # B1..B9 are maintainer rulings, not tree facts. AGENTS.md: "네 멋대로 기각하지마."
 # They carry no assertion row, by construction, and their absence from this table
@@ -530,7 +537,10 @@ CI-WORKFLOW-VALID | grep | .github/workflows/ci.yml:\$\{\{ failure\(\) \}\} | pr
 # B1..B9 are maintainer rulings, not tree facts. AGENTS.md: "네 멋대로 기각하지마."
 # They carry no assertion row, by construction, and their absence from this table
 # is deliberate rather than an oversight.
-# §2 M1..M5 need B1's chosen source. §3's R8-shrinker end-to-end needs a signed
+# §2 M1..M5 no longer need a source: B1 retired 2026-11-01 (docs/OPTIONS-MEASURED.md
+# §B1, option A). They wait on the judgement's implementation (#166, #168), on a
+# harness (#181), or on their own rulings (#163, #180). §3's R8-shrinker end-to-end
+# needs a signed
 # release build and an emulator; the E3 gate needs a physical device. Both are
 # environment-bound, not decision-blocked. (This line previously said W5's runtime
 # grant needed "an emulator, which this host does not have". False twice: tier E2

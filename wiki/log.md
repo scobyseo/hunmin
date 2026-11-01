@@ -857,3 +857,38 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   invokes the frontend interface, an unsupported platform refuses), the five-symbol shape
   that implements it, and the four things it leaves open — the per-function default chord
   most of all, because choosing it per frontend is the divergence the ruling removes.
+
+## [2026-11-01] update | B1's question was answered elsewhere (#161)
+
+- `wiki/decisions/the-outstanding-decisions.md`: D1 carries a dated status — §R8-정정
+  ruled option (c) and the English half was ruled by §R8-정정-2, so the table is the
+  record of the evidence, not the current definition; D2 records that its krdict/`pos`
+  route left the scope boundary and §R8-정정 removed the need for it. Neither is
+  retired here: the board row's fate is issue #161, priced in
+  `docs/OPTIONS-MEASURED.md` §B1.
+
+## [2026-11-01] rule | B1 retired — the Hangul judgement needs no source (#161)
+
+- `wiki/decisions/2026-11-01-b1-retired-the-hangul-judgement-needs-no-source.md`:
+  the maintainer's "want to select A" verbatim. The row had been emptied by
+  §R8-정정 (structure test, no lookup) and §R8-정정-2 (the English source, shipped,
+  #160 closed) — neither of which the board or MILESTONES mentioned, which is why
+  a decided question kept reading as the root of five blocked rows.
+- Propagated the same day: board §1's B1 row, §2 retitled and restated per item,
+  the voice stage 8 row, the assertion table's decision-blocked comment,
+  MILESTONES' "hostage to B1" lines, and PLAN's P8 "judgement source" row.
+- Left open and named: the corpus-list delete-or-keep question §R8-정정 wrote down,
+  E1's lack of an owner, and §R8-정정's stale "left open" sentence against R9.
+
+## [2026-11-01] rule | 옛한글 layouts get the widened validity rule, per layout (#166)
+
+- `wiki/decisions/2026-11-01-old-hangul-layouts-get-the-widened-rule.md`: the
+  maintainer's "it is optional for layouts which support 옛한글" verbatim. The rule
+  is unchanged and only the jamo sets widen, so `랴ㅜㄷ` stays invalid while `ᅀᅡ`
+  `ᅌᅵ` `ᅀᅡᆶ` `ᄀᆞ` — what the 옛글 layouts actually render — are valid.
+- Measured before choosing the shape: six of fifteen layouts can emit an archaic
+  jamo (a key-value scan that reads only JSON strings under-reports at five,
+  because the values are nested `case` expressions), and the composer never
+  precomposes one, so the widened rule had to be a grammar over conjoining jamo.
+- The per-layout answer is derived from the layout's own keys and combination
+  table, so no schema field was added; SPEC-SCHEMA's layout section says so.

@@ -1,4 +1,4 @@
-# OPTIONS-MEASURED — eight cost questions, measured
+# OPTIONS-MEASURED — nine cost questions, measured
 
 Four documents that were one genre: a question nobody had priced, the options
 priced against each other, and the maintainer left to choose. They are one file
@@ -9,12 +9,15 @@ document, because an issue that asks a question and leaves it open belongs in
 the file that already holds the open ones; §HEK, §E5 and §EDW followed the same way.
 
 Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`, `HEK-`,
-`E5-`, `EDW-`) so a cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
+`E5-`, `EDW-`, `B1-`) so a cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
 is the android sandbox's §4.2. `HEK` and `E5` are the two halves of issue #159 and are
 deliberately separate, because they answer different questions: **§HEK** measures whether
 each environment can deliver the gesture at all (key shapes), and **§E5** prices what the
 gesture *means* (the assignment). §HEK-4's shapes and §E5-3's assignments are not
 alternatives to each other. §EDW (issue #160) is a third subject and cites itself.
+§B1 (issue #161) asks a different kind of question again: not which option to pick but
+whether the block the other items sit behind still exists, so its options are answers to
+"retire, narrow, or leave".
 
 | section | question | status |
 |---|---|---|
@@ -26,6 +29,7 @@ alternatives to each other. §EDW (issue #160) is a third subject and cites itse
 | HEK | whether the Han/Eng key can act as a held modifier in each frontend environment, and what the compound press would cost | measured per environment (Windows live, Android emulator, fcitx5 read-only); the **compound's action is decided** 2026-10-31 — `docs/SPEC-MODES.md` §E5, §E5 status below | 
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
 | EDW | which English dictionary R8-정정's `english_valid` looks up, under what licence, and whether it ships separately | **decided 2026-11-01: hunspell `en_US` + a user dictionary, shipped in-tree for now** (#160); four candidate dictionaries and the corpus-list baseline were priced on one probe. The curated supplement is deferred; the separate-distribution split is #190 |
+| B1 | whether the board's B1 ("the hangul judgement source") is still a blocker at all now that `hangul_valid` is a structural test | **decided 2026-11-01: option A — B1 retired** (#161); the Hangul half is answered by R8-정정, the English half is decided and shipped by R8-정정-2 |
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
 find the optimum design, not to judge one candidate", and a decision is the
@@ -2464,3 +2468,225 @@ that knee.
   cannot exist before the judgement does.
 - Changed by this branch: `docs/OPTIONS-MEASURED.md` (this section and the
   header table), `README.md` (its index row), `tools/modes-dict-probe.py` (new).
+
+
+## B1 — is B1 still a blocker now that `hangul_valid` is structural (issue #161)
+
+**Decided 2026-11-01: option A — B1 is retired.** The maintainer, verbatim:
+*"want to select A"*. What that changes is the cost list under A in B1-4; it was
+propagated in the same commit to `docs/REMAINING-WORK.md` (the B1 row, §2 restated
+per B1-2, the voice stage 8 row, and the assertion-table comment),
+`docs/MILESTONES.md`, `PLAN.md`'s P8 table and D1/D2 of
+`wiki/decisions/the-outstanding-decisions.md`. **Not decided by it:** whether the
+corpus list, its cap and the `MODES-DATA` sections are deleted or kept (R8-정정
+left that open and it still has no issue), and whether E1 gets an owner.
+
+As written, this section was measurements only — no option chosen, the choice the
+maintainer's — because issue #161 asks for a ruling and asks that the options stay
+comparable. It asks three things: whether B1 is retired or narrowed, whether §2's
+five items stay frozen, and whether R9's threshold is re-based. This section prices
+each answer against the tree and records what the tree already decides.
+
+Produced 2026-11-01 on `scobyseo/modes-ruling-is-b1-still-a-blocker-now-that-hang`
+at base `7f20be8` (`origin/master`), Windows host, engine built with the
+llvm-mingw toolchain into this worktree's `build/`. It deliberately does **not**
+edit `docs/REMAINING-WORK.md` or `AGENTS.md`: both are shared mutable files that
+parallel sessions patch, and the board edits a ruling on B1 triggers belong after
+the ruling, not in its support paper — issue #161's own verification step says the
+same.
+
+### B1-0 The premise, checked first
+
+| # | what issue #161 says | measured in the tree | verdict |
+|---|---|---|---|
+| 1 | the board records B1 as blocking everything in §2 | row B1 ends "Everything in §2 inherits this"; §2's heading is "Blocked behind B1 — measurable only once the source is chosen" and its preamble says the items "are simply downstream of the judgement source" | **verified** |
+| 2 | the voice-input stage 8 row still reads "🔒 Blocked on B1" | stage 8 of the voice table reads exactly that, and its note repeats "gated on B1 as before" | **verified** |
+| 3 | R8-정정 (2026-10-25) changed what the question was about | the ruling's formula block reads "`hangul_valid` = the buffer composes as Korean syllables of the shape (choseong + jungseong) or (choseong + jungseong + jongseong) only" | **verified** |
+| 4 | so the Hangul side needs no word source at all | no data path exists or is planned for it: there is no `hangul_valid` symbol in the ABI, no file it could consult, and the ruling says "`hangul_valid` becomes a structural test, not a word test" | **verified** — and nothing implements the test yet (#166) |
+| 5 | "the source problem that remains is the English one (separate issue)" | **it no longer remains.** R8-정정-2 (2026-11-01) named hunspell `en_US` plus a user dictionary; issue #160 is closed and its work is shipped and merged: `libhunmin/data/modes/en-US.json` (118,150 forms, `meta.json` provenance beside it), `libhunmin/src/wordset.c`, the `hunmin_buffered_preedit_english*` ABI, and `libhunmin/tests/wordset-test.cpp` | **corrected** |
+
+Two premises the issue does not state, and every option inherits them:
+
+**(a) §2's five items are not only board rows any more — four of them carry their
+own issue.** Enumerated from the open set: #181 is the harness ③-bis needs,
+#163 holds E2/E3/E6, #180 holds E7, and the judgement itself is #166 (the
+structural test), #168 (the call site) and #178 (its golden corpus). **E1 (M2) is
+the one item with no filed owner.** A retirement decision therefore reclassifies
+issues rather than unfreezing prose.
+
+**(b) R9's threshold — the issue's third question — was answered 74 minutes
+later in the same document.** `git log` dates the two edits: R8-정정 landed as
+`72c668e` at 15:45:07 on 2026-10-25 and still ends "Not decided by this entry,
+and left open: … whether R9's threshold (E3) is re-based"; R9's own text landed
+as `343ba6a` at 16:59:41 the same day and opens "**The numeric threshold is not a
+requirement (ruled 2026-10-25).** §2.E3 is retired". So the question has an
+answer in the requirement's home, and the earlier sentence was never updated — a
+stale cross-reference inside one file, not a disagreement about the ruling.
+
+There *is* a real conflict one level down, and it is already filed: §2.E3 still
+specifies a **measured** N ("set N to 2, 3, 4 and measure …, find the N at which
+(b) is minimal"), while R9 now makes it a **design-time** choice "made where the
+judgement is built and recorded there". That is a question of method, not of
+wording; #163 holds it, so this paper records it and leaves it there.
+
+### B1-1 What the words mean now, and what of it is built
+
+- **`hangul_valid` has no source to choose.** It is a predicate over the finished
+  buffer, and the only input it needs is the composition rule the engine already
+  carries (`libhunmin/src/tables.c`). Its decision surface is the 11,172-syllable
+  modern block (19 choseong × 21 jungseong × 28 jongseong): every precomposed
+  syllable in U+AC00–U+D7A3 is well-formed by construction, so the test is
+  "the rendered text is syllables and nothing else". "No source" is not the same
+  as "no cost" — the definition admits any well-formed run, word or not, which is
+  the trade the ruling accepted in its own text.
+- **`english_valid` has a source, and it is settled and shipped** — see B1-0
+  row 5. Two states are normal rather than errors: an absent shipped list answers
+  "not english" and `..._english_ready` answers 0 (B3's data gate); the user's
+  words are a plain-text file merged into the same lookup at load time.
+- **The substrate the judgement needs already ships**, which
+  `docs/MODES-ENGINE-RULES.md` does not yet say. That document's header reads
+  "design direction settled, no core implementation" and its "Where the mode
+  lives" section plans the mode onto `hunmin_ctx`; the tree instead has
+  `hunmin_buffered_preedit` constructed with **both** layout ids
+  (`hunmin_buffered_preedit_new(ctx, hangul_layout_id, latin_layout_id, …)`),
+  owning the composition buffer, the language state, the boundary
+  (`HUNMIN_KEY_BOUNDARY_PASS`) and the toggle. #168's body states the same against
+  the header. **What remains of the modes work is one predicate (#166) and one
+  call site (#168), not an architecture** — which is the only reason retiring B1
+  changes anything. MODES-ENGINE-RULES §1's "future work" paragraphs are obsolete
+  as written; they are recorded here and left for #168's PR rather than edited
+  into this one.
+- **The formula needs both renderings of one key sequence** — the composed Hangul
+  (for structure) and the literal Latin (for the dictionary). That is why neither
+  validity is a lookup alone, and it is the work #168 evaluates.
+
+### B1-2 What each §2 item actually needs
+
+| §2 item | what its own text says it needs | measured state | needs a Hangul source? | owner now |
+|---|---|---|---|---|
+| **M1** ③-bis wrong-direction metric | "needs the same source R8 does" | `docs/MODES-METRICS.md` §1.4 is `NOT MEASURED`; no runnable judgement and no harness exist | **no** — the pair is a structural predicate plus a shipped dictionary | #181 (harness) + #168 |
+| **M2** E1 symmetry | "Was measurable via krdict's `pos`; that route left scope, so it must be re-derived inside the boundary" | not measured, and unfiled | **no** — under the structural definition the measurement needs a corpus of typed Korean (outside the repo, path as an argument) and the shipped list; the josa/eomi/pos requirement disappeared with the word test | nobody |
+| **M3** E2/E3/E6/E7 thresholds | "all `[E]`" | E3 retired by R9; E2 and E6 are #163; E7 is #180 | **no** | #163, #180 |
+| **M4** third-party correctness | "evaluated against both 두벌식 and 세벌식, at minimum 신세벌식 P2" (`PLAN.md`, P8 table) | not started; P2's oracles already exist (pat.im worked examples, kime facts) | **no** — this is composition correctness, independent of any judgement | nobody (P2 lane) |
+| **M5** word-list schema | "`docs/SPEC-SCHEMA.md` has no word-list section" | **stale**: that document now carries "English word list (`data/modes/`)", the JSON shape, `meta.json`'s contents and the user dictionary's file format; `debian/copyright` carries the SCOWL entry | **no** | done for the shipped list; its pos/frequency/level and josa/eomi sub-questions are moot on the Korean side because there is no Korean list any more |
+
+**Counted: none of the five waits on a Hangul word source.** Three wait on
+implementation or a harness (#166/#168/#178/#181), one on nothing but its own
+measurement (E1), one is already answered (M5), and M4 was never a judgement
+question at all.
+
+### B1-3 The structural test's decision surface, measured
+
+The question a reader should not have to take on faith: if `hangul_valid` consults
+no data, does it still discriminate, or does it say "yes" to everything? Measured
+by rendering every word of the shipped dictionary through the 두벌식 layout with
+the engine's own simulator (`build/hunmin-sim.exe --batch`, one fresh `ic` per
+line) and classifying the rendered text against R8-정정's definition — every
+character a syllable in U+AC00–U+D7A3, and nothing else.
+
+| | count |
+|---|---|
+| shipped forms in `libhunmin/data/modes/en-US.json` | 118,150 |
+| fed to the engine (letters only) | 85,718 |
+| skipped (internal `'` or `-`, not layout keys) | 32,432 |
+| **both valid** — rendering is all well-formed syllables | **1,722 (2.01%)** |
+| **english only** — rendering leaves a jamo or a Latin char | **83,996 (97.99%)** |
+
+Examples of the both-valid class, where R8's formula keeps the current mode:
+`aback → 뮴차`, `abeam → 뮫므`, `abraham → 뮥모므`. Examples of the english-only
+class, where the formula switches: `aa → ㅁㅁ`, `aachen → ㅁㅁ초두`,
+`aardvark → ㅁㅁㄱㅇㅍㅁ가`.
+
+Read plainly: an English word typed in Hangul mode usually leaves a word-final
+consonant or a doubled initial as a lone jamo, which is not a syllable — that is
+what makes it `hangul_valid = false` and lets the dictionary side decide alone.
+The structural test is not a rubber stamp on Latin input. The 2.01% are the cases
+where R8 specifies **no switch**; that is the measured size of the class the
+ruling's definition makes inert, and it is a different quantity from the
+86.35% → 43.87% reproduction loss R8-정정 records (that one is about the
+dictionary, not about structure).
+
+**What this probe is not.** The classifier is re-implemented in Python and stands
+in for the predicate #166 will add to the engine; the composition it classifies
+comes from the engine, so only the "is it syllables" step is duplicated. It says
+nothing about the Korean side of the pair: the only Korean word list in the tree
+is `krdict/`, which the maintainer's 2026-10-05 boundary excludes from this
+research, so Korean input is reasoned about from the definition in B1-1 and
+labelled as such. E1's measurement is the one that would test it, and it needs a
+corpus path rather than a dictionary.
+
+### B1-4 The options
+
+**A — Retire B1. ← selected 2026-11-01.** Its Hangul half is answered by R8-정정 and its English half is
+decided and shipped by R8-정정-2, so the row has no surviving content; §2's rows
+are then restated per B1-2 and the "everything inherits this" claim comes out.
+*Cost:* prose only — the B1 row, §2's heading and preamble and the voice stage 8
+row in `docs/REMAINING-WORK.md` (**6 of its 10 mentions carry the claim; the other
+four are the B1–B9 legend and table comments**), the "hostage to B1" bullets in
+`docs/MILESTONES.md` (**5 of its 8 mentions are claims; three are the id-range
+legend**), P8's "judgement source … **OPEN**" row in `PLAN.md`, and the dated
+status line on `wiki/decisions/the-outstanding-decisions.md` that this branch
+already added under D1 (it records that the ruling exists and points at #161 for
+the board row; it does not retire anything). No code, no ABI, no data, no goldens.
+*Gain:* the block on §2 becomes what it is — implementation issues #166/#168/#178
+and #181 — so the next session reads the issue list instead of re-deriving a
+source question that no longer exists.
+*What would change it:* evidence that a Korean word source is needed for
+something **outside** R8's validity (a future feature asking "is this a word?",
+not "is this well-formed"). Nothing in the tree asks that today.
+
+**B — Retire only the Hangul half, keep B1 as "the English source".** *Cost:* a
+board row whose answer is R8-정정-2 — a second home for a decided fact, which the
+repository forbids. *Gain:* none measured; #160 is closed, and the only live part
+of its subject is #190 (the separate distribution), which is packaging, not a
+source. *What would change it:* a decision to re-open the dictionary choice —
+which would re-open §EDW, not B1.
+
+**C — Retire B1 and carry its one genuinely open remnant as its own row.** R8-정정
+left "whether the corpus list, the cap and the `MODES-DATA` sections that describe
+them are deleted or kept as the record of the measurement" open, and R8-정정-2 did
+not answer it. That remnant is about the **English** list, so it is not B1 either;
+but it is the only undecided item in B1's neighbourhood and it has no issue.
+*Cost:* one row plus one issue. *Gain:* the delete-or-keep decision stops
+travelling inside a blocker that is being retired. *What would change it:* evidence
+that `MODES-DATA` §4 is already cited as live by something — measured: SPEC-MODES
+§5's file table still calls it "the `valid` criterion of R8", which R8-정정 has
+since demoted to a record, so that pointer needs the same correction whichever
+option wins.
+
+**D — Leave B1 open as written.** *Cost:* the two homes keep disagreeing (the SPEC
+has not mentioned B1 since R8-정정; the board has never mentioned R8-정정 or
+R8-정정-2), and this page is re-derived. *Gain:* none measured — the disagreement
+has not produced a wrong decision yet, only re-reads.
+
+### B1-5 Summary
+
+| option | board / milestones prose | SPEC text | issues reclassified | code, ABI, data, goldens | docs-lint |
+|---|---|---|---|---|---|
+| A | 6 of REMAINING-WORK's 10 mentions, 5 of MILESTONES' 8, 1 PLAN row, 1 wiki line | none | none closed by this paper | none | 0 errors |
+| B | 1 row reworded, same footprint elsewhere | none | none | none | 0 errors |
+| C | A's footprint plus 1 row | none | 1 new issue proposed | none | 0 errors |
+| D | none | none | none | none | 0 errors |
+
+### B1-6 Provenance
+
+- **Measured with:** `git log -1 --format='%ad'` on `72c668e` and `343ba6a` (the
+  74-minute gap); `git merge-base --is-ancestor` (confirms the order);
+  `grep -rn "\bB1\b" --include=*.md` over `docs PLAN.md README.md wiki AGENTS.md`
+  (the 10/8/2 split, with `docs/FRONTEND-CONTRACT.md`'s two hits being a
+  different B1 — an A/B finding label — and `AGENTS.md`'s one being the B1–B9
+  legend); `gh issue list --state open` for the owner map; the engine probe in
+  B1-3 (`cmake --build build --target hunmin-sim` then `python3
+  build/probe_b1_structure.py`, 1.2 s, one process over all lines).
+- **Read, not executed:** nothing claimed as measured above is unmeasured. The
+  Korean side of the validity pair is stated from R8-정정's definition and
+  labelled as such; its measurement is E1's, and E1's test does not exist.
+- **Not touched deliberately:** `docs/REMAINING-WORK.md` and `AGENTS.md`
+  (parallel sessions); `docs/MODES-ENGINE-RULES.md` §1 (edited here as a finding,
+  belongs to #168's PR); `docs/SPEC-MODES.md` (no requirement text changed — the
+  R9/E3 method conflict is #163's, and R8-정정's stale "left open" sentence is
+  recorded in B1-0 rather than rewritten, because the two texts disagree about
+  method and only the maintainer settles that).
+- **Propagated, not decided:** the header table row, the section key and the
+  `README.md` count line, plus the `README.md` count correction described in the
+  commit (it said "seven priced questions" over eight sections).
