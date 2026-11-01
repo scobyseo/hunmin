@@ -449,6 +449,30 @@ HUNMIN_EXPORT int hunmin_buffered_preedit_english_valid(const hunmin_buffered_pr
  * (B3's gate). -1 is never reported here: audit that with the load call. */
 HUNMIN_EXPORT int hunmin_buffered_preedit_english_ready(const hunmin_buffered_preedit *l);
 
+/* ------------------------------------------- hangul validity (R8-정정)
+ *
+ * The OTHER half of the modes judgement: `hangul_valid` is "the buffer composes
+ * as Korean syllables of the shape (choseong + jungseong) or (choseong +
+ * jungseong + jongseong) only" (docs/SPEC-MODES.md §R8-정정, issue #166).
+ *
+ * It takes TEXT, not the layer, because there is nothing to look up: it is a
+ * predicate over the composition rule, so no data directory can change its
+ * answer and it is the same function for the fcitx5 adapter, Android, TSF and
+ * a test. Pass a finished buffer (`..._preedit()` or `..._display()`), not a
+ * sentence -- a space, digit, latin letter, punctuation or an in-flight jamo
+ * all answer 0, since none of them is a well-formed syllable.
+ *
+ * Old Hangul answers 0 by construction: the composer's syllable step accepts
+ * only the modern 19/21/28, so an archaic jongseong is rendered as jamo. The
+ * four 옛글 layouts (dubeolsik-yet, sebeolsik-yet, ahnmatmae, sin3-p2-yet) are
+ * therefore not hangul-valid -- the literal reading of "well-formed MODERN
+ * syllable", and the single place to change it if the judgement should treat
+ * old-Hangul buffers as Hangul.
+ *
+ * 0 for NULL and for malformed UTF-8. 1 for one syllable or a run of them.
+ */
+HUNMIN_EXPORT int hunmin_hangul_valid(const char *text);
+
 #ifdef __cplusplus
 }
 #endif
