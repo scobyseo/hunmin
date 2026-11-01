@@ -52,10 +52,14 @@ order they were sent:
   (`hunmin-en-us`) is a package; a release-page artefact is a file. A second
   dictionary for the APK would need the runtime path the ruling leaves
   undefined, and the Windows installer would need a `[Components]` entry.
-- **The absent-state behaviour at the option level.** `hunmin_ic_set_option(ic,
-  "autoswitch", 1)` still succeeds where the data is absent (#169). The ruling
-  makes that state rarer, not unreachable, and it does not say what the option
-  should answer when it happens.
+- ~~**The absent-state behaviour at the option level.** `hunmin_ic_set_option(ic,
+  "autoswitch", 1)` still succeeds where the data is absent (#169).~~ **Resolved
+  2026-11-01, and not by this ruling:** #169 shipped that same afternoon (PR
+  #201, `hunmin_ic_set_option` refuses ON and vetoes the stored value to 0 where
+  the word list is absent, with `hunmin_ctx_autoswitch_data_present` as the
+  query a settings row reads). The ruling's part in it was to make the state
+  rarer without making it unreachable, which is why the gate was still worth
+  building.
 - **The package name.** `hunmin-en-us` stands in; B3's decision page ruled the
   name "design work, not ruled" and this ruling did not change that.
 
