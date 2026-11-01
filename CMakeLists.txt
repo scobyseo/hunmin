@@ -88,7 +88,32 @@ target_compile_definitions(hunmin_static PRIVATE
 # carries the engine with it.
 
 install(FILES libhunmin/include/hunmin.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(DIRECTORY libhunmin/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin)
+
+# ------------------------------------------------------------ data, in two parts
+#
+# The engine's data installs as TWO components, because one directory in it is
+# a separate distribution by ruling: `modes/` -- the hunspell en_US word list
+# behind SPEC-MODES R8-정정's `english_valid` -- ships apart from the rest, so
+# that B3's gate ("그 데이터가 있을때만 기능을 켤 수 있게"; quoted in
+# wiki/decisions/2026-10-11-auto-switch-off-by-default.md) is a fact about an
+# installation rather than a build option. `docs/OPTIONS-MEASURED.md` §EDW-4
+# prices the mechanisms; issue #172 is this one.
+#
+#     cmake --install build                         both (a developer's install)
+#     cmake --install build --component data        the base data only
+#     cmake --install build --component modes-data  the word list alone
+#
+# Debian's two binary packages are this same partition (`debian/*.install`), and
+# `data-split` (tier B) asserts that the two agree with the tree. A plain
+# install still installs both: a developer who ran `cmake --install` is not
+# modelling a user whose distribution chose to leave the words out, and making
+# the default skip them would break every in-tree consumer that expects the
+# shipped tables.
+install(DIRECTORY libhunmin/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin
+  COMPONENT data
+  PATTERN "modes" EXCLUDE)
+install(DIRECTORY libhunmin/data/modes/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin/modes
+  COMPONENT modes-data)
 
 # ------------------------------------------------- reference golden generator
 set(HUNMIN_HAS_LIBHANGUL OFF)
@@ -653,6 +678,19 @@ if(BUILD_TESTING AND Python3_FOUND)
   # (docs/TESTING.md §The three levels). The label selects what runs on every
   # commit; it adds no test and no build step.
   set_tests_properties(schema-contract PROPERTIES LABELS "tier-B;guard")
+  # data-split: the English word list is a SEPARATE distribution (issue #172,
+  # SPEC-MODES R8-정정-2 + B3), so the two surfaces that decide it -- the CMake
+  # components and Debian's two binary packages -- must agree with the tree, and
+  # an installation without it must still be a working input method. tier-B and
+  # deliberately not `guard`: the commit rung's test count is a measured figure
+  # in docs/TESTING.md, and this file already spends that budget elsewhere.
+  # Costs 0.11 s here (two component installs of ~8 MB, two hunmin-sim runs, and
+  # the packaging files parsed); tools/check-data-split.py carries the method.
+  add_test(NAME data-split
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check-data-split.py
+            --build-dir ${CMAKE_CURRENT_BINARY_DIR} --cmake ${CMAKE_COMMAND}
+            --sim $<TARGET_FILE:hunmin-sim> --config "$<CONFIG>")
+  set_tests_properties(data-split PROPERTIES LABELS "tier-B")
   # krdict-fixture: self-contained determinism check for tools/krdict2data.py.
   # The real 국립국어원 dump is 368 MB and gitignored (tools/fetch-krdict.sh),
   # and the former registered full check (data-selfcheck) was unregistered
