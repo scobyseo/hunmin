@@ -69,7 +69,7 @@ schema for guessing — is unaffected.
 | Context + layout discovery | `hunmin_ctx_new/dirs`, `hunmin_ctx_layout_count/id/mode` | dirs scanned at runtime; NULL dirs → `HUNMIN_DATA_PATH` |
 | Input context | `hunmin_ic_new/process/commit/preedit/flush/reset/set_option` | commit is destructive; one read per consumer |
 | Mode query | `hunmin_ctx_layout_mode(ctx,i) → "hangul"\|"latin"` | `HM_MODE_HANGUL=0`, `HM_MODE_LATIN=1` |
-| Options | `hunmin_ic_set_option(ic,"caps",1)` etc., read back with `hunmin_ic_get_option(ic,"caps",&v)` | engine-owned state, one home per value; a frontend surfaces it and keeps no copy. `"autoswitch"` (R13-정정) is one of these: OFF on a fresh ic, and it survives the layer's ic re-creation on a language toggle |
+| Options | `hunmin_ic_set_option(ic,"caps",1)` etc., read back with `hunmin_ic_get_option(ic,"caps"",&v)` | engine-owned state, one home per value; a frontend surfaces it and keeps no copy. `"autoswitch"` (R13-정정) is one of these: OFF on a fresh ic, it survives the layer's ic re-creation on a language toggle, and ON is refused where the modes word list is not installed (B3's data gate, asked with `hunmin_ctx_autoswitch_data_present()`) |
 | External text pass-through | `hunmin_ic_flush` (commits in-flight first) | voice / out-of-band text must never go through the jamo pipeline |
 | Android data path | `HunminNativeBridge.kt` ↔ `libhunmin.so` | native shim bridges Kotlin → C ABI |
 | fcitx5 addon lifecycle | `HunminAdapter`, `HunminState` | `hunminadapter.cpp#HunminAdapter` owns the adapter; `HunminState::keyEvent` feeds the layer and `HunminState::applyJudgement` performs the mode change the engine's judgement asks for |

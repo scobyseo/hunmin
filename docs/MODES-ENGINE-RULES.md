@@ -192,6 +192,8 @@ is a recorded one and not a surprise.
 | where it lives | a field on `hunmin_ic`, and `attach_ic()` carries it across the ic re-creation a language toggle performs. Without that carry, a settings surface writes ON and the next 한/영 press silently restores OFF — measured red by `KeyRuleTest.TheAutoswitchStateSurvivesALanguageToggle` against the pre-carry code. `hunmin_ic_reset()` does **not** clear it: a preference is not input state |
 | the key beside it | already the engine's, unchanged: `hunmin_buffered_preedit_special_chord(l, HUNMIN_SPECIAL_AUTOSWITCH)` answers the ruled default `Ctrl` (Table A, 2026-10-31), so a dialog that shows value + chord spells neither of them itself |
 | the transition | `hunmin_buffered_preedit_special()` flips the value when it services `AUTOSWITCH` — the engine's, not each frontend's `perform` (ruled 2026-11-01, below). Only a serviced press flips; `special_peek()` never does |
+| the data gate | ON is refused where the modes word list is absent: `hunmin_ic_set_option(...,1)` answers `false` and leaves the value at 0, and the chord answers `-1` from `..._special_peek()`, so the key passes through (issue #169). OFF is always accepted. The state never reads enabled on a machine that cannot judge |
+| the presence query | `hunmin_ctx_autoswitch_data_present(ctx)`, resolved through `hm_data_dirs` (the same search as the hanja/krdict/idioms tables and `..._load_english_shipped()`), computed once per context. A frontend draws its row from it, so "off by choice" (value 0, present 1) and "off, data missing" (value 0, present 0) are the pair, not two stores |
 
 **The transition is the engine's (ruled 2026-11-01, issue #165).** Verbatim:
 
@@ -210,21 +212,54 @@ logs "not yet implemented"). The consequences worth keeping straight:
 - **No frontend writes it from `perform`.** With the engine owning the transition, a
   frontend's `perform` writing the option again would double-flip; what a frontend does
   there is the feature work the data gate enables.
-- **The B3 data gate is still unruled, and deliberately not in this path.** Nothing here
-  refuses to turn the feature ON when the data it needs is absent, and the key does not
-  consult whether that data is present — "where the data gate is checked" is 0.3 design
-  (`docs/SPEC-MODES.md` §R13-정정, the default bullet). The value is stored either way.
-  `hunmin_ctx_layout_autoswitch_capable()` is **not** that gate, despite the name: it answers
-  whether a layout's keys can compose any jamo at all for the judgement to be about
-  (`docs/SPEC-MODES.md` §E, the capability table), which is a different question from
-  whether the feature's dictionary is installed.
+- **The B3 data gate is in the option and in the key, in one place** (issue #169). The
+  feature is enable-able only where its data is present (`docs/SPEC-MODES.md` §R13-정정,
+  the default bullet), so `hunmin_ic_set_option(ic,"autoswitch",1)` answers `false` and
+  leaves the value at 0 when the modes word list is not installed: a stale stored
+  preference on a machine without the package cannot half-enable the switch. OFF is always
+  writable, so an install that lost its data can still record the preference. The chord
+  refuses the same way (`hunmin_buffered_preedit_special_peek()` answers -1, the key passes
+  through, nothing flips) because the two surfaces write one value — a keyboard path that
+  could turn ON what the settings row refuses would be the half-enable this gate exists to
+  prevent.
+- **The presence question has its own name, and it is not the layout answer.**
+  `hunmin_ctx_autoswitch_data_present(ctx)` is the data half: it resolves `modes/en-US.json`
+  through `hm_data_dirs` — the same search the hanja/krdict/idioms tables and
+  `hunmin_buffered_preedit_load_english_shipped()` use — so no frontend assembles a path and
+  a context built with explicit dirs (Android's sandbox) answers like a `HUNMIN_DATA_PATH`
+  one. It is computed once per context and cached, so a settings row and the option writer
+  cannot disagree. `hunmin_ctx_layout_autoswitch_capable()` stays the LAYOUT half (whether
+  the keys emit jamo the judgement can be about, §E), which is a different question.
+  "Present" means the file parses as a word list AND holds at least one usable word.
+  That is the load's own acceptance after the 2026-11-01 ruling on issue #173 (a damaged
+  ELEMENT is skipped with a warning and the file still loads), so an install with one bad
+  entry degrades to a smaller dictionary instead of being refused here — the gate and the
+  load must not disagree about a file the engine reads. What answers 0 is a file that does
+  not parse, and one that parses but yields no word at all: the load would answer 1 with an
+  empty set, which is the confident-zero state the gate exists to keep out.
+  The disabled row's reason is the PAIR, not a new code — value 0 with
+  presence 1 is off by choice, value 0 with presence 0 is off because the data is missing.
+  The answer is cached per context, so a data package installed while a context is alive is
+  not seen until that context is rebuilt (an IME restart; the same liveness the word set has
+  once it is loaded). **Installation is not loading:** the gate answers whether the file is
+  installed, while the judgement reads the layer's own set (`hm_wordset_ready`, surfaced as
+  `hunmin_buffered_preedit_english_ready()`), so a frontend must still call
+  `..._load_english_shipped()` — issue #164's flow, where the judge abstains rather than
+  calling every word not-English.
 
 Pinned by `KeyRuleTest.TheAutoswitchOptionIsOneValueTheLayerReadsBack` (default, both
 writes, the `!!` coercion, the unknown-name rejection, the chord),
 `KeyRuleTest.TheAutoswitchStateSurvivesALanguageToggle` (the carry, both directions, and
-`reset()` leaving it alone) and `KeyRuleTest.TheAutoswitchChordFlipsTheOneValue` (peek does
+`reset()` leaving it alone), `KeyRuleTest.TheAutoswitchChordFlipsTheOneValue` (peek does
 not flip, a serviced press flips both ways, a refusal does not, and VOICE is not a second
-writer).
+writer) and by the gate's own three cases: `KeyRuleTest.EnablingItWhereTheDataIsPresentIsAccepted`
+(the accepted half, so "off" there is off by choice) with
+`AutoswitchDataGateTest.TheDataTheSwitchNeedsIsReportedAbsent`,
+`...EnablingItWhereTheDataIsAbsentIsRefused` (option refused, chord refused, value untouched)
+and `...AnInstalledButBrokenDictionaryDoesNotCountAsData`. Those three build a REAL data
+tree holding only `layouts/` and `compose/` and point a context at it: the run still has
+`HUNMIN_DATA_PATH` on the full data dir, so a negative answer proves the context's own
+search is the one consulted.
 
 ### Windows (TSF) — the second frontend on the dispatch (2026-10-31)
 
