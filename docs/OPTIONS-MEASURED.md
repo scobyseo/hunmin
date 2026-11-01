@@ -34,7 +34,7 @@ whether one is missing.
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
 | EDW | which English dictionary R8-정정's `english_valid` looks up, under what licence, and whether it ships separately | **decided 2026-11-01: hunspell `en_US` + a user dictionary, shipped in-tree for now** (#160); four candidate dictionaries and the corpus-list baseline were priced on one probe. The curated supplement is deferred; the separate-distribution split is #190 |
 | B1 | whether the board's B1 ("the hangul judgement source") is still a blocker at all now that `hangul_valid` is a structural test | **decided 2026-11-01: option A — B1 retired** (#161); the Hangul half is answered by R8-정정, the English half is decided and shipped by R8-정정-2 |
-| MRO | who owns the modes judgement — the shared layer, which already holds the buffer, both layouts and the mode, or each adapter | open (#164); the material is measured in three places and the formula in none. Both existing replays are priced, plus an act/answer split the tree makes available, and the fcitx5 mode seam every layer-owns option has to cross |
+| MRO | who owns the modes judgement — the shared layer, which already holds the buffer, both layouts and the mode, or each adapter | **decided 2026-11-01: option C** (#164) — the engine judges, the frontend performs the switch; the same ruling sets R9's threshold at three characters. The material is measured in three places and the formula in none; the fcitx5 act still needs an input method to switch to |
 | PAS | the pass lines for the two scored metrics (keystroke saving, manual toggles) — in which unit each can be graded at all | open (#162); the arithmetic is measured, no number is chosen. Both validity halves and the autoswitch state shipped 2026-11-01, but the judgement the numbers grade is still #168 and the harness that would run them is still #181 — so the units are priced and the corpus that fixes them is named as the missing input, not the number |
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
@@ -2945,12 +2945,25 @@ retired, not a blocked one.
 
 ## MRO — who owns the modes judgement: the shared layer, or each adapter (issue #164)
 
-**Status: measurements only. No option is recommended, and nothing here decides
-the question; the choice is the maintainer's.** The issue asks it and leaves it
-open ("does the judgement go into the shared layer … or does the adapter stay the
-owner and each frontend repeats it"), and `AGENTS.md`'s rule is that a ruling
-pre-empts the person entitled to make it. The comparison below is laid out so the
-two designs — and a third the tree makes available — can be weighed, not graded.
+**Decided 2026-11-01: option C — the engine judges, the frontend performs the
+switch.** The maintainer's words, verbatim:
+
+> "fcitx5의 제약이 있으면, engine은 판정만 하고, 전환은 frontend가 할 수 밖에
+> 없지 않니? 3자 이상이면 판단하자."
+
+The same message rules R9's threshold — **three characters or more are judged**,
+which is §MRO-4 item 2 — and asks the fcitx5 ON/OFF surface to be built if this
+decision leaves no problem, which is §MRO-4 item 1.
+
+**Not settled by this, and named rather than dropped:** the threshold's unit
+(characters typed, syllables produced, or the Latin reading's length give three
+different answers for `안녕`); whether fcitx5 must ship an English
+input-method entry before its act can work at all (§MRO-4 item 1); and the
+symmetric direction of R8's formula, which §R8 already leaves open.
+
+*As written, this section was measurements only with no option recommended. The
+pricing below is left exactly as it was — the decision is quoted here rather than
+folded back into the options, so what was weighed stays visible.*
 
 Produced 2026-11-01 on branch `scobyseo/modes-ruling-does-the-shared-layer-own-the-judge`,
 base `a099f4f`, host Windows 11. This branch touches documentation only: nothing
@@ -3113,7 +3126,7 @@ B9 taken literally: one judgement rule, one owner per frontend.
   `english_valid` or `hangul_valid`. That is the shape of the divergence R3 exists
   to prevent, measured before either copy has been adopted.
 
-#### C — the layer owns the formula, the frontend performs the act
+#### C — the layer owns the formula, the frontend performs the act ← **selected 2026-11-01**
 
 The split the 2026-10-31 special-function ruling already uses: the engine resolves,
 the frontend performs what only it can perform.

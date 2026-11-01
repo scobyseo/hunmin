@@ -147,8 +147,9 @@ above describes the tree before #167. The replay it names now exists in the
 shared layer as well — `latin_reading()` in
 `libhunmin/src/buffered_preedit.c`, pinned by `engine-wordset` — so two copies of
 the mechanism exist and neither applies R8's formula (#168). The requirement half
-of this section is unchanged, and which component owns the judgement is still the
-maintainer's to rule (#164).*
+of this section is unchanged. Which component owns the judgement was ruled
+2026-11-01 (#164): **the engine judges, the frontend performs the switch** — see
+`docs/OPTIONS-MEASURED.md` §MRO for what that decision does and does not settle.*
 
 The three design facts that came out of the earlier discussion are moved to
 `docs/architecture.md` **§3**: no per-frontend settings store, one state
@@ -630,7 +631,9 @@ retired: a number here was calibrated against `hangul_valid` meaning "a word
 exists", and R8-정정 replaced that with a syllable-structure test, so the old
 number measured nothing that exists any more. What length counts as "short" is a
 design choice, made where the judgement is built and recorded there — this
-requirement says only that there is one.
+requirement says only that there is one. The value chosen 2026-11-01 with issue
+#164's ruling: **three characters** (`docs/OPTIONS-MEASURED.md` §MRO records the
+unit it is counted in).
 
 ## R10. Switching is not retroactive [D]
 Settled by the user. After judgement the new mode applies **from the next key
