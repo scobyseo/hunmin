@@ -124,11 +124,17 @@ def check_test_count(build_dir: str | None) -> None:
         )
         return
     (total,) = tuple(counts)
-    # The line must ALSO mention ctest or the suite. Without that, "101/102/103"
-    # (symbol tiers), "300/300" (a word count) and "624 tests" (corpus tokens)
-    # all match -- which they did, on the first run of this check.
-    pat = r"(\d{3,})\s*/\s*\d{3,}\b|\b(\d{3,})\s+tests\b"
-    ctx = re.compile(r"\bctest\b|\bsuite\b", re.I)
+    # The number must be a claim ABOUT CTEST, so the word has to sit next to it.
+    # Without that, "101/102/103" (symbol tiers), "300/300" (a word count) and
+    # "624 tests" (corpus tokens) all match -- which they did, on the first run of
+    # this check. A bare "\bsuite\b" in the context was no better: measured
+    # 2026-11-01, the only line in docs/ the check matched was a board row using
+    # "| ctest |" as a column and carrying "Android JVM suite 139 tests" six
+    # hundred characters later, so the check had one false positive and no true
+    # positive at all. Adjacency is the discriminator.
+    pat = (r"\bctest\b[^\n]{0,60}?\b(\d{3,})\s+tests\b"
+           r"|\b(\d{3,})\s+tests\b[^\n]{0,20}?\bctest\b")
+    ctx = re.compile(r"\bctest\b", re.I)
     # Plausible counts for this tree: default 152, +libhangul 154, +trace+GTK 156,
     # +docs-lint 157. A claimed number within ±2 of the measured count is just
     # config variance; only error on clearly stale counts (e.g., 140 vs 156).

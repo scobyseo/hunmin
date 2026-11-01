@@ -221,6 +221,21 @@ been measuring the same thing the PR measured.
 | **PR** | `ctest --test-dir build -j4 -LE 'tier-E1'` | ~78 s projected for CI; **251 s** local at `-j4` | everything above, plus tiers A–D, E0/E2, the mutation self-tests |
 | **nightly == release** | `tools/release-gate.sh` | 234 s at `-j4`, 184 tests, 2 declared skips | everything, tier E1 included, plus the artefacts |
 
+**Which event runs which rung is `.github/workflows/ci.yml`'s routing** — that
+file states it, this one states what each rung CONTAINS.
+
+**As of 2026-11-01 CI has no commit rung and runs two jobs.** The maintainer's
+instructions, verbatim — "now enable mingw test only, and disable all others
+until i request." then "let's disable commit test too. only pr-test is enough." —
+leave `mingw` (a cross-compile) running on every event and `linux` (this PR rung,
+`-LE tier-E1`) on a pull request. Every other job is `if: false` with its
+previous condition kept in a comment beside it; re-enabling one is deleting that
+line.
+
+So **this commit level is a LOCAL selection**, not a CI job: `ctest -L guard` is
+how a person gates their own commit, and the PR rung contains the same tests
+anyway. This paragraph is the dated status and it goes when the jobs come back.
+
 Two properties make the rungs trustworthy rather than aspirational, and both are
 the reason the local numbers are quoted next to the CI ones rather than instead
 of them (§2 above, and `docs/CI-TIMING.md`):

@@ -1,9 +1,49 @@
 name: ci
+# WHAT RUNS RIGHT NOW. On 2026-11-01 the maintainer said
+#
+#   "now enable mingw test only, and disable all others until i request."
+#
+# and then
+#
+#   "let's disable commit test too. only pr-test is enough."
+#
+# so exactly two jobs run -- `mingw` (a cross-compile) and `linux` on a pull
+# request (the PR rung, `ctest -LE tier-E1`) -- and every other job carries
+# `if: false` with its previous condition in a comment beside it. Re-enabling one
+# is deleting that line; nothing else in the file depends on the set.
+#
+# THERE IS NO COMMIT RUNG IN CI, by the second instruction. docs/TESTING.md's
+# commit level (`ctest -L guard`, 19.4 s on the reference host) stays a LOCAL
+# selection -- that is where a sub-minute gate belongs and how it is meant to be
+# run, and the PR rung contains it anyway.
+#
+# NOTHING HERE RUNS TODAY: issue #102 is the account-level Actions billing
+# failure, and every job it starts dies in about three seconds with "job was not
+# started because recent account payments have failed or your spending limit
+# needs to be increased". So the set below is what runs when #102 is fixed, not
+# evidence about the tree in the meantime -- and which set that should be is the
+# maintainer's call after #102, not this file's.
+#
+# The ladder these jobs belong to is docs/TESTING.md §"The three levels"
+# (commit < PR < nightly == release). When they are all on again, the routing is:
+#
+#   push              nothing -- the commit rung is a local selection
+#   pull_request      the PR rung -- linux (`-LE tier-E1`), mingw, android
+#                     (E0/E1 in the JVM, E2 in the emulator), deb
+#   schedule          nightly == release -- the same, plus the release APK job
+#                     and the LeakSanitizer fuzz job
+#   workflow_dispatch everything, by hand
+#
+# Before 2026-11-01 every push paid all of it: 45 min (android), 45 min (deb) and
+# 3 min (linux) against a commit rung whose own budget is under a minute. That
+# budget is docs/TESTING.md's ("the commit rung has to be under a minute, or it
+# stops being run"), not a new one; the unit costs are docs/CI-TIMING.md's.
 on:
   push:
   pull_request:
   schedule:
     - cron: '0 3 * * *'  # 03:00 UTC daily
+  workflow_dispatch:
 
 jobs:
   linux:
@@ -28,6 +68,11 @@ jobs:
     # unbounded -- the same overspend shape that got CI usage suspended, one
     # level down.
     timeout-minutes: 3
+    # THE PR RUNG, and the only TEST job that runs (2026-11-01, the instructions
+    # quoted at the top of this file): `ctest -LE tier-E1` on a pull request. It
+    # costs the fcitx5 source build plus the suite inside a 3-minute ceiling,
+    # which is what a pull request is for; a push now runs nothing at all.
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       # fcitx5-modules-dev carries Fcitx5Utils/Fcitx5Module cmake configs, which
@@ -293,13 +338,13 @@ jobs:
     #     "green CI is compatible with a broken release build" failure the issue
     #     is about. (Measured: two commits touching tools/android-mutations.py
     #     and debian/rules triggered no run at all.)
-    # Runs on every push. The Espresso E2 tier depends on this job. The
-    # '[skip android]' escape is kept so a docs-only push pays nothing for the
-    # AVD.
-    if: >-
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      (!cancelled() && !contains(github.event.head_commit.message, '[skip android]'))
+    # DISABLED 2026-11-01 -- see the header. Re-enable with the expression this
+    # replaced:
+    #   github.event_name != 'push' &&
+    #   (!cancelled() && !contains(github.event.head_commit.message, '[skip android]'))
+    # An AVD boot is the most expensive thing this workflow does, and the Espresso
+    # E2 tier depends on this job, so the PR rung is where it belongs.
+    if: false
     runs-on: ubuntu-24.04
     # NOT 5 minutes: this job downloads the Android SDK, creates an AVD, boots
     # an emulator and runs two instrumentation suites inside it. The SDK install
@@ -510,6 +555,10 @@ jobs:
     # linux job with a green deb job built from its own private fcitx5 -- two
     # jobs asserting different things about the same dependency.
     needs: linux
+    # DISABLED 2026-11-01 -- see the header. Re-enable with
+    # `if: github.event_name != 'push'` (the PR rung and above:
+    # dpkg-buildpackage is packaging, not the per-commit gate).
+    if: false
     runs-on: ubuntu-24.04
     # NOT 5 minutes, and the reason is measured rather than cautious. This job
     # took 13 m 30 s in run 38428978810 (docs/CI-TIMING.md §1): fcitx5 source
@@ -656,7 +705,10 @@ jobs:
   # point HUNMIN_RELEASE_STORE at it instead of generating one.
   android-release:
     name: android release APK (unsigned keystore)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.HUNMIN_BUILD_RELEASE == 'true'
+    # DISABLED 2026-11-01 -- see the header. The gate it had was
+    #   github.event_name == 'push' && github.ref == 'refs/heads/master' &&
+    #   vars.HUNMIN_BUILD_RELEASE == 'true'
+    if: false
     runs-on: ubuntu-24.04
     # NOT 5 minutes: installs the Android SDK and NDK from the network, then
     # builds a release APK for two ABIs through Gradle. Same shape as the
@@ -716,6 +768,10 @@ jobs:
           retention-days: 30
 
   mingw:
+    # Enabled with the PR rung (2026-11-01, instruction quoted at the top of this
+    # file). No `if:` on purpose: it runs on push, pull request, the nightly and
+    # by hand -- it is a cross-compile, so it is the cheapest thing this workflow
+    # can say about a commit.
     runs-on: ubuntu-24.04
     # 3 minutes, matching the linux job's ceiling. This job cross-compiles one
     # target (`--target hunmin`) and builds no tests, so it has no ctest step to
@@ -756,6 +812,9 @@ jobs:
   # support is wanted later it is its own issue with its own measurement. No
   # other job references this one, so nothing here depends on it.
   windows:
+    # NOT part of the 2026-11-01 disablement: this job was ruled out by issue #51
+    # (no Windows frontend exists) and its reason is below. Raising it is that
+    # issue's decision, not this instruction's.
     if: false
     runs-on: windows-latest
     steps:
@@ -769,7 +828,9 @@ jobs:
   # as GitHub issues with reproduction steps.
   nightly-fuzz:
     name: nightly fuzz (LeakSanitizer)
-    if: github.event_name == 'schedule'
+    # DISABLED 2026-11-01 -- see the header. Re-enable with
+    # `if: github.event_name == 'schedule'`.
+    if: false
     runs-on: ubuntu-24.04
     # NOT 5 minutes, and structurally cannot be: the loop below runs 10,000
     # fuzz iterations, each a hunmin-sim invocation. This is a nightly soak, not
