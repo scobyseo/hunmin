@@ -257,11 +257,19 @@ Getting there needed two things the addon did not have, both found by building i
   silently dropped: `hello ` delivered nothing. TSF and Android read the commit
   before their judgement call and were never affected. Fixed by copying first.
 
-What the lane still does not do, named rather than hidden: a case whose `mode` is
-`latin` is skipped, because the starting language belongs to the host and this
-addon has no key that sets the layer's initial mode — the lane rebuilds the layer
-per case instead, which is the frontend characteristic taken here. Mid-stream
-switches are covered (the mixed-sentence case flips four times). The commit unit
+**The other two frontends have no lane yet**, and that is the remaining half of
+this ruling: Android (tier E1) and the TSF mock (tier F1) still carry their own
+corpora, so a judgement case is asserted against the shared layer and against
+fcitx5, not yet against them. Both can be replayed the same way — the corpus
+needs nothing a lane does not already have (`step_commits` for the delivery
+timing, `probe` for the mode) — but neither runs on this host (no device, no
+Windows), so writing those lanes unverified would be a claim rather than a test.
+
+What the fcitx5 lane itself does not do, named rather than hidden: a case whose
+`mode` is `latin` is skipped, because the starting language belongs to the host
+and this addon has no key that sets the layer's initial mode — the lane rebuilds
+the layer per case instead, which is the frontend characteristic taken here.
+Mid-stream switches are covered (the mixed-sentence case flips four times). The commit unit
 of §6.1 is likewise outside this corpus: every case uses
 `HUNMIN_COMMIT_AT_BOUNDARY`, and the judgement cannot run in PER_SYLLABLE at all
 (its earlier syllables are already in the client, which is R10's constraint).
