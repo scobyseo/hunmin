@@ -1,4 +1,4 @@
-# OPTIONS-MEASURED — nine cost questions, measured
+# OPTIONS-MEASURED — ten cost questions, measured
 
 Four documents that were one genre: a question nobody had priced, the options
 priced against each other, and the maintainer left to choose. They are one file
@@ -9,7 +9,7 @@ document, because an issue that asks a question and leaves it open belongs in
 the file that already holds the open ones; §HEK, §E5 and §EDW followed the same way.
 
 Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`, `HEK-`,
-`E5-`, `EDW-`, `B1-`) so a cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
+`E5-`, `EDW-`, `B1-`, `PAS-`) so a cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
 is the android sandbox's §4.2. `HEK` and `E5` are the two halves of issue #159 and are
 deliberately separate, because they answer different questions: **§HEK** measures whether
 each environment can deliver the gesture at all (key shapes), and **§E5** prices what the
@@ -17,7 +17,9 @@ gesture *means* (the assignment). §HEK-4's shapes and §E5-3's assignments are 
 alternatives to each other. §EDW (issue #160) is a third subject and cites itself.
 §B1 (issue #161) asks a different kind of question again: not which option to pick but
 whether the block the other items sit behind still exists, so its options are answers to
-"retire, narrow, or leave".
+"retire, narrow, or leave". §PAS (issue #162) is arithmetic rather than a probe: the
+two numbers it prices are gradeable only once #181's harness picks a corpus, so it
+prices the units instead.
 
 | section | question | status |
 |---|---|---|
@@ -30,6 +32,7 @@ whether the block the other items sit behind still exists, so its options are an
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
 | EDW | which English dictionary R8-정정's `english_valid` looks up, under what licence, and whether it ships separately | **decided 2026-11-01: hunspell `en_US` + a user dictionary, shipped in-tree for now** (#160); four candidate dictionaries and the corpus-list baseline were priced on one probe. The curated supplement is deferred; the separate-distribution split is #190 |
 | B1 | whether the board's B1 ("the hangul judgement source") is still a blocker at all now that `hangul_valid` is a structural test | **decided 2026-11-01: option A — B1 retired** (#161); the Hangul half is answered by R8-정정, the English half is decided and shipped by R8-정정-2 |
+| PAS | the pass lines for the two scored metrics (keystroke saving, manual toggles) — in which unit each can be graded at all | open (#162); the arithmetic is measured, no number is chosen. Both validity halves and the autoswitch state shipped 2026-11-01, but the judgement the numbers grade is still #168 and the harness that would run them is still #181 — so the units are priced and the corpus that fixes them is named as the missing input, not the number |
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
 find the optimum design, not to judge one candidate", and a decision is the
@@ -2700,3 +2703,239 @@ has not produced a wrong decision yet, only re-reads.
 - **Propagated, not decided:** the header table row, the section key and the
   `README.md` count line, plus the `README.md` count correction described in the
   commit (it said "seven priced questions" over eight sections).
+
+## PAS — pass lines for the two scored metrics (issue #162)
+
+**Measurements and arithmetic only. Neither number is chosen here; both are the
+maintainer's** (`AGENTS.md`, "never decide on your own"). Issue #162 asks for a
+value for the keystroke metric (`docs/SPEC-MODES.md` R12, E4) and for the manual
+on/off count (R7-정정, `docs/MODES-METRICS.md` §2). What is priced below is what
+each candidate number *costs* — the corpus property it requires, the misfire
+budget it implies, and what it fails to grade when the corpus is not what the
+person who chose it assumed.
+
+Produced 2026-11-01 on branch
+`scobyseo/modes-ruling-pass-lines-for-the-metrics-b2-e4-ke` (base `master` at
+`7f20be8`), Windows 11. Deliberately **not** touched by this branch:
+`docs/REMAINING-WORK.md` and `AGENTS.md`, which parallel sessions patch.
+
+### PAS-0 The premises, checked first
+
+The issue's own claims, each measured against the tree:
+
+1. "`docs/MODES-METRICS.md` §2 states it plainly: *Pass Line — none [E]*" —
+   **verified**, and the file's three grading rows (`②`, `②b`, `③-bis`) each
+   read `undetermined`.
+2. "the numbers must come with the harness that produces them (separate
+   issue)" — the harness is **#181, open and unbuilt**: `ls tools/ | grep -i
+   'metric\|replay'` returns nothing, and the six harnesses
+   `docs/MODES-METRICS.md` §3 lists as unfit were scratch scripts that are not in
+   the tree. So the harness is a precondition of a *run*, not of a *number*.
+3. **The feature the numbers grade is half on `master`.** Re-measured 2026-11-01
+   after rebasing onto `master` `1029377`, per half:
+   - `english_valid` — **shipped**: `hunmin_buffered_preedit_english_valid` over
+     `libhunmin/data/modes/en-US.json` (1,492,075 bytes), and the Latin reading it
+     is asked about is replayed by the layer itself
+     (`hunmin_buffered_preedit_latin_text`, #167).
+   - `hangul_valid` — **shipped**: `hunmin_hangul_valid` in
+     `libhunmin/src/hangul_valid.c` (#166), a predicate over the composition rule
+     with no data behind it.
+   - the `autoswitch` state — **shipped**: `hunmin_ctx_layout_autoswitch_capable`,
+     `ic->autoswitch`, and the AUTOSWITCH chord flipping it (#165). The state the
+     feature's ON/OFF is read from exists.
+   - the judgement that applies R8's formula at the boundary — **not shipped**.
+     #168 is open: `boundary()` (behind `hunmin_buffered_preedit_commit_word` and
+     the declined key) commits the finished word in the current mode and asks
+     neither predicate, and `libhunmin/include/hunmin.h` still says "Nothing here
+     decides to switch modes".
+   So a replay today can measure both validity halves and nothing that switches. A
+   number ruled now is a number the harness can only report **after #168**, and it
+   has to be worded so that it is gradeable then rather than measured now.
+4. **No sentence corpus is on this host.** `ls ~/work` returns `edw` only; the
+   three measurement inputs `docs/MODES-DATA.md` §4-3 names
+   (`~/work/wikicorpus/full/*.txt`, `~/work/aihub-records-corpus/...`) are
+   absent. Nothing below is derived from replay data, and because
+   `docs/MODES-METRICS.md` §3 voids every number produced from a corpus
+   constructed in-session, **no such corpus was constructed here.** The arithmetic
+   below needs no corpus: it is the shape the harness will have to report.
+5. **The board and the SPEC disagree on how many numbers there are, and the reason
+   the SPEC gives for there being two has just expired.** Board row B2
+   (`docs/REMAINING-WORK.md` §1) says "pass lines for **all three** metrics"; E4's
+   text says "the **two** numbers needed now are two", on the ground that `③-bis`
+   has no judgement source. **B1 was retired 2026-11-01 (#161, `§B1`):** the
+   Hangul half is the structural rule `hangul_valid` now ships and the English half
+   is R8-정정-2's shipped list, so `③-bis` no longer lacks a source — it lacks only
+   the judgement (#168) and a row in the harness (#181). Whether the ruling covers
+   two numbers or three is therefore a live choice, not a settled one. Recorded,
+   not edited: both files are outside this branch's scope.
+
+### PAS-1 What the two numbers are quantities *of*
+
+A pass line is a number in some unit, and the unit decides whether the number can
+be met at all. Fix the units first.
+
+Notation for one text: `n` characters, `t` script transitions — a transition is a
+point where the script changes, and `t` is exactly the number of 한/영 presses the
+same text needs by hand. Let `d = t/n`, the corpus's **transition density**.
+
+Per transition the feature has three outcomes:
+
+| outcome | share | keys the person spends |
+|---|---|---|
+| switches correctly | `a` | 0 |
+| misfires — wrong word committed | `r` | `2k+1` (backspace `k`, 한/영 once, retype `k`) |
+| does not switch | `s = 1-a-r` | 1 (한/영) |
+
+`k` is the mean length of the word a misfire costs. The feature **off** is
+`s = 1`: `n + t` keys. The feature **on** is `n + t·(s + r(2k+1))`.
+
+So, as a share of the switching the same text needs by hand — the pool the feature
+can act on — and then over all keystrokes:
+
+```
+q  = pool share captured  = a - (2k+1)r = 1 - u - (2k+1)r
+u  = 1 - a                = manual-toggle share of the pool, the ②b metric
+overall saving            = q · d/(1+d)
+```
+
+Two consequences that decide the rest of this section:
+
+- **A ruled pair `(q, u)` is a precision requirement on the judgement.** Inverting
+  the line gives the misfire budget the ruling implies, `r ≤ (1-u-q)/(2k+1)` —
+  whether or not that was intended, the two numbers do not leave `r` free.
+- **`②` has a hard ceiling that is a property of the text, not of the feature.**
+  Even with `r = 0` and `u = 0`, the most any implementation can save is `t` keys
+  against `n + t`, i.e. `d/(1+d)`.
+
+| `d` (transitions per character) | 0.01 | 0.02 | 0.05 | 0.10 | 0.20 | 0.50 |
+|---|---|---|---|---|---|---|
+| ceiling on `②`, `r=u=0` | 1.0% | 2.0% | 4.8% | 9.1% | 16.7% | 33.3% |
+
+and, inverted, an overall-percentage pass line requires this much switching:
+
+| overall pass line, `r=u=0` | 2% | 5% | 10% | 25% |
+|---|---|---|---|---|
+| `d` required (one transition per this many characters) | 0.020 (49) | 0.053 (19) | 0.111 (9) | 0.333 (3) |
+
+`d` is not a free parameter the ruling may ignore, because **the corpus is
+unwritten**. `docs/MODES-METRICS.md` §1.1's census (marked measured, finalized)
+counts 259,590 English tokens appearing near Hangul against 1,016,338,031 Hangul
+tokens in the 624 corpus — one English token per ~3,915 — so `d ≈ 2.6·10⁻⁴` and
+the overall ceiling is **0.03%**. On a broad corpus this metric measures nothing
+at all. The opposite extreme is a corpus of messenger sentences, where a person
+switches between Korean and English a few times per sentence. **The pass line's
+meaning is therefore a property of the corpus #181 has not chosen yet** — which is
+why a number stated as a percentage of all keystrokes cannot be ruled before that
+choice, while a number stated as a share of the pool can.
+
+*(§1.1's figures are read from that section, not re-derived: the 624 corpus is not
+on this host. They are used here only for the order of magnitude.)*
+
+### PAS-2 `②` — the options for the keystroke pass line
+
+| | shape | reads | what it costs, and where it fails |
+|---|---|---|---|
+| K1 | **percentage of all keystrokes**, e.g. "≥5% fewer" | `q·d/(1+d)` | Requires `d ≥ 0.053` at `q=1` — one transition per 19 characters. On the broad corpus of §1.1 it is unsatisfiable by any implementation; on a dense corpus it is passed by a mediocre one. The number silently moves by an order of magnitude when the corpus changes |
+| K2 | **share of the pool `q`**, e.g. "≥50% of the switching removed" | `a - (2k+1)r` | Corpus-invariant: the same number grades a dense corpus and a sparse one. Loses the "how big is the win overall" reading, which is `q·d/(1+d)` and can be printed beside it |
+| K3 | **absolute**, e.g. "≥25 keystrokes per 1,000 characters" | `1000·d·q` | Comparable only across runs on the *same* corpus; means nothing as a quality statement until `d` is fixed |
+| K4 | **no net loss** (`q ≥ 0`, i.e. `r ≤ (1-u)/(2k+1)`) | sign | Satisfiable by an implementation that is merely careful; grades the absence of harm, not the presence of the feature. Its value is as a *guard* beside a K2 line, not as the line |
+
+The risk every one of these carries is the one R11 states plainly — a person is
+allowed to fix a misfire with backspace — so **the repair cost has to be inside
+the metric**, not excluded from it. K1 and K3 do not put it anywhere near the
+number unless `d` is fixed; K2 does, because `q` is defined net of repair.
+
+### PAS-3 `②b` — the options for the manual-toggle cap
+
+R7-정정's words are about "turning the feature off and on"
+(`docs/SPEC-MODES.md` §R7-정정), so the strict reading counts **mode presses
+only** — backspace repairs are `②`'s business. That is a choice, and it has a
+price: measured solely as mode presses, the metric reads well for an
+implementation that lets the person repair constantly rather than toggle.
+
+| | shape | reads | what it costs, and where it fails |
+|---|---|---|---|
+| T1 | **zero toggles per sentence** | `u = 0` | Binary and it forbids the behaviour R7-정정 explicitly permits ("사용자가 의도적으로 어색한 단어를 입력할 수 있으니"). A single deliberate word for one sentence fails it |
+| T2 | **rate cap**, e.g. "≤1 per 10 sentences" | `u·t/sentences` | Attainable and readable, but it hides `t`: one toggle per 10 sentences is excellent on dense text and impossible to beat on sparse text if `t` itself is small |
+| T3 | **ratio to the manual baseline**, `u ≤ X%` | `u` | The same quantity as T2 divided by the corpus's own `t`; corpus-invariant for the same reason K2 is. Must be stated with the `k` it assumes, or `②` and `②b` can be ruled into a negative `r` |
+
+T2 and T3 are the same quantity scaled by the corpus's own `t`, so they agree
+only when `t` is fixed. The ruling has to say which of them is *binding*: the
+harness can report either, and a rate cap reads differently on a corpus with four
+transitions per sentence than on one with none.
+
+**The misfire budget a pair implies** — `r ≤ (1-u-q)/(2k+1)`:
+
+| `q` \ `u` | `k=2` | `k=3` | `k=4` | `k=5` |
+|---|---|---|---|---|
+| `q=0`, `u=25%` | 15.0% | 10.7% | 8.3% | 6.8% |
+| `q=25%`, `u=25%` | 10.0% | 7.1% | 5.6% | 4.5% |
+| `q=40%`, `u=25%` | 7.0% | 5.0% | 3.9% | 3.2% |
+| `q=50%`, `u=25%` | 5.0% | 3.6% | 2.8% | 2.3% |
+| `q=50%`, `u=10%` | 8.0% | 5.7% | 4.4% | 3.6% |
+| `q=75%`, `u=5%` | 4.0% | 2.9% | 2.2% | 1.8% |
+
+Read across a row: the same saving at a longer repaired word needs more precision.
+Read down a column: 25 percentage points of extra saving costs a few points of
+misfire budget. Every cell is a requirement on the judgement (#168) and on the
+short-word threshold (#163's E3), not on the harness.
+
+### PAS-4 What a ruling has to include
+
+Each of these is a sub-decision a bare number leaves open, and each one changes
+the measured value:
+
+1. **The corpus**, and whether it is the target population (typed messages where
+   people mix scripts) or a broad one. `d` differs by three orders of magnitude
+   between them (§PAS-1).
+2. **Aggregation**: per sentence (mean of ratios) or corpus-wide (ratio of sums).
+   They are different numbers, and the per-sentence mean is dominated by the many
+   sentences with `t=0` or `t=1`.
+3. **`k`**, the mean length of a repaired word — the tables above are per `k`.
+4. **Whether a repair counts as a manual intervention** (`②b`) or only a mode
+   press does.
+5. **Which metric set the numbers cover.** B2 says three, E4 says two. `③-bis` has
+   no source (B1), so two is what can be ruled; the third needs its own line, or
+   the board row narrowed.
+6. **What happens on a corpus where the feature cannot fire** (no `en-US.json`
+   present — B3's data gate). A metric that can be met by not switching needs the
+   OFF-by-default state stated as a precondition, not silently averaged in.
+
+### PAS-5 Summary and the recommendation
+
+Nothing above decides. If a recommendation is wanted:
+**`②` as a share of the pool, `q ≥ 50%`, with `②b` as `u ≤ 10%`** — the deciding
+reason is that `q` and `u` are the only two forms in these tables that do not
+change meaning when #181's corpus changes, and that pair implies a misfire budget
+of `r ≤ 5.7%` at `k=3`, which is a number the judgement can be built to instead
+of a number discovered after.
+
+What would change it: a measured `d` and `k` from the harness's chosen corpus (if
+`k=2` the same `q` permits `r ≤ 8.0%`, and if the corpus is dense enough that
+`d ≥ 0.11`, an overall-percentage form becomes meaningful and K1 becomes the
+readable choice); and a ruling that `③-bis` joins the scored set, which would add
+a third line with its own `k`-independent definition — a live choice since B1 was
+retired, not a blocked one.
+
+### PAS-6 Provenance
+
+- Host: Windows 11, `python3` 3.13. Nothing here needed a build: no C was
+  compiled and no binary was run, because the feature these numbers grade is
+  unimplemented on this base (§PAS-0, item 3).
+- The tables in §PAS-1/§PAS-3 are arithmetic from
+  `q = 1 - u - (2k+1)r` and `ceiling = d/(1+d)`; they are re-derivable in one line
+  each, e.g.
+  `python3 -c "q=0.5;u=0.1;print([round((1-u-q)/(2*k+1)*100,1) for k in (2,3,4,5)])"`
+  → `[8.0, 5.7, 4.4, 3.6]`, the `q=50%,u=10%` row above. No script is
+  committed for them, deliberately: a tool here would be a second home for the
+  harness #181 owns, and there is no input data for it to read.
+- Read, not re-derived: `docs/MODES-METRICS.md` §1.1's 624 census figures (the
+  corpus is not on this host) and §3's harness table (the scripts are not in the
+  tree).
+- Checked against the tree by `gh issue view` (161/163/165/166/168/181 state),
+  `git worktree list` + the sibling branches' `git log` (which half of the
+  judgement existed where), and `ls ~/work` (the absent corpora). Re-measured
+  after rebasing onto `master` `1029377`, where #165/#166/#167 had merged and
+  `§B1` had retired B1 — the two premises that changed are §PAS-0 items 3 and 5.
+- Changed by this branch: `docs/OPTIONS-MEASURED.md` (this section and the header
+  table), `README.md` (its index row).
