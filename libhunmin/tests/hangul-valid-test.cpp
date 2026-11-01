@@ -173,14 +173,22 @@ TEST(HangulValidTest, NothingOutsideTheBlockIsAcceptedAlone) {
     EXPECT_EQ(0, inside_rejected) << "of " << kSyllables << " syllables";
 }
 
+/* Every jamo code point the engine can hold or show, in one place: conjoining
+ * (U+1100-U+11FF), compatibility (U+3131-U+318E) and the two extension blocks.
+ * A jamo is the half-composed form, never a syllable. */
+std::vector<uint32_t> jamo_set() {
+    std::vector<uint32_t> jamo;
+    for (uint32_t c = 0x1100; c <= 0x11FF; c++) jamo.push_back(c);
+    for (uint32_t c = 0x3131; c <= 0x318E; c++) jamo.push_back(c);
+    for (uint32_t c = 0xA960; c <= 0xA97C; c++) jamo.push_back(c);
+    for (uint32_t c = 0xD7B0; c <= 0xD7FB; c++) jamo.push_back(c);
+    return jamo;
+}
+
 /* 3. Jamo are the half-composed form, and no string containing one is valid:
  * alone, after a syllable, before one. */
 TEST(HangulValidTest, NoJamoCanAppearInAValidString) {
-    std::vector<uint32_t> jamo;
-    for (uint32_t c = 0x1100; c <= 0x11FF; c++) jamo.push_back(c); /* conjoining */
-    for (uint32_t c = 0x3131; c <= 0x318E; c++) jamo.push_back(c); /* compatibility */
-    for (uint32_t c = 0xA960; c <= 0xA97C; c++) jamo.push_back(c); /* cho ext-A */
-    for (uint32_t c = 0xD7B0; c <= 0xD7FB; c++) jamo.push_back(c); /* jung/jong ext-B */
+    const std::vector<uint32_t> jamo = jamo_set();
 
     int wrong = 0;
     for (uint32_t j : jamo) {
@@ -201,7 +209,35 @@ TEST(HangulValidTest, NoJamoCanAppearInAValidString) {
     EXPECT_EQ(0, wrong) << "over " << jamo.size() << " jamo";
 }
 
-/* 4. "Composed of syllables" means the run rule: concatenating valid syllables is
+/* 4. A WHOLE unfinished syllable after a finished one is the shape a real buffer
+ * ends in while the user is still typing — `랴ㅜㄷ` is the reported case. One
+ * jamo is covered above; a run of them must be just as invalid, in every
+ * ordered combination, alone and after a syllable. */
+TEST(HangulValidTest, NoRunOfJamoIsEverValid) {
+    /* the reported case, named, so a future widening cannot quietly accept it */
+    EXPECT_EQ(1, valid("랴"));
+    EXPECT_EQ(0, valid("랴ㅜㄷ"));
+    EXPECT_EQ(0, valid("랴ㅜ"));
+    EXPECT_EQ(0, valid("ㅜㄷ"));
+
+    const std::vector<uint32_t> jamo = jamo_set();
+    int wrong = 0;
+    for (uint32_t a : jamo) {
+        const std::string first = one(a);
+        for (uint32_t b : jamo) {
+            const std::string pair = first + one(b);
+            if (valid(pair) != 0 || valid("랴" + pair) != 0) {
+                if (wrong < 8) {
+                    ADD_FAILURE() << "accepted U+" << std::hex << a << " U+" << b;
+                }
+                wrong++;
+            }
+        }
+    }
+    EXPECT_EQ(0, wrong) << "over " << jamo.size() << "^2 ordered pairs";
+}
+
+/* 5. "Composed of syllables" means the run rule: concatenating valid syllables is
  * valid, and one foreign character anywhere breaks the whole string. */
 TEST(HangulValidTest, RunsKeepValidityAndOneForeignCharacterBreaksIt) {
     const char *pieces[] = {"가", "각", "안녕", "뷁똠", "쀍"};
