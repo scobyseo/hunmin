@@ -38,8 +38,8 @@ issue states are not what the tree does.
 | EDW | which English dictionary R8-정정's `english_valid` looks up, under what licence, and whether it ships separately | **decided 2026-11-01: hunspell `en_US` + a user dictionary, shipped in-tree for now** (#160); four candidate dictionaries and the corpus-list baseline were priced on one probe. The curated supplement is deferred; the separate-distribution split is #190 |
 | B1 | whether the board's B1 ("the hangul judgement source") is still a blocker at all now that `hangul_valid` is a structural test | **decided 2026-11-01: option A — B1 retired** (#161); the Hangul half is answered by R8-정정, the English half is decided and shipped by R8-정정-2 |
 | PAS | the pass lines for the two scored metrics (keystroke saving, manual toggles) — in which unit each can be graded at all | open (#162); the arithmetic is measured, no number is chosen. Both validity halves and the autoswitch state shipped 2026-11-01, but the judgement the numbers grade is still #168 and the harness that would run them is still #181 — so the units are priced and the corpus that fixes them is named as the missing input, not the number |
-| MRO | who owns the modes judgement — the shared layer, which already holds the buffer, both layouts and the mode, or each adapter | **decided 2026-11-01: option C** (#164) — the engine judges, the frontend performs the switch; the same ruling sets R9's threshold at three characters. The material is measured in three places and the formula in none; the fcitx5 act still needs an input method to switch to |
-| BND | the three parameters of the judgement boundary: where the buffer must end (E2), what counts as a short word (E3), and whether judgement ever moves inside the word (E6) | **E2 decided 2026-11-01 (issue #163): option B at 256 B, configurable** — implemented, the preedit bounded and lossless at every length; **E3's value came from §MRO's ruling** (three characters, 2026-11-01) and this section supplies the unit measurement that ruling left open; **E6 open** — its cost is 94.18% of dictionary forms flicking back if judgement ran per key, and the shipped judgement runs once per word |
+| MRO | who owns the modes judgement — the shared layer, which already holds the buffer, both layouts and the mode, or each adapter | **decided 2026-11-01: option C** (#164) — the engine judges, the frontend performs the switch; the same ruling sets R9's threshold at three **key inputs** (unit clarified 2026-11-01, §R9). The material is measured in three places and the formula in none; the fcitx5 act still needs an input method to switch to |
+| BND | the three parameters of the judgement boundary: where the buffer must end (E2), what counts as a short word (E3), and whether judgement ever moves inside the word (E6) | **E2 decided 2026-11-01 (issue #163): option B at 256 B, configurable** — implemented, the preedit bounded and lossless at every length; **E3's value came from §MRO's ruling** — three key inputs (2026-11-01, unit clarified the same day) — and this section measures what that N partitions; **E6 open** — its cost is 94.18% of dictionary forms flicking back if judgement ran per key, and the shipped judgement runs once per word |
 
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
@@ -2956,14 +2956,17 @@ switch.** The maintainer's words, verbatim:
 > "fcitx5의 제약이 있으면, engine은 판정만 하고, 전환은 frontend가 할 수 밖에
 > 없지 않니? 3자 이상이면 판단하자."
 
-The same message rules R9's threshold — **three characters or more are judged**,
-which is §MRO-4 item 2 — and asks the fcitx5 ON/OFF surface to be built if this
-decision leaves no problem, which is §MRO-4 item 1.
+The same message rules R9's threshold — **three key inputs or more are judged**
+(the ruling's wording was `3자`; **corrected 2026-11-01**, when the maintainer named
+the unit: *"3. 키입력 세개로 명확히 하자."*), which is §MRO-4 item 2 — and asks the
+fcitx5 ON/OFF surface to be built if this decision leaves no problem, which is
+§MRO-4 item 1.
 
-**Not settled by this, and named rather than dropped:** the threshold's unit
+**Not settled by this, and named rather than dropped:** ~~the threshold's unit
 (characters typed, syllables produced, or the Latin reading's length give three
-different answers for `안녕`); whether fcitx5 must ship an English
-input-method entry before its act can work at all (§MRO-4 item 1); and the
+different answers for `안녕`)~~ — **settled 2026-11-01: key inputs**, so `안녕` (6
+keys) is judged and the guard is `JUDGE_MIN_KEYS 3`; whether fcitx5 must ship an
+English input-method entry before its act can work at all (§MRO-4 item 1); and the
 symmetric direction of R8's formula, which §R8 already leaves open.
 
 *As written, this section was measurements only with no option recommended. The
@@ -3483,10 +3486,10 @@ that string's rendering through the 두벌식 layout.
 | 4 | 456,976 | 230 (0.05%) | **3,239 (0.71%)** | **31,214 (6.83%)** | 422,293 (92.41%) | 0.745 |
 
 **The value is no longer chosen here: R9 records the maintainer's "3자 이상이면
-판단하자" (§MRO, ruled 2026-11-01) and `libhunmin/src/buffered_preedit.c` carries it
-as `JUDGE_MIN_KEYS 3`.** The table below is what that N partitions, and it is in
-**keys typed** — the same unit as the shipped guard — so the `1` row is what N=2
-removes and the `3` row is what ships at N=3:
+판단하자" (§MRO, ruled 2026-11-01) and its unit, named the same day — "키입력 세개로
+명확히 하자" — so `libhunmin/src/buffered_preedit.c` carries it as `JUDGE_MIN_KEYS 3`,
+three **key inputs**.** The table below is what that N partitions, in the same unit,
+so the `1` row is what N=2 removes and the `3` row is what ships at N=3:
 
 Read plainly — these are the facts a threshold N is a choice between:
 
@@ -3499,14 +3502,13 @@ Read plainly — these are the facts a threshold N is a choice between:
   12.73%. A single N applies to both, so its cost is not symmetric — and the
   hangul-only column is conditional on E1, the symmetric rule, which is still
   unmeasured.
-- **The ruling's words and the shipped guard do not count the same thing, and the
-  difference is measurable.** The ruling says three *characters*; the guard counts
-  three *key inputs*, and its own comment argues the choice ("`안녕` is two syllables
-  from six keys, and two letters on the Latin reading would let `an`/`at`/`of`
-  switch"). Under the shipped rule `안녕` is judged (6 keys); under a character rule
-  it would not (2 characters). Which one the requirement text should say is the
-  maintainer's, and §BND-1's 2–3× conversion is the size of the gap: every Korean
-  syllable is 2–3 keys.
+- **The unit is key inputs, clarified 2026-11-01, and that is what the table counts.**
+  The ruling's wording was `3자` (three characters); asked which unit the requirement
+  should name, the maintainer settled it — *"3. 키입력 세개로 명확히 하자."* — which is
+  what `JUDGE_MIN_KEYS 3` already implemented. The gap the question was about is
+  §BND-1's 2–3× conversion: `안녕` is 6 keys and 2 characters, so a key rule judges
+  it on the sixth key and a character rule would never judge it. Every row below is
+  in keys typed, so the `3` row is the class the shipped guard admits.
 - **The threshold's price on the English side, in the oracle's own terms:** forms
   at or below N are 26 (N=1), 374 (N=2), 1,655 (N=3), 5,268 (N=4) — 0.02%, 0.32%,
   1.40%, 4.46% of 118,150. Those forms could never switch automatically while the
@@ -3612,10 +3614,11 @@ R4's single judgement point for per-key in E6 — rather than a mechanism.**
 - **Re-measured after rebasing onto master `d1e90fb`, where #164 had merged the
   judgement itself**: `judge_boundary()` now runs in `boundary()` and R9's guard is
   `JUDGE_MIN_KEYS 3`, so §BND-0 row 5, §BND-2, §BND-3 and §BND-4 were corrected from
-  "not implemented" to what ships, and the unit gap between the ruling's "three
-  characters" and the guard's three keys was added. The cap and the judgement were
-  built independently and combined without a conflict; the flush/reading
-  measurement above is the one place they meet.
+  "not implemented" to what ships, and the unit gap between the ruling's `3자` and
+  the guard's three keys was recorded — then **settled the same day**, when the
+  maintainer named key inputs; §BND-3 and `§R9` state the unit rather than question
+  it. The cap and the judgement were built independently and combined without a
+  conflict; the flush/reading measurement above is the one place they meet.
 - **The ruling landed on the same branch, so the probe now measures the shipped
   behaviour as well as the pre-ruling one.** §BND-2 carries both tables; the
   post-ruling rows come from the same command, and the two cap tests fail when

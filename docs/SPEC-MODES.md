@@ -676,8 +676,18 @@ exists", and R8-정정 replaced that with a syllable-structure test, so the old
 number measured nothing that exists any more. What length counts as "short" is a
 design choice, made where the judgement is built and recorded there — this
 requirement says only that there is one. The value chosen 2026-11-01 with issue
-#164's ruling: **three characters** (`docs/OPTIONS-MEASURED.md` §MRO records the
-unit it is counted in).
+#164's ruling, and its **unit clarified the same day**: **three key inputs**.
+
+> "3. 키입력 세개로 명확히 하자."
+
+So the measure is what the person pressed, not characters typed and not syllables
+produced — a syllable is 2–3 keys on 두벌식, so the three units disagree on the same
+word (`안녕` is 6 keys, 2 characters, 2 syllables). The guard is
+`JUDGE_MIN_KEYS 3` in `libhunmin/src/buffered_preedit.c`, and
+`docs/OPTIONS-MEASURED.md` §BND-3 measures what that N partitions in the same unit.
+**Corrected 2026-11-01:** this paragraph first read "three characters" (the ruling's
+own wording was `3자`); the unit the maintainer then named is key inputs. The wiki
+page and §MRO carry the same dated correction.
 
 ## R10. Switching is not retroactive [D]
 Settled by the user. After judgement the new mode applies **from the next key
@@ -874,13 +884,14 @@ on/off",** not "permits errors". Therefore:
 of misfires in each direction, (b) the number of manual on/off toggles. Find the
 N at which (b) is minimal.
 
-*Value ruled 2026-11-01, and priced 2026-11-01:* R9 carries the number (the
-maintainer's "3자 이상이면 판단하자", §MRO) and `libhunmin/src/buffered_preedit.c`
-carries it as `JUDGE_MIN_KEYS 3`. **The two do not say the same unit** — the
-ruling's words are three *characters*, the shipped guard counts three *key inputs* —
-and `docs/OPTIONS-MEASURED.md` §BND-3 measures the difference: its sweep is in keys
-typed, so `안녕` (two characters, six keys) is judged by the shipped rule and would
-not be by a character rule. That discrepancy is recorded, not resolved here. The
+*Value ruled 2026-11-01, and priced 2026-11-01:* R9 carries the number and its
+unit — **three key inputs**, clarified 2026-11-01 ("키입력 세개로 명확히 하자") — and
+`libhunmin/src/buffered_preedit.c` implements exactly that as `JUDGE_MIN_KEYS 3`.
+`docs/OPTIONS-MEASURED.md` §BND-3's sweep is in keys typed, so its `3` row is the
+class the shipped guard admits: an earlier draft of this note recorded a
+characters-versus-keys discrepancy; the maintainer's clarification closed it in
+favour of keys, and the difference it would have made is measurable (`안녕` is 6 keys
+and 2 characters — judged under the shipped rule, not under a character rule). The
 item's own method sentence above still asks for a measured N while R9 makes N a
 design-time choice; the ruling answered it by choosing, which is the maintainer's
 call and not this note's.

@@ -19,10 +19,18 @@ confidence: high
 > "fcitx5의 제약이 있으면, engine은 판정만 하고, 전환은 frontend가 할 수 밖에
 > 없지 않니? 3자 이상이면 판단하자."
 
-The same message set R9's threshold at **three characters** — counted in key
-inputs, the unit `docs/OPTIONS-MEASURED.md` §MRO argues for and the implementation
-records as `JUDGE_MIN_KEYS` — and asked for the fcitx5 off/on surface to be built
-if the decision left no problem (it is #176).
+The same message set R9's threshold at three, and **the unit was clarified the same
+day: key inputs.**
+
+> "3. 키입력 세개로 명확히 하자."
+
+The ruling's own wording was `3자` (three characters) and this page first repeated
+it; asked which unit the requirement should name, the maintainer named key inputs,
+which is what `JUDGE_MIN_KEYS` had already implemented and what
+`docs/SPEC-MODES.md` §R9 now says. The distinction is not cosmetic: `안녕` is 6 keys
+and 2 characters, so a key rule judges it and a character rule never would. The
+message also asked for the fcitx5 off/on surface to be built if the decision left no
+problem (it is #176).
 
 A principle stated in the same exchange, and the reason the answer is this shape:
 

@@ -353,7 +353,8 @@ void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l) {
  * Returns the text to deliver instead of the Hangul word, or NULL to deliver
  * the word unchanged.
  */
-#define JUDGE_MIN_KEYS 3 /* R9, ruled 2026-11-01: judge from three key inputs */
+#define JUDGE_MIN_KEYS 3 /* R9, ruled 2026-11-01: judge from three KEY INPUTS (unit clarified
+                         * the same day -- not characters, not syllables) */
 
 static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
     /* R13-정정's one on/off state, default OFF (B3): the switch is the person's

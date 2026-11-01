@@ -904,4 +904,9 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Created `raw/sessions/2026-11-01-modes-ownership-retires-the-detector.md`
   (the #164 session: what it created, what it overturned, what it left pending
   with an issue number each) and added it to `index.md`.
+- Corrected `decisions/2026-11-01-the-engine-judges-the-frontend-switches.md`:
+  R9's threshold unit is **key inputs**, named by the maintainer
+  ("3. 키입력 세개로 명확히 하자."), not the `3자` the page had repeated from the
+  ruling's wording. Same correction in `docs/SPEC-MODES.md` §R9/§E3 and
+  `docs/OPTIONS-MEASURED.md` §MRO/§BND-3.
 
