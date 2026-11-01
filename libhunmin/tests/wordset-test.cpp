@@ -304,6 +304,123 @@ TEST_F(WordSetTest, CaseAndHyphenPolicyIsTheSchemasNotTheLoadersMood) {
     EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(layer_, "ice cream"));
 }
 
+/* ------------------------------------------------ the Latin reading (#167)
+ *
+ * R8's english_valid reads "the word the buffer would have produced under the
+ * Latin layout". A Hangul layout cannot produce Latin, so the reading is the
+ * same keys replayed through the Latin half of the frontend's layout pair --
+ * SPEC-MODES R2's shadow mechanism, which lived in the fcitx5 adapter alone
+ * until this moved into the shared layer (issue #164 asks who owns the
+ * JUDGEMENT; the reading is what it reads).
+ *
+ * Three properties are the contract, and each has a case: the reading is the
+ * KEYS on the Latin layout (not a transliteration of the Hangul), it exists
+ * only for a word that FINISHED (a composing word and a boundary that ended no
+ * word both answer empty, so nothing stale is judged twice), and a layer with
+ * one language answers empty rather than pretending (fail closed, B3).
+ */
+
+namespace {
+
+/* Feed a key sequence at shift=0. */
+void type_keys(hunmin_buffered_preedit *l, const char *keys) {
+    for (const char *p = keys; *p; p++)
+        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, nullptr);
+}
+
+} // namespace
+
+TEST_F(WordSetTest, TheLatinReadingIsTheSameKeysOnTheLatinLayout) {
+    hunmin_buffered_preedit *pair =
+        hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(pair, nullptr);
+    ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(pair));
+
+    /* Nothing has finished, so there is nothing to look up. */
+    EXPECT_STREQ("", hunmin_buffered_preedit_latin_text(pair));
+
+    type_keys(pair, "hello");
+    /* A word in flight has no reading: R8 judges at the boundary, once. */
+    EXPECT_STREQ("", hunmin_buffered_preedit_latin_text(pair));
+
+    hunmin_buffered_preedit_process_key(pair, ' ', 0, nullptr); /* the boundary */
+    EXPECT_STREQ("hello", hunmin_buffered_preedit_latin_text(pair));
+
+    /* The composition the judgement makes, with no work of its own. */
+    EXPECT_EQ(1, hunmin_buffered_preedit_english_valid(pair, hunmin_buffered_preedit_latin_text(pair)));
+
+    /* And the same keys that are NOT an English word read as what they are,
+     * which the dictionary rejects -- the measured gap the ruling accepted. */
+    type_keys(pair, "kbs");
+    hunmin_buffered_preedit_process_key(pair, ' ', 0, nullptr);
+    EXPECT_STREQ("kbs", hunmin_buffered_preedit_latin_text(pair));
+    EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(pair, hunmin_buffered_preedit_latin_text(pair)));
+
+    hunmin_buffered_preedit_free(pair);
+}
+
+TEST_F(WordSetTest, ShiftSurvivesTheReplay) {
+    hunmin_buffered_preedit *pair =
+        hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(pair, nullptr);
+    ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(pair));
+
+    hunmin_buffered_preedit_process_key(pair, 'h', 1, nullptr); /* Shift+h */
+    type_keys(pair, "ello");
+    hunmin_buffered_preedit_process_key(pair, ' ', 0, nullptr);
+
+    /* A capitalised buffer is a capitalised reading, and the lookup is what
+     * folds it (docs/SPEC-SCHEMA.md). */
+    EXPECT_STREQ("Hello", hunmin_buffered_preedit_latin_text(pair));
+    EXPECT_EQ(1, hunmin_buffered_preedit_english_valid(pair, hunmin_buffered_preedit_latin_text(pair)));
+
+    hunmin_buffered_preedit_free(pair);
+}
+
+TEST_F(WordSetTest, ALayerWithOneLanguageHasNoReading) {
+    ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(layer_));
+
+    type_keys(layer_, "hello");
+    hunmin_buffered_preedit_process_key(layer_, ' ', 0, nullptr);
+
+    /* latin_layout_id is NULL here: a frontend that cannot show a Latin mode
+     * answers "not English", not a translated guess. */
+    EXPECT_STREQ("", hunmin_buffered_preedit_latin_text(layer_));
+    EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(layer_, hunmin_buffered_preedit_latin_text(layer_)));
+}
+
+TEST_F(WordSetTest, TheReadingBelongsToTheFinishedWordOnly) {
+    /* Both delivery modes: PER_SYLLABLE keeps no word buffer, so a reading
+     * hooked below the delivery split would silently be missing there. */
+    const int policies[] = {HUNMIN_COMMIT_AT_BOUNDARY, HUNMIN_COMMIT_PER_SYLLABLE};
+    for (int policy : policies) {
+        hunmin_buffered_preedit *pair =
+            hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", policy);
+        ASSERT_NE(pair, nullptr) << policy;
+
+        type_keys(pair, "hello");
+        hunmin_buffered_preedit_process_key(pair, ' ', 0, nullptr);
+        EXPECT_STREQ("hello", hunmin_buffered_preedit_latin_text(pair)) << policy;
+
+        /* A boundary that ends no word clears it: the next space must not
+         * re-judge "hello". */
+        hunmin_buffered_preedit_process_key(pair, ' ', 0, nullptr);
+        EXPECT_STREQ("", hunmin_buffered_preedit_latin_text(pair)) << policy;
+
+        /* A new word in flight is not a reading yet. */
+        type_keys(pair, "wor");
+        EXPECT_STREQ("", hunmin_buffered_preedit_latin_text(pair)) << policy;
+        hunmin_buffered_preedit_process_key(pair, ' ', 0, nullptr);
+        EXPECT_STREQ("wor", hunmin_buffered_preedit_latin_text(pair)) << policy;
+
+        /* reset() forgets it with everything else. */
+        hunmin_buffered_preedit_reset(pair);
+        EXPECT_STREQ("", hunmin_buffered_preedit_latin_text(pair)) << policy;
+
+        hunmin_buffered_preedit_free(pair);
+    }
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     kDataPath = std::getenv("HUNMIN_DATA_PATH");

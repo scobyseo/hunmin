@@ -51,6 +51,17 @@ struct hunmin_buffered_preedit {
     hunmin_special_host special_host;
     bool special_host_set;
     hm_wordset *english; /* the modes judgement's data (R8-정정-2); NULL until asked for */
+    /* R8's english_valid reads the Latin text the buffer WOULD have produced,
+     * and a Hangul layout cannot produce Latin (measured: the 12 Hangul layouts
+     * emit no Latin letter for any printable key -- the text is destroyed, not
+     * transliterated). So the reading is the same keys replayed through the frontend's
+     * Latin layout, which is SPEC-MODES R2's shadow mechanism; the keys live
+     * here because this object is what sees them. `keys` is the word in flight
+     * and `latin_out` the reading of the word that last finished. */
+    uint32_t *keys; /* interleaved (base, shift) of the word in flight */
+    size_t keylen, keycap; /* in slots, not bytes */
+    char *latin_out; /* the finished word's reading; "" while a word composes */
+    size_t latincap;
 };
 
 /* ---------------------------------------------------------------- buffers */
@@ -80,6 +91,67 @@ static void word_append(hunmin_buffered_preedit *l, const char *s) {
     if (!reserve(&l->word, &l->wordcap, l->wordlen + n + 1)) return;
     memcpy(l->word + l->wordlen, s, n + 1);
     l->wordlen += n;
+}
+
+/* ------------------------------------------------------- the Latin reading */
+
+static void keys_clear(hunmin_buffered_preedit *l) { l->keylen = 0; }
+
+static bool keys_reserve(hunmin_buffered_preedit *l, size_t want) {
+    size_t cap = l->keycap ? l->keycap : 32;
+    while (cap < want) cap *= 2;
+    if (cap == l->keycap) return true;
+    uint32_t *p = realloc(l->keys, cap * sizeof *p);
+    if (!p) return false;
+    l->keys = p;
+    l->keycap = cap;
+    return true;
+}
+
+/* One consumed key of the word in flight. A key the engine DECLINES ends the
+ * word and is not recorded: the reading is what the same keys produce on the
+ * Latin layout, and the space that ended the word belongs to neither language. */
+static void keys_push(hunmin_buffered_preedit *l, uint32_t base, uint32_t shift) {
+    if (!keys_reserve(l, l->keylen + 2)) return;
+    l->keys[l->keylen++] = base;
+    l->keys[l->keylen++] = shift ? 1u : 0u;
+}
+
+/* The reading of the word that just finished, taken AT the boundary because
+ * that is the one moment its keys are complete and the judgement runs. The key
+ * log is cleared straight after, so a finished word cannot be judged twice.
+ *
+ * The commit is read after EVERY key, not once at the end: hunmin_ic_commit()
+ * is destructive, and a single read after the loop keeps only the last key's
+ * commit (measured in frontends/fcitx5/src/language_detect.cpp -- replaying
+ * "kbs" returned "s"). The preedit is non-destructive, so one read at the end
+ * catches whatever is still composing. */
+static void latin_reading(hunmin_buffered_preedit *l) {
+    if (!reserve(&l->latin_out, &l->latincap, 1)) return;
+    l->latin_out[0] = 0;
+    if (!l->latin_id || !l->ctx || !l->keylen) return;
+    hunmin_ic *shadow = hunmin_ic_new(l->ctx, l->latin_id);
+    if (!shadow) return;
+    char *out = l->latin_out;
+    size_t cap = l->latincap, n = 0;
+    for (size_t i = 0; i + 1 < l->keylen; i += 2) {
+        hunmin_ic_process_key(shadow, l->keys[i], l->keys[i + 1]);
+        const char *c = hunmin_ic_commit(shadow);
+        size_t cn = c ? strlen(c) : 0;
+        if (cn && reserve(&out, &cap, n + cn + 1)) {
+            memcpy(out + n, c, cn + 1);
+            n += cn;
+        }
+    }
+    const char *pre = hunmin_ic_preedit(shadow);
+    size_t pn = pre ? strlen(pre) : 0;
+    if (pn && reserve(&out, &cap, n + pn + 1)) {
+        memcpy(out + n, pre, pn + 1);
+        n += pn;
+    }
+    hunmin_ic_free(shadow);
+    l->latin_out = out; /* the appends may have moved it */
+    l->latincap = cap;
 }
 
 static const char *set_commit(hunmin_buffered_preedit *l, const char *s) {
@@ -176,6 +248,8 @@ void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l) {
     free(l->word);
     free(l->commit_out);
     free(l->preedit_out);
+    free(l->keys);
+    free(l->latin_out);
     free(l);
 }
 
@@ -187,6 +261,11 @@ void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l) {
 static const char *boundary(hunmin_buffered_preedit *l) {
     const char *flushed = hunmin_ic_flush(l->ic);
     if (!flushed) flushed = "";
+    /* Above the delivery split on purpose: the reading and the cleared key log
+     * belong to BOTH modes. PER_SYLLABLE mode keeps no word buffer, so a hook
+     * below the split would leave the reading of half the frontends unwritten. */
+    latin_reading(l);
+    keys_clear(l);
     if (l->commit_policy == HUNMIN_COMMIT_PER_SYLLABLE) return set_commit(l, flushed);
     word_append(l, flushed);
     const char *out = set_commit(l, l->word ? l->word : "");
@@ -211,6 +290,7 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
             word_append(l, c); /* hold it until the boundary */
             set_commit(l, "");
         }
+        keys_push(l, base, shift); /* the Latin reading's raw material */
     } else {
         /* A declined key IS the boundary: the engine finalises the syllable it
          * was holding, and the frontend passes the key to its client. Every
@@ -257,6 +337,8 @@ void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
     if (!l || !l->ic) return;
     hunmin_ic_reset(l->ic);
     word_clear(l);
+    keys_clear(l);
+    if (l->latin_out) l->latin_out[0] = 0;
     if (l->commit_out) l->commit_out[0] = 0;
     if (l->preedit_out) l->preedit_out[0] = 0;
 }
@@ -499,6 +581,16 @@ int hunmin_buffered_preedit_commit_policy(const hunmin_buffered_preedit *l) { re
 const char *hunmin_buffered_preedit_layout_id(const hunmin_buffered_preedit *l) {
     if (!l) return NULL;
     return l->hangul_mode ? l->hangul_id : l->latin_id;
+}
+
+/* The Latin reading of the word that last finished -- R8's `english_valid`
+ * input, already replayed, so a caller does no engine work of its own.
+ * Empty while a word is composing and empty after a boundary that ended no
+ * word, so a stale word is never judged twice; empty for a layer built with one
+ * language, which is fail-closed and not an error (SPEC-MODES R8-정정-2). */
+const char *hunmin_buffered_preedit_latin_text(const hunmin_buffered_preedit *l) {
+    if (!l || !l->latin_out || l->keylen) return "";
+    return l->latin_out;
 }
 
 /* ------------------------------------------------- english words (R8-정정) */
