@@ -178,6 +178,46 @@ Precise definition (settled by the user):
 - **A symbol is also a termination condition.** But that is not because the user
   said so.
 
+### R4-정정 — the buffer is capped, and an overflow commits its first half (2026-11-01) [D]
+
+> "buffer cap should be reasonable; at least longest english word should be
+> covered by it. i think 4KB buffer can be managable; if it is to be overflowed,
+> we can flush first half of the buffer."
+
+> "make cap 256B by default, and make it configurable."
+
+R4's "extend to the delimiter" now has one exception, and it is the clause R4
+itself offered ("once the cap is fixed, 'in groups of at most N characters' is
+added to R4"): the buffer also ends when the word would outgrow a **cap of 256
+bytes of UTF-8**, and at that point the word's **first half is committed** — in the
+current language, unjudged — while the remainder keeps composing.
+
+- **Where:** the shared layer's word buffer (`hunmin_buffered_preedit`,
+  `word_flush_half`), so the three frontends inherit it and #168's judgement call
+  site sits above it unchanged. Measured on this branch:
+  `libhunmin/tests/buffered-preedit-test.cpp`
+  (`TheCapCommitsTheFirstHalfAndLosesNothing`, `TheCapIsConfigurableAndZeroMeansNoCap`).
+- **The value is an option, not a constant:** `hunmin_buffered_preedit_set_option(l,
+  "word_cap", bytes)`, read back with `..._get_option`, `0` = no cap (the
+  pre-ruling behaviour). 256 is the default. No frontend reads it yet.
+- **Bytes, not characters**, because what is bounded is an allocation: 256 B is 85
+  syllables, and 0 of the 118,150 forms in the shipped English oracle exceed it
+  (the longest is 24 bytes).
+- **The cut never splits a syllable**, and the committed text is exactly what the
+  keys would have produced — losslessness is asserted by the tests, not implied.
+- **A word past the cap is not judged as a whole.** The tail's Latin reading is
+  dropped rather than halved, so `english_valid` fails closed for it. Unreachable by
+  typing (it takes ~256 consecutive letter keys with no delimiter); recorded because
+  it is what a very long word loses.
+
+**R4's judgement moment is otherwise unchanged: still exactly one per word.** The
+flush does not judge, so `§E6`'s flicker stays inert at this cap.
+
+**Not decided by this entry:** whether a flushed half is judged (that is #168's
+call site); whether a frontend gets a settings row for the value; and what preedit
+length an application actually tolerates — 256 B bounds the layer, not the
+application, and that measurement is still absent.
+
 ### Why a symbol is a termination condition — the user's explanation is wrong, the conclusion is right [E]
 
 The user said this.
@@ -765,7 +805,7 @@ arbitrary precedence rule" (the josa `다`/`은` are in both the josa list and t
 eomi list). If the symmetric rule does not hold, **R8 is narrowed to one side
 (Hangul→English).**
 
-## E2. Buffer extension cap — how far is extending the buffer worthwhile [E]
+## E2. Buffer extension cap — how far is extending the buffer worthwhile [D] — value ruled 2026-11-01, §R4-정정
 > 더 이상 확장해도 개선되지 않는 선을 찾아야 해. 아마 내가 앞에 이야기 한
 > 것이 그 지점일거야.
 
@@ -791,6 +831,14 @@ to the length of a word. So a cap exists:
   drains once per key. `docs/OPTIONS-MEASURED.md` §BND-0/§BND-2 has the counts.]**
   Even below that, editors react to the preedit length (varies per app,
   unmeasured).
+
+  **Ruled 2026-11-01 — `§R4-정정`:** the cap is 256 bytes of UTF-8, an overflow
+  commits the first half, and the value is a layer option (`word_cap`) rather than
+  a constant. The measurement the item asked for ((a) judgement degradation,
+  (b) preedit problems, (c) perceived delay) is *not* what settled it: the value is
+  above every word in the shipped oracle (0 of 118,150 forms exceed 256 B) and no
+  word a person types reaches it, so the ruling is a bound, not a measured
+  optimum.
 
 **What is a measurement:** with the buffer cap set to N, measure separately (a)
 the degradation in judgement accuracy, (b) the incidence rate of preedit length

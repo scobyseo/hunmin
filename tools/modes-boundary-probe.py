@@ -32,9 +32,10 @@ WHAT IT MEASURES, and the unit each number is in:
           flicker (도깨비) if judgement ran per key. Counted over the whole
           shipped list, not a sample.
   buffer  where the buffer actually ends today (E2), measured, not read: the
-          shared layer is driven key by key up to and past 4 KiB and the commit
-          and preedit are compared with what was typed. The raw `hunmin_ic`
-          path is measured beside it, because §E2's premise is about `STR_CAP`
+          shared layer is driven key by key past its cap (256 B since R4-정정,
+          2026-11-01) and the preedit, the mid-word commits and the total
+          delivered text are compared with what was typed. The raw `hunmin_ic`
+          path is measured beside it, because §E2's premise was about `STR_CAP`
           and that constant belongs to that path.
 
 THE ENGINE IS THE ORACLE. Rendering, composition and `hangul_valid` come from
@@ -72,10 +73,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Hunmin's own constants, mirrored from libhunmin/src/hunmin_internal.h and
 # libhunmin/include/hunmin.h so a reader does not have to open two files to check
-# a column. STR_CAP is the raw engine's per-ic buffer; the 4 KiB is the value the
-# maintainer proposed for the shared layer (2026-11-01).
+# a column. STR_CAP is the raw engine's per-ic buffer; WORD_CAP is the shared
+# layer's default word cap (ruled 2026-11-01, and configurable as the "word_cap"
+# option -- the probe reports the layer's live value, not this constant).
 STR_CAP = 64
-PROPOSED_CAP_BYTES = 4096
+WORD_CAP_BYTES = 256
 BYTES_PER_SYLLABLE = 3  # UTF-8: every modern syllable is 3 bytes
 
 
@@ -115,6 +117,8 @@ class Engine:
         L.hunmin_buffered_preedit_commit_word.argtypes = [ctypes.c_void_p]
         L.hunmin_buffered_preedit_display.restype = ctypes.c_char_p
         L.hunmin_buffered_preedit_display.argtypes = [ctypes.c_void_p]
+        L.hunmin_buffered_preedit_get_option.restype = ctypes.c_bool
+        L.hunmin_buffered_preedit_get_option.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_int)]
 
         dirs = (ctypes.c_char_p * 1)(data.encode())
         self.ctx = L.hunmin_ctx_new(dirs, 1)
@@ -148,22 +152,36 @@ class Engine:
 
     def buffer_run(self, syllables, keys_per_syllable="dks", layout="dubeolsik"):
         """One word of `syllables` syllables through the SHARED layer
-        (HUNMIN_COMMIT_AT_BOUNDARY, the shipped default), returning the longest
-        preedit seen, the committed word, and whether it equals what was typed."""
+        (HUNMIN_COMMIT_AT_BOUNDARY, the shipped default). Returns the longest preedit
+        seen, the total text delivered, how many mid-word commits it took, and the
+        layer's own cap.
+
+        The mid-word commits are why this is read per key: since R4-정정 (256 B,
+        2026-11-01) a word past the cap delivers its first half at a key, and a
+        probe that only read the boundary would report the tail as the whole word
+        and call a lossless run lossy."""
         layer = self.lib.hunmin_buffered_preedit_new(self.ctx, layout.encode(), b"us-qwerty", 0)
         if not layer:
             raise SystemExit("layer unavailable")
         maxpre = 0
+        delivered = 0
+        commits = 0
         try:
+            cap = ctypes.c_int(0)
+            self.lib.hunmin_buffered_preedit_get_option(layer, b"word_cap", ctypes.byref(cap))
             for _ in range(syllables):
                 for k in keys_per_syllable:
                     out = KeyResult()
                     self.lib.hunmin_buffered_preedit_process_key(layer, ord(k), 0, ctypes.byref(out))
                     maxpre = max(maxpre, len(out.preedit or b""))
-            word = (self.lib.hunmin_buffered_preedit_commit_word(layer) or b"").decode()
+                    if out.commit and out.commit[0]:
+                        delivered += len(out.commit)
+                        commits += 1
+            word = self.lib.hunmin_buffered_preedit_commit_word(layer) or b""
+            delivered += len(word)
         finally:
             self.lib.hunmin_buffered_preedit_free(layer)
-        return maxpre, word
+        return maxpre, delivered, commits, cap.value
 
 
 class KeyResult(ctypes.Structure):
@@ -217,10 +235,10 @@ def measure_words(forms):
         "form_keys": len(usable),
         "no_keys": n - len(usable),
         "tail": tail,
-        "proposed_cap_bytes": PROPOSED_CAP_BYTES,
-        "proposed_cap_syllables": PROPOSED_CAP_BYTES // BYTES_PER_SYLLABLE,
-        "headroom_over_longest": PROPOSED_CAP_BYTES / len(longest),
-        "forms_over_cap": sum(1 for f in forms if len(f.encode()) > PROPOSED_CAP_BYTES),
+        "word_cap_bytes": WORD_CAP_BYTES,
+        "word_cap_syllables": WORD_CAP_BYTES // BYTES_PER_SYLLABLE,
+        "headroom_over_longest": WORD_CAP_BYTES / len(longest),
+        "forms_over_cap": sum(1 for f in forms if len(f.encode()) > WORD_CAP_BYTES),
     }
 
 
@@ -313,16 +331,18 @@ def measure_prefix(engine, forms, hangul_layout):
 
 def measure_buffer(engine):
     rows = []
-    for syl in (1, 21, 22, 64, 200, 1365, 1366, 2000):
-        maxpre, word = engine.buffer_run(syl)
+    cap_seen = 0
+    for syl in (1, 21, 22, 64, 84, 85, 200, 1365, 2000):
+        maxpre, delivered, commits, cap = engine.buffer_run(syl)
+        cap_seen = cap
         rows.append({
             "syllables": syl,
             "bytes_typed": syl * BYTES_PER_SYLLABLE,
             "preedit_bytes": maxpre,
-            "commit_bytes": len(word.encode()),
-            "commit_chars": len(word),
-            "lossless": len(word) == syl,
-            "over_proposed_cap": maxpre > PROPOSED_CAP_BYTES,
+            "delivered_bytes": delivered,
+            "mid_word_commits": commits,
+            "lossless": delivered == syl * BYTES_PER_SYLLABLE,
+            "over_cap": bool(cap) and maxpre > cap,
         })
     # The raw ic path §E2's premise is about. Its `commit[STR_CAP]` accumulates,
     # so the question is how much one read can ever return: the commit is cleared
@@ -346,7 +366,8 @@ def measure_buffer(engine):
         raw.append({"syllables": syl, "longest_single_read": longest_read,
                     "chars_read_per_key": total, "kept_by_one_late_read": len(late),
                     "lost_by_one_late_read": syl - len(late)})
-    return {"shared_layer": rows, "raw_ic_single_read": raw, "str_cap": STR_CAP}
+    return {"shared_layer": rows, "raw_ic_single_read": raw, "str_cap": STR_CAP,
+            "word_cap": cap_seen}
 
 
 # ---------------------------------------------------------------------- main
@@ -400,8 +421,8 @@ def main(argv):
                  w["longest_letters_only"]["chars"]))
         print("  mean length %.2f chars; %d forms are layout keys, %d are not (%s)"
               % (w["mean_chars"], w["form_keys"], w["no_keys"], "'/-" + "' excluded"))
-        print("  the proposed %d-byte cap is %d syllables, %.1fx the longest word; %d forms exceed it"
-              % (w["proposed_cap_bytes"], w["proposed_cap_syllables"],
+        print("  the %d-byte cap is %d syllables, %.1fx the longest word; %d forms exceed it"
+              % (w["word_cap_bytes"], w["word_cap_syllables"],
                  w["headroom_over_longest"], w["forms_over_cap"]))
         print("  tail: %s" % " ".join("<=%d:%d" % (r["chars"], r["forms_le"]) for r in w["tail"]))
     if "space" in result:
@@ -416,18 +437,20 @@ def main(argv):
     if "prefix" in result:
         p = result["prefix"]
         print("PREFIX — per-key judgement over %d forms" % p["forms"])
-        print("  %d forms (%.2f%%) would reverse inside the word; mean %.2f reversals among them; deepest %s"
-              % (p["with_a_reversal"], 100 * p["share_with_a_reversal"],
-                 p["mean_reversals_when_present"],
-                 "%r x%d" % (p["deepest"]["form"], p["deepest"]["reversals"]) if p["deepest"] else "none"))
+        print("  %d forms flip at least once, %d flip back inside the word (%.2f%%); "
+              "deepest %s; flips: %s"
+              % (p["with_a_flip"], p["with_a_flip_back"], 100 * p["share_with_a_flip_back"],
+                 "%r x%d" % (p["deepest"]["form"], p["deepest"]["changes"]) if p["deepest"] else "none",
+                 " ".join("%s:%d" % (k, v) for k, v in p["change_histogram"].items())))
     if "buffer" in result:
         b = result["buffer"]
-        print("BUFFER — the shared layer, %s, at increasing word length" % args.hangul_layout)
-        print("  syllables | bytes typed | preedit bytes | commit bytes | lossless | > 4 KiB")
+        print("BUFFER — the shared layer, %s, at increasing word length (cap %d B, 0 = none)"
+              % (args.hangul_layout, b["word_cap"]))
+        print("  syllables | bytes typed | preedit bytes | delivered bytes | mid-word commits | lossless | over cap")
         for r in b["shared_layer"]:
-            print("  %9d | %11d | %12d | %12d | %8s | %s"
-                  % (r["syllables"], r["bytes_typed"], r["preedit_bytes"], r["commit_bytes"],
-                     r["lossless"], "yes" if r["over_proposed_cap"] else "no"))
+            print("  %9d | %11d | %12d | %15d | %16d | %8s | %s"
+                  % (r["syllables"], r["bytes_typed"], r["preedit_bytes"], r["delivered_bytes"],
+                     r["mid_word_commits"], r["lossless"], "yes" if r["over_cap"] else "no"))
         print("  raw hunmin_ic, STR_CAP %d:" % b["str_cap"])
         for r in b["raw_ic_single_read"]:
             print("    %4d syllables typed: longest single read %d chars, %d read per-key, "

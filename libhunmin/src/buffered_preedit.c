@@ -39,6 +39,7 @@ struct hunmin_buffered_preedit {
     hunmin_ic *ic;
     char *word; /* buffered word (UTF-8), only used in BUFFERED mode */
     size_t wordlen, wordcap;
+    size_t cap; /* WORD_CAP by default; 0 = no cap (option "word_cap", R4-정정) */
     char *commit_out; /* returned strings, owned, valid until the next call */
     size_t commitcap;
     char *preedit_out;
@@ -99,8 +100,6 @@ static void word_append(hunmin_buffered_preedit *l, const char *s) {
     memcpy(l->word + l->wordlen, s, n + 1);
     l->wordlen += n;
 }
-
-/* ------------------------------------------------------- the Latin reading */
 
 static void keys_clear(hunmin_buffered_preedit *l) { l->keylen = 0; }
 
@@ -169,6 +168,58 @@ static const char *set_commit(hunmin_buffered_preedit *l, const char *s) {
     return l->commit_out;
 }
 
+/* ------------------------------------------------------- the cap (R4-정정) */
+
+/* set_commit for a LENGTH rather than a NUL-terminated string: the half being
+ * committed is a prefix of the word buffer, which is not terminated at that
+ * offset. NULL means the copy could not be made, so the caller can leave the word
+ * intact instead of dropping text it had already decided to deliver. */
+static const char *set_commit_n(hunmin_buffered_preedit *l, const char *s, size_t n) {
+    if (!reserve(&l->commit_out, &l->commitcap, n + 1)) return NULL;
+    memcpy(l->commit_out, s, n);
+    l->commit_out[n] = 0;
+    return l->commit_out;
+}
+
+/* The cap's overflow path (docs/SPEC-MODES.md §R4-정정, ruled 2026-11-01): a word
+ * past WORD_CAP bytes delivers its first half now, so the preedit a frontend must
+ * render stays bounded, and the tail keeps composing. Always answers what this key
+ * delivers — "" while the word is under the cap, which is every real word.
+ *
+ * Three things it deliberately does NOT do, each a decision taken when it was
+ * written rather than an omission:
+ *
+ *  - it does not JUDGE. Nothing judges yet (#168); whether an overflow half is
+ *    judged before it is committed is that call site's question, and the cap is
+ *    only reached at 682 syllables, so the answer cannot change any reachable
+ *    behaviour (docs/OPTIONS-MEASURED.md §BND-2).
+ *  - it does not cut on a byte: the half backs up to a UTF-8 lead byte, so a
+ *    syllable is never delivered as a fragment.
+ *  - it drops the Latin key log instead of splitting it. The reading is what the
+ *    same keys produce on the Latin layout, and half a word's reading is not the
+ *    reading of anything: failing closed (english_valid answers 0 for the tail) is
+ *    the only answer that cannot turn into a wrong switch.
+ */
+static const char *word_flush_half(hunmin_buffered_preedit *l) {
+    set_commit(l, "");
+    /* The cap bounds what the frontend RENDERS, which is the word plus the
+     * in-flight syllable, so the in-flight part counts against it. Comparing only
+     * against the word would let the preedit past the cap by one syllable. */
+    const char *inflight_text = hunmin_ic_preedit(l->ic);
+    const size_t inflight = inflight_text ? strlen(inflight_text) : 0;
+    if (!l->cap || l->wordlen + inflight <= l->cap) return l->commit_out;
+    size_t half = l->wordlen / 2;
+    while (half > 0 && ((unsigned char)l->word[half] & 0xc0) == 0x80) half--;
+    if (!half) return l->commit_out;
+    const char *out = set_commit_n(l, l->word, half);
+    if (!out) return l->commit_out; /* out of memory: leave the word whole */
+    memmove(l->word, l->word + half, l->wordlen - half);
+    l->wordlen -= half;
+    l->word[l->wordlen] = 0;
+    keys_clear(l);
+    return out;
+}
+
 /* What the frontend shows. In buffered mode that is the finished word plus the
  * in-flight syllable, which is exactly what the TSF adapter rendered before
  * (wordbuf_ + engine preedit); in syllable mode the finished syllables are
@@ -233,6 +284,7 @@ hunmin_buffered_preedit *hunmin_buffered_preedit_new(hunmin_ctx *ctx, const char
     hunmin_buffered_preedit *l = calloc(1, sizeof *l);
     if (!l) return NULL;
     l->ctx = ctx;
+    l->cap = WORD_CAP;
     l->hangul_id = dup_or_null(hangul_layout_id);
     l->latin_id = dup_or_null(latin_layout_id);
     l->commit_policy = commit_policy;
@@ -357,6 +409,10 @@ static const char *boundary(hunmin_buffered_preedit *l) {
         word_clear(l);
         return set_commit(l, judged);
     }
+    /* Deliberately NOT capped here: the boundary is where the whole word goes out
+     * as one commit and the preedit is cleared, so splitting it would turn one
+     * word into two commits for no bound gained. The cap exists for the preedit a
+     * frontend keeps re-rendering key by key (word_flush_half). */
     const char *out = set_commit(l, l->word ? l->word : "");
     word_clear(l);
     return out;
@@ -377,7 +433,9 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
             set_commit(l, c); /* deliver the syllable now */
         } else {
             word_append(l, c); /* hold it until the boundary */
-            set_commit(l, "");
+            /* R4-정정: a word past WORD_CAP delivers its first half here, so what
+             * the frontend must render stays bounded. "" for every real word. */
+            (void)word_flush_half(l);
         }
         keys_push(l, base, shift); /* the Latin reading's raw material */
     } else {
@@ -434,12 +492,26 @@ void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
 }
 
 bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value) {
-    if (!l || !l->ic) return false;
+    if (!l || !l->ic || !name) return false;
+    /* The word cap is the LAYER's, not the ic's: it bounds the text this object
+     * holds for one word (docs/SPEC-MODES.md §R4-정정). Bytes, 0 = no cap. A
+     * lowered cap applies from the next key, which keeps the setter free of the
+     * "flush while the caller is mid-edit" question -- the word is flushed as soon
+     * as the next key makes it exceed the new bound. */
+    if (!strcmp(name, "word_cap")) {
+        if (value < 0) return false;
+        l->cap = (size_t)value;
+        return true;
+    }
     return hunmin_ic_set_option(l->ic, name, value);
 }
 
 bool hunmin_buffered_preedit_get_option(const hunmin_buffered_preedit *l, const char *name, int *out) {
-    if (!l || !l->ic) return false;
+    if (!l || !l->ic || !name || !out) return false;
+    if (!strcmp(name, "word_cap")) {
+        *out = (int)l->cap;
+        return true;
+    }
     return hunmin_ic_get_option(l->ic, name, out);
 }
 

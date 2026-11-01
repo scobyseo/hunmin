@@ -3243,9 +3243,14 @@ a judgement today (§MRO-1).
 
 ## BND — the judgement boundary's three parameters: buffer cap (E2), short-word threshold (E3), flicker (E6) (issue #163)
 
-**Measurements only. No option is recommended, no value is chosen here; the
-choice is the maintainer's** (`AGENTS.md`, "never decide on your own"). Issue
-#163 asks for one ruling covering three evaluable parameters of
+**As written, this section was measurements only: no option recommended, no
+value chosen** (`AGENTS.md`, "never decide on your own"). **E2 was ruled on
+2026-11-01 and is implemented on this branch** — the decision is at the end of
+this preamble and §BND-2 carries the post-ruling measurement beside the
+pre-ruling one. **E3 and E6 remain open**: nothing below chooses an N or moves a
+judgement point.
+
+Issue #163 asks for one ruling covering three evaluable parameters of
 `docs/SPEC-MODES.md` §2 — how far the composition buffer may grow (E2), what
 counts as a short word that is not switched (E3), and whether judgement ever
 moves inside the word (E6). Each is priced below against what the tree actually
@@ -3268,7 +3273,18 @@ paper was being written:
 > we can flush first half of the buffer."
 
 That is the shape §BND-2 measures E2 against. It says nothing about E3 or E6, and
-it leaves three things open that §BND-2's last table names rather than settles.
+it left three things open that §BND-2's last table named rather than settled.
+
+**E2 — decided 2026-11-01 (option B), and the value is not the one first
+proposed.** Asked whether the cap should shrink to 256 B, the maintainer's
+answer was *"make cap 256B by default, and make it configurable."* So: the
+layer's word cap is **256 bytes of UTF-8 by default**, an overflow commits the
+word's first half, and the value is a layer option (`word_cap`, bytes, `0` = no
+cap) rather than a constant. The three things that stays silent about — bytes or
+characters (bytes, because an allocation is what is bounded), whether a flushed
+half is judged (not decided; #168's call site, unreachable in practice), and how
+the flush treats the Latin key log (dropped, fail-closed) — are recorded in
+§BND-2 and in the code's own comments, not inferred here.
 
 ### BND-0 The premises, checked first
 
@@ -3322,7 +3338,8 @@ and the language toggle. Every one of them is a word ending.
 ### BND-2 E2 — where the buffer must end, measured
 
 `tools/modes-boundary-probe.py buffer` drives the shared layer key by key with
-`안` repeated (three keys per syllable) and reads the commit at the word boundary:
+`안` repeated (three keys per syllable). Measured **before** the ruling, when no cap
+existed — the record of what the tree did, and why the question was open:
 
 | syllables typed | bytes typed | longest preedit seen | commit at the boundary | lossless | over a 4 KiB cap |
 |---|---|---|---|---|---|
@@ -3335,14 +3352,48 @@ and the language toggle. Every one of them is a word ending.
 | 1,366 | 4,098 | 4,098 | 4,098 | yes | **yes** |
 | 2,000 | 6,000 | 6,000 | 6,000 | yes | **yes** |
 
-**There is no cap today, and nothing truncates.** The 21- and 22-syllable rows are
+**As implemented 2026-11-01 (option B: 256 B cap, flush the first half,
+configurable).** The same probe against the same build, with the cap read from the
+layer's own `word_cap` option:
+
+| syllables typed | bytes typed | longest preedit seen | delivered bytes | mid-word commits | lossless | over the 256 B cap |
+|---|---|---|---|---|---|---|
+| 64 | 192 | 192 | 192 | 0 | yes | no |
+| 85 | 255 | 255 | 255 | 0 | yes | no |
+| 200 | 600 | **255** | 600 | 3 | yes | no |
+| 1,365 | 4,095 | **255** | 4,095 | 31 | yes | no |
+| 2,000 | 6,000 | **255** | 6,000 | 46 | yes | no |
+
+Three facts that table establishes, each pinned by a test in
+`libhunmin/tests/buffered-preedit-test.cpp`
+(`TheCapCommitsTheFirstHalfAndLosesNothing`, `TheCapIsConfigurableAndZeroMeansNoCap`):
+**the preedit never exceeds the cap** (255 B is the largest multiple of three below
+256, because the in-flight syllable counts against the cap); **nothing is lost,
+duplicated or reordered** (delivered equals typed at every length); **the cut is on
+a syllable boundary** and no single commit exceeds the cap. Both tests were shown
+non-vacuous by setting `WORD_CAP` to 0 and rebuilding: they fail, and pass again at
+256.
+
+**What the cap is *not*, measured.** The cap bounds the layer's own buffer. It does
+not carry the option that was proposed first (4 KiB, "at least the longest English
+word") any further than 256 B already does: the longest form in the oracle is 24
+characters / 24 bytes (`electroencephalography's`), the mean is 8.64, and **0 of
+118,150 forms exceed 256 bytes** — a 10.7× margin, where 4 KiB was a 170.7× one.
+What shrinks with the value is the length at which the overflow path becomes
+reachable: 256 B is 85 syllables, so ~256 consecutive letter keys with no space and
+no symbol, against ~4,096 for the first proposal. Nothing a person types reaches
+either; a stuck key or a machine-generated line reaches 256.
+
+**The 4 KiB pricing, kept because the arithmetic is what the 256 B value inherits:**
+
+**The pre-ruling state, in words.** **There was no cap, and nothing truncated.** The 21- and 22-syllable rows are
 there because 64 characters (the `STR_CAP` number) falls between them for a
 one-character syllable: the boundary sails past it, which is the point. The word
 buffer doubles its allocation (`reserve()`), the preedit a frontend is handed is
 `word` plus the in-flight syllable, and the commit at the boundary is the whole
 word.
 
-**What the 4 KiB steer buys, measured against its own premise.** The longest form
+**What the first steer (4 KiB) bought, measured against its own premise.** The longest form
 in the shipped oracle is 24 characters / 24 bytes
 (`electroencephalography's`); the longest that is layout keys only is 23
 (`electroencephalographic`); the mean form is 8.64 characters and no form at all
@@ -3356,11 +3407,12 @@ with no space and no symbol**, which no delivered text does but a stuck key or a
 replayed paste could.
 
 **What a flush at half does, and what it must also do.** Flushing the first half
-at overflow (2,048 bytes, about 682 syllables) commits text at a boundary that is
-not a delimiter, which R4 does not currently authorise — R4's sentence is "the
-moment the next delimiter (space or symbol) appears", and its own amendment clause
-("in groups of at most N characters") is exactly that grant. Two shapes exist and
-they are not the same ruling:
+at overflow (as implemented: 128 bytes of the 256, about 42 syllables) commits text
+at a boundary that is not a delimiter, which R4 did not authorise — R4's sentence
+was "the moment the next delimiter (space or symbol) appears", and its own
+amendment clause ("in groups of at most N characters") is exactly that grant, which
+is now `docs/SPEC-MODES.md` §R4-정정. Two shapes existed and they were not the same
+ruling:
 
 - **flush silently** — the first half is committed in the current language with no
   judgement and the surviving half continues, so a word longer than the cap is
@@ -3369,16 +3421,18 @@ they are not the same ruling:
   buffer no longer holds — a divergence nothing would crash on, and every misfire
   after it would read like a judgement bug.
 - **flush as a boundary** — the half is judged before it is committed, i.e. a
-  judgement point inside a word. That is legal only as an explicit E6 exception,
-  and it is where E2 and E6 stop being independent: with a 4 KiB cap the exception
-  is unreachable in practice (682 syllables); with a small display cap (option D
-  below) it is the normal case.
+  judgement point inside a word. That is legal only as an explicit E6 exception, and
+  it is where E2 and E6 stop being independent: nothing judges yet (#168), and the
+  implementation chose the silent flush (§R4-정정), so E6 stays inert at 256 B and
+  would go live only under option C or a small display cap (option D below).
 
 **E2's own stated worry is not answered by any cap on memory.** §E2 quotes "if
 the preedit becomes too long, most apps misbehave": that is a threshold of tens of
-syllables, not 1,365. A 4 KiB cap is a safety valve for the buffer's allocation;
-it does not bound the preedit an application is asked to render at any length a
-person can reach. Nothing on this host measures what an application tolerates —
+syllables, and 256 B is 85. The cap is a bound on the layer's buffer and on the
+longest preedit a frontend can be handed; it is not a measurement of what an
+application tolerates, and it does not bite at any length a person can actually
+reach (no word is 85 syllables). Nothing on this host measures what an application
+tolerates —
 Fcitx5, TSF and Android are three different preedit carriers and none was driven
 here — so the number that would settle that question is unmeasured, not small.
 
@@ -3386,9 +3440,9 @@ Options, as costs:
 
 | option | cost | gain | what would change it |
 |---|---|---|---|
-| **A — no cap (today)** | a pathological run grows the word unboundedly; no reachable failure measured | nothing to change | evidence that a stuck-key or replay run can reach megabytes |
-| **B — 4 KiB cap, flush the first half (the steer)** | one R4 amendment's worth of prose; the flush path must split `keys` as well as `word`; a word over the cap is never judged whole (0 forms in the oracle; requires 4,095 delimiter-free keys) | a hard allocation bound, unmeasurable from inside the buffer | a word longer than 1,365 syllables that must be judged — i.e. a user-dictionary word, which nothing bounds |
-| **C — 4 KiB cap, judge at the cap** | as B plus a mid-word judgement, which R4 forbids and E6 was written to avoid | a flush that never commits unjudged text | a decision that an overflow is a boundary; it is only ever reached at 682 syllables |
+| **A — no cap (the pre-ruling state, still reachable as `word_cap` 0)** | a pathological run grows the word unboundedly; no reachable failure measured | nothing to change | evidence that a stuck-key or replay run can reach megabytes |
+| **B — cap, flush the first half ← selected 2026-11-01, at 256 B, as an option** | one R4 amendment's worth of prose (now §R4-정정); the flush drops the Latin key log rather than splitting it; a word over the cap is never judged whole (0 forms in the oracle at either value) | a bound on what a frontend must render, and a hard allocation bound | a word longer than 85 syllables that must be judged as a whole — a user-dictionary word nothing bounds; the implementation records the choice |
+| **C — cap, judge at the cap** | as B plus a mid-word judgement, which R4 forbade and E6 was written to avoid | a flush that never commits unjudged text | a decision that an overflow is a boundary; it is only ever reached at ~42 syllables now, so this is the option that would make E6 live |
 | **D — cap the displayed preedit at a small N (about 10 syllables)** | every word longer than N is committed and judged in pieces: R4's "extend to the delimiter" becomes false for ordinary long words, and E6's flicker becomes visible at N rather than theoretical | the only option that bounds what the application is asked to render, which is what §E2 names | a measurement of how long a preedit each of the three carriers tolerates — not available on this host |
 
 ### BND-3 E3 — what a threshold of N would be a threshold on
@@ -3480,7 +3534,7 @@ than the item currently makes.
 
 | item | options priced | ABI | data / schema | tier-A goldens | engine code | gradeable today against |
 |---|---|---|---|---|---|---|
-| E2 | A, B, C, D (§BND-2) | none for any of them | none | one case per option (a word longer than the cap; the flush's committed text) | `word_append` and `boundary` in `buffered_preedit.c` | `tools/modes-boundary-probe.py buffer` — the "no cap" and "4 KiB" rows are measured |
+| E2 | A, B, C, D (§BND-2) — **B selected, shipped** | none — the cap is a name-value option (`word_cap`), not a symbol | none | `engine-buffered-preedit`'s two cap cases | `word_flush_half` / `word_cap` in `buffered_preedit.c` | `tools/modes-boundary-probe.py buffer` — the pre-ruling and post-ruling rows, and both tests fail with `WORD_CAP` 0 |
 | E3 | a constant, an option, a schema key, a per-layout field (§BND-3) | an option name would be additive | schema work only for the schema option | a golden per direction per N | the judgement call site (#168) | the sweep's four columns; **no** corpus for the weights |
 | E6 | one boundary (A, B, C) versus per-key (D) | none | none | a flicker golden needs a per-key display mode first | `build_preedit` and `boundary` | §BND-4's flip counts over the oracle; felt experience: unmeasured |
 
@@ -3518,9 +3572,16 @@ R4's single judgement point for per-key in E6 — rather than a mechanism.**
   evaluable item's own text. The one factual fix made in this commit is the file
   citation inside it, which named `ic.c` for a constant that lives in
   `hunmin_internal.h`; the reasoning is §BND-0 row 1.
+- **The ruling landed on the same branch, so the probe now measures the shipped
+  behaviour as well as the pre-ruling one.** §BND-2 carries both tables; the
+  post-ruling rows come from the same command, and the two cap tests fail when
+  `WORD_CAP` is 0 (they were confirmed that way, then restored).
 - **Parallel-session scope:** this branch touches `docs/OPTIONS-MEASURED.md`
   (this section and the header table), `README.md` (its index row and count),
-  `docs/SPEC-MODES.md` (the §E2 file citation and a pointer to this section only)
-  and adds `tools/modes-boundary-probe.py`. It does not touch
-  `docs/REMAINING-WORK.md`, `AGENTS.md`, `PLAN.md`, the wiki, or any engine code —
-  the cap and the threshold are #168's to implement once ruled.
+  `docs/SPEC-MODES.md` (§R4-정정, §E2's marker and file citation, pointers from
+  §E3/§E6), `libhunmin/src/buffered_preedit.c` and `libhunmin/src/hunmin_internal.h`
+  (the cap and its option), `libhunmin/include/hunmin.h` (the option's contract),
+  `libhunmin/tests/buffered-preedit-test.cpp` (the two cap cases) and
+  `tools/modes-boundary-probe.py`. It does not touch `docs/REMAINING-WORK.md`,
+  `AGENTS.md`, `PLAN.md`, the wiki, or any frontend — the threshold (E3) and the
+  flicker (E6) are unruled, and #168 owns the judgement this cap sits above.

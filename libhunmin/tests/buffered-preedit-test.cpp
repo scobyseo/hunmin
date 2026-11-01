@@ -282,6 +282,115 @@ TEST_F(LayerTest, RejectsUnknownLayoutAndBadMode) {
     EXPECT_EQ(hunmin_buffered_preedit_new(ctx_, nullptr, nullptr, HUNMIN_COMMIT_AT_BOUNDARY), nullptr);
 }
 
+/* R4-정정 (docs/SPEC-MODES.md, ruled 2026-11-01): the layer's word is capped at
+ * 256 bytes of UTF-8 by default, and a word that would outgrow it commits its
+ * first half so that the preedit a frontend re-renders on every key stays bounded.
+ * 256 B is 85 syllables of `안` (three bytes each), so 200 syllables crosses it.
+ *
+ * What this pins: the preedit never exceeds the cap; the text still arrives
+ * exactly once and in order (mid-word commits plus the final commit equal what
+ * the same keys produce unbuffered — losslessness is the property a flush can
+ * break); every mid-word commit is on a syllable boundary rather than inside a
+ * UTF-8 sequence; and no single commit exceeds the cap. What it does NOT pin:
+ * judgement. Nothing judges yet (#168), and whether an overflow half is judged
+ * before it is committed is that call site's question. */
+TEST_F(LayerTest, TheCapCommitsTheFirstHalfAndLosesNothing) {
+    const size_t kCap = 256; /* hunmin_internal.h WORD_CAP, the default */
+    const int kSyllables = 200; /* 600 B if nothing capped it */
+    std::string sequence, expected;
+    for (int i = 0; i < kSyllables; ++i) {
+        sequence += "dks";
+        expected += "안";
+    }
+
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    int deflt = 0;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l, "word_cap", &deflt));
+    EXPECT_EQ((size_t)deflt, kCap);
+
+    std::string delivered;
+    size_t mid_word_commits = 0, largest_preedit = 0, largest_commit = 0;
+    bool whole_syllables = true;
+    for (size_t i = 0; i < sequence.size(); ++i) {
+        hunmin_key_result out{};
+        ASSERT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)sequence[i], 0, &out), 1) << "key " << i;
+        const size_t pre = strlen(out.preedit ? out.preedit : "");
+        if (pre > largest_preedit) largest_preedit = pre;
+        if (out.commit && out.commit[0]) {
+            const size_t c = strlen(out.commit);
+            ++mid_word_commits;
+            if (c > largest_commit) largest_commit = c;
+            delivered += out.commit;
+            if (c % 3 != 0) whole_syllables = false;
+        }
+    }
+    const char *tail = hunmin_buffered_preedit_commit_word(l);
+    if (tail) delivered += tail;
+    hunmin_buffered_preedit_free(l);
+
+    EXPECT_LE(largest_preedit, kCap) << "the preedit a frontend must render outgrew the cap";
+    EXPECT_EQ(delivered, expected) << "the flush lost, duplicated or reordered text";
+    EXPECT_GE(mid_word_commits, 2u) << "600 B cannot fit under a 256 B cap without splitting";
+    EXPECT_LE(largest_commit, kCap) << "a half was larger than the cap";
+    EXPECT_TRUE(whole_syllables) << "a cut split a UTF-8 sequence";
+}
+
+/* The cap is the layer's option, not a constant: `word_cap` in bytes, 0 = no cap.
+ * A frontend that ships a settings row for it needs both directions to work, and a
+ * value of 0 has to restore the pre-ruling behaviour exactly (no mid-word commit
+ * however long the word), because that is what a frontend that never sets the
+ * option gets on every build that predates the ruling. */
+TEST_F(LayerTest, TheCapIsConfigurableAndZeroMeansNoCap) {
+    std::string sequence;
+    for (int i = 0; i < 200; ++i) sequence += "dks"; /* 600 B */
+
+    auto run = [&](int cap_value, size_t *flushes, size_t *largest) {
+        hunmin_buffered_preedit *l =
+            hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+        EXPECT_NE(l, nullptr);
+        if (!l) return std::string();
+        EXPECT_TRUE(hunmin_buffered_preedit_set_option(l, "word_cap", cap_value));
+        std::string delivered;
+        *flushes = 0;
+        *largest = 0;
+        for (char c : sequence) {
+            hunmin_key_result out{};
+            hunmin_buffered_preedit_process_key(l, (uint32_t)c, 0, &out);
+            const size_t pre = strlen(out.preedit ? out.preedit : "");
+            if (pre > *largest) *largest = pre;
+            if (out.commit && out.commit[0]) {
+                ++*flushes;
+                delivered += out.commit;
+            }
+        }
+        delivered += hunmin_buffered_preedit_commit_word(l);
+        hunmin_buffered_preedit_free(l);
+        return delivered;
+    };
+
+    size_t flushes_small = 0, largest_small = 0, flushes_none = 0, largest_none = 0;
+    const std::string text_small = run(64, &flushes_small, &largest_small);
+    const std::string text_none = run(0, &flushes_none, &largest_none);
+    const std::string oracle = drive_engine(ctx_, sequence);
+
+    EXPECT_EQ(text_small, oracle) << "a 64 B cap lost text";
+    EXPECT_EQ(text_none, oracle) << "no-cap mode lost text";
+    EXPECT_GT(flushes_small, 0u) << "a 64 B cap never flushed a 600 B word";
+    EXPECT_LE(largest_small, 64u) << "the 64 B cap did not bound the preedit";
+    EXPECT_EQ(flushes_none, 0u) << "0 must mean no cap, and nothing else";
+    EXPECT_EQ(largest_none, 600u) << "0 must let the word grow as it did before the ruling";
+    /* A rejected value changes nothing: the option is bytes, not a sign. */
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    EXPECT_FALSE(hunmin_buffered_preedit_set_option(l, "word_cap", -1));
+    int still = 0;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l, "word_cap", &still));
+    EXPECT_EQ(still, 256) << "a rejected value must not change the cap";
+    EXPECT_FALSE(hunmin_buffered_preedit_get_option(l, "no-such-option", &still));
+    hunmin_buffered_preedit_free(l);
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
