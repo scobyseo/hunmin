@@ -464,6 +464,15 @@ The design properties that make it a guard rather than a comment:
 <!-- docs-lint: remaining-work -->
 # id | kind | target | expected | note
 # ----------------------------------------------------------------  still open
+# ----------------------------------------------------------------  issue #163 (2026-11-01)
+# E2, E3, E6 and E1 were ruled on this issue and shipped (docs/SPEC-MODES.md §R4-정정,
+# §R9, §E1, §E6; pricing in docs/OPTIONS-MEASURED.md §BND). Rows assert what shipped.
+WORD-CAP-163 | grep | libhunmin/src/buffered_preedit.c:word_flush_half | present | issue #163, E2 (SPEC-MODES §R4-정정): the word buffer is capped at WORD_CAP and an overflow commits its first half, the cut backed up to a UTF-8 lead byte; measured preedit 255 B at every length to 2,000 syllables, lossless
+WORD-CAP-OPTION-163 | grep | libhunmin/src/buffered_preedit.c:word_cap | present | the cap is a layer option (bytes, 0 = no cap) rather than a constant — the maintainer's "make it configurable", read back by hunmin_buffered_preedit_get_option
+JUDGE-TIMING-163 | grep | libhunmin/src/buffered_preedit.c:judged_display | present | issue #163, E6 (SPEC-MODES §E6): judge_timing 1 (default) shows the judged language at every key, 0 at the boundary only; display-only — tier-A asserts the delivered text is identical in both
+E1-SYMMETRIC-163 | grep | libhunmin/src/buffered_preedit.c:hangul_reading | present | issue #163, E1 (SPEC-MODES §E1): the symmetric line of R8's formula — the Hangul reading of a word typed in Latin mode, taken before keys_clear or it is empty (the first cut's defect)
+JUDGE-KEYS-R9 | grep | libhunmin/src/buffered_preedit.c:JUDGE_MIN_KEYS | present | R9's threshold, ruled 2026-11-01 as three KEY INPUTS (not characters, not syllables); shared by judge_boundary and judged_display so the display cannot show a judgement the guard refuses
+GATE-0-3-163 | ctest | engine-wordset | registered | the 0.3 release gate (maintainer: "내 예제가 동작하는 것까지를 0.3 release gate로 보자") — TheZeroThreeGateMixedSentenceWorksInOneStream types English는 좋은 Language입니다 as one stream in both directions; fails with either direction removed
 # ----------------------------------------------------------------  closed this pass
 DESIGN-REVIEW-TRACKED | path-present | docs/ANDROID-IME-REVIEW.md | present | review committed on task/android-design-review (e389970); issue #21 tracks it for the maintainer to weigh — no verdict recorded
 DESIGN-REVIEW-F5 | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:buildDock | absent | issue #21 verification: grep -n 'buildDock' frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt shows no call site (F5 evidence)
