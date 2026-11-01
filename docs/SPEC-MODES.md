@@ -939,7 +939,7 @@ That is:
 | File | Content |
 |---|---|
 | `docs/MODES-ENGINE-RULES.md` | the engine state machine of R4/R3, the key hook of R13, the load and its measurement |
-| `docs/MODES-DATA.md` | word list, corpus, licences (the "valid" criterion of R8) |
+| `docs/MODES-DATA.md` | corpus scale, licences, and the measurements behind the *old* `valid` criterion — R8-정정 replaced it, so these sections are the record of a measurement, not the current definition |
 | `docs/MODES-METRICS.md` | definitions of metrics ①②③, pass lines, measurement results and invalidation declarations |
 | `docs/MODES-POSTMORTEM.md` | the failures committed while investigating this requirement |
 | `docs/SPEC-SCHEMA.md` | the data contract of the word list (shares a problem with the P2 typesetting) |

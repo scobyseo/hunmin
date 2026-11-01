@@ -29,7 +29,7 @@ whether the block the other items sit behind still exists, so its options are an
 | HEK | whether the Han/Eng key can act as a held modifier in each frontend environment, and what the compound press would cost | measured per environment (Windows live, Android emulator, fcitx5 read-only); the **compound's action is decided** 2026-10-31 — `docs/SPEC-MODES.md` §E5, §E5 status below | 
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
 | EDW | which English dictionary R8-정정's `english_valid` looks up, under what licence, and whether it ships separately | **decided 2026-11-01: hunspell `en_US` + a user dictionary, shipped in-tree for now** (#160); four candidate dictionaries and the corpus-list baseline were priced on one probe. The curated supplement is deferred; the separate-distribution split is #190 |
-| B1 | whether the board's B1 ("the hangul judgement source") is still a blocker at all now that `hangul_valid` is a structural test | measured 2026-11-01; the choice between retire / narrow / leave is open (#161) — the Hangul half is answered by R8-정정, the English half is decided and shipped by R8-정정-2 |
+| B1 | whether the board's B1 ("the hangul judgement source") is still a blocker at all now that `hangul_valid` is a structural test | **decided 2026-11-01: option A — B1 retired** (#161); the Hangul half is answered by R8-정정, the English half is decided and shipped by R8-정정-2 |
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
 find the optimum design, not to judge one candidate", and a decision is the
@@ -2472,11 +2472,20 @@ that knee.
 
 ## B1 — is B1 still a blocker now that `hangul_valid` is structural (issue #161)
 
-**Status: measurements only. No option is chosen here and none is recommended in
-the repository; the choice is the maintainer's.** Issue #161 asks three things and
-asks that the options stay comparable: whether B1 is retired or narrowed, whether
-§2's five items stay frozen, and whether R9's threshold is re-based. This section
-prices each answer against the tree and records what the tree already decides.
+**Decided 2026-11-01: option A — B1 is retired.** The maintainer, verbatim:
+*"want to select A"*. What that changes is the cost list under A in B1-4; it was
+propagated in the same commit to `docs/REMAINING-WORK.md` (the B1 row, §2 restated
+per B1-2, the voice stage 8 row, and the assertion-table comment),
+`docs/MILESTONES.md`, `PLAN.md`'s P8 table and D1/D2 of
+`wiki/decisions/the-outstanding-decisions.md`. **Not decided by it:** whether the
+corpus list, its cap and the `MODES-DATA` sections are deleted or kept (R8-정정
+left that open and it still has no issue), and whether E1 gets an owner.
+
+As written, this section was measurements only — no option chosen, the choice the
+maintainer's — because issue #161 asks for a ruling and asks that the options stay
+comparable. It asks three things: whether B1 is retired or narrowed, whether §2's
+five items stay frozen, and whether R9's threshold is re-based. This section prices
+each answer against the tree and records what the tree already decides.
 
 Produced 2026-11-01 on `scobyseo/modes-ruling-is-b1-still-a-blocker-now-that-hang`
 at base `7f20be8` (`origin/master`), Windows host, engine built with the
@@ -2608,7 +2617,7 @@ corpus path rather than a dictionary.
 
 ### B1-4 The options
 
-**A — Retire B1.** Its Hangul half is answered by R8-정정 and its English half is
+**A — Retire B1. ← selected 2026-11-01.** Its Hangul half is answered by R8-정정 and its English half is
 decided and shipped by R8-정정-2, so the row has no surviving content; §2's rows
 are then restated per B1-2 and the "everything inherits this" claim comes out.
 *Cost:* prose only — the B1 row, §2's heading and preamble and the voice stage 8

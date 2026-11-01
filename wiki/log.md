@@ -866,3 +866,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   route left the scope boundary and §R8-정정 removed the need for it. Neither is
   retired here: the board row's fate is issue #161, priced in
   `docs/OPTIONS-MEASURED.md` §B1.
+
+## [2026-11-01] rule | B1 retired — the Hangul judgement needs no source (#161)
+
+- `wiki/decisions/2026-11-01-b1-retired-the-hangul-judgement-needs-no-source.md`:
+  the maintainer's "want to select A" verbatim. The row had been emptied by
+  §R8-정정 (structure test, no lookup) and §R8-정정-2 (the English source, shipped,
+  #160 closed) — neither of which the board or MILESTONES mentioned, which is why
+  a decided question kept reading as the root of five blocked rows.
+- Propagated the same day: board §1's B1 row, §2 retitled and restated per item,
+  the voice stage 8 row, the assertion table's decision-blocked comment,
+  MILESTONES' "hostage to B1" lines, and PLAN's P8 "judgement source" row.
+- Left open and named: the corpus-list delete-or-keep question §R8-정정 wrote down,
+  E1's lack of an owner, and §R8-정정's stale "left open" sentence against R9.
