@@ -92,6 +92,20 @@ add_test(NAME engine-d1-fcitx5 COMMAND testhunmin)
 # the top of the root CMakeLists.txt.
 set_tests_properties(engine-d1-fcitx5 PROPERTIES LABELS "tier-D1")
 
+# Tier D1, the CORPUS lane (issue #178, docs/FRONTEND-EQUIVALENCE.md §6.2.1):
+# one corpus evaluates every frontend. testjudgement replays
+# tests/golden/judgement-r8.jsonl through the real addon -- the same file the
+# shared-layer runner asserts -- so the frontend is measured against the corpus,
+# not against a second copy of the expectations. cJSON is the corpus parser; it
+# is already vendored for hunmin-sim.
+add_executable(testjudgement testjudgement.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/cJSON/cJSON.c)
+target_include_directories(testjudgement PRIVATE ${CMAKE_SOURCE_DIR}/third_party/cJSON)
+target_link_libraries(testjudgement Fcitx5::Core Fcitx5::Module::TestFrontend)
+add_dependencies(testjudgement copy-addon copy-im copy-test-modules)
+add_test(NAME engine-d1-judgement COMMAND testjudgement)
+set_tests_properties(engine-d1-judgement PROPERTIES LABELS "tier-D1")
+
 # Tier D2: assert the InputPanel preedit the adapter publishes (text,
 # clearing, cursor, and both capability branches). See docs/TESTING.md D2.
 add_executable(testhunminui testhunminui.cpp)
