@@ -904,6 +904,9 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Created `raw/sessions/2026-11-01-modes-ownership-retires-the-detector.md`
   (the #164 session: what it created, what it overturned, what it left pending
   with an issue number each) and added it to `index.md`.
+- Created `decisions/2026-11-01-the-symmetric-rule-ships-and-the-0-3-gate.md`
+  (E1 ruled and implemented; the mixed sentence is the 0.3 gate) and added it to
+  `index.md`.
 - Created `decisions/2026-11-01-the-judgement-timing-is-per-key-by-default.md`
   (E6 ruled, issue #163: `judge_timing` 1/0, per key by default, display-only) and
   added it to `index.md`.

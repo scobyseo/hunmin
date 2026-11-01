@@ -519,7 +519,9 @@ moment the composition buffer completes (space or symbol):
     otherwise (both valid / both invalid)  ->  commit in the current mode
 ```
 
-Whether the second line, the symmetric rule, actually holds is left to E1.
+Whether the second line, the symmetric rule, actually holds was left to E1;
+**ruled 2026-11-01 — it is supported, and a mixed sentence working is the 0.3
+release gate** (§E1).
 
 ### R8-정정 — the two validities, simplified (2026-10-25)
 
@@ -792,7 +794,7 @@ Each item is **an implementation parameter, not a requirement.** Rewrite the
 status marker as `[E]` → `[D]` or "deleted" from the results in
 `docs/MODES-METRICS.md`.
 
-## E1. Whether the symmetric rule holds [E]
+## E1. Whether the symmetric rule holds [D] — ruled 2026-11-01, implemented
 The second line of R8 (the direction from English mode over to Hangul) **should
 be implemented**, but in which word list it holds is unmeasured. If there was a
 reason to drop that direction (R7's asymmetric rule), **that reason was corrected
@@ -818,6 +820,34 @@ does the judgement actually flip over? Record 3 in the current
 arbitrary precedence rule" (the josa `다`/`은` are in both the josa list and the
 eomi list). If the symmetric rule does not hold, **R8 is narrowed to one side
 (Hangul→English).**
+
+### Ruling 2026-11-01 — the symmetric line is supported [D]
+
+> "E1도 당연히 지원해야지. 내 예제가 동작하는 것까지를 0.3 release gate로 보자."
+
+So the question this item asked ("does the symmetric rule hold, and in which word
+list") is answered by building it: **both lines of R8's formula ship**, and the
+gate is the maintainer's own mixed sentence.
+
+- **Mechanism:** the other half of the pair is the *Hangul reading* of the keys typed
+  in Latin mode — the same shadow the existing direction uses, replayed through the
+  frontend's Hangul layout (`hangul_reading()` in `libhunmin/src/buffered_preedit.c`).
+  The rule is unchanged: switch only when `hangul_valid(reading) ∧ ¬english_valid(word)`.
+- **The guard is shared:** R9's three key inputs apply to both directions, and
+  `autoswitch` OFF turns both off (one state, not half a feature).
+- **The 0.3 gate:** `English는 좋은 Language입니다` typed as one stream comes out in the
+  languages the person meant, pinned by
+  `WordSetTest.TheZeroThreeGateMixedSentenceWorksInOneStream` — the expectation is the
+  engine's own rendering of each word on the layout that word was meant in, and the
+  test fails when the symmetric line is disabled (verified by rebuilding with it
+  switched off).
+- **What the ruling did not measure, and what the risk is:** the return direction's
+  misfire surface is the short-word space. With R9's guard applied it switches on
+  **12.73%** of all three-key strings and **6.83%** of four-key ones
+  (`docs/OPTIONS-MEASURED.md` §BND-3) — a typo like `helo` is not an English word and
+  its Hangul reading is well-formed, so it would flip to Hangul. Whether that rate is
+  acceptable is a ruling nobody has made; the corpus that would weight it
+  (`docs/MODES-METRICS.md` §3) does not exist here.
 
 ## E2. Buffer extension cap — how far is extending the buffer worthwhile [D] — value ruled 2026-11-01, §R4-정정
 > 더 이상 확장해도 개선되지 않는 선을 찾아야 해. 아마 내가 앞에 이야기 한

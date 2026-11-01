@@ -161,10 +161,18 @@ direction; the mechanism is new work:
 - They are no longer children of a source question. §2's five items (③-bis
   wrong-direction switch metric, E1 symmetry, E2/E3/E6/E7 thresholds, third-party
   correctness 두/세벌식, word-list schema) now wait on the judgement's implementation
-  (#166, #168), on a harness (#181), or on their own rulings (#163, #180) — E1 is
-  the one with no owner.
+  (#166, #168), on a harness (#181), or on their own rulings (#163, #180) — E1 has
+  since been ruled and implemented (§E1, 2026-11-01), so none of them is ownerless.
 - B2 — the pass lines for all three metrics — is the exit gate: the feature is
   shippable when its own metrics have a number the maintainer set.
+- **The feature's own gate, ruled 2026-11-01:** *"내 예제가 동작하는 것까지를 0.3
+  release gate로 보자."* The maintainer's mixed sentence
+  `English는 좋은 Language입니다` typed as one key stream must come out in the languages
+  the person meant — Hangul to English for the two English words and English to
+  Hangul for the three Korean ones (E1). It is pinned by
+  `WordSetTest.TheZeroThreeGateMixedSentenceWorksInOneStream`, which fails when
+  either direction is removed; the sentence's expectations are the engine's own
+  rendering per word, not typed Hangul.
 - B4's key assignment lands here rather than in 0.1.
 
 One consequence worth naming, and then correcting: the first cut of this file found

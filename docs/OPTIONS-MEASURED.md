@@ -39,7 +39,7 @@ issue states are not what the tree does.
 | B1 | whether the board's B1 ("the hangul judgement source") is still a blocker at all now that `hangul_valid` is a structural test | **decided 2026-11-01: option A — B1 retired** (#161); the Hangul half is answered by R8-정정, the English half is decided and shipped by R8-정정-2 |
 | PAS | the pass lines for the two scored metrics (keystroke saving, manual toggles) — in which unit each can be graded at all | open (#162); the arithmetic is measured, no number is chosen. Both validity halves and the autoswitch state shipped 2026-11-01, but the judgement the numbers grade is still #168 and the harness that would run them is still #181 — so the units are priced and the corpus that fixes them is named as the missing input, not the number |
 | MRO | who owns the modes judgement — the shared layer, which already holds the buffer, both layouts and the mode, or each adapter | **decided 2026-11-01: option C** (#164) — the engine judges, the frontend performs the switch; the same ruling sets R9's threshold at three **key inputs** (unit clarified 2026-11-01, §R9). The material is measured in three places and the formula in none; the fcitx5 act still needs an input method to switch to |
-| BND | the three parameters of the judgement boundary: where the buffer must end (E2), what counts as a short word (E3), and whether judgement ever moves inside the word (E6) | **E2 decided 2026-11-01 (issue #163): option B at 256 B, configurable** — implemented, the preedit bounded and lossless at every length; **E3's value came from §MRO's ruling** — three key inputs (2026-11-01, unit clarified the same day) — and this section measures what that N partitions; **E6 decided 2026-11-01: both timings, per-key by default** — `judge_timing` is an option, 64.05% of dictionary forms flick back inside the word under the default (94.18% without R9's guard), and the delivered text is identical in both timings |
+| BND | the three parameters of the judgement boundary: where the buffer must end (E2), what counts as a short word (E3), and whether judgement ever moves inside the word (E6) | **E2 decided 2026-11-01 (issue #163): option B at 256 B, configurable** — implemented, the preedit bounded and lossless at every length; **E3's value came from §MRO's ruling** — three key inputs (2026-11-01, unit clarified the same day) — and this section measures what that N partitions; **E6 decided 2026-11-01: both timings, per-key by default** — `judge_timing` is an option, 64.05% of dictionary forms flick back inside the word under the default (94.18% without R9's guard), and the delivered text is identical in both timings. **E1 was ruled the same day** while this section's mixed-sentence measurement was on the table: the symmetric line ships, and that sentence is the 0.3 gate |
 
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
@@ -2966,8 +2966,10 @@ fcitx5 ON/OFF surface to be built if this decision leaves no problem, which is
 (characters typed, syllables produced, or the Latin reading's length give three
 different answers for `안녕`)~~ — **settled 2026-11-01: key inputs**, so `안녕` (6
 keys) is judged and the guard is `JUDGE_MIN_KEYS 3`; whether fcitx5 must ship an
-English input-method entry before its act can work at all (§MRO-4 item 1); and the
-symmetric direction of R8's formula, which §R8 already leaves open.
+English input-method entry before its act can work at all (§MRO-4 item 1). ~~and the
+symmetric direction of R8's formula, which §R8 already leaves open~~ — **settled
+2026-11-01 (E1): both lines of the formula ship**, pinned by the 0.3 gate
+(`docs/SPEC-MODES.md` §E1).
 
 *As written, this section was measurements only with no option recommended. The
 pricing below is left exactly as it was — the decision is quoted here rather than
@@ -3594,11 +3596,16 @@ E6.** `English는 좋은 Language입니다` typed in one stream through the ship
 | `Language` | `language` (+Shift) | Latin | `Language` | none | Latin |
 | `입니다` | `dlqkTek` | Latin | `dlqkTek` | none | Latin |
 
-The first word works, including its capitalisation. Everything after it is
-delivered as raw Latin, because `judge_boundary()` only fires in Hangul mode: the
-return direction (English → Hangul) does not exist, and that is **E1**, not E6. The
-sentence needs E1 ruled; E6 only decides what the person sees *while* one word is
-typed, which the table's first row shows.
+At the time of that measurement the first word worked, including its
+capitalisation, and everything after it came out as raw Latin: `judge_boundary()`
+only fired in Hangul mode, so the return direction (English → Hangul) did not exist.
+**That was E1, not E6, and it was ruled the same day** — *"E1도 당연히 지원해야지.
+내 예제가 동작하는 것까지를 0.3 release gate로 보자."* The symmetric line now ships
+(`hangul_reading()` and the Latin branch of `judge_boundary()`), so the table above
+describes the tree before that ruling; the same sentence now delivers
+`English 는 좋은 Language 입니다` and is the 0.3 gate,
+`WordSetTest.TheZeroThreeGateMixedSentenceWorksInOneStream`. E6 still decides only
+what the person sees *while* one word is typed.
 
 **The coupling, stated once.** E2 and E6 are not independent choices, and which E2
 option is picked decides whether E6 is live at all: with A, B or C the flicker
@@ -3672,5 +3679,8 @@ R4's single judgement point for per-key in E6 — rather than a mechanism.**
   `libhunmin/tests/buffered-preedit-test.cpp` (the cap cases),
   `libhunmin/tests/wordset-test.cpp` (the timing cases) and
   `tools/modes-boundary-probe.py` (the guard-aware sweep and the reading). It does
-  not touch `docs/REMAINING-WORK.md`, `AGENTS.md`, `PLAN.md`, the wiki, or any
-  frontend: no frontend exposes either option yet, and E1 remains unruled.
+  not touch `AGENTS.md`, `PLAN.md` or any frontend (no frontend exposes either
+  option yet). It does touch `docs/REMAINING-WORK.md` §2's M2 and M3 rows and
+  `docs/MILESTONES.md`'s 0.3 lane, once the maintainer ruled E1 and named the mixed
+  sentence as the release gate: a board that says "E1 has no owner" beside a shipped
+  E1 is the drift the board exists to catch.

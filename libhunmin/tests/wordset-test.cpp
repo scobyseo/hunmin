@@ -522,6 +522,98 @@ int display_changes(hunmin_buffered_preedit *l, const char *keys) {
 
 } // namespace
 
+/* The text a layout produces for a key sequence, with the same shift the test
+ * presses -- the engine's own answer, for the layout the person was in. */
+std::string render_with(hunmin_ctx *ctx, const char *layout, const std::string &keys, int shift_first) {
+    hunmin_ic *ic = hunmin_ic_new(ctx, layout);
+    std::string total;
+    for (size_t i = 0; i < keys.size(); ++i) {
+        const uint32_t shift = (shift_first && i == 0) ? 1u : 0u;
+        if (hunmin_ic_process_key(ic, static_cast<uint32_t>(keys[i]), shift)) {
+            const char *c = hunmin_ic_commit(ic);
+            if (c) total += c;
+        } else {
+            const char *c = hunmin_ic_flush(ic);
+            if (c) total += c;
+        }
+    }
+    const char *tail = hunmin_ic_flush(ic);
+    if (tail) total += tail;
+    hunmin_ic_free(ic);
+    return total;
+}
+
+/* THE 0.3 GATE, in the maintainer's own example (ruled 2026-11-01: *"E1도 당연히
+ * 지원해야지. 내 예제가 동작하는 것까지를 0.3 release gate로 보자."*).
+ *
+ * `English는 좋은 Language입니다` typed as ONE key stream with `autoswitch` on and
+ * the shipped dictionary: every word must come out in the language the person meant,
+ * which needs BOTH lines of R8's formula — Hangul to English for `English` and
+ * `Language`, English to Hangul for `는`, `좋은` and `입니다` (E1).
+ *
+ * The expectation is the engine's own text for each word on the layout that word was
+ * meant in (`render_with`), never typed Hangul and never a hand-written English
+ * string: the test states what the person meant and lets the engine say what that
+ * is. The spaces are delivered too, as they are in the stream.
+ *
+ * The frontend's half is modelled, not assumed: after each key the test reads
+ * `take_judgement` and performs the switch when a mode comes back. */
+TEST_F(WordSetTest, TheZeroThreeGateMixedSentenceWorksInOneStream) {
+    struct Word {
+        const char *keys;
+        const char *layout; /* the layout the person was in for this word */
+        int shift_first;    /* the two capitalised words */
+        int expected_mode;  /* HUNMIN_LANGUAGE_*, or -1 for no judgement */
+    };
+    const Word words[] = {
+        {"english", "us-qwerty", 1, HUNMIN_LANGUAGE_LATIN},
+        {"sms", "dubeolsik", 0, HUNMIN_LANGUAGE_HANGUL},     /* 는 */
+        {"whgdms", "dubeolsik", 0, -1},                      /* 좋은: Hangul in, Hangul out */
+        {"language", "us-qwerty", 1, HUNMIN_LANGUAGE_LATIN},
+        {"dlqslek", "dubeolsik", 0, HUNMIN_LANGUAGE_HANGUL}, /* 입니다 */
+    };
+
+    std::string expected;
+    for (const Word &w : words) {
+        expected += render_with(ctx_, w.layout, w.keys, w.shift_first);
+        expected += ' ';
+    }
+
+    hunmin_buffered_preedit *l = pair_layer(ctx_, 1);
+    ASSERT_NE(l, nullptr);
+    std::string delivered;
+    for (const Word &w : words) {
+        const std::string keys = w.keys;
+        for (size_t i = 0; i < keys.size(); ++i) {
+            hunmin_key_result out{};
+            const uint32_t shift = (w.shift_first && i == 0) ? 1u : 0u;
+            hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(keys[i]), shift, &out);
+            if (out.commit && *out.commit) delivered += out.commit;
+            const int mode = hunmin_buffered_preedit_take_judgement(l);
+            if (mode >= 0) {
+                EXPECT_EQ(w.expected_mode, mode) << w.keys;
+                hunmin_key_result switched{};
+                hunmin_buffered_preedit_toggle_language(l, &switched);
+            }
+        }
+        /* The space ends the word and reaches the client. */
+        hunmin_key_result out{};
+        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(' '), 0, &out);
+        if (out.commit && *out.commit) delivered += out.commit;
+        const int mode = hunmin_buffered_preedit_take_judgement(l);
+        if (mode >= 0) {
+            EXPECT_EQ(w.expected_mode, mode) << w.keys << " at its space";
+            hunmin_key_result switched{};
+            hunmin_buffered_preedit_toggle_language(l, &switched);
+        }
+        delivered += ' ';
+    }
+    hunmin_buffered_preedit_free(l);
+
+    EXPECT_EQ(expected, delivered)
+        << "the mixed sentence did not come out in the languages the person meant";
+}
+
 TEST_F(WordSetTest, JudgeTimingIsAnOptionAndDefaultsToPerKey) {
     hunmin_buffered_preedit *l = pair_layer(ctx_, 1);
     ASSERT_NE(l, nullptr);
