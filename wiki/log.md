@@ -879,3 +879,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   MILESTONES' "hostage to B1" lines, and PLAN's P8 "judgement source" row.
 - Left open and named: the corpus-list delete-or-keep question §R8-정정 wrote down,
   E1's lack of an owner, and §R8-정정's stale "left open" sentence against R9.
+
+## [2026-11-01] rule | 옛한글 layouts get the widened validity rule, per layout (#166)
+
+- `wiki/decisions/2026-11-01-old-hangul-layouts-get-the-widened-rule.md`: the
+  maintainer's "it is optional for layouts which support 옛한글" verbatim. The rule
+  is unchanged and only the jamo sets widen, so `랴ㅜㄷ` stays invalid while `ᅀᅡ`
+  `ᅌᅵ` `ᅀᅡᆶ` `ᄀᆞ` — what the 옛글 layouts actually render — are valid.
+- Measured before choosing the shape: six of fifteen layouts can emit an archaic
+  jamo (a key-value scan that reads only JSON strings under-reports at five,
+  because the values are nested `case` expressions), and the composer never
+  precomposes one, so the widened rule had to be a grammar over conjoining jamo.
+- The per-layout answer is derived from the layout's own keys and combination
+  table, so no schema field was added; SPEC-SCHEMA's layout section says so.

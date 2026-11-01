@@ -540,6 +540,51 @@ ruling is "en_US + user dictionary". And this ruling fixes the DATA and the
 lookup; the judgement that consumes them (`english_valid` inside the R8 formula)
 is still unimplemented, so no frontend switches modes yet.
 
+### R8-정정-3 — 옛한글 layouts: the same shape rule, the widened sets (2026-11-01)
+
+> "can we add 옛한글 support to hangul_valid?"
+
+> "it is optional for layouts which support 옛한글"
+
+The maintainer asked whether the structural test can accept 옛한글, and ruled the
+scope of the answer: it is an **option**, used exactly where the layout composes
+it — not a change to the default rule.
+
+So `hangul_valid` keeps its modern definition on a layout that composes only the
+modern 19/21/28. A layout that can emit a jamo outside those sets — measured
+2026-11-01: **six of the fifteen shipped layouts** — is judged by the SAME rule
+with the **extended sets** (`tables.c`'s `hm_is_choseong` / `hm_is_jungseong` /
+`hm_is_jongseong`, i.e. the conjoining blocks including both extension planes). A
+group is still `(cho)(jung)(jong)` and a leading choseong is still required; only
+the sets widen. That is what keeps the ruling's own boundary case intact:
+`랴ㅜㄷ` is still **not** valid (ㅜㄷ has no leading cho — the composer writes the
+CF filler U+115F instead), while `ᅀᅡ` `ᅌᅵ` `ᅀᅡᆶ` `ᄀᆞ` — what the 옛글 layouts
+actually render for a finished syllable, since no precomposed form exists for
+them — are.
+
+The two questions a frontend has to ask are answered by the engine, not by a
+per-frontend list (R3's one-rule rule):
+
+| what | symbol |
+|---|---|
+| the modern rule | `hunmin_hangul_valid` |
+| the widened rule | `hunmin_hangul_valid_old` |
+| can the judgement decide on this layout at all | `hunmin_ctx_layout_autoswitch_capable` |
+| does this layout need the widened rule | `hunmin_ctx_layout_old_hangul` |
+
+Both layout answers are **derived at load time** from the layout's own keys and
+combination table (`schema_loader.c` `compute_capability`), never declared in the
+JSON: a new layout cannot forget to answer, and the answer cannot drift from the
+data it is about. Two routes reach an archaic jamo and both are scanned — a key
+row that maps straight to one, and a combination that produces one; measured, all
+six shipped layouts use the first, and a scratch probe with one layout's keys
+scrubbed proves the second still answers.
+
+**Not decided by this entry:** nothing consumes the capability yet. The
+judgement's call site is #168, and that is where the rule is picked from these two
+answers — a layout answering 0 to `autoswitch_capable` has no syllables to judge,
+so the feature stays disabled there rather than guessing.
+
 
 ### `valid` is not a dictionary lookup (measured 2026-10-04) — SUPERSEDED by R8-정정 above; kept as the measurement of what the ruling costs
 

@@ -21,6 +21,15 @@ All files are UTF-8 JSON, deterministically ordered, validated by `tools/doctor.
 | `flags` | optional per-layout bools, extended only via new primitive (see PLAN.md) |
 | `keys` | map key-id → modifier map (subset of `plain`, `shift`, ctrl/alt reserved) |
 
+**No field declares whether the modes judgement can run on a layout.** That is
+derived from the file's own `keys` and `compose` tables at load time
+(`schema_loader.c` `compute_capability`) and answered by
+`hunmin_ctx_layout_autoswitch_capable` / `hunmin_ctx_layout_old_hangul`: a layout
+whose keys emit no jamo composes no Hangul, and one that emits a jamo outside the
+modern 19/21/28 needs `hunmin_hangul_valid_old()`. The derivation is deliberate —
+a declared field is one more thing a new layout can forget, and it can contradict
+the tables it sits beside. `docs/SPEC-MODES.md` §R8-정정-3 is the requirement.
+
 ### Key ids
 Single characters are physical positions in the US layout **named by their unshifted
 char**: base ids `a`–`z`, `0`–`9`, and the 21 punctuation chars `` ` - = [ ] \ ; ' , . / ``.

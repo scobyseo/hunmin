@@ -110,3 +110,42 @@ int hunmin_hangul_valid(const char *text) {
 
     return syllables > 0;
 }
+
+int hunmin_hangul_valid_old(const char *text) {
+    const unsigned char *p = (const unsigned char *)text;
+    int syllables = 0;
+
+    if (!text) return 0;
+
+    while (*p) {
+        uint32_t c = decode_utf8(&p);
+
+        if (c == 0) return 0; /* malformed UTF-8 */
+
+        /* A precomposed syllable is one complete group, whatever it is: the
+         * modern block is the only place one can exist, so it is also the only
+         * place this branch fires. */
+        if (c >= 0xac00 && c <= 0xd7a3) {
+            syllables++;
+            continue;
+        }
+
+        /* Otherwise the group is (cho)(jung)(jong) over the EXTENDED sets, and a
+         * leading choseong is required — the engine's renderer writes the CF
+         * filler (U+115F) when a syllable has no initial, so a bare jungseong
+         * here (ㅜㄷ in 랴ㅜㄷ) is a shape the composer never emits, not a
+         * syllable. That is what keeps 랴ㅜㄷ invalid while ᅀᅡ / ᅌᅵ / ᅀᅡᆶ are
+         * valid. */
+        if (!hm_is_choseong((ucschar)c)) return 0;
+        c = decode_utf8(&p);
+        if (c == 0 || !hm_is_jungseong((ucschar)c)) return 0;
+        if (*p) {
+            const unsigned char *next = p;
+            uint32_t d = decode_utf8(&p);
+            if (!d || !hm_is_jongseong((ucschar)d)) p = next; /* the next group */
+        }
+        syllables++;
+    }
+
+    return syllables > 0;
+}

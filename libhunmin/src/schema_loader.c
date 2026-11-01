@@ -414,6 +414,85 @@ static void hm_val_clear(hm_val *v) {
     }
 }
 
+/* ------------------------------------------------------- layout capability
+ *
+ * The modes judgement asks whether a buffer composes into well-formed syllables.
+ * Two of its questions are properties of the LAYOUT, not of one buffer, and both
+ * are derived here from the layout's own data rather than declared in a field a
+ * new file could forget:
+ *
+ *   composes_hangul   the layout emits conjoining jamo at all. False for the
+ *                     Latin layouts (us-qwerty, dvorak, colemak), whose keys emit
+ *                     `=x` literal text, so the judgement has nothing to decide
+ *                     there.
+ *   old_hangul        the layout can emit a jamo outside the modern 19/21/28.
+ *                     Two routes reach one, and the derivation checks both:
+ *                     a key row that maps straight to an archaic jamo, and a
+ *                     combination table that produces one. Measured 2026-11-01:
+ *                     all six shipped old-Hangul layouts reach it through a KEY
+ *                     — including sin3-p2-yet, whose archaic vowels sit inside
+ *                     `case` branches of its key rows — so the table route is
+ *                     the second one rather than the only one. It is still a
+ *                     real route: with sin3-p2-yet's keys scrubbed of ᆞ in a
+ *                     scratch data copy, that layout still answers 1, because
+ *                     its sin3-p2-yet-ohi table produces them.
+ *                     Those layouts need hunmin_hangul_valid_old(); the rest must
+ *                     not, because widening the rule there would accept shapes
+ *                     their composer cannot produce.
+ */
+static bool modern_jamo(uint32_t c) {
+    if (c == 0x11a7) return true; /* the no-jongseong filler, inside the jong set */
+    return hm_is_choseong_conjoinable((ucschar)c) || hm_is_jungseong_conjoinable((ucschar)c) ||
+           hm_is_jongseong_conjoinable((ucschar)c);
+}
+
+static void note_jamo(uint32_t c, bool *any, bool *old) {
+    if (!hm_is_jamo((ucschar)c)) return;
+    *any = true;
+    if (!modern_jamo(c)) *old = true;
+}
+
+static void val_jamo_scan(const hm_val *v, bool *any, bool *old) {
+    if (!v) return;
+    switch (v->kind) {
+    case HK_JAMO:
+        note_jamo(v->code, any, old);
+        break;
+    case HK_CASE:
+        val_jamo_scan(v->then, any, old);
+        val_jamo_scan(v->els, any, old);
+        break;
+    case HK_SEQ:
+        for (size_t i = 0; i < v->seqlen; i++) note_jamo(v->seq[i], any, old);
+        break;
+    default:
+        break; /* HK_LIT / HK_TIER / HK_NONE carry no jamo */
+    }
+}
+
+static void compute_capability(hm_layout *l) {
+    bool any = false, old = false;
+
+    /* The keys decide whether the layout composes Hangul at all, and that answer
+     * gates everything else: every shipped layout references a combination table
+     * — the Latin layouts reference `modern` too — so scanning tables alone would
+     * report that us-qwerty composes Hangul, which it cannot, because none of its
+     * keys ever feeds a jamo into one. */
+    for (int k = 0; k < KEYSPACE; k++) val_jamo_scan(&l->keys[k], &any, &old);
+
+    if (any) {
+        /* `r` is what the table produces, so it answers "can this layout emit X".
+         * Needed for the layouts whose archaic vowels or ᇬ-family jongseong come
+         * out of a combination rather than a key — proved by scrubbing one layout's
+         * keys in a scratch data copy and watching this answer stay 1. */
+        for (size_t i = 0; i < l->ncombo; i++) note_jamo(l->combo[i].r, &any, &old);
+    } else {
+        old = false; /* a layout that composes no Hangul cannot compose old Hangul */
+    }
+    l->composes_hangul = any;
+    l->old_hangul = old;
+}
+
 static bool build_compose(const cJSON *root, hm_layout *l) {
     const cJSON *cps = cJSON_GetObjectItemCaseSensitive(root, "compose");
     size_t need = 0;
@@ -571,6 +650,7 @@ static bool load_layout_file(hunmin_ctx *ctx, const char *path, int *idx) {
     if (!build_compose(root, l)) goto out;
 
     if (!build_keys(root, l)) goto out;
+    compute_capability(l);
     ok = true;
     if (ok) {
         *idx = ctx->n;

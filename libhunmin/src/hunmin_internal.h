@@ -47,6 +47,12 @@ typedef struct {
     bool supports_case;
     bool jongonly_fresh; /* modern ssang pairs need G after jong-only syllable (symbols/yethangul) */
     bool supported;
+    /* Derived from this layout's own keys and combination table at load time
+     * (schema_loader.c compute_capability), never declared: a layout that emits
+     * conjoining jamo can be judged at all, and one that emits jamo outside the
+     * modern 19/21/28 needs the widened rule. */
+    bool composes_hangul;
+    bool old_hangul;
     int flags[128]; /* user flags from preprocessing defaults */
     hm_val keys[128]; /* char -> resolved value (kind NONE = absent) */
     hm_combo *combo;

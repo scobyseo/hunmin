@@ -50,8 +50,29 @@ int hunmin_ctx_layout_count(const hunmin_ctx *ctx);
 const char *hunmin_ctx_layout_id(const hunmin_ctx *ctx, int i);
 /* lang: "en"|"ko"|NULL(=en). */
 const char *hunmin_ctx_layout_name(const hunmin_ctx *ctx, int i, const char *lang);
+/* Whether the MODES JUDGEMENT can decide on this layout at all. 1 when the
+ * layout composes Hangul — i.e. its keys emit conjoining jamo — and 0 for the
+ * ones that do not (the Latin half: us-qwerty, dvorak, colemak), where a buffer
+ * has no syllables for the judgement to be right or wrong about.
+ *
+ * Derived at load time from the layout's own keys and combination table, never
+ * declared in the file: a new layout cannot forget to say so, and the answer
+ * cannot drift from the data it is about. */
+HUNMIN_EXPORT bool hunmin_ctx_layout_autoswitch_capable(const hunmin_ctx *ctx, int i);
+
+/* 1 when this layout can emit a jamo outside the modern 19/21/28 — the 옛글
+ * layouts. Judge those with hunmin_hangul_valid_old() and everything else with
+ * hunmin_hangul_valid(); using the wide rule where the layout cannot produce
+ * such a buffer only makes the check weaker.
+ *
+ * Two routes reach the archaic jamo and both are measured from the data, not
+ * assumed: a key row that maps straight to one (dubeolsik-yet's shift row,
+ * sin3-p2-basic's 아래아 ᆞ) and a combination table that produces one
+ * (sin3-p2-yet, whose keys are modern). */
+HUNMIN_EXPORT bool hunmin_ctx_layout_old_hangul(const hunmin_ctx *ctx, int i);
+
 /* true when this build's engine can instantiate the layout. */
-bool hunmin_ctx_layout_supported(const hunmin_ctx *ctx, int i);
+HUNMIN_EXPORT bool hunmin_ctx_layout_supported(const hunmin_ctx *ctx, int i);
 /* "hangul" | "latin" — which half of a two-mode IME this layout belongs to,
  * read from the layout JSON's "mode" field (docs/SPEC-SCHEMA.md). NULL for an
  * out-of-range index. A layout without the field reports "hangul", and so does
@@ -472,6 +493,29 @@ HUNMIN_EXPORT int hunmin_buffered_preedit_english_ready(const hunmin_buffered_pr
  * 0 for NULL and for malformed UTF-8. 1 for one syllable or a run of them.
  */
 HUNMIN_EXPORT int hunmin_hangul_valid(const char *text);
+
+/* The same shape rule with the EXTENDED (옛한글) jamo sets, for the layouts that
+ * compose them — ask `hunmin_ctx_layout_old_hangul` which rule applies, and use
+ * this one exactly there.
+ *
+ * The rule is unchanged; only the sets widen. A group is still (cho)(jung)(jong)
+ * and a leading choseong is still required, so:
+ *
+ *   valid     `ᅀᅡ`  `ᅌᅵ`  `ᅀᅡᆶ`  `ᄀᆞ`   cho+jung — what the 옛글 layouts render for a
+ *                                        finished syllable, since no precomposed
+ *                                        form exists for these
+ *   invalid   `랴ㅜㄷ`  `랴ㅜ`  `ㅜㄷ`     a jungseong with no leading cho is not a
+ *                                        shape the composer emits (it writes the
+ *                                        CF filler U+115F instead)
+ *   invalid   `ᅀ`  `ㄱ`  `ㆍ`             an in-flight syllable: a cho with no jung
+ *
+ * Modern precomposed syllables are accepted here too, so this is a superset of
+ * the function above; a caller that always used it would only lose the check
+ * that a modern layout cannot produce jamo buffers in the first place.
+ * 0 for NULL, for empty, for malformed UTF-8, and for anything that contains a
+ * latin letter, digit, space or punctuation.
+ */
+HUNMIN_EXPORT int hunmin_hangul_valid_old(const char *text);
 
 #ifdef __cplusplus
 }
