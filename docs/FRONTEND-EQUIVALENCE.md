@@ -225,14 +225,31 @@ and the expected values come back from the engine through
 `hunmin-sim --data libhunmin/data --layout dubeolsik --latin us-qwerty --judge
 --autoswitch 1 --keys 'hello ' --trace`.
 
-**What this does not yet do, stated so it is not assumed:** the frontends do not
-read this corpus. §6's requirement is that fcitx5, Android and the TSF mock run
-the same expectations; today the fcitx5 D1, Android E1 and TSF F1 corpora are
-separate files, so a judgement case is asserted once, against the shared layer,
-and equality at the frontend tiers is still owed. The commit-unit axis of §6.1
-is likewise not in this corpus: every case uses `HUNMIN_COMMIT_AT_BOUNDARY`, and
-the judgement cannot run in PER_SYLLABLE at all (its earlier syllables are
-already in the client, which is R10's constraint).
+### 6.2.1 The corpus is the evaluation instrument (ruled 2026-11-01)
+
+> "프런트엔드는 모두 동일한 동작을 해야 하니까, 동일한 코퍼스로 평가하는 게 옳아.
+> 프런트엔드의 특성이 있으면 그 차이는 허용할 수 있게 하자."
+
+So one corpus is what every frontend is measured against, and a frontend's own
+characteristics are an allowed difference **only where §3 lists them**
+(physical-key mapping, platform pass-through, presentation/commit granularity).
+Where a lane takes one of those, the case has to say so and the lane has to
+report it — a difference that passes silently is not an allowed difference, it is
+unmeasured behaviour.
+
+**What blocks the first frontend lane, measured 2026-11-01.** No frontend can put
+the IM into the ON state the corpus's cases assume. `frontends/fcitx5/src/config.h`
+carries `HangulLayout`, `LatinLayout` and `CommitBehavior` and **no** autoswitch
+row, and the adapter's key path never calls `hunmin_buffered_preedit_special()` —
+so the layer sits at the engine default (OFF, B3) and `applyJudgement()` answers
+-1 on every word. A D1 replay of `judgement-r8.jsonl` today would therefore
+assert the OFF identity path for all fifteen autoswitch-ON cases, which is the
+opposite of the corpus's expectations. The lane needs the ON switch R13-정정
+gives a frontend — surface A (the Ctrl+한/영 special function) or surface B (a
+settings row) — and which one fcitx5 gets first is not decided here. The commit
+unit of §6.1 is likewise outside this corpus: every case uses
+`HUNMIN_COMMIT_AT_BOUNDARY`, and the judgement cannot run in PER_SYLLABLE at all
+(its earlier syllables are already in the client, which is R10's constraint).
 
 ## 7. Live TSF tests
 

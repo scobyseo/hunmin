@@ -1,6 +1,8 @@
 # SPEC-MODES — Hangul/latin automatic determination (hangul/latin mode guessing)
 
-Status: **Requirements settled. Not implemented. Corpus not settled.**
+Status: **Requirements settled. R8's judgement ships** — the engine decides at the
+boundary and each frontend acts on `hunmin_buffered_preedit_take_judgement()` — **and
+its cases are `tests/golden/judgement-r8.jsonl`** (ctest `engine-golden-judgement`).
 
 **2026-10-04:** What R8's `english_valid`/`hangul_valid` must look up has been
 measured (`docs/MODES-DATA.md` §4-7). **Neither is a dictionary lookup.** English is

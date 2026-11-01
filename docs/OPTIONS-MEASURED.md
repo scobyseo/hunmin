@@ -3699,12 +3699,18 @@ What the table settles, and the four observations it added to R6's grounds:
   digit is typed into a buffer that has already handed the first to the client.
   With the layer the run accumulates in the preedit and leaves once, whole, at
   the boundary. Zero early deliveries in every row.
-- **`sebeolsik-final` (3f) is not a literal-digit layout.** Its digit keys are
+- **`sebeolsik-final` (3f)'s UNSHIFTED digit row is not literal.** Those keys are
   jamo, so "a digit run" there is a run of jamo and the engine's per-syllable
   commit applies exactly as it does to letters. R6's Korean text
   (*"세벌식에서는 숫자열까지 사용하기 때문에"*) is about the number ROW being part
-  of composition, and 3f spends that row on jamo; the layout where a run of
-  literal digits exists is `sin3-p2`. **The issue's verification command names
+  of composition, and 3f spends that row on jamo. **Corrected 2026-11-01:** the
+  sentence here used to end "the layout where a run of literal digits exists is
+  `sin3-p2`", and its second half is wrong — 3f does have literal digits, on the
+  SHIFTED letter rows (`H`→`0`, `J`→`1`, `K`→`2`, `L`→`3`, `:`→`4`, `Y`→`5`,
+  `U`→`6`, `I`→`7`, `O`→`8`, `P`→`9`), and the shared layer holds a run of them
+  like any other word (measured: `JKLH` commits `1230` once, at the boundary —
+  corpus case `r6-literal-digit-row-held-to-the-boundary`). What 3f does not have
+  is a digit ROW that types digits. **The issue's verification command names
   `sebeolsik-3-final`, which is not a layout id** — the shipped ids are
   `sebeolsik-final` (alias `3f`), `sebeolsik-3-2` and `sebeolsik-3-90`.
 - **The symbol tier resolves only the first digit of a run.** `T` is single-shot

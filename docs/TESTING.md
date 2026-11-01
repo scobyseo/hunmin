@@ -371,7 +371,20 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   `hunmin-sim --data libhunmin/data --layout dubeolsik --latin us-qwerty --judge
   --autoswitch 1 --keys 'hello ' --trace`. Regen for review:
   `python3 tools/gen-judgement-golden.py --sim build/hunmin-sim` — the expected
-  values are read back from the engine, never typed.
+  values are read back from the engine, never typed. **No frontend lane reads it
+  yet**: the addons have no way to turn the judgement on, measured and priced in
+  `docs/FRONTEND-EQUIVALENCE.md` §6.2.1.
+- **Designed cases** `tests/golden/case-<layout>.jsonl` — the other kind of
+  corpus, for a layout whose identity is its key arrangement rather than its
+  parity with libhangul. `ref-*.jsonl` catches a data change but cannot say what
+  it asserts; a designed case names the feature and pins it. Today:
+  `case-sebeolsik-final.jsonl` (ctest `engine-golden-case-sebeolsik-final`, 10
+  cases) — three-key syllable assembly, the unshifted number row as jongseong
+  jamo, the shifted number row as 된소리/겹받침, literal digits on the shifted
+  letter rows, `=` literals, the conjoining filler for a jamo pair with no
+  precomposed form, and a symbol as the boundary. It uses the ordinary
+  `hunmin-sim --check` schema; regen:
+  `python3 tools/gen-case-golden.py --sim build/hunmin-sim`.
 - **Property fuzz** (`-fsanitize=fuzzer,address,undefined`, corpus = jamo key streams):
   invariants only — every committed string NFC-valid & re-decomposes to current-buffer
   jamo; `press` never leaks (LSan); state always resettable; preedit length bounded.
