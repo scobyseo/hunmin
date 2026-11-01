@@ -169,6 +169,26 @@ object ImeSettings {
     /** Called when the window sets the strip style. */
     var onToolbarStyleChosen: (ToolbarStyle) -> Unit = {}
 
+    /**
+     * The engine's automatic-switch value (1 on, 0 off, null when no engine can
+     * answer) — docs/SPEC-MODES.md §R13-정정. The window SHOWS this and never
+     * keeps its own copy; the key chord writes the same field.
+     */
+    var autoSwitchValue: () -> Int? = { null }
+
+    /** The chord the engine holds for the automatic switch (HUNMIN_MOD_*), so
+     *  the window names the key the engine honours instead of spelling one. */
+    var autoSwitchChord: () -> Int? = { null }
+
+    /** Whether this install carries the modes data at all (B3's gate, #169).
+     *  False is why a row is disabled, and it is a different sentence from
+     *  "off, chosen". */
+    var autoSwitchDataPresent: () -> Boolean = { false }
+
+    /** Called when the window asks for a new value. Returns the engine's answer
+     *  (which the gate may have refused), not the request. */
+    var onAutoSwitchChosen: (Boolean) -> Int? = { null }
+
     /** Whether a service is there to talk to at all. */
     val connected: Boolean get() = layoutsProvider() != null
 }

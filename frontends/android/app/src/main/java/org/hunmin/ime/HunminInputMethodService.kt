@@ -111,6 +111,14 @@ class HunminInputMethodService : InputMethodService() {
         private const val KEY_LAYOUT_LATIN = "layout_latin"
         private const val KEY_TOOLBAR_STYLE = "input_view_style"
         private const val KEY_HANGUL_MODE = "hangul_mode"
+
+        /**
+         * The platform's persistence for a value the ENGINE owns
+         * (docs/SPEC-MODES.md §R13-정정): the layer is rebuilt per editor and its
+         * ic starts OFF, so this is what carries the choice to the next one.
+         * Only the read-back is written here, never the request.
+         */
+        private const val KEY_AUTOSWITCH = "autoswitch"
     }
 
     /** One engine per InputConnection; rebuilt on every onStartInput. */
@@ -214,18 +222,19 @@ class HunminInputMethodService : InputMethodService() {
      *
      * The engine asks [supports] before it performs anything; false is the
      * refusal the ruling allows ("if the feature is not supported at the
-     * platform, it can just refuse to service"). On Android:
+     * platform, it can just refuse to service"). On Android both are supported:
      *
-     *  - VOICE is supported: [startVoiceInput] drives the platform recogniser and
-     *    asks for RECORD_AUDIO itself, so the chord is consumed and the user gets
-     *    the permission prompt (or the session) instead of a key that silently
+     *  - VOICE drives the platform recogniser ([startVoiceInput]) and asks for
+     *    RECORD_AUDIO itself, so the chord is consumed and the user gets the
+     *    permission prompt (or the session) instead of a key that silently
      *    reaches the editor.
-     *  - AUTOSWITCH is NOT, and the reason is policy already ruled on: the
-     *    auto-switch behaviour is disabled by default in 0.1 (maintainer ruling
-     *    2026-10-12, issue #2). Claiming it here would consume Ctrl+한/영 and
-     *    perform a feature that does nothing. It refuses instead, so the chord
-     *    passes through like any unhandled shortcut -- and the refusal becomes a
-     *    real feature the day that ruling is revisited, without moving the key.
+     *  - AUTOSWITCH was REFUSED until it was implemented here (issue #174); the
+     *    2026-10-12 inert-shipping ruling it implemented (#2) is superseded by
+     *    the engine feature landing (issues #164/#165/#169). The engine flips
+     *    its own value in `hunmin_buffered_preedit_special()` and REFUSES the
+     *    press itself when the modes data is absent (B3's gate), so this host
+     *    says yes and does only the platform half: making the other layer and
+     *    the stored preference agree, and telling the user.
      *
      * The object handed over is [HunminSpecialHost]: JNI looks its two methods up
      * by name, which is why the callbacks live there and not here.
@@ -233,13 +242,31 @@ class HunminInputMethodService : InputMethodService() {
     private val specialServices = object : SpecialServices {
         override fun supports(fn: Int): Boolean = when (fn) {
             SpecialFunction.VOICE -> true
+            SpecialFunction.AUTOSWITCH -> true
             else -> false
         }
 
         override fun perform(fn: Int) {
             when (fn) {
                 SpecialFunction.VOICE -> startVoiceInput()
-                SpecialFunction.AUTOSWITCH -> toggleAutoHangulEnglish()
+                SpecialFunction.AUTOSWITCH -> {
+                    /* The ENGINE already flipped the value (ruled 2026-11-01,
+                     * #165) -- reading it back rather than inverting it again is
+                     * what keeps this from being a second copy. The platform
+                     * half: the other layer holds its own ic, and the next
+                     * editor's layer starts OFF, so both follow the answer.
+                     *
+                     * This runs INSIDE hunmin_buffered_preedit_special(), so the
+                     * get/set calls below re-enter the layer that is mid-call.
+                     * That is bounded and safe by construction: the option pair
+                     * touches one field (`ic->autoswitch`), the engine has
+                     * already finished reading its own host struct, and the
+                     * remaining frame only returns the function number. Nothing
+                     * here feeds a key, so no composition state is re-entered. */
+                    val v = autoswitchValue() ?: return
+                    applyAutoswitch(v == 1)
+                    announceAutoswitch(v, wanted = v == 1)
+                }
             }
         }
     }
@@ -328,6 +355,12 @@ class HunminInputMethodService : InputMethodService() {
          * host on only the hangul one would make Alt+한/영 dead in English mode. */
         engine?.registerSpecialHost(specialHost)
         latinEngine?.registerSpecialHost(specialHost)
+        /* Both layers are new, so the engine's option is at its default (OFF,
+         * B3) whatever the person chose before. The preference is the platform's
+         * persistence for a value the ENGINE owns (R13-정정), and a refusal --
+         * the data gate -- is stored as the engine's answer rather than as the
+         * request. */
+        restoreAutoswitch()
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
@@ -461,15 +494,15 @@ class HunminInputMethodService : InputMethodService() {
         // first one here is the one that keeps working, and saying otherwise
         // would be a lie told by two files that disagree.
         for (action in KeyAction.byPrecedence()) {
-            // AUTO_TOGGLE is disabled by default in 0.1 (maintainer ruling
-            // 2026-10-12, issue #2): no default chord, and a stored binding
-            // from a build where the feature was live would otherwise still
-            // swallow the chord -- e.g. Right Alt + Enter eating the user's
-            // Enter -- for a handler that only logs. Skipping the action (not
-            // the chord) keeps the enum, the precedence order and the conflict
-            // warning untouched, and the chord falls through to the engine
-            // like any unbound key.
-            if (action == KeyAction.AUTO_TOGGLE) continue
+            /* AUTO_TOGGLE is LIVE again (issue #174): the 2026-10-12 ruling
+             * (#2) skipped it because the handler was a log-only stub, and the
+             * engine feature has since landed (#164/#165/#169), so the press now
+             * flips the engine's own `autoswitch` value -- and is refused by the
+             * engine, with the key still consumed, on an install without the
+             * modes data. Its default chord stays unbound (that part of the
+             * ruling is untouched): the ruled assignment is the engine's
+             * Ctrl+한/영 chord, and a stored binding from an older build is an
+             * extra surface on the same state, not a second assignment. */
             if (!fires(action, keyCode, event.metaState)) continue
             when (action) {
                 KeyAction.HANGUL_ENG -> {
@@ -594,20 +627,107 @@ class HunminInputMethodService : InputMethodService() {
 
     /** Show transient mode indicator (like Samsung's toast). */
     private fun showModeToast(mode: String) {
+        showIndicator("($mode)")
+    }
+
+    /**
+     * The transient one-line indicator OverlayActivity renders.
+     *
+     * Separate from [showModeToast] because the parenthesised form is the MODE
+     * indicator's convention; a sentence like "자동 한/영: 꺼짐 (사전 없음)"
+     * already carries its own punctuation and would read as a nesting of two
+     * conventions if it were wrapped.
+     */
+    private fun showIndicator(text: String) {
         // Use OverlayActivity for Toast since IME Service can't show Toast directly
         val intent = android.content.Intent(this, OverlayActivity::class.java).apply {
             action = OverlayActivity.ACTION_SHOW_TOAST
-            putExtra(OverlayActivity.EXTRA_TOAST_TEXT, "($mode)")
+            putExtra(OverlayActivity.EXTRA_TOAST_TEXT, text)
             addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(intent)
     }
 
-    /** Toggle auto Hangul/English detection on/off. */
+    /** Toggle the engine's automatic Hangul/English switch on/off. */
     private fun toggleAutoHangulEnglish() {
-        // TODO: persist this setting
-        // For now, just log. The actual auto-detection logic is in the engine/fcitx5 adapter.
-        Log.i(TAG, "hunmin: auto Hangul/English toggle requested (not yet implemented)")
+        /* R13-정정: the state is ONE value the engine owns. This binding reads
+         * it, asks for the inverse, and then reports what the engine ANSWERED --
+         * ON is refused when the modes data is absent (B3's gate, issue #169),
+         * so echoing the request would show a state the judgement cannot use. */
+        val current = autoswitchValue()
+        if (current == null) {
+            Log.w(TAG, "hunmin: autoswitch requested but no engine can answer")
+            return
+        }
+        val wanted = current == 0
+        val answer = applyAutoswitch(wanted)
+        Log.i(TAG, "hunmin: autoswitch requested=$wanted engine=$answer")
+        announceAutoswitch(answer, wanted)
+    }
+
+    /**
+     * The engine's automatic-switch value, or null when no live layer can answer
+     * (not started, or the engine has no such option).
+     *
+     * The pair layer is asked first because it is the one the judgement runs on;
+     * `latinEngine` is the same engine seen one-language, and it answers the
+     * same unless the pair is gone.
+     */
+    private fun autoswitchValue(): Int? =
+        engine?.autoswitch() ?: latinEngine?.autoswitch()
+
+    /**
+     * Write [on] to every live layer and record what the ENGINE answered.
+     *
+     * Two things this is not allowed to be. It is not a per-frontend copy of the
+     * value: what it stores is the read-back, so a gate refusal is stored as
+     * OFF rather than as the request (R13-정정, issue #169). And it is not
+     * editor-scoped: the layer is rebuilt per editor and its ic starts OFF, so
+     * the platform's prefs are what carry the preference to the next editor,
+     * re-applied in [onStartInput].
+     *
+     * @return the engine's answer (0/1), or null when no layer answered.
+     */
+    private fun applyAutoswitch(on: Boolean): Int? {
+        var answer: Int? = null
+        for (layer in listOfNotNull(engine, latinEngine)) {
+            val v = layer.setAutoswitch(on)
+            if (v != null) answer = v
+        }
+        if (answer != null) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean(KEY_AUTOSWITCH, answer == 1).apply()
+        }
+        return answer
+    }
+
+    /**
+     * Re-apply the stored preference to freshly built layers.
+     *
+     * Called from [onStartInput], where both adapters are new and their layers
+     * therefore start from the engine's default (OFF, B3). Without this the
+     * feature would turn itself off on every field change -- the "saved, reloaded,
+     * did nothing" defect class.
+     */
+    private fun restoreAutoswitch() {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_AUTOSWITCH, false)) return
+        val answer = applyAutoswitch(true) ?: return
+        if (answer != 1) {
+            Log.i(TAG, "hunmin: stored autoswitch=on refused by the engine; stored OFF")
+        }
+    }
+
+    /** Tell the user what happened, in the same transient indicator the mode
+     *  switches use: a state change with no feedback reads as a dead key. */
+    private fun announceAutoswitch(answer: Int?, wanted: Boolean) {
+        val text = when {
+            answer == null -> "자동 한/영: 사용할 수 없음"
+            answer == 1 -> "자동 한/영: 켜짐"
+            wanted -> "자동 한/영: 꺼짐 (사전 없음)"
+            else -> "자동 한/영: 꺼짐"
+        }
+        showIndicator(text)
     }
 
     /** Open Hanja candidate window for current preedit. */
@@ -993,6 +1113,18 @@ class HunminInputMethodService : InputMethodService() {
             // need a field change to appear.
             picker?.applyStyle(style)
         }
+        /* R13-정정's surface B: the settings window reads the value and the key
+         * from the engine, and writes through the same option the chord writes.
+         * Every accessor answers null when no layer is live, which the window
+         * renders as "not running" rather than as OFF. */
+        ImeSettings.autoSwitchValue = { autoswitchValue() }
+        ImeSettings.autoSwitchChord = {
+            (engine ?: latinEngine)?.specialChord(SpecialFunction.AUTOSWITCH)
+        }
+        ImeSettings.autoSwitchDataPresent = {
+            (engine ?: latinEngine)?.autoswitchDataPresent() ?: false
+        }
+        ImeSettings.onAutoSwitchChosen = { on -> applyAutoswitch(on) }
     }
 
     /** The strip style in force, defaulting to the compact one row. */

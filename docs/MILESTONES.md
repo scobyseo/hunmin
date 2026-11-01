@@ -58,6 +58,9 @@ B9 — so what is left on it is the measurement list further down and
   `AUTO_TOGGLE` action even against a stale stored binding, and the settings row
   shows 미정 (0.3), disabled. Ruling quoted in
   `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`.
+  **SUPERSEDED 2026-11-02 (issue #174):** the engine half landed (#164/#165/#169)
+  and Android implements the feature, so the dispatch fires and the row reports
+  the engine's value; the inert shipping state no longer describes the tree.
   The **E5 assignment itself** (single vs compound meaning) is not decided by
   this and lands here in 0.3 as before.
 - ~~**B9** — the R8/R3 documentation contradiction. A release must not ship two

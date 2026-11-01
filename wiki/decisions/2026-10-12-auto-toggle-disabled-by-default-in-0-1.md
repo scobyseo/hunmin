@@ -1,7 +1,7 @@
 ---
 title: B4 0.1 half — the auto Hangul/English toggle ships inert, default key composition disabled
 created: 2026-10-12
-updated: 2026-10-12
+updated: 2026-11-02
 type: decision
 status: active
 tags: [decision, modes, android, release-plan]
@@ -75,3 +75,32 @@ at the same time.
 
 See [[decisions-belong-to-the-maintainer]] — a ruling recorded because the
 maintainer made it.
+
+## Superseded 2026-11-02 (issue #174) — the Android half is live
+
+Implemented rather than kept inert, because the state this page ruled about has
+changed: the engine half landed ([[2026-11-01-the-engine-judges-the-frontend-switches]]
+— the timing; issues #164/#165/#169 — the judgement, the `autoswitch` option and
+B3's data gate), and issue #174 asks for the Android frontend to implement it.
+Measured 2026-11-02, tier E1 (`AutoSwitchTest`, `AutoSwitchGateTest`):
+
+- the service's dispatch **fires** `AUTO_TOGGLE` again, and the press writes the
+  engine's `autoswitch` value — the read-back, never the request, so the row
+  cannot show a state the judgement does not hold;
+- the settings list reports the engine's value and the engine's chord
+  (`Ctrl+한/영`), and says "사용할 수 없음" rather than "꺼짐" when B3's gate
+  answers absent;
+- **the default chord stays empty**, which is where this page's own last
+  paragraph expected a default to be re-added. Issue #174 rules on the
+  *mechanism* instead: the assignment is the engine's chord (the 2026-10-31
+  namespace ruling), and the configurable binding is a second surface onto the
+  same state rather than a second assignment. The stale-binding guard is
+  therefore gone while the empty default remains — the sentence in the section
+  above is left as it was written, and this paragraph is the correction.
+
+What is **not** settled here: the 0.1 release lane's own choice is untouched (a
+later release could still decide the feature is OFF in 0.1); whether the
+configurable `AUTO_TOGGLE` binding should be retired now that the engine owns
+the chord; and the full settings screen (issue #177), of which this is a row.
+
+See also [[2026-10-31-special-functions-engine-resolved-frontend-implemented]].

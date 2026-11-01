@@ -1911,6 +1911,17 @@ carried across a language toggle — the binding this row says no symbol returns
 recorded in `docs/MODES-ENGINE-RULES.md` §3 ("The value the `AUTOSWITCH` function flips").
 The row above is left as measured on its own date rather than rewritten.
 
+**Correction (2026-11-02, issue #174): row 3 no longer holds.** The inert shipping state
+was a *state of the tree*, and the tree moved: the engine half landed (#164 the judgement,
+#165 the `autoswitch` option, #169 the data gate), the Android dispatch no longer skips
+`AUTO_TOGGLE`, and the settings list reports the engine's value and chord instead of 미정.
+Re-measured here against the adapter (`AutoSwitchTest`, `AutoSwitchGateTest`, tier E1):
+with `modes/` present the switch decides an English-valid buffer, and with `modes/` absent
+the option write is refused and the judgement abstains. What the row was *about* — that the
+0.1 lane chose inert over working — is a dated decision, and it is marked superseded
+where it lives (`docs/SPEC-MODES.md` §E5, `docs/MILESTONES.md` §0.1). The row is left as
+measured on its own date.
+
 **Premise 2, measured.** `javap` is not installed on this host, so
 `android/view/KeyEvent.class` was read out of `~/Android/Sdk/platforms/android-30/android.jar`
 directly (constant pool + `ConstantValue` attributes) — the same method the fixture's own

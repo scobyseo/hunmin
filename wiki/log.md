@@ -931,6 +931,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   syllable-unit commit is on, and name the reason in the debug output. Quoted
   verbatim; the page records the three obligations and the two things it leaves
   open (where the diagnostic goes, what the settings row shows).
+
 ## [2026-11-02] create | The interim delivery cannot support autoswitch, and ON stops the English passthrough
 
 - The two rulings from the maintainer's message that answered issue #175's findings,
@@ -940,3 +941,19 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   what each authorises and the three things neither decides (the settings row on a host
   that ignores it, #215; the live cost of routing English keys, #216; the separate
   syllable-commit dependency, #207).
+
+## [2026-11-02] update | The auto-toggle is live on Android (issue #174)
+
+- Implemented the 0.3-lane feature the 2026-10-12 page had left inert: the
+  service's dispatch fires `AUTO_TOGGLE`, the press writes the engine's
+  `autoswitch` value through `HunminAdapter.setAutoswitch` (the read-back, never
+  the request), and the settings list reports the engine's value and the
+  engine's chord. Measured at tier E1 with a designed case each way plus the
+  control and a data-absent fixture (`AutoSwitchTest`, `AutoSwitchGateTest`).
+- The 2026-10-12 decision's mechanism sentence expected the row to be re-enabled
+  "by giving it a default again"; the default chord stays empty instead, because
+  the assignment is the engine's chord per
+  [[2026-10-31-han-eng-modifier-compound-special-functions]]. That delta is
+  recorded in place on
+  [[2026-10-12-auto-toggle-disabled-by-default-in-0-1]], which now carries a
+  dated supersession section rather than a rewritten body.
