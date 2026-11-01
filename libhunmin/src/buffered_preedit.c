@@ -793,6 +793,13 @@ int hunmin_buffered_preedit_special_peek(const hunmin_buffered_preedit *l, const
         if (l->special_mods[fn] != want) continue;
         if (!l->special_host_set) return -1;
         if (l->special_host.supports && !l->special_host.supports(l->special_host.user, (hunmin_special_function)fn)) return -1;
+        /* B3's data gate reaches the key surface too (issue #169): the chord and
+         * the settings row write ONE value, so a press that cannot be honoured
+         * must not move it -- otherwise a machine without the dictionary could be
+         * switched ON from the keyboard while the option writer refuses. The
+         * answer is the unserviceable-platform one (-1): the key passes through
+         * and, like a platform that refuses, nothing flips. */
+        if (fn == HUNMIN_SPECIAL_AUTOSWITCH && hm_modes_data_present(l->ctx) != 1) return -1;
         return fn;
     }
     return 0;

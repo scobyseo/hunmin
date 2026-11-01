@@ -536,6 +536,7 @@ hunmin_ic *hunmin_ic_new(hunmin_ctx *ctx, const char *layout_id) {
         hunmin_ic *ic = calloc(1, sizeof *ic);
         if (!ic) return NULL;
         ic->L = &ctx->layouts[i];
+        ic->ctx = ctx;
         buf_clear(&ic->b);
         memset(ic->flag_ovr, -1, sizeof ic->flag_ovr);
         flags_rebuild(ic);
@@ -663,8 +664,21 @@ bool hunmin_ic_set_option(hunmin_ic *ic, const char *name, int value) {
     /* R13-정정's one on/off state: the settings UI writes it and reads it back
      * here, and the key surface reads the same field, so the two surfaces can
      * only agree. Coerced by !! like "caps" -- the layer's option contract is
-     * one name-to-int channel, not a per-option value grammar. */
+     * one name-to-int channel, not a per-option value grammar.
+     *
+     * B3's data gate (issue #169): ON is refused where the data the judgement
+     * needs is not installed, because a switch flipped ON on such a machine has
+     * nothing to judge with and silently does nothing -- the state would read
+     * enabled while the feature is absent. OFF is always accepted: an install
+     * that lost its data must still be able to write the preference down. A
+     * refusal is distinguishable from an unknown name by the get_option() pair,
+     * which answers this name either way, and by the presence query the caller
+     * used to draw the row (hunmin_ctx_autoswitch_data_present()). */
     if (!strcmp(name, "autoswitch")) {
+        if (value && !hunmin_ctx_autoswitch_data_present(ic->ctx)) {
+            ic->autoswitch = 0;
+            return false;
+        }
         ic->autoswitch = !!value;
         return true;
     }
@@ -816,6 +830,17 @@ bool hunmin_ctx_layout_old_hangul(const hunmin_ctx *ctx, int i) {
      * modern rule, because widening it there would accept shapes its composer
      * cannot produce. */
     return ctx && i >= 0 && i < ctx->n && ctx->layouts[i].old_hangul;
+}
+bool hunmin_ctx_autoswitch_data_present(const hunmin_ctx *ctx) {
+    /* The data half of R13-정정's on/off switch (docs/SPEC-MODES.md §R13-정정,
+     * the B3 bullet): the judgement needs the modes word list, so the feature is
+     * enable-able only where that list is installed -- and "installed" is asked
+     * through the same search every data subdirectory uses (hm_data_dirs), so no
+     * frontend assembles "<dir>/modes/en-US.json" itself. The cache the answer
+     * is read from is not observable state: the cast only spares every caller a
+     * search, and it is the reason the option writer and a settings row cannot
+     * disagree. */
+    return hm_modes_data_present((hunmin_ctx *)ctx) == 1;
 }
 hunmin_ctx *hunmin_ctx_new(const char *const *dirs, int ndirs) { return hm_data_load(dirs, ndirs); }
 void hunmin_ctx_free(hunmin_ctx *ctx) { hm_data_free(ctx); }

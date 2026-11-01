@@ -70,6 +70,16 @@ struct hunmin_ctx {
      * tables from the same directory as its layouts. Copied, so the caller may
      * free its buffer; NUL-terminated. */
     char *data_dir;
+    /* The B3 data gate's answer, computed once per context (issue #169): the
+     * modes word list found through hm_data_dirs is the data the automatic
+     * Hangul/English switch needs, and its presence decides whether the switch
+     * can be enabled at all. 0 = not asked yet, 1 = present and a word list,
+     * -1 = no searched directory holds one, -2 = installed but not a word list
+     * (malformed, or a file of another shape). The context outlives the ics and
+     * layers built from it, so this is the cheapest place the answer can live:
+     * a frontend drawing a settings row and the option writer must not disagree,
+     * and a per-call search would hammer the filesystem on every key. */
+    int modes_data;
 };
 
 #define STR_CAP 64 /* ucschar buffer capacity (libhangul parity) */
@@ -102,6 +112,13 @@ typedef struct {
  * (issue #128). Internal to the library -- never in the ABI. */
 struct hunmin_ic {
     hm_layout *L;
+    /* The context the ic was built from. Needed by the option writer that cannot
+     * be honoured on every install: `autoswitch` needs the modes word list, and
+     * the list is FOUND through the context's data dirs (hm_data_dirs), so the
+     * ic must be able to name them without a second search of its own (issue
+     * #169). Borrowed: hunmin_ic_new() requires the ctx to outlive the ic, the
+     * same rule ic->L already has. */
+    const hunmin_ctx *ctx;
     hm_buf_t b;
     ucschar commit[STR_CAP], preedit[STR_CAP];
     char commit8[UTF8_CAP], preedit8[UTF8_CAP];
@@ -168,6 +185,14 @@ int hm_wordset_load_json(hm_wordset *w, const char *path);
  * wherever the frontend's data dirs say, and a machine with no dictionary is
  * -1 rather than a silent empty set. */
 int hm_wordset_load_shipped(hm_wordset *w, const hunmin_ctx *ctx);
+/* The B3 data gate's presence answer, on the SAME search (issue #169): 1 when a
+ * searched directory holds `modes/en-US.json` and it parses as a word list, -1
+ * when none does, -2 when one does and it does not parse as one. Cached on the
+ * context, so a settings row and the option writer cannot get two answers and a
+ * key path pays no filesystem search. A presence probe, not a load: it builds no
+ * set, so the answer costs a parse rather than 118k hash inserts. Interior
+ * header only -- the ABI surface is hunmin_ctx_autoswitch_data_present(). */
+int hm_modes_data_present(hunmin_ctx *ctx);
 int hm_wordset_load_words(hm_wordset *w, const char *path);
 int hm_wordset_add(hm_wordset *w, const char *word);
 int hm_wordset_has(const hm_wordset *w, const char *word);

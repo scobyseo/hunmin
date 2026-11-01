@@ -14,7 +14,10 @@
  */
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include <fstream>
 #include <string>
+#include <system_error>
 
 extern "C" {
 #include "hunmin.h"
@@ -58,6 +61,159 @@ class KeyRuleTest : public ::testing::Test {
     hunmin_ctx *ctx_ = nullptr;
     hunmin_buffered_preedit *l_ = nullptr;
 };
+
+/* A data tree that holds the layouts and compose tables an ic needs and NOT the
+ * modes word list the automatic switch needs (issue #169). An existing context
+ * pins its own search dirs, so "the dictionary is not on the search path" has to
+ * be a real tree rather than an unset variable: this fixtures stages one, and
+ * HUNMIN_DATA_PATH still names the FULL data directory in a ctest run, so a
+ * negative answer proves the context's own dirs are the search being consulted
+ * -- the same resolution Android's sandbox depends on. */
+class AutoswitchDataGateTest : public ::testing::Test {
+  protected:
+    void SetUp() override {
+        std::error_code ec;
+        root_ = std::filesystem::temp_directory_path(ec) / "hunmin-autoswitch-gate-no-modes";
+        std::filesystem::remove_all(root_, ec);
+        std::filesystem::create_directories(root_, ec);
+        for (const char *sub : {"layouts", "compose"})
+            std::filesystem::copy(std::filesystem::path(kDataPath) / sub, root_ / sub,
+                                  std::filesystem::copy_options::recursive, ec);
+        ASSERT_FALSE(ec) << "could not stage a layouts-only data tree: " << ec.message();
+        dirs_ = root_.string();
+        const char *dir = dirs_.c_str();
+        ctx_ = hunmin_ctx_new(&dir, 1);
+        ASSERT_NE(ctx_, nullptr) << "the staged tree does not load as a data dir";
+        layer_ = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+        ASSERT_NE(layer_, nullptr);
+    }
+    void TearDown() override {
+        if (layer_) hunmin_buffered_preedit_free(layer_);
+        if (ctx_) hunmin_ctx_free(ctx_);
+        std::error_code ec;
+        std::filesystem::remove_all(root_, ec);
+    }
+    /* The staged path as a C string the context copies; kept as a member so it
+     * outlives the ctx (the ctx copies it, so this is belt and braces). */
+    std::filesystem::path root_;
+    std::string dirs_;
+
+    /* Write the staged dictionary -- the file this fixture deliberately does not
+     * ship, so a case can choose which shape the gate sees. */
+    void write_modes(const std::string &body) {
+        std::error_code ec;
+        std::filesystem::create_directories(root_ / "modes", ec);
+        std::ofstream out((root_ / "modes" / "en-US.json").string(),
+                          std::ios::binary | std::ios::trunc);
+        out << body;
+    }
+
+    /* A context over the staged tree, so the presence answer is re-derived (the
+     * cache is per context). Caller frees. */
+    hunmin_ctx *fresh_ctx() {
+        const char *dir = dirs_.c_str();
+        return hunmin_ctx_new(&dir, 1);
+    }
+
+    hunmin_ctx *ctx_ = nullptr;
+    hunmin_buffered_preedit *layer_ = nullptr;
+};
+
+TEST_F(AutoswitchDataGateTest, TheDataTheSwitchNeedsIsReportedAbsent) {
+    EXPECT_FALSE(hunmin_ctx_autoswitch_data_present(ctx_))
+        << "no modes/en-US.json on this context's search path";
+    /* It is a query, not a write: asking twice answers the same and changes no
+     * option. */
+    EXPECT_FALSE(hunmin_ctx_autoswitch_data_present(ctx_));
+    int v = 7;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(layer_, "autoswitch", &v));
+    EXPECT_EQ(v, 0) << "the B3 default, untouched by the query";
+}
+
+TEST_F(AutoswitchDataGateTest, EnablingItWhereTheDataIsAbsentIsRefused) {
+    /* The whole point (B3, SPEC-MODES §R13-정정): a stale stored preference on a
+     * machine without the data package must not half-enable the feature. */
+    EXPECT_FALSE(hunmin_buffered_preedit_set_option(layer_, "autoswitch", 1));
+
+    int v = -1;
+    EXPECT_TRUE(hunmin_buffered_preedit_get_option(layer_, "autoswitch", &v))
+        << "the NAME is known: the refusal is about the data, not the option";
+    EXPECT_EQ(v, 0) << "off, data missing -- distinguishable from off by choice by "
+                       "pairing this with the presence query";
+
+    /* OFF is always writable: an install that lost its data must still be able to
+     * record the preference, and a refusal must never wedge the value. */
+    EXPECT_TRUE(hunmin_buffered_preedit_set_option(layer_, "autoswitch", 0));
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(layer_, "autoswitch", &v));
+    EXPECT_EQ(v, 0);
+
+    /* The key surface writes the SAME value, so it refuses too -- otherwise the
+     * state could be switched ON from the keyboard while the settings row says
+     * the feature cannot be enabled. A refusal is the unserviceable-platform
+     * answer (-1): the key passes through and the platform half does not run. */
+    int performed = 0;
+    hunmin_special_host host{};
+    host.user = &performed;
+    host.perform = [](void *user, hunmin_special_function fn) { *(int *)user = (int)fn; };
+    hunmin_buffered_preedit_special_host(layer_, &host);
+
+    hunmin_key_event ev = ch('d');
+    ev.language_key = 1;
+    ev.mods = HUNMIN_MOD_CTRL; /* AUTOSWITCH's ruled default (Table A) */
+    EXPECT_EQ(hunmin_buffered_preedit_special_peek(layer_, &ev), -1) << "test phase agrees with the down";
+    EXPECT_EQ(hunmin_buffered_preedit_special(layer_, &ev), -1);
+    EXPECT_EQ(performed, 0) << "a refused press runs no platform half";
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(layer_, "autoswitch", &v));
+    EXPECT_EQ(v, 0) << "and moves nothing";
+
+    /* A layout capability answer is a different question and stays available:
+     * dubeolsik composes Hangul whether or not the dictionary is installed. */
+    EXPECT_TRUE(hunmin_ctx_layout_autoswitch_capable(ctx_, 0));
+}
+
+TEST_F(AutoswitchDataGateTest, AnInstalledButBrokenDictionaryDoesNotCountAsData) {
+    /* Enabling the feature on a list that does not parse would leave it ON and
+     * silently never switching -- the confident-zero rule, applied to the gate.
+     * A fresh context re-derives the answer (the cache is per context). */
+    write_modes("[\"computer\", \"run"); /* truncated JSON: the load answers 0 too */
+    hunmin_ctx *broken = fresh_ctx();
+    ASSERT_NE(broken, nullptr);
+    EXPECT_FALSE(hunmin_ctx_autoswitch_data_present(broken));
+    hunmin_ctx_free(broken);
+
+    /* Issue #173's ruling is the other side of the same line: the load SKIPS a
+     * damaged ELEMENT and still answers 1, so one bad entry degrades to a
+     * smaller dictionary rather than disabling the feature -- the gate must
+     * agree with the load, or an install the engine reads fine would be refused
+     * by the option. */
+    write_modes("[\"computer\", 3, \"\", \"running\"]");
+    hunmin_ctx *partial = fresh_ctx();
+    ASSERT_NE(partial, nullptr);
+    EXPECT_TRUE(hunmin_ctx_autoswitch_data_present(partial))
+        << "a file the loader fills is a countable install";
+    hunmin_ctx_free(partial);
+
+    /* ...but a file that parses and yields NO word is not: the load answers 1
+     * with an empty set, which is exactly the confident-zero state. */
+    write_modes("[]");
+    hunmin_ctx *empty = fresh_ctx();
+    ASSERT_NE(empty, nullptr);
+    EXPECT_FALSE(hunmin_ctx_autoswitch_data_present(empty));
+    hunmin_ctx_free(empty);
+}
+
+/* The other half of the same gate: where the data IS on the search path the
+ * option is accepted, so "off" there is off BY CHOICE and the settings row can
+ * say so. */
+TEST_F(KeyRuleTest, EnablingItWhereTheDataIsPresentIsAccepted) {
+    EXPECT_TRUE(hunmin_ctx_autoswitch_data_present(ctx_)) << "libhunmin/data carries modes/en-US.json";
+    int v = -1;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    ASSERT_EQ(v, 0) << "the B3 default before any write (off by choice, data present)";
+    EXPECT_TRUE(hunmin_buffered_preedit_set_option(l_, "autoswitch", 1));
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 1);
+}
 
 TEST_F(KeyRuleTest, ALayoutKeyIsFed) {
     hunmin_key_event ev = ch('d');
