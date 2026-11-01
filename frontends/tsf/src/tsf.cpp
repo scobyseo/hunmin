@@ -271,6 +271,11 @@ void CTextService::RebuildLayer() {
         const int policy = (strcmp(commitUnit_, "syllable") == 0) ? HUNMIN_COMMIT_PER_SYLLABLE : HUNMIN_COMMIT_AT_BOUNDARY;
         preedit_ = hunmin_buffered_preedit_new(ctx_, hangulId_.c_str(), latinId_.c_str(), policy);
         if (preedit_) {
+            /* R8's judgement needs the English list (R8-정정-2, ruled
+             * 2026-11-01). Loaded per layer, from the same data dirs the
+             * layouts came from; absent data is a normal state (B3) and the
+             * judgement then abstains instead of calling every word not-English. */
+            hunmin_buffered_preedit_load_english_shipped(preedit_);
             /* The engine resolves a compound press and calls back into this host
              * for the platform half (SPEC-MODES §E5, ruled 2026-10-31). It is
              * registered once per layer, beside the layer's construction, so a
@@ -324,6 +329,30 @@ void CTextService::UpdateLangBarItem(ITfThreadMgr *ptm) {
     /* Every later call is the badge refresh: OnUpdate(TF_LBI_ICON|TF_LBI_TEXT)
      * over the kernel sink the bar advised at AddItem. */
     langbar_->Update();
+}
+
+void CTextService::ApplyJudgement(ITfContext *pic) {
+    /* R8, ruled 2026-11-01 (#164): the engine judges and delivers the word; the
+     * frontend performs the switch. Asking costs one call and answers -1 in the
+     * common case (the switch is off, the word was too short, or both readings
+     * agreed), so this is safe to call on every key.
+     *
+     * The word is already in the client by the time this runs -- it arrived in
+     * out.commit -- so nothing is inserted or rewritten here (R10). What is
+     * left is the state the next key reads: the layer's slot, the conversion
+     * compartment the host stores, and the langbar. */
+    const int judged = hunmin_buffered_preedit_take_judgement(preedit_);
+    if (judged < 0) return;
+    if (judged == hunmin_buffered_preedit_language(preedit_)) return; /* already there */
+    hunmin_key_result out{};
+    if (!hunmin_buffered_preedit_toggle_language(preedit_, &out)) return;
+    /* A one-language layer cannot reach here, but the boundary the switch
+     * performs may still hold text; deliver it rather than drop it. */
+    if (out.commit && out.commit[0]) InsertText(pic, HunminUtf8ToWide(out.commit));
+    hangulMode_ = (hunmin_buffered_preedit_language(preedit_) == HUNMIN_LANGUAGE_HANGUL);
+    UpdateConversionCompartment();
+    UpdateLangBarItem(threadMgr_);
+    hunmin_logger.log(" autoswitch -> mode=%s\n", hangulMode_ ? "hangul" : "english");
 }
 
 void CTextService::ToggleModeCore(ITfContext *pic) {

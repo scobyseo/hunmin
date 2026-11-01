@@ -40,6 +40,8 @@ class HunminInputMethodService : InputMethodService() {
         const val COMMIT_SYLLABLE = "syllable"
 
         private const val TAG = "HunminIme"
+        /** hunmin.h's HUNMIN_LANGUAGE_LATIN; the judgement reports a mode as one of these. */
+        private const val HUNMIN_LANGUAGE_LATIN = 1 /* hunmin.h: HANGUL 0, LATIN 1 */
 
         /**
          * Whether an EditorInfo's inputType marks a password editor.
@@ -521,6 +523,15 @@ class HunminInputMethodService : InputMethodService() {
             engine = null
             latinEngine = null
             false
+        }
+        /* R8's automatic switch (ruled 2026-11-01, issue #164): the engine judged
+         * the finished word and has already delivered it in the judged language,
+         * so what is left is the MODE half -- and here the mode is which adapter
+         * receives the next key, which only this service knows. Taken on every
+         * key because the judgement fires on the boundary key, which is usually
+         * one the engine declined (space). */
+        if (e?.takeJudgement() == HUNMIN_LANGUAGE_LATIN && isHangulMode) {
+            toggleHangulEnglish()
         }
         return if (consumed) true else super.onKeyDown(keyCode, event)
     }

@@ -264,6 +264,13 @@ public:
      * rebuild with the other slot's layout, in one place. */
     void ToggleModeCore(ITfContext *pic);
 
+    /* R8's automatic switch (issue #164, ruled 2026-11-01): the ENGINE judges at
+     * the boundary and has already delivered the word in the judged language;
+     * this performs the MODE half -- the layer's switch, then the two host
+     * surfaces that show it. Called after every key, and it does nothing when
+     * the engine has no judgement. */
+    void ApplyJudgement(ITfContext *pic);
+
     STDMETHOD(Activate)(ITfThreadMgr *ptm, TfClientId tid) override;
     STDMETHOD(Deactivate)() override;
     STDMETHOD(EnumDisplayAttributeInfo)(IEnumTfDisplayAttributeInfo **ppEnum) override;

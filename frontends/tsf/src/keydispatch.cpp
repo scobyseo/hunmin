@@ -485,6 +485,10 @@ void CTextService::FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
         if (out.commit && *out.commit)
             InsertText(pic, HunminUtf8ToWide(out.commit));
         delivery_->Boundary(pic);
+        /* The engine judged the word it just delivered; the mode change is the
+         * frontend's half (ruled 2026-11-01, #164). Asked after the delivery so
+         * the text inserted above is the one the judgement was made on. */
+        ApplyJudgement(pic);
         return;
     }
     /* A per-syllable commit unit would hand text back on a consumed key; the

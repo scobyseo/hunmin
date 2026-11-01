@@ -52,7 +52,7 @@ using utf8Wide = std::wstring; /* readability: assertions carry wide text */
 struct LegacyTest : public CandidateTest {
     HWND ctrl = nullptr;
 
-    void LegacyBegin(bool multiline = false) {
+    void LegacyBegin(bool multiline = false, const char *hangulLayout = "dubeolsik") {
         /* A REAL EDIT control, offscreen and tool-styled, so the interim
          * path's GetFocus()-then-EM flow runs against a true EDIT window
          * (a message-only window does not accept focus — measured). The
@@ -71,7 +71,7 @@ struct LegacyTest : public CandidateTest {
         ASSERT_NE(ctrl, nullptr) << "legacy: capture EDIT not created";
         ShowWindow(ctrl, SW_SHOWNOACTIVATE);
         SetFocus(ctrl); /* the interim path resolves via GetFocus() */
-        Begin();
+        Begin(hangulLayout);
     }
 
     void LegacyTeardown() {
@@ -325,6 +325,70 @@ TEST_F(LegacyTest, EnterEndsComposingAndKeepsCaretOnNewLine) {
     FlushDocWrites();
     EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L"\r\n" + L'\u3147')
         << "the next syllable composes after the break, never back on the old line";
+    LegacyTeardown();
+}
+
+/* The reported defect (2026-11-01): a Hangul word, then a period, then Enter.
+ * Measured at the ENGINE and the LAYER first: the period is declined and the
+ * word is delivered, and Enter is declined too (no commit, used=0), so the
+ * engine never swallows the break. This case is the frontend half: on a
+ * classic host the TIP must pass Enter at the test phase so the APP inserts
+ * the paragraph break, and the word's drain must not run after it. */
+TEST_F(LegacyTest, PeriodThenEnterLandsTheBreak) {
+    LegacyBegin(true);
+    if (HasFatalFailure()) {
+        Teardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    for (const char *p = "dkssud"; *p; ++p)
+        KeyHost((WPARAM)std::toupper((unsigned char)*p));
+
+    const BOOL periodEat = KeyHost(VK_OEM_PERIOD, L'.');
+    FlushDocWrites();
+    EXPECT_EQ(periodEat, FALSE) << "a period is declined: it belongs to the app";
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L".")
+        << "the word landed, then the app's period";
+
+    const BOOL enterEat = KeyHost(VK_RETURN, L'\r');
+    FlushDocWrites();
+    EXPECT_EQ(enterEat, FALSE) << "Enter must pass at the test phase";
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L".\r\n")
+        << "the paragraph break must survive the boundary";
+    LegacyTeardown();
+}
+
+/* The same sequence on the DEFAULT layout, where the period is a layout key:
+ * measured through the layer, `sin3-p2` CONSUMES `.` into the composing word
+ * (`used=1`, preedit ends with the period), so unlike dubeolsik the word is
+ * still in flight when Enter arrives -- Enter is the boundary that delivers
+ * `...ㅎ곈디.`. That is the reported live sequence, and the question this case
+ * settles is whether the frontend keeps the app's paragraph break when the
+ * drain and the break race. The engine is not the suspect: it declines Enter
+ * on both layouts (no commit, used=0). */
+TEST_F(LegacyTest, PeriodIsALayoutKeyAndEnterStillBreaksTheLine) {
+    LegacyBegin(true, "sin3-p2");
+    if (HasFatalFailure()) {
+        Teardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    for (const char *p = "dkssud"; *p; ++p)
+        KeyHost((WPARAM)std::toupper((unsigned char)*p));
+    KeyHost(VK_OEM_PERIOD, L'.');
+    FlushDocWrites();
+    const std::wstring before = CtrlText(ctrl);
+    /* The interim path writes the composition INTO the document, so the
+     * consuming word and its period are already on screen here -- what is
+     * still in flight is the layer's word buffer, not the text. */
+    ASSERT_NE(before.find(L'.'), std::wstring::npos)
+        << "sin3-p2 composes the period as a layout key";
+
+    const BOOL enterEat = KeyHost(VK_RETURN, L'\r');
+    FlushDocWrites();
+    EXPECT_EQ(enterEat, FALSE) << "Enter passes: the app inserts the break";
+    const std::wstring after = CtrlText(ctrl);
+    EXPECT_GE(after.size(), before.size() + 2) << "the paragraph break must be in the document";
+    EXPECT_EQ(after.compare(after.size() - 2, 2, L"\r\n"), 0)
+        << "the break must be the last thing in the document";
     LegacyTeardown();
 }
 
