@@ -1888,6 +1888,16 @@ priced.
 | 3 | the 0.1 half shipped the feature inert | **holds.** `KeyAction.AUTO_TOGGLE` has `defaults = emptyList()`, the service's dispatch skips the action (`if (action == KeyAction.AUTO_TOGGLE) continue`), and the settings row renders disabled at 미정 (0.3). Ruled 2026-10-12, `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`. |
 | 4 | the assignment must be a value the engine holds (R13-정정) | **holds as a requirement; the tree cannot express it.** `grep -rn autoswitch libhunmin/ frontends/ tests/` → **0**. `hunmin_ic_set_option()` accepts one name (`caps`); `hunmin_buffered_preedit_set_option()` takes the same shape; no exported symbol returns a key binding. So the value named on screen has no home today, and nothing can diverge from it yet only because nothing shows it. |
 
+**Correction (2026-11-01, issue #165): row 4's implementation half no longer holds.**
+The value has a home now — `"autoswitch"` on `hunmin_ic_set_option()`, read back through
+`hunmin_ic_get_option()` / `hunmin_buffered_preedit_get_option()`, OFF on a fresh ic and
+carried across a language toggle — the binding this row says no symbol returns is
+`hunmin_buffered_preedit_special_chord()`, and the transition is the engine's
+(`hunmin_buffered_preedit_special()` flips its own value on a serviced press, ruled
+2026-11-01). What survives from the row is its *requirement* half only. Both halves are
+recorded in `docs/MODES-ENGINE-RULES.md` §3 ("The value the `AUTOSWITCH` function flips").
+The row above is left as measured on its own date rather than rewritten.
+
 **Premise 2, measured.** `javap` is not installed on this host, so
 `android/view/KeyEvent.class` was read out of `~/Android/Sdk/platforms/android-30/android.jar`
 directly (constant pool + `ConstantValue` attributes) — the same method the fixture's own

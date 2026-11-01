@@ -328,6 +328,126 @@ TEST_F(KeyRuleTest, ShiftIsASpecialCombinationOnlyWithTheLanguageKey) {
         << "no binding for Shift+Alt, and VOICE was rebound away from Alt";
 }
 
+/* ---- R13-정정's one on/off state (issue #165) ---------------------------- */
+
+TEST_F(KeyRuleTest, TheAutoswitchOptionIsOneValueTheLayerReadsBack) {
+    /* The requirement is one value the engine holds and a settings surface only
+     * reads and writes (docs/SPEC-MODES.md §R13-정정), so the assertion is the
+     * round trip: no option call at all answers the B3 default (OFF,
+     * 2026-10-11), and every write is what the next read returns. */
+    int v = 7;
+    EXPECT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v)) << "the query is not a second mechanism";
+    EXPECT_EQ(v, 0) << "OFF until the B3 data gate ships (2026-10-11 ruling)";
+
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l_, "autoswitch", 1));
+    EXPECT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 1);
+
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l_, "autoswitch", 0));
+    EXPECT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 0);
+
+    /* The value contract is the one the layer already has for "caps": any
+     * non-zero is ON, and an unknown NAME is the rejection -- false, with the
+     * caller's int left exactly as it was. */
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l_, "autoswitch", 7));
+    EXPECT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 1) << "coerced like every other option";
+
+    v = 42;
+    EXPECT_FALSE(hunmin_buffered_preedit_get_option(l_, "no-such-option", &v));
+    EXPECT_EQ(v, 42) << "an unknown name must not write through the out parameter";
+    EXPECT_FALSE(hunmin_buffered_preedit_set_option(l_, "no-such-option", 1));
+    EXPECT_FALSE(hunmin_buffered_preedit_get_option(l_, "autoswitch", nullptr));
+
+    /* The key surface beside the value is the engine's too (R13-정정's
+     * "explainable" bullet): the dialog asks, it does not spell a chord. */
+    EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_AUTOSWITCH), HUNMIN_MOD_CTRL);
+}
+
+TEST_F(KeyRuleTest, TheAutoswitchStateSurvivesALanguageToggle) {
+    /* The layer re-creates its ic on 한/영 (the two languages are two layouts),
+     * so a preference stored on the old ic would silently revert to OFF the
+     * first time the person switched language -- the "saved, reloaded, did
+     * nothing" defect class. Pinned here because no frontend would show it: the
+     * value is set once by a settings surface and read later. */
+    hunmin_buffered_preedit *l =
+        hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 1));
+
+    hunmin_key_result out{};
+    EXPECT_EQ(hunmin_buffered_preedit_toggle_language(l, &out), 1) << "the pair switches";
+
+    int v = -1;
+    EXPECT_TRUE(hunmin_buffered_preedit_get_option(l, "autoswitch", &v));
+    EXPECT_EQ(v, 1) << "a language toggle is not an option reset";
+    EXPECT_EQ(hunmin_buffered_preedit_language(l), HUNMIN_LANGUAGE_LATIN);
+
+    EXPECT_EQ(hunmin_buffered_preedit_toggle_language(l, &out), 1) << "and back";
+    EXPECT_TRUE(hunmin_buffered_preedit_get_option(l, "autoswitch", &v));
+    EXPECT_EQ(v, 1);
+
+    /* hunmin_ic_reset() drops composition, not a person's preference. */
+    hunmin_buffered_preedit_reset(l);
+    EXPECT_TRUE(hunmin_buffered_preedit_get_option(l, "autoswitch", &v));
+    EXPECT_EQ(v, 1);
+
+    hunmin_buffered_preedit_free(l);
+}
+
+TEST_F(KeyRuleTest, TheAutoswitchChordFlipsTheOneValue) {
+    /* Ruled 2026-11-01 (issue #165): the engine owns the transition. The chord
+     * surface and the settings surface therefore write the same field, and a
+     * frontend never has to decide what "toggle" means -- which is the whole
+     * point of R13-정정's "one value". */
+    hunmin_key_event ev = ch('d');
+    ev.language_key = 1;
+    ev.mods = HUNMIN_MOD_CTRL; /* AUTOSWITCH's ruled default (Table A) */
+
+    int v = -1;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    ASSERT_EQ(v, 0) << "the B3 default before any press";
+
+    int performed = 0;
+    hunmin_special_host host{};
+    host.user = &performed;
+    host.perform = [](void *user, hunmin_special_function fn) { *(int *)user = (int)fn; };
+    hunmin_buffered_preedit_special_host(l_, &host);
+
+    /* The peek answers without changing anything: a platform test phase must not
+     * flip the state before the key it is testing for. */
+    EXPECT_EQ(hunmin_buffered_preedit_special_peek(l_, &ev), HUNMIN_SPECIAL_AUTOSWITCH);
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 0) << "a peek is not a press";
+
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), HUNMIN_SPECIAL_AUTOSWITCH);
+    EXPECT_EQ(performed, (int)HUNMIN_SPECIAL_AUTOSWITCH) << "the platform half still runs";
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 1) << "the engine flipped its own value";
+
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), HUNMIN_SPECIAL_AUTOSWITCH);
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 0) << "and back: a flip, not a set";
+
+    /* A refusal moves nothing. The host is withdrawn, so the press is `-1` and
+     * the key passes through -- a platform that cannot service the function
+     * must not change the state it could not act on. */
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l_, "autoswitch", 1));
+    hunmin_buffered_preedit_special_host(l_, nullptr);
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1);
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 1) << "an unserviced press leaves the value alone";
+
+    /* And the other function's chord touches nothing: only AUTOSWITCH owns this
+     * state, so a VOICE press is not a second writer. */
+    hunmin_buffered_preedit_special_host(l_, &host);
+    ev.mods = HUNMIN_MOD_ALT; /* VOICE */
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), HUNMIN_SPECIAL_VOICE);
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 1) << "VOICE is not a writer of the autoswitch value";
+}
+
 } // namespace
 
 int main(int argc, char **argv) {

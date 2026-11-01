@@ -99,6 +99,11 @@ struct hunmin_ic {
     size_t extcap;
     uint32_t T; /* symbol-tier state (0/101..103) */
     int caps; /* Caps Lock (expression var P) */
+    /* R13-정정's one on/off state for the automatic Hangul/English switch.
+     * Lives on the ic (the engine's state holder) and is carried across the
+     * layer's ic re-creation in attach_ic(), so a language toggle cannot lose a
+     * preference the settings UI just wrote. 0 = OFF, the B3 default. */
+    int autoswitch;
     int flag_ovr[128]; /* 전처리수식 override (w/W/z/h/H), -1 = layout */
     int flags_eff[128]; /* effective flags seen by expressions */
     bool opt_auto_reorder; /* libhangul ic_new defaults */

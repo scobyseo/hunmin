@@ -10,6 +10,7 @@ hunmin_buffered_preedit_english_ready
 hunmin_buffered_preedit_english_valid
 hunmin_buffered_preedit_external_text
 hunmin_buffered_preedit_free
+hunmin_buffered_preedit_get_option
 hunmin_buffered_preedit_language
 hunmin_buffered_preedit_latin_text
 hunmin_buffered_preedit_layout_id
@@ -43,6 +44,7 @@ hunmin_ic_commit
 hunmin_ic_commit_text
 hunmin_ic_flush
 hunmin_ic_free
+hunmin_ic_get_option
 hunmin_ic_new
 hunmin_ic_peek_key
 hunmin_ic_preedit

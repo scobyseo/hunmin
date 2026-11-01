@@ -196,11 +196,18 @@ static char *dup_or_null(const char *s) {
 }
 
 static void attach_ic(hunmin_buffered_preedit *l, const char *layout_id) {
+    /* The autoswitch state is the person's preference, not the layout's, so the
+     * ic re-created here inherits it: without this, a settings UI writes ON and
+     * the very next 한/영 press (toggle_language) silently drops it back to the
+     * B3 default of OFF. The composition state does NOT travel -- that is the
+     * boundary's job and it has already committed. */
+    const int autoswitch = l->ic ? l->ic->autoswitch : 0;
     if (l->ic) {
         hunmin_ic_free(l->ic);
         l->ic = NULL;
     }
     if (layout_id) l->ic = hunmin_ic_new(l->ctx, layout_id);
+    if (l->ic) l->ic->autoswitch = autoswitch;
 }
 
 /* The ruled defaults (2026-10-31, Table A): the two functions that exist get a
@@ -346,6 +353,11 @@ void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
 bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value) {
     if (!l || !l->ic) return false;
     return hunmin_ic_set_option(l->ic, name, value);
+}
+
+bool hunmin_buffered_preedit_get_option(const hunmin_buffered_preedit *l, const char *name, int *out) {
+    if (!l || !l->ic) return false;
+    return hunmin_ic_get_option(l->ic, name, out);
 }
 
 /* ---------------------------------------------------------- external text */
@@ -510,6 +522,14 @@ int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key
      * claims and the gesture the down services would drift apart. */
     const int fn = hunmin_buffered_preedit_special_peek(l, ev);
     if (fn <= 0) return fn;
+    /* The ENGINE owns the transition of the state AUTOSWITCH flips (ruled
+     * 2026-11-01, issue #165): one home, so the three frontends cannot disagree
+     * about what toggling means, and the value the settings UI reads is the one
+     * this key writes. Only a SERVICED press flips -- a refusal (`-1`) and a
+     * not-ours event (`0`) leave the state alone, which is what keeps an
+     * unserviceable platform from moving a preference it cannot honour. The
+     * host's perform() stays the platform half: the data-gated feature work. */
+    if (fn == HUNMIN_SPECIAL_AUTOSWITCH && l->ic) l->ic->autoswitch = !l->ic->autoswitch;
     if (l->special_host.perform) l->special_host.perform(l->special_host.user, (hunmin_special_function)fn);
     return fn;
 }
