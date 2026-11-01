@@ -487,6 +487,204 @@ hunmin_buffered_preedit *pair_layer(hunmin_ctx *ctx, int autoswitch,
 
 } // namespace
 
+/* E6 (docs/SPEC-MODES.md §E6, ruled 2026-11-01: the maintainer chose this as the
+ * DEFAULT — "옵션처리하자. 설정할 수 있게. default는 B로."). The option is
+ * `judge_timing`: 1 = the judgement is shown at every key (the flicker the item
+ * describes), 0 = only at the boundary. What must hold either way is that the
+ * DELIVERED text does not move: the timing changes when a language is shown, never
+ * what is committed or which mode the frontend is told to adopt. That equality is
+ * the whole contract, so it is asserted as an equality between the two runs rather
+ * than against typed syllables. */
+namespace {
+
+/* Does this preedit show the judged (Latin) language rather than the current one?
+ * The reading is ASCII; a Hangul layout's rendering is syllables and jamo. */
+bool shows_latin(const char *preedit) {
+    for (const char *p = preedit ? preedit : ""; *p; ++p)
+        if (*p >= 'a' && *p <= 'z') return true;
+    return false;
+}
+
+/* How many times the displayed language changes while `keys` is typed, counting the
+ * first key's answer as coming from the current mode (Hangul). */
+int display_changes(hunmin_buffered_preedit *l, const char *keys) {
+    bool was_latin = false;
+    int changes = 0;
+    for (const char *p = keys; *p; ++p) {
+        hunmin_key_result out{};
+        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, &out);
+        const bool latin = shows_latin(out.preedit);
+        if (latin != was_latin) ++changes;
+        was_latin = latin;
+    }
+    return changes;
+}
+
+} // namespace
+
+/* The text a layout produces for a key sequence, with the same shift the test
+ * presses -- the engine's own answer, for the layout the person was in. */
+std::string render_with(hunmin_ctx *ctx, const char *layout, const std::string &keys, int shift_first) {
+    hunmin_ic *ic = hunmin_ic_new(ctx, layout);
+    std::string total;
+    for (size_t i = 0; i < keys.size(); ++i) {
+        const uint32_t shift = (shift_first && i == 0) ? 1u : 0u;
+        if (hunmin_ic_process_key(ic, static_cast<uint32_t>(keys[i]), shift)) {
+            const char *c = hunmin_ic_commit(ic);
+            if (c) total += c;
+        } else {
+            const char *c = hunmin_ic_flush(ic);
+            if (c) total += c;
+        }
+    }
+    const char *tail = hunmin_ic_flush(ic);
+    if (tail) total += tail;
+    hunmin_ic_free(ic);
+    return total;
+}
+
+/* THE 0.3 GATE, in the maintainer's own example (ruled 2026-11-01: *"E1도 당연히
+ * 지원해야지. 내 예제가 동작하는 것까지를 0.3 release gate로 보자."*).
+ *
+ * `English는 좋은 Language입니다` typed as ONE key stream with `autoswitch` on and
+ * the shipped dictionary: every word must come out in the language the person meant,
+ * which needs BOTH lines of R8's formula — Hangul to English for `English` and
+ * `Language`, English to Hangul for `는`, `좋은` and `입니다` (E1).
+ *
+ * The expectation is the engine's own text for each word on the layout that word was
+ * meant in (`render_with`), never typed Hangul and never a hand-written English
+ * string: the test states what the person meant and lets the engine say what that
+ * is. The spaces are delivered too, as they are in the stream.
+ *
+ * The frontend's half is modelled, not assumed: after each key the test reads
+ * `take_judgement` and performs the switch when a mode comes back. */
+TEST_F(WordSetTest, TheZeroThreeGateMixedSentenceWorksInOneStream) {
+    struct Word {
+        const char *keys;
+        const char *layout; /* the layout the person was in for this word */
+        int shift_first;    /* the two capitalised words */
+        int expected_mode;  /* HUNMIN_LANGUAGE_*, or -1 for no judgement */
+    };
+    const Word words[] = {
+        {"english", "us-qwerty", 1, HUNMIN_LANGUAGE_LATIN},
+        {"sms", "dubeolsik", 0, HUNMIN_LANGUAGE_HANGUL},     /* 는 */
+        {"whgdms", "dubeolsik", 0, -1},                      /* 좋은: Hangul in, Hangul out */
+        {"language", "us-qwerty", 1, HUNMIN_LANGUAGE_LATIN},
+        {"dlqslek", "dubeolsik", 0, HUNMIN_LANGUAGE_HANGUL}, /* 입니다 */
+    };
+
+    std::string expected;
+    for (const Word &w : words) {
+        expected += render_with(ctx_, w.layout, w.keys, w.shift_first);
+        expected += ' ';
+    }
+
+    hunmin_buffered_preedit *l = pair_layer(ctx_, 1);
+    ASSERT_NE(l, nullptr);
+    std::string delivered;
+    for (const Word &w : words) {
+        const std::string keys = w.keys;
+        for (size_t i = 0; i < keys.size(); ++i) {
+            hunmin_key_result out{};
+            const uint32_t shift = (w.shift_first && i == 0) ? 1u : 0u;
+            hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(keys[i]), shift, &out);
+            if (out.commit && *out.commit) delivered += out.commit;
+            const int mode = hunmin_buffered_preedit_take_judgement(l);
+            if (mode >= 0) {
+                EXPECT_EQ(w.expected_mode, mode) << w.keys;
+                hunmin_key_result switched{};
+                hunmin_buffered_preedit_toggle_language(l, &switched);
+            }
+        }
+        /* The space ends the word and reaches the client. */
+        hunmin_key_result out{};
+        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(' '), 0, &out);
+        if (out.commit && *out.commit) delivered += out.commit;
+        const int mode = hunmin_buffered_preedit_take_judgement(l);
+        if (mode >= 0) {
+            EXPECT_EQ(w.expected_mode, mode) << w.keys << " at its space";
+            hunmin_key_result switched{};
+            hunmin_buffered_preedit_toggle_language(l, &switched);
+        }
+        delivered += ' ';
+    }
+    hunmin_buffered_preedit_free(l);
+
+    EXPECT_EQ(expected, delivered)
+        << "the mixed sentence did not come out in the languages the person meant";
+}
+
+TEST_F(WordSetTest, JudgeTimingIsAnOptionAndDefaultsToPerKey) {
+    hunmin_buffered_preedit *l = pair_layer(ctx_, 1);
+    ASSERT_NE(l, nullptr);
+    int timing = -1;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l, "judge_timing", &timing));
+    EXPECT_EQ(1, timing) << "the maintainer's chosen default is per key";
+    EXPECT_TRUE(hunmin_buffered_preedit_set_option(l, "judge_timing", 0));
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l, "judge_timing", &timing));
+    EXPECT_EQ(0, timing);
+    EXPECT_FALSE(hunmin_buffered_preedit_set_option(l, "judge_timing", 2)) << "only the two timings exist";
+    hunmin_buffered_preedit_free(l);
+}
+
+TEST_F(WordSetTest, TheJudgementTimingChangesTheDisplayAndNeverTheText) {
+    const char *words[] = {"hello", "alphabetically", "the", "kbs", "dkssud", "on"};
+    for (const char *w : words) {
+        hunmin_buffered_preedit *per_key = pair_layer(ctx_, 1);
+        hunmin_buffered_preedit *boundary = pair_layer(ctx_, 1);
+        ASSERT_NE(per_key, nullptr);
+        ASSERT_NE(boundary, nullptr);
+        ASSERT_TRUE(hunmin_buffered_preedit_set_option(per_key, "judge_timing", 1));
+        ASSERT_TRUE(hunmin_buffered_preedit_set_option(boundary, "judge_timing", 0));
+
+        const int per_key_changes = display_changes(per_key, w);
+        const int boundary_changes = display_changes(boundary, w);
+        const WordRun per_key_run = type_and_judge(per_key, " ");
+        const WordRun boundary_run = type_and_judge(boundary, " ");
+
+        EXPECT_EQ(boundary_run.commit, per_key_run.commit) << "the timing changed the delivered text: " << w;
+        EXPECT_EQ(boundary_run.mode, per_key_run.mode) << "the timing changed the mode the frontend adopts: " << w;
+        /* At the boundary only the word is shown in the current mode and the answer
+         * arrives once, at the space: so nothing during typing may be Latin. */
+        EXPECT_EQ(0, boundary_changes) << "boundary timing showed the judged language while typing: " << w;
+        /* Per key shows whatever the judgement says at that key -- which is the
+         * flicker the item names, not a defect: it is the chosen default. */
+        EXPECT_GE(per_key_changes, 0) << w;
+        hunmin_buffered_preedit_free(per_key);
+        hunmin_buffered_preedit_free(boundary);
+    }
+}
+
+TEST_F(WordSetTest, PerKeyTimingFlickersOnAnEnglishWordAndBoundaryTimingDoesNot) {
+    /* The measured shape (docs/OPTIONS-MEASURED.md §BND-4), with R9's three-key
+     * guard applied: the first two keys of any word are never judged, so a flip can
+     * only start at key 3. `hello` therefore flips once (Hangul, Hangul, Hangul,
+     * Latin, Latin); `alphabetically` flips back and forth 11 times. The count is a
+     * property of the dictionary, not of this rule, so the assertion is the
+     * property: a word that changes language inside itself. */
+    hunmin_buffered_preedit *per_key = pair_layer(ctx_, 1);
+    ASSERT_NE(per_key, nullptr);
+    EXPECT_EQ(1, display_changes(per_key, "hello"))
+        << "`hello` flips once, at the key where the guard stops applying";
+    hunmin_buffered_preedit_free(per_key);
+
+    hunmin_buffered_preedit *deep = pair_layer(ctx_, 1);
+    ASSERT_NE(deep, nullptr);
+    EXPECT_GT(display_changes(deep, "alphabetically"), 1) << "a long English word flips back";
+    hunmin_buffered_preedit_free(deep);
+
+    hunmin_buffered_preedit *boundary = pair_layer(ctx_, 1);
+    ASSERT_NE(boundary, nullptr);
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(boundary, "judge_timing", 0));
+    EXPECT_EQ(0, display_changes(boundary, "hello")) << "the boundary timing has no mid-word flip";
+    /* The same layer, one key later: `display_changes` typed the word, so the space
+     * is what completes it. */
+    const WordRun r = type_and_judge(boundary, " ");
+    EXPECT_EQ("hello", r.commit);
+    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, r.mode);
+    hunmin_buffered_preedit_free(boundary);
+}
+
 TEST_F(WordSetTest, AutoswitchOffIsTheIdentityPath) {
     hunmin_buffered_preedit *off = pair_layer(ctx_, 0);
     ASSERT_NE(off, nullptr);

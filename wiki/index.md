@@ -85,6 +85,13 @@
 - [[2026-11-01-the-engine-judges-the-frontend-switches]] — the judgement is the
   engine's and the switch is each frontend's; R9's threshold at three key
   inputs, and the fcitx5 detector retired.
+- [[2026-11-01-the-judgement-timing-is-per-key-by-default]] — E6 ruled: both
+  judgement timings ship as the `judge_timing` option and the per-key flicker is
+  the default; the delivered text is identical either way (64.05% of dictionary
+  forms flip back inside the word under the default, with R9's guard applied).
+- [[2026-11-01-the-symmetric-rule-ships-and-the-0-3-gate]] — E1 ruled: both lines
+  of R8's formula ship (the Hangul reading of Latin-mode keys), and the 0.3 gate is
+  the maintainer's mixed sentence `English는 좋은 Language입니다` typed as one stream.
 - [[2026-10-18-tsf-chord-transient-not-persistent]] — issue #101 ruled: a
   CTRL/ALT chord in hangul mode is transient processing only — the pending
   preedit commits through the boundary flush and the chord passes uneaten, but

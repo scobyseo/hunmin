@@ -75,6 +75,20 @@ struct hunmin_ctx {
 #define STR_CAP 64 /* ucschar buffer capacity (libhangul parity) */
 #define UTF8_CAP 256 /* getter output capacity */
 
+/* The cap on the word the shared buffered layer holds (docs/SPEC-MODES.md
+ * §R4-정정, ruled 2026-11-01). The preedit a frontend is asked to render grows
+ * with the word, so the layer's own buffer is bounded: past this many BYTES of
+ * UTF-8 the first half of the word is committed and the tail stays. Bytes rather
+ * than characters, because what is being bounded is an allocation.
+ *
+ * 256 B is 85 syllables and 10.7x the longest form the shipped English oracle
+ * knows (24 characters, 0 of 118,150 forms exceed it); reaching it takes ~256
+ * consecutive letter keys with no space and no symbol. Configurable at runtime
+ * through the layer's "word_cap" option (bytes, 0 = no cap); the value is the
+ * maintainer's (2026-11-01). `docs/OPTIONS-MEASURED.md` §BND-2 is the
+ * measurement, and `tools/modes-boundary-probe.py buffer` re-runs it. */
+#define WORD_CAP 256
+
 typedef struct {
     ucschar cho, jung, jong;
     uint8_t jvar;

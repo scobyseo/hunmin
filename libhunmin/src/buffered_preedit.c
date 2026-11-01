@@ -30,6 +30,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* R9's threshold (docs/SPEC-MODES.md §R9, ruled 2026-11-01): three KEY INPUTS, the
+ * unit the maintainer named the same day -- not characters, not syllables. Lives at
+ * file scope because two readers share it: judge_boundary() decides with it, and
+ * judged_display() may not show a judgement the guard would refuse. */
+#define JUDGE_MIN_KEYS 3
+
 struct hunmin_buffered_preedit {
     hunmin_ctx *ctx; /* borrowed: the caller owns the context */
     char *hangul_id; /* owned copies: a frontend's ids may be freed */
@@ -39,6 +45,7 @@ struct hunmin_buffered_preedit {
     hunmin_ic *ic;
     char *word; /* buffered word (UTF-8), only used in BUFFERED mode */
     size_t wordlen, wordcap;
+    size_t cap; /* WORD_CAP by default; 0 = no cap (option "word_cap", R4-정정) */
     char *commit_out; /* returned strings, owned, valid until the next call */
     size_t commitcap;
     char *preedit_out;
@@ -67,6 +74,23 @@ struct hunmin_buffered_preedit {
      * and `latin_out` the reading of the word that last finished. */
     uint32_t *keys; /* interleaved (base, shift) of the word in flight */
     size_t keylen, keycap; /* in slots, not bytes */
+    /* E6 (docs/SPEC-MODES.md §E6, ruled 2026-11-01): WHEN the judgement is shown.
+     * 1 = per key (the default): the preedit answers in the judged language while
+     * the word is still being typed, which is the flicker the item describes and
+     * the behaviour the maintainer chose as the default ("default는 B로").
+     * 0 = at the boundary only: the word is shown in the current mode and answers
+     * once, at the delimiter. The delivered text is identical either way -- only
+     * when it is shown differs -- and that equality is what the tier-A case pins. */
+    int judge_timing;
+    char *judged_out; /* the per-key display's reading, owned */
+    size_t judgedcap;
+    /* E1's half (docs/SPEC-MODES.md §R8, ruled 2026-11-01: "E1도 당연히 지원해야지"):
+     * the Hangul reading of a word typed in Latin mode, which is what the symmetric
+     * line of R8's formula judges. Same shape as latin_out and for the same reason --
+     * a Latin layout cannot produce Hangul, so the reading is the keys replayed
+     * through the frontend's Hangul layout. */
+    char *hangul_out;
+    size_t hangulcap;
     char *latin_out; /* the finished word's reading; "" while a word composes */
     size_t latincap;
 };
@@ -100,8 +124,6 @@ static void word_append(hunmin_buffered_preedit *l, const char *s) {
     l->wordlen += n;
 }
 
-/* ------------------------------------------------------- the Latin reading */
-
 static void keys_clear(hunmin_buffered_preedit *l) { l->keylen = 0; }
 
 static bool keys_reserve(hunmin_buffered_preedit *l, size_t want) {
@@ -133,32 +155,40 @@ static void keys_push(hunmin_buffered_preedit *l, uint32_t base, uint32_t shift)
  * commit (measured in frontends/fcitx5/src/language_detect.cpp -- replaying
  * "kbs" returned "s"). The preedit is non-destructive, so one read at the end
  * catches whatever is still composing. */
-static void latin_reading(hunmin_buffered_preedit *l) {
-    if (!reserve(&l->latin_out, &l->latincap, 1)) return;
-    l->latin_out[0] = 0;
-    if (!l->latin_id || !l->ctx || !l->keylen) return;
-    hunmin_ic *shadow = hunmin_ic_new(l->ctx, l->latin_id);
-    if (!shadow) return;
-    char *out = l->latin_out;
-    size_t cap = l->latincap, n = 0;
+static const char *replay_reading(const hunmin_buffered_preedit *l, const char *layout_id, char **buf, size_t *cap) {
+    if (!reserve(buf, cap, 1)) return "";
+    (*buf)[0] = 0;
+    if (!layout_id || !l->ctx || !l->keylen) return *buf;
+    hunmin_ic *shadow = hunmin_ic_new(l->ctx, layout_id);
+    if (!shadow) return *buf;
+    char *out = *buf;
+    size_t n = 0;
     for (size_t i = 0; i + 1 < l->keylen; i += 2) {
         hunmin_ic_process_key(shadow, l->keys[i], l->keys[i + 1]);
         const char *c = hunmin_ic_commit(shadow);
         size_t cn = c ? strlen(c) : 0;
-        if (cn && reserve(&out, &cap, n + cn + 1)) {
+        if (cn && reserve(&out, cap, n + cn + 1)) {
             memcpy(out + n, c, cn + 1);
             n += cn;
         }
     }
     const char *pre = hunmin_ic_preedit(shadow);
     size_t pn = pre ? strlen(pre) : 0;
-    if (pn && reserve(&out, &cap, n + pn + 1)) {
+    if (pn && reserve(&out, cap, n + pn + 1)) {
         memcpy(out + n, pre, pn + 1);
         n += pn;
     }
     hunmin_ic_free(shadow);
-    l->latin_out = out; /* the appends may have moved it */
-    l->latincap = cap;
+    *buf = out; /* the appends may have moved it */
+    return out;
+}
+
+static void latin_reading(hunmin_buffered_preedit *l) {
+    replay_reading(l, l->latin_id, &l->latin_out, &l->latincap);
+}
+
+static void hangul_reading(hunmin_buffered_preedit *l) {
+    replay_reading(l, l->hangul_id, &l->hangul_out, &l->hangulcap);
 }
 
 static const char *set_commit(hunmin_buffered_preedit *l, const char *s) {
@@ -167,6 +197,107 @@ static const char *set_commit(hunmin_buffered_preedit *l, const char *s) {
     if (!reserve(&l->commit_out, &l->commitcap, n + 1)) return "";
     memcpy(l->commit_out, s, n + 1);
     return l->commit_out;
+}
+
+/* ------------------------------------------------------- the cap (R4-정정) */
+
+/* set_commit for a LENGTH rather than a NUL-terminated string: the half being
+ * committed is a prefix of the word buffer, which is not terminated at that
+ * offset. NULL means the copy could not be made, so the caller can leave the word
+ * intact instead of dropping text it had already decided to deliver. */
+static const char *set_commit_n(hunmin_buffered_preedit *l, const char *s, size_t n) {
+    if (!reserve(&l->commit_out, &l->commitcap, n + 1)) return NULL;
+    memcpy(l->commit_out, s, n);
+    l->commit_out[n] = 0;
+    return l->commit_out;
+}
+
+/* The cap's overflow path (docs/SPEC-MODES.md §R4-정정, ruled 2026-11-01): a word
+ * past WORD_CAP bytes delivers its first half now, so the preedit a frontend must
+ * render stays bounded, and the tail keeps composing. Always answers what this key
+ * delivers — "" while the word is under the cap, which is every real word.
+ *
+ * Three things it deliberately does NOT do, each a decision taken when it was
+ * written rather than an omission:
+ *
+ *  - it does not JUDGE. The judgement (#164's judge_boundary) runs only in
+ *    boundary(), so a flushed half is committed in the current language unjudged,
+ *    and the word that later reaches the boundary is judged against the REMAINDER:
+ *    keys_clear() below empties the reading's raw material, so latin_reading()
+ *    replays only the tail's keys (measured: after three flushes of a 400-key word
+ *    the boundary's reading is the 61 keys still uncommitted, not 400 —
+ *    docs/OPTIONS-MEASURED.md §BND-2). That is "the remainder is its own word",
+ *    which is the only reading the layer still has.
+ *  - it does not cut on a byte: the half backs up to a UTF-8 lead byte, so a
+ *    syllable is never delivered as a fragment.
+ *  - it drops the Latin key log instead of splitting it. The reading is what the
+ *    same keys produce on the Latin layout, and half a word's reading is not the
+ *    reading of anything: failing closed (english_valid answers 0 for the tail) is
+ *    the only answer that cannot turn into a wrong switch.
+ */
+static const char *word_flush_half(hunmin_buffered_preedit *l) {
+    set_commit(l, "");
+    /* The cap bounds what the frontend RENDERS, which is the word plus the
+     * in-flight syllable, so the in-flight part counts against it. Comparing only
+     * against the word would let the preedit past the cap by one syllable. */
+    const char *inflight_text = hunmin_ic_preedit(l->ic);
+    const size_t inflight = inflight_text ? strlen(inflight_text) : 0;
+    if (!l->cap || l->wordlen + inflight <= l->cap) return l->commit_out;
+    size_t half = l->wordlen / 2;
+    while (half > 0 && ((unsigned char)l->word[half] & 0xc0) == 0x80) half--;
+    if (!half) return l->commit_out;
+    const char *out = set_commit_n(l, l->word, half);
+    if (!out) return l->commit_out; /* out of memory: leave the word whole */
+    memmove(l->word, l->word + half, l->wordlen - half);
+    l->wordlen -= half;
+    l->word[l->wordlen] = 0;
+    keys_clear(l);
+    return out;
+}
+
+/* E6's per-key display (docs/SPEC-MODES.md §E6, ruled 2026-11-01: "default는 B로").
+ *
+ * Answers the text to SHOW for the word in flight when the judgement runs at this
+ * key, or NULL when the current mode's rendering stands. It asks exactly the two
+ * questions judge_boundary() asks, over the keys recorded so far and the Hangul
+ * text as rendered -- english_valid on the reading, hangul_valid on what is on
+ * screen -- so the display and the delivery cannot answer differently about the
+ * same word.
+ *
+ * What it does NOT do: it does not deliver, switch, or record a judgement. The word
+ * still goes out at the boundary, in the language judge_boundary() decides there,
+ * and `take_judgement` still answers once per word -- so R10 (nothing retroactive)
+ * and the "one switch per word" the frontends perform are untouched. The cost of
+ * the default is the flicker the item describes: 94.18% of dictionary forms would
+ * change language at least once while being typed (docs/OPTIONS-MEASURED.md
+ * §BND-4), which is the trade the ruling accepted.
+ *
+ * The reading is replayed per key from the recorded keys, so this is O(keys) per
+ * keystroke; the 256 B word cap bounds that at 256 keys. */
+static const char *judged_display(hunmin_buffered_preedit *l, const char *shown_text) {
+    if (l->judge_timing != 1) return NULL;
+    if (!l->ic || !l->ic->autoswitch) return NULL;
+    if (!l->latin_id) return NULL; /* one-language layer: no second reading */
+    if (l->keylen / 2 < JUDGE_MIN_KEYS) return NULL; /* R9's guard, both directions */
+    if (!hm_wordset_ready(l->english)) return NULL;
+
+    if (l->hangul_mode) {
+        /* The word on screen is Hangul; the other half is its Latin reading. */
+        if (!l->ic->L || !l->ic->L->composes_hangul) return NULL;
+        const char *reading = replay_reading(l, l->latin_id, &l->judged_out, &l->judgedcap);
+        if (!reading || !*reading) return NULL;
+        if (!hm_wordset_has(l->english, reading)) return NULL;
+        if (hunmin_hangul_valid(shown_text)) return NULL; /* both valid: keep the mode */
+        return reading;
+    }
+    /* E1: the word on screen is Latin; the other half is its Hangul reading, and
+     * the judgement fires when that reads as syllables and the Latin does not read
+     * as a word. */
+    const char *reading = replay_reading(l, l->hangul_id, &l->judged_out, &l->judgedcap);
+    if (!reading || !*reading) return NULL;
+    if (hm_wordset_has(l->english, shown_text)) return NULL; /* english_valid */
+    if (!hunmin_hangul_valid(reading)) return NULL;
+    return reading;
 }
 
 /* What the frontend shows. In buffered mode that is the finished word plus the
@@ -181,7 +312,8 @@ static const char *build_preedit(hunmin_buffered_preedit *l) {
     if (!reserve(&l->preedit_out, &l->preeditcap, wn + pn + 1)) return "";
     memcpy(l->preedit_out, word, wn);
     memcpy(l->preedit_out + wn, pre, pn + 1);
-    return l->preedit_out;
+    const char *judged = judged_display(l, l->preedit_out);
+    return judged ? judged : l->preedit_out;
 }
 
 /* The engine's commit read is destructive: whatever it produced since the last
@@ -233,6 +365,8 @@ hunmin_buffered_preedit *hunmin_buffered_preedit_new(hunmin_ctx *ctx, const char
     hunmin_buffered_preedit *l = calloc(1, sizeof *l);
     if (!l) return NULL;
     l->ctx = ctx;
+    l->cap = WORD_CAP;
+    l->judge_timing = 1; /* E6 ruled 2026-11-01: per key by default */
     l->hangul_id = dup_or_null(hangul_layout_id);
     l->latin_id = dup_or_null(latin_layout_id);
     l->commit_policy = commit_policy;
@@ -265,6 +399,8 @@ void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l) {
     free(l->preedit_out);
     free(l->keys);
     free(l->latin_out);
+    free(l->judged_out);
+    free(l->hangul_out);
     free(l);
 }
 
@@ -297,38 +433,54 @@ void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l) {
  * Returns the text to deliver instead of the Hangul word, or NULL to deliver
  * the word unchanged.
  */
-#define JUDGE_MIN_KEYS 3 /* R9, ruled 2026-11-01: judge from three key inputs */
 
 static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
     /* R13-정정's one on/off state, default OFF (B3): the switch is the person's
      * preference, and OFF is the identity path -- no reading, no lookup, no
-     * delivery change. */
+     * delivery change. One state for both directions: a person who turned the
+     * feature off did not ask for half of it. */
     if (!l->ic || !l->ic->autoswitch) return NULL;
-    /* Nothing to switch to: in Latin mode the word is already Latin, and a
-     * layer with one language cannot be judged at all (it has no second
-     * reading, so latin_out is empty and this returns below). */
-    if (!l->hangul_mode || !l->latin_id) return NULL;
-    /* R8-정정-3: a layout that composes no Hangul has no syllables to judge, so
-     * the feature stays disabled there rather than reading its output as an
-     * invalid Hangul word and switching on every keystroke. */
-    if (!l->ic->L || !l->ic->L->composes_hangul) return NULL;
+    /* A layer with one language cannot be judged at all: the other half of R8's
+     * pair is a reading it has no layout to produce. */
+    if (!l->latin_id) return NULL;
     /* R9's guard: three key inputs or more. Counted in KEYS, not syllables and
      * not characters, because the two readings of one word disagree on both --
      * `안녕` is two syllables from six keys, and two letters on the Latin
      * reading would let `an`/`at`/`of` switch, which is the stray-keystroke
      * case R9 exists to prevent. */
     if (keys < JUDGE_MIN_KEYS) return NULL;
-    if (!l->latin_out || !*l->latin_out) return NULL;
     /* B3's fail-closed state: no dictionary loaded means no `english_valid`, so
      * the judgement abstains instead of treating every word as not-English. */
     if (!hm_wordset_ready(l->english)) return NULL;
 
-    const bool english_valid = hm_wordset_has(l->english, l->latin_out);
-    const bool hangul_valid = hunmin_hangul_valid(l->word ? l->word : "");
-    if (!english_valid || hangul_valid) return NULL; /* switch only when they disagree */
+    if (l->hangul_mode) {
+        /* The word is Hangul; `latin_out` is its Latin reading, replayed at the
+         * boundary by the caller. */
+        /* R8-정정-3: a layout that composes no Hangul has no syllables to judge, so
+         * the feature stays disabled there rather than reading its output as an
+         * invalid Hangul word and switching on every keystroke. */
+        if (!l->ic->L || !l->ic->L->composes_hangul) return NULL;
+        if (!l->latin_out || !*l->latin_out) return NULL;
+        const bool english_valid = hm_wordset_has(l->english, l->latin_out);
+        const bool hangul_valid = hunmin_hangul_valid(l->word ? l->word : "");
+        if (!english_valid || hangul_valid) return NULL; /* switch only when they disagree */
+        l->judged = HUNMIN_LANGUAGE_LATIN;
+        return l->latin_out;
+    }
 
-    l->judged = HUNMIN_LANGUAGE_LATIN;
-    return l->latin_out;
+    /* E1, the symmetric line of R8 (docs/SPEC-MODES.md §R8, ruled 2026-11-01:
+     * "E1도 당연히 지원해야지"). The word on screen is Latin as typed; the other half
+     * of the pair is its Hangul reading, and the switch fires when that reading is
+     * well-formed syllables and the Latin text is not a dictionary word. A layout
+     * that composes no Hangul needs no guard here: its reading cannot be a
+     * well-formed syllable, so `hangul_valid` is false and nothing switches. */
+    const char *reading = l->hangul_out;
+    if (!reading || !*reading) return NULL;
+    const bool english_valid = hm_wordset_has(l->english, l->word ? l->word : "");
+    const bool hangul_valid = hunmin_hangul_valid(reading);
+    if (english_valid || !hangul_valid) return NULL;
+    l->judged = HUNMIN_LANGUAGE_HANGUL;
+    return reading;
 }
 
 /* The boundary. One place answers "the word is finished": the engine's own
@@ -341,6 +493,11 @@ static const char *boundary(hunmin_buffered_preedit *l) {
      * belong to BOTH modes. PER_SYLLABLE mode keeps no word buffer, so a hook
      * below the split would leave the reading of half the frontends unwritten. */
     latin_reading(l);
+    /* E1's other half, and it must be taken HERE: keys_clear() below is what stops a
+     * finished word being judged twice, so a reading replayed after it is empty
+     * (measured — the symmetric direction answered "no switch" on every word until
+     * this moved). Only one direction needs it, so only that one pays for it. */
+    if (!l->hangul_mode) hangul_reading(l);
     const size_t keys = l->keylen / 2; /* slots are (base, shift) pairs */
     keys_clear(l);
     /* Every boundary replaces the previous judgement: a finished word must not
@@ -357,6 +514,10 @@ static const char *boundary(hunmin_buffered_preedit *l) {
         word_clear(l);
         return set_commit(l, judged);
     }
+    /* Deliberately NOT capped here: the boundary is where the whole word goes out
+     * as one commit and the preedit is cleared, so splitting it would turn one
+     * word into two commits for no bound gained. The cap exists for the preedit a
+     * frontend keeps re-rendering key by key (word_flush_half). */
     const char *out = set_commit(l, l->word ? l->word : "");
     word_clear(l);
     return out;
@@ -377,7 +538,9 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
             set_commit(l, c); /* deliver the syllable now */
         } else {
             word_append(l, c); /* hold it until the boundary */
-            set_commit(l, "");
+            /* R4-정정: a word past WORD_CAP delivers its first half here, so what
+             * the frontend must render stays bounded. "" for every real word. */
+            (void)word_flush_half(l);
         }
         keys_push(l, base, shift); /* the Latin reading's raw material */
     } else {
@@ -431,15 +594,43 @@ void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
     if (l->latin_out) l->latin_out[0] = 0;
     if (l->commit_out) l->commit_out[0] = 0;
     if (l->preedit_out) l->preedit_out[0] = 0;
+    if (l->judged_out) l->judged_out[0] = 0;
+    if (l->hangul_out) l->hangul_out[0] = 0;
 }
 
 bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value) {
-    if (!l || !l->ic) return false;
+    if (!l || !l->ic || !name) return false;
+    /* The word cap is the LAYER's, not the ic's: it bounds the text this object
+     * holds for one word (docs/SPEC-MODES.md §R4-정정). Bytes, 0 = no cap. A
+     * lowered cap applies from the next key, which keeps the setter free of the
+     * "flush while the caller is mid-edit" question -- the word is flushed as soon
+     * as the next key makes it exceed the new bound. */
+    if (!strcmp(name, "word_cap")) {
+        if (value < 0) return false;
+        l->cap = (size_t)value;
+        return true;
+    }
+    /* E6's option: 1 = judge at every key (the default), 0 = at the boundary only.
+     * A change takes effect on the next rendered key; nothing already displayed is
+     * rewritten, which is R10 seen from the display side. */
+    if (!strcmp(name, "judge_timing")) {
+        if (value != 0 && value != 1) return false;
+        l->judge_timing = value;
+        return true;
+    }
     return hunmin_ic_set_option(l->ic, name, value);
 }
 
 bool hunmin_buffered_preedit_get_option(const hunmin_buffered_preedit *l, const char *name, int *out) {
-    if (!l || !l->ic) return false;
+    if (!l || !l->ic || !name || !out) return false;
+    if (!strcmp(name, "word_cap")) {
+        *out = (int)l->cap;
+        return true;
+    }
+    if (!strcmp(name, "judge_timing")) {
+        *out = l->judge_timing;
+        return true;
+    }
     return hunmin_ic_get_option(l->ic, name, out);
 }
 

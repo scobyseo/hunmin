@@ -252,6 +252,21 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_display(hunmin_buffered_preedi
  * adapter) reads the same answer a C frontend gets. */
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_delivered(const hunmin_buffered_preedit *l);
 HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
+
+/* The layer's options: the ic's own ("caps", "autoswitch") pass through, and one
+ * is the layer's. "word_cap" is the cap on the word this object holds for one
+ * word, in BYTES of UTF-8 (docs/SPEC-MODES.md §R4-정정, ruled 2026-11-01): when
+ * the word plus the syllable still composing would exceed it, the word's first
+ * half is delivered as that key's commit and the tail keeps composing, so what a
+ * frontend must render stays bounded. 0 means no cap, which is what the default
+ * was before the ruling. A lowered value applies from the next key. "judge_timing"
+ * selects WHEN the modes judgement is shown (docs/SPEC-MODES.md §E6, ruled
+ * 2026-11-01): 1 = at every key, so the word flips language while it is typed (the
+ * flicker, and the default the maintainer chose), 0 = at the boundary only, so the
+ * word stays in the current mode until the delimiter. It changes the display and
+ * never the delivered text -- the word is committed once, in the language the
+ * boundary decides -- and only those two values are accepted. Returns false for an
+ * unknown name or a value out of range. */
 HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);
 
 /* The layer's read of the same options: R13-정정's settings surface asks this for

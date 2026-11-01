@@ -178,6 +178,50 @@ Precise definition (settled by the user):
 - **A symbol is also a termination condition.** But that is not because the user
   said so.
 
+### R4-정정 — the buffer is capped, and an overflow commits its first half (2026-11-01) [D]
+
+> "buffer cap should be reasonable; at least longest english word should be
+> covered by it. i think 4KB buffer can be managable; if it is to be overflowed,
+> we can flush first half of the buffer."
+
+> "make cap 256B by default, and make it configurable."
+
+R4's "extend to the delimiter" now has one exception, and it is the clause R4
+itself offered ("once the cap is fixed, 'in groups of at most N characters' is
+added to R4"): the buffer also ends when the word would outgrow a **cap of 256
+bytes of UTF-8**, and at that point the word's **first half is committed** — in the
+current language, unjudged — while the remainder keeps composing.
+
+- **Where:** the shared layer's word buffer (`hunmin_buffered_preedit`,
+  `word_flush_half`), so the three frontends inherit it and #168's judgement call
+  site sits above it unchanged. Measured on this branch:
+  `libhunmin/tests/buffered-preedit-test.cpp`
+  (`TheCapCommitsTheFirstHalfAndLosesNothing`, `TheCapIsConfigurableAndZeroMeansNoCap`).
+- **The value is an option, not a constant:** `hunmin_buffered_preedit_set_option(l,
+  "word_cap", bytes)`, read back with `..._get_option`, `0` = no cap (the
+  pre-ruling behaviour). 256 is the default. No frontend reads it yet.
+- **Bytes, not characters**, because what is bounded is an allocation: 256 B is 85
+  syllables, and 0 of the 118,150 forms in the shipped English oracle exceed it
+  (the longest is 24 bytes).
+- **The cut never splits a syllable**, and the committed text is exactly what the
+  keys would have produced — losslessness is asserted by the tests, not implied.
+- **A word past the cap is not judged as a whole.** The tail's Latin reading is
+  dropped rather than halved, so `english_valid` fails closed for it. Unreachable by
+  typing (it takes ~256 consecutive letter keys with no delimiter); recorded because
+  it is what a very long word loses.
+
+**R4's judgement moment is otherwise unchanged: still exactly one per word.** The
+flush itself judges nothing — the judgement runs only in `boundary()` (#164) — so
+`§E6`'s flicker stays inert at this cap. What the boundary judges after a flush is
+the **remainder**: the flush empties the reading's key log, so the judgement sees
+the tail's own reading and key count (measured: a 400-key word flushed three times
+reaches the boundary with a 61-key reading, `docs/OPTIONS-MEASURED.md` §BND-2).
+A flushed half is therefore never judged, by construction rather than by omission.
+
+**Not decided by this entry:** whether a frontend gets a settings row for the
+value; and what preedit length an application actually tolerates — 256 B bounds the
+layer, not the application, and that measurement is still absent.
+
 ### Why a symbol is a termination condition — the user's explanation is wrong, the conclusion is right [E]
 
 The user said this.
@@ -475,7 +519,9 @@ moment the composition buffer completes (space or symbol):
     otherwise (both valid / both invalid)  ->  commit in the current mode
 ```
 
-Whether the second line, the symmetric rule, actually holds is left to E1.
+Whether the second line, the symmetric rule, actually holds was left to E1;
+**ruled 2026-11-01 — it is supported, and a mixed sentence working is the 0.3
+release gate** (§E1).
 
 ### R8-정정 — the two validities, simplified (2026-10-25)
 
@@ -632,8 +678,18 @@ exists", and R8-정정 replaced that with a syllable-structure test, so the old
 number measured nothing that exists any more. What length counts as "short" is a
 design choice, made where the judgement is built and recorded there — this
 requirement says only that there is one. The value chosen 2026-11-01 with issue
-#164's ruling: **three characters** (`docs/OPTIONS-MEASURED.md` §MRO records the
-unit it is counted in).
+#164's ruling, and its **unit clarified the same day**: **three key inputs**.
+
+> "3. 키입력 세개로 명확히 하자."
+
+So the measure is what the person pressed, not characters typed and not syllables
+produced — a syllable is 2–3 keys on 두벌식, so the three units disagree on the same
+word (`안녕` is 6 keys, 2 characters, 2 syllables). The guard is
+`JUDGE_MIN_KEYS 3` in `libhunmin/src/buffered_preedit.c`, and
+`docs/OPTIONS-MEASURED.md` §BND-3 measures what that N partitions in the same unit.
+**Corrected 2026-11-01:** this paragraph first read "three characters" (the ruling's
+own wording was `3자`); the unit the maintainer then named is key inputs. The wiki
+page and §MRO carry the same dated correction.
 
 ## R10. Switching is not retroactive [D]
 Settled by the user. After judgement the new mode applies **from the next key
@@ -738,7 +794,7 @@ Each item is **an implementation parameter, not a requirement.** Rewrite the
 status marker as `[E]` → `[D]` or "deleted" from the results in
 `docs/MODES-METRICS.md`.
 
-## E1. Whether the symmetric rule holds [E]
+## E1. Whether the symmetric rule holds [D] — ruled 2026-11-01, implemented
 The second line of R8 (the direction from English mode over to Hangul) **should
 be implemented**, but in which word list it holds is unmeasured. If there was a
 reason to drop that direction (R7's asymmetric rule), **that reason was corrected
@@ -765,7 +821,35 @@ arbitrary precedence rule" (the josa `다`/`은` are in both the josa list and t
 eomi list). If the symmetric rule does not hold, **R8 is narrowed to one side
 (Hangul→English).**
 
-## E2. Buffer extension cap — how far is extending the buffer worthwhile [E]
+### Ruling 2026-11-01 — the symmetric line is supported [D]
+
+> "E1도 당연히 지원해야지. 내 예제가 동작하는 것까지를 0.3 release gate로 보자."
+
+So the question this item asked ("does the symmetric rule hold, and in which word
+list") is answered by building it: **both lines of R8's formula ship**, and the
+gate is the maintainer's own mixed sentence.
+
+- **Mechanism:** the other half of the pair is the *Hangul reading* of the keys typed
+  in Latin mode — the same shadow the existing direction uses, replayed through the
+  frontend's Hangul layout (`hangul_reading()` in `libhunmin/src/buffered_preedit.c`).
+  The rule is unchanged: switch only when `hangul_valid(reading) ∧ ¬english_valid(word)`.
+- **The guard is shared:** R9's three key inputs apply to both directions, and
+  `autoswitch` OFF turns both off (one state, not half a feature).
+- **The 0.3 gate:** `English는 좋은 Language입니다` typed as one stream comes out in the
+  languages the person meant, pinned by
+  `WordSetTest.TheZeroThreeGateMixedSentenceWorksInOneStream` — the expectation is the
+  engine's own rendering of each word on the layout that word was meant in, and the
+  test fails when the symmetric line is disabled (verified by rebuilding with it
+  switched off).
+- **What the ruling did not measure, and what the risk is:** the return direction's
+  misfire surface is the short-word space. With R9's guard applied it switches on
+  **12.73%** of all three-key strings and **6.83%** of four-key ones
+  (`docs/OPTIONS-MEASURED.md` §BND-3) — a typo like `helo` is not an English word and
+  its Hangul reading is well-formed, so it would flip to Hangul. Whether that rate is
+  acceptable is a ruling nobody has made; the corpus that would weight it
+  (`docs/MODES-METRICS.md` §3) does not exist here.
+
+## E2. Buffer extension cap — how far is extending the buffer worthwhile [D] — value ruled 2026-11-01, §R4-정정
 > 더 이상 확장해도 개선되지 않는 선을 찾아야 해. 아마 내가 앞에 이야기 한
 > 것이 그 지점일거야.
 
@@ -782,10 +866,23 @@ R4 extends the buffer up to the delimiter, but the cost is that the preedit grow
 to the length of a word. So a cap exists:
 
 - The buffer of `hunmin_ic` is `STR_CAP` 64 ucschar (libhangul parity,
-  `ic.c:11`). Exceeding it causes **truncation** — it is cut silently. This is
-  the effective ceiling on buffer extension.
-- Even below that, editors react to the preedit length (varies per app,
+  `hunmin_internal.h`). Exceeding it would cut the text silently.
+  **[Corrected 2026-11-01: this file used to name `ic.c`, which holds no
+  `STR_CAP`, and to call the constant "the effective ceiling on buffer
+  extension". Both reading and measurement disagree with the second claim — the
+  shipped path's buffer is the shared layer's `word`, a heap string with no
+  ceiling, while the constant sizes a per-ic array that every shipped caller
+  drains once per key. `docs/OPTIONS-MEASURED.md` §BND-0/§BND-2 has the counts.]**
+  Even below that, editors react to the preedit length (varies per app,
   unmeasured).
+
+  **Ruled 2026-11-01 — `§R4-정정`:** the cap is 256 bytes of UTF-8, an overflow
+  commits the first half, and the value is a layer option (`word_cap`) rather than
+  a constant. The measurement the item asked for ((a) judgement degradation,
+  (b) preedit problems, (c) perceived delay) is *not* what settled it: the value is
+  above every word in the shipped oracle (0 of 118,150 forms exceed 256 B) and no
+  word a person types reaches it, so the ruling is a bound, not a measured
+  optimum.
 
 **What is a measurement:** with the buffer cap set to N, measure separately (a)
 the degradation in judgement accuracy, (b) the incidence rate of preedit length
@@ -794,8 +891,12 @@ improvement becomes 0. **R4's "extend to the end" can be amended depending on th
 result of this evaluation** — once the cap is fixed, "in groups of at most N
 characters" is added to R4.
 
-## E3. Short-word threshold [E]
-R9 requires "do not switch when it is short", but there is no N. The requirement
+## E3. Short-word threshold [D] — value ruled 2026-11-01, §R9/§MRO
+*The paragraphs below are the item as written while N was open; the value that
+closed it, and the unit question it still leaves, are in the note at the end of this
+section.*
+
+R9 requires "do not switch when it is short", but there is no N.
 does not even settle whether the measure is "in syllables" or "in keystrokes".
 
 **R7-정정 changes the scoring criterion of this item.** The threshold N is set on
@@ -812,6 +913,18 @@ on/off",** not "permits errors". Therefore:
 **What is a measurement:** set N to 2, 3, 4 and measure separately (a) the number
 of misfires in each direction, (b) the number of manual on/off toggles. Find the
 N at which (b) is minimal.
+
+*Value ruled 2026-11-01, and priced 2026-11-01:* R9 carries the number and its
+unit — **three key inputs**, clarified 2026-11-01 ("키입력 세개로 명확히 하자") — and
+`libhunmin/src/buffered_preedit.c` implements exactly that as `JUDGE_MIN_KEYS 3`.
+`docs/OPTIONS-MEASURED.md` §BND-3's sweep is in keys typed, so its `3` row is the
+class the shipped guard admits: an earlier draft of this note recorded a
+characters-versus-keys discrepancy; the maintainer's clarification closed it in
+favour of keys, and the difference it would have made is measurable (`안녕` is 6 keys
+and 2 characters — judged under the shipped rule, not under a character rule). The
+item's own method sentence above still asks for a measured N while R9 makes N a
+design-time choice; the ruling answered it by choosing, which is the maintainer's
+call and not this note's.
 
 ## E4. Metric pass line [E]
 R12 said success is "enough if the number of keystrokes goes down", but **how
@@ -895,7 +1008,7 @@ ruled on 2026-10-11 (OFF until 0.3, data-gated; see E5's default bullet above an
 the wiki decision page) — no usability evaluation was needed for it, and none is
 owed for it. What remains is implementation, and the parameters named above.
 
-## E6. Display method — the flicker (도깨비) [E]
+## E6. Display method — the flicker (도깨비) [D] — ruled 2026-11-01, an option, default per key
 A risk the user pointed at directly.
 
 > 그 와중에 한글 모드이면 일단 한글로 preedit을 제공하다가, 확실히 영어인게
@@ -914,6 +1027,38 @@ So this item is not "whether to display in the middle" but the corollary of
 back) when judging exactly once at the end of the buffer. If that value is judged
 bad, move on to the option of moving judgement earlier, but then E2's preedit
 problem comes back in real time. **The two options are mutually exclusive.**
+
+*Priced 2026-11-01:* the felt experience is not measurable here, but the number of
+times it would flip is: `docs/OPTIONS-MEASURED.md` §BND-4 counts it over the
+shipped dictionary, and §BND-2 shows that the exclusivity above holds only if the
+buffer cap is small — a cap in kilobytes never creates the second judgement point.
+
+### Ruling 2026-11-01 — the timing is an option, and per-key is the default [D]
+
+> "옵션처리하자. 설정할 수 있게. default는 B로."
+
+So both timings ship and a frontend may switch between them; the default is the
+flicker, not the quiet boundary.
+
+- **The option:** `hunmin_buffered_preedit_set_option(l, "judge_timing", v)` — `1`
+  (default) shows the judged language at **every key**, `0` judges at the **boundary
+  only** (the pre-ruling display). Read with `..._get_option`; any other value is
+  refused. No frontend exposes it yet, so the default is what ships in all three.
+- **What changes is the display, not the text.** The word is still delivered once,
+  at the boundary, in the language `judge_boundary()` decides there, and
+  `take_judgement` still answers once per word — so R10 (nothing retroactive) and
+  the one-switch-per-word the frontends perform are untouched. The tier-A cases pin
+  the equality (`TheJudgementTimingChangesTheDisplayAndNeverTheText`).
+- **What the default costs, measured with R9's three-key guard applied:** 64.05% of
+  the shipped dictionary's forms change language at least once inside the word (mean
+  2.59 changes, `alphabetically` 11). Without the guard the same figure is 94.18%,
+  mean 2.95 — the guard removes the first two chances in every word, which is why it
+  is quoted separately.
+- **It is not the mixed-sentence case.** `English는 좋은 Language입니다` typed in one
+  stream still does not work, and E6 was never the reason: the judgement only fires
+  in Hangul mode, so after the first switch every later Korean word is delivered as
+  Latin (`sms`, `whdms`, `dlqkTek`). That is the symmetric rule — E1 — and it is
+  still unruled (measured in §BND-4).
 
 ## E7. How to prove identical behaviour on Android/Windows [E]
 R3 was a decision and the implementation direction is fixed too (an engine rule).

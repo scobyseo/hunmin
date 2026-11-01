@@ -101,8 +101,8 @@ on instead.
 | # | Work | Where | What it waits on now |
 |---|---|---|---|
 | M1 | **③-bis wrong-direction switch metric** | `docs/MODES-METRICS.md` §1.4 `NOT MEASURED` | the judgement and its harness: issue #168 (the call site) and #181 (the harness). The validity pair is a structural predicate plus the shipped `en_US` list, so there is no source to choose first |
-| M2 | **E1 — does the symmetric rule hold** (english→hangul)? | `wiki/decisions/the-outstanding-decisions.md` D2 | nothing but its own measurement, and **it has no owner**. Under `docs/SPEC-MODES.md` §R8-정정 it needs a corpus of typed Korean (outside the repo, passed as a path) and `libhunmin/data/modes/en-US.json`; the krdict `pos` route it named is gone with the word test |
-| M3 | **E2 / E3 / E6 / E7** thresholds (buffer cap N, short-word N, flicker) | `docs/SPEC-MODES.md` §E2–§E7, all `[E]` | E3 is retired by R9 (2026-10-25, and #163 holds the method conflict that leaves); E2 and E6 are issue #163, E7 is #180 |
+| M2 | **E1 — does the symmetric rule hold** (english→hangul)? ✅ **RULED AND IMPLEMENTED 2026-11-01** | `wiki/decisions/the-outstanding-decisions.md` D2, `docs/SPEC-MODES.md` §E1 | no longer a question: the maintainer ruled it (*"E1도 당연히 지원해야지. 내 예제가 동작하는 것까지를 0.3 release gate로 보자."*), the symmetric line ships (`hangul_reading()` and the Latin branch of `judge_boundary()` in `libhunmin/src/buffered_preedit.c`), and the 0.3 gate is `WordSetTest.TheZeroThreeGateMixedSentenceWorksInOneStream`. **Not measured by that**: the return direction's misfire rate — 12.73% of three-key strings switch with R9's guard applied (`docs/OPTIONS-MEASURED.md` §BND-3), and no corpus here can weight it |
+| M3 | **E2 / E3 / E6 / E7** thresholds (buffer cap N, short-word N, flicker) | `docs/SPEC-MODES.md` §E2–§E7 | **E2, E3 and E6 are decided and shipped 2026-11-01** (#163): the cap is 256 B with a half-flush, R9's threshold is three key inputs, and `judge_timing` defaults to per-key. Only **E7** remains, and it is #180 |
 | M4 | **Third-party correctness**, both 두벌식 and 세벌식 | `PLAN.md` P8 table, *"not started"* | nothing judgement-related: it is composition correctness and belongs to the P2 lane, whose oracles already exist (pat.im worked examples, kime facts) |
 | M5 | **Word-list schema** | `docs/SPEC-SCHEMA.md` | answered for the shipped list: the document carries "English word list (`data/modes/`)" — the JSON shape, `meta.json` and the user dictionary's plain-text format — and `debian/copyright` carries the SCOWL entry. The pos/frequency/level and 조사/어미 questions were about a Korean list that no longer exists; the delete-or-keep question is on B1's row |
 
@@ -464,6 +464,15 @@ The design properties that make it a guard rather than a comment:
 <!-- docs-lint: remaining-work -->
 # id | kind | target | expected | note
 # ----------------------------------------------------------------  still open
+# ----------------------------------------------------------------  issue #163 (2026-11-01)
+# E2, E3, E6 and E1 were ruled on this issue and shipped (docs/SPEC-MODES.md §R4-정정,
+# §R9, §E1, §E6; pricing in docs/OPTIONS-MEASURED.md §BND). Rows assert what shipped.
+WORD-CAP-163 | grep | libhunmin/src/buffered_preedit.c:word_flush_half | present | issue #163, E2 (SPEC-MODES §R4-정정): the word buffer is capped at WORD_CAP and an overflow commits its first half, the cut backed up to a UTF-8 lead byte; measured preedit 255 B at every length to 2,000 syllables, lossless
+WORD-CAP-OPTION-163 | grep | libhunmin/src/buffered_preedit.c:word_cap | present | the cap is a layer option (bytes, 0 = no cap) rather than a constant — the maintainer's "make it configurable", read back by hunmin_buffered_preedit_get_option
+JUDGE-TIMING-163 | grep | libhunmin/src/buffered_preedit.c:judged_display | present | issue #163, E6 (SPEC-MODES §E6): judge_timing 1 (default) shows the judged language at every key, 0 at the boundary only; display-only — tier-A asserts the delivered text is identical in both
+E1-SYMMETRIC-163 | grep | libhunmin/src/buffered_preedit.c:hangul_reading | present | issue #163, E1 (SPEC-MODES §E1): the symmetric line of R8's formula — the Hangul reading of a word typed in Latin mode, taken before keys_clear or it is empty (the first cut's defect)
+JUDGE-KEYS-R9 | grep | libhunmin/src/buffered_preedit.c:JUDGE_MIN_KEYS | present | R9's threshold, ruled 2026-11-01 as three KEY INPUTS (not characters, not syllables); shared by judge_boundary and judged_display so the display cannot show a judgement the guard refuses
+GATE-0-3-163 | ctest | engine-wordset | registered | the 0.3 release gate (maintainer: "내 예제가 동작하는 것까지를 0.3 release gate로 보자") — TheZeroThreeGateMixedSentenceWorksInOneStream types English는 좋은 Language입니다 as one stream in both directions; fails with either direction removed
 # ----------------------------------------------------------------  closed this pass
 DESIGN-REVIEW-TRACKED | path-present | docs/ANDROID-IME-REVIEW.md | present | review committed on task/android-design-review (e389970); issue #21 tracks it for the maintainer to weigh — no verdict recorded
 DESIGN-REVIEW-F5 | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:buildDock | absent | issue #21 verification: grep -n 'buildDock' frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt shows no call site (F5 evidence)
