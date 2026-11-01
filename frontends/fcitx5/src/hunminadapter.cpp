@@ -270,8 +270,37 @@ public:
             ev.base = ev.base + 'a' - 'A';
         }
         ev.candidates_open = candidateActive() ? 1 : 0;
+        /* The Han/Eng key is OURS only in its compound form (docs/SPEC-MODES.md
+         * §E5, ruled 2026-10-31: a single press is the platform's language
+         * switch, a modifier with 한/영 is the special-function namespace). The
+         * bare press is deliberately not claimed -- fcitx5 owns its own trigger,
+         * and claiming it would fight the host -- so `language_key` is reported
+         * for the compound press only, which is the event the engine resolves to
+         * HUNMIN_KEY_LANGUAGE_CHORD. Before issue #178 no frontend could turn the
+         * judgement ON at all: the state's only surface here was a config row
+         * this addon does not have. */
+        if (sym == FcitxKey_Hangul && (ev.mods & HUNMIN_MOD_CHORD) != 0) ev.language_key = 1;
 
         const hunmin_key_action action = hunmin_buffered_preedit_classify(preedit_, &ev);
+
+        if (action == HUNMIN_KEY_LANGUAGE_CHORD) {
+            /* The engine owns the resolution, the assignment and the transition
+             * of the state AUTOSWITCH flips (issue #165); this adapter says
+             * "that key was 한/영 with a modifier" and acts on the answer. A
+             * refusal (-1: nothing bound, or the modes data is absent and the
+             * feature is off by B3) passes the key through, so the application
+             * still gets its chord. No boundary and no judgement here: the press
+             * changes a preference, so the word in flight keeps composing. */
+            const int fn = hunmin_buffered_preedit_special(preedit_, &ev);
+            if (fn > 0) {
+                updateUI();
+                keyEvent.filterAndAccept();
+                return;
+            }
+            if (fn < 0) {
+                return;
+            }
+        }
 
         if (action == HUNMIN_KEY_CANDIDATE) {
             auto list = ic_->inputPanel().candidateList();
@@ -350,9 +379,9 @@ public:
             updateUI();
             return;
         }
-        /* HUNMIN_KEY_LANGUAGE_TOGGLE is unreachable here: fcitx5 owns its own
-         * trigger, so this adapter always reports language_key = 0. §4's shared
-         * action is what removes that asymmetry. */
+        /* HUNMIN_KEY_LANGUAGE_TOGGLE is still unreachable here: the bare Han/Eng
+         * press stays the host's trigger (see the language_key note above), so
+         * only the compound press reaches this adapter as the language key. */
 
         // Any other key closes an open window and falls through, so typing
         // continues where the user left off instead of being swallowed by an
@@ -371,14 +400,24 @@ public:
         hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);
         hunmin_key_result out{};
         const bool used = hunmin_buffered_preedit_process_key(preedit_, ev.base, ev.shift, &out) != 0;
+        /* COPY the delivery BEFORE the judgement runs. The layer owns the string
+         * in out.commit only until its next call, and acting on the judgement is
+         * another call: toggle_language() performs a boundary, and a boundary
+         * sets the commit -- so reading out.commit afterwards handed the client
+         * an empty string and the word was lost. Measured by the D1 corpus lane
+         * (issue #178): `hello ` delivered nothing and the next word arrived with
+         * the previous one's text missing. TSF and Android already read the
+         * commit before their judgement call; this is the one adapter that did
+         * not, and the corpus lane is what made it visible. */
+        const std::string word = out.commit ? std::string(out.commit) : std::string();
         /* The judgement belongs to the word that just ended, delivered or
          * declined: ask before anything else can start the next word. Its text
          * joins the same delivery, after the word, because R10 means the word
          * is already the judged language and nothing is rewritten. */
         const std::string switched = applyJudgement();
 
-        if ((out.commit && *out.commit) || !switched.empty()) {
-            const std::string delivered = (out.commit ? std::string(out.commit) : std::string()) + switched;
+        if (!word.empty() || !switched.empty()) {
+            const std::string delivered = word + switched;
 #ifdef HUNMIN_TRACE
             traceEvent("commit", delivered.c_str());
 #endif
@@ -427,6 +466,24 @@ public:
          * caller's own out.commit -- but it belongs to the same delivery, so it
          * is returned rather than committed here (one commit point per key). */
         return (out.commit && *out.commit) ? std::string(out.commit) : std::string();
+    }
+
+    /* The platform half of the special-function namespace (docs/SPEC-MODES.md
+     * §E5, issue #159/#178). The ENGINE owns the binding and the state change;
+     * a host is what says whether this platform can honour the function at all,
+     * and an unserviceable one must be REFUSED so the key passes through instead
+     * of being swallowed to do nothing (hunmin_buffered_preedit_special_peek's
+     * contract). AUTOSWITCH is honoured here: the only platform half is telling
+     * the UI the value moved. VOICE is refused -- fcitx5 has no recorder wired
+     * in this addon, and claiming it would eat Alt+한/영 for nothing. */
+    static int specialSupports(void *, hunmin_special_function fn) {
+        return fn == HUNMIN_SPECIAL_AUTOSWITCH ? 1 : 0;
+    }
+    static void specialPerform(void *user, hunmin_special_function fn) {
+        auto *self = static_cast<HunminState *>(user);
+        if (self && fn == HUNMIN_SPECIAL_AUTOSWITCH) {
+            self->updateUI();
+        }
     }
 
     void reset() {
@@ -488,6 +545,12 @@ private:
              * absent data is a normal state (B3) and the judgement then
              * abstains rather than calling every word not-English. */
             hunmin_buffered_preedit_load_english_shipped(preedit_);
+            /* Without a host every special function answers -1, which is how the
+             * engine keeps a platform from claiming a function it cannot honour --
+             * and it also meant no frontend could turn the judgement ON
+             * (issue #178). */
+            hunmin_special_host host{this, &HunminState::specialSupports, &HunminState::specialPerform};
+            hunmin_buffered_preedit_special_host(preedit_, &host);
         }
     }
 

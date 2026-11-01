@@ -237,17 +237,32 @@ Where a lane takes one of those, the case has to say so and the lane has to
 report it — a difference that passes silently is not an allowed difference, it is
 unmeasured behaviour.
 
-**What blocks the first frontend lane, measured 2026-11-01.** No frontend can put
-the IM into the ON state the corpus's cases assume. `frontends/fcitx5/src/config.h`
-carries `HangulLayout`, `LatinLayout` and `CommitBehavior` and **no** autoswitch
-row, and the adapter's key path never calls `hunmin_buffered_preedit_special()` —
-so the layer sits at the engine default (OFF, B3) and `applyJudgement()` answers
--1 on every word. A D1 replay of `judgement-r8.jsonl` today would therefore
-assert the OFF identity path for all fifteen autoswitch-ON cases, which is the
-opposite of the corpus's expectations. The lane needs the ON switch R13-정정
-gives a frontend — surface A (the Ctrl+한/영 special function) or surface B (a
-settings row) — and which one fcitx5 gets first is not decided here. The commit
-unit of §6.1 is likewise outside this corpus: every case uses
+**The first lane exists: `engine-d1-judgement`** (`frontends/fcitx5/test/testjudgement.cpp`,
+tier D1), and it reads the corpus file rather than a copy of its expectations.
+Getting there needed two things the addon did not have, both found by building it:
+
+- **A way to turn the judgement on.** Measured 2026-11-01: `config.h` carries
+  `HangulLayout`, `LatinLayout` and `CommitBehavior` and **no** autoswitch row, and
+  the key path never called `hunmin_buffered_preedit_special()` — so the layer sat
+  at the engine default (OFF, B3) and `applyJudgement()` answered -1 on every word;
+  a replay would have asserted the OFF identity path for all fifteen
+  autoswitch-ON cases. The lane unblocks it the ruled way (R13-정정 surface A):
+  the adapter now reports `language_key` for the COMPOUND press (Ctrl+한/영,
+  SPEC-MODES §E5) and acts on `hunmin_buffered_preedit_special()`, and it registers
+  a `hunmin_special_host` — without which the engine refuses every function with
+  -1 by design. A bare Han/Eng press stays fcitx5's own trigger.
+- **A delivery-order defect the corpus found.** `out.commit` is valid only until
+  the layer's next call, and the adapter read it AFTER `applyJudgement()` — whose
+  switch performs a boundary that sets the commit to "". So the judged word was
+  silently dropped: `hello ` delivered nothing. TSF and Android read the commit
+  before their judgement call and were never affected. Fixed by copying first.
+
+What the lane still does not do, named rather than hidden: a case whose `mode` is
+`latin` is skipped, because the starting language belongs to the host and this
+addon has no key that sets the layer's initial mode — the lane rebuilds the layer
+per case instead, which is the frontend characteristic taken here. Mid-stream
+switches are covered (the mixed-sentence case flips four times). The commit unit
+of §6.1 is likewise outside this corpus: every case uses
 `HUNMIN_COMMIT_AT_BOUNDARY`, and the judgement cannot run in PER_SYLLABLE at all
 (its earlier syllables are already in the client, which is R10's constraint).
 

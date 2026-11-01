@@ -41,8 +41,13 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
         # Re-anchored 2026-11-01 (issue #164): the one commit point now also
         # carries the text the mode switch's own boundary produced, so the
         # guard's subject is the delivery expression, not just out.commit.
-        "        if ((out.commit && *out.commit) || !switched.empty()) {",
-        "        if (((out.commit && *out.commit) || !switched.empty()) && used) {",
+        # Re-anchored again 2026-11-01 (issue #178): the same expression is now
+        # captured into `word` BEFORE the judgement runs -- out.commit is only
+        # valid until the layer's next call, and the switch is one. The defect
+        # this mutation plants is unchanged: deliver only what a consumed key
+        # produced.
+        "        if (!word.empty() || !switched.empty()) {",
+        "        if ((!word.empty() || !switched.empty()) && used) {",
         False,
         True,  # #128: the adapter delivers the layer's answer, so this is no
         True,  # longer visible structurally -- but D1's boundary commit

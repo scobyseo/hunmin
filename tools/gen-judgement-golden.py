@@ -35,6 +35,7 @@ import os
 import shlex
 import subprocess
 import sys
+from typing import Any
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(REPO, "libhunmin", "data")
@@ -115,7 +116,35 @@ def sim_path(explicit):
     sys.exit("no hunmin-sim found; pass --sim PATH (or build first)")
 
 
-def trace(sim, case):
+# The probe a frontend lane uses to ask "which mode am I in now?". This tool
+# cannot ask the layer -- a lane runs the real addon, not the layer -- so the
+# corpus carries the answer for each layout: the same keys, delivered in Hangul
+# mode and in Latin mode. A probe whose two readings coincide tells a lane
+# nothing, so the first one that differs is chosen per layout.
+PROBES = ["k ", "s ", "a ", "1 "]
+
+
+def probe_for(sim, layout):
+    """The probe keys and what each mode delivers for them, from the engine."""
+    for keys in PROBES:
+        out = {}
+        for mode in ("hangul", "latin"):
+            cmd = [sim, "--data", DATA, "--layout", layout, "--latin", "us-qwerty",
+                   "--judge", "--autoswitch", "1"]
+            if mode == "latin":
+                cmd.append("--start-latin")
+            cmd += ["--keys", keys]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            if res.returncode != 0:
+                sys.exit("%s: probe run failed for %r: %s" % (layout, keys, res.stderr.strip()))
+            rows = [json.loads(l) for l in res.stdout.splitlines() if l.startswith("{")]
+            out[mode] = rows[-1]["delivered"] if rows else None
+        if out["hangul"] != out["latin"]:
+            return {"keys": keys, "hangul": out["hangul"], "latin": out["latin"]}
+    return None
+
+
+def trace(sim, case: dict[str, Any]) -> dict[str, Any]:
     """Run one case through the layer and return what the engine observed."""
     cmd = [sim, "--data", DATA, "--layout", case["layout"],
            "--latin", "us-qwerty", "--judge",
@@ -158,7 +187,7 @@ def render(cases):
     }
     lines = [json.dumps(head, ensure_ascii=False)]
     for c in cases:
-        row = {
+        row: dict[str, Any] = {
             "case": c["case"],
             "req": c["req"],
             "layout": c["layout"],
@@ -172,8 +201,13 @@ def render(cases):
             "mode_after": c["mode_after"],
             "note": c["note"],
         }
+        # Optional fields are spread in rather than assigned: a dict literal
+        # narrowed from its own contents does not accept a later setitem for a
+        # differently typed key, and pyright is part of the gate here.
         if c.get("step_commits") is not None:
-            row["step_commits"] = c["step_commits"]
+            row = {**row, "step_commits": c["step_commits"]}
+        if c.get("probe"):
+            row = {**row, "probe": c["probe"]}
         lines.append(json.dumps(row, ensure_ascii=False))
     return "\n".join(lines) + "\n"
 
@@ -186,7 +220,13 @@ def main():
     args = ap.parse_args()
     sim = sim_path(args.sim)
 
-    cases = [trace(sim, dict(c)) for c in CASES]
+    cases: list[dict[str, Any]] = [dict(c) for c in CASES]
+    for c in cases:
+        trace(sim, c)
+        # A probe asks "which mode is the layer in NOW", so it only means
+        # something after a boundary: a case that ends mid-word leaves the word
+        # composing, and a probe would append to it rather than stand alone.
+        c["probe"] = probe_for(sim, c["layout"]) if c["keys"].endswith(" ") else None
     body = render(cases)
 
     if args.check:
