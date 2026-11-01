@@ -203,6 +203,77 @@ unmodelled mock surfaces. With that, both units derive correctly and the corpus 
 the axis. Interim × both units stays in the sandbox lane (§7) for the same
 reason: a real client distinguishes what the mock conflates.
 
+### 6.2 The judgement corpus, and what it does not yet cover (2026-11-01, #178)
+
+The first corpus that carries a JUDGEMENT rather than only text is
+`tests/golden/judgement-r8.jsonl` (ctest `engine-golden-judgement`). Each line is
+a case the engine can replay: the input (`layout`, `latin`, `mode`,
+`autoswitch`, `keys`) and the engine's own answer — the delivered text, the
+judgements taken in order, and the mode after the boundary, with per-key
+delivery timing where the timing is the assertion (R6's digit run). Its cases
+are the lines of SPEC-MODES R8's formula and the guards around it: the two
+switch directions, both-valid and both-invalid, R9's guard from each side, R4's
+boundary-only moment, R13's off-is-the-identity state, E1's 0.3 gate sentence
+typed as one stream, and the 세벌식 최종 cases R6 is actually about (its digit row
+is the jongseong jamo ᇂ ᆻ ᆸ, so committing each key on its own is what R6
+forbids).
+
+It is driven by `hunmin-sim --judge`, which sits on `hunmin_buffered_preedit`
+and performs the frontend half of the rule (read `take_judgement`, act on it),
+and the expected values come back from the engine through
+`tools/gen-judgement-golden.py` — never typed. Replay one case:
+`hunmin-sim --data libhunmin/data --layout dubeolsik --latin us-qwerty --judge
+--autoswitch 1 --keys 'hello ' --trace`.
+
+### 6.2.1 The corpus is the evaluation instrument (ruled 2026-11-01)
+
+> "프런트엔드는 모두 동일한 동작을 해야 하니까, 동일한 코퍼스로 평가하는 게 옳아.
+> 프런트엔드의 특성이 있으면 그 차이는 허용할 수 있게 하자."
+
+So one corpus is what every frontend is measured against, and a frontend's own
+characteristics are an allowed difference **only where §3 lists them**
+(physical-key mapping, platform pass-through, presentation/commit granularity).
+Where a lane takes one of those, the case has to say so and the lane has to
+report it — a difference that passes silently is not an allowed difference, it is
+unmeasured behaviour.
+
+**The first lane exists: `engine-d1-judgement`** (`frontends/fcitx5/test/testjudgement.cpp`,
+tier D1), and it reads the corpus file rather than a copy of its expectations.
+Getting there needed two things the addon did not have, both found by building it:
+
+- **A way to turn the judgement on.** Measured 2026-11-01: `config.h` carries
+  `HangulLayout`, `LatinLayout` and `CommitBehavior` and **no** autoswitch row, and
+  the key path never called `hunmin_buffered_preedit_special()` — so the layer sat
+  at the engine default (OFF, B3) and `applyJudgement()` answered -1 on every word;
+  a replay would have asserted the OFF identity path for all fifteen
+  autoswitch-ON cases. The lane unblocks it the ruled way (R13-정정 surface A):
+  the adapter now reports `language_key` for the COMPOUND press (Ctrl+한/영,
+  SPEC-MODES §E5) and acts on `hunmin_buffered_preedit_special()`, and it registers
+  a `hunmin_special_host` — without which the engine refuses every function with
+  -1 by design. A bare Han/Eng press stays fcitx5's own trigger.
+- **A delivery-order defect the corpus found.** `out.commit` is valid only until
+  the layer's next call, and the adapter read it AFTER `applyJudgement()` — whose
+  switch performs a boundary that sets the commit to "". So the judged word was
+  silently dropped: `hello ` delivered nothing. TSF and Android read the commit
+  before their judgement call and were never affected. Fixed by copying first.
+
+**The other two frontends have no lane yet**, and that is the remaining half of
+this ruling: Android (tier E1) and the TSF mock (tier F1) still carry their own
+corpora, so a judgement case is asserted against the shared layer and against
+fcitx5, not yet against them. Both can be replayed the same way — the corpus
+needs nothing a lane does not already have (`step_commits` for the delivery
+timing, `probe` for the mode) — but neither runs on this host (no device, no
+Windows), so writing those lanes unverified would be a claim rather than a test.
+
+What the fcitx5 lane itself does not do, named rather than hidden: a case whose
+`mode` is `latin` is skipped, because the starting language belongs to the host
+and this addon has no key that sets the layer's initial mode — the lane rebuilds
+the layer per case instead, which is the frontend characteristic taken here.
+Mid-stream switches are covered (the mixed-sentence case flips four times). The commit unit
+of §6.1 is likewise outside this corpus: every case uses
+`HUNMIN_COMMIT_AT_BOUNDARY`, and the judgement cannot run in PER_SYLLABLE at all
+(its earlier syllables are already in the client, which is R10's constraint).
+
 ## 7. Live TSF tests
 
 Requirement: a live TSF run must not leave the worktree registered or otherwise

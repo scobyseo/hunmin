@@ -67,8 +67,17 @@ trap '"$ADB" shell rm -rf "$STAGE" >/dev/null 2>&1' EXIT
 pass=0; fail=0; failed=""
 for g in "$ROOT"/tests/golden/*.jsonl; do
   name=$(basename "$g" .jsonl)
+  # Two kinds of corpus live in tests/golden: the per-key engine transcripts,
+  # replayed through hunmin_ic with --check, and the judgement corpus, whose
+  # cases drive hunmin_buffered_preedit with --judge-check (the judgement is the
+  # shared layer's, docs/FRONTEND-EQUIVALENCE.md §6.2). Same binary, same data
+  # push; only the flag differs.
+  case "$name" in
+    judgement-*) check=--judge-check ;;
+    *)           check=--check ;;
+  esac
   out=$("$ADB" shell "cd $STAGE && LD_LIBRARY_PATH=. ./sim --data data \
-        --check golden/$name.jsonl" 2>&1 | tr -d '\r' | tail -1)
+        $check golden/$name.jsonl" 2>&1 | tr -d '\r' | tail -1)
   case "$out" in
     OK*) pass=$((pass + 1)); printf '  ok   %s\n' "$name" ;;
     *)   fail=$((fail + 1)); failed="$failed $name"

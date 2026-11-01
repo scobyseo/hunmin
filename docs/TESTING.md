@@ -358,6 +358,35 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   has no Makefile; the script is the command.
   Sources: pat.im worked examples (갭/겹, `cq`→ㄱㅅ, `cQ`→ㄳ, 있 repeat, tier samples),
   kime test expectations (transcribed facts, clean-room), one case per line of SPEC-P2.md.
+- **Judgement corpus** `tests/golden/judgement-r8.jsonl` — the SPEC-MODES R8
+  formula and the guards around it (both switch directions, both-valid and
+  both-invalid, R9's three-key boundary from each side, R4's boundary-only
+  moment, R6's digit run, and the OFF identity state). One case per line: the
+  input (`layout`, `latin`, `mode`, `autoswitch`, `keys`) plus the engine's own
+  answer (`commit`, `judged[]`, `mode_after`, and `step_commits` where delivery
+  timing is the point). It is driven through `hunmin_buffered_preedit`, not the
+  `hunmin_ic` the corpus above drives, because the judgement lives in the shared
+  layer: `hunmin-sim --judge-check tests/golden/judgement-r8.jsonl`, ctest
+  `engine-golden-judgement`. Replay one case by hand with
+  `hunmin-sim --data libhunmin/data --layout dubeolsik --latin us-qwerty --judge
+  --autoswitch 1 --keys 'hello ' --trace`. Regen for review:
+  `python3 tools/gen-judgement-golden.py --sim build/hunmin-sim` — the expected
+  values are read back from the engine, never typed. **A frontend lane reads the
+  same file**: ctest `engine-d1-judgement` (tier D1) replays it through the real
+  fcitx5 addon — commits per key and the mode after each word, asserted through
+  the corpus's probe — so the frontend is measured against the corpus rather than
+  a second copy of the expectations (`docs/FRONTEND-EQUIVALENCE.md` §6.2.1).
+- **Designed cases** `tests/golden/case-<layout>.jsonl` — the other kind of
+  corpus, for a layout whose identity is its key arrangement rather than its
+  parity with libhangul. `ref-*.jsonl` catches a data change but cannot say what
+  it asserts; a designed case names the feature and pins it. Today:
+  `case-sebeolsik-final.jsonl` (ctest `engine-golden-case-sebeolsik-final`, 10
+  cases) — three-key syllable assembly, the unshifted number row as jongseong
+  jamo, the shifted number row as 된소리/겹받침, literal digits on the shifted
+  letter rows, `=` literals, the conjoining filler for a jamo pair with no
+  precomposed form, and a symbol as the boundary. It uses the ordinary
+  `hunmin-sim --check` schema; regen:
+  `python3 tools/gen-case-golden.py --sim build/hunmin-sim`.
 - **Property fuzz** (`-fsanitize=fuzzer,address,undefined`, corpus = jamo key streams):
   invariants only — every committed string NFC-valid & re-decomposes to current-buffer
   jamo; `press` never leaks (LSan); state always resettable; preedit length bounded.
