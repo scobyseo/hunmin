@@ -469,8 +469,11 @@ clean baseline was believed.
 
 **What CI actually does, re-verified against `.github/workflows/ci.yml` on
 2026-10-13.** The 2026-10-09 version of this table listed four jobs and named a
-`nightly` that did not exist; both are corrected below. Seven job blocks, one of
-them disabled:
+`nightly` that did not exist; both are corrected below. Seven job blocks as of
+2026-11-01, five of them disabled (`if: false`) -- the workflow's own header
+quotes the maintainer's instructions and says how to raise one; `mingw` runs on
+every event and `linux` on a pull request. This table lists what each job does
+when it is on:
 
 | Job | Runner | Contents |
 |---|---|---|

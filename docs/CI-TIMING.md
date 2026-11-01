@@ -71,7 +71,7 @@ Two things the issue's table does not show, both from the same log:
   and `DEFINED ENV{ANDROID_HOME}`) therefore fires on every run, which is why
   232 s of tier E1 land in a job whose name is `linux`. The android job then
   re-runs exactly `engine-android-goldens|engine-android-e1|android-mutations`
-  at `.github/workflows/ci.yml:166`.
+  (the `android` job's tier E0/E1 ctest step in `.github/workflows/ci.yml`).
 
 ### The deb job — 13 m 30 s
 
@@ -104,8 +104,8 @@ against the 1–2 minute target.
 | Duplicated | linux | deb | android |
 |---|---|---|---|
 | fcitx5 5.1.13 source build | 197 s | 326 s | — |
-| `engine-android-e1` | 148 s | 186 s | same `-R` at ci.yml:166 |
-| `android-mutations` | 84 s | 138 s | same `-R` at ci.yml:166 |
+| `engine-android-e1` | 148 s | 186 s | the same `-R` in the android job |
+| `android-mutations` | 84 s | 138 s | the same `-R` in the android job |
 | `frontend-mutations` | 19 s | 62 s | — |
 | `engine-android-conformance-*` corpus | 15 glob + 1 duplicate | 16 | its `-R` matches neither name |
 
@@ -123,8 +123,7 @@ now pure duplication. Its measured marginal cost is small — 0.15 s of one extr
 `java` invocation, the Gradle classpath behind it already materialised by its
 fifteen siblings under a shared `flock`. The cost that matters is that
 `ctest -N` no longer agrees with `ls tests/conformance/android/*.trace.in`, and
-the android job's `-R` at ci.yml:186 matches neither name, so it never ran the
-corpus either.
+the android job's `-R` matches neither name, so it never ran the corpus either.
 
 ---
 

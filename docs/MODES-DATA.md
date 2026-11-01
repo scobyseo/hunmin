@@ -249,8 +249,8 @@ recorded as passing** — that is the price this project has repeatedly paid
 
 **The corpus build itself is not registered.** The reason is dependencies:
 
-- The build needs `mwparserfromhell`, and CI installs only `python3` (apt)
-  (`.github/workflows/ci.yml:13`). Hardcoding a venv absolute path here means
+- The build needs `mwparserfromhell`, and CI installs only `python3` (apt), per
+  the `linux` job's "Install build deps" step in `.github/workflows/ci.yml`. Hardcoding a venv absolute path here means
   **it passes locally and breaks in CI** — the same kind of thing as quietly
   losing 104 conformance tests.
 - So the mwparser dependency of `--selfcheck` was removed via **lazy import**.
