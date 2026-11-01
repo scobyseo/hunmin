@@ -364,7 +364,7 @@ to report it before its clean baseline was believed.
 | server | source | clean-tree result |
 |---|---|---|
 | `clangd` 23.1.0 | auto-downloaded to `~/.cache/opencode/bin` | 0 in `libhunmin/src/ic.c`; 2 in `frontends/fcitx5/src/hunminadapter.cpp` (unused private fields `engine_`, `ic_` — clang-tidy class, not a live bug) |
-| `pyright` 1.1.414 | `uv tool install pyright` | **29 errors / 34 files** in `tools/*.py` |
+| `pyright` 1.1.414 | `uv tool install pyright` | **29 errors / 34 files** in `tools/*.py` on 2026-10-09; **0 errors, 0 warnings** since 2026-11-01 (see the status note below) |
 | `bash-language-server` | auto-downloaded | 3 in `tools/android-e2e.sh`, 0 in the other 11 |
 | `yaml-ls` | auto-downloaded | 0 in `.github/workflows/ci.yml` |
 | `kotlin-ls` | — | **unavailable, see below** |
@@ -423,7 +423,21 @@ result is used without a None check, so `.group()`/`.findall()` raises `Attribut
 on any input that does not match. The other 3 are deliberate lazy imports
 (`mwparserfromhell`, `kiwipiepy`) that the code already guards with `sys.exit`.
 
-They will surface as diagnostics on every tools/*.py edit until they are fixed.
+They surfaced as diagnostics on every tools/*.py edit until they were fixed.
+
+**Status, 2026-11-01: fixed, and now gated.** `uv tool install pyright` on this
+host gives 1.1.414 (the version PyPI resolved, and the version the two CI jobs
+install unpinned), and it reports **0 errors, 0 warnings, 0 informations**
+across `tools/` in 4.0 s. The count is not a claim anyone has to remember: the
+`M5-CLOSED` row in `docs/REMAINING-WORK.md` runs `pyright tools/` inside
+`ctest docs-lint`, so a regression is a red test. A host *without* pyright reads
+red too, with the parser saying so rather than counting zero: measured on that
+host before the install, `docs-lint` printed
+
+    M5-CLOSED claims pyright 'tools/' is clean, but the tree says absent.
+    Evidence: pyright tools/ -> -1 error(s).
+
+— an absent measurement must not look like a passing one.
 
 ### One real bug found by this, not yet fixed
 
