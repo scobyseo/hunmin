@@ -51,6 +51,13 @@ struct hunmin_buffered_preedit {
     hunmin_special_host special_host;
     bool special_host_set;
     hm_wordset *english; /* the modes judgement's data (R8-정정-2); NULL until asked for */
+    /* R8's judgement, once, at the boundary (ruled 2026-11-01, issue #164: the
+     * ENGINE judges, the frontend performs the switch). -1 = no judgement for
+     * the frontend to act on; HUNMIN_LANGUAGE_* = the mode it must adopt. Read
+     * once by hunmin_buffered_preedit_take_judgement(), so a mode cannot be
+     * applied twice, and replaced at every boundary, so a finished word is
+     * never acted on after the next one starts. */
+    int judged;
     /* R8's english_valid reads the Latin text the buffer WOULD have produced,
      * and a Hangul layout cannot produce Latin (measured: the 12 Hangul layouts
      * emit no Latin letter for any printable key -- the text is destroyed, not
@@ -230,6 +237,7 @@ hunmin_buffered_preedit *hunmin_buffered_preedit_new(hunmin_ctx *ctx, const char
     l->latin_id = dup_or_null(latin_layout_id);
     l->commit_policy = commit_policy;
     l->hangul_mode = true;
+    l->judged = -1;
     memcpy(l->special_mods, kSpecialDefaultMods, sizeof l->special_mods);
     if (!l->hangul_id) {
         hunmin_buffered_preedit_free(l);
@@ -262,6 +270,67 @@ void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l) {
 
 /* ------------------------------------------------------------------- keys */
 
+/* ------------------------------------------------------- R8's judgement
+ *
+ * The formula is docs/SPEC-MODES.md §R8, and it is evaluated ONCE, at the
+ * boundary, over the finished word:
+ *
+ *     english_valid AND NOT hangul_valid  ->  deliver English, switch to English
+ *     hangul_valid AND NOT english_valid  ->  deliver Hangul, stay in Hangul
+ *     otherwise                           ->  deliver in the current mode
+ *
+ * WHO DOES WHAT (ruled 2026-11-01, issue #164): the ENGINE judges, and it
+ * delivers the triggering word in the judged language -- R10 forbids
+ * reassembling text already in the client, and this word is not in the client
+ * yet, so the boundary is the last moment the reading can be delivered. The
+ * FRONTEND performs the mode switch, because that is the one half a host can
+ * own (fcitx5's trigger, §FE13); it asks for the answer with
+ * hunmin_buffered_preedit_take_judgement() right after the key that ended the
+ * word.
+ *
+ * The direction implemented is the only one that switches: a word judged
+ * Hangul while already in Hangul mode preserves the current mode, which R8
+ * states as a requirement but needs no action. R8 leaves the symmetric case
+ * open ("whether the second line actually holds is left to E1"), so nothing
+ * here guesses at it.
+ *
+ * Returns the text to deliver instead of the Hangul word, or NULL to deliver
+ * the word unchanged.
+ */
+#define JUDGE_MIN_KEYS 3 /* R9, ruled 2026-11-01: judge from three key inputs */
+
+static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
+    /* R13-정정's one on/off state, default OFF (B3): the switch is the person's
+     * preference, and OFF is the identity path -- no reading, no lookup, no
+     * delivery change. */
+    if (!l->ic || !l->ic->autoswitch) return NULL;
+    /* Nothing to switch to: in Latin mode the word is already Latin, and a
+     * layer with one language cannot be judged at all (it has no second
+     * reading, so latin_out is empty and this returns below). */
+    if (!l->hangul_mode || !l->latin_id) return NULL;
+    /* R8-정정-3: a layout that composes no Hangul has no syllables to judge, so
+     * the feature stays disabled there rather than reading its output as an
+     * invalid Hangul word and switching on every keystroke. */
+    if (!l->ic->L || !l->ic->L->composes_hangul) return NULL;
+    /* R9's guard: three key inputs or more. Counted in KEYS, not syllables and
+     * not characters, because the two readings of one word disagree on both --
+     * `안녕` is two syllables from six keys, and two letters on the Latin
+     * reading would let `an`/`at`/`of` switch, which is the stray-keystroke
+     * case R9 exists to prevent. */
+    if (keys < JUDGE_MIN_KEYS) return NULL;
+    if (!l->latin_out || !*l->latin_out) return NULL;
+    /* B3's fail-closed state: no dictionary loaded means no `english_valid`, so
+     * the judgement abstains instead of treating every word as not-English. */
+    if (!hm_wordset_ready(l->english)) return NULL;
+
+    const bool english_valid = hm_wordset_has(l->english, l->latin_out);
+    const bool hangul_valid = hunmin_hangul_valid(l->word ? l->word : "");
+    if (!english_valid || hangul_valid) return NULL; /* switch only when they disagree */
+
+    l->judged = HUNMIN_LANGUAGE_LATIN;
+    return l->latin_out;
+}
+
 /* The boundary. One place answers "the word is finished": the engine's own
  * flush finalises the in-flight syllable, and the mode decides whether the
  * client receives that syllable or the whole word. */
@@ -272,9 +341,22 @@ static const char *boundary(hunmin_buffered_preedit *l) {
      * belong to BOTH modes. PER_SYLLABLE mode keeps no word buffer, so a hook
      * below the split would leave the reading of half the frontends unwritten. */
     latin_reading(l);
+    const size_t keys = l->keylen / 2; /* slots are (base, shift) pairs */
     keys_clear(l);
+    /* Every boundary replaces the previous judgement: a finished word must not
+     * be acted on after the next one starts, and a boundary that judges nothing
+     * (a chord, a mode toggle, an abandoned word) clears the answer. */
+    l->judged = -1;
     if (l->commit_policy == HUNMIN_COMMIT_PER_SYLLABLE) return set_commit(l, flushed);
     word_append(l, flushed);
+    /* Judged while the word is still whole. PER_SYLLABLE mode cannot reach this
+     * line: by the boundary its earlier syllables are already in the client,
+     * and R10 forbids reassembling them, so the judgement has nothing to judge. */
+    const char *judged = judge_boundary(l, keys);
+    if (judged) {
+        word_clear(l);
+        return set_commit(l, judged);
+    }
     const char *out = set_commit(l, l->word ? l->word : "");
     word_clear(l);
     return out;
@@ -345,6 +427,7 @@ void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
     hunmin_ic_reset(l->ic);
     word_clear(l);
     keys_clear(l);
+    l->judged = -1;
     if (l->latin_out) l->latin_out[0] = 0;
     if (l->commit_out) l->commit_out[0] = 0;
     if (l->preedit_out) l->preedit_out[0] = 0;
@@ -594,6 +677,28 @@ int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_k
         out->preedit = build_preedit(l);
     }
     return 1;
+}
+
+/* The judgement the boundary just made, TAKEN: HUNMIN_LANGUAGE_* is the mode the
+ * frontend must adopt now, and -1 means there is nothing to act on (the switch
+ * is off, no word finished, the word was shorter than R9's guard, the layout
+ * cannot be judged, no dictionary is loaded, or both readings agreed).
+ *
+ * Read once, immediately after the key that ended the word: the answer is
+ * cleared by the read, so a mode change cannot be applied twice, and it is
+ * replaced at every boundary, so a finished word is never acted on after the
+ * next one starts. Under HUNMIN_COMMIT_PER_SYLLABLE it always answers -1 --
+ * the earlier syllables of the word are already in the client and R10 forbids
+ * reassembling them, so there is nothing left to decide.
+ *
+ * The word itself has already been delivered in the judged language in
+ * out->commit (or by hunmin_buffered_preedit_commit_word): this is the MODE
+ * half only, which is the half a frontend's host may own. */
+int hunmin_buffered_preedit_take_judgement(hunmin_buffered_preedit *l) {
+    if (!l) return -1;
+    const int judged = l->judged;
+    l->judged = -1;
+    return judged;
 }
 
 int hunmin_buffered_preedit_language(const hunmin_buffered_preedit *l) { return (l && l->hangul_mode) ? HUNMIN_LANGUAGE_HANGUL : HUNMIN_LANGUAGE_LATIN; }

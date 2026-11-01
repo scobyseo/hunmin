@@ -421,6 +421,213 @@ TEST_F(WordSetTest, TheReadingBelongsToTheFinishedWordOnly) {
     }
 }
 
+/* ---------------------------------- R8's judgement at the boundary (#164)
+ *
+ * The engine judges and delivers the triggering word in the judged language;
+ * the frontend performs the mode switch by reading
+ * hunmin_buffered_preedit_take_judgement right after the key that ended the
+ * word. So a case is a key sequence and three answers: the delivered text, the
+ * mode the frontend is told to adopt, and whether a second read still answers.
+ *
+ * Assertions are equalities against a second run of the same keys rather than
+ * typed Hangul: the point of this layer is that it does not change text unless
+ * the judgement says so, and a hand-written syllable in the expectation is how
+ * a test comes to assert the author's guess (dubeolsik `hello` is not `ㅗ디ㅣㅣㅐ`
+ * by any rule this file could re-derive -- it is what the engine produces).
+ *
+ * The pairs are the formula's three lines, on words whose two readings this
+ * tree can be asked about (docs/SPEC-MODES.md §R8):
+ *
+ *   hello   the Latin reading is an English word, the Hangul is not  -> switch
+ *   one     same, at exactly R9's three key inputs                   -> switch
+ *   on      same two-key word: R9's guard                            -> keep
+ *   the     both readings valid (`the` is a word, `솓` is a syllable) -> keep
+ *   kbs     neither valid                                            -> keep
+ *   dkssud  the Hangul only (`안녕`)                                  -> keep
+ */
+
+namespace {
+
+struct WordRun {
+    std::string commit; /* everything the client would have received */
+    int mode;           /* the last non-negative take_judgement, or -1 */
+    int second;         /* a second read after the last one: must be -1 */
+    bool twice;         /* a non-negative answer was seen twice */
+};
+
+/* Type `keys` the way a frontend does: deliver each out->commit, then ask for
+ * the judgement of that key. Returns what the client saw and what the frontend
+ * was told. */
+WordRun type_and_judge(hunmin_buffered_preedit *l, const char *keys) {
+    WordRun r{"", -1, -1, false};
+    for (const char *p = keys; *p; ++p) {
+        hunmin_key_result out{};
+        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, &out);
+        if (out.commit && *out.commit) r.commit += out.commit;
+        const int j = hunmin_buffered_preedit_take_judgement(l);
+        if (j >= 0) {
+            if (r.mode >= 0) r.twice = true;
+            r.mode = j;
+        }
+    }
+    r.second = hunmin_buffered_preedit_take_judgement(l);
+    return r;
+}
+
+/* A two-language layer with the shipped dictionary loaded and `autoswitch` set
+ * the way a settings UI would leave it. */
+hunmin_buffered_preedit *pair_layer(hunmin_ctx *ctx, int autoswitch,
+                                    int policy = HUNMIN_COMMIT_AT_BOUNDARY) {
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx, "dubeolsik", "us-qwerty", policy);
+    if (!l) return nullptr;
+    hunmin_buffered_preedit_load_english_shipped(l);
+    hunmin_buffered_preedit_set_option(l, "autoswitch", autoswitch);
+    return l;
+}
+
+} // namespace
+
+TEST_F(WordSetTest, AutoswitchOffIsTheIdentityPath) {
+    hunmin_buffered_preedit *off = pair_layer(ctx_, 0);
+    ASSERT_NE(off, nullptr);
+    hunmin_buffered_preedit *on = pair_layer(ctx_, 1);
+    ASSERT_NE(on, nullptr);
+
+    const WordRun a = type_and_judge(off, "hello ");
+    EXPECT_EQ(-1, a.mode) << "OFF judges nothing";
+    EXPECT_FALSE(a.twice);
+
+    const WordRun b = type_and_judge(on, "hello ");
+    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, b.mode) << "ON delivers the English word and says so";
+    EXPECT_EQ("hello", b.commit) << "the word is delivered in the judged language";
+
+    /* The identity the requirement asks for: with the switch off, the text is
+     * exactly what it was before the feature existed -- which is the same keys
+     * on a layer with no judgement data at all. */
+    hunmin_buffered_preedit *bare = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty",
+                                                                HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(bare, nullptr);
+    hunmin_buffered_preedit_set_option(bare, "autoswitch", 0);
+    EXPECT_EQ(type_and_judge(bare, "hello ").commit, a.commit);
+
+    hunmin_buffered_preedit_free(bare);
+    hunmin_buffered_preedit_free(on);
+    hunmin_buffered_preedit_free(off);
+}
+
+TEST_F(WordSetTest, TheFormulaSwitchesOnlyWhenTheTwoReadingsDisagree) {
+    /* Switch only when exactly one side is valid; otherwise keep the current
+     * mode (R8's third line, which is the common case, not a failure). */
+    struct Case {
+        const char *keys;
+        int expected; /* HUNMIN_LANGUAGE_LATIN or -1 */
+        const char *why;
+    } cases[] = {
+        {"hello ", HUNMIN_LANGUAGE_LATIN, "English word, not a syllable run"},
+        {"one ", HUNMIN_LANGUAGE_LATIN, "English word, not a syllable run"},
+        {"the ", -1, "both valid: `the` is a word and the syllable is well-formed"},
+        {"kbs ", -1, "neither valid"},
+        {"dkssud ", -1, "Hangul only"},
+    };
+    for (const Case &c : cases) {
+        hunmin_buffered_preedit *l = pair_layer(ctx_, 1);
+        ASSERT_NE(l, nullptr);
+        const WordRun r = type_and_judge(l, c.keys);
+        EXPECT_EQ(c.expected, r.mode) << c.keys << " -- " << c.why;
+        EXPECT_FALSE(r.twice) << c.keys << ": one word, one answer";
+        /* Keep means keep: the delivered text is what an OFF layer delivers. */
+        if (c.expected < 0) {
+            hunmin_buffered_preedit *off = pair_layer(ctx_, 0);
+            ASSERT_NE(off, nullptr);
+            EXPECT_EQ(type_and_judge(off, c.keys).commit, r.commit) << c.keys;
+            hunmin_buffered_preedit_free(off);
+        }
+        hunmin_buffered_preedit_free(l);
+    }
+}
+
+TEST_F(WordSetTest, R9sGuardCountsKeyInputs) {
+    /* The same valid-English, invalid-Hangul pair at two and at three keys: the
+     * guard is the only difference, so these two cases together are the
+     * threshold. */
+    hunmin_buffered_preedit *two = pair_layer(ctx_, 1);
+    ASSERT_NE(two, nullptr);
+    EXPECT_EQ(-1, type_and_judge(two, "on ").mode) << "two key inputs are not judged (R9)";
+    hunmin_buffered_preedit_free(two);
+
+    hunmin_buffered_preedit *three = pair_layer(ctx_, 1);
+    ASSERT_NE(three, nullptr);
+    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, type_and_judge(three, "one ").mode)
+        << "three key inputs are (R9, ruled 2026-11-01)";
+    hunmin_buffered_preedit_free(three);
+}
+
+TEST_F(WordSetTest, TheJudgementIsTakenOnceAndClearedByTheNextBoundary) {
+    hunmin_buffered_preedit *l = pair_layer(ctx_, 1);
+    ASSERT_NE(l, nullptr);
+    const WordRun r = type_and_judge(l, "hello ");
+    ASSERT_EQ(HUNMIN_LANGUAGE_LATIN, r.mode);
+    EXPECT_EQ(-1, r.second) << "a second read must not apply the switch again";
+
+    /* A word that judges nothing clears the previous answer: the frontend acts
+     * on the word it was told about, never on the one before it. */
+    hunmin_key_result out{};
+    for (const char *p = "one "; *p; ++p)
+        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, &out);
+    ASSERT_EQ(HUNMIN_LANGUAGE_LATIN, hunmin_buffered_preedit_take_judgement(l));
+    for (const char *p = "the "; *p; ++p)
+        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, &out);
+    EXPECT_EQ(-1, hunmin_buffered_preedit_take_judgement(l))
+        << "the second word judged nothing, so nothing is left over from the first";
+    hunmin_buffered_preedit_free(l);
+}
+
+TEST_F(WordSetTest, NoDictionaryMeansNoJudgement) {
+    /* B3: data absent is a normal state, and the judgement abstains rather than
+     * calling every word not-English. */
+    hunmin_buffered_preedit *fresh = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty",
+                                                                 HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(fresh, nullptr);
+    hunmin_buffered_preedit_set_option(fresh, "autoswitch", 1);
+    const WordRun r = type_and_judge(fresh, "hello ");
+    EXPECT_EQ(-1, r.mode);
+
+    hunmin_buffered_preedit *off = pair_layer(ctx_, 0);
+    ASSERT_NE(off, nullptr);
+    EXPECT_EQ(type_and_judge(off, "hello ").commit, r.commit) << "the text is untouched";
+    hunmin_buffered_preedit_free(off);
+    hunmin_buffered_preedit_free(fresh);
+}
+
+TEST_F(WordSetTest, WhatTheJudgementCannotDecideItDeclines) {
+    /* Three frontends cannot be judged the same way, so each declines out loud
+     * rather than guessing: one language (no second reading), a Hangul slot that
+     * composes no Hangul (R8-정정-3), and per-syllable delivery (the earlier
+     * syllables are already in the client, R10). */
+    hunmin_buffered_preedit *one_language = hunmin_buffered_preedit_new(
+        ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(one_language, nullptr);
+    hunmin_buffered_preedit_load_english_shipped(one_language);
+    hunmin_buffered_preedit_set_option(one_language, "autoswitch", 1);
+    EXPECT_EQ(-1, type_and_judge(one_language, "hello ").mode);
+    hunmin_buffered_preedit_free(one_language);
+
+    hunmin_buffered_preedit *latin_slot = hunmin_buffered_preedit_new(
+        ctx_, "us-qwerty", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(latin_slot, nullptr);
+    hunmin_buffered_preedit_load_english_shipped(latin_slot);
+    hunmin_buffered_preedit_set_option(latin_slot, "autoswitch", 1);
+    EXPECT_EQ(-1, type_and_judge(latin_slot, "hello ").mode)
+        << "a Hangul slot that composes no Hangul has no syllables to judge";
+    hunmin_buffered_preedit_free(latin_slot);
+
+    hunmin_buffered_preedit *per_syllable = pair_layer(ctx_, 1, HUNMIN_COMMIT_PER_SYLLABLE);
+    ASSERT_NE(per_syllable, nullptr);
+    EXPECT_EQ(-1, type_and_judge(per_syllable, "hello ").mode)
+        << "per-syllable delivery has already handed the word over syllable by syllable";
+    hunmin_buffered_preedit_free(per_syllable);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     kDataPath = std::getenv("HUNMIN_DATA_PATH");

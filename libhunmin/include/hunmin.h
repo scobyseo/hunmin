@@ -442,6 +442,31 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_composing(hunmin_buffered_pree
  * (the boundary commit still lands in out). */
 HUNMIN_EXPORT int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_key_result *out);
 HUNMIN_EXPORT int hunmin_buffered_preedit_language(const hunmin_buffered_preedit *l); /* HUNMIN_LANGUAGE_* */
+
+/* R8's judgement, as the ENGINE's answer and the FRONTEND's action (ruled
+ * 2026-11-01, issue #164: the engine judges, the frontend performs the switch).
+ * Read it immediately after the key that ended a word; HUNMIN_LANGUAGE_* is the
+ * mode to adopt now, and -1 means there is nothing to act on.
+ *
+ * The word has already been delivered in the judged language -- in
+ * out->commit of that key, or from hunmin_buffered_preedit_commit_word -- since
+ * R10 forbids reassembling text that is already in the client and the boundary
+ * is the last moment before it gets there. So an adapter does exactly two
+ * things: deliver the text it was handed, then switch its mode if this answers
+ * a language. The switch itself stays the frontend's because it is the one half
+ * a host can own: fcitx5's trigger does not belong to the addon (§FE13).
+ *
+ * Answers -1 (and the delivery is byte-identical to a build without this
+ * feature) when: `autoswitch` is off (the default, B3); no word finished; the
+ * word was shorter than R9's guard of three key inputs; the Hangul layout
+ * cannot compose syllables (R8-정정-3); no English dictionary is loaded (B3);
+ * both readings agreed, which is R8's "keep the current mode"; or the layer is
+ * in HUNMIN_COMMIT_PER_SYLLABLE, where the word's earlier syllables are already
+ * in the client.
+ *
+ * Consuming: read once. A second read answers -1, and every later boundary
+ * replaces the answer, so a mode cannot be applied twice or late. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_take_judgement(hunmin_buffered_preedit *l);
 HUNMIN_EXPORT int hunmin_buffered_preedit_commit_policy(const hunmin_buffered_preedit *l);
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffered_preedit *l); /* active layout id */
 
