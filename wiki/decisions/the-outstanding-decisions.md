@@ -1,7 +1,7 @@
 ---
 title: The outstanding decisions
 created: 2026-10-04
-updated: 2026-10-04
+updated: 2026-11-01
 type: decision
 status: active
 contested: true
@@ -32,11 +32,25 @@ definitions, and the evidence is genuinely mixed:
 accepts every combinable form, so it will admit 형용사·부사·관형사·수사 that no
 dictionary contains. See [[the-outstanding-decisions]]'s open measurement below.
 
+**Status 2026-11-01 — this decision has been made, elsewhere.** `docs/SPEC-MODES.md`
+§R8-정정 (2026-10-25) ruled option (c) and replaced the word test with a
+syllable-structure test, so `hangul_valid` no longer looks anything up; the English
+half was ruled separately (§R8-정정-2, 2026-11-01, issue #160). The table above is
+the record of the evidence, not the current definition. Whether board row B1 is
+therefore retired — and what happens to the corpus list this page's siblings still
+describe — is issue #161, priced in `docs/OPTIONS-MEASURED.md` §B1.
+
 ## D2. E1 — whether the symmetry rule holds
 
 R8's second line (english mode → hangul) is implemented-or-not independent of
 the first. The corpus now makes the measurement possible: krdict carries `pos`,
 so 조사/어미 separation is countable. **Not yet measured.**
+
+**Status 2026-11-01:** the route named here left the 2026-10-05 scope boundary, and
+§R8-정정 removed the need for it — the measurement now needs a corpus of typed
+Korean and the shipped `libhunmin/data/modes/en-US.json`, no Korean dictionary and
+no `pos` field. Still not measured, and still unfiled (`docs/OPTIONS-MEASURED.md`
+§B1-2).
 
 ## D3. Whether 119 belongs in the shipped lists
 

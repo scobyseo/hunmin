@@ -857,3 +857,12 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   invokes the frontend interface, an unsupported platform refuses), the five-symbol shape
   that implements it, and the four things it leaves open — the per-function default chord
   most of all, because choosing it per frontend is the divergence the ruling removes.
+
+## [2026-11-01] update | B1's question was answered elsewhere (#161)
+
+- `wiki/decisions/the-outstanding-decisions.md`: D1 carries a dated status — §R8-정정
+  ruled option (c) and the English half was ruled by §R8-정정-2, so the table is the
+  record of the evidence, not the current definition; D2 records that its krdict/`pos`
+  route left the scope boundary and §R8-정정 removed the need for it. Neither is
+  retired here: the board row's fate is issue #161, priced in
+  `docs/OPTIONS-MEASURED.md` §B1.
