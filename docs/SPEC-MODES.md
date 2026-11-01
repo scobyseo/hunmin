@@ -142,6 +142,14 @@ at the judgement boundary. An engine-owned variant is the alternative. Both
 satisfy the requirement above. Which one wins is recorded in the R8
 architecture decision, not in this document.
 
+*State measured 2026-11-01 (`docs/OPTIONS-MEASURED.md` §MRO-0, N4): the sentence
+above describes the tree before #167. The replay it names now exists in the
+shared layer as well — `latin_reading()` in
+`libhunmin/src/buffered_preedit.c`, pinned by `engine-wordset` — so two copies of
+the mechanism exist and neither applies R8's formula (#168). The requirement half
+of this section is unchanged, and which component owns the judgement is still the
+maintainer's to rule (#164).*
+
 The three design facts that came out of the earlier discussion are moved to
 `docs/architecture.md` **§3**: no per-frontend settings store, one state
 (`hunmin_ic_set_option(autoswitch)`), and no new data schema needed for
