@@ -3366,13 +3366,26 @@ layer's own `word_cap` option:
 
 Three facts that table establishes, each pinned by a test in
 `libhunmin/tests/buffered-preedit-test.cpp`
-(`TheCapCommitsTheFirstHalfAndLosesNothing`, `TheCapIsConfigurableAndZeroMeansNoCap`):
-**the preedit never exceeds the cap** (255 B is the largest multiple of three below
-256, because the in-flight syllable counts against the cap); **nothing is lost,
-duplicated or reordered** (delivered equals typed at every length); **the cut is on
-a syllable boundary** and no single commit exceeds the cap. Both tests were shown
-non-vacuous by setting `WORD_CAP` to 0 and rebuilding: they fail, and pass again at
-256.
+(`TheCapCommitsTheFirstHalfAndLosesNothing`, `TheCapIsConfigurableAndZeroMeansNoCap`,
+`EachFlushedHalfIsTheNextPrefixAndTheRemainderFlushesCleanly`): **the preedit never
+exceeds the cap** (255 B is the largest multiple of three below 256, because the
+in-flight syllable counts against the cap); **nothing is lost, duplicated or
+reordered** (delivered equals typed at every length); **the cut is on a syllable
+boundary** and no single commit exceeds the cap. The third test evaluates the split
+piece by piece instead of in aggregate — each mid-word commit must be the exact next
+prefix of what the engine produces, the held text must be the exact continuation,
+and the explicit flush (`..._commit_word`, what a frontend calls on focus loss) must
+deliver exactly the remainder and leave the layer empty and usable.
+
+**Non-vacuity, and a defect it exposed.** Every cap test fails with `WORD_CAP` 0 and
+passes at 256. The piece-by-piece test was also run against a deliberately broken
+flush (`word_flush_half` skipping one syllable in the tail) — and **passed**, because
+200 repetitions of `안` are one string of one repeated three-byte syllable, in which
+a one-syllable shift is invisible. With the sequence varied (`dks rk dl tj gks` →
+`안 가 이 서 핫`, 2 and 3 keys per syllable) the same mutation fails at the first
+post-flush key. That is why the test is non-uniform, and it is the reason an
+aggregate "the totals match" assertion is not enough for this code: it cannot see a
+shift at all.
 
 **What the cap is *not*, measured.** The cap bounds the layer's own buffer. It does
 not carry the option that was proposed first (4 KiB, "at least the longest English

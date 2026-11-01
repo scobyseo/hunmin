@@ -391,6 +391,75 @@ TEST_F(LayerTest, TheCapIsConfigurableAndZeroMeansNoCap) {
     hunmin_buffered_preedit_free(l);
 }
 
+/* The cap's split, evaluated piece by piece rather than in aggregate: each
+ * mid-word commit must be the exact PREFIX of what the same keys produce, the
+ * preedit left behind must be the exact continuation, the explicit flush
+ * (`hunmin_buffered_preedit_commit_word`, which is what a frontend calls on focus
+ * loss) must deliver exactly the remainder and leave the layer empty, and the layer
+ * must still be usable afterwards.
+ *
+ * The expectation is the engine's own text (`drive_engine`, the oracle the other
+ * layer tests use), never a typed-in literal: a split that reorders, repeats or
+ * drops a syllable shows up as a mismatch at the character where it happened, which
+ * an aggregate "totals are equal" check can hide. */
+TEST_F(LayerTest, EachFlushedHalfIsTheNextPrefixAndTheRemainderFlushesCleanly) {
+    /* A NON-UNIFORM word on purpose. 200 × `안` would be a string of one repeated
+     * three-byte syllable, in which cutting one syllable off the head of the tail and
+     * leaving a stale one behind is undetectable — measured: this test passed with
+     * `word_flush_half` mutated to skip a syllable, until the sequence was varied. The
+     * syllables below differ in shape and in key count (2 and 3 keys), so a shift, a
+     * repeat or a loss changes the bytes. */
+    const char *groups[] = {"dks", "rk", "dl", "tj", "gks"}; /* 안 가 이 서 핫 */
+    std::string sequence;
+    for (int i = 0; sequence.size() < 1200; ++i) sequence += groups[i % 5];
+    const std::string expected = drive_engine(ctx_, sequence);
+    ASSERT_EQ(expected.size() % 3, 0u);
+    ASSERT_GE(expected.size(), 600u) << "the oracle is shorter than the typed bytes";
+
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    size_t cursor = 0; /* how much of `expected` has been accounted for */
+    size_t flushes = 0;
+    for (size_t i = 0; i < sequence.size(); ++i) {
+        hunmin_key_result out{};
+        ASSERT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)sequence[i], 0, &out), 1) << "key " << i;
+        if (out.commit && out.commit[0]) {
+            const std::string half = out.commit;
+            ++flushes;
+            EXPECT_EQ(half, expected.substr(cursor, half.size()))
+                << "the flushed half is not the next prefix (flush " << flushes << ")";
+            cursor += half.size();
+        }
+        /* The preedit is the FINISHED part still held plus the syllable composing, so
+         * only the finished part is comparable with `expected` -- a half-composed
+         * syllable is genuinely not a prefix of the finished one (`아` is not a prefix
+         * of `안`), which is the layer's display contract and not a defect. Everything
+         * before it must be one contiguous piece of `expected`. */
+        const char *composing_v = hunmin_buffered_preedit_composing(l);
+        const std::string composing = composing_v ? composing_v : "";
+        const std::string shown = out.preedit ? out.preedit : "";
+        ASSERT_GE(shown.size(), composing.size());
+        const std::string held = shown.substr(0, shown.size() - composing.size());
+        EXPECT_EQ(held, expected.substr(cursor, held.size()))
+            << "the held word is not the remainder after " << cursor << " bytes (key " << i << ")";
+    }
+    ASSERT_GE(flushes, 2u) << "600 B could not fit under the 256 B cap without splitting";
+
+    /* The explicit flush a frontend calls: exactly the remainder, once. */
+    const std::string rest = hunmin_buffered_preedit_commit_word(l);
+    EXPECT_EQ(rest, expected.substr(cursor)) << "the explicit flush did not deliver the remainder";
+    cursor += rest.size();
+    EXPECT_EQ(cursor, expected.size()) << "the pieces do not add up to what the keys produce";
+    EXPECT_STREQ(hunmin_buffered_preedit_commit_word(l), "") << "the word was delivered twice";
+    EXPECT_STREQ(hunmin_buffered_preedit_display(l), "") << "the layer still holds text after the flush";
+
+    /* And it is still a usable layer, not a spent one: one syllable composes. */
+    hunmin_key_result out{};
+    EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)'d', 0, &out), 1);
+    EXPECT_TRUE(out.preedit && out.preedit[0]) << "the layer stopped composing after a capped word";
+    hunmin_buffered_preedit_free(l);
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
