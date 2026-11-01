@@ -468,6 +468,10 @@ DESIGN-REVIEW-TRACKED | path-present | docs/ANDROID-IME-REVIEW.md | present | re
 DESIGN-REVIEW-F5 | grep | frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt:buildDock | absent | issue #21 verification: grep -n 'buildDock' frontends/android/app/src/main/java/org/hunmin/ime/LayoutPicker.kt shows no call site (F5 evidence)
 DESIGN-REVIEW-F1-F2 | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:Color.parseColor | absent | issue #21 verification: grep Color.parseColor OverlayActivity.kt returns nothing (F1, F2 fills)
 DESIGN-REVIEW-F3-F10 | grep | frontends/android/app/src/main/java/org/hunmin/ime/OverlayActivity.kt:dialogWidth | present | issue #21 fill: dialog sized off window size class, not physical pixels (F10); HUD day/night pair shared via hunmin_hud_* tokens (F3)
+# ----------------------------------------------------------------  issue #161 / #166 (2026-11-01)
+HANGUL-VALID-166 | ctest | engine-hangul-valid | registered | issue #166: the structural rule and its widened 옛한글 variant (SPEC-MODES §R8-정정, §R8-정정-3). The tier GENERATES the property — the 11,172-syllable block, the extended jamo sets, and the negative half — instead of sampling it, and pins the layout split 12 compose / 6 old-Hangul / 3 Latin
+HANGUL-CAPABILITY-166 | grep | libhunmin/src/schema_loader.c:compute_capability | present | issue #166: the per-layout answers are derived at load from the layout's own keys and combination table, so a new layout cannot declare them wrongly and the answer cannot drift from the data; answered by hunmin_ctx_layout_autoswitch_capable / hunmin_ctx_layout_old_hangul
+HANGUL-ABI-166 | grep | libhunmin/tests/abi/symbols.txt:hunmin_hangul_valid_old | present | the widened rule is an APPENDED ABI symbol (with hunmin_hangul_valid and the two layout answers); the `abi` ctest audits this list on a host where it registers (not WIN32)
 # ----------------------------------------------------------------  decision-blocked
 # B1..B9 are maintainer rulings, not tree facts. AGENTS.md: "네 멋대로 기각하지마."
 # They carry no assertion row, by construction, and their absence from this table
