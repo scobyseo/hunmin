@@ -153,7 +153,7 @@ names the limitation if shipped unmeasured; the measurement record lives in
 | [`docs/HOWTO-NEW-LAYOUT.md`](docs/HOWTO-NEW-LAYOUT.md) | adding a layout without touching code |
 | [`docs/D3-ROOT-CAUSE.md`](docs/D3-ROOT-CAUSE.md) | why tier D3 looked green while measuring nothing |
 | [`docs/D3-PERFORMANCE.md`](docs/D3-PERFORMANCE.md) | where tier D3's wall clock goes, and the case-count defect it hid |
-| [`docs/OPTIONS-MEASURED.md`](docs/OPTIONS-MEASURED.md) | nine priced questions and their rulings: the mutation tier, the android sandbox, the test framework, the `ch` input, the TSF unregister mirror, whether the Han/Eng key can act as a held modifier, what each single/compound 한/영 assignment costs, which English dictionary `english_valid` looks up, and whether the modes judgement's B1 blocker still exists |
+| [`docs/OPTIONS-MEASURED.md`](docs/OPTIONS-MEASURED.md) | ten priced questions and their rulings: the mutation tier, the android sandbox, the test framework, the `ch` input, the TSF unregister mirror, whether the Han/Eng key can act as a held modifier, what each single/compound 한/영 assignment costs, which English dictionary `english_valid` looks up, whether the modes judgement's B1 blocker still exists, and the units the two modes pass lines can be graded in |
 | [`docs/REMAINING-WORK.md`](docs/REMAINING-WORK.md) | what is left, what is blocked on whom, and the assertions that keep it honest |
 | [`docs/MILESTONES.md`](docs/MILESTONES.md) | the release plan (0.1 / 0.2 / 0.3 / 0.4 / 1.0) and which lane each open item sits in |
 | [`wiki/`](wiki/) | how we got here: session records, overturned verdicts, open decisions |
