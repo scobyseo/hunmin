@@ -429,10 +429,21 @@ requirement** and are in R6 below.
 - **ON:** the composition buffer does not only hold Hangul eojeols, it holds
   **digit runs too.** Committing digits directly breaks digit-run composition in
   sebeolsik.
-- This requirement is backed by measurement — the digit keys of `sin3-p2` are
-  synthesised as Hangul jaso and resolve to digits/symbols at the terminal tiers
-  101/102/103 (`1` becomes `Ⅰ` at tier 101, `₁` at 102, `¹` at 103). In other
-  words a digit run **is already part of composition today.**
+- The keys are not digits on every layout, which is why this is a requirement
+  rather than a no-op (measured 2026-11-01, issue #171, `hunmin-sim`):
+  `sin3-p2`'s digit keys resolve to literals — digits on the plain row, symbols on
+  the shift row, and at the terminal tiers 101/102/103 (entered by `k`/`l`/`;` after
+  ᄋ) `1` is `µ`/`①`/`⑪` plain and `Ⅰ`/`₁`/`¹` shifted; the tier is single-shot, so
+  only the first digit of a run resolves at it. `sebeolsik-final`'s digit keys are
+  jamo (`1`=ᇂ … `0`=ᄏ), so a run there composes as Hangul already.
+- **What the engine does today with a `sin3-p2` digit is not composition**: the
+  digit is committed as soon as its key is processed. The buffer this requirement
+  asks for is therefore the shared layer's word, and it holds there: with
+  `HUNMIN_COMMIT_AT_BOUNDARY` the run accumulates (`1`, `12`, `123`) and leaves once
+  at the boundary with nothing delivered early (`docs/OPTIONS-MEASURED.md` §BND-7;
+  tier-A `engine-buffered-preedit`). Under `HUNMIN_COMMIT_PER_SYLLABLE` it goes out
+  per key — the guarantee is the policy's, which is why the two settings are
+  dependent (issue #207).
 
 **The combination of the two requirements is the exact definition of on/off.**
 

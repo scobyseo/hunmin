@@ -3712,8 +3712,10 @@ What the table settles, and the four observations it added to R6's grounds:
   the tier applies to `1` and the run continues as plain digits.
 - **The spec's tier examples are the shift row.** §R6 says `1` becomes `Ⅰ` at 101,
   `₁` at 102, `¹` at 103; measured, those three are `shift+1`, and plain `1` at
-  those tiers is `µ`, `①`, `⑪`. The observation is recorded here and the SPEC is
-  left alone: §R6 is requirement text, and its wording is the maintainer's.
+  those tiers is `µ`, `①`, `⑪`. §R6's wording was then replaced on the
+  maintainer's instruction the same day (*"R6문구는 적절히 변경하자"*), and the new
+  sentence states exactly this: the shift row is the shift row, and the tier is
+  single-shot.
 - **The only early delivery is R4-정정's cap, and it is counted in bytes.** With
   `word_cap` 4 on `sin3-p2`, digits `1`…`4` are held and the fifth key flushes
   `12`; a digit costs 1 byte where a syllable costs 3, so a digit run reaches the
