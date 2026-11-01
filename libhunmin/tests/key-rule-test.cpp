@@ -14,6 +14,8 @@
  */
 #include <gtest/gtest.h>
 
+#include <string>
+
 extern "C" {
 #include "hunmin.h"
 }
@@ -327,6 +329,176 @@ TEST_F(KeyRuleTest, ShiftIsASpecialCombinationOnlyWithTheLanguageKey) {
     EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE)
         << "no binding for Shift+Alt, and VOICE was rebound away from Alt";
 }
+
+/* ---- the hook is top-level: one rule, every shipped layout (R13, #170) ---- */
+
+TEST_F(KeyRuleTest, TheHookFiresInEveryLayoutTheEngineShips) {
+    /* R13's "identical whichever layout it is pressed in"
+     * (docs/MODES-ENGINE-RULES.md §3) is a claim about the RULE, not about one
+     * layout, so the assertion is a census over the shipped data rather than the
+     * dubeolsik the fixture happens to build: every layout the engine can
+     * instantiate answers the same two actions for the same event. A new layout
+     * file fails here until it is placed, the way
+     * HangulValidOldTest.LayoutCapabilityIsDerivedFromTheData does for the
+     * validity rule.
+     *
+     * The reason this can be a census at all is the structural half of the
+     * requirement: the key is not a layout row (0 of the 47 keys in every layout
+     * are non-printable, tools/keymap-fixture.py), so the rule never asks the
+     * data and no layout can spell it differently. */
+    const int n = hunmin_ctx_layout_count(ctx_);
+    ASSERT_GT(n, 0);
+
+    int driven = 0;
+    for (int i = 0; i < n; i++) {
+        const char *id = hunmin_ctx_layout_id(ctx_, i);
+        ASSERT_NE(id, nullptr) << i;
+        if (!hunmin_ctx_layout_supported(ctx_, i)) continue; /* engine half not built: none today */
+        hunmin_buffered_preedit *d = hunmin_buffered_preedit_new(ctx_, id, nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+        ASSERT_NE(d, nullptr) << "layout " << id << " is supported but could not be instantiated";
+
+        /* The single press is the language toggle, whatever the layout is. */
+        hunmin_key_event single = ch('d');
+        single.language_key = 1;
+        EXPECT_EQ(hunmin_buffered_preedit_classify(d, &single), HUNMIN_KEY_LANGUAGE_TOGGLE) << id;
+
+        /* The compound press is AUTOSWITCH, and it flips the autoswitch value --
+         * NOT the language (the issue's second bullet). */
+        hunmin_key_event chord = single;
+        chord.mods = HUNMIN_MOD_CTRL; /* the ruled default, 2026-10-31 */
+        EXPECT_EQ(hunmin_buffered_preedit_classify(d, &chord), HUNMIN_KEY_LANGUAGE_CHORD) << id;
+
+        hunmin_special_host host{}; /* supports NULL = yes, perform NULL = resolved */
+        hunmin_buffered_preedit_special_host(d, &host);
+        EXPECT_EQ(hunmin_buffered_preedit_special(d, &chord), HUNMIN_SPECIAL_AUTOSWITCH) << id;
+        int on = 7;
+        ASSERT_TRUE(hunmin_buffered_preedit_get_option(d, "autoswitch", &on)) << id;
+        EXPECT_EQ(on, 1) << id << ": the press flips the state the dialog reads";
+        EXPECT_EQ(hunmin_buffered_preedit_language(d), HUNMIN_LANGUAGE_HANGUL)
+            << id << ": AUTOSWITCH is not the language toggle";
+        ASSERT_NE(hunmin_buffered_preedit_layout_id(d), nullptr);
+        EXPECT_STREQ(hunmin_buffered_preedit_layout_id(d), id) << "the press must not switch layouts";
+
+        hunmin_buffered_preedit_free(d);
+        driven++;
+    }
+    /* Not "driven > 0": the point is that no supported layout is skipped. */
+    EXPECT_EQ(driven, n) << "driven=" << driven << " of " << n << ": a layout the engine ships was skipped";
+}
+
+TEST_F(KeyRuleTest, TheHookIsDecidedBeforeTheBufferIsFed) {
+    /* docs/MODES-ENGINE-RULES.md §3: "this hook must be processed before
+     * inference -- pressing the hangul/latin key while inference is on is the
+     * signal 'do not do this automatically'". Two halves, both measured here.
+     *
+     * ORDER. With a buffer in flight the press is answered from the EVENT:
+     * classify() consults language_key before the feed/boundary branches, and
+     * servicing it feeds the buffer nothing.
+     *
+     * INFERENCE. R8's judgement landed after this issue was written (#164), and
+     * before that it ran on the toggle's own boundary: with `autoswitch` on and
+     * `hello` in flight, `toggle_language()` delivered the judged Latin reading
+     * ("hello") and left `judged = LATIN` for the frontend, so one press was
+     * answered by the judgement as well as by its own action. R13 says the press
+     * IS the signal not to do that automatically, so it is now a boundary that
+     * does not judge (`boundary(l, false)`): the word goes out in the language
+     * that was active, and the frontend is handed no judgement. Asserted as an
+     * equality against the feature-off run rather than a typed string -- the
+     * point is which text the press delivers, not how dubeolsik spells it -- and
+     * against a control where a KEY boundary must still judge it, so a
+     * dictionary that failed to load cannot make this case pass vacuously. */
+    hunmin_key_result out{};
+    for (char c : {'d', 'k'}) hunmin_buffered_preedit_process_key(l_, (uint32_t)c, 0, &out);
+    ASSERT_STREQ(hunmin_buffered_preedit_composing(l_), "아") << "premise: a syllable is in flight";
+
+    hunmin_key_event chord = ch('d');
+    chord.language_key = 1;
+    chord.mods = HUNMIN_MOD_CTRL;
+
+    /* The rule reaches the hook although a syllable is composing, and reading it
+     * changes nothing: classify() is the classifier, not a feed. */
+    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &chord), HUNMIN_KEY_LANGUAGE_CHORD);
+    EXPECT_STREQ(hunmin_buffered_preedit_composing(l_), "아");
+
+    hunmin_special_host host{};
+    hunmin_buffered_preedit_special_host(l_, &host);
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &chord), HUNMIN_SPECIAL_AUTOSWITCH);
+
+    /* Nothing was fed and no word was finished: the key is not composition
+     * input, and the in-flight syllable is exactly where it was. */
+    EXPECT_STREQ(hunmin_buffered_preedit_composing(l_), "아");
+    EXPECT_STREQ(hunmin_buffered_preedit_delivered(l_), "") << "the press produced no text";
+    EXPECT_STREQ(hunmin_buffered_preedit_latin_text(l_), "");
+
+    /* A two-language layer with the shipped dictionary loaded, because the
+     * fixture's is single-language: without a Latin layout there is no reading
+     * and the judgement can never fire, which would make the cases below pass
+     * for the wrong reason. */
+    auto pair = [this](int autoswitch) {
+        hunmin_buffered_preedit *p =
+            hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+        if (!p) return (hunmin_buffered_preedit *)nullptr;
+        EXPECT_EQ(hunmin_buffered_preedit_load_english_shipped(p), 1) << "the shipped en_US list";
+        EXPECT_TRUE(hunmin_buffered_preedit_set_option(p, "autoswitch", autoswitch));
+        return p;
+    };
+    auto type = [](hunmin_buffered_preedit *p, const char *keys) {
+        hunmin_key_result r{};
+        std::string all;
+        for (const char *k = keys; *k; ++k) {
+            hunmin_buffered_preedit_process_key(p, (uint32_t)*k, 0, &r);
+            if (r.commit) all += r.commit;
+            (void)hunmin_buffered_preedit_take_judgement(p); /* the frontend reads per key */
+        }
+        return all;
+    };
+
+    /* CONTROL: the word `hello` is one the judgement decides, and a KEY boundary
+     * decides it -- delivered in the judged language, with the answer left for
+     * the frontend. Without this line, "no judgement on the press" would also
+     * pass on a layer where the judgement never fires at all. */
+    hunmin_buffered_preedit *control = pair(1);
+    ASSERT_NE(control, nullptr);
+    type(control, "hello");
+    hunmin_key_result space{};
+    hunmin_buffered_preedit_process_key(control, ' ', 0, &space);
+    EXPECT_STREQ(space.commit, "hello") << "premise: the judgement fires on a key boundary";
+    EXPECT_EQ(hunmin_buffered_preedit_take_judgement(control), HUNMIN_LANGUAGE_LATIN);
+    hunmin_buffered_preedit_free(control);
+
+    /* The feature-off run: the text the press delivers when nothing can judge.
+     * This is what "committed in the language that was active" means. */
+    hunmin_buffered_preedit *off = pair(0);
+    ASSERT_NE(off, nullptr);
+    type(off, "hello");
+    hunmin_key_result off_out{};
+    ASSERT_EQ(hunmin_buffered_preedit_toggle_language(off, &off_out), 1);
+    const std::string as_typed = off_out.commit ? off_out.commit : "";
+    ASSERT_FALSE(as_typed.empty());
+    hunmin_buffered_preedit_free(off);
+
+    /* THE PRESS, with the feature on. Same keys, same press: the text is the one
+     * typed (not "hello"), and no judgement is left to act on. */
+    hunmin_buffered_preedit *on = pair(1);
+    ASSERT_NE(on, nullptr);
+    type(on, "hello");
+    /* A syllable is in flight (the whole word is only visible at the boundary:
+     * `composing` is the in-flight syllable, and on this layer `display` shows
+     * the judged language per key, E6's default). */
+    ASSERT_FALSE(std::string(hunmin_buffered_preedit_composing(on)).empty())
+        << "premise: a word is composing";
+
+    hunmin_key_result press{};
+    ASSERT_EQ(hunmin_buffered_preedit_toggle_language(on, &press), 1);
+    EXPECT_EQ(as_typed, press.commit ? press.commit : "")
+        << "the press delivers the word as typed, not the judged reading";
+    EXPECT_EQ(hunmin_buffered_preedit_take_judgement(on), -1)
+        << "the press leaves no judgement: inference did not decide this key";
+    EXPECT_EQ(hunmin_buffered_preedit_language(on), HUNMIN_LANGUAGE_LATIN)
+        << "the press's own action stands";
+    hunmin_buffered_preedit_free(on);
+}
+
 
 /* ---- R13-정정's one on/off state (issue #165) ---------------------------- */
 
