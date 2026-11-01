@@ -501,6 +501,16 @@ HEK-CENSUS-170 | grep | libhunmin/tests/key-rule-test.cpp:TheHookFiresInEveryLay
 HEK-BEFORE-BUFFER-170 | grep | libhunmin/tests/key-rule-test.cpp:TheHookIsDecidedBeforeTheBufferIsFed | present | issue #170: MODES-ENGINE-RULES §3's "before inference", measured against the judgement #164 shipped -- with a syllable in flight the press is answered from the event, feeds the buffer nothing, delivers the word in the language that was active, and leaves no judgement for the frontend (take_judgement answers -1); the case carries a control where a KEY boundary must still judge the same word
 HEK-PRESS-NO-JUDGE-170 | grep | libhunmin/src/buffered_preedit.c:commit = boundary | present | the engine half: the toggle's boundary skips R8's judgement, because R13 says the press is the signal "do not do this automatically". Before this row the judgement ran on that boundary too -- autoswitch on, `hello` in flight, the press delivered `hello` and handed the frontend LATIN
 HEK-KEYRULE-CTEST-170 | ctest | engine-key-rule | registered | both cases above run in this tier; registering the case NAME is not the same as registering the binary, so this row is the one that would catch a case written into a file no ctest runs
+# ----------------------------------------------------------------  issue #172 (2026-11-01)
+# The word list is a separate distribution (B3, docs/SPEC-MODES.md §R8-정정-2).
+# Rows assert what shipped on each surface, and ABSENCE for the two surfaces the
+# change did not reach: a board with only green rows reads greener than the tree.
+DATA-SPLIT-CMAKE-172 | grep | CMakeLists.txt:modes-data | present | issue #172: `data` and `modes-data` install components, so `cmake --install --component data` leaves modes/ out and `--component modes-data` carries it alone
+DATA-SPLIT-DEB-172 | path-present | debian/hunmin-en-us.install | present | the words are a binary package of their own (debian/control, Architecture: all), suggested by the base package rather than depended on
+DATA-SPLIT-CTEST-172 | ctest | data-split | registered | the partition and the base-only install tree, asserted cheaply (0.11 s): components agree with the tree, every data dir is claimed by exactly one package, and hunmin-sim on the base tree delivers the same text as on the full data tree
+DATA-SPLIT-TSF-172 | grep | frontends/tsf/installer/hunmin.iss:Components: | absent | NOT SHIPPED: the Windows installer still copies `data\` whole, modes/ included; the optional-component edit needs ISCC, which no host in this session has
+DATA-SPLIT-ANDROID-172 | grep | frontends/android/app/build.gradle.kts:modes/\*\* | absent | NOT SHIPPED: the asset Sync still ships modes/, so the APK carries the words inside the distribution -- the one surface with a runtime path, and the choice between an asset flavour and a download step is unruled
+DATA-SPLIT-GATE-172 | grep | libhunmin/src/ic.c:english_ready | absent | NOT SHIPPED: the option still accepts autoswitch=1 with the data absent (issue #169). hunmin_ctx_layout_autoswitch_capable is NOT this gate -- it answers "does this layout compose Hangul"
 # ----------------------------------------------------------------  decision-blocked
 # B1..B9 are maintainer rulings, not tree facts. AGENTS.md: "네 멋대로 기각하지마."
 # They carry no assertion row, by construction, and their absence from this table

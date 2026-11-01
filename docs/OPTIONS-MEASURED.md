@@ -2438,6 +2438,34 @@ Four mechanisms, each with what it buys and what it costs:
 - **No data at all**: `english_valid` would have no source, which is R8-정정
   reverted — an option only in the sense that the requirement could change.
 
+#### EDW-4 status, 2026-11-01 — the second mechanism, as far as it is buildable here
+
+Issue #172 (and #190, which prices the same change) shipped the **separate
+package** row on one surface. What each surface now says, measured on the host
+that made the change:
+
+| surface | state after #172 | evidence, and what was not executed |
+|---|---|---|
+| Debian | **shipped** | `data` and `modes-data` install components (`CMakeLists.txt`), binary package `hunmin-en-us` (`debian/control`, `debian/hunmin-en-us.install`), and `Suggests: hunmin-en-us` on the base package. The partition was exercised with debhelper 13.31's `dh_install` against a staged tree: three files to `hunmin-en-us`, 35 to `hunmin`, no file in both. The `.deb` itself was **not built** — debhelper is not installed on that host and the CI `.deb` job is where dpkg-buildpackage runs. |
+| Windows installer | unchanged | the `data\\` copy in `hunmin.iss` still ships `modes\`. The edit is a `[Components]` entry plus `Components:` on that one `[Files]` line; ISCC is not on that host, so it is written-not-executed and issue #172 keeps it. |
+| Android | unchanged | the asset `Sync` still ships `modes/`, so the APK remains the one surface where the words are inside the distribution. This is the only surface with a runtime path — an asset flavour (one build variant without `modes/`) or a download step (a network at the moment a person is typing) — and choosing between them is a ruling, not a measurement. |
+| engine | partial | `hunmin_buffered_preedit_english_ready` answers the presence question and the base-only install tree delivers byte-identical text to the full one (`ctest data-split`). What is still missing is the half that acts on the answer: `hunmin_ic_set_option(ic,"autoswitch",1)` accepts the value with no data present, so a stored preference can be set on a machine where the feature cannot work. That refusal is issue #169. |
+
+Two facts from that pass worth keeping:
+
+- `hunmin_ctx_layout_autoswitch_capable()` is **not** the gate. Its body answers
+  "does this layout's keys emit conjoining jamo" (`schema_loader.c`
+  `compute_capability`), a static property of the *layout*, and a machine with
+  twelve Hangul layouts and no word list answers 1 for all twelve. Anyone
+  wiring a "feature available" row to it would be wiring it to the wrong
+  question.
+- `Suggests:` rather than `Recommends:` is the *proposal* in this change, and it
+  follows from B3 rather than from Debian habit: `Recommends` installs the words
+  on every `apt install hunmin`, which would leave the absent state — the thing
+  the gate exists to answer — reachable only by uninstalling. The deciding
+  question for a maintainer is whether the default Debian install should have
+  the feature's data or exercise the gate; one word moves it either way.
+
 ### EDW-5 Summary
 
 | option | ABI | data | tier A goldens | tier C corpora | adapters | where it decides |
