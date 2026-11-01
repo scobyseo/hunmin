@@ -122,6 +122,22 @@ composition is stored when no store crosses platforms.
 - This hook must be processed before inference — pressing the hangul/latin key while inference
   is on is the signal "do not do this automatically".
 
+Both bullets are pinned by tier A `engine-key-rule`, and neither by a layout-specific case:
+`KeyRuleTest.TheHookFiresInEveryLayoutTheEngineShips` drives the single press and the compound
+press through every layout the engine can instantiate (a census over the shipped data, so a
+new layout file fails it until it is placed), and
+`KeyRuleTest.TheHookIsDecidedBeforeTheBufferIsFed` fires the hook with a syllable in flight.
+
+The second bullet stopped being an ordering claim when R8's judgement landed (#164): the
+toggle's boundary used to run it, so with `autoswitch` on and `hello` in flight a press
+delivered the judged Latin reading (`hello`) *and* left `LATIN` for the frontend — one press
+answered twice. The press is now a boundary that does not judge (`boundary(l, false)` in
+`hunmin_buffered_preedit_toggle_language`): the word goes out in the language that was active
+and `hunmin_buffered_preedit_take_judgement()` answers `-1`. The case asserts that against a
+control where a KEY boundary must still judge the same word, so a dictionary that failed to
+load cannot make it pass vacuously, and against the feature-off run, so "as typed" is an
+equality rather than a typed string.
+
 ## The special-function dispatch (implemented 2026-10-31)
 
 Ruled the same day, in the maintainer's words: *"each frontend can have default key code and

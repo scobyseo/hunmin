@@ -485,8 +485,16 @@ static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
 
 /* The boundary. One place answers "the word is finished": the engine's own
  * flush finalises the in-flight syllable, and the mode decides whether the
- * client receives that syllable or the whole word. */
-static const char *boundary(hunmin_buffered_preedit *l) {
+ * client receives that syllable or the whole word.
+ *
+ * `judge` says whether R8's judgement (#164) may run here. It is false for one
+ * caller and only one -- the Han/Eng press -- because R13 requires the hook to
+ * be processed BEFORE inference (docs/MODES-ENGINE-RULES.md §3: "pressing the
+ * hangul/latin key while inference is on is the signal 'do not do this
+ * automatically'", issue #170). The readings are still taken when judging is
+ * off: they are what `hunmin_buffered_preedit_latin_text()` reports for the word
+ * that finished, which is a separate contract from the decision. */
+static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
     const char *flushed = hunmin_ic_flush(l->ic);
     if (!flushed) flushed = "";
     /* Above the delivery split on purpose: the reading and the cleared key log
@@ -509,7 +517,7 @@ static const char *boundary(hunmin_buffered_preedit *l) {
     /* Judged while the word is still whole. PER_SYLLABLE mode cannot reach this
      * line: by the boundary its earlier syllables are already in the client,
      * and R10 forbids reassembling them, so the judgement has nothing to judge. */
-    const char *judged = judge_boundary(l, keys);
+    const char *judged = judge ? judge_boundary(l, keys) : NULL;
     if (judged) {
         word_clear(l);
         return set_commit(l, judged);
@@ -547,7 +555,7 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
         /* A declined key IS the boundary: the engine finalises the syllable it
          * was holding, and the frontend passes the key to its client. Every
          * frontend used to spell this out itself. */
-        (void)boundary(l);
+        (void)boundary(l, true);
     }
 
     if (out) {
@@ -572,7 +580,7 @@ int hunmin_buffered_preedit_peek_key(const hunmin_buffered_preedit *l, uint32_t 
 
 const char *hunmin_buffered_preedit_commit_word(hunmin_buffered_preedit *l) {
     if (!l || !l->ic) return "";
-    return boundary(l);
+    return boundary(l, true);
 }
 
 const char *hunmin_buffered_preedit_display(hunmin_buffered_preedit *l) {
@@ -646,7 +654,7 @@ const char *hunmin_buffered_preedit_external_text(hunmin_buffered_preedit *l, co
      * The word lives in commit_out, which reserving may MOVE, so it is copied
      * aside before anything else allocates -- reading it afterwards would be a
      * use-after-realloc. */
-    const char *word = boundary(l);
+    const char *word = boundary(l, true);
     const size_t wn = word ? strlen(word) : 0;
     char *held = NULL;
     if (wn) {
@@ -840,7 +848,15 @@ const char *hunmin_buffered_preedit_composing(hunmin_buffered_preedit *l) {
  * The switch IS a boundary: whatever was composing belongs to the language that
  * was active and is committed before the other layout takes over. The engine is
  * re-created because the two languages are two layouts, which is what the
- * engine's own model says. */
+ * engine's own model says.
+ *
+ * It is a boundary that does NOT judge (R13, issue #170): the press is the
+ * person's own decision, and R8's inference must not decide it too. Measured
+ * before that was honoured: with `autoswitch` on and `hello` in flight, this
+ * call delivered the judged Latin reading and left `judged = LATIN` for the
+ * frontend, so one press answered with both the judgement and the switch
+ * (issue #170's third checklist item). The word is delivered in the language
+ * that was active, which is what a manual switch means. */
 int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_key_result *out) {
     if (out) {
         out->consumed = 0;
@@ -848,7 +864,7 @@ int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_k
         out->preedit = "";
     }
     if (!l || !l->ic) return 0;
-    const char *commit = boundary(l);
+    const char *commit = boundary(l, false);
     const char *next = l->hangul_mode ? l->latin_id : l->hangul_id;
     if (!next) {
         /* One-language frontend: the key is not ours to perform. The commit
