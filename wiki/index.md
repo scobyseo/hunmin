@@ -26,6 +26,10 @@
 
 ## Decisions
 
+- [[2026-11-02-interim-cannot-support-autoswitch-and-on-stops-passthrough]] — two rulings
+  from one message: the interim delivery cannot carry the switch (and why it is
+  structural), and with the switch on English stops passing through so R8's E1 line
+  can judge; what each leaves open is in the page, not here.
 - [[decisions-belong-to-the-maintainer]] — the standing instruction that
   measurements are the agent's and rulings are the maintainer's, and the three
   later instances where it bound.
