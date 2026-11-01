@@ -15,7 +15,7 @@ Standards-Version: 4.6.2
 Package: hunmin
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, fcitx5
-Suggests: hunmin-en-us
+Recommends: hunmin-en-us
 Description: Korean input method engine (libhunmin core + fcitx5 addon)
  libhunmin is a portable Hangul input engine where keyboard layouts are
  data files rather than code. It matches libhangul behaviour for the
@@ -27,8 +27,11 @@ Description: Korean input method engine (libhunmin core + fcitx5 addon)
  method name "hunmin", coexisting with fcitx5-hangul).
  .
  The English word list used by the automatic Hangul/English switch ships
- separately, as hunmin-en-us, so that a machine without it is a normal
- installation rather than a broken one (SPEC-MODES R8-정정-2, B3).
+ as hunmin-en-us, and this package Recommends it, so a plain install has one
+ dictionary and the feature can be used before a distribution mechanism for
+ additional dictionaries exists (ruling 2026-11-01; SPEC-MODES R8-정정-2, B3).
+ A machine without it is still a normal installation: the engine answers "no
+ English words" and every mode keeps working.
 
 Package: hunmin-en-us
 Architecture: all

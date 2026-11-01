@@ -17,8 +17,10 @@ has been left out:
    exactly one of the two `debian/*.install` files, and `modes/` by the words
    package only;
 3. the declaration: `debian/control` carries the words package, and the base
-   package points at it (Suggests/Recommends), so `apt install hunmin` can name
-   a package that exists;
+   package Recommends it -- the maintainer's ruling of 2026-11-01
+   ("Recommends.") on issue #172: one dictionary arrives with a plain install,
+   and the words package stays a package of its own so that an installation
+   without it is still possible and still answerable;
 4. the engine: hunmin-sim run against a base-only install tree delivers exactly
    the text it delivers against the full data tree. Equality against the
    identity-path run rather than a literal, because the literal would encode one
@@ -156,11 +158,19 @@ def check_control(root: Path) -> None:
             fail(f"debian/control has no Package: {name} stanza")
     if stanzas[WORDS_PACKAGE].get("Architecture") != "all":
         fail(f"{WORDS_PACKAGE} is not Architecture: all -- it carries data only")
-    pointers = " ".join(stanzas[BASE_PACKAGE].get(k, "")
-                        for k in ("Suggests", "Recommends", "Depends"))
+    # Recommends, not Suggests and not Depends: the maintainer's ruling of
+    # 2026-11-01 on issue #172, verbatim "Recommends." -- a plain install has one
+    # dictionary, and the package stays removable so that the absent state B3
+    # makes answerable is still reachable (--no-install-recommends, a distro
+    # that drops it, a machine that uninstalls it).
+    pointers = stanzas[BASE_PACKAGE].get("Recommends", "")
     if WORDS_PACKAGE not in pointers:
-        fail(f"debian/control's {BASE_PACKAGE} stanza never names "
-             f"{WORDS_PACKAGE}, so nothing tells a person the words exist")
+        fail(f"debian/control's {BASE_PACKAGE} stanza must Recommend "
+             f"{WORDS_PACKAGE} (ruling 2026-11-01, issue #172); it says "
+             f"Recommends: {pointers!r}")
+    if WORDS_PACKAGE in stanzas[BASE_PACKAGE].get("Depends", ""):
+        fail(f"{WORDS_PACKAGE} is a hard Depends -- then the words cannot be "
+             f"absent, and B3's gate has no state to answer")
     ok(f"control: {WORDS_PACKAGE} declared, named by {BASE_PACKAGE}")
 
 

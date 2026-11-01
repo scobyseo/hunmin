@@ -2441,14 +2441,15 @@ Four mechanisms, each with what it buys and what it costs:
 #### EDW-4 status, 2026-11-01 — the second mechanism, as far as it is buildable here
 
 Issue #172 (and #190, which prices the same change) shipped the **separate
-package** row on one surface. What each surface now says, measured on the host
-that made the change:
+package** row as a *seam*, not as a default: the maintainer's 2026-11-01 ruling
+is one dictionary by default, additional ones later. What each surface now
+says, measured on the host that made the change:
 
 | surface | state after #172 | evidence, and what was not executed |
 |---|---|---|
-| Debian | **shipped** | `data` and `modes-data` install components (`CMakeLists.txt`), binary package `hunmin-en-us` (`debian/control`, `debian/hunmin-en-us.install`), and `Suggests: hunmin-en-us` on the base package. The partition was exercised with debhelper 13.31's `dh_install` against a staged tree: three files to `hunmin-en-us`, 35 to `hunmin`, no file in both. The `.deb` itself was **not built** — debhelper is not installed on that host and the CI `.deb` job is where dpkg-buildpackage runs. |
+| Debian | **shipped** | `data` and `modes-data` install components (`CMakeLists.txt`), binary package `hunmin-en-us` (`debian/control`, `debian/hunmin-en-us.install`), and `Recommends: hunmin-en-us` on the base package (ruled 2026-11-01, "Recommends.") — one dictionary on a plain install, and still a package of its own. The partition was exercised with debhelper 13.31's `dh_install` against a staged tree: three files to `hunmin-en-us`, 35 to `hunmin`, no file in both. The `.deb` itself was **not built** — debhelper is not installed on that host and the CI `.deb` job is where dpkg-buildpackage runs. |
 | Windows installer | unchanged | the `data\\` copy in `hunmin.iss` still ships `modes\`. The edit is a `[Components]` entry plus `Components:` on that one `[Files]` line; ISCC is not on that host, so it is written-not-executed and issue #172 keeps it. |
-| Android | unchanged | the asset `Sync` still ships `modes/`, so the APK remains the one surface where the words are inside the distribution. This is the only surface with a runtime path — an asset flavour (one build variant without `modes/`) or a download step (a network at the moment a person is typing) — and choosing between them is a ruling, not a measurement. |
+| Android | unchanged, and now deliberately so | the asset `Sync` ships `modes/`, so the APK carries one dictionary — which is what the 2026-11-01 ruling asks for ("have one dict by default because we don't have additional distribution mech."). The runtime path (an asset flavour without `modes/`, or a download step) is what a *second* dictionary would need, and it is not built. |
 | engine | partial | `hunmin_buffered_preedit_english_ready` answers the presence question and the base-only install tree delivers byte-identical text to the full one (`ctest data-split`). What is still missing is the half that acts on the answer: `hunmin_ic_set_option(ic,"autoswitch",1)` accepts the value with no data present, so a stored preference can be set on a machine where the feature cannot work. That refusal is issue #169. |
 
 Two facts from that pass worth keeping:
@@ -2459,12 +2460,23 @@ Two facts from that pass worth keeping:
   twelve Hangul layouts and no word list answers 1 for all twelve. Anyone
   wiring a "feature available" row to it would be wiring it to the wrong
   question.
-- `Suggests:` rather than `Recommends:` is the *proposal* in this change, and it
-  follows from B3 rather than from Debian habit: `Recommends` installs the words
-  on every `apt install hunmin`, which would leave the absent state — the thing
-  the gate exists to answer — reachable only by uninstalling. The deciding
-  question for a maintainer is whether the default Debian install should have
-  the feature's data or exercise the gate; one word moves it either way.
+- **The default is one dictionary, and that is a ruling, not a packaging
+  accident** (2026-11-01, issue #172 — the words and the record are in
+  `wiki/decisions/2026-11-01-one-dict-by-default-the-release-page-later.md`):
+
+  > "Recommends."
+  >
+  > "have one dict by default because we don't have additional distribution
+  > mech. may use github release page for additional package distribution
+  > mech. we need to test the feature even before we have distribution mech."
+
+  So the words package is `Recommends` (installed by default, removable), the
+  APK keeps its dictionary, and the mechanism for a *second* dictionary is
+  deferred to the GitHub release page. What the ruling does not settle is the
+  release page's shape (an asset name, a checksum, whether the app or the
+  person fetches it), and the absent state stays real — `--no-install-recommends`,
+  a distro that drops the words package, an uninstall — which is why the gate
+  (#169) is still owed rather than retired.
 
 ### EDW-5 Summary
 
