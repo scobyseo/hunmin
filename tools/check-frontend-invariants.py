@@ -73,9 +73,16 @@ def main() -> int:
           f"found {block.count('commitString(')}")
 
     # The candidate switch consumes its own keys (one filterAndAccept per key it
-    # routes), so the feed tail -- everything after the window-closing comment --
+    # routes), so the feed tail -- everything from the consumption gate onwards --
     # is where "exactly one, gated on the answer" applies.
-    tail = block[block.find("if (!used) {"):]
+    #
+    # The anchor is `if (used) {`, not `if (!used) {`: the declined-key branch
+    # existed only to hand the word to the R8 detector, and the detector retired
+    # on 2026-11-01 (issue #164) -- the engine now judges and the adapter acts on
+    # its answer. The rule the two checks below assert is unchanged: the key the
+    # engine declined reaches the client, and filterAndAccept appears once, in
+    # the branch where `used` is true.
+    tail = block[block.find("if (used) {"):]
     if not tail:
         tail = block[block.find("updateUI();"):]
     # I3: filterAndAccept belongs to the branch where the engine consumed the
@@ -194,8 +201,9 @@ def main() -> int:
     # translation unit, which keeps the same total and only hides it.
     counted = 0
     parts = {}
-    for name in ("hunminadapter.cpp", "hunminadapter.h", "config.h",
-                 "language_detect.cpp", "language_detect.h"):
+    # language_detect.{cpp,h} left the budget on 2026-11-01 (#164): the detector
+    # retired, so there is no second translation unit in this adapter.
+    for name in ("hunminadapter.cpp", "hunminadapter.h", "config.h"):
         f = ENGINE.with_name(name)
         if not f.exists():
             continue

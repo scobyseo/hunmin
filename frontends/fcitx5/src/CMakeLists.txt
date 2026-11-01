@@ -1,4 +1,4 @@
-add_fcitx5_addon(hunmin_addon hunminadapter.cpp language_detect.cpp)
+add_fcitx5_addon(hunmin_addon hunminadapter.cpp)
 
 # fcitx dlopens <Library>.so from the addon dir: file must be libhunmin.so
 # (core libhunmin.so.0 is a DT_NEEDED, resolved by soname — same layout as

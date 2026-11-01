@@ -892,3 +892,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   precomposes one, so the widened rule had to be a grammar over conjoining jamo.
 - The per-layout answer is derived from the layout's own keys and combination
   table, so no schema field was added; SPEC-SCHEMA's layout section says so.
+
+## [2026-11-01] create | The engine judges, the frontend switches
+
+- Created `decisions/2026-11-01-the-engine-judges-the-frontend-switches.md` on the
+  maintainer's ruling in issue #164, quoted verbatim, with the threshold it set and
+  the principle stated beside it.
+- Marked `decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md` superseded
+  (kept, not deleted: the 2026-10-13 decision is what the question had to be asked
+  against) and added it to `index.md`.
+- Created `raw/sessions/2026-11-01-modes-ownership-retires-the-detector.md`
+  (the #164 session: what it created, what it overturned, what it left pending
+  with an issue number each) and added it to `index.md`.
+

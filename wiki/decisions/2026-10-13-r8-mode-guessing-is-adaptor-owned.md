@@ -1,7 +1,7 @@
 ---
 title: R8 mode guessing is adaptor-owned
 created: 2026-10-13
-updated: 2026-10-13
+updated: 2026-11-01
 type: decision
 status: active
 tags: [decision, modes, question]
@@ -13,6 +13,11 @@ confidence: high
 ---
 
 # R8 mode guessing is adaptor-owned
+
+> **Superseded 2026-11-01 (#164).** The maintainer ruled the judgement
+> engine-owned and the switch frontend-owned; this page is kept as the record of
+> what was decided on 2026-10-13 and why it did not survive the data moving into
+> the core. See [[2026-11-01-the-engine-judges-the-frontend-switches]].
 
 **Ruling (2026-10-13).** Settled on the basis of the design argument in
 `docs/architecture.md` §3: R8 is adaptor-owned, not engine-owned.

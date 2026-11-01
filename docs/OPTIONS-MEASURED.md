@@ -1,4 +1,4 @@
-# OPTIONS-MEASURED — ten cost questions, measured
+# OPTIONS-MEASURED — eleven cost questions, measured
 
 Four documents that were one genre: a question nobody had priced, the options
 priced against each other, and the maintainer left to choose. They are one file
@@ -9,7 +9,7 @@ document, because an issue that asks a question and leaves it open belongs in
 the file that already holds the open ones; §HEK, §E5 and §EDW followed the same way.
 
 Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`, `HEK-`,
-`E5-`, `EDW-`, `B1-`, `PAS-`) so a cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
+`E5-`, `EDW-`, `B1-`, `PAS-`, `MRO-`) so a cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
 is the android sandbox's §4.2. `HEK` and `E5` are the two halves of issue #159 and are
 deliberately separate, because they answer different questions: **§HEK** measures whether
 each environment can deliver the gesture at all (key shapes), and **§E5** prices what the
@@ -19,7 +19,9 @@ alternatives to each other. §EDW (issue #160) is a third subject and cites itse
 whether the block the other items sit behind still exists, so its options are answers to
 "retire, narrow, or leave". §PAS (issue #162) is arithmetic rather than a probe: the
 two numbers it prices are gradeable only once #181's harness picks a corpus, so it
-prices the units instead.
+prices the units instead. §MRO (issue #164) is the first section whose subject
+already exists twice in the tree — it asks which home the rule should keep, not
+whether one is missing.
 
 | section | question | status |
 |---|---|---|
@@ -32,6 +34,7 @@ prices the units instead.
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
 | EDW | which English dictionary R8-정정's `english_valid` looks up, under what licence, and whether it ships separately | **decided 2026-11-01: hunspell `en_US` + a user dictionary, shipped in-tree for now** (#160); four candidate dictionaries and the corpus-list baseline were priced on one probe. The curated supplement is deferred; the separate-distribution split is #190 |
 | B1 | whether the board's B1 ("the hangul judgement source") is still a blocker at all now that `hangul_valid` is a structural test | **decided 2026-11-01: option A — B1 retired** (#161); the Hangul half is answered by R8-정정, the English half is decided and shipped by R8-정정-2 |
+| MRO | who owns the modes judgement — the shared layer, which already holds the buffer, both layouts and the mode, or each adapter | **decided 2026-11-01: option C** (#164) — the engine judges, the frontend performs the switch; the same ruling sets R9's threshold at three characters. The material is measured in three places and the formula in none; the fcitx5 act still needs an input method to switch to |
 | PAS | the pass lines for the two scored metrics (keystroke saving, manual toggles) — in which unit each can be graded at all | open (#162); the arithmetic is measured, no number is chosen. Both validity halves and the autoswitch state shipped 2026-11-01, but the judgement the numbers grade is still #168 and the harness that would run them is still #181 — so the units are priced and the corpus that fixes them is named as the missing input, not the number |
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
@@ -2939,3 +2942,296 @@ retired, not a blocked one.
   `§B1` had retired B1 — the two premises that changed are §PAS-0 items 3 and 5.
 - Changed by this branch: `docs/OPTIONS-MEASURED.md` (this section and the header
   table), `README.md` (its index row).
+
+## MRO — who owns the modes judgement: the shared layer, or each adapter (issue #164)
+
+**Decided 2026-11-01: option C — the engine judges, the frontend performs the
+switch.** The maintainer's words, verbatim:
+
+> "fcitx5의 제약이 있으면, engine은 판정만 하고, 전환은 frontend가 할 수 밖에
+> 없지 않니? 3자 이상이면 판단하자."
+
+The same message rules R9's threshold — **three characters or more are judged**,
+which is §MRO-4 item 2 — and asks the fcitx5 ON/OFF surface to be built if this
+decision leaves no problem, which is §MRO-4 item 1.
+
+**Not settled by this, and named rather than dropped:** the threshold's unit
+(characters typed, syllables produced, or the Latin reading's length give three
+different answers for `안녕`); whether fcitx5 must ship an English
+input-method entry before its act can work at all (§MRO-4 item 1); and the
+symmetric direction of R8's formula, which §R8 already leaves open.
+
+*As written, this section was measurements only with no option recommended. The
+pricing below is left exactly as it was — the decision is quoted here rather than
+folded back into the options, so what was weighed stays visible.*
+
+**What shipped with the decision (same branch, 2026-11-01):** the formula and R9's
+guard in `libhunmin/src/buffered_preedit.c#judge_boundary`, the answer in
+`hunmin_buffered_preedit_take_judgement`, tier-A cases in `engine-wordset`, the
+three frontends acting on it (TSF, Android, fcitx5 — the last of which needed the
+English slot it had been passing as NULL), and `language_detect.{h,cpp}` retired
+with its `engine-d1-language-detect` case. The fcitx5 settings row (§MRO-4 item 1's
+surface) is #176, and the ON/OFF state is still not persisted by any frontend.
+
+Produced 2026-11-01 on branch `scobyseo/modes-ruling-does-the-shared-layer-own-the-judge`,
+base `a099f4f`, host Windows 11. This branch touches documentation only: nothing
+under `libhunmin/`, `frontends/`, `tools/` or `tests/` is modified, so it cannot
+collide with the sessions working this repo in parallel (`git worktree list` shows
+the primary tree, this one, and `modes-ruling-e2-e3-e6-buffer-cap-short-word-thre`).
+
+### MRO-0 The premise, checked first
+
+The issue's own words, once: *"does the judgement go into the shared layer (where
+the buffer, both layouts and the mode already live), with the fcitx5 detector
+retired, or does the adapter stay the owner and each frontend repeats it?"* Its
+stated premises were measured against the tree, in the order it states them.
+
+| # | the issue's statement | measured | verdict |
+|---|---|---|---|
+| 1 | **B9 (2026-10-14) ruled R8 adaptor-owned**; "the owner is a design decision, not a requirement" | `docs/REMAINING-WORK.md` row B9 (`DECIDED 2026-10-14`), `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md`, and `docs/SPEC-MODES.md` §R3 in the same words | **verified** |
+| 2 | **#128 put the state, both layout ids, the word buffer and the boundary into the shared layer**, with `HUNMIN_LANGUAGE_HANGUL/LATIN`, `..._toggle_language` and `HUNMIN_KEY_LANGUAGE_TOGGLE` | `libhunmin/include/hunmin.h` (the layer's construct takes `hangul_layout_id` + `latin_layout_id`; the language enum, the toggle and the key action are exported); `libhunmin/src/buffered_preedit.c`'s struct holds `hangul_mode`, both ids, `word`, `keys` | **verified** |
+| 3 | "the fcitx5 detector replays the word on a shadow Latin context and returns text with **no validity test at all** (only a `minLen` guard)" | `frontends/fcitx5/src/language_detect.cpp#LanguageDetector::judge` is `minLen` + replay, nothing else; `grep -rn "english_valid\|hangul_valid" frontends/` returns no line | **verified** |
+| 4 | "its single call site discards the result" | `frontends/fcitx5/src/hunminadapter.cpp#HunminState::keyEvent` calls `switcher_.judge(*engine_->config().latinLayout);` and uses nothing it returns | **verified** |
+| 5 | "`hunmin_buffered_preedit_toggle_language` has **no caller in any frontend** (issue #136)" | `frontends/tsf/src/tsf.cpp#CTextService::ToggleModeCore` and `frontends/android/app/src/main/cpp/hunmin-jni.c` (`nativeLayerToggleLanguage`, called from `HunminAdapter.toggleLanguage`, used by `HunminInputMethodService`'s HANGUL_ENG action) both call it. fcitx5 has zero call sites, **by design and already recorded** (`hunminadapter.cpp`'s language comment, `docs/SPEC-FRONTEND.md` §FE13, `docs/REQ-MAP.md` FE7: "implemented on the two frontends that own a key (TSF, Android); fcitx5 is FE13's case") | **corrected** — two of the three frontends call it, so #136's zero-call-site measurement is stale as written (the board row it cites has since been re-pointed) |
+| 6 | "nothing user-visible depends on it (issue #132)" | the adapter's *answer* is discarded, so that half is verified; but see N1 and N3 — in fcitx5 the feature cannot even be turned ON | **verified for the answer, corrected for the feature** |
+
+**Premises the issue does not state, and the tree forces on every option:**
+
+**N1 — fcitx5 builds its layer with one language.** `hunminadapter.cpp` passes
+`nullptr` as the layer's Latin id, with a comment saying so ("the layer's toggle
+reports 'not ours' (NULL latin layout)"). In fcitx5 the layer's `english_valid`,
+its Latin reading and its toggle therefore all answer "nothing"; the only live
+judgement there is the adapter's discarded one. TSF and Android both pass a
+Latin id (`tsf.cpp`, `hunmin-jni.c`).
+
+**N2 — the replay mechanism already lives in the core.** `latin_reading()` in
+`libhunmin/src/buffered_preedit.c` (27 lines) rebuilds the finished word's Latin
+reading by replaying the logged `(base, shift)` pairs through the pair's Latin
+layout, at the boundary, and `hunmin_buffered_preedit_latin_text` hands it out.
+`libhunmin/tests/wordset-test.cpp` pins it (`TheLatinReadingIsTheSameKeysOnTheLatinLayout`,
+`ShiftSurvivesTheReplay`), and its own comment says the mechanism "lived in the
+fcitx5 adapter alone until this moved into the shared layer (issue #164 asks who
+owns the JUDGEMENT; the reading is what it reads)". So the question is no longer
+"does the layer have the material" — it has it, tested; the adapter now carries a
+second copy of the same replay (64 lines in `language_detect.cpp`).
+
+**N3 — the ON/OFF state is unreachable in fcitx5.** `grep -rn "special" frontends/fcitx5/src/`
+returns no line, and `config.h` has three options, none of them the autoswitch
+state; the state exists in the engine (`hunmin_ic_set_option("autoswitch")`,
+`HUNMIN_SPECIAL_AUTOSWITCH`) and reachable on TSF (`keydispatch.cpp`) and Android
+(`HunminAdapter.special`). Whichever component owns the judgement, fcitx5 gets no
+behaviour from it until a settings row or a chord exists there.
+
+**N4 — one quoted document is stale about the state, not about the ruling.**
+`docs/SPEC-MODES.md` §R3 says "The current implementation is an *adaptor*: …
+keeps a shadow `hunmin_ctx` on the Latin layout and replays the buffered word".
+That described the tree before #167 moved the same mechanism into the core; the
+sentence is a design note, so a dated state correction is recorded under §R3
+rather than a rewrite (see "Changed by this branch" in §MRO-5). Its requirement
+half — one rule, one owner, identical on every frontend — is untouched and is
+what the options below are measured against.
+
+### MRO-1 The unpacked subject — "the judgement" is six pieces, in different homes
+
+Reading the issue's phrase as one thing is how the comparison goes wrong: R8's
+formula is three lines, and the pieces around it are where the cost is.
+
+| piece | where it lives at this base | symbol, and what pins it |
+|---|---|---|
+| the **reading** (the keys replayed on the Latin layout) | **twice**: core `latin_reading()` (from the layer's `keys` log, at the boundary) and adapter `LanguageDetector::judge` (from its own `record()` buffer) | `hunmin_buffered_preedit_latin_text` / `LanguageDetector::judge`; `engine-wordset`, `engine-d1-language-detect` |
+| **english_valid** | core | `hunmin_buffered_preedit_english_valid` + `..._load_english_shipped` + the user dictionary; `engine-wordset` |
+| **hangul_valid** | core | `hunmin_hangul_valid`, `hunmin_hangul_valid_old`, and the two layout answers `hunmin_ctx_layout_autoswitch_capable` / `..._old_hangul`; `engine-hangul-valid` |
+| the **formula** (R8's three lines) | **nowhere** | `#168`; `boundary()` still delivers in the current mode unconditionally (`buffered_preedit.c`, 14 lines) |
+| the **act** (boundary + switch + the other layout's ic, with the word delivered in the judged language) | TSF and Android: the layer. fcitx5: the host | `hunmin_buffered_preedit_toggle_language`; fcitx5's slot is the profile's per-item `Layout=` read through `layoutFor()` at `Activate` (§FE13) |
+| the **ON/OFF state** | core (the ic option, carried across `attach_ic`) | `hunmin_ic_set_option("autoswitch")`; no fcitx5 surface (N3) |
+
+So "the owner" is not one decision about one function. It is four: who produces
+the reading (one copy or two), who holds the formula, who can *act* on an answer
+(the layer on two frontends, the host on fcitx5), and who owns the state. The
+options differ on the four in different ways, which is why they are priced
+separately below rather than ranked.
+
+| frontend | layer's languages | today's judgement | today's switch owner | mode display | autoswitch reachable |
+|---|---|---|---|---|---|
+| fcitx5 | **one** (`nullptr` Latin id) | the adapter's, answer discarded | the host (per-IM `Layout=` in the profile) | none | **no** |
+| TSF | two | **none** | the layer (`ToggleModeCore`) | langbar + conversion compartment, mirrored from `..._language` after a toggle | yes |
+| Android | two | **none** | the layer (`toggleLanguage()` → `HANGUL_ENG`) | picker + toast, mirrored from `..._language` after a toggle | yes |
+
+Two consequences a reader can check in the table: the feature is unimplemented
+everywhere (no frontend delivers a mode from a judgement), and the split runs
+opposite to intuition at this base — the two frontends that own a Han/Eng key are
+exactly the two that hand the switch to the layer, while the one that owns no key
+(fcitx5) is the one carrying its own judgement code. The
+indicator column matters for all three options: TSF and Android update their
+display only on a toggle key today, so an automatic switch at a boundary would
+move the layer's mode without moving the indicator — two small reads per
+frontend, not zero.
+
+### MRO-2 The options
+
+#### A — the shared layer owns the formula and performs the switch
+
+The shape #168 already specifies: at the boundary, when `autoswitch` is ON,
+compute the validity pair over the reading and the buffer, apply R8's three
+lines, and on a switch take the existing switch path — the word is delivered in
+the judged language and the mode change applies from the next key (R10).
+
+- **What changes**: `latin_reading()`'s neighbours in `boundary()`; fcitx5 passes
+  `latinLayout.c_str()` at its `hunmin_buffered_preedit_new` call and deletes
+  `language_detect.{h,cpp}`; TSF and Android re-read `..._language` after a key so
+  the indicator follows.
+- **ABI**: none. The formula runs inside `process_key`, `out->commit` already
+  carries the delivered word, and `..._language` already reports the mode. No new
+  symbol, so `libhunmin/tests/abi/symbols.txt` does not move.
+- **Cost**: the core grows one formula function (~40 lines) plus tier-A cases per
+  formula line including both-valid and both-invalid; fcitx5 sheds
+  `language_detect.cpp` (64 lines), `language_detect.h` (94) and a 206-line test
+  with its `engine-d1-language-detect` registration; TSF and Android a few lines
+  each. Documentation: six `docs/REQ-MAP.md` rows name the retired code or the
+  retired test (R2, R3, R7, R8, R9 and the parent A9, whose architecture and
+  implementation cells both name the class), and `tools/req-map-check.py`
+  fails on a `verified by` id that is not registered — so retiring the test and
+  re-pointing the rows is one atomic change, not two.
+- **Gain**: one implementation of R3's "two frontends must never answer
+  differently"; the material the formula reads is already in the layer and already
+  tested; TSF and Android get the feature without new per-frontend judgement code;
+  and fcitx5 needs **no** host-level switch action, because the layer's switch is
+  an `attach_ic` inside it.
+- **What would change the answer**: evidence that fcitx5's mode must stay the
+  host's (§FE13's reading). Under A, fcitx5's layer can be in Latin mode while the
+  host's input method still says Hangul — the host's IM entry carries no state the
+  layer writes. Whether that divergence is acceptable is a ruling, not a
+  measurement; the seam that would remove it is priced in §MRO-4 item 1.
+
+#### B — the adapter stays the owner, each frontend repeats it
+
+B9 taken literally: one judgement rule, one owner per frontend.
+
+- **What changes**: the fcitx5 detector gains the two validities; TSF and Android
+  each grow a detector (neither has one, and neither has a test for one).
+- **ABI**: none.
+- **Cost**: three formulas. The reading is already one copy in the core and the
+  layer hands it out — so the honest form of B is "three formulas over one
+  reading", and a frontend that keeps its own reading (as fcitx5 does today) pays
+  a second replay per finished word (the adapter's own header measures one
+  judgement at 3.48 µs). The three adapters measure 683, 646 and 562 lines
+  (`hunminadapter.cpp`, `tsf.cpp`, `hunmin-jni.c`), so the two that would grow a
+  detector are the two nearest the ~700-line guidance for a frontend, and one of
+  them is the JNI file that also carries the candidate and settings bridges.
+- **Gain**: B9 stands untouched, no `REQ-MAP` row moves, and fcitx5 keeps choosing
+  the Latin layout it judges on through its own config rather than the layer's
+  constructor argument.
+- **What would change the answer**: a measurement that the three frontends judge
+  the same word differently in practice. R3 forbids it as a requirement, so B
+  would need a *shared* test for the three copies to prove equality — a shared
+  home for the cases, which is most of what the ownership question was about.
+- **Already visible under B**: the two copies that exist today do not agree, and
+  neither is the R8-정정 formula. The adapter enforces `minLen` (default 2, a
+  value R9's threshold issue has not fixed); the core applies no length guard at
+  all. Shift survives both, by different means (the adapter replays a
+  case-encoded `A`–`Z` character through `hunmin_ic_process`; the core logs
+  `(base, shift)` and replays through `hunmin_ic_process_key`). Neither consults
+  `english_valid` or `hangul_valid`. That is the shape of the divergence R3 exists
+  to prevent, measured before either copy has been adopted.
+
+#### C — the layer owns the formula, the frontend performs the act ← **selected 2026-11-01**
+
+The split the 2026-10-31 special-function ruling already uses: the engine resolves,
+the frontend performs what only it can perform.
+
+- **What changes**: one append-only query answering "the finished word is judged
+  to be <language> / keep the current mode"; TSF and Android act with
+  `hunmin_buffered_preedit_toggle_language` (already implemented and called);
+  fcitx5 acts through its host.
+- **ABI**: one new symbol. Not a wider `hunmin_key_result`: callers allocate that
+  struct on their own stack (`hunmin_key_result out{}` in all three frontends), and
+  the ABI guard compares symbol names only (`tools/abi-check.sh` against
+  `symbols.txt`), so a grown struct would break the contract without failing the
+  guard.
+- **Cost**: the query plus tier-A cases; three act paths instead of one; and on
+  fcitx5 the act needs a mode in the *host* to switch to. Measured: `Instance`
+  exposes `setCurrentInputMethod(const std::string &imName)` and a per-input-context
+  overload (`/usr/include/Fcitx5/Core/fcitx/instance.h:381-397`, read on the WSL
+  side — no fcitx5 build exists on this host, so this is **read, not executed**),
+  and what it sets is an **input method**, not a layout: the addon registers two
+  IM entries (한 / 로) and neither carries `Layout=`; the layout arrives from the
+  profile's per-item override. So C's fcitx5 act reaches an English mode only if
+  an IM entry with a Latin layout exists in the user's group — today that is a user
+  configuration, not a shipped one.
+- **Gain**: §FE13 stays honest on fcitx5 (the host's language remains the host's),
+  and the act stays where the platform knows how to perform it — the same rule the
+  special-function ruling fixed.
+- **What would change the answer**: a ruling that §FE13 already answers "the host"
+  for fcitx5 — then C is the only shape consistent with it, and A needs the seam
+  in §MRO-4 item 1.
+
+### MRO-3 Summary — each option against each surface
+
+Counts are file- and row-counts from the tree at the base named above, not
+estimates. Behaviour is net-new in every column: no frontend delivers a mode from
+a judgement today (§MRO-1).
+
+| surface | A — layer owns both | B — adapter owns | C — layer judges, frontend acts |
+|---|---|---|---|
+| ABI symbols | none | none | one, and not a struct field |
+| data files | none (`en-US.json` shipped) | none | none |
+| core code | one formula function, `~40` lines | none | the formula + a query |
+| tier-A | a case per formula line, incl. both-valid / both-invalid | none in the core | the formula's cases + the query's |
+| tier-D1 | `engine-d1-language-detect` retires | two suites added (TSF, Android) | the D1 suite retires |
+| fcitx5 | −`language_detect.cpp`/`.h`, +1 constructor argument | +the two validities in its detector | +an act path through the host |
+| TSF / Android | a few lines each (indicator) | ~one detector each, plus tests | none |
+| `docs/REQ-MAP.md` rows to re-point | 6 (R2, R3, R7, R8, R9, A9) | 0 | 6 |
+| where `language_detect` is named in prose | rewritten, 19 lines across 10 files | unchanged | rewritten, 19 lines across 10 files |
+| fcitx5 can show the mode | no (the layer has no display) | no | n/a — it is the host's mode |
+
+### MRO-4 Facts the question does not state, and every option pays
+
+1. **The fcitx5 mode seam.** Under A and C, fcitx5's mode either lives in the
+   layer and diverges from the host's IM entry, or has to be pushed to the host.
+   The push mechanism exists (`setCurrentInputMethod`, read above) and costs an
+   English IM entry that ships with a Latin `Layout=`, which the addon does not
+   have today. B is the option that never faces this, because it never switches
+   anything in fcitx5 — which is also why B leaves fcitx5's own answer discarded
+   unless the wiring is added.
+2. **R9's threshold is still open** (`#163`). The adapter hardcodes `minLen = 2`;
+   whichever component owns the formula needs the value, and the value is a
+   ruling, not a measurement this paper can supply.
+3. **The reading needs a pair.** `hunmin_buffered_preedit_latin_text` answers
+   empty for a one-language layer (fail-closed, B3). A and C therefore require
+   fcitx5 to pass a Latin id; B does not, because it keeps its own shadow context.
+4. **Documentation is atomic with the code.** `language_detect` is named on 19
+   lines across 10 files, and `engine-d1-language-detect` is the `verified by`
+   cell of five `REQ-MAP` rows, and `A9` names the class in both its architecture
+   and its implementation cells while its `verified by` cell already says `none`.
+   `req-map-check`
+   fails on an unregistered id in that cell, so a retirement that leaves the rows
+   behind is a red run, not a stale sentence.
+5. **The OFF path must be byte-identical** (#168's third checklist item). A
+   changes the boundary function, which every key every frontend processes; the
+   other two options do not touch it. That is A's one regression surface and the
+   reason its verification is a whole-tier run plus an identity assertion, not the
+   formula's own cases alone.
+
+### MRO-5 Provenance
+
+- Host: Windows 11, base `a099f4f`, branch as named in the header. `git worktree
+  list` used to establish the parallel-session scope; `gh issue view` for
+  132/136/164/166/168 to check which half of the judgement had shipped where.
+- Every count here is re-derivable: `wc -l frontends/fcitx5/src/language_detect.{h,cpp}`
+  and `frontends/fcitx5/test/testlanguagedetect.cpp`; `grep -rn "language_detect\|LanguageDetector"
+  --include=*.md docs README.md PLAN.md` → 19 lines over 10 files;
+  `grep -n "language_detect\|engine-d1-language-detect" docs/REQ-MAP.md` → the six
+  rows named in §MRO-3; `grep -rn "toggle_language" frontends/` → two call sites
+  (TSF's `ToggleModeCore`, the Android JNI entry point), with the engine's own
+  cases in `buffered-preedit-test.cpp` and `key-rule-test.cpp`.
+- **Read, not executed**: `Instance::setCurrentInputMethod` (fcitx5 headers on the
+  WSL side; there is no fcitx5 build on this Windows host, so nothing in this
+  section was compiled or run against fcitx5). The 3.48 µs per-judgement figure is
+  quoted from `language_detect.h`'s own measurement, not re-timed here.
+- Nothing in this section needed a build: no C was compiled and no binary was run.
+  The facts are file contents, symbol names, and `grep`/`wc` counts, each named
+  above.
+- Changed by this branch: `docs/OPTIONS-MEASURED.md` (this section, its header row,
+  the section-key sentence, the H1's count), `README.md` (its index row), and a
+  dated state note under `docs/SPEC-MODES.md` §R3 (N4) — a factual correction, not
+  a ruling.

@@ -128,9 +128,10 @@ goldens (`engine-golden-*`), `engine-process-key`, `engine-commit-text`.
 Design decides what a reading is (dictionary, syllable structure, frequency),
 when it is judged, and any threshold. *Children:* `docs/SPEC-MODES.md` R1–R13
 with their R7/R8/R13 amendments, and `docs/SPEC-FRONTEND.md#§FE7`.
-*Implemented by:* `frontends/fcitx5/src/language_detect.cpp#LanguageDetector`.
-*Refuted by:* `none` — the family is designed and not built; `SPEC-MODES` §2
-E1–E8 are how it would be evaluated.
+*Implemented by:* `libhunmin/src/buffered_preedit.c#judge_boundary`, with the answer
+`hunmin_buffered_preedit_take_judgement` (the fcitx5 detector it replaced was
+retired 2026-11-01, #164). *Refuted by:* `engine-wordset` — the formula's three
+lines, both-valid/both-invalid and R9's guard each have a case.
 
 ## A10. Data carries its terms and its provenance
 

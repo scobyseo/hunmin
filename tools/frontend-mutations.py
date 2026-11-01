@@ -38,8 +38,11 @@ CHECKER = REPO / CHECKER_REL
 MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
     (
         "I1-commit-flush-both",
-        "        if (out.commit && *out.commit) {",
-        "        if (out.commit && *out.commit && used) {",
+        # Re-anchored 2026-11-01 (issue #164): the one commit point now also
+        # carries the text the mode switch's own boundary produced, so the
+        # guard's subject is the delivery expression, not just out.commit.
+        "        if ((out.commit && *out.commit) || !switched.empty()) {",
+        "        if (((out.commit && *out.commit) || !switched.empty()) && used) {",
         False,
         True,  # #128: the adapter delivers the layer's answer, so this is no
         True,  # longer visible structurally -- but D1's boundary commit

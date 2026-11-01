@@ -55,8 +55,11 @@ per-file LOC counts, which rotted silently — they had drifted by 100+ lines wi
 no test noticing, because a number in prose cannot fail. The budget is now
 invariant **I8** in `tools/check-frontend-invariants.py` (ctest
 `frontend-invariants`): it counts code lines across every translation unit the
-adapter owns — `hunminadapter.{h,cpp}`, `config.h`, `language_detect.{h,cpp}` — comments and
-blanks excluded, and fails above **545**. Do not add counts back to this table;
+adapter owns — `hunminadapter.{h,cpp}`, `config.h` — comments and blanks
+excluded, and fails above **700** — the maintainer's 2026-10-25 ruling; the 545
+this line used to carry was a pre-ruling figure the checker never enforced.
+(`language_detect.{h,cpp}` left that list with
+the detector on 2026-11-01, #164.) Do not add counts back to this table;
 add a rule to the checker instead. Reading the current number:
 
 ```sh
@@ -345,8 +348,8 @@ showed that a prose rule nobody can execute catches nothing. Run
    Hangul/Latin pickers); this check and `tools/frontend-mutations.py`'s
    `I5-layout-override-ignored` anchor name it, so both move with it.
 8. **The adapter stays inside the thin-adapter budget (rule #4).**
-   Check: code lines across `hunminadapter.{h,cpp}`, `config.h`, `language_detect.{h,cpp}`
-   ≤ **545**, comments and blanks excluded. This is a measurement, not a
+   Check: code lines across `hunminadapter.{h,cpp}`, `config.h`
+   ≤ **700**, comments and blanks excluded. This is a measurement, not a
    description — see §1. Exceeding it means composition logic or per-layout
    knowledge has crept into the frontend, which is the failure mode rule #4
    exists to prevent. The count is of *every* translation unit the adapter

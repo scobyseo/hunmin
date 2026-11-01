@@ -79,6 +79,8 @@ class HunminAdapter(
         fun layerToggleLanguage(layer: Long): Boolean
         /** HUNMIN_LANGUAGE_* as the layer reports it. */
         fun layerLanguage(layer: Long): Int
+        /** R8's judgement: the mode to adopt now, or -1 (ruled 2026-11-01, #164). */
+        fun layerTakeJudgement(layer: Long): Int
         /* The special-function host and resolver (hunmin.h): the engine owns
          * which chord means which function, this adapter only carries it. */
         fun layerSpecialHost(layer: Long, host: HunminSpecialHost?)
@@ -114,6 +116,8 @@ class HunminAdapter(
         override fun layerToggleLanguage(layer: Long) =
             HunminNativeBridge.nativeLayerToggleLanguage(layer) != 0
         override fun layerLanguage(layer: Long) = HunminNativeBridge.nativeLayerLanguage(layer)
+        override fun layerTakeJudgement(layer: Long) =
+            HunminNativeBridge.nativeLayerTakeJudgement(layer)
         override fun layerSpecialHost(layer: Long, host: HunminSpecialHost?) =
             HunminNativeBridge.nativeLayerSpecialHost(layer, host)
         override fun layerSpecial(layer: Long, base: Int, shift: Int, mods: Int) =
@@ -151,6 +155,20 @@ class HunminAdapter(
     /** True when the layer is in Hangul; meaningful only with both slots. */
     fun isHangulLanguage(): Boolean =
         layer != 0L && native.layerLanguage(layer) == HUNMIN_LANGUAGE_HANGUL
+
+    /**
+     * R8's judgement for the key just processed (ruled 2026-11-01, issue #164).
+     *
+     * The ENGINE judged the finished word and has ALREADY delivered it in the
+     * judged language -- `layerDelivered` carried it -- so this is the MODE half
+     * only: HUNMIN_LANGUAGE_* is the mode to adopt now, -1 means the engine
+     * judged nothing (the switch is off, the word was shorter than R9's guard,
+     * both readings agreed, or this layer cannot be judged at all).
+     *
+     * Consuming, so it is read exactly once per key, right after the layer
+     * processed it.
+     */
+    fun takeJudgement(): Int = if (layer == 0L) -1 else native.layerTakeJudgement(layer)
 
     /** The layout this layer was built for; a mismatch forces a rebuild. */
     val layout: String = if (layer != 0L) layoutId else ""

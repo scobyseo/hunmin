@@ -6,8 +6,8 @@ R3, R13) are implemented as inside the engine** and its load cost.
 Status: **design direction settled, no core implementation.** The load items are
 pre-measurement.
 
-> **The adapter-side detector ships today, and it is the opposite structural
-> choice from §1.** `frontends/fcitx5/src/language_detect.{h,cpp}` judges by
+> **The adapter-side detector shipped until 2026-11-01, and it was the opposite
+> structural choice from §1** — the ruling below (#164) removed it. `frontends/fcitx5/src/language_detect.{h,cpp}` judged by
 > holding a second `hunmin_ctx` on a Latin layout and replaying the buffered word
 > when the in-flight preedit empties — not "the mode lives in `hunmin_ctx`".
 > Since this section was written it gained a tier-D1 test

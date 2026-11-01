@@ -130,6 +130,10 @@ object HunminNativeBridge {
     /** HUNMIN_LANGUAGE_HANGUL / _LATIN. */
     @JvmStatic external fun nativeLayerLanguage(layer: Long): Int
 
+    /** R8's judgement, taken once per key (ruled 2026-11-01, #164): the mode to
+     *  adopt now, or -1 when the engine judged nothing. */
+    @JvmStatic external fun nativeLayerTakeJudgement(layer: Long): Int
+
     @JvmStatic external fun nativeIcNew(ctx: Long, layout: String): Long
 
     @JvmStatic external fun nativeIcFree(ic: Long)

@@ -81,7 +81,10 @@
   when no keystore is present.
 - [[2026-10-13-r8-mode-guessing-is-adaptor-owned]] — R8 mode guessing is
   adaptor-owned; the engine stays ABI-clean and the adaptor (`modeswitch.*`)
-  keeps the cross-frontend validity judgement.
+  keeps the cross-frontend validity judgement. **Superseded 2026-11-01.**
+- [[2026-11-01-the-engine-judges-the-frontend-switches]] — the judgement is the
+  engine's and the switch is each frontend's; R9's threshold at three key
+  inputs, and the fcitx5 detector retired.
 - [[2026-10-18-tsf-chord-transient-not-persistent]] — issue #101 ruled: a
   CTRL/ALT chord in hangul mode is transient processing only — the pending
   preedit commits through the boundary flush and the chord passes uneaten, but
@@ -373,6 +376,10 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   reference last, so the language-bar `RemoveItem` is reached; the two cases
   that encoded the defects flipped, with the pre-fix tree measured red
   against them.
+- [[2026-11-01-modes-ownership-retires-the-detector]] - the #164 session: §MRO's
+  pricing, the ruling implemented on all three frontends (engine judges, frontend
+  switches), `language_detect.*` retired with six `REQ-MAP` rows re-pointed, and
+  the two TSF defects the live session found routed to #175.
 - [[2026-10-31-milestone-f-win32-conformance-corpus]] - milestone F: the win32
   corpus grew 3 -> 11 traces by porting the eight tier-A families x11 replays
   (106 cases / 688 events, tier-F1 12/12); the work exposed a generator that

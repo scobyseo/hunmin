@@ -8,7 +8,6 @@
  * All composition logic lives in libhunmin — keep this file small (rule #4).
  */
 #include "hunminadapter.h"
-#include "language_detect.h"
 #include <cstdlib>
 #include <cstring>
 #include <fcitx-config/iniparser.h>
@@ -128,7 +127,7 @@ private:
 
 class HunminState : public InputContextProperty {
 public:
-    HunminState(HunminAdapter *engine, InputContext *ic) : engine_(engine), ic_(ic), switcher_(engine->ctx()) {}
+    HunminState(HunminAdapter *engine, InputContext *ic) : engine_(engine), ic_(ic) {}
 
     ~HunminState() override {
         if (preedit_) {
@@ -263,8 +262,9 @@ public:
         if (ev.id == HUNMIN_KEY_TEXT && sym == FcitxKey_BackSpace) ev.base = 0x08;
         else if (ev.id == HUNMIN_KEY_TEXT && sym >= 0x20 && sym <= 0x7E) ev.base = static_cast<uint32_t>(sym);
         /* An uppercase symbol means the row was shifted; the engine resolves
-         * the case endpoint from (base, shift) itself. */
-        uint32_t ch = ev.base; /* the case-encoded character, for R8's replay */
+         * the case endpoint from (base, shift) itself. The layer logs the same
+         * pair for R8's Latin reading, so no adapter-side copy of the key is
+         * kept here any more (the detector that needed one is retired). */
         if (ev.base >= 'A' && ev.base <= 'Z') {
             ev.shift = 1;
             ev.base = ev.base + 'a' - 'A';
@@ -371,18 +371,18 @@ public:
         hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);
         hunmin_key_result out{};
         const bool used = hunmin_buffered_preedit_process_key(preedit_, ev.base, ev.shift, &out) != 0;
-        switcher_.record(ch); // R8 detector; see src/language_detect.h
+        /* The judgement belongs to the word that just ended, delivered or
+         * declined: ask before anything else can start the next word. Its text
+         * joins the same delivery, after the word, because R10 means the word
+         * is already the judged language and nothing is rewritten. */
+        const std::string switched = applyJudgement();
 
-        if (out.commit && *out.commit) {
+        if ((out.commit && *out.commit) || !switched.empty()) {
+            const std::string delivered = (out.commit ? std::string(out.commit) : std::string()) + switched;
 #ifdef HUNMIN_TRACE
-            traceEvent("commit", out.commit);
+            traceEvent("commit", delivered.c_str());
 #endif
-            ic_->commitString(out.commit);
-        }
-        if (!used) {
-            // The layer IS the boundary: it delivered the word in out.commit
-            // above. What is left is R8's judgement of the finished word.
-            switcher_.judge(*engine_->config().latinLayout);
+            ic_->commitString(delivered.c_str());
         }
 #ifdef HUNMIN_TRACE
         traceEvent("preedit", out.preedit ? out.preedit : "");
@@ -396,11 +396,43 @@ public:
         }
     }
 
+    /* R8's judgement, the MODE half (ruled 2026-11-01, issue #164): the ENGINE
+     * judged the finished word and delivered it in the judged language; this
+     * performs the switch, which is the same layer call TSF and Android make.
+     * fcitx5 registers one input method for the addon in practice (R2: one IM,
+     * two modes inside it), so the addon's mode IS the layer's slot -- there is
+     * no host language for it to disagree with, unlike the two-IM arrangement
+     * FE13 describes.
+     *
+     * -1 means there is nothing to act on: the switch is off (the default), the
+     * word was shorter than R9's guard, both readings agreed, this layer cannot
+     * be judged, or no dictionary is loaded. Asked once per key, like the other
+     * two frontends, so the answer cannot outlive the word it belongs to. */
+    std::string applyJudgement() {
+        if (!preedit_) {
+            return {};
+        }
+        const int judged = hunmin_buffered_preedit_take_judgement(preedit_);
+        if (judged < 0 || judged == hunmin_buffered_preedit_language(preedit_)) {
+            return {};
+        }
+        hunmin_key_result out{};
+        if (!hunmin_buffered_preedit_toggle_language(preedit_, &out)) {
+            return {};
+        }
+        FCITX_INFO() << "hunmin: autoswitch -> " << hunmin_buffered_preedit_layout_id(preedit_);
+        updateUI();
+        /* Whatever the boundary the switch performs was holding. Empty in the
+         * normal case -- the word that triggered the switch arrived in the
+         * caller's own out.commit -- but it belongs to the same delivery, so it
+         * is returned rather than committed here (one commit point per key). */
+        return (out.commit && *out.commit) ? std::string(out.commit) : std::string();
+    }
+
     void reset() {
         if (preedit_) {
             hunmin_buffered_preedit_reset(preedit_);
         }
-        switcher_.discard();
         updateUI();
     }
 
@@ -434,22 +466,28 @@ private:
             flush();
             hunmin_buffered_preedit_free(preedit_);
             preedit_ = nullptr;
-            switcher_.discard();
         }
         layout_ = want;
-        /* One language: fcitx5's Han/Eng handling is its own trigger plus the
-         * R8 detector, so the layer's toggle reports "not ours" (NULL latin
-         * layout). Unifying that is docs/FRONTEND-EQUIVALENCE.md §4's next
-         * step, and it is not this migration. */
         /* The user's choice (config.h CommitBehavior), not a hardcoded policy:
          * both units exist in the shared layer and are selectable, because a
          * buffered word is not what every client wants to show. Anything but
          * the literal "syllable" means the buffered default -- a typo must not
          * silently switch the unit. */
         policy_ = policy;
-        preedit_ = hunmin_buffered_preedit_new(engine_->ctx(), want.c_str(), nullptr, policy_);
+        /* TWO languages (ruled 2026-11-01, issue #164): the pair is what lets
+         * the layer read the word on the Latin layout, judge it and switch its
+         * own slot -- until this, the Latin id was NULL and every one of those
+         * answers "not ours". The Latin half is the user's choice in config.h
+         * (LatinLayout), the same option the R8 detector used to judge on. */
+        const std::string latin = *engine_->config().latinLayout;
+        preedit_ = hunmin_buffered_preedit_new(engine_->ctx(), want.c_str(), latin.c_str(), policy_);
         if (!preedit_) {
             FCITX_ERROR() << "hunmin: unsupported layout: " << want;
+        } else {
+            /* R8's `english_valid` reads this list (R8-정정-2, ruled 2026-11-01);
+             * absent data is a normal state (B3) and the judgement then
+             * abstains rather than calling every word not-English. */
+            hunmin_buffered_preedit_load_english_shipped(preedit_);
         }
     }
 
@@ -481,7 +519,6 @@ private:
 
     HunminAdapter *engine_;
     InputContext *ic_;
-    LanguageDetector switcher_;
     hunmin_buffered_preedit *preedit_ = nullptr;
     int policy_ = -1; /* HUNMIN_COMMIT_*, the policy preedit_ was built with */
     std::string layout_;

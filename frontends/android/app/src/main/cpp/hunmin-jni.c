@@ -270,6 +270,10 @@ JNIEXPORT jlong JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerNew(JN
     free(h);
     free(l);
     free(b);
+    /* R8's judgement needs the English list (R8-정정-2, ruled 2026-11-01).
+     * Loaded per layer from the context's own data dirs; absent data is a
+     * normal state (B3) and every judgement then answers -1. */
+    if (p) hunmin_buffered_preedit_load_english_shipped(p);
     return (jlong)(intptr_t)p;
 }
 
@@ -374,6 +378,16 @@ JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerLanguag
     (void)k;
     hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
     return l ? (jint)hunmin_buffered_preedit_language(l) : 0;
+}
+
+/* R8's judgement, taken once per key (ruled 2026-11-01, issue #164): the ENGINE
+ * judges and has already delivered the word in the judged language, this is the
+ * MODE half. HUNMIN_LANGUAGE_* = adopt that mode now, -1 = nothing to do. */
+JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerTakeJudgement(JNIEnv *env, jclass k, jlong layer) {
+    (void)env;
+    (void)k;
+    hunmin_buffered_preedit *l = (hunmin_buffered_preedit *)(intptr_t)layer;
+    return l ? (jint)hunmin_buffered_preedit_take_judgement(l) : -1;
 }
 
 /* ===================== hanja candidates (P3) ============================ */
