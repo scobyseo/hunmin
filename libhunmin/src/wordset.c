@@ -249,6 +249,60 @@ int hm_wordset_load_shipped(hm_wordset *w, const hunmin_ctx *ctx) {
     return -1;
 }
 
+/* ------------------------------------------------------------ the B3 gate */
+
+/* Does this file hold a word list? It PARSEs and answers the shape, inserting
+ * nothing: the gate asks whether the data is there, not what is in it, so the
+ * answer costs a parse instead of 118k hash inserts. "A word list" means the
+ * array hm_wordset_load_json() reads, holding at least one usable word -- the
+ * same acceptance the load has after the 2026-11-01 ruling on issue #173, where
+ * a damaged element is SKIPPED and the file still loads, so an install with one
+ * bad entry degrades to a smaller dictionary instead of being called missing.
+ * A file that parses but holds no word at all is NOT a countable install: the
+ * load would answer 1 with an empty set, which is the confident-zero state this
+ * gate exists to keep out (MODES-POSTMORTEM 10). */
+static int probe_word_list(const char *path) {
+    char *text = slurp(path);
+    if (!text) return -1;
+    cJSON *root = cJSON_Parse(text);
+    free(text);
+    if (!root) return 0;
+    cJSON *arr = root;
+    if (cJSON_IsObject(root)) arr = cJSON_GetObjectItemCaseSensitive(root, "words");
+    bool ok = false;
+    if (cJSON_IsArray(arr))
+        for (const cJSON *it = arr->child; it && !ok; it = it->next)
+            ok = cJSON_IsString(it) && it->valuestring && *it->valuestring;
+    cJSON_Delete(root);
+    return ok ? 1 : 0;
+}
+
+int hm_modes_data_present(hunmin_ctx *ctx) {
+    if (!ctx) return -1;
+    if (ctx->modes_data) return ctx->modes_data; /* asked once per context */
+    const char *const *dirs = NULL;
+    int n = hm_data_dirs(ctx, &dirs);
+    int answer = -1;
+    for (int d = 0; d < n; d++) {
+        char path[4608];
+        snprintf(path, sizeof path, "%s/modes/en-US.json", dirs[d]);
+        int rc = probe_word_list(path);
+        /* The first directory holding the file decides, exactly as the load
+         * does: a present-but-broken install is an error (-2), never a reason
+         * to keep searching and find something else. */
+        if (rc == 1) {
+            answer = 1;
+            break;
+        }
+        if (rc == 0) {
+            answer = -2;
+            break;
+        }
+    }
+    ctx->modes_data = answer;
+    return answer;
+}
+
 /* ------------------------------------------------------------ user words */
 
 /* One word per line, `#` starts a comment, blank lines ignored, a UTF-8 BOM on

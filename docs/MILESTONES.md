@@ -153,8 +153,10 @@ direction; the mechanism is new work:
   CC-BY-SA precedent in `debian/copyright` and `libhunmin/data/krdict/LICENSE.md`
   shows the pattern), and **presence detection**: how the engine/frontend learns
   the data is installed. `hunmin_ic_set_option()` is the precedent for the on/off
-  option itself (`docs/SPEC-MODES.md` R13); nothing yet is the precedent for the
-  data gate.
+  option itself (`docs/SPEC-MODES.md` R13); the presence half now has one too —
+  `hunmin_ctx_autoswitch_data_present()` plus the refusal in the option writer and
+  the chord, issue #169, `docs/MODES-ENGINE-RULES.md` §3. What is still new work is
+  the distribution itself (#190): nothing ships the data separately yet.
 - The lane inherits **all five items of `REMAINING-WORK.md` §2**, restated 2026-11-01
   after B1's retirement:
 

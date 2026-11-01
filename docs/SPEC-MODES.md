@@ -754,9 +754,9 @@ the value:**
   수 있게 하면 transition이 용이할 거 같아." The feature's additional data ships
   separately and the feature is only enable-able where that data is present.
   Recorded with its reasoning in
-  `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`; the data-gate
-  mechanism is design work for 0.3, not settled here. (The assignment part of E5
-  remains undecided; see below.)
+  `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`; the mechanism that
+  enforces it is design, recorded in `docs/MODES-ENGINE-RULES.md` §3, not in this
+  requirement. (The assignment part of E5 remains undecided; see below.)
 
 ## Does this decision erase the earlier ones
 

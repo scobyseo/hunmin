@@ -280,6 +280,7 @@ if(BUILD_TESTING AND Python3_FOUND)
   target_sources(commit-text-test PRIVATE
     libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/schema_loader.c
     libhunmin/src/expr.c libhunmin/src/ic.c libhunmin/src/candidate_tables.c
+    libhunmin/src/wordset.c
     third_party/cJSON/cJSON.c)
   add_test(NAME engine-commit-text COMMAND commit-text-test)
   set_tests_properties(engine-commit-text PROPERTIES
