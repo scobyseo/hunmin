@@ -782,9 +782,14 @@ R4 extends the buffer up to the delimiter, but the cost is that the preedit grow
 to the length of a word. So a cap exists:
 
 - The buffer of `hunmin_ic` is `STR_CAP` 64 ucschar (libhangul parity,
-  `ic.c:11`). Exceeding it causes **truncation** — it is cut silently. This is
-  the effective ceiling on buffer extension.
-- Even below that, editors react to the preedit length (varies per app,
+  `hunmin_internal.h`). Exceeding it would cut the text silently.
+  **[Corrected 2026-11-01: this file used to name `ic.c`, which holds no
+  `STR_CAP`, and to call the constant "the effective ceiling on buffer
+  extension". Both reading and measurement disagree with the second claim — the
+  shipped path's buffer is the shared layer's `word`, a heap string with no
+  ceiling, while the constant sizes a per-ic array that every shipped caller
+  drains once per key. `docs/OPTIONS-MEASURED.md` §BND-0/§BND-2 has the counts.]**
+  Even below that, editors react to the preedit length (varies per app,
   unmeasured).
 
 **What is a measurement:** with the buffer cap set to N, measure separately (a)
@@ -812,6 +817,12 @@ on/off",** not "permits errors". Therefore:
 **What is a measurement:** set N to 2, 3, 4 and measure separately (a) the number
 of misfires in each direction, (b) the number of manual on/off toggles. Find the
 N at which (b) is minimal.
+
+*Priced 2026-11-01:* `docs/OPTIONS-MEASURED.md` §BND-3 counts what each N
+partitions — every `a`–`z` string of length 1–4, classified by the two validities
+— and names the corpus that would weight those classes. The method sentence above
+still asks for a measured N while R9 makes N a design-time choice; that conflict
+is the maintainer's to settle, not this note's.
 
 ## E4. Metric pass line [E]
 R12 said success is "enough if the number of keystrokes goes down", but **how
@@ -914,6 +925,11 @@ So this item is not "whether to display in the middle" but the corollary of
 back) when judging exactly once at the end of the buffer. If that value is judged
 bad, move on to the option of moving judgement earlier, but then E2's preedit
 problem comes back in real time. **The two options are mutually exclusive.**
+
+*Priced 2026-11-01:* the felt experience is not measurable here, but the number of
+times it would flip is: `docs/OPTIONS-MEASURED.md` §BND-4 counts it over the
+shipped dictionary, and §BND-2 shows that the exclusivity above holds only if the
+buffer cap is small — a cap in kilobytes never creates the second judgement point.
 
 ## E7. How to prove identical behaviour on Android/Windows [E]
 R3 was a decision and the implementation direction is fixed too (an engine rule).
