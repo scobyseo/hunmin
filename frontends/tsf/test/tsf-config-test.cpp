@@ -474,3 +474,158 @@ TEST_F(TsfConfigTest, TheAutomaticSwitchFlipsTheModeAtTheBoundary) {
     tm->Release();
 }
 
+/* The English -> Hangul direction, ruled 2026-11-02: *"autoswitch ON stops
+ * English passthrough to support eng -> han support"*. Before this the adapter
+ * returned at `if (!hangulMode_) return S_OK;` and the engine never saw a key
+ * typed in Latin mode, so R8's E1 line (and the 0.3 gate sentence) could not
+ * fire on TSF at all.
+ *
+ * One service, two words: `english` switches Hangul -> Latin (the direction the
+ * previous case pins), then `sms` typed IN Latin mode must switch back and
+ * deliver 는 -- the engine's own answer for those keys on dubeolsik, which is
+ * what the Hangul reading of a Latin-mode buffer is (tier A:
+ * WordSetTest.TheZeroThreeGateMixedSentenceWorksInOneStream). The second word
+ * only reaches the engine because the passthrough stopped.
+ */
+TEST_F(TsfConfigTest, TheEnglishDirectionIsJudgedOnceTheSwitchIsOn) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
+    _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "dubeolsik");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    ASSERT_TRUE(Snap(svc).hangulMode) << "the service starts in hangul mode";
+
+    auto type = [&](const char *keys, BOOL *testEatOut) {
+        for (const char *p = keys; *p; ++p) {
+            BOOL eat = FALSE;
+            svc->OnTestKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+            if (testEatOut)
+                *testEatOut = eat;
+            svc->OnKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+        }
+        BOOL eat = FALSE;
+        svc->OnTestKeyDown(mctx, VK_SPACE, 0, &eat);
+        svc->OnKeyDown(mctx, VK_SPACE, 0, &eat);
+    };
+
+    type("english", nullptr);
+    ASSERT_FALSE(Snap(svc).hangulMode) << "Hangul -> Latin: the first direction still works";
+
+    /* The ruling's observable: a Latin-mode key is OURS now, so the engine sees
+     * it (the test phase claims it instead of passing it to the app). */
+    BOOL eat = FALSE;
+    type("sms", &eat);
+    EXPECT_TRUE(eat) << "with autoswitch ON a Latin-mode key is fed, not passed through";
+    EXPECT_TRUE(Snap(svc).hangulMode) << "Latin -> Hangul: the word reads as Hangul, so the mode moves back";
+    EXPECT_EQ(mctx->doc, std::wstring(L"english") + L"\uB294")
+        << "the judged words are the delivered text, in the language the judgement decided";
+
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+
+/* The same keys with the switch OFF: the passthrough is exactly what shipped
+ * (R5's per-character English, delivered by the host, judged by nobody), so the
+ * ruling above did not change the feature-off path. */
+TEST_F(TsfConfigTest, ThePassthroughStaysWhenTheSwitchIsOff) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "0");
+    _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "dubeolsik");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    EXPECT_EQ(Snap(svc).autoswitch, 0) << "the engine holds OFF";
+
+    /* Type in Hangul mode, then toggle to Latin with the 한/영 key: with the
+     * switch off, a Latin-mode letter must be the app's again. */
+    for (const char *p = "sms"; *p; ++p) {
+        BOOL eat = FALSE;
+        svc->OnTestKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+        svc->OnKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+    }
+    BOOL spaceEat = TRUE;
+    svc->OnTestKeyDown(mctx, VK_SPACE, 0, &spaceEat);
+    svc->OnKeyDown(mctx, VK_SPACE, 0, &spaceEat);
+    EXPECT_TRUE(Snap(svc).hangulMode) << "the switch is off: nothing judges";
+
+    BOOL langEat = FALSE;
+    svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &langEat);
+    svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &langEat);
+    ASSERT_FALSE(Snap(svc).hangulMode) << "the manual switch still reaches Latin";
+
+    BOOL eat = TRUE;
+    svc->OnTestKeyDown(mctx, 'D', 0, &eat);
+    EXPECT_FALSE(eat) << "switch OFF: a Latin-mode key passes to the app (R5, unchanged)";
+
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+
+/* Ruled 2026-11-02: "interim model cannot support autoswitch". The delivery that
+ * cannot judge what it delivers must not hold the state either -- otherwise the
+ * settings row would advertise a switch that cannot fire, and the newly-fed key
+ * path would stop the app's own English insertion for nothing. */
+TEST_F(TsfConfigTest, TheInterimDeliveryDoesNotHoldTheSwitch) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
+    _putenv_s("HUNMIN_TSF_INTERIM", "1");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "dubeolsik");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    ASSERT_TRUE(Snap(svc).legacyMode) << "the interim delivery is the mode under test";
+
+    /* The store says 1, the LAYER says 0: the frontend refused it. */
+    hunmin_buffered_preedit *layer = Snap(svc).layer;
+    ASSERT_NE(layer, nullptr);
+    int on = -1;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(layer, "autoswitch", &on));
+    EXPECT_EQ(on, 0) << "the interim delivery cannot judge, so it does not hold the switch";
+    EXPECT_EQ(Snap(svc).autoswitch, 0) << "the snapshot reports the engine's answer, not the store's";
+
+    /* And the key path agrees: a Latin-mode key is still the app's. */
+    BOOL langEat = FALSE;
+    svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &langEat);
+    svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &langEat);
+    ASSERT_FALSE(Snap(svc).hangulMode) << "the manual switch still reaches Latin";
+    BOOL eat = TRUE;
+    svc->OnTestKeyDown(mctx, 'D', 0, &eat);
+    EXPECT_FALSE(eat) << "interim + refused switch: the passthrough stands";
+
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+

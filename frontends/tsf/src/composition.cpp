@@ -102,6 +102,9 @@ STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComp
                           ComposeDisplay().size());
         legacyMode_ = true;
         UseDelivery(HUNMIN_TSF_DELIVERY_INTERIM);
+        /* This host can no longer carry the automatic switch (ruled 2026-11-02):
+         * the layer is told, so the option and the key path agree. */
+        ApplyAutoswitch();
         /* What is dead in the doc = the WHOLE composition text (compText_:
          * nothing under this composition was ours to keep there - the
          * interim path rebuilds the word from the LIVE buffers and live

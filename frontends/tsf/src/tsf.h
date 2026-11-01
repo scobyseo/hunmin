@@ -274,6 +274,13 @@ public:
      * surfaces that show it. Called after every key, and it does nothing when
      * the engine has no judgement. */
     void ApplyJudgement(ITfContext *pic);
+    /* R13-정정's state as THIS delivery can honour it (issue #175, ruled
+     * 2026-11-02: "interim model cannot support autoswitch"). The interim path
+     * moves the finished word into the document per key, so at its boundary the
+     * layer holds no whole word to judge; the option is therefore only ON while
+     * the native path is active, and it is re-applied whenever that flips. */
+    bool AutoswitchOn() const { return autoswitch_ != 0 && !legacyMode_; }
+    void ApplyAutoswitch();
 
     STDMETHOD(Activate)(ITfThreadMgr *ptm, TfClientId tid) override;
     STDMETHOD(Deactivate)() override;

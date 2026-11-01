@@ -274,11 +274,11 @@ void CTextService::RebuildLayer() {
             /* R13-정정's ON/OFF (issue #175) is applied once per rebuild, before
              * anything can judge: the layer's state is the engine's, and this is
              * the one place the stored preference reaches it. The engine REFUSES
-             * the value where its word list is absent (B3, #169), so a stale
-             * stored 1 on a machine without the data leaves the feature off
-             * rather than half-enabled -- which is why the dialog reads the
-             * value back from the layer instead of from the store. */
-            hunmin_buffered_preedit_set_option(preedit_, "autoswitch", autoswitch_ ? 1 : 0);
+             * the value where its word list is absent (B3, #169) and this
+             * frontend refuses it where the delivery cannot judge (2026-11-02),
+             * so a stale stored 1 leaves the feature off rather than half-enabled
+             * -- which is why the dialog reads the value back from the layer. */
+            ApplyAutoswitch();
             /* R8's judgement needs the English list (R8-정정-2, ruled
              * 2026-11-01). Loaded per layer, from the same data dirs the
              * layouts came from; absent data is a normal state (B3) and the
@@ -338,6 +338,24 @@ void CTextService::UpdateLangBarItem(ITfThreadMgr *ptm) {
     /* Every later call is the badge refresh: OnUpdate(TF_LBI_ICON|TF_LBI_TEXT)
      * over the kernel sink the bar advised at AddItem. */
     langbar_->Update();
+}
+
+/* R13-정정's ON/OFF as this delivery can carry it (issue #175). Two gates sit
+ * behind the one call:
+ *   - the ENGINE's: hunmin_ic_set_option refuses 1 where the modes word list is
+ *     absent (B3, #169), and the value reads back 0;
+ *   - this FRONTEND's: the interim delivery moves the finished word into the
+ *     document per key, so at its boundary the layer holds no whole word to
+ *     judge (docs/FRONTEND-EQUIVALENCE.md §2.1, ruled 2026-11-02: "interim model
+ *     cannot support autoswitch"). The option is therefore only ON while the
+ *     native path is active, and every site that flips the delivery re-applies
+ *     it -- otherwise a host that flips mid-word would keep a state it cannot
+ *     honour, and the English passthrough ruling (same date) would stop feeding
+ *     the app's own keys for a switch that can never fire. */
+void CTextService::ApplyAutoswitch() {
+    if (!preedit_)
+        return;
+    hunmin_buffered_preedit_set_option(preedit_, "autoswitch", AutoswitchOn() ? 1 : 0);
 }
 
 void CTextService::ApplyJudgement(ITfContext *pic) {
@@ -455,7 +473,11 @@ void CTextService::DetectLegacyMode() {
     interimForce_ = GetEnvironmentVariableA("HUNMIN_TSF_INTERIM", v, sizeof v) && (v[0] == '1' || _stricmp(v, "on") == 0 || _stricmp(v, "true") == 0);
     legacyMode_ = interimForce_;
     UseDelivery(legacyMode_ ? HUNMIN_TSF_DELIVERY_INTERIM : HUNMIN_TSF_DELIVERY_NATIVE);
-    hunmin_logger.log("legacy force=%d detected-mode=%d\n", interimForce_ ? 1 : 0, legacyMode_ ? 1 : 0);
+    /* The delivery decides whether the automatic switch can be honoured at all
+     * (ruled 2026-11-02), so the layer's state is re-derived here as well as at
+     * every rebuild. */
+    ApplyAutoswitch();
+    hunmin_logger.log("legacy force=%d detected-mode=%d autoswitch=%d\n", interimForce_ ? 1 : 0, legacyMode_ ? 1 : 0, AutoswitchOn() ? 1 : 0);
 }
 
 STDMETHODIMP CTextService::Activate(ITfThreadMgr *ptm, TfClientId tid) {
