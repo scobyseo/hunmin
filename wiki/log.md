@@ -931,3 +931,12 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   syllable-unit commit is on, and name the reason in the debug output. Quoted
   verbatim; the page records the three obligations and the two things it leaves
   open (where the diagnostic goes, what the settings row shows).
+## [2026-11-02] create | The interim delivery cannot support autoswitch, and ON stops the English passthrough
+
+- The two rulings from the maintainer's message that answered issue #175's findings,
+  quoted verbatim: the interim delivery cannot carry the switch (structural — the word
+  leaves the layer per key, so there is nothing whole to judge), and with the switch ON
+  English stops passing through so R8's E1 line reaches the engine. The page records
+  what each authorises and the three things neither decides (the settings row on a host
+  that ignores it, #215; the live cost of routing English keys, #216; the separate
+  syllable-commit dependency, #207).

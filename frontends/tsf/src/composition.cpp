@@ -102,6 +102,9 @@ STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComp
                           ComposeDisplay().size());
         legacyMode_ = true;
         UseDelivery(HUNMIN_TSF_DELIVERY_INTERIM);
+        /* This host can no longer carry the automatic switch (ruled 2026-11-02):
+         * the layer is told, so the option and the key path agree. */
+        ApplyAutoswitch();
         /* What is dead in the doc = the WHOLE composition text (compText_:
          * nothing under this composition was ours to keep there - the
          * interim path rebuilds the word from the LIVE buffers and live
@@ -394,6 +397,22 @@ void CTextService::InsertBufferedWord(ITfContext *pic) {
      * also clears it, so the word cannot be inserted twice. */
     if (!preedit_)
         return;
+    /* ...except when the HOST already put that same text in the document: its
+     * own composition termination fuses what the composition showed and the
+     * layer is deliberately not told (the ic keeps composing, issue #144). If a
+     * boundary arrives before a new composition re-adopts that copy, the insert
+     * below writes a SECOND copy of the same word -- the reported
+     * `적어두자.적어두자.` (issue #175 comment, 2026-11-01). The fused copy IS the
+     * layer's display by construction (`hostFusedCopy_ = compText_` at the
+     * termination), so the layer's copy is dropped rather than delivered: R10
+     * forbids rewriting text the client already holds, and any judgement that
+     * wanted to rewrite it is cleared with the same reset. */
+    if (!hostFusedCopy_.empty()) {
+        hunmin_logger.log(" boundary: the host fused %zu chars, dropping the layer's copy\n", hostFusedCopy_.size());
+        hostFusedCopy_.clear();
+        ComposeReset();
+        return;
+    }
     const std::wstring word = HunminUtf8ToWide(hunmin_buffered_preedit_commit_word(preedit_));
     if (word.empty())
         return;
@@ -441,10 +460,19 @@ void CTextService::ComposeReset() {
 /* One composition-boundary drain shared by the declined key path and the mode
  * toggle (issue #66). The finalising is the LAYER's now (issue #128): its
  * commit_word() closes the in-flight syllable and hands back the whole word,
- * which InsertBufferedWord delivers once. */
+ * which InsertBufferedWord delivers once.
+ *
+ * R8's judgement is taken HERE, after the delivery and before the next key
+ * (issue #175). It has to be this drain and not only the declined-key path: a
+ * boundary key on TSF (space, Enter) is settled in OnTestKeyDown and PASSED, so
+ * the host never calls the down phase and the declined branch never runs --
+ * measured with tier F1's TsfConfigTest.TheAutomaticSwitch* before this call
+ * existed, the mode never moved. take_judgement is consuming, so the redundant
+ * call on the declined path costs one and does nothing. */
 void CTextService::BoundaryFlush(ITfContext *pic) {
     hunmin_logger.log(" boundary, display=%zu\n", ComposeDisplay().size());
     delivery_->Boundary(pic);
+    ApplyJudgement(pic);
 }
 
 /* The caret rect the candidate popup anchors to: one read-only edit

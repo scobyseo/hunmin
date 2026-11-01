@@ -45,9 +45,13 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
          * same shared-predicate rule the toggle uses (test and down are
          * one decision). */
         eat = TRUE;
-    else if (!hangulMode_)
+    else if (!hangulMode_ && !AutoswitchOn())
+        /* The English passthrough (ruled 2026-11-02: with autoswitch ON the
+         * engine keeps the keys so R8's E1 line can answer Hangul). Both key
+         * phases answer the same way, or the host loses a key the down phase
+         * would have claimed. */
         eat = FALSE;
-    else if (hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam, hunmin_tsf_keymods_from_state())) {
+    else if (hangulMode_ && hunmin_tsf_keybindings_match(&hanjaCombo_, 1, (unsigned)wParam, hunmin_tsf_keymods_from_state())) {
         /* Mirror the down decision exactly (no look-ahead lie): the
          * window opens when the buffered word has candidates - the
          * whole-word lookup, or issue #100's last-syllable fallback
@@ -88,7 +92,7 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
          * #98-verified composition-close shape. */
         const char *pre = preedit_ ? hunmin_buffered_preedit_display(preedit_) : "";
         eat = (legacyMode_ && pre[0] == '\0') ? FALSE : TRUE;
-    } else if (preedit_ && hangulMode_ && !IsKeyOfPassage(wParam) && VkToBase(wParam) != 0 && !IsModifierVk(wParam)) {
+    } else if (preedit_ && (hangulMode_ || AutoswitchOn()) && !IsKeyOfPassage(wParam) && VkToBase(wParam) != 0 && !IsModifierVk(wParam)) {
         /* EVERY feedable key is interested in hangul mode, the OEM
          * punctuation class included. Sin3-p2's jamo live on this row
          * (; ' /;  measured 2026-10-21).
@@ -162,13 +166,25 @@ STDMETHODIMP CTextService::OnKeyDown(ITfContext *pic, WPARAM wParam, LPARAM lPar
         ApplyModeToggle(pic, wParam, lParam, pfEat);
         return S_OK;
     }
-    if (!hangulMode_)
+    /* The English passthrough, ruled 2026-11-02: "autoswitch ON stops English
+     * passthrough to support eng -> han support". With the switch on the engine
+     * keeps seeing the keys in Latin mode too, so R8's E1 line can judge a word
+     * typed there and answer Hangul. The delivered TEXT is unchanged either way
+     * (the layer commits each Latin character as the host did, R5); what changes
+     * is who delivers it. With the switch OFF this branch is exactly what
+     * shipped, and the interim delivery keeps it too: that path cannot carry the
+     * judgement (ruled 2026-11-02), so the feature is off there and the engine
+     * is not given keys it cannot act on. */
+    if (!hangulMode_ && !AutoswitchOn())
         return S_OK; // passthrough English
-    if (IsCandidateToggle(wParam)) {
+    /* The two candidate surfaces stay Hangul-mode things: a Hanja lookup of a
+     * Latin word is not a question anyone asked, and opening a list in English
+     * mode would make a passthrough key dead. */
+    if (hangulMode_ && IsCandidateToggle(wParam)) {
         cand_->Toggle(pic, (unsigned long)wParam, pfEat);
         return S_OK;
     }
-    if (cand_->Active() && cand_->ListKey(pic, (unsigned long)wParam, pfEat))
+    if (hangulMode_ && cand_->Active() && cand_->ListKey(pic, (unsigned long)wParam, pfEat))
         return S_OK;
     if (IsKeyOfPassage(wParam)) {
         DrainAndPass(pic, wParam, pfEat, "edit key");
@@ -481,10 +497,14 @@ void CTextService::FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
     if (!consumed) {
         /* A key the engine declines is a boundary AND a pass-through: the layer
          * has already delivered the word in out.commit, which starts the
-         * delivery exactly as the old BoundaryFlush did. */
+         * delivery exactly as the old BoundaryFlush did. It also ALREADY judged
+         * that word (the decline is the boundary), so the judgement is taken
+         * here and acted on -- a second delivery drain would ask the layer for a
+         * word it no longer holds, and its boundary is what replaces the
+         * judgement with -1 (issue #175: that is how the answer used to be
+         * discarded before it was read). */
         if (out.commit && *out.commit)
             InsertText(pic, HunminUtf8ToWide(out.commit));
-        delivery_->Boundary(pic);
         /* The engine judged the word it just delivered; the mode change is the
          * frontend's half (ruled 2026-11-01, #164). Asked after the delivery so
          * the text inserted above is the one the judgement was made on. */

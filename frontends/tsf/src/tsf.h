@@ -67,6 +67,10 @@ struct HunminTsfSnapshot {
     bool hangulMode = true;
     bool legacyMode = false;
     bool interimForce = false;
+    /* R13-정정's ON/OFF as the ENGINE answers it (issue #175). Read it here
+     * rather than from the store: the engine vetoes the value where the
+     * judgement's data is absent (B3), and that refusal has to be visible. */
+    int autoswitch = 0;
     ITfComposition *composition = nullptr;
     ITfLangBarItemSink *itemSink = nullptr;
     std::vector<HunminKeyCombo> toggleKeys;
@@ -270,6 +274,13 @@ public:
      * surfaces that show it. Called after every key, and it does nothing when
      * the engine has no judgement. */
     void ApplyJudgement(ITfContext *pic);
+    /* R13-정정's state as THIS delivery can honour it (issue #175, ruled
+     * 2026-11-02: "interim model cannot support autoswitch"). The interim path
+     * moves the finished word into the document per key, so at its boundary the
+     * layer holds no whole word to judge; the option is therefore only ON while
+     * the native path is active, and it is re-applied whenever that flips. */
+    bool AutoswitchOn() const { return autoswitch_ != 0 && !legacyMode_; }
+    void ApplyAutoswitch();
 
     STDMETHOD(Activate)(ITfThreadMgr *ptm, TfClientId tid) override;
     STDMETHOD(Deactivate)() override;
@@ -387,6 +398,10 @@ private:
     /* The commit unit the layer is built with (issue #128): "word" or
      * "syllable", from HunminTsfConfig. ApplyConfigStore refreshes it. */
     char commitUnit_[HUNMIN_TSF_COMMIT_UNIT_CAP] = "word";
+    /* R13-정정's ON/OFF as the layer was last told it (issue #175): the
+     * engine's value, not a second setting -- the dialog reads the engine and
+     * the engine vetoes this where its data is absent (B3, #169). */
+    int autoswitch_ = 0;
     /* Mode-toggle bindings (maintainer instruction: the Han/Eng key is the
      * default; additional keys configure through the store). Always carries
      * the bare physical Han/Eng key - the platform alternate that survives

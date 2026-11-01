@@ -22,6 +22,7 @@
  */
 #include <gtest/gtest.h>
 
+#include <cctype>
 #include <cstring>
 #include <string>
 #include <windows.h>
@@ -82,6 +83,18 @@ TEST_F(TsfConfigTest, EmptyEnvRestoresDefaults) {
     _putenv_s(HUNMIN_TSF_ENV_HANJA_KEY, "");
     hunmin_tsf_config_load(nullptr, &cfg);
     EXPECT_STREQ(cfg.hanjaKey, "v1:25:0") << "empty env hanja key -> default";
+    /* R13-정정's ON/OFF (issue #175): OFF is the B3 default, and the flag is
+     * spelled "1" -- anything else in the store is OFF (fail-closed). */
+    EXPECT_EQ(cfg.autoswitch, 0) << "autoswitch defaults OFF (B3)";
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
+    hunmin_tsf_config_load(nullptr, &cfg);
+    EXPECT_EQ(cfg.autoswitch, 1) << "env override reaches the flag";
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "yes");
+    hunmin_tsf_config_load(nullptr, &cfg);
+    EXPECT_EQ(cfg.autoswitch, 0) << "a typo must not enable the feature";
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    hunmin_tsf_config_load(nullptr, &cfg);
+    EXPECT_EQ(cfg.autoswitch, 0) << "empty env autoswitch -> default";
 }
 
 /* 3. Slot resolution against the real data (issue #71's list split must
@@ -112,6 +125,7 @@ TEST_F(TsfConfigTest, RegistryRoundTripAndUnterminatedId) {
     strcpy_s(write.hangulLayout, "sebeolsik-3-90");
     strcpy_s(write.latinLayout, "dvorak");
     strcpy_s(write.hanjaKey, "v1:120:0");
+    write.autoswitch = 1; /* R13-정정's ON/OFF (issue #175) */
     EXPECT_EQ(hunmin_tsf_config_save(selftest, &write), TRUE) << "save returned FALSE";
     int rc = hunmin_tsf_config_load(selftest, &cfg_);
     EXPECT_GE(rc, 1) << "load from registry failed entirely";
@@ -121,6 +135,7 @@ TEST_F(TsfConfigTest, RegistryRoundTripAndUnterminatedId) {
     EXPECT_STREQ(cfg_.hangulLayout, "sebeolsik-3-90") << "round trip hangul";
     EXPECT_STREQ(cfg_.latinLayout, "dvorak") << "round trip latin";
     EXPECT_STREQ(cfg_.hanjaKey, "v1:120:0") << "round trip hanja key";
+    EXPECT_EQ(cfg_.autoswitch, 1) << "round trip autoswitch (R13-정정's ON/OFF)";
 
     /* 5. An unterminated id is rejected, never truncated. */
     HunminTsfConfig bad = {};
@@ -373,6 +388,342 @@ TEST_F(TsfConfigTest, TheHanEngKeyCarriesTheSpecialFunctionOnAChord) {
     g_mockKeyState[VK_CONTROL & 0xFF] = 0;
     g_mockKeyState[VK_MENU & 0xFF] = 0;
 
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+
+/* R13-정정's surface A, performed by the ADAPTER (issue #175). The ruling of
+ * 2026-11-01 (#164) splits the work: the ENGINE judges and delivers the word,
+ * the FRONTEND adopts the mode it answers. This case pins the adapter half for
+ * the two buffers the issue names -- one English-valid, one Hangul-valid -- so
+ * the DECISION is asserted and not merely that a switch can happen:
+ *   `english` typed in dubeolsik is a dictionary word and is not well-formed
+ *   Hangul, so the mode must move to Latin; `sms` (는) is well-formed Hangul,
+ *   so the mode must stay.
+ * Both verdicts are tier A's own for the same buffers on the shipped dictionary
+ * (wordset-test, TheZeroThreeGateMixedSentenceWorksInOneStream) -- nothing is
+ * typed here. The committed text is the same either way: the judgement changes
+ * the MODE, never the word (R10).
+ *
+ * The boundary is a SPACE, which on a real TSF host reaches the adapter in the
+ * TEST phase (the key passes, so the host never calls the down phase -- the
+ * `dkssud1` shape): that is why the judgement has to be taken at the boundary
+ * drain, not only where a key is declined. */
+TEST_F(TsfConfigTest, TheAutomaticSwitchFlipsTheModeAtTheBoundary) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
+    _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "dubeolsik");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    ASSERT_TRUE(Snap(svc).hangulMode) << "the service starts in hangul mode";
+
+    /* The stored preference reached the engine's ONE state (R13-정정: the
+     * frontend holds no copy, it reads the engine's answer). */
+    hunmin_buffered_preedit *layer = Snap(svc).layer;
+    ASSERT_NE(layer, nullptr);
+    int on = 0;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(layer, "autoswitch", &on)) << "the layer answers the option R13-정정 names";
+    EXPECT_EQ(on, 1) << "the stored value reached the layer";
+
+    auto type = [&](const char *keys) {
+        for (const char *p = keys; *p; ++p) {
+            BOOL eat = FALSE;
+            svc->OnTestKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+            svc->OnKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+        }
+        BOOL eat = FALSE;
+        svc->OnTestKeyDown(mctx, VK_SPACE, 0, &eat);
+        EXPECT_EQ(eat, FALSE) << "a boundary key passes (it is the app's space)";
+        svc->OnKeyDown(mctx, VK_SPACE, 0, &eat);
+    };
+
+    /* 1. A Hangul-valid buffer: 는 is well-formed Hangul, so R8 answers "keep
+     * the current mode" and nothing switches. */
+    type("sms");
+    EXPECT_TRUE(Snap(svc).hangulMode) << "a Hangul-valid word must not switch the mode";
+
+    /* 2. An English-valid buffer: `english` reads as a dictionary word and is
+     * not well-formed Hangul, so the mode must be Latin from the next key. */
+    type("english");
+    EXPECT_FALSE(Snap(svc).hangulMode) << "an English-valid word must switch the mode to Latin";
+
+    /* The word landed in the client, in the language the judgement decided,
+     * and nothing was reassembled (R10): 는 then english. */
+    EXPECT_EQ(mctx->doc, std::wstring(L"\uB294") + L"english") << "the judged words are the delivered text";
+
+    /* Process-wide seams back to their defaults: this binary runs every case in
+     * one process and a sibling must not inherit autoswitch ON (the measured
+     * leak trap: a case that passes under --gtest_filter and fails in the suite). */
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+
+/* The English -> Hangul direction, ruled 2026-11-02: *"autoswitch ON stops
+ * English passthrough to support eng -> han support"*. Before this the adapter
+ * returned at `if (!hangulMode_) return S_OK;` and the engine never saw a key
+ * typed in Latin mode, so R8's E1 line (and the 0.3 gate sentence) could not
+ * fire on TSF at all.
+ *
+ * One service, two words: `english` switches Hangul -> Latin (the direction the
+ * previous case pins), then `sms` typed IN Latin mode must switch back and
+ * deliver 는 -- the engine's own answer for those keys on dubeolsik, which is
+ * what the Hangul reading of a Latin-mode buffer is (tier A:
+ * WordSetTest.TheZeroThreeGateMixedSentenceWorksInOneStream). The second word
+ * only reaches the engine because the passthrough stopped.
+ */
+TEST_F(TsfConfigTest, TheEnglishDirectionIsJudgedOnceTheSwitchIsOn) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
+    _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "dubeolsik");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    ASSERT_TRUE(Snap(svc).hangulMode) << "the service starts in hangul mode";
+
+    auto type = [&](const char *keys, BOOL *testEatOut) {
+        for (const char *p = keys; *p; ++p) {
+            BOOL eat = FALSE;
+            svc->OnTestKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+            if (testEatOut)
+                *testEatOut = eat;
+            svc->OnKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+        }
+        BOOL eat = FALSE;
+        svc->OnTestKeyDown(mctx, VK_SPACE, 0, &eat);
+        svc->OnKeyDown(mctx, VK_SPACE, 0, &eat);
+    };
+
+    type("english", nullptr);
+    ASSERT_FALSE(Snap(svc).hangulMode) << "Hangul -> Latin: the first direction still works";
+
+    /* The ruling's observable: a Latin-mode key is OURS now, so the engine sees
+     * it (the test phase claims it instead of passing it to the app). */
+    BOOL eat = FALSE;
+    type("sms", &eat);
+    EXPECT_TRUE(eat) << "with autoswitch ON a Latin-mode key is fed, not passed through";
+    EXPECT_TRUE(Snap(svc).hangulMode) << "Latin -> Hangul: the word reads as Hangul, so the mode moves back";
+    EXPECT_EQ(mctx->doc, std::wstring(L"english") + L"\uB294")
+        << "the judged words are the delivered text, in the language the judgement decided";
+
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+
+/* The same keys with the switch OFF: the passthrough is exactly what shipped
+ * (R5's per-character English, delivered by the host, judged by nobody), so the
+ * ruling above did not change the feature-off path. */
+TEST_F(TsfConfigTest, ThePassthroughStaysWhenTheSwitchIsOff) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "0");
+    _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "dubeolsik");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    EXPECT_EQ(Snap(svc).autoswitch, 0) << "the engine holds OFF";
+
+    /* Type in Hangul mode, then toggle to Latin with the 한/영 key: with the
+     * switch off, a Latin-mode letter must be the app's again. */
+    for (const char *p = "sms"; *p; ++p) {
+        BOOL eat = FALSE;
+        svc->OnTestKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+        svc->OnKeyDown(mctx, (WPARAM)std::toupper((unsigned char)*p), 0, &eat);
+    }
+    BOOL spaceEat = TRUE;
+    svc->OnTestKeyDown(mctx, VK_SPACE, 0, &spaceEat);
+    svc->OnKeyDown(mctx, VK_SPACE, 0, &spaceEat);
+    EXPECT_TRUE(Snap(svc).hangulMode) << "the switch is off: nothing judges";
+
+    BOOL langEat = FALSE;
+    svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &langEat);
+    svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &langEat);
+    ASSERT_FALSE(Snap(svc).hangulMode) << "the manual switch still reaches Latin";
+
+    BOOL eat = TRUE;
+    svc->OnTestKeyDown(mctx, 'D', 0, &eat);
+    EXPECT_FALSE(eat) << "switch OFF: a Latin-mode key passes to the app (R5, unchanged)";
+
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+
+/* Ruled 2026-11-02: "interim model cannot support autoswitch". The delivery that
+ * cannot judge what it delivers must not hold the state either -- otherwise the
+ * settings row would advertise a switch that cannot fire, and the newly-fed key
+ * path would stop the app's own English insertion for nothing. */
+TEST_F(TsfConfigTest, TheInterimDeliveryDoesNotHoldTheSwitch) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
+    _putenv_s("HUNMIN_TSF_INTERIM", "1");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "dubeolsik");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    ASSERT_TRUE(Snap(svc).legacyMode) << "the interim delivery is the mode under test";
+
+    /* The store says 1, the LAYER says 0: the frontend refused it. */
+    hunmin_buffered_preedit *layer = Snap(svc).layer;
+    ASSERT_NE(layer, nullptr);
+    int on = -1;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(layer, "autoswitch", &on));
+    EXPECT_EQ(on, 0) << "the interim delivery cannot judge, so it does not hold the switch";
+    EXPECT_EQ(Snap(svc).autoswitch, 0) << "the snapshot reports the engine's answer, not the store's";
+
+    /* And the key path agrees: a Latin-mode key is still the app's. */
+    BOOL langEat = FALSE;
+    svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &langEat);
+    svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &langEat);
+    ASSERT_FALSE(Snap(svc).hangulMode) << "the manual switch still reaches Latin";
+    BOOL eat = TRUE;
+    svc->OnTestKeyDown(mctx, 'D', 0, &eat);
+    EXPECT_FALSE(eat) << "interim + refused switch: the passthrough stands";
+
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+
+/* The native-path half of the duplicate reported in issue #175's comment
+ * (2026-11-01): a word in flight, the host terminates the composition, then a
+ * boundary arrives before any new composition re-adopts the fused copy. The
+ * host's termination already put the display in the document, so the boundary
+ * must add NOTHING -- the reported duplicate was `적어두자.적어두자.`.
+ *
+ * The assertion is an INVARIANT (the document does not grow), not a typed word:
+ * what matters is that the second delivery is gone, whatever the layout renders.
+ */
+TEST_F(TsfConfigTest, HostTerminationThenBoundaryKeepsTheWordOnce) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "0");
+    _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "sin3-p2");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    ASSERT_FALSE(Snap(svc).legacyMode) << "this case is the native path";
+
+    auto key = [&](WPARAM vk) {
+        BOOL eat = FALSE;
+        svc->OnTestKeyDown(mctx, vk, 0, &eat);
+        svc->OnKeyDown(mctx, vk, 0, &eat);
+    };
+    for (const char *p = "DKSSUD"; *p; ++p)
+        key((WPARAM)*p);
+    const std::wstring fused = mctx->doc;
+    ASSERT_FALSE(fused.empty()) << "the composition text is document text in this harness";
+
+    /* The host's mid-word termination (focus loss). */
+    mctx->HostTerminateComposition();
+    svc->OnCompositionTerminated(tsfmock::MockContext::kCookie, nullptr);
+
+    /* The next key is a boundary: the word is already in the document. */
+    key(VK_SPACE);
+    EXPECT_EQ(mctx->doc, fused) << "the boundary must not re-deliver what the host already fused (doc len " << mctx->doc.size() << ")";
+
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+
+/* The punctuation pair from the report, on the native path: `?` and `,` are
+ * LAYOUT KEYS on sin3-p2 (consumed into the word), so Enter is the key that
+ * delivers the word and it must pass in BOTH key phases. The expectation is the
+ * engine's own display -- the layout renders the punctuation its own way, and a
+ * hand-typed glyph asserts the wrong thing.
+ */
+TEST_F(TsfConfigTest, QuestionAndCommaThenEnterOnTheNativePath) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "0");
+    _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "sin3-p2");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    ASSERT_FALSE(Snap(svc).legacyMode) << "this case is the native path";
+
+    const WPARAM puncts[] = {VK_OEM_2, VK_OEM_COMMA};
+    for (int i = 0; i < 2; ++i) {
+        for (const char *p = "DKSSUD"; *p; ++p) {
+            BOOL eat = FALSE;
+            svc->OnTestKeyDown(mctx, (WPARAM)*p, 0, &eat);
+            svc->OnKeyDown(mctx, (WPARAM)*p, 0, &eat);
+        }
+        BOOL punctEat = FALSE;
+        svc->OnTestKeyDown(mctx, puncts[i], 0, &punctEat);
+        svc->OnKeyDown(mctx, puncts[i], 0, &punctEat);
+        EXPECT_TRUE(punctEat) << "sin3-p2 composes this punctuation: it belongs to the word (case " << i << ")";
+        const std::wstring shown = Snap(svc).display;
+        ASSERT_FALSE(shown.empty()) << "the punctuation must still be composing with the word (case " << i << ")";
+
+        BOOL testEat = TRUE, downEat = TRUE;
+        svc->OnTestKeyDown(mctx, VK_RETURN, 0, &testEat);
+        svc->OnKeyDown(mctx, VK_RETURN, 0, &downEat);
+        EXPECT_EQ(testEat, FALSE) << "Enter passes at the test phase, so the app inserts the break (case " << i << ")";
+        EXPECT_EQ(downEat, FALSE) << "and the down phase agrees (case " << i << ")";
+        EXPECT_NE(mctx->doc.find(shown), std::wstring::npos) << "the word with its punctuation landed (case " << i << ")";
+    }
+
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
     svc->Release();
     mctx->Release();
     dm->Release();

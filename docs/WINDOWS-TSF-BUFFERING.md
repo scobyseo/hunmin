@@ -49,6 +49,39 @@ that contract an automated check (mock-TSF, tier F1: one insert per boundary).
 assertion channel — the win32 corpus — and the reason the buffer moved is the
 comment above `hunmin_buffered_preedit_new`.
 
+## The host's own termination already delivered the word (fixed 2026-11-02, issue #175)
+
+A host-driven `OnCompositionTerminated` (`endingSelf_ == 0`) FUSES what the
+composition showed into the document — that is what the host's termination means.
+The layer is deliberately not told (the `ic` keeps composing its in-flight
+syllable, issue #144), so the adapter has to remember that the text is now client
+text. It did remember it (`hostFusedCopy_` for the native path,
+`CaptureDeadCopy` for the interim one) but only a *later composition* consumed the
+note. A boundary arriving first — the person leaves the window mid-word, comes
+back and presses space — delivered the layer's copy on top of the fused one, which
+is the reported `적어두자.적어두자.` (issue #175 comment, 2026-11-01).
+
+The rule now: a pending fused copy means the document holds the text, so a
+boundary DROPS the layer's copy instead of inserting it (`InsertBufferedWord`;
+the reset also clears any judgement that would have rewritten text the client
+already holds, R10). Pinned in both deliveries by the same invariant — *the
+boundary adds nothing*:
+
+- `TsfConfigTest.HostTerminationThenBoundaryKeepsTheWordOnce` (native; measured
+  before the fix: the 3-character word twice, document length 6),
+- `LegacyTest.HostTerminationThenBoundaryKeepsTheWordOnce` (the classic host,
+  which flips to the interim path on its first mid-word termination).
+
+Removing the `hostFusedCopy_` branch turns the native case red with exactly the
+reported shape (`ㅎ곈디ㅎ곈디`), which is what makes it a guard rather than a
+description.
+
+What this does NOT decide: a host that terminates the composition AND removes the
+fused text itself would now lose the word at that boundary. No such host has been
+observed (the termination IS the host keeping the text), and the re-adopt path
+still refuses to take a copy the document does not carry, so the residue case is
+unchanged — but the boundary rule assumes the fused copy is still there.
+
 ## Open questions
 
 - Whether UWP and console edit controls need an overlay for readable preedit.

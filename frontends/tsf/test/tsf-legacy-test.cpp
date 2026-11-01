@@ -563,3 +563,66 @@ TEST_F(NonEditHostTest, PerKeyTerminatingNonEditHostComposesAcrossKeys) {
 }
 
 } // namespace
+
+/* The punctuation pair from the report on the classic host: `?` and `,` are
+ * layout keys on sin3-p2, so Enter delivers the word and must pass. Expectation
+ * is the document itself before Enter -- never a typed glyph.
+ */
+TEST_F(LegacyTest, QuestionAndCommaThenEnterBreakTheLine) {
+    LegacyBegin(true, "sin3-p2");
+    if (HasFatalFailure()) {
+        Teardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    const WPARAM puncts[] = {VK_OEM_2, VK_OEM_COMMA}; /* ? and , */
+    const wchar_t chars[] = {L'?', L','};
+    for (int i = 0; i < 2; ++i) {
+        for (const char *p = "dkssud"; *p; ++p)
+            KeyHost((WPARAM)std::toupper((unsigned char)*p));
+        KeyHost(puncts[i], chars[i]);
+        FlushDocWrites();
+        const std::wstring before = CtrlText(ctrl);
+        EXPECT_FALSE(before.empty()) << "the punctuation joined the word (case " << i << ")";
+        const BOOL enterEat = KeyHost(VK_RETURN, L'\r');
+        FlushDocWrites();
+        EXPECT_EQ(enterEat, FALSE) << "Enter passes: the app inserts the break";
+        const std::wstring after = CtrlText(ctrl);
+        ASSERT_GE(after.size(), before.size() + 2u) << "the paragraph break must be in the document (case " << i << ")";
+        EXPECT_EQ(after.compare(after.size() - 2, 2, L"\r\n"), 0) << "the break is the last thing in the document (case " << i << ")";
+        EXPECT_EQ(after.compare(0, before.size(), before), 0) << "the word is unchanged ahead of the break (case " << i << ")";
+    }
+    LegacyTeardown();
+}
+
+/* The reported duplicate on the delivery a classic host uses (issue #175
+ * comment, 2026-11-01): a word in flight, the host terminates the composition
+ * (focus left), the person comes back and the next key is a boundary -- the
+ * document held the word twice.
+ *
+ * On this fixture the first termination FLIPS the service to the interim path
+ * (per-key, #119), so what this pins is the invariant both deliveries owe: the
+ * host already fused the text, so the boundary adds nothing.
+ */
+TEST_F(LegacyTest, HostTerminationThenBoundaryKeepsTheWordOnce) {
+    LegacyBegin(true, "sin3-p2");
+    if (HasFatalFailure()) {
+        Teardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    for (const char *p = "dkssud"; *p; ++p)
+        KeyHost((WPARAM)std::toupper((unsigned char)*p));
+    FlushDocWrites();
+
+    /* The host's own termination mid-word, as a focus loss produces. */
+    ctx->HostTerminateComposition();
+    svc->OnCompositionTerminated(tsfmock::MockContext::kCookie, nullptr);
+    FlushDocWrites();
+    const std::wstring fused = CtrlText(ctrl);
+    ASSERT_FALSE(fused.empty()) << "the word is in the document";
+
+    /* The person is back, and the next key is a boundary. */
+    Key(VK_SPACE);
+    FlushDocWrites();
+    EXPECT_EQ(CtrlText(ctrl), fused) << "the boundary must not re-deliver what the host already fused";
+    LegacyTeardown();
+}

@@ -42,6 +42,84 @@ decision. A key must not be typeable in one mode and not the other.
 The original defect (digits `1`-`0` not insertable in interim dubeolsik) is an
 instance of this rule.
 
+### 2.1 Ruled 2026-11-02: the interim delivery does not carry the automatic switch
+
+Maintainer, 2026-11-02:
+
+> interim model cannot support autoswitch.
+
+So the two delivery modes are ALLOWED to differ on this feature, and the
+difference is named here rather than left as a defect. The evidence that makes it
+structural (measured 2026-11-01, issue #175): `InterimWrite` moves the layer's
+finished word into the document on every key (`hunmin_buffered_preedit_take_word`
+REMOVES it) and `InterimDrain` closes with `ComposeReset` rather than
+`commit_word()`, so at the boundary the layer holds only the syllable still in
+flight — the frozen log line is `interim boundary: word len=0`. There is no whole
+word to judge, and R10 forbids reassembling the syllable text already in the
+client.
+
+How it is implemented: `CTextService::ApplyAutoswitch()` is the one setter of the
+option, and it answers `AutoswitchOn()` — the stored value AND the native
+delivery. Every site that changes the delivery re-applies it (the layer rebuild,
+`DetectLegacyMode`, and the mid-word flip in `OnCompositionTerminated`), so the
+engine never holds a state this delivery cannot honour. Pinned by
+`TsfConfigTest.TheInterimDeliveryDoesNotHoldTheSwitch`: the store says 1, the
+layer answers 0, and a Latin-mode key still passes to the app.
+
+What this ruling does NOT decide:
+
+- **The settings row still shows the stored value.** The dialog is a separate
+  process and cannot know a host's runtime delivery mode, so on a classic
+  default-sink host the row can advertise ON while that host does nothing with it.
+  Whether the row should say so (and how it could know) is open.
+- **Whether a future interim shape could carry it.** The two shapes priced in the
+  pre-ruling text — hold the word in one growing span, or keep the asymmetry —
+  were the options; the ruling picks the second for now, and it does not say the
+  first is forever excluded.
+
+### 2.2 Ruled 2026-11-02: with the switch ON, English no longer passes through
+
+Maintainer, 2026-11-02:
+
+> autoswitch ON stops English passthrough to support eng -> han support
+
+R8's E1 line (ruled 2026-11-01, "E1도 당연히 지원해야지") judges a word typed in
+Latin mode, and TSF fed the engine only in Hangul mode: `OnTestKeyDown` answered
+`eat = FALSE` for everything once `hangulMode_` was false and `OnKeyDown` returned
+at `if (!hangulMode_) return S_OK; // passthrough English`. Measured before the
+change, on the shipped data with the switch ON: `sms` + space in Latin mode left
+the mode Latin, the client document unchanged, and the test phase for `D` answered
+`eat = 0` — the E1 half, and with it the 0.3 gate sentence, could not fire on TSF
+at all.
+
+How it is implemented, in both key phases (they must answer alike or the host
+loses a key the down phase would claim):
+
+- the passthrough is now `if (!hangulMode_ && !AutoswitchOn())`. With the switch
+  ON the engine keeps seeing the keys in Latin mode, resolves them on the Latin
+  layout per character (the text is what the host used to insert, R5) and judges
+  at the boundary; with it OFF the branch is exactly what shipped.
+- the two candidate surfaces stay Hangul-mode (`IsCandidateToggle`, the open
+  list's keys): a Hanja lookup of a Latin word is not a question anyone asked, and
+  a list opened in Latin mode would make a passthrough key dead.
+- with the interim delivery the passthrough stands, because §2.1 leaves the switch
+  off there and feeding the engine could only cost the app its own key.
+
+Pinned by `TsfConfigTest.TheEnglishDirectionIsJudgedOnceTheSwitchIsOn` (one
+service: `english` → Latin, then `sms` typed in Latin mode → 는 and the mode back
+to Hangul, document `english는`) and `TsfConfigTest.ThePassthroughStaysWhenTheSwitchIsOff`
+(switch OFF: a Latin-mode key is the app's, `eat = FALSE`).
+
+What this ruling does NOT decide, and what is still unmeasured:
+
+- **The live cost of routing English-mode keys through the engine.** Native
+  delivery now composes the Latin characters instead of letting the host insert
+  them, so a live round should confirm caret, undo units and selection behaviour
+  in an ordinary edit control with the switch ON. Not measured here: the mock
+  harness has no host insertion policy to measure against.
+- **Whether Android and fcitx5 need the same rule.** Their English-mode paths are
+  their own (issue #180 is the equivalence lane); this ruling names TSF's.
+
 ## 3. Allowed differences
 
 1. **Physical-key mapping.** Each frontend maps its platform event to the

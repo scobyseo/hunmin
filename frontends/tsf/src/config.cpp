@@ -76,6 +76,16 @@ static void loadToggleKeys(HKEY root, char *dst) {
     copyStr("", dst, HUNMIN_TSF_TOGGLE_KEYS_CAP); /* nothing configured: env empty + registry miss */
 }
 
+/* A flag slot: the same env -> registry -> default chain, parsed as "1" = on.
+ * Anything else (absent, empty, a typo) means OFF, which is the B3 default and
+ * the fail-closed direction: a corrupted store must not enable a feature nobody
+ * asked for. */
+static int loadFlag(HKEY root, const char *envName, const char *regValName) {
+    char buf[4];
+    loadSlot(root, envName, regValName, "0", buf, sizeof buf);
+    return strcmp(buf, "1") == 0 ? 1 : 0;
+}
+
 extern "C" int hunmin_tsf_config_load(HKEY root, HunminTsfConfig *out) {
     if (!out)
         return 0;
@@ -98,6 +108,9 @@ extern "C" int hunmin_tsf_config_load(HKEY root, HunminTsfConfig *out) {
      * the registry must not silently change the unit. */
     if (strcmp(out->commitUnit, "syllable") != 0)
         snprintf(out->commitUnit, HUNMIN_TSF_COMMIT_UNIT_CAP, "%s", "word");
+    /* R13-정정's ON/OFF (issue #175), written by the settings dialog and read
+     * once per Activate/Apply. OFF unless the store says "1" (B3). */
+    out->autoswitch = loadFlag(root, HUNMIN_TSF_ENV_AUTOSWITCH, HUNMIN_TSF_REGVAL_AUTOSWITCH);
     return fromReg;
 }
 
@@ -111,15 +124,19 @@ extern "C" BOOL hunmin_tsf_config_save(HKEY root, const HunminTsfConfig *cfg) {
     HKEY key = nullptr;
     if (RegCreateKeyExA(root, HUNMIN_TSF_CONFIG_ROOT_RELPATH, 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
         return FALSE;
+    /* The flag is stored as the same REG_SZ "0"/"1" every other slot uses, so
+     * one reader shape (config_load) covers the whole store. */
+    const char *autoswitchText = cfg->autoswitch ? "1" : "0";
     struct {
         const char *name;
         const char *value;
-    } vals[5] = {{HUNMIN_TSF_REGVAL_HANGUL, cfg->hangulLayout},
+    } vals[6] = {{HUNMIN_TSF_REGVAL_HANGUL, cfg->hangulLayout},
                  {HUNMIN_TSF_REGVAL_LATIN, cfg->latinLayout},
                  {HUNMIN_TSF_REGVAL_TOGGLE, cfg->toggleKeys},
                  {HUNMIN_TSF_REGVAL_HANJAKEY, cfg->hanjaKey},
-                 {HUNMIN_TSF_REGVAL_COMMITUNIT, cfg->commitUnit}};
-    for (int i = 0; i < 5; ++i) {
+                 {HUNMIN_TSF_REGVAL_COMMITUNIT, cfg->commitUnit},
+                 {HUNMIN_TSF_REGVAL_AUTOSWITCH, autoswitchText}};
+    for (int i = 0; i < 6; ++i) {
         if (RegSetValueExA(key, vals[i].name, 0, REG_SZ, (const BYTE *)vals[i].value, (DWORD)strlen(vals[i].value) + 1) != ERROR_SUCCESS) {
             RegCloseKey(key);
             return FALSE;
