@@ -43,16 +43,54 @@ public:
     const fcitx::Configuration *getConfig() const override { return &config_; }
     void setConfig(const fcitx::RawConfig &rawConfig) override;
 
+    /* The automatic-switch row (issue #176, docs/SPEC-MODES.md §R13-정정).
+     *
+     * One value, two surfaces: this pushes the stored value into every live
+     * layer and keeps what the ENGINE holds, which is what the dialog shows.
+     * The engine's B3 data gate can refuse ON, so the answer is taken from the
+     * engine rather than assumed from the config file.
+     */
+    int pushAutoswitch(int want);
+    /* A rebuilt layer was given the stored value; `held` is what the engine
+     * accepted. The row must not claim more than that. */
+    void recordAutoswitch(int held);
+    /* The key the engine reports for the function, and whether the data the
+     * feature needs is installed: the row's label and its reason. */
+    void refreshAutoswitchRow();
+    unsigned autoswitchChord() const { return autoswitchChord_; }
+    bool autoswitchDataPresent() const { return autoswitchDataPresent_; }
+
     HunminState *state(InputContext *ic);
 
     hunmin_ctx *ctx() const { return ctx_; }
     auto &config() { return config_; }
+    const hunmin_special_host *specialHost() const { return &specialHost_; }
+
+    /* Special-function host (issue #176, §E5-2). The engine asks whether this
+     * platform can service a function and how; fcitx5 has no recorder yet, so
+     * VOICE refuses (0) and AUTOSWITCH is a no-op (NULL perform). Registering
+     * the host now means adding the recorder later does not require a new
+     * frontend surface -- the engine already routes the chord through this. */
+    static int specialSupports(void *user, hunmin_special_function fn);
+    static void specialPerform(void *user, hunmin_special_function fn);
 
 private:
     Instance *instance_;
+
+    /* The PreInputMethod watcher that claims Ctrl+Hangul (route 2). Registered
+     * in the constructor and kept alive for the addon's lifetime. The callback
+     * answers only while hunmin is the active IM (the cheap guard: route 2
+     * must not become a global hotkey owner). */
+    std::unique_ptr<HandlerTableEntry<EventHandler>> probeWatcher_;
+
     HunminConfig config_;
     FactoryFor<HunminState> factory_;
     hunmin_ctx *ctx_ = nullptr;
+    hunmin_special_host specialHost_ = {};
+    /* The engine's answers for the row, refreshed at load and on a config
+     * reload; see refreshAutoswitchRow(). */
+    unsigned autoswitchChord_ = HUNMIN_MOD_CTRL;
+    bool autoswitchDataPresent_ = false;
 };
 
 class HunminAdapterFactory : public AddonFactory {

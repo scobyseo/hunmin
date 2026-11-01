@@ -2039,6 +2039,60 @@ state (`src/engine.cpp`), and it never binds `FcitxKey_Hangul` — it relies on 
 trigger. So there is no prior art in fcitx5 for the 한/영 key meaning anything beyond the
 trigger.
 
+#### E5-2 addendum 2 — the chord, executed on this host (measured 2026-11-01)
+
+The addendum above was **read from source, not run** ("no fcitx5 host was driven here").
+There is one now, so the two premises it left open were executed: a 25-line throwaway
+`PreInputMethod` watcher inside `HunminAdapter` (removed afterwards; it is a measurement,
+not a change), driven through `engine-d1-fcitx5`'s headless instance with fcitx5 **5.1.19**
+from the prefix, whose shipped trigger list the run itself prints:
+`Trigger Key: Control+space Zenkaku_Hankaku Hangul`.
+
+| # | question | result |
+|---|---|---|
+| 1 | does the addon see `Hangul` at all under the shipped defaults? | **The IM phase does not** (`HunminAdapter::keyEvent` is never called for it), but a `PreInputMethod` watcher **does**: `PROBE phase key=Hangul accepted=0` arrives, and passing it on lets the trigger take it — the harness's `sendKeyEvent` returned `accepted=1` and `instance->inputMethod(ic)` flipped `hunmin` → `keyboard-us` |
+| 2 | can the chord be claimed while `Hangul` stays a trigger? | **Yes.** `Key(FcitxKey_Hangul, KeyState::Ctrl)` reaches the watcher as `Control+Hangul`, the watcher claims it (`filterAndAccept()`), the harness reports `accepted=1`, the active IM is **unchanged** (`hunmin`), and the engine's `autoswitch` value flipped 0 → 1 through the same `pushAutoswitch()` the settings row uses |
+| 3 | does claiming the chord shadow the plain press? | **No, and this corrects the addendum above.** It said route 2 "shadows the user's global trigger — 한/영 would stop switching input methods for anyone using the addon". Measured: a watcher that claims only `Ctrl+Hangul` leaves the bare press to the trigger (row 1). Shadowing is a property of *what the watcher claims*, not of the phase it registers at |
+
+So route 2's price is smaller than the addendum priced it: the syntax-level obstacle
+(`EventWatcherPhase::PreInputMethod`, `Instance::watchEvent`, both public in 5.1.13+) was
+already known, and the behavioural cost the addendum attached to it — losing the user's
+trigger — does not apply to the selective form. What remains is real and unchanged:
+a watcher at that phase sees **every** key event instance-wide, so it has to answer "is
+this my IM" (`instance->inputMethod(ic) == "hunmin"`) before touching anything, and it sits
+in front of every other IM's input path.
+
+**What implementing it costs, counted.** The engine seam already exists and is unchanged
+by this: `hunmin_buffered_preedit_special()` / `..._special_peek()` resolve the event to a
+function and return `>0` / `0` / `-1`, the chord comes from `..._special_chord()`, and a
+frontend supplies `hunmin_special_host` (`supports()` may answer 0 — the recorder a VOICE
+press needs does not exist here). The addon side is: one watcher registered in the
+constructor, the key→(`base`, `mods`, `language_key`) mapping it already does in
+`keyEvent`, a `special_peek()` in the test phase and a `special()` in the down, and a
+pass-through on `-1`. The pieces that do **not** exist yet on this addon: a
+`hunmin_special_host` (so `special()` answers `-1` for everything today — a refusal, which
+passes the key, which is the ruled behaviour) and the release handling for a held-prefix
+gesture (not needed for a chord).
+
+**What a ruling has to include** (none of it is decided here):
+
+- whether an addon may claim a keysym the desktop also uses as a trigger, even when the
+  claim is narrowed to chords — **ruled 2026-11-02: yes, with the cheap guard**;
+- whether the watcher answers only while hunmin is the active IM — **ruled: yes only
+  while hunmin is active** (the cheap guard, implemented in `frontends/fcitx5/src/hunminadapter.cpp`);
+- whether the same watcher carries `VOICE` — **ruled: yes, register the host now** so
+  adding a recorder later does not require a new frontend surface (`specialSupports`
+  returns 0 for VOICE today, the engine's `-1` refusal passes the key through);
+- whether route 1 (the user removes Hangul from TriggerKeys) is still available —
+  **ruled: yes, it is required** on hosts whose physical keyboard has no Hangul key,
+  so both routes are supported and the watcher does not take it away.
+
+**Not measured here:** a real desktop session (this is the headless D1 instance: no
+Wayland/X11 seat, no compositor, no other IM competing), a keymap where 한/영 arrives as
+something other than `FcitxKey_Hangul`, and whether any application wants
+`Ctrl+Hangul` for itself. Those are environment-bound and they narrow the claim rather
+than support it.
+
 ### E5-3 The options
 
 Each is stated as mechanism, what it costs in this tree, and what it loses. Nothing here
@@ -3699,18 +3753,12 @@ What the table settles, and the four observations it added to R6's grounds:
   digit is typed into a buffer that has already handed the first to the client.
   With the layer the run accumulates in the preedit and leaves once, whole, at
   the boundary. Zero early deliveries in every row.
-- **`sebeolsik-final` (3f)'s UNSHIFTED digit row is not literal.** Those keys are
+- **`sebeolsik-final` (3f) is not a literal-digit layout.** Its digit keys are
   jamo, so "a digit run" there is a run of jamo and the engine's per-syllable
   commit applies exactly as it does to letters. R6's Korean text
   (*"세벌식에서는 숫자열까지 사용하기 때문에"*) is about the number ROW being part
-  of composition, and 3f spends that row on jamo. **Corrected 2026-11-01:** the
-  sentence here used to end "the layout where a run of literal digits exists is
-  `sin3-p2`", and its second half is wrong — 3f does have literal digits, on the
-  SHIFTED letter rows (`H`→`0`, `J`→`1`, `K`→`2`, `L`→`3`, `:`→`4`, `Y`→`5`,
-  `U`→`6`, `I`→`7`, `O`→`8`, `P`→`9`), and the shared layer holds a run of them
-  like any other word (measured: `JKLH` commits `1230` once, at the boundary —
-  corpus case `r6-literal-digit-row-held-to-the-boundary`). What 3f does not have
-  is a digit ROW that types digits. **The issue's verification command names
+  of composition, and 3f spends that row on jamo; the layout where a run of
+  literal digits exists is `sin3-p2`. **The issue's verification command names
   `sebeolsik-3-final`, which is not a layout id** — the shipped ids are
   `sebeolsik-final` (alias `3f`), `sebeolsik-3-2` and `sebeolsik-3-90`.
 - **The symbol tier resolves only the first digit of a run.** `T` is single-shot

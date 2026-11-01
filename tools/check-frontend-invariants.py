@@ -126,8 +126,17 @@ def main() -> int:
     # the hunmin_ic; since #128 it is the shared layer handle, and the defect
     # this guards (a second owner, so two code paths compose the same keys) is
     # unchanged.
+    #
+    # A handle is HELD when it is a member (`preedit_`), and only those count:
+    # the settings row (issue #176) has to ask the engine for its key before the
+    # first key press, and the binding lives on a layer, so it builds a throwaway
+    # one (`probe`) long enough to ask `special_chord()` and frees it. That layer
+    # never processes a key -- it is a read, not a second owner -- and counting it
+    # here would make the invariant demand a literal chord in the addon instead,
+    # which is the thing R13-정정 forbids.
     decl = [ln for ln in code.splitlines() if "hunmin_buffered_preedit *" in ln and "=" in ln]
-    check("I6 exactly one layer handle", len(decl) == 1,
+    held = [ln for ln in decl if re.search(r"hunmin_buffered_preedit \*\w+_", ln)]
+    check("I6 exactly one layer handle", len(held) == 1,
           "; ".join(ln.strip()[:60] for ln in decl))
 
     # I9 -- the Hanja window must not touch surrounding text.

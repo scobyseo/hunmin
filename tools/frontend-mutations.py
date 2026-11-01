@@ -41,13 +41,11 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
         # Re-anchored 2026-11-01 (issue #164): the one commit point now also
         # carries the text the mode switch's own boundary produced, so the
         # guard's subject is the delivery expression, not just out.commit.
-        # Re-anchored again 2026-11-01 (issue #178): the same expression is now
-        # captured into `word` BEFORE the judgement runs -- out.commit is only
-        # valid until the layer's next call, and the switch is one. The defect
-        # this mutation plants is unchanged: deliver only what a consumed key
-        # produced.
-        "        if (!word.empty() || !switched.empty()) {",
-        "        if ((!word.empty() || !switched.empty()) && used) {",
+        # Re-anchored again the same day (issue #176): the engine's strings are
+        # copied before the judgement runs (they are borrowed until the next
+        # engine call), so the expression names the copies.
+        "        if (!justDelivered.empty() || !switched.empty()) {",
+        "        if ((!justDelivered.empty() || !switched.empty()) && used) {",
         False,
         True,  # #128: the adapter delivers the layer's answer, so this is no
         True,  # longer visible structurally -- but D1's boundary commit
@@ -138,6 +136,19 @@ MUTATIONS: list[tuple[str, str, str, bool, bool, bool]] = [
         "if (states.test(KeyState::Ctrl) || states.test(KeyState::Shift_L)) ev.mods |= HUNMIN_MOD_CTRL | HUNMIN_MOD_SHIFT;",
         True,
         True,  # every shifted letter becomes a boundary and passes: D1's uppercase cases fail
+        False,
+    ),
+    (
+        # Issue #176's fourth checklist item. A rebuilt layer (config apply,
+        # layout change) starts from the engine's default OFF, so the stored
+        # value has to be re-applied when one is built. Without this the row can
+        # say ON while the next word is no longer judged: D1 types `hello`
+        # around a rebuild and the second delivery is the Hangul reading.
+        "I12-autoswitch-not-reapplied",
+        "engine_->recordAutoswitch(applyAutoswitch(*engine_->config().autoswitch ? 1 : 0));",
+        "engine_->recordAutoswitch(applyAutoswitch(0));",
+        False,  # the checker does not model the row; D1 is the guard
+        True,
         False,
     ),
 ]
@@ -357,45 +368,6 @@ class Sandbox(Strategy):
     name = "sandbox"
 
     @staticmethod
-    def _caches() -> list[pathlib.Path]:
-        """Every build tree in the checkout, the frontend-capable ones first.
-
-        The tier mutates the fcitx5 adapter, so the cache that MATTERS is the one
-        whose configure FOUND the dependency (`Fcitx5Core_DIR` set). Taking the
-        first `build*/CMakeCache.txt` picked a tree configured without fcitx5 on
-        this host; the sandbox then had no `testhunmin` target and the tier died
-        with "no rule to make target 'testhunmin'" before evaluating a mutation
-        (measured 2026-11-01, issue #178, reproduced on a pristine master tree).
-        Ordering by capability keeps several build trees usable, which is the
-        layout this host actually has.
-        """
-        caches = sorted(REPO.glob("build*/CMakeCache.txt"))
-        capable: list[pathlib.Path] = []
-        for cache in caches:
-            vals = Sandbox._cache_values(cache)
-            if vals.get("Fcitx5Core_DIR") and "NOTFOUND" not in vals["Fcitx5Core_DIR"]:
-                capable.append(cache)
-        return capable + [c for c in caches if c not in capable]
-
-    @staticmethod
-    def _cache_values(cache: pathlib.Path) -> dict[str, str]:
-        """`KEY:TYPE=value` lines as KEY -> value, type suffix stripped.
-
-        The suffix must not be part of the lookup: `-DCMAKE_PREFIX_PATH=…` on the
-        command line is stored as `CMAKE_PREFIX_PATH:UNINITIALIZED=…`, and only
-        `:INTERNAL=` / `:FILEPATH=` lines used to be read -- so a tree configured
-        that way handed the sandbox no dependency prefix at all, which is the same
-        failure by another route.
-        """
-        vals: dict[str, str] = {}
-        for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
-            key, sep, val = line.partition("=")
-            if not sep:
-                continue
-            vals[key.split(":", 1)[0]] = val
-        return vals
-
-    @staticmethod
     def _parent_prefixes() -> list[str]:
         """The prefixes this host actually built against, from the parent
         cache. A dependency installed outside the system prefix (fcitx5 5.1.13
@@ -403,10 +375,11 @@ class Sandbox(Strategy):
         through CMAKE_PREFIX_PATH, pkg-config files through PKG_CONFIG_PATH --
         and a tree that needs the second fails its INITIAL BUILD in the sandbox
         while the parent built fine. Both are derived from the same value."""
-        for cache in Sandbox._caches():
-            vals = Sandbox._cache_values(cache)
-            if vals.get("CMAKE_PREFIX_PATH"):
-                return [p for p in vals["CMAKE_PREFIX_PATH"].split(";") if p.strip()]
+        for cache in REPO.glob("build*/CMakeCache.txt"):
+            for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.startswith("CMAKE_PREFIX_PATH:"):
+                    value = line.partition("=")[2]
+                    return [p for p in value.split(";") if p.strip()]
         # A build tree OUTSIDE the repo (the WSL layout keeps one in $HOME, so
         # the glob above finds nothing) leaves only the caller's environment.
         # Not an error: the harness then builds exactly like the shell that
@@ -437,23 +410,30 @@ class Sandbox(Strategy):
         CMakeCache is the truthful record of what this host actually can
         build with; reuse its generator, platform and compilers verbatim. No
         cache (the CI layout configures into build/) behaves as before."""
+        import re
         overrides: list[str] = []
-        for cache in Sandbox._caches():
-            vals = Sandbox._cache_values(cache)
-            if not vals.get("CMAKE_GENERATOR"):
+        for cache in REPO.glob("build*/CMakeCache.txt"):
+            vals: dict[str, str] = {}
+            for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+                if ":INTERNAL=" in line or ":FILEPATH=" in line:
+                    key, _, val = line.partition("=")
+                    vals[key] = val
+            if not vals.get("CMAKE_GENERATOR:INTERNAL"):
                 continue
-            overrides = ["-G", vals["CMAKE_GENERATOR"].strip()]
-            if vals.get("CMAKE_GENERATOR_PLATFORM"):
-                overrides += ["-A", vals["CMAKE_GENERATOR_PLATFORM"].strip()]
-            for key, opt in (("CMAKE_C_COMPILER", "-DCMAKE_C_COMPILER="),
-                             ("CMAKE_CXX_COMPILER", "-DCMAKE_CXX_COMPILER="),
+            overrides = ["-G", vals["CMAKE_GENERATOR:INTERNAL"].strip()]
+            if vals.get("CMAKE_GENERATOR_PLATFORM:INTERNAL"):
+                overrides += ["-A", vals["CMAKE_GENERATOR_PLATFORM:INTERNAL"].strip()]
+            for key, opt in (("CMAKE_C_COMPILER:FILEPATH", "-DCMAKE_C_COMPILER="),
+                             ("CMAKE_CXX_COMPILER:FILEPATH", "-DCMAKE_CXX_COMPILER="),
                              # A dependency installed OUTSIDE the system prefix
                              # (fcitx5 5.1.13 in $HOME here) is found only
-                             # through this cache value, whatever type suffix
-                             # CMake gave it. Without it the sandbox configures
-                             # without fcitx5, then fails to find `testhunmin`,
-                             # which reads as a code failure and is not one.
-                             ("CMAKE_PREFIX_PATH", "-DCMAKE_PREFIX_PATH=")):
+                             # through this cache value. Without it the sandbox
+                             # configures, then fails its INITIAL BUILD, which
+                             # reads as a code failure and is not one -- the
+                             # parent tree built only because the shell that
+                             # configured it had CMAKE_PREFIX_PATH exported.
+                             ("CMAKE_PREFIX_PATH:UNINITIALIZED", "-DCMAKE_PREFIX_PATH="),
+                             ("CMAKE_PREFIX_PATH:STRING", "-DCMAKE_PREFIX_PATH=")):
                 if vals.get(key):
                     overrides.append(opt + vals[key].strip())
             break
@@ -472,21 +452,6 @@ class Sandbox(Strategy):
                   cwd=src)
         if rc != 0:
             raise SystemExit("sandbox: cmake configure failed")
-        # Fail with the CAUSE, not with the symptom. A sandbox that configured
-        # without fcitx5 has no `testhunmin` target, and the build then reports
-        # "no rule to make target 'testhunmin'" -- which reads as a code failure
-        # and is a dependency-discovery one (measured 2026-11-01, issue #178).
-        sandbox_cache = src / "build" / "CMakeCache.txt"
-        if sandbox_cache.exists():
-            vals = self._cache_values(sandbox_cache)
-            if "NOTFOUND" in vals.get("Fcitx5Core_DIR", ""):
-                raise SystemExit(
-                    "sandbox: the configure found no fcitx5, so testhunmin cannot be built and "
-                    "no mutation can be evaluated.\n"
-                    "  Prefixes come from the parent cache that SET Fcitx5Core_DIR; none was "
-                    "found here, so name one:\n"
-                    "  CMAKE_PREFIX_PATH=<prefix> python3 tools/frontend-mutations.py "
-                    "--strategy sandbox")
         log = self.dir / "initial-build.log"
         if self._build_in(src, stderr_path=log) != 0:
             tail = log.read_text(encoding="utf-8", errors="replace").splitlines()[-15:]
