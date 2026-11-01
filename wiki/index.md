@@ -92,6 +92,11 @@
 - [[2026-11-01-the-symmetric-rule-ships-and-the-0-3-gate]] — E1 ruled: both lines
   of R8's formula ship (the Hangul reading of Latin-mode keys), and the 0.3 gate is
   the maintainer's mixed sentence `English는 좋은 Language입니다` typed as one stream.
+- [[2026-11-01-one-dict-by-default-the-release-page-later]] — issue #172 ruled:
+  `Recommends` and one dictionary on every surface; the words stay a package of
+  their own as a seam for the *next* dictionary, whose mechanism (the GitHub
+  release page) is deferred. The feature is developed and tested with the
+  in-tree data, before any distribution mechanism exists.
 - [[2026-10-18-tsf-chord-transient-not-persistent]] — issue #101 ruled: a
   CTRL/ALT chord in hangul mode is transient processing only — the pending
   preedit commits through the boundary flush and the chord passes uneaten, but

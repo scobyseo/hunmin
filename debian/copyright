@@ -40,7 +40,9 @@ License: SCOWL
   distribution and sale provided the copyright notice and permission notice
   appear in copies and supporting documentation; the .aff carries its author's
   BSD licence. The notice text is reproduced in full in
-  libhunmin/data/modes/LICENSE.md and must ship with the data.
+  libhunmin/data/modes/LICENSE.md and must ship with the data -- binary
+  package hunmin-en-us, which is where the base package keeps it out of
+  (issue #172; debian/control).
   Provenance, method and exclusions: libhunmin/data/modes/meta.json.
 
 Files: libhunmin/data/krdict/*

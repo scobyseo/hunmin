@@ -155,7 +155,10 @@ latin strings of MODES-DATA §4-7d).
 
 `data/modes/LICENSE.md` — SCOWL's permission notice and the `.aff`'s BSD, with
 the attribution the notice requires. This directory is **not** ShareAlike like
-`krdict/`; it is separate because the feature's data ships separately (B3).
+`krdict/`; it ships apart from the base engine data because the ruling that
+created the feature makes its data a separate distribution (B3). Which
+mechanism carries that today, per surface, is
+`docs/OPTIONS-MEASURED.md#§EDW-4`.
 
 ### What the artefact stores, and what it deliberately does not
 

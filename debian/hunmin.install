@@ -1,0 +1,9 @@
+usr/bin/hunmin-sim
+usr/include/hunmin.h
+usr/lib
+usr/share/fcitx5
+usr/share/hunmin/compose
+usr/share/hunmin/hanja
+usr/share/hunmin/idioms
+usr/share/hunmin/krdict
+usr/share/hunmin/layouts

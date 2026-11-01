@@ -915,4 +915,10 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   ("3. 키입력 세개로 명확히 하자."), not the `3자` the page had repeated from the
   ruling's wording. Same correction in `docs/SPEC-MODES.md` §R9/§E3 and
   `docs/OPTIONS-MEASURED.md` §MRO/§BND-3.
+- Created `decisions/2026-11-01-one-dict-by-default-the-release-page-later.md`
+  (issue #172 ruled: "Recommends.", one dict by default because there is no
+  additional distribution mechanism, the GitHub release page as the candidate
+  for one, and the feature testable before that exists) and added it to
+  `index.md`. The packaging followed the ruling: `debian/control` says
+  `Recommends`, and `data-split` now fails if it says `Suggests` or `Depends`.
 
