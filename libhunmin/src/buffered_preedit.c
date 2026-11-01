@@ -519,6 +519,15 @@ int hunmin_buffered_preedit_load_english(hunmin_buffered_preedit *l, const char 
     return hm_wordset_load_json(w, path);
 }
 
+int hunmin_buffered_preedit_load_english_shipped(hunmin_buffered_preedit *l) {
+    hm_wordset *w = english_set(l, true);
+    if (!w) return 0;
+    /* The layer's context names the data dirs, so the caller names no path --
+     * the same resolution the hanja/krdict/idioms tables use. Absent stays
+     * absent: -1, and every lookup keeps answering 0 (B3, issue #167). */
+    return hm_wordset_load_shipped(w, l->ctx);
+}
+
 int hunmin_buffered_preedit_load_user_words(hunmin_buffered_preedit *l, const char *path) {
     hm_wordset *w = english_set(l, true);
     if (!w) return 0;

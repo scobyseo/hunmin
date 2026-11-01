@@ -280,33 +280,6 @@ static void push(sug_kind kind, const char *text, const char *detail) {
 
 static void list_reset(void) { g_list.n = 0; /* the buffer is reused; nothing to free */ }
 
-/* Resolve the search dirs for the suggest tables. Prefers the dirs recorded
- * on the context (see hunmin_ctx.data_dir); falls back to the env var / build
- * default, which is how the fcitx5 addon and the test harness reach the data.
- * Colon-separated, exactly as hm_data_load's caller spelled them. */
-static int resolve_dirs(const char *const **out, const hunmin_ctx *ctx) {
-    static char envbuf[4096];
-    static const char *mydirs[16];
-    /* Prefer the directory the context was built from: a frontend that passes
-     * an explicit path (the Android IME, in an app sandbox with no
-     * HUNMIN_DATA_PATH) must get its Hanja/idiom/krdict tables from the same
-     * place as its layouts. Fall back to the env var / build default only when
-     * the context carries no explicit dir, so the fcitx5 addon and the test
-     * harness -- which set the env var -- keep their existing behaviour. */
-    const char *env = (ctx && ctx->data_dir && *ctx->data_dir) ? ctx->data_dir : getenv("HUNMIN_DATA_PATH");
-    if (!env || !*env) {
-#ifdef HUNMIN_DEFAULT_DATA_DIR
-        env = HUNMIN_DEFAULT_DATA_DIR;
-#else
-        env = "./libhunmin/data";
-#endif
-    }
-    snprintf(envbuf, sizeof envbuf, "%s", env);
-    int n = hm_split_dirs(env, envbuf, sizeof envbuf, mydirs, 16);
-    *out = mydirs;
-    return n;
-}
-
 /* Hangul syllables and the Jamo block are all >= 0x80 in UTF-8, and a
  * three-byte syllable has exactly one lead byte. Count UTF-8 sequences rather
  * than bytes: counting the high bytes of a single syllable gives 3, not 1,
@@ -332,7 +305,7 @@ int hunmin_suggest_count(hunmin_ctx *ctx, const char *hangul) {
     if (!ctx || !hangul || !*hangul) return 0;
 
     const char *const *dirs = NULL;
-    int n = resolve_dirs(&dirs, ctx);
+    int n = hm_data_dirs(ctx, &dirs);
     if (n <= 0) return 0;
 
     /* Idioms first: a four-character idiom carries a meaning and should not be

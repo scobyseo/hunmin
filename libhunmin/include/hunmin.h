@@ -454,6 +454,20 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffere
  * -1 absent, 0 malformed. An absent file leaves the set empty and not ready. */
 HUNMIN_EXPORT int hunmin_buffered_preedit_load_english(hunmin_buffered_preedit *l, const char *path);
 
+/* The same load, but the SHIPPED list is FOUND rather than named: the search is
+ * the one the hanja/krdict/idioms tables already use (the context's data dirs,
+ * else HUNMIN_DATA_PATH, else the build default -- hm_data_dirs), so a frontend
+ * never assembles "<dir>/modes/en-US.json" itself and a dictionary installed
+ * beside the other data is found from any of them. Two searches are how two
+ * data directories start to disagree, which is why this exists and why the
+ * path-taking call above stays for a caller that has a path already.
+ *
+ * Returns 1 loaded, -1 when no searched directory holds the file (a normal
+ * state under B3: the feature is off, and every lookup answers 0), 0 when the
+ * file is found and malformed -- an installed-but-broken dictionary is an error,
+ * never "no english words exist". */
+HUNMIN_EXPORT int hunmin_buffered_preedit_load_english_shipped(hunmin_buffered_preedit *l);
+
 /* Add the user's words from a text file (one per line, `#` comments). Returns
  * 1 loaded, -1 absent (also normal), 0 error. Merges; it does not replace. */
 HUNMIN_EXPORT int hunmin_buffered_preedit_load_user_words(hunmin_buffered_preedit *l, const char *path);
