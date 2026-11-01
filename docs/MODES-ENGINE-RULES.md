@@ -198,6 +198,10 @@ logs "not yet implemented"). The consequences worth keeping straight:
   refuses to turn the feature ON when the data it needs is absent, and the key does not
   consult whether that data is present — "where the data gate is checked" is 0.3 design
   (`docs/SPEC-MODES.md` §R13-정정, the default bullet). The value is stored either way.
+  `hunmin_ctx_layout_autoswitch_capable()` is **not** that gate, despite the name: it answers
+  whether a layout's keys can compose any jamo at all for the judgement to be about
+  (`docs/SPEC-MODES.md` §E, the capability table), which is a different question from
+  whether the feature's dictionary is installed.
 
 Pinned by `KeyRuleTest.TheAutoswitchOptionIsOneValueTheLayerReadsBack` (default, both
 writes, the `!!` coercion, the unknown-name rejection, the chord),
