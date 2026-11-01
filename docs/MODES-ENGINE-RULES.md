@@ -221,7 +221,10 @@ logs "not yet implemented"). The consequences worth keeping straight:
   refuses the same way (`hunmin_buffered_preedit_special_peek()` answers -1, the key passes
   through, nothing flips) because the two surfaces write one value — a keyboard path that
   could turn ON what the settings row refuses would be the half-enable this gate exists to
-  prevent.
+  prevent. **Ruled 2026-11-01 (issue #169).** Asked whether the chord should refuse too,
+  when the issue's own text names only the option, the maintainer answered: "유지: 지금처럼
+  special_peek가 -1, 키는 통과 (같은 값에 두 표면이니 일관)" — so the chord refusal is
+  confirmed rather than a latent delta.
 - **The presence question has its own name, and it is not the layout answer.**
   `hunmin_ctx_autoswitch_data_present(ctx)` is the data half: it resolves `modes/en-US.json`
   through `hm_data_dirs` — the same search the hanja/krdict/idioms tables and
@@ -237,7 +240,9 @@ logs "not yet implemented"). The consequences worth keeping straight:
   load must not disagree about a file the engine reads. What answers 0 is a file that does
   not parse, and one that parses but yields no word at all: the load would answer 1 with an
   empty set, which is the confident-zero state the gate exists to keep out.
-  The disabled row's reason is the PAIR, not a new code — value 0 with
+  **Ruled 2026-11-01 (issue #169)**, on that reading being offered
+  against the cheaper "the file exists": "지금대로: word list로 파싱될 때만 설치됨
+  (깨진 사전 = 미설치)". The disabled row's reason is the PAIR, not a new code — value 0 with
   presence 1 is off by choice, value 0 with presence 0 is off because the data is missing.
   The answer is cached per context, so a data package installed while a context is alive is
   not seen until that context is rebuilt (an IME restart; the same liveness the word set has
