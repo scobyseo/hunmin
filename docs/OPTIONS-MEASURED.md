@@ -24,7 +24,9 @@ already exists twice in the tree — it asks which home the rule should keep, no
 whether one is missing, and its ruling is the one that also fixed R9's threshold.
 §BND (issue #163) prices three parameters of one function — the buffer cap, the
 short-word threshold and the flicker — and finds that two of the three premises the
-issue states are not what the tree does.
+issue states are not what the tree does. §BND-7 (issue #171) measures a fourth
+thing on the same object: whether R6's digit run is actually held in the layer's
+word.
 
 | section | question | status |
 |---|---|---|
@@ -3669,6 +3671,65 @@ whole section: **all three items are parameters of one function's behaviour, and
 the expensive option in each case re-opens a requirement — R4's "extend to the
 delimiter" for D in E2, R9's existence of a threshold for "no threshold" in E3,
 R4's single judgement point for per-key in E6 — rather than a mechanism.**
+
+### BND-7 R6 — where a digit run actually ends (issue #171)
+
+Added after the three items above, on the same object: R6 (`docs/SPEC-MODES.md`
+§R6) says the ON buffer holds **digit runs** as well as eojeols, which is a
+statement about this layer's `word`. Measured 2026-11-01 on Linux with the built
+tree (`python3 tools/modes-boundary-probe.py digits`); "engine" is the raw
+`hunmin_ic` driven key by key, "layer" is `hunmin_buffered_preedit` with
+`HUNMIN_COMMIT_AT_BOUNDARY` and one declined key (space) as the boundary.
+
+| layout | keys | what the raw engine does | what the layer holds after the last key | early deliveries | boundary commit | lossless |
+|---|---|---|---|---|---|---|
+| `sin3-p2` | `1234567890` | commits a digit **per key** (10 commits, preedit always empty) | `1234567890` | 0 | `1234567890` | yes |
+| `sin3-p2` | `dks123` | `ㅎ계` then `1`,`2`,`3` as separate commits | `ㅎ계123` | 0 | `ㅎ계123` | yes |
+| `sin3-p2` | `jk1` | tier 101 entered by `k`, then `1` → `µ` | `ㅇµ` | 0 | `ㅇµ` | yes |
+| `sin3-p2` | `jl1` | tier 102, `1` → `①` | `ㅇ①` | 0 | `ㅇ①` | yes |
+| `sin3-p2` | `j;1` | tier 103, `1` → `⑪` | `ㅇ⑪` | 0 | `ㅇ⑪` | yes |
+| `sebeolsik-final` | `1234567890` | the digit keys are jamo (`1`=ᇂ …, `0`=ᄏ): a syllable per commit | `ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ` | 0 | same | yes |
+| `sebeolsik-final` | `dks123` | `ㅣ`, `ᄀᅠᆭ`, `ㅆ` | `ㅣᄀᅠᆭㅆㅂ` | 0 | same | yes |
+
+What the table settles, and the four observations it added to R6's grounds:
+
+- **R6 holds in buffered mode, on the layout it names.** `sin3-p2`'s digit keys
+  are the case the requirement is about — they resolve to literals and the
+  ENGINE commits each one immediately, so without the layer's word the second
+  digit is typed into a buffer that has already handed the first to the client.
+  With the layer the run accumulates in the preedit and leaves once, whole, at
+  the boundary. Zero early deliveries in every row.
+- **`sebeolsik-final` (3f) is not a literal-digit layout.** Its digit keys are
+  jamo, so "a digit run" there is a run of jamo and the engine's per-syllable
+  commit applies exactly as it does to letters. R6's Korean text
+  (*"세벌식에서는 숫자열까지 사용하기 때문에"*) is about the number ROW being part
+  of composition, and 3f spends that row on jamo; the layout where a run of
+  literal digits exists is `sin3-p2`. **The issue's verification command names
+  `sebeolsik-3-final`, which is not a layout id** — the shipped ids are
+  `sebeolsik-final` (alias `3f`), `sebeolsik-3-2` and `sebeolsik-3-90`.
+- **The symbol tier resolves only the first digit of a run.** `T` is single-shot
+  (`ic.c`, `ic->T = 0; /* tier is single-shot */`), so `jk123` is `µ`,`2`,`3`:
+  the tier applies to `1` and the run continues as plain digits.
+- **The spec's tier examples are the shift row.** §R6 says `1` becomes `Ⅰ` at 101,
+  `₁` at 102, `¹` at 103; measured, those three are `shift+1`, and plain `1` at
+  those tiers is `µ`, `①`, `⑪`. §R6's wording was then replaced on the
+  maintainer's instruction the same day (*"R6문구는 적절히 변경하자"*), and the new
+  sentence states exactly this: the shift row is the shift row, and the tier is
+  single-shot.
+- **The only early delivery is R4-정정's cap, and it is counted in bytes.** With
+  `word_cap` 4 on `sin3-p2`, digits `1`…`4` are held and the fifth key flushes
+  `12`; a digit costs 1 byte where a syllable costs 3, so a digit run reaches the
+  default 256 B at 256 keys rather than 85. It is the same rule, not a second one,
+  and `engine-buffered-preedit` now pins it.
+
+**Not a property of the layout, a property of the policy.** Under
+`HUNMIN_COMMIT_PER_SYLLABLE` the same `sin3-p2` digit run is delivered one digit
+per key (measured: commits `1`, `2`, `3`) — R6's guarantee is what the BUFFERED
+policy buys, and all three frontends default to it
+(`frontends/fcitx5/src/hunminadapter.cpp`, `frontends/tsf/src/tsf.cpp`,
+`frontends/android/app/src/main/cpp/hunmin-jni.c`), with `syllable` a per-user
+option. Whether "ON" must therefore pin the policy is R13's state and is not
+decided here.
 
 ### BND-6 Provenance
 
