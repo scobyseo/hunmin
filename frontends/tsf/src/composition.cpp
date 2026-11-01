@@ -397,6 +397,22 @@ void CTextService::InsertBufferedWord(ITfContext *pic) {
      * also clears it, so the word cannot be inserted twice. */
     if (!preedit_)
         return;
+    /* ...except when the HOST already put that same text in the document: its
+     * own composition termination fuses what the composition showed and the
+     * layer is deliberately not told (the ic keeps composing, issue #144). If a
+     * boundary arrives before a new composition re-adopts that copy, the insert
+     * below writes a SECOND copy of the same word -- the reported
+     * `적어두자.적어두자.` (issue #175 comment, 2026-11-01). The fused copy IS the
+     * layer's display by construction (`hostFusedCopy_ = compText_` at the
+     * termination), so the layer's copy is dropped rather than delivered: R10
+     * forbids rewriting text the client already holds, and any judgement that
+     * wanted to rewrite it is cleared with the same reset. */
+    if (!hostFusedCopy_.empty()) {
+        hunmin_logger.log(" boundary: the host fused %zu chars, dropping the layer's copy\n", hostFusedCopy_.size());
+        hostFusedCopy_.clear();
+        ComposeReset();
+        return;
+    }
     const std::wstring word = HunminUtf8ToWide(hunmin_buffered_preedit_commit_word(preedit_));
     if (word.empty())
         return;

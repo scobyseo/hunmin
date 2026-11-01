@@ -629,3 +629,103 @@ TEST_F(TsfConfigTest, TheInterimDeliveryDoesNotHoldTheSwitch) {
     tm->Release();
 }
 
+/* The native-path half of the duplicate reported in issue #175's comment
+ * (2026-11-01): a word in flight, the host terminates the composition, then a
+ * boundary arrives before any new composition re-adopts the fused copy. The
+ * host's termination already put the display in the document, so the boundary
+ * must add NOTHING -- the reported duplicate was `적어두자.적어두자.`.
+ *
+ * The assertion is an INVARIANT (the document does not grow), not a typed word:
+ * what matters is that the second delivery is gone, whatever the layout renders.
+ */
+TEST_F(TsfConfigTest, HostTerminationThenBoundaryKeepsTheWordOnce) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "0");
+    _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "sin3-p2");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    ASSERT_FALSE(Snap(svc).legacyMode) << "this case is the native path";
+
+    auto key = [&](WPARAM vk) {
+        BOOL eat = FALSE;
+        svc->OnTestKeyDown(mctx, vk, 0, &eat);
+        svc->OnKeyDown(mctx, vk, 0, &eat);
+    };
+    for (const char *p = "DKSSUD"; *p; ++p)
+        key((WPARAM)*p);
+    const std::wstring fused = mctx->doc;
+    ASSERT_FALSE(fused.empty()) << "the composition text is document text in this harness";
+
+    /* The host's mid-word termination (focus loss). */
+    mctx->HostTerminateComposition();
+    svc->OnCompositionTerminated(tsfmock::MockContext::kCookie, nullptr);
+
+    /* The next key is a boundary: the word is already in the document. */
+    key(VK_SPACE);
+    EXPECT_EQ(mctx->doc, fused) << "the boundary must not re-deliver what the host already fused (doc len " << mctx->doc.size() << ")";
+
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
+
+/* The punctuation pair from the report, on the native path: `?` and `,` are
+ * LAYOUT KEYS on sin3-p2 (consumed into the word), so Enter is the key that
+ * delivers the word and it must pass in BOTH key phases. The expectation is the
+ * engine's own display -- the layout renders the punctuation its own way, and a
+ * hand-typed glyph asserts the wrong thing.
+ */
+TEST_F(TsfConfigTest, QuestionAndCommaThenEnterOnTheNativePath) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "0");
+    _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "sin3-p2");
+    _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
+    _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
+    tsfmock::MockThreadMgr *tm = new tsfmock::MockThreadMgr();
+    tsfmock::MockContext *mctx = new tsfmock::MockContext();
+    tsfmock::MockDocumentMgr *dm = new tsfmock::MockDocumentMgr(mctx);
+    mctx->AddRef();
+    CTextService *svc = new CTextService();
+    svc->Activate(tm, 1);
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    ASSERT_FALSE(Snap(svc).legacyMode) << "this case is the native path";
+
+    const WPARAM puncts[] = {VK_OEM_2, VK_OEM_COMMA};
+    for (int i = 0; i < 2; ++i) {
+        for (const char *p = "DKSSUD"; *p; ++p) {
+            BOOL eat = FALSE;
+            svc->OnTestKeyDown(mctx, (WPARAM)*p, 0, &eat);
+            svc->OnKeyDown(mctx, (WPARAM)*p, 0, &eat);
+        }
+        BOOL punctEat = FALSE;
+        svc->OnTestKeyDown(mctx, puncts[i], 0, &punctEat);
+        svc->OnKeyDown(mctx, puncts[i], 0, &punctEat);
+        EXPECT_TRUE(punctEat) << "sin3-p2 composes this punctuation: it belongs to the word (case " << i << ")";
+        const std::wstring shown = Snap(svc).display;
+        ASSERT_FALSE(shown.empty()) << "the punctuation must still be composing with the word (case " << i << ")";
+
+        BOOL testEat = TRUE, downEat = TRUE;
+        svc->OnTestKeyDown(mctx, VK_RETURN, 0, &testEat);
+        svc->OnKeyDown(mctx, VK_RETURN, 0, &downEat);
+        EXPECT_EQ(testEat, FALSE) << "Enter passes at the test phase, so the app inserts the break (case " << i << ")";
+        EXPECT_EQ(downEat, FALSE) << "and the down phase agrees (case " << i << ")";
+        EXPECT_NE(mctx->doc.find(shown), std::wstring::npos) << "the word with its punctuation landed (case " << i << ")";
+    }
+
+    _putenv_s("HUNMIN_TSF_INTERIM", "");
+    svc->Release();
+    mctx->Release();
+    dm->Release();
+    tm->Release();
+}
