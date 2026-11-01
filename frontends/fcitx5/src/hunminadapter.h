@@ -64,12 +64,29 @@ public:
 
     hunmin_ctx *ctx() const { return ctx_; }
     auto &config() { return config_; }
+    const hunmin_special_host *specialHost() const { return &specialHost_; }
+
+    /* Special-function host (issue #176, §E5-2). The engine asks whether this
+     * platform can service a function and how; fcitx5 has no recorder yet, so
+     * VOICE refuses (0) and AUTOSWITCH is a no-op (NULL perform). Registering
+     * the host now means adding the recorder later does not require a new
+     * frontend surface -- the engine already routes the chord through this. */
+    static int specialSupports(void *user, hunmin_special_function fn);
+    static void specialPerform(void *user, hunmin_special_function fn);
 
 private:
     Instance *instance_;
+
+    /* The PreInputMethod watcher that claims Ctrl+Hangul (route 2). Registered
+     * in the constructor and kept alive for the addon's lifetime. The callback
+     * answers only while hunmin is the active IM (the cheap guard: route 2
+     * must not become a global hotkey owner). */
+    std::unique_ptr<HandlerTableEntry<EventHandler>> probeWatcher_;
+
     HunminConfig config_;
     FactoryFor<HunminState> factory_;
     hunmin_ctx *ctx_ = nullptr;
+    hunmin_special_host specialHost_ = {};
     /* The engine's answers for the row, refreshed at load and on a config
      * reload; see refreshAutoswitchRow(). */
     unsigned autoswitchChord_ = HUNMIN_MOD_CTRL;

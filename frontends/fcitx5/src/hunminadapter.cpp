@@ -518,6 +518,7 @@ private:
         if (!preedit_) {
             FCITX_ERROR() << "hunmin: unsupported layout: " << want;
         } else {
+            hunmin_buffered_preedit_special_host(preedit_, engine_->specialHost());
             /* R8's `english_valid` reads this list (R8-정정-2, ruled 2026-11-01);
              * absent data is a normal state (B3) and the judgement then
              * abstains rather than calling every word not-English. */
@@ -654,6 +655,22 @@ void HunminState::updateCandidateList() {
     ic_->inputPanel().setCandidateList(std::move(list));
 }
 
+
+int HunminAdapter::specialSupports(void * /*user*/, hunmin_special_function fn) {
+    /* fcitx5 has no voice recorder yet, so VOICE is refused. The engine's
+     * contract is that 0 is a legal answer -- the frontend degrades rather
+     * than pretending. Adding the recorder later means only filling in this
+     * function, not adding a new frontend surface. */
+    return fn == HUNMIN_SPECIAL_AUTOSWITCH ? 1 : 0;
+}
+
+void HunminAdapter::specialPerform(void * /*user*/, hunmin_special_function fn) {
+    (void)fn;
+    /* AUTOSWITCH is a no-op here: the engine already flipped the layer's slot
+     * when it serviced the chord. The host exists so the engine can resolve
+     * the chord at all; the actual switch is inside libhunmin. */
+}
+
 HunminAdapter::HunminAdapter(Instance *instance) : instance_(instance), factory_([this](InputContext &ic) { return new HunminState(this, &ic); }) {
     // Data path: HUNMIN_DATA_PATH first (tests, source trees), then the
     // installed share/hunmin default.
@@ -676,6 +693,59 @@ HunminAdapter::HunminAdapter(Instance *instance) : instance_(instance), factory_
      * property whose factory is not yet registered aborts fcitx5
      * (InputContextManager::property asserts factory->manager_ == this). */
     instance_->inputContextManager().registerProperty("hunminState", &factory_);
+
+    /* Route 2: a PreInputMethod watcher that claims Ctrl+Hangul for autoswitch
+     * while hunmin is the active IM. The cheap guard (instance->inputMethod(ic)
+     * == "hunmin") is what makes this a per-IM chord, not a global hotkey.
+     * Route 1 (the user removes Hangul from TriggerKeys) stays available and
+     * is required on hosts whose physical keyboard has no Hangul key. */
+    probeWatcher_ = instance_->watchEvent(
+        EventType::InputContextKeyEvent,
+        EventWatcherPhase::PreInputMethod,
+        [this](Event &event) {
+            auto *ke = dynamic_cast<KeyEvent *>(&event);
+            if (!ke || !ke->inputContext()) {
+                return;
+            }
+            /* Guard: only answer while hunmin is the active IM. Without this
+             * the watcher would steal Ctrl+Hangul from every other IM on the
+             * desktop, which is the behaviour route 2 must not have. */
+            if (instance_->inputMethod(ke->inputContext()) != "hunmin") {
+                return;
+            }
+            /* Match Ctrl+Hangul only. Shift is not included here: the 2026-10-31
+             * ruling reserves Shift+한/영 for a future manual-toggle chord, and
+             * this watcher only services AUTOSWITCH (fn == 2). */
+            KeyStates ctrl(KeyState::Ctrl);
+            if (ke->rawKey().sym() != FcitxKey_Hangul || !(ke->rawKey().states() & ctrl)) {
+                return;
+            }
+            /* The throwaway layer is only to confirm the chord is bound and
+             * serviceable (data gate, host present). The actual toggle is
+             * pushed into every live layer by pushAutoswitch, which is what
+             * the settings row also calls -- one path, one value. */
+            hunmin_key_event ev{};
+            ev.mods |= HUNMIN_MOD_CTRL;
+            ev.language_key = 1;
+            int serviceable = 0;
+            if (ctx_) {
+                if (hunmin_buffered_preedit *probe = hunmin_buffered_preedit_new(this->ctx(), this->config().hangulLayout->c_str(), this->config().latinLayout->c_str(), HUNMIN_COMMIT_AT_BOUNDARY)) {
+                    hunmin_buffered_preedit_special_host(probe, specialHost());
+                    const int fn = hunmin_buffered_preedit_special_peek(probe, &ev);
+                    if (fn > 0) serviceable = 1;
+                    hunmin_buffered_preedit_free(probe);
+                }
+            }
+            if (serviceable) {
+                /* Toggle the stored value and push into every live layer.
+                 * pushAutoswitch returns what the engine actually holds, so
+                 * a data-gated refusal leaves the row honest. */
+                const int want = !(this->config().autoswitch.value() ? 1 : 0);
+                const int held = pushAutoswitch(want);
+                (void)held;
+                ke->filterAndAccept();
+            }
+        });
     reloadConfig();
 }
 
@@ -770,7 +840,7 @@ int HunminAdapter::pushAutoswitch(int want) {
         }
         return true;
     });
-    if (held != want) {
+    if ((held != 0) != *config_.autoswitch) {
         config_.autoswitch.setValue(held != 0);
     }
     return held;

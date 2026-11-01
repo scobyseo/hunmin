@@ -125,7 +125,7 @@ tree should assert the refused write instead, as the engine's tier-A cases do.
 
 - **Making the key actually fire.** On fcitx5 the addon dispatches no special-function
   chord at all, so the row is currently the only surface that flips the state; the
-  measured cost of the fix is `docs/OPTIONS-MEASURED.md` §E5-2 addendum 2.
+  measured cost of the fix is [`docs/OPTIONS-MEASURED.md` §E5-2 addendum 2](docs/OPTIONS-MEASURED.md#E5-2-addendum-2-the-chord-executed-on-this-host-measured-2026-11-01).
 - **The switch itself** (#164's ruling), the OFF-never-changes-behaviour invariant (#179)
   and the three-frontend equivalence test (#180).
 

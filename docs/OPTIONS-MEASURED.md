@@ -2077,14 +2077,15 @@ gesture (not needed for a chord).
 **What a ruling has to include** (none of it is decided here):
 
 - whether an addon may claim a keysym the desktop also uses as a trigger, even when the
-  claim is narrowed to chords — the measured row 2 says it works, not that it should;
-- whether the watcher answers only while hunmin is the active IM (the cheap guard) or
-  also in another IM's context (which would make hunmin a global hotkey owner);
-- whether the same watcher carries `VOICE`, whose `supports()` must answer 0 on this
-  platform, and whether a `-1` refusal passing the key through is the desired outcome for
-  a press the user aimed at a function;
-- and the still-open trigger question above: route 1 stays available for users who prefer
-  it, and a watcher does not take it away.
+  claim is narrowed to chords — **ruled 2026-11-02: yes, with the cheap guard**;
+- whether the watcher answers only while hunmin is the active IM — **ruled: yes only
+  while hunmin is active** (the cheap guard, implemented in `frontends/fcitx5/src/hunminadapter.cpp`);
+- whether the same watcher carries `VOICE` — **ruled: yes, register the host now** so
+  adding a recorder later does not require a new frontend surface (`specialSupports`
+  returns 0 for VOICE today, the engine's `-1` refusal passes the key through);
+- whether route 1 (the user removes Hangul from TriggerKeys) is still available —
+  **ruled: yes, it is required** on hosts whose physical keyboard has no Hangul key,
+  so both routes are supported and the watcher does not take it away.
 
 **Not measured here:** a real desktop session (this is the headless D1 instance: no
 Wayland/X11 seat, no compositor, no other IM competing), a keymap where 한/영 arrives as

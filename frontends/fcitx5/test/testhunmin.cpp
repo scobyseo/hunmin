@@ -268,6 +268,21 @@ void scheduleEvent(Instance *instance) {
         press(uuid, Key("o"));
         press(uuid, Key("space"), false);
 
+        // Route 2 (PreInputMethod watcher): Ctrl+Hangul is claimed by the
+        // watcher while hunmin is the active IM, and the engine's special
+        // host services the AUTOSWITCH chord. The event is accepted (does not
+        // reach the IM phase), and the stored value flips.
+        {
+            RawConfig raw;
+            raw.setValueByPath("AutoSwitch", "True");
+            hunmin->setConfig(raw);
+            const auto *cfg = static_cast<const HunminConfig *>(hunmin->getConfig());
+            FCITX_ASSERT(cfg->autoswitch.value()) << "autoswitch ON before watcher";
+            press(uuid, Key(FcitxKey_Hangul, KeyState::Ctrl));
+            // The watcher accepted the chord; the engine flipped the layer.
+            FCITX_ASSERT(!cfg->autoswitch.value()) << "autoswitch still ON after Ctrl+Hangul";
+        }
+
         instance->deactivate();
     });
 
