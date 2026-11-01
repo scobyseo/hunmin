@@ -153,6 +153,15 @@ Undecided:
   E1 (the symmetry rule) may need a josa (조사, particle)/eomi (어미, ending) distinction, so it connects here.
 - Whether to attach a list of the eojeol's josa/eomi to Korean entries, or keep it as a separate list.
 
+> **Status 2026-11-01 (issue #173) — this list is not the current contract.**
+> The schema it asks for exists: `docs/SPEC-SCHEMA.md` §English word list.
+> Under R8-정정 the list is **English** (R8-정정-2 named hunspell `en_US` plus a
+> user dictionary), the Hangul side is judged by composition and needs none, so
+> the pos/frequency/level and josa/eomi questions above are about a Hangul list
+> this tree no longer ships. They are recorded here as part of the measurement,
+> not as work waiting to be picked up; the schema section says what the shipped
+> artefact does and does not store.
+
 ---
 
 # 4. ~~Unresolved — the list cannot be made right now~~ — **Resolved (2026-10-04)**

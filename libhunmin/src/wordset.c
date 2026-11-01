@@ -141,10 +141,46 @@ static char *slurp(const char *path) {
     return buf;
 }
 
+/* The schema's word shape -- ^[a-z]+(?:['-][a-z]+)*$, the string
+ * `tools/doctor.py` enforces -- spelled in C so this loader can say out loud
+ * when a file it accepted holds something the schema forbids. It is deliberately
+ * a WARNING and not a refusal: a damaged file still yields the words it does
+ * hold, so the feature degrades to a smaller dictionary rather than to nothing
+ * (docs/SPEC-SCHEMA.md, ruled 2026-11-01 on issue #173). The refusal lives in
+ * `tools/doctor.py`, at build time, where the tree can still be fixed. */
+static bool word_shaped(const char *s) {
+    bool in_run = false;
+    for (; *s; s++) {
+        unsigned char c = (unsigned char)*s;
+        if (c >= 'a' && c <= 'z') {
+            in_run = true;
+            continue;
+        }
+        if ((c == '\'' || c == '-') && in_run) {
+            in_run = false;
+            continue;
+        }
+        return false;
+    }
+    return in_run;
+}
+
+/* How many bad elements a single load names before it stops: a file with 118k
+ * of them is one fact, not 118k lines of stderr, and the summary line below
+ * still carries the count. */
+#define WORD_WARN_CAP 8
+
 /* The generated file is a JSON array of strings; an object with a "words"
  * array is accepted too, so a later schema can carry metadata beside the words
  * without breaking readers. Anything else is an error, not an empty set -- the
- * project's confident-zero rule (MODES-POSTMORTEM 10). */
+ * project's confident-zero rule (MODES-POSTMORTEM 10).
+ *
+ * An element that is not a word -- a number, an object, an empty string -- is
+ * skipped; a string the schema's shape forbids is kept. Both are reported on
+ * stderr and the load still answers 1, because the alternative states are worse:
+ * 0 would read as "broken file" for a file that is mostly fine, and silence is
+ * how a truncated dictionary comes to be trusted (issue #173's finding:
+ * ["computer", 3] used to load as a complete list with no word said about it). */
 int hm_wordset_load_json(hm_wordset *w, const char *path) {
     if (!w) return 0;
     char *text = slurp(path);
@@ -163,10 +199,29 @@ int hm_wordset_load_json(hm_wordset *w, const char *path) {
         cJSON_Delete(root);
         return 0;
     }
+    size_t index = 0;
+    size_t bad = 0;
     const cJSON *it = NULL;
     cJSON_ArrayForEach(it, arr) {
-        if (cJSON_IsString(it) && it->valuestring) hm_wordset_add(w, it->valuestring);
+        const char *word = cJSON_IsString(it) ? it->valuestring : NULL;
+        if (!word || !*word) {
+            if (bad++ < WORD_WARN_CAP)
+                fprintf(stderr, "warn: %s: element %zu is not a word string -- skipped\n",
+                        path, index);
+            index++;
+            continue;
+        }
+        if (!word_shaped(word)) {
+            if (bad++ < WORD_WARN_CAP)
+                fprintf(stderr, "warn: %s: element %zu '%s' is outside the schema's word "
+                                "shape -- loaded anyway\n", path, index, word);
+        }
+        hm_wordset_add(w, word);
+        index++;
     }
+    if (bad > WORD_WARN_CAP)
+        fprintf(stderr, "warn: %s: %zu elements are outside the schema (the first %d are "
+                        "named above)\n", path, bad, WORD_WARN_CAP);
     cJSON_Delete(root);
     w->loaded = 1;
     return 1;

@@ -157,6 +157,25 @@ latin strings of MODES-DATA §4-7d).
 the attribution the notice requires. This directory is **not** ShareAlike like
 `krdict/`; it is separate because the feature's data ships separately (B3).
 
+### What the artefact stores, and what it deliberately does not
+
+An entry is a **word form and nothing else**: no part of speech, no frequency,
+no level, no per-word annotation of any kind, and no ordering beyond the sort
+above. The question SPEC-MODES R8-정정's `english_valid` asks is membership of
+one finished buffer, and a field nothing reads is a field a later session adds
+and then starts trusting.
+
+The two questions `docs/MODES-DATA.md` §3 left open — whether the list stores
+pos/frequency/level, and whether josa (조사, particle)/eomi (어미, ending)
+attachment is modelled — were questions about a **Hangul** word list. Under
+R8-정정 the Hangul side is judged by composition and needs no list, so they do
+not apply to this artefact and are not deferred to a later schema revision.
+
+That makes the object form's extension point narrow, and it is worth saying how
+narrow: it may carry metadata only together with the code that reads it. A fact
+*about* the list — provenance, method, counts, exclusions — belongs in
+`meta.json`; the word array carries words.
+
 ### What the lookup does, and what it does not
 
 The lookup's policy belongs to this section, not to the loader's implementation:
@@ -189,6 +208,33 @@ keys, `method.word_shape` equal to the pattern the check enforces (so the
 declared policy and the checked one are one string), `counts.shipped` equal to
 the array's length, and `LICENSE.md` present. ctest `schema-contract` runs it, so
 a hand-edited artefact fails the commit gate rather than a lookup at runtime.
+
+### A file that parses but holds words the schema forbids
+
+**It is loaded, and the loader says so on stderr** — ruled by the maintainer
+2026-11-01 on issue #173: *"중간 수준인 일단 해석은 하되 경고를 출력하는 방식으로
+가자."* The reason is the choice of degradation: a damaged *installed* file
+degrades to a smaller dictionary rather than to no feature, and the words it does
+hold keep working. Silence is the failure this replaces — `["computer", 3]` used
+to load as `1` with the `3` dropped and nothing said, which is a truncated list
+that reads as complete.
+
+| element | what the loader does | stderr |
+|---|---|---|
+| a string inside the shape | added | — |
+| a string outside the shape (uppercase, a digit, a space, any other character) | **added** — the lookup already folds case, so `Computer` is found; a digit-bearing word is not, and that is what the warning is for | `warn: <path>: element <n> '<word>' is outside the schema's word shape -- loaded anyway` |
+| not a string at all (number, object, `null`), or `""` | **skipped** | `warn: <path>: element <n> is not a word string -- skipped` |
+
+The load still answers `1` and sets the ready flag. At most 8 bad elements are
+named per load, then one line carries the total, so a wholly corrupt file is one
+fact rather than 118k lines of stderr.
+
+**The gate above is the refusing half of the same rule.** `check_modes` errors
+on every shape in the table, so a file that ships never warns at runtime; this
+half exists for the file that arrived by another road — a damaged download, a
+hand-merged list, a repackaging distro. The tree stays strict, the runtime
+degrades loudly, and `libhunmin/tests/wordset-test.cpp` asserts the runtime half:
+a schema-violating file loads `1`, keeps its good words, and names the bad ones.
 
 **The user dictionary is not in this directory.** It is a plain text file the
 person owns — one word per line, `#` starts a comment, blank lines and a UTF-8
