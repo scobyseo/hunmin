@@ -258,6 +258,7 @@ value it stores is what the engine accepts back (so "off by choice" and "off, da
 the presence pair and not a second field), the addon re-applies the value when a layer is rebuilt,
 and `engine-d1-fcitx5` drives all four halves. fcitx5's config protocol has no disabled widget, so
 the missing-data state is text in the item's description and tooltip rather than a greyed control.
+The shape the other two surfaces copy, and the four traps it cost, are `docs/MODES-SURFACE-B.md`.
 
 Pinned by `KeyRuleTest.TheAutoswitchOptionIsOneValueTheLayerReadsBack` (default, both
 writes, the `!!` coercion, the unknown-name rejection, the chord),
