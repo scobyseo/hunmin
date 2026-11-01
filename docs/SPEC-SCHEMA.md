@@ -157,6 +157,25 @@ latin strings of MODES-DATA §4-7d).
 the attribution the notice requires. This directory is **not** ShareAlike like
 `krdict/`; it is separate because the feature's data ships separately (B3).
 
+### What the artefact stores, and what it deliberately does not
+
+An entry is a **word form and nothing else**: no part of speech, no frequency,
+no level, no per-word annotation of any kind, and no ordering beyond the sort
+above. The question SPEC-MODES R8-정정's `english_valid` asks is membership of
+one finished buffer, and a field nothing reads is a field a later session adds
+and then starts trusting.
+
+The two questions `docs/MODES-DATA.md` §3 left open — whether the list stores
+pos/frequency/level, and whether josa (조사, particle)/eomi (어미, ending)
+attachment is modelled — were questions about a **Hangul** word list. Under
+R8-정정 the Hangul side is judged by composition and needs no list, so they do
+not apply to this artefact and are not deferred to a later schema revision.
+
+That makes the object form's extension point narrow, and it is worth saying how
+narrow: it may carry metadata only together with the code that reads it. A fact
+*about* the list — provenance, method, counts, exclusions — belongs in
+`meta.json`; the word array carries words.
+
 ### What the lookup does, and what it does not
 
 The lookup's policy belongs to this section, not to the loader's implementation:
