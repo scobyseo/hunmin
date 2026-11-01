@@ -522,6 +522,14 @@ int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key
      * claims and the gesture the down services would drift apart. */
     const int fn = hunmin_buffered_preedit_special_peek(l, ev);
     if (fn <= 0) return fn;
+    /* The ENGINE owns the transition of the state AUTOSWITCH flips (ruled
+     * 2026-11-01, issue #165): one home, so the three frontends cannot disagree
+     * about what toggling means, and the value the settings UI reads is the one
+     * this key writes. Only a SERVICED press flips -- a refusal (`-1`) and a
+     * not-ours event (`0`) leave the state alone, which is what keeps an
+     * unserviceable platform from moving a preference it cannot honour. The
+     * host's perform() stays the platform half: the data-gated feature work. */
+    if (fn == HUNMIN_SPECIAL_AUTOSWITCH && l->ic) l->ic->autoswitch = !l->ic->autoswitch;
     if (l->special_host.perform) l->special_host.perform(l->special_host.user, (hunmin_special_function)fn);
     return fn;
 }

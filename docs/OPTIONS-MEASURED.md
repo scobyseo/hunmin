@@ -1891,12 +1891,12 @@ priced.
 **Correction (2026-11-01, issue #165): row 4's implementation half no longer holds.**
 The value has a home now — `"autoswitch"` on `hunmin_ic_set_option()`, read back through
 `hunmin_ic_get_option()` / `hunmin_buffered_preedit_get_option()`, OFF on a fresh ic and
-carried across a language toggle — and the binding this row says no symbol returns is
-`hunmin_buffered_preedit_special_chord()`. What survives from the row is its *requirement*
-half and one absence inside it: nothing flips the value when the chord is pressed, and who
-owns that transition is the open item of the 2026-10-31 record. Both halves are recorded in
-`docs/MODES-ENGINE-RULES.md` §3 ("The value the `AUTOSWITCH` function flips"). The row above
-is left as measured on its own date rather than rewritten.
+carried across a language toggle — the binding this row says no symbol returns is
+`hunmin_buffered_preedit_special_chord()`, and the transition is the engine's
+(`hunmin_buffered_preedit_special()` flips its own value on a serviced press, ruled
+2026-11-01). What survives from the row is its *requirement* half only. Both halves are
+recorded in `docs/MODES-ENGINE-RULES.md` §3 ("The value the `AUTOSWITCH` function flips").
+The row above is left as measured on its own date rather than rewritten.
 
 **Premise 2, measured.** `javap` is not installed on this host, so
 `android/view/KeyEvent.class` was read out of `~/Android/Sdk/platforms/android-30/android.jar`

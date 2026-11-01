@@ -396,6 +396,58 @@ TEST_F(KeyRuleTest, TheAutoswitchStateSurvivesALanguageToggle) {
     hunmin_buffered_preedit_free(l);
 }
 
+TEST_F(KeyRuleTest, TheAutoswitchChordFlipsTheOneValue) {
+    /* Ruled 2026-11-01 (issue #165): the engine owns the transition. The chord
+     * surface and the settings surface therefore write the same field, and a
+     * frontend never has to decide what "toggle" means -- which is the whole
+     * point of R13-정정's "one value". */
+    hunmin_key_event ev = ch('d');
+    ev.language_key = 1;
+    ev.mods = HUNMIN_MOD_CTRL; /* AUTOSWITCH's ruled default (Table A) */
+
+    int v = -1;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    ASSERT_EQ(v, 0) << "the B3 default before any press";
+
+    int performed = 0;
+    hunmin_special_host host{};
+    host.user = &performed;
+    host.perform = [](void *user, hunmin_special_function fn) { *(int *)user = (int)fn; };
+    hunmin_buffered_preedit_special_host(l_, &host);
+
+    /* The peek answers without changing anything: a platform test phase must not
+     * flip the state before the key it is testing for. */
+    EXPECT_EQ(hunmin_buffered_preedit_special_peek(l_, &ev), HUNMIN_SPECIAL_AUTOSWITCH);
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 0) << "a peek is not a press";
+
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), HUNMIN_SPECIAL_AUTOSWITCH);
+    EXPECT_EQ(performed, (int)HUNMIN_SPECIAL_AUTOSWITCH) << "the platform half still runs";
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 1) << "the engine flipped its own value";
+
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), HUNMIN_SPECIAL_AUTOSWITCH);
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 0) << "and back: a flip, not a set";
+
+    /* A refusal moves nothing. The host is withdrawn, so the press is `-1` and
+     * the key passes through -- a platform that cannot service the function
+     * must not change the state it could not act on. */
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l_, "autoswitch", 1));
+    hunmin_buffered_preedit_special_host(l_, nullptr);
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), -1);
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 1) << "an unserviced press leaves the value alone";
+
+    /* And the other function's chord touches nothing: only AUTOSWITCH owns this
+     * state, so a VOICE press is not a second writer. */
+    hunmin_buffered_preedit_special_host(l_, &host);
+    ev.mods = HUNMIN_MOD_ALT; /* VOICE */
+    EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), HUNMIN_SPECIAL_VOICE);
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l_, "autoswitch", &v));
+    EXPECT_EQ(v, 1) << "VOICE is not a writer of the autoswitch value";
+}
+
 } // namespace
 
 int main(int argc, char **argv) {

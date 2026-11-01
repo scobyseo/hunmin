@@ -175,26 +175,36 @@ is a recorded one and not a surprise.
 | the query | `hunmin_ic_get_option()` / `hunmin_buffered_preedit_get_option()`, returning the value through an out-parameter. An unknown name answers `false` and leaves the caller's int untouched; the `w/W/z/h/H` overrides answer `-1` for "not overridden, the layout default", which is a value and not an unknown name |
 | where it lives | a field on `hunmin_ic`, and `attach_ic()` carries it across the ic re-creation a language toggle performs. Without that carry, a settings surface writes ON and the next 한/영 press silently restores OFF — measured red by `KeyRuleTest.TheAutoswitchStateSurvivesALanguageToggle` against the pre-carry code. `hunmin_ic_reset()` does **not** clear it: a preference is not input state |
 | the key beside it | already the engine's, unchanged: `hunmin_buffered_preedit_special_chord(l, HUNMIN_SPECIAL_AUTOSWITCH)` answers the ruled default `Ctrl` (Table A, 2026-10-31), so a dialog that shows value + chord spells neither of them itself |
+| the transition | `hunmin_buffered_preedit_special()` flips the value when it services `AUTOSWITCH` — the engine's, not each frontend's `perform` (ruled 2026-11-01, below). Only a serviced press flips; `special_peek()` never does |
 
-**What this does not wire, and why it is not this issue's to wire.** Nothing flips the
-value yet. `hunmin_buffered_preedit_special()` resolves `AUTOSWITCH` and hands it to the
-registered host's `perform`, which in TSF records the request and in Android logs
-"not yet implemented" — so today the option is writable and readable and the chord
-performs the platform half only. The open question is the one the 2026-10-31 record left
-open (*"whether the engine also owns the `autoswitch` state the function flips"*,
-`wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md`):
-if it does, the transition belongs in `..._special()` beside the resolution, one line,
-before the host is called; if it does not, each frontend's `perform` writes the value
-through the same option. Either way the value keeps one home — the difference is who
-owns the **transition**, and that is a ruling, not a measurement. The B3 data gate adds
-a second unruled piece: nothing here refuses to turn the feature ON when the data the
-feature needs is absent, because "where the data gate is checked" is 0.3 design
-(`docs/SPEC-MODES.md` §R13-정정, the default bullet).
+**The transition is the engine's (ruled 2026-11-01, issue #165).** Verbatim:
+
+> The engine, in hunmin_buffered_preedit_special() before the host's perform — one line,
+> one home, all three frontends agree by construction
+
+So `hunmin_buffered_preedit_special()` flips `autoswitch` beside the resolution and *then*
+calls the host's `perform`, which stays the platform half (TSF records the request, Android
+logs "not yet implemented"). The consequences worth keeping straight:
+
+- **Only a serviceable press flips.** The flip sits after `special_peek()`'s `fn <= 0`
+  return, so a refusal (`-1`, no host or `supports()` said no) and a not-ours event (`0`)
+  leave the value alone — a platform that cannot honour the state does not move it.
+- **`special_peek()` never flips.** It answers a platform "test" phase, and a test that
+  changed the state would toggle twice per key press.
+- **No frontend writes it from `perform`.** With the engine owning the transition, a
+  frontend's `perform` writing the option again would double-flip; what a frontend does
+  there is the feature work the data gate enables.
+- **The B3 data gate is still unruled, and deliberately not in this path.** Nothing here
+  refuses to turn the feature ON when the data it needs is absent, and the key does not
+  consult whether that data is present — "where the data gate is checked" is 0.3 design
+  (`docs/SPEC-MODES.md` §R13-정정, the default bullet). The value is stored either way.
 
 Pinned by `KeyRuleTest.TheAutoswitchOptionIsOneValueTheLayerReadsBack` (default, both
-writes, the `!!` coercion, the unknown-name rejection, the chord) and
+writes, the `!!` coercion, the unknown-name rejection, the chord),
 `KeyRuleTest.TheAutoswitchStateSurvivesALanguageToggle` (the carry, both directions, and
-`reset()` leaving it alone).
+`reset()` leaving it alone) and `KeyRuleTest.TheAutoswitchChordFlipsTheOneValue` (peek does
+not flip, a serviced press flips both ways, a refusal does not, and VOICE is not a second
+writer).
 
 ### Windows (TSF) — the second frontend on the dispatch (2026-10-31)
 
