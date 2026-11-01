@@ -826,6 +826,77 @@ TEST_F(WordSetTest, WhatTheJudgementCannotDecideItDeclines) {
     hunmin_buffered_preedit_free(per_syllable);
 }
 
+/* ---------------------------------- a file the schema forbids (#173)
+ *
+ * The maintainer's ruling: *"중간 수준인 일단 해석은 하되 경고를 출력하는 방식으로
+ * 가자."* A found file that holds words outside the schema is LOADED -- the words
+ * it does hold keep working -- and the loader names the bad elements on stderr,
+ * so a truncated list cannot pass as complete. The refusal is
+ * tools/doctor.py's half (ctest schema-contract); this asserts the runtime half.
+ */
+
+namespace {
+
+std::size_t count_of(const std::string &hay, const std::string &needle) {
+    std::size_t n = 0;
+    for (std::size_t at = hay.find(needle); at != std::string::npos;
+         at = hay.find(needle, at + needle.size()))
+        ++n;
+    return n;
+}
+
+} // namespace
+
+TEST_F(WordSetTest, ASchemaViolatingFileLoadsAndSaysSoOutLoud) {
+    /* A number and an object cannot be words; `""` is not one either. A capital
+     * and a space are interpretable, so they are kept -- and the capital is even
+     * findable, because the lookup folds case. All five are named. */
+    ScratchFile mixed("hunmin-schema-violating.json",
+                      "[\"computer\", 3, {\"w\":\"dog\"}, \"\", \"Computer\", \"ice cream\"]");
+    ::testing::internal::CaptureStderr();
+    const int rc = hunmin_buffered_preedit_load_english(layer_, mixed.c_str());
+    const std::string log = ::testing::internal::GetCapturedStderr();
+
+    EXPECT_EQ(1, rc) << "a damaged file degrades to fewer words, not to no feature";
+    EXPECT_EQ(1, hunmin_buffered_preedit_english_ready(layer_));
+    EXPECT_EQ(1, hunmin_buffered_preedit_english_valid(layer_, "computer"));
+    EXPECT_EQ(1, hunmin_buffered_preedit_english_valid(layer_, "Computer"));
+
+    EXPECT_NE(std::string::npos, log.find("element 1 is not a word string")) << log;
+    EXPECT_NE(std::string::npos, log.find("element 2 is not a word string")) << log;
+    EXPECT_NE(std::string::npos, log.find("element 3 is not a word string")) << log;
+    EXPECT_NE(std::string::npos, log.find("element 4 'Computer' is outside")) << log;
+    EXPECT_NE(std::string::npos, log.find("element 5 'ice cream' is outside")) << log;
+
+    /* The warning is about the file, not about the run: the shipped list is
+     * shaped as the schema says, so loading it says nothing. */
+    ::testing::internal::CaptureStderr();
+    EXPECT_EQ(1, hunmin_buffered_preedit_load_english(layer_, shipped_list().c_str()));
+    EXPECT_EQ("", ::testing::internal::GetCapturedStderr());
+}
+
+TEST_F(WordSetTest, AWhollyBrokenFileIsOneFactNotOneLinePerElement) {
+    std::string body = "[";
+    for (int i = 0; i < 12; i++) {
+        if (i) body += ",";
+        body += std::to_string(i);
+    }
+    body += "]";
+    ScratchFile broken("hunmin-wholly-broken.json", body);
+
+    ::testing::internal::CaptureStderr();
+    EXPECT_EQ(1, hunmin_buffered_preedit_load_english(layer_, broken.c_str()));
+    const std::string log = ::testing::internal::GetCapturedStderr();
+
+    /* Eight named, then one line carrying the total -- 118k of these would
+     * otherwise be 118k lines of stderr. */
+    EXPECT_EQ(std::size_t{8}, count_of(log, "is not a word string")) << log;
+    EXPECT_NE(std::string::npos, log.find("12 elements are outside the schema")) << log;
+    EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(layer_, "computer"))
+        << "no word was added, and 1 still means loaded here -- which is why the "
+           "warning carries the count";
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     kDataPath = std::getenv("HUNMIN_DATA_PATH");
