@@ -2965,6 +2965,14 @@ symmetric direction of R8's formula, which §R8 already leaves open.
 pricing below is left exactly as it was — the decision is quoted here rather than
 folded back into the options, so what was weighed stays visible.*
 
+**What shipped with the decision (same branch, 2026-11-01):** the formula and R9's
+guard in `libhunmin/src/buffered_preedit.c#judge_boundary`, the answer in
+`hunmin_buffered_preedit_take_judgement`, tier-A cases in `engine-wordset`, the
+three frontends acting on it (TSF, Android, fcitx5 — the last of which needed the
+English slot it had been passing as NULL), and `language_detect.{h,cpp}` retired
+with its `engine-d1-language-detect` case. The fcitx5 settings row (§MRO-4 item 1's
+surface) is #176, and the ON/OFF state is still not persisted by any frontend.
+
 Produced 2026-11-01 on branch `scobyseo/modes-ruling-does-the-shared-layer-own-the-judge`,
 base `a099f4f`, host Windows 11. This branch touches documentation only: nothing
 under `libhunmin/`, `frontends/`, `tools/` or `tests/` is modified, so it cannot

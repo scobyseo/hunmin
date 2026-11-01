@@ -88,7 +88,7 @@ is a decision. These are the items an agent may measure but may not settle.
 | B6 | **D3 — is a frequency list derived from AIHub 119 a reshaping?** | `the-outstanding-decisions.md:41-47` | Licence question. *"probably no, but it has not been settled and should not be assumed either way."* |
 | B7 | **D4 — does the wiki stay?** | `the-outstanding-decisions.md:49-60`, `status: active`, `contested: true` | Adopted *"to be re-evaluated later"*, against three named criteria. |
 | B8 | **The keystore path in `build.gradle.kts:77`** | §3 W3 | ✅ **DECIDED 2026-10-13** | Maintainer: the keystore config lives in gitignored `local.properties` (`frontends/android/local.properties`); nothing in committed build config hardcodes a host path. `app` and `keymaps` both resolve `storeFile`/`storePassword`/`keyPassword`/`keyAlias` from `local.properties`, honor the `HUNMIN_RELEASE_STORE` env override (CI `android-release` job + `tools/build-release.sh`), and generate a throwaway release key at build time when no keystore is present. Ruling quoted in `wiki/decisions/2026-10-13-b8-keystore-path-resolved.md`. What remains: the maintainer picks whether `local.properties` is the permanent canonical keystore and whether to keep the throwaway-key fallback. |
-| B9 | **The R8 adapter's structural divergence from R3** | §3 M1 | ✅ **DECIDED 2026-10-14** | R3 `[D]` put guessing in the engine while `language_detect.*` put it in the fcitx5 addon. The maintainer's ruling: **R8 is adaptor-owned** — the requirement is one judgement rule owned by one component and identical on every frontend; the owner and the mechanism are a design decision, not a requirement. Ruling quoted in `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md`; `docs/SPEC-MODES.md` R3 rewritten requirement-only and `docs/architecture.md` added. Landed in `a5c46dc`, closed as issue #3. **Not decided by this:** the ruling settled *which component owns the judgement*, not the data it judges from — and that data question was answered later: B1 retired 2026-11-01 (§B1), so R8's engine integration now waits on the judgement's implementation (#166, #168), not on a source. |
+| B9 | **The R8 adapter's structural divergence from R3** | §3 M1 | ✅ **DECIDED 2026-10-14** | R3 `[D]` put guessing in the engine while `language_detect.*` put it in the fcitx5 addon. The maintainer's ruling: **R8 is adaptor-owned** — the requirement is one judgement rule owned by one component and identical on every frontend; the owner and the mechanism are a design decision, not a requirement. Ruling quoted in `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md`; **superseded 2026-11-01 by #164** — the maintainer ruled the judgement engine-owned and the switch frontend-owned (`docs/OPTIONS-MEASURED.md` §MRO), and the adaptor-owned shape B9 chose is retired with `language_detect.{h,cpp}`; `docs/SPEC-MODES.md` R3 rewritten requirement-only and `docs/architecture.md` added. Landed in `a5c46dc`, closed as issue #3. **Not decided by this:** the ruling settled *which component owns the judgement*, not the data it judges from — and that data question was answered later: B1 retired 2026-11-01 (§B1), so R8's engine integration now waits on the judgement's implementation (#166, #168), not on a source. |
 
 ---
 
@@ -253,7 +253,8 @@ M3/M4/M5 → N1–N6`) was written when §3's M1–M5 and W1, W2 and W4 were ope
 those eight are now closed, so the order's stated reasoning — "M1 first is a
 dependency, because B9 cannot be answered while the class has no test" — has been
 satisfied: `frontends/fcitx5/test/testlanguagedetect.cpp` was added and ctest
-`engine-d1-language-detect` registered, which **passes** here.
+`engine-d1-language-detect` registered, which **passes** here. *(Both retired
+2026-11-01 with the detector, #164 — kept as the record of what satisfied it.)*
 
 **Revised again 2026-10-10, after tier E2 closed W5/W6 and N2/N5/N6 were completed.** W5, W6, N2, N5, N6 are done. The remaining unblocked items are environment-bound (E3 gate, R8 shrinker E2E, soft keyboard, D4 Wayland) or decision-blocked (B1–B9). No further unblocked code work remains at this time.
 
@@ -299,7 +300,7 @@ half.
 | P1b-2 ⏳ "romaja, symbol tiers, CapsLock/W" | `PLAN.md:131-132` | All three ship. Only `seq` is open. |
 | "no keystore config, no version-code scheme" | `AGENTS.md:194-195`, `PLAN.md:196-205`, `README.md:33` | Both were added. R8 rules remain genuinely missing. The hardcoded keystore path is the real defect (B8). |
 | Android tier-C skips "because no Android frontend exists" | `AGENTS.md:199`, `TESTING.md:130-133` | The frontend exists. The real gap is no `.gold` and no Android runner. |
-| P8 is "the only phase with no implementation at all" | `PLAN.md:291-293` | True of the **core**, and the grep is still empty. But `language_detect.*` implements R8 in the addon — undocumented, untested (M1). |
+| P8 is "the only phase with no implementation at all" | `PLAN.md:291-293` | True of the **core**, and the grep is still empty. But `language_detect.*` implemented R8 in the addon — undocumented, untested (M1). *(It was retired on 2026-11-01, #164: the core now answers `hunmin_buffered_preedit_take_judgement`, so the claim above no longer holds either way.)* |
 | `wiki/index.md:5` "Total pages: 9" | `wiki/index.md` | `tools/wiki-lint.py` counts more; the header predates three 2026-10-09 pages. |
 | N2 nightly fuzz job "does not exist" | `REMAINING-WORK.md:114`, `ENVIRONMENT.md:411` | Job added to `.github/workflows/ci.yml` with LeakSanitizer; `tools/fuzz-generate-keys.py` created. |
 | N5 Espresso tests "src/androidTest/ does not exist" | `REMAINING-WORK.md:115`, `docs/TESTING.md:315` | `frontends/android/app/src/androidTest/` created with 9 Espresso tests. |
@@ -339,7 +340,7 @@ tree alone:
 
 | Board said open | Closed by | Evidence |
 |---|---|---|
-| §3 M1 — R8 adapter has no committed test; `grep -rn ModeSwitch frontends/fcitx5/test/` returns nothing | the measurement-hygiene pass | `frontends/fcitx5/test/testlanguagedetect.cpp` exists (14 `ModeSwitch` hits), registered as ctest `engine-d1-language-detect` (`frontends/fcitx5/test/CMakeLists.txt:17`), and **passes** here |
+| §3 M1 — R8 adapter has no committed test; `grep -rn ModeSwitch frontends/fcitx5/test/` returns nothing | the measurement-hygiene pass (the test was retired 2026-11-01, #164) | `frontends/fcitx5/test/testlanguagedetect.cpp` exists (14 `ModeSwitch` hits), registered as ctest `engine-d1-language-detect` (`frontends/fcitx5/test/CMakeLists.txt:17`), and **passes** here |
 | §3 M2 — `tools/doctor.py` globs `compose/` and `layouts/` only, so `data/{hanja,idioms,krdict}/` is never checked | the measurement-hygiene pass | `doctor.py:331-336` now globs all three dirs, with `check_hanja`/`check_idioms`/`check_krdict` present |
 | §3 M3 — `wiki-lint.py` does not check `sources:` targets exist | the measurement-hygiene pass | `wiki-lint.py:144` `check_sources_exist`, called at `:255` |
 | §3 M4 — `android-e2e.sh:54` uses `local` at top level | the measurement-hygiene pass | line 54 is now `avd="${HUNMIN_AVD:-hunmin-e2e}"`, inside `if ! "$ADB" get-state`. `grep -n '^\s*local '` finds only 2 hits, both inside functions (`:157`, `:158`) |
@@ -503,8 +504,8 @@ R8-SHRINKER | grep | .github/workflows/ci.yml:assembleRelease | present | the re
 W5-CLOSED | grep | tools/android-e2e.sh:pm revoke | present | W5 closed 2026-10-10: E2 drives both permission branches
 W5-CLOSED | grep | tools/android-e2e.sh:perm_granted | present | the granted/denied state is read from the platform, not from a log line
 W5-CLOSED | grep | tools/android-e2e.sh:still types after a denied mic tap | present | the property that matters: a voice failure must not reach the key path
-M1-CLOSED | path-present | frontends/fcitx5/test/testlanguagedetect.cpp | present | the measurement-hygiene pass; was listed open
-M1-CLOSED | ctest | engine-d1-language-detect | registered | registered by the measurement-hygiene pass
+M1-CLOSED | path-present | frontends/fcitx5/test/testlanguagedetect.cpp | absent | the measurement-hygiene pass added this test on 2026-10-25; it was retired with the detector it tested on 2026-11-01 (#164): the replay now lives in `libhunmin/src/buffered_preedit.c#latin_reading` and the judgement's cases are `engine-wordset`'s. Flip the value back when a test of that name exists again
+M1-CLOSED | ctest | engine-d1-language-detect | absent | same retirement (2026-11-01, #164): the id left the registered set with `frontends/fcitx5/test/testlanguagedetect.cpp`, and the six `REQ-MAP` rows that cited it now cite `engine-wordset` / `engine-d1-fcitx5`
 M2-CLOSED | grep | tools/doctor.py:krdict | present | the measurement-hygiene pass; doctor.py now globs data/krdict
 M3-CLOSED | grep | tools/wiki-lint.py:check_sources_exist | present | the measurement-hygiene pass added it
 M4-CLOSED | grep | tools/android-e2e.sh:HUNMIN_AVD:-hunmin-e2e | present | the measurement-hygiene pass; the top-level local is gone

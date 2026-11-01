@@ -314,8 +314,10 @@ frontend gets it.
   hangul_valid\|english_valid libhunmin/ frontends/` returns nothing, and the core is
   genuinely untouched.
 
-  ⚠️ **But this line was also incomplete in the other direction.** `frontends/fcitx5/src/
-  language_detect.{h,cpp}` implements an R8 shadow-layout adapter (shipped, wired at
+  ⚠️ *(State as of this analysis; superseded 2026-11-01, #164 — the detector below
+  is retired and the judgement is the engine's.)* **But this line was also
+  incomplete in the other direction.** `frontends/fcitx5/src/
+  language_detect.{h,cpp}` implemented an R8 shadow-layout adapter (shipped, wired at
   `hunminadapter.cpp:221`). It keeps a second `hunmin_ctx` on a Latin layout beside the Hangul
   one and replays the buffered word when `hunmin_ic_preedit()` goes empty. It is in
   `master`, it compiles into the addon, **no document mentioned it**, and **no committed

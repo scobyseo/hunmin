@@ -81,7 +81,10 @@
   when no keystore is present.
 - [[2026-10-13-r8-mode-guessing-is-adaptor-owned]] — R8 mode guessing is
   adaptor-owned; the engine stays ABI-clean and the adaptor (`modeswitch.*`)
-  keeps the cross-frontend validity judgement.
+  keeps the cross-frontend validity judgement. **Superseded 2026-11-01.**
+- [[2026-11-01-the-engine-judges-the-frontend-switches]] — the judgement is the
+  engine's and the switch is each frontend's; R9's threshold at three key
+  inputs, and the fcitx5 detector retired.
 - [[2026-10-18-tsf-chord-transient-not-persistent]] — issue #101 ruled: a
   CTRL/ALT chord in hangul mode is transient processing only — the pending
   preedit commits through the boundary flush and the chord passes uneaten, but

@@ -270,7 +270,7 @@ normalisation.
 | candidate anchor | `display()` | the service owns the Hanja UI | native `display()`, interim `composing()` | allowed, §3.3 |
 | candidate key routing | the adapter's own switch | none in the adapter | the adapter's own window | allowed — but see 8.3 (2) |
 | Han/Eng | not in the addon: fcitx owns the trigger | Kana VK to `KeyAction.HANGUL_ENG` | `ToggleModeCore` plus configurable bindings | **open**, §4 |
-| R8 language detection | yes: `language_detect.cpp` | no | no | allowed; R8 is adaptor-owned |
+| R8 language detection | no: the engine judges, the adapter acts | no: same | no: same | resolved 2026-11-01 (#164) — the judgement is the engine's for all three, and each frontend performs only the switch its host allows |
 | voice / external text | — | yes | — | allowed, but invariant 5 is exercised on one frontend only |
 
 ### 8.3 Open asymmetries, to be resolved where the platform allows
