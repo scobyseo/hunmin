@@ -354,6 +354,102 @@ def check_krdict(path: Path, vfile: V):
         seen.add(trip)
 
 
+# ------------------------------------------------------------------ modes/
+# docs/SPEC-SCHEMA.md "English word list": a JSON array of lowercase words,
+# sorted, `[a-z]` with word-internal `'` or `-`. The lookup POLICY is stated in
+# that same section -- the loader folds ASCII A-Z before comparing and never
+# strips an apostrophe or a hyphen -- and this check is what keeps the FILE
+# honest about it, because a word the lookup would still match (uppercase,
+# duplicated, out of order) passes every behaviour test and only the schema
+# check can notice.
+#
+# The declared shape and this pattern are one rule read twice, deliberately:
+# tools/en-us2data.py writes both, and check_modes fails when they disagree.
+MODES_WORD_RE = re.compile(r"^[a-z]+(?:['-][a-z]+)*$")
+MODES_META_TYPES = {
+    "what": str,
+    "generator": str,
+    "source": dict,
+    "method": dict,
+    "counts": dict,
+    "licence": dict,
+    "does_not_represent": list,
+}
+MODES_SOURCE_KEYS = {"name", "dic", "dic_sha256", "aff", "aff_sha256",
+                     "declared_version", "upstream"}
+MODES_METHOD_KEYS = {"expansion", "lowercased", "word_shape"}
+MODES_COUNTS_KEYS = {"stems", "expanded_forms", "shipped", "dropped"}
+
+
+def check_modes(directory: Path, vfile: V):
+    """data/modes/: the english word list behind R8-정정's english_valid."""
+    vfile.data = "en-US.json"
+    listing = directory / "en-US.json"
+    try:
+        root = json.loads(listing.read_text(encoding="utf-8"))
+    except Exception as e:
+        vfile.err(f"en-US.json: invalid JSON: {e}")
+        return
+    if isinstance(root, dict) and isinstance(root.get("words"), list):
+        root = root["words"]
+    if not isinstance(root, list):
+        vfile.err('en-US.json: root must be an array of words (or an object with "words")')
+        return
+    prev = None
+    for i, w in enumerate(root):
+        if not isinstance(w, str) or not w:
+            vfile.err(f"word[{i}]: must be a non-empty string")
+            prev = None
+            continue
+        if not MODES_WORD_RE.match(w):
+            vfile.err(f"word[{i}]: {w!r} is outside the schema's word shape "
+                      f"{MODES_WORD_RE.pattern}")
+        if prev is not None and w <= prev:
+            vfile.err(f"word[{i}]: {w!r} does not follow {prev!r} -- the list is "
+                      f"the lookup's sort contract, so it must be sorted and unique")
+        prev = w
+
+    vfile.data = "meta.json"
+    try:
+        meta = json.loads((directory / "meta.json").read_text(encoding="utf-8"))
+    except Exception as e:
+        vfile.err(f"missing or invalid: {e}")
+        return
+    if not isinstance(meta, dict):
+        vfile.err("must be an object")
+        return
+    for key, kind in MODES_META_TYPES.items():
+        if key not in meta:
+            vfile.err(f"missing {key!r}")
+        elif not isinstance(meta[key], kind):
+            vfile.err(f"{key!r} must be {kind.__name__}")
+    for group, keys in (("source", MODES_SOURCE_KEYS),
+                        ("method", MODES_METHOD_KEYS),
+                        ("counts", MODES_COUNTS_KEYS)):
+        obj = meta.get(group)
+        if not isinstance(obj, dict):
+            continue
+        for key in sorted(keys - set(obj)):
+            vfile.err(f"missing {group}.{key!r}")
+    method_obj = meta.get("method")
+    method = method_obj if isinstance(method_obj, dict) else {}
+    if method.get("lowercased") is not True:
+        vfile.err("method.lowercased must be true -- the artefact is "
+                  "lowercase and the lookup folds ASCII to it")
+    shape = method.get("word_shape")
+    if isinstance(shape, str) and shape != MODES_WORD_RE.pattern:
+        vfile.err(f"method.word_shape {shape!r} is not the shape this "
+                  f"check enforces ({MODES_WORD_RE.pattern!r})")
+    counts_obj = meta.get("counts")
+    counts = counts_obj if isinstance(counts_obj, dict) else {}
+    shipped = counts.get("shipped")
+    if isinstance(shipped, int) and shipped != len(root):
+        vfile.err(f"counts.shipped {shipped} but en-US.json holds {len(root)} words")
+    if not (directory / "LICENSE.md").is_file():
+        vfile.data = "LICENSE.md"
+        vfile.err("missing -- the SCOWL notice is the attribution the licence "
+                  "requires beside any redistribution")
+
 def main():
     data = Path(sys.argv[1] if len(sys.argv) > 1 else "libhunmin/data")
     vfile = V(data)
@@ -369,6 +465,15 @@ def main():
         check_idioms(p, vfile)
     for p in sorted((data / "krdict").glob("*.json")):
         check_krdict(p, vfile)
+    modes = data / "modes"
+    if (modes / "en-US.json").is_file():
+        check_modes(modes, vfile)
+    else:
+        # B3 (#190) lets the dictionary ship as its own package, so an absent
+        # word list is a warning and not a red gate; what must not happen is a
+        # silent skip, which is why the summary line counts it.
+        vfile.warnings.append("modes/: no english word list in this tree "
+                              "(B3 allows it to ship separately); nothing linted")
     for w in vfile.warnings:
         print(f"warn: {w}", file=sys.stderr)
     for e in vfile.errors:

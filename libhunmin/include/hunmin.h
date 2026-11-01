@@ -424,6 +424,28 @@ HUNMIN_EXPORT int hunmin_buffered_preedit_language(const hunmin_buffered_preedit
 HUNMIN_EXPORT int hunmin_buffered_preedit_commit_policy(const hunmin_buffered_preedit *l);
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffered_preedit *l); /* active layout id */
 
+/* The LATIN READING of the word that last finished: the same keys replayed
+ * through this layer's Latin layout (latin_layout_id at construction), which is
+ * how R8's `english_valid` gets "the word the buffer would have produced under
+ * the Latin layout". A Hangul layout cannot produce Latin -- it destroys the
+ * text instead of transliterating it (measured: the 12 Hangul layouts emit no
+ * Latin letter for any printable key -- hunmin-sim, every key id) -- so the keys are the only way back.
+ *
+ * Read it at the boundary, where the frontend already learns the word finished
+ * (a declined key, `hunmin_buffered_preedit_commit_word`), and hand it to
+ * `hunmin_buffered_preedit_english_valid`. Empty means "nothing to look up":
+ * while a word is still composing, after a boundary that ended no word, and for
+ * a layer built with one language only -- so a caller never looks up a stale
+ * word, and a frontend without a Latin layout answers "not English" rather
+ * than pretending (B3's fail-closed state, not an error).
+ *
+ * It decides nothing: no switch, no delivery, no mode change (R10). Valid until
+ * the next call on this layer. Cost: one replay per finished word -- measured
+ * 0.97-1.52 us for a 6-key word with the reading on against 0.54-0.67 us with
+ * no Latin layout (three runs of 20,000 words each), so the reading itself is
+ * ~0.5-0.9 us against a keystroke's 16 ms budget. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_latin_text(const hunmin_buffered_preedit *l);
+
 /* ---------------------------------------------- english words (R8-정정)
  *
  * The data half of the modes judgement: `english_valid` is "a lookup in the
@@ -453,6 +475,20 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffere
 /* Path to the shipped list (libhunmin/data/modes/en-US.json). Returns 1 loaded,
  * -1 absent, 0 malformed. An absent file leaves the set empty and not ready. */
 HUNMIN_EXPORT int hunmin_buffered_preedit_load_english(hunmin_buffered_preedit *l, const char *path);
+
+/* The same load, but the SHIPPED list is FOUND rather than named: the search is
+ * the one the hanja/krdict/idioms tables already use (the context's data dirs,
+ * else HUNMIN_DATA_PATH, else the build default -- hm_data_dirs), so a frontend
+ * never assembles "<dir>/modes/en-US.json" itself and a dictionary installed
+ * beside the other data is found from any of them. Two searches are how two
+ * data directories start to disagree, which is why this exists and why the
+ * path-taking call above stays for a caller that has a path already.
+ *
+ * Returns 1 loaded, -1 when no searched directory holds the file (a normal
+ * state under B3: the feature is off, and every lookup answers 0), 0 when the
+ * file is found and malformed -- an installed-but-broken dictionary is an error,
+ * never "no english words exist". */
+HUNMIN_EXPORT int hunmin_buffered_preedit_load_english_shipped(hunmin_buffered_preedit *l);
 
 /* Add the user's words from a text file (one per line, `#` comments). Returns
  * 1 loaded, -1 absent (also normal), 0 error. Merges; it does not replace. */

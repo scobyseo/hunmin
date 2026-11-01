@@ -119,11 +119,20 @@ uint32_t hm_shifted_of(uint32_t base);
  * split into "" and "/a". The rule is positional -- a ':' right after the
  * token's first character when that character is an ASCII letter and the next
  * char is '/' or '\\' is kept, every other ':' separates. Used by both
- * hm_data_load (schema_loader.c) and the candidate layer's resolve_dirs (candidate_tables.c);
+ * hm_data_load (schema_loader.c) and hm_data_dirs (below);
  * the recorded ctx->data_dir rejoins with ':' and re-parses consistently.
  * Returns the number of dirs (0..max); buffer must be writable and is NUL-
  * terminated in place. */
 int hm_split_dirs(const char *env, char *buf, size_t bufsz, const char *dirs[], int max);
+
+/* The SEARCH every data subdirectory goes through, in one place: ctx->data_dir
+ * when the caller built the context from explicit dirs, else HUNMIN_DATA_PATH,
+ * else the build's default. Colon-separated, split by hm_split_dirs. The
+ * returned pointers live in a static buffer and are valid until the next call.
+ * Shared by the suggest tables (candidate_tables.c) and the english word set
+ * (wordset.c) so a frontend that handed the engine a data dir finds every
+ * directory the same way -- a per-loader search is how two data dirs disagree. */
+int hm_data_dirs(const hunmin_ctx *ctx, const char *const **out);
 
 /* wordset.c -- the english word set behind R8-정정's `english_valid`
  * (docs/SPEC-MODES.md, ruling 2026-11-01: hunspell en_US base + user words).
@@ -135,6 +144,11 @@ void hm_wordset_free(hm_wordset *w);
 /* 1 loaded, -1 absent (a normal state under B3's data gate), 0 a malformed
  * file -- a broken JSON list must not read as "no english words exist". */
 int hm_wordset_load_json(hm_wordset *w, const char *path);
+/* The same load for the SHIPPED list, resolved through hm_data_dirs the way
+ * hanja/krdict/idioms are: the caller names no path, so the file is found
+ * wherever the frontend's data dirs say, and a machine with no dictionary is
+ * -1 rather than a silent empty set. */
+int hm_wordset_load_shipped(hm_wordset *w, const hunmin_ctx *ctx);
 int hm_wordset_load_words(hm_wordset *w, const char *path);
 int hm_wordset_add(hm_wordset *w, const char *word);
 int hm_wordset_has(const hm_wordset *w, const char *word);

@@ -694,6 +694,28 @@ int hm_split_dirs(const char *env, char *buf, size_t bufsz, const char *dirs[], 
     return n;
 }
 
+/* The one search every data subdirectory shares (see hunmin_internal.h). Prefers
+ * the dirs recorded on the context: a frontend that passed an explicit path --
+ * the Android IME, in an app sandbox with no HUNMIN_DATA_PATH -- must get its
+ * tables from the same place as its layouts, and the english word set must not
+ * search somewhere else than the hanja tables do. */
+int hm_data_dirs(const hunmin_ctx *ctx, const char *const **out) {
+    static char envbuf[4096];
+    static const char *mydirs[16];
+    const char *env = (ctx && ctx->data_dir && *ctx->data_dir) ? ctx->data_dir : getenv("HUNMIN_DATA_PATH");
+    if (!env || !*env) {
+#ifdef HUNMIN_DEFAULT_DATA_DIR
+        env = HUNMIN_DEFAULT_DATA_DIR;
+#else
+        env = "./libhunmin/data";
+#endif
+    }
+    snprintf(envbuf, sizeof envbuf, "%s", env);
+    int n = hm_split_dirs(env, envbuf, sizeof envbuf, mydirs, 16);
+    *out = mydirs;
+    return n;
+}
+
 hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs) {
     const char *mydirs[16];
     char envbuf[4096];

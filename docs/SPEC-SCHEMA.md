@@ -130,8 +130,10 @@ measurement that chose this design and the options rejected.
 
 Order is meaningful in all three: it is upstream frequency order, reproduced rather than
 re-derived (`hanja/` reimplements libhangul's `merge.py`; see Provenance below).
-⚠️ `hunmin-doctor` lints `hanja/`, `krdict/` and `idioms/` (`tools/doctor.py`
-`check_hanja`/`check_krdict`/`check_idioms`), so the CI data gate reaches them.
+⚠️ `hunmin-doctor` lints `hanja/`, `krdict/`, `idioms/` and `modes/` (`tools/doctor.py`
+`check_hanja`/`check_krdict`/`check_idioms`/`check_modes`), so the CI data gate reaches
+them. **This list is the one home for "which directories are linted":** a new data
+directory without a check here is data the gate does not reach.
 
 ## English word list (`data/modes/`)
 
@@ -154,6 +156,39 @@ latin strings of MODES-DATA §4-7d).
 `data/modes/LICENSE.md` — SCOWL's permission notice and the `.aff`'s BSD, with
 the attribution the notice requires. This directory is **not** ShareAlike like
 `krdict/`; it is separate because the feature's data ships separately (B3).
+
+### What the lookup does, and what it does not
+
+The lookup's policy belongs to this section, not to the loader's implementation:
+`wordset.c` may only do what is written here.
+
+| question | rule |
+|---|---|
+| case | the artefact is lowercase, and the lookup folds ASCII `A`–`Z` before comparing, so a buffer reading `DON'T` matches `don't` |
+| `'` and `-` | **part of the word.** Nothing strips them, nothing splits on them, and nothing normalises one to the other, so `dont` is not `don't` and `ice-cream` is not `ice cream` |
+| shape | `^[a-z]+(?:['-][a-z]+)*$` — a leading or trailing `'`/`-`, a capital, a digit or any other character is outside the schema |
+| length | no cap anywhere — not in this schema, not in the loader, not in the lookup |
+| sort | strictly ascending UTF-8 byte order, unique. The lookup is a hash set, so order is not needed for correctness — it is needed for determinism and a readable diff |
+
+**Loading is found, not named.** `hunmin_buffered_preedit_load_english_shipped(l)`
+resolves `modes/en-US.json` through the same data-dir search the `hanja`/`krdict`/
+`idioms` tables use (the context's dirs, else `HUNMIN_DATA_PATH`, else the build
+default), so no frontend assembles a path itself;
+`hunmin_buffered_preedit_load_english(l, path)` stays for a caller that already
+has one. Both answer the same three states, and **every lookup fails closed**:
+
+| return | meaning | `hunmin_buffered_preedit_english_valid` answers |
+|---|---|---|
+| `1` | loaded | membership |
+| `-1` | no searched directory holds the file | `0` — absent data is B3's normal state: the feature is off, not "everything is English" |
+| `0` | the file is found and does not parse | `0` — an installed-but-broken dictionary is an error, never an empty dictionary |
+
+⚙️ `tools/doctor.py` `check_modes` is this section mechanically: word shape and
+lowercase, strictly sorted and unique, `meta.json`'s required groups and nested
+keys, `method.word_shape` equal to the pattern the check enforces (so the
+declared policy and the checked one are one string), `counts.shipped` equal to
+the array's length, and `LICENSE.md` present. ctest `schema-contract` runs it, so
+a hand-edited artefact fails the commit gate rather than a lookup at runtime.
 
 **The user dictionary is not in this directory.** It is a plain text file the
 person owns — one word per line, `#` starts a comment, blank lines and a UTF-8

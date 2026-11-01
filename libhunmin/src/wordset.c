@@ -172,6 +172,28 @@ int hm_wordset_load_json(hm_wordset *w, const char *path) {
     return 1;
 }
 
+/* The shipped list, found through the CONTEXT's data dirs -- the same search
+ * candidate_tables.c runs for hanja/krdict/idioms (hm_data_dirs), so a frontend
+ * that handed the engine a data directory needs to know nothing about where
+ * modes/ lives. The first dir holding modes/en-US.json decides: a file that
+ * exists and does not parse is an error (0), not a reason to look further, or
+ * an installed-but-broken dictionary would silently read as "no english words"
+ * (the confident-zero rule). No dir holding one is -1, the state B3 makes
+ * normal (docs/SPEC-MODES.md R8-정정-2, issue #167). */
+int hm_wordset_load_shipped(hm_wordset *w, const hunmin_ctx *ctx) {
+    if (!w) return 0;
+    const char *const *dirs = NULL;
+    int n = hm_data_dirs(ctx, &dirs);
+    for (int d = 0; d < n; d++) {
+        char path[4608];
+        snprintf(path, sizeof path, "%s/modes/en-US.json", dirs[d]);
+        int rc = hm_wordset_load_json(w, path);
+        if (rc != -1) return rc;
+    }
+    w->loaded = -1;
+    return -1;
+}
+
 /* ------------------------------------------------------------ user words */
 
 /* One word per line, `#` starts a comment, blank lines ignored, a UTF-8 BOM on
