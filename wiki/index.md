@@ -97,6 +97,11 @@
   their own as a seam for the *next* dictionary, whose mechanism (the GitHub
   release page) is deferred. The feature is developed and tested with the
   in-tree data, before any distribution mechanism exists.
+- [[2026-11-01-syllable-commit-turns-autoswitch-off]] — R6 measured (§BND-7): the
+  digit run is the buffered policy's, so the maintainer ruled the two settings
+  dependent — reconciled at settings time, off-switched at run time when syllable
+  commit is on, and the reason named in the debug output. Autoswitch has no
+  settings row in any frontend yet, which the work has to add first.
 - [[2026-10-18-tsf-chord-transient-not-persistent]] — issue #101 ruled: a
   CTRL/ALT chord in hangul mode is transient processing only — the pending
   preedit commits through the boundary flush and the chord passes uneaten, but

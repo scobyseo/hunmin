@@ -922,3 +922,12 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `index.md`. The packaging followed the ruling: `debian/control` says
   `Recommends`, and `data-split` now fails if it says `Suggests` or `Depends`.
 
+
+## [2026-11-01] create | Syllable commit turns autoswitch off
+
+- The maintainer's ruling on the dependency issue #171's measurement exposed
+  (§BND-7: the digit run belongs to the buffered policy): reconcile the two
+  settings when they are written, switch autoswitch off at run time while
+  syllable-unit commit is on, and name the reason in the debug output. Quoted
+  verbatim; the page records the three obligations and the two things it leaves
+  open (where the diagnostic goes, what the settings row shows).
