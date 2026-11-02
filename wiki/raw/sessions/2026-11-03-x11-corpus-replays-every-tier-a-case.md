@@ -61,13 +61,27 @@ policy. Recorded as a finding, not a ruling.
   right mode instead of being dropped.
 - 22 restored traces: the 13 case instances (11 labels) the win32 corpus
   replayed, plus `p2-2-2-tiers`' eight — a family that had vanished from the x11
-  corpus entirely. 87 → 109 traces, 263 events.
+  corpus entirely. 87 → 109 traces, 263 events; the eight were then merged into
+  one 25-event case (same events, 102 traces) — see "What the eight cases were
+  for" below.
 - `tools/conformance-coverage.py` + ctest `conformance-coverage`: every tier-A
   case of every family the corpus claims has a trace, every trace belongs to a
   recorded family, and `--regen` reproduces the corpus from goldens byte for
   byte. Verified to fail by deleting one trace and by planting a stray one.
 
 ## What it left
+
+## What the eight cases were for
+
+Asked before merging, because the labels looked like they might be load-bearing.
+They are not: `p2-2-2-tiers` pins the UserKeyTable (prefix `jk`/`jl`/`j;` × third
+key `1`/`!`/`B`, then the exit), and all eight cases already end with an empty
+buffer — measured with `hunmin-sim --check` on a merged golden, 25/25 events
+identical. So the split bought only failure attribution (a ctest name per
+tier/prefix cell) and a grep-able map of which cells are sampled (7 of a 6×N
+table). Merged: one case, same 263 events in the corpus, 102 traces, tier-C
+126 → 120, and a leaked tier state `T` is now caught at every boundary rather
+than only at case starts.
 
 - The `ref-*` corpora are still absent (libhangul parity is tier A only), and
   the `slow` tier measures 94 s against a 60 s budget on this host —

@@ -454,7 +454,7 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**109 traces, 263 events**, registered as ctest
+**102 traces, 263 events**, registered as ctest
 `conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
 that every tier-A case of every family the corpus replays has a trace and that every
 trace belongs to a recorded family (`tools/conformance-coverage.py`).
@@ -467,10 +467,15 @@ re-emitting them under the buffered policy but by saying which policy each case 
 tier A records commit **per event**, so a case whose golden commits mid-stream is
 observable only under `HUNMIN_COMMIT_PER_SYLLABLE`, and the generator now derives that
 from the golden and writes `commit_mode` into the trace's meta (`docs/trace-spec.md`
-"meta"). 109 traces, zero `.in`/`.gold` divergence, and the eight tier-A families plus
-`p2-2-2-tiers` are now replayed case-for-case — the win32 corpus, which measures
-committed text cumulatively and so never needed the field, covers 106 of the same
-cases across eight families. libhangul parity is still asserted at tier A (engine
+"meta"). 102 traces, 263 events, zero `.in`/`.gold` divergence, and all nine
+tier-A families in the corpus are replayed case-for-case — the win32 corpus, which
+measures committed text cumulatively and so never needed the field, covers 106 of
+the same cases across eight families. The event count is unchanged from the 109-file
+state because `p2-2-2-tiers`' eight three-event cases were merged into one 25-event
+case on 2026-11-03: each already ended with an empty buffer, so the case boundaries
+carried no isolation, only names — and their one remaining use, a failure naming the
+tier/prefix cell instead of an event index, was not worth 7 ctest entries
+(`hunmin-sim --check` replays the merged case identically). libhangul parity is still asserted at tier A (engine
 boundary) only, until the `ref-*` traces are regenerated against the buffered adapter.
 
 The trace format now answers the delivery question two ways, and a trace carries at most
@@ -530,7 +535,7 @@ that forces the F9 *flow* into the adapter everywhere, but it is not a keycode f
 CapsLock and modifiers are now covered deliberately rather than incidentally.
 
 Between them the tiers leave no gap: the fixture proves every key has a correct native
-encoding, and the 109 traces prove the adapter applies it.
+encoding, and the 102 traces prove the adapter applies it.
 
 **Equivalence extension (2026-10-24, requirement).** The rule in
 `docs/FRONTEND-EQUIVALENCE.md` makes this tier the cross-frontend authority:

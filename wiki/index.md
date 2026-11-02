@@ -406,7 +406,9 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   needs (`meta.commit_mode`), 87 -> 109 traces with every `.in` identical to its
   `.gold`; the issue's "stale generation" premise measured wrong — c773fdd had
   dropped them deliberately — and ctest `conformance-coverage` now fails when a
-  case goes missing again.
+  case goes missing again. Then 109 -> 102 by merging `p2-2-2-tiers`' eight
+  short probes into one case: same 263 events, boundaries that carried nothing
+  but names.
 - [[2026-11-01-modes-ownership-retires-the-detector]] - the #164 session: §MRO's
   pricing, the ruling implemented on all three frontends (engine judges, frontend
   switches), `language_detect.*` retired with six `REQ-MAP` rows re-pointed, and

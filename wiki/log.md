@@ -997,3 +997,18 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   host (the R9 control case delivers `ㅏ됴` where the corpus expects `key`,
   judgement data present), and the `slow` tier measures 94 s against its 60 s
   budget with `engine-d3-edit` at 95 s alone.
+
+## [2026-11-03] update | p2-2-2-tiers is one case, not eight
+
+- Merged the eight tier probes into a single 25-event case after measuring that
+  they were not independent in any way that mattered: every one already ended
+  with an empty buffer, and `hunmin-sim --check` replays the merged golden
+  identically (`docs/SPEC-P2.md` §P2 gate corpora carries the finding).
+- The split's only products were failure attribution and a grep-able map of
+  which UserKeyTable cells are sampled; the tier-leak bug it once caught needed
+  a case ending MID-tier, which none of these did. Corpus 109 -> 102 traces,
+  same 263 events; tier-C 126 -> 120 tests; the android and win32 dialects
+  unaffected.
+- `tools/conformance-coverage.py` learned the unsplit spelling
+  (`<stem>.trace.in`, no `-caseNN`) that a one-case golden produces, still
+  falsifiable both ways.

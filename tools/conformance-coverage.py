@@ -63,6 +63,15 @@ def golden_case_count(golden: pathlib.Path) -> int:
 
 
 def traces(stem: str) -> list[pathlib.Path]:
+    """A family's traces: one per case, or ONE file when the golden is one case.
+
+    A single-case golden takes gen-conformance's unsplit path, which writes
+    `<stem>.trace.in` with no `-caseNN` (p2-2-2-tiers after the 2026-11-03
+    merge), so both spellings are legitimate.
+    """
+    single = CORPUS / f"{stem}.trace.in"
+    if single.is_file():
+        return [single]
     return sorted(CORPUS.glob(f"{stem}-case*.trace.in"))
 
 
@@ -89,7 +98,7 @@ def check() -> int:
                 problems.append(f"{f.name}: source {meta.get('source')!r} is not {golden_name}")
             if meta.get("layout") != layout:
                 problems.append(f"{f.name}: layout {meta.get('layout')!r} is not {layout!r}")
-            if meta.get("case_index") != i:
+            if want > 1 and meta.get("case_index") != i:
                 problems.append(f"{f.name}: case_index {meta.get('case_index')!r} is not {i}")
             # A `--emit`ed `.gold` without its `.in` counterpart (or the
             # reverse) is a half-written corpus that tier C would either skip

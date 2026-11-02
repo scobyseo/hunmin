@@ -150,6 +150,15 @@ Findings recorded while building them:
   `ㅁ+ㅈ→ᅕ`; the `ㅆ` second-cho key is unreachable (key `x` yields `ㅛ` in
   cho-only state). Excluded from corpora; opening items for the 388
   `unitmix-unresolved` old-cluster rows.
+- `p2-2-2-tiers` is ONE case since 2026-11-03, not eight: the UserKeyTable
+  pins (prefix `jk`/`jl`/`j;` × third key `1`/`!`/`B`, then the exit) were
+  replayed as eight independent cases, and each already ended with an empty
+  buffer, so the boundaries carried no isolation -- only the names. Merged, the
+  same 25 events are asserted, and a leaked tier state `T` is now caught
+  continuously rather than only at a case start. What the split did catch when
+  the goldens were first written (`hunmin_ic_reset` not zeroing `T`) needed a
+  case ending MID-tier, which none of these did; that property belongs to a
+  case that deliberately stops there, not to a family of short probes.
 ## IC input entry points (issue #90: the explicit-modifier append)
 
 The engine's composition input is the case-encoding `char` event
