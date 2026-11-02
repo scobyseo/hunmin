@@ -32,8 +32,24 @@ object HunminDataInstaller {
 
     private const val TAG = "HunminDataInstaller"
 
-    /** Subdirs libhunmin scans, in the order hm_data_load reads them. */
-    private val DATA_SUBDIRS = listOf("layouts", "compose", "hanja", "idioms")
+    /**
+     * Subdirs libhunmin scans, in the order hm_data_load reads them.
+     *
+     * `modes` belongs here and its absence was measured on the emulator
+     * (2026-11-03, issue #177): the APK packaged `assets/data/modes/en-US.json`
+     * from the asset sync, but this list did not name it, so the file was never
+     * extracted and `hunmin_ctx_autoswitch_data_present()` answered "absent" on
+     * every device. The settings screen then showed 사용할 수 없음 with the switch
+     * disabled and the feature could not be enabled by any surface — a gate that
+     * reads as B3 working while the data sat in the APK unused.
+     *
+     * `krdict` is absent on purpose and must stay absent: build.gradle.kts
+     * excludes it from the asset sync (size, and its CC-BY-SA terms are kept in
+     * their own directory), so naming it here would make `complete()` fail
+     * forever and re-extract the tables on every process start.
+     */
+    internal val DATA_SUBDIRS =
+        listOf("layouts", "compose", "hanja", "idioms", "modes")
 
     /**
      * Where the tables live inside the APK.
