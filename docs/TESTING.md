@@ -547,14 +547,22 @@ Windows emitter (`frontends/tsf/test/trace-emit.cpp`, tier F1) already replays
 the win32 dialect through the mock; it must run once per delivery mode, and
 the expectations must not be duplicated per frontend.
 
-The Android corpus **skips** (rc 77), but not because the Android frontend is missing —
-`frontends/android/` exists and is exercised by tiers E0–E2. The gap is narrower and is
-specific: `tests/conformance/android/` holds one `.trace.in` and **no `.gold`**, and no
-Android `trace-emit` runner is built, so there is nothing for `trace-check.py` to diff.
-Generating the goldens needs the runner, and the runner is the missing piece. **With P6
-skipped, fcitx5 and Android remain the only two frontends and the shared corpus is what
-shows they agree** — and that proof is still missing on the Android side, which is why
-PLAN.md gates P5 on this tier.
+The Android corpus **runs** (corrected 2026-11-03; the paragraph here said it had "one
+`.trace.in` and no `.gold`", which the tree stopped matching). `tests/conformance/android/`
+holds 15 `.trace.in` and 15 `.trace.gold`, generated from one tier-A golden
+(`p2-2-1-basic.jsonl`, layout `sin3-p2-basic`), and `tools/android-trace-emit.sh` is the
+runner: it replays each trace through the Android adapter on the host JVM via the JNI shim
+(no emulator, one cached classpath, `java` per trace), emitting the observed trace for
+`trace-check.py` to diff. All 15 register as `engine-android-conformance-*` and pass here;
+where there is no JDK, shim or SDK the runner exits 77 and the tests skip, which is what
+the earlier note was reading.
+
+**The coverage is one family of nine, and that is the remaining gap.** Android replays
+`p2-2-1-basic` only — not `p2-2-2-tiers`, `p2-2-3-chosung`, `p2-2-4-1-yetrules`,
+`p2-2-4-2-eung`, `p2-3-swapped`, `manual-sin3-p2`, `manual-sin3-p2-yet`, nor the
+`dkssud-combo` alias run — while the x11 corpus replays all nine and the win32 corpus
+eight. So "fcitx5 and Android agree" is measured for basic syllable composition and not
+for the rest of the shared corpus, which is the shape PLAN.md gates P5 on.
 
 ## Tier D — Desktop integration: real fcitx5 🤖 (Linux CI)
 
