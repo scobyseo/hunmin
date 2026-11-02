@@ -801,14 +801,11 @@ records the current factual relationships (not a measurement):
 
 ## R14. Turning it off leaves no trace [D]
 
-> 자동변환 기능을 껐을 때는 입력가능하겠지만, 입력 불가가 0%인 것이
-> 이상적이다. 아직은 기능 결함으로 판단하지 않을 생각이며, 입력 불가
-> 단어는 실제 사용될 확률이 매우 작아야 함.
-
 **With the switch off, the input method must deliver what it delivered before
 the feature existed.** A person who never turns it on must not be able to tell
-that it shipped. (§4 quotes the words this item comes from; its other half is
-the ON-side rate, which is ③ in `docs/MODES-METRICS.md` §1.3, not this item.)
+that it shipped. This is the off-side half of the statement §4 quotes; that
+statement's on-side half is a quality goal with no pass line (③,
+`docs/MODES-METRICS.md` §1.3), not a functional requirement.
 
 - **"The previous behaviour" is a recorded thing, not a memory.** The oracle is
   the tier-A corpus in `tests/golden/`, recorded before the judgement existed
@@ -822,6 +819,11 @@ the ON-side rate, which is ③ in `docs/MODES-METRICS.md` §1.3, not this item.)
 - **It covers the Latin layouts too**, by the same equality: the corpus carries
   `dvorak`, `colemak` and `romaja`, and what they deliver is compared the same
   way. OFF + English mode's per-character delivery is R5's rule, not this one's.
+- **The identity is proved on a finite corpus, and that is stated rather than
+  implied.** The check answers for the sequences the shipped layouts carry —
+  which is what makes off a real fallback for them — and for no other string a
+  person might type. Nothing in the tree enumerates those, and ③ is where the
+  remaining gap would be measured.
 
 *Verified by:* ctest `engine-off-identity` (`tools/off-identity-check.py` over
 `hunmin-sim --off-check`) — the tier-A goldens and the tier-C x11 inputs are
@@ -1164,33 +1166,50 @@ delimiters.
 
 ---
 
-# 4. What this feature must not produce [D]
+# 4. What this feature must not produce
 
-**The basis of §4 is the user's original words** ("어떤 단어나 어떤 표현을 아예
-입력할 수 없다는 건 불량이다"):
+**Status: a quality requirement, not a functional one, and not evaluable as
+stated.** The maintainer, 2026-11-02: "이 문장 자체는 기능 요구사항이 아니야.
+품질 요구사항에 가까운데, 평가 가능한 요구사항도 아니야. 이 상태로 요구사항으로
+만들어 봤자 용도가 없어." So this section has **no pass line and no acceptance
+test of its own.** The two halves that can be handled mechanically live
+elsewhere: the off-side is §R14 (ctest `engine-off-identity`), and the on-side
+rate is ③ (`docs/MODES-METRICS.md` §1.3, status there NOT MEASURED).
 
-> 자동변환 기능을 껐을 때는 입력가능하겠지만, 입력 불가가 0%인 것이
-> 이상적이다. 아직은 기능 결함으로 판단하지 않을 생각이며, 입력 불가
-> 단어는 실제 사용될 확률이 매우 작아야 함.
+**The statement** (maintainer, 2026-11-02, verbatim):
 
-That is:
+> 자동변환 기능을 끄면, 한글 모드의 입력은 모두 한글로, 영문 모드의 입력은 모두
+> 영문자로 입력되기 때문에 입력할 수 없는 문자열이 없다. 자동변환 기능을 켜면,
+> 한글 모드라도 영어로 판단되는 문자열을 입력할 수 없을 수 있으며, 영문
+> 모드에서 일부 영어 표현을 입력할 수 없을 수 있다.
+>
+> 이상적으로는 어느 모드에서든 사용자가 의도적으로 해당 모드의 문자열을 모두
+> 입력할 수 있어야 하지만, 그럴 수 없는 경우에는 자동변환 기능을 꺼서라도
+> 입력할 수 있어야 한다.
 
-- **When it is off it must return to 100% of the previous behaviour.** This is an
-  invariant. It is verifiable and must be verified. **§R14** is that item, and
-  ctest `engine-off-identity` is what checks it.
-- **When it is on, the feature must not create input that cannot be typed at
-  all.** The rate is ③ *unrepresentability*, defined in
-  `docs/MODES-METRICS.md` §1.3 — how many corpus sentences a layout can produce
-  at all, and how many of those the rules pass through unchanged — and it keeps
-  the two strengths the sentence above states separately: the rate **must be
-  low**, and the ideal is **0%**.
-  - **Its pass line is E4's and does not exist yet**, so what this item obliges
-    today is exactly one thing: that ③ **be measured** (its status in
-    `docs/MODES-METRICS.md` §1.3 is NOT MEASURED), and it is **not judged a
-    defect** until a line is set.
-  - **"Untypable" means no text at all, in any mode.** Producing the wrong
-    language and letting a person fix it is R11's accepted cost and is counted
-    in R12's keystrokes; that is a misjudgement, not this item's failure.
+What it claims, and where each claim lands:
+
+- **Off: each mode emits its own alphabet, so the switch cannot make anything
+  untypable.** The checkable form of that sentence is identity with the
+  pre-feature build — **§R14**.
+- **On, Hangul mode: a string the judgement reads as English can become
+  unenterable** ("없을 수 있으며" — a possibility per word, gated by R8's
+  formula and R9's guard, not a rule about every word).
+- **On, English mode: some English expressions can become unenterable** — the
+  same in the symmetric direction (E1).
+- **Both are accepted, and the remedy is the switch itself**: "자동변환 기능을
+  꺼서라도 입력할 수 있어야 한다." That is why §R14 is an invariant rather than a
+  metric — off is the fallback that makes on's gaps tolerable. The ideal, every
+  mode producing all of its own strings, is a target with no line (③), and none
+  of this is judged a defect yet.
+
+**Two readings the wording leaves open, recorded and not decided:** "입력" is the
+letters, not every key (a Hangul layout's digit and symbol keys resolve to
+literals — measured on `sin3-p2`); and "입력할 수 없는 문자열이 없다" is a claim
+about (switch off + layout), because a layout's own gaps predate this feature
+(③'s note: unrepresentability is first a property of the layout, not of the
+guesser). The wider analysis, and what this section leaves open, is
+`wiki/decisions/2026-11-02-spec-modes-4-splits-into-an-invariant-and-a-metric.md`.
 
 ---
 

@@ -33,11 +33,11 @@ confidence: high
   policy a frontend is set to. A frontend's presentation is an allowed
   difference (`docs/FRONTEND-EQUIVALENCE.md` §3) and is named as uncovered in
   R14's own text rather than left to the reader.
-- **§4's ON half is not a second requirement; it is ③ *unrepresentability*.**
-  The metric, its definition and its two strengths ("must be low", ideal 0%)
-  live in `docs/MODES-METRICS.md` §1.3; its pass line is E4's and does not
-  exist. So the ON half obliges exactly one thing today — that ③ be measured —
-  and numbering it again would be a third home for one fact.
+- **§4's ON half is not a functional requirement at all** (refined the same day,
+  below): the statement is a *quality* requirement with no pass line. Its
+  measurand is ③ *unrepresentability* (`docs/MODES-METRICS.md` §1.3), whose
+  pass line would be E4's and does not exist. So the only obligation standing
+  today is that ③ be measured.
 - **§4's "(E4)" pointer was half right and is now split.** E4 owns the *pass
   line*; ③ owns the *definition*. The old bullet named only the first, which is
   why "untypable input" read as an undefined term.
@@ -59,9 +59,12 @@ general case is unruled.
 
 ## What it does NOT settle
 
-- **Whether the ON half should also be numbered** (an R15 beside R14). Cost of
-  doing it: a third home for ③, beside `docs/MODES-METRICS.md` §1.3 and E4's
-  pass line.
+- **Whether the SPEC is the right home for a statement that is not evaluable.**
+  Keeping it in §4 costs a section that cannot have a test; moving the prose to
+  a design document and leaving §4 as a pointer costs the reader one hop.
+- **The marker vocabulary.** §4 now carries no `[D]`/`[E]` (it is neither), and
+  the document defines only those two. A third marker (`[Q]`) is a format
+  decision, not taken here.
 - **Whether ③'s measurement corpus exists.** It does not: ③ is NOT MEASURED,
   and no tool in the tree computes it (the 2026-11-02 search found the word
   "untypable" only inside `docs/SPEC-MODES.md`).
@@ -86,3 +89,47 @@ suite is green". The decision itself stays where it belongs: see
 The state R14 constrains on its OFF side is
 [[2026-10-12-auto-toggle-disabled-by-default-in-0-1]]'s default: OFF is the
 identity path, and the check fails when the option stops being the only guard.
+
+## Refined the same day: the statement is a quality requirement, not an evaluable one
+
+The maintainer, after reading the rewrite:
+
+> "+> 자동변환 기능을 껐을 때는 입력가능하겠지만, 입력 불가가 0%인 것이
+> > 이상적이다. 아직은 기능 결함으로 판단하지 않을 생각이며, 입력 불가
+> > 단어는 실제 사용될 확률이 매우 작아야 함.
+>
+> 이 문장을 다시 써줄게.
+>
+> 자동변환 기능을 끄면, 한글 모드의 입력은 모두 한글로, 영문 모드의 입력은 모두
+> 영문자로 입력되기 때문에 입력할 수 없는 문자열이 없다. 자동변환 기능을 켜면,
+> 한글 모드라도 영어로 판단되는 문자열을 입력할 수 없을 수 있으며, 영문 모드에서
+> 일부 영어 표현을 입력할 수 없을 수 있다.
+> 이상적으로는 어느 모드에서든 사용자가 의도적으로 해당 모드의 문자열을 모두
+> 입력할 수 있어야 하지만, 그럴 수 없는 경우에는 자동변환 기능을 꺼서라도
+> 입력할 수 있어야 한다.
+>
+> 이게 내가 의도한 것인데, 다시 써준 이 표현도 모호한 부분이 있을 수 있어.
+> 이 문장 자체는 기능 요구사항이 아니야. 품질 요구사항에 가까운데, 평가 가능한
+> 요구사항도 아니야. 이 상태로 요구사항으로 만들어 봤자 용도가 없어."
+
+Three consequences, all applied:
+
+1. **The wording is replaced, not annotated.** §4 carries his 2026-11-02 statement
+   verbatim; the 2026-10-04 sentence it replaces stays only in this record. The
+   duplicated copy of the old quote in §R14 is gone — R14 points at §4 for the
+   basis instead, so a third reword cannot drift in two places.
+2. **§4 is a quality statement and says so in its own first line**: no `[D]`/`[E]`
+   marker, no pass line, no acceptance test. That is a genre correction to this
+   page's earlier reading, which had invented a prohibition ("no word may become
+   impossible to type") and given it ③'s rate — the new statement says the
+   intended *reading* can be stolen and that this is accepted, with the switch as
+   the remedy. The prohibition was stronger than the words.
+3. **R14 stays the only requirement**, and it now carries the finite-sample
+   sentence: the corpus proves identity for the sequences the shipped layouts
+   carry, which is what makes OFF a real fallback for them, and for nothing else.
+
+Two readings the new wording still leaves open, recorded in §4 itself rather than
+resolved: "입력" is the letters and not every key (a Hangul layout's digit and
+symbol keys resolve to literals), and "입력할 수 없는 문자열이 없다" is a claim
+about (switch off + layout) — a layout's own gaps predate this feature, which ③'s
+own note says.
