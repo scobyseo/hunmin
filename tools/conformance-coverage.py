@@ -50,9 +50,10 @@ FAMILIES: list[dict] = [
     {"golden": "p2-3-swapped.jsonl", "layout": "sin3-p2", "stem": "p2-3-swapped"},
     {"golden": "manual-sin3-p2.jsonl", "layout": "sin3-p2", "stem": "manual-sin3-p2"},
     {"golden": "manual-sin3-p2-yet.jsonl", "layout": "sin3-p2-yet", "stem": "manual-sin3-p2-yet"},
-    # 세벌식 최종, all ten designed cases, under the word-buffered model: the
-    # layout's identity is its key arrangement (three-key assembly, the number
-    # row as jongseong, 겹받침 on shifted keys), which no p2/manual golden states.
+    # 세벌식 최종, all ten designed cases merged into ONE case (2026-11-03, the
+    # one-file-per-family policy), under the word-buffered model: the layout's
+    # identity is its key arrangement (three-key assembly, the number row as
+    # jongseong, 겹받침 on shifted keys), which no p2/manual golden states.
     # #220 took two of these for its boundary assertion; the rest had no tier-C
     # trace at all until 2026-11-03.
     {"golden": "case-sebeolsik-final.jsonl", "layout": "sebeolsik-final",

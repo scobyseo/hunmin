@@ -409,7 +409,9 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   case goes missing again. Then 109 -> 102 by merging `p2-2-2-tiers`' eight
   short probes into one case, and 102 -> 10 by merging every other family behind a
   space boundary: 355 events, and the boundaries being DECLINED keys took x11's
-  pass-through coverage from 0 to 92.
+  pass-through coverage from 0 to 92. The ten 세벌식 최종 probes then entered as
+  ONE file too (11 traces, 417 events, 109 passed), because the policy is one
+  trace per family and the merge already knew how to keep the nine boundaries.
 - [[2026-11-01-modes-ownership-retires-the-detector]] - the #164 session: §MRO's
   pricing, the ruling implemented on all three frontends (engine judges, frontend
   switches), `language_detect.*` retired with six `REQ-MAP` rows re-pointed, and

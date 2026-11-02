@@ -109,6 +109,26 @@ merge cannot press a key the corpus never pressed. Corpus: 102 traces → 10,
 
 ## What it left
 
+## 세벌식 최종's ten probes are one file, because the policy says so
+
+The family that had no trace at all entered the corpus on 2026-11-03 as ten
+per-case files (`case-sebeolsik-final-case01..10`), which contradicted the
+one-trace-per-family policy established the same afternoon. Moved to the policy
+rather than exempted from it: `tools/merge-golden-cases.py` on that golden
+reports 10 cases -> 1 merged case with `hunmin-sim --check` replaying it
+identically, and the nine interior boundaries it inserts are declined spaces —
+the same key that made the earlier merges buy pass-through coverage.
+
+Measured, not assumed: the merged trace's 62 events are the old ten traces' 53
+events plus those 9 spaces, and its `meta.delivery.total` is byte-identical to
+the concatenation of the ten per-case totals. Corpus 20 traces -> 11, 408
+events -> 417, `passed` 100 -> 109; key coverage stays 22/47, which is the same
+statement the earlier merge made — a merge cannot press a key nobody pressed.
+What it costs is the label: a red test names an event index rather than
+`case01`. See [[2026-11-01-the-engine-judges-the-frontend-switches]] for the
+delivery model the `total` asserts and [[2026-10-31-milestone-f-win32-conformance-corpus]]
+for the dialect that carries those cases all along.
+
 ## What the eight cases were for
 
 Asked before merging, because the labels looked like they might be load-bearing.

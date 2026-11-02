@@ -471,7 +471,7 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**20 traces, 408 events**, registered as ctest
+**11 traces, 417 events**, registered as ctest
 `conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
 that every tier-A case of every family the corpus replays has a trace and that every
 trace belongs to a recorded family (`tools/conformance-coverage.py`).
@@ -486,17 +486,21 @@ its own expectation is mechanical rather than engine-read (the syllable in preed
 committed, the buffer empties). `tools/merge-golden-cases.py` applies that, one merged
 case per distinct engine-option set, and refuses to write unless `hunmin-sim --check`
 replays the result identically — which it does for every golden in the corpus. The corpus
-went 102 traces to 20, 263 events to 408: 10 merged family traces plus all ten of
+went 102 traces to 11, 263 events to 417: one merged trace per family, plus all ten of
 세벌식 최종's designed cases under the word-buffered model (issue #220 took two of them
 for its boundary assertion; the other eight had no tier-C trace at all, which is why that
 layout's identity — three-key assembly, the number row as jongseong, 겹받침 on shifted
-keys — was asserted only at tier A).
+keys — was asserted only at tier A). Those ten were then merged into ONE file on
+2026-11-03, the same day they arrived, because the policy is one trace per family: the
+nine interior boundaries are the merge's declined spaces, not labels, so the merge kept
+them rather than erasing them.
 `p2-2-2-tiers` was merged the same day without a boundary because its cases already ended
-with an empty buffer; `manual-sin3-p2-yet` keeps two cases because one of its cases runs
-with `caps` on and one engine state cannot be two. Two more traces came from issue #220
-(`case-sebeolsik-final-case01/02`), which take TWO of that golden's ten designed cases and
-declare the shipped word-buffered model via `meta.delivery` — the other answer to the same
-question, and `tools/conformance-coverage.py` records both the subset and the flag.
+with an empty buffer; `manual-sin3-p2-yet` is the corpus's one exception and keeps two
+cases, because one of its cases runs with `caps` on and one engine state cannot be two.
+The `sebeolsik-final` family trace declares the shipped word-buffered model via
+`meta.delivery` (its `total` is the concatenation of the ten cases' text), which is the
+other answer to the same question and the reason that family's `.in` differs from its
+`.gold` below.
 
 **A `.in` and its `.gold` legitimately differ on a `delivery` trace.** Those traces keep
 tier A's per-key commit and state the cumulative total instead
@@ -531,10 +535,10 @@ adapter to **per-syllable** delivery so tier A applies verbatim. `docs/trace-spe
 
 **A boundary is now crossed (2026-11-03, issue #220).** Until then no x11 trace
 contained a boundary key, so the frontend lane asserted composing text only: an adapter
-that dropped or duplicated the commit at a word end kept tier C green. The two
-`case-sebeolsik-final` traces (`word-annyeong` and the 겹받침 case `gyeopbatchim-gap`) end on
-a space, so their `.gold` carries a non-empty `commit` — the whole eojeol the client
-receives. They also reintroduce the multi-syllable model the 2026-10-25 reduction had to
+that dropped or duplicated the commit at a word end kept tier C green. The
+`case-sebeolsik-final` trace ends each of its ten designed cases on a space, so its `.gold`
+carries a non-empty `commit` — the whole eojeol the client receives. It also reintroduces
+the multi-syllable model the 2026-10-25 reduction had to
 drop, as data rather than as a drop: `tools/gen-conformance.py --delivery word-buffered`
 writes `meta.delivery = {"model": "word-buffered", "total": <text>}` and
 `tools/trace-check.py` compares three things a per-key model cannot (the cumulative text
@@ -608,14 +612,14 @@ Measured 2026-11-03 (`tier-c-wiring-coverage.py`, this host):
 
 | dialect | events | consumed | passed | sin3-p2 keys pressed |
 |---|---|---|---|---|
-| x11 | 408 | 308 | 100 | 24/47, 14/47, 19/47 (p2, basic, yet) + 22/47 (sebeolsik-final) |
+| x11 | 417 | 308 | 109 | 24/47, 14/47, 19/47 (p2, basic, yet) + 22/47 (sebeolsik-final) |
 | win32 | 688 | 490 | 198 | 27/47, 13/47, 17/47 |
 | android | 48 | 31 | 17 | 14/47 |
 
 Three gaps that follow, none of them a defect in a frontend:
 
-1. **x11 declines exactly one kind of key: space.** All 100 of its passed events are the
-   case-boundary spaces the merge and issue #220's two traces introduced, so "the adapter declines and the client
+1. **x11 declines exactly one kind of key: space.** All 109 of its passed events are the
+   case-boundary spaces the merge and the 세벌식 최종 family trace introduced, so "the adapter declines and the client
    receives it" is observed for a whitespace boundary and for nothing else — an arrow, a
    BackSpace on an empty buffer and an unmapped character are still unobserved on the one
    frontend tier C was built for. android has 4 such events (Shift+arrow selection), win32

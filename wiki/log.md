@@ -1047,3 +1047,24 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   board's `TRACE-X11-PARITY-187` row re-points at the merged file and
   `TIER-C-WIRING-DECLINE` narrows to arrows / BackSpace-on-empty / unmapped
   characters.
+
+## [2026-11-03] update | 세벌식 최종's ten cases become one file
+
+- a1ba784 added ten per-case traces for 세벌식 최종 — the family the corpus had
+  no trace for at all — against the policy the previous entry established. The
+  policy is one trace per family, so they were merged the same day:
+  `tools/merge-golden-cases.py tests/golden/case-sebeolsik-final.jsonl --write`
+  reports 10 cases -> 1 with `hunmin-sim --check` replaying it identically, and
+  the nine interior boundaries are the merge's declined spaces.
+- Verified rather than assumed: the merged trace's 62 events are the ten old
+  traces' 53 events plus 9 boundaries, and its `meta.delivery.total` is byte-
+  identical to the concatenation of the ten old per-case totals
+  (`안녕한글값많ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋㄲㄺㅈㄿㄾ1230ᄀᅠᆫ가.4"~`). Corpus 20 traces ->
+  11, events 408 -> 417, `passed` 100 -> 109 (all boundary spaces); key
+  coverage unchanged at 22/47, as it must be.
+- Cost, stated: a red tier-C test now names an event index instead of
+  `case01`/`case02`. The per-case labels carried the expected text the event
+  already carries.
+- `docs/TESTING.md`, `docs/REQ-MAP.md` (R14's `verified by` id) and the board's
+  `TRACE-X11-BOUNDARY-220` / `TIER-C-WIRING-DECLINE` rows re-point at the one
+  file; `req-map`, `docs-lint` and `wiki-lint` all green.
