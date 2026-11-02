@@ -38,6 +38,34 @@ remaining lines are events.
 | `source` | optional provenance: which `tests/golden/*.jsonl` case this replays. |
 | `excluded` | optional provenance: the source golden's cases this platform cannot encode, e.g. `[{"case": "k/", "state": ["caps"]}]`. A trace carrying it covers every case of that golden **except** these; the omission lives in the artefact rather than in a terminal. `tools/gen-conformance.py` writes it (win32 refuses caps cases — see `in` below). |
 | `delivery` | optional: `{"model": "word-buffered", "total": "<text>"}` when the frontend buffers a whole eojeol and delivers it at a boundary, so tier A's per-key `commit` is not what the client receives. `total` is the cumulative text the case produces, computed from the golden by `tools/gen-conformance.py --delivery`. The runner rejects a model it does not know — see "Word-buffered adapters". |
+| `commit_mode` | optional: `word` \| `syllable`, the delivery **policy** the adapter must run under for tier A's per-event expectations to be observable at the points they were recorded. Absent means the addon's own default (`word`). |
+
+**`delivery` and `commit_mode` answer the same question from two sides, and a trace
+carries at most one.** Tier A records commit and preedit **per event**, which is the
+per-syllable delivery point: the engine finalises a syllable on a keypress it also
+consumed, and the golden records that commit on that line. A word-buffered adapter holds
+the same text until a declined key or teardown. Two honest answers follow:
+
+- **name the model** (`delivery: word-buffered`): keep tier A's `.in` as the engine's
+  answer, and state in the artefact what the client receives in total, so the runner's
+  own sum can be compared against it (issue #220). This asserts the **shipped default
+  policy**.
+- **switch the policy** (`commit_mode: syllable`): run the adapter in per-syllable mode,
+  where tier A's expectations hold verbatim, event by event (issue #187). This asserts
+  the **per-syllable mode**, which is the other policy a user can select
+  (`hunmin_buffered_preedit`, `docs/FRONTEND-EQUIVALENCE.md` §5.1).
+
+`tools/gen-conformance.py` writes `commit_mode` only for cases whose golden commits on a
+key it also consumed — it asks the golden, not the adapter — and never together with
+`--delivery`, because one trace naming both would assert two different things about one
+run. Dropping such a case instead of choosing one of these answers is the drift issue
+#187 measured: the x11 corpus silently replayed 22 fewer cases than its goldens after the
+2026-10-25 word-buffering reduction.
+
+A batch trace (one file, many cases) cannot carry a per-case policy or model; its runner
+is expected to measure committed text cumulatively instead of asserting delivery points
+(`frontends/tsf/test/trace-emit.cpp` does), and `--batch` refuses `--delivery` for that
+reason.
 
 `meta` is required and must be the first line. A runner must reject a trace whose `meta`
 is absent or malformed — a trace without provenance is not a test.

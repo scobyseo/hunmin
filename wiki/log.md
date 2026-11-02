@@ -975,3 +975,25 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `LayerTest.TurningTheSwitchOffMidWordLosesNothing`. The page carries the four
   messages in order.
 
+## [2026-11-03] create | the x11 corpus replays every tier-A case (issue #187)
+
+- Created `raw/sessions/2026-11-03-x11-corpus-replays-every-tier-a-case.md` and
+  added it to `index.md`: the issue's premise (corpus generated before the
+  goldens gained cases) measured wrong — `git log` shows one commit per golden
+  since the import, and commit c773fdd had dropped 22 traces deliberately for
+  word buffering (#74), the same set win32 then replayed.
+- The fix is a field, not a re-emit: `tools/gen-conformance.py` derives
+  `commit_mode: syllable` from the golden (a commit on a consumed key) and
+  `frontends/fcitx5/test/trace-emit.cpp` runs under that policy, so the 22
+  traces match tier A verbatim — 87 -> 109 traces, 263 events, `.in` identical
+  to `.gold` on all of them, the 87 previously committed traces regenerating
+  byte-identically.
+- Added `tools/conformance-coverage.py` and ctest `conformance-coverage`
+  (`tier-C;guard`): every tier-A case of every family the corpus claims has a
+  trace, every trace belongs to a recorded family, and `--regen` reproduces
+  the corpus from goldens. Verified falsifiable by deleting a trace and by
+  planting a stray one.
+- Recorded, not resolved: `engine-d1-judgement` is red at this commit on this
+  host (the R9 control case delivers `ㅏ됴` where the corpus expects `key`,
+  judgement data present), and the `slow` tier measures 94 s against its 60 s
+  budget with `engine-d3-edit` at 95 s alone.

@@ -454,14 +454,30 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**89 traces, 212 events**, registered as ctest
-`conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`). The corpus was reduced 2026-10-25 for
-word buffering (#74): the 31 multi-syllable cases whose per-syllable expectations the
-buffered adapter cannot reproduce, and the nine `ref-*` corpora (libhangul parity,
-401 events each), were dropped rather than re-emitted. libhangul parity is asserted at
-tier A (engine boundary) only until the `ref-*` traces are regenerated against the
-buffered adapter. Every remaining trace was re-checked against its tier A case: zero
-divergence.
+**109 traces, 263 events**, registered as ctest
+`conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
+that every tier-A case of every family the corpus replays has a trace and that every
+trace belongs to a recorded family (`tools/conformance-coverage.py`).
+
+The corpus was reduced 2026-10-25 for word buffering (#74): 22 per-case traces whose
+per-syllable expectations the word-buffered adapter cannot reproduce, and the nine
+`ref-*` corpora (libhangul parity, 401 events each), were dropped rather than
+re-emitted — 118 files to 87. The 22 came back on 2026-11-03 (issue #187), not by
+re-emitting them under the buffered policy but by saying which policy each case needs:
+tier A records commit **per event**, so a case whose golden commits mid-stream is
+observable only under `HUNMIN_COMMIT_PER_SYLLABLE`, and the generator now derives that
+from the golden and writes `commit_mode` into the trace's meta (`docs/trace-spec.md`
+"meta"). 109 traces, zero `.in`/`.gold` divergence, and the eight tier-A families plus
+`p2-2-2-tiers` are now replayed case-for-case — the win32 corpus, which measures
+committed text cumulatively and so never needed the field, covers 106 of the same
+cases across eight families. libhangul parity is still asserted at tier A (engine
+boundary) only, until the `ref-*` traces are regenerated against the buffered adapter.
+
+The trace format now answers the delivery question two ways, and a trace carries at most
+one: `meta.delivery` (issue #220) names the **shipped** word-buffered model and compares
+cumulative delivered text, while `meta.commit_mode` (issue #187, below) switches the
+adapter to **per-syllable** delivery so tier A applies verbatim. `docs/trace-spec.md`
+"`meta`" carries the rule; `tools/gen-conformance.py` writes one or the other.
 
 **A boundary is now crossed (2026-11-03, issue #220).** Until then no x11 trace
 contained a boundary key, so the frontend lane asserted composing text only: an adapter
@@ -514,7 +530,7 @@ that forces the F9 *flow* into the adapter everywhere, but it is not a keycode f
 CapsLock and modifiers are now covered deliberately rather than incidentally.
 
 Between them the tiers leave no gap: the fixture proves every key has a correct native
-encoding, and the 87 traces prove the adapter applies it.
+encoding, and the 109 traces prove the adapter applies it.
 
 **Equivalence extension (2026-10-24, requirement).** The rule in
 `docs/FRONTEND-EQUIVALENCE.md` makes this tier the cross-frontend authority:

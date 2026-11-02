@@ -401,6 +401,12 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   reference last, so the language-bar `RemoveItem` is reached; the two cases
   that encoded the defects flipped, with the pre-fix tree measured red
   against them.
+- [[2026-11-03-x11-corpus-replays-every-tier-a-case]] - issue #187: the 22 per-case
+  traces the word-buffering reduction dropped come back under the policy each one
+  needs (`meta.commit_mode`), 87 -> 109 traces with every `.in` identical to its
+  `.gold`; the issue's "stale generation" premise measured wrong — c773fdd had
+  dropped them deliberately — and ctest `conformance-coverage` now fails when a
+  case goes missing again.
 - [[2026-11-01-modes-ownership-retires-the-detector]] - the #164 session: §MRO's
   pricing, the ruling implemented on all three frontends (engine judges, frontend
   switches), `language_detect.*` retired with six `REQ-MAP` rows re-pointed, and
