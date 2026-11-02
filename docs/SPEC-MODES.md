@@ -789,10 +789,14 @@ conversation:
 **The undecided parts were moved to E5** (assignment, default value). Below only
 records the current factual relationships (not a measurement):
 
-- **Android has no settings screen yet.** There is no `android:settingsActivity`
-  in `AndroidManifest.xml`. There is only the input view (layout picker + mic).
-  That is, surface B is **new construction** and there is no existing reusable
-  resource.
+- **Android's settings screen exists since 2026-11-03 (issue #177).**
+  `res/xml/method.xml` names `org.hunmin.ime.SettingsActivity` in
+  `android:settingsActivity`, which is the standard path the system IME settings
+  list opens. The screen reads the same state as `OverlayActivity`'s row — the
+  value through `hunmin_buffered_preedit_get_option`, the key through
+  `hunmin_buffered_preedit_special_chord`, and B3's answer through
+  `hunmin_ctx_autoswitch_data_present` — and builds a layer from the same data
+  when no IME layer is live. The input view (layout picker + mic) remains.
 - **Android has no soft keyboard yet either** (AGENTS.md P5). Surface B is an
   IME settings screen, which is unrelated to the soft keyboard, so **it can be
   implemented ahead.** The only thing that cannot be verified end-to-end is

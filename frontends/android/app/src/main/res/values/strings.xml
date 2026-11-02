@@ -21,4 +21,19 @@
     <string name="hanja_content_description">한자 입력</string>
     <string name="settings_content_description">설정</string>
     <string name="mode_switch_content_description">한/영 전환</string>
+
+    <!-- The system IME settings screen (SettingsActivity). The engine owns the
+         value the screen shows; these strings only present it. -->
+    <string name="settings_title">hunmin 설정</string>
+    <string name="autoswitch_title">자동 한/영 전환</string>
+    <string name="autoswitch_description">자동 한/영 전환 켜기 또는 끄기</string>
+    <string name="autoswitch_on">켜짐</string>
+    <string name="autoswitch_off">꺼짐</string>
+    <string name="autoswitch_unknown">알 수 없음</string>
+    <string name="autoswitch_unavailable">사용할 수 없음</string>
+    <string name="autoswitch_missing_data">자동 전환 사전 없음</string>
+    <string name="autoswitch_key">키 조합: %1$s</string>
+    <string name="autoswitch_key_hint">물리 키보드에서 %1$s 키를 눌러도 켜고 끌 수 있습니다.</string>
+    <string name="autoswitch_missing_hint">자동 전환 사전이 설치되어 있지 않아 켤 수 없습니다.</string>
+    <string name="autoswitch_no_engine">입력기 데이터를 읽을 수 없어 현재 값을 표시할 수 없습니다.</string>
 </resources>

@@ -100,7 +100,7 @@ class HunminInputMethodService : InputMethodService() {
         /** Where the trace is written, inside filesDir so `run-as` can read it. */
         const val TRACE_FILE = "e3.trace"
 
-        private const val PREFS = "hunmin"
+        private const val PREFS = HunminPrefs.FILE
         /**
          * The pre-two-mode key. Read once for migration and never written
          * again: a device that stored `layout = sin3-p2-yet` under the old
@@ -118,7 +118,7 @@ class HunminInputMethodService : InputMethodService() {
          * ic starts OFF, so this is what carries the choice to the next one.
          * Only the read-back is written here, never the request.
          */
-        private const val KEY_AUTOSWITCH = "autoswitch"
+        private const val KEY_AUTOSWITCH = HunminPrefs.AUTOSWITCH
     }
 
     /** One engine per InputConnection; rebuilt on every onStartInput. */

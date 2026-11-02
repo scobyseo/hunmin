@@ -169,4 +169,20 @@
         parent="Widget.Hunmin.Button.Dialog" />
     <style name="Widget.Hunmin.Button.Dialog.Neutral"
         parent="Widget.Hunmin.Button.Dialog" />
+
+    <!--
+      The system IME settings screen (SettingsActivity).
+
+      NOT Theme.HunminOverlay: that one is translucent and exists to host a
+      dialog over whatever the user was editing. This is a normal activity the
+      platform's Settings app opens, so it gets a real window and the HUD panel
+      as its background. Colours still come from the shared tokens, and the
+      switches resolve colorAccent, so day and night both follow the same pair
+      as the in-keyboard rows.
+    -->
+    <style name="Theme.HunminSettings" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/hunmin_hud_panel</item>
+        <item name="colorAccent">@color/hunmin_hud_accent</item>
+        <item name="colorControlActivated">@color/hunmin_hud_accent</item>
+    </style>
 </resources>
