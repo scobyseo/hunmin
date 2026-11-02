@@ -392,6 +392,23 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   precomposed form, and a symbol as the boundary. It uses the ordinary
   `hunmin-sim --check` schema; regen:
   `python3 tools/gen-case-golden.py --sim build/hunmin-sim`.
+- **Case boundaries are state, so merging is not free.** Tier A replays each
+  `{"meta": {"case": ...}}` case from a clean engine, and the split is only a
+  label when the cases would also replay identically **as one stream**. Measure
+  that with `python3 tools/golden-case-merge-check.py` (it concatenates each
+  golden's cases, replays the result with `hunmin-sim --check`, and reports the
+  first divergence). Measured 2026-11-03: of the corpus's nine families only
+  `p2-2-2-tiers` qualified and was merged into one 25-event case; every other
+  family's cases end with a syllable in flight, and `p2-2-4-3-caps` /
+  `p2-2-6-flags*` carry different `caps`/flag options per case, which one case
+  cannot express at all. `patim-sin3-p2-basic` is the counter-example that
+  sharpens the rule: **none** of its 37 cases ends mid-composition, yet the
+  merged stream diverges (a repeated key doubles the consonant across a
+  boundary), so "the buffer is empty" is necessary and not sufficient — replay
+  the merged stream, never reason about the endings. The goldens that do merge
+  (`case-sebeolsik-final`, `ref-colemak`, `ref-dvorak`, `words-sin3-p2` today)
+  are outside the shared corpus and gain nothing: their labels are feature
+  names, and each is already a single ctest.
 - **Property fuzz** (`-fsanitize=fuzzer,address,undefined`, corpus = jamo key streams):
   invariants only — every committed string NFC-valid & re-decomposes to current-buffer
   jamo; `press` never leaks (LSan); state always resettable; preedit length bounded.
