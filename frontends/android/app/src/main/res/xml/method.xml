@@ -13,6 +13,14 @@
   the engine's own tables (hunmin_ctx_layout_count), not enumerated in the
   manifest, so adding a layout is a data change and needs no code or manifest
   edit.
+
+  `settingsActivity` is the standard InputMethodService path: the system IME
+  settings list reads it from this metadata and opens that Activity when the
+  user taps the IME's settings. It is R13-정정's surface B (issue #177); the
+  activity is declared exported because Settings, a different package, starts
+  it explicitly. The value it edits is the engine's, not a preference key of
+  its own.
 -->
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="org.hunmin.ime.SettingsActivity"
     android:supportsSwitchingToNextInputMethod="true" />
