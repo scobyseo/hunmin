@@ -83,6 +83,57 @@ def check_invariants(recs: list[dict], path: pathlib.Path) -> None:
             raise SystemExit(f"{path}: event {n} has no `consumed`")
 
 
+def project_word_buffered(declared: list[dict]) -> list[dict]:
+    """The expectation a WORD-BUFFERED frontend produces, from tier A's stream.
+
+    Tier A records the engine's answer per key: a syllable finalises on the key
+    that starts the next one, so `commit` appears mid-word. A word-buffering
+    adapter hands the client nothing until the eojeol ends, so no per-key commit
+    of tier A is what is delivered and the two models cannot be compared
+    verbatim (measured: fcitx5 shows the whole buffered word in `preedit`,
+    `안녕` progressing ㅇ → 아 → 안 → 안ㄴ → 안녀 → 안녕).
+
+    The two models do agree on the derived quantities, and those are what this
+    computes -- never what the answer "should" be, only what tier A's own
+    numbers imply under the adapter's documented policy:
+
+      * non-boundary event: nothing is delivered; the preedit is the word
+        accumulated so far, then the engine's in-flight buffer;
+      * boundary event (`consumed` false): the accumulated word is delivered
+        in one commit and the buffer starts empty.
+
+    What is NOT derivable is delivery at teardown (a case whose keys stop
+    mid-word): the runner flushes it with no event to report it, so it is
+    covered by the cumulative total instead of by a per-event expectation.
+    """
+    out = []
+    word = ""
+    for e in declared:
+        word += e["commit"] or ""
+        if e["consumed"]:
+            out.append({"in": e["in"], "commit": "", "preedit": word + (e["preedit"] or ""),
+                        "consumed": True})
+        else:
+            out.append({"in": e["in"], "commit": word, "preedit": e["preedit"] or "",
+                        "consumed": False})
+            word = ""
+    return out
+
+
+def cumulative_text(events: list[dict]) -> str:
+    """Everything the case puts in the client: every commit + the live preedit.
+
+    The preedit is included because it is delivered when the word is flushed
+    (on a boundary key or at teardown), so the document the client ends up with
+    is [commits][preedit]. On a trace that ends at a boundary the preedit is
+    empty and this is just the sum of the commits.
+    """
+    return "".join(e["commit"] or "" for e in events) + (events[-1]["preedit"] or "" if events else "")
+
+
+DELIVERY_MODELS = ("word-buffered",)
+
+
 def find_bash() -> str | None:
     """A POSIX shell to wrap .sh runners on Windows (shutil.which, then the
     usual Git-for-Windows install roots)."""
@@ -176,15 +227,65 @@ def main() -> int:
     # what makes the pair self-consistent; only then does adapter-vs-gold mean
     # anything. Found by mutating a preedit in the .in and watching it pass.
     declared = normalise(recs)
-    drift = [(n, d, g) for n, (d, g) in enumerate(zip(declared, want), 1) if d != g]
-    if drift or len(declared) != len(want):
-        for n, d, g in drift[:3]:
-            print(f"event {n}: .in says {d}\n         .gold says {g}", file=sys.stderr)
-        if len(declared) != len(want):
-            print(f"length: .in has {len(declared)}, .gold has {len(want)}", file=sys.stderr)
-        print(f"{a.trace}: .in and .gold disagree -- regenerate with --emit",
-              file=sys.stderr)
-        return 1
+
+    delivery = (recs[0].get("meta") or {}).get("delivery")
+    if delivery is not None:
+        # A word-buffered frontend is the one case where .in and .gold are not
+        # meant to be equal: tier A's commit is the engine finalising a syllable
+        # mid-word, and the client sees the whole eojeol at the boundary. So
+        # both sides are projected through the model and the *totals* are
+        # compared, which is the claim neither model can dodge (issue #220).
+        model = delivery.get("model") if isinstance(delivery, dict) else None
+        if model not in DELIVERY_MODELS:
+            raise SystemExit(
+                f"{a.trace}: meta.delivery.model {model!r} is not one of "
+                f"{list(DELIVERY_MODELS)}; refusing to guess what the runner does"
+            )
+        total = delivery.get("total")
+        if not isinstance(total, str) or not total:
+            raise SystemExit(
+                f"{a.trace}: meta.delivery.total must be a non-empty string "
+                "(tools/gen-conformance.py --delivery computes it from the golden)"
+            )
+        # Leg 1: the generator's number is the golden's, not somebody's typing.
+        from_in = cumulative_text(declared)
+        if from_in != total:
+            print(f"{a.trace}: meta.delivery.total says {total!r}, but the .in's "
+                  f"tier-A stream accumulates {from_in!r} -- regenerate with --emit",
+                  file=sys.stderr)
+            return 1
+        # Leg 2: the committed .gold is the tier-A stream projected through the
+        # model, event for event. Same rule as the branch below -- a pair that
+        # disagrees about what it is asserting verifies nothing.
+        projected = project_word_buffered(declared)
+        drift = [(n, p, g) for n, (p, g) in enumerate(zip(projected, want), 1) if p != g]
+        if drift or len(projected) != len(want):
+            for n, p, g in drift[:3]:
+                print(f"event {n}: the model says {p}\n         .gold says {g}", file=sys.stderr)
+            if len(projected) != len(want):
+                print(f"length: model {len(projected)}, .gold {len(want)}", file=sys.stderr)
+            print(f"{a.trace}: the .gold is not this word-buffered model's expectation "
+                  "-- regenerate with --emit and review", file=sys.stderr)
+            return 1
+        # Leg 3: the frontend delivered exactly that text, no byte dropped or
+        # duplicated. The runner asserts each commit it was given, but only a
+        # total says nothing went missing at a boundary or at teardown.
+        for label, events in ((".gold", want), ("runner", have)):
+            got_total = cumulative_text(events)
+            if got_total != total:
+                print(f"{a.trace}: {label} delivered {got_total!r}, the case's "
+                      f"cumulative text is {total!r}", file=sys.stderr)
+                return 1
+    else:
+        drift = [(n, d, g) for n, (d, g) in enumerate(zip(declared, want), 1) if d != g]
+        if drift or len(declared) != len(want):
+            for n, d, g in drift[:3]:
+                print(f"event {n}: .in says {d}\n         .gold says {g}", file=sys.stderr)
+            if len(declared) != len(want):
+                print(f"length: .in has {len(declared)}, .gold has {len(want)}", file=sys.stderr)
+            print(f"{a.trace}: .in and .gold disagree -- regenerate with --emit",
+                  file=sys.stderr)
+            return 1
 
     if want == have:
         print(f"ok: {a.trace.name} ({len(have)} events)")

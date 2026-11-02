@@ -454,7 +454,7 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**87 traces, 201 events**, registered as ctest
+**89 traces, 212 events**, registered as ctest
 `conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`). The corpus was reduced 2026-10-25 for
 word buffering (#74): the 31 multi-syllable cases whose per-syllable expectations the
 buffered adapter cannot reproduce, and the nine `ref-*` corpora (libhangul parity,
@@ -462,6 +462,20 @@ buffered adapter cannot reproduce, and the nine `ref-*` corpora (libhangul parit
 tier A (engine boundary) only until the `ref-*` traces are regenerated against the
 buffered adapter. Every remaining trace was re-checked against its tier A case: zero
 divergence.
+
+**A boundary is now crossed (2026-11-03, issue #220).** Until then no x11 trace
+contained a boundary key, so the frontend lane asserted composing text only: an adapter
+that dropped or duplicated the commit at a word end kept tier C green. The two
+`case-sebeolsik-final` traces (`word-annyeong` and the 겹받침 case `gyeopbatchim-gap`) end on
+a space, so their `.gold` carries a non-empty `commit` — the whole eojeol the client
+receives. They also reintroduce the multi-syllable model the 2026-10-25 reduction had to
+drop, as data rather than as a drop: `tools/gen-conformance.py --delivery word-buffered`
+writes `meta.delivery = {"model": "word-buffered", "total": <text>}` and
+`tools/trace-check.py` compares three things a per-key model cannot (the cumulative text
+the `.in` implies, the `.gold` projected through the adapter's word policy, and the
+runner's own sum) — see `docs/trace-spec.md` "Word-buffered adapters". Word-buffered
+per-key expectations are still not taken from tier A verbatim, by design: the engine's
+mid-word commit is not what the client sees.
 
 Three properties the generator had to get right, each found by making the gate
 adversarial rather than by reading the code:

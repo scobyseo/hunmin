@@ -37,6 +37,7 @@ remaining lines are events.
 | `case` | free-form label; ties the trace back to the tier A case it replays. |
 | `source` | optional provenance: which `tests/golden/*.jsonl` case this replays. |
 | `excluded` | optional provenance: the source golden's cases this platform cannot encode, e.g. `[{"case": "k/", "state": ["caps"]}]`. A trace carrying it covers every case of that golden **except** these; the omission lives in the artefact rather than in a terminal. `tools/gen-conformance.py` writes it (win32 refuses caps cases — see `in` below). |
+| `delivery` | optional: `{"model": "word-buffered", "total": "<text>"}` when the frontend buffers a whole eojeol and delivers it at a boundary, so tier A's per-key `commit` is not what the client receives. `total` is the cumulative text the case produces, computed from the golden by `tools/gen-conformance.py --delivery`. The runner rejects a model it does not know — see "Word-buffered adapters". |
 
 `meta` is required and must be the first line. A runner must reject a trace whose `meta`
 is absent or malformed — a trace without provenance is not a test.
@@ -111,6 +112,47 @@ a diff against an empty expectation.
 5. **The expectation is tier A's.** A `.gold` file is produced by running the same
    sequence through `hunmin-sim --trace` and recording commit/preedit. The runner never
    invents an expected value; it only compares.
+
+## Word-buffered adapters (`meta.delivery`)
+
+Invariant 5 assumes the frontend commits what the engine commits, key by key. A
+word-buffering frontend does not: it holds the whole eojeol and delivers it when the word
+ends, so tier A's mid-word `commit` is not a byte the client ever receives.
+
+Measured (`sebeolsik-final`, keys `j f s h e a space`; tier A's preedit stream is
+`ㅇ 아 안 ㄴ 녀 녕` with `안` committed on the `h`): the adapter's preedit accumulates the
+word — `ㅇ 아 안 안ㄴ 안녀 안녕` — and the only `commit` is `안녕` on the space. Copying
+tier A verbatim therefore produces a `.in` that its own `.gold` contradicts — which is why
+the first 31 multi-syllable cases were dropped from the corpus rather than re-emitted
+(docs/TESTING.md "Tier C", 2026-10-25).
+
+`meta.delivery` states the model instead, and the model is derived from tier A's own
+numbers — never typed:
+
+```
+word := ""                              # what the eojeol has accumulated
+for each tier-A event e:
+    word += e.commit
+    if e.consumed:   out = commit "",      preedit word + e.preedit
+    else:            out = commit word,    preedit e.preedit ; word = ""
+total = Σ e.commit + (last e.preedit)   # the text the client ends up holding
+```
+
+A trace that opts in is checked on three legs, all of them in `tools/trace-check.py`:
+
+1. the `.in`'s tier-A stream accumulates to `meta.delivery.total` (the generator's number
+   is the golden's, not somebody's);
+2. the `.gold` equals the model projected from the `.in`, event for event (the committed
+   artefact is what the model says, so a hand-edited `.gold` fails);
+3. both the `.gold` and the runner's output accumulate to `total` (nothing dropped or
+   duplicated at a boundary).
+
+What this deliberately does **not** assert: a per-event commit mid-word (the model says
+there is none), and delivery at teardown (the runner flushes the remaining word with no
+event to report it, so only leg 3 sees it). Both are properties of the adapter, and an
+adapter that got a boundary wrong fails before the diff: the fcitx5 emitter pre-loads the
+commit it expects and `TestFrontend` aborts on a mismatch — measured by replaying a
+`sebeolsik-final` trace under `dubeolsik` (`commitString: ㅓㄹ녿ㅁ` vs `안녕`, runner rc=-6).
 
 ## Corpus layout
 
