@@ -1,0 +1,12 @@
+{"meta": {"platform": "x11", "layout": "sebeolsik-final", "case": "digit-row-is-jamo", "source": "case-sebeolsik-final.jsonl (designed)", "case_index": 5, "case_id": "case-sebeolsik-final#05", "delivery": {"model": "word-buffered", "total": "ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ"}}}
+{"in": {"keysym": 49, "mods": 0}, "commit": "", "preedit": "ㅎ", "consumed": true}
+{"in": {"keysym": 50, "mods": 0}, "commit": "", "preedit": "ㅎㅆ", "consumed": true}
+{"in": {"keysym": 51, "mods": 0}, "commit": "", "preedit": "ㅎㅆㅂ", "consumed": true}
+{"in": {"keysym": 52, "mods": 0}, "commit": "", "preedit": "ㅎㅆㅂㅛ", "consumed": true}
+{"in": {"keysym": 53, "mods": 0}, "commit": "", "preedit": "ㅎㅆㅂㅛㅠ", "consumed": true}
+{"in": {"keysym": 54, "mods": 0}, "commit": "", "preedit": "ㅎㅆㅂㅛㅠㅑ", "consumed": true}
+{"in": {"keysym": 55, "mods": 0}, "commit": "", "preedit": "ㅎㅆㅂㅛㅠㅑㅖ", "consumed": true}
+{"in": {"keysym": 56, "mods": 0}, "commit": "", "preedit": "ㅎㅆㅂㅛㅠㅑㅖㅢ", "consumed": true}
+{"in": {"keysym": 57, "mods": 0}, "commit": "", "preedit": "ㅎㅆㅂㅛㅠㅑㅖㅢㅜ", "consumed": true}
+{"in": {"keysym": 48, "mods": 0}, "commit": "", "preedit": "ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ", "preedit": "", "consumed": false}

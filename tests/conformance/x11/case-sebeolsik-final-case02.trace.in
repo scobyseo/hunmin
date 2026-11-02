@@ -1,5 +1,8 @@
-{"meta": {"platform": "x11", "layout": "sebeolsik-final", "case": "gyeopbatchim-gap", "source": "case-sebeolsik-final.jsonl (designed)", "case_index": 2, "case_id": "case-sebeolsik-final#02", "delivery": {"model": "word-buffered", "total": "값"}}}
-{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
-{"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}
-{"in": {"keysym": 88, "mods": 0}, "commit": "", "preedit": "값", "consumed": true}
-{"in": {"keysym": 32, "mods": 0}, "commit": "값", "preedit": "", "consumed": false}
+{"meta": {"platform": "x11", "layout": "sebeolsik-final", "case": "word-hangeul", "source": "case-sebeolsik-final.jsonl (designed)", "case_index": 2, "case_id": "case-sebeolsik-final#02", "delivery": {"model": "word-buffered", "total": "한글"}}}
+{"in": {"keysym": 109, "mods": 0}, "commit": "", "preedit": "ㅎ", "consumed": true}
+{"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "하", "consumed": true}
+{"in": {"keysym": 115, "mods": 0}, "commit": "", "preedit": "한", "consumed": true}
+{"in": {"keysym": 107, "mods": 0}, "commit": "한", "preedit": "ㄱ", "consumed": true}
+{"in": {"keysym": 103, "mods": 0}, "commit": "", "preedit": "그", "consumed": true}
+{"in": {"keysym": 119, "mods": 0}, "commit": "", "preedit": "글", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "글", "preedit": "", "consumed": false}

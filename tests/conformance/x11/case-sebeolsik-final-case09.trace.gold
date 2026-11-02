@@ -1,0 +1,4 @@
+{"meta": {"platform": "x11", "layout": "sebeolsik-final", "case": "symbol-ends-the-word", "source": "case-sebeolsik-final.jsonl (designed)", "case_index": 9, "case_id": "case-sebeolsik-final#09", "delivery": {"model": "word-buffered", "total": "가."}}}
+{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}
+{"in": {"keysym": 46, "mods": 0}, "commit": "", "preedit": "가.", "consumed": true}

@@ -1,0 +1,5 @@
+{"meta": {"platform": "x11", "layout": "sebeolsik-final", "case": "gyeopbatchim-manh", "source": "case-sebeolsik-final.jsonl (designed)", "case_index": 4, "case_id": "case-sebeolsik-final#04", "delivery": {"model": "word-buffered", "total": "많"}}}
+{"in": {"keysym": 105, "mods": 0}, "commit": "", "preedit": "ㅁ", "consumed": true}
+{"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "마", "consumed": true}
+{"in": {"keysym": 83, "mods": 0}, "commit": "", "preedit": "많", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "많", "preedit": "", "consumed": false}

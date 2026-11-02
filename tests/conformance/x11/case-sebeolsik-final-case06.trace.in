@@ -1,0 +1,7 @@
+{"meta": {"platform": "x11", "layout": "sebeolsik-final", "case": "shifted-digit-row", "source": "case-sebeolsik-final.jsonl (designed)", "case_index": 6, "case_id": "case-sebeolsik-final#06", "delivery": {"model": "word-buffered", "total": "ㄲㄺㅈㄿㄾ"}}}
+{"in": {"keysym": 33, "mods": 0}, "commit": "", "preedit": "ㄲ", "consumed": true}
+{"in": {"keysym": 64, "mods": 0}, "commit": "ㄲ", "preedit": "ㄺ", "consumed": true}
+{"in": {"keysym": 35, "mods": 0}, "commit": "ㄺ", "preedit": "ㅈ", "consumed": true}
+{"in": {"keysym": 36, "mods": 0}, "commit": "ㅈ", "preedit": "ㄿ", "consumed": true}
+{"in": {"keysym": 37, "mods": 0}, "commit": "ㄿ", "preedit": "ㄾ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ㄾ", "preedit": "", "consumed": false}

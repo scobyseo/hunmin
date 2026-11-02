@@ -1,0 +1,4 @@
+{"meta": {"platform": "x11", "layout": "sebeolsik-final", "case": "shifted-punctuation-is-literal", "source": "case-sebeolsik-final.jsonl (designed)", "case_index": 10, "case_id": "case-sebeolsik-final#10", "delivery": {"model": "word-buffered", "total": "4\"~"}}}
+{"in": {"keysym": 58, "mods": 0}, "commit": "4", "preedit": "", "consumed": true}
+{"in": {"keysym": 77, "mods": 0}, "commit": "\"", "preedit": "", "consumed": true}
+{"in": {"keysym": 41, "mods": 0}, "commit": "~", "preedit": "", "consumed": true}
