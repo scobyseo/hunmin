@@ -471,7 +471,7 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**11 traces, 417 events**, registered as ctest
+**13 traces, 589 events**, registered as ctest
 `conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
 that every tier-A case of every family the corpus replays has a trace and that every
 trace belongs to a recorded family (`tools/conformance-coverage.py`).
@@ -486,7 +486,7 @@ its own expectation is mechanical rather than engine-read (the syllable in preed
 committed, the buffer empties). `tools/merge-golden-cases.py` applies that, one merged
 case per distinct engine-option set, and refuses to write unless `hunmin-sim --check`
 replays the result identically — which it does for every golden in the corpus. The corpus
-went 102 traces to 11, 263 events to 417: one merged trace per family, plus all ten of
+went 102 traces to 13, 263 events to 589: one merged trace per family, plus all ten of
 세벌식 최종's designed cases under the word-buffered model (issue #220 took two of them
 for its boundary assertion; the other eight had no tier-C trace at all, which is why that
 layout's identity — three-key assembly, the number row as jongseong, 겹받침 on shifted
@@ -494,6 +494,14 @@ keys — was asserted only at tier A). Those ten were then merged into ONE file 
 2026-11-03, the same day they arrived, because the policy is one trace per family: the
 nine interior boundaries are the merge's declined spaces, not labels, so the merge kept
 them rather than erasing them.
+The same day, 두벌식 and 신세벌식 P2 got designed families of the same shape
+(`tests/golden/case-dubeolsik.jsonl`, `case-sin3-p2.jsonl`, eleven cases each, merged to
+one trace): one jamo per key with Shift-is-된소리 and a number row the layout does **not**
+map for 두벌식, and for P2 the 갈마들이 pairs, 종성 on its own letter key, the 2024 받침
+rule and a number row spent on literal digits. Both families' `.in` equals their `.gold`
+event by event: they replay under tier A's own policy, because what they add is the
+layout's key table and its declined characters, not a delivery model — that is the
+`sebeolsik-final` family's job and doing both here would blur them.
 `p2-2-2-tiers` was merged the same day without a boundary because its cases already ended
 with an empty buffer; `manual-sin3-p2-yet` is the corpus's one exception and keeps two
 cases, because one of its cases runs with `caps` on and one engine state cannot be two.
@@ -514,7 +522,8 @@ aid on the first kind.
 family trace instead of a case label (which for these families repeated the expected
 text — `가`, `나` — that the event carries anyway). **What it buys, besides 92 fewer
 files:** those space boundaries are *declined keys*, so the x11 corpus now observes the
-pass-through half of `FRONTEND-CONTRACT` invariant 3 — 0 events to 92 — which is the gap
+pass-through half of `FRONTEND-CONTRACT` invariant 3 — 0 events to 92 when the merge
+landed, 159 now that the 두벌식 family adds declined characters as well — which is the gap
 `tools/tier-c-wiring-coverage.py` was written to expose.
 
 Earlier history, kept because it explains the `commit_mode` field: the corpus was reduced
@@ -610,25 +619,28 @@ decision.
 
 Measured 2026-11-03 (`tier-c-wiring-coverage.py`, this host):
 
-| dialect | events | consumed | passed | sin3-p2 keys pressed |
+| dialect | events | consumed | passed | layout keys pressed |
 |---|---|---|---|---|
-| x11 | 417 | 308 | 109 | 24/47, 14/47, 19/47 (p2, basic, yet) + 22/47 (sebeolsik-final) |
+| x11 | 589 | 430 | 159 | 24/47, 14/47, 19/47 (p2, basic, yet) + 22/47 (sebeolsik-final) + 32/47 (sin3-p2) + 14/26 (dubeolsik) |
 | win32 | 688 | 490 | 198 | 27/47, 13/47, 17/47 |
 | android | 48 | 31 | 17 | 14/47 |
 
 Three gaps that follow, none of them a defect in a frontend:
 
-1. **x11 declines exactly one kind of key: space.** All 109 of its passed events are the
-   case-boundary spaces the merge and the 세벌식 최종 family trace introduced, so "the adapter declines and the client
-   receives it" is observed for a whitespace boundary and for nothing else — an arrow, a
-   BackSpace on an empty buffer and an unmapped character are still unobserved on the one
-   frontend tier C was built for. android has 4 such events (Shift+arrow selection), win32
-   198 (the dubeolsik prose trace, which also carries arrows and unmapped keys).
-2. **The digit row is unproven.** `0` and `2`-`9` appear in no x11 event, in any layout,
-   although the number row is the row whose rules differ most between layouts and modes
-   (R6's digit run, the unshifted row as jongseong on 세벌식). Same for most punctuation
-   (`, - . = [ \ ] \``).
-3. **The dialects do not replay the same corpus.** x11 covers 9 tier-A families, win32 8
+1. **x11 declines two kinds of key: space, and what a layout does not map.** 159 of its
+   passed events are the merge's case-boundary spaces plus the digits, shifted digits and
+   `.` the 두벌식 family presses — that layout maps 26 letters and nothing else, so the
+   adapter must decline a character and let the client have it. The pass-through half of
+   the contract is therefore observed for a character as well as for whitespace; an arrow
+   and a BackSpace on an empty buffer are still unobserved on every x11 layout. android
+   has 4 such events (Shift+arrow selection), win32 198 (the dubeolsik prose trace, which
+   also carries arrows and unmapped keys).
+2. **The digit row is half proven.** `1`, `2`, `3` and `0` are now pressed by x11 events —
+   두벌식 declines them, P2 delivers them as text — but `4`-`9` still appear in no x11
+   event, in any layout, although the number row is the row whose rules differ most
+   between layouts and modes (R6's digit run, the unshifted row as jongseong on 세벌식).
+   Most punctuation (`, - = [ \ ] \``) is unpressed for the same reason.
+3. **The dialects do not replay the same corpus.** x11 covers 12 tier-A families, win32 8
    (`p2-2-2-tiers` absent), android 1 (`p2-2-1-basic` only). "fcitx5 and Android agree" is
    therefore measured for basic syllable composition and nothing else.
 

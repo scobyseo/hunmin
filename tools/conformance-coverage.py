@@ -59,6 +59,15 @@ FAMILIES: list[dict] = [
     {"golden": "case-sebeolsik-final.jsonl", "layout": "sebeolsik-final",
      "stem": "case-sebeolsik-final",
      "args": ["--delivery", "word-buffered"]},
+    # 두벌식, the arrangement the 세벌식 families are read against: one jamo per
+    # key, Shift = 된소리 or ㅒ/ㅖ, 겹받침 from two jongseong keys, and a number row
+    # that is NOT the layout's (a digit is DECLINED and reaches the client, which is
+    # the pass-through half of the contract on a character rather than a space).
+    {"golden": "case-dubeolsik.jsonl", "layout": "dubeolsik", "stem": "case-dubeolsik"},
+    # 신세벌식 P2, the normative pat.im/1136 arrangement (docs/SPEC-P2.md): three
+    # keys per syllable, 종성 on its own letter key, the 갈마들이 pairs and the 2024
+    # 받침 rule, and a number row spent on literal digits.
+    {"golden": "case-sin3-p2.jsonl", "layout": "sin3-p2", "stem": "case-sin3-p2"},
 ]
 
 

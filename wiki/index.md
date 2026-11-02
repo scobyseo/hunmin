@@ -412,6 +412,10 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   pass-through coverage from 0 to 92. The ten 세벌식 최종 probes then entered as
   ONE file too (11 traces, 417 events, 109 passed), because the policy is one
   trace per family and the merge already knew how to keep the nine boundaries.
+  두벌식 and 신세벌식 P2 then got the same designed-family treatment (13 traces,
+  589 events, 159 passed): 두벌식's number row is not the layout's at all, so its
+  digits are declined keys and the pass-through half of the contract is now
+  observed on a character, not only on whitespace.
 - [[2026-11-01-modes-ownership-retires-the-detector]] - the #164 session: §MRO's
   pricing, the ruling implemented on all three frontends (engine judges, frontend
   switches), `language_detect.*` retired with six `REQ-MAP` rows re-pointed, and

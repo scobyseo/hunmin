@@ -1068,3 +1068,27 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - `docs/TESTING.md`, `docs/REQ-MAP.md` (R14's `verified by` id) and the board's
   `TRACE-X11-BOUNDARY-220` / `TIER-C-WIRING-DECLINE` rows re-point at the one
   file; `req-map`, `docs-lint` and `wiki-lint` all green.
+
+## [2026-11-03] update | 두벌식 and 신세벌식 P2 get designed families
+
+- Same shape for the other two layouts whose identity is an ARRANGEMENT:
+  `tests/golden/case-dubeolsik.jsonl` and `case-sin3-p2.jsonl`, eleven cases
+  each, from `tools/gen-case-golden.py` (expectations read back from the engine,
+  never typed), each merged to ONE trace by `tools/merge-golden-cases.py` — the
+  one-file-per-family policy, applied before the files could multiply.
+- 두벌식's identity is the opposite arrangement and, for the frontend tier, the
+  thing no family stated: it maps 26 letters and NOTHING else, so its digits,
+  shifted digits and `.` are DECLINED and reach the client. P2's is the
+  갈마들이 core (`cq` two initials vs `cQ` one 겹받침; `s` is ᅨ in the jung slot
+  and ᆫ in the jong slot), 종성 on its own letter key, the 2024 받침 rule, and a
+  number row spent on literal digits.
+- Measured: corpus 11 traces / 417 events -> 13 / 589; x11 `passed` 109 -> 159
+  (the 두벌식 family's declined characters are the new ones); key coverage
+  sin3-p2 24/47 -> 32/47, dubeolsik 0 -> 14/26, sebeolsik-final 22/47 unchanged.
+  Both new families replay under tier A's own policy, so `.in` == `.gold`; the
+  word-buffered model stays the sebeolsik family's assertion.
+- Board: `TIER-C-WIRING-DECLINE` now records two kinds of declined key (space and
+  the characters a layout does not map) with an arrow and BackSpace-on-empty
+  left; `TIER-C-WIRING-DIGITROW` narrows to `4`-`9`. `docs/HOWTO-NEW-LAYOUT.md`
+  §4 carried a contradiction with the merge policy ("a golden that concatenates
+  cases is wrong") and now states the boundary rule instead.

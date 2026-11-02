@@ -8,12 +8,15 @@ replayed against libhangul. They catch a data change, but they cannot say WHAT
 they assert: a diff in 400 random lines says "something moved", not "the number
 row stopped being jongseong jamo".
 
-This generator writes the other kind, for the layout whose identity is its own
-key arrangement (`세벌식 최종`, `sebeolsik-final`, alias `3f`). The hand-authored
-half is the INPUT — a case name, the feature it pins, and the keys, in the same
-`hunmin-sim --keys` alphabet the other tier-A goldens use (an uppercase letter or
-a shifted symbol is that key with Shift held, so `!` is Shift+1). The EXPECTED
-half — the commit and preedit after every key — is read back from the engine.
+This generator writes the other kind, for layouts whose identity is an ARRANGEMENT
+rather than a word list: `세벌식 최종` (sebeolsik-final, alias 3f), `두벌식`
+(dubeolsik, alias 2) and `신세벌식 P2` (sin3-p2, normative pat.im/1136). The
+hand-authored half is the INPUT — a case name, the feature it pins, and the keys,
+in the same `hunmin-sim --keys` alphabet the other tier-A goldens use (an
+uppercase letter or a shifted symbol is that key with Shift held, so `!` is
+Shift+1). The EXPECTED half — the commit and preedit after every key — is read
+back from the engine. `HEAD_SPEC` names the provenance each layout's `meta`
+carries: two-beolsik ships beside libhangul, P2 is normative from pat.im.
 
 Schema: the existing tier-A one, so `hunmin-sim --check` runs it unchanged.
 
@@ -67,6 +70,85 @@ CASES = {
         dict(case="shifted-punctuation-is-literal", feature="`=` literals on the shifted keys",
              keys=":M)", note="Shift+; = '4', Shift+h = '\"', Shift+0 = '~': the shifted keys commit text"),
     ],
+    # 두벌식 (2). Its identity is the opposite arrangement from 세벌식: one jamo per
+    # key, consonants on the left and vowels on the right, Shift turning a
+    # consonant into its 된소리 and a vowel into ㅒ/ㅖ, no 겹받침 key (값 is ㄱㅏㅂㅅ
+    # in sequence), and — the part no other family states — the number row and the
+    # punctuation are NOT the layout's: it maps 26 letters and nothing else, so a
+    # digit or symbol is declined and reaches the client untouched.
+    "dubeolsik": [
+        dict(case="word-annyeong", feature="one jamo per key, two syllables",
+             keys="dkssud ", note="안녕: ᄋ ᅡ ᆫ + ᄂ ᅧ ᆼ, alternating consonant and vowel keys"),
+        dict(case="word-hangeul", feature="one jamo per key, two syllables",
+             keys="gksrmf ", note="한글: ᄒ ᅡ ᆫ + ᄀ ᅳ ᆯ"),
+        dict(case="gyeopbatchim-from-two-keys", feature="겹받침 needs two keys",
+             keys="rkqt ", note="값: ᆹ is ᄇ then ᄉ in the jong slot -- a 두벌식 keyboard has no 겹받침 key, "
+                               "which is why 세벌식 최종 needs one"),
+        dict(case="shift-is-doen-sori", feature="a shifted consonant is its 된소리",
+             keys="RkQkTkWkEk ", note="까 빠 싸 짜 따: the five doubled consonants are the Shift of five keys"),
+        dict(case="shift-is-yae-ye", feature="a shifted vowel is ㅒ/ㅖ",
+             keys="dOdP ", note="얘 예: only two of the vowels differ under Shift"),
+        dict(case="number-row-is-not-mapped", feature="the number row is not the layout's",
+             keys="1230", note="두벌식 maps 26 letters and no digit, so 1 2 3 0 are DECLINED and reach the "
+                               "client: the pass-through half of the contract, on a character rather than a space"),
+        dict(case="shifted-number-is-not-mapped", feature="a shifted digit is not the layout's",
+             keys="!@#$", note="Shift+1..4 = ! @ # $: declined for the same reason, and the client receives them"),
+        dict(case="symbol-ends-the-word", feature="a symbol is a boundary",
+             keys="rk.", note="가 then '.': the engine commits 가 and the layout does not own the period"),
+        dict(case="no-precomposed-form", feature="a jamo pair with no syllable",
+             keys="rs", note="초성 ᄀ then 종성 ᆫ with no 중성: committed as jamo, not composed"),
+        dict(case="sentence-annyeonghaseyo", feature="real text, five syllables",
+             keys="dkssudgktpdy ", note="안녕하세요: the everyday sentence the layout exists for, one jamo per key"),
+        dict(case="sentence-hangeulimnida", feature="real text, five syllables",
+             keys="gksrmfdlqslek ", note="한글입니다: 겹받침 in the middle (입니다 has ᆸ then ᆫ), no special key"),
+    ],
+    # 신세벌식 P2 (normative source: pat.im/1136, docs/SPEC-P2.md). Three keys
+    # assemble a syllable, but where 세벌식 최종 puts jongseong on the number row,
+    # P2 gives it its own letter keys and uses the number row for literal digits
+    # and symbols. The 갈마들이 core: the same letter has a 초성 and a 종성
+    # spelling (`s` is ᅨ in the jung slot and ᆫ in the jong slot; `cq` is two
+    # initials across a syllable boundary, `cQ` one 겹받침), a lone batchim
+    # receiving an 윗글 choseong becomes its 된소리 (2024 rule), and a vowel-plus-
+    # jung key can be reached differently depending on what is already in flight.
+    "sin3-p2": [
+        dict(case="word-annyeong", feature="three-key syllable assembly",
+             keys="jfshta ", note="안녕: ᄋ ᅡ ᆫ + ᄂ ᅧ ᆼ, three keys each, jongseong on its own key"),
+        dict(case="word-hangeul", feature="three-key syllable assembly",
+             keys="mfskgw ", note="한글: ᄒ ᅡ ᆫ + ᄀ ᅳ ᆯ"),
+        dict(case="galmadori-initials-vs-batchim", feature="갈마들이: two initials or one 겹받침",
+             keys="cq cQ ", note="cq = ㄱ ㅅ across the boundary (each an 초성), cQ = ㄳ as a 겹받침: "
+                                 "the Shift marks the jong reading (docs/SPEC-P2.md §disambiguation, rule 2)"),
+        dict(case="galmadori-one-key-two-slots", feature="갈마들이: one key, two slots",
+             keys="ks ", note="계: 's' is ᅨ while a consonant is in flight and ᆫ as a jongseong -- the key's "
+                              "meaning comes from the slot, not from the key"),
+        dict(case="jong-has-its-own-key", feature="종성 has a key of its own",
+             keys="ifz ", note="마 then 맘: 초성 ᄆ is 'i' and 종성 ᆷ is 'z', two different keys"),
+        dict(case="batchim-takes-upper-choseong", feature="a lone batchim becomes 된소리 (2024 rule)",
+             keys="gG eE vV ", note="ㄷ+윗글 ᄃ = ㄸ, ᄇ+ᄈ = ㅃ, ᄌ+ᄍ = ㅉ -- the buffer is 받침-only, so the "
+                                    "choseong replaces it in place (docs/SPEC-P2.md §unit-id conditions)"),
+        dict(case="number-row-is-literal", feature="the number row delivers digits",
+             keys="1230 ", note="1 2 3 0 are text, not jongseong: the row 세벌식 최종 spends on batchim, P2 "
+                                "spends on typing digits"),
+        dict(case="shifted-number-is-a-symbol", feature="the shifted number row is punctuation",
+             keys="!@#$ ", note="! @ # $, delivered as text by the layout"),
+        dict(case="symbol-ends-the-word", feature="a symbol is a boundary",
+             keys="kf. ", note="가 then '.': the engine commits 가 and the layout spells the period itself"),
+        dict(case="sentence-annyeonghaseyo", feature="real text, five syllables",
+             keys="jfshtamfncjx ", note="안녕하세요: five syllables, three keys each"),
+        dict(case="sentence-hangeulimnida", feature="real text, five syllables",
+             keys="mfskgwjdehduf ", note="한글입니다: ᆸ then ᆫ in 입니다, each jongseong on its own key"),
+    ],
+}
+
+# The head line's provenance differs by layout: 세벌식 최종's identity is its own
+# key arrangement, P2's is pat.im/1136, and 두벌식's is the libhangul table this
+# repository ships beside. Written per layout so the trace's `meta` names where
+# the case text came from, not which tool wrote it.
+HEAD_SPEC = {
+    "dubeolsik": ("the libhangul 0.2.0 두벌식 table this repository ships "
+                  "(libhunmin/data/layouts/dubeolsik.json)"),
+    "sebeolsik-final": "the layout's own key arrangement; R6 for the number row (docs/SPEC-MODES.md)",
+    "sin3-p2": "pat.im/1136 (normative, docs/SPEC-P2.md); R6 for the number row (docs/SPEC-MODES.md)",
 }
 
 
@@ -93,7 +175,7 @@ def render(layout, cases):
     head = {
         "meta": {
             "source": "designed",
-            "spec": "the layout's own key arrangement; R6 for the number row (docs/SPEC-MODES.md)",
+            "spec": HEAD_SPEC[layout],
             "layout": layout,
             "tool": "tools/gen-case-golden.py",
             "sim": "hunmin-sim --keys … --trace",

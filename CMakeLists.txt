@@ -832,6 +832,21 @@ if(BUILD_TESTING)
     COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
             --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-sebeolsik-final.jsonl)
   set_tests_properties(engine-golden-case-sebeolsik-final PROPERTIES LABELS "tier-A")
+  # 두벌식 (2) and 신세벌식 P2 (pat.im/1136), the same shape for the other two
+  # layouts whose identity is an arrangement rather than a word list: one jamo per
+  # key and Shift-is-된소리 for 두벌식, whose number row is NOT the layout's (a
+  # digit is declined and reaches the client); three keys per syllable, 종성 on
+  # its own letter key and the number row spent on literal digits for P2, with the
+  # 갈마들이 pairs (`cq` two initials vs `cQ` one 겹받침) and the 2024 받침 rule.
+  # Both from tools/gen-case-golden.py -- never hand-typed.
+  add_test(NAME engine-golden-case-dubeolsik
+    COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+            --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-dubeolsik.jsonl)
+  set_tests_properties(engine-golden-case-dubeolsik PROPERTIES LABELS "tier-A")
+  add_test(NAME engine-golden-case-sin3-p2
+    COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+            --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-sin3-p2.jsonl)
+  set_tests_properties(engine-golden-case-sin3-p2 PROPERTIES LABELS "tier-A")
   # SPEC-MODES §4's invariant, and its own words: "When it is off it must return
   # to 100% of the previous behaviour. This is an invariant. It is verifiable
   # and must be verified." (#179.) No new corpus: tools/off-identity-check.py
