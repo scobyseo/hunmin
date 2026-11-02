@@ -1,3 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2-basic", "case": "차", "source": "p2-2-1-basic.jsonl (gate)", "case_index": 9, "case_id": "p2-2-1-basic#09"}}
-{"in": {"keysym": 111, "mods": 0}, "commit": "", "preedit": "ㅊ", "consumed": true}
-{"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "차", "consumed": true}

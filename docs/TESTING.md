@@ -471,28 +471,41 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**102 traces, 263 events**, registered as ctest
+**10 traces, 355 events**, registered as ctest
 `conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
 that every tier-A case of every family the corpus replays has a trace and that every
 trace belongs to a recorded family (`tools/conformance-coverage.py`).
 
-The corpus was reduced 2026-10-25 for word buffering (#74): 22 per-case traces whose
-per-syllable expectations the word-buffered adapter cannot reproduce, and the nine
-`ref-*` corpora (libhangul parity, 401 events each), were dropped rather than
-re-emitted — 118 files to 87. The 22 came back on 2026-11-03 (issue #187), not by
-re-emitting them under the buffered policy but by saying which policy each case needs:
-tier A records commit **per event**, so a case whose golden commits mid-stream is
-observable only under `HUNMIN_COMMIT_PER_SYLLABLE`, and the generator now derives that
-from the golden and writes `commit_mode` into the trace's meta (`docs/trace-spec.md`
-"meta"). 102 traces, 263 events, zero `.in`/`.gold` divergence, and all nine
-tier-A families in the corpus are replayed case-for-case — the win32 corpus, which
-measures committed text cumulatively and so never needed the field, covers 106 of
-the same cases across eight families. The event count is unchanged from the 109-file
-state because `p2-2-2-tiers`' eight three-event cases were merged into one 25-event
-case on 2026-11-03: each already ended with an empty buffer, so the case boundaries
-carried no isolation, only names — and their one remaining use, a failure naming the
-tier/prefix cell instead of an event index, was not worth 7 ctest entries
-(`hunmin-sim --check` replays the merged case identically). libhangul parity is still asserted at tier A (engine
+**One trace per family, since 2026-11-03.** A case boundary in tier A is state, so a
+merge is only free when the cases also replay identically as ONE stream — measured, not
+assumed (`tools/golden-case-merge-check.py`): `patim-sin3-p2-basic` ends all 37 cases
+with an empty buffer and still diverges when concatenated, because a repeated key doubles
+the consonant across the boundary. A **space** is the boundary that works: the engine
+declines it, so it finalises the syllable in flight and the next case starts clean, and
+its own expectation is mechanical rather than engine-read (the syllable in preedit is
+committed, the buffer empties). `tools/merge-golden-cases.py` applies that, one merged
+case per distinct engine-option set, and refuses to write unless `hunmin-sim --check`
+replays the result identically — which it does for every golden in the corpus. The corpus
+went 102 traces to 10, 263 events to 355 (the added lines are the space boundaries).
+`p2-2-2-tiers` was merged the same day without a boundary because its cases already ended
+with an empty buffer; `manual-sin3-p2-yet` keeps two cases because one of its cases runs
+with `caps` on and one engine state cannot be two.
+
+**What that costs:** failure attribution. A red test now names an event index inside one
+family trace instead of a case label (which for these families repeated the expected
+text — `가`, `나` — that the event carries anyway). **What it buys, besides 92 fewer
+files:** those space boundaries are *declined keys*, so the x11 corpus now observes the
+pass-through half of `FRONTEND-CONTRACT` invariant 3 — 0 events to 92 — which is the gap
+`tools/tier-c-wiring-coverage.py` was written to expose.
+
+Earlier history, kept because it explains the `commit_mode` field: the corpus was reduced
+2026-10-25 for word buffering (#74) from 118 files to 87, dropping 22 per-case traces and
+the nine `ref-*` corpora (libhangul parity, 401 events each). The 22 came back on
+2026-11-03 (issue #187), not by re-emitting them under the buffered policy but by saying
+which policy each case needs: tier A records commit **per event**, so a case whose golden
+commits mid-stream is observable only under `HUNMIN_COMMIT_PER_SYLLABLE`, and the
+generator derives that from the golden into the trace's `commit_mode`
+(`docs/trace-spec.md` "meta"). libhangul parity is still asserted at tier A (engine
 boundary) only, until the `ref-*` traces are regenerated against the buffered adapter.
 
 The trace format now answers the delivery question two ways, and a trace carries at most
@@ -554,8 +567,9 @@ CapsLock and modifiers are now covered deliberately rather than incidentally.
 The two tiers are not equal in strength, and the difference is measurable. The fixture
 proves every key has a correct native **encoding**; the corpus proves the adapter applies
 it — but only for the keys it presses and only for the answers it carries. See "What the
-corpus covers of the adapter" below for that number; the x11 dialect currently presses 24
-of sin3-p2's 47 keys and never once takes the decline path.
+corpus covers of the adapter" below for that number; the x11 dialect presses 24 of
+sin3-p2's 47 keys and takes the decline path only on the space boundaries the case merge
+introduced.
 
 ### What the corpus covers of the adapter (the metric)
 
@@ -579,16 +593,18 @@ Measured 2026-11-03 (`tier-c-wiring-coverage.py`, this host):
 
 | dialect | events | consumed | passed | sin3-p2 keys pressed |
 |---|---|---|---|---|
-| x11 | 263 | 263 | **0** | 24/47, 14/47, 19/47 (p2, basic, yet) |
+| x11 | 355 | 263 | 92 | 24/47, 14/47, 19/47 (p2, basic, yet) |
 | win32 | 688 | 490 | 198 | 27/47, 13/47, 17/47 |
 | android | 35 | 31 | 4 | 14/47 |
 
 Three gaps that follow, none of them a defect in a frontend:
 
-1. **x11 never declines a key.** Every x11 event is a key the layout maps, so "the adapter
-   declines and the client receives it" — space, an arrow, BackSpace on an empty buffer, an
-   unmapped character — is unobserved on the one frontend tier C was built for. android has
-   4 such events (Shift+arrow selection), win32 198 (the dubeolsik prose trace).
+1. **x11 declines exactly one kind of key: space.** All 92 of its passed events are the
+   case-boundary spaces the merge introduced, so "the adapter declines and the client
+   receives it" is observed for a whitespace boundary and for nothing else — an arrow, a
+   BackSpace on an empty buffer and an unmapped character are still unobserved on the one
+   frontend tier C was built for. android has 4 such events (Shift+arrow selection), win32
+   198 (the dubeolsik prose trace, which also carries arrows and unmapped keys).
 2. **The digit row is unproven.** `0` and `2`-`9` appear in no x11 event, in any layout,
    although the number row is the row whose rules differ most between layouts and modes
    (R6's digit run, the unshifted row as jongseong on 세벌식). Same for most punctuation

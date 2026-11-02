@@ -1,4 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "uue-tte", "source": "p2-2-3-chosung.jsonl (gate)", "case_index": 7, "case_id": "p2-2-3-chosung#07"}}
-{"in": {"keysym": 117, "mods": 0}, "commit": "", "preedit": "ㄷ", "consumed": true}
-{"in": {"keysym": 117, "mods": 0}, "commit": "", "preedit": "ㄸ", "consumed": true}
-{"in": {"keysym": 101, "mods": 0}, "commit": "", "preedit": "때", "consumed": true}

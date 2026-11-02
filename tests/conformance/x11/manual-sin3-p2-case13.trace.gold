@@ -1,4 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "jk1", "source": "manual-sin3-p2.jsonl (manual)", "case_index": 13, "case_id": "manual-sin3-p2#13", "commit_mode": "syllable"}}
-{"in": {"keysym": 106, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
-{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
-{"in": {"keysym": 49, "mods": 0}, "commit": "ㅇµ", "preedit": "", "consumed": true}

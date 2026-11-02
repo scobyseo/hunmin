@@ -1,4 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "gap", "source": "p2-3-swapped.jsonl (gate)", "case_index": 1, "case_id": "p2-3-swapped#01"}}
-{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
-{"in": {"keysym": 101, "mods": 0}, "commit": "", "preedit": "개", "consumed": true}
-{"in": {"keysym": 101, "mods": 0}, "commit": "", "preedit": "갭", "consumed": true}

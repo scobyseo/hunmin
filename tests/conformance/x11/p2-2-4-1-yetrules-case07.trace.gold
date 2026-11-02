@@ -1,3 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2-yet", "case": "jd-digeut", "source": "p2-2-4-1-yetrules.jsonl (gate)", "case_index": 7, "case_id": "p2-2-4-1-yetrules#07"}}
-{"in": {"keysym": 108, "mods": 0}, "commit": "", "preedit": "ㅈ", "consumed": true}
-{"in": {"keysym": 117, "mods": 0}, "commit": "", "preedit": "ᅎᅠ", "consumed": true}

@@ -1029,3 +1029,21 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Also measured, and NOT done: `tools/merge-golden-cases.py` shows a space
   boundary makes every corpus golden mergeable with identical replay (patim
   included). Merging keeps every event, so it changes file count, not coverage.
+
+## [2026-11-03] update | the corpus is one trace per family
+
+- Merged every corpus family's cases behind a space boundary with
+  `tools/merge-golden-cases.py` (one merged case per engine-option set; it
+  refuses to write unless `hunmin-sim --check` replays the result identically).
+  Corpus 102 traces -> 10, events 263 -> 355, `tier-C` 120 tests -> 28, every
+  `.in` identical to its `.gold`.
+- **A prediction was wrong:** I said merging would change file count and not
+  coverage. Measured after: x11 `passed` went 0 -> 92, because the boundaries
+  are declined keys — the pass-through half of FRONTEND-CONTRACT invariant 3 is
+  now observed on x11 for the first time. Key coverage (24/47 · 14/47 · 19/47)
+  is unchanged, as predicted: a merge cannot press a key the corpus never
+  pressed, so issue #229's digit-row gap stands.
+- `manual-sin3-p2-yet` keeps two traces (one case runs with `caps` on); the
+  board's `TRACE-X11-PARITY-187` row re-points at the merged file and
+  `TIER-C-WIRING-DECLINE` narrows to arrows / BackSpace-on-empty / unmapped
+  characters.

@@ -1,4 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2-yet", "case": "gh-h-ieung", "source": "p2-2-4-1-yetrules.jsonl (gate)", "case_index": 4, "case_id": "p2-2-4-1-yetrules#04"}}
-{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
-{"in": {"keysym": 109, "mods": 0}, "commit": "", "preedit": "ㆆ", "consumed": true}
-{"in": {"keysym": 109, "mods": 0}, "commit": "", "preedit": "ꥼᅠ", "consumed": true}

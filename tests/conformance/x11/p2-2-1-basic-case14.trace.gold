@@ -1,5 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2-basic", "case": "자주", "source": "p2-2-1-basic.jsonl (gate)", "case_index": 14, "case_id": "p2-2-1-basic#14", "commit_mode": "syllable"}}
-{"in": {"keysym": 108, "mods": 0}, "commit": "", "preedit": "ㅈ", "consumed": true}
-{"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "자", "consumed": true}
-{"in": {"keysym": 108, "mods": 0}, "commit": "자", "preedit": "ㅈ", "consumed": true}
-{"in": {"keysym": 98, "mods": 0}, "commit": "", "preedit": "주", "consumed": true}

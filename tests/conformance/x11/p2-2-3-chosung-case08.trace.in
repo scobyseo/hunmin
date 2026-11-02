@@ -1,3 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "ee-double-h0", "source": "p2-2-3-chosung.jsonl (gate)", "case_index": 8, "case_id": "p2-2-3-chosung#08", "commit_mode": "syllable"}}
-{"in": {"keysym": 101, "mods": 0}, "commit": "", "preedit": "ㅂ", "consumed": true}
-{"in": {"keysym": 101, "mods": 0}, "commit": "ㅂ", "preedit": "ㅂ", "consumed": true}

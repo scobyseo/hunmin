@@ -1,3 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2-yet", "case": "ng-m", "source": "p2-2-4-2-eung.jsonl (gate)", "case_index": 2, "case_id": "p2-2-4-2-eung#02"}}
-{"in": {"keysym": 97, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
-{"in": {"keysym": 122, "mods": 0}, "commit": "", "preedit": "ᅟᅠퟵ", "consumed": true}

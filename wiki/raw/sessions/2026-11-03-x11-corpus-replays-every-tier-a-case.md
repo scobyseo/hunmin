@@ -91,14 +91,21 @@ docs now carry the metric, the measured table and the three gaps, and the board
 carries `TIER-C-WIRING-DECLINE` / `TIER-C-WIRING-DIGITROW` as absent artefacts
 rather than prose.
 
-**A space boundary makes merging free, measured.** The follow-up question — "can
-the cases be merged, and is a space not enough for patim?" — has a yes:
+**A space boundary makes merging free, and it was done.** The follow-up question —
+"can the cases be merged, and is a space not enough for patim?" — has a yes:
 `tools/merge-golden-cases.py` merges a golden's cases into one per engine-option
 set, joined by a space whose expectation is mechanical (the syllable in preedit is
 committed, the buffer empties, `total` unchanged), and every golden in the corpus
-replays identically after it. It is not done: merging keeps every event, so it
-changes file count and not the coverage above, and coverage is what the tier is
-for.
+replays identically after it.
+
+**A prediction of mine was wrong here, and the measurement is why it shipped.** I
+first said merging "changes file count and not the coverage above, because the same
+events still go through the adapter". Counted after the merge: x11 events 263 → 355
+and **passed 0 → 92**, because the space boundaries ARE declined keys. So the merge
+bought the pass-through half of invariant 3 that the tier had never observed, while
+— as predicted — leaving key coverage untouched (24/47 · 14/47 · 19/47), since a
+merge cannot press a key the corpus never pressed. Corpus: 102 traces → 10,
+`tier-C` 120 tests → 28.
 
 ## What it left
 
