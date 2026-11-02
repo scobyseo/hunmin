@@ -25,6 +25,7 @@ to the adapter).
 import argparse
 import json
 import pathlib
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -35,16 +36,25 @@ GEN = ROOT / "tools/gen-conformance.py"
 # (golden, layout, case stem). The layout is not always the golden's own -- the
 # dkssud-combo run replays p2-2-1-basic's cases through the sin3-p2 alias -- so
 # it is written out rather than derived.
-FAMILIES: list[tuple[str, str, str]] = [
-    ("p2-2-1-basic.jsonl", "sin3-p2-basic", "p2-2-1-basic"),
-    ("p2-2-1-basic.jsonl", "sin3-p2", "dkssud-combo"),
-    ("p2-2-2-tiers.jsonl", "sin3-p2", "p2-2-2-tiers"),
-    ("p2-2-3-chosung.jsonl", "sin3-p2", "p2-2-3-chosung"),
-    ("p2-2-4-1-yetrules.jsonl", "sin3-p2-yet", "p2-2-4-1-yetrules"),
-    ("p2-2-4-2-eung.jsonl", "sin3-p2-yet", "p2-2-4-2-eung"),
-    ("p2-3-swapped.jsonl", "sin3-p2", "p2-3-swapped"),
-    ("manual-sin3-p2.jsonl", "sin3-p2", "manual-sin3-p2"),
-    ("manual-sin3-p2-yet.jsonl", "sin3-p2-yet", "manual-sin3-p2-yet"),
+# Each family: the golden, the layout the run configures, the case stem, and
+# optionally `cases` (the subset this corpus takes, when the golden carries more
+# than the corpus wants) plus `args` (generator flags the family needs, e.g.
+# --delivery). `source` is what the trace's meta must name.
+FAMILIES: list[dict] = [
+    {"golden": "p2-2-1-basic.jsonl", "layout": "sin3-p2-basic", "stem": "p2-2-1-basic"},
+    {"golden": "p2-2-1-basic.jsonl", "layout": "sin3-p2", "stem": "dkssud-combo"},
+    {"golden": "p2-2-2-tiers.jsonl", "layout": "sin3-p2", "stem": "p2-2-2-tiers"},
+    {"golden": "p2-2-3-chosung.jsonl", "layout": "sin3-p2", "stem": "p2-2-3-chosung"},
+    {"golden": "p2-2-4-1-yetrules.jsonl", "layout": "sin3-p2-yet", "stem": "p2-2-4-1-yetrules"},
+    {"golden": "p2-2-4-2-eung.jsonl", "layout": "sin3-p2-yet", "stem": "p2-2-4-2-eung"},
+    {"golden": "p2-3-swapped.jsonl", "layout": "sin3-p2", "stem": "p2-3-swapped"},
+    {"golden": "manual-sin3-p2.jsonl", "layout": "sin3-p2", "stem": "manual-sin3-p2"},
+    {"golden": "manual-sin3-p2-yet.jsonl", "layout": "sin3-p2-yet", "stem": "manual-sin3-p2-yet"},
+    # issue #220: two of the ten designed cases, under the word-buffered model.
+    {"golden": "case-sebeolsik-final.jsonl", "layout": "sebeolsik-final",
+     "stem": "case-sebeolsik-final",
+     "cases": ["word-annyeong", "gyeopbatchim-gap"],
+     "args": ["--delivery", "word-buffered"]},
 ]
 
 
@@ -78,12 +88,15 @@ def traces(stem: str) -> list[pathlib.Path]:
 def check() -> int:
     problems: list[str] = []
     claimed: set[str] = set()
-    for golden_name, layout, stem in FAMILIES:
+    for fam in FAMILIES:
+        golden_name, layout, stem = fam["golden"], fam["layout"], fam["stem"]
         golden = GOLDEN / golden_name
         if not golden.is_file():
             problems.append(f"{stem}: no golden {golden.relative_to(ROOT)}")
             continue
-        want = max(golden_case_count(golden), 1)
+        # A subset family takes exactly the cases it names; otherwise every case
+        # of the golden belongs in the corpus.
+        want = len(fam["cases"]) if fam.get("cases") else max(golden_case_count(golden), 1)
         have = traces(stem)
         claimed.update(f.name for f in have)
         if len(have) != want:
@@ -98,7 +111,11 @@ def check() -> int:
                 problems.append(f"{f.name}: source {meta.get('source')!r} is not {golden_name}")
             if meta.get("layout") != layout:
                 problems.append(f"{f.name}: layout {meta.get('layout')!r} is not {layout!r}")
-            if want > 1 and meta.get("case_index") != i:
+            if fam.get("cases"):
+                if meta.get("case") != fam["cases"][i - 1]:
+                    problems.append(f"{f.name}: case {meta.get('case')!r} is not "
+                                    f"{fam['cases'][i - 1]!r} (the subset this family takes)")
+            elif want > 1 and meta.get("case_index") != i:
                 problems.append(f"{f.name}: case_index {meta.get('case_index')!r} is not {i}")
             # A `--emit`ed `.gold` without its `.in` counterpart (or the
             # reverse) is a half-written corpus that tier C would either skip
@@ -124,13 +141,15 @@ def check() -> int:
 
 def regen() -> int:
     CORPUS.mkdir(parents=True, exist_ok=True)
-    for golden_name, layout, stem in FAMILIES:
-        stem_case = stem
-        out = CORPUS / f"{stem}.trace.in"
-        rc = __import__("subprocess").run(
-            [sys.executable, str(GEN), "--golden", str(GOLDEN / golden_name),
-             "--platform", "x11", "--layout", layout, "--case", stem_case,
-             "--out", str(out)]).returncode
+    for fam in FAMILIES:
+        out = CORPUS / f"{fam['stem']}.trace.in"
+        # A subset family takes exactly the cases it names -- passing the whole
+        # golden would emit the other eight (--only-case is repeatable).
+        subset = [x for c in fam.get("cases", []) for x in ("--only-case", c)]
+        rc = subprocess.run(
+            [sys.executable, str(GEN), "--golden", str(GOLDEN / fam["golden"]),
+             "--platform", "x11", "--layout", fam["layout"], "--case", fam["stem"],
+             "--out", str(out), *subset, *fam.get("args", [])]).returncode
         if rc != 0:
             return rc
     print("regenerated .in files; re-emit the .gold files with "

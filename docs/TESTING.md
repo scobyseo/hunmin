@@ -471,7 +471,7 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**10 traces, 355 events**, registered as ctest
+**12 traces, 366 events**, registered as ctest
 `conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
 that every tier-A case of every family the corpus replays has a trace and that every
 trace belongs to a recorded family (`tools/conformance-coverage.py`).
@@ -486,10 +486,14 @@ its own expectation is mechanical rather than engine-read (the syllable in preed
 committed, the buffer empties). `tools/merge-golden-cases.py` applies that, one merged
 case per distinct engine-option set, and refuses to write unless `hunmin-sim --check`
 replays the result identically — which it does for every golden in the corpus. The corpus
-went 102 traces to 10, 263 events to 355 (the added lines are the space boundaries).
+went 102 traces to 12, 263 events to 366: 10 merged family traces plus the two
+`delivery`-modelled ones from #220.
 `p2-2-2-tiers` was merged the same day without a boundary because its cases already ended
 with an empty buffer; `manual-sin3-p2-yet` keeps two cases because one of its cases runs
-with `caps` on and one engine state cannot be two.
+with `caps` on and one engine state cannot be two. Two more traces came from issue #220
+(`case-sebeolsik-final-case01/02`), which take TWO of that golden's ten designed cases and
+declare the shipped word-buffered model via `meta.delivery` — the other answer to the same
+question, and `tools/conformance-coverage.py` records both the subset and the flag.
 
 **What that costs:** failure attribution. A red test now names an event index inside one
 family trace instead of a case label (which for these families repeated the expected
@@ -593,14 +597,14 @@ Measured 2026-11-03 (`tier-c-wiring-coverage.py`, this host):
 
 | dialect | events | consumed | passed | sin3-p2 keys pressed |
 |---|---|---|---|---|
-| x11 | 355 | 263 | 92 | 24/47, 14/47, 19/47 (p2, basic, yet) |
+| x11 | 366 | 272 | 94 | 24/47, 14/47, 19/47 (p2, basic, yet) + 7/47 (sebeolsik-final) |
 | win32 | 688 | 490 | 198 | 27/47, 13/47, 17/47 |
 | android | 48 | 31 | 17 | 14/47 |
 
 Three gaps that follow, none of them a defect in a frontend:
 
-1. **x11 declines exactly one kind of key: space.** All 92 of its passed events are the
-   case-boundary spaces the merge introduced, so "the adapter declines and the client
+1. **x11 declines exactly one kind of key: space.** All 94 of its passed events are the
+   case-boundary spaces the merge and issue #220's two traces introduced, so "the adapter declines and the client
    receives it" is observed for a whitespace boundary and for nothing else — an arrow, a
    BackSpace on an empty buffer and an unmapped character are still unobserved on the one
    frontend tier C was built for. android has 4 such events (Shift+arrow selection), win32
