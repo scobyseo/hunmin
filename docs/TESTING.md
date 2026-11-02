@@ -551,8 +551,56 @@ the first, which left a host without libxkbcommon-dev at "0 defines". That is th
 that forces the F9 *flow* into the adapter everywhere, but it is not a keycode fact.
 CapsLock and modifiers are now covered deliberately rather than incidentally.
 
-Between them the tiers leave no gap: the fixture proves every key has a correct native
-encoding, and the 102 traces prove the adapter applies it.
+The two tiers are not equal in strength, and the difference is measurable. The fixture
+proves every key has a correct native **encoding**; the corpus proves the adapter applies
+it — but only for the keys it presses and only for the answers it carries. See "What the
+corpus covers of the adapter" below for that number; the x11 dialect currently presses 24
+of sin3-p2's 47 keys and never once takes the decline path.
+
+### What the corpus covers of the adapter (the metric)
+
+Tier C's claim is per event — "the adapter mapped this native key and applied the answer" —
+so the tier's strength is measured in events through the adapter, never in trace count.
+`python3 tools/tier-c-wiring-coverage.py` reports it per dialect and layout; it is a
+report, not a gate, because a gap is a statement about the corpus and widening it is a
+decision.
+
+- **keys** — distinct layout keys pressed / keys the layout maps. This is where a mapping
+  bug lives: an unpressed key is an unproven mapping.
+- **consumed vs passed** — the adapter's two outcomes. `passed` is the half of
+  `docs/FRONTEND-CONTRACT.md` invariant 3 that decides what the *client* receives; a corpus
+  with `passed = 0` never observes it.
+- **mods** — events carrying CapsLock or Shift state (`docs/trace-spec.md` "`in`").
+- **commit policy** — events per `meta.commit_mode`; the same case replayed once is one
+  policy, and the text arrives at a different point under the other.
+- **families** — which tier-A goldens the dialect replays at all.
+
+Measured 2026-11-03 (`tier-c-wiring-coverage.py`, this host):
+
+| dialect | events | consumed | passed | sin3-p2 keys pressed |
+|---|---|---|---|---|
+| x11 | 263 | 263 | **0** | 24/47, 14/47, 19/47 (p2, basic, yet) |
+| win32 | 688 | 490 | 198 | 27/47, 13/47, 17/47 |
+| android | 35 | 31 | 4 | 14/47 |
+
+Three gaps that follow, none of them a defect in a frontend:
+
+1. **x11 never declines a key.** Every x11 event is a key the layout maps, so "the adapter
+   declines and the client receives it" — space, an arrow, BackSpace on an empty buffer, an
+   unmapped character — is unobserved on the one frontend tier C was built for. android has
+   4 such events (Shift+arrow selection), win32 198 (the dubeolsik prose trace).
+2. **The digit row is unproven.** `0` and `2`-`9` appear in no x11 event, in any layout,
+   although the number row is the row whose rules differ most between layouts and modes
+   (R6's digit run, the unshifted row as jongseong on 세벌식). Same for most punctuation
+   (`, - . = [ \ ] \``).
+3. **The dialects do not replay the same corpus.** x11 covers 9 tier-A families, win32 8
+   (`p2-2-2-tiers` absent), android 1 (`p2-2-1-basic` only). "fcitx5 and Android agree" is
+   therefore measured for basic syllable composition and nothing else.
+
+One fidelity point, separate from coverage: the android dialect writes printable keys as
+their **ASCII** value (`tools/gen-conformance.py` `ANDROID_KEYCODES`), not as
+`android.view.KeyEvent.KEYCODE_*`, so those traces drive the JNI shim's own table; the
+real constants are covered by ctest `keymap-fixture`, not by the corpus.
 
 **Equivalence extension (2026-10-24, requirement).** The rule in
 `docs/FRONTEND-EQUIVALENCE.md` makes this tier the cross-frontend authority:

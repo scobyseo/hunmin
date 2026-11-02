@@ -69,6 +69,37 @@ policy. Recorded as a finding, not a ruling.
   recorded family, and `--regen` reproduces the corpus from goldens byte for
   byte. Verified to fail by deleting one trace and by planting a stray one.
 
+## What tier C actually covers of the adapter (same day, asked one level up)
+
+The question that mattered was not how many files the corpus has but what "the x11
+frontend is wired correctly" is measured by. Counted, per event, with
+`tools/tier-c-wiring-coverage.py`:
+
+- the x11 dialect has **0 declined events** out of 263 — every key it presses is
+  one the layout maps, so the half of `FRONTEND-CONTRACT` invariant 3 that decides
+  what the *client* receives is unobserved. android has 4 such events (Shift+arrow),
+  win32 198 (the dubeolsik prose trace).
+- **24/47, 14/47, 19/47** layout keys are pressed (sin3-p2, basic, yet); `0` and
+  `2`-`9` appear in no x11 event, though the number row carries the rules that
+  differ most between layouts.
+- the dialects do not replay the same corpus: x11 9 families, win32 8, android 1.
+
+So the sentence this repo used to carry — "the fixture proves every key has a
+correct native encoding, and the 102 traces prove the adapter applies it" — was
+false as written: it proves it for the keys pressed, none of them declined. The
+docs now carry the metric, the measured table and the three gaps, and the board
+carries `TIER-C-WIRING-DECLINE` / `TIER-C-WIRING-DIGITROW` as absent artefacts
+rather than prose.
+
+**A space boundary makes merging free, measured.** The follow-up question — "can
+the cases be merged, and is a space not enough for patim?" — has a yes:
+`tools/merge-golden-cases.py` merges a golden's cases into one per engine-option
+set, joined by a space whose expectation is mechanical (the syllable in preedit is
+committed, the buffer empties, `total` unchanged), and every golden in the corpus
+replays identically after it. It is not done: merging keeps every event, so it
+changes file count and not the coverage above, and coverage is what the tier is
+for.
+
 ## What it left
 
 ## What the eight cases were for

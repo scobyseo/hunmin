@@ -1012,3 +1012,20 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - `tools/conformance-coverage.py` learned the unsplit spelling
   (`<stem>.trace.in`, no `-caseNN`) that a one-case golden produces, still
   falsifiable both ways.
+
+## [2026-11-03] update | tier C's coverage metric, measured instead of assumed
+
+- Added `tools/tier-c-wiring-coverage.py`: per dialect and layout it reports keys
+  pressed vs mapped, consumed vs passed, modifier states, commit policies and
+  which tier-A families are replayed at all. A report, not a gate — a gap is a
+  statement about the corpus, and widening it is a decision.
+- `docs/TESTING.md` tier C now carries the metric and the measured table, and
+  the sentence "the 102 traces prove the adapter applies it" is gone: the x11
+  dialect never declines a key (0 of 263 events), presses 24/47 · 14/47 · 19/47
+  layout keys, and reaches none of `0`, `2`-`9`. android has 4 declined events,
+  win32 198; the dialects replay 9 / 8 / 1 families.
+- Board: `TIER-C-WIRING-DECLINE` and `TIER-C-WIRING-DIGITROW`, both `path-absent`,
+  so the missing artefacts are machine-checked rather than described.
+- Also measured, and NOT done: `tools/merge-golden-cases.py` shows a space
+  boundary makes every corpus golden mergeable with identical replay (patim
+  included). Merging keeps every event, so it changes file count, not coverage.
