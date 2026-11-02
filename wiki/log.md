@@ -1092,3 +1092,28 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   left; `TIER-C-WIRING-DIGITROW` narrows to `4`-`9`. `docs/HOWTO-NEW-LAYOUT.md`
   §4 carried a contradiction with the merge policy ("a golden that concatenates
   cases is wrong") and now states the boundary rule instead.
+
+## [2026-11-03] fix | the golden schema's `"shift": true` is interpreted
+
+- The field has been written since #90 (`0d6e6cb`, 2026-10-18): `\s<char>`
+  records `{"ch": base, "shift": true}` in `--trace`. Nothing ever read it —
+  `git log -S'"shift"' -- tools/gen-conformance.py` is empty, and
+  `hunmin-sim --check` fed `hunmin_ic_process(ic, ch)` without the modifier.
+  `docs/SPEC-SCHEMA.md`'s reference trace format documented neither spelling.
+- That was **unimplemented, not decided**. The record says the corpus keeps the
+  resolved-character spelling (`docs/OPTIONS-MEASURED.md` §IC-2-B: "keeps
+  emitting the legacy shape unless a dialect wants both"; the fcitx5 row: "its
+  case *is* the row selector"), and `docs/SPEC-P2.md` §"IC input entry points"
+  makes `(base, shift)` and the resolved character equal by construction —
+  which `ctest engine-process-key` asserts over every layout and row. Nothing
+  says a checker may ignore the field.
+- Fixed in both readers: `tools/sim.c --check` routes a shifted event through
+  `hunmin_ic_process_key(ic, ch, 1)`, and `tools/gen-conformance.py` resolves
+  the field into the native character (`shift_char`), so tier C carries
+  `FcitxKey_E`, not `e`.
+- Fixture: `tests/golden/shift-field.jsonl` (dubeolsik, e/ㄷ ㄸ, r/ㄱ ㄲ,
+  o/ㅐ ㅒ) plus its x11 trace, wired as tier-A `engine-golden-shift-field` and
+  through `conformance-coverage`. Falsified both ways: the pre-fix
+  `hunmin-sim` binary reports 6 MISMATCH lines on it, and a converter patched
+  to ignore the field aborts the adapter (`commitString: ㄷ` where ㄸ was
+  expected). The corpus's spelling is unchanged — resolved characters still.

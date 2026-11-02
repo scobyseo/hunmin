@@ -847,6 +847,16 @@ if(BUILD_TESTING)
     COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
             --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-sin3-p2.jsonl)
   set_tests_properties(engine-golden-case-sin3-p2 PROPERTIES LABELS "tier-A")
+  # The schema's shifted-key spelling, as a FIXTURE rather than a family: tier A
+  # may write a shift as the resolved character (`"X"`, the corpus convention) or
+  # as the base key plus `"shift": true`, which is what `hunmin-sim --trace`
+  # records and what docs/SPEC-SCHEMA.md documents. Both the checker and
+  # tools/gen-conformance.py must interpret the field; without it the second row
+  # of each pair is replayed as the base key and reads red (measured 2026-11-03).
+  add_test(NAME engine-golden-shift-field
+    COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+            --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/shift-field.jsonl)
+  set_tests_properties(engine-golden-shift-field PROPERTIES LABELS "tier-A")
   # SPEC-MODES §4's invariant, and its own words: "When it is off it must return
   # to 100% of the previous behaviour. This is an invariant. It is verifiable
   # and must be verified." (#179.) No new corpus: tools/off-identity-check.py

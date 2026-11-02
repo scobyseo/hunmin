@@ -1,0 +1,11 @@
+{"meta": {"source": "generated", "spec": "docs/SPEC-SCHEMA.md §Reference trace format — `in.shift`", "layout": "dubeolsik", "tool": "hunmin-sim --keys … --trace", "sim": "hunmin-sim --keys … --trace", "note": "the schema's shifted-key spelling, one case: `\\s` drives hunmin_ic_process_key and the trace records {\"ch\": base, \"shift\": true}. Expectations are the engine's own; a checker that ignores the field replays e/r/o and reads red on the second row of each pair."}}
+{"meta": {"case": "shift-field"}}
+{"in": {"ch": "e"}, "commit": "", "preedit": "ㄷ"}
+{"in": {"ch": "e", "shift": true}, "commit": "ㄷ", "preedit": "ㄸ"}
+{"in": {"ch": " "}, "commit": "ㄸ", "preedit": ""}
+{"in": {"ch": "r"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "r", "shift": true}, "commit": "ㄱ", "preedit": "ㄲ"}
+{"in": {"ch": " "}, "commit": "ㄲ", "preedit": ""}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅐ"}
+{"in": {"ch": "o", "shift": true}, "commit": "ㅐ", "preedit": "ㅒ"}
+{"in": {"ch": " "}, "commit": "ㅒ", "preedit": ""}

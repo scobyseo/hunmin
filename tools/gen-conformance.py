@@ -138,6 +138,23 @@ _SHIFTED = {
     "*": "8", "(": "9", ")": "0", "_": "-", "+": "=", "{": "[", "}": "]",
     "|": "\\", ":": ";", '"': "'", "<": ",", ">": ".", "?": "/", "~": "`",
 }
+_UNSHIFTED = {v: k for k, v in _SHIFTED.items()}
+
+
+def shift_char(ch: str) -> str:
+    """What this character's key spells with Shift held.
+
+    tier A may write a shifted key either as the resolved character (the
+    corpus convention: `"X"`, `"!"`) or as the base character plus
+    `"shift": true`, which is what `hunmin-sim --trace` records for a `\\s` key
+    and what docs/SPEC-SCHEMA.md documents. A native event carries the resolved
+    character either way -- `FcitxKey_A`, not `a` with a modifier -- so the
+    conversion belongs here, once. A converter that ignored the field replayed
+    the base key and measured the wrong thing (measured 2026-11-03).
+    """
+    if "a" <= ch <= "z":
+        return ch.upper()
+    return _UNSHIFTED.get(ch, ch)
 
 
 
@@ -299,7 +316,11 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
         # every ref-* file rather than doing the obvious thing.
         spec = rec["in"]
         named = spec.get("key")
-        event = build_named(named) if named else build(spec["ch"])
+        # A shifted key may arrive as the base character plus "shift": true; the
+        # native event must carry the resolved character (see shift_char). The
+        # tier-A text is the same either way.
+        spec_ch = shift_char(spec["ch"]) if spec.get("shift") else spec["ch"]
+        event = build_named(named) if named else build(spec_ch)
         # `consumed` means the engine took the key, so it is a property of the
         # LAYOUT, not of this file: the adapter consumes exactly when
         # hunmin_ic_process() returns true, and that happens only for a
@@ -320,7 +341,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             # line's preedit rather than guessing.
             consumed = bool(previous_preedit)
         else:
-            consumed = _layout_maps(a.layout, spec["ch"])
+            consumed = _layout_maps(a.layout, spec_ch)
         if a.platform == "x11" and current.get("caps"):
             # X11 is the only platform that encodes Caps Lock in `mods`
             # (LockMask). Android applies the same bit below for historical

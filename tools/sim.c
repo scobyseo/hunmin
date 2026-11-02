@@ -261,6 +261,14 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
         uint32_t ch = 0x08; /* default backspace */
         const cJSON *jc = cJSON_GetObjectItemCaseSensitive(in, "ch");
         const cJSON *jk = cJSON_GetObjectItemCaseSensitive(in, "key");
+        /* `"shift": true` is the schema's spelling of "this key with Shift
+         * held" (docs/SPEC-SCHEMA.md, reference trace format) and it is what
+         * this program's own --trace writes for a `\s` key. A checker that
+         * ignored it would replay the base key and measure the wrong thing --
+         * measured 2026-11-03: a sweep golden's shift rows passed tier C while
+         * the tier-A checker was pressing the unshifted key. */
+        const cJSON *js = cJSON_GetObjectItemCaseSensitive(in, "shift");
+        const int shift = cJSON_IsTrue(js) || (cJSON_IsNumber(js) && js->valueint != 0);
         if (cJSON_IsString(jc) && jc->valuestring[0]) ch = (unsigned char)jc->valuestring[0];
         else if (cJSON_IsString(jk) && !strcmp(jk->valuestring, "backspace")) ch = 0x08;
         else {
@@ -270,7 +278,8 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
             continue;
         }
 
-        hunmin_ic_process(ic, ch);
+        if (shift) hunmin_ic_process_key(ic, ch, 1); /* explicit-modifier entry */
+        else hunmin_ic_process(ic, ch);
         const char *ac = hunmin_ic_commit(ic), *ap = hunmin_ic_preedit(ic);
         const cJSON *wtotal = cJSON_GetObjectItemCaseSensitive(j, "total");
         if (cJSON_IsString(wtotal)) { /* oracle mode: assert the rendered result of

@@ -1,0 +1,10 @@
+{"meta": {"platform": "x11", "layout": "dubeolsik", "case": "shift-field", "source": "shift-field.jsonl (generated)", "commit_mode": "syllable"}}
+{"in": {"keysym": 101, "mods": 0}, "commit": "", "preedit": "ㄷ", "consumed": true}
+{"in": {"keysym": 69, "mods": 0}, "commit": "ㄷ", "preedit": "ㄸ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ㄸ", "preedit": "", "consumed": false}
+{"in": {"keysym": 114, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"keysym": 82, "mods": 0}, "commit": "ㄱ", "preedit": "ㄲ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ㄲ", "preedit": "", "consumed": false}
+{"in": {"keysym": 111, "mods": 0}, "commit": "", "preedit": "ㅐ", "consumed": true}
+{"in": {"keysym": 79, "mods": 0}, "commit": "ㅐ", "preedit": "ㅒ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ㅒ", "preedit": "", "consumed": false}

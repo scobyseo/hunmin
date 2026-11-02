@@ -471,7 +471,7 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**13 traces, 589 events**, registered as ctest
+**14 traces, 598 events**, registered as ctest
 `conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
 that every tier-A case of every family the corpus replays has a trace and that every
 trace belongs to a recorded family (`tools/conformance-coverage.py`).
@@ -486,7 +486,8 @@ its own expectation is mechanical rather than engine-read (the syllable in preed
 committed, the buffer empties). `tools/merge-golden-cases.py` applies that, one merged
 case per distinct engine-option set, and refuses to write unless `hunmin-sim --check`
 replays the result identically — which it does for every golden in the corpus. The corpus
-went 102 traces to 13, 263 events to 589: one merged trace per family, plus all ten of
+went 102 traces to 13, 263 events to 589 (14 / 598 with the `shift-field` schema fixture
+below): one merged trace per family, plus all ten of
 세벌식 최종's designed cases under the word-buffered model (issue #220 took two of them
 for its boundary assertion; the other eight had no tier-C trace at all, which is why that
 layout's identity — three-key assembly, the number row as jongseong, 겹받침 on shifted
@@ -621,7 +622,7 @@ Measured 2026-11-03 (`tier-c-wiring-coverage.py`, this host):
 
 | dialect | events | consumed | passed | layout keys pressed |
 |---|---|---|---|---|
-| x11 | 589 | 430 | 159 | 24/47, 14/47, 19/47 (p2, basic, yet) + 22/47 (sebeolsik-final) + 32/47 (sin3-p2) + 14/26 (dubeolsik) |
+| x11 | 598 | 436 | 162 | 24/47, 14/47, 19/47 (p2, basic, yet) + 22/47 (sebeolsik-final) + 32/47 (sin3-p2) + 14/26 (dubeolsik) |
 | win32 | 688 | 490 | 198 | 27/47, 13/47, 17/47 |
 | android | 48 | 31 | 17 | 14/47 |
 
@@ -640,7 +641,8 @@ Three gaps that follow, none of them a defect in a frontend:
    event, in any layout, although the number row is the row whose rules differ most
    between layouts and modes (R6's digit run, the unshifted row as jongseong on 세벌식).
    Most punctuation (`, - = [ \ ] \``) is unpressed for the same reason.
-3. **The dialects do not replay the same corpus.** x11 covers 12 tier-A families, win32 8
+3. **The dialects do not replay the same corpus.** x11 covers 12 layout families plus the
+   `shift-field` schema fixture, win32 8
    (`p2-2-2-tiers` absent), android 1 (`p2-2-1-basic` only). "fcitx5 and Android agree" is
    therefore measured for basic syllable composition and nothing else.
 

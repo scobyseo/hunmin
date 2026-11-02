@@ -68,6 +68,10 @@ FAMILIES: list[dict] = [
     # keys per syllable, 종성 on its own letter key, the 갈마들이 pairs and the 2024
     # 받침 rule, and a number row spent on literal digits.
     {"golden": "case-sin3-p2.jsonl", "layout": "sin3-p2", "stem": "case-sin3-p2"},
+    # Not a layout family: the schema's shifted-key spelling (`"shift": true`,
+    # docs/SPEC-SCHEMA.md). It rides through tier C as well, so a converter that
+    # stops interpreting the field reads red on the second row of each pair.
+    {"golden": "shift-field.jsonl", "layout": "dubeolsik", "stem": "shift-field"},
 ]
 
 
