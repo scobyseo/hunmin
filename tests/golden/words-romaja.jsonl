@@ -1,0 +1,5 @@
+{"meta": {"layout": "romaja", "source": "words-conformance-hangul.txt words; keys per syllable from tools/sin3p2-ksgen.py (BFS, hunmin-sim --batch oracle)", "tool": "tools/wordlist2golden.py", "note": "expectations are hunmin-sim --trace output over the composed keys; the space after each word is the boundary event at which a commit-only adapter inserts the word"}}
+{"meta": {"case": "나", "keys": "na "}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "a"}, "commit": "", "preedit": "나"}
+{"in": {"ch": " "}, "commit": "나", "preedit": ""}

@@ -58,6 +58,14 @@ def key_alphabet(layout):
     d = json.loads((DATA / f"layouts/{layout}.json").read_text(encoding="utf-8"))
     keys = set(d["keys"])
     keys |= {k.upper() for k in d["keys"] if len(k) == 1 and k.isalpha()}
+    # A literal backslash is hunmin-sim's escape character (`\\` = literal,
+    # `\s<x>` = shift, `\b` = backspace), so a keystroke string carrying the
+    # backslash KEY is ambiguous: the sim reads it as the start of an escape and
+    # dies with "unknown key escape". Measured on sebeolsik-3-2, whose table
+    # carries the `\` position: the BFS never got past its first batch. The
+    # search is for keys that COMPOSE text, and that key only ever emits the
+    # literal '\', so dropping it costs no reachable target.
+    keys.discard("\\")
     return sorted(keys, key=lambda c: (c.isupper(), c))
 
 
