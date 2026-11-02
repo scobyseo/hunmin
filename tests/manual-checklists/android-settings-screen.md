@@ -1,12 +1,12 @@
 # Android — the system IME settings screen (surface B, issue #177)
 
-**This is a device checklist and cannot be automated on the host.** The host can
-prove the screen is registered (`aapt2 dump xmltree --file res/xml/method.xml`
-shows `android:settingsActivity`) and that its state source answers the engine
-(`AutoSwitchSettingsTest`, tier E1). It cannot prove that the platform's own
-Settings app finds and opens the screen, nor that a change reaches the editor
-that is already focused — both are the platform's behaviour, and tier E2
-(`tools/android-e2e.sh`) is where a device is the only honest oracle.
+**A device checklist, written before the emulator round and kept for the physical
+one.** The host can prove the screen is registered (`aapt2 dump xmltree --file
+res/xml/method.xml` shows `android:settingsActivity`) and that its state source
+answers the engine (`AutoSwitchSettingsTest`, tier E1). The steps below were run
+on the emulator on 2026-11-03 (see "Run" at the end); what a real device adds is
+what an emulator does not have — an OEM's IME switcher, a physical keyboard, and
+a battery-restarted process.
 
 Record the result as a measurement: device, Android version, date, and what the
 screen showed. A step that fails is a finding; it is not a verdict about the
@@ -71,6 +71,39 @@ on screen. Where a step compares the two, that is the window it means.
    Turn the switch on with the data absent (step 4's fixture) and watch it: it
    returns to OFF and stays there. A switch that keeps re-requesting ON is the
    `rendering` guard in `SettingsActivity.write` having failed.
+
+## Run: 2026-11-03, emulator `hunmin-e2e` (API 35), app-debug from this branch
+
+Measured with `adb shell input keyevent` per key (the path a hardware keyboard
+takes, and the one `tools/android-e2e.sh` uses), reading the committed text back
+out of the platform's own view hierarchy, not from the IME's log.
+
+| step | result |
+|---|---|
+| 1 reachable through the platform path | Settings → System → Languages & input → On-screen keyboard → hunmin → the row opens `org.hunmin.ime/.SettingsActivity` (`dumpsys activity activities` → topResumedActivity) |
+| 2 the value is the engine's | `꺼짐` on a fresh install, `켜짐` after the switch is moved; the stored read-back in `shared_prefs/hunmin.xml` follows it |
+| 3 the key is the engine's chord | `키 조합: Ctrl+한/영`, the same string the in-keyboard row shows |
+| 4 the gate when data is absent | **NOT REPRODUCIBLE this way.** Deleting `files/hunmin-data/modes/` and forcing the IME to stop makes `HunminDataInstaller.install` re-extract it from the APK (the stamp no longer matches), so the row is enabled again on the next open. The absent-data row was measured instead as the state of the shipped APK *before* the installer fix below; the E1 fixtures (`AutoSwitchSettingsTest`, `AutoSwitchGateTest`) stay the oracle for that state |
+| 5 a change reaches a running editor | **PASS.** Editor alive, toggle ON on this screen, return, type `hello ` → `hello`; the same word before the toggle delivered `ㅗ디ㅣㅐ` (dubeolsik, Hangul mode). No IME restart between the two |
+| 6 a change with no editor open | **PASS.** With no editor in front: toggle OFF, then open the editor and type `hello ` → `ㅗ디ㅣㅐ` |
+| 7 the switch cannot drive itself | not reached: the guard matters only while the row is enabled and the engine refuses, and the refusal state cannot be built on a device (step 4). Covered by the E1 gate fixture instead |
+
+**Defect found by this run, fixed in the same branch.** The APK packaged
+`assets/data/modes/en-US.json` (the asset sync copies `libhunmin/data` minus
+`krdict`), but `HunminDataInstaller.DATA_SUBDIRS` did not name `modes`, so the
+file was never extracted. On the device the row therefore read
+`사용할 수 없음 (자동 전환 사전 없음)` with the switch disabled — the B3 gate
+working, on data the APK was carrying unused — and no surface could turn the
+feature on. `HunminDataInstallerTest` now asserts that the extracted set equals
+the shipped set minus `notInTheApk`, and both of its cases were seen red with
+`modes` removed from the list before being seen green with it restored.
+
+**What this run also showed about the mechanism.** The screen's live-service
+branch is not the path the shipped flow takes: opening this screen ends the
+editor's input session, `onFinishInput()` closes the engine, and the write goes
+through `AutoSwitchSettings`' own layer. What makes step 5 true is the stored
+read-back being re-applied by `HunminInputMethodService.onStartInput` — no IME
+restart, but also no live layer.
 
 ## What this cannot show
 
