@@ -26,7 +26,8 @@ Every case here is a line of SPEC-MODES R8's formula or a guard around it:
 
 plus R9's three-key guard (both sides of it), R6's digit run (which is why the
 delivery TIMING is asserted as well as the text), R4's "judged once, at the
-boundary", and R13's off-is-the-identity state.
+boundary", R13's off-is-the-identity state, and R8-정정-3's widened shape rule on
+a layout that composes archaic jamo.
 """
 
 import argparse
@@ -95,6 +96,10 @@ CASES = [
     dict(case="r8-english-word-switches-on-sebeolsik-final", req="R8", layout="sebeolsik-final",
          mode="hangul", autoswitch=1, keys="hello ",
          note="line 1 on a jamo layout: the Latin reading of the same keys is still looked up, so it switches"),
+    # --- R8-정정-3: an 옛한글 layout is judged by the widened shape rule ----
+    dict(case="r8-old-hangul-widened-rule-keeps-the-mode", req="R8-정정-3",
+         layout="dubeolsik-yet", mode="hangul", autoswitch=1, keys="\\sahem ",
+         note="the Hangul reading is ᅀᅩ드 (archaic ᅀ): valid only under the widened sets, and its Latin reading 'Ahem' is an English word. Both valid, so the mode stays; the modern rule would call it invalid and switch to English"),
     # --- R13-정정 / B3: off is the identity path -------------------------
     dict(case="r13-autoswitch-off-is-the-identity", req="R13", layout="dubeolsik", mode="hangul",
          autoswitch=0, keys="hello ",

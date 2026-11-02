@@ -144,13 +144,14 @@ at the judgement boundary. An engine-owned variant is the alternative. Both
 satisfy the requirement above. Which one wins is recorded in the R8
 architecture decision, not in this document.
 
-*State measured 2026-11-01 (`docs/OPTIONS-MEASURED.md` §MRO-0, N4): the sentence
-above describes the tree before #167. The replay it names now exists in the
-shared layer as well — `latin_reading()` in
-`libhunmin/src/buffered_preedit.c`, pinned by `engine-wordset` — so two copies of
-the mechanism exist and neither applies R8's formula (#168). The requirement half
-of this section is unchanged. Which component owns the judgement was ruled
-2026-11-01 (#164): **the engine judges, the frontend performs the switch** — see
+*State measured 2026-11-01 (`docs/OPTIONS-MEASURED.md` §MRO-0, N4), updated
+2026-11-03: the adaptor sentence above describes the tree before #167, and the
+adaptor it names was retired by #164. The replay now lives in the shared layer
+(`latin_reading()` in `libhunmin/src/buffered_preedit.c`, pinned by
+`engine-wordset`), and that layer evaluates R8's formula at the boundary
+(`judge_boundary`, issue #168). The requirement half of this section is
+unchanged. Which component owns the judgement was ruled 2026-11-01 (#164): **the
+engine judges, the frontend performs the switch** — see
 `docs/OPTIONS-MEASURED.md` §MRO for what that decision does and does not settle.*
 
 The three design facts that came out of the earlier discussion are moved to
@@ -648,10 +649,13 @@ row that maps straight to one, and a combination that produces one; measured, al
 six shipped layouts use the first, and a scratch probe with one layout's keys
 scrubbed proves the second still answers.
 
-**Not decided by this entry:** nothing consumes the capability yet. The
-judgement's call site is #168, and that is where the rule is picked from these two
-answers — a layout answering 0 to `autoswitch_capable` has no syllables to judge,
-so the feature stays disabled there rather than guessing.
+**Consumed 2026-11-03:** the judgement's call site (`judge_boundary`, issue
+#168) picks the rule from these two answers. `hangul_valid_for` asks the Hangul
+layout's derived `old_hangul` flag and calls `hunmin_hangul_valid_old` when it is
+set, `hunmin_hangul_valid` otherwise; the boundary's own guard reads the same
+load-time `composes_hangul` flag behind `hunmin_ctx_layout_autoswitch_capable`, so
+a layout that composes no Hangul has no syllables to judge and the feature stays
+disabled there rather than guessing. The requirement text above is unchanged.
 
 
 ### `valid` is not a dictionary lookup (measured 2026-10-04) — SUPERSEDED by R8-정정 above; kept as the measurement of what the ruling costs
