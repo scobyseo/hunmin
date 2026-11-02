@@ -26,6 +26,10 @@
 
 ## Decisions
 
+- [[2026-11-02-spec-modes-4-splits-into-an-invariant-and-a-metric]] — §4 read as two claims of different kinds: the decidable half became R14
+  (A2's child, oracle = the recorded corpus, verified by `engine-off-identity`),
+  and the ON half points at ③ unrepresentability instead of restating it; why
+  `req-map` could not see the section at all.
 - [[2026-11-02-interim-cannot-support-autoswitch-and-on-stops-passthrough]] — two rulings
   from one message: the interim delivery cannot carry the switch (and why it is
   structural), and with the switch on English stops passing through so R8's E1 line

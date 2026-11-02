@@ -48,7 +48,7 @@ cross references in the other four documents were fixed at the same time.
 | **2. What it converts** | what a mode is, how many IMs there are, where it is decided | R2, R3 |
 | **3. When it is judged** | what the composition buffer (조합 버퍼) is and when it ends | R4, R5, R6 |
 | **4. How it is judged** | when to switch and when not to | R7, R8, R9, R10 |
-| **5. When it is wrong, and evaluation** | who fixes it, how it is measured, how to turn it on and off | R11, R12, R13 |
+| **5. When it is wrong, and evaluation** | who fixes it, how it is measured, how to turn it on and off, and what turning it off must give back | R11, R12, R13, R14 |
 
 **Why this order holds:**
 
@@ -417,7 +417,7 @@ requirement for the on case is specified separately in R4.
 - **OFF + English mode:** Latin letters and digits are **committed per
   character.** There is no composition buffer. It is needed because of software
   that handles alphanumeric input without spaces (`abc123`).
-- **OFF + Hangul mode:** preserves current behaviour 100% (§4).
+- **OFF + Hangul mode:** preserves current behaviour 100% (§R14).
 
 Per the correction the user gave immediately before ("the case I mentioned earlier
 was only talking about the behaviour when automatic conversion is off"), this
@@ -799,6 +799,36 @@ records the current factual relationships (not a measurement):
 - fcitx5 already has an addon settings (conf), so surface B is not extra UI but
   one existing settings item.
 
+## R14. Turning it off leaves no trace [D]
+
+> 자동변환 기능을 껐을 때는 입력가능하겠지만, 입력 불가가 0%인 것이
+> 이상적이다. 아직은 기능 결함으로 판단하지 않을 생각이며, 입력 불가
+> 단어는 실제 사용될 확률이 매우 작아야 함.
+
+**With the switch off, the input method must deliver what it delivered before
+the feature existed.** A person who never turns it on must not be able to tell
+that it shipped. (§4 quotes the words this item comes from; its other half is
+the ON-side rate, which is ③ in `docs/MODES-METRICS.md` §1.3, not this item.)
+
+- **"The previous behaviour" is a recorded thing, not a memory.** The oracle is
+  the tier-A corpus in `tests/golden/`, recorded before the judgement existed
+  and still asserted against `hunmin_ic` (issue #179). A build with the feature
+  and a build without it answer that corpus identically — the same bytes, at
+  whichever commit policy a frontend is set to, not "the suite is still green".
+- **What it constrains is delivery: the text handed to the client, and the
+  consumed/declined decision for each key.** How a frontend draws that text is
+  an allowed difference (`docs/FRONTEND-EQUIVALENCE.md` §3) and is not covered
+  by this item.
+- **It covers the Latin layouts too**, by the same equality: the corpus carries
+  `dvorak`, `colemak` and `romaja`, and what they deliver is compared the same
+  way. OFF + English mode's per-character delivery is R5's rule, not this one's.
+
+*Verified by:* ctest `engine-off-identity` (`tools/off-identity-check.py` over
+`hunmin-sim --off-check`) — the tier-A goldens and the tier-C x11 inputs are
+driven through `hunmin_buffered_preedit` with `autoswitch` written 0 and read
+back, at both commit policies, and the text a person sees is compared byte for
+byte against `hunmin_ic`, the engine those corpora were recorded on.
+
 ---
 
 # 2. Changeable after evaluation (EVALUABLE)
@@ -1146,16 +1176,21 @@ delimiters.
 That is:
 
 - **When it is off it must return to 100% of the previous behaviour.** This is an
-  invariant. It is verifiable and must be verified.
-  *Verified by:* ctest `engine-off-identity` (`tools/off-identity-check.py` over
-  `hunmin-sim --off-check`) — the tier-A goldens and the tier-C x11 inputs are
-  driven through `hunmin_buffered_preedit` with `autoswitch` written 0 and read
-  back, and the text a person sees is compared byte for byte against `hunmin_ic`,
-  the engine those corpora were recorded on. It covers the shared layer all three
-  frontends sit on and not a frontend's own presentation (§3).
-- **When it is on, the incidence of untypable input must be low, and there is no
-  pass line yet (E4).** For now this is not judged to be a defect, but it must
-  **be measured.**
+  invariant. It is verifiable and must be verified. **§R14** is that item, and
+  ctest `engine-off-identity` is what checks it.
+- **When it is on, the feature must not create input that cannot be typed at
+  all.** The rate is ③ *unrepresentability*, defined in
+  `docs/MODES-METRICS.md` §1.3 — how many corpus sentences a layout can produce
+  at all, and how many of those the rules pass through unchanged — and it keeps
+  the two strengths the sentence above states separately: the rate **must be
+  low**, and the ideal is **0%**.
+  - **Its pass line is E4's and does not exist yet**, so what this item obliges
+    today is exactly one thing: that ③ **be measured** (its status in
+    `docs/MODES-METRICS.md` §1.3 is NOT MEASURED), and it is **not judged a
+    defect** until a line is set.
+  - **"Untypable" means no text at all, in any mode.** Producing the wrong
+    language and letting a person fix it is R11's accepted cost and is counted
+    in R12's keystrokes; that is a misjudgement, not this item's failure.
 
 ---
 

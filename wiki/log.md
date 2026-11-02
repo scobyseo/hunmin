@@ -957,3 +957,11 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   recorded in place on
   [[2026-10-12-auto-toggle-disabled-by-default-in-0-1]], which now carries a
   dated supersession section rather than a rewritten body.
+
+## [2026-11-02] create | SPEC-MODES §4 splits into an invariant and a metric
+
+- Created `decisions/2026-11-02-spec-modes-4-splits-into-an-invariant-and-a-metric.md`
+  from the #179 ruling ("문장을 명확하게 바꿔볼까? 그러고 나서 요구사항 아이디를
+  붙이든지 하자"): §R14 added to `docs/SPEC-MODES.md` §1 with its `REQ-MAP` row
+  (parent A2, `engine-off-identity`), §4's two bullets rewritten to point at R14
+  and at ③ in `docs/MODES-METRICS.md` §1.3, and the reading-order table extended.
