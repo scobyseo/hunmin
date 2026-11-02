@@ -401,6 +401,21 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   reference last, so the language-bar `RemoveItem` is reached; the two cases
   that encoded the defects flipped, with the pre-fix tree measured red
   against them.
+- [[2026-11-03-x11-corpus-replays-every-tier-a-case]] - issue #187: the 22 per-case
+  traces the word-buffering reduction dropped come back under the policy each one
+  needs (`meta.commit_mode`), 87 -> 109 traces with every `.in` identical to its
+  `.gold`; the issue's "stale generation" premise measured wrong — c773fdd had
+  dropped them deliberately — and ctest `conformance-coverage` now fails when a
+  case goes missing again. Then 109 -> 102 by merging `p2-2-2-tiers`' eight
+  short probes into one case, and 102 -> 10 by merging every other family behind a
+  space boundary: 355 events, and the boundaries being DECLINED keys took x11's
+  pass-through coverage from 0 to 92. The ten 세벌식 최종 probes then entered as
+  ONE file too (11 traces, 417 events, 109 passed), because the policy is one
+  trace per family and the merge already knew how to keep the nine boundaries.
+  두벌식 and 신세벌식 P2 then got the same designed-family treatment (13 traces,
+  589 events, 159 passed): 두벌식's number row is not the layout's at all, so its
+  digits are declined keys and the pass-through half of the contract is now
+  observed on a character, not only on whitespace.
 - [[2026-11-01-modes-ownership-retires-the-detector]] - the #164 session: §MRO's
   pricing, the ruling implemented on all three frontends (engine judges, frontend
   switches), `language_detect.*` retired with six `REQ-MAP` rows re-pointed, and

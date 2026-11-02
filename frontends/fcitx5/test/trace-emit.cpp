@@ -13,6 +13,7 @@
 #include "testfrontend_public.h"
 #include <cstdio>
 #include <cstdlib>
+#include <fcitx-config/rawconfig.h>
 #include <fcitx-utils/eventdispatcher.h>
 #include <fcitx-utils/key.h>
 #include <fcitx-utils/keysym.h>
@@ -238,6 +239,21 @@ int main(int argc, char **argv) {
         group.setDefaultInputMethod("");
         inst->inputMethodManager().setGroup(group);
 
+        // Commit unit (docs/trace-spec.md "meta"): tier A records commit and
+        // preedit per event, which is the PER_SYLLABLE delivery point. A
+        // word-buffered adapter delivers the same text later and shows the
+        // finished syllables as preedit, so a case whose golden commits
+        // mid-stream only replays faithfully under the policy tier A recorded.
+        // Absent, the addon's own default ("word") applies -- unchanged
+        // behaviour for every trace that does not name one.
+        const std::string commitMode = stringField(lines[0], "commit_mode");
+        if (!commitMode.empty()) {
+            RawConfig raw;
+            raw.setValueByPath("HangulLayout", layout);
+            raw.setValueByPath("CommitBehavior", commitMode);
+            hunmin->setConfig(raw);
+        }
+
         auto *tf = inst->addonManager().addon("testfrontend");
         auto uuid = tf->call<ITestFrontend::createInputContext>("traceapp");
         auto *ic = inst->inputContextManager().findByUUID(uuid);
@@ -252,12 +268,14 @@ int main(int argc, char **argv) {
         // commits are then ASSERTED against them -- TestFrontend aborts on the
         // first mismatch. That is stronger than observation: a wrong commit
         // cannot pass silently, it kills the process.
-        // Word-buffered expectations: the adapter commits whole words at
-        // boundaries (declined keys / teardown), not per-syllable. Collect
-        // per-syllable commits into per-word buckets and push one expectation
-        // per word.
-        std::vector<std::string> wordBufferedCommits;
-        std::vector<std::string> perEventExpected;
+        // The queue's SHAPE follows the delivery policy, because that is what
+        // the policy decides (hunmin_buffered_preedit, docs/FRONTEND-EQUIVALENCE.md
+        // §5.1): a word-buffered adapter commits whole words at boundaries, a
+        // syllable adapter commits each syllable as the engine finalises it --
+        // which is exactly what tier A recorded, event by event.
+        const bool syllableMode = commitMode == "syllable";
+        std::vector<std::string> expectedCommits;   // in arrival order
+        std::vector<std::string> perEventExpected;  // echoed per event
         std::string currentWord;
 
         for (size_t i = 1; i < lines.size(); ++i) {
@@ -268,28 +286,49 @@ int main(int argc, char **argv) {
             std::string commit = stringField(lines[i], "commit");
             std::string expectedCommit;
 
-            if (!commit.empty()) {
-                currentWord += commit;
-            }
-            if (!consumed) {
-                // Boundary: the buffered word commits before the declined key
-                expectedCommit = currentWord;
-                wordBufferedCommits.push_back(currentWord);
-                currentWord = "";
+            if (syllableMode) {
+                // tier A's commit is already the delivery tier C asserts.
+                expectedCommit = commit;
+            } else {
+                if (!commit.empty()) {
+                    currentWord += commit;
+                }
+                if (!consumed) {
+                    // Boundary: the buffered word commits before the declined key
+                    expectedCommit = currentWord;
+                    expectedCommits.push_back(currentWord);
+                    currentWord = "";
+                }
             }
             perEventExpected.push_back(expectedCommit);
         }
 
-        // Teardown flushes the last buffered word.
-        const std::string tail = stringField(lines.back(), "preedit");
-        if (!tail.empty()) {
-            currentWord += tail;
-        }
-        if (!currentWord.empty()) {
-            wordBufferedCommits.push_back(currentWord);
+        if (syllableMode) {
+            for (const std::string &c : perEventExpected) {
+                if (!c.empty()) {
+                    expectedCommits.push_back(c);
+                }
+            }
+            // The adapter commits the syllable still in flight at teardown, and
+            // tier A does not record that commit -- its last line is a preedit.
+            // It is the same flush the word path below performs, with the
+            // syllable unsplit.
+            const std::string tail = stringField(lines.back(), "preedit");
+            if (!tail.empty()) {
+                expectedCommits.push_back(tail);
+            }
+        } else {
+            // Teardown flushes the last buffered word.
+            const std::string tail = stringField(lines.back(), "preedit");
+            if (!tail.empty()) {
+                currentWord += tail;
+            }
+            if (!currentWord.empty()) {
+                expectedCommits.push_back(currentWord);
+            }
         }
 
-        for (const std::string &c : wordBufferedCommits) {
+        for (const std::string &c : expectedCommits) {
             if (!c.empty()) {
                 tf->call<ITestFrontend::pushCommitExpectation>(c);
             }

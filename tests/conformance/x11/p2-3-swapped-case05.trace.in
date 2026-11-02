@@ -1,4 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "maep", "source": "p2-3-swapped.jsonl (gate)", "case_index": 5, "case_id": "p2-3-swapped#05"}}
-{"in": {"keysym": 105, "mods": 0}, "commit": "", "preedit": "ㅁ", "consumed": true}
-{"in": {"keysym": 101, "mods": 0}, "commit": "", "preedit": "매", "consumed": true}
-{"in": {"keysym": 101, "mods": 0}, "commit": "", "preedit": "맵", "consumed": true}

@@ -1,3 +1,0 @@
-{"meta": {"platform": "android", "layout": "sin3-p2-basic", "case": "마", "source": "p2-2-1-basic.jsonl (gate)", "case_index": 5, "case_id": "basic-syllables#05"}}
-{"in": {"keycode": 105, "mods": 0}, "commit": "", "preedit": "ㅁ", "consumed": true}
-{"in": {"keycode": 102, "mods": 0}, "commit": "", "preedit": "마", "consumed": true}

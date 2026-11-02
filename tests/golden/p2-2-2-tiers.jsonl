@@ -1,33 +1,26 @@
-{"meta": {"source": "gate", "spec": "PLAN.md:85 / pat.im/1136", "layout": "sin3-p2", "note": "expected = pat.im section text or normative compose rows; meta cases pinned via replay"}}
-{"meta": {"case": "tier1-jk"}}
+{"meta": {"source": "gate", "spec": "PLAN.md:85 / pat.im/1136", "layout": "sin3-p2", "note": "expected = pat.im section text or normative compose rows; meta cases pinned via replay. One case walks the UserKeyTable pins (prefix jk/jl/j; × third key 1/!/B) and exits the tier"}}
+{"meta": {"case": "tiers-1-to-6-and-exit"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "1"}, "commit": "ㅇµ", "preedit": ""}
-{"meta": {"case": "tier1-jl"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "l"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "1"}, "commit": "ㅇ①", "preedit": ""}
-{"meta": {"case": "tier1-j;"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": ";"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "1"}, "commit": "ㅇ⑪", "preedit": ""}
-{"meta": {"case": "tier4-jk-shift"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "!"}, "commit": "ㅇⅠ", "preedit": ""}
-{"meta": {"case": "tier4-jk-B"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "B"}, "commit": "ㅇβ", "preedit": ""}
-{"meta": {"case": "tier5-jl-B"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "l"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "B"}, "commit": "ㅇ≡", "preedit": ""}
-{"meta": {"case": "tier6-j;-B"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": ";"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "B"}, "commit": "ㅇ≅", "preedit": ""}
-{"meta": {"case": "tier-exit"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "1"}, "commit": "ㅇµ", "preedit": ""}

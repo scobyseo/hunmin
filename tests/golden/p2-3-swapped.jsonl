@@ -1,61 +1,61 @@
 {"meta": {"source": "gate", "spec": "PLAN.md:85 / pat.im/1136", "layout": "sin3-p2", "note": "expected = pat.im section text or normative compose rows; meta cases pinned via replay"}}
-{"meta": {"case": "gap"}}
+{"meta": {"case": "p2-3-swapped-merged"}}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "개"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "갭"}
-{"meta": {"case": "nap"}}
+{"in": {"ch": " "}, "commit": "갭", "preedit": ""}
 {"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "내"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "냅"}
-{"meta": {"case": "dap"}}
+{"in": {"ch": " "}, "commit": "냅", "preedit": ""}
 {"in": {"ch": "u"}, "commit": "", "preedit": "ㄷ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "대"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "댑"}
-{"meta": {"case": "raep"}}
+{"in": {"ch": " "}, "commit": "댑", "preedit": ""}
 {"in": {"ch": "y"}, "commit": "", "preedit": "ㄹ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "래"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "랩"}
-{"meta": {"case": "maep"}}
+{"in": {"ch": " "}, "commit": "랩", "preedit": ""}
 {"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "매"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "맵"}
-{"meta": {"case": "baep"}}
+{"in": {"ch": " "}, "commit": "맵", "preedit": ""}
 {"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "배"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "뱁"}
-{"meta": {"case": "aep"}}
+{"in": {"ch": " "}, "commit": "뱁", "preedit": ""}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "애"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "앱"}
-{"meta": {"case": "caep"}}
+{"in": {"ch": " "}, "commit": "앱", "preedit": ""}
 {"in": {"ch": "/"}, "commit": "", "preedit": "ㅋ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "캐"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "캡"}
-{"meta": {"case": "taep"}}
+{"in": {"ch": " "}, "commit": "캡", "preedit": ""}
 {"in": {"ch": "'"}, "commit": "", "preedit": "ㅌ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "태"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "탭"}
-{"meta": {"case": "haep"}}
+{"in": {"ch": " "}, "commit": "탭", "preedit": ""}
 {"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "해"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "햅"}
-{"meta": {"case": "gyeop"}}
+{"in": {"ch": " "}, "commit": "햅", "preedit": ""}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
 {"in": {"ch": "t"}, "commit": "", "preedit": "겨"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "겹"}
-{"meta": {"case": "ryeop"}}
+{"in": {"ch": " "}, "commit": "겹", "preedit": ""}
 {"in": {"ch": "y"}, "commit": "", "preedit": "ㄹ"}
 {"in": {"ch": "t"}, "commit": "", "preedit": "려"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "렵"}
-{"meta": {"case": "byeorp"}}
+{"in": {"ch": " "}, "commit": "렵", "preedit": ""}
 {"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
 {"in": {"ch": "t"}, "commit": "", "preedit": "벼"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "볍"}
-{"meta": {"case": "yeop"}}
+{"in": {"ch": " "}, "commit": "볍", "preedit": ""}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "t"}, "commit": "", "preedit": "여"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "엽"}
-{"meta": {"case": "hyeop"}}
+{"in": {"ch": " "}, "commit": "엽", "preedit": ""}
 {"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
 {"in": {"ch": "t"}, "commit": "", "preedit": "혀"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "협"}

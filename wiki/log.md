@@ -975,3 +975,145 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `LayerTest.TurningTheSwitchOffMidWordLosesNothing`. The page carries the four
   messages in order.
 
+## [2026-11-03] create | the x11 corpus replays every tier-A case (issue #187)
+
+- Created `raw/sessions/2026-11-03-x11-corpus-replays-every-tier-a-case.md` and
+  added it to `index.md`: the issue's premise (corpus generated before the
+  goldens gained cases) measured wrong — `git log` shows one commit per golden
+  since the import, and commit c773fdd had dropped 22 traces deliberately for
+  word buffering (#74), the same set win32 then replayed.
+- The fix is a field, not a re-emit: `tools/gen-conformance.py` derives
+  `commit_mode: syllable` from the golden (a commit on a consumed key) and
+  `frontends/fcitx5/test/trace-emit.cpp` runs under that policy, so the 22
+  traces match tier A verbatim — 87 -> 109 traces, 263 events, `.in` identical
+  to `.gold` on all of them, the 87 previously committed traces regenerating
+  byte-identically.
+- Added `tools/conformance-coverage.py` and ctest `conformance-coverage`
+  (`tier-C;guard`): every tier-A case of every family the corpus claims has a
+  trace, every trace belongs to a recorded family, and `--regen` reproduces
+  the corpus from goldens. Verified falsifiable by deleting a trace and by
+  planting a stray one.
+- Recorded, not resolved: `engine-d1-judgement` is red at this commit on this
+  host (the R9 control case delivers `ㅏ됴` where the corpus expects `key`,
+  judgement data present), and the `slow` tier measures 94 s against its 60 s
+  budget with `engine-d3-edit` at 95 s alone.
+
+## [2026-11-03] update | p2-2-2-tiers is one case, not eight
+
+- Merged the eight tier probes into a single 25-event case after measuring that
+  they were not independent in any way that mattered: every one already ended
+  with an empty buffer, and `hunmin-sim --check` replays the merged golden
+  identically (`docs/SPEC-P2.md` §P2 gate corpora carries the finding).
+- The split's only products were failure attribution and a grep-able map of
+  which UserKeyTable cells are sampled; the tier-leak bug it once caught needed
+  a case ending MID-tier, which none of these did. Corpus 109 -> 102 traces,
+  same 263 events; tier-C 126 -> 120 tests; the android and win32 dialects
+  unaffected.
+- `tools/conformance-coverage.py` learned the unsplit spelling
+  (`<stem>.trace.in`, no `-caseNN`) that a one-case golden produces, still
+  falsifiable both ways.
+
+## [2026-11-03] update | tier C's coverage metric, measured instead of assumed
+
+- Added `tools/tier-c-wiring-coverage.py`: per dialect and layout it reports keys
+  pressed vs mapped, consumed vs passed, modifier states, commit policies and
+  which tier-A families are replayed at all. A report, not a gate — a gap is a
+  statement about the corpus, and widening it is a decision.
+- `docs/TESTING.md` tier C now carries the metric and the measured table, and
+  the sentence "the 102 traces prove the adapter applies it" is gone: the x11
+  dialect never declines a key (0 of 263 events), presses 24/47 · 14/47 · 19/47
+  layout keys, and reaches none of `0`, `2`-`9`. android has 4 declined events,
+  win32 198; the dialects replay 9 / 8 / 1 families.
+- Board: `TIER-C-WIRING-DECLINE` and `TIER-C-WIRING-DIGITROW`, both `path-absent`,
+  so the missing artefacts are machine-checked rather than described.
+- Also measured, and NOT done: `tools/merge-golden-cases.py` shows a space
+  boundary makes every corpus golden mergeable with identical replay (patim
+  included). Merging keeps every event, so it changes file count, not coverage.
+
+## [2026-11-03] update | the corpus is one trace per family
+
+- Merged every corpus family's cases behind a space boundary with
+  `tools/merge-golden-cases.py` (one merged case per engine-option set; it
+  refuses to write unless `hunmin-sim --check` replays the result identically).
+  Corpus 102 traces -> 10, events 263 -> 355, `tier-C` 120 tests -> 28, every
+  `.in` identical to its `.gold`.
+- **A prediction was wrong:** I said merging would change file count and not
+  coverage. Measured after: x11 `passed` went 0 -> 92, because the boundaries
+  are declined keys — the pass-through half of FRONTEND-CONTRACT invariant 3 is
+  now observed on x11 for the first time. Key coverage (24/47 · 14/47 · 19/47)
+  is unchanged, as predicted: a merge cannot press a key the corpus never
+  pressed, so issue #229's digit-row gap stands.
+- `manual-sin3-p2-yet` keeps two traces (one case runs with `caps` on); the
+  board's `TRACE-X11-PARITY-187` row re-points at the merged file and
+  `TIER-C-WIRING-DECLINE` narrows to arrows / BackSpace-on-empty / unmapped
+  characters.
+
+## [2026-11-03] update | 세벌식 최종's ten cases become one file
+
+- a1ba784 added ten per-case traces for 세벌식 최종 — the family the corpus had
+  no trace for at all — against the policy the previous entry established. The
+  policy is one trace per family, so they were merged the same day:
+  `tools/merge-golden-cases.py tests/golden/case-sebeolsik-final.jsonl --write`
+  reports 10 cases -> 1 with `hunmin-sim --check` replaying it identically, and
+  the nine interior boundaries are the merge's declined spaces.
+- Verified rather than assumed: the merged trace's 62 events are the ten old
+  traces' 53 events plus 9 boundaries, and its `meta.delivery.total` is byte-
+  identical to the concatenation of the ten old per-case totals
+  (`안녕한글값많ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋㄲㄺㅈㄿㄾ1230ᄀᅠᆫ가.4"~`). Corpus 20 traces ->
+  11, events 408 -> 417, `passed` 100 -> 109 (all boundary spaces); key
+  coverage unchanged at 22/47, as it must be.
+- Cost, stated: a red tier-C test now names an event index instead of
+  `case01`/`case02`. The per-case labels carried the expected text the event
+  already carries.
+- `docs/TESTING.md`, `docs/REQ-MAP.md` (R14's `verified by` id) and the board's
+  `TRACE-X11-BOUNDARY-220` / `TIER-C-WIRING-DECLINE` rows re-point at the one
+  file; `req-map`, `docs-lint` and `wiki-lint` all green.
+
+## [2026-11-03] update | 두벌식 and 신세벌식 P2 get designed families
+
+- Same shape for the other two layouts whose identity is an ARRANGEMENT:
+  `tests/golden/case-dubeolsik.jsonl` and `case-sin3-p2.jsonl`, eleven cases
+  each, from `tools/gen-case-golden.py` (expectations read back from the engine,
+  never typed), each merged to ONE trace by `tools/merge-golden-cases.py` — the
+  one-file-per-family policy, applied before the files could multiply.
+- 두벌식's identity is the opposite arrangement and, for the frontend tier, the
+  thing no family stated: it maps 26 letters and NOTHING else, so its digits,
+  shifted digits and `.` are DECLINED and reach the client. P2's is the
+  갈마들이 core (`cq` two initials vs `cQ` one 겹받침; `s` is ᅨ in the jung slot
+  and ᆫ in the jong slot), 종성 on its own letter key, the 2024 받침 rule, and a
+  number row spent on literal digits.
+- Measured: corpus 11 traces / 417 events -> 13 / 589; x11 `passed` 109 -> 159
+  (the 두벌식 family's declined characters are the new ones); key coverage
+  sin3-p2 24/47 -> 32/47, dubeolsik 0 -> 14/26, sebeolsik-final 22/47 unchanged.
+  Both new families replay under tier A's own policy, so `.in` == `.gold`; the
+  word-buffered model stays the sebeolsik family's assertion.
+- Board: `TIER-C-WIRING-DECLINE` now records two kinds of declined key (space and
+  the characters a layout does not map) with an arrow and BackSpace-on-empty
+  left; `TIER-C-WIRING-DIGITROW` narrows to `4`-`9`. `docs/HOWTO-NEW-LAYOUT.md`
+  §4 carried a contradiction with the merge policy ("a golden that concatenates
+  cases is wrong") and now states the boundary rule instead.
+
+## [2026-11-03] fix | the golden schema's `"shift": true` is interpreted
+
+- The field has been written since #90 (`0d6e6cb`, 2026-10-18): `\s<char>`
+  records `{"ch": base, "shift": true}` in `--trace`. Nothing ever read it —
+  `git log -S'"shift"' -- tools/gen-conformance.py` is empty, and
+  `hunmin-sim --check` fed `hunmin_ic_process(ic, ch)` without the modifier.
+  `docs/SPEC-SCHEMA.md`'s reference trace format documented neither spelling.
+- That was **unimplemented, not decided**. The record says the corpus keeps the
+  resolved-character spelling (`docs/OPTIONS-MEASURED.md` §IC-2-B: "keeps
+  emitting the legacy shape unless a dialect wants both"; the fcitx5 row: "its
+  case *is* the row selector"), and `docs/SPEC-P2.md` §"IC input entry points"
+  makes `(base, shift)` and the resolved character equal by construction —
+  which `ctest engine-process-key` asserts over every layout and row. Nothing
+  says a checker may ignore the field.
+- Fixed in both readers: `tools/sim.c --check` routes a shifted event through
+  `hunmin_ic_process_key(ic, ch, 1)`, and `tools/gen-conformance.py` resolves
+  the field into the native character (`shift_char`), so tier C carries
+  `FcitxKey_E`, not `e`.
+- Fixture: `tests/golden/shift-field.jsonl` (dubeolsik, e/ㄷ ㄸ, r/ㄱ ㄲ,
+  o/ㅐ ㅒ) plus its x11 trace, wired as tier-A `engine-golden-shift-field` and
+  through `conformance-coverage`. Falsified both ways: the pre-fix
+  `hunmin-sim` binary reports 6 MISMATCH lines on it, and a converter patched
+  to ignore the field aborts the adapter (`commitString: ㄷ` where ㄸ was
+  expected). The corpus's spelling is unchanged — resolved characters still.

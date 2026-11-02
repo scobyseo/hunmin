@@ -253,6 +253,14 @@ read after each engine step — exactly how frontends consume an IME. Generated 
 authoritative engine via `tools/gen-golden-libhangul.c` (`make goldens`, CI check
 `goldens-reproducible`).
 
+A shifted key has two spellings and both are legal: the resolved character (`"X"` for
+Shift+x, `"!"` for Shift+1 — the convention every family uses) or the base character with
+`"shift": true`, which is what `hunmin-sim --trace` records when a key is driven with an
+explicit modifier and what tier A may carry without resolving it. `hunmin-sim --check` and
+`tools/gen-conformance.py` must treat them as the same key: an event that ignores the
+field replays the base key and measures the wrong row (ctest `engine-golden-shift-field`
+is the fixture that fails when they do).
+
 ## Provenance / licensing
 `data-orig/libhangul/` vendors libhangul 0.2.0's kbd/combination XML + `hangulkeyboard.h`
 (LGPL-2.1+, © Choe Hwanjin et al.) as converter inputs. Keyboard **arrangements** are

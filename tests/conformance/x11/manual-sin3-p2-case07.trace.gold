@@ -1,5 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "kfcq", "source": "manual-sin3-p2.jsonl (manual)", "case_index": 7, "case_id": "manual-sin3-p2#07"}}
-{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
-{"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}
-{"in": {"keysym": 99, "mods": 0}, "commit": "", "preedit": "각", "consumed": true}
-{"in": {"keysym": 113, "mods": 0}, "commit": "", "preedit": "갃", "consumed": true}

@@ -392,6 +392,23 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   precomposed form, and a symbol as the boundary. It uses the ordinary
   `hunmin-sim --check` schema; regen:
   `python3 tools/gen-case-golden.py --sim build/hunmin-sim`.
+- **Case boundaries are state, so merging is not free.** Tier A replays each
+  `{"meta": {"case": ...}}` case from a clean engine, and the split is only a
+  label when the cases would also replay identically **as one stream**. Measure
+  that with `python3 tools/golden-case-merge-check.py` (it concatenates each
+  golden's cases, replays the result with `hunmin-sim --check`, and reports the
+  first divergence). Measured 2026-11-03: of the corpus's nine families only
+  `p2-2-2-tiers` qualified and was merged into one 25-event case; every other
+  family's cases end with a syllable in flight, and `p2-2-4-3-caps` /
+  `p2-2-6-flags*` carry different `caps`/flag options per case, which one case
+  cannot express at all. `patim-sin3-p2-basic` is the counter-example that
+  sharpens the rule: **none** of its 37 cases ends mid-composition, yet the
+  merged stream diverges (a repeated key doubles the consonant across a
+  boundary), so "the buffer is empty" is necessary and not sufficient — replay
+  the merged stream, never reason about the endings. The goldens that do merge
+  (`case-sebeolsik-final`, `ref-colemak`, `ref-dvorak`, `words-sin3-p2` today)
+  are outside the shared corpus and gain nothing: their labels are feature
+  names, and each is already a single ctest.
 - **Property fuzz** (`-fsanitize=fuzzer,address,undefined`, corpus = jamo key streams):
   invariants only — every committed string NFC-valid & re-decomposes to current-buffer
   jamo; `press` never leaks (LSan); state always resettable; preedit length bounded.
@@ -454,21 +471,84 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**89 traces, 212 events**, registered as ctest
-`conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`). The corpus was reduced 2026-10-25 for
-word buffering (#74): the 31 multi-syllable cases whose per-syllable expectations the
-buffered adapter cannot reproduce, and the nine `ref-*` corpora (libhangul parity,
-401 events each), were dropped rather than re-emitted. libhangul parity is asserted at
-tier A (engine boundary) only until the `ref-*` traces are regenerated against the
-buffered adapter. Every remaining trace was re-checked against its tier A case: zero
-divergence.
+**14 traces, 598 events**, registered as ctest
+`conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
+that every tier-A case of every family the corpus replays has a trace and that every
+trace belongs to a recorded family (`tools/conformance-coverage.py`).
+
+**One trace per family, since 2026-11-03.** A case boundary in tier A is state, so a
+merge is only free when the cases also replay identically as ONE stream — measured, not
+assumed (`tools/golden-case-merge-check.py`): `patim-sin3-p2-basic` ends all 37 cases
+with an empty buffer and still diverges when concatenated, because a repeated key doubles
+the consonant across the boundary. A **space** is the boundary that works: the engine
+declines it, so it finalises the syllable in flight and the next case starts clean, and
+its own expectation is mechanical rather than engine-read (the syllable in preedit is
+committed, the buffer empties). `tools/merge-golden-cases.py` applies that, one merged
+case per distinct engine-option set, and refuses to write unless `hunmin-sim --check`
+replays the result identically — which it does for every golden in the corpus. The corpus
+went 102 traces to 13, 263 events to 589 (14 / 598 with the `shift-field` schema fixture
+below): one merged trace per family, plus all ten of
+세벌식 최종's designed cases under the word-buffered model (issue #220 took two of them
+for its boundary assertion; the other eight had no tier-C trace at all, which is why that
+layout's identity — three-key assembly, the number row as jongseong, 겹받침 on shifted
+keys — was asserted only at tier A). Those ten were then merged into ONE file on
+2026-11-03, the same day they arrived, because the policy is one trace per family: the
+nine interior boundaries are the merge's declined spaces, not labels, so the merge kept
+them rather than erasing them.
+The same day, 두벌식 and 신세벌식 P2 got designed families of the same shape
+(`tests/golden/case-dubeolsik.jsonl`, `case-sin3-p2.jsonl`, eleven cases each, merged to
+one trace): one jamo per key with Shift-is-된소리 and a number row the layout does **not**
+map for 두벌식, and for P2 the 갈마들이 pairs, 종성 on its own letter key, the 2024 받침
+rule and a number row spent on literal digits. Both families' `.in` equals their `.gold`
+event by event: they replay under tier A's own policy, because what they add is the
+layout's key table and its declined characters, not a delivery model — that is the
+`sebeolsik-final` family's job and doing both here would blur them.
+`p2-2-2-tiers` was merged the same day without a boundary because its cases already ended
+with an empty buffer; `manual-sin3-p2-yet` is the corpus's one exception and keeps two
+cases, because one of its cases runs with `caps` on and one engine state cannot be two.
+The `sebeolsik-final` family trace declares the shipped word-buffered model via
+`meta.delivery` (its `total` is the concatenation of the ten cases' text), which is the
+other answer to the same question and the reason that family's `.in` differs from its
+`.gold` below.
+
+**A `.in` and its `.gold` legitimately differ on a `delivery` trace.** Those traces keep
+tier A's per-key commit and state the cumulative total instead
+(`docs/trace-spec.md` "Word-buffered adapters"); the runner compares the `.gold` against
+the model *projected from* the `.in`, so a diff between the two files is the model working,
+not drift. Every other trace in the corpus keeps `.in` identical to `.gold` event by event,
+and `tools/trace-check.py` is the check in both cases — a textual `diff` is only a review
+aid on the first kind.
+
+**What that costs:** failure attribution. A red test now names an event index inside one
+family trace instead of a case label (which for these families repeated the expected
+text — `가`, `나` — that the event carries anyway). **What it buys, besides 92 fewer
+files:** those space boundaries are *declined keys*, so the x11 corpus now observes the
+pass-through half of `FRONTEND-CONTRACT` invariant 3 — 0 events to 92 when the merge
+landed, 159 now that the 두벌식 family adds declined characters as well — which is the gap
+`tools/tier-c-wiring-coverage.py` was written to expose.
+
+Earlier history, kept because it explains the `commit_mode` field: the corpus was reduced
+2026-10-25 for word buffering (#74) from 118 files to 87, dropping 22 per-case traces and
+the nine `ref-*` corpora (libhangul parity, 401 events each). The 22 came back on
+2026-11-03 (issue #187), not by re-emitting them under the buffered policy but by saying
+which policy each case needs: tier A records commit **per event**, so a case whose golden
+commits mid-stream is observable only under `HUNMIN_COMMIT_PER_SYLLABLE`, and the
+generator derives that from the golden into the trace's `commit_mode`
+(`docs/trace-spec.md` "meta"). libhangul parity is still asserted at tier A (engine
+boundary) only, until the `ref-*` traces are regenerated against the buffered adapter.
+
+The trace format now answers the delivery question two ways, and a trace carries at most
+one: `meta.delivery` (issue #220) names the **shipped** word-buffered model and compares
+cumulative delivered text, while `meta.commit_mode` (issue #187, below) switches the
+adapter to **per-syllable** delivery so tier A applies verbatim. `docs/trace-spec.md`
+"`meta`" carries the rule; `tools/gen-conformance.py` writes one or the other.
 
 **A boundary is now crossed (2026-11-03, issue #220).** Until then no x11 trace
 contained a boundary key, so the frontend lane asserted composing text only: an adapter
-that dropped or duplicated the commit at a word end kept tier C green. The two
-`case-sebeolsik-final` traces (`word-annyeong` and the 겹받침 case `gyeopbatchim-gap`) end on
-a space, so their `.gold` carries a non-empty `commit` — the whole eojeol the client
-receives. They also reintroduce the multi-syllable model the 2026-10-25 reduction had to
+that dropped or duplicated the commit at a word end kept tier C green. The
+`case-sebeolsik-final` trace ends each of its ten designed cases on a space, so its `.gold`
+carries a non-empty `commit` — the whole eojeol the client receives. It also reintroduces
+the multi-syllable model the 2026-10-25 reduction had to
 drop, as data rather than as a drop: `tools/gen-conformance.py --delivery word-buffered`
 writes `meta.delivery = {"model": "word-buffered", "total": <text>}` and
 `tools/trace-check.py` compares three things a per-key model cannot (the cumulative text
@@ -513,8 +593,63 @@ the first, which left a host without libxkbcommon-dev at "0 defines". That is th
 that forces the F9 *flow* into the adapter everywhere, but it is not a keycode fact.
 CapsLock and modifiers are now covered deliberately rather than incidentally.
 
-Between them the tiers leave no gap: the fixture proves every key has a correct native
-encoding, and the 87 traces prove the adapter applies it.
+The two tiers are not equal in strength, and the difference is measurable. The fixture
+proves every key has a correct native **encoding**; the corpus proves the adapter applies
+it — but only for the keys it presses and only for the answers it carries. See "What the
+corpus covers of the adapter" below for that number; the x11 dialect presses 24 of
+sin3-p2's 47 keys and takes the decline path only on the space boundaries the case merge
+introduced.
+
+### What the corpus covers of the adapter (the metric)
+
+Tier C's claim is per event — "the adapter mapped this native key and applied the answer" —
+so the tier's strength is measured in events through the adapter, never in trace count.
+`python3 tools/tier-c-wiring-coverage.py` reports it per dialect and layout; it is a
+report, not a gate, because a gap is a statement about the corpus and widening it is a
+decision.
+
+- **keys** — distinct layout keys pressed / keys the layout maps. This is where a mapping
+  bug lives: an unpressed key is an unproven mapping.
+- **consumed vs passed** — the adapter's two outcomes. `passed` is the half of
+  `docs/FRONTEND-CONTRACT.md` invariant 3 that decides what the *client* receives; a corpus
+  with `passed = 0` never observes it.
+- **mods** — events carrying CapsLock or Shift state (`docs/trace-spec.md` "`in`").
+- **commit policy** — events per `meta.commit_mode`; the same case replayed once is one
+  policy, and the text arrives at a different point under the other.
+- **families** — which tier-A goldens the dialect replays at all.
+
+Measured 2026-11-03 (`tier-c-wiring-coverage.py`, this host):
+
+| dialect | events | consumed | passed | layout keys pressed |
+|---|---|---|---|---|
+| x11 | 598 | 436 | 162 | 24/47, 14/47, 19/47 (p2, basic, yet) + 22/47 (sebeolsik-final) + 32/47 (sin3-p2) + 14/26 (dubeolsik) |
+| win32 | 688 | 490 | 198 | 27/47, 13/47, 17/47 |
+| android | 48 | 31 | 17 | 14/47 |
+
+Three gaps that follow, none of them a defect in a frontend:
+
+1. **x11 declines two kinds of key: space, and what a layout does not map.** 159 of its
+   passed events are the merge's case-boundary spaces plus the digits, shifted digits and
+   `.` the 두벌식 family presses — that layout maps 26 letters and nothing else, so the
+   adapter must decline a character and let the client have it. The pass-through half of
+   the contract is therefore observed for a character as well as for whitespace; an arrow
+   and a BackSpace on an empty buffer are still unobserved on every x11 layout. android
+   has 4 such events (Shift+arrow selection), win32 198 (the dubeolsik prose trace, which
+   also carries arrows and unmapped keys).
+2. **The digit row is half proven.** `1`, `2`, `3` and `0` are now pressed by x11 events —
+   두벌식 declines them, P2 delivers them as text — but `4`-`9` still appear in no x11
+   event, in any layout, although the number row is the row whose rules differ most
+   between layouts and modes (R6's digit run, the unshifted row as jongseong on 세벌식).
+   Most punctuation (`, - = [ \ ] \``) is unpressed for the same reason.
+3. **The dialects do not replay the same corpus.** x11 covers 12 layout families plus the
+   `shift-field` schema fixture, win32 8
+   (`p2-2-2-tiers` absent), android 1 (`p2-2-1-basic` only). "fcitx5 and Android agree" is
+   therefore measured for basic syllable composition and nothing else.
+
+One fidelity point, separate from coverage: the android dialect writes printable keys as
+their **ASCII** value (`tools/gen-conformance.py` `ANDROID_KEYCODES`), not as
+`android.view.KeyEvent.KEYCODE_*`, so those traces drive the JNI shim's own table; the
+real constants are covered by ctest `keymap-fixture`, not by the corpus.
 
 **Equivalence extension (2026-10-24, requirement).** The rule in
 `docs/FRONTEND-EQUIVALENCE.md` makes this tier the cross-frontend authority:
@@ -526,14 +661,23 @@ Windows emitter (`frontends/tsf/test/trace-emit.cpp`, tier F1) already replays
 the win32 dialect through the mock; it must run once per delivery mode, and
 the expectations must not be duplicated per frontend.
 
-The Android corpus **skips** (rc 77), but not because the Android frontend is missing —
-`frontends/android/` exists and is exercised by tiers E0–E2. The gap is narrower and is
-specific: `tests/conformance/android/` holds one `.trace.in` and **no `.gold`**, and no
-Android `trace-emit` runner is built, so there is nothing for `trace-check.py` to diff.
-Generating the goldens needs the runner, and the runner is the missing piece. **With P6
-skipped, fcitx5 and Android remain the only two frontends and the shared corpus is what
-shows they agree** — and that proof is still missing on the Android side, which is why
-PLAN.md gates P5 on this tier.
+The Android corpus **runs** (corrected 2026-11-03; the paragraph here said it had "one
+`.trace.in` and no `.gold`", which the tree stopped matching). `tests/conformance/android/`
+holds 2 traces and their `.gold`: `basic-syllables` generated from one tier-A golden
+(`p2-2-1-basic.jsonl`, layout `sin3-p2-basic`, one case since the 2026-11-03 merge) and one
+designed trace, `shift-arrow-selection`. `tools/android-trace-emit.sh` is the
+runner: it replays each trace through the Android adapter on the host JVM via the JNI shim
+(no emulator, one cached classpath, `java` per trace), emitting the observed trace for
+`trace-check.py` to diff. Both register as `engine-android-conformance-*` and pass here;
+where there is no JDK, shim or SDK the runner exits 77 and the tests skip, which is what
+the earlier note was reading.
+
+**The coverage is one family of nine, and that is the remaining gap.** Android replays
+`p2-2-1-basic` only — not `p2-2-2-tiers`, `p2-2-3-chosung`, `p2-2-4-1-yetrules`,
+`p2-2-4-2-eung`, `p2-3-swapped`, `manual-sin3-p2`, `manual-sin3-p2-yet`, nor the
+`dkssud-combo` alias run — while the x11 corpus replays all nine and the win32 corpus
+eight. So "fcitx5 and Android agree" is measured for basic syllable composition and not
+for the rest of the shared corpus, which is the shape PLAN.md gates P5 on.
 
 ## Tier D — Desktop integration: real fcitx5 🤖 (Linux CI)
 

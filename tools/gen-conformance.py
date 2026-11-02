@@ -138,6 +138,23 @@ _SHIFTED = {
     "*": "8", "(": "9", ")": "0", "_": "-", "+": "=", "{": "[", "}": "]",
     "|": "\\", ":": ";", '"': "'", "<": ",", ">": ".", "?": "/", "~": "`",
 }
+_UNSHIFTED = {v: k for k, v in _SHIFTED.items()}
+
+
+def shift_char(ch: str) -> str:
+    """What this character's key spells with Shift held.
+
+    tier A may write a shifted key either as the resolved character (the
+    corpus convention: `"X"`, `"!"`) or as the base character plus
+    `"shift": true`, which is what `hunmin-sim --trace` records for a `\\s` key
+    and what docs/SPEC-SCHEMA.md documents. A native event carries the resolved
+    character either way -- `FcitxKey_A`, not `a` with a modifier -- so the
+    conversion belongs here, once. A converter that ignored the field replayed
+    the base key and measured the wrong thing (measured 2026-11-03).
+    """
+    if "a" <= ch <= "z":
+        return ch.upper()
+    return _UNSHIFTED.get(ch, ch)
 
 
 
@@ -191,15 +208,28 @@ NAMED_BUILDERS = {"x11": x11_named, "android": android_named, "win32": win32_nam
 
 BUILDERS = {"x11": x11_event, "android": android_event, "win32": win32_event}
 
+# The delivery policy a case must be replayed under for tier A's shape to be
+# observable (docs/trace-spec.md "meta"). A golden commits a syllable when the
+# engine finalises it, i.e. on a keypress it ALSO consumed; a word-buffered
+# adapter holds that text until a declined key or teardown. Both are correct --
+# the policy is the user's choice -- but only PER_SYLLABLE delivers at the point
+# tier A recorded. So a case with a mid-stream commit names the policy instead
+# of being silently dropped: dropping it is the drift issue #187 measured
+# (13 cases the win32 corpus replayed and the x11 corpus did not).
+COMMIT_MODE_FOR_MID_STREAM = "syllable"
+
 
 def parse_golden(golden: pathlib.Path, a, build, build_named):
     """One golden -> (cases, unsupported, head, excluded).
 
-    cases are (name, body_lines); each body line carries the platform-native
-    event plus the expectation copied verbatim from tier A. `excluded` names the
-    cases this platform cannot encode (with the offending state), which the
-    caller writes into the trace's meta so the omission is visible in the
-    artefact rather than only in a terminal.
+    cases are (name, body_lines, mid_stream_commit); each body line carries the
+    platform-native event plus the expectation copied verbatim from tier A.
+    `mid_stream_commit` is True when tier A commits while the key was still
+    consumed -- the one shape whose delivery point a word-buffered adapter
+    cannot reproduce (see COMMIT_MODE below). `excluded` names the cases this
+    platform cannot encode (with the offending state), which the caller writes
+    into the trace's meta so the omission is visible in the artefact rather
+    than only in a terminal.
     """
     src = golden.read_text(encoding="utf-8").splitlines()
     head = json.loads(src[0])
@@ -222,9 +252,21 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
 
     current: dict = {}
     unsupported: set[str] = set()
-    cases: list[tuple[str, list[str], str]] = []
+    # (name, body, total, mid_stream_commit). `total` is the case's cumulative
+    # delivered text for --delivery's word-buffered model (#220); the flag is
+    # #187's: a commit on a key the case also consumed, which a word-buffered
+    # adapter can only reproduce under HUNMIN_COMMIT_PER_SYLLABLE. They are
+    # alternative answers to the same question -- name the model, or switch the
+    # policy -- so a trace carries at most one (see the writer below).
+    cases: list[tuple[str, list[str], str, bool]] = []
     excluded: list[dict] = []  # cases this platform cannot encode, and why
     body: list[str] = []
+    # True once this case has committed a syllable on a key it also consumed:
+    # that is a delivery point AFTER the keypress but BEFORE the word boundary,
+    # so a word-buffered adapter puts the same text in the client later. The
+    # expectations stay tier A's either way; what changes is which delivery
+    # policy the trace must be replayed under to see them.
+    mid_stream_commit = False
     name = "case"
     refused = ""  # option state that makes the CURRENT case unencodable here
     previous_preedit = ""
@@ -241,10 +283,12 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             if refused:
                 excluded.append({"case": name, "state": [refused]})
             elif body:
-                cases.append((name, body, cumulative_commits + last_preedit))
+                cases.append((name, body, cumulative_commits + last_preedit,
+                              mid_stream_commit))
             body = []
             cumulative_commits = ""
             last_preedit = ""
+            mid_stream_commit = False
             previous_preedit = ""
             refused = ""
             name = rec["meta"]["case"]
@@ -272,7 +316,11 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
         # every ref-* file rather than doing the obvious thing.
         spec = rec["in"]
         named = spec.get("key")
-        event = build_named(named) if named else build(spec["ch"])
+        # A shifted key may arrive as the base character plus "shift": true; the
+        # native event must carry the resolved character (see shift_char). The
+        # tier-A text is the same either way.
+        spec_ch = shift_char(spec["ch"]) if spec.get("shift") else spec["ch"]
+        event = build_named(named) if named else build(spec_ch)
         # `consumed` means the engine took the key, so it is a property of the
         # LAYOUT, not of this file: the adapter consumes exactly when
         # hunmin_ic_process() returns true, and that happens only for a
@@ -293,7 +341,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             # line's preedit rather than guessing.
             consumed = bool(previous_preedit)
         else:
-            consumed = _layout_maps(a.layout, spec["ch"])
+            consumed = _layout_maps(a.layout, spec_ch)
         if a.platform == "x11" and current.get("caps"):
             # X11 is the only platform that encodes Caps Lock in `mods`
             # (LockMask). Android applies the same bit below for historical
@@ -312,6 +360,8 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
                 },
                 ensure_ascii=False,
             )
+        if consumed and rec.get("commit"):
+            mid_stream_commit = True
         if refused:
             continue  # excluded case: its events are not emitted at all
         body.append(line)
@@ -319,7 +369,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
     if refused:
         excluded.append({"case": name, "state": [refused]})
     elif body:
-        cases.append((name, body, cumulative_commits + last_preedit))
+        cases.append((name, body, cumulative_commits + last_preedit, mid_stream_commit))
     unsupported -= {"caps"}  # encoded in x11 mods; win32 excludes the case instead
     return cases, unsupported, head, excluded
 
@@ -378,7 +428,7 @@ def main() -> int:
     cases = all_cases
 
     if a.only_case:
-        seen = {name for name, _, _ in cases}
+        seen = {name for name, _, _, _ in cases}
         missing = [c for c in a.only_case if c not in seen]
         if missing:
             raise SystemExit(f"{a.golden}: --only-case named no case: {missing} "
@@ -427,14 +477,24 @@ def main() -> int:
                              "emitter resets the adapter at a case separator, so a "
                              "batched word-buffered trace would carry one word into "
                              "the next (docs/trace-spec.md \"Multi-case batch files\")")
+        # A batch file cannot carry a per-case policy, and it does not need one:
+        # its runner (frontends/tsf/test/trace-emit.cpp) measures the committed
+        # text and compares it cumulatively, so a mid-stream commit is observed
+        # wherever the adapter chooses to deliver it. Say so in the terminal
+        # rather than in a field the dialect does not define.
+        needs = [name for name, _, _, mid in cases if mid]
+        if needs:
+            print(f"{a.out}: {len(needs)} case(s) commit mid-stream ({', '.join(needs)}); "
+                  "a batch trace leaves the delivery point to the runner",
+                  file=sys.stderr)
         batch = [out_lines[0]]
-        for i, (name, body, _) in enumerate(cases, 1):
+        for i, (name, body, _, _) in enumerate(cases, 1):
             batch.append(json.dumps({"meta": {"case": name, "case_index": i}},
                                     ensure_ascii=False))
             batch.extend(body)
         a.out.write_text("\n".join(batch) + "\n", encoding="utf-8")
         print(f"{a.out}: {len(cases)} cases, "
-              f"{sum(len(b) for _, b, _ in cases)} events", file=sys.stderr)
+              f"{sum(len(b) for _, b, _, _ in cases)} events", file=sys.stderr)
         return 0
 
     def delivery_meta(total: str) -> dict:
@@ -459,16 +519,19 @@ def main() -> int:
         # ';' splits CMake's list. So the label stays in `meta.case` for humans
         # and the FILENAME gets a stable ASCII index instead. Deterministic
         # because cases are emitted in file order.
-        for i, (name, body, total) in enumerate(cases, 1):
+        for i, (name, body, total, mid_stream_commit) in enumerate(cases, 1):
             f = a.out.with_name(f"{stem}-case{i:02d}.trace.in")
             # manual-sin3-p2-yet.jsonl has two cases both labelled "k/" -- one
             # caps:0, one caps:1 -- so a label alone does not identify a case.
             # case_index is authoritative; the label is for humans.
-            head = json.dumps(
-                {"meta": {**json.loads(out_lines[0])["meta"], "case": name,
-                          "case_index": i, "case_id": f"{a.case}#{i:02d}",
-                          **delivery_meta(total)}},
-                ensure_ascii=False)
+            case_meta = {**json.loads(out_lines[0])["meta"], "case": name,
+                         "case_index": i, "case_id": f"{a.case}#{i:02d}",
+                         **delivery_meta(total)}
+            # One answer per trace: naming the delivery model and switching the
+            # addon's policy would assert two different things about one run.
+            if mid_stream_commit and not a.delivery:
+                case_meta["commit_mode"] = COMMIT_MODE_FOR_MID_STREAM
+            head = json.dumps({"meta": case_meta}, ensure_ascii=False)
             f.write_text("\n".join([head] + body) + "\n", encoding="utf-8")
             print(f"{f}: {len(body)} events", file=sys.stderr)
         return 0
@@ -476,8 +539,10 @@ def main() -> int:
     # Single-case golden: the events live in `body`, not `out_lines` (which
     # holds only the header). Writing out_lines here produced a header-only file,
     # i.e. a trace that asserts nothing.
-    name, body, total = cases[0]
+    name, body, total, mid_stream_commit = cases[0]
     head = {**json.loads(out_lines[0])["meta"], **delivery_meta(total)}
+    if body and mid_stream_commit and not a.delivery:
+        head["commit_mode"] = COMMIT_MODE_FOR_MID_STREAM
     a.out.write_text("\n".join([json.dumps({"meta": head}, ensure_ascii=False)] + body) + "\n",
                      encoding="utf-8")
     print(f"{a.out}: {len(body)} events", file=sys.stderr)

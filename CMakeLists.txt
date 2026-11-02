@@ -832,6 +832,31 @@ if(BUILD_TESTING)
     COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
             --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-sebeolsik-final.jsonl)
   set_tests_properties(engine-golden-case-sebeolsik-final PROPERTIES LABELS "tier-A")
+  # 두벌식 (2) and 신세벌식 P2 (pat.im/1136), the same shape for the other two
+  # layouts whose identity is an arrangement rather than a word list: one jamo per
+  # key and Shift-is-된소리 for 두벌식, whose number row is NOT the layout's (a
+  # digit is declined and reaches the client); three keys per syllable, 종성 on
+  # its own letter key and the number row spent on literal digits for P2, with the
+  # 갈마들이 pairs (`cq` two initials vs `cQ` one 겹받침) and the 2024 받침 rule.
+  # Both from tools/gen-case-golden.py -- never hand-typed.
+  add_test(NAME engine-golden-case-dubeolsik
+    COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+            --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-dubeolsik.jsonl)
+  set_tests_properties(engine-golden-case-dubeolsik PROPERTIES LABELS "tier-A")
+  add_test(NAME engine-golden-case-sin3-p2
+    COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+            --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-sin3-p2.jsonl)
+  set_tests_properties(engine-golden-case-sin3-p2 PROPERTIES LABELS "tier-A")
+  # The schema's shifted-key spelling, as a FIXTURE rather than a family: tier A
+  # may write a shift as the resolved character (`"X"`, the corpus convention) or
+  # as the base key plus `"shift": true`, which is what `hunmin-sim --trace`
+  # records and what docs/SPEC-SCHEMA.md documents. Both the checker and
+  # tools/gen-conformance.py must interpret the field; without it the second row
+  # of each pair is replayed as the base key and reads red (measured 2026-11-03).
+  add_test(NAME engine-golden-shift-field
+    COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+            --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/shift-field.jsonl)
+  set_tests_properties(engine-golden-shift-field PROPERTIES LABELS "tier-A")
   # SPEC-MODES §4's invariant, and its own words: "When it is off it must return
   # to 100% of the previous behaviour. This is an invariant. It is verifiable
   # and must be verified." (#179.) No new corpus: tools/off-identity-check.py
@@ -1066,6 +1091,15 @@ if(BUILD_TESTING)
   else()
     message(STATUS "D3: skipped (X11=${X11_FOUND}, pkg-config=${PKG_CONFIG_EXECUTABLE})")
   endif()
+  # The corpus is a claim about coverage, so the claim is checked: every
+  # tier-A case of every family this corpus replays has a trace, and every
+  # trace belongs to a recorded family (tools/conformance-coverage.py). What
+  # this prevents is issue #187 -- cases silently absent from a corpus that
+  # still read as complete. Not gated on the emitter: it is a data check.
+  add_test(NAME conformance-coverage
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/conformance-coverage.py
+            --check)
+  set_tests_properties(conformance-coverage PROPERTIES LABELS "tier-C;guard")
   # Tier C: platform-native trace replayed through the real fcitx5 adapter,
   # diffed against the expectation tier A implies (docs/trace-spec.md).
   # Registered only where the emitter exists, so a host that cannot build it

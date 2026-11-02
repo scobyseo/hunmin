@@ -1,5 +1,5 @@
 {"meta": {"source": "designed", "spec": "the layout's own key arrangement; R6 for the number row (docs/SPEC-MODES.md)", "layout": "sebeolsik-final", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "note": "expected commit/preedit per key are the engine's answers, never typed; a diff here is a change to the layout or the composer and must be reviewed"}}
-{"meta": {"case": "word-annyeong", "feature": "three-key syllable assembly", "note": "안녕: ᄋ ᅡ ᆫ + ᄂ ᅧ ᆼ, six keys, each jamo its own key"}}
+{"meta": {"case": "case-sebeolsik-final-merged"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "아"}
 {"in": {"ch": "s"}, "commit": "", "preedit": "안"}
@@ -7,7 +7,7 @@
 {"in": {"ch": "e"}, "commit": "", "preedit": "녀"}
 {"in": {"ch": "a"}, "commit": "", "preedit": "녕"}
 {"in": {"ch": " "}, "commit": "녕", "preedit": ""}
-{"meta": {"case": "word-hangeul", "feature": "three-key syllable assembly", "note": "한글: ᄒ ᅡ ᆫ + ᄀ ᅳ ᆯ"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "하"}
 {"in": {"ch": "s"}, "commit": "", "preedit": "한"}
@@ -15,17 +15,17 @@
 {"in": {"ch": "g"}, "commit": "", "preedit": "그"}
 {"in": {"ch": "w"}, "commit": "", "preedit": "글"}
 {"in": {"ch": " "}, "commit": "글", "preedit": ""}
-{"meta": {"case": "gyeopbatchim-gap", "feature": "겹받침 on a shifted letter", "note": "값: ᆹ is Shift+x, the jongseong a 두벌식 keyboard has no key for"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "가"}
 {"in": {"ch": "X"}, "commit": "", "preedit": "값"}
 {"in": {"ch": " "}, "commit": "값", "preedit": ""}
-{"meta": {"case": "gyeopbatchim-manh", "feature": "겹받침 on a shifted letter", "note": "많: ᆭ is Shift+s"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "마"}
 {"in": {"ch": "S"}, "commit": "", "preedit": "많"}
 {"in": {"ch": " "}, "commit": "많", "preedit": ""}
-{"meta": {"case": "digit-row-is-jamo", "feature": "the number row is jongseong jamo", "note": "1..0 are ᇂ ᆻ ᆸ ᅭ ᅲ ᅣ ᅨ ᅴ ᅮ ᄏ: this row is why R6 exists (SPEC-MODES §R6)"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": "1"}, "commit": "", "preedit": "ㅎ"}
 {"in": {"ch": "2"}, "commit": "ㅎ", "preedit": "ㅆ"}
 {"in": {"ch": "3"}, "commit": "ㅆ", "preedit": "ㅂ"}
@@ -37,28 +37,28 @@
 {"in": {"ch": "9"}, "commit": "ㅢ", "preedit": "ㅜ"}
 {"in": {"ch": "0"}, "commit": "ㅜ", "preedit": "ㅋ"}
 {"in": {"ch": " "}, "commit": "ㅋ", "preedit": ""}
-{"meta": {"case": "shifted-digit-row", "feature": "된소리/겹받침 on the shifted number row", "note": "ᆩ ᆰ ᆽ ᆵ ᆴ: the shifted number row, where the final consonants live"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": "!"}, "commit": "", "preedit": "ㄲ"}
 {"in": {"ch": "@"}, "commit": "ㄲ", "preedit": "ㄺ"}
 {"in": {"ch": "#"}, "commit": "ㄺ", "preedit": "ㅈ"}
 {"in": {"ch": "$"}, "commit": "ㅈ", "preedit": "ㄿ"}
 {"in": {"ch": "%"}, "commit": "ㄿ", "preedit": "ㄾ"}
 {"in": {"ch": " "}, "commit": "ㄾ", "preedit": ""}
-{"meta": {"case": "literal-digits-on-the-letter-row", "feature": "literal digits are Shift+letter", "note": "1 2 3 0: a person typing digits uses the shifted letter rows, not the number row"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": "J"}, "commit": "1", "preedit": ""}
 {"in": {"ch": "K"}, "commit": "2", "preedit": ""}
 {"in": {"ch": "L"}, "commit": "3", "preedit": ""}
 {"in": {"ch": "H"}, "commit": "0", "preedit": ""}
 {"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"meta": {"case": "no-precomposed-form", "feature": "a jamo pair with no syllable", "note": "초성 ᄀ + 종성 ᆫ and no 중성: rendered with the conjoining filler, not a syllable"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
 {"in": {"ch": "s"}, "commit": "", "preedit": "ᄀᅠᆫ"}
 {"in": {"ch": " "}, "commit": "ᄀᅠᆫ", "preedit": ""}
-{"meta": {"case": "symbol-ends-the-word", "feature": "a symbol is a boundary", "note": "가 then '.', which the engine commits and the layout spells as itself"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "가"}
 {"in": {"ch": "."}, "commit": "가.", "preedit": ""}
-{"meta": {"case": "shifted-punctuation-is-literal", "feature": "`=` literals on the shifted keys", "note": "Shift+; = '4', Shift+h = '\"', Shift+0 = '~': the shifted keys commit text"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": ":"}, "commit": "4", "preedit": ""}
 {"in": {"ch": "M"}, "commit": "\"", "preedit": ""}
 {"in": {"ch": ")"}, "commit": "~", "preedit": ""}

@@ -1,3 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2-yet", "case": "jg-giyeok", "source": "p2-2-4-1-yetrules.jsonl (gate)", "case_index": 9, "case_id": "p2-2-4-1-yetrules#09"}}
-{"in": {"keysym": 108, "mods": 0}, "commit": "", "preedit": "ㅈ", "consumed": true}
-{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ᅐᅠ", "consumed": true}

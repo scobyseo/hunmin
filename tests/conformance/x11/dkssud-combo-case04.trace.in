@@ -1,3 +1,0 @@
-{"meta": {"platform": "x11", "layout": "sin3-p2", "case": "라", "source": "p2-2-1-basic.jsonl (gate)", "case_index": 4, "case_id": "dkssud-combo#04"}}
-{"in": {"keysym": 121, "mods": 0}, "commit": "", "preedit": "ㄹ", "consumed": true}
-{"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "라", "consumed": true}

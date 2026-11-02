@@ -1,0 +1,18 @@
+{"meta": {"platform": "x11", "layout": "sin3-p2-yet", "case": "p2-2-4-2-eung", "source": "p2-2-4-2-eung.jsonl (gate)"}}
+{"in": {"keysym": 97, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"keysym": 99, "mods": 0}, "commit": "", "preedit": "ᅟᅠᇬ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ᅟᅠᇬ", "preedit": "", "consumed": false}
+{"in": {"keysym": 97, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"keysym": 122, "mods": 0}, "commit": "", "preedit": "ᅟᅠퟵ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ᅟᅠퟵ", "preedit": "", "consumed": false}
+{"in": {"keysym": 97, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"keysym": 113, "mods": 0}, "commit": "", "preedit": "ㆂ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ㆂ", "preedit": "", "consumed": false}
+{"in": {"keysym": 97, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"keysym": 97, "mods": 0}, "commit": "", "preedit": "ᅟᅠᇮ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ᅟᅠᇮ", "preedit": "", "consumed": false}
+{"in": {"keysym": 97, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"keysym": 116, "mods": 0}, "commit": "", "preedit": "ᅟᅠᇯ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ᅟᅠᇯ", "preedit": "", "consumed": false}
+{"in": {"keysym": 97, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"keysym": 100, "mods": 0}, "commit": "", "preedit": "ᅟᅠퟶ", "consumed": true}
