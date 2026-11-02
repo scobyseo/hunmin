@@ -812,7 +812,8 @@ if(BUILD_TESTING)
   # SPEC-MODES R8's judgement, as a corpus (issue #178): every case is a line of
   # the formula or a guard around it -- the two switch directions, both-valid and
   # both-invalid, R9's three-key boundary from each side, R4's boundary-only
-  # moment, R6's digit run, and the OFF identity state. It is NOT an engine-golden
+  # moment, R6's digit run, the OFF identity state, and R8-정정-3's widened rule
+  # on an 옛한글 layout. It is NOT an engine-golden
   # in the sense of the others: the driver is hunmin_buffered_preedit, the layer
   # all three frontends sit on (docs/FRONTEND-EQUIVALENCE.md §6), and the
   # frontend half of the rule (read the judgement, perform the switch) is part of

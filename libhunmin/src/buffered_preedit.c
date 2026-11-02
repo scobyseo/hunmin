@@ -191,6 +191,29 @@ static void hangul_reading(hunmin_buffered_preedit *l) {
     replay_reading(l, l->hangul_id, &l->hangul_out, &l->hangulcap);
 }
 
+/* R8-정정-3: the shape rule is the same; the jamo sets widen on a layout that can
+ * emit a jamo outside the modern 19/21/28. The answer is derived at load time
+ * from that layout's own keys and combination table (schema_loader.c
+ * compute_capability), never declared, so a new layout cannot forget it.
+ *
+ * The text judged is always the Hangul reading, which `hangul_id` produces -- in
+ * Latin mode too, where the active ic is the Latin layout. So the rule is picked
+ * from `hangul_id`, not from `l->ic->L`: asking the Latin layout would answer
+ * "modern" for every word and mark a valid 옛한글 buffer invalid. The answer is
+ * asked through `hunmin_ctx_layout_old_hangul`, the same seam a frontend uses. */
+static int hangul_valid_for(const hunmin_buffered_preedit *l, const char *text) {
+    bool old = false;
+    if (l->ctx && l->hangul_id) {
+        for (int i = 0; i < l->ctx->n; i++) {
+            if (!strcmp(l->ctx->layouts[i].id, l->hangul_id)) {
+                old = hunmin_ctx_layout_old_hangul(l->ctx, i);
+                break;
+            }
+        }
+    }
+    return old ? hunmin_hangul_valid_old(text) : hunmin_hangul_valid(text);
+}
+
 static const char *set_commit(hunmin_buffered_preedit *l, const char *s) {
     if (!s) s = "";
     size_t n = strlen(s);
@@ -287,7 +310,7 @@ static const char *judged_display(hunmin_buffered_preedit *l, const char *shown_
         const char *reading = replay_reading(l, l->latin_id, &l->judged_out, &l->judgedcap);
         if (!reading || !*reading) return NULL;
         if (!hm_wordset_has(l->english, reading)) return NULL;
-        if (hunmin_hangul_valid(shown_text)) return NULL; /* both valid: keep the mode */
+        if (hangul_valid_for(l, shown_text)) return NULL; /* both valid: keep the mode */
         return reading;
     }
     /* E1: the word on screen is Latin; the other half is its Hangul reading, and
@@ -296,7 +319,7 @@ static const char *judged_display(hunmin_buffered_preedit *l, const char *shown_
     const char *reading = replay_reading(l, l->hangul_id, &l->judged_out, &l->judgedcap);
     if (!reading || !*reading) return NULL;
     if (hm_wordset_has(l->english, shown_text)) return NULL; /* english_valid */
-    if (!hunmin_hangul_valid(reading)) return NULL;
+    if (!hangul_valid_for(l, reading)) return NULL;
     return reading;
 }
 
@@ -424,11 +447,16 @@ void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l) {
  * hunmin_buffered_preedit_take_judgement() right after the key that ended the
  * word.
  *
- * The direction implemented is the only one that switches: a word judged
- * Hangul while already in Hangul mode preserves the current mode, which R8
- * states as a requirement but needs no action. R8 leaves the symmetric case
- * open ("whether the second line actually holds is left to E1"), so nothing
- * here guesses at it.
+ * Both lines of the formula ship. A word judged Hangul while already in Hangul
+ * mode preserves the current mode, which needs no action; the symmetric line
+ * (E1, ruled 2026-11-01: "E1도 당연히 지원해야지") is the branch below, and it
+ * switches when the Latin text is not a dictionary word but its Hangul reading
+ * is well-formed syllables.
+ *
+ * The Hangul shape test is `hangul_valid_for`, which picks the modern or the
+ * widened 옛한글 sets from the Hangul layout (R8-정정-3). Using the modern rule
+ * on a layout that composes archaic jamo would call a valid 옛한글 buffer
+ * invalid and switch it to English.
  *
  * Returns the text to deliver instead of the Hangul word, or NULL to deliver
  * the word unchanged.
@@ -462,7 +490,7 @@ static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
         if (!l->ic->L || !l->ic->L->composes_hangul) return NULL;
         if (!l->latin_out || !*l->latin_out) return NULL;
         const bool english_valid = hm_wordset_has(l->english, l->latin_out);
-        const bool hangul_valid = hunmin_hangul_valid(l->word ? l->word : "");
+        const bool hangul_valid = hangul_valid_for(l, l->word ? l->word : "");
         if (!english_valid || hangul_valid) return NULL; /* switch only when they disagree */
         l->judged = HUNMIN_LANGUAGE_LATIN;
         return l->latin_out;
@@ -477,7 +505,7 @@ static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
     const char *reading = l->hangul_out;
     if (!reading || !*reading) return NULL;
     const bool english_valid = hm_wordset_has(l->english, l->word ? l->word : "");
-    const bool hangul_valid = hunmin_hangul_valid(reading);
+    const bool hangul_valid = hangul_valid_for(l, reading);
     if (english_valid || !hangul_valid) return NULL;
     l->judged = HUNMIN_LANGUAGE_HANGUL;
     return reading;
