@@ -1066,6 +1066,15 @@ if(BUILD_TESTING)
   else()
     message(STATUS "D3: skipped (X11=${X11_FOUND}, pkg-config=${PKG_CONFIG_EXECUTABLE})")
   endif()
+  # The corpus is a claim about coverage, so the claim is checked: every
+  # tier-A case of every family this corpus replays has a trace, and every
+  # trace belongs to a recorded family (tools/conformance-coverage.py). What
+  # this prevents is issue #187 -- cases silently absent from a corpus that
+  # still read as complete. Not gated on the emitter: it is a data check.
+  add_test(NAME conformance-coverage
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/conformance-coverage.py
+            --check)
+  set_tests_properties(conformance-coverage PROPERTIES LABELS "tier-C;guard")
   # Tier C: platform-native trace replayed through the real fcitx5 adapter,
   # diffed against the expectation tier A implies (docs/trace-spec.md).
   # Registered only where the emitter exists, so a host that cannot build it
