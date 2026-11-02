@@ -128,25 +128,6 @@ def is_hanja(c):
             or 0xF900 <= o <= 0xFAFF or 0x20000 <= o <= 0x2FA1F)
 
 
-def literal_keys(layout, data):
-    """char -> keystroke for the layout's LITERAL keys (`=x` in the table).
-
-    A Latin layout spells every position (`=a`, `=~`); a Korean layout spells
-    its punctuation row and puts jamo elsewhere. Reading the table is how a
-    character is matched to the position that emits it, without asking the
-    engine 47 times.
-    """
-    d = json.loads((pathlib.Path(data) / "layouts" / f"{layout}.json").read_text(encoding="utf-8"))
-    out = {}
-    for key, forms in d["keys"].items():
-        for form, shift in (("plain", False), ("shift", True)):
-            v = forms.get(form)
-            if isinstance(v, str) and v.startswith("=") and len(v) == 2:
-                out.setdefault(v[1], key.upper() if shift and len(key) == 1 and key.isalpha()
-                               else (("\\s" + key) if shift else key))
-    return out
-
-
 CHO = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ",
        "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"]
 JUNG = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ",
@@ -206,21 +187,31 @@ def main() -> int:
         jamo_table = json.loads(a.jamo_table.read_text(encoding="utf-8"))["table"]
     keys_of = {} if jamo_table else syllable_keys(a, a.layout, lines)
 
-    # Every printable-ASCII character the text uses, probed ALONE on this layout.
-    # The answer decides what a symbol means here, and it differs by layout:
-    #   "engine" -- the layout spells it (sin3-p2 has positions for '.' and '<'),
-    #               so it is delivered text and belongs in the comparison;
-    #   "pass"   -- no such key, the adapter declines it and the client inserts
-    #               the character (every symbol on dubeolsik, whose table is 26
-    #               letters);
-    #   "other"  -- the position exists and emits something else (sin3-p2's `'`
-    #               is ᄐ and `/` is ᅩ), so the character cannot be typed at all.
-    literals = literal_keys(a.layout, a.data)
-    ascii_probe = sorted({c for _, line in lines for c in line
+    # Which single key event emits each ASCII character? MEASURED over the
+    # layout's own keys, both plain and shifted -- never read off the table,
+    # because a 세벌식 table's values are nested `case` trees whose branch
+    # depends on state: sin3-p2 emits `'` on the SHIFT of `j` and `/` on the
+    # SHIFT of `'`, which no flat `=x` lookup can see (measured: `J` -> `'`,
+    # `"` -> `/`, while the bare `'` position is ᄐ).
+    keys_of_layout = list(json.loads((pathlib.Path(a.data) / "layouts" / f"{a.layout}.json").read_text(encoding="utf-8"))["keys"])
+    ascii_chars = sorted({c for _, line in lines for c in line
                           if 0x20 <= ord(c) <= 0x7E and c != " "})
-    ascii_render = dict(zip(ascii_probe, sim_many(a, a.layout, ascii_probe)))
-    ascii_kind = {c: ("pass" if r == "" else ("engine" if r == c else "other"))
-                  for c, r in ascii_render.items()}
+    probes, owner = [], []
+    for c in ascii_chars:
+        for cand in [c] + ["\\s" + k for k in keys_of_layout]:
+            probes.append(cand)
+            owner.append(c)
+    rendered_all = sim_many(a, a.layout, probes)
+    ascii_key = {}
+    for c in ascii_chars:
+        hits = [cand for cand, ch, r in zip(probes, owner, rendered_all)
+                if ch == c and r == c]
+        if hits:
+            ascii_key[c] = hits[0]                    # the layout spells it
+        elif rendered_all[probes.index(c)] == "":
+            ascii_key[c] = None                       # no such key: client inserts it
+        else:
+            ascii_key[c] = False                      # untypeable on this layout
 
     def engine_keys(c):
         """The keystroke that composes a Hangul syllable, or None.
@@ -256,24 +247,16 @@ def main() -> int:
                 units.append({"ch": c, "keys": ek, "engine": True, "hanja": False})
                 continue
             if 0x20 <= ord(c) <= 0x7E:
-                # 1. A key the search found (a Latin layout's letters and
-                #    punctuation, where the position that emits `e` is not `e`).
-                # 2. The layout's literal row.
-                # 3. Otherwise the key ALONE decides, and the three answers mean
-                #    three different things -- measured, not inferred.
-                if c in keys_of:
+                if c in keys_of:          # a key the search found (searched layouts)
                     units.append({"ch": c, "keys": keys_of[c], "engine": True, "hanja": False})
                     continue
-                if c in literals:
-                    units.append({"ch": c, "keys": literals[c], "engine": True, "hanja": False})
-                    continue
-                kind = ascii_kind.get(c)
-                if kind == "engine":      # this layout spells it on its own position
-                    units.append({"ch": c, "keys": c, "engine": True, "hanja": False})
-                elif kind == "pass":      # no such key: the client inserts the character
+                key = ascii_key.get(c)
+                if key:                   # the layout spells it (measured, incl. shift)
+                    units.append({"ch": c, "keys": key, "engine": True, "hanja": False})
+                elif key is None:         # no such key: the client inserts the character
                     units.append({"ch": c, "keys": c, "engine": False, "hanja": False})
                 else:
-                    missing.append(f"{c} (that key emits {ascii_render.get(c)!r})")
+                    missing.append(f"{c} (no key event emits it on {a.layout})")
                 continue
             missing.append(c)
         if missing:

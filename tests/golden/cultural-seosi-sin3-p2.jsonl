@@ -1,4 +1,4 @@
-{"meta": {"layout": "sin3-p2", "text": "seosi.txt", "tool": "tools/gen-cultural-golden.py", "method": "keys per character from tools/sin3p2-ksgen.py (BFS over the layout's own key table, hunmin-sim --batch oracle); a character with no keystroke is read from the layout's literal keys; each line is re-typed whole and kept only if the engine composes its characters; expectations are hunmin-sim --trace output, never typed", "not_in_the_events": "the boundary (space) and literal (punctuation) keys: the engine declines them, so the client inserts the character and the trace records consumed=false for that event", "assembly": "a syllable's keystroke found from an empty buffer carries leading signal keys that type a stray jamo mid-line, so each line is assembled with those signals kept or dropped and the ENGINE picks the variant that composes", "cases": "10 of 11 lines", "excluded": [{"line": 31, "text": "    ['하늘과 바람과 별과 시' / 1948]", "because": "no key and no frontend path for ' (that key emits 'ㅌ')/ (that key emits '.ㅋ')"}]}}
+{"meta": {"layout": "sin3-p2", "text": "seosi.txt", "tool": "tools/gen-cultural-golden.py", "method": "keys per character from tools/sin3p2-ksgen.py (BFS over the layout's own key table, hunmin-sim --batch oracle); a character with no keystroke is read from the layout's literal keys; each line is re-typed whole and kept only if the engine composes its characters; expectations are hunmin-sim --trace output, never typed", "not_in_the_events": "the boundary (space) and literal (punctuation) keys: the engine declines them, so the client inserts the character and the trace records consumed=false for that event", "assembly": "a syllable's keystroke found from an empty buffer carries leading signal keys that type a stray jamo mid-line, so each line is assembled with those signals kept or dropped and the ENGINE picks the variant that composes", "cases": "11 of 11 lines"}}
 {"meta": {"case": "line-18", "text": "    윤동주 <서시(序詩)>", "keys": "    jasu/alb <nrnd()>", "hanja_segments": [{"hanja": "序詩", "because": "no layout emits hanja: a frontend delivers it through hanja conversion (docs/SPEC-MODES.md), so this run has no key events and no tier-A expectation -- an environment that can enter hanja evaluates it, a key-event replay cannot"}]}}
 {"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": " "}, "commit": "", "preedit": ""}
@@ -277,3 +277,46 @@
 {"in": {"ch": "u"}, "commit": "운", "preedit": "ㄷ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "다"}
 {"in": {"ch": "."}, "commit": "다.", "preedit": ""}
+{"meta": {"case": "line-31", "text": "    ['하늘과 바람과 별과 시' / 1948]", "keys": "    [\\sjmfhgwk/f ;fyfzk/f ;twk/f nd\\sj \\s' 1948]"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "["}, "commit": "[", "preedit": ""}
+{"in": {"ch": "j", "shift": true}, "commit": "'", "preedit": ""}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "하"}
+{"in": {"ch": "h"}, "commit": "하", "preedit": "ㄴ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "느"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "늘"}
+{"in": {"ch": "k"}, "commit": "늘", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "과"}
+{"in": {"ch": " "}, "commit": "과", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "바"}
+{"in": {"ch": "y"}, "commit": "바", "preedit": "ㄹ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "라"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "람"}
+{"in": {"ch": "k"}, "commit": "람", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "과"}
+{"in": {"ch": " "}, "commit": "과", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "t"}, "commit": "", "preedit": "벼"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "별"}
+{"in": {"ch": "k"}, "commit": "별", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "과"}
+{"in": {"ch": " "}, "commit": "과", "preedit": ""}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "시"}
+{"in": {"ch": "j", "shift": true}, "commit": "시'", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "'", "shift": true}, "commit": "/", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "1"}, "commit": "1", "preedit": ""}
+{"in": {"ch": "9"}, "commit": "9", "preedit": ""}
+{"in": {"ch": "4"}, "commit": "4", "preedit": ""}
+{"in": {"ch": "8"}, "commit": "8", "preedit": ""}
+{"in": {"ch": "]"}, "commit": "]", "preedit": ""}

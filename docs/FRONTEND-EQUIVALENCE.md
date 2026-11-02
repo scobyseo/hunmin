@@ -410,14 +410,20 @@ one batched android trace per layout, and each layout reports what it could take
 | layout | cases | events | what it could not take |
 |---|---|---|---|
 | `dubeolsik` | 11 of 11 | 308 | — (its punctuation has no key, so the client inserts it) |
-| `sin3-p2` | 10 of 11 | 268 | the imprint line: its `'` position emits ᄐ and its `/` position emits ᅩ, so no keystroke produces either character |
+| `sin3-p2` | 11 of 11 | 310 | — (`'` is Shift+`j` and `/` is Shift+`'`) |
 
-That second row is the point of the column — the corpus is one text, and a layout's
-reach over it is a MEASUREMENT, not an assumption. `tools/gen-cultural-golden.py` probes
-each symbol on the layout alone and classifies it three ways (the layout spells it / no
-such key so the client inserts it / the position emits something else, so it cannot be
-typed), which is what separates `dubeolsik`'s punctuation from `sin3-p2`'s occupied
-positions. Two more things the artefact states rather than hides: hanja (`序詩`) is a
+A layout's reach over the text is a MEASUREMENT, not an assumption, and the measurement
+has to be made the right way. `tools/gen-cultural-golden.py` asks, per character: which
+single key event emits it? It probes the character itself AND every key of the layout
+with Shift held, and takes the first that renders it — three outcomes, three meanings:
+the layout spells it (it is delivered text), no such key (the adapter declines the event
+and the client inserts the character, which is every symbol on `dubeolsik`), or nothing
+emits it (untypeable). Reading that from the data file instead is what got `sin3-p2`
+wrong once: its values are nested `case` trees and its `'`/`/` live on the SHIFT of
+other keys, so a flat `=x` lookup reported the imprint line as untakeable — measured
+`J` → `'` and `"` → `/`, and the line is in the corpus.
+
+Two more things the artefact states rather than hides: hanja (`序詩`) is a
 `hanja_segments` run — no layout emits it, so no key event can assert it, but an
 environment that can enter hanja can evaluate the title line — and a syllable's
 keystroke is found in its layout's own terms (`sin3p2-ksgen.py`'s BFS where a table

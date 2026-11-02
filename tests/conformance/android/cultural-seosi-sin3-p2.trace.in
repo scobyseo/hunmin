@@ -277,3 +277,46 @@
 {"in": {"keycode": 117, "mods": 0}, "commit": "운", "preedit": "ㄷ", "consumed": true}
 {"in": {"keycode": 102, "mods": 0}, "commit": "", "preedit": "다", "consumed": true}
 {"in": {"keycode": 46, "mods": 0}, "commit": "다.", "preedit": "", "consumed": true}
+{"meta": {"case": "line-31", "case_index": 11}}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 91, "mods": 0}, "commit": "[", "preedit": "", "consumed": true}
+{"in": {"keycode": 106, "mods": 0, "shift": true}, "commit": "'", "preedit": "", "consumed": true}
+{"in": {"keycode": 109, "mods": 0}, "commit": "", "preedit": "ㅎ", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "", "preedit": "하", "consumed": true}
+{"in": {"keycode": 104, "mods": 0}, "commit": "하", "preedit": "ㄴ", "consumed": true}
+{"in": {"keycode": 103, "mods": 0}, "commit": "", "preedit": "느", "consumed": true}
+{"in": {"keycode": 119, "mods": 0}, "commit": "", "preedit": "늘", "consumed": true}
+{"in": {"keycode": 107, "mods": 0}, "commit": "늘", "preedit": "ㄱ", "consumed": true}
+{"in": {"keycode": 47, "mods": 0}, "commit": "", "preedit": "고", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "", "preedit": "과", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "과", "preedit": "", "consumed": false}
+{"in": {"keycode": 59, "mods": 0}, "commit": "", "preedit": "ㅂ", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "", "preedit": "바", "consumed": true}
+{"in": {"keycode": 121, "mods": 0}, "commit": "바", "preedit": "ㄹ", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "", "preedit": "라", "consumed": true}
+{"in": {"keycode": 122, "mods": 0}, "commit": "", "preedit": "람", "consumed": true}
+{"in": {"keycode": 107, "mods": 0}, "commit": "람", "preedit": "ㄱ", "consumed": true}
+{"in": {"keycode": 47, "mods": 0}, "commit": "", "preedit": "고", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "", "preedit": "과", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "과", "preedit": "", "consumed": false}
+{"in": {"keycode": 59, "mods": 0}, "commit": "", "preedit": "ㅂ", "consumed": true}
+{"in": {"keycode": 116, "mods": 0}, "commit": "", "preedit": "벼", "consumed": true}
+{"in": {"keycode": 119, "mods": 0}, "commit": "", "preedit": "별", "consumed": true}
+{"in": {"keycode": 107, "mods": 0}, "commit": "별", "preedit": "ㄱ", "consumed": true}
+{"in": {"keycode": 47, "mods": 0}, "commit": "", "preedit": "고", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "", "preedit": "과", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "과", "preedit": "", "consumed": false}
+{"in": {"keycode": 110, "mods": 0}, "commit": "", "preedit": "ㅅ", "consumed": true}
+{"in": {"keycode": 100, "mods": 0}, "commit": "", "preedit": "시", "consumed": true}
+{"in": {"keycode": 106, "mods": 0, "shift": true}, "commit": "시'", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 39, "mods": 0, "shift": true}, "commit": "/", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 49, "mods": 0}, "commit": "1", "preedit": "", "consumed": true}
+{"in": {"keycode": 57, "mods": 0}, "commit": "9", "preedit": "", "consumed": true}
+{"in": {"keycode": 52, "mods": 0}, "commit": "4", "preedit": "", "consumed": true}
+{"in": {"keycode": 56, "mods": 0}, "commit": "8", "preedit": "", "consumed": true}
+{"in": {"keycode": 93, "mods": 0}, "commit": "]", "preedit": "", "consumed": true}
