@@ -12,7 +12,6 @@ package org.hunmin.ime
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -56,47 +55,6 @@ class OverlayActivity : AppCompatActivity() {
      * shared field points at.
      */
     private var captureWindow: AlertDialog? = null
-
-    /**
-     * High-contrast, compact color palette for HUD-style inspector UI.
-     * Deep dark slate base with crisp cyan accents for hardware-keyboard environments.
-     *
-     * Every value is a named @color/hunmin_hud_* token (values/colors.xml and
-     * values-night/colors.xml carry the same dark values — the HUD is always
-     * dark by design). This object is the cache that keeps one `ContextCompat.
-     * getColor` lookup per colour per dialog build instead of one per row;
-     * the resource files are the single source of truth (review F1).
-     */
-    private object CompactTheme {
-        fun of(context: android.content.Context) = Colors(
-            bgPanel = color(context, R.color.hunmin_hud_panel),
-            textPrimary = color(context, R.color.hunmin_hud_on_panel),
-            textSecondary = color(context, R.color.hunmin_hud_secondary),
-            keyBg = color(context, R.color.hunmin_hud_keycap),
-            keyBorder = color(context, R.color.hunmin_hud_keycap_outline),
-            accent = color(context, R.color.hunmin_hud_accent),
-            accentBg = color(context, R.color.hunmin_hud_accent_bg),
-            divider = color(context, R.color.hunmin_hud_keycap),
-            confirmed = color(context, R.color.hunmin_hud_confirmed),
-        )
-
-        private fun color(context: android.content.Context, id: Int): Int =
-            androidx.core.content.ContextCompat.getColor(context, id)
-
-        /** The cached token values for one build of a dialog. */
-        data class Colors(
-            val bgPanel: Int,
-            val textPrimary: Int,
-            val textSecondary: Int,
-            val keyBg: Int,
-            val keyBorder: Int,
-            val accent: Int,
-            val accentBg: Int,
-            val divider: Int,
-            /** The "chord confirmed" green — 7.01:1 on the panel. */
-            val confirmed: Int,
-        )
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -180,7 +138,7 @@ class OverlayActivity : AppCompatActivity() {
      * High-contrast, hardware-keyboard-oriented inspector style.
      */
     private fun showSettingsDialog() {
-        val palette = CompactTheme.of(this)
+        val palette = HudTheme.of(this)
         val entries = ImeSettings.layoutsProvider()
         val connected = ImeSettings.connected
 
@@ -447,7 +405,7 @@ class OverlayActivity : AppCompatActivity() {
      * Compact Keybinding List with crisp physical keycap aesthetics
      */
     private fun showKeyBindingSection() {
-        val palette = CompactTheme.of(this)
+        val palette = HudTheme.of(this)
         val store = KeyBindings.from(this)
         val actions = KeyAction.values().toList()
 
@@ -568,7 +526,7 @@ class OverlayActivity : AppCompatActivity() {
      * far render in the preview before the final key commits the binding.
      */
     private fun showKeyCaptureDialog(action: KeyAction) {
-        val palette = CompactTheme.of(this)
+        val palette = HudTheme.of(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -660,7 +618,7 @@ class OverlayActivity : AppCompatActivity() {
     /** 키를 누르고 있는 도중 시각적으로 조합 상태를 보여주는 헬퍼 */
     private fun updatePreviewUI(tv: TextView, action: Int, keyCode: Int, metaState: Int) {
         if (action == KeyEvent.ACTION_DOWN) {
-            val palette = CompactTheme.of(this)
+            val palette = HudTheme.of(this)
             val parts = mutableListOf<String>()
             if ((metaState and KeyEvent.META_CTRL_ON) != 0) parts.add("CTRL")
             if ((metaState and KeyEvent.META_ALT_LEFT_ON) != 0) parts.add("ALT_LEFT")
