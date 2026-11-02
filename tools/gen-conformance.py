@@ -222,20 +222,29 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
 
     current: dict = {}
     unsupported: set[str] = set()
-    cases: list[tuple[str, list[str]]] = []
+    cases: list[tuple[str, list[str], str]] = []
     excluded: list[dict] = []  # cases this platform cannot encode, and why
     body: list[str] = []
     name = "case"
     refused = ""  # option state that makes the CURRENT case unencodable here
     previous_preedit = ""
+    # Cumulative delivery (docs/trace-spec.md "Word-buffered adapters"): the
+    # text the case produces in total -- every tier-A commit plus the preedit
+    # still composing when the keys stop. Computed here and written into the
+    # trace's meta so tools/trace-check.py can compare it against the runner's
+    # own sum instead of trusting a number somebody typed.
+    cumulative_commits = ""
+    last_preedit = ""
     for line in src[1:]:
         rec = json.loads(line)
         if "meta" in rec and "case" in rec["meta"]:  # case separator
             if refused:
                 excluded.append({"case": name, "state": [refused]})
             elif body:
-                cases.append((name, body))
+                cases.append((name, body, cumulative_commits + last_preedit))
             body = []
+            cumulative_commits = ""
+            last_preedit = ""
             previous_preedit = ""
             refused = ""
             name = rec["meta"]["case"]
@@ -292,6 +301,8 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             # at the separator above rather than emitted at mods=0.
             event["mods"] = event.get("mods", 0) | X_LOCK_MASK
         previous_preedit = rec.get("preedit", "")
+        cumulative_commits += rec.get("commit", "")
+        last_preedit = rec.get("preedit", "")
         line = json.dumps(
                 {
                     "in": event,
@@ -308,7 +319,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
     if refused:
         excluded.append({"case": name, "state": [refused]})
     elif body:
-        cases.append((name, body))
+        cases.append((name, body, cumulative_commits + last_preedit))
     unsupported -= {"caps"}  # encoded in x11 mods; win32 excludes the case instead
     return cases, unsupported, head, excluded
 
@@ -325,6 +336,19 @@ def main() -> int:
     ap.add_argument("--out", required=True, type=pathlib.Path)
     ap.add_argument("--split-cases", action="store_true",
                     help="one trace per tier A case (default when a golden has cases)")
+    ap.add_argument("--only-case", action="append", default=[],
+                    metavar="LABEL",
+                    help="emit only the named tier A case(s); repeatable. A label "
+                         "that matches no case is an error, so a corpus cannot "
+                         "silently lose the case it was meant to add.")
+    ap.add_argument("--delivery", choices=["word-buffered"],
+                    help="the frontend buffers a whole eojeol and delivers it at "
+                         "a boundary, so tier A's per-key expectations cannot be "
+                         "copied verbatim (docs/trace-spec.md \"Word-buffered "
+                         "adapters\"). Writes meta.delivery with the case's "
+                         "cumulative text, computed from the golden. x11 only: "
+                         "the android emitter echoes the trace and win32 has its "
+                         "own delivery-mode channel.")
     ap.add_argument("--batch", action="store_true",
                     help="one trace file carrying every case as an in-file "
                          '{"meta": {"case": ...}} separator; the runner must '
@@ -337,6 +361,11 @@ def main() -> int:
         raise SystemExit("--extra-golden requires --batch: merged cases must "
                          "land in one file, not be re-split")
 
+    if a.delivery and a.platform != "x11":
+        raise SystemExit(f"--delivery {a.delivery}: the projection is the fcitx5 "
+                         "adapter's word policy; the android emitter echoes the "
+                         "trace it replays and win32 carries its own --delivery channel")
+
     build = BUILDERS[a.platform]
     build_named = NAMED_BUILDERS[a.platform]
 
@@ -347,6 +376,14 @@ def main() -> int:
         unsupported |= unsupported_e
         excluded += excluded_e
     cases = all_cases
+
+    if a.only_case:
+        seen = {name for name, _, _ in cases}
+        missing = [c for c in a.only_case if c not in seen]
+        if missing:
+            raise SystemExit(f"{a.golden}: --only-case named no case: {missing} "
+                             f"(the golden carries {sorted(seen)})")
+        cases = [c for c in cases if c[0] in set(a.only_case)]
 
     meta = {
         "platform": a.platform,
@@ -385,15 +422,30 @@ def main() -> int:
     # diff, so a batch file needs no runner-side change to stay comparable).
     a.out.parent.mkdir(parents=True, exist_ok=True)
     if a.batch:
+        if a.delivery:
+            raise SystemExit("--batch and --delivery do not combine: no x11 "
+                             "emitter resets the adapter at a case separator, so a "
+                             "batched word-buffered trace would carry one word into "
+                             "the next (docs/trace-spec.md \"Multi-case batch files\")")
         batch = [out_lines[0]]
-        for i, (name, body) in enumerate(cases, 1):
+        for i, (name, body, _) in enumerate(cases, 1):
             batch.append(json.dumps({"meta": {"case": name, "case_index": i}},
                                     ensure_ascii=False))
             batch.extend(body)
         a.out.write_text("\n".join(batch) + "\n", encoding="utf-8")
         print(f"{a.out}: {len(cases)} cases, "
-              f"{sum(len(b) for _, b in cases)} events", file=sys.stderr)
+              f"{sum(len(b) for _, b, _ in cases)} events", file=sys.stderr)
         return 0
+
+    def delivery_meta(total: str) -> dict:
+        """What the case delivers in total, for tools/trace-check.py to check.
+
+        A word-buffered adapter delivers a whole eojeol at the boundary, so no
+        per-event `commit` of tier A is what the client receives. The total is
+        the one thing both models must agree on, and trace-check compares the
+        runner's own sum against it.
+        """
+        return {"delivery": {"model": a.delivery, "total": total}} if a.delivery else {}
 
     if len(cases) > 1 or (a.split_cases and cases):
         if not cases:
@@ -407,14 +459,15 @@ def main() -> int:
         # ';' splits CMake's list. So the label stays in `meta.case` for humans
         # and the FILENAME gets a stable ASCII index instead. Deterministic
         # because cases are emitted in file order.
-        for i, (name, body) in enumerate(cases, 1):
+        for i, (name, body, total) in enumerate(cases, 1):
             f = a.out.with_name(f"{stem}-case{i:02d}.trace.in")
             # manual-sin3-p2-yet.jsonl has two cases both labelled "k/" -- one
             # caps:0, one caps:1 -- so a label alone does not identify a case.
             # case_index is authoritative; the label is for humans.
             head = json.dumps(
                 {"meta": {**json.loads(out_lines[0])["meta"], "case": name,
-                          "case_index": i, "case_id": f"{a.case}#{i:02d}"}},
+                          "case_index": i, "case_id": f"{a.case}#{i:02d}",
+                          **delivery_meta(total)}},
                 ensure_ascii=False)
             f.write_text("\n".join([head] + body) + "\n", encoding="utf-8")
             print(f"{f}: {len(body)} events", file=sys.stderr)
@@ -423,8 +476,11 @@ def main() -> int:
     # Single-case golden: the events live in `body`, not `out_lines` (which
     # holds only the header). Writing out_lines here produced a header-only file,
     # i.e. a trace that asserts nothing.
-    a.out.write_text("\n".join([out_lines[0]] + cases[0][1]) + "\n", encoding="utf-8")
-    print(f"{a.out}: {len(cases[0][1])} events", file=sys.stderr)
+    name, body, total = cases[0]
+    head = {**json.loads(out_lines[0])["meta"], **delivery_meta(total)}
+    a.out.write_text("\n".join([json.dumps({"meta": head}, ensure_ascii=False)] + body) + "\n",
+                     encoding="utf-8")
+    print(f"{a.out}: {len(body)} events", file=sys.stderr)
     return 0
 
 
