@@ -85,3 +85,16 @@
 {"in": {"ch": "e"}, "commit": "", "preedit": "닏"}
 {"in": {"ch": "k"}, "commit": "니", "preedit": "다"}
 {"in": {"ch": " "}, "commit": "다", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "0"}, "commit": "", "preedit": ""}
+{"in": {"ch": "1"}, "commit": "", "preedit": ""}
+{"in": {"ch": "2"}, "commit": "", "preedit": ""}
+{"in": {"ch": "3"}, "commit": "", "preedit": ""}
+{"in": {"ch": "4"}, "commit": "", "preedit": ""}
+{"in": {"ch": "5"}, "commit": "", "preedit": ""}
+{"in": {"ch": "6"}, "commit": "", "preedit": ""}
+{"in": {"ch": "7"}, "commit": "", "preedit": ""}
+{"in": {"ch": "8"}, "commit": "", "preedit": ""}
+{"in": {"ch": "9"}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "\b"}, "commit": "", "preedit": ""}

@@ -261,6 +261,13 @@ explicit modifier and what tier A may carry without resolving it. `hunmin-sim --
 field replays the base key and measures the wrong row (ctest `engine-golden-shift-field`
 is the fixture that fails when they do).
 
+BackSpace likewise has two spellings, and they are the same key: `{"key":"backspace"}`
+(what the libhangul-derived reference corpora write) and `{"ch":"\u0008"}`, which is what
+`hunmin-sim --trace` records — a golden the engine's own writer produced never contains
+the word "backspace". A converter that knows only one refuses the other outright: measured
+2026-11-03, `tools/gen-conformance.py` answered `no X11 keysym known for '\x08'` and
+refused a whole golden whose only unusual key was an empty-buffer BackSpace (issue #229).
+
 ## Provenance / licensing
 `data-orig/libhangul/` vendors libhangul 0.2.0's kbd/combination XML + `hangulkeyboard.h`
 (LGPL-2.1+, © Choe Hwanjin et al.) as converter inputs. Keyboard **arrangements** are

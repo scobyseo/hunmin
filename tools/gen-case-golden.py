@@ -69,6 +69,16 @@ CASES = {
              keys="kf.", note="가 then '.', which the engine commits and the layout spells as itself"),
         dict(case="shifted-punctuation-is-literal", feature="`=` literals on the shifted keys",
              keys=":M)", note="Shift+; = '4', Shift+h = '\"', Shift+0 = '~': the shifted keys commit text"),
+        # Issue #229: the number row in full, and the declined key after the
+        # word. `digit-row-is-jamo` above presses 1..0 in this layout's own
+        # order; this one presses every digit in ROW order so the sweep is the
+        # same key string on every layout, then ends the word and BackSpaces
+        # into an empty buffer, which the adapter must decline.
+        dict(case="digit-row-and-empty-backspace", feature="the number row, and the declined key after the word",
+             keys="0123456789 \\b",
+             note="0-9 are ᄏ ᇂ ᆻ ᆸ ᅭ ᅲ ᅣ ᅨ ᅴ ᅮ in ROW order (R6: this row is jongseong jamo, typed without a "
+                  "Shift); the space delivers the composed jamo and the BackSpace after it finds an empty "
+                  "buffer and is declined, so the client receives it"),
     ],
     # 두벌식 (2). Its identity is the opposite arrangement from 세벌식: one jamo per
     # key, consonants on the left and vowels on the right, Shift turning a
@@ -101,6 +111,18 @@ CASES = {
              keys="dkssudgktpdy ", note="안녕하세요: the everyday sentence the layout exists for, one jamo per key"),
         dict(case="sentence-hangeulimnida", feature="real text, five syllables",
              keys="gksrmfdlqslek ", note="한글입니다: 겹받침 in the middle (입니다 has ᆸ then ᆫ), no special key"),
+        # Issue #229. Two halves of the frontend contract the family above does
+        # not press: the number row (every digit, not the 1 2 3 0 a word needs)
+        # and the key the adapter DECLINES after the word is out. Both are
+        # absent from a corpus that types words, and both are layout-visible:
+        # this layout maps 26 letters, so all ten digits are declined and reach
+        # the client, and the trailing BackSpace finds an empty buffer and is
+        # declined for the same reason (docs/FRONTEND-CONTRACT.md invariant 3).
+        dict(case="digit-row-and-empty-backspace", feature="the number row, and the declined key after the word",
+             keys="0123456789 \\b",
+             note="0-9 are not this layout's (it maps 26 letters), so each is DECLINED and reaches the client; "
+                  "the space ends the word and the BackSpace that follows it finds an empty buffer and is "
+                  "declined too -- tier A records commit/preedit only, so consumption is asserted here"),
     ],
     # 신세벌식 P2 (normative source: pat.im/1136, docs/SPEC-P2.md). Three keys
     # assemble a syllable, but where 세벌식 최종 puts jongseong on the number row,
@@ -137,6 +159,32 @@ CASES = {
              keys="jfshtamfncjx ", note="안녕하세요: five syllables, three keys each"),
         dict(case="sentence-hangeulimnida", feature="real text, five syllables",
              keys="mfskgwjdehduf ", note="한글입니다: ᆸ then ᆫ in 입니다, each jongseong on its own key"),
+        # Issue #229: the number row in full, and the declined key after the
+        # word. P2 spends the row on literal digits, so this is the row R6's
+        # digit run is about -- the 1 2 3 0 the other cases press are the half
+        # of it a word happens to need.
+        dict(case="digit-row-and-empty-backspace", feature="the number row, and the declined key after the word",
+             keys="0123456789 \\b",
+             note="0-9 are delivered as themselves, ten digits in ROW order; the space ends the word and the "
+                  "BackSpace after it finds an empty buffer and is declined, so the client receives it"),
+    ],
+    # 신세벌식 P2's two siblings, added for issue #229 and nothing else: tier C
+    # replays the digit row per LAYOUT, because a layout table can lose a row the
+    # other four kept, and these two had no designed cases of their own. Their
+    # identity is covered by the P2 gate corpora (p2-2-1-basic.jsonl and
+    # manual-sin3-p2-yet.jsonl); what no corpus pressed on them is the number
+    # row and a decline.
+    "sin3-p2-basic": [
+        dict(case="digit-row-and-empty-backspace", feature="the number row, and the declined key after the word",
+             keys="0123456789 \\b",
+             note="the basic tier spends the number row on literal digits; the space ends the word and the "
+                  "BackSpace after it finds an empty buffer and is declined (issue #229)"),
+    ],
+    "sin3-p2-yet": [
+        dict(case="digit-row-and-empty-backspace", feature="the number row, and the declined key after the word",
+             keys="0123456789 \\b",
+             note="same row as the base P2 -- the 옛한글 tables change the jamo, not the digits; the space "
+                  "ends the word and the BackSpace after it is declined on the empty buffer (issue #229)"),
     ],
 }
 
@@ -149,6 +197,14 @@ HEAD_SPEC = {
                   "(libhunmin/data/layouts/dubeolsik.json)"),
     "sebeolsik-final": "the layout's own key arrangement; R6 for the number row (docs/SPEC-MODES.md)",
     "sin3-p2": "pat.im/1136 (normative, docs/SPEC-P2.md); R6 for the number row (docs/SPEC-MODES.md)",
+    # The two P2 siblings added for #229. Their only designed case is the digit
+    # row + decline, so their identity facts stay with the gate corpora
+    # (p2-2-1-basic.jsonl, manual-sin3-p2-yet.jsonl) and are NOT restated here --
+    # one home per fact.
+    "sin3-p2-basic": ("pat.im/1136's basic tier (docs/SPEC-P2.md, gate corpus "
+                      "p2-2-1-basic.jsonl); R6 for the number row (docs/SPEC-MODES.md)"),
+    "sin3-p2-yet": ("pat.im/1136's 옛한글 tier (docs/SPEC-P2.md, gate corpus "
+                    "manual-sin3-p2-yet.jsonl); R6 for the number row (docs/SPEC-MODES.md)"),
 }
 
 

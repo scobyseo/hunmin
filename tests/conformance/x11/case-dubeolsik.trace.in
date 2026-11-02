@@ -84,3 +84,16 @@
 {"in": {"keysym": 101, "mods": 0}, "commit": "", "preedit": "닏", "consumed": true}
 {"in": {"keysym": 107, "mods": 0}, "commit": "니", "preedit": "다", "consumed": true}
 {"in": {"keysym": 32, "mods": 0}, "commit": "다", "preedit": "", "consumed": false}
+{"in": {"keysym": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 48, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 49, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 50, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 51, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 52, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 53, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 54, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 55, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 56, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 57, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 65288, "mods": 0}, "commit": "", "preedit": "", "consumed": false}

@@ -1,0 +1,14 @@
+{"meta": {"source": "designed", "spec": "pat.im/1136's basic tier (docs/SPEC-P2.md, gate corpus p2-2-1-basic.jsonl); R6 for the number row (docs/SPEC-MODES.md)", "layout": "sin3-p2-basic", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "note": "expected commit/preedit per key are the engine's answers, never typed; a diff here is a change to the layout or the composer and must be reviewed"}}
+{"meta": {"case": "digit-row-and-empty-backspace", "feature": "the number row, and the declined key after the word", "note": "the basic tier spends the number row on literal digits; the space ends the word and the BackSpace after it finds an empty buffer and is declined (issue #229)"}}
+{"in": {"ch": "0"}, "commit": "0", "preedit": ""}
+{"in": {"ch": "1"}, "commit": "1", "preedit": ""}
+{"in": {"ch": "2"}, "commit": "2", "preedit": ""}
+{"in": {"ch": "3"}, "commit": "3", "preedit": ""}
+{"in": {"ch": "4"}, "commit": "4", "preedit": ""}
+{"in": {"ch": "5"}, "commit": "5", "preedit": ""}
+{"in": {"ch": "6"}, "commit": "6", "preedit": ""}
+{"in": {"ch": "7"}, "commit": "7", "preedit": ""}
+{"in": {"ch": "8"}, "commit": "8", "preedit": ""}
+{"in": {"ch": "9"}, "commit": "9", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "\b"}, "commit": "", "preedit": ""}

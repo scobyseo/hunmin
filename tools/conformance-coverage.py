@@ -78,6 +78,15 @@ FAMILIES: list[dict] = [
       for l in ("ahnmatmae", "dubeolsik-yet", "romaja", "sebeolsik-3-2",
                 "sebeolsik-3-90", "sebeolsik-final", "sebeolsik-noshift",
                 "sebeolsik-yet")],
+    # P2's two siblings, one designed case each (#229): the digit row in full and
+    # the BackSpace an empty buffer declines. They are separate families rather
+    # than cases of the golden above because tier C is per LAYOUT -- a layout
+    # table can lose a row its siblings kept, and these two appear in no other
+    # x11 trace.
+    {"golden": "case-sin3-p2-basic.jsonl", "layout": "sin3-p2-basic",
+     "stem": "digitrow-sin3-p2-basic"},
+    {"golden": "case-sin3-p2-yet.jsonl", "layout": "sin3-p2-yet",
+     "stem": "digitrow-sin3-p2-yet"},
     # Not a layout family: the schema's shifted-key spelling (`"shift": true`,
     # docs/SPEC-SCHEMA.md). It rides through tier C as well, so a converter that
     # stops interpreting the field reads red on the second row of each pair.

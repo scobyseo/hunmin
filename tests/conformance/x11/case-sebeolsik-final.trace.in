@@ -1,4 +1,4 @@
-{"meta": {"platform": "x11", "layout": "sebeolsik-final", "case": "case-sebeolsik-final", "source": "case-sebeolsik-final.jsonl (designed)", "delivery": {"model": "word-buffered", "total": "안녕한글값많ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋㄲㄺㅈㄿㄾ1230ᄀᅠᆫ가.4\"~"}}}
+{"meta": {"platform": "x11", "layout": "sebeolsik-final", "case": "case-sebeolsik-final", "source": "case-sebeolsik-final.jsonl (designed)", "delivery": {"model": "word-buffered", "total": "안녕한글값많ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋㄲㄺㅈㄿㄾ1230ᄀᅠᆫ가.4\"~ᄏᅠᇂㅆㅂㅛㅠㅑㅖㅢㅜ"}}}
 {"in": {"keysym": 106, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
 {"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "아", "consumed": true}
 {"in": {"keysym": 115, "mods": 0}, "commit": "", "preedit": "안", "consumed": true}
@@ -61,3 +61,16 @@
 {"in": {"keysym": 58, "mods": 0}, "commit": "4", "preedit": "", "consumed": true}
 {"in": {"keysym": 77, "mods": 0}, "commit": "\"", "preedit": "", "consumed": true}
 {"in": {"keysym": 41, "mods": 0}, "commit": "~", "preedit": "", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 48, "mods": 0}, "commit": "", "preedit": "ㅋ", "consumed": true}
+{"in": {"keysym": 49, "mods": 0}, "commit": "", "preedit": "ᄏᅠᇂ", "consumed": true}
+{"in": {"keysym": 50, "mods": 0}, "commit": "ᄏᅠᇂ", "preedit": "ㅆ", "consumed": true}
+{"in": {"keysym": 51, "mods": 0}, "commit": "ㅆ", "preedit": "ㅂ", "consumed": true}
+{"in": {"keysym": 52, "mods": 0}, "commit": "ㅂ", "preedit": "ㅛ", "consumed": true}
+{"in": {"keysym": 53, "mods": 0}, "commit": "ㅛ", "preedit": "ㅠ", "consumed": true}
+{"in": {"keysym": 54, "mods": 0}, "commit": "ㅠ", "preedit": "ㅑ", "consumed": true}
+{"in": {"keysym": 55, "mods": 0}, "commit": "ㅑ", "preedit": "ㅖ", "consumed": true}
+{"in": {"keysym": 56, "mods": 0}, "commit": "ㅖ", "preedit": "ㅢ", "consumed": true}
+{"in": {"keysym": 57, "mods": 0}, "commit": "ㅢ", "preedit": "ㅜ", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "ㅜ", "preedit": "", "consumed": false}
+{"in": {"keysym": 65288, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
