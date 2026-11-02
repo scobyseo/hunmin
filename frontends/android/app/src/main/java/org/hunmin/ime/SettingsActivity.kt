@@ -10,11 +10,16 @@
  * value, the chord the engine holds, and B3's data answer. Nothing here is a
  * second copy of any of the three.
  *
- * The running service is used when it can answer, so a change takes effect in
- * the live IME with no restart. When no layer is live (the common case when
- * the screen is opened from system settings) AutoSwitchSettings builds its own
- * layer from the same data and records the engine's read-back for the next
- * editor.
+ * The value reaches a running IME through the stored read-back, MEASURED on the
+ * emulator 2026-11-03: opening this screen ends the editor's input session, so
+ * `HunminInputMethodService.onFinishInput()` has already closed the engine and
+ * [liveState] finds nothing to ask. The write goes to AutoSwitchSettings' own
+ * layer, whose answer is stored, and the next `onStartInput` re-applies it
+ * (`restoreAutoswitch`) -- with no IME restart, which is what the measurement
+ * showed: the switch flipped on this screen and the next keystrokes obeyed it
+ * in the same process. The live branch below is kept for the case where a layer
+ * IS answering (the screen can also be reached without a session ending), but
+ * it is not the path the shipped flow takes and must not be described as one.
  */
 package org.hunmin.ime
 
@@ -181,9 +186,11 @@ class SettingsActivity : AppCompatActivity() {
 
     /**
      * Write through the live service when it can answer, and through a private
-     * layer otherwise. Either way the value requested is not what is shown: the
-     * engine's read-back is ([AutoSwitchSettings.write] and the service both
-     * return that), so B3's refusal is visible on the screen immediately.
+     * layer otherwise — which, measured 2026-11-03, is the path the shipped flow
+     * always takes (see the class comment). Either way the value requested is
+     * not what is shown: the engine's read-back is ([AutoSwitchSettings.write]
+     * and the service both return that), so B3's refusal is visible on the
+     * screen immediately.
      */
     private fun write(on: Boolean) {
         if (liveState() != null) {
