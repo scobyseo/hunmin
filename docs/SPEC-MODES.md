@@ -1147,6 +1147,12 @@ That is:
 
 - **When it is off it must return to 100% of the previous behaviour.** This is an
   invariant. It is verifiable and must be verified.
+  *Verified by:* ctest `engine-off-identity` (`tools/off-identity-check.py` over
+  `hunmin-sim --off-check`) — the tier-A goldens and the tier-C x11 inputs are
+  driven through `hunmin_buffered_preedit` with `autoswitch` written 0 and read
+  back, and the text a person sees is compared byte for byte against `hunmin_ic`,
+  the engine those corpora were recorded on. It covers the shared layer all three
+  frontends sit on and not a frontend's own presentation (§3).
 - **When it is on, the incidence of untypable input must be low, and there is no
   pass line yet (E4).** For now this is not judged to be a defect, but it must
   **be measured.**

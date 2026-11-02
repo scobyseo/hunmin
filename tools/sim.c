@@ -2,6 +2,7 @@
  *   hunmin-sim --data DIR --layout ID --keys 'gqqw' [--trace]
  *   hunmin-sim --data DIR --check tests/golden/ref-dubeolsik.jsonl
  *   hunmin-sim --data DIR --judge-check tests/golden/judgement-r8.jsonl
+ *   hunmin-sim --data DIR --off-check tests/golden/ref-dubeolsik.jsonl ...  (any number of corpora)
  *   hunmin-sim --data DIR --layout ID --latin LATIN --judge [--autoswitch N]
  *              [--start-latin] --keys '<case>' [--trace]
  * --check drives the engine with each event's "in" and compares commit and
@@ -517,9 +518,449 @@ static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force
     return fails ? 1 : 0;
 }
 
+/* ------------------------------------------------- OFF identity (SPEC-MODES §4)
+ *
+ * docs/SPEC-MODES.md §4 states the invariant as a requirement rather than a
+ * wish: "When it is off it must return to 100% of the previous behaviour. This
+ * is an invariant. It is verifiable and must be verified." (issue #179)
+ *
+ * The oracle is the tier-A corpus itself: those expectations were recorded
+ * before the judgement existed and --check still asserts them against
+ * hunmin_ic, the engine the frontends sat on then. What this mode adds is the
+ * SAME key sequences driven one level up, through hunmin_buffered_preedit --
+ * the layer every frontend now sits on -- with `autoswitch` explicitly OFF and
+ * the rest of the feature PRESENT (the Latin layout, the shipped English list,
+ * R8's reading replayed at every boundary), so the option is the only thing
+ * standing between the layer and a different delivery.
+ *
+ * What is compared, per key, byte for byte:
+ *   - the text the client holds: everything delivered so far plus the preedit
+ *     on screen. The layer legitimately moves text from the preedit into a
+ *     later commit (HUNMIN_COMMIT_AT_BOUNDARY), so comparing this key's commit
+ *     against the engine's would pin a delivery timing that is a frontend
+ *     setting; the text a person sees is the invariant. Under
+ *     HUNMIN_COMMIT_PER_SYLLABLE the per-key commit IS compared, because that
+ *     policy promises the engine's own timing.
+ *   - the consumed decision, because a key the engine declines is forwarded to
+ *     the client and a key it consumes is not — that is the frontends' job;
+ * and once at the end of a case, after both sides flush, the delivered totals.
+ *
+ * The same mode replays the x11 tier-C traces, tier C's inputs in
+ * the platform's own dialect (keysym + mods), so the corpus that exists to make
+ * the frontends agree also proves the layer does not move their text.
+ *
+ * What it does NOT cover: a frontend's own presentation (SPEC-MODES §3), the
+ * Android/win32 trace dialects, and the client's handling of a declined key
+ * (a space is inserted by the client; neither driver models that, and both are
+ * declined identically, which the consumed comparison asserts).
+ */
+#define OFF_TEXT_CAP 24576
+/* fcitx5's default LatinLayout, and the layout the frontends replay readings
+ * through — the OFF path must be measured with the same second language the
+ * ON path would use, or the reading is not even attempted. */
+#define OFF_LATIN_LAYOUT "us-qwerty"
+/* X11 modifier bits, the x11 trace dialect (docs/trace-spec.md). */
+#define OFF_X11_SHIFT 0x01
+#define OFF_X11_LOCK 0x04
+
+typedef struct off_case {
+    hunmin_ic *ic;                       /* the pre-feature engine: the oracle */
+    hunmin_buffered_preedit *boundary;    /* the layer at HUNMIN_COMMIT_AT_BOUNDARY */
+    hunmin_buffered_preedit *syllable;    /* the layer at HUNMIN_COMMIT_PER_SYLLABLE */
+    char odel[OFF_TEXT_CAP];             /* delivered text, cumulative */
+    char bdel[OFF_TEXT_CAP];
+    char sdel[OFF_TEXT_CAP];
+} off_case;
+
+/* Appends or fails: a silently truncated accumulator would compare a shorter
+ * text than the corpus drove, which is a check that shrinks instead of failing. */
+static int off_append(char *dst, size_t cap, const char *s) {
+    const size_t n = strlen(dst), m = s ? strlen(s) : 0;
+    if (n + m >= cap) return -1;
+    if (m) memcpy(dst + n, s, m);
+    dst[n + m] = 0;
+    return 0;
+}
+
+/* Concatenates `a` then `b` into dst, or answers -1 rather than truncating: two
+ * halves that were each truncated the same way would compare equal while neither
+ * is the text the corpus drove. */
+static int off_join(char *dst, size_t cap, const char *a, const char *b) {
+    const size_t na = a ? strlen(a) : 0, nb = b ? strlen(b) : 0;
+    if (na + nb >= cap) return -1;
+    if (na) memcpy(dst, a, na);
+    if (nb) memcpy(dst + na, b, nb);
+    dst[na + nb] = 0;
+    return 0;
+}
+
+static void off_free(off_case *c) {
+    if (c->ic) hunmin_ic_free(c->ic);
+    if (c->boundary) hunmin_buffered_preedit_free(c->boundary);
+    if (c->syllable) hunmin_buffered_preedit_free(c->syllable);
+    memset(c, 0, sizeof *c);
+}
+
+/* The layer as a frontend builds it for the OFF path: both languages, the
+ * shipped English list loaded, and `autoswitch` written to 0 AND read back. A
+ * write the engine refused would leave the option ON, and then this whole check
+ * would be measuring the ON path and calling it identity. */
+static hunmin_buffered_preedit *off_layer(hunmin_ctx *ctx, const char *layout, int policy, int *held) {
+    hunmin_buffered_preedit *l =
+        hunmin_buffered_preedit_new(ctx, layout, OFF_LATIN_LAYOUT, policy);
+    if (!l) return NULL;
+    hunmin_buffered_preedit_load_english_shipped(l);
+    hunmin_buffered_preedit_set_option(l, "autoswitch", 0);
+    *held = -1;
+    hunmin_buffered_preedit_get_option(l, "autoswitch", held);
+    return l;
+}
+
+/* Every state a golden's meta line can set, applied to all three drivers so the
+ * only difference between them is the level they sit at. -1 means "unchanged"
+ * for caps; a flag override of -1 is the layout's default and is applied. */
+static void off_apply(off_case *c, int caps, int *flags) {
+    if (caps >= 0) {
+        hunmin_ic_set_option(c->ic, "caps", caps);
+        hunmin_buffered_preedit_set_option(c->boundary, "caps", caps);
+        hunmin_buffered_preedit_set_option(c->syllable, "caps", caps);
+    }
+    if (!flags) return;
+    static const char *names[] = {"w", "W", "z", "h", "H"};
+    for (int k = 0; k < 5; k++) {
+        if (flags[k] == -2) continue; /* absent from this case's meta */
+        hunmin_ic_set_option(c->ic, names[k], flags[k]);
+        hunmin_buffered_preedit_set_option(c->boundary, names[k], flags[k]);
+        hunmin_buffered_preedit_set_option(c->syllable, names[k], flags[k]);
+    }
+}
+
+/* Starts a case. The drivers are REBUILT only when the layout changes, and RESET
+ * otherwise: a layer carries the shipped English list, and re-reading that file
+ * for every case of a multi-case golden was measured at ~40 ms per case (the
+ * whole check took 15 s). Reset returns the same text state -- composition,
+ * word, keys, delivered bytes -- and leaves the option state in place. */
+static int off_begin(off_case *c, char *held_layout, size_t held_cap, hunmin_ctx *ctx, const char *path,
+                     int line, const char *layout, int caps, int *flags, int *ready_out) {
+    const int same = held_layout[0] && !strcmp(held_layout, layout);
+    if (same) {
+        c->odel[0] = c->bdel[0] = c->sdel[0] = 0;
+        hunmin_ic_reset(c->ic);
+        hunmin_buffered_preedit_reset(c->boundary);
+        hunmin_buffered_preedit_reset(c->syllable);
+        off_apply(c, caps, flags);
+        *ready_out = hunmin_buffered_preedit_english_ready(c->boundary);
+        return 0;
+    }
+    off_free(c);
+    c->ic = hunmin_ic_new(ctx, layout);
+    int hb = -1, hs = -1;
+    c->boundary = off_layer(ctx, layout, HUNMIN_COMMIT_AT_BOUNDARY, &hb);
+    c->syllable = off_layer(ctx, layout, HUNMIN_COMMIT_PER_SYLLABLE, &hs);
+    if (!c->ic || !c->boundary || !c->syllable) {
+        fprintf(stderr, "%s:%d: cannot build the drivers for layout '%s' (a layer for %s)\n",
+                path, line, layout, OFF_LATIN_LAYOUT);
+        off_free(c);
+        return -1;
+    }
+    if (hb != 0 || hs != 0) {
+        fprintf(stderr,
+                "%s:%d: 'autoswitch' reads back %d/%d after being written 0 -- the OFF path "
+                "cannot be measured while the option refuses the value\n",
+                path, line, hb, hs);
+        off_free(c);
+        return -1;
+    }
+    snprintf(held_layout, held_cap, "%s", layout);
+    *ready_out = hunmin_buffered_preedit_english_ready(c->boundary);
+    off_apply(c, caps, flags);
+    return 0;
+}
+
+/* One key through all three drivers, and the comparisons §4 asks for. */
+static int off_key(off_case *c, const char *path, int line, uint32_t base, uint32_t shift,
+                   int caps, long *checks) {
+    int fails = 0;
+    /* A case that could not be built must fail here, not compare two empty
+     * texts and report identity. */
+    if (!c->ic || !c->boundary || !c->syllable) {
+        fprintf(stderr, "%s:%d: no drivers for this key -- the case did not build\n", path, line);
+        return 1;
+    }
+    if (caps >= 0) off_apply(c, caps, NULL);
+
+    const int ocons = hunmin_ic_process_key(c->ic, base, shift) ? 1 : 0;
+    /* The engine's commit read is destructive and its string is the engine's
+     * own buffer: copy before anything else can rewrite it. */
+    const char *oc = hunmin_ic_commit(c->ic);
+    char ocopy[1200];
+    snprintf(ocopy, sizeof ocopy, "%s", oc ? oc : "");
+    char opcopy[1200];
+    snprintf(opcopy, sizeof opcopy, "%s", hunmin_ic_preedit(c->ic));
+
+    hunmin_key_result bres = {0, NULL, NULL}, sres = {0, NULL, NULL};
+    const int bcons = hunmin_buffered_preedit_process_key(c->boundary, base, shift, &bres) ? 1 : 0;
+    char bcommit[1200], bpre[OFF_TEXT_CAP];
+    snprintf(bcommit, sizeof bcommit, "%s", bres.commit ? bres.commit : "");
+    snprintf(bpre, sizeof bpre, "%s", bres.preedit ? bres.preedit : "");
+    const int scons = hunmin_buffered_preedit_process_key(c->syllable, base, shift, &sres) ? 1 : 0;
+    char scommit[1200], spre[OFF_TEXT_CAP];
+    snprintf(scommit, sizeof scommit, "%s", sres.commit ? sres.commit : "");
+    snprintf(spre, sizeof spre, "%s", sres.preedit ? sres.preedit : "");
+
+    (*checks)++;
+    if (ocons != bcons || ocons != scons)
+        fprintf(stderr, "%s:%d: key 0x%02x: consumed engine=%d boundary=%d syllable=%d\n", path, line,
+                base, ocons, bcons, scons);
+    fails += (ocons != bcons) + (ocons != scons);
+
+    if (off_append(c->odel, sizeof c->odel, ocopy) || off_append(c->bdel, sizeof c->bdel, bcommit) ||
+        off_append(c->sdel, sizeof c->sdel, scommit)) {
+        fprintf(stderr, "%s:%d: accumulated text passed %d bytes -- raise OFF_TEXT_CAP\n", path, line,
+                OFF_TEXT_CAP);
+        return fails + 1;
+    }
+
+    /* The visible text: what the client already holds plus what is composing. */
+    char ovis[2 * OFF_TEXT_CAP], bvis[2 * OFF_TEXT_CAP], svis[2 * OFF_TEXT_CAP];
+    if (off_join(ovis, sizeof ovis, c->odel, opcopy) || off_join(bvis, sizeof bvis, c->bdel, bpre) ||
+        off_join(svis, sizeof svis, c->sdel, spre)) {
+        fprintf(stderr, "%s:%d: visible text passed %d bytes -- raise OFF_TEXT_CAP\n", path, line,
+                2 * OFF_TEXT_CAP);
+        return fails + 1;
+    }
+    (*checks)++;
+    if (strcmp(ovis, bvis)) {
+        fprintf(stderr,
+                "%s:%d: OFF text differs at the boundary policy, key 0x%02x\n"
+                "    engine   ='%s'\n"
+                "    layer    ='%s'\n",
+                path, line, base, ovis, bvis);
+        fails++;
+    }
+    (*checks)++;
+    if (strcmp(ovis, svis)) {
+        fprintf(stderr,
+                "%s:%d: OFF text differs at the per-syllable policy, key 0x%02x\n"
+                "    engine   ='%s'\n"
+                "    layer    ='%s'\n",
+                path, line, base, ovis, svis);
+        fails++;
+    }
+    /* PER_SYLLABLE promises the engine's own delivery timing, so the per-key
+     * commit is part of the contract there and not merely a setting. */
+    (*checks)++;
+    if (strcmp(ocopy, scommit)) {
+        fprintf(stderr, "%s:%d: per-syllable commit differs at key 0x%02x: engine='%s' layer='%s'\n",
+                path, line, base, ocopy, scommit);
+        fails++;
+    }
+    return fails;
+}
+
+/* The end of a case: both sides flush what is still composing, and the totals
+ * must still agree. A case whose text only agrees while it is mid-composition
+ * has moved the last word somewhere rather than delivering it. */
+static int off_flush(off_case *c, const char *path, int line, long *checks) {
+    int fails = 0;
+    const char *oc = hunmin_ic_flush(c->ic);
+    char ocopy[1200];
+    snprintf(ocopy, sizeof ocopy, "%s", oc ? oc : "");
+    const char *bc = hunmin_buffered_preedit_commit_word(c->boundary);
+    char bcopy[OFF_TEXT_CAP];
+    snprintf(bcopy, sizeof bcopy, "%s", bc ? bc : "");
+    const char *sc = hunmin_buffered_preedit_commit_word(c->syllable);
+    char scopy[OFF_TEXT_CAP];
+    snprintf(scopy, sizeof scopy, "%s", sc ? sc : "");
+    if (off_append(c->odel, sizeof c->odel, ocopy) || off_append(c->bdel, sizeof c->bdel, bcopy) ||
+        off_append(c->sdel, sizeof c->sdel, scopy)) {
+        fprintf(stderr, "%s:%d: accumulated text passed %d bytes at the flush\n", path, line, OFF_TEXT_CAP);
+        return fails + 1;
+    }
+    (*checks)++;
+    if (strcmp(c->odel, c->bdel) || strcmp(c->odel, c->sdel)) {
+        fprintf(stderr,
+                "%s:%d: OFF delivered totals differ after the flush\n"
+                "    engine           ='%s'\n"
+                "    boundary policy  ='%s'\n"
+                "    syllable policy  ='%s'\n",
+                path, line, c->odel, c->bdel, c->sdel);
+        fails++;
+    }
+    return fails;
+}
+
+/* One golden (.jsonl under tests/golden) or one trace (x11 .trace.in)
+ * through the three drivers. Both formats carry their inputs in an `in` object and
+ * a `meta` line that starts a case; only the key's spelling differs. */
+static int check_off_files(hunmin_ctx *ctx, const char *const *paths, int npaths) {
+    int fails = 0, files_ok = 0;
+    long checks = 0, keys = 0;
+    /* Across files: the layout the drivers were built for, so a corpus that
+     * walks many cases of one layout pays for the English list once. */
+    off_case c;
+    memset(&c, 0, sizeof c);
+    char held_layout[128] = "";
+
+    for (int pi = 0; pi < npaths; pi++) {
+        const char *path = paths[pi];
+        char *txt = read_file(path, NULL);
+        if (!txt) {
+            fails++;
+            continue;
+        }
+        int line = 0, file_fails = 0, cases = 0, started = 0, ready = 0, warned = 0;
+        long file_keys = 0, file_checks = 0;
+        /* A multi-case golden puts the layout in its FIRST meta line and only the
+         * case name in the rest, so both the layout and every option state carry
+         * forward until a meta line changes them -- the same inheritance
+         * check_file() gets from keeping one ic across the reset. */
+        char cur_layout[128] = "";
+        int cur_caps = -1, cur_flags[5] = {-2, -2, -2, -2, -2};
+        static const char *fnames[] = {"w", "W", "z", "h", "H"};
+        /* hunmin_ic_reset() does not clear caps, so a driver carried over from
+         * the previous file still holds that file's last state -- one trace's
+         * locked record would capitalise the next file's cases. */
+        if (held_layout[0]) {
+            hunmin_ic_set_option(c.ic, "caps", 0);
+            hunmin_buffered_preedit_set_option(c.boundary, "caps", 0);
+            hunmin_buffered_preedit_set_option(c.syllable, "caps", 0);
+        }
+        for (char *s = strtok(txt, "\n"); s; s = strtok(NULL, "\n")) {
+            line++;
+            if (!*s) continue;
+            cJSON *j = cJSON_Parse(s);
+            if (!j) {
+                fprintf(stderr, "%s:%d: bad JSON\n", path, line);
+                file_fails++;
+                continue;
+            }
+            const cJSON *meta = cJSON_GetObjectItemCaseSensitive(j, "meta");
+            if (meta) {
+                /* A meta line starts a case (multi-case goldens); the trace
+                 * corpus repeats it once per file. */
+                if (started && off_flush(&c, path, line, &file_checks)) file_fails++;
+                const cJSON *lay = cJSON_GetObjectItemCaseSensitive(meta, "layout");
+                if (cJSON_IsString(lay) && lay->valuestring[0])
+                    snprintf(cur_layout, sizeof cur_layout, "%s", lay->valuestring);
+                if (!cur_layout[0]) {
+                    fprintf(stderr, "%s:%d: meta has no layout and no earlier one to inherit\n", path,
+                            line);
+                    file_fails++;
+                    cJSON_Delete(j);
+                    continue;
+                }
+                const cJSON *jcaps = cJSON_GetObjectItemCaseSensitive(meta, "caps");
+                if (cJSON_IsNumber(jcaps)) cur_caps = jcaps->valueint;
+                for (int k = 0; k < 5; k++) {
+                    const cJSON *fv = cJSON_GetObjectItemCaseSensitive(meta, fnames[k]);
+                    /* The reset below clears every override, and check_file()'s
+                     * reset does the same, so an absent flag means the layout's
+                     * default -- not the previous case's value. */
+                    cur_flags[k] = cJSON_IsNumber(fv) ? fv->valueint : -2;
+                }
+                if (off_begin(&c, held_layout, sizeof held_layout, ctx, path, line, cur_layout,
+                              cur_caps, cur_flags, &ready)) {
+                    file_fails++;
+                    started = 0;        /* the drivers are gone: the next keys are unattributable */
+                    held_layout[0] = 0; /* and nothing may reuse them */
+                    cJSON_Delete(j);
+                    continue;
+                }
+                started = 1;
+                cases++;
+                /* B3 ships the English list with the data; without it
+                 * `english_valid` cannot answer and the judgement would abstain
+                 * for a reason that is not the option. Say the state once per
+                 * file rather than per case. */
+                if (ready != 1 && !warned) {
+                    fprintf(stderr,
+                            "note: %s: the shipped English list is not loaded (%d) -- the OFF path "
+                            "is still compared byte for byte, but no word could have been judged\n",
+                            path, ready);
+                    warned = 1;
+                }
+                cJSON_Delete(j);
+                continue;
+            }
+            if (!started) {
+                fprintf(stderr, "%s:%d: key record before any meta line\n", path, line);
+                file_fails++;
+                cJSON_Delete(j);
+                continue;
+            }
+            const cJSON *in = cJSON_GetObjectItemCaseSensitive(j, "in");
+            if (!cJSON_IsObject(in)) {
+                fprintf(stderr, "%s:%d: no in object\n", path, line);
+                file_fails++;
+                cJSON_Delete(j);
+                continue;
+            }
+            uint32_t base = 0, shift = 0;
+            int caps = -1;
+            const cJSON *jch = cJSON_GetObjectItemCaseSensitive(in, "ch");
+            const cJSON *jkey = cJSON_GetObjectItemCaseSensitive(in, "key");
+            const cJSON *jks = cJSON_GetObjectItemCaseSensitive(in, "keysym");
+            const cJSON *jkdc = cJSON_GetObjectItemCaseSensitive(in, "keycode");
+            const cJSON *jmods = cJSON_GetObjectItemCaseSensitive(in, "mods");
+            const unsigned mods = cJSON_IsNumber(jmods) ? (unsigned)jmods->valueint : 0u;
+            if (cJSON_IsString(jch) && jch->valuestring[0]) {
+                base = (unsigned char)jch->valuestring[0];
+            } else if (cJSON_IsString(jkey) && !strcmp(jkey->valuestring, "backspace")) {
+                base = 0x08;
+            } else if (cJSON_IsNumber(jks)) {
+                base = (uint32_t)jks->valueint;
+                if (mods & OFF_X11_SHIFT) shift = 1;
+                /* LockMask is the state at delivery, so it follows every record
+                 * both ways -- a meta-level caps would let one locked key leave
+                 * the rest of the case capitalised. */
+                caps = (mods & OFF_X11_LOCK) ? 1 : 0;
+            } else if (cJSON_IsNumber(jkdc)) {
+                /* The Android dialect spells keys as KEYCODE_*, which is ASCII
+                 * for the printable range this corpus uses; the named keys are
+                 * not (backspace is 67), so it is not driven here. */
+                fprintf(stderr, "%s:%d: android keycode records are not driven by --off-check\n", path,
+                        line);
+                file_fails++;
+                cJSON_Delete(j);
+                continue;
+            } else {
+                fprintf(stderr, "%s:%d: unrecognised key record\n", path, line);
+                file_fails++;
+                cJSON_Delete(j);
+                continue;
+            }
+            file_fails += off_key(&c, path, line, base, shift, caps, &file_checks);
+            file_keys++;
+            cJSON_Delete(j);
+            if (file_fails > 8) break;
+        }
+        if (started && off_flush(&c, path, line, &file_checks)) file_fails++;
+        free(txt);
+        keys += file_keys;
+        checks += file_checks;
+        fails += file_fails;
+        if (!file_fails) {
+            printf("OK  %s (%d cases, %ld keys)\n", path, cases, file_keys);
+            files_ok++;
+        }
+        if (fails > 40) {
+            fprintf(stderr, "stopping: more than 40 failing comparisons\n");
+            break;
+        }
+    }
+    off_free(&c);
+    printf("OFF identity: %d/%d files, %ld keys, %ld comparisons (autoswitch=0, "
+           "%s at both commit policies)\n",
+           files_ok, npaths, keys, checks, OFF_LATIN_LAYOUT);
+    return fails ? 1 : 0;
+}
+
 int main(int argc, char **argv) {
     const char *data = NULL, *layout = NULL, *keys = NULL, *checkp = NULL;
     const char *judgecheck = NULL, *latin = NULL;
+    const char *offcheck[256];
+    int noff = 0;
     int trace = 0, caps = 0, batch = 0, judge = 0, start_latin = 0, autoswitch = -1;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--data") && ++i < argc) data = argv[i];
@@ -528,6 +969,9 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--keys") && ++i < argc) keys = argv[i];
         else if (!strcmp(argv[i], "--check") && ++i < argc) checkp = argv[i];
         else if (!strcmp(argv[i], "--judge-check") && ++i < argc) judgecheck = argv[i];
+        else if (!strcmp(argv[i], "--off-check")) {
+            while (i + 1 < argc && strncmp(argv[i + 1], "--", 2) && noff < 256) offcheck[noff++] = argv[++i];
+        }
         else if (!strcmp(argv[i], "--autoswitch") && ++i < argc) autoswitch = atoi(argv[i]);
         else if (!strcmp(argv[i], "--caps")) caps = 1;
         else if (!strcmp(argv[i], "--judge")) judge = 1;
@@ -537,7 +981,8 @@ int main(int argc, char **argv) {
     }
     if (!data) {
         fprintf(stderr, "usage: hunmin-sim --data DIR (--layout ID --keys STR | --batch | --check FILE"
-                        " | --judge-check FILE | --layout ID --latin LATIN --judge --keys STR)\n");
+                        " | --judge-check FILE | --off-check FILE... "
+                        "| --layout ID --latin LATIN --judge --keys STR)\n");
         return 2;
     }
     const char *dirs[1] = {data};
@@ -548,6 +993,7 @@ int main(int argc, char **argv) {
     }
 
     if (judgecheck) return check_judge_file(ctx, judgecheck, layout, latin, autoswitch);
+    if (noff) return check_off_files(ctx, offcheck, noff);
     if (checkp) return check_file(ctx, checkp, layout);
 
     if (batch) {
