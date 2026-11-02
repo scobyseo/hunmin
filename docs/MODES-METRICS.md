@@ -51,11 +51,11 @@ delta**.
 
 > Being unable to input some word or some expression at all is a defect.
 
-This is a **grading target of the spec** (SPEC-MODES §4). But the current decision
-line is one the user set as follows: reverting to 100% of previous behavior when
-it is off is an invariant and must be verified, and the frequency of being unable
-to input when it is on should be low, but **we do not currently judge that to be
-a defect.**
+This is a **grading target of the spec**, and the spec states what it grades as
+two requirements of different kinds (`docs/SPEC-MODES.md` §R14 and §R15): the off
+side and the fallback are checked, while **the frequency of being unable to input
+when it is on is not judged a defect** and has no pass line in E4. What this
+section measures is that frequency — ③ is the only handle on it.
 
 **This metric is a property of the engine, not only of the guesser.** A layout
 that cannot produce some jamo combination makes every sentence containing that
@@ -242,6 +242,6 @@ combination rules the engine has already implemented.
 
 # 4. References
 
-- Requirements: `docs/SPEC-MODES.md` R12, §4
+- Requirements: `docs/SPEC-MODES.md` R12, R15
 - Corpus/license: `docs/MODES-DATA.md`
 - tier structure: `docs/TESTING.md`

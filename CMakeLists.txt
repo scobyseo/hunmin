@@ -831,6 +831,26 @@ if(BUILD_TESTING)
     COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
             --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-sebeolsik-final.jsonl)
   set_tests_properties(engine-golden-case-sebeolsik-final PROPERTIES LABELS "tier-A")
+  # SPEC-MODES §4's invariant, and its own words: "When it is off it must return
+  # to 100% of the previous behaviour. This is an invariant. It is verifiable
+  # and must be verified." (#179.) No new corpus: tools/off-identity-check.py
+  # drives the SAME tier-A goldens and the tier-C x11 inputs one level up,
+  # through hunmin_buffered_preedit with `autoswitch` written 0 and read back,
+  # and compares the text a person sees byte for byte against the engine the
+  # goldens were recorded on. The script also fails when a globbed file was not
+  # driven, so the corpus cannot shrink quietly.
+  add_test(NAME engine-off-identity
+    COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/off-identity-check.py
+            --sim $<TARGET_FILE:hunmin-sim>
+            --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+            --golden-dir ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden
+            --trace-dir ${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/x11)
+  # `slow` by the rule in docs/TESTING.md §tiers (measured 2026-11-02: 2.25 s,
+  # and the label's cut is ">= 2 s on the host where it was assigned"). It keeps
+  # `tier-A`, so "I touched the engine" still runs it; only the cheap inner loop
+  # (-LE slow) leaves it out.
+  set_tests_properties(engine-off-identity PROPERTIES LABELS "tier-A;slow")
   # P2 gate: one golden corpus per pat.im/1136 feature section (PLAN.md:85)
   set(HUNMIN_P2_SECTIONS p2-2-1-basic p2-2-2-tiers p2-2-3-chosung
       p2-2-4-1-yetrules p2-2-4-2-eung p2-2-4-3-caps p2-2-6-flags p2-2-6-flags-s

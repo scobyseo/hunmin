@@ -567,6 +567,77 @@ TEST_F(LayerTest, TheCapCountsDigitRunsInBytesLikeSyllables) {
     hunmin_buffered_preedit_free(l);
 }
 
+/* R15 (docs/SPEC-MODES.md §R15): the remedy for a word the switch took is the
+ * switch itself, so turning it off may not cost anything -- not the word, and
+ * not a byte. `hello` is a word the judgement reads as English, which is the
+ * loss the requirement is about; the run that stays on is the control, and
+ * without it this test would pass on any build where nothing ever switches. */
+TEST_F(LayerTest, TurningTheSwitchOffMidWordLosesNothing) {
+    const std::string seq = "hello ";
+    const std::string oracle = drive_engine(ctx_, seq);
+
+    /* flip_after = index of the key at which the person turns the switch off;
+     * -1 keeps it on for the whole word (the control). */
+    auto run = [&](int flip_after) {
+        std::string total;
+        hunmin_buffered_preedit *l =
+            hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+        EXPECT_NE(l, nullptr);
+        if (!l) return total;
+        EXPECT_EQ(1, hunmin_buffered_preedit_load_english_shipped(l));
+        EXPECT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 1));
+        int i = 0;
+        for (char c : seq) {
+            if (i == flip_after) {
+                EXPECT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 0));
+                int held = -1;
+                EXPECT_TRUE(hunmin_buffered_preedit_get_option(l, "autoswitch", &held));
+                EXPECT_EQ(0, held) << "the switch refused to turn off mid-word";
+            }
+            hunmin_key_result out{};
+            /* The space is declined and belongs to the client, so the consumed
+             * answer is not asserted here -- the totals are what this case is
+             * about, and a letter the layer silently declined would move them. */
+            hunmin_buffered_preedit_process_key(l, (uint32_t)c, 0, &out);
+            if (out.commit) total += out.commit;
+            i++;
+        }
+        const char *tail = hunmin_buffered_preedit_commit_word(l);
+        if (tail) total += tail;
+        hunmin_buffered_preedit_free(l);
+        return total;
+    };
+
+    const std::string stayed_on = run(-1);
+    /* The control: with the switch on, this word really is taken (it leaves as
+     * the Latin reading), which is why the requirement exists at all. */
+    ASSERT_NE(stayed_on, oracle) << "the case never switches, so it proves nothing";
+    EXPECT_EQ(stayed_on, std::string("hello"));
+
+    /* The requirement: flipped before the boundary, the same keys deliver what
+     * the engine delivers -- the fallback costs the word nothing. */
+    EXPECT_EQ(run(3), oracle) << "turning the switch off mid-word lost or changed the word";
+
+    /* And the display follows the switch back with no stale judged reading left
+     * behind: after the flip it is the off path's display for the same prefix. */
+    const std::string prefix = "hel";
+    const RunResult off_prefix = drive_layer(ctx_, prefix, HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *l =
+        hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(l));
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 1));
+    for (char c : prefix) {
+        hunmin_key_result out{};
+        ASSERT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)c, 0, &out));
+    }
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 0));
+    ASSERT_FALSE(off_prefix.shown.empty());
+    EXPECT_EQ(std::string(hunmin_buffered_preedit_display(l)), off_prefix.shown.back())
+        << "the display kept a judged reading after the switch went off";
+    hunmin_buffered_preedit_free(l);
+}
+
 } // namespace
 
 int main(int argc, char **argv) {

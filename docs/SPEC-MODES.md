@@ -48,7 +48,7 @@ cross references in the other four documents were fixed at the same time.
 | **2. What it converts** | what a mode is, how many IMs there are, where it is decided | R2, R3 |
 | **3. When it is judged** | what the composition buffer (조합 버퍼) is and when it ends | R4, R5, R6 |
 | **4. How it is judged** | when to switch and when not to | R7, R8, R9, R10 |
-| **5. When it is wrong, and evaluation** | who fixes it, how it is measured, how to turn it on and off | R11, R12, R13 |
+| **5. When it is wrong, and evaluation** | who fixes it, how it is measured, how to turn it on and off, and what turning it off must give back | R11, R12, R13, R14, R15 |
 
 **Why this order holds:**
 
@@ -417,7 +417,7 @@ requirement for the on case is specified separately in R4.
 - **OFF + English mode:** Latin letters and digits are **committed per
   character.** There is no composition buffer. It is needed because of software
   that handles alphanumeric input without spaces (`abc123`).
-- **OFF + Hangul mode:** preserves current behaviour 100% (§4).
+- **OFF + Hangul mode:** preserves current behaviour 100% (§R14).
 
 Per the correction the user gave immediately before ("the case I mentioned earlier
 was only talking about the behaviour when automatic conversion is off"), this
@@ -799,6 +799,68 @@ records the current factual relationships (not a measurement):
 - fcitx5 already has an addon settings (conf), so surface B is not extra UI but
   one existing settings item.
 
+## R14. Turning it off leaves no trace [D]
+
+**With the switch off, the input method must deliver what it delivered before
+the feature existed.** A person who never turns it on must not be able to tell
+that it shipped. (§R15 is the same identity for the words the switch does take,
+and the price of turning it off mid-word.)
+
+- **"The previous behaviour" is a recorded thing, not a memory.** The oracle is
+  the tier-A corpus in `tests/golden/`, recorded before the judgement existed
+  and still asserted against `hunmin_ic` (issue #179). A build with the feature
+  and a build without it answer that corpus identically — the same bytes, at
+  whichever commit policy a frontend is set to, not "the suite is still green".
+- **What it constrains is delivery: the text handed to the client, and the
+  consumed/declined decision for each key.** How a frontend draws that text is
+  an allowed difference (`docs/FRONTEND-EQUIVALENCE.md` §3) and is not covered
+  by this item.
+- **It covers the Latin layouts too**, by the same equality: the corpus carries
+  `dvorak`, `colemak` and `romaja`, and what they deliver is compared the same
+  way. OFF + English mode's per-character delivery is R5's rule, not this one's.
+- **The identity is proved on a finite corpus, and that is stated rather than
+  implied.** The check answers for the sequences the shipped layouts carry —
+  which is what makes off a real fallback for them — and for no other string a
+  person might type. Nothing in the tree enumerates those, and ③ is where the
+  remaining gap would be measured.
+
+*Verified by:* ctest `engine-off-identity` (`tools/off-identity-check.py` over
+`hunmin-sim --off-check`) — the tier-A goldens and the tier-C x11 inputs are
+driven through `hunmin_buffered_preedit` with `autoswitch` written 0 and read
+back, at both commit policies, and the text a person sees is compared byte for
+byte against `hunmin_ic`, the engine those corpora were recorded on.
+
+## R15. The switch costs no word [D]
+
+> 이상적으로는 어느 모드에서든 사용자가 의도적으로 해당 모드의 문자열을 모두
+> 입력할 수 있어야 하지만, 그럴 수 없는 경우에는 자동변환 기능을 꺼서라도
+> 입력할 수 있어야 한다.
+
+Turning the switch off is the remedy for a word it took. Two obligations make
+that remedy real, and one thing is explicitly not claimed.
+
+- **Where the switch changes a word's reading, the off path still produces the
+  engine's text.** For every key sequence where the switch makes the delivered
+  text differ from what `hunmin_ic` delivers for the same keys, the same keys with
+  `autoswitch` 0 must deliver `hunmin_ic`'s text. §R14 states that identity over
+  the goldens; this item states it over the set the switch actually touches — the
+  words the judgement corpus records as switching, which is the set a person who
+  lost a word is in — with the off-path answer computed from the engine rather
+  than typed in.
+- **Turning it off costs nothing.** Flipping the switch while a word composes
+  delivers no text by itself and changes no delivered byte: the word still leaves
+  at the same boundary, with the off path's text. A fallback that drops the word
+  it exists to save is not a fallback.
+- **Not claimed: the intended word arrives first time.** A misjudged word is
+  R11's accepted cost, counted in R12. The ideal in the sentence above — every
+  mode producing all of its own strings — is ③'s target, which has no pass line
+  (`docs/MODES-METRICS.md` §1.3) and is not judged a defect.
+
+*Verified by:* ctest `engine-off-identity`, whose `--off-check` drives every
+judgement case the corpus records as switching through the off path against the
+engine with the switch itself as the control; and `engine-buffered-preedit`'s
+`LayerTest.TurningTheSwitchOffMidWordLosesNothing` for the mid-word flip.
+
 ---
 
 # 2. Changeable after evaluation (EVALUABLE)
@@ -1134,26 +1196,7 @@ delimiters.
 
 ---
 
-# 4. What this feature must not produce [D]
-
-**The basis of §4 is the user's original words** ("어떤 단어나 어떤 표현을 아예
-입력할 수 없다는 건 불량이다"):
-
-> 자동변환 기능을 껐을 때는 입력가능하겠지만, 입력 불가가 0%인 것이
-> 이상적이다. 아직은 기능 결함으로 판단하지 않을 생각이며, 입력 불가
-> 단어는 실제 사용될 확률이 매우 작아야 함.
-
-That is:
-
-- **When it is off it must return to 100% of the previous behaviour.** This is an
-  invariant. It is verifiable and must be verified.
-- **When it is on, the incidence of untypable input must be low, and there is no
-  pass line yet (E4).** For now this is not judged to be a defect, but it must
-  **be measured.**
-
----
-
-# 5. Other files this document references
+# 4. Other files this document references
 
 | File | Content |
 |---|---|
