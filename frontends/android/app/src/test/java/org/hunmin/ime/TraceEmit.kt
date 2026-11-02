@@ -153,17 +153,10 @@ object TraceEmit {
 
             val keyCode = (inObj["keycode"] as? Number)?.toInt() ?: 0
             val mods = (inObj["mods"] as? Number)?.toInt() ?: 0
-            // A shifted SYMBOL has no case to carry the shift (`{"ch": ",",
-            // "shift": true}` is Shift+, on dvorak's W), so the event names it:
-            // either the `shift` key or mods bit 0x01, the same bit win32 uses.
-            val shift = (inObj["shift"] as? Boolean) ?: ((mods and 0x01) != 0)
-
-            // Feed key to engine. Shift goes through hunmin_ic_process_key, the
-            // explicit-modifier entry the adapter itself uses (issue #90);
-            // hunmin_ic_process alone derives shift from the key id's case,
-            // which a punctuation key does not have.
-            val used = if (shift) HunminNativeBridge.nativeProcessKey(ic, keyCode, 1)
-                       else HunminNativeBridge.nativeProcess(ic, keyCode)
+            // Feed key to engine. A shifted key arrives as its own resolved
+            // character (tools/gen-conformance.py's shift_char), so the engine's
+            // case-derived shift is the whole encoding here.
+            val used = HunminNativeBridge.nativeProcess(ic, keyCode)
 
             var actualCommit = ""
             var preedit = ""
@@ -196,14 +189,10 @@ object TraceEmit {
             // Emit trace line in the same format as input (docs/trace-spec.md)
             // Use EXPECTED commit (from trace file) and ACTUAL preedit (from engine)
             // This matches fcitx5 trace-emit.cpp behavior
-            // Echo the `in` the trace gave us, field for field: a trace may
-            // encode Shift as mods bit 0x01 (the arrow-selection corpus always
-            // has), and adding a `shift` key it did not carry made the emitted
-            // line differ from its own .in -- measured on
-            // tests/conformance/android/shift-arrow-selection.trace.in.
-            val inEcho = if (inObj.containsKey("shift"))
-                mapOf("keycode" to keyCode, "mods" to mods, "shift" to true)
-            else mapOf("keycode" to keyCode, "mods" to mods)
+            // Echo the `in` the trace gave us, field for field. The corpus
+            // encodes Shift in the key id's own case (docs/SPEC-SCHEMA.md), so
+            // the echo carries exactly what the `.in` carried.
+            val inEcho = mapOf("keycode" to keyCode, "mods" to mods)
             val out = mapOf(
                 "in" to inEcho,
                 "commit" to expected,

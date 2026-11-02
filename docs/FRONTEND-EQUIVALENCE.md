@@ -379,7 +379,7 @@ engine's per-key answer as a tier-A golden (`tests/golden/words-<layout>.jsonl`)
 No expectation is typed by hand.
 
 Measured on this tree (`grep -ho '"layout": "[^"]*"' tests/conformance/*/*.trace.in |
-sort -u`): **15 of 15 layouts appear in at least one trace** — 11 on x11, 13 on android,
+sort -u`): **15 of 15 layouts appear in at least one trace** — 12 on x11, 14 on android,
 4 on win32 (unchanged). What is NOT covered, named rather than implied:
 
 - **win32 for the 11 new layouts.** The TSF emitter can replay any of these goldens,

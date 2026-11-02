@@ -283,7 +283,7 @@
 {"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
 {"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
 {"in": {"keycode": 91, "mods": 0}, "commit": "[", "preedit": "", "consumed": true}
-{"in": {"keycode": 106, "mods": 0, "shift": true}, "commit": "'", "preedit": "", "consumed": true}
+{"in": {"keycode": 74, "mods": 0}, "commit": "'", "preedit": "", "consumed": true}
 {"in": {"keycode": 109, "mods": 0}, "commit": "", "preedit": "ㅎ", "consumed": true}
 {"in": {"keycode": 102, "mods": 0}, "commit": "", "preedit": "하", "consumed": true}
 {"in": {"keycode": 104, "mods": 0}, "commit": "하", "preedit": "ㄴ", "consumed": true}
@@ -311,9 +311,9 @@
 {"in": {"keycode": 32, "mods": 0}, "commit": "과", "preedit": "", "consumed": false}
 {"in": {"keycode": 110, "mods": 0}, "commit": "", "preedit": "ㅅ", "consumed": true}
 {"in": {"keycode": 100, "mods": 0}, "commit": "", "preedit": "시", "consumed": true}
-{"in": {"keycode": 106, "mods": 0, "shift": true}, "commit": "시'", "preedit": "", "consumed": true}
+{"in": {"keycode": 74, "mods": 0}, "commit": "시'", "preedit": "", "consumed": true}
 {"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
-{"in": {"keycode": 39, "mods": 0, "shift": true}, "commit": "/", "preedit": "", "consumed": true}
+{"in": {"keycode": 34, "mods": 0}, "commit": "/", "preedit": "", "consumed": true}
 {"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
 {"in": {"keycode": 49, "mods": 0}, "commit": "1", "preedit": "", "consumed": true}
 {"in": {"keycode": 57, "mods": 0}, "commit": "9", "preedit": "", "consumed": true}

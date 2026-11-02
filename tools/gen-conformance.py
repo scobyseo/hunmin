@@ -121,12 +121,16 @@ def win32_event(ch: str) -> dict:
 
 
 def android_event(ch: str) -> dict:
-    """One Android event. The character's OWN code, not its lowercase: the engine
-    derives Shift from the case of the key id (`hunmin_ic_process("K")` is
-    Shift+k), which is the convention every tier-A golden already uses. Lowering
-    it here silently turned `T` into `t` -- measured on
-    tests/golden/cultural-pangram-*.jsonl, where the second line is the same
-    pangram in capitals."""
+    """One Android event: the character's OWN code, not its lowercase.
+
+    The engine derives Shift from the key id's case (`hunmin_ic_process("K")` is
+    Shift+k), and a tier-A golden writes a shifted key that way, so lowering the
+    character here replayed the unshifted key -- measured on
+    tests/golden/cultural-pangram-*.jsonl, whose second line is the same pangram
+    in capitals and whose android trace asserted `t` where tier A says `T`.
+    `shift_char` above resolves a `"shift": true` record to its character before
+    it reaches this function, so a shifted SYMBOL arrives already spelled.
+    """
     if ch == "\\b":
         return {"keycode": ANDROID_KEYCODES["backspace"], "mods": 0}
     if ch in ANDROID_KEYCODES:
@@ -346,20 +350,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             # line's preedit rather than guessing.
             consumed = bool(previous_preedit)
         else:
-<<<<<<< HEAD
             consumed = _layout_maps(a.layout, spec_ch)
-=======
-            consumed = _layout_maps(a.layout, spec["ch"])
-        # A shifted SYMBOL has no case to carry the shift (`{"ch": ",", "shift":
-        # true}` is Shift+, on dvorak's W), so the flag has to travel in the
-        # platform's own vocabulary: Android's `shift` key (its runner passes
-        # base+shift to hunmin_ic_process_key) and win32's mods bit.
-        if spec.get("shift"):
-            if a.platform == "android":
-                event["shift"] = True
-            elif a.platform == "win32":
-                event["mods"] = event.get("mods", 0) | WIN32_SHIFT
->>>>>>> ccf0bc5 (english layouts: the evaluation text reaches 47 of 47 keys (issue #186))
         if a.platform == "x11" and current.get("caps"):
             # X11 is the only platform that encodes Caps Lock in `mods`
             # (LockMask). Android applies the same bit below for historical
