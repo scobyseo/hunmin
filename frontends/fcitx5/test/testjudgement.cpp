@@ -32,11 +32,20 @@
  *     is the reading of `mode_after`. A frontend that took the judgement but
  *     failed to switch fails there.
  *
- * The mode switch itself is reached the way a person reaches it: Ctrl+한/영
- * (SPEC-MODES §E5, ruled 2026-10-31), which the corpus's `autoswitch` field turns
- * on for a case and which this lane presses. Before #178 this lane could not
- * exist: the addon had no surface that could turn the judgement on, so every
- * case would have measured the OFF identity path.
+ * The engine's on/off state for the judgement (SPEC-MODES §E5, ruled 2026-10-31)
+ * is a VALUE, and the corpus's `autoswitch` field states it per case. Before #178
+ * this lane could not exist: the addon had no surface that could turn the
+ * judgement on, so every case would have measured the OFF identity path.
+ *
+ * ⚠️ Corrected 2026-11-03 (issue #233): the first cut PRESSED Ctrl+한/영 once for
+ * every case whose corpus row said `autoswitch: 1`. That chord is a TOGGLE of the
+ * value (SPEC-MODES §R13-정정 surface A; engine-d1's watcher case asserts ON ->
+ * OFF), so one press per case alternated the state instead of setting it:
+ * r9-three-keys-are-judged is the sixth case that presses it and got the value
+ * OFF, failing with the Hangul reading `ㅏ됴` delivered where the corpus says
+ * `key`. The lane therefore writes the state through `setConfig` — the value
+ * surface B (the settings UI) writes — and the chord's flip stays asserted by
+ * engine-d1, which is where it belongs.
  */
 #include "testdir.h"
 #include "testfrontend_public.h"
@@ -227,19 +236,16 @@ bool runCase(ICUUID uuid, const Case &c, int &skipped) {
         raw.setValueByPath("HangulLayout", layout);
         raw.setValueByPath("LatinLayout", "us-qwerty");
         raw.setValueByPath("CommitBehavior", "word");
+        /* The corpus's `autoswitch` is a VALUE, set as one (issue #233). The
+         * chord that also changes it TOGGLES, so pressing it per case made the
+         * state depend on how many cases had run before — see the header. */
+        raw.setValueByPath("AutoSwitch", c.autoswitch ? "True" : "False");
         hunmin->setConfig(raw);
     };
     configure("us-qwerty");                       /* sentinel: differs from every case layout */
     if (!press(uuid, Key(FcitxKey_BackSpace))) return false; /* declined: forces the rebuild, types nothing */
     configure(c.layout);
     if (!press(uuid, Key(FcitxKey_BackSpace))) return false;
-
-    if (c.autoswitch) {
-        if (!press(uuid, Key(FcitxKey_Hangul, KeyState::Ctrl), true, true)) {
-            std::fprintf(stderr, "testjudgement: %s: Ctrl+한/영 was not consumed\n", c.name.c_str());
-            return false;
-        }
-    }
     /* Every key, with the delivery the corpus states for it: the expectation is
      * pushed before the key is pressed, so a text OR timing change fails. */
     size_t i = 0, step = 0;

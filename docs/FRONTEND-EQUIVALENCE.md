@@ -343,6 +343,19 @@ Getting there needed two things the addon did not have, both found by building i
   SPEC-MODES §E5) and acts on `hunmin_buffered_preedit_special()`, and it registers
   a `hunmin_special_host` — without which the engine refuses every function with
   -1 by design. A bare Han/Eng press stays fcitx5's own trigger.
+
+  ⚠️ **Corrected 2026-11-03 (issue #233): the lane writes the VALUE, not the
+  chord.** The paragraph above is right about the adapter surface the case needs,
+  and wrong about the lane's use of it: `Ctrl+한/영` *toggles* the state (SPEC-MODES
+  §R13-정정 surface A, and engine-d1's watcher case asserts ON → OFF), while the
+  corpus's `autoswitch` field states a value per case. A first cut pressed the
+  chord once per case, so the state alternated with the case count and
+  `r9-three-keys-are-judged` — the sixth case to press it — ran with the value OFF
+  and failed, delivering the Hangul reading `ㅏ됴` where the corpus says `key`. The
+  lane now sets the state through `setConfig` (surface B's path) and leaves the
+  chord's flip to engine-d1. Lesson, and it generalises to the other two lanes:
+  **a corpus field that states a value must be set, not toggled** — a toggle makes
+  the measurement depend on what ran before it.
 - **A delivery-order defect the corpus found.** `out.commit` is valid only until
   the layer's next call, and the adapter read it AFTER `applyJudgement()` — whose
   switch performs a boundary that sets the commit to "". So the judged word was
