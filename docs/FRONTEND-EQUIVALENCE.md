@@ -405,10 +405,24 @@ trace per layout. That is also why those three layouts no longer have a one-word
 the text subsumes it.
 
 **A real text, for the same reason** (`tests/golden/texts/seosi.txt`, issue #227): 서시,
-11 cases / 308 events on `dubeolsik`, one batched android trace. Two things it states
-rather than hides: hanja (`序詩`) is recorded as a `hanja_segments` run — no layout emits
-it, so no key event can assert it, but an environment that can enter hanja can evaluate
-the title line — and space/punctuation are pass-through events, not engine output.
+one batched android trace per layout, and each layout reports what it could take.
+
+| layout | cases | events | what it could not take |
+|---|---|---|---|
+| `dubeolsik` | 11 of 11 | 308 | — (its punctuation has no key, so the client inserts it) |
+| `sin3-p2` | 10 of 11 | 268 | the imprint line: its `'` position emits ᄐ and its `/` position emits ᅩ, so no keystroke produces either character |
+
+That second row is the point of the column — the corpus is one text, and a layout's
+reach over it is a MEASUREMENT, not an assumption. `tools/gen-cultural-golden.py` probes
+each symbol on the layout alone and classifies it three ways (the layout spells it / no
+such key so the client inserts it / the position emits something else, so it cannot be
+typed), which is what separates `dubeolsik`'s punctuation from `sin3-p2`'s occupied
+positions. Two more things the artefact states rather than hides: hanja (`序詩`) is a
+`hanja_segments` run — no layout emits it, so no key event can assert it, but an
+environment that can enter hanja can evaluate the title line — and a syllable's
+keystroke is found in its layout's own terms (`sin3p2-ksgen.py`'s BFS where a table
+suffices, `jamo-keytable.py`'s cho/jung/jong probe on a 세벌식 automaton, where the BFS
+reached 81 of 124 targets and neither 없 nor 워).
 
 ## 7. Live TSF tests
 

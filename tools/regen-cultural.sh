@@ -2,9 +2,18 @@
 # Regenerate the cultural-text goldens and their tier-C traces.
 #
 # A text file in tests/golden/texts/ is typed through one layout by
-# tools/gen-cultural-golden.py (keys per character from tools/sin3p2-ksgen.py's
-# BFS over that layout's own key table, expectations from hunmin-sim --trace),
-# and the result becomes one tier-A golden plus one tier-C trace.
+# tools/gen-cultural-golden.py and becomes one tier-A golden plus one tier-C
+# trace. Nothing is typed by hand: the keys come from a search or a probed
+# table, the expectations from hunmin-sim --trace.
+#
+# HOW THE KEYS ARE FOUND, and why it differs by layout
+#   dubeolsik and the Latin layouts -- tools/sin3p2-ksgen.py's BFS over the
+#     layout's own key table (hunmin-sim --batch as the oracle).
+#   sin3-p2 -- the BFS cannot do it: a 세벌식 automaton makes a key's meaning
+#     depend on the slots already filled, and depth-4 search on this text found
+#     81 of 124 targets, reaching neither 없 nor 워. tools/jamo-keytable.py
+#     probes each cho/jung/jong in its own context (linear), and a syllable is
+#     then a lookup, so that is what this uses there.
 #
 # WHY THE TEXTS ARE THE SIZE THEY ARE
 #   seosi.txt   — 서시, the Korean cultural text: 104 syllables in nine lines,
@@ -36,21 +45,32 @@ BUILD="${1:-$ROOT/build}"
 SIM="$BUILD/hunmin-sim"
 [ -x "$SIM" ] || { echo "no $SIM; cmake --build $BUILD first" >&2; exit 1; }
 
-SEOSI_LAYOUTS="dubeolsik"
+SEOSI_LAYOUTS="dubeolsik sin3-p2"
 PANGRAM_LAYOUTS="us-qwerty colemak dvorak"
 
-generate() {  # <text file> <layout> <name>
+WORK="${TMPDIR:-/tmp}/hunmin-cultural.$$"
+mkdir -p "$WORK"
+trap 'rm -rf "$WORK"' EXIT INT TERM
+
+generate() {  # <text file> <layout> <name> [extra gen-cultural-golden args...]
+  text="$1"; layout="$2"; name="$3"; shift 3
   python3 "$ROOT/tools/gen-cultural-golden.py" \
-    --text-file "$ROOT/tests/golden/texts/$1" --layout "$2" --sim "$SIM" \
-    --out "$ROOT/tests/golden/cultural-$3-$2.jsonl"
+    --text-file "$ROOT/tests/golden/texts/$text" --layout "$layout" --sim "$SIM" \
+    "$@" --out "$ROOT/tests/golden/cultural-$name-$layout.jsonl"
   python3 "$ROOT/tools/gen-conformance.py" \
-    --golden "$ROOT/tests/golden/cultural-$3-$2.jsonl" \
-    --platform android --layout "$2" --case "$3" --batch \
-    --out "$ROOT/tests/conformance/android/cultural-$3-$2.trace.in"
+    --golden "$ROOT/tests/golden/cultural-$name-$layout.jsonl" \
+    --platform android --layout "$layout" --case "$name" --batch \
+    --out "$ROOT/tests/conformance/android/cultural-$name-$layout.trace.in"
 }
 
 for layout in $SEOSI_LAYOUTS; do
-  generate seosi.txt "$layout" seosi
+  if [ "$layout" = "sin3-p2" ]; then
+    python3 "$ROOT/tools/jamo-keytable.py" --layout "$layout" \
+      --table-out "$WORK/kt-$layout.json" >/dev/null 2>&1
+    generate seosi.txt "$layout" seosi --jamo-table "$WORK/kt-$layout.json"
+  else
+    generate seosi.txt "$layout" seosi
+  fi
 done
 for layout in $PANGRAM_LAYOUTS; do
   generate pangram.txt "$layout" pangram

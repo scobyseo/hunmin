@@ -63,6 +63,18 @@ def sim(a, layout, keys, mode="--batch"):
     return [json.loads(l) for l in r.stdout.splitlines() if l.startswith("{")]
 
 
+def sim_many(a, layout, keys_list):
+    """Rendered text for many keystroke strings, in ONE engine process."""
+    if not keys_list:
+        return []
+    argv = [str(a.sim), "--data", str(a.data), "--layout", layout, "--batch"]
+    r = subprocess.run(argv, input="\n".join(keys_list) + "\n", capture_output=True,
+                       encoding="utf-8", errors="replace", timeout=600)
+    if r.returncode != 0:
+        raise SystemExit(f"hunmin-sim --batch failed: {r.stderr.strip()[:300]}")
+    return [rendered(json.loads(l)) for l in r.stdout.splitlines() if l.startswith("{")]
+
+
 def rendered(rec):
     return rec["commit"] + rec["preedit"]
 
@@ -82,7 +94,15 @@ def read_lines(path):
 
 def syllable_keys(a, layout, text):
     """Per-character keystrokes for every character the text uses, from the
-    search tool -- the tool that owns the layout automaton."""
+    search tool -- the tool that owns the layout automaton.
+
+    The search is a BFS over the layout's automaton and costs minutes for a
+    whole text on sin3-p2, so its JSON can be reused (`--ksgen`) while iterating
+    on the assembly below; the committed artefact still comes from a run that
+    searched, and the golden's meta names the tool either way.
+    """
+    if a.ksgen:
+        return json.loads(a.ksgen.read_text(encoding="utf-8"))["keystrokes"]
     tmp = pathlib.Path(a.work) / "targets.txt"
     tmp.write_text("".join(sorted({c for _, line in text for c in line if c != " "})),
                    encoding="utf-8")
@@ -111,11 +131,10 @@ def is_hanja(c):
 def literal_keys(layout, data):
     """char -> keystroke for the layout's LITERAL keys (`=x` in the table).
 
-    Punctuation never reaches the engine: the adapter declines the key and the
-    client inserts the character, so `hunmin-sim` renders nothing for it and the
-    BFS below can never "find" it. The layout table states which character each
-    key emits, so the mapping is read, not guessed. A shifted literal is the
-    uppercase key, the same convention every other key string uses.
+    A Latin layout spells every position (`=a`, `=~`); a Korean layout spells
+    its punctuation row and puts jamo elsewhere. Reading the table is how a
+    character is matched to the position that emits it, without asking the
+    engine 47 times.
     """
     d = json.loads((pathlib.Path(data) / "layouts" / f"{layout}.json").read_text(encoding="utf-8"))
     out = {}
@@ -123,9 +142,41 @@ def literal_keys(layout, data):
         for form, shift in (("plain", False), ("shift", True)):
             v = forms.get(form)
             if isinstance(v, str) and v.startswith("=") and len(v) == 2:
-                ch = v[1]
-                out.setdefault(ch, key.upper() if shift else key)
+                out.setdefault(v[1], key.upper() if shift and len(key) == 1 and key.isalpha()
+                               else (("\\s" + key) if shift else key))
     return out
+
+
+CHO = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ",
+       "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"]
+JUNG = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ",
+        "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"]
+JONG = ["", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ",
+        "ㄾ", "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ",
+        "ㅌ", "ㅍ", "ㅎ"]
+
+
+def hangul_keys_from_table(syl, table):
+    """cho -> jung -> jong keystrokes for one syllable, from a jamo table.
+
+    A BFS (tools/sin3p2-ksgen.py) is the tool for an automaton whose keys mean
+    different things by state, but it explodes with depth: measured on this text
+    it found 81 of 124 targets and could not reach `없` or `워` at depth 4. A
+    세벌식 layout puts cho, jung and jong on separate keys, so the keystroke is a
+    lookup once the slot is known (tools/jamo-keytable.py probes that table and
+    is what this reads).
+    """
+    x = ord(syl) - 0xAC00
+    cho, jung, jong = CHO[x // 588], JUNG[(x % 588) // 28], JONG[x % 28]
+    keys = ""
+    for slot, jamo in (("cho", cho), ("jung", jung), ("jong", jong)):
+        if not jamo:
+            continue
+        k = table.get(slot, {}).get(jamo)
+        if not k:
+            return None
+        keys += k
+    return keys
 
 
 def main() -> int:
@@ -137,6 +188,11 @@ def main() -> int:
     ap.add_argument("--data", type=pathlib.Path, default=DEFAULT_DATA)
     ap.add_argument("--work", type=pathlib.Path, default=None,
                     help="scratch dir for the search tool's intermediate JSON")
+    ap.add_argument("--ksgen", type=pathlib.Path, default=None,
+                    help="reuse this sin3p2-ksgen JSON instead of searching")
+    ap.add_argument("--jamo-table", type=pathlib.Path, default=None,
+                    help="use this tools/jamo-keytable.py JSON instead of a BFS "
+                         "(the 세벌식 layouts: cho/jung/jong sit on separate keys)")
     a = ap.parse_args()
     if a.work is None:
         import tempfile
@@ -145,14 +201,126 @@ def main() -> int:
         a.work.mkdir(parents=True, exist_ok=True)
 
     lines = read_lines(a.text_file)
-    keys_of = syllable_keys(a, a.layout, lines)
+    jamo_table = None
+    if a.jamo_table:
+        jamo_table = json.loads(a.jamo_table.read_text(encoding="utf-8"))["table"]
+    keys_of = {} if jamo_table else syllable_keys(a, a.layout, lines)
+
+    # Every printable-ASCII character the text uses, probed ALONE on this layout.
+    # The answer decides what a symbol means here, and it differs by layout:
+    #   "engine" -- the layout spells it (sin3-p2 has positions for '.' and '<'),
+    #               so it is delivered text and belongs in the comparison;
+    #   "pass"   -- no such key, the adapter declines it and the client inserts
+    #               the character (every symbol on dubeolsik, whose table is 26
+    #               letters);
+    #   "other"  -- the position exists and emits something else (sin3-p2's `'`
+    #               is ᄐ and `/` is ᅩ), so the character cannot be typed at all.
     literals = literal_keys(a.layout, a.data)
+    ascii_probe = sorted({c for _, line in lines for c in line
+                          if 0x20 <= ord(c) <= 0x7E and c != " "})
+    ascii_render = dict(zip(ascii_probe, sim_many(a, a.layout, ascii_probe)))
+    ascii_kind = {c: ("pass" if r == "" else ("engine" if r == c else "other"))
+                  for c, r in ascii_render.items()}
+
+    def engine_keys(c):
+        """The keystroke that composes a Hangul syllable, or None.
+
+        ASCII never comes through here: whether the layout spells a symbol is
+        answered by probing the key alone (above), because a table cannot say
+        what a shifted position emits on a layout whose shift row is jamo.
+        """
+        if 0xAC00 <= ord(c) <= 0xD7A3:
+            if jamo_table:
+                return hangul_keys_from_table(c, jamo_table)
+            return keys_of.get(c)
+        return None
 
     cases, excluded = [], []
     for n, line in lines:
-        typed, pass_through, missing, engine_expect = [], [], [], []
-        segments = []          # ordered runs: {"engine": text} / {"hanja": text, ...}
-        run = {"kind": None, "text": ""}
+        # One unit per character: what key produces it, whether the ENGINE
+        # composes it (as opposed to the client inserting it), and whether its
+        # keystroke may need its leading signal keys dropped.
+        units, missing = [], []
+        for c in line:
+            if c == " ":
+                units.append({"ch": c, "keys": " ", "engine": False, "hanja": False})
+                continue
+            if is_hanja(c):
+                units.append({"ch": c, "keys": None, "engine": False, "hanja": True})
+                continue
+            if 0xAC00 <= ord(c) <= 0xD7A3:
+                ek = engine_keys(c)
+                if ek is None:
+                    missing.append(f"{c} (no keystroke composes it)")
+                    continue
+                units.append({"ch": c, "keys": ek, "engine": True, "hanja": False})
+                continue
+            if 0x20 <= ord(c) <= 0x7E:
+                # 1. A key the search found (a Latin layout's letters and
+                #    punctuation, where the position that emits `e` is not `e`).
+                # 2. The layout's literal row.
+                # 3. Otherwise the key ALONE decides, and the three answers mean
+                #    three different things -- measured, not inferred.
+                if c in keys_of:
+                    units.append({"ch": c, "keys": keys_of[c], "engine": True, "hanja": False})
+                    continue
+                if c in literals:
+                    units.append({"ch": c, "keys": literals[c], "engine": True, "hanja": False})
+                    continue
+                kind = ascii_kind.get(c)
+                if kind == "engine":      # this layout spells it on its own position
+                    units.append({"ch": c, "keys": c, "engine": True, "hanja": False})
+                elif kind == "pass":      # no such key: the client inserts the character
+                    units.append({"ch": c, "keys": c, "engine": False, "hanja": False})
+                else:
+                    missing.append(f"{c} (that key emits {ascii_render.get(c)!r})")
+                continue
+            missing.append(c)
+        if missing:
+            excluded.append({"line": n, "text": line,
+                             "because": f"no key and no frontend path for "
+                                        f"{''.join(sorted(set(missing)))}"})
+            continue
+
+        want = "".join(u["ch"] for u in units if u["engine"])
+
+        # Signal keys (`\`` and `'`) exist to reach a CHO from an EMPTY buffer.
+        # Inside a line the previous syllable leaves the state ready, and the
+        # same key then types a stray jamo -- measured on sin3-p2, where the
+        # plain concatenation renders none of the poem's lines. So assemble the
+        # line with the leading signals kept or dropped, and let the ENGINE pick
+        # the variant that composes: at most 2^k candidates, k = the number of
+        # syllables whose keystroke actually starts with a signal key.
+        # Signal stripping is a property of the BFS alphabet (`'`/`` ` `` reach a
+        # CHO from an empty buffer). A jamo table has no such prefix, and a
+        # layout that spells a literal apostrophe on the `'` position must not
+        # have it stripped, so the table mode keeps the assembly verbatim.
+        sig = [] if jamo_table else [i for i, u in enumerate(units)
+                                     if u["engine"] and u["keys"][:1] in ("`", "'")
+                                     and len(u["keys"]) > 1]
+
+        def assemble(mask: int) -> str:
+            out = ""
+            for i, u in enumerate(units):
+                if u["keys"] is None:      # hanja: no key event exists
+                    continue
+                k = u["keys"]
+                if i in sig and (mask >> sig.index(i)) & 1:
+                    k = k.lstrip("`'")
+                out += k
+            return out
+
+        tried = [assemble(m) for m in range(1 << len(sig))]
+        renders = sim_many(a, a.layout, tried)
+        picked = next(((m, k) for m, k in enumerate(tried) if renders[m] == want), None)
+        if picked is None:
+            excluded.append({"line": n, "text": line,
+                             "because": f"renders {renders[0]!r} with the signals kept "
+                                        f"and {renders[-1]!r} without them"})
+            continue
+        mask, keys = picked
+
+        segments, run = [], {"kind": None, "text": ""}
 
         def close_run():
             if not run["text"]:
@@ -163,61 +331,15 @@ def main() -> int:
                 segments.append({"hanja": run["text"], "because": HANJA_BECAUSE})
             run["kind"], run["text"] = None, ""
 
-        for c in line:
-            if c == " " or c in keys_of or c in literals or 0x20 <= ord(c) <= 0x7E:
-                if run["kind"] != "engine":
-                    close_run()
-                    run["kind"] = "engine"
-                run["text"] += c
-                if c == " ":
-                    typed.append(" ")          # the boundary key, forwarded to the client
-                    pass_through.append(" ")
-                elif c in keys_of:
-                    typed.append(keys_of[c])
-                    engine_expect.append(c)
-                elif c in literals:
-                    typed.append(literals[c])  # a literal key: the client inserts it
-                    pass_through.append(c)
-                else:
-                    # Printable ASCII the layout does not map (no shipped layout
-                    # table carries punctuation at all: dubeolsik's is 26
-                    # letters). The adapter declines the key and the client
-                    # inserts the character, so it is a real event with no
-                    # engine output.
-                    typed.append(c)
-                    pass_through.append(c)
-            elif is_hanja(c):
-                # Hanja has NO key on any layout: a frontend delivers it through
-                # hanja conversion (docs/SPEC-MODES.md), which is a frontend
-                # surface, not an engine one. The line is kept and the run is
-                # recorded as a `hanja` segment, so an environment that CAN enter
-                # hanja evaluates the full text while the events still describe
-                # exactly what the engine composes.
-                if run["kind"] != "hanja":
-                    close_run()
-                    run["kind"] = "hanja"
-                run["text"] += c
-            else:
-                missing.append(c)
+        for u in units:
+            kind = "hanja" if u["hanja"] else "engine"
+            if run["kind"] != kind:
+                close_run()
+                run["kind"] = kind
+            run["text"] += u["ch"]
         close_run()
-        if missing:
-            excluded.append({"line": n, "text": line,
-                             "because": f"no key and no frontend path for "
-                                        f"{''.join(sorted(set(missing)))}"})
-            continue
-        keys = "".join(typed)
-        got = rendered(sim(a, a.layout, keys))
-        # Boundary and literal keys are declined by the engine and inserted by
-        # the client, so the engine's commit stream never carries them
-        # (docs/trace-spec.md `consumed`). Compare the characters the ENGINE
-        # composes, and record the rest in the meta rather than letting a reader
-        # think the corpus dropped them.
-        want = "".join(engine_expect)
-        if got != want:
-            excluded.append({"line": n, "text": line,
-                             "because": f"the concatenation renders {got!r}"})
-            continue
-        cases.append((f"line-{n:02d}", line, keys,
+
+        cases.append((f"line-{n:02d}", line, keys, mask,
                       [s for s in segments if "hanja" in s]))
 
     if not cases:
@@ -235,14 +357,20 @@ def main() -> int:
         "not_in_the_events": "the boundary (space) and literal (punctuation) keys: the "
                             "engine declines them, so the client inserts the character "
                             "and the trace records consumed=false for that event",
+        "assembly": "a syllable's keystroke found from an empty buffer carries "
+                    "leading signal keys that type a stray jamo mid-line, so each "
+                    "line is assembled with those signals kept or dropped and the "
+                    "ENGINE picks the variant that composes",
         "cases": f"{len(cases)} of {len(lines)} lines",
     }
     if excluded:
         meta["excluded"] = excluded
 
     out = [json.dumps({"meta": meta}, ensure_ascii=False)]
-    for label, line, keys, hanja_runs in cases:
+    for label, line, keys, mask, hanja_runs in cases:
         case_meta = {"case": label, "text": line, "keys": keys}
+        if mask:
+            case_meta["signals_dropped"] = True
         if hanja_runs:
             case_meta["hanja_segments"] = hanja_runs
         out.append(json.dumps({"meta": case_meta}, ensure_ascii=False))
