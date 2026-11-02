@@ -35,6 +35,9 @@ why inline composition replaced it).
 - 2026-10-17 — the adapter state confirmed end to end in Notepad.
 - 2026-10-20 — inline composition for preedit ruled in (issue #98); the overlay
   kept only the candidate popup.
+- 2026-11-02 — the automatic switch's delivery measured live in a Chromium
+  textarea (issue #216): caret, undo unit and selection with the switch ON and
+  OFF, in the section below.
 
 ## Measured state, and what moved since
 
@@ -81,6 +84,154 @@ fused text itself would now lose the word at that boundary. No such host has bee
 observed (the termination IS the host keeping the text), and the re-adopt path
 still refuses to take a copy the document does not carry, so the residue case is
 unchanged — but the boundary rule assumes the fused copy is still there.
+
+## The automatic switch, measured live (2026-11-02, issue #216)
+
+R8's E1 line is judged in the mock; what the client does with the keys was not.
+This section is the live round: one host, one control, the same keystrokes with
+the switch ON and OFF, and the caret, the undo unit and the selection compared as
+numbers instead of described.
+
+`Autoswitch` ON means English-mode keys go **through the engine** instead of
+being passed to the host (`docs/FRONTEND-EQUIVALENCE.md` §2.2), so the delivery
+is no longer the host's insertion. That is the surface measured here; the text is
+the same, the delivery is not.
+
+**Host and control.** A Chromium textarea (Edge, one fresh `--user-data-dir` per
+round): a TSF-native host, so the adapter keeps the native delivery, and a
+control whose `value`, `selectionStart` and `selectionEnd` can be read after
+every key without a keystroke. The two alternatives were measured for this
+question and do not serve it: the RICHEDIT50W host
+(`frontends/tsf/test/ime-probe.c`) logs `legacy detection: mid-word host
+termination` on its first key and flips to the interim delivery, where §2.1 turns
+the switch off by design — measured with `--script '%ksms '`, the document is
+`sms` with one composition and no judgement; and a Notepad readback needs a key
+of passage (Ctrl+A), which `docs/SPEC-TSF.md` §TSF8 makes flush the word being
+measured — the read would destroy the state it read.
+
+**Tool.** `tools/tsf-autoswitch-round.py`. The page mirrors its state into the
+window title, the driver polls it after each key, and `round.json` in the run dir
+keeps every row:
+
+```sh
+python3 tools/tsf-autoswitch-round.py --switch on  --layout dubeolsik --keys '{L}English ' --out build-tsf-round/on
+python3 tools/tsf-autoswitch-round.py --switch off --layout dubeolsik --keys '{L}English ' --out build-tsf-round/off
+```
+
+`{L}` is the 한/영 key (`docs/SPEC-MODES.md` §E5); everything else is typed.
+
+### What the engine's delivery costs, and what it does not
+
+`{L}English ` — Latin mode, seven characters, then a boundary. Run 5 times per
+mode, identical every time except the row named in §"Findings".
+
+| | switch OFF (host inserts) | switch ON (engine delivers) |
+|---|---|---|
+| adapter log | 0 `composition start` | 1 `composition start`, 1 `composition end text=English` |
+| key path | `OnTestKeyDown eat=0` per key — the host's | `consumed, display len=n preedit=…` per key |
+| document after each key | `E` `En` `Eng` `Engl` `Engli` `Englis` `English` `English ` | same (see the one exception below) |
+| text | `English ` | `English ` |
+
+So the premise "every English character becomes an edit through the adapter" is
+half right and half wrong, and the wrong half is the load-bearing one: the keys
+are **consumed** one at a time, but they are delivered into ONE inline
+composition range that the adapter grows per key and closes once at the boundary.
+Not one edit per character.
+
+### The sentence (R8's release gate, live)
+
+Keys `English sms whgdms Language dlqslek `, typed from Hangul mode with no
+manual toggle, on `dubeolsik` — the keystrokes of
+`tests/golden/judgement-r8.jsonl` `r8-mixed-sentence-gate`:
+
+| | switch ON | switch OFF |
+|---|---|---|
+| document | `English 는 좋은 Language 입니다 ` | `뚜히ㅑ노 는 좋은 ㅣ무혐ㅎㄷ 입니다 ` |
+| `autoswitch -> mode=` rows | 2 `english`, 2 `hangul` | 0 |
+| compositions (start/end) | 5/5 | 5/5 |
+| `legacy detection` | 0 | 0 |
+
+The feature works end to end on this host: the judgement flips the mode four
+times inside one word stream and the intended sentence lands. With the switch OFF
+the same keys deliver the Hangul readings throughout — the switch is the whole
+difference, not a cosmetic one.
+
+### Caret
+
+Selection start/end after every key, as offsets into the control's value
+(`sel == len` means the caret is at the end of what the host holds):
+
+| key | OFF `sel` | ON `sel` |
+|---|---|---|
+| `E` `n` `g` | 1,1 / 2,2 / 3,3 | 1,1 / 2,2 / 3,3 |
+| `l` | 4,4 | **2,2** (the document holds `뚜히` — finding below) |
+| `i` `s` `h` | 5,5 / 6,6 / 7,7 | 5,5 / 6,6 / 7,7 |
+| space | 8,8 | 8,8 |
+
+Apart from that row the caret is at the end of the delivered text at every step
+in both modes, and the boundary does not move it into the word — the defect class
+`docs/TSF-INTERIM-INPUT-SPIKE.md` measured for the interim path does not appear
+on the native one.
+
+### Undo unit
+
+One Ctrl+Z per press, four presses after `{L}English `; the number is the
+document length after each press. Two rounds per mode, identical — a third ON
+round is the run in issue #222 and is excluded here rather than averaged in.
+
+| press | OFF | ON |
+|---|---|---|
+| 0 (typed) | 8 `English ` | 8 `English ` |
+| 1 | 7 `English` | 7 `English` (selection 7,7) |
+| 2 | 6 `Englis` | 7, no text change, **selection becomes 0,7** |
+| 3 | 5 `Engli` | 6 `Englis` (selection 0,0) |
+| 4 | 4 `Engl` | 5 `Engli` |
+
+Both modes undo one character at a time — the adapter's per-key growth of the
+composition is one undo entry each, exactly like the host's own insertion. The
+difference is one extra entry in the engine path that changes no text and
+selects the whole document. Four presses remove four characters with the switch
+OFF and three with it ON.
+
+### Selection
+
+`{L}English{SELALL}x ` — select the whole document, then type one letter and a
+space:
+
+| | switch OFF | switch ON |
+|---|---|---|
+| after `{SELALL}` | `English`, sel 0,7 | `English`, sel 0,7 |
+| after `x` | `x`, sel 1,1 | `x`, sel 1,1 |
+| after space | `x `, sel 2,2 | `x `, sel 2,2 |
+
+Identical. Typing over a selection still replaces it when the engine is the one
+delivering, so the host's insertion semantics survive the detour.
+
+### Findings
+
+Two surfaces regressed in this round, each with its own issue rather than folded
+in here:
+
+- **issue #221** — after a 한/영 press, the first Latin word shows its Hangul
+  reading for one key (`preedit=뚜히` where the word is `Engli`), 5 of 5 ON rounds
+  and 0 of 5 OFF. The document held it too, so it is a delivery defect, not a
+  paint.
+- **issue #222** — in 1 of 8 ON rounds the host accumulated the composition text
+  (26 characters for a 7-key word, 10 `composition start` for 1 `composition
+  end`) and the adapter consumed Ctrl+Z in that run. A race, measured once; its
+  trigger is not claimed.
+
+### What this round does not measure
+
+- A human typing at speed: the rounds are scripted at 0.45 s per key, and #221's
+  flash was never watched by a person.
+- The Win11 Notepad class and any host that withholds `selectionStart` — the
+  measurements above are Chromium's, and the mftedit class cannot carry the
+  switch at all (§2.1).
+- The IME-indicator half of the issue: the langbar was not read during these
+  rounds.
+- Undo after a mode judgement inside one word stream: the undo table is the
+  English stretch only, where ON and OFF deliver the same text.
 
 ## Open questions
 

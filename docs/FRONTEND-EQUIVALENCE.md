@@ -116,7 +116,15 @@ What this ruling does NOT decide, and what is still unmeasured:
   delivery now composes the Latin characters instead of letting the host insert
   them, so a live round should confirm caret, undo units and selection behaviour
   in an ordinary edit control with the switch ON. Not measured here: the mock
-  harness has no host insertion policy to measure against.
+  harness has no host insertion policy to measure against. **Measured
+  2026-11-02 (issue #216):** the live round is
+  `docs/WINDOWS-TSF-BUFFERING.md` §"The automatic switch, measured live" — the
+  same seven keys are one inline composition with the switch ON and the host's
+  own insertion with it OFF, the text and the caret agree at every key, the undo
+  unit is one character either way with one extra selection-restoring entry in
+  the engine path, and typing over a selection replaces it in both. Two
+  regressions that round found are named there rather than here, each with its
+  own issue (#221, #222).
 - **Whether Android and fcitx5 need the same rule.** Their English-mode paths are
   their own (issue #180 is the equivalence lane); this ruling names TSF's.
 
