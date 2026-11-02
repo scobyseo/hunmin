@@ -366,6 +366,37 @@ of §6.1 is likewise outside this corpus: every case uses
 `HUNMIN_COMMIT_AT_BOUNDARY`, and the judgement cannot run in PER_SYLLABLE at all
 (its earlier syllables are already in the client, which is R10's constraint).
 
+### 6.3 Every shipped layout now appears on some platform (measured 2026-11-03, #186)
+
+The corpus exercised 4 of the 15 shipped layouts: layout wiring is the class of
+regression tier C exists to catch, and 11 layouts had no adapter-path event at all.
+Each one now carries a **short word in its own key table** — `words-<layout>.trace.in`
+under `tests/conformance/{x11,android}/` — built by `tools/regen-layout-words.sh`:
+`tools/sin3p2-ksgen.py` searches the layout's own key table for the word's syllables
+(BFS with `hunmin-sim --batch` as the oracle), `tools/wordlist2golden.py` records the
+engine's per-key answer as a tier-A golden (`tests/golden/words-<layout>.jsonl`), and
+`tools/gen-conformance.py` copies those expectations into the platform's vocabulary.
+No expectation is typed by hand.
+
+Measured on this tree (`grep -ho '"layout": "[^"]*"' tests/conformance/*/*.trace.in |
+sort -u`): **15 of 15 layouts appear in at least one trace** — 11 on x11, 12 on android,
+4 on win32 (unchanged). What is NOT covered, named rather than implied:
+
+- **win32 for the 11 new layouts.** The TSF emitter can replay any of these goldens,
+  but a `.gold` must come from the runner (`tools/trace-check.py --emit`) on a Windows
+  host, and this host has none. Environment-bound, tracked on the board as
+  `TRACE-LAYOUTS-186-WIN32`.
+- **x11 for `colemak`, `dvorak`, `us-qwerty`.** Not a layout gap: a Latin layout commits
+  on every key, and the x11 dialect carries a commit only at a boundary event. The
+  reason and the measurement are `docs/trace-spec.md` "What a case can express on each
+  platform"; those three layouts are covered on android instead.
+- **Depth.** The case is one word of one syllable (`나`, and `hello` for the Latin
+  layouts) chosen because it is shift-free — android has no Shift encoding — and because
+  a multi-syllable word finalises a syllable before the boundary, which the x11 dialect
+  cannot carry. It asserts layout wiring, composition of that layout's own key table,
+  the boundary commit and `consumed`; it does not assert the layout's depth, which
+  remains tier A's per-layout parity walk (`ref-<layout>.jsonl`).
+
 ## 7. Live TSF tests
 
 Requirement: a live TSF run must not leave the worktree registered or otherwise

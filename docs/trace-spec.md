@@ -208,6 +208,33 @@ two-event case (win32's tier F1 chose it; x11's per-case files were registered b
 win32 and keep the split layout). The isolation rule is unchanged: every case still
 replays from a fresh engine, the separator only moves where that fresh engine is created.
 
+### What a case can express on each platform (measured 2026-11-03, issue #186)
+
+The format is one vocabulary; the *emitters* differ in what they can observe, and a
+`.in` whose expectations an emitter cannot reproduce is a corpus that cannot be built,
+not a frontend that fails. Three facts, each measured rather than assumed:
+
+- **x11 carries a commit only at a boundary event.** The emitter buckets tier A's
+  per-key commits into the buffered word and pushes one expectation per word
+  (`frontends/fcitx5/test/trace-emit.cpp`), so a golden whose events commit mid-word
+  has no x11 form; the measurement and the corpus reduction it forced are
+  `docs/TESTING.md` "Tier C". A Latin layout is that same fact in its extreme — every
+  key commits its own character, so no `colemak`, `dvorak` or `us-qwerty` case has an
+  x11 form at all (measured: `hello` differs on all six events, the adapter holding
+  `h`, `he`, `hel` as preedit and committing the word at the space). A case for x11 is
+  therefore ONE word whose syllables only finalise at the boundary; the per-layout
+  traces are `words-<layout>.trace.in` for exactly this reason.
+- **android has no Shift encoding.** The emitter feeds `keycode` alone to
+  `nativeProcess` (no `mods`), so a shifted key has no representable event and a case
+  must be shift-free. It reads the expectation verbatim from the `.in` and replays
+  through `hunmin_ic`, so mid-word commits are fine.
+- **win32 can express any golden** — `mods` carries Shift (`0x01`) and the emitter
+  reconstructs tier A's per-event commit from the adapter's own buffered word
+  (`frontends/tsf/test/trace-emit.cpp`) — but emitting a `.gold` needs a Windows host.
+
+Which layouts appear in the corpus at all is `docs/FRONTEND-EQUIVALENCE.md` §6.3, not a
+second list here.
+
 ## Runner
 
 `tools/trace-check.py <trace.in> <trace.gold>` — emits a unified diff, exit 1 on any
