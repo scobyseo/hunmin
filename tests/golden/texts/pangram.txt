@@ -1,0 +1,25 @@
+# English evaluation text for the Latin layouts (us-qwerty, colemak, dvorak).
+#
+# A Latin layout's key table is 47 keys — 26 letters + 10 digits + 21
+# punctuation (11 of them shift pairs) — so an English sentence cannot cover it:
+# measured, "The quick brown fox jumps over the lazy dog." reaches 27 of 47 keys
+# and "Sphinx of black quartz, judge my vow." 28. The rows a sentence never
+# touches are where colemak and dvorak actually differ from us-qwerty, so the
+# text carries them explicitly.
+#
+# Line 1-2: one pangram in both cases — the second line exercises each letter
+#          key's Shift row without adding a key.
+# Line 3:   the densest common pangram (26 letters in 29 characters) with two
+#          punctuation keys.
+# Line 4:   the digit row and its shifted row.
+# Line 5:   every punctuation key, plain and shifted.
+#
+# Measured on all three layouts: 47/47 keys used, and the layout renders the
+# text byte-exactly (tools/gen-cultural-golden.py re-types each line and refuses
+# one that does not).
+
+The quick brown fox jumps over the lazy dog.
+THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG.
+Sphinx of black quartz, judge my vow.
+0123456789 !@#$%^&*()
+`~-_=+[]{};:'",.<>/?\

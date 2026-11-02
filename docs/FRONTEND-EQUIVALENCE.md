@@ -379,7 +379,7 @@ engine's per-key answer as a tier-A golden (`tests/golden/words-<layout>.jsonl`)
 No expectation is typed by hand.
 
 Measured on this tree (`grep -ho '"layout": "[^"]*"' tests/conformance/*/*.trace.in |
-sort -u`): **15 of 15 layouts appear in at least one trace** — 11 on x11, 12 on android,
+sort -u`): **15 of 15 layouts appear in at least one trace** — 11 on x11, 13 on android,
 4 on win32 (unchanged). What is NOT covered, named rather than implied:
 
 - **win32 for the 11 new layouts.** The TSF emitter can replay any of these goldens,
@@ -390,12 +390,25 @@ sort -u`): **15 of 15 layouts appear in at least one trace** — 11 on x11, 12 o
   on every key, and the x11 dialect carries a commit only at a boundary event. The
   reason and the measurement are `docs/trace-spec.md` "What a case can express on each
   platform"; those three layouts are covered on android instead.
-- **Depth.** The case is one word of one syllable (`나`, and `hello` for the Latin
-  layouts) chosen because it is shift-free — android has no Shift encoding — and because
-  a multi-syllable word finalises a syllable before the boundary, which the x11 dialect
-  cannot carry. It asserts layout wiring, composition of that layout's own key table,
-  the boundary commit and `consumed`; it does not assert the layout's depth, which
-  remains tier A's per-layout parity walk (`ref-<layout>.jsonl`).
+- **Depth of the one-word probe.** `나` is one syllable, chosen because a multi-syllable
+  word finalises a syllable before the boundary, which the x11 dialect cannot carry. It
+  asserts layout wiring, composition of that layout's own key table, the boundary commit
+  and `consumed` — not the layout's depth, which tier A's parity walk carries.
+
+**The Latin layouts are measured by a text, not a word** (`tools/regen-cultural.sh`,
+`tests/golden/texts/pangram.txt`). A Latin key table is 47 keys — 26 letters, 10 digits,
+21 punctuation — and one English sentence reaches 27 of them (measured over
+`us-qwerty`, `colemak` and `dvorak`), because no sentence uses the digit or punctuation
+rows. The text therefore carries the pangram in both cases plus those two rows: measured
+**47 of 47 keys on all three layouts**, five cases, 167 key events, one batched android
+trace per layout. That is also why those three layouts no longer have a one-word probe:
+the text subsumes it.
+
+**A real text, for the same reason** (`tests/golden/texts/seosi.txt`, issue #227): 서시,
+11 cases / 308 events on `dubeolsik`, one batched android trace. Two things it states
+rather than hides: hanja (`序詩`) is recorded as a `hanja_segments` run — no layout emits
+it, so no key event can assert it, but an environment that can enter hanja can evaluate
+the title line — and space/punctuation are pass-through events, not engine output.
 
 ## 7. Live TSF tests
 

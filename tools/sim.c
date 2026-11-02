@@ -261,6 +261,7 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
         uint32_t ch = 0x08; /* default backspace */
         const cJSON *jc = cJSON_GetObjectItemCaseSensitive(in, "ch");
         const cJSON *jk = cJSON_GetObjectItemCaseSensitive(in, "key");
+<<<<<<< HEAD
         /* `"shift": true` is the schema's spelling of "this key with Shift
          * held" (docs/SPEC-SCHEMA.md, reference trace format) and it is what
          * this program's own --trace writes for a `\s` key. A checker that
@@ -269,6 +270,17 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
          * the tier-A checker was pressing the unshifted key. */
         const cJSON *js = cJSON_GetObjectItemCaseSensitive(in, "shift");
         const int shift = cJSON_IsTrue(js) || (cJSON_IsNumber(js) && js->valueint != 0);
+=======
+        /* `--trace` records a Shift-held key as {"ch": "1", "shift": true} --
+         * the only way to name the shifted punctuation row, where the character
+         * that arrives is NOT the key's own id. Replaying it as the bare id
+         * asserted '1' against a golden that says '!': measured on
+         * tests/golden/cultural-pangram-*.jsonl, every shifted symbol failed.
+         * hunmin_ic_process_key is the same entry the frontends use for an
+         * explicit modifier. */
+        const cJSON *js = cJSON_GetObjectItemCaseSensitive(in, "shift");
+        const int shift = cJSON_IsTrue(js) || (cJSON_IsNumber(js) && js->valueint);
+>>>>>>> ccf0bc5 (english layouts: the evaluation text reaches 47 of 47 keys (issue #186))
         if (cJSON_IsString(jc) && jc->valuestring[0]) ch = (unsigned char)jc->valuestring[0];
         else if (cJSON_IsString(jk) && !strcmp(jk->valuestring, "backspace")) ch = 0x08;
         else {
@@ -278,7 +290,11 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
             continue;
         }
 
+<<<<<<< HEAD
         if (shift) hunmin_ic_process_key(ic, ch, 1); /* explicit-modifier entry */
+=======
+        if (shift) hunmin_ic_process_key(ic, ch, 1);
+>>>>>>> ccf0bc5 (english layouts: the evaluation text reaches 47 of 47 keys (issue #186))
         else hunmin_ic_process(ic, ch);
         const char *ac = hunmin_ic_commit(ic), *ap = hunmin_ic_preedit(ic);
         const cJSON *wtotal = cJSON_GetObjectItemCaseSensitive(j, "total");

@@ -1,0 +1,173 @@
+{"meta": {"platform": "android", "layout": "dvorak", "case": "pangram", "source": "cultural-pangram-dvorak.jsonl (gate)"}}
+{"meta": {"case": "line-21", "case_index": 1}}
+{"in": {"keycode": 75, "mods": 0}, "commit": "T", "preedit": "", "consumed": true}
+{"in": {"keycode": 106, "mods": 0}, "commit": "h", "preedit": "", "consumed": true}
+{"in": {"keycode": 100, "mods": 0}, "commit": "e", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 120, "mods": 0}, "commit": "q", "preedit": "", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "u", "preedit": "", "consumed": true}
+{"in": {"keycode": 103, "mods": 0}, "commit": "i", "preedit": "", "consumed": true}
+{"in": {"keycode": 105, "mods": 0}, "commit": "c", "preedit": "", "consumed": true}
+{"in": {"keycode": 118, "mods": 0}, "commit": "k", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 110, "mods": 0}, "commit": "b", "preedit": "", "consumed": true}
+{"in": {"keycode": 111, "mods": 0}, "commit": "r", "preedit": "", "consumed": true}
+{"in": {"keycode": 115, "mods": 0}, "commit": "o", "preedit": "", "consumed": true}
+{"in": {"keycode": 44, "mods": 0}, "commit": "w", "preedit": "", "consumed": true}
+{"in": {"keycode": 108, "mods": 0}, "commit": "n", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 121, "mods": 0}, "commit": "f", "preedit": "", "consumed": true}
+{"in": {"keycode": 115, "mods": 0}, "commit": "o", "preedit": "", "consumed": true}
+{"in": {"keycode": 98, "mods": 0}, "commit": "x", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 99, "mods": 0}, "commit": "j", "preedit": "", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "u", "preedit": "", "consumed": true}
+{"in": {"keycode": 109, "mods": 0}, "commit": "m", "preedit": "", "consumed": true}
+{"in": {"keycode": 114, "mods": 0}, "commit": "p", "preedit": "", "consumed": true}
+{"in": {"keycode": 59, "mods": 0}, "commit": "s", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 115, "mods": 0}, "commit": "o", "preedit": "", "consumed": true}
+{"in": {"keycode": 46, "mods": 0}, "commit": "v", "preedit": "", "consumed": true}
+{"in": {"keycode": 100, "mods": 0}, "commit": "e", "preedit": "", "consumed": true}
+{"in": {"keycode": 111, "mods": 0}, "commit": "r", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 107, "mods": 0}, "commit": "t", "preedit": "", "consumed": true}
+{"in": {"keycode": 106, "mods": 0}, "commit": "h", "preedit": "", "consumed": true}
+{"in": {"keycode": 100, "mods": 0}, "commit": "e", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 112, "mods": 0}, "commit": "l", "preedit": "", "consumed": true}
+{"in": {"keycode": 97, "mods": 0}, "commit": "a", "preedit": "", "consumed": true}
+{"in": {"keycode": 47, "mods": 0}, "commit": "z", "preedit": "", "consumed": true}
+{"in": {"keycode": 116, "mods": 0}, "commit": "y", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 104, "mods": 0}, "commit": "d", "preedit": "", "consumed": true}
+{"in": {"keycode": 115, "mods": 0}, "commit": "o", "preedit": "", "consumed": true}
+{"in": {"keycode": 117, "mods": 0}, "commit": "g", "preedit": "", "consumed": true}
+{"in": {"keycode": 101, "mods": 0}, "commit": ".", "preedit": "", "consumed": true}
+{"meta": {"case": "line-22", "case_index": 2}}
+{"in": {"keycode": 75, "mods": 0}, "commit": "T", "preedit": "", "consumed": true}
+{"in": {"keycode": 74, "mods": 0}, "commit": "H", "preedit": "", "consumed": true}
+{"in": {"keycode": 68, "mods": 0}, "commit": "E", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 88, "mods": 0}, "commit": "Q", "preedit": "", "consumed": true}
+{"in": {"keycode": 70, "mods": 0}, "commit": "U", "preedit": "", "consumed": true}
+{"in": {"keycode": 71, "mods": 0}, "commit": "I", "preedit": "", "consumed": true}
+{"in": {"keycode": 73, "mods": 0}, "commit": "C", "preedit": "", "consumed": true}
+{"in": {"keycode": 86, "mods": 0}, "commit": "K", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 78, "mods": 0}, "commit": "B", "preedit": "", "consumed": true}
+{"in": {"keycode": 79, "mods": 0}, "commit": "R", "preedit": "", "consumed": true}
+{"in": {"keycode": 83, "mods": 0}, "commit": "O", "preedit": "", "consumed": true}
+{"in": {"keycode": 44, "mods": 0, "shift": true}, "commit": "W", "preedit": "", "consumed": true}
+{"in": {"keycode": 76, "mods": 0}, "commit": "N", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 89, "mods": 0}, "commit": "F", "preedit": "", "consumed": true}
+{"in": {"keycode": 83, "mods": 0}, "commit": "O", "preedit": "", "consumed": true}
+{"in": {"keycode": 66, "mods": 0}, "commit": "X", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 67, "mods": 0}, "commit": "J", "preedit": "", "consumed": true}
+{"in": {"keycode": 70, "mods": 0}, "commit": "U", "preedit": "", "consumed": true}
+{"in": {"keycode": 77, "mods": 0}, "commit": "M", "preedit": "", "consumed": true}
+{"in": {"keycode": 82, "mods": 0}, "commit": "P", "preedit": "", "consumed": true}
+{"in": {"keycode": 59, "mods": 0, "shift": true}, "commit": "S", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 83, "mods": 0}, "commit": "O", "preedit": "", "consumed": true}
+{"in": {"keycode": 46, "mods": 0, "shift": true}, "commit": "V", "preedit": "", "consumed": true}
+{"in": {"keycode": 68, "mods": 0}, "commit": "E", "preedit": "", "consumed": true}
+{"in": {"keycode": 79, "mods": 0}, "commit": "R", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 75, "mods": 0}, "commit": "T", "preedit": "", "consumed": true}
+{"in": {"keycode": 74, "mods": 0}, "commit": "H", "preedit": "", "consumed": true}
+{"in": {"keycode": 68, "mods": 0}, "commit": "E", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 80, "mods": 0}, "commit": "L", "preedit": "", "consumed": true}
+{"in": {"keycode": 65, "mods": 0}, "commit": "A", "preedit": "", "consumed": true}
+{"in": {"keycode": 47, "mods": 0, "shift": true}, "commit": "Z", "preedit": "", "consumed": true}
+{"in": {"keycode": 84, "mods": 0}, "commit": "Y", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 72, "mods": 0}, "commit": "D", "preedit": "", "consumed": true}
+{"in": {"keycode": 83, "mods": 0}, "commit": "O", "preedit": "", "consumed": true}
+{"in": {"keycode": 85, "mods": 0}, "commit": "G", "preedit": "", "consumed": true}
+{"in": {"keycode": 101, "mods": 0}, "commit": ".", "preedit": "", "consumed": true}
+{"meta": {"case": "line-23", "case_index": 3}}
+{"in": {"keycode": 59, "mods": 0, "shift": true}, "commit": "S", "preedit": "", "consumed": true}
+{"in": {"keycode": 114, "mods": 0}, "commit": "p", "preedit": "", "consumed": true}
+{"in": {"keycode": 106, "mods": 0}, "commit": "h", "preedit": "", "consumed": true}
+{"in": {"keycode": 103, "mods": 0}, "commit": "i", "preedit": "", "consumed": true}
+{"in": {"keycode": 108, "mods": 0}, "commit": "n", "preedit": "", "consumed": true}
+{"in": {"keycode": 98, "mods": 0}, "commit": "x", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 115, "mods": 0}, "commit": "o", "preedit": "", "consumed": true}
+{"in": {"keycode": 121, "mods": 0}, "commit": "f", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 110, "mods": 0}, "commit": "b", "preedit": "", "consumed": true}
+{"in": {"keycode": 112, "mods": 0}, "commit": "l", "preedit": "", "consumed": true}
+{"in": {"keycode": 97, "mods": 0}, "commit": "a", "preedit": "", "consumed": true}
+{"in": {"keycode": 105, "mods": 0}, "commit": "c", "preedit": "", "consumed": true}
+{"in": {"keycode": 118, "mods": 0}, "commit": "k", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 120, "mods": 0}, "commit": "q", "preedit": "", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "u", "preedit": "", "consumed": true}
+{"in": {"keycode": 97, "mods": 0}, "commit": "a", "preedit": "", "consumed": true}
+{"in": {"keycode": 111, "mods": 0}, "commit": "r", "preedit": "", "consumed": true}
+{"in": {"keycode": 107, "mods": 0}, "commit": "t", "preedit": "", "consumed": true}
+{"in": {"keycode": 47, "mods": 0}, "commit": "z", "preedit": "", "consumed": true}
+{"in": {"keycode": 119, "mods": 0}, "commit": ",", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 99, "mods": 0}, "commit": "j", "preedit": "", "consumed": true}
+{"in": {"keycode": 102, "mods": 0}, "commit": "u", "preedit": "", "consumed": true}
+{"in": {"keycode": 104, "mods": 0}, "commit": "d", "preedit": "", "consumed": true}
+{"in": {"keycode": 117, "mods": 0}, "commit": "g", "preedit": "", "consumed": true}
+{"in": {"keycode": 100, "mods": 0}, "commit": "e", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 109, "mods": 0}, "commit": "m", "preedit": "", "consumed": true}
+{"in": {"keycode": 116, "mods": 0}, "commit": "y", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 46, "mods": 0}, "commit": "v", "preedit": "", "consumed": true}
+{"in": {"keycode": 115, "mods": 0}, "commit": "o", "preedit": "", "consumed": true}
+{"in": {"keycode": 44, "mods": 0}, "commit": "w", "preedit": "", "consumed": true}
+{"in": {"keycode": 101, "mods": 0}, "commit": ".", "preedit": "", "consumed": true}
+{"meta": {"case": "line-24", "case_index": 4}}
+{"in": {"keycode": 48, "mods": 0}, "commit": "0", "preedit": "", "consumed": true}
+{"in": {"keycode": 49, "mods": 0}, "commit": "1", "preedit": "", "consumed": true}
+{"in": {"keycode": 50, "mods": 0}, "commit": "2", "preedit": "", "consumed": true}
+{"in": {"keycode": 51, "mods": 0}, "commit": "3", "preedit": "", "consumed": true}
+{"in": {"keycode": 52, "mods": 0}, "commit": "4", "preedit": "", "consumed": true}
+{"in": {"keycode": 53, "mods": 0}, "commit": "5", "preedit": "", "consumed": true}
+{"in": {"keycode": 54, "mods": 0}, "commit": "6", "preedit": "", "consumed": true}
+{"in": {"keycode": 55, "mods": 0}, "commit": "7", "preedit": "", "consumed": true}
+{"in": {"keycode": 56, "mods": 0}, "commit": "8", "preedit": "", "consumed": true}
+{"in": {"keycode": 57, "mods": 0}, "commit": "9", "preedit": "", "consumed": true}
+{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keycode": 49, "mods": 0, "shift": true}, "commit": "!", "preedit": "", "consumed": true}
+{"in": {"keycode": 50, "mods": 0, "shift": true}, "commit": "@", "preedit": "", "consumed": true}
+{"in": {"keycode": 51, "mods": 0, "shift": true}, "commit": "#", "preedit": "", "consumed": true}
+{"in": {"keycode": 52, "mods": 0, "shift": true}, "commit": "$", "preedit": "", "consumed": true}
+{"in": {"keycode": 53, "mods": 0, "shift": true}, "commit": "%", "preedit": "", "consumed": true}
+{"in": {"keycode": 54, "mods": 0, "shift": true}, "commit": "^", "preedit": "", "consumed": true}
+{"in": {"keycode": 55, "mods": 0, "shift": true}, "commit": "&", "preedit": "", "consumed": true}
+{"in": {"keycode": 56, "mods": 0, "shift": true}, "commit": "*", "preedit": "", "consumed": true}
+{"in": {"keycode": 57, "mods": 0, "shift": true}, "commit": "(", "preedit": "", "consumed": true}
+{"in": {"keycode": 48, "mods": 0, "shift": true}, "commit": ")", "preedit": "", "consumed": true}
+{"meta": {"case": "line-25", "case_index": 5}}
+{"in": {"keycode": 96, "mods": 0}, "commit": "`", "preedit": "", "consumed": true}
+{"in": {"keycode": 96, "mods": 0, "shift": true}, "commit": "~", "preedit": "", "consumed": true}
+{"in": {"keycode": 39, "mods": 0}, "commit": "-", "preedit": "", "consumed": true}
+{"in": {"keycode": 39, "mods": 0, "shift": true}, "commit": "_", "preedit": "", "consumed": true}
+{"in": {"keycode": 93, "mods": 0}, "commit": "=", "preedit": "", "consumed": true}
+{"in": {"keycode": 93, "mods": 0, "shift": true}, "commit": "+", "preedit": "", "consumed": true}
+{"in": {"keycode": 45, "mods": 0}, "commit": "[", "preedit": "", "consumed": true}
+{"in": {"keycode": 61, "mods": 0}, "commit": "]", "preedit": "", "consumed": true}
+{"in": {"keycode": 45, "mods": 0, "shift": true}, "commit": "{", "preedit": "", "consumed": true}
+{"in": {"keycode": 61, "mods": 0, "shift": true}, "commit": "}", "preedit": "", "consumed": true}
+{"in": {"keycode": 122, "mods": 0}, "commit": ";", "preedit": "", "consumed": true}
+{"in": {"keycode": 90, "mods": 0}, "commit": ":", "preedit": "", "consumed": true}
+{"in": {"keycode": 113, "mods": 0}, "commit": "'", "preedit": "", "consumed": true}
+{"in": {"keycode": 81, "mods": 0}, "commit": "\"", "preedit": "", "consumed": true}
+{"in": {"keycode": 119, "mods": 0}, "commit": ",", "preedit": "", "consumed": true}
+{"in": {"keycode": 101, "mods": 0}, "commit": ".", "preedit": "", "consumed": true}
+{"in": {"keycode": 87, "mods": 0}, "commit": "<", "preedit": "", "consumed": true}
+{"in": {"keycode": 69, "mods": 0}, "commit": ">", "preedit": "", "consumed": true}
+{"in": {"keycode": 91, "mods": 0}, "commit": "/", "preedit": "", "consumed": true}
+{"in": {"keycode": 91, "mods": 0, "shift": true}, "commit": "?", "preedit": "", "consumed": true}
+{"in": {"keycode": 92, "mods": 0}, "commit": "\\", "preedit": "", "consumed": true}

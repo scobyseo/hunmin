@@ -204,9 +204,10 @@ A trace file may additionally carry `{"meta": {"case": ...}}` separator lines af
 header (as win32's `words.trace.in` does): the runner resets adapter state at each
 separator, and `tools/trace-check.py` compares only the event lines, so a batch diffs
 like any other file. This exists so a corpus does not flood ctest with one test per
-two-event case (win32's tier F1 chose it; x11's per-case files were registered before
-win32 and keep the split layout). The isolation rule is unchanged: every case still
-replays from a fresh engine, the separator only moves where that fresh engine is created.
+two-event case (win32's tier F1 chose it, and android's runs with it since issue #186;
+x11's per-case files were registered earlier and keep the split layout). The isolation
+rule is unchanged: every case still replays from a fresh engine, the separator only
+moves where that fresh engine is created.
 
 ### What a case can express on each platform (measured 2026-11-03, issue #186)
 
@@ -224,10 +225,14 @@ not a frontend that fails. Three facts, each measured rather than assumed:
   `h`, `he`, `hel` as preedit and committing the word at the space). A case for x11 is
   therefore ONE word whose syllables only finalise at the boundary; the per-layout
   traces are `words-<layout>.trace.in` for exactly this reason.
-- **android has no Shift encoding.** The emitter feeds `keycode` alone to
-  `nativeProcess` (no `mods`), so a shifted key has no representable event and a case
-  must be shift-free. It reads the expectation verbatim from the `.in` and replays
-  through `hunmin_ic`, so mid-word commits are fine.
+- **android carries Shift two ways, and a case must say which it means.** A letter
+  carries its own case (`keycode` of `T` is the shifted `t`), and a shifted SYMBOL —
+  which has no case — is named by `"shift": true` (or `mods` bit `0x01`, the bit the
+  arrow-selection corpus already used); the emitter feeds `hunmin_ic_process_key`,
+  the explicit-modifier entry, for the latter. Its output echoes the `in` it was
+  given, field for field. It reads the expectation verbatim from the `.in` and
+  replays through `hunmin_ic`, so mid-word commits are fine, and it resets its input
+  context at a case separator, so a batch file is one ctest here too.
 - **win32 can express any golden** — `mods` carries Shift (`0x01`) and the emitter
   reconstructs tier A's per-event commit from the adapter's own buffered word
   (`frontends/tsf/test/trace-emit.cpp`) — but emitting a `.gold` needs a Windows host.

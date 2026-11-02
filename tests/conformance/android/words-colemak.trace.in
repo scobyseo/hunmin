@@ -1,7 +1,0 @@
-{"meta": {"platform": "android", "layout": "colemak", "case": "hello", "source": "words-colemak.jsonl (words-conformance-latin.txt words; keys per syllable from tools/sin3p2-ksgen.py (BFS, hunmin-sim --batch oracle))"}}
-{"in": {"keycode": 104, "mods": 0}, "commit": "h", "preedit": "", "consumed": true}
-{"in": {"keycode": 107, "mods": 0}, "commit": "e", "preedit": "", "consumed": true}
-{"in": {"keycode": 117, "mods": 0}, "commit": "l", "preedit": "", "consumed": true}
-{"in": {"keycode": 117, "mods": 0}, "commit": "l", "preedit": "", "consumed": true}
-{"in": {"keycode": 59, "mods": 0}, "commit": "o", "preedit": "", "consumed": true}
-{"in": {"keycode": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}

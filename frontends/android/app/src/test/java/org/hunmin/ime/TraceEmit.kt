@@ -104,8 +104,12 @@ object TraceEmit {
             System.exit(2)
         }
 
-        // Create input context
-        val ic = HunminNativeBridge.nativeIcNew(ctx, layout)
+        // Create input context. `var`, because a batch file resets it at every
+        // {"meta": {"case": ...}} separator (docs/trace-spec.md "Multi-case
+        // batch files"): tier A replays each case from a clean engine, and a
+        // runner that keeps one context would carry case N's composition into
+        // case N+1 -- the TSF emitter has done this since issue #80.
+        var ic = HunminNativeBridge.nativeIcNew(ctx, layout)
         if (ic == 0L) {
             System.err.println("trace-emit: hunmin_ic_new failed for layout '$layout'")
             System.exit(2)
@@ -130,7 +134,18 @@ object TraceEmit {
 
         for (i in 1 until lines.size) {
             val line = lines[i]
-            if (line.contains("\"meta\"")) continue
+            if (line.contains("\"meta\"")) {
+                // Case separator: a fresh engine, exactly as tier A replays it.
+                HunminNativeBridge.nativeIcFree(ic)
+                ic = HunminNativeBridge.nativeIcNew(ctx, layout)
+                if (ic == 0L) {
+                    System.err.println("trace-emit: hunmin_ic_new failed at a case separator")
+                    System.exit(2)
+                }
+                previousPreedit = ""
+                println(line)
+                continue
+            }
 
             val rec = parseJson(line)
             val inObj = rec["in"] as? Map<String, Any>
@@ -138,9 +153,17 @@ object TraceEmit {
 
             val keyCode = (inObj["keycode"] as? Number)?.toInt() ?: 0
             val mods = (inObj["mods"] as? Number)?.toInt() ?: 0
+            // A shifted SYMBOL has no case to carry the shift (`{"ch": ",",
+            // "shift": true}` is Shift+, on dvorak's W), so the event names it:
+            // either the `shift` key or mods bit 0x01, the same bit win32 uses.
+            val shift = (inObj["shift"] as? Boolean) ?: ((mods and 0x01) != 0)
 
-            // Feed key to engine
-            val used = HunminNativeBridge.nativeProcess(ic, keyCode)
+            // Feed key to engine. Shift goes through hunmin_ic_process_key, the
+            // explicit-modifier entry the adapter itself uses (issue #90);
+            // hunmin_ic_process alone derives shift from the key id's case,
+            // which a punctuation key does not have.
+            val used = if (shift) HunminNativeBridge.nativeProcessKey(ic, keyCode, 1)
+                       else HunminNativeBridge.nativeProcess(ic, keyCode)
 
             var actualCommit = ""
             var preedit = ""
@@ -173,11 +196,16 @@ object TraceEmit {
             // Emit trace line in the same format as input (docs/trace-spec.md)
             // Use EXPECTED commit (from trace file) and ACTUAL preedit (from engine)
             // This matches fcitx5 trace-emit.cpp behavior
+            // Echo the `in` the trace gave us, field for field: a trace may
+            // encode Shift as mods bit 0x01 (the arrow-selection corpus always
+            // has), and adding a `shift` key it did not carry made the emitted
+            // line differ from its own .in -- measured on
+            // tests/conformance/android/shift-arrow-selection.trace.in.
+            val inEcho = if (inObj.containsKey("shift"))
+                mapOf("keycode" to keyCode, "mods" to mods, "shift" to true)
+            else mapOf("keycode" to keyCode, "mods" to mods)
             val out = mapOf(
-                "in" to mapOf(
-                    "keycode" to keyCode,
-                    "mods" to mods
-                ),
+                "in" to inEcho,
                 "commit" to expected,
                 "preedit" to preedit,
                 "consumed" to used

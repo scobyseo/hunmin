@@ -42,7 +42,9 @@ mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT INT TERM
 
 HANGUL="ahnmatmae dubeolsik-yet romaja sebeolsik-3-2 sebeolsik-3-90 sebeolsik-final sebeolsik-noshift sebeolsik-yet"
-LATIN="colemak dvorak us-qwerty"
+# No Latin block: colemak/dvorak/us-qwerty are covered by the English evaluation
+# text instead (tools/regen-cultural.sh), which reaches 47 of a Latin layout's 47
+# keys where a one-word probe reached five.
 
 golden() {  # <layout> <words file>
   python3 "$ROOT/tools/sin3p2-ksgen.py" --layout "$1" \
@@ -62,11 +64,6 @@ for l in $HANGUL; do
   golden "$l" words-conformance-hangul.txt
   trace "$l" "$l" x11 "나" "$ROOT/tests/conformance/x11/words-$l.trace.in"
   trace "$l" "$l" android "나" "$ROOT/tests/conformance/android/words-$l.trace.in"
-done
-
-for l in $LATIN; do
-  golden "$l" words-conformance-latin.txt
-  trace "$l" "$l" android "hello" "$ROOT/tests/conformance/android/words-$l.trace.in"
 done
 
 echo "wrote goldens and traces; capture each .gold with trace-check.py --emit and review it"

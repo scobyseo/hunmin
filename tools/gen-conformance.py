@@ -121,11 +121,16 @@ def win32_event(ch: str) -> dict:
 
 
 def android_event(ch: str) -> dict:
+    """One Android event. The character's OWN code, not its lowercase: the engine
+    derives Shift from the case of the key id (`hunmin_ic_process("K")` is
+    Shift+k), which is the convention every tier-A golden already uses. Lowering
+    it here silently turned `T` into `t` -- measured on
+    tests/golden/cultural-pangram-*.jsonl, where the second line is the same
+    pangram in capitals."""
     if ch == "\\b":
         return {"keycode": ANDROID_KEYCODES["backspace"], "mods": 0}
-    low = ch.lower()
-    if low in ANDROID_KEYCODES:
-        return {"keycode": ANDROID_KEYCODES[low], "mods": 0}
+    if ch in ANDROID_KEYCODES:
+        return {"keycode": ANDROID_KEYCODES[ch], "mods": 0}
     raise SystemExit(f"no Android keycode known for {ch!r} (U+{ord(ch):04X})")
 
 
@@ -341,7 +346,20 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             # line's preedit rather than guessing.
             consumed = bool(previous_preedit)
         else:
+<<<<<<< HEAD
             consumed = _layout_maps(a.layout, spec_ch)
+=======
+            consumed = _layout_maps(a.layout, spec["ch"])
+        # A shifted SYMBOL has no case to carry the shift (`{"ch": ",", "shift":
+        # true}` is Shift+, on dvorak's W), so the flag has to travel in the
+        # platform's own vocabulary: Android's `shift` key (its runner passes
+        # base+shift to hunmin_ic_process_key) and win32's mods bit.
+        if spec.get("shift"):
+            if a.platform == "android":
+                event["shift"] = True
+            elif a.platform == "win32":
+                event["mods"] = event.get("mods", 0) | WIN32_SHIFT
+>>>>>>> ccf0bc5 (english layouts: the evaluation text reaches 47 of 47 keys (issue #186))
         if a.platform == "x11" and current.get("caps"):
             # X11 is the only platform that encodes Caps Lock in `mods`
             # (LockMask). Android applies the same bit below for historical

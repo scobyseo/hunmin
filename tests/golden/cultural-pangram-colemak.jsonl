@@ -1,0 +1,173 @@
+{"meta": {"layout": "colemak", "text": "pangram.txt", "tool": "tools/gen-cultural-golden.py", "method": "keys per character from tools/sin3p2-ksgen.py (BFS over the layout's own key table, hunmin-sim --batch oracle); a character with no keystroke is read from the layout's literal keys; each line is re-typed whole and kept only if the engine composes its characters; expectations are hunmin-sim --trace output, never typed", "not_in_the_events": "the boundary (space) and literal (punctuation) keys: the engine declines them, so the client inserts the character and the trace records consumed=false for that event", "cases": "5 of 5 lines"}}
+{"meta": {"case": "line-21", "text": "The quick brown fox jumps over the lazy dog.", "keys": "Fhk qilcn bs;wj e;x yimrd ;vks fhk uazo g;t."}}
+{"in": {"ch": "F"}, "commit": "T", "preedit": ""}
+{"in": {"ch": "h"}, "commit": "h", "preedit": ""}
+{"in": {"ch": "k"}, "commit": "e", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "q"}, "commit": "q", "preedit": ""}
+{"in": {"ch": "i"}, "commit": "u", "preedit": ""}
+{"in": {"ch": "l"}, "commit": "i", "preedit": ""}
+{"in": {"ch": "c"}, "commit": "c", "preedit": ""}
+{"in": {"ch": "n"}, "commit": "k", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "b"}, "commit": "b", "preedit": ""}
+{"in": {"ch": "s"}, "commit": "r", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "o", "preedit": ""}
+{"in": {"ch": "w"}, "commit": "w", "preedit": ""}
+{"in": {"ch": "j"}, "commit": "n", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "e"}, "commit": "f", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "o", "preedit": ""}
+{"in": {"ch": "x"}, "commit": "x", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "y"}, "commit": "j", "preedit": ""}
+{"in": {"ch": "i"}, "commit": "u", "preedit": ""}
+{"in": {"ch": "m"}, "commit": "m", "preedit": ""}
+{"in": {"ch": "r"}, "commit": "p", "preedit": ""}
+{"in": {"ch": "d"}, "commit": "s", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "o", "preedit": ""}
+{"in": {"ch": "v"}, "commit": "v", "preedit": ""}
+{"in": {"ch": "k"}, "commit": "e", "preedit": ""}
+{"in": {"ch": "s"}, "commit": "r", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "f"}, "commit": "t", "preedit": ""}
+{"in": {"ch": "h"}, "commit": "h", "preedit": ""}
+{"in": {"ch": "k"}, "commit": "e", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "u"}, "commit": "l", "preedit": ""}
+{"in": {"ch": "a"}, "commit": "a", "preedit": ""}
+{"in": {"ch": "z"}, "commit": "z", "preedit": ""}
+{"in": {"ch": "o"}, "commit": "y", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "g"}, "commit": "d", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "o", "preedit": ""}
+{"in": {"ch": "t"}, "commit": "g", "preedit": ""}
+{"in": {"ch": "."}, "commit": ".", "preedit": ""}
+{"meta": {"case": "line-22", "text": "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG.", "keys": "FHK QILCN BS\\s;WJ E\\s;X YIMRD \\s;VKS FHK UAZO G\\s;T."}}
+{"in": {"ch": "F"}, "commit": "T", "preedit": ""}
+{"in": {"ch": "H"}, "commit": "H", "preedit": ""}
+{"in": {"ch": "K"}, "commit": "E", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "Q"}, "commit": "Q", "preedit": ""}
+{"in": {"ch": "I"}, "commit": "U", "preedit": ""}
+{"in": {"ch": "L"}, "commit": "I", "preedit": ""}
+{"in": {"ch": "C"}, "commit": "C", "preedit": ""}
+{"in": {"ch": "N"}, "commit": "K", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "B"}, "commit": "B", "preedit": ""}
+{"in": {"ch": "S"}, "commit": "R", "preedit": ""}
+{"in": {"ch": ";", "shift": true}, "commit": "O", "preedit": ""}
+{"in": {"ch": "W"}, "commit": "W", "preedit": ""}
+{"in": {"ch": "J"}, "commit": "N", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "E"}, "commit": "F", "preedit": ""}
+{"in": {"ch": ";", "shift": true}, "commit": "O", "preedit": ""}
+{"in": {"ch": "X"}, "commit": "X", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "Y"}, "commit": "J", "preedit": ""}
+{"in": {"ch": "I"}, "commit": "U", "preedit": ""}
+{"in": {"ch": "M"}, "commit": "M", "preedit": ""}
+{"in": {"ch": "R"}, "commit": "P", "preedit": ""}
+{"in": {"ch": "D"}, "commit": "S", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": ";", "shift": true}, "commit": "O", "preedit": ""}
+{"in": {"ch": "V"}, "commit": "V", "preedit": ""}
+{"in": {"ch": "K"}, "commit": "E", "preedit": ""}
+{"in": {"ch": "S"}, "commit": "R", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "F"}, "commit": "T", "preedit": ""}
+{"in": {"ch": "H"}, "commit": "H", "preedit": ""}
+{"in": {"ch": "K"}, "commit": "E", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "U"}, "commit": "L", "preedit": ""}
+{"in": {"ch": "A"}, "commit": "A", "preedit": ""}
+{"in": {"ch": "Z"}, "commit": "Z", "preedit": ""}
+{"in": {"ch": "O"}, "commit": "Y", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "G"}, "commit": "D", "preedit": ""}
+{"in": {"ch": ";", "shift": true}, "commit": "O", "preedit": ""}
+{"in": {"ch": "T"}, "commit": "G", "preedit": ""}
+{"in": {"ch": "."}, "commit": ".", "preedit": ""}
+{"meta": {"case": "line-23", "text": "Sphinx of black quartz, judge my vow.", "keys": "Drhljx ;e buacn qiasfz, yigtk mo v;w."}}
+{"in": {"ch": "D"}, "commit": "S", "preedit": ""}
+{"in": {"ch": "r"}, "commit": "p", "preedit": ""}
+{"in": {"ch": "h"}, "commit": "h", "preedit": ""}
+{"in": {"ch": "l"}, "commit": "i", "preedit": ""}
+{"in": {"ch": "j"}, "commit": "n", "preedit": ""}
+{"in": {"ch": "x"}, "commit": "x", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "o", "preedit": ""}
+{"in": {"ch": "e"}, "commit": "f", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "b"}, "commit": "b", "preedit": ""}
+{"in": {"ch": "u"}, "commit": "l", "preedit": ""}
+{"in": {"ch": "a"}, "commit": "a", "preedit": ""}
+{"in": {"ch": "c"}, "commit": "c", "preedit": ""}
+{"in": {"ch": "n"}, "commit": "k", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "q"}, "commit": "q", "preedit": ""}
+{"in": {"ch": "i"}, "commit": "u", "preedit": ""}
+{"in": {"ch": "a"}, "commit": "a", "preedit": ""}
+{"in": {"ch": "s"}, "commit": "r", "preedit": ""}
+{"in": {"ch": "f"}, "commit": "t", "preedit": ""}
+{"in": {"ch": "z"}, "commit": "z", "preedit": ""}
+{"in": {"ch": ","}, "commit": ",", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "y"}, "commit": "j", "preedit": ""}
+{"in": {"ch": "i"}, "commit": "u", "preedit": ""}
+{"in": {"ch": "g"}, "commit": "d", "preedit": ""}
+{"in": {"ch": "t"}, "commit": "g", "preedit": ""}
+{"in": {"ch": "k"}, "commit": "e", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "m"}, "commit": "m", "preedit": ""}
+{"in": {"ch": "o"}, "commit": "y", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "v"}, "commit": "v", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "o", "preedit": ""}
+{"in": {"ch": "w"}, "commit": "w", "preedit": ""}
+{"in": {"ch": "."}, "commit": ".", "preedit": ""}
+{"meta": {"case": "line-24", "text": "0123456789 !@#$%^&*()", "keys": "0123456789 \\s1\\s2\\s3\\s4\\s5\\s6\\s7\\s8\\s9\\s0"}}
+{"in": {"ch": "0"}, "commit": "0", "preedit": ""}
+{"in": {"ch": "1"}, "commit": "1", "preedit": ""}
+{"in": {"ch": "2"}, "commit": "2", "preedit": ""}
+{"in": {"ch": "3"}, "commit": "3", "preedit": ""}
+{"in": {"ch": "4"}, "commit": "4", "preedit": ""}
+{"in": {"ch": "5"}, "commit": "5", "preedit": ""}
+{"in": {"ch": "6"}, "commit": "6", "preedit": ""}
+{"in": {"ch": "7"}, "commit": "7", "preedit": ""}
+{"in": {"ch": "8"}, "commit": "8", "preedit": ""}
+{"in": {"ch": "9"}, "commit": "9", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "1", "shift": true}, "commit": "!", "preedit": ""}
+{"in": {"ch": "2", "shift": true}, "commit": "@", "preedit": ""}
+{"in": {"ch": "3", "shift": true}, "commit": "#", "preedit": ""}
+{"in": {"ch": "4", "shift": true}, "commit": "$", "preedit": ""}
+{"in": {"ch": "5", "shift": true}, "commit": "%", "preedit": ""}
+{"in": {"ch": "6", "shift": true}, "commit": "^", "preedit": ""}
+{"in": {"ch": "7", "shift": true}, "commit": "&", "preedit": ""}
+{"in": {"ch": "8", "shift": true}, "commit": "*", "preedit": ""}
+{"in": {"ch": "9", "shift": true}, "commit": "(", "preedit": ""}
+{"in": {"ch": "0", "shift": true}, "commit": ")", "preedit": ""}
+{"meta": {"case": "line-25", "text": "`~-_=+[]{};:'\",.<>/?\\", "keys": "`\\s`-\\s-=\\s=[]\\s[\\s]pP'\\s',.\\s,\\s./\\s/\\\\"}}
+{"in": {"ch": "`"}, "commit": "`", "preedit": ""}
+{"in": {"ch": "`", "shift": true}, "commit": "~", "preedit": ""}
+{"in": {"ch": "-"}, "commit": "-", "preedit": ""}
+{"in": {"ch": "-", "shift": true}, "commit": "_", "preedit": ""}
+{"in": {"ch": "="}, "commit": "=", "preedit": ""}
+{"in": {"ch": "=", "shift": true}, "commit": "+", "preedit": ""}
+{"in": {"ch": "["}, "commit": "[", "preedit": ""}
+{"in": {"ch": "]"}, "commit": "]", "preedit": ""}
+{"in": {"ch": "[", "shift": true}, "commit": "{", "preedit": ""}
+{"in": {"ch": "]", "shift": true}, "commit": "}", "preedit": ""}
+{"in": {"ch": "p"}, "commit": ";", "preedit": ""}
+{"in": {"ch": "P"}, "commit": ":", "preedit": ""}
+{"in": {"ch": "'"}, "commit": "'", "preedit": ""}
+{"in": {"ch": "'", "shift": true}, "commit": "\"", "preedit": ""}
+{"in": {"ch": ","}, "commit": ",", "preedit": ""}
+{"in": {"ch": "."}, "commit": ".", "preedit": ""}
+{"in": {"ch": ",", "shift": true}, "commit": "<", "preedit": ""}
+{"in": {"ch": ".", "shift": true}, "commit": ">", "preedit": ""}
+{"in": {"ch": "/"}, "commit": "/", "preedit": ""}
+{"in": {"ch": "/", "shift": true}, "commit": "?", "preedit": ""}
+{"in": {"ch": "\\"}, "commit": "\\", "preedit": ""}
