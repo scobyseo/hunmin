@@ -147,6 +147,11 @@ static wchar_t g_auto_out[MAX_PATH];
 static int g_auto_has_keys;
 static int g_profileRequested;
 static volatile LONG g_profileDone;
+static void write_escaped(FILE *f, const wchar_t *s); /* defined below */
+
+static wchar_t g_script[2048];
+static wchar_t g_trace_path[MAX_PATH];
+static int g_edit_rich;
 
 static void copy_arg(wchar_t *dst, size_t cap, LPCWSTR src) { wcsncpy_s(dst, cap, src, _TRUNCATE); }
 
@@ -189,6 +194,10 @@ static void parse_auto_args(void) {
             copy_unescaped_arg(g_auto_expect, _countof(g_auto_expect), argv[++i]);
         } else if (!wcscmp(argv[i], L"--out")) {
             copy_arg(g_auto_out, _countof(g_auto_out), argv[++i]);
+        } else if (!wcscmp(argv[i], L"--script")) {
+            copy_unescaped_arg(g_script, _countof(g_script), argv[++i]);
+        } else if (!wcscmp(argv[i], L"--trace")) {
+            copy_arg(g_trace_path, _countof(g_trace_path), argv[++i]);
         }
     }
     LocalFree(argv);
@@ -273,6 +282,197 @@ static void send_key(WORD vk, BOOL shift) {
         n++;
     }
     SendInput((UINT)n, in, sizeof(INPUT));
+}
+
+/* ---- measurement mode (issue #216) ---------------------------------------
+ * The live round for the automatic switch needs numbers a text-only readback
+ * cannot give: where the caret sits after each key, what one undo step
+ * removes, and what becomes of a selection while the ENGINE is the one
+ * delivering the characters. This mode replays a scripted key list and writes
+ * one trace row per step, reading the control IN-PROCESS (EM_EXGETSEL,
+ * GetCaretPos) rather than through cross-process messages.
+ *
+ *   ime-probe.exe --script "\sEnglishsms " --trace round.txt
+ *
+ * Script syntax: the ordinary --keys characters and escapes, plus %o tokens --
+ *   %u Ctrl+Z   %y Ctrl+Y   %a Ctrl+A
+ *   %l Left     %r Right    %h Shift+Left   %j Shift+Right
+ *   %g Home     %e End      %m mark (a trace row, no input)
+ * The TIP's policy still comes from the environment (HUNMIN_TSF_AUTOSWITCH,
+ * HUNMIN_TSF_COMMIT_UNIT, HUNMIN_DATA_DIR), so one exe runs both rounds.
+ */
+
+#ifndef EM_EXGETSEL
+#define EM_EXGETSEL (WM_USER + 52)
+#endif
+
+typedef struct probe_charrange {
+    LONG cpMin;
+    LONG cpMax;
+} probe_charrange;
+
+enum {
+    TOK_KEY = 0,
+    TOK_UNDO,
+    TOK_REDO,
+    TOK_SELALL,
+    TOK_LEFT,
+    TOK_RIGHT,
+    TOK_SHIFTLEFT,
+    TOK_SHIFTRIGHT,
+    TOK_HOME,
+    TOK_END,
+    TOK_HANGUL,
+    TOK_MARK
+};
+
+static void send_key_mod(WORD vk, BOOL shift, BOOL ctrl) {
+    INPUT in[6];
+    int n = 0;
+    ZeroMemory(in, sizeof(in));
+    if (ctrl) {
+        in[n].type = INPUT_KEYBOARD;
+        in[n].ki.wVk = VK_CONTROL;
+        in[n].ki.wScan = (WORD)MapVirtualKeyW(VK_CONTROL, MAPVK_VK_TO_VSC);
+        n++;
+    }
+    if (shift) {
+        in[n].type = INPUT_KEYBOARD;
+        in[n].ki.wVk = VK_SHIFT;
+        in[n].ki.wScan = (WORD)MapVirtualKeyW(VK_SHIFT, MAPVK_VK_TO_VSC);
+        n++;
+    }
+    in[n].type = INPUT_KEYBOARD;
+    in[n].ki.wVk = vk;
+    in[n].ki.wScan = (WORD)MapVirtualKeyW(vk, MAPVK_VK_TO_VSC);
+    n++;
+    in[n].type = INPUT_KEYBOARD;
+    in[n].ki.wVk = vk;
+    in[n].ki.wScan = (WORD)MapVirtualKeyW(vk, MAPVK_VK_TO_VSC);
+    in[n].ki.dwFlags = KEYEVENTF_KEYUP;
+    n++;
+    if (shift) {
+        in[n].type = INPUT_KEYBOARD;
+        in[n].ki.wVk = VK_SHIFT;
+        in[n].ki.wScan = (WORD)MapVirtualKeyW(VK_SHIFT, MAPVK_VK_TO_VSC);
+        in[n].ki.dwFlags = KEYEVENTF_KEYUP;
+        n++;
+    }
+    if (ctrl) {
+        in[n].type = INPUT_KEYBOARD;
+        in[n].ki.wVk = VK_CONTROL;
+        in[n].ki.wScan = (WORD)MapVirtualKeyW(VK_CONTROL, MAPVK_VK_TO_VSC);
+        in[n].ki.dwFlags = KEYEVENTF_KEYUP;
+        n++;
+    }
+    SendInput((UINT)n, in, sizeof(INPUT));
+}
+
+/* The document as the control holds it, the selection, and the caret. A
+ * caret-less read (GetCaretPos FALSE) is written as -1,-1 rather than 0,0 --
+ * 0,0 is a real place and would read as a measurement. */
+static void probe_state(wchar_t *text, int cap, long *sel_start, long *sel_end, POINT *caret) {
+    GetWindowTextW(g_edit, text, cap);
+    *sel_start = -1;
+    *sel_end = -1;
+    if (g_edit_rich) {
+        probe_charrange cr;
+        cr.cpMin = -1;
+        cr.cpMax = -1;
+        SendMessageW(g_edit, EM_EXGETSEL, 0, (LPARAM)&cr);
+        *sel_start = cr.cpMin;
+        *sel_end = cr.cpMax;
+    } else {
+        DWORD r = (DWORD)SendMessageW(g_edit, EM_GETSEL, 0, 0);
+        *sel_start = (long)LOWORD(r);
+        *sel_end = (long)HIWORD(r);
+    }
+    /* The caret rect of the THREAD that owns the focus window. GetCaretPos
+     * answered 0,0 on every step of the first exploration run (2026-11-02)
+     * while the selection advanced, so it is not the source read here. */
+    caret->x = -1;
+    caret->y = -1;
+    {
+        GUITHREADINFO gui;
+        ZeroMemory(&gui, sizeof(gui));
+        gui.cbSize = sizeof(gui);
+        if (GetGUIThreadInfo(GetCurrentThreadId(), &gui) && gui.hwndCaret == g_edit) {
+            caret->x = gui.rcCaret.left;
+            caret->y = gui.rcCaret.top;
+        }
+    }
+}
+
+static void trace_row(FILE *f, int step, const wchar_t *tok) {
+    wchar_t text[4096];
+    long s = -1, e = -1;
+    POINT pt;
+    text[0] = 0;
+    probe_state(text, (int)_countof(text), &s, &e, &pt);
+    fwprintf(f, L"step=%d tok=", step);
+    write_escaped(f, tok);
+    fwprintf(f, L" len=%d sel=%ld,%ld caret=%ld,%ld text=", (int)wcslen(text), s, e, (long)pt.x, (long)pt.y);
+    write_escaped(f, text);
+    fwprintf(f, L"\n");
+    fflush(f);
+}
+
+/* One script token: an ordinary key (via next_key, so the --keys escapes keep
+ * working) or a %o control. Returns FALSE at the end of the script. */
+static BOOL next_token(const wchar_t **pp, int *op, WORD *vk, BOOL *shift, wchar_t *shown) {
+    const wchar_t *p = *pp;
+    *op = TOK_KEY;
+    *vk = 0;
+    *shift = FALSE;
+    shown[0] = 0;
+    if (!*p)
+        return FALSE;
+    if (*p == L'%' && p[1]) {
+        wchar_t c = p[1];
+        p += 2;
+        switch (c) {
+        case L'u':
+            *op = TOK_UNDO;
+            break;
+        case L'y':
+            *op = TOK_REDO;
+            break;
+        case L'a':
+            *op = TOK_SELALL;
+            break;
+        case L'l':
+            *op = TOK_LEFT;
+            break;
+        case L'r':
+            *op = TOK_RIGHT;
+            break;
+        case L'h':
+            *op = TOK_SHIFTLEFT;
+            break;
+        case L'j':
+            *op = TOK_SHIFTRIGHT;
+            break;
+        case L'g':
+            *op = TOK_HOME;
+            break;
+        case L'e':
+            *op = TOK_END;
+            break;
+        case L'k':
+            *op = TOK_HANGUL;
+            break;
+        default:
+            *op = TOK_MARK;
+            break;
+        }
+        swprintf_s(shown, 8, L"%%%c", c);
+    } else {
+        if (!next_key(&p, vk, shift))
+            return FALSE;
+        swprintf_s(shown, 16, L"vk=%02X%s", (unsigned)*vk, *shift ? L"+shift" : L"");
+    }
+    *pp = p;
+    return TRUE;
 }
 
 static void force_foreground(HWND wnd) {
@@ -375,6 +575,93 @@ static DWORD WINAPI auto_thread(LPVOID param) {
     return 0;
 }
 
+/* The measurement run: the same bring-up as auto_thread (foreground guard,
+ * profile activation), then one trace row per script token. Undo/redo get a
+ * longer settle because the TIP's own edit session can land late. */
+static DWORD WINAPI measure_thread(LPVOID param) {
+    (void)param;
+    Sleep(800);
+    ShowWindow(g_wnd, SW_SHOWNORMAL);
+    for (int i = 0; i < 50; ++i) {
+        force_foreground(g_wnd);
+        if (GetForegroundWindow() == g_wnd && g_profileDone)
+            break;
+        Sleep(100);
+    }
+    Sleep(200);
+    {
+        FILE *log = _wfopen(L"ime-probe.log", L"a");
+        if (log) {
+            fprintf(log, "measure foreground=%d profile=%ld scriptlen=%d\n", GetForegroundWindow() == g_wnd ? 1 : 0,
+                    (long)InterlockedCompareExchange(&g_profileDone, 0, 0), (int)wcslen(g_script));
+            fclose(log);
+        }
+    }
+    FILE *tr = _wfopen(g_trace_path[0] ? g_trace_path : L"ime-probe-trace.txt", L"w, ccs=UTF-8");
+    if (!tr) {
+        PostMessageW(g_wnd, WM_CLOSE, 0, 0);
+        return 0;
+    }
+    const wchar_t *p = g_script;
+    int step = 0;
+    trace_row(tr, step++, L"START");
+    for (;;) {
+        int op = TOK_KEY;
+        WORD vk = 0;
+        BOOL shift = FALSE;
+        wchar_t shown[16];
+        if (!next_token(&p, &op, &vk, &shift, shown))
+            break;
+        switch (op) {
+        case TOK_KEY:
+            if (vk)
+                send_key_mod(vk, shift, FALSE);
+            break;
+        case TOK_UNDO:
+            send_key_mod((WORD)L'Z', FALSE, TRUE);
+            break;
+        case TOK_REDO:
+            send_key_mod((WORD)L'Y', FALSE, TRUE);
+            break;
+        case TOK_SELALL:
+            send_key_mod((WORD)L'A', FALSE, TRUE);
+            break;
+        case TOK_LEFT:
+            send_key_mod(VK_LEFT, FALSE, FALSE);
+            break;
+        case TOK_RIGHT:
+            send_key_mod(VK_RIGHT, FALSE, FALSE);
+            break;
+        case TOK_SHIFTLEFT:
+            send_key_mod(VK_LEFT, TRUE, FALSE);
+            break;
+        case TOK_SHIFTRIGHT:
+            send_key_mod(VK_RIGHT, TRUE, FALSE);
+            break;
+        case TOK_HOME:
+            send_key_mod(VK_HOME, FALSE, FALSE);
+            break;
+        case TOK_END:
+            send_key_mod(VK_END, FALSE, FALSE);
+            break;
+        case TOK_HANGUL:
+            /* The 한/영 key: the TIP's own toggle, not a document edit. */
+            send_key_mod(VK_HANGUL, FALSE, FALSE);
+            break;
+        default:
+            break;
+        }
+        if (op == TOK_UNDO || op == TOK_REDO)
+            Sleep(350);
+        else
+            Sleep(90);
+        trace_row(tr, step++, shown);
+    }
+    fclose(tr);
+    PostMessageW(g_wnd, WM_CLOSE, 0, 0);
+    return 0;
+}
+
 static void resize_edit(HWND wnd) {
     RECT rc;
     GetClientRect(wnd, &rc);
@@ -443,6 +730,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show) {
                            0, wnd, (HMENU)IDC_EDIT, inst, NULL);
     if (!g_edit)
         return 1;
+    g_edit_rich = msftedit ? 1 : 0;
 
     SendMessageW(g_edit, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
     resize_edit(wnd);
@@ -455,7 +743,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE prev, PWSTR cmd, int show) {
      * host (measured 2026-10-24). The message loop runs it on this thread. */
     PostMessageW(wnd, WM_APP_ACTIVATE, 0, 0);
 
-    if (g_auto_has_keys) {
+    if (g_script[0]) {
+        HANDLE th = CreateThread(NULL, 0, measure_thread, NULL, 0, NULL);
+        if (th)
+            CloseHandle(th);
+    } else if (g_auto_has_keys) {
         HANDLE th = CreateThread(NULL, 0, auto_thread, NULL, 0, NULL);
         if (th)
             CloseHandle(th);
