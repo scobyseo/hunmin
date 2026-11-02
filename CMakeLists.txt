@@ -846,7 +846,11 @@ if(BUILD_TESTING)
             --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
             --golden-dir ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden
             --trace-dir ${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/x11)
-  set_tests_properties(engine-off-identity PROPERTIES LABELS "tier-A")
+  # `slow` by the rule in docs/TESTING.md §tiers (measured 2026-11-02: 2.25 s,
+  # and the label's cut is ">= 2 s on the host where it was assigned"). It keeps
+  # `tier-A`, so "I touched the engine" still runs it; only the cheap inner loop
+  # (-LE slow) leaves it out.
+  set_tests_properties(engine-off-identity PROPERTIES LABELS "tier-A;slow")
   # P2 gate: one golden corpus per pat.im/1136 feature section (PLAN.md:85)
   set(HUNMIN_P2_SECTIONS p2-2-1-basic p2-2-2-tiers p2-2-3-chosung
       p2-2-4-1-yetrules p2-2-4-2-eung p2-2-4-3-caps p2-2-6-flags p2-2-6-flags-s

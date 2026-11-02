@@ -605,9 +605,9 @@ static void off_free(off_case *c) {
  * shipped English list loaded, and `autoswitch` written to 0 AND read back. A
  * write the engine refused would leave the option ON, and then this whole check
  * would be measuring the ON path and calling it identity. */
-static hunmin_buffered_preedit *off_layer(hunmin_ctx *ctx, const char *layout, int policy, int *held) {
-    hunmin_buffered_preedit *l =
-        hunmin_buffered_preedit_new(ctx, layout, OFF_LATIN_LAYOUT, policy);
+static hunmin_buffered_preedit *off_layer(hunmin_ctx *ctx, const char *layout, const char *latin,
+                                         int policy, int *held) {
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx, layout, latin, policy);
     if (!l) return NULL;
     hunmin_buffered_preedit_load_english_shipped(l);
     hunmin_buffered_preedit_set_option(l, "autoswitch", 0);
@@ -641,8 +641,13 @@ static void off_apply(off_case *c, int caps, int *flags) {
  * whole check took 15 s). Reset returns the same text state -- composition,
  * word, keys, delivered bytes -- and leaves the option state in place. */
 static int off_begin(off_case *c, char *held_layout, size_t held_cap, hunmin_ctx *ctx, const char *path,
-                     int line, const char *layout, int caps, int *flags, int *ready_out) {
-    const int same = held_layout[0] && !strcmp(held_layout, layout);
+                     int line, const char *layout, const char *latin, int caps, int *flags,
+                     int *ready_out) {
+    /* The reuse cache keys on the LAYOUT PAIR: a judgement case drives the same
+     * layout with a different second language (or none) than a golden does. */
+    char want[192];
+    snprintf(want, sizeof want, "%s|%s", layout, latin && latin[0] ? latin : "-");
+    const int same = held_layout[0] && !strcmp(held_layout, want);
     if (same) {
         c->odel[0] = c->bdel[0] = c->sdel[0] = 0;
         hunmin_ic_reset(c->ic);
@@ -655,8 +660,8 @@ static int off_begin(off_case *c, char *held_layout, size_t held_cap, hunmin_ctx
     off_free(c);
     c->ic = hunmin_ic_new(ctx, layout);
     int hb = -1, hs = -1;
-    c->boundary = off_layer(ctx, layout, HUNMIN_COMMIT_AT_BOUNDARY, &hb);
-    c->syllable = off_layer(ctx, layout, HUNMIN_COMMIT_PER_SYLLABLE, &hs);
+    c->boundary = off_layer(ctx, layout, latin, HUNMIN_COMMIT_AT_BOUNDARY, &hb);
+    c->syllable = off_layer(ctx, layout, latin, HUNMIN_COMMIT_PER_SYLLABLE, &hs);
     if (!c->ic || !c->boundary || !c->syllable) {
         fprintf(stderr, "%s:%d: cannot build the drivers for layout '%s' (a layer for %s)\n",
                 path, line, layout, OFF_LATIN_LAYOUT);
@@ -671,7 +676,7 @@ static int off_begin(off_case *c, char *held_layout, size_t held_cap, hunmin_ctx
         off_free(c);
         return -1;
     }
-    snprintf(held_layout, held_cap, "%s", layout);
+    snprintf(held_layout, held_cap, "%s", want);
     *ready_out = hunmin_buffered_preedit_english_ready(c->boundary);
     off_apply(c, caps, flags);
     return 0;
@@ -790,6 +795,72 @@ static int off_flush(off_case *c, const char *path, int line, long *checks) {
     return fails;
 }
 
+/* R15's first clause, on the cases we know switch: for a judgement case whose
+ * replay really takes a judgement, the SAME keys with `autoswitch` 0 must deliver
+ * what the engine delivers. The judgement is the control -- a case the feature
+ * ignores would pass this comparison without proving anything, which is why a
+ * case that never switches fails rather than being skipped.
+ *
+ * The layout compared is the one the person was typing on: the Hangul layout in
+ * hangul mode, the Latin layout in latin mode (where the pre-feature build had
+ * one language, so the off layer is built with no second one). */
+static int off_judgement_pair(hunmin_ctx *ctx, off_case *c, char *held_layout, size_t held_cap,
+                              const char *path, int line, const char *layout, const char *latin,
+                              int start_latin, int expect_switch, const char *keys, long *keys_seen,
+                              long *checks) {
+    hunmin_buffered_preedit *on =
+        hunmin_buffered_preedit_new(ctx, layout, latin, HUNMIN_COMMIT_AT_BOUNDARY);
+    if (!on) {
+        fprintf(stderr, "%s:%d: cannot build the on-path layer for %s/%s\n", path, line, layout,
+                latin ? latin : "-");
+        return 1;
+    }
+    hunmin_buffered_preedit_load_english_shipped(on);
+    hunmin_buffered_preedit_set_option(on, "autoswitch", 1);
+    if (start_latin) {
+        hunmin_key_result sw = {0, NULL, NULL};
+        hunmin_buffered_preedit_toggle_language(on, &sw);
+    }
+    int judged = 0, fails = 0;
+    for (const char *kp = keys; *kp;) {
+        uint32_t base = 0, shift = 0;
+        hunmin_key_result out = {0, NULL, NULL};
+        if (keys_step(&kp, &base, &shift, path)) {
+            fails++;
+            break;
+        }
+        hunmin_buffered_preedit_process_key(on, base, shift, &out);
+        if (hunmin_buffered_preedit_take_judgement(on) >= 0) judged++;
+        (*keys_seen)++;
+    }
+    hunmin_buffered_preedit_free(on);
+    /* The corpus says which cases switch (`judged` non-empty) and which keep the
+     * mode; the control is required exactly on the former, because those are the
+     * words R15's fallback is about. A case the corpus says switches and the
+     * layer no longer switches is drift between the two, and it fails. */
+    if (expect_switch && !judged) {
+        fprintf(stderr,
+                "%s:%d: this case's corpus entry says it switches and the replay took no judgement "
+                "-- the judgement stopped firing on a case R15 is about\n",
+                path, line);
+        return fails + 1;
+    }
+
+    const char *primary = (start_latin && latin && latin[0]) ? latin : layout;
+    const char *second = start_latin ? NULL : latin;
+    int ready = 0;
+    if (off_begin(c, held_layout, held_cap, ctx, path, line, primary, second, -1, NULL, &ready)) return fails + 1;
+    for (const char *kp = keys; *kp;) {
+        uint32_t base = 0, shift = 0;
+        if (keys_step(&kp, &base, &shift, path)) {
+            fails++;
+            break;
+        }
+        fails += off_key(c, path, line, base, shift, -1, checks);
+    }
+    return fails;
+}
+
 /* One golden (.jsonl under tests/golden) or one trace (x11 .trace.in)
  * through the three drivers. Both formats carry their inputs in an `in` object and
  * a `meta` line that starts a case; only the key's spelling differs. */
@@ -844,9 +915,9 @@ static int check_off_files(hunmin_ctx *ctx, const char *const *paths, int npaths
                 if (cJSON_IsString(lay) && lay->valuestring[0])
                     snprintf(cur_layout, sizeof cur_layout, "%s", lay->valuestring);
                 if (!cur_layout[0]) {
-                    fprintf(stderr, "%s:%d: meta has no layout and no earlier one to inherit\n", path,
-                            line);
-                    file_fails++;
+                    /* A provenance-only meta (the judgement corpus's first line)
+                     * carries no layout because its lines carry their own; a file
+                     * whose key records then need one fails on those records. */
                     cJSON_Delete(j);
                     continue;
                 }
@@ -860,7 +931,7 @@ static int check_off_files(hunmin_ctx *ctx, const char *const *paths, int npaths
                     cur_flags[k] = cJSON_IsNumber(fv) ? fv->valueint : -2;
                 }
                 if (off_begin(&c, held_layout, sizeof held_layout, ctx, path, line, cur_layout,
-                              cur_caps, cur_flags, &ready)) {
+                              OFF_LATIN_LAYOUT, cur_caps, cur_flags, &ready)) {
                     file_fails++;
                     started = 0;        /* the drivers are gone: the next keys are unattributable */
                     held_layout[0] = 0; /* and nothing may reuse them */
@@ -880,6 +951,32 @@ static int check_off_files(hunmin_ctx *ctx, const char *const *paths, int npaths
                             path, ready);
                     warned = 1;
                 }
+                cJSON_Delete(j);
+                continue;
+            }
+            /* A judgement case (tests/golden/judgement-*.jsonl): a key STRING and
+             * its own layout, so it is driven as a pair -- the switch as the
+             * control, the off path as the thing R15 constrains. */
+            const cJSON *jkeys = cJSON_GetObjectItemCaseSensitive(j, "keys");
+            if (cJSON_IsString(jkeys) && !cJSON_GetObjectItemCaseSensitive(j, "in")) {
+                const cJSON *jl = cJSON_GetObjectItemCaseSensitive(j, "layout");
+                const cJSON *jlat = cJSON_GetObjectItemCaseSensitive(j, "latin");
+                const cJSON *jmode = cJSON_GetObjectItemCaseSensitive(j, "mode");
+                const char *lay = cJSON_IsString(jl) ? jl->valuestring : cur_layout;
+                const char *lat = cJSON_IsString(jlat) ? jlat->valuestring : OFF_LATIN_LAYOUT;
+                if (!lay || !lay[0]) {
+                    fprintf(stderr, "%s:%d: judgement case has no layout\n", path, line);
+                    file_fails++;
+                    cJSON_Delete(j);
+                    continue;
+                }
+                const int latin_mode = cJSON_IsString(jmode) && !strcmp(jmode->valuestring, "latin");
+                const cJSON *wjudged = cJSON_GetObjectItemCaseSensitive(j, "judged");
+                const int switches = cJSON_IsArray(wjudged) && cJSON_GetArraySize(wjudged) > 0;
+                file_fails += off_judgement_pair(ctx, &c, held_layout, sizeof held_layout, path, line,
+                                                 lay, lat, latin_mode, switches, jkeys->valuestring,
+                                                 &file_keys, &file_checks);
+                cases++;
                 cJSON_Delete(j);
                 continue;
             }

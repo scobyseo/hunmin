@@ -17,7 +17,10 @@ present (the Latin layout and the shipped English list), so the option is the
 only thing standing between the layer and a different delivery.
 
 `hunmin-sim --off-check` does the comparison; this script is the census around
-it. It exists because a check that runs a GLOBBED corpus has one failure mode a
+it. `tests/golden/judgement-r8.jsonl` is driven too, as pairs: for every case
+whose corpus entry says the judgement switches, the same keys with `autoswitch`
+0 must deliver what the engine delivers (R15), and the switch itself is the
+control -- a case that no longer switches fails rather than being skipped. It exists because a check that runs a GLOBBED corpus has one failure mode a
 green run cannot show: a file that silently stops being driven. So every globbed
 file must appear in the tool's own "OK <path>" line, and the exclusions below are
 named with the test that covers them instead — an exclusion without a home is
@@ -42,14 +45,12 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # home belongs in this list only with the ctest id that replaced it, because the
 # alternative -- silently skipping the file -- is the one way this check could
 # shrink without going red.
-EXCLUDED = {
-    # A judgement case stores a key STRING and its own expected delivery
-    # (`keys`/`commit`/`judged`), not per-key `in` records, so the engine-level
-    # replay this check compares against does not exist for it. Its OFF identity
-    # cases (`"autoswitch":0`) are asserted by ctest `engine-golden-judgement`
-    # through --judge-check, which is the driver that corpus was written for.
-    "judgement-r8.jsonl": "engine-golden-judgement",
-}
+# Empty today, and kept for the reason it exists: a file that cannot be driven
+# has to name the test that covers it instead, because the alternative -- a
+# silent skip -- is the one way this corpus could shrink without going red. The
+# judgement corpus used to be here (its cases store a key STRING, not per-key
+# `in` records); it is driven now, as the pairs R15 is about.
+EXCLUDED: dict[str, str] = {}
 
 
 def main(argv: list[str]) -> int:

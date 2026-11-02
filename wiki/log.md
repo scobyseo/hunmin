@@ -965,3 +965,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   붙이든지 하자"): §R14 added to `docs/SPEC-MODES.md` §1 with its `REQ-MAP` row
   (parent A2, `engine-off-identity`), §4's two bullets rewritten to point at R14
   and at ③ in `docs/MODES-METRICS.md` §1.3, and the reading-order table extended.
+
+## [2026-11-02] update | SPEC-MODES §4 splits into an invariant and a metric
+
+- R15 added (`The switch costs no word`), §4 removed and `# 5` renumbered to
+  `# 4`, `docs/REQ-MAP.md` at 81 rows, and the verification landed: the
+  judgement corpus is now driven through the off path as pairs
+  (`hunmin-sim --off-check`, 120 files / 4617 keys / 18752 comparisons) plus
+  `LayerTest.TurningTheSwitchOffMidWordLosesNothing`. The page carries the four
+  messages in order.
+

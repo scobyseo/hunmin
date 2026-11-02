@@ -92,9 +92,14 @@ Two membership facts that are not derivable from the tier name:
 
 `slow` is a measured cut, not a round number: on this host the seven slowest
 tests take 2.8–50.3 s and the eighth takes 1.7 s, so any cut in (1.7, 2.8] s
-yields the same partition and the label only has to be re-measured when that
-gap closes. It is **host-relative**, and `engine-android-e1` sits at the
-boundary — 2.8 s against a warm Gradle cache, 15.9 s cold.
+yielded the same partition and the label only had to be re-measured when that
+gap closes. **That gap has closed (2026-11-02):** `engine-off-identity` — the
+`#179` OFF-identity check over the whole corpus — measures 2.25 s alone and
+2.70 s under `-j16`, i.e. inside the old interval, so its label is now assigned
+rather than inherited. It carries `slow`, which keeps `tier-A` (and therefore
+"I touched the engine") and leaves the cheap inner loop. It is **host-relative**,
+and `engine-android-e1` sits at the boundary — 2.8 s against a warm Gradle cache,
+15.9 s cold.
 
 Both mutation tests are also `slow` today, so `-LE 'slow|mutation'` currently
 selects exactly what `-LE slow` selects. That is a fact about these two tests,

@@ -48,7 +48,7 @@ cross references in the other four documents were fixed at the same time.
 | **2. What it converts** | what a mode is, how many IMs there are, where it is decided | R2, R3 |
 | **3. When it is judged** | what the composition buffer (조합 버퍼) is and when it ends | R4, R5, R6 |
 | **4. How it is judged** | when to switch and when not to | R7, R8, R9, R10 |
-| **5. When it is wrong, and evaluation** | who fixes it, how it is measured, how to turn it on and off, and what turning it off must give back | R11, R12, R13, R14 |
+| **5. When it is wrong, and evaluation** | who fixes it, how it is measured, how to turn it on and off, and what turning it off must give back | R11, R12, R13, R14, R15 |
 
 **Why this order holds:**
 
@@ -803,9 +803,8 @@ records the current factual relationships (not a measurement):
 
 **With the switch off, the input method must deliver what it delivered before
 the feature existed.** A person who never turns it on must not be able to tell
-that it shipped. This is the off-side half of the statement §4 quotes; that
-statement's on-side half is a quality goal with no pass line (③,
-`docs/MODES-METRICS.md` §1.3), not a functional requirement.
+that it shipped. (§R15 is the same identity for the words the switch does take,
+and the price of turning it off mid-word.)
 
 - **"The previous behaviour" is a recorded thing, not a memory.** The oracle is
   the tier-A corpus in `tests/golden/`, recorded before the judgement existed
@@ -830,6 +829,37 @@ statement's on-side half is a quality goal with no pass line (③,
 driven through `hunmin_buffered_preedit` with `autoswitch` written 0 and read
 back, at both commit policies, and the text a person sees is compared byte for
 byte against `hunmin_ic`, the engine those corpora were recorded on.
+
+## R15. The switch costs no word [D]
+
+> 이상적으로는 어느 모드에서든 사용자가 의도적으로 해당 모드의 문자열을 모두
+> 입력할 수 있어야 하지만, 그럴 수 없는 경우에는 자동변환 기능을 꺼서라도
+> 입력할 수 있어야 한다.
+
+Turning the switch off is the remedy for a word it took. Two obligations make
+that remedy real, and one thing is explicitly not claimed.
+
+- **Where the switch changes a word's reading, the off path still produces the
+  engine's text.** For every key sequence where the switch makes the delivered
+  text differ from what `hunmin_ic` delivers for the same keys, the same keys with
+  `autoswitch` 0 must deliver `hunmin_ic`'s text. §R14 states that identity over
+  the goldens; this item states it over the set the switch actually touches — the
+  words the judgement corpus records as switching, which is the set a person who
+  lost a word is in — with the off-path answer computed from the engine rather
+  than typed in.
+- **Turning it off costs nothing.** Flipping the switch while a word composes
+  delivers no text by itself and changes no delivered byte: the word still leaves
+  at the same boundary, with the off path's text. A fallback that drops the word
+  it exists to save is not a fallback.
+- **Not claimed: the intended word arrives first time.** A misjudged word is
+  R11's accepted cost, counted in R12. The ideal in the sentence above — every
+  mode producing all of its own strings — is ③'s target, which has no pass line
+  (`docs/MODES-METRICS.md` §1.3) and is not judged a defect.
+
+*Verified by:* ctest `engine-off-identity`, whose `--off-check` drives every
+judgement case the corpus records as switching through the off path against the
+engine with the switch itself as the control; and `engine-buffered-preedit`'s
+`LayerTest.TurningTheSwitchOffMidWordLosesNothing` for the mid-word flip.
 
 ---
 
@@ -1166,54 +1196,7 @@ delimiters.
 
 ---
 
-# 4. What this feature must not produce
-
-**Status: a quality requirement, not a functional one, and not evaluable as
-stated.** The maintainer, 2026-11-02: "이 문장 자체는 기능 요구사항이 아니야.
-품질 요구사항에 가까운데, 평가 가능한 요구사항도 아니야. 이 상태로 요구사항으로
-만들어 봤자 용도가 없어." So this section has **no pass line and no acceptance
-test of its own.** The two halves that can be handled mechanically live
-elsewhere: the off-side is §R14 (ctest `engine-off-identity`), and the on-side
-rate is ③ (`docs/MODES-METRICS.md` §1.3, status there NOT MEASURED).
-
-**The statement** (maintainer, 2026-11-02, verbatim):
-
-> 자동변환 기능을 끄면, 한글 모드의 입력은 모두 한글로, 영문 모드의 입력은 모두
-> 영문자로 입력되기 때문에 입력할 수 없는 문자열이 없다. 자동변환 기능을 켜면,
-> 한글 모드라도 영어로 판단되는 문자열을 입력할 수 없을 수 있으며, 영문
-> 모드에서 일부 영어 표현을 입력할 수 없을 수 있다.
->
-> 이상적으로는 어느 모드에서든 사용자가 의도적으로 해당 모드의 문자열을 모두
-> 입력할 수 있어야 하지만, 그럴 수 없는 경우에는 자동변환 기능을 꺼서라도
-> 입력할 수 있어야 한다.
-
-What it claims, and where each claim lands:
-
-- **Off: each mode emits its own alphabet, so the switch cannot make anything
-  untypable.** The checkable form of that sentence is identity with the
-  pre-feature build — **§R14**.
-- **On, Hangul mode: a string the judgement reads as English can become
-  unenterable** ("없을 수 있으며" — a possibility per word, gated by R8's
-  formula and R9's guard, not a rule about every word).
-- **On, English mode: some English expressions can become unenterable** — the
-  same in the symmetric direction (E1).
-- **Both are accepted, and the remedy is the switch itself**: "자동변환 기능을
-  꺼서라도 입력할 수 있어야 한다." That is why §R14 is an invariant rather than a
-  metric — off is the fallback that makes on's gaps tolerable. The ideal, every
-  mode producing all of its own strings, is a target with no line (③), and none
-  of this is judged a defect yet.
-
-**Two readings the wording leaves open, recorded and not decided:** "입력" is the
-letters, not every key (a Hangul layout's digit and symbol keys resolve to
-literals — measured on `sin3-p2`); and "입력할 수 없는 문자열이 없다" is a claim
-about (switch off + layout), because a layout's own gaps predate this feature
-(③'s note: unrepresentability is first a property of the layout, not of the
-guesser). The wider analysis, and what this section leaves open, is
-`wiki/decisions/2026-11-02-spec-modes-4-splits-into-an-invariant-and-a-metric.md`.
-
----
-
-# 5. Other files this document references
+# 4. Other files this document references
 
 | File | Content |
 |---|---|

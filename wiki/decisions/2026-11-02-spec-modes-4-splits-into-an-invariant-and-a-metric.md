@@ -133,3 +133,46 @@ resolved: "입력" is the letters and not every key (a Hangul layout's digit and
 symbol keys resolve to literals), and "입력할 수 없는 문자열이 없다" is a claim
 about (switch off + layout) — a layout's own gaps predate this feature, which ③'s
 own note says.
+
+## Refined again: the explanation becomes a requirement (R15), and §4 disappears
+
+Asked where a statement that cannot be tested belongs, he answered that the
+question was mine to have created:
+
+> "1. 자리: 테스트를 가질 수 없는 문장은 SPEC에 두는 게 맞나 —> 네가 이해할 수
+> 있는 설명을 추가로 전달한 건데, 그걸 요구사항으로 정제하기 보다는 그냥 원문
+> 그대로 두었기 때문에 그런 결과가 된 것임. 지금 내가 요청한 것처럼 이해하고
+> 정제하는 과정을 거쳐야 함."
+
+> "내가 쓴 표현을 요구사항으로 쓸 수 있게 변환하자. 그 문장을 그대로 쓸 필요는
+> 없어. 내가 요구사항으로 변환된 문장이 적절하다고 생각하면 그걸로 대체하자."
+
+A statement nothing can test is a statement nobody has refined yet. What the
+refinement produced:
+
+- **R15. The switch costs no word.** Two obligations, both checkable: where the
+  judgement changes a word's reading, the off path delivers the engine's text for
+  the same keys (§R14's identity, but over the set the switch actually touches —
+  the judgement corpus is where those words are listed, with the off-path answer
+  computed from the engine rather than typed); and flipping the switch while a
+  word composes delivers nothing and changes no delivered byte, so the fallback
+  cannot cost the word it exists to save.
+- **§4 is gone.** Nothing was left in it: the off-side claim is R14, the on-side
+  fallback is R15, the ideal it named is ③'s target with no pass line, and the
+  digit/symbol caveat is a fact about layouts. `# 5. Other files` became `# 4.`,
+  and the two outside citations (`MODES-METRICS` §1.3 and its §8 requirement
+  line) now name R15.
+- **What was deliberately not converted: the ideal sentence.** R15 quotes it and
+  says it has no pass line; setting one is E4's, and ③ would need a corpus before
+  a number could mean anything.
+
+Falsified before claiming: with the autoswitch guard removed, the pair reddens on
+the judgement corpus (`ㅗ디ㅣㅐ` → `hello`), so the new clause is a gate and not a
+restatement of R14.
+
+Sequence of the record, so a later session does not re-derive it: §4 was a
+quality statement with no id (first message), then an invariant plus ③ (second),
+then his own wording as a quality statement (third), and now two requirements
+with cases and no §4 at all (fourth). The first three are history; the numbers
+R14 and R15 are the current answer.
+
