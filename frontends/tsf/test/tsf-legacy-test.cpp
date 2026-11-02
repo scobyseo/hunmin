@@ -43,6 +43,7 @@
 
 #include <string>
 
+#include "mock-tsf-edit.h" /* the mock's edit-control channel (issue #185) */
 #include "tsf-candidate-fixture.h"
 
 namespace {
@@ -624,5 +625,65 @@ TEST_F(LegacyTest, HostTerminationThenBoundaryKeepsTheWordOnce) {
     Key(VK_SPACE);
     FlushDocWrites();
     EXPECT_EQ(CtrlText(ctrl), fused) << "the boundary must not re-deliver what the host already fused";
+    LegacyTeardown();
+}
+
+/* Issue #185: the mock's edit-control CHANNEL (mock-tsf-edit.h) is the
+ * observation surface the tier-F1 corpus reads the interim delivery through,
+ * so the recording itself has to be pinned. Proved the way a recording should
+ * be - replaying the writes reproduces the document - which fails on a write
+ * the writer made and the channel dropped, on a span it mis-recorded, and on a
+ * text the writer never sent.
+ *
+ * The case drives the same per-key-terminating host signature as its siblings,
+ * but against the channel instead of a system EDIT control, and pins the seams
+ * it asserts on: a sibling sets HUNMIN_TSF_COMMIT_UNIT and never restores it.
+ */
+TEST_F(LegacyTest, MockEditChannelRecordsTheInterimWrites) {
+    /* A seam this case FORCES has to come back even when an assertion
+     * aborts the body: the sibling suites assert the DETECTED paths, and a
+     * leaked force flips them (measured: a fatal assertion here failed
+     * NonEditHostTest's two native-recovery cases). */
+    struct EnvSeam {
+        const char *name;
+        std::string previous;
+        bool had = false;
+        EnvSeam(const char *n, const char *value) : name(n) {
+            const char *p = std::getenv(n);
+            had = p != nullptr;
+            if (p)
+                previous = p;
+            _putenv_s(n, value);
+        }
+        ~EnvSeam() { _putenv_s(name, had ? previous.c_str() : ""); }
+    };
+    const EnvSeam seamUnit("HUNMIN_TSF_COMMIT_UNIT", "word");
+    /* Forced, not detected: the flip needs a host whose control is an
+     * EDIT-family window (composition.cpp IsClassicEditHost), and this
+     * channel is deliberately a class of its own. The corpus runner forces
+     * the same seam, so this case measures what the corpus measures. */
+    const EnvSeam seamInterim("HUNMIN_TSF_INTERIM", "1");
+    tsfmock::MockEditControl edit;
+    ASSERT_TRUE(edit.Create()) << "the mock edit-control channel could not be created";
+    Begin();
+    if (HasFatalFailure()) {
+        Teardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    for (const char *p = "dkssud"; *p; ++p) {
+        KeyTerminating((WPARAM)std::toupper((unsigned char)*p));
+        FlushDocWrites();
+    }
+    const std::wstring word = std::wstring(1, L'\uC548') + L'\uB155';
+    EXPECT_EQ(edit.doc(), word) << "the channel holds what the writer wrote";
+    ASSERT_FALSE(edit.writes().empty()) << "every interim write must be recorded";
+    /* Replay: the recorded spans, applied in order, reproduce the document. */
+    std::wstring replay;
+    for (const tsfmock::MockEditControl::Write &w : edit.writes()) {
+        if (w.end < w.start || (size_t)w.end > replay.size())
+            FAIL() << "recorded span " << w.start << ".." << w.end << " is outside the document (" << replay.size() << " chars)";
+        replay.replace((size_t)w.start, (size_t)(w.end - w.start), w.text);
+    }
+    EXPECT_EQ(replay, edit.doc()) << "the recorded writes do not reproduce the document";
     LegacyTeardown();
 }

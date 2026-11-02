@@ -247,8 +247,14 @@ Input behavior is defined once and run everywhere:
 - It runs against the shared layer, fcitx5, Android, and the TSF mock in both
   native and interim delivery, and in both buffered and syllable commit modes.
 - Tier C (`docs/trace-spec.md`, `tests/conformance/`) is the cross-platform
-  event format. The Windows TSF emitter already exists for tier F1; it must be
-  extended to run the same corpus in both delivery modes.
+  event format. The Windows TSF emitter (tier F1) runs the corpus in BOTH
+  delivery modes since issue #185: every `tests/conformance/win32/*.trace.in`
+  is registered twice (`tsf-mock-native-<trace>` and
+  `tsf-mock-interim-<trace>`) against the same `.trace.gold`, so a divergence
+  between the modes fails one of them against the shared expectation. The
+  interim run reads the client control instead of a composition
+  (`frontends/tsf/test/mock-tsf-edit.h`), and the two modes' in-process
+  assertions differ only where §2.1 records a ruled difference.
 - A per-frontend test may drive a different interface, but it must not carry a
   second copy of the expectations.
 
