@@ -366,6 +366,70 @@ of §6.1 is likewise outside this corpus: every case uses
 `HUNMIN_COMMIT_AT_BOUNDARY`, and the judgement cannot run in PER_SYLLABLE at all
 (its earlier syllables are already in the client, which is R10's constraint).
 
+### 6.3 Every shipped layout now appears on some platform (measured 2026-11-03, #186)
+
+The corpus exercised 4 of the 15 shipped layouts: layout wiring is the class of
+regression tier C exists to catch, and 11 layouts had no adapter-path event at all.
+Each one now carries a **short word in its own key table** — `words-<layout>.trace.in`
+under `tests/conformance/{x11,android}/` — built by `tools/regen-layout-words.sh`:
+`tools/sin3p2-ksgen.py` searches the layout's own key table for the word's syllables
+(BFS with `hunmin-sim --batch` as the oracle), `tools/wordlist2golden.py` records the
+engine's per-key answer as a tier-A golden (`tests/golden/words-<layout>.jsonl`), and
+`tools/gen-conformance.py` copies those expectations into the platform's vocabulary.
+No expectation is typed by hand.
+
+Measured on this tree (`grep -ho '"layout": "[^"]*"' tests/conformance/*/*.trace.in |
+sort -u`): **15 of 15 layouts appear in at least one trace** — 12 on x11, 14 on android,
+4 on win32 (unchanged). What is NOT covered, named rather than implied:
+
+- **win32 for the 11 new layouts.** The TSF emitter can replay any of these goldens,
+  but a `.gold` must come from the runner (`tools/trace-check.py --emit`) on a Windows
+  host, and this host has none. Environment-bound, tracked on the board as
+  `TRACE-LAYOUTS-186-WIN32`.
+- **x11 for `colemak`, `dvorak`, `us-qwerty`.** Not a layout gap: a Latin layout commits
+  on every key, and the x11 dialect carries a commit only at a boundary event. The
+  reason and the measurement are `docs/trace-spec.md` "What a case can express on each
+  platform"; those three layouts are covered on android instead.
+- **Depth of the one-word probe.** `나` is one syllable, chosen because a multi-syllable
+  word finalises a syllable before the boundary, which the x11 dialect cannot carry. It
+  asserts layout wiring, composition of that layout's own key table, the boundary commit
+  and `consumed` — not the layout's depth, which tier A's parity walk carries.
+
+**The Latin layouts are measured by a text, not a word** (`tools/regen-cultural.sh`,
+`tests/golden/texts/pangram.txt`). A Latin key table is 47 keys — 26 letters, 10 digits,
+21 punctuation — and one English sentence reaches 27 of them (measured over
+`us-qwerty`, `colemak` and `dvorak`), because no sentence uses the digit or punctuation
+rows. The text therefore carries the pangram in both cases plus those two rows: measured
+**47 of 47 keys on all three layouts**, five cases, 167 key events, one batched android
+trace per layout. That is also why those three layouts no longer have a one-word probe:
+the text subsumes it.
+
+**A real text, for the same reason** (`tests/golden/texts/seosi.txt`, issue #227): 서시,
+one batched android trace per layout, and each layout reports what it could take.
+
+| layout | cases | events | what it could not take |
+|---|---|---|---|
+| `dubeolsik` | 11 of 11 | 308 | — (its punctuation has no key, so the client inserts it) |
+| `sin3-p2` | 11 of 11 | 310 | — (`'` is Shift+`j` and `/` is Shift+`'`) |
+
+A layout's reach over the text is a MEASUREMENT, not an assumption, and the measurement
+has to be made the right way. `tools/gen-cultural-golden.py` asks, per character: which
+single key event emits it? It probes the character itself AND every key of the layout
+with Shift held, and takes the first that renders it — three outcomes, three meanings:
+the layout spells it (it is delivered text), no such key (the adapter declines the event
+and the client inserts the character, which is every symbol on `dubeolsik`), or nothing
+emits it (untypeable). Reading that from the data file instead is what got `sin3-p2`
+wrong once: its values are nested `case` trees and its `'`/`/` live on the SHIFT of
+other keys, so a flat `=x` lookup reported the imprint line as untakeable — measured
+`J` → `'` and `"` → `/`, and the line is in the corpus.
+
+Two more things the artefact states rather than hides: hanja (`序詩`) is a
+`hanja_segments` run — no layout emits it, so no key event can assert it, but an
+environment that can enter hanja can evaluate the title line — and a syllable's
+keystroke is found in its layout's own terms (`sin3p2-ksgen.py`'s BFS where a table
+suffices, `jamo-keytable.py`'s cho/jung/jong probe on a 세벌식 automaton, where the BFS
+reached 81 of 124 targets and neither 없 nor 워).
+
 ## 7. Live TSF tests
 
 Requirement: a live TSF run must not leave the worktree registered or otherwise

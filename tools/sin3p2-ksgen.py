@@ -56,9 +56,63 @@ def key_alphabet(layout):
     that only exist there (ㄲ), it just loses the ties it has no right to win.
     """
     d = json.loads((DATA / f"layouts/{layout}.json").read_text(encoding="utf-8"))
-    keys = set(d["keys"])
-    keys |= {k.upper() for k in d["keys"] if len(k) == 1 and k.isalpha()}
-    return sorted(keys, key=lambda c: (c.isupper(), c))
+    # Tokens, not bare characters: hunmin-sim spells Shift as `\s<key>` and a
+    # literal backslash as `\\`, so a key whose id IS one of those characters
+    # must be written escaped. Getting this wrong is not subtle -- the sim dies
+    # with "unknown key escape" -- so the alphabet is built one token at a time.
+    #
+    # The `\s<key>` tokens are what make the SHIFTED PUNCTUATION row reachable:
+    # `!` lives on the `1` position's shift form, and a shifted symbol has no
+    # uppercase letter to spell it, so without these entries a target like `!`
+    # or `~` is not in the alphabet at all and the English evaluation text
+    # (tests/golden/texts/pangram.txt) could never cover that row.
+    tokens: dict[str, tuple[bool, str]] = {}
+
+    def add(key_id: str, shift: bool = False) -> None:
+        if shift:
+            tok = "\\s" + key_id
+        elif key_id == "\\":
+            tok = "\\\\"
+        else:
+            tok = key_id
+        tokens.setdefault(tok, (shift or key_id.isupper(), key_id))
+
+    for key_id, forms in d["keys"].items():
+        add(key_id)
+        if len(key_id) == 1 and key_id.isalpha():
+            add(key_id.upper())
+        v = forms.get("shift")
+        if (isinstance(v, str) and v.startswith("=") and len(v) == 2
+                and not (len(key_id) == 1 and key_id.isalpha())):
+            # A NON-letter key's literal shift row: `=!` on `1`, `=~` on `` ` ``.
+            # Letters are already covered by their uppercase form, and spelling
+            # them as `\s`+key as well made the BFS prefer the escape (its
+            # tie-break counts uppercase), which put {"ch":"t","shift":true}
+            # in the golden where tier A means {"ch":"T"}.
+            add(key_id, shift=True)
+    return sorted(tokens, key=lambda t: tokens[t])
+
+
+def split_keys(s):
+    """Split a hunmin-sim keystroke string into tokens, escape-aware.
+
+    `\s1` is ONE token (Shift + the `1` position) and `\\` is one (a literal
+    backslash), so anything that walks a keystroke string character by character
+    is wrong the moment the alphabet carries escapes.
+    """
+    out, i = [], 0
+    while i < len(s):
+        if s[i] == "\\" and i + 1 < len(s):
+            if s[i + 1] == "s" and i + 2 < len(s):
+                out.append(s[i:i + 3])
+                i += 3
+                continue
+            out.append(s[i:i + 2])
+            i += 2
+            continue
+        out.append(s[i])
+        i += 1
+    return out
 
 
 def evaluate(keys_list, layout):
@@ -184,10 +238,16 @@ def verify_shift_variants(found, layout):
     """
     variants = {}
     for target, keys in found.items():
+        toks = split_keys(keys)
         toggles = []
-        for i, c in enumerate(keys):
-            if c.isalpha():
-                shifted = keys[:i] + c.upper() + keys[i+1:]
+        for i, tok in enumerate(toks):
+            # Only a token that IS a letter key may be shifted. A `\s1` or `\\`
+            # escape is syntax, and toggling the `s` inside it produced `\S1`,
+            # which the sim rejects as an unknown escape -- measured on the
+            # English punctuation targets, where every found keystroke is an
+            # escape. Escapes are already a shift; they are left alone.
+            if len(tok) == 1 and tok.isalpha():
+                shifted = "".join(toks[:i] + [tok.upper()] + toks[i+1:])
                 if shifted != keys:
                     toggles.append(shifted)
         variants[target] = toggles

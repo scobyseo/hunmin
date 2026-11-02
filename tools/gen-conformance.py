@@ -121,11 +121,20 @@ def win32_event(ch: str) -> dict:
 
 
 def android_event(ch: str) -> dict:
+    """One Android event: the character's OWN code, not its lowercase.
+
+    The engine derives Shift from the key id's case (`hunmin_ic_process("K")` is
+    Shift+k), and a tier-A golden writes a shifted key that way, so lowering the
+    character here replayed the unshifted key -- measured on
+    tests/golden/cultural-pangram-*.jsonl, whose second line is the same pangram
+    in capitals and whose android trace asserted `t` where tier A says `T`.
+    `shift_char` above resolves a `"shift": true` record to its character before
+    it reaches this function, so a shifted SYMBOL arrives already spelled.
+    """
     if ch == "\\b":
         return {"keycode": ANDROID_KEYCODES["backspace"], "mods": 0}
-    low = ch.lower()
-    if low in ANDROID_KEYCODES:
-        return {"keycode": ANDROID_KEYCODES[low], "mods": 0}
+    if ch in ANDROID_KEYCODES:
+        return {"keycode": ANDROID_KEYCODES[ch], "mods": 0}
     raise SystemExit(f"no Android keycode known for {ch!r} (U+{ord(ch):04X})")
 
 

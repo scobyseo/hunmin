@@ -1,0 +1,322 @@
+{"meta": {"layout": "sin3-p2", "text": "seosi.txt", "tool": "tools/gen-cultural-golden.py", "method": "keys per character from tools/sin3p2-ksgen.py (BFS over the layout's own key table, hunmin-sim --batch oracle); a character with no keystroke is read from the layout's literal keys; each line is re-typed whole and kept only if the engine composes its characters; expectations are hunmin-sim --trace output, never typed", "not_in_the_events": "the boundary (space) and literal (punctuation) keys: the engine declines them, so the client inserts the character and the trace records consumed=false for that event", "assembly": "a syllable's keystroke found from an empty buffer carries leading signal keys that type a stray jamo mid-line, so each line is assembled with those signals kept or dropped and the ENGINE picks the variant that composes", "cases": "11 of 11 lines"}}
+{"meta": {"case": "line-18", "text": "    윤동주 <서시(序詩)>", "keys": "    jasu/alb <nrnd()>", "hanja_segments": [{"hanja": "序詩", "because": "no layout emits hanja: a frontend delivers it through hanja conversion (docs/SPEC-MODES.md), so this run has no key events and no tier-A expectation -- an environment that can enter hanja evaluates it, a key-event replay cannot"}]}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "a"}, "commit": "", "preedit": "유"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "윤"}
+{"in": {"ch": "u"}, "commit": "윤", "preedit": "ㄷ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "도"}
+{"in": {"ch": "a"}, "commit": "", "preedit": "동"}
+{"in": {"ch": "l"}, "commit": "동", "preedit": "ㅈ"}
+{"in": {"ch": "b"}, "commit": "", "preedit": "주"}
+{"in": {"ch": " "}, "commit": "주", "preedit": ""}
+{"in": {"ch": "<"}, "commit": "<", "preedit": ""}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "서"}
+{"in": {"ch": "n"}, "commit": "서", "preedit": "ㅅ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "시"}
+{"in": {"ch": "("}, "commit": "시(", "preedit": ""}
+{"in": {"ch": ")"}, "commit": ")", "preedit": ""}
+{"in": {"ch": ">"}, "commit": ">", "preedit": ""}
+{"meta": {"case": "line-20", "text": "죽는 날까지 하늘을 우러러", "keys": "lbchgs hfwkkfld mfhgwjgw jbyryr"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "b"}, "commit": "", "preedit": "주"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "죽"}
+{"in": {"ch": "h"}, "commit": "죽", "preedit": "ㄴ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "느"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "는"}
+{"in": {"ch": " "}, "commit": "는", "preedit": ""}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "나"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "날"}
+{"in": {"ch": "k"}, "commit": "날", "preedit": "ㄱ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄲ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "까"}
+{"in": {"ch": "l"}, "commit": "까", "preedit": "ㅈ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "지"}
+{"in": {"ch": " "}, "commit": "지", "preedit": ""}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "하"}
+{"in": {"ch": "h"}, "commit": "하", "preedit": "ㄴ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "느"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "늘"}
+{"in": {"ch": "j"}, "commit": "늘", "preedit": "ㅇ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "으"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "을"}
+{"in": {"ch": " "}, "commit": "을", "preedit": ""}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "b"}, "commit": "", "preedit": "우"}
+{"in": {"ch": "y"}, "commit": "우", "preedit": "ㄹ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "러"}
+{"in": {"ch": "y"}, "commit": "러", "preedit": "ㄹ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "러"}
+{"meta": {"case": "line-21", "text": "한 점 부끄럼이 없기를", "keys": "mfs lrz ;bkkgyrzjd jreqkdygw"}}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "하"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "한"}
+{"in": {"ch": " "}, "commit": "한", "preedit": ""}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "저"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "점"}
+{"in": {"ch": " "}, "commit": "점", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "b"}, "commit": "", "preedit": "부"}
+{"in": {"ch": "k"}, "commit": "부", "preedit": "ㄱ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄲ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "끄"}
+{"in": {"ch": "y"}, "commit": "끄", "preedit": "ㄹ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "러"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "럼"}
+{"in": {"ch": "j"}, "commit": "럼", "preedit": "ㅇ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "이"}
+{"in": {"ch": " "}, "commit": "이", "preedit": ""}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "어"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "업"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "없"}
+{"in": {"ch": "k"}, "commit": "없", "preedit": "ㄱ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "기"}
+{"in": {"ch": "y"}, "commit": "기", "preedit": "ㄹ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "르"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "를"}
+{"meta": {"case": "line-22", "text": "잎새에 이는 바람에도", "keys": "jdfnejc jdhgs ;fyfzjcu/"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "이"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "잎"}
+{"in": {"ch": "n"}, "commit": "잎", "preedit": "ㅅ"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "새"}
+{"in": {"ch": "j"}, "commit": "새", "preedit": "ㅇ"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "에"}
+{"in": {"ch": " "}, "commit": "에", "preedit": ""}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "이"}
+{"in": {"ch": "h"}, "commit": "이", "preedit": "ㄴ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "느"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "는"}
+{"in": {"ch": " "}, "commit": "는", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "바"}
+{"in": {"ch": "y"}, "commit": "바", "preedit": "ㄹ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "라"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "람"}
+{"in": {"ch": "j"}, "commit": "람", "preedit": "ㅇ"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "에"}
+{"in": {"ch": "u"}, "commit": "에", "preedit": "ㄷ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "도"}
+{"meta": {"case": "line-23", "text": "나는 괴로워했다.", "keys": "hfhgs k/dy/jormexuf."}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "나"}
+{"in": {"ch": "h"}, "commit": "나", "preedit": "ㄴ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "느"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "는"}
+{"in": {"ch": " "}, "commit": "는", "preedit": ""}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "괴"}
+{"in": {"ch": "y"}, "commit": "괴", "preedit": "ㄹ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "로"}
+{"in": {"ch": "j"}, "commit": "로", "preedit": "ㅇ"}
+{"in": {"ch": "o"}, "commit": "", "preedit": "우"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "워"}
+{"in": {"ch": "m"}, "commit": "워", "preedit": "ㅎ"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "해"}
+{"in": {"ch": "x"}, "commit": "", "preedit": "했"}
+{"in": {"ch": "u"}, "commit": "했", "preedit": "ㄷ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "다"}
+{"in": {"ch": "."}, "commit": "다.", "preedit": ""}
+{"meta": {"case": "line-24", "text": "별을 노래하는 마음으로", "keys": ";twjgw h/yemfhgs ifjgzjgy/"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "t"}, "commit": "", "preedit": "벼"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "별"}
+{"in": {"ch": "j"}, "commit": "별", "preedit": "ㅇ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "으"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "을"}
+{"in": {"ch": " "}, "commit": "을", "preedit": ""}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "노"}
+{"in": {"ch": "y"}, "commit": "노", "preedit": "ㄹ"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "래"}
+{"in": {"ch": "m"}, "commit": "래", "preedit": "ㅎ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "하"}
+{"in": {"ch": "h"}, "commit": "하", "preedit": "ㄴ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "느"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "는"}
+{"in": {"ch": " "}, "commit": "는", "preedit": ""}
+{"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "마"}
+{"in": {"ch": "j"}, "commit": "마", "preedit": "ㅇ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "으"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "음"}
+{"in": {"ch": "j"}, "commit": "음", "preedit": "ㅇ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "으"}
+{"in": {"ch": "y"}, "commit": "으", "preedit": "ㄹ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "로"}
+{"meta": {"case": "line-25", "text": "모든 죽어 가는 것을 사랑해야지.", "keys": "i/ugs lbcjr kfhgs krqjgw nfyfamejwld."}}
+{"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "모"}
+{"in": {"ch": "u"}, "commit": "모", "preedit": "ㄷ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "드"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "든"}
+{"in": {"ch": " "}, "commit": "든", "preedit": ""}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "b"}, "commit": "", "preedit": "주"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "죽"}
+{"in": {"ch": "j"}, "commit": "죽", "preedit": "ㅇ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "어"}
+{"in": {"ch": " "}, "commit": "어", "preedit": ""}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "가"}
+{"in": {"ch": "h"}, "commit": "가", "preedit": "ㄴ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "느"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "는"}
+{"in": {"ch": " "}, "commit": "는", "preedit": ""}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "거"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "것"}
+{"in": {"ch": "j"}, "commit": "것", "preedit": "ㅇ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "으"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "을"}
+{"in": {"ch": " "}, "commit": "을", "preedit": ""}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "사"}
+{"in": {"ch": "y"}, "commit": "사", "preedit": "ㄹ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "라"}
+{"in": {"ch": "a"}, "commit": "", "preedit": "랑"}
+{"in": {"ch": "m"}, "commit": "랑", "preedit": "ㅎ"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "해"}
+{"in": {"ch": "j"}, "commit": "해", "preedit": "ㅇ"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "야"}
+{"in": {"ch": "l"}, "commit": "야", "preedit": "ㅈ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "지"}
+{"in": {"ch": "."}, "commit": "지.", "preedit": ""}
+{"meta": {"case": "line-26", "text": "그리고 나한테 주어진 길을", "keys": "kgydk/ hfmfs'c lbjrlds kdwjgw"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "그"}
+{"in": {"ch": "y"}, "commit": "그", "preedit": "ㄹ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "리"}
+{"in": {"ch": "k"}, "commit": "리", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": " "}, "commit": "고", "preedit": ""}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "나"}
+{"in": {"ch": "m"}, "commit": "나", "preedit": "ㅎ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "하"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "한"}
+{"in": {"ch": "'"}, "commit": "한", "preedit": "ㅌ"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "테"}
+{"in": {"ch": " "}, "commit": "테", "preedit": ""}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "b"}, "commit": "", "preedit": "주"}
+{"in": {"ch": "j"}, "commit": "주", "preedit": "ㅇ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "어"}
+{"in": {"ch": "l"}, "commit": "어", "preedit": "ㅈ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "지"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "진"}
+{"in": {"ch": " "}, "commit": "진", "preedit": ""}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "기"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "길"}
+{"in": {"ch": "j"}, "commit": "길", "preedit": "ㅇ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "으"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "을"}
+{"meta": {"case": "line-27", "text": "걸어가야겠다.", "keys": "krwjrkfjwkcxuf."}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "거"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "걸"}
+{"in": {"ch": "j"}, "commit": "걸", "preedit": "ㅇ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "어"}
+{"in": {"ch": "k"}, "commit": "어", "preedit": "ㄱ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "가"}
+{"in": {"ch": "j"}, "commit": "가", "preedit": "ㅇ"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "야"}
+{"in": {"ch": "k"}, "commit": "야", "preedit": "ㄱ"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "게"}
+{"in": {"ch": "x"}, "commit": "", "preedit": "겠"}
+{"in": {"ch": "u"}, "commit": "겠", "preedit": "ㄷ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "다"}
+{"in": {"ch": "."}, "commit": "다.", "preedit": ""}
+{"meta": {"case": "line-29", "text": "오늘 밤에도 별이 바람에 스치운다.", "keys": "j/hgw ;fzjcu/ ;twjd ;fyfzjc ngodjbsuf."}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "h"}, "commit": "오", "preedit": "ㄴ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "느"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "늘"}
+{"in": {"ch": " "}, "commit": "늘", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "바"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "밤"}
+{"in": {"ch": "j"}, "commit": "밤", "preedit": "ㅇ"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "에"}
+{"in": {"ch": "u"}, "commit": "에", "preedit": "ㄷ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "도"}
+{"in": {"ch": " "}, "commit": "도", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "t"}, "commit": "", "preedit": "벼"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "별"}
+{"in": {"ch": "j"}, "commit": "별", "preedit": "ㅇ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "이"}
+{"in": {"ch": " "}, "commit": "이", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "바"}
+{"in": {"ch": "y"}, "commit": "바", "preedit": "ㄹ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "라"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "람"}
+{"in": {"ch": "j"}, "commit": "람", "preedit": "ㅇ"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "에"}
+{"in": {"ch": " "}, "commit": "에", "preedit": ""}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "스"}
+{"in": {"ch": "o"}, "commit": "스", "preedit": "ㅊ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "치"}
+{"in": {"ch": "j"}, "commit": "치", "preedit": "ㅇ"}
+{"in": {"ch": "b"}, "commit": "", "preedit": "우"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "운"}
+{"in": {"ch": "u"}, "commit": "운", "preedit": "ㄷ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "다"}
+{"in": {"ch": "."}, "commit": "다.", "preedit": ""}
+{"meta": {"case": "line-31", "text": "    ['하늘과 바람과 별과 시' / 1948]", "keys": "    [\\sjmfhgwk/f ;fyfzk/f ;twk/f nd\\sj \\s' 1948]"}}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "["}, "commit": "[", "preedit": ""}
+{"in": {"ch": "j", "shift": true}, "commit": "'", "preedit": ""}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "하"}
+{"in": {"ch": "h"}, "commit": "하", "preedit": "ㄴ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "느"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "늘"}
+{"in": {"ch": "k"}, "commit": "늘", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "과"}
+{"in": {"ch": " "}, "commit": "과", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "바"}
+{"in": {"ch": "y"}, "commit": "바", "preedit": "ㄹ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "라"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "람"}
+{"in": {"ch": "k"}, "commit": "람", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "과"}
+{"in": {"ch": " "}, "commit": "과", "preedit": ""}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "t"}, "commit": "", "preedit": "벼"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "별"}
+{"in": {"ch": "k"}, "commit": "별", "preedit": "ㄱ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "과"}
+{"in": {"ch": " "}, "commit": "과", "preedit": ""}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "시"}
+{"in": {"ch": "j", "shift": true}, "commit": "시'", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "'", "shift": true}, "commit": "/", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "1"}, "commit": "1", "preedit": ""}
+{"in": {"ch": "9"}, "commit": "9", "preedit": ""}
+{"in": {"ch": "4"}, "commit": "4", "preedit": ""}
+{"in": {"ch": "8"}, "commit": "8", "preedit": ""}
+{"in": {"ch": "]"}, "commit": "]", "preedit": ""}

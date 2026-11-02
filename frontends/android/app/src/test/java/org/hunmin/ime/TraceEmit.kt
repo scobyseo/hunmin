@@ -104,8 +104,12 @@ object TraceEmit {
             System.exit(2)
         }
 
-        // Create input context
-        val ic = HunminNativeBridge.nativeIcNew(ctx, layout)
+        // Create input context. `var`, because a batch file resets it at every
+        // {"meta": {"case": ...}} separator (docs/trace-spec.md "Multi-case
+        // batch files"): tier A replays each case from a clean engine, and a
+        // runner that keeps one context would carry case N's composition into
+        // case N+1 -- the TSF emitter has done this since issue #80.
+        var ic = HunminNativeBridge.nativeIcNew(ctx, layout)
         if (ic == 0L) {
             System.err.println("trace-emit: hunmin_ic_new failed for layout '$layout'")
             System.exit(2)
@@ -130,7 +134,18 @@ object TraceEmit {
 
         for (i in 1 until lines.size) {
             val line = lines[i]
-            if (line.contains("\"meta\"")) continue
+            if (line.contains("\"meta\"")) {
+                // Case separator: a fresh engine, exactly as tier A replays it.
+                HunminNativeBridge.nativeIcFree(ic)
+                ic = HunminNativeBridge.nativeIcNew(ctx, layout)
+                if (ic == 0L) {
+                    System.err.println("trace-emit: hunmin_ic_new failed at a case separator")
+                    System.exit(2)
+                }
+                previousPreedit = ""
+                println(line)
+                continue
+            }
 
             val rec = parseJson(line)
             val inObj = rec["in"] as? Map<String, Any>
@@ -138,8 +153,9 @@ object TraceEmit {
 
             val keyCode = (inObj["keycode"] as? Number)?.toInt() ?: 0
             val mods = (inObj["mods"] as? Number)?.toInt() ?: 0
-
-            // Feed key to engine
+            // Feed key to engine. A shifted key arrives as its own resolved
+            // character (tools/gen-conformance.py's shift_char), so the engine's
+            // case-derived shift is the whole encoding here.
             val used = HunminNativeBridge.nativeProcess(ic, keyCode)
 
             var actualCommit = ""
@@ -173,11 +189,12 @@ object TraceEmit {
             // Emit trace line in the same format as input (docs/trace-spec.md)
             // Use EXPECTED commit (from trace file) and ACTUAL preedit (from engine)
             // This matches fcitx5 trace-emit.cpp behavior
+            // Echo the `in` the trace gave us, field for field. The corpus
+            // encodes Shift in the key id's own case (docs/SPEC-SCHEMA.md), so
+            // the echo carries exactly what the `.in` carried.
+            val inEcho = mapOf("keycode" to keyCode, "mods" to mods)
             val out = mapOf(
-                "in" to mapOf(
-                    "keycode" to keyCode,
-                    "mods" to mods
-                ),
+                "in" to inEcho,
                 "commit" to expected,
                 "preedit" to preedit,
                 "consumed" to used

@@ -471,10 +471,13 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**14 traces, 598 events**, registered as ctest
+**22 traces, 622 events**, registered as ctest
 `conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
 that every tier-A case of every family the corpus replays has a trace and that every
-trace belongs to a recorded family (`tools/conformance-coverage.py`).
+trace belongs to a recorded family (`tools/conformance-coverage.py`). Eight of the
+twenty-two are the per-layout word probes of issue #186 (`words-<layout>`, one case
+each), which is also what closes that issue's coverage hole: every shipped layout now
+appears on some platform, and `docs/FRONTEND-EQUIVALENCE.md` §6.3 records which.
 
 **One trace per family, since 2026-11-03.** A case boundary in tier A is state, so a
 merge is only free when the cases also replay identically as ONE stream — measured, not

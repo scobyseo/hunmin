@@ -1,0 +1,4 @@
+{"meta": {"platform": "android", "layout": "sebeolsik-yet", "case": "나", "source": "words-sebeolsik-yet.jsonl (words-conformance-hangul.txt words; keys per syllable from tools/sin3p2-ksgen.py (BFS, hunmin-sim --batch oracle))"}}
+{"in":{"keycode":104,"mods":0},"commit":"","preedit":"ㄴ","consumed":true}
+{"in":{"keycode":102,"mods":0},"commit":"","preedit":"나","consumed":true}
+{"in":{"keycode":32,"mods":0},"commit":"나","preedit":"","consumed":false}
