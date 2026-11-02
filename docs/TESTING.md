@@ -595,7 +595,7 @@ Measured 2026-11-03 (`tier-c-wiring-coverage.py`, this host):
 |---|---|---|---|---|
 | x11 | 355 | 263 | 92 | 24/47, 14/47, 19/47 (p2, basic, yet) |
 | win32 | 688 | 490 | 198 | 27/47, 13/47, 17/47 |
-| android | 35 | 31 | 4 | 14/47 |
+| android | 48 | 31 | 17 | 14/47 |
 
 Three gaps that follow, none of them a defect in a frontend:
 
@@ -630,11 +630,12 @@ the expectations must not be duplicated per frontend.
 
 The Android corpus **runs** (corrected 2026-11-03; the paragraph here said it had "one
 `.trace.in` and no `.gold`", which the tree stopped matching). `tests/conformance/android/`
-holds 15 `.trace.in` and 15 `.trace.gold`, generated from one tier-A golden
-(`p2-2-1-basic.jsonl`, layout `sin3-p2-basic`), and `tools/android-trace-emit.sh` is the
+holds 2 traces and their `.gold`: `basic-syllables` generated from one tier-A golden
+(`p2-2-1-basic.jsonl`, layout `sin3-p2-basic`, one case since the 2026-11-03 merge) and one
+designed trace, `shift-arrow-selection`. `tools/android-trace-emit.sh` is the
 runner: it replays each trace through the Android adapter on the host JVM via the JNI shim
 (no emulator, one cached classpath, `java` per trace), emitting the observed trace for
-`trace-check.py` to diff. All 15 register as `engine-android-conformance-*` and pass here;
+`trace-check.py` to diff. Both register as `engine-android-conformance-*` and pass here;
 where there is no JDK, shim or SDK the runner exits 77 and the tests skip, which is what
 the earlier note was reading.
 
