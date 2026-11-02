@@ -66,14 +66,25 @@ if(Python3_EXECUTABLE)
   # tier C does it (docs/TESTING.md "Why labels rather than a -R regex").
   file(GLOB HUNMIN_TSF_CONFORMANCE_TRACES
        "${HUNMIN_TSF_REPO_ROOT}/tests/conformance/win32/*.trace.in")
+  # The corpus replays in BOTH of TSF's delivery modes (issue #185,
+  # docs/FRONTEND-EQUIVALENCE.md §2/§6): the mode is the only difference
+  # between the two entries, so the same .trace.in and the same .gold are the
+  # expectation for both, and a divergence between the modes shows up as one of
+  # them failing against the shared expectation. The mode is passed to the
+  # runner explicitly on both sides -- a default would make the native entry
+  # silently depend on the runner's own fallback.
   foreach(t IN LISTS HUNMIN_TSF_CONFORMANCE_TRACES)
     file(RELATIVE_PATH rel "${HUNMIN_TSF_REPO_ROOT}" "${t}")
     string(REGEX REPLACE "[^A-Za-z0-9._-]" "_" name "${rel}")
-    add_test(NAME tsf-mock-${name}
+    add_test(NAME tsf-mock-native-${name}
       COMMAND ${Python3_EXECUTABLE}
               ${HUNMIN_TSF_REPO_ROOT}/tools/trace-check.py "${t}"
-              --runner $<TARGET_FILE:tsf-trace-emit>)
-    set_tests_properties(tsf-mock-${name} PROPERTIES
+              --runner "$<TARGET_FILE:tsf-trace-emit> --delivery native")
+    add_test(NAME tsf-mock-interim-${name}
+      COMMAND ${Python3_EXECUTABLE}
+              ${HUNMIN_TSF_REPO_ROOT}/tools/trace-check.py "${t}"
+              --runner "$<TARGET_FILE:tsf-trace-emit> --delivery interim")
+    set_tests_properties(tsf-mock-native-${name} tsf-mock-interim-${name} PROPERTIES
       LABELS "tier-F1"
       SKIP_RETURN_CODE 77
       TIMEOUT 120)

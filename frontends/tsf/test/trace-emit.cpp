@@ -9,7 +9,16 @@
  * result as JSONL for tools/trace-check.py to diff against the expectation
  * tier A implies -- the same gate fcitx5 tier C applies.
  *
- * Usage: tsf-trace-emit <case>.trace.in
+ * Usage: tsf-trace-emit <case>.trace.in [--delivery native|interim]
+ *
+ * The delivery mode is a REGISTRATION seam, not a trace field (issue #185):
+ * docs/FRONTEND-EQUIVALENCE.md §2 requires the same commit / preedit /
+ * consumed in both of TSF's delivery modes, so the same corpus with the same
+ * expectations replays twice - once through the native composition path, once
+ * through the interim document-span path. The second has no composition to
+ * observe, so its assertion channel is the document the mode actually writes:
+ * the mock's edit-control channel (mock-tsf-edit.h), read the same way the
+ * mock's own document is.
  *
  * Exit 0 diff-clean output, 1 assertion failed, 2 bad input,
  * 77 skip (engine data unavailable -- the runner/toolchain-absent path).
@@ -27,6 +36,7 @@
 #include <vector>
 #include <windows.h>
 
+#include "mock-tsf-edit.h"
 #include "mock-tsf.h"
 #include "tsf-testdir.h"
 
@@ -223,11 +233,33 @@ int main(int argc, char **argv) {
     _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
 #endif
-    if (argc < 2) {
-        std::cerr << "usage: tsf-trace-emit <case>.trace.in\n";
+    /* argv: the trace, plus the delivery mode this replay runs in (issue
+     * #185). The mode is a registration seam, not a trace field: one ctest
+     * entry per mode passes its own value, so the SAME .trace.in and .gold are
+     * the expectation for both. */
+    std::string tracePath;
+    std::string delivery = "native";
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--delivery") {
+            if (i + 1 >= argc) {
+                std::cerr << "usage: tsf-trace-emit <case>.trace.in [--delivery native|interim]\n";
+                return 2;
+            }
+            delivery = argv[++i];
+        } else if (!arg.empty() && arg[0] == '-') {
+            std::cerr << "tsf-trace-emit: unknown option " << arg << "\n";
+            return 2;
+        } else {
+            tracePath = arg;
+        }
+    }
+    if (tracePath.empty() || (delivery != "native" && delivery != "interim")) {
+        std::cerr << "usage: tsf-trace-emit <case>.trace.in [--delivery native|interim]\n";
         return 2;
     }
-    const auto lines = readLines(argv[1]);
+    const bool interim = delivery == "interim";
+    const auto lines = readLines(tracePath);
     if (lines.empty() || lines[0].find("\"meta\"") == std::string::npos) {
         std::cerr << "tsf-trace-emit: line 1 must be meta (docs/trace-spec.md)\n";
         return 2;
@@ -255,18 +287,41 @@ int main(int argc, char **argv) {
     }
     _putenv_s("HUNMIN_TSF_HANGUL_LAYOUT", traceLayout.c_str());
     _putenv_s("HUNMIN_TSF_LATIN_LAYOUT", "us-qwerty");
+    /* The delivery seam (issue #185): the adapter's own forced-mode hatch
+     * (tsf.cpp DetectLegacyMode). Cleared for a native run too, so a value a
+     * sibling case or the caller's environment leaked cannot flip the mode
+     * under a run that is supposed to measure the composition path. */
+    _putenv_s("HUNMIN_TSF_INTERIM", interim ? "1" : "");
 
     tsfmock::MockThreadMgr *tm = nullptr;
     tsfmock::MockContext *ctx = nullptr;
     tsfmock::MockDocumentMgr *dm = nullptr;
     CTextService *svc = nullptr;
 
+    /* The interim mode's client (issue #185): a real control window that holds
+     * a document the way MockContext::doc holds the TSF one, and records every
+     * write with the span it replaced. Created for BOTH modes - the native path
+     * must be measurably indifferent to it - and reset with each case's own
+     * CTextService (the delivery resolves the control by focus and counts its
+     * span from zero, so the two must start from the same state). */
+    tsfmock::MockEditControl edit;
+    if (!edit.Create()) {
+        std::cerr << "skip: the mock's edit-control channel could not be created\n";
+        std::exit(77);
+    }
+
     // One adapter+mock setup per case. A batch file separates cases with
     // {"meta": {"case": ...}} lines; each case starts from a clean engine
     // and a clean mock document (docs/trace-spec.md "Multi-case batch
     // files"), the same isolation tier A gives every case.
     auto SvcSnap = [&]() { return svc->Snapshot(); };
+    /* Tier A's preedit (the engine's in-flight buffer) and, per issue #185, the
+     * document THIS mode writes: the mock's document under the native path, the
+     * client control under the interim one. One set of expectations reads both. */
+    auto Preedit = [&]() { return std::string(SvcSnap().layer ? hunmin_buffered_preedit_composing(SvcSnap().layer) : ""); };
+    auto DocText = [&]() { return wideToUtf8(interim ? edit.doc() : ctx->doc); };
     auto startRun = [&]() {
+        edit.Reset(); // a clean client, like the clean engine below
         tm = new tsfmock::MockThreadMgr(); // ref 1
         ctx = new tsfmock::MockContext(); // ref 1
         dm = new tsfmock::MockDocumentMgr(ctx); // ref 1
@@ -342,13 +397,24 @@ int main(int argc, char **argv) {
         const std::wstring wordBefore = SvcSnap().finished;
         const int endsBefore = ctx->compositionEnds;
         const size_t insertsBefore = ctx->insertions.size();
+        const std::string docBefore = DocText();
+        const size_t writesBefore = edit.writeCount();
 
         BOOL testEat = FALSE;
         svc->OnTestKeyDown(ctx, (WPARAM)vk, (LPARAM)scan, &testEat);
         BOOL eat = FALSE;
         svc->OnKeyDown(ctx, (WPARAM)vk, (LPARAM)scan, &eat);
+        /* The interim write is POSTED (delivery.cpp: never inside a TSF
+         * callback - the measured focus storm), so settle it here, exactly as
+         * the live host does at the entry of its next key event. The native
+         * delivery's FlushPending is a documented no-op. */
+        svc->FlushPendingDocWrites();
 
         const size_t insertsAfter = ctx->insertions.size();
+        // Tier A's preedit is the engine's in-flight buffer after the key.
+        const std::string preedit = Preedit();
+        const std::string docAfter = DocText();
+        const size_t writesAfter = edit.writeCount();
         // Collect the SetText payloads this event produced (0 or 1; more is
         // a buffering violation caught by the assertion below).
         std::string insertedUtf8;
@@ -364,7 +430,22 @@ int main(int argc, char **argv) {
         const std::string beforeUtf8 = wideToUtf8(wordBefore);
         const std::string afterUtf8 = wideToUtf8(SvcSnap().finished);
         std::string commit;
-        if (insertsAfter > insertsBefore) {
+        if (interim) {
+            /* Under the interim delivery the control IS the document: the
+             * writer appends the newly finished half and rewrites the span
+             * with the syllable in flight (delivery.cpp InterimWrite), so the
+             * text always reads [cumulative commits][preedit]. Stripping the
+             * span gives this event's commit - the same tier-A quantity the
+             * native branches below reconstruct from the composition. */
+            if (docAfter.size() < preedit.size() || docAfter.compare(docAfter.size() - preedit.size(), preedit.size(), preedit) != 0)
+                fail("event " + std::to_string(i) + ": the control's text \"" + docAfter + "\" does not end with the in-flight preedit \"" + preedit +
+                     "\"");
+            const std::string cumulativeNow = docAfter.substr(0, docAfter.size() - preedit.size());
+            if (cumulativeNow.size() < cumulativeCommits.size() || cumulativeNow.compare(0, cumulativeCommits.size(), cumulativeCommits) != 0)
+                fail("event " + std::to_string(i) + ": the control no longer carries the committed prefix \"" + cumulativeCommits + "\" (holds \"" +
+                     cumulativeNow + "\")");
+            commit = cumulativeNow.substr(cumulativeCommits.size());
+        } else if (insertsAfter > insertsBefore) {
             if (insertedUtf8.size() < beforeUtf8.size() || insertedUtf8.compare(0, beforeUtf8.size(), beforeUtf8) != 0)
                 fail("insert at event " + std::to_string(i) + " does not extend the buffered word: contract break");
             commit = insertedUtf8.substr(beforeUtf8.size());
@@ -384,13 +465,26 @@ int main(int argc, char **argv) {
                 fail("word buffer shrank without an insert at event " + std::to_string(i));
             commit = afterUtf8.substr(beforeUtf8.size());
         }
-        // Tier A's preedit is the engine's in-flight buffer after the key.
-        const std::string preedit = std::string(SvcSnap().layer ? hunmin_buffered_preedit_composing(SvcSnap().layer) : "");
 
         // The buffering contract itself (issue #73, requirement 3 of the
         // tier): nothing may be inserted while the engine consumes keys;
-        // at a boundary exactly one session must carry the whole word.
-        if (consumedExpected) {
+        // at a boundary exactly one session must carry the whole word. It is a
+        // statement about the TSF channels, so the native mode owns it; the
+        // interim mode's equivalent is its channel proof in this block.
+        if (interim) {
+            /* Issue #185: under the interim delivery the client's text arrives
+             * ONLY through the control's own EDIT-family messages, and only
+             * when the writer wrote - a document that moved with no write means
+             * the mode is not the one under test, and a TSF delivery here means
+             * the same. The PREEDIT may move with no write: at a boundary the
+             * span is closed by resetting the layer, and the syllable it showed
+             * is already document text (delivery.cpp InterimDrain). */
+            if (ctx->compositionStarts != 0 || !ctx->insertions.empty())
+                fail("event " + std::to_string(i) + ": interim mode delivered through TSF (composition starts " +
+                     std::to_string(ctx->compositionStarts) + ", plain inserts " + std::to_string(ctx->insertions.size()) + ")");
+            if (docAfter != docBefore && writesAfter == writesBefore)
+                fail("event " + std::to_string(i) + ": the control's text moved with no write through the edit-control channel");
+        } else if (consumedExpected) {
             if (insertsAfter != insertsBefore)
                 fail("event " + std::to_string(i) + " inserted while the engine consumed the key");
             // The composition shows the buffers (issue #98): never a plain
@@ -421,11 +515,19 @@ int main(int argc, char **argv) {
         // composition range holds the whole buffered word plus the in-flight
         // preedit), so the document now carries cumulativeCommits + preedit;
         // the fallback path (a host that refused compositions) keeps the
-        // 0.2 shape, document + held.
+        // 0.2 shape, document + held. Under the interim delivery (issue #185)
+        // the same invariant holds with no composition and no held word at
+        // all - the client control carries every commit, then the preedit.
         const std::string heldNow = wideToUtf8(SvcSnap().finished);
-        const std::string docNow = wideToUtf8(ctx->doc);
-        const std::string preeditNow = std::string(SvcSnap().layer ? hunmin_buffered_preedit_composing(SvcSnap().layer) : "");
-        if (ctx->compositionStarts > 0) {
+        const std::string docNow = DocText();
+        const std::string preeditNow = preedit;
+        if (interim) {
+            if (!heldNow.empty())
+                fail("event " + std::to_string(i) + ": the interim delivery left \"" + heldNow + "\" held in the layer");
+            if (docNow != cumulativeCommits + preeditNow)
+                fail("committed text after event " + std::to_string(i) + ": control \"" + docNow + "\" != tier A's cumulative \"" +
+                     cumulativeCommits + "\" + preedit \"" + preeditNow + "\"");
+        } else if (ctx->compositionStarts > 0) {
             const bool compActive = ctx->compositionActive;
             if (compActive) {
                 // Invariant: what the composition shows == held + preedit.

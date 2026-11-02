@@ -19,7 +19,7 @@ frontend produces the same committed text. *Ruling:* the equivalence invariant,
 `libhunmin/src/buffered_preedit.c#hunmin_buffered_preedit_process_key`.
 *Refuted by:* `engine-buffered-preedit`, `engine-key-rule`,
 `engine-android-conformance-tests_conformance_android_basic-syllables-case01.trace.in`,
-`tsf-mock-tests_conformance_win32_prose.trace.in`.
+`tsf-mock-native-tests_conformance_win32_prose.trace.in`.
 
 ### FE2. One key rule, in the engine library
 
@@ -44,7 +44,7 @@ The finished word reaches the client exactly once, at a boundary (a declined key
 Enter, an edit key, a mode toggle, a chord). A key the engine consumes inserts
 nothing. *Ruling:* issue #72 rule 4, generalised by #128. *Implementation:*
 `libhunmin/include/hunmin.h#hunmin_buffered_preedit_commit_word`.
-*Refuted by:* `tsf-mock-tests_conformance_win32_prose.trace.in`,
+*Refuted by:* `tsf-mock-native-tests_conformance_win32_prose.trace.in`,
 `engine-buffered-preedit`.
 
 ### FE5. The commit unit is a preference, and the text is the same
@@ -137,7 +137,7 @@ makes the moment observable. *Ruling:* `docs/FRONTEND-EQUIVALENCE.md#§6` and
 `#§6.1`. *Implementation:* `tools/gen-conformance.py`,
 `tools/trace-check.py`. *Refuted by:*
 `engine-android-conformance-tests_conformance_android_basic-syllables-case01.trace.in`,
-`tsf-mock-tests_conformance_win32_prose.trace.in`.
+`tsf-mock-native-tests_conformance_win32_prose.trace.in`.
 
 ### FE11. A frontend stays thin
 

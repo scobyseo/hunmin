@@ -90,7 +90,7 @@ the whole buffered word; while open its keys belong to it; an unparseable
 binding falls back to the default so the window can never become unreachable.
 *Ruling:* issue #67. *Implementation:*
 `frontends/tsf/src/candidates.cpp#hunmin_tsf_hanja_candidates_new`.
-*Refuted by:* `tsf-test`, `tsf-mock-tests_conformance_win32_words.trace.in`.
+*Refuted by:* `tsf-test`, `tsf-mock-native-tests_conformance_win32_words.trace.in`.
 
 ### TSF10. Whole-word miss falls back to the last syllable
 
