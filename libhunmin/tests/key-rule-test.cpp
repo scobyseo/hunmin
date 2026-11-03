@@ -14,6 +14,7 @@
  */
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -72,15 +73,41 @@ class KeyRuleTest : public ::testing::Test {
  * -- the same resolution Android's sandbox depends on. */
 class AutoswitchDataGateTest : public ::testing::Test {
   protected:
+    /* A path of its own per test, not one shared literal.
+     *
+     * This used to stage into a fixed `…/hunmin-autoswitch-gate-no-modes`, and
+     * a cold parallel suite run failed once in twelve with
+     *   `could not stage a layouts-only data tree: File exists`
+     * (measured 2026-11-03, issue #234). A fixed path under the shared temp dir
+     * is a resource any second instance -- a rerun overlapping a leftover, a
+     * parallel ctest job in another build dir -- can collide with, and the
+     * failure then reads as a data-loading bug rather than as a test-isolation
+     * one. The name carries the test and the pid, so the only tree this fixture
+     * can collide with is its own, and every step reports what it was doing.
+     */
     void SetUp() override {
+        const auto *info = ::testing::UnitTest::GetInstance()->current_test_info();
+        /* pid would be the obvious disambiguator but this binary also builds on
+         * Windows, where it is `_getpid` -- a steady-clock stamp plus an
+         * in-process counter costs nothing and needs no header. */
+        static unsigned long long seq = 0;
+        const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
         std::error_code ec;
-        root_ = std::filesystem::temp_directory_path(ec) / "hunmin-autoswitch-gate-no-modes";
+        root_ = std::filesystem::temp_directory_path(ec) /
+                ("hunmin-autoswitch-gate-no-modes-" + std::string(info->name()) + "-" +
+                 std::to_string(stamp) + "-" + std::to_string(seq++));
         std::filesystem::remove_all(root_, ec);
+        ec.clear();
         std::filesystem::create_directories(root_, ec);
-        for (const char *sub : {"layouts", "compose"})
+        /* ASSERT_*, not EXPECT_*: a fatal assertion in SetUp skips the body
+         * instead of running it against a half-staged tree. */
+        ASSERT_FALSE(ec) << "could not create the staging root: " << ec.message();
+        for (const char *sub : {"layouts", "compose"}) {
+            ec.clear();
             std::filesystem::copy(std::filesystem::path(kDataPath) / sub, root_ / sub,
                                   std::filesystem::copy_options::recursive, ec);
-        ASSERT_FALSE(ec) << "could not stage a layouts-only data tree: " << ec.message();
+            ASSERT_FALSE(ec) << "could not stage " << sub << ": " << ec.message();
+        }
         dirs_ = root_.string();
         const char *dir = dirs_.c_str();
         ctx_ = hunmin_ctx_new(&dir, 1);
