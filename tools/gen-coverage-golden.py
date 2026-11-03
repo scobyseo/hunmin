@@ -250,7 +250,12 @@ def main() -> int:
                       "tools/sin3p2-ksgen.py BFS over the layout's own automaton, "
                       "hunmin-sim --batch as oracle"),
         "expectations": "hunmin-sim --trace over those keys -- never typed by hand",
-        "unreachable": unreachable,
+        # Named "not_reached", not "unreachable": this is what the GENERATOR's
+        # search did not find, and a probe gap and a layout that cannot type a
+        # jamo look the same from here (measured: the jamo-keytable path reaches
+        # 38 of 67 slots on sebeolsik-3-90 while the BFS reaches all of them,
+        # so the difference is the instrument, not the layout).
+        "not_reached": unreachable,
         "cases": f"{len(cases)} of {len(probes)} probes admitted by the engine",
     }}, ensure_ascii=False)]
 
