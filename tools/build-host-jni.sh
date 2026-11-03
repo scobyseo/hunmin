@@ -186,30 +186,108 @@ if [ "$HOSTOS" = windows ]; then
         fi
     done
 fi
-"$CC_BIN" "${LINK_FLAGS[@]}" \
-  -I"$JNI_INC" -I"$JNI_MD" \
-  -I"$ROOT/libhunmin/include" \
-  -o "$OUT" "$SRC" \
-  "${LIBDIR_FLAGS[@]}" -lhunmin
+# --- one builder, not fifteen ---------------------------------------------
+# Every android trace test runs this script when the shim is missing, and
+# `ctest -j16` starts them together: on a cold tree fifteen compilers wrote the
+# SAME "$OUT" while each one's post-link `ldd` read a file another process was
+# rewriting, so `ldd` found no libhunmin and the check below failed the test.
+# Measured 2026-11-03, issue #234: with the shim deleted, 11 of 15 tier-C
+# android tests fail; with it present, 0 of 15. Same tree, same selection.
+#
+# So the build is a critical section (the flock the classpath cache in
+# tools/android-trace-emit.sh already uses, with a mkdir lock for git-bash,
+# which ships no flock), the result is published by rename so a reader never
+# loads a half-written library, and a caller that finds a shim newer than both
+# its inputs compiles nothing instead of doing it fifteen times over.
+OUT_TMP="$OUT.tmp.$$"
+LOCK="$BUILD_DIR/.build-host-jni.lock"
+trap 'rm -f "$OUT_TMP"' EXIT
+
+# The engine is reached through libhunmin.so -> libhunmin.so.0 ->
+# libhunmin.so.0.2.0, and `find -newer` compares the mtime of the SYMLINK: a
+# relinked engine leaves those untouched, so freshness is decided on the file
+# the linker actually read (measured: touching the real .so left this script
+# reporting the shim up to date).
+ENGINE_REAL="$(readlink -f "$ENGINE" 2>/dev/null || printf '%s' "$ENGINE")"
+
+shim_is_fresh() {
+    [ -f "$OUT" ] || return 1
+    [ -z "$(find "$SRC" "$ENGINE_REAL" -newer "$OUT" -print -quit 2>/dev/null)" ]
+}
+
+build_shim() {
+    shim_is_fresh && return 0
+    "$CC_BIN" "${LINK_FLAGS[@]}" \
+      -I"$JNI_INC" -I"$JNI_MD" \
+      -I"$ROOT/libhunmin/include" \
+      -o "$OUT_TMP" "$SRC" \
+      "${LIBDIR_FLAGS[@]}" -lhunmin
+    # mv is atomic within a directory: a concurrent `java` sees either the old
+    # library or the new one, never a partial link.
+    mv -f "$OUT_TMP" "$OUT"
+}
+
+if command -v flock >/dev/null 2>&1; then
+    exec {lockfd}>"$LOCK"
+    flock "$lockfd"
+    build_shim
+    flock -u "$lockfd"
+    exec {lockfd}>&-
+else
+    waited=0
+    while ! mkdir "$LOCK" 2>/dev/null; do
+        waited=$((waited + 1))
+        if [ "$waited" -ge 120 ]; then
+            echo "  lock $LOCK looks stale, proceeding unlocked" >&2
+            break
+        fi
+        sleep 1
+    done
+    build_shim
+    rmdir "$LOCK" 2>/dev/null || true
+fi
 
 # Proof it is a loadable library for this JVM and not merely a file: the
 # dependency it actually resolved, which is the thing that silently differs if
 # the -L path is wrong. ldd on ELF hosts; objdump on Windows DLLs.
+#
+# The dependency text is captured first and searched with `case`, never with
+# `producer | grep -q`: this script runs under `set -o pipefail`, `grep -q` exits
+# at the first match, the producer then dies of SIGPIPE (141), and pipefail
+# reports the whole pipeline as failed. Measured 2026-11-03, issue #234:
+# `ldd "$OUT" | grep -q libhunmin` under sixteen CPU hogs failed 51 times in
+# 300, on a library that was fine every time -- which is what "the shim did not
+# link libhunmin" was actually saying in the cold parallel runs.
+deps_matching() {
+    # Print the first line of $1 containing $2, without a pipeline that can
+    # break: a here-string keeps the whole dependency list inside this shell.
+    local _line=""
+    local _want="$2"
+    while IFS= read -r _line; do
+        case "$_line" in
+            *"$_want"*) printf '%s\n' "$_line"; return 0 ;;
+        esac
+    done <<< "$1"
+    return 1
+}
+
 if [ "$HOSTOS" = windows ]; then
     if command -v objdump >/dev/null 2>&1; then
-        if ! objdump -p "$OUT" | grep -qi "DLL Name:.*hunmin"; then
+        deps="$(objdump -p "$OUT" 2>&1 || true)"
+        if ! engine_line="$(deps_matching "$deps" "hunmin")"; then
             echo "  the shim did not link libhunmin -- tier E1 would test nothing" >&2
             exit 1
         fi
-        printf '  engine: %s\n' "$(objdump -p "$OUT" | grep -i "DLL Name" | head -n 1 | tr -s ' ' | sed 's/^ *//')"
+        printf '  engine: %s\n' "$(printf '%s' "$engine_line" | tr -s ' ' | sed 's/^ *//')"
     else
         echo "  note: no objdump on PATH; the dependency proof is skipped" >&2
     fi
 else
-    if ! ldd "$OUT" | grep -q libhunmin; then
+    deps="$(ldd "$OUT" 2>&1 || true)"
+    if ! engine_line="$(deps_matching "$deps" "libhunmin")"; then
         echo "  the shim did not link libhunmin -- tier E1 would test nothing" >&2
         exit 1
     fi
-    printf '  engine: %s\n' "$(ldd "$OUT" | grep libhunmin | tr -s ' ' | sed 's/^ *//')"
+    printf '  engine: %s\n' "$(printf '%s' "$engine_line" | tr -s ' ' | sed 's/^ *//')"
 fi
 echo "  -> $OUT"
