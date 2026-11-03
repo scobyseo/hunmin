@@ -281,6 +281,10 @@ void scheduleEvent(Instance *instance) {
             press(uuid, Key(FcitxKey_Hangul, KeyState::Ctrl));
             // The watcher accepted the chord; the engine flipped the layer.
             FCITX_ASSERT(!cfg->autoswitch.value()) << "autoswitch still ON after Ctrl+Hangul";
+
+            // The chord-flipped value must survive a config reload.
+            hunmin->reloadConfig();
+            FCITX_ASSERT(!cfg->autoswitch.value()) << "autoswitch reverted after reload";
         }
 
         instance->deactivate();
