@@ -78,7 +78,11 @@ Two membership facts that are not derivable from the tier name:
   — with neither, the sandbox reports `initial build failed`, which reads as a
   code failure and is not one. The harness now prints the tail of its build log
   so that message names the missing target or header instead of asserting
-  itself.
+  itself. It takes its cache from `HUNMIN_MUTATION_CACHE` (the ctest
+  registration points at the running build dir); without that, it skips any
+  `build*/CMakeCache.txt` whose compilers are not on this host, so a Windows
+  build dir beside a Linux one cannot supply `C:/llvm-mingw-*/gcc.exe` to a
+  POSIX configure (issue #202).
 - **`frontend-mutations` carries both `tier-D1` and `tier-D2`.** It plants each
   mutation and requires something to catch it, and what catches it is
   `ctest -R engine-d1-fcitx5` and `ctest -R engine-d2-ui`
