@@ -306,6 +306,16 @@ HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l
  * also the engine's (a frontend never spells the chord itself). */
 HUNMIN_EXPORT bool hunmin_buffered_preedit_get_option(const hunmin_buffered_preedit *l, const char *name, int *out);
 
+/* Why autoswitch is off on this layer, if it is off for a reason the engine
+ * itself imposes (issue #207): under HUNMIN_COMMIT_PER_SYLLABLE the buffer
+ * delivers per syllable and autoswitch has nothing to hold, so the state is
+ * forced off and this returns a string naming the policy. Returns NULL when
+ * autoswitch is off for some other reason (a choice, or missing data) or when
+ * it is on, so a frontend logs the line only where the reason applies. The
+ * string is owned by the engine and lives as long as the process. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_autoswitch_reason(const hunmin_buffered_preedit *l);
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_get_autoswitch_reason(const hunmin_buffered_preedit *l);
+
 /* External text (voice input, per PLAN.md invariant 5) through the layer: the
  * buffered word is delivered first, then the engine's pass-through appends the
  * text, so the order is "typed, then spoken" and nothing is composed twice.

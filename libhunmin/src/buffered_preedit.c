@@ -667,7 +667,26 @@ bool hunmin_buffered_preedit_get_option(const hunmin_buffered_preedit *l, const 
         *out = l->judge_timing;
         return true;
     }
+    /* Issue #207: syllable commit off-switches autoswitch. A layer built with
+     * HUNMIN_COMMIT_PER_SYLLABLE has no autoswitch whatever was stored, so the
+     * state reads as off instead of being left inert. */
+    if (!strcmp(name, "autoswitch") && l->commit_policy == HUNMIN_COMMIT_PER_SYLLABLE) {
+        *out = 0;
+        return true;
+    }
     return hunmin_ic_get_option(l->ic, name, out);
+}
+
+const char *hunmin_buffered_preedit_autoswitch_reason(const hunmin_buffered_preedit *l) {
+    if (!l) return NULL;
+    if (l->commit_policy == HUNMIN_COMMIT_PER_SYLLABLE) {
+        return "autoswitch off: syllable commit policy (HUNMIN_COMMIT_PER_SYLLABLE)";
+    }
+    return NULL;
+}
+
+const char *hunmin_buffered_preedit_get_autoswitch_reason(const hunmin_buffered_preedit *l) {
+    return hunmin_buffered_preedit_autoswitch_reason(l);
 }
 
 /* ---------------------------------------------------------- external text */

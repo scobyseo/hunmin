@@ -14,6 +14,7 @@
  */
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -691,6 +692,32 @@ TEST_F(KeyRuleTest, TheAutoswitchOptionIsOneValueTheLayerReadsBack) {
     /* The key surface beside the value is the engine's too (R13-정정's
      * "explainable" bullet): the dialog asks, it does not spell a chord. */
     EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_AUTOSWITCH), HUNMIN_MOD_CTRL);
+}
+
+TEST_F(KeyRuleTest, Issue207SyllableCommitForcesAutoswitchOffAndNamesTheReason) {
+    /* A layer built with HUNMIN_COMMIT_PER_SYLLABLE has no autoswitch: a fresh
+     * layer starts OFF, storing ON is still observed as OFF, and the reason
+     * accessor names the policy (issue #207, obligation 2 + 3). */
+    hunmin_buffered_preedit *syllable = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_PER_SYLLABLE);
+    ASSERT_NE(syllable, nullptr);
+
+    int v = 7;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(syllable, "autoswitch", &v));
+    EXPECT_EQ(v, 0) << "a fresh per-syllable layer starts OFF";
+
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(syllable, "autoswitch", 1));
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(syllable, "autoswitch", &v));
+    EXPECT_EQ(v, 0) << "stored ON is observed as OFF under syllable commit";
+
+    const char *reason = hunmin_buffered_preedit_autoswitch_reason(syllable);
+    ASSERT_NE(reason, nullptr);
+    EXPECT_NE(strstr(reason, "syllable"), nullptr) << reason;
+    EXPECT_NE(strstr(reason, "HUNMIN_COMMIT_PER_SYLLABLE"), nullptr) << reason;
+
+    /* Boundary policy keeps the normal on/off semantics: no policy reason. */
+    EXPECT_EQ(hunmin_buffered_preedit_autoswitch_reason(l_), nullptr);
+
+    hunmin_buffered_preedit_free(syllable);
 }
 
 TEST_F(KeyRuleTest, TheAutoswitchStateSurvivesALanguageToggle) {
