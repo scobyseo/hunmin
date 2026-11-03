@@ -743,6 +743,7 @@ HunminAdapter::HunminAdapter(Instance *instance) : instance_(instance), factory_
                 const int want = !(this->config().autoswitch.value() ? 1 : 0);
                 const int held = pushAutoswitch(want);
                 (void)held;
+                safeSaveAsIni(this->config_, "conf/hunmin.conf");
                 ke->filterAndAccept();
             }
         });

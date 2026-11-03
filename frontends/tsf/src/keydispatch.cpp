@@ -330,9 +330,19 @@ void CTextService::SpecialPerform(hunmin_special_function fn) {
     /* The engine resolved the gesture and this is the platform half. VOICE never
      * arrives (supports() refuses it). AUTOSWITCH flips the state the engine
      * owns -- the state itself is 0.3's data-gated feature (issue #2), so what
-     * lands here today is the request, recorded, exactly as Android's service
+     * lands here today is the read-back, recorded, exactly as Android's service
      * does (`toggleAutoHangulEnglish`, "not yet implemented"). */
     lastSpecial_ = (int)fn;
+    if (fn == HUNMIN_SPECIAL_AUTOSWITCH && preedit_) {
+        int value = 0;
+        if (hunmin_buffered_preedit_get_option(preedit_, "autoswitch", &value)) {
+            autoswitch_ = value;
+            HunminTsfConfig cfg;
+            hunmin_tsf_config_load(HKEY_CURRENT_USER, &cfg);
+            cfg.autoswitch = value;
+            hunmin_tsf_config_save(HKEY_CURRENT_USER, &cfg);
+        }
+    }
     hunmin_logger.log(" special perform fn=%s\n", hunmin_special_name(fn));
 }
 
