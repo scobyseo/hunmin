@@ -72,6 +72,22 @@ ctest --test-dir build -LE slow           # inner loop (everything cheap)
 
 The `tools/ctest-select.sh` script prints what it will run and what it will not.
 
+### Line endings
+
+`.gitattributes` checks every text file out with LF (`text=auto eol=lf`), so a
+Windows checkout with `core.autocrlf=true` still presents the byte-compared
+inputs as LF: `libhunmin/tests/abi/symbols.txt` and
+`tests/fixtures/krdict/expected/krdict.json`. Without it, `ctest`'s `abi` and
+`krdict-fixture` guards report a change nobody made (issue #202). The
+byte-faithful data directories (`data-orig/`, `libhunmin/data/`,
+`tests/golden/`, `tests/conformance/`) are `-text` and keep their committed
+bytes; `*.bat` is the one text type checked out CRLF. A new byte-compared text
+input is covered by the default; a file that must keep CRLF needs an explicit
+rule. An existing Windows checkout keeps its CRLF copies until they are checked
+out again — `rm libhunmin/tests/abi/symbols.txt
+tests/fixtures/krdict/expected/krdict.json && git checkout -- <those paths>`,
+or a fresh clone, replaces them with LF.
+
 ## Licensing
 
 hunmin is LGPL-2.1-or-later. Bundled data carries its own terms:

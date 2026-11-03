@@ -368,14 +368,60 @@ class Sandbox(Strategy):
     name = "sandbox"
 
     @staticmethod
-    def _parent_prefixes() -> list[str]:
+    def _cache_values(cache: pathlib.Path) -> dict[str, str]:
+        vals: dict[str, str] = {}
+        for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+            if ":INTERNAL=" in line or ":FILEPATH=" in line:
+                key, _, val = line.partition("=")
+                vals[key] = val
+        return vals
+
+    @staticmethod
+    def _compilers_on_host(vals: dict[str, str]) -> bool:
+        """A cache belongs to the host that configured it. A Windows checkout
+        beside a Linux one (or run from WSL) leaves build-mingw/CMakeCache.txt
+        naming C:/llvm-mingw-*/gcc.exe; handing that to a POSIX configure fails
+        before the first mutation lands. A compiler that exists, or is on PATH,
+        is this host's; one that does not means the cache is another host's and
+        must be skipped (issue #202)."""
+        for key in ("CMAKE_C_COMPILER:FILEPATH", "CMAKE_CXX_COMPILER:FILEPATH"):
+            value = vals.get(key, "").strip()
+            if value and not (pathlib.Path(value).exists() or shutil.which(value)):
+                return False
+        return True
+
+    @classmethod
+    def _selected_cache(cls, root: pathlib.Path = REPO) -> pathlib.Path | None:
+        """The parent cache to configure the sandbox from.
+
+        HUNMIN_MUTATION_CACHE names it explicitly: the ctest registration sets
+        it to the build dir running this test, which removes the guess for the
+        normal path. Without it, take the first build*/ cache whose compiler
+        exists here, so a foreign Windows tree cannot win the glob."""
+        override = os.environ.get("HUNMIN_MUTATION_CACHE")
+        if override:
+            return pathlib.Path(override)
+        for cache in sorted(root.glob("build*/CMakeCache.txt")):
+            vals = cls._cache_values(cache)
+            if not vals.get("CMAKE_GENERATOR:INTERNAL"):
+                continue
+            if not cls._compilers_on_host(vals):
+                print(f"mutation sandbox: ignoring {cache} (its compilers are "
+                      f"not on this host)", file=sys.stderr)
+                continue
+            return cache
+        return None
+
+    @classmethod
+    def _parent_prefixes(cls) -> list[str]:
         """The prefixes this host actually built against, from the parent
         cache. A dependency installed outside the system prefix (fcitx5 5.1.13
         in $HOME on the WSL host) is reachable two ways -- CMake config files
         through CMAKE_PREFIX_PATH, pkg-config files through PKG_CONFIG_PATH --
         and a tree that needs the second fails its INITIAL BUILD in the sandbox
         while the parent built fine. Both are derived from the same value."""
-        for cache in REPO.glob("build*/CMakeCache.txt"):
+        cache = cls._selected_cache()
+        if cache is not None:
             for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
                 if line.startswith("CMAKE_PREFIX_PATH:"):
                     value = line.partition("=")[2]
@@ -400,43 +446,37 @@ class Sandbox(Strategy):
             env["PKG_CONFIG_PATH"] = os.pathsep.join(pcs + ([existing] if existing else []))
         return env
 
-    @staticmethod
-    def _parent_toolchain() -> list[str]:
+    @classmethod
+    def _parent_toolchain(cls, root: pathlib.Path = REPO) -> list[str]:
         """The sandbox must configure like the parent tree did. A bare
         `cmake -B build` picks the platform default generator -- Visual Studio
         on a Windows host, which cannot build this POSIX-shaped tree -- and
         the build fails before the first mutation lands (measured: "sandbox:
         initial build failed" on the llvm-mingw host). The parent's
         CMakeCache is the truthful record of what this host actually can
-        build with; reuse its generator, platform and compilers verbatim. No
-        cache (the CI layout configures into build/) behaves as before."""
-        import re
-        overrides: list[str] = []
-        for cache in REPO.glob("build*/CMakeCache.txt"):
-            vals: dict[str, str] = {}
-            for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
-                if ":INTERNAL=" in line or ":FILEPATH=" in line:
-                    key, _, val = line.partition("=")
-                    vals[key] = val
-            if not vals.get("CMAKE_GENERATOR:INTERNAL"):
-                continue
-            overrides = ["-G", vals["CMAKE_GENERATOR:INTERNAL"].strip()]
-            if vals.get("CMAKE_GENERATOR_PLATFORM:INTERNAL"):
-                overrides += ["-A", vals["CMAKE_GENERATOR_PLATFORM:INTERNAL"].strip()]
-            for key, opt in (("CMAKE_C_COMPILER:FILEPATH", "-DCMAKE_C_COMPILER="),
-                             ("CMAKE_CXX_COMPILER:FILEPATH", "-DCMAKE_CXX_COMPILER="),
-                             # A dependency installed OUTSIDE the system prefix
-                             # (fcitx5 5.1.13 in $HOME here) is found only
-                             # through this cache value. Without it the sandbox
-                             # configures, then fails its INITIAL BUILD, which
-                             # reads as a code failure and is not one -- the
-                             # parent tree built only because the shell that
-                             # configured it had CMAKE_PREFIX_PATH exported.
-                             ("CMAKE_PREFIX_PATH:UNINITIALIZED", "-DCMAKE_PREFIX_PATH="),
-                             ("CMAKE_PREFIX_PATH:STRING", "-DCMAKE_PREFIX_PATH=")):
-                if vals.get(key):
-                    overrides.append(opt + vals[key].strip())
-            break
+        build with; reuse its generator, platform and compilers verbatim. A
+        cache from another host is skipped by _selected_cache(), and no cache
+        at all (the CI layout configures into build/) behaves as before."""
+        cache = cls._selected_cache(root)
+        if cache is None:
+            return []
+        vals = cls._cache_values(cache)
+        overrides = ["-G", vals["CMAKE_GENERATOR:INTERNAL"].strip()]
+        if vals.get("CMAKE_GENERATOR_PLATFORM:INTERNAL"):
+            overrides += ["-A", vals["CMAKE_GENERATOR_PLATFORM:INTERNAL"].strip()]
+        for key, opt in (("CMAKE_C_COMPILER:FILEPATH", "-DCMAKE_C_COMPILER="),
+                         ("CMAKE_CXX_COMPILER:FILEPATH", "-DCMAKE_CXX_COMPILER="),
+                         # A dependency installed OUTSIDE the system prefix
+                         # (fcitx5 5.1.13 in $HOME here) is found only
+                         # through this cache value. Without it the sandbox
+                         # configures, then fails its INITIAL BUILD, which
+                         # reads as a code failure and is not one -- the
+                         # parent tree built only because the shell that
+                         # configured it had CMAKE_PREFIX_PATH exported.
+                         ("CMAKE_PREFIX_PATH:UNINITIALIZED", "-DCMAKE_PREFIX_PATH="),
+                         ("CMAKE_PREFIX_PATH:STRING", "-DCMAKE_PREFIX_PATH=")):
+            if vals.get(key):
+                overrides.append(opt + vals[key].strip())
         return overrides
 
     def __enter__(self) -> pathlib.Path:

@@ -1,11 +1,29 @@
+# Default: every text file is LF in the working tree, even on a Windows
+# checkout with core.autocrlf=true. The Linux build compares some inputs
+# byte-for-byte -- libhunmin/tests/abi/symbols.txt and
+# tests/fixtures/krdict/expected/krdict.json today -- and a CRLF working-tree
+# copy turns a no-op diff into a red run (issue #202). The later, more specific
+# rules below override this default: the data directories stay byte-faithful
+# and batch files stay CRLF.
+# `text=auto` leaves detected binaries alone; `text eol=lf` would normalize
+# them and corrupt the gradle-wrapper jar and the TSF icons.
+* text=auto eol=lf
+
 # shell scripts must be LF as worktrees too: bash cannot execute CRLF
 *.sh text eol=lf
 gradlew text eol=lf
 # Windows batch scripts are the inverse
 *.bat text eol=crlf
 
+# Named binaries, so a misdetected "text" file cannot be normalized.
+*.jar binary
+*.png binary
+*.ico binary
+*.jpg binary
+
 # Data is byte-faithful (normative pat.im sources, Hanja/Korean corpora,
-# golden vectors): no EOL normalization anywhere, ever.
+# golden vectors): no EOL normalization anywhere, ever. These rules must stay
+# after the `*` default -- the last matching pattern wins.
 data-orig/** -text
 libhunmin/data/** -text
 tests/golden/** -text

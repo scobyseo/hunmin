@@ -658,8 +658,13 @@ if(BUILD_TESTING AND Python3_FOUND)
   # red by construction -- measured "sandbox: initial build failed" on the
   # llvm-mingw host, where Fcitx5Core is not installed.
   if(HUNMIN_HAS_FCITX5)
+  # HUNMIN_MUTATION_CACHE names the cache this test was registered from, so
+  # the sandbox inherits THIS tree's toolchain instead of whichever
+  # build*/CMakeCache.txt the glob finds first -- a Windows build dir on a WSL
+  # checkout supplied C:/llvm-mingw-*/gcc.exe to a POSIX configure (issue #202).
   add_test(NAME frontend-mutations
     COMMAND ${CMAKE_COMMAND} -E env HUNMIN_MUTATION_STRATEGY=sandbox
+            HUNMIN_MUTATION_CACHE=${CMAKE_CURRENT_BINARY_DIR}/CMakeCache.txt
             ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/frontend-mutations.py)
   # Two tier labels, deliberately. tools/frontend-mutations.py plants each
@@ -704,6 +709,15 @@ if(BUILD_TESTING AND Python3_FOUND)
   add_test(NAME krdict-fixture
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/krdict-fixture-check.py)
   set_tests_properties(krdict-fixture PROPERTIES LABELS "tier-B")
+  # host-guards: the two host situations behind issue #202. It checks the
+  # effective .gitattributes (the byte-compared inputs check out LF, the data
+  # dirs stay byte-faithful) and that the mutation sandbox skips a foreign
+  # build*/CMakeCache.txt instead of configuring with another host's compiler.
+  # Cheap and host-independent: simulated caches in a temp dir, no build.
+  add_test(NAME host-guards
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/host-guard-check.py)
+  set_tests_properties(host-guards PROPERTIES
+    LABELS "tier-B" SKIP_RETURN_CODE 77)
   # docs-lint: mechanical check for figure-in-prose drift (test/trace counts,
   # makefile commands, wiki sources, index count). Runs against the build dir
   # so the ctest count check is meaningful.
