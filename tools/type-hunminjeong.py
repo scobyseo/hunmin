@@ -53,24 +53,56 @@ _JU = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','
 _JO = ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ']
 
 
+_FILLER = ("\u115f", "\u1160")
+
+
+def _strip_filler(s):
+    """Drop the blank-filler jamo the engine pads an isolated slot with.
+
+    MEASURED: `sin3-p2-yet` `af` renders U+115F U+1160 U+11B0. Without this the
+    probe's length checks never see a two-jamo 초성, which is why 만든 compose-only
+    letters (ᄡ, ᄫ, ᅙ, ᅇ) were missing from every table the tool built.
+    """
+    for f in _FILLER:
+        s = s.replace(f, "")
+    return s
+
+
 def probe_slots():
-    """Probe 초/중/종 key tables from the engine, once, batched."""
-    cho = {}
+    """Probe 초/중/종 key tables from the engine, once, batched.
+
+    A compose-only 초성 is TWO 초성 keys and renders as two jamo before the
+    vowel (`nnf` -> ᄉ+ᄉ+ᅡ in sin3-p2-yet), so the probe keeps the pairs it
+    sees instead of discarding anything that is not length 2.
+    """
+    cho, cho_pair = {}, {}
     for rec in batch([k + "f" for k in ALL]):  # key+ㅏ -> 초성+ㅏ
-        d = list(canon(rec["preedit"]))
-        if len(d) == 2 and d[1] == "ᅡ" and 0x1100 <= ord(d[0]) <= 0x115F:
-            cho.setdefault(d[0], rec["keys"][0])
-    jung = {}
+        d = list(_strip_filler(canon(rec["preedit"])))
+        if not d or d[-1] != "ᅡ":
+            continue
+        pre = d[:-1]
+        if len(pre) == 1 and 0x1100 <= ord(pre[0]) <= 0x115F:
+            cho.setdefault(pre[0], rec["keys"][0])
+        elif len(pre) == 2 and all(0x1100 <= ord(c) <= 0x115F for c in pre):
+            cho_pair.setdefault("".join(pre), rec["keys"][:2])
+    jung, jung_pair = {}, {}
     for rec in batch(["k" + k for k in ALL]):  # ㄱ+key -> ㄱ+중성
-        d = list(canon(rec["preedit"]))
-        if len(d) == 2 and d[0] == "ᄀ" and 0x1161 <= ord(d[1]) <= 0x11A7:
+        d = list(_strip_filler(canon(rec["preedit"])))
+        if not d or d[0] != "ᄀ":
+            continue
+        if len(d) == 2 and 0x1161 <= ord(d[1]) <= 0x11A7:
             jung.setdefault(d[1], rec["keys"][1:])
-    jong = {}
+    jong, jong_pair = {}, {}
     for rec in batch(["kf" + k for k in ALL]):  # 가+key -> 종성
-        d = list(canon(rec["preedit"]))
-        if len(d) == 3 and d[2] not in jong:
-            jong[d[2]] = rec["keys"][2:]
-    return cho, jung, jong
+        d = list(_strip_filler(canon(rec["preedit"])))
+        if len(d) < 3 or d[0] != "ᄀ" or d[1] != "ᅡ":
+            continue
+        rest = d[2:]
+        if len(rest) == 1 and rest[0] not in jong:
+            jong[rest[0]] = rec["keys"][2:]
+        elif len(rest) == 2 and rest[0] in jong and rest[1] in jong:
+            jong_pair.setdefault("".join(rest), rec["keys"][2:])
+    return cho, jung, jong, cho_pair, jong_pair
 
 
 def split_syllables(s):
@@ -191,33 +223,54 @@ def main():
     ap.add_argument("--golden-out", type=pathlib.Path,
                     help="write a golden JSONL of the 어절 that type byte-exact, "
                          "with full provenance in the meta line")
+    ap.add_argument("--accept-engine", action="store_true",
+                    help="record the ENGINE's rendering as the expectation even "
+                         "where it differs from the text (issue #239: an 옛 "
+                         "spelling comes back precomposed, so byte-exact cannot "
+                         "pass; the divergence is listed in the meta instead)")
     args = ap.parse_args()
 
-    C, J, G = probe_slots()
+    C, J, G, C2, G2 = probe_slots()
     COMPOSE = build_compose(C, G)
-    JG = build_jong_compose(G)
+    JG = dict(build_jong_compose(G))
+    # A compose-only 종성 the probe saw as two 종성 jamo (ᇰ = ㅇ+ᇁ) carries its
+    # own pair, measured; the hardcoded table is the fallback for the ones the
+    # probe reaches as a single code point.
+    for pair, keys in G2.items():
+        JG.setdefault(pair[-1], keys)
     if args.slots_out:
         args.slots_out.write_text(json.dumps({"cho": C, "jung": J, "jong": G},
                                               ensure_ascii=False, indent=1))
-    text = args.text_file.read_text(encoding="utf-8").strip()
+    raw = args.text_file.read_text(encoding="utf-8")
+    # '#' lines are provenance, not input: without this the header was typed too
+    # (measured: the first run's divergences were "#", "언해본", "(월인석보,").
+    text = " ".join(line for line in raw.splitlines()
+                    if line.strip() and not line.lstrip().startswith("#"))
     ok = tot = 0
-    golden_events = []
+    golden_events, diverged = [], []
     for w in text.split(" "):
         keys = ''.join(build(*slots_of(t), C, J, G, COMPOSE, JG)
                        for t in split_syllables(w) if t != ' ')
         rec = batch([keys + " "])[0]
         out = canon(rec["commit"] + rec["preedit"])
         tot += 1
-        if out == canon(w):
+        same = out == canon(w)
+        if same:
             ok += 1
-            if args.golden_out:
-                # trace the matching 어절 so the golden holds every event
-                for ev in trace_events(keys):
-                    golden_events.append(ev)
+        elif args.accept_engine:
+            # Option A (issue #239): the engine renders an 옛 spelling precomposed,
+            # so the golden's expectation is what the engine emits and the
+            # original orthography rides along in the meta. The event stream still
+            # asserts every key, which is the half a key-event golden can assert.
+            diverged.append({"text": w, "engine": out, "keys": keys})
         else:
             print(f"MISS {w}\n  keys={keys}\n  got ={out}\n  want={canon(w)}",
                   file=sys.stderr)
-    print(f"어절 {ok}/{tot}")
+            continue
+        if args.golden_out:
+            for ev in trace_events(keys):
+                golden_events.append(ev)
+    print(f"어절 {ok}/{tot}" + (f" ({len(diverged)} 엔진 렌더로 기록)" if diverged else ""))
     if args.golden_out and golden_events:
         meta = {
             "source": "훈민정음 언해본 세종 서문 (월인석보 1459)",
@@ -227,8 +280,11 @@ def main():
             "method": "engine-measured per-slot probe (초성+vowel judge, "
                       "아래아 p/z gate, distinct 종성 code point, 현대 겹받침 "
                       "key pairs); 어절 that type byte-exact are traced to events",
-            "coverage": f"{ok}/{tot} 어절 byte-exact; the rest need the compose "
-                        "chain across a syllable boundary (see the tool's TODO)",
+            "coverage": f"{tot} 어절 typed, {ok} byte-exact"
+                        + (f"; {len(diverged)} recorded as the ENGINE's rendering "
+                           "because an 옛 spelling comes back precomposed "
+                           "(issue #239)" if diverged else ""),
+            **({"divergences": diverged} if diverged else {}),
             "reproduce": "python3 tools/type-hunminjeong.py --text-file <원문> --golden-out <this file>",
         }
         args.golden_out.write_text(
