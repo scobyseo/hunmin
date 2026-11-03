@@ -194,6 +194,7 @@ is a recorded one and not a surprise.
 | the transition | `hunmin_buffered_preedit_special()` flips the value when it services `AUTOSWITCH` — the engine's, not each frontend's `perform` (ruled 2026-11-01, below). Only a serviced press flips; `special_peek()` never does |
 | the data gate | ON is refused where the modes word list is absent: `hunmin_ic_set_option(...,1)` answers `false` and leaves the value at 0, and the chord answers `-1` from `..._special_peek()`, so the key passes through (issue #169). OFF is always accepted. The state never reads enabled on a machine that cannot judge |
 | the presence query | `hunmin_ctx_autoswitch_data_present(ctx)`, resolved through `hm_data_dirs` (the same search as the hanja/krdict/idioms tables and `..._load_english_shipped()`), computed once per context. A frontend draws its row from it, so "off by choice" (value 0, present 1) and "off, data missing" (value 0, present 0) are the pair, not two stores |
+| the policy off-switch | Under `HUNMIN_COMMIT_PER_SYLLABLE` autoswitch is off: `hunmin_buffered_preedit_get_option(..., "autoswitch", ...)` answers 0 whatever was stored, a fresh layer starts at 0, and `hunmin_buffered_preedit_autoswitch_reason()` names the policy (`"autoswitch off: syllable commit policy (HUNMIN_COMMIT_PER_SYLLABLE)"`) so "nothing happened" is distinguishable from "off" (issue #207). The settings-time reconcile (writing syllable commit writes autoswitch=off) is the frontend half, still pending |
 
 **The transition is the engine's (ruled 2026-11-01, issue #165).** Verbatim:
 
