@@ -780,6 +780,47 @@ TEST_F(WordSetTest, TheJudgementIsTakenOnceAndClearedByTheNextBoundary) {
     hunmin_buffered_preedit_free(l);
 }
 
+/* Issue #191: the judgement that consumes english_valid, end to end through
+ * the layer. `kbs` is the ruled gap word (MODES-DATA 4-7d): not in en_US,
+ * so it switches only when it is a user word. */
+TEST_F(WordSetTest, UserWordKbsDrivesTheJudgementEndToEnd) {
+    /* (a) with the user word present, `kbs` switches to English. */
+    hunmin_buffered_preedit *with_user = pair_layer(ctx_, 1);
+    ASSERT_NE(with_user, nullptr);
+    ASSERT_EQ(1, hunmin_buffered_preedit_add_user_word(with_user, "kbs"));
+    const WordRun switched = type_and_judge(with_user, "kbs ");
+    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, switched.mode)
+        << "kbs is a user word, so it must be judged Latin";
+    EXPECT_EQ("kbs", switched.commit)
+        << "the triggering word is delivered in the judged language (R10)";
+    hunmin_buffered_preedit_free(with_user);
+
+    /* Without the user word, the same keys do not switch: kbs is not in en_US. */
+    hunmin_buffered_preedit *without_user = pair_layer(ctx_, 1);
+    ASSERT_NE(without_user, nullptr);
+    const WordRun kept = type_and_judge(without_user, "kbs ");
+    EXPECT_EQ(-1, kept.mode) << "kbs is not in the shipped list, so no switch";
+    hunmin_buffered_preedit_free(without_user);
+
+    /* (b) with no dictionary installed, the mode never changes. */
+    hunmin_buffered_preedit *no_dict = hunmin_buffered_preedit_new(
+        ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(no_dict, nullptr);
+    hunmin_buffered_preedit_set_option(no_dict, "autoswitch", 1);
+    const WordRun absent = type_and_judge(no_dict, "kbs ");
+    EXPECT_EQ(-1, absent.mode) << "absent data means no english_valid (B3)";
+    hunmin_buffered_preedit_free(no_dict);
+
+    /* (c) a short buffer under R9's threshold never switches, even when the
+     * word is in the dictionary. */
+    hunmin_buffered_preedit *short_word = pair_layer(ctx_, 1);
+    ASSERT_NE(short_word, nullptr);
+    ASSERT_EQ(1, hunmin_buffered_preedit_add_user_word(short_word, "kb"));
+    const WordRun short_run = type_and_judge(short_word, "kb ");
+    EXPECT_EQ(-1, short_run.mode) << "two key inputs are below R9's guard";
+    hunmin_buffered_preedit_free(short_word);
+}
+
 TEST_F(WordSetTest, NoDictionaryMeansNoJudgement) {
     /* B3: data absent is a normal state, and the judgement abstains rather than
      * calling every word not-English. */
