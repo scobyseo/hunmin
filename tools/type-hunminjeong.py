@@ -110,7 +110,19 @@ def probe_slots():
             jong[rest[0]] = rec["keys"][2:]
         elif len(rest) == 2 and rest[0] in jong and rest[1] in jong:
             jong_pair.setdefault("".join(rest), rec["keys"][2:])
-    return cho, jung, jong, cho_pair, jung_pair, jong_pair
+    # A 종성 key depends on the 중성 before it: 'a' gives ᆼ after 가 and a 중성
+    # after ᄍᆞ (measured). So the table is (jung, jong) -> key, probed per 중성.
+    jong_ctx = {}
+    for jamo, jkeys in list(jung.items()) + list(jung_pair.items()):
+        # 아래아 has two keys and the 종성 decides which: `p` with no final
+        # consonant, `z` with one (type-hunminjeong.py's own docstring). Probing
+        # the `p` form would measure a state the text never uses.
+        probe_jk = "z" if jamo == "ᆞ" else jkeys
+        for k, rec in zip(ALL, batch(["k" + probe_jk + c for c in ALL])):
+            d = list(_strip_filler(canon(rec["preedit"])))
+            if len(d) == 3 and d[0] == "ᄀ" and d[1] == jamo:
+                jong_ctx.setdefault((jamo, d[2]), k)
+    return cho, jung, jong, cho_pair, jung_pair, jong_pair, jong_ctx
 
 
 def split_syllables(s):
@@ -154,7 +166,7 @@ def slots_of(tok):
     return cho, jung, jong
 
 
-def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None):
+def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None, JC=None):
     """Assemble keys. 아래아: `z` when a 종성 follows, else `p`.
 
     A compose-only 자모 (no single 초성/종성 key -- pat.im 옛한글) is two
@@ -163,10 +175,11 @@ def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None):
     is the ㅇ jong and f the ᇁ jong -- two 종성 keys, the engine composes
     the 겹받침).
     """
-    if cho in COMPOSE:
-        return COMPOSE[cho] + (J.get(jung, '') if jung else '') + \
-               (JG.get(jong, G.get(jong, '')) if jong else '')
-    ck = C.get(cho, '') or (COMPOSE.get(cho, '') if COMPOSE else '')
+    # The compose-only 초성 path must run through the SAME 중성/종성 logic below:
+    # it used to concatenate J/JG directly, which dropped the 아래아 p/z choice
+    # and the (jung, jong) 종성 table (measured: `ᄍᆞᆼ` typed as `ᄍᆞᅲ` although
+    # `llz`+`a` renders ᄍᆞᆼ).
+    ck = COMPOSE.get(cho) or C.get(cho, '')
     if jung == 'ᆞ':
         jk = 'z' if jong else 'p'
     else:
@@ -177,7 +190,8 @@ def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None):
     # itself make `ᄍᆞᆼ` compose: the same key 'a' gives ᆼ after 가 and a 중성
     # after ᄍᆞ (measured), so a 종성 key is state-dependent on the 중성 that
     # precedes it and one slot table cannot hold it. That is the next gap.
-    gk = ((G.get(jong) or JG.get(jong, '')) if jong else '')
+    gk = (((JC or {}).get((jung, jong)) or G.get(jong) or JG.get(jong, ''))
+          if jong else '')
     return ck + jk + gk
 
 
@@ -251,7 +265,7 @@ def main():
                          "pass; the divergence is listed in the meta instead)")
     args = ap.parse_args()
 
-    C, J, G, C2, J2, G2 = probe_slots()
+    C, J, G, C2, J2, G2, JC = probe_slots()
     COMPOSE = build_compose(C, G)
     JG = dict(build_jong_compose(G))
     # A compose-only 종성 the probe saw as two 종성 jamo (ᇰ = ㅇ+ᇁ) carries its
@@ -285,7 +299,7 @@ def main():
             tot += 1
             continue
         w = target
-        keys = ''.join(build(*slots_of(t), C, J, G, COMPOSE, JG, J2)
+        keys = ''.join(build(*slots_of(t), C, J, G, COMPOSE, JG, J2, JC)
                        for t in split_syllables(w) if t != ' ')
         rec = batch([keys + " "])[0]
         out = canon(rec["commit"] + rec["preedit"])
