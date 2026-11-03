@@ -173,7 +173,11 @@ def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None):
         # A compound 중성 has no single key: it is two 중성 keys in sequence
         # (measured: ᅱ = b+d on sin3-p2-yet).
         jk = J.get(jung) or (JJ or {}).get(jung, '')
-    gk = (JG.get(jong, G.get(jong, '')) if jong else '')
+    # A single probed 종성 key wins over the two-key pair. This does NOT by
+    # itself make `ᄍᆞᆼ` compose: the same key 'a' gives ᆼ after 가 and a 중성
+    # after ᄍᆞ (measured), so a 종성 key is state-dependent on the 중성 that
+    # precedes it and one slot table cannot hold it. That is the next gap.
+    gk = ((G.get(jong) or JG.get(jong, '')) if jong else '')
     return ck + jk + gk
 
 
@@ -190,6 +194,13 @@ def build_compose(C, G):
         'ᅙ': c('ᄀ') + c('ᄒ'),   # ㄱ+ㅎ
         'ᅇ': c('ᄆ') + c('ᄒ'),   # ㅁ+ㅎ
     }
+    # MEASURED over the layout's own keys (2026-11-04): the constituent-pair
+    # guesses above hold for the letters they were written for, but the engine's
+    # pairs for these are different, and a wrong pair renders a different letter
+    # (`ᄍ` came out `ᄼ`, `ᄡ` came out `ᄎ`). These are the shortest key pairs that
+    # actually compose each letter in 초성 position, recorded verbatim.
+    measured = {'ᄍ': 'll', 'ᄫ': ';j', 'ᅇ': 'jj', 'ᅙ': 'km', 'ᄡ': 'nn'}
+    comp.update({k: v for k, v in measured.items() if all(ch in ALL for ch in v)})
     return {k: v for k, v in comp.items() if v and '?' not in v and v}
 
 
