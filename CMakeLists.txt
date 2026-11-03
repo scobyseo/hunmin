@@ -870,6 +870,19 @@ if(BUILD_TESTING)
     COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
             --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-sin3-p2.jsonl)
   set_tests_properties(engine-golden-case-sin3-p2 PROPERTIES LABELS "tier-A")
+  # P2's two siblings (#229), one designed case each: the digit row in full and
+  # the BackSpace an empty buffer declines. Their identity facts stay with the
+  # gate corpora above (p2-2-1-basic, manual-sin3-p2-yet); what these add is the
+  # per-LAYOUT coverage tier C needs, because a layout table can lose a row its
+  # siblings kept. Both from tools/gen-case-golden.py -- never hand-typed.
+  add_test(NAME engine-golden-case-sin3-p2-basic
+    COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+            --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-sin3-p2-basic.jsonl)
+  set_tests_properties(engine-golden-case-sin3-p2-basic PROPERTIES LABELS "tier-A")
+  add_test(NAME engine-golden-case-sin3-p2-yet
+    COMMAND hunmin-sim --data ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+            --check ${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/case-sin3-p2-yet.jsonl)
+  set_tests_properties(engine-golden-case-sin3-p2-yet PROPERTIES LABELS "tier-A")
   # The schema's shifted-key spelling, as a FIXTURE rather than a family: tier A
   # may write a shift as the resolved character (`"X"`, the corpus convention) or
   # as the base key plus `"shift": true`, which is what `hunmin-sim --trace`

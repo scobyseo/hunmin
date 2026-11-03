@@ -29,6 +29,18 @@ import sys
 # magic numbers -- it is the identity, spelled out so an unmapped key is loud.
 ASCII_KEYSYMS = {chr(c): c for c in range(0x20, 0x7F)}
 
+# A BackSpace can reach this file three ways, and all three mean the same key:
+#   {"key": "backspace"}   the reference-trace spelling (docs/SPEC-SCHEMA.md)
+#   {"ch": "\\b"}          the two-character escape of the `hunmin-sim --keys`
+#                          alphabet (tools/sim.c keys_step)
+#   {"ch": "\b"}           what `hunmin-sim --trace` actually writes (U+0008)
+# Only the `key` form was handled, so a golden the engine's own writer produced
+# failed with "no X11 keysym known for '\x08'" -- measured 2026-11-03 while
+# adding the empty-buffer BackSpace to the designed cases (issue #229). Accepting
+# the byte tier A writes is not a convenience: every trace is generated from a
+# golden, and that is how a golden spells this key.
+BACKSPACE_SPELLINGS = ("\\b", "\b")
+
 NAMED = {
     "backspace": 0xFF08,
     "return": 0xFF0D,
@@ -51,7 +63,7 @@ for _c in range(0x20, 0x7F):
 
 
 def x11_event(ch: str) -> dict:
-    if ch == "\\b":
+    if ch in BACKSPACE_SPELLINGS:
         return {"keysym": NAMED["backspace"], "mods": 0}
     low = ch.lower()
     if low in NAMED:
@@ -114,7 +126,7 @@ def _win32_vk(ch: str) -> tuple[int, int, int]:
 
 
 def win32_event(ch: str) -> dict:
-    if ch == "\\b":
+    if ch in BACKSPACE_SPELLINGS:
         return {"vk": _WIN32_VK_NAMED["backspace"], "scan": _WIN32_SCAN_NAMED["backspace"], "mods": 0}
     vk, scan, mods = _win32_vk(ch)
     return {"vk": vk, "scan": scan, "mods": mods}
@@ -131,7 +143,7 @@ def android_event(ch: str) -> dict:
     `shift_char` above resolves a `"shift": true` record to its character before
     it reaches this function, so a shifted SYMBOL arrives already spelled.
     """
-    if ch == "\\b":
+    if ch in BACKSPACE_SPELLINGS:
         return {"keycode": ANDROID_KEYCODES["backspace"], "mods": 0}
     if ch in ANDROID_KEYCODES:
         return {"keycode": ANDROID_KEYCODES[ch], "mods": 0}
@@ -325,17 +337,19 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
         # every ref-* file rather than doing the obvious thing.
         spec = rec["in"]
         named = spec.get("key")
-        # A shifted key may arrive as the base character plus "shift": true; the
-        # native event must carry the resolved character (see shift_char). The
-        # tier-A text is the same either way.
-        spec_ch = shift_char(spec["ch"]) if spec.get("shift") else spec["ch"]
-        event = build_named(named) if named else build(spec_ch)
+        # The other spelling of the same key: the engine's own writer records a
+        # BackSpace as `{"ch": "\u0008"}`, not as `{"key": "backspace"}`
+        # (BACKSPACE_SPELLINGS). Normalising it here means ONE rule below decides
+        # its consumption, and `spec["ch"]` is never read for a named key -- an
+        # unconditional read raised KeyError on the ref-* corpora that spell
+        # backspace the named way.
+        if named is None and spec.get("ch") in BACKSPACE_SPELLINGS:
+            named = "backspace"
         # `consumed` means the engine took the key, so it is a property of the
-        # LAYOUT, not of this file: the adapter consumes exactly when
-        # hunmin_ic_process() returns true, and that happens only for a
-        # character the layout's key table maps (FRONTEND-CONTRACT.md
-        # invariant 3). tier A cannot supply it -- it records only commit and
-        # preedit -- so it is read from the same table the engine reads.
+        # LAYOUT for a character and of the BUFFER for BackSpace: the adapter
+        # consumes exactly when the layer returns true (FRONTEND-CONTRACT.md
+        # invariant 3), and tier A cannot supply that -- it records only commit
+        # and preedit. Both branches derive it below, never from a guess.
         #
         # Two earlier versions guessed wrong, and the .in/.gold consistency
         # check in trace-check.py caught both: one exempted space and named
@@ -343,13 +357,30 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
         # everything (A11, since reverted). A guess here is a silent lie, so
         # the table is consulted instead.
         if named:
-            # Backspace is consumed only when it has something to delete:
-            # hunmin_ic_process() pops from a non-empty buffer and declines
-            # otherwise, so an empty buffer passes it to the client. tier A
-            # records the buffer state, so the rule reads it off the PREVIOUS
-            # line's preedit rather than guessing.
-            consumed = bool(previous_preedit)
+            event = build_named(named)
+            # A NAMED key is a boundary, not composition input: the shared
+            # layer classifies every non-text key as HUNMIN_KEY_BOUNDARY_PASS
+            # (libhunmin/src/buffered_preedit.c, "a named key with no list open
+            # is a boundary"), so the adapter declines it and the client
+            # receives it. BackSpace is the one exception -- it is TEXT with
+            # base 0x08 and is consumed exactly when the buffer has something to
+            # delete, which the previous line's preedit records. That is
+            # trace-spec.md invariant 4: `consumed` is false exactly when the
+            # key is unmapped, a chord, or an empty buffer.
+            #
+            # This read `bool(previous_preedit)` for EVERY named key, which
+            # labels a declined space or arrow as consumed whenever a syllable
+            # is in flight (measured 2026-11-03: the space after 안녕 has preedit
+            # 녕 on the line above and the adapter declines it). The .in/.gold
+            # check below would have caught it, but a generator should not emit
+            # a wrong expectation for the checker to find.
+            consumed = named == "backspace" and bool(previous_preedit)
         else:
+            # A shifted key may arrive as the base character plus "shift": true;
+            # the native event must carry the resolved character (see
+            # shift_char). The tier-A text is the same either way.
+            spec_ch = shift_char(spec["ch"]) if spec.get("shift") else spec["ch"]
+            event = build(spec_ch)
             consumed = _layout_maps(a.layout, spec_ch)
         if a.platform == "x11" and current.get("caps"):
             # X11 is the only platform that encodes Caps Lock in `mods`

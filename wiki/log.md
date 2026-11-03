@@ -1117,3 +1117,12 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `hunmin-sim` binary reports 6 MISMATCH lines on it, and a converter patched
   to ignore the field aborts the adapter (`commitString: ㄷ` where ㄸ was
   expected). The corpus's spelling is unchanged — resolved characters still.
+
+## [2026-11-03] create | tier C's x11 corpus takes the digit row and the declined BackSpace
+
+- New session page for issue #229's remaining half; it records the two generator
+  defects the work exposed (`consumed` for a named key, and the `{"ch":"\u0008"}`
+  spelling of BackSpace) and why a base-0 key still cannot be generated.
+- Board rows re-measured in `docs/REMAINING-WORK.md`: `TIER-C-WIRING-DECLINE` and
+  `TIER-C-WIRING-DIGITROW` now assert present artefacts, `TIER-C-WIRING-ARROW`
+  is new and stays `path-absent` on a ruling nobody has made.

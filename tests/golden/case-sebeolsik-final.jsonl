@@ -62,3 +62,16 @@
 {"in": {"ch": ":"}, "commit": "4", "preedit": ""}
 {"in": {"ch": "M"}, "commit": "\"", "preedit": ""}
 {"in": {"ch": ")"}, "commit": "~", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "0"}, "commit": "", "preedit": "ㅋ"}
+{"in": {"ch": "1"}, "commit": "", "preedit": "ᄏᅠᇂ"}
+{"in": {"ch": "2"}, "commit": "ᄏᅠᇂ", "preedit": "ㅆ"}
+{"in": {"ch": "3"}, "commit": "ㅆ", "preedit": "ㅂ"}
+{"in": {"ch": "4"}, "commit": "ㅂ", "preedit": "ㅛ"}
+{"in": {"ch": "5"}, "commit": "ㅛ", "preedit": "ㅠ"}
+{"in": {"ch": "6"}, "commit": "ㅠ", "preedit": "ㅑ"}
+{"in": {"ch": "7"}, "commit": "ㅑ", "preedit": "ㅖ"}
+{"in": {"ch": "8"}, "commit": "ㅖ", "preedit": "ㅢ"}
+{"in": {"ch": "9"}, "commit": "ㅢ", "preedit": "ㅜ"}
+{"in": {"ch": " "}, "commit": "ㅜ", "preedit": ""}
+{"in": {"ch": "\b"}, "commit": "", "preedit": ""}

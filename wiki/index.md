@@ -420,6 +420,15 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   pricing, the ruling implemented on all three frontends (engine judges, frontend
   switches), `language_detect.*` retired with six `REQ-MAP` rows re-pointed, and
   the two TSF defects the live session found routed to #175.
+- [[2026-11-03-tier-c-takes-the-digit-row-and-a-declined-backspace]] - issue #229's
+  second half: one designed case (`0123456789 \b`) for each x11 layout, so the
+  digit row is pressed in full and every layout declines a BackSpace into an
+  empty buffer (x11 598 -> 661 events, 162 -> 185 declined). Generating it
+  exposed two `tools/gen-conformance.py` defects that no committed trace could
+  reach: `consumed` for a named key was read off the previous preedit, and a
+  golden's `{"ch":"\u0008"}` spelling was not a BackSpace. The base-0 key
+  (arrow/Return) still cannot be generated — tier A has no encoding for it — and
+  is now its own board row, `TIER-C-WIRING-ARROW`.
 - [[2026-10-31-milestone-f-win32-conformance-corpus]] - milestone F: the win32
   corpus grew 3 -> 11 traces by porting the eight tier-A families x11 replays
   (106 cases / 688 events, tier-F1 12/12); the work exposed a generator that

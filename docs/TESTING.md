@@ -471,11 +471,10 @@ Implemented: `docs/trace-spec.md` (the format, with its invariants); the corpus 
 replays a trace through a real adapter and diffs it, exit 1 on mismatch and 77 to skip;
 and `frontends/fcitx5/test/trace-emit.cpp`, which does that for fcitx5/X11.
 
-**22 traces, 622 events**, registered as ctest
-`conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
+**24 traces, 685 events**`conformance-*` (`-DHUNMIN_TRACE_BUILD=ON`), plus `conformance-coverage`, which asserts
 that every tier-A case of every family the corpus replays has a trace and that every
 trace belongs to a recorded family (`tools/conformance-coverage.py`). Eight of the
-twenty-two are the per-layout word probes of issue #186 (`words-<layout>`, one case
+twenty-four are the per-layout word probes of issue #186 (`words-<layout>`, one case
 each), which is also what closes that issue's coverage hole: every shipped layout now
 appears on some platform, and `docs/FRONTEND-EQUIVALENCE.md` §6.3 records which.
 
@@ -489,8 +488,8 @@ its own expectation is mechanical rather than engine-read (the syllable in preed
 committed, the buffer empties). `tools/merge-golden-cases.py` applies that, one merged
 case per distinct engine-option set, and refuses to write unless `hunmin-sim --check`
 replays the result identically — which it does for every golden in the corpus. The corpus
-went 102 traces to 13, 263 events to 589 (14 / 598 with the `shift-field` schema fixture
-below): one merged trace per family, plus all ten of
+went 102 traces to 13, 263 events to 589 (24 / 685 with issue #186's eight one-word
+probes, the `shift-field` schema fixture and issue #229's two digit-row families below): one merged trace per family, plus all ten of
 세벌식 최종's designed cases under the word-buffered model (issue #220 took two of them
 for its boundary assertion; the other eight had no tier-C trace at all, which is why that
 layout's identity — three-key assembly, the number row as jongseong, 겹받침 on shifted
@@ -500,7 +499,7 @@ nine interior boundaries are the merge's declined spaces, not labels, so the mer
 them rather than erasing them.
 The same day, 두벌식 and 신세벌식 P2 got designed families of the same shape
 (`tests/golden/case-dubeolsik.jsonl`, `case-sin3-p2.jsonl`, eleven cases each, merged to
-one trace): one jamo per key with Shift-is-된소리 and a number row the layout does **not**
+one trace — twelve since #229 added the digit row): one jamo per key with Shift-is-된소리 and a number row the layout does **not**
 map for 두벌식, and for P2 the 갈마들이 pairs, 종성 on its own letter key, the 2024 받침
 rule and a number row spent on literal digits. Both families' `.in` equals their `.gold`
 event by event: they replay under tier A's own policy, because what they add is the
@@ -510,7 +509,8 @@ layout's key table and its declined characters, not a delivery model — that is
 with an empty buffer; `manual-sin3-p2-yet` is the corpus's one exception and keeps two
 cases, because one of its cases runs with `caps` on and one engine state cannot be two.
 The `sebeolsik-final` family trace declares the shipped word-buffered model via
-`meta.delivery` (its `total` is the concatenation of the ten cases' text), which is the
+`meta.delivery` (its `total` is the concatenation of the designed cases' text, eleven of
+them since #229), which is the
 other answer to the same question and the reason that family's `.in` differs from its
 `.gold` below.
 
@@ -527,7 +527,8 @@ family trace instead of a case label (which for these families repeated the expe
 text — `가`, `나` — that the event carries anyway). **What it buys, besides 92 fewer
 files:** those space boundaries are *declined keys*, so the x11 corpus now observes the
 pass-through half of `FRONTEND-CONTRACT` invariant 3 — 0 events to 92 when the merge
-landed, 159 now that the 두벌식 family adds declined characters as well — which is the gap
+landed, 193 now that the 두벌식 family adds declined characters and every designed family
+ends with a BackSpace into an empty buffer (#229) — which is the gap
 `tools/tier-c-wiring-coverage.py` was written to expose.
 
 Earlier history, kept because it explains the `commit_mode` field: the corpus was reduced
@@ -599,9 +600,9 @@ CapsLock and modifiers are now covered deliberately rather than incidentally.
 The two tiers are not equal in strength, and the difference is measurable. The fixture
 proves every key has a correct native **encoding**; the corpus proves the adapter applies
 it — but only for the keys it presses and only for the answers it carries. See "What the
-corpus covers of the adapter" below for that number; the x11 dialect presses 24 of
-sin3-p2's 47 keys and takes the decline path only on the space boundaries the case merge
-introduced.
+corpus covers of the adapter" below for that number; the x11 dialect presses 38 of
+sin3-p2's 47 keys and takes the decline path on the space boundary, on characters a
+layout does not map, and on a BackSpace into an empty buffer.
 
 ### What the corpus covers of the adapter (the metric)
 
@@ -625,29 +626,41 @@ Measured 2026-11-03 (`tier-c-wiring-coverage.py`, this host):
 
 | dialect | events | consumed | passed | layout keys pressed |
 |---|---|---|---|---|
-| x11 | 598 | 436 | 162 | 24/47, 14/47, 19/47 (p2, basic, yet) + 22/47 (sebeolsik-final) + 32/47 (sin3-p2) + 14/26 (dubeolsik) |
+| x11 | 685 | 492 | 193 | 38/47 (sin3-p2), 28/47 (yet), 24/47 (basic), 22/47 (sebeolsik-final), 15/26 (dubeolsik); 2/47-2/26 for the eight one-word probes |
 | win32 | 688 | 490 | 198 | 27/47, 13/47, 17/47 |
-| android | 48 | 31 | 17 | 14/47 |
+| android | 1191 | 1008 | 183 | 46/47 (colemak, dvorak, us-qwerty), 34/47 (sin3-p2), 24/26 (dubeolsik), 14/47 (basic) |
 
 Three gaps that follow, none of them a defect in a frontend:
 
-1. **x11 declines two kinds of key: space, and what a layout does not map.** 159 of its
-   passed events are the merge's case-boundary spaces plus the digits, shifted digits and
-   `.` the 두벌식 family presses — that layout maps 26 letters and nothing else, so the
-   adapter must decline a character and let the client have it. The pass-through half of
-   the contract is therefore observed for a character as well as for whitespace; an arrow
-   and a BackSpace on an empty buffer are still unobserved on every x11 layout. android
-   has 4 such events (Shift+arrow selection), win32 198 (the dubeolsik prose trace, which
-   also carries arrows and unmapped keys).
-2. **The digit row is half proven.** `1`, `2`, `3` and `0` are now pressed by x11 events —
-   두벌식 declines them, P2 delivers them as text — but `4`-`9` still appear in no x11
-   event, in any layout, although the number row is the row whose rules differ most
-   between layouts and modes (R6's digit run, the unshifted row as jongseong on 세벌식).
-   Most punctuation (`, - = [ \ ] \``) is unpressed for the same reason.
-3. **The dialects do not replay the same corpus.** x11 covers 12 layout families plus the
-   `shift-field` schema fixture, win32 8
-   (`p2-2-2-tiers` absent), android 1 (`p2-2-1-basic` only). "fcitx5 and Android agree" is
-   therefore measured for basic syllable composition and nothing else.
+1. **x11 declines three kinds of key: space, what a layout does not map, and a BackSpace
+   into an empty buffer.** 193 of its passed events are the merge's case-boundary spaces,
+   the digits, shifted digits and `.` the 두벌식 family presses (that layout maps 26
+   letters and nothing else), and one BackSpace per layout that finds the buffer empty.
+   The pass-through half of `docs/FRONTEND-CONTRACT.md` invariant 3 is therefore observed
+   for a character, for whitespace, and for the deletion key that has nothing to delete.
+   Still unobserved on x11: a key the platform maps to nothing at all (an arrow, Return,
+   Tab), which the shared layer answers with `HUNMIN_KEY_BOUNDARY_PASS` from `base == 0`
+   rather than from the layout table. Tier A has no encoding for such a key — it feeds the
+   engine a character — so a generated trace cannot assert one; that row is
+   `TIER-C-WIRING-ARROW` in `docs/REMAINING-WORK.md`. android now carries 183 passed
+   events (punctuation and spaces of the cultural texts, plus the Shift+arrow selection
+   trace), win32 198 (the dubeolsik prose trace, which also carries arrows and unmapped
+   keys).
+2. **The digit row is pressed in full, on every x11 layout.** `0`-`9` enter x11 events
+   through the digit-row case each designed family now carries: 두벌식 declines all ten,
+   P2's three layouts deliver them as text (`commit: "<the digit>"`, `consumed: true` — the
+   engine's answer, not the client's echo), and 세벌식 최종 turns them into jongseong jamo
+   that the closing space delivers. This is the row whose rules differ most between
+   layouts and modes (R6's digit run, the unshifted row as jongseong on 세벌식), and before
+   2026-11-03 `4`-`9` appeared in no x11 event in any layout. Most punctuation
+   (`, - = [ \ ]`, and the backtick) is still unpressed; that is what the same sweep
+   would widen next.
+3. **The dialects do not replay the same corpus.** All 15 shipped layouts now appear in
+   some conformance trace, but the FAMILY sets differ: x11 replays 22 layout families plus
+   the `shift-field` schema fixture, android 14, win32 8 (`p2-2-2-tiers` absent). x11 and
+   android share `p2-2-1-basic` and the eight one-word probes, which is what
+   "fcitx5 and Android agree" is measured on; the designed families, the cultural texts
+   and the P2 gate corpora are replayed on one dialect each.
 
 One fidelity point, separate from coverage: the android dialect writes printable keys as
 their **ASCII** value (`tools/gen-conformance.py` `ANDROID_KEYCODES`), not as
@@ -675,12 +688,14 @@ runner: it replays each trace through the Android adapter on the host JVM via th
 where there is no JDK, shim or SDK the runner exits 77 and the tests skip, which is what
 the earlier note was reading.
 
-**The coverage is one family of nine, and that is the remaining gap.** Android replays
-`p2-2-1-basic` only — not `p2-2-2-tiers`, `p2-2-3-chosung`, `p2-2-4-1-yetrules`,
-`p2-2-4-2-eung`, `p2-3-swapped`, `manual-sin3-p2`, `manual-sin3-p2-yet`, nor the
-`dkssud-combo` alias run — while the x11 corpus replays all nine and the win32 corpus
-eight. So "fcitx5 and Android agree" is measured for basic syllable composition and not
-for the rest of the shared corpus, which is the shape PLAN.md gates P5 on.
+**The two dialects still replay different corpora, and that is the remaining gap.**
+Android replays `p2-2-1-basic`, the eight per-layout word probes and the cultural texts
+(14 layout families); x11 replays 22 plus the `shift-field` fixture. The families they
+SHARE are `p2-2-1-basic` and the word probes, so "fcitx5 and Android agree" is measured
+for basic syllable composition and one-syllable layout wiring, not for the designed
+families or the P2 gate corpora — which is the shape PLAN.md gates P5 on. Which layouts
+each platform covers, and why the Latin ones are measured by a text rather than a word,
+is `docs/FRONTEND-EQUIVALENCE.md` §6.3 — it is not restated here.
 
 ## Tier D — Desktop integration: real fcitx5 🤖 (Linux CI)
 
