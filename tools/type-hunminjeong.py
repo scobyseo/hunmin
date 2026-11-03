@@ -92,6 +92,14 @@ def probe_slots():
             continue
         if len(d) == 2 and 0x1161 <= ord(d[1]) <= 0x11A7:
             jung.setdefault(d[1], rec["keys"][1:])
+    # A compound 중성 is TWO 중성 keys in sequence (measured: `kb` 규 + `kd` 기
+    # gives 귀, so ᅱ is b+d). Without this pass every compound vowel came out
+    # as its first constituent -- `귁` typed as `게`.
+    pairs = [(c1, c2) for c1 in ALL for c2 in ALL]
+    for (c1, c2), rec in zip(pairs, batch(["k" + a + b for a, b in pairs])):
+        d = list(_strip_filler(canon(rec["preedit"])))
+        if len(d) == 2 and d[0] == "ᄀ" and 0x1161 <= ord(d[1]) <= 0x11A7:
+            jung_pair.setdefault(d[1], c1 + c2)
     jong, jong_pair = {}, {}
     for rec in batch(["kf" + k for k in ALL]):  # 가+key -> 종성
         d = list(_strip_filler(canon(rec["preedit"])))
@@ -102,7 +110,7 @@ def probe_slots():
             jong[rest[0]] = rec["keys"][2:]
         elif len(rest) == 2 and rest[0] in jong and rest[1] in jong:
             jong_pair.setdefault("".join(rest), rec["keys"][2:])
-    return cho, jung, jong, cho_pair, jong_pair
+    return cho, jung, jong, cho_pair, jung_pair, jong_pair
 
 
 def split_syllables(s):
@@ -146,7 +154,7 @@ def slots_of(tok):
     return cho, jung, jong
 
 
-def build(cho, jung, jong, C, J, G, COMPOSE, JG):
+def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None):
     """Assemble keys. 아래아: `z` when a 종성 follows, else `p`.
 
     A compose-only 자모 (no single 초성/종성 key -- pat.im 옛한글) is two
@@ -158,11 +166,13 @@ def build(cho, jung, jong, C, J, G, COMPOSE, JG):
     if cho in COMPOSE:
         return COMPOSE[cho] + (J.get(jung, '') if jung else '') + \
                (JG.get(jong, G.get(jong, '')) if jong else '')
-    ck = C.get(cho, '')
+    ck = C.get(cho, '') or (COMPOSE.get(cho, '') if COMPOSE else '')
     if jung == 'ᆞ':
         jk = 'z' if jong else 'p'
     else:
-        jk = J.get(jung, '')
+        # A compound 중성 has no single key: it is two 중성 keys in sequence
+        # (measured: ᅱ = b+d on sin3-p2-yet).
+        jk = J.get(jung) or (JJ or {}).get(jung, '')
     gk = (JG.get(jong, G.get(jong, '')) if jong else '')
     return ck + jk + gk
 
@@ -230,7 +240,7 @@ def main():
                          "pass; the divergence is listed in the meta instead)")
     args = ap.parse_args()
 
-    C, J, G, C2, G2 = probe_slots()
+    C, J, G, C2, J2, G2 = probe_slots()
     COMPOSE = build_compose(C, G)
     JG = dict(build_jong_compose(G))
     # A compose-only 종성 the probe saw as two 종성 jamo (ᇰ = ㅇ+ᇁ) carries its
@@ -247,9 +257,24 @@ def main():
     text = " ".join(line for line in raw.splitlines()
                     if line.strip() and not line.lstrip().startswith("#"))
     ok = tot = 0
-    golden_events, diverged = [], []
+    golden_events, diverged, literals = [], [], set()
     for w in text.split(" "):
-        keys = ''.join(build(*slots_of(t), C, J, G, COMPOSE, JG)
+        # Only Hangul has a keystroke. A 한자 (中, 國), the 언해's '·'/'：' and any
+        # other character are delivered by the CLIENT, not the engine, so they
+        # must not enter the key stream: typing them produced no keys and every
+        # later syllable attached to the previous one (measured: the 13
+        # "divergences" were all letters lost this way, not an encoding
+        # difference -- `百ᄇᆡᆨ姓셩이` typed as 베셩이).
+        def hangul(ch):
+            return 0xAC00 <= ord(ch) <= 0xD7A3 or 0x1100 <= ord(ch) <= 0x11FF
+
+        target = "".join(ch for ch in w if hangul(ch))
+        literals.update(ch for ch in w if not hangul(ch))
+        if not target:
+            tot += 1
+            continue
+        w = target
+        keys = ''.join(build(*slots_of(t), C, J, G, COMPOSE, JG, J2)
                        for t in split_syllables(w) if t != ' ')
         rec = batch([keys + " "])[0]
         out = canon(rec["commit"] + rec["preedit"])
@@ -284,6 +309,7 @@ def main():
                         + (f"; {len(diverged)} recorded as the ENGINE's rendering "
                            "because an 옛 spelling comes back precomposed "
                            "(issue #239)" if diverged else ""),
+            "client_delivered": "".join(sorted(literals)) or None,
             **({"divergences": diverged} if diverged else {}),
             "reproduce": "python3 tools/type-hunminjeong.py --text-file <원문> --golden-out <this file>",
         }
