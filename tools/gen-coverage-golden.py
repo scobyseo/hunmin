@@ -253,7 +253,11 @@ def main() -> int:
             return sum(1 for c, o in zip(CHO, outs) if o == syllable(c, "ㅏ"))
 
         best = None
-        for g, ak in (("k", "f"), ("r", "k"), ("r", "K"), ("j", "f")):
+        # ... and when NO literal scores, the probe discovers the pair itself (one
+        # batched scan). ahnmatmae and romaja put jamo on shifted keys and their
+        # unshifted keys commit literal ASCII, so no literal in this list stands
+        # on 가 -- measured: both read as 1 of 19 초성 until discovery ran.
+        for g, ak in ((None, None), ("k", "f"), ("r", "k"), ("r", "K"), ("j", "f")):
             try:
                 s = modern_score(g, ak)
             except SystemExit:

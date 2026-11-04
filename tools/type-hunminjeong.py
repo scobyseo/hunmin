@@ -99,16 +99,17 @@ def probe_slots(layout=None, g=None, a=None):
         rec = batch([g_key + a_key], layout)[0]
         d = list(_strip_filler(canon(rec["preedit"])))
         if not (len(d) == 2 and d[0] == "ᄀ" and d[1] == "ᅡ"):
-            for x in ALL:
-                for y in ALL:
-                    rec = batch([x + y], layout)[0]
-                    d = list(_strip_filler(canon(rec["preedit"])))
-                    if len(d) == 2 and d[0] == "ᄀ" and d[1] == "ᅡ":
-                        g_key, a_key = x, y
-                        break
-                else:
-                    continue
-                break
+            # ONE batched scan, not 92^2 round trips: ahnmatmae and romaja put the
+            # jamo on shifted keys and their unshifted keys commit literal ASCII
+            # (`Fj` renders 가, `kf` renders ㅣㄱ), so the context has to be
+            # discovered rather than guessed -- and guessed slowly is what made
+            # both read as 0 slots.
+            pairs = [(x, y) for x in ALL for y in ALL]
+            for (x, y), rec in zip(pairs, batch([x + y for x, y in pairs], layout)):
+                d = list(_strip_filler(canon(rec["preedit"])))
+                if len(d) == 2 and d[0] == "ᄀ" and d[1] == "ᅡ":
+                    g_key, a_key = x, y
+                    break
     cho, cho_pair = {}, {}
     for rec in batch([k + a_key for k in ALL], layout):  # key+ㅏ -> 초성+ㅏ
         d = list(_strip_filler(canon(rec["preedit"])))
