@@ -298,20 +298,29 @@ jobs:
       # android-mutations` at its "Tier E0 + E1" step, so the coverage is not
       # lost, it is de-duplicated. The tier-C Android corpus is NOT excluded
       # -- it registers under `tier-C`, and this job is where it runs.
-      - run: ctest --test-dir build -j4 --output-on-failure -LE 'tier-E1'
+      - run: ctest --test-dir build -j4 --output-on-failure -LE 'tier-E1' --output-junit build/junit.xml
       # On failure, keep the evidence. The snapshot above says WHAT the runner
       # had; this keeps it together with the per-test output, so a local
       # reproduction starts from both instead of from a re-run. Uploaded as an
       # artefact rather than printed, because the log is where the failure
       # detail already is and the artefact is what survives to be downloaded.
       - name: Upload the failure evidence
-        if: "failure()"
+        # failure() OR cancelled(): the 3-minute ceiling above is the job's own
+        # stated failure mode (a cold fcitx5 cache returns the 197 s build and
+        # the job cannot fit), and on a timeout the run is CANCELLED -- where
+        # `failure()` is false, so the one artefact that would explain the
+        # timeout was never uploaded. Measured here: a timed-out step does not
+        # satisfy failure().
+        if: "failure() || cancelled()"
         uses: actions/upload-artifact@v4
         with:
           name: linux-failure-evidence
           path: |
             ci-env-snapshot.txt
             build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+            build/Testing/Temporary/LastTestsSkipped.log
+            build/junit.xml
           retention-days: 7
           if-no-files-found: warn
 
