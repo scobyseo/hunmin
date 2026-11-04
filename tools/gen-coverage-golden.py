@@ -71,7 +71,11 @@ def compat(s: str) -> str:
 
 
 def syllable(cho: str, jung: str, jong: str = "") -> str:
-    i = CHO.index(cho) * 588 + JUNG.index(jung) * 28 + (JONG.index(jong) if jong else 0)
+    """Precomposed syllable. The 종성 index is JONG.index(jong) + 1: in the
+    U+AC00 block jong 0 means NO final consonant, so using the list index
+    directly names the previous syllable (measured: `ㅇ+ㅏ+ㄱ` produced 아 and
+    every 종성 probe compared against its neighbour, 0 of 27 passing)."""
+    i = CHO.index(cho) * 588 + JUNG.index(jung) * 28 + (JONG.index(jong) + 1 if jong else 0)
     return chr(0xAC00 + i)
 
 
