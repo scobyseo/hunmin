@@ -549,7 +549,7 @@ if(BUILD_TESTING AND Python3_FOUND)
     set_tests_properties(engine-android-e1 PROPERTIES
       LABELS "tier-E1;slow"
       SKIP_RETURN_CODE 77 TIMEOUT 900 RUN_SERIAL TRUE)
-    # Tier E1's own falsifiability check: plant nine known-interesting mutations
+    # Tier E1's own falsifiability check: plant ten known-interesting mutations
     # in the Android adapter and assert the suite catches each one.
     #
     # This used to be RUN_SERIAL because it overwrote three Kotlin files in the

@@ -55,7 +55,15 @@ class RecordingInputConnection : InputConnection {
     var finishedComposing: Int = 0
         private set
 
-    /** Every sendKeyEvent() payload, in order. Used to assert pass-through. */
+    /**
+     * Every sendKeyEvent() payload, in order.
+     *
+     * The adapters do NOT use this: an unconsumed key is reported by returning
+     * false from onKey, and the service hands it to the platform through
+     * super.onKeyDown(). The recorder exists so a future adapter that tried to
+     * re-send the key itself (a double delivery) would be visible instead of
+     * silently swallowed by a stub `= true`.
+     */
     val sentEvents = mutableListOf<KeyEvent>()
 
     /**
@@ -172,7 +180,10 @@ class RecordingInputConnection : InputConnection {
 
     override fun endBatchEdit(): Boolean = true
 
-    override fun sendKeyEvent(event: KeyEvent?): Boolean = true
+    override fun sendKeyEvent(event: KeyEvent?): Boolean {
+        if (event != null) sentEvents.add(event)
+        return true
+    }
 
     override fun clearMetaKeyStates(flags: Int): Boolean = true
 

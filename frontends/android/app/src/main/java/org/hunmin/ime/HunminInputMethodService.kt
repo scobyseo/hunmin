@@ -588,7 +588,7 @@ class HunminInputMethodService : InputMethodService() {
          * falls through to the hand-rolled swap below. */
         val target0 = currentInputConnection
         val eng = engine
-        if (eng != null && eng.toggleLanguage()) {
+        if (eng != null && eng.toggleLanguage(target0)) {
             isHangulMode = eng.isHangulLanguage()
             modeStore.remember(KEY_HANGUL_MODE, isHangulMode)
             if (target0 != null) eng.updatePreedit(target0)

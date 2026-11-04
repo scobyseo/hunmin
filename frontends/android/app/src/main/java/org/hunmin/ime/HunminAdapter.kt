@@ -153,11 +153,30 @@ class HunminAdapter(
     /** The layer holds both slots, so it can perform the language action. */
     val ownsLanguageAction: Boolean get() = layer != 0L && latinLayoutId != null
 
-    /** The language action (FE7): boundary, switch and other-slot attach, done
-     *  by the layer. False means this adapter is one-language. */
-    fun toggleLanguage(): Boolean {
+    /**
+     * The language action (FE7): boundary, switch and other-slot attach, done
+     * by the layer. False means this adapter is one-language.
+     *
+     * [ic_] is where the boundary's word goes. The layer puts what the switch
+     * finished into its delivered slot and the other two frontends insert it
+     * (tsf.cpp ToggleModeCore, hunminadapter.cpp applyJudgement); passing null
+     * here is only correct for a caller that has already committed the word
+     * itself, because the layer has cleared it either way.
+     */
+    fun toggleLanguage(ic_: InputConnection? = null): Boolean {
         if (layer == 0L || latinLayoutId == null) return false
-        return native.layerToggleLanguage(layer)
+        val switched = native.layerToggleLanguage(layer)
+        /* Dropping this was a real data-loss defect, not a theoretical one: the
+         * layer's boundary runs on every switch, so the word being composed at
+         * the moment of 한/영 went into the delivered slot and the next key
+         * overwrote it. Tier E1's `mode toggle is a boundary that flushes the
+         * word` is what it looks like when the delivery is missing. */
+        if (ic_ != null) {
+            val word = native.layerDelivered(layer)
+            if (word.isNotEmpty()) ic_.commitText(word, 1)
+            updatePreedit(ic_)
+        }
+        return switched
     }
 
     /** True when the layer is in Hangul; meaningful only with both slots. */

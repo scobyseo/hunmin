@@ -94,6 +94,11 @@ MUTATIONS: list[tuple[str, str, str, bool]] = [
     ("Shift is treated as a chord", KEYS, "shift-is-chord", True),
     ("external text goes through the jamo pipeline", ENGINE,
      "voice-through-engine", True),
+    # A defect this adapter actually shipped: the layer's 한/영 toggle commits the
+    # word at the boundary and the adapter threw the commit away, so the word
+    # composing at the moment of the switch was lost. Nothing else in the suite
+    # looks at the language action's delivery, which is why it survived.
+    ("the toggle's committed word is dropped", ENGINE, "no-toggle-delivery", True),
     ("recognised text is not trimmed before commit", VOICE, "voice-no-trim", True),
     ("a throwing recogniser is not contained", VOICE, "voice-throw-escapes", True),
     ("two callbacks commit the text twice", VOICE, "voice-double-report", True),
@@ -369,7 +374,7 @@ def main() -> int:
         say(f"strategy: {name}")
 
         # An unmutated run first. Two reasons, both about what a later green
-        # means: a checkout whose suite is already red would report all nine
+        # means: a checkout whose suite is already red would report all of them
         # mutations "caught" for the wrong reason, and the shim check below
         # needs the build to exist. Costs one run -- 3.3 s in the sandbox --
         # and it is the only place a red baseline can be caught.
