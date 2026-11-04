@@ -138,6 +138,29 @@ python3 tools/trace-check.py tests/conformance/x11/basic-syllables.trace.in \
 Test counts vary with the configuration (Android SDK, JDK, NDK, trace build), so
 no bare count belongs in prose. `docs-lint` checks that it has not crept back in.
 
+### Text or jamo → keystrokes: use the tools, never re-derive it
+
+Turning text into keystrokes is solved in this tree, and hand-rolled versions of
+it are the recorded failure mode — six harnesses that returned confident zeros
+(`docs/MODES-METRICS.md` §3), one of them a hand-derived jamo map.
+
+- **`tools/jamo-keytable.py`** — jamo → key for a 세벌식 layout, probed per slot:
+  초성 and 종성 sit on different physical keys, 겹받침 is two jong keys, and the
+  three twin 중성 (ㅗ/ㅜ/ㅡ) record which member the table took. `--table-out`
+  caches it; `gen-cultural-golden.py --jamo-table` consumes the same artefact.
+- **`tools/sin3p2-ksgen.py`** — BFS over the layout automaton, for the cases
+  where a per-jamo table is not enough (a key's output depends on the slots
+  already filled).
+- **`tools/modes-metrics.py`** — whole-sentence keys for a replay, including the
+  other half of the mapping: `probe_literals()` for digits and punctuation. **Do
+  not assume ASCII identity.** sin3-p2 types `; " '` as Shift+P / Shift+K /
+  Shift+J, while the `; " '` keys themselves emit jamo; a key is a literal only
+  when it delivers the character *and* leaves nothing composing.
+
+`hunmin-sim --batch` is the oracle all three probe with, at ~869k evaluations a
+second. Chain to it; do not reimplement composition, and take the text or corpus
+as an argument rather than hardcoding one.
+
 ## Layout
 
 ```

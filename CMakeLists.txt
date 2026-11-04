@@ -770,6 +770,23 @@ if(BUILD_TESTING AND Python3_FOUND)
   set_tests_properties(modes-corpus-selfcheck PROPERTIES
     LABELS "tier-G"
     SKIP_RETURN_CODE 77)
+  # modes-metrics-selfcheck: the E4 harness's own guards must bite (issue #181).
+  # It asserts that the OFF arm round-trips a mixed sentence, that the comparator
+  # notices a changed one, that the transition count matches a hand count, and
+  # that the ctypes replay agrees with `hunmin-sim --judge` — the last is the
+  # control docs/MODES-METRICS.md §3 asks for, since the two receive paths once
+  # disagreed without anyone noticing. The key table is cached in the build dir,
+  # keyed on the layout file's sha256: rebuilding it costs ~6 s (it probes the
+  # engine), the cached read ~0 s, and a layout edit invalidates the cache
+  # instead of typing the old jamo. No corpus: the measurement itself needs one
+  # as an argument (tools/build-modes-sentences.py makes one from a dump).
+  add_test(NAME modes-metrics-selfcheck
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/modes-metrics.py
+            --selfcheck
+            --lib $<TARGET_FILE:hunmin>
+            --sim $<TARGET_FILE:hunmin-sim>
+            --keytable ${CMAKE_CURRENT_BINARY_DIR}/sin3-p2.keytable.json)
+  set_tests_properties(modes-metrics-selfcheck PROPERTIES LABELS "tier-G")
   # Android 15+ on 16KB-page devices refuses an install whose native
   # libraries are not 16KB-aligned, and the failure is invisible on the build
   # machine (it compiles, links, packages, installs -- and only the device
