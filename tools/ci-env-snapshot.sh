@@ -84,6 +84,43 @@ section "registered tests by label"
     done
 } 2>&1
 
+section "build configuration (what the suite was BUILT to do)"
+{
+    cache="$BUILD/CMakeCache.txt"
+    if [ -f "$cache" ]; then
+        # These are the options that decide which tiers register and how they
+        # run: BUILD_TESTING off means ctest has nothing to run, HUNMIN_TRACE_BUILD
+        # off means the tier-C emitters are absent, and the compiler/prefix pair
+        # is what makes a sandbox or a restore work at all. Printed from the
+        # cache rather than from the command line, because the cache is what the
+        # build actually used.
+        for k in CMAKE_GENERATOR CMAKE_BUILD_TYPE BUILD_TESTING HUNMIN_TRACE_BUILD \
+                 CMAKE_C_COMPILER CMAKE_CXX_COMPILER CMAKE_PREFIX_PATH Fcitx5Core_DIR; do
+            v=$(grep -m1 -E "^$k:[A-Z]+=" "$cache" 2>/dev/null | cut -d= -f2-)
+            printf '  %-22s %s\n' "$k" "${v:-(absent)}"
+        done
+    else
+        echo "  no $cache: the tree was not configured"
+    fi
+    echo "  ctest: $(ctest --version 2>/dev/null | head -1)"
+    echo "  cmake: $(cmake --version 2>/dev/null | head -1)"
+    echo "  cc:    $(cc --version 2>/dev/null | head -1)"
+} 2>&1
+
+section "CI facts (empty outside CI)"
+{
+    for v in GITHUB_EVENT_NAME GITHUB_REF_NAME GITHUB_JOB RUNNER_OS RUNNER_ARCH \
+             CI IMAGE_OS; do
+        echo "$v: ${!v:-(unset)}"
+    done
+    # Cache outcomes are decided by the workflow's earlier steps, so it passes
+    # them in: "the fcitx5 build ran again" is the single fact that explains a
+    # job that took 197 s longer than the previous one.
+    for v in HUNMIN_CI_CACHE_FCITX5 HUNMIN_CI_CACHE_GRADLE; do
+        echo "$v: ${!v:-(unset)}"
+    done
+} 2>&1
+
 section "data inputs (a missing one is a skip, not a pass)"
 {
     # The krdict dump is gitignored and 368 MB; its absence makes data-selfcheck

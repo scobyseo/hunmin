@@ -564,6 +564,51 @@ The `linux` job's evidence step uploaded exactly two paths:
    (`I12-autoswitch-not-reapplied`): the row now carries
    `engine-d1-fcitx5 (Subprocess aborted)` instead of nothing.
 
+### What a run prints, so the judgement does not need a person
+
+Three outputs, in the order a run produces them. The question each answers is
+stated, because that is what makes an output worth printing.
+
+**1. `ci-env-snapshot.txt`, before ctest** (`tools/ci-env-snapshot.sh`):
+
+| section | the question it settles |
+|---|---|
+| runner, os, nproc, date | which image this was, and how much parallelism |
+| toolchain variables, each printed even when `(unset)` | why a tier is absent rather than skipped |
+| tools, each `path` or `MISSING` | which tier *could* have run |
+| fcitx5 version | whether the addon's 5.1.13 floor is met |
+| **build configuration from the CMake cache** — generator, build type, `BUILD_TESTING`, `HUNMIN_TRACE_BUILD`, both compilers, `CMAKE_PREFIX_PATH`, `Fcitx5Core_DIR` | what the suite was built *to do*, as opposed to what the command line asked for |
+| **cache outcomes** — `HUNMIN_CI_CACHE_FCITX5`, `HUNMIN_CI_CACHE_GRADLE` | the one fact that explains a job 197 s longer than the last |
+| registered tests per label | how many of each tier this configuration actually has |
+| data inputs, `present`/`ABSENT` | a missing table reads as a skip, not a pass |
+
+**2. `ctest` timing, always, on green runs too** (`tools/ci-test-timing.py`,
+reading `--output-junit`):
+
+```
+tests: N  passed: N  failed: 0  skipped: 0
+sum of per-test times: … s (wall clock is ctest's own total, smaller under -j)
+slowest 10:
+   27.0 s  pass  frontend-mutations
+   …
+skipped (a skip is not a pass):
+   …
+```
+
+plus the same table as markdown on the run's **summary page**, so "where is it
+slow" is answered without downloading anything. This is the output whose absence
+made a 47 s tier look like weather: a green run that is 3× the previous one is
+the finding, and it only shows if it is printed on every run.
+
+**3. On failure or cancellation**, the artifact: the snapshot, `LastTest.log`,
+`LastTestsFailed.log`, `LastTestsSkipped.log`, `build/junit.xml`.
+
+**Still not printed, and why.** Per-step wall times are only in the log
+timestamps and the UI's step list — GitHub provides them, so a duplicate in the
+artifact would drift. The budget comparison (78 s against 180 s) is a local
+figure from `tools/ci-time-budget.sh`; a CI run cannot compare itself to it
+without knowing its own expected cost, which is the number under measurement.
+
 ### What is still not collected, named rather than fixed
 
 - The mutation sandboxes are deleted on exit; a post-mortem on a failed build

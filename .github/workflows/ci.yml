@@ -238,6 +238,7 @@ jobs:
       # The restore-keys fall back to the newest cache, so a single dependency
       # bump is a hit rather than a miss.
       - name: Restore the Gradle cache
+        id: gradle-cache
         uses: actions/cache@v4
         with:
           path: |
@@ -273,6 +274,12 @@ jobs:
       # be diffed against a red one. tools/ci-env-snapshot.sh is the local
       # equivalent -- run it here and the two outputs are directly comparable.
       - name: Snapshot the environment (before ctest, always)
+        # The cache outcomes are passed in: they are the one fact that explains
+        # a job taking 197 s longer than the run before it, and they are not
+        # visible from inside the tree.
+        env:
+          HUNMIN_CI_CACHE_FCITX5: ${{ steps.fcitx5-cache.outputs.cache-hit || 'miss' }}
+          HUNMIN_CI_CACHE_GRADLE: ${{ steps.gradle-cache.outputs.cache-hit || 'miss' }}
         run: ./tools/ci-env-snapshot.sh build | tee ci-env-snapshot.txt
       # -j4, measured 2026-10-14 for issue #59. On this host the same suite is
       # 189.76 s serial and 47.82 s at -j16, and the serial ctest alone is 269 s
@@ -299,6 +306,15 @@ jobs:
       # lost, it is de-duplicated. The tier-C Android corpus is NOT excluded
       # -- it registers under `tier-C`, and this job is where it runs.
       - run: ctest --test-dir build -j4 --output-on-failure -LE 'tier-E1' --output-junit build/junit.xml
+      # WHERE THE TIME WENT, on every run, not only a red one. A green run that
+      # took three times as long as the previous one is the finding, and the
+      # ctest log answers it only in the middle of several hundred lines. This
+      # reads the JUnit output and prints the slowest tests plus the skipped
+      # list, and appends the same table to the run's summary page -- so the
+      # judgement is available without downloading the artefact.
+      - name: Where the time went (always)
+        if: always()
+        run: python3 tools/ci-test-timing.py --junit build/junit.xml --summary "$GITHUB_STEP_SUMMARY"
       # On failure, keep the evidence. The snapshot above says WHAT the runner
       # had; this keeps it together with the per-test output, so a local
       # reproduction starts from both instead of from a re-run. Uploaded as an
