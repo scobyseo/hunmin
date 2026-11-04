@@ -11,10 +11,14 @@ pre-measurement.
 > holding a second `hunmin_ctx` on a Latin layout and replaying the buffered word
 > when the in-flight preedit empties — not "the mode lives in `hunmin_ctx`".
 > Since this section was written it gained a tier-D1 test
-> (`engine-d1-language-detect`) and a documented contract; what has NOT changed
-> is that its answer is discarded by the caller, so nothing user-visible depends
-> on it (issue #132). Which design stands is the maintainer's — R3's objection
-> (two frontends answering differently) bites the day the answer is used.
+> (`engine-d1-language-detect`) and a documented contract. Its answer then was
+> discarded by the caller, so nothing user-visible depended on it (issue #132);
+> **that measurement was superseded on 2026-11-01 (#164)**, when the engine took
+> over the judgement and fcitx5 began acting on
+> `hunmin_buffered_preedit_take_judgement`, so the detector and its test are
+> gone and the answer is now used. Which design stands is the maintainer's —
+> R3's objection (two frontends answering differently) was settled by that
+> ruling: one judgement in the engine, each frontend performing the switch.
 
 ---
 
