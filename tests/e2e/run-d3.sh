@@ -501,6 +501,18 @@ CASE_ID_FILE="$STAGE/case-id"
 export HUNMIN_CASE_ID_FILE="$CASE_ID_FILE"
 
 # -------------------------------------------------------- fcitx control
+# Elapsed milliseconds from $2 (a gate start, in EPOCHREALTIME's microseconds)
+# to $1, or "never" when the fact was not observed. Bash builtins only: this is
+# called for every gate fact on every start, not only on a failure, so a fork
+# per call would be paid 200 times a start.
+gate_ms() { # $1 = timestamp in us (or ""), $2 = start in us
+    if [ -z "$1" ]; then
+        printf 'never'
+    else
+        printf '%d ms' "$(( ($1 - $2) / 1000 ))"
+    fi
+}
+
 start_fcitx() { # $1 = layout
     # NOTE: never probe with fcitx5-remote before the instance owns the
     # bus name — dbus *activates* org.fcitx.Fcitx5 from its .service file,
@@ -544,6 +556,7 @@ Layout=$layout
 EOF
     }
     rewrite_profile_layout "$1"
+    local gate_layout=$1
     fcitx5 >"$STAGE/fcitx5.log" 2>&1 &
     FCITX_PID=$!
     # Two gates, not one, and the order matters. The XIM server registration
@@ -566,10 +579,52 @@ EOF
     # fcitx5 owns its bus name and fcitx5-diagnose reports a live InputContext.
     # Gating on it makes the test fail to start for a reason unrelated to the
     # engine, so its report is not treated as a readiness signal here.
+    # The gate ALSO records when each of its three facts becomes true, not only
+    # that they eventually are. Issue #253: one start in eight parallel runs had
+    # "Loaded addon hunmin" at +1.09 s and no @server=fcitx for the rest of the
+    # 19 s gate, and the shipped poll kept nothing that said which half was
+    # missing -- the log's tail did not even carry "Loaded addon xim". Timing
+    # the facts costs three greps and one xprop per 0.1 s poll, and the result
+    # is appended to $STAGE/gate.log on every start, so a passing run's timings
+    # are readable afterwards (HUNMIN_D3_KEEP=1) instead of needing an
+    # instrumented copy of this script.
+    local start_us=${EPOCHREALTIME/./}
+    local now_us xim_us="" hunmin_us="" prop_us="" polls=0 xprop_ok=0 xprop_bad=0
+    local xprop_out
     for _ in $(seq 1 200); do
-        if xprop -root -display "$DISP" 2>/dev/null |
-            grep -q '@server=fcitx' &&
-           grep -q 'Loaded addon hunmin' "$STAGE/fcitx5.log" 2>/dev/null; then
+        polls=$((polls + 1))
+        now_us=${EPOCHREALTIME/./}
+        # Named separately because the xim addon is what publishes
+        # @server=fcitx, and the gate does not otherwise ask whether it loaded
+        # at all. Recorded, never gated on: a new condition would change what
+        # the tier waits for.
+        if [ -z "$xim_us" ] &&
+            grep -q 'Loaded addon xim' "$STAGE/fcitx5.log" 2>/dev/null; then
+            xim_us=$now_us
+        fi
+        if [ -z "$hunmin_us" ] &&
+            grep -q 'Loaded addon hunmin' "$STAGE/fcitx5.log" 2>/dev/null; then
+            hunmin_us=$now_us
+        fi
+        # One xprop per poll, kept: whether the GATE could reach the display at
+        # all is the fact that separates "the server never published" from "the
+        # server was unreachable from here too", and it is otherwise thrown
+        # away with stderr.
+        if xprop_out=$(xprop -root -display "$DISP" 2>/dev/null); then
+            xprop_ok=$((xprop_ok + 1))
+            if [ -z "$prop_us" ] && printf '%s' "$xprop_out" | grep -q '@server=fcitx'; then
+                prop_us=$now_us
+            fi
+        else
+            xprop_bad=$((xprop_bad + 1))
+        fi
+        if [ -n "$prop_us" ] && [ -n "$hunmin_us" ]; then
+            printf 'layout=%s prop=%s xim_addon=%s hunmin=%s polls=%s\n' \
+                "$gate_layout" \
+                "$(gate_ms "$prop_us" "$start_us")" \
+                "$(gate_ms "$xim_us" "$start_us")" \
+                "$(gate_ms "$hunmin_us" "$start_us")" \
+                "$polls" >>"$STAGE/gate.log"
             # Activate the hunmin IM: -s takes the IM name and switches to it.
             # (-o is a bare flag meaning "activate the application"; passing
             # it an imname argument silently does nothing but activate, which
@@ -596,7 +651,81 @@ EOF
         kill -0 "$FCITX_PID" 2>/dev/null || break
         sleep 0.1
     done
-    echo "ERROR: fcitx5 did not come up (layout=$1)"
+    # The gate now names WHICH half was missing, because "did not come up" is
+    # the wrong sentence for a daemon that is running and serving (#253), and
+    # dumps what the poll saw while the daemon is still alive -- start_fcitx
+    # returns before stop_fcitx runs, so the display, the process and the log
+    # are all still there. The dump goes to the ctest log (stdout) and to
+    # $STAGE/gate-failure.log, so it survives the stage being removed unless
+    # HUNMIN_D3_KEEP=1 was set, and the next occurrence is diagnosable without
+    # re-instrumenting a copy of this script.
+    local why loglines
+    if ! kill -0 "$FCITX_PID" 2>/dev/null; then
+        why="fcitx5 (pid $FCITX_PID) exited before the gate was satisfied"
+    elif [ -n "$hunmin_us" ] && [ -z "$prop_us" ]; then
+        why="the hunmin addon loaded but @server=fcitx never appeared on $DISP"
+    elif [ -n "$prop_us" ] && [ -z "$hunmin_us" ]; then
+        why="@server=fcitx appeared but the hunmin addon never loaded"
+    else
+        why="neither @server=fcitx nor the hunmin addon appeared"
+    fi
+    # Measured 2026-11-05: an X connection that fails is silent -- fcitx5 loads
+    # the xcb addon and logs no "Connecting to X11 display" line at all, with
+    # DISPLAY pointing at nothing and with DISPLAY unset alike (probe in
+    # docs/D3-PERFORMANCE.md). A start that has no such line therefore never
+    # had a display to register an XIM server on, which is a different defect
+    # from an addon that loaded and failed to publish.
+    if ! grep -q 'Connecting to X11 display' "$STAGE/fcitx5.log" 2>/dev/null; then
+        why="$why; fcitx5 never opened an X connection (no 'Connecting to X11 display' line)"
+    fi
+    echo "ERROR: fcitx5 did not come up (layout=$1): $why"
+    loglines=$(grep -c '' "$STAGE/fcitx5.log" 2>/dev/null || true)
+    {
+        echo "=== d3 gate failure evidence (issue #253) ==="
+        echo "layout=$1 display=$DISP pid=$FCITX_PID polls=$polls of 200" \
+            "elapsed=$(gate_ms "$now_us" "$start_us")"
+        echo "--- when each gate fact was first observed ---"
+        printf '  Loaded addon xim    : %s\n' "$(gate_ms "$xim_us" "$start_us")"
+        printf '  Loaded addon hunmin : %s\n' "$(gate_ms "$hunmin_us" "$start_us")"
+        printf '  @server=fcitx       : %s\n' "$(gate_ms "$prop_us" "$start_us")"
+        echo "  the gate's own xprop reached $DISP in $xprop_ok of $polls polls" \
+            "($xprop_bad failed)"
+        echo "--- root window properties on $DISP (xprop -root) ---"
+        xprop -root -display "$DISP" 2>&1 || echo "  xprop failed"
+        echo "--- fcitx5 process state ---"
+        ps -o pid,ppid,stat,etime,wchan:28,args -p "$FCITX_PID" 2>&1 ||
+            echo "  pid $FCITX_PID is not running"
+        ps -o pid,stat,wchan:28,args --ppid "$FCITX_PID" 2>&1 |
+            sed 's/^/  child: /'
+        echo "--- environment the daemon was started with (no cookie values) ---"
+        tr '\0' '\n' <"/proc/$FCITX_PID/environ" 2>/dev/null |
+            grep -E '^(DISPLAY|XAUTHORITY|WAYLAND_DISPLAY|XDG_RUNTIME_DIR|DBUS_SESSION_BUS_ADDRESS)=' ||
+            echo "  (cannot read /proc/$FCITX_PID/environ)"
+        echo "--- X sockets, and auth entries by display name only ---"
+        ls -l /tmp/.X11-unix/ 2>&1
+        # Names only. An xauth cookie is a credential and never belongs in a
+        # test log, on the console or in an uploaded artefact.
+        if [ -n "${XAUTHORITY:-}" ]; then
+            xauth -f "$XAUTHORITY" list 2>/dev/null | awk '{print "  " $1 " " $2}'
+        else
+            echo "  XAUTHORITY is unset"
+        fi
+        echo "--- addon, XIM and X-connection lines from the fcitx5 log ---"
+        grep -nE 'Loaded addon|xim|Connecting to X11' "$STAGE/fcitx5.log" 2>/dev/null |
+            tail -60 || echo "  (no addon, xim or X-connection line in the log)"
+        echo "--- every start's gate timings in this run ($STAGE/gate.log) ---"
+        cat "$STAGE/gate.log" 2>/dev/null || echo "  (this was the first start)"
+        echo "--- Xephyr and Xvfb logs (tail 20 each) ---"
+        tail -20 "$STAGE/xephyr.log" 2>/dev/null | sed 's/^/  xephyr: /' ||
+            echo "  (no xephyr.log)"
+        tail -20 "$STAGE/xvfb.log" 2>/dev/null | sed 's/^/  xvfb: /' ||
+            echo "  (no xvfb.log)"
+        echo "--- fcitx5.log, complete (${loglines:-0} lines) ---"
+        cat "$STAGE/fcitx5.log" 2>/dev/null
+        echo "=== end d3 gate failure evidence ==="
+        echo "stage: $STAGE (kept on exit only with HUNMIN_D3_KEEP=1)"
+    } >"$STAGE/gate-failure.log" 2>&1 || true
+    cat "$STAGE/gate-failure.log"
     return 1
 }
 
