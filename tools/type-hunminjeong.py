@@ -115,6 +115,16 @@ def probe_slots(layout=None, g=None, a=None):
             cho.setdefault(pre[0], rec["keys"][0])
         elif len(pre) == 2 and all(0x1100 <= ord(c) <= 0x115F for c in pre):
             cho_pair.setdefault("".join(pre), rec["keys"][:2])
+    # A 된소리 is TWO 초성 keys in the 세벌식 family (its shift row is the 종성
+    # side: measured on sebeolsik-final, `Rf` renders ㅏ, nothing composes). So the
+    # second pass presses 초성 keys in pairs and keeps the composed letter.
+    cho_compose = {}
+    for c1 in sorted(set(cho.values())):
+        for c2, rec in zip(ALL, batch([c1 + c2 + a_key for c2 in ALL], layout)):
+            d = list(_strip_filler(canon(rec["preedit"])))
+            if len(d) == 2 and d[-1] == "ᅡ" and 0x1100 <= ord(d[0]) <= 0x115F:
+                if d[0] not in cho:
+                    cho_compose.setdefault(d[0], c1 + c2)
     jung, jung_pair = {}, {}
     for rec in batch([g_key + k for k in ALL], layout):  # ㄱ+key -> ㄱ+중성
         d = list(_strip_filler(canon(rec["preedit"])))
@@ -152,7 +162,7 @@ def probe_slots(layout=None, g=None, a=None):
             d = list(_strip_filler(canon(rec["preedit"])))
             if len(d) == 3 and d[0] == "ᄀ" and d[1] == jamo:
                 jong_ctx.setdefault((jamo, d[2]), k)
-    return cho, jung, jong, cho_pair, jung_pair, jong_pair, jong_ctx
+    return cho, jung, jong, cho_pair, jung_pair, jong_pair, jong_ctx, cho_compose
 
 
 def split_syllables(s):
@@ -196,7 +206,7 @@ def slots_of(tok):
     return cho, jung, jong
 
 
-def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None, JC=None):
+def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None, JC=None, CH=None):
     """Assemble keys. 아래아: `z` when a 종성 follows, else `p`.
 
     A compose-only 자모 (no single 초성/종성 key -- pat.im 옛한글) is two
@@ -209,7 +219,7 @@ def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None, JC=None):
     # it used to concatenate J/JG directly, which dropped the 아래아 p/z choice
     # and the (jung, jong) 종성 table (measured: `ᄍᆞᆼ` typed as `ᄍᆞᅲ` although
     # `llz`+`a` renders ᄍᆞᆼ).
-    ck = COMPOSE.get(cho) or C.get(cho, '')
+    ck = COMPOSE.get(cho) or C.get(cho) or (CH or {}).get(cho, '')
     if jung == 'ᆞ':
         jk = 'z' if jong else 'p'
     else:
@@ -295,7 +305,7 @@ def main():
                          "pass; the divergence is listed in the meta instead)")
     args = ap.parse_args()
 
-    C, J, G, C2, J2, G2, JC = probe_slots()
+    C, J, G, C2, J2, G2, JC, CH = probe_slots()
     COMPOSE = build_compose(C, G)
     JG = dict(build_jong_compose(G))
     # A compose-only 종성 the probe saw as two 종성 jamo (ᇰ = ㅇ+ᇁ) carries its
@@ -329,7 +339,7 @@ def main():
             tot += 1
             continue
         w = target
-        keys = ''.join(build(*slots_of(t), C, J, G, COMPOSE, JG, J2, JC)
+        keys = ''.join(build(*slots_of(t), C, J, G, COMPOSE, JG, J2, JC, CH)
                        for t in split_syllables(w) if t != ' ')
         rec = batch([keys + " "])[0]
         out = canon(rec["commit"] + rec["preedit"])
