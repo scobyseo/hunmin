@@ -583,8 +583,14 @@ EOF
             echo "Activating the input method via fcitx5-remote -o..."
             fcitx5-remote -o 2>&1 | tee -a "$STAGE/fcitx5.log"
             fcitx5-remote 2>&1 | tee -a "$STAGE/fcitx5.log"
-            # Give the engine a moment to finish wiring after the switch.
-            sleep 0.3
+            # The gate above already proves readiness: measured 2026-11-04, the
+            # root-window @server=fcitx property and "Loaded addon xim" become
+            # true in the same poll at 1.20-1.35 s (24 starts), 1.44-1.76 s under
+            # 16 CPU hogs, and "Loaded addon hunmin" is there 0.1 s earlier. So
+            # this is a settling allowance, not a wait for a signal -- 0.1 s
+            # instead of 0.3 s, which the post-gate dead time used to spend
+            # three times a tier (docs/D3-PERFORMANCE.md).
+            sleep 0.1
             return 0
         fi
         kill -0 "$FCITX_PID" 2>/dev/null || break
@@ -835,9 +841,45 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
         fail=1
         return
     fi
-    sleep 0.5
-    # Give the GTK harness time to process and emit final TEXT
-    sleep 0.3
+    # How long to wait for the client to finish taking the keys. The two paths
+    # need different answers, and each gets ONE block and ONE reason.
+    if [ "$reuse_harness" = "1" ]; then
+        # GTK: one harness serves the whole layout group, so a quiet log is not a
+        # completion signal -- the settle is clock, and it is load-bearing (at
+        # zero settle a case came back TEXT:dㅏㄴ녕ㄴ, docs/TESTING.md). The two
+        # consecutive sleeps this replaces, 0.5 then 0.3 with nothing between
+        # them, were the same wait written twice.
+        sleep 0.8
+    else
+        # XIM: a fresh client process per case, writing each line as it arrives,
+        # so a log that stops growing IS the completion signal. Measured
+        # 2026-11-04 over 27 cases: quiet after 0.119-0.213 s (median 0.122),
+        # against the 0.8 s of clock this replaces -- so the cap below is the old
+        # settle and a slow client behaves exactly as it did.
+        settle_step=0.03     # poll interval, seconds
+        settle_quiet=3       # consecutive quiet polls that mean "done" (~90 ms)
+        settle_cap=27        # 27 x 0.03 = 0.81 s, the fixed settle this replaces
+        settle_lines=$(grep -c '' "$STAGE/commits.log" 2>/dev/null) || settle_lines=0
+        settle_stable=0
+        settle_capped=1
+        for _ in $(seq 1 "$settle_cap"); do
+            sleep "$settle_step"
+            settle_now=$(grep -c '' "$STAGE/commits.log" 2>/dev/null) || settle_now=0
+            if [ "$settle_now" = "$settle_lines" ]; then
+                settle_stable=$((settle_stable + 1))
+            else
+                settle_stable=0
+                settle_lines=$settle_now
+            fi
+            if [ "$settle_stable" -ge "$settle_quiet" ]; then settle_capped=0; break; fi
+        done
+        # Not an assertion -- the comparison below is. This only says the client
+        # was still talking at the cap, which the old fixed settle would have
+        # cut off too.
+        if [ "$settle_capped" -eq 1 ]; then
+            echo "note: [$layout/$keys] still writing at the settle cap" >&2
+        fi
+    fi
     if [ "$reuse_harness" = "1" ]; then
         # The harness is deliberately NOT killed and NOT waited on here: the
         # layout group's next case reuses it. It is torn down when the layout
@@ -1101,6 +1143,13 @@ CASE_SEQ=0       # monotonic case id, used as the harness marker
 # cases.tsv, but keys may include {BackSpace}, {Return}, {F9}, {Escape}
 # and ^ (mode toggle). All edit cases use stream mode because edit keys
 # are pass-through.
+# After a layout change fcitx5 has just been restarted. start_fcitx's gate has
+# already proved readiness (~1.2 s measured 2026-11-04: @server=fcitx and the
+# xim addon appear in the same poll), so an XIM client needs no further settle;
+# GTK keeps its second, because a reused harness wires the IMContext per case and
+# gtk3/gtk4 skip on the host that measured this. The candidate loop below keeps
+# its own 1.0 s: its window settle was not re-measured.
+if [ "$CLIENT" = "gtk" ]; then layout_settle=1.0; else layout_settle=0.1; fi
 exec 3<"$CASES"
 if [ "$CLIENT" = "candidate" ]; then
     # CANDIDATE MODE: a dedicated case file, because its columns are not the
@@ -1139,7 +1188,7 @@ if [ -n "${HUNMIN_D3_EDIT_CASES:-}" ] && [ -f "${HUNMIN_D3_EDIT_CASES}" ]; then
                 exit 1
             fi
             cur_layout="$layout"
-            sleep 1.0
+            sleep "$layout_settle"
         fi
         if [ -n "$expect" ]; then
             run_edit_handwritten_case "$layout" "$keys" "$expect"
@@ -1181,7 +1230,7 @@ while IFS=$'\t' read -r -u 3 layout keys mode _; do
             exit 1
         fi
         cur_layout="$layout"
-        sleep 1.0
+        sleep "$layout_settle"
     fi
     if [ "$mode" = "stream" ]; then
         run_case "$layout" "$keys" expected_stream

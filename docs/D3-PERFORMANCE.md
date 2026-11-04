@@ -191,3 +191,41 @@ A probe of the *other* structural option was taken incidentally: the `-j16`
 selection starts three X stacks that between them consume all six display
 reservations (`/tmp/hunmin-d3-disp.94` … `.99`), so a fourth concurrent D3 tier
 would find none and skip. Not a defect at three tiers; it is the ceiling.
+
+## 2026-11-04, second round — the dead time the gate already proves
+
+Two waits, both on the XIM path, both measured before they were removed.
+
+**1. The post-gate settle.** `start_fcitx` waits for two facts: the root-window
+`@server=fcitx` property and `Loaded addon hunmin` in the log. Instrumented over
+51 starts — 24 with three candidate tiers at once, 24 with the real
+x11+edit+candidate mix, 3 under 16 CPU hogs on a 16-core box — the gate is true
+at **1.20–1.35 s** (1.44–1.76 s starved), and `@server=fcitx` and `Loaded addon
+xim` become true in the *same poll*. After it the script slept `0.3` inside
+`start_fcitx` and another `1.0` in the case loop, three times a tier. Both are
+now `0.1`: a settling allowance, not a wait for a signal. GTK keeps its second
+(a reused harness wires the IMContext per case, and gtk3/gtk4 skip here); the
+candidate path keeps its own.
+
+**2. The post-typing settle.** `sleep 0.5` then `sleep 0.3`, with nothing between
+them — one 0.8 s wait written twice, and the comment on the second sleep made it
+read as two stages. On the XIM path that clock is unnecessary: a fresh client
+process per case writes each line as it arrives, so a log that stops growing is
+the completion signal. Measured over 27 cases: quiet after **0.119–0.213 s**
+(median 0.122, p90 0.126). The debounce is 3 consecutive 30 ms quiet polls
+(~90 ms) with the old 0.81 s as its cap, so a slow client behaves exactly as
+before; hitting the cap prints a note and is not an assertion — the comparison
+that follows is. GTK keeps `sleep 0.8` (the same two sleeps, collapsed, because
+its settle is load-bearing: at zero settle a case came back `TEXT:dㅏㄴ녕ㄴ`).
+
+| tier | before | after (3 runs) |
+|---|---|---|
+| `engine-d3-edit` | 49.4 s | **40.5 / 40.3 / 41.7 s** |
+| `engine-d3-x11` | 46.8 s | **37.6 / 37.4 / 39.4 s** |
+| `engine-d3-candidate` | 16.8 s | 16.9 / 16.7 / 17.3 s (untouched) |
+| slow tier wall | 49.3 s | 43.7 / 41.7 / 56.6 s |
+
+**The wall clock is no longer D3's.** `frontend-mutations` measured 43.7, 41.6
+and 56.6 s in those same three runs — it is now the slow tier's long pole, and
+the D3 seconds bought here do not show in wall time until that tier is bounded.
+The 60 s budget therefore survives by 3 s on a bad run (56.6 s), not by 16 s.
