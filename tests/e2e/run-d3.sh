@@ -206,12 +206,20 @@ cleanup() {
         cat "$STAGE/harness.log" 2>/dev/null
     fi
     [ -n "${HUNMIN_D3_KEEP:-}" ] || rm -rf "$STAGE"
-    # Release the display reservations. rmdir, not rm -rf: the directory must be
-    # empty, so this cannot silently remove a reservation another run is about
-    # to claim. A reservation left behind by a killed run is a stale lock, the
-    # same failure mode the X server's own /tmp/.X<n>-lock already has.
+    # Release only OUR claims, and only once their server has stopped answering.
+    # The pid in the claim file keeps a late release from deleting the next run's
+    # claim; the liveness wait keeps a number from being handed on while its old
+    # server is still shutting down. A claim left behind by a killed run is stale
+    # but harmless -- reserve_display() takes it over after checking its owner.
+    local r d
     for r in $RESERVED; do
-        rmdir "$r" 2>/dev/null
+        [ "$(cat "$r" 2>/dev/null)" = "$$" ] || continue
+        d=":${r##*.}"
+        for _ in $(seq 1 50); do
+            x_display_up "$d" || break
+            sleep 0.1
+        done
+        rm -f "$r" 2>/dev/null
     done
     # reaped only by the inner instance: the outer shell exec'd away
     [ -n "${HUNMIN_D3_SHADOW:-}" ] && rm -rf "$HUNMIN_D3_SHADOW"
@@ -241,24 +249,60 @@ trap cleanup EXIT INT TERM
 # "ㅇㄴ" from both -- which is the worst shape of failure, because each test's
 # diff looks like a real engine regression rather than a collision.
 #
-# `mkdir` is atomic on POSIX and on NFS, so exactly one process wins each
-# candidate and the loser moves to the next. The X lock file itself is left to
-# the X server, which still creates and reaps it; this reservation is a separate
-# directory that only decides the number. Deliberately not Xvfb's own
-# `-displayfd`: that hands the choice to the server, which picks the LOWEST free
-# number and would therefore take :0 on a host where no X server is running. The
-# 99..94 range is an intentional choice to stay off the low numbers a real
-# session would use, and this keeps it.
-RESERVED=""   # reservation dirs to release; a space-separated list, appended
+# `mkdir` alone is NOT enough, measured 2026-11-04 (issue #250) -- and on this
+# host mkdir is not even atomic:
+#
+#   /usr/bin/mkdir -> /usr/lib/cargo/bin/coreutils/mkdir   (uutils coreutils)
+#   three concurrent `mkdir` on one fresh path, 20 rounds:
+#     uutils mkdir              12/20 rounds had MORE THAN ONE "winner"
+#     python3 os.mkdir           0/20
+#     bash `set -C; : >FILE`     0/20
+#
+# So the reservation's *design* was right and its *primitive* was not: two
+# instances claimed :99 0.6 ms apart, X refused the loser ("Server is already
+# active for display 99"), and the winner's fcitx5 died with `XCB connection
+# ":99" got error: 1` / `All display connections are gone, exit now` -- which
+# surfaced as `harness never became ready` and `fcitx5 did not come up` in half
+# of the -j16 runs.
+#
+# The claim is therefore a FILE holding the claiming pid, created with bash's
+# noclobber (O_CREAT|O_EXCL, a kernel-level guarantee, and no external binary to
+# be wrong about it), and it is checked against a live server:
+#   - a number is only free when no X server answers on it (`x_display_up`);
+#   - a claim whose owner is still alive is honoured; one whose owner is gone is
+#     stale and may be taken over;
+#   - a release acts only on its own claim, and waits until the server has
+#     stopped answering first.
+x_display_up() { # $1 = display WITH colon, e.g. :99
+    xwininfo -root -display "$1" >/dev/null 2>&1
+}
+claim_file() { # $1 = path; succeeds only when THIS process created it
+    ( set -o noclobber; printf '%s\n' "$$" >"$1" ) 2>/dev/null
+}
+RESERVED=""   # claim files to release; a space-separated list, appended
 RES_DISP=""   # the display the last successful reserve_display() claimed
 reserve_display() { # $1 = candidates, highest preference first; sets RES_DISP
-    local d
+    local d f owner
     for d in $1; do
-        if mkdir "/tmp/hunmin-d3-disp.$d" 2>/dev/null; then
-            RES_DISP=":$d"
-            RESERVED="$RESERVED /tmp/hunmin-d3-disp.$d"
-            return 0
+        f="/tmp/hunmin-d3-disp.$d"
+        # A live server owns this number whatever the claim says -- this is what
+        # makes a stale claim harmless: the number is skipped, not stolen.
+        x_display_up ":$d" && continue
+        # A DIRECTORY at this path is a reservation from the mkdir era, before
+        # the primitive changed. They were always empty, so an empty one is
+        # simply stale: clear it and claim the number as a file.
+        if [ -d "$f" ]; then
+            rmdir "$f" 2>/dev/null || continue
         fi
+        if ! claim_file "$f"; then
+            owner=$(cat "$f" 2>/dev/null)
+            [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null && continue
+            rm -f "$f" 2>/dev/null
+            claim_file "$f" || continue
+        fi
+        RES_DISP=":$d"
+        RESERVED="$RESERVED $f"
+        return 0
     done
     return 1
 }
@@ -278,7 +322,7 @@ reserve_display "96 95 94" || {
 DISP="$RES_DISP"
 Xvfb "$HOST" -screen 0 1280x1024x24 -nolisten tcp >"$STAGE/xvfb.log" 2>&1 &
 XVFB_PID=$!
-server_up() { xwininfo -root -display "$1" >/dev/null 2>&1; }
+server_up() { x_display_up "$1"; }
 xvfb_up=0
 for _ in $(seq 1 50); do
     if server_up "$HOST"; then

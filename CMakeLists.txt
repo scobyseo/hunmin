@@ -1118,6 +1118,17 @@ if(BUILD_TESTING)
     set_tests_properties(engine-d3-edit PROPERTIES
       LABELS "tier-D3;slow"
       SKIP_RETURN_CODE 77 TIMEOUT 300)
+    # The display claim under all of the above, tested directly: issue #250 was
+    # `mkdir` not being atomic on this host, which is a property of a primitive
+    # and invisible from a tier that only fails one run in two. tools/
+    # d3-reservation-test.sh extracts the shipped functions from run-d3.sh and
+    # drives them; it needs Xvfb+Xephyr's numbers free, not the whole stack, so
+    # it is seconds rather than a tier.
+    add_test(NAME d3-reservation
+      COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/d3-reservation-test.sh)
+    set_tests_properties(d3-reservation PROPERTIES
+      LABELS "tier-D3;slow"
+      SKIP_RETURN_CODE 77 TIMEOUT 120)
 
     # D3-CANDIDATE: the F9 candidate window, drawn for real (issue #53).
     # The same stack as engine-d3-x11 with ONE difference: classicui is

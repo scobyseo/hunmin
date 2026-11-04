@@ -36,6 +36,47 @@ the ambient `python3` resolves to `~/work/.venv/bin/python3`, so any script that
 out to bare `python3` (D3's `xtest-type.py` does) silently inherits that stack. Pass an
 explicit interpreter, or activate `tools/.venv` first.
 
+## Host fact — found 2026-11-04: this host's `mkdir` is uutils, and it is not atomic
+
+Ubuntu 26.04 here installs `coreutils-from-uutils`, so four of the coreutils are
+the Rust reimplementation while `cp`, `mv` and `rm` are GNU:
+
+```
+$ readlink -f /usr/bin/mkdir     /usr/lib/cargo/bin/coreutils/mkdir
+$ readlink -f /usr/bin/rmdir     /usr/lib/cargo/bin/coreutils/rmdir
+$ readlink -f /usr/bin/ln        /usr/lib/cargo/bin/coreutils/ln
+$ readlink -f /usr/bin/stat      /usr/lib/cargo/bin/coreutils/stat
+$ readlink -f /usr/bin/cp        /usr/bin/gnucp      (GNU)
+```
+
+`mkdir` is therefore **not an atomic claim** on this host, and anything that
+reads "mkdir returned 0" as "I own this name" is wrong here. Measured with three
+concurrent processes on one fresh path, 20 rounds each:
+
+| primitive | rounds with more than one "winner" |
+|---|---|
+| `/usr/bin/mkdir` (uutils 0.10.0) | **12 / 20** |
+| `python3 -c 'os.mkdir(…)'` | 0 / 20 |
+| bash `set -C; : > FILE` (O_EXCL) | 0 / 20 |
+
+The consequence was issue #250: `tests/e2e/run-d3.sh` reserved an X display with
+`mkdir /tmp/hunmin-d3-disp.N`, two instances both "won" `:99` 0.6 ms apart, X
+refused the loser (`Server is already active for display 99`) and the winner's
+fcitx5 died with `XCB connection ":99" got error: 1` / `All display connections
+are gone` — a D3 tier lost in about half of the `-j16` slow-tier runs. The claim
+is now bash's noclobber, the file holds the claiming pid, and a number whose X
+server still answers is skipped.
+
+**Rule:** an exclusive-create lock is `( set -C; : > FILE )` or a syscall, not the
+`mkdir` binary, unless the host has been checked. The repo used to say "`mkdir`
+is atomic on POSIX and on NFS" — true of POSIX, false of this machine.
+
+Two places still assume the `mkdir` form and were left alone here because
+neither is on the failing path: `tools/repro-f9-candidates.sh` uses `mkdir -p`
+for its single display, which never blocks at all (`-p` succeeds on an existing
+directory), and `tools/build-host-jni.sh` falls back to a `mkdir` lock only where
+`flock` is absent, i.e. git-bash.
+
 ## Host change — 2026-10-31: builds run on native Linux, not a WSL guest
 
 The 0.2 stretch (2026-10-16 … 10-29) ran on a Windows host with a WSL Ubuntu
