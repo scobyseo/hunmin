@@ -161,6 +161,37 @@ def probe_slots(layout=None, g=None, a=None):
                 if len(rest) == 1 and rest[0] not in jong:
                     jong_pair.setdefault(rest[0], c1 + c2)
 
+    # A 겹받침 that the engine keeps as TWO jamo in the preedit (`안` + ㅈ key
+    # renders 안ᆽ, not the composed U+11AC) is named by the layout's own compose
+    # table: item {a:ᆫ, b:ᆽ, r:ᆬ}. So the pair's keys are the keys of a and b,
+    # read from the tables measured above. This is the case the two-key pass
+    # above misses -- it only sees a single composed jamo.
+    def _jong_pairs_from_tables():
+        layout_json = json.loads((DATA / "layouts" / f"{layout or LAYOUT}.json")
+                                 .read_text(encoding="utf-8"))
+        names = layout_json.get("compose") or []
+        if isinstance(names, str):
+            names = [names]
+        for name in names:
+            path = DATA / "compose" / f"{name}.json"
+            if not path.is_file():
+                continue
+            for it in json.loads(path.read_text(encoding="utf-8")).get("items", []):
+                a, b, r = it.get("a", ""), it.get("b", ""), it.get("r", "")
+                if len(r) == 1 and 0x11A8 <= ord(r) <= 0x11FF and a and b:
+                    ka = jong.get(a)
+                    kb = jong.get(b)
+                    if ka and kb and r not in jong:
+                        jong_pair.setdefault(r, ka + kb)
+
+    _jong_pairs_from_tables()
+    # A 겹받침 the tables know as two keys must not keep its single-key entry:
+    # that entry was measured in a context that does not compose (`cq` renders
+    # 아ᅟᅦᆺ, not 앃), and build() would prefer it. Measured on sebeolsik-3-90:
+    # removing the five stale single keys is what lets the table pair win.
+    for _r in list(jong_pair):
+        jong.pop(_r, None)
+
     # A 종성 key depends on the 중성 before it: 'a' gives ᆼ after 가 and a 중성
     # after ᄍᆞ (measured). So the table is (jung, jong) -> key, probed per 중성.
     jong_ctx = {}
@@ -329,8 +360,11 @@ def main():
     # A compose-only 종성 the probe saw as two 종성 jamo (ᇰ = ㅇ+ᇁ) carries its
     # own pair, measured; the hardcoded table is the fallback for the ones the
     # probe reaches as a single code point.
-    for pair, keys in G2.items():
-        JG.setdefault(pair[-1], keys)
+    # MEASURED pairs win over the hardcoded table: `_JONG_GEUP` was written for
+    # sin3-p2-yet, and on sebeolsik-3-90 its `cq` emits 아ᅟᅦᆺ where the table pair
+    # `xq` emits the composed jamo (measured).
+    for jamo, keys in G2.items():
+        JG[jamo] = keys
     if args.slots_out:
         args.slots_out.write_text(json.dumps({"cho": C, "jung": J, "jong": G},
                                               ensure_ascii=False, indent=1))

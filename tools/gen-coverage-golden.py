@@ -245,8 +245,8 @@ def main() -> int:
             C, J, G, C2, J2, G2, JC, CH = th.probe_slots(a.layout, g, ak)
             COMPOSE = th.build_compose(C, G)
             JG = dict(th.build_jong_compose(G))
-            for pair, kk in (G2 or {}).items():
-                JG.setdefault(pair[-1], kk)
+            for jamo, kk in (G2 or {}).items():
+                JG[jamo] = kk
             ks = [th.build(CONJ[c], CONJ_JUNG["ㅏ"], "", C, J, G, COMPOSE, JG, J2, JC, CH)
                   for c in CHO]
             outs = sim_batch(a, [k or "" for k in ks])
@@ -267,8 +267,8 @@ def main() -> int:
         C, J, G, C2, J2, G2, JC, CH = th.probe_slots(a.layout, g, ak)
         COMPOSE = th.build_compose(C, G)
         JG = dict(th.build_jong_compose(G))
-        for pair, kk in (G2 or {}).items():
-            JG.setdefault(pair[-1], kk)
+        for jamo, kk in (G2 or {}).items():
+            JG[jamo] = kk
 
         def keys_for(slot, jamo):
             if slot == "cho":
