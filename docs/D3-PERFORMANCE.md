@@ -229,3 +229,95 @@ its settle is load-bearing: at zero settle a case came back `TEXT:dㅏㄴ녕ㄴ`
 and 56.6 s in those same three runs — it is now the slow tier's long pole, and
 the D3 seconds bought here do not show in wall time until that tier is bounded.
 The 60 s budget therefore survives by 3 s on a bad run (56.6 s), not by 16 s.
+
+## 2026-11-05 — what the gate that never fired was actually looking at (issue #253)
+
+Issue #253 caught one start in eight parallel slow-tier runs where the hunmin
+addon loaded at +1.09 s and the root-window `@server=fcitx` property never
+appeared inside the 20 s gate, and left two readings open: the xim addon can
+lose a race and register late, or the gate asks a question the display can
+answer wrongly. Neither is what the daemon was doing. This round instrumented
+the shipped gate, caught two occurrences, and the evidence is below.
+
+### The gate now records a timeline, on every start
+
+`start_fcitx` times each of its three facts (`Loaded addon xim`,
+`Loaded addon hunmin`, the `@server=fcitx` property) and appends one line per
+start to `$STAGE/gate.log`, kept with `HUNMIN_D3_KEEP=1`. On a failure it names
+which fact was missing and dumps the root-window properties, the daemon's
+process state and environment, the X sockets, the auth entries **by display name
+only** (a cookie is a credential and does not belong in a test log), the Xephyr
+and Xvfb logs, and the complete `fcitx5.log` rather than its tail. It also counts
+how many of its own `xprop` polls could reach the display, because that is the
+fact that separates "nothing published" from "unreachable from here too", and it
+used to be discarded with stderr.
+
+The failure path only runs when a real run flakes, so nothing else would notice
+it breaking: `tools/d3-gate-failure-test.sh` extracts `start_fcitx` from the
+script and drives it against a stub daemon that loads both addons and never opens
+an X connection — the shape both caught occurrences had — asserting the message,
+every dump section and that no xauth cookie value reaches the log. It is not
+registered in ctest: it costs the gate's own 20 s and guards no behaviour the
+tier passing does not already guard.
+
+Measured over 201 timed starts in two batches (3 XIM tiers at once, `-j16`):
+
+| fact | min | median | p90 | max |
+|---|---|---|---|---|
+| `@server=fcitx` property | 112 ms | 122 ms | 139 ms | 270 ms |
+| `Loaded addon xim` | 112 ms | 122 ms | 141 ms | 270 ms |
+| `Loaded addon hunmin` | 1104 ms | 1340 ms | 1464 ms | 1616 ms |
+
+The property and the xim addon appear in the *same* poll every time, and the
+gate closes on the hunmin addon 1.0–1.4 s later — 1.2 s against a 20 s budget.
+The timeline costs three `grep`s and one `xprop` per 100 ms poll; the three-tier
+selection measured 39.5–41.0 s per round both before and after the change, so
+nothing moved against the 60 s slow-tier budget.
+
+### What the two caught failures were
+
+Two of 52 parallel rounds failed inside the gate (`engine-d3-edit` once,
+`engine-d3-x11` once); four more failed somewhere else in a batch whose
+per-failure output was not captured, and none of those was the gate. Both gate
+failures share one signature, and it is not a race in the registration:
+
+- `Loaded addon xim` at 116 ms and `Loaded addon hunmin` at 1.2 s — both addons
+  loaded;
+- `@server=fcitx` never, in 200 polls over 21 s;
+- the full `xprop -root` for the display carries **only** `_XKB_RULES_NAMES`:
+  no XIM property of any kind, so nothing had published and nothing had taken
+  the name;
+- fcitx5 alive in `ep_poll`, no children, dbus name taken — a healthy daemon;
+- `DISPLAY` was the right display both times (`:95`, `:96`), and its socket
+  existed at dump time;
+- the log carries no `Connecting to X11 display, display name::NN.` line, which
+  every passing start has (it sits between `Loaded addon wayland` and
+  `Loaded addon xcb`).
+
+That last fact is the decisive one. Probed directly: with `DISPLAY` pointing at
+a display with nothing on it, and with `DISPLAY` unset, fcitx5 logs
+`Loaded addon xcb` and **no** connection line and no error — a failed X
+connection is silent. So the daemon in those two starts never had an X
+connection, and its xim addon had no display on which to register an XIM server.
+
+### What this rules out, and what it does not
+
+Ruled out: "the gate is too short" (starvation moved it by 0.4 s in the earlier
+round, against a 20 s budget), and "the xim addon registered late or lost the
+selection" (nothing was registered; the property never existed). The gate's
+question was sound — the daemon was the thing that was wrong, and "did not come
+up" was, accidentally, close to right.
+
+Not explained: **why the connection failed**, and why it fails on a *restart* —
+both occurrences were later starts in a stage that had already served one or
+three successful starts on that display. The next occurrence carries the
+reachability count, the daemon's environment and the server logs, so this is a
+question with an instrument pointed at it rather than a re-instrumented copy.
+
+Three ways to act on it, none taken here (they differ in what they cost when the
+daemon is genuinely broken): leave the tier red when it happens and read the
+dump; retry `start_fcitx` once when the daemon logs no X connection, which turns
+the flake into 20 s of lost time but would also hide a daemon that was never
+going to connect; or gate on a readiness marker the addon writes after the XIM
+server is registered, which changes what the tier waits for rather than what it
+reports.
