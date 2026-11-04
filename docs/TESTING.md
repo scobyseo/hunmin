@@ -482,6 +482,24 @@ twenty-four are the per-layout word probes of issue #186 (`words-<layout>`, one 
 each), which is also what closes that issue's coverage hole: every shipped layout now
 appears on some platform, and `docs/FRONTEND-EQUIVALENCE.md` §6.3 records which.
 
+**One coverage golden per layout, since 2026-11-04.** `coverage-<layout>.jsonl`
+(`engine-golden-coverage-<layout>`) asserts the slots a layout admits, not a word:
+`cho/ㄲ` → `까`, `jung/ㅘ` → `와`, `jong/ㄳ` → `앍`, so the diff reads as a letter
+rather than a keystroke. The instrument is `tools/type-hunminjeong.py`'s
+`probe_slots()`; `tools/gen-coverage-golden.py` imports it and **refuses to write**
+a golden whose admitted count is below `--require-modern`, because a file with ten
+of sixty-seven slots would look like coverage and be one. The admitted and
+`not_reached` counts live in each golden's own `meta` — deliberately not repeated
+here, so they cannot drift from the data.
+
+Four instrument defects were found by the numbers themselves, and each is recorded
+in the generator's comments: a batched answer read against the wrong probe, a
+two-key 초성 truncated to its first key (ㅉ is ㅈ twice), the literal `\` key
+dropped from the alphabet (세벌식 no-shift's ㅋ), and a hand-written compose pair
+preferred over the layout's measured one (ᄍ = ᄌ+ㅅ against 3-2's ᄌ+ᄌ). What
+remains `not_reached` in the 옛한글 and roman-letter layouts is a measurement of
+those layouts, not a gap this corpus hides.
+
 **One trace per family, since 2026-11-03.** A case boundary in tier A is state, so a
 merge is only free when the cases also replay identically as ONE stream — measured, not
 assumed (`tools/golden-case-merge-check.py`): `patim-sin3-p2-basic` ends all 37 cases
