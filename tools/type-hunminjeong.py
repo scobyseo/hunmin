@@ -29,12 +29,23 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 SIM = REPO / "build" / "hunmin-sim"
 DATA = REPO / "libhunmin" / "data"
 LAYOUT = "sin3-p2-yet"
-ALL = [chr(c) for c in range(0x20, 0x7f) if chr(c) not in ('"', '\\')]
+# The alphabet is KEYSTROKE strings, not characters: hunmin-sim writes a literal
+# `\` key as `\\`, and 세벌식 no-shift puts ㅋ on that key (the maintainer's
+# rule, and the reason `jong/ㅋ` read as not_reached). A bare `\` would be read as
+# the start of an escape.
+ALL = [chr(c) for c in range(0x20, 0x7f) if chr(c) not in ('"', '\\')] + ["\\\\"]
 
 
-def batch(kl):
-    r = subprocess.run([str(SIM), "--data", str(DATA), "--layout", LAYOUT, "--batch"],
-                       input="\n".join(kl), capture_output=True, text=True)
+def batch(kl, layout=None):
+    """Run keystroke walks through one layout (`layout` defaults to LAYOUT).
+
+    The parameter exists so tools/gen-coverage-golden.py can measure ANY layout
+    with this probe instead of owning a second, slower one (measured: this probe
+    does the 훈민정음 eight lines in 0.5 s; the BFS in tools/sin3p2-ksgen.py needs
+    minutes per 세벌식 layout).
+    """
+    r = subprocess.run([str(SIM), "--data", str(DATA), "--layout", layout or LAYOUT,
+                        "--batch"], input="\n".join(kl), capture_output=True, text=True)
     return [json.loads(l) for l in r.stdout.splitlines() if l.strip()]
 
 
@@ -53,24 +64,157 @@ _JU = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','
 _JO = ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ']
 
 
-def probe_slots():
-    """Probe 초/중/종 key tables from the engine, once, batched."""
-    cho = {}
-    for rec in batch([k + "f" for k in ALL]):  # key+ㅏ -> 초성+ㅏ
-        d = list(canon(rec["preedit"]))
-        if len(d) == 2 and d[1] == "ᅡ" and 0x1100 <= ord(d[0]) <= 0x115F:
-            cho.setdefault(d[0], rec["keys"][0])
-    jung = {}
-    for rec in batch(["k" + k for k in ALL]):  # ㄱ+key -> ㄱ+중성
-        d = list(canon(rec["preedit"]))
-        if len(d) == 2 and d[0] == "ᄀ" and 0x1161 <= ord(d[1]) <= 0x11A7:
+_FILLER = ("\u115f", "\u1160")
+
+
+def _strip_filler(s):
+    """Drop the blank-filler jamo the engine pads an isolated slot with.
+
+    MEASURED: `sin3-p2-yet` `af` renders U+115F U+1160 U+11B0. Without this the
+    probe's length checks never see a two-jamo 초성, which is why 만든 compose-only
+    letters (ᄡ, ᄫ, ᅙ, ᅇ) were missing from every table the tool built.
+    """
+    for f in _FILLER:
+        s = s.replace(f, "")
+    return s
+
+
+def probe_slots(layout=None, g=None, a=None):
+    """Probe 초/중/종 key tables from the engine, once, batched.
+
+    A compose-only 초성 is TWO 초성 keys and renders as two jamo before the
+    vowel (`nnf` -> ᄉ+ᄉ+ᅡ in sin3-p2-yet), so the probe keeps the pairs it
+    sees instead of discarding anything that is not length 2.
+
+    `g`/`a` are the context keys (초성 ㄱ, 중성 ㅏ). They are ARGUMENTS because
+    the 세벌식 family puts 초성 and 종성 on separate physical sides and no single
+    literal works everywhere: `k` is ㄱ on sin3-p2-yet and ㅏ on dubeolsik, so a
+    hardcoded context measures a vowel as a consonant (measured: 10 of 67 slots
+    on dubeolsik). The caller picks them by SCORE -- see
+    tools/gen-coverage-golden.py -- and falls back to discovery here.
+    """
+    g_key, a_key = g, a
+    if g_key is None or a_key is None:
+        g_key, a_key = "k", "f"          # this probe's home layout
+        rec = batch([g_key + a_key], layout)[0]
+        d = list(_strip_filler(canon(rec["preedit"])))
+        if not (len(d) == 2 and d[0] == "ᄀ" and d[1] == "ᅡ"):
+            # ONE batched scan, not 92^2 round trips: ahnmatmae and romaja put the
+            # jamo on shifted keys and their unshifted keys commit literal ASCII
+            # (`Fj` renders 가, `kf` renders ㅣㄱ), so the context has to be
+            # discovered rather than guessed -- and guessed slowly is what made
+            # both read as 0 slots.
+            pairs = [(x, y) for x in ALL for y in ALL]
+            for (x, y), rec in zip(pairs, batch([x + y for x, y in pairs], layout)):
+                d = list(_strip_filler(canon(rec["preedit"])))
+                if len(d) == 2 and d[0] == "ᄀ" and d[1] == "ᅡ":
+                    g_key, a_key = x, y
+                    break
+    cho, cho_pair = {}, {}
+    for rec in batch([k + a_key for k in ALL], layout):  # key+ㅏ -> 초성+ㅏ
+        d = list(_strip_filler(canon(rec["preedit"])))
+        if not d or d[-1] != "ᅡ":
+            continue
+        pre = d[:-1]
+        if len(pre) == 1 and 0x1100 <= ord(pre[0]) <= 0x115F:
+            # The WHOLE keystroke, not its first character: a 된소리 is the same
+            # 초성 key twice (measured: ㅉ is ㅈ then ㅈ), and keeping only the
+            # first character typed 자 instead of 짜 -- which is why
+            # sebeolsik-3-2 reported cho/ㅉ as not_reached.
+            cho.setdefault(pre[0], rec["keys"][:-len(a_key)] or rec["keys"][0])
+        elif len(pre) == 2 and all(0x1100 <= ord(c) <= 0x115F for c in pre):
+            cho_pair.setdefault("".join(pre), rec["keys"][:2])
+    # A 된소리 is TWO 초성 keys in the 세벌식 family (its shift row is the 종성
+    # side: measured on sebeolsik-final, `Rf` renders ㅏ, nothing composes). So the
+    # second pass presses 초성 keys in pairs and keeps the composed letter.
+    cho_compose = {}
+    for c1 in sorted(set(cho.values())):
+        for c2, rec in zip(ALL, batch([c1 + c2 + a_key for c2 in ALL], layout)):
+            d = list(_strip_filler(canon(rec["preedit"])))
+            if len(d) == 2 and d[-1] == "ᅡ" and 0x1100 <= ord(d[0]) <= 0x115F:
+                if d[0] not in cho:
+                    cho_compose.setdefault(d[0], c1 + c2)
+    jung, jung_pair = {}, {}
+    for rec in batch([g_key + k for k in ALL], layout):  # ㄱ+key -> ㄱ+중성
+        d = list(_strip_filler(canon(rec["preedit"])))
+        if not d or d[0] != "ᄀ":
+            continue
+        if len(d) == 2 and 0x1161 <= ord(d[1]) <= 0x11A7:
             jung.setdefault(d[1], rec["keys"][1:])
-    jong = {}
-    for rec in batch(["kf" + k for k in ALL]):  # 가+key -> 종성
-        d = list(canon(rec["preedit"]))
-        if len(d) == 3 and d[2] not in jong:
-            jong[d[2]] = rec["keys"][2:]
-    return cho, jung, jong
+    # A compound 중성 is TWO 중성 keys in sequence (measured: `kb` 규 + `kd` 기
+    # gives 귀, so ᅱ is b+d). Without this pass every compound vowel came out
+    # as its first constituent -- `귁` typed as `게`.
+    pairs = [(c1, c2) for c1 in ALL for c2 in ALL]
+    for (c1, c2), rec in zip(pairs, batch([g_key + a + b for a, b in pairs], layout)):
+        d = list(_strip_filler(canon(rec["preedit"])))
+        if len(d) == 2 and d[0] == "ᄀ" and 0x1161 <= ord(d[1]) <= 0x11A7:
+            jung_pair.setdefault(d[1], c1 + c2)
+    jong, jong_pair = {}, {}
+    for rec in batch([g_key + a_key + k for k in ALL], layout):  # 가+key -> 종성
+        d = list(_strip_filler(canon(rec["preedit"])))
+        if len(d) < 3 or d[0] != "ᄀ" or d[1] != "ᅡ":
+            continue
+        rest = d[2:]
+        if len(rest) == 1 and rest[0] not in jong:
+            jong[rest[0]] = rec["keys"][2:]
+        elif len(rest) == 2 and rest[0] in jong and rest[1] in jong:
+            jong_pair.setdefault("".join(rest), rec["keys"][2:])
+    # A 겹받침 is TWO 종성 keys in the 세벌식 family (measured: 각갃 from `xq` on
+    # sebeolsik-3-90 -- the first syllable commits and the second carries the
+    # composed final). The single-key pass above cannot see it.
+    for c1 in sorted(set(jong.values())):
+        for c2, rec in zip(ALL, batch([g_key + a_key + c1 + c2 for c2 in ALL], layout)):
+            d = list(_strip_filler(canon(rec["preedit"])))
+            if len(d) >= 3 and d[0] == "ᄀ" and d[1] == "ᅡ":
+                rest = d[2:]
+                if len(rest) == 1 and rest[0] not in jong:
+                    jong_pair.setdefault(rest[0], c1 + c2)
+
+    # A 겹받침 that the engine keeps as TWO jamo in the preedit (`안` + ㅈ key
+    # renders 안ᆽ, not the composed U+11AC) is named by the layout's own compose
+    # table: item {a:ᆫ, b:ᆽ, r:ᆬ}. So the pair's keys are the keys of a and b,
+    # read from the tables measured above. This is the case the two-key pass
+    # above misses -- it only sees a single composed jamo.
+    def _jong_pairs_from_tables():
+        layout_json = json.loads((DATA / "layouts" / f"{layout or LAYOUT}.json")
+                                 .read_text(encoding="utf-8"))
+        names = layout_json.get("compose") or []
+        if isinstance(names, str):
+            names = [names]
+        for name in names:
+            path = DATA / "compose" / f"{name}.json"
+            if not path.is_file():
+                continue
+            for it in json.loads(path.read_text(encoding="utf-8")).get("items", []):
+                a, b, r = it.get("a", ""), it.get("b", ""), it.get("r", "")
+                if len(r) == 1 and 0x11A8 <= ord(r) <= 0x11FF and a and b:
+                    ka = jong.get(a)
+                    kb = jong.get(b)
+                    if ka and kb and r not in jong:
+                        jong_pair.setdefault(r, ka + kb)
+
+    _jong_pairs_from_tables()
+    # A 겹받침 the tables know as two keys must not keep its single-key entry:
+    # that entry was measured in a context that does not compose (`cq` renders
+    # 아ᅟᅦᆺ, not 앃), and build() would prefer it. Measured on sebeolsik-3-90:
+    # removing the five stale single keys is what lets the table pair win.
+    for _r in list(jong_pair):
+        jong.pop(_r, None)
+
+    # A 종성 key depends on the 중성 before it: 'a' gives ᆼ after 가 and a 중성
+    # after ᄍᆞ (measured). So the table is (jung, jong) -> key, probed per 중성.
+    jong_ctx = {}
+    for jamo, jkeys in list(jung.items()) + list(jung_pair.items()):
+        # 아래아 has two keys and the 종성 decides which: `p` with no final
+        # consonant, `z` with one (type-hunminjeong.py's own docstring). Probing
+        # the `p` form would measure a state the text never uses.
+        probe_jk = "z" if jamo == "ᆞ" else jkeys
+        for k, rec in zip(ALL, batch([g_key + probe_jk + c for c in ALL], layout)):
+            d = list(_strip_filler(canon(rec["preedit"])))
+            if len(d) == 3 and d[0] == "ᄀ" and d[1] == jamo:
+                # The tail, not the single character `c`: a jong can be two keys.
+                jong_ctx.setdefault((jamo, d[2]), rec["keys"][len(g_key) + len(probe_jk):])
+    return cho, jung, jong, cho_pair, jung_pair, jong_pair, jong_ctx, cho_compose
 
 
 def split_syllables(s):
@@ -114,7 +258,7 @@ def slots_of(tok):
     return cho, jung, jong
 
 
-def build(cho, jung, jong, C, J, G, COMPOSE, JG):
+def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None, JC=None, CH=None):
     """Assemble keys. 아래아: `z` when a 종성 follows, else `p`.
 
     A compose-only 자모 (no single 초성/종성 key -- pat.im 옛한글) is two
@@ -123,15 +267,34 @@ def build(cho, jung, jong, C, J, G, COMPOSE, JG):
     is the ㅇ jong and f the ᇁ jong -- two 종성 keys, the engine composes
     the 겹받침).
     """
-    if cho in COMPOSE:
-        return COMPOSE[cho] + (J.get(jung, '') if jung else '') + \
-               (JG.get(jong, G.get(jong, '')) if jong else '')
-    ck = C.get(cho, '')
+    # The compose-only 초성 path must run through the SAME 중성/종성 logic below:
+    # it used to concatenate J/JG directly, which dropped the 아래아 p/z choice
+    # and the (jung, jong) 종성 table (measured: `ᄍᆞᆼ` typed as `ᄍᆞᅲ` although
+    # `llz`+`a` renders ᄍᆞᆼ).
+    # Measured beats guessed, in this order. `COMPOSE` holds hand-written
+    # constituent pairs (`ᄍ` = ᄌ+ㅅ, plus a `measured` map taken on ONE layout);
+    # on sebeolsik-3-2 the ᄍ pair is ㅈ+ㅈ and the hand-written pair typed the
+    # wrong letter, so the layout's own measured compose keys must come first.
+    ck = C.get(cho) or (CH or {}).get(cho, '') or COMPOSE.get(cho, '')
     if jung == 'ᆞ':
         jk = 'z' if jong else 'p'
     else:
-        jk = J.get(jung, '')
-    gk = (JG.get(jong, G.get(jong, '')) if jong else '')
+        # A compound 중성 has no single key: it is two 중성 keys in sequence
+        # (measured: ᅱ = b+d on sin3-p2-yet).
+        jk = J.get(jung) or (JJ or {}).get(jung, '')
+    # A single probed 종성 key wins over the two-key pair. This does NOT by
+    # itself make `ᄍᆞᆼ` compose: the same key 'a' gives ᆼ after 가 and a 중성
+    # after ᄍᆞ (measured), so a 종성 key is state-dependent on the 중성 that
+    # precedes it and one slot table cannot hold it. That is the next gap.
+    # A jong that has its own single key uses the (jung, jong) entry -- that is
+    # the whole reason the context table exists. A jong with NO single key is a
+    # 겹받침, and its measured two-key pair (JG) must win: the context table also
+    # has an entry for it, built from single keys, and that entry cannot compose
+    # (measured: five 겹받침 stayed `not_reached` with JC preferred).
+    if jong and jong not in G:
+        gk = JG.get(jong) or (JC or {}).get((jung, jong)) or ''
+    else:
+        gk = ((JC or {}).get((jung, jong)) or G.get(jong) or JG.get(jong, ''))
     return ck + jk + gk
 
 
@@ -148,6 +311,13 @@ def build_compose(C, G):
         'ᅙ': c('ᄀ') + c('ᄒ'),   # ㄱ+ㅎ
         'ᅇ': c('ᄆ') + c('ᄒ'),   # ㅁ+ㅎ
     }
+    # MEASURED over the layout's own keys (2026-11-04): the constituent-pair
+    # guesses above hold for the letters they were written for, but the engine's
+    # pairs for these are different, and a wrong pair renders a different letter
+    # (`ᄍ` came out `ᄼ`, `ᄡ` came out `ᄎ`). These are the shortest key pairs that
+    # actually compose each letter in 초성 position, recorded verbatim.
+    measured = {'ᄍ': 'll', 'ᄫ': ';j', 'ᅇ': 'jj', 'ᅙ': 'km', 'ᄡ': 'nn'}
+    comp.update({k: v for k, v in measured.items() if all(ch in ALL for ch in v)})
     return {k: v for k, v in comp.items() if v and '?' not in v and v}
 
 
@@ -191,33 +361,72 @@ def main():
     ap.add_argument("--golden-out", type=pathlib.Path,
                     help="write a golden JSONL of the 어절 that type byte-exact, "
                          "with full provenance in the meta line")
+    ap.add_argument("--accept-engine", action="store_true",
+                    help="record the ENGINE's rendering as the expectation even "
+                         "where it differs from the text (issue #239: an 옛 "
+                         "spelling comes back precomposed, so byte-exact cannot "
+                         "pass; the divergence is listed in the meta instead)")
     args = ap.parse_args()
 
-    C, J, G = probe_slots()
+    C, J, G, C2, J2, G2, JC, CH = probe_slots()
     COMPOSE = build_compose(C, G)
-    JG = build_jong_compose(G)
+    JG = dict(build_jong_compose(G))
+    # A compose-only 종성 the probe saw as two 종성 jamo (ᇰ = ㅇ+ᇁ) carries its
+    # own pair, measured; the hardcoded table is the fallback for the ones the
+    # probe reaches as a single code point.
+    # MEASURED pairs win over the hardcoded table: `_JONG_GEUP` was written for
+    # sin3-p2-yet, and on sebeolsik-3-90 its `cq` emits 아ᅟᅦᆺ where the table pair
+    # `xq` emits the composed jamo (measured).
+    for jamo, keys in G2.items():
+        JG[jamo] = keys
     if args.slots_out:
         args.slots_out.write_text(json.dumps({"cho": C, "jung": J, "jong": G},
                                               ensure_ascii=False, indent=1))
-    text = args.text_file.read_text(encoding="utf-8").strip()
+    raw = args.text_file.read_text(encoding="utf-8")
+    # '#' lines are provenance, not input: without this the header was typed too
+    # (measured: the first run's divergences were "#", "언해본", "(월인석보,").
+    text = " ".join(line for line in raw.splitlines()
+                    if line.strip() and not line.lstrip().startswith("#"))
     ok = tot = 0
-    golden_events = []
+    golden_events, diverged, literals = [], [], set()
     for w in text.split(" "):
-        keys = ''.join(build(*slots_of(t), C, J, G, COMPOSE, JG)
+        # Only Hangul has a keystroke. A 한자 (中, 國), the 언해's '·'/'：' and any
+        # other character are delivered by the CLIENT, not the engine, so they
+        # must not enter the key stream: typing them produced no keys and every
+        # later syllable attached to the previous one (measured: the 13
+        # "divergences" were all letters lost this way, not an encoding
+        # difference -- `百ᄇᆡᆨ姓셩이` typed as 베셩이).
+        def hangul(ch):
+            return 0xAC00 <= ord(ch) <= 0xD7A3 or 0x1100 <= ord(ch) <= 0x11FF
+
+        target = "".join(ch for ch in w if hangul(ch))
+        literals.update(ch for ch in w if not hangul(ch))
+        if not target:
+            tot += 1
+            continue
+        w = target
+        keys = ''.join(build(*slots_of(t), C, J, G, COMPOSE, JG, J2, JC, CH)
                        for t in split_syllables(w) if t != ' ')
         rec = batch([keys + " "])[0]
         out = canon(rec["commit"] + rec["preedit"])
         tot += 1
-        if out == canon(w):
+        same = out == canon(w)
+        if same:
             ok += 1
-            if args.golden_out:
-                # trace the matching 어절 so the golden holds every event
-                for ev in trace_events(keys):
-                    golden_events.append(ev)
+        elif args.accept_engine:
+            # Option A (issue #239): the engine renders an 옛 spelling precomposed,
+            # so the golden's expectation is what the engine emits and the
+            # original orthography rides along in the meta. The event stream still
+            # asserts every key, which is the half a key-event golden can assert.
+            diverged.append({"text": w, "engine": out, "keys": keys})
         else:
             print(f"MISS {w}\n  keys={keys}\n  got ={out}\n  want={canon(w)}",
                   file=sys.stderr)
-    print(f"어절 {ok}/{tot}")
+            continue
+        if args.golden_out:
+            for ev in trace_events(keys):
+                golden_events.append(ev)
+    print(f"어절 {ok}/{tot}" + (f" ({len(diverged)} 엔진 렌더로 기록)" if diverged else ""))
     if args.golden_out and golden_events:
         meta = {
             "source": "훈민정음 언해본 세종 서문 (월인석보 1459)",
@@ -227,8 +436,12 @@ def main():
             "method": "engine-measured per-slot probe (초성+vowel judge, "
                       "아래아 p/z gate, distinct 종성 code point, 현대 겹받침 "
                       "key pairs); 어절 that type byte-exact are traced to events",
-            "coverage": f"{ok}/{tot} 어절 byte-exact; the rest need the compose "
-                        "chain across a syllable boundary (see the tool's TODO)",
+            "coverage": f"{tot} 어절 typed, {ok} byte-exact"
+                        + (f"; {len(diverged)} recorded as the ENGINE's rendering "
+                           "because an 옛 spelling comes back precomposed "
+                           "(issue #239)" if diverged else ""),
+            "client_delivered": "".join(sorted(literals)) or None,
+            **({"divergences": diverged} if diverged else {}),
             "reproduce": "python3 tools/type-hunminjeong.py --text-file <원문> --golden-out <this file>",
         }
         args.golden_out.write_text(

@@ -1,0 +1,24 @@
+# 훈민정음 언해본 — 세종 서문 (월인석보, 1459)
+#
+# Source: 훈민정음 언해본 (한글 위키백과 「훈민정음 언해」,
+#   https://ko.wikipedia.org/wiki/훈민정음_언해), 世宗 序文. Same text as
+#   tests/golden/manual-hunminjeong-seosi.jsonl, which types one 어절 of it
+#   through sin3-p2-yet today.
+#
+# The '·' and ':' marks are the original text's, not this file's: they are the
+# 구결-style separators the 언해 prints between morphemes (·) and the
+# sound-annotation colon (:). They are kept because the coverage target is the
+# page as a Korean reader sees it, and a frontend delivers them as literals
+# (the engine declines them) -- tools/type-hunminjeong.py must therefore say
+# whether a line's marks were delivered or skipped.
+#
+# 옛한글 is written in conjoining jamo where the text has no precomposed
+# syllable (ᄊᆞ, ᄫᅵ, ᅙᅡᆫ).
+나랏말ᄊᆞ미 中듕國귁에 달아
+文문字ᄍᆞᆼ와로 서르 ᄉᆞᄆᆞᆺ디 아니ᄒᆞᆯᄊᆡ
+이런 젼ᄎᆞ로 어린 百ᄇᆡᆨ姓셩이 니르고져 호ㅀ배 이셔도
+ᄆᆞᄎᆞᆷ내 제 ᄠᅳ들 시러 펴디 몯하ᇙ 노미 하니라
+내 이ᄅᆞᆯ 爲윙ᄒᆞ야 어엿비 너겨
+새로 스믈여듧 字ᄍᆞᆼᄅᆞᆯ ᄆᆡᇰᄀᆞ노니
+사ᄅᆞᆷ마다 ᄒᆡᅇᅧ 수ᄫᅵ 니겨
+날 ᄡᅮ메 便뼌安ᅙᅡᆫ킈 ᄒᆞ고져 하ᇙ ᄯᅡᄅᆞ미니라
