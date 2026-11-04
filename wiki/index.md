@@ -421,6 +421,9 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   switches), `language_detect.*` retired with six `REQ-MAP` rows re-pointed, and
   the two TSF defects the live session found routed to #175.
 - [[2026-11-03-tier-c-takes-the-digit-row-and-a-declined-backspace]] - issue #229's
+- [[2026-11-04-coverage-golden-per-layout]] - one coverage golden per layout
+  (issue #227): the slot unit, the gate that refuses a thin file, and the four
+  instrument defects that every number that would not move exposed.
   second half: one designed case (`0123456789 \b`) for each x11 layout, so the
   digit row is pressed in full and every layout declines a BackSpace into an
   empty buffer (x11 598 -> 661 events, 162 -> 185 declined). Generating it
