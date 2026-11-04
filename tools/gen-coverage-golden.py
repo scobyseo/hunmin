@@ -308,7 +308,21 @@ def main() -> int:
     # A probe is admitted only if the ENGINE composes exactly the target: the
     # search finds keys that RENDER something, and a layout may render a
     # different syllable than the one asked for.
-    renders = sim_batch(a, [keys.get(t, "") for _, t, _, _ in probes])
+    # Verified ONE probe at a time. A batched check put the wrong line's answer
+    # against a probe often enough to report 25 종성 failures that `--trace`
+    # showed composing fine (measured on sebeolsik-3-90: `jfs` renders 안 alone and
+    # in a two-line batch, yet the 67-line batch disagreed), and a golden built on
+    # a misaligned answer is worse than a slow generator: 67 traces cost ~2 s.
+    renders = []
+    for _label, target, _slot, _jamo in probes:
+        k = keys.get(target, "")
+        if not k:
+            renders.append("")
+            continue
+        ev = sim_trace(a, k)
+        got = "".join(e.get("commit", "") for e in ev) + \
+              (ev[-1].get("preedit", "") if ev else "")
+        renders.append(got)
     cases, unreachable = [], []
     for (label, target, slot, jamo), r in zip(probes, renders):
         if target in keys and r == target:

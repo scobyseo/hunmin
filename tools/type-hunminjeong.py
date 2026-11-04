@@ -150,6 +150,17 @@ def probe_slots(layout=None, g=None, a=None):
             jong[rest[0]] = rec["keys"][2:]
         elif len(rest) == 2 and rest[0] in jong and rest[1] in jong:
             jong_pair.setdefault("".join(rest), rec["keys"][2:])
+    # A 겹받침 is TWO 종성 keys in the 세벌식 family (measured: 각갃 from `xq` on
+    # sebeolsik-3-90 -- the first syllable commits and the second carries the
+    # composed final). The single-key pass above cannot see it.
+    for c1 in sorted(set(jong.values())):
+        for c2, rec in zip(ALL, batch([g_key + a_key + c1 + c2 for c2 in ALL], layout)):
+            d = list(_strip_filler(canon(rec["preedit"])))
+            if len(d) >= 3 and d[0] == "ᄀ" and d[1] == "ᅡ":
+                rest = d[2:]
+                if len(rest) == 1 and rest[0] not in jong:
+                    jong_pair.setdefault(rest[0], c1 + c2)
+
     # A 종성 key depends on the 중성 before it: 'a' gives ᆼ after 가 and a 중성
     # after ᄍᆞ (measured). So the table is (jung, jong) -> key, probed per 중성.
     jong_ctx = {}
@@ -230,8 +241,15 @@ def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None, JC=None, CH=None):
     # itself make `ᄍᆞᆼ` compose: the same key 'a' gives ᆼ after 가 and a 중성
     # after ᄍᆞ (measured), so a 종성 key is state-dependent on the 중성 that
     # precedes it and one slot table cannot hold it. That is the next gap.
-    gk = (((JC or {}).get((jung, jong)) or G.get(jong) or JG.get(jong, ''))
-          if jong else '')
+    # A jong that has its own single key uses the (jung, jong) entry -- that is
+    # the whole reason the context table exists. A jong with NO single key is a
+    # 겹받침, and its measured two-key pair (JG) must win: the context table also
+    # has an entry for it, built from single keys, and that entry cannot compose
+    # (measured: five 겹받침 stayed `not_reached` with JC preferred).
+    if jong and jong not in G:
+        gk = JG.get(jong) or (JC or {}).get((jung, jong)) or ''
+    else:
+        gk = ((JC or {}).get((jung, jong)) or G.get(jong) or JG.get(jong, ''))
     return ck + jk + gk
 
 
