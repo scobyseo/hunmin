@@ -245,12 +245,18 @@ def script_of(token):
     return OTHER
 
 
-def hangul_events(text, table):
+def hangul_events(text, table, literals=None):
     """(events, missing) for a Hangul run, cho -> jung -> jong per syllable.
 
     Every syllable the recorded layout cannot produce is returned in `missing`
     rather than guessed: a key that does not exist is §1.3(a)'s question, and a
     harness that invented one would be measuring itself.
+
+    Non-syllable characters inside a Hangul eojeol (punctuation attached to a
+    word) go through `literals`, the PROBED map: sin3-p2 types `; " '` as
+    Shift+P / Shift+K / Shift+J, so typing the character's own key produces a
+    jamo instead. Assuming ASCII identity here was this tool's first bug of the
+    §3 class — a mapping derived from the alphabet rather than from the engine.
     """
     kt = _KT
     events, missing = [], []
@@ -260,7 +266,11 @@ def hangul_events(text, table):
             events.append((0x20, 0))
             continue
         if not (0xAC00 <= cp <= 0xD7A3):
-            events.extend(sg_event(c) for c in syl)
+            key = (literals or {}).get(syl)
+            if not key:
+                missing.append(syl)
+                continue
+            events.extend(sg_event(c) for c in key)
             continue
         x = cp - 0xAC00
         parts = ((kt.CHOSEONG[x // 588], "cho"),
@@ -279,23 +289,64 @@ def hangul_events(text, table):
 
 _KT: Any = None  # tools/jamo-keytable.py, loaded on demand
 
+# Printable ASCII a key can be probed with. Backslash is excluded because
+# hunmin-sim's key syntax reads it as an escape.
+_PROBE_KEYS = [chr(c) for c in range(0x21, 0x7F) if chr(c) != "\\"]
 
-def load_keytable(layout, cache_path=None):
+
+def probe_literals(layout, sim, data):
+    """{character: keys} for every digit/punctuation the Hangul layout types.
+
+    PROBED, because the layout is a signal automaton and punctuation is not on
+    the key named after it: sin3-p2 delivers `; " '` from Shift+P / Shift+K /
+    Shift+J, while the `; " '` keys themselves deliver a jamo. Assuming the
+    ASCII identity made 30 of 1,000 corpus sentences look untypeable when they
+    are typeable — the same failure class `docs/MODES-METRICS.md` §3 lists.
+
+    A candidate counts only when it DELIVERS the character and leaves nothing
+    composing: `;` commits `'` but leaves `ㅂ` in the preedit, which is not a
+    literal. Preference is plain over shifted, then shortest, then lexicographic
+    — the same shape as `tools/jamo-keytable.py`'s tie rule, so a twin cannot be
+    picked by accident.
+    """
+    cmd = [str(sim), "--data", str(data), "--layout", layout, "--batch"]
+    r = subprocess.run(cmd, input="\n".join(_PROBE_KEYS), capture_output=True,
+                       text=True, errors="replace", timeout=300)
+    if r.returncode != 0:
+        raise SystemExit(f"{' '.join(cmd)} failed: {r.stderr.strip()[:300]}")
+    recs = [json.loads(l) for l in r.stdout.splitlines() if l.strip()]
+    if len(recs) != len(_PROBE_KEYS):
+        raise SystemExit(f"literal probe: {len(recs)} results for "
+                         f"{len(_PROBE_KEYS)} keys")
+    candidates = {}
+    for rec in recs:
+        got = rec.get("commit", "")
+        if rec.get("preedit") or len(got) != 1 or not got.isascii() or got.isalpha():
+            continue
+        candidates.setdefault(got, set()).add(rec["keys"])
+    chosen = {}
+    for char, keys in candidates.items():
+        chosen[char] = min(keys, key=lambda k: (k.isupper(), len(k), k))
+    return chosen
+
+
+def load_keytable(layout, cache_path=None, sim=SIM, data=DATA):
     global _KT
     layout_sha = sha256(DATA / "layouts" / f"{layout}.json")
     if cache_path and cache_path.exists():
         blob = json.loads(cache_path.read_text(encoding="utf-8"))
         if blob.get("layout") != layout:
             raise SystemExit(f"{cache_path} is a {blob.get('layout')} table, not {layout}")
-        if blob.get("layout_sha256") == layout_sha:
+        if blob.get("layout_sha256") == layout_sha and "literals" in blob:
             _KT = _load_tool("jamo-keytable")
             return blob
         # The layout moved under the cache: a table keyed on the old one would
         # silently type the wrong jamo, so it is rebuilt rather than trusted.
     _KT = _load_tool("jamo-keytable")
     table, not_found = _KT.build_table(layout)
+    literals = probe_literals(layout, sim, data)
     blob = {"layout": layout, "layout_sha256": layout_sha,
-            "table": table, "not_found": not_found,
+            "table": table, "not_found": not_found, "literals": literals,
             "jung_twins": _KT.TWINS,
             "provenance": "tools/jamo-keytable.py build_table(), probed against "
                           "build/hunmin-sim --batch; twins recorded by the tool"}
@@ -308,12 +359,19 @@ def load_keytable(layout, cache_path=None):
 
 # ------------------------------------------------------------------ replay
 
-def plan_sentence(text, table):
-    """[(token, script, events, missing)] with one space event after each token."""
+def plan_sentence(text, table, literals=None):
+    """[(token, script, events, missing)] with one space event after each token.
+
+    A Hangul eojeol's attached punctuation goes through the probed `literals`
+    map; a Latin eojeol is its own characters. An `other` token (no script at
+    all: digits, or punctuation standing alone) is typed by its ASCII keys —
+    the shipped corpus builder drops those tokens rather than guessing a mode
+    for them, so no run from it reaches this branch.
+    """
     plan = []
     for token in text.split(" "):
         script = script_of(token)
-        events, missing = hangul_events(token, table) if script == HANGUL \
+        events, missing = hangul_events(token, table, literals) if script == HANGUL \
             else ([sg_event(c) for c in token], [])
         plan.append({"token": token, "script": script, "events": events,
                      "missing": missing, "space": (0x20, 0)})
@@ -579,6 +637,8 @@ def build_report(cases, sentences_total, not_inputtable, layout, latin,
                          "jamo_mapped": sum(len(v) for v in table_blob["table"].values()),
                          "not_found": table_blob["not_found"],
                          "jung_twins": table_blob.get("jung_twins", {}),
+                         "literals_probed": len(table_blob.get("literals", {})),
+                         "literals": table_blob.get("literals", {}),
                          "provenance": table_blob["provenance"]},
             "model": {
                 "tokenisation": "whitespace eojeol, punctuation attached; a token is "
@@ -645,8 +705,9 @@ def read_corpus(path):
 # ------------------------------------------------------------------- run
 
 def run(args):
-    table_blob = load_keytable(args.layout, args.keytable)
+    table_blob = load_keytable(args.layout, args.keytable, args.sim, args.data)
     table = table_blob["table"]
+    literals = table_blob.get("literals", {})
     engine = Engine(args.lib, args.data)
     shared = engine.layer(args.layout, args.latin, 1)
     corpus_meta, rows = read_corpus(args.corpus)
@@ -658,7 +719,7 @@ def run(args):
     every = max(1, args.cross_check_every)
     for index, row in enumerate(rows):
         text = row["text"]
-        plan = plan_sentence(text, table)
+        plan = plan_sentence(text, table, literals)
         keys_all = sim_keys([e for item in plan for e in item["events"] + [item["space"]]])
         # The OFF arm is the control: the text must be typeable as written.
         off_tokens, off_text, _, _, _ = replay(engine, plan, args.layout,
@@ -732,15 +793,22 @@ def selfcheck(args):
     comparator must notice a changed sentence, and the transition counter must
     match a hand count.
     """
-    table_blob = load_keytable(args.layout, args.keytable)
+    table_blob = load_keytable(args.layout, args.keytable, args.sim, args.data)
     table = table_blob["table"]
+    literals = table_blob.get("literals", {})
     engine = Engine(args.lib, args.data)
-    text = "사람은 Internet 을 쓴다."
-    plan = plan_sentence(text, table)
+    # Quotes attached to a Hangul eojeol exercise the PROBED literal map; the
+    # Latin eojeol exercises the OFF arm's toggle. Both are the paths this tool
+    # has already got wrong once.
+    text = "사람은 '좋다'고 말한다. Internet 도 쓴다."
+    plan = plan_sentence(text, table, literals)
     off_tokens, off_text, _, _, _ = replay(engine, plan, args.layout, args.latin, 0, False)
     problems = []
     if off_text != text + " ":
         problems.append(f"OFF arm delivered {off_text!r}, not {text + ' '!r}")
+    if not literals.get(";"):
+        problems.append("the literal probe found no key for ';' — every Hangul eojeol "
+                        "with punctuation would be mis-typed")
     mutated = text.replace("Internet", "Internets")
     if mutated != text and off_text == mutated + " ":
         problems.append("comparator accepted a changed sentence")
@@ -755,7 +823,11 @@ def selfcheck(args):
         prev = item["script"]
     if t != 2:
         problems.append(f"transition count {t}, hand count 2")
-    on_tokens, _, commit, judged, mode = replay(engine, plan, args.layout, args.latin, 1, True)
+    # The RAW arm (no repairs): that is the arm hunmin-sim --judge replays, so it
+    # is the only one the cross-check can compare. A repairs=True run toggles the
+    # layer and legitimately diverges from the CLI — comparing it was a false
+    # alarm on the first selfcheck that carried punctuation.
+    on_tokens, _, commit, judged, mode = replay(engine, plan, args.layout, args.latin, 1, False)
     cli = sim_judge(args.sim, args.data, args.layout, args.latin,
                     sim_keys([e for item in plan for e in item["events"] + [item["space"]]]), 1)
     if cli["delivered"] != commit or cli["judged"] != judged:
