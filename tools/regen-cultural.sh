@@ -19,6 +19,10 @@
 #   seosi.txt   — 서시, the Korean cultural text: 104 syllables in nine lines,
 #                 title and imprint included. Hanja (序詩) is carried as a
 #                 `hanja_segments` run, not dropped.
+#   anthem.txt  — 애국가 1~4절: ten lines of lyric, and the only text here that
+#                 is neither prose nor free verse. It is what makes 2~4절
+#                 typeable at all — nothing else in the repository has ever
+#                 typed them.
 #   pangram.txt — the English evaluation text: a Latin layout's key table is 47
 #                 keys, and one sentence cannot reach the digit or punctuation
 #                 rows (measured: the classic pangram covers 27 of them), so the
@@ -45,7 +49,8 @@ BUILD="${1:-$ROOT/build}"
 SIM="$BUILD/hunmin-sim"
 [ -x "$SIM" ] || { echo "no $SIM; cmake --build $BUILD first" >&2; exit 1; }
 
-SEOSI_LAYOUTS="dubeolsik sin3-p2"
+KOREAN_LAYOUTS="dubeolsik sin3-p2"
+KOREAN_TEXTS="seosi anthem"
 PANGRAM_LAYOUTS="us-qwerty colemak dvorak"
 
 WORK="${TMPDIR:-/tmp}/hunmin-cultural.$$"
@@ -53,24 +58,30 @@ mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT INT TERM
 
 generate() {  # <text file> <layout> <name> [extra gen-cultural-golden args...]
-  text="$1"; layout="$2"; name="$3"; shift 3
+  # Names are g-prefixed: a plain `text=`/`name=` here would overwrite the
+  # caller's loop variables, and the second layout would then ask for
+  # seosi.txt.txt. (Measured; the function is not `local` because this script
+  # is POSIX sh.)
+  gtext="$1"; glayout="$2"; gname="$3"; shift 3
   python3 "$ROOT/tools/gen-cultural-golden.py" \
-    --text-file "$ROOT/tests/golden/texts/$text" --layout "$layout" --sim "$SIM" \
-    "$@" --out "$ROOT/tests/golden/cultural-$name-$layout.jsonl"
+    --text-file "$ROOT/tests/golden/texts/$gtext" --layout "$glayout" --sim "$SIM" \
+    "$@" --out "$ROOT/tests/golden/cultural-$gname-$glayout.jsonl"
   python3 "$ROOT/tools/gen-conformance.py" \
-    --golden "$ROOT/tests/golden/cultural-$name-$layout.jsonl" \
-    --platform android --layout "$layout" --case "$name" --batch \
-    --out "$ROOT/tests/conformance/android/cultural-$name-$layout.trace.in"
+    --golden "$ROOT/tests/golden/cultural-$gname-$glayout.jsonl" \
+    --platform android --layout "$glayout" --case "$gname" --batch \
+    --out "$ROOT/tests/conformance/android/cultural-$gname-$glayout.trace.in"
 }
 
-for layout in $SEOSI_LAYOUTS; do
-  if [ "$layout" = "sin3-p2" ]; then
-    python3 "$ROOT/tools/jamo-keytable.py" --layout "$layout" \
-      --table-out "$WORK/kt-$layout.json" >/dev/null 2>&1
-    generate seosi.txt "$layout" seosi --jamo-table "$WORK/kt-$layout.json"
-  else
-    generate seosi.txt "$layout" seosi
-  fi
+for text in $KOREAN_TEXTS; do
+  for layout in $KOREAN_LAYOUTS; do
+    if [ "$layout" = "sin3-p2" ]; then
+      python3 "$ROOT/tools/jamo-keytable.py" --layout "$layout" \
+        --table-out "$WORK/kt-$layout.json" >/dev/null 2>&1
+      generate "$text.txt" "$layout" "$text" --jamo-table "$WORK/kt-$layout.json"
+    else
+      generate "$text.txt" "$layout" "$text"
+    fi
+  done
 done
 for layout in $PANGRAM_LAYOUTS; do
   generate pangram.txt "$layout" pangram

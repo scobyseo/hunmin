@@ -90,6 +90,12 @@ def jamo(s):
     return ''.join(_COMPAT[c] if c in _COMPAT else c for c in s)
 
 
+# 중성 decisions where more than one physical key renders the vowel. Filled by
+# _pick_jung and written into the table JSON, so the artefact carries the choice
+# and its reason (see the twin-key rule there).
+TWINS = {}
+
+
 # A representative 초성 key (ㄱ = k) used to prime the buffer so a vowel key
 # is emitted as a 중성, and a cho+jung (가 = kf) to prime for 종성. The 초성
 # table is built first, so the prime uses whatever ㄱ maps to.
@@ -143,25 +149,86 @@ def probe_cho(jamo_target, layout, _cache={}):
     return min(pair) if pair else None
 
 
+def _pick_jung(cands, layout, cho_key, target, jamo_target):
+    """Among keys that render the vowel, prefer the STANDALONE one.
+
+    THE RULE (maintainer, 2026-11-04): a 중성 can have two keys and they are not
+    interchangeable. EXACTLY THREE pairs exist on sin3-p2 — measured over all 47
+    keys and their shifts, so this is not "the vowels I happened to check":
+
+        ㅗ  `/` connecting (와)      |  `v` standalone
+        ㅜ  `o` connecting (워)      |  `b` standalone
+        ㅡ  `i` connecting (의 ㅢ)   |  `g` standalone
+
+    (`p`/`z` for 아래아 is the separate 종성-admission gate, and every other
+    duplicate is one key's own Shift.) The left-hand member builds a compound
+    중성 with a following vowel; the right-hand one is what a running syllable
+    takes. So 오 takes `v`, 우 takes `b`, 으 takes `g`.
+
+    THE BUG THIS FIXES (measured, issue #227). Both members render the vowel
+    from a ㄱ-primed buffer, so the "shortest, plainest" rule took `/` — and
+    `/`+`f` is ㅏ, because a connecting ㅗ keeps composing vowels (ㅗ+ㅏ=ㅘ). The
+    jong probe had found 종성 ㅍ on `f` using a ㄱ+ㅏ prime, so the two halves of
+    the table disagreed about which ㅗ they meant: 노+`f` came out 놔 and 높 was
+    reported untypeable, when 높 is ㄴ+`v`+`f`. Measured: `v`+`f` → 높,
+    `/`+`f` → 놔; `b`+`r` → 웉 (jong), `o`+`r` → 워 (compound).
+
+    Measured, not read off the table: a candidate is CONNECTING if some single
+    key after cho+candidate yields cho + a DIFFERENT 중성 (a compound vowel) —
+    that is what `/` does with `f` and `o` does with `r`. The candidate with
+    fewest such extensions wins; ties fall back to plain, then short, then
+    lexicographic.
+    """
+    probes, owner = [], []
+    for s in cands:
+        for x in ALL_KEYS:
+            probes.append(cho_key + s + x)
+            owner.append(s)
+    rendered = _render_all(probes, layout)
+    extensions = {s: 0 for s in cands}
+    for seq, s in zip(probes, owner):
+        d = rendered.get(seq)
+        if d and len(d) == 2 and 0x1161 <= ord(d[1]) <= 0x11A7 and d[1] != target:
+            extensions[s] += 1
+
+    def rank(s):
+        return (extensions[s], sum(c.isupper() for c in s), len(s), s)
+
+    chosen = min(cands, key=rank)
+    # Record the decision beside it when a 중성 has more than one physical key:
+    # the twin pairs are the 세벌식-family fact this rule exists for (sin3-p2:
+    # ㅗ /|v, ㅜ o|b, ㅡ i|g — and NOTHING else, measured 2026-11-04 over all 47
+    # keys and their shifts; every other duplicate is one key's own shift, and
+    # 아래아's p|z is the separate 종성-admission gate). A table written from this
+    # probe must say which twin it took and why, or the next layout silently
+    # takes the connecting form again.
+    def base(c):      # '\\sv' and 'V' are the same physical key as 'v'
+        return (c[2:] if c.startswith("\\s") else c).lower()
+    bases = {base(c) for c in cands}
+    if len(bases) > 1:
+        TWINS[jamo_target] = {"candidates": {c: extensions[c] for c in sorted(cands)},
+                              "chosen": chosen,
+                              "rule": "fewest compound-vowel extensions (standalone over connecting)"}
+    return chosen
+
+
 def probe_jung(jamo_target, layout, cho_key):
     """중성 key: on a buffer primed with cho_key, the key that yields the vowel.
 
     One key, or two for a compound vowel (base vowel + second key: sin3-p2
-    ㅘ=/f, ㅟ=od). plain beats shifted at equal length. All candidates render
-    in one batch, so this is a few subprocess calls, not thousands.
+    ㅘ=/f, ㅟ=od). All candidates render in one batch, so this is a few
+    subprocess calls, not thousands.
     """
     target = jamo(jamo_target)
     for nkeys in (1, 2):
         seqs = ALL_KEYS if nkeys == 1 else [a + b for a in ALL_KEYS for b in ALL_KEYS]
-        best = None  # (nshift, len, seq)
+        cands = []
         for keys, d in _render_all([cho_key + s for s in seqs], layout).items():
             s = keys[len(cho_key):]
             if len(d) == 2 and d[1] == target and 0x1100 <= ord(d[0]) <= 0x115F:
-                cand = (sum(c.isupper() for c in s), len(s), s)
-                if best is None or cand < best:
-                    best = cand
-        if best:
-            return best[2]
+                cands.append(s)
+        if cands:
+            return _pick_jung(cands, layout, cho_key, target, jamo_target)
     return None
 
 
@@ -268,7 +335,8 @@ def main():
 
     if args.table_out:
         args.table_out.write_text(json.dumps(
-            {"layout": args.layout, "table": table, "not_found": not_found},
+            {"layout": args.layout, "table": table, "not_found": not_found,
+             "jung_twins": TWINS},
             ensure_ascii=False, indent=1), encoding="utf-8")
 
     if args.text_file:

@@ -1,0 +1,41 @@
+# 애국가 (愛國歌) — 대한민국의 국가, 1~4절
+#
+# Text of the anthem as typed by tools/gen-cultural-golden.py. A line beginning
+# with '#' is provenance and is never typed; a blank line separates 절 and is not
+# typed either (the corpus carries line structure, not blank lines).
+#
+# Source: 「애국가 (대한민국)」, 한국어 위키문헌 (한글 본) —
+#   https://ko.wikisource.org/wiki/애국가_(대한민국)
+# The page publishes the text as public domain: 작사 윤치호 (d. 1944), so the
+# term has expired in the Republic of Korea (life + 50) and in the United States
+# (published 1896). No music is carried here — this is the lyric only, and a
+# layout types the lyric.
+#
+# THE REFRAIN IS TYPED ONCE. In performance the 후렴 (1절의 2~4행) follows every
+# 절, so sung text is 16 lines. This file follows the printed lyric: each line
+# of the four 절 appears exactly once. Typing the same two lines four times adds
+# key events and no syllable, and the tier-A golden would carry four identical
+# cases. Nothing is dropped: the repetition is performance structure, and the
+# lyric's every line is here.
+#
+# ONE VARIANCE, RECORDED RATHER THAN SILENTLY RESOLVED. The Wikisource page
+# prints "동해 물과"; this file writes "동해물과", because (a) the page's own
+# hanja-mixed column reads 東海물과 — the space belongs to that column, not to
+# the lyric — and (b) tests/e2e/cases.tsv has typed it that way since the
+# cultural e2e cases were written, so the tree's own fact agrees. The rest is
+# the Wikisource 한글 column verbatim, including "화려강산" and "대한 사람",
+# which the page spells that way in one line and the other in the next.
+
+동해물과 백두산이 마르고 닳도록
+하느님이 보우하사 우리나라 만세
+무궁화 삼천리 화려강산
+대한 사람 대한으로 길이 보전하세
+
+남산 위에 저 소나무 철갑을 두른 듯
+바람 서리 불변함은 우리 기상일세
+
+가을 하늘 공활한데 높고 구름 없이
+밝은 달은 우리 가슴 일편단심일세
+
+이 기상과 이 맘으로 충성을 다하여
+괴로우나 즐거우나 나라 사랑하세

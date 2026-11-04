@@ -1,5 +1,5 @@
 {"meta": {"layout": "sin3-p2", "text": "seosi.txt", "tool": "tools/gen-cultural-golden.py", "method": "keys per character from tools/sin3p2-ksgen.py (BFS over the layout's own key table, hunmin-sim --batch oracle); a character with no keystroke is read from the layout's literal keys; each line is re-typed whole and kept only if the engine composes its characters; expectations are hunmin-sim --trace output, never typed", "not_in_the_events": "the boundary (space) and literal (punctuation) keys: the engine declines them, so the client inserts the character and the trace records consumed=false for that event", "assembly": "a syllable's keystroke found from an empty buffer carries leading signal keys that type a stray jamo mid-line, so each line is assembled with those signals kept or dropped and the ENGINE picks the variant that composes", "cases": "11 of 11 lines"}}
-{"meta": {"case": "line-18", "text": "    윤동주 <서시(序詩)>", "keys": "    jasu/alb <nrnd()>", "hanja_segments": [{"hanja": "序詩", "because": "no layout emits hanja: a frontend delivers it through hanja conversion (docs/SPEC-MODES.md), so this run has no key events and no tier-A expectation -- an environment that can enter hanja evaluates it, a key-event replay cannot"}]}}
+{"meta": {"case": "line-18", "text": "    윤동주 <서시(序詩)>", "keys": "    jasuvalb <nrnd()>", "hanja_segments": [{"hanja": "序詩", "because": "no layout emits hanja: a frontend delivers it through hanja conversion (docs/SPEC-MODES.md), so this run has no key events and no tier-A expectation -- an environment that can enter hanja evaluates it, a key-event replay cannot"}]}}
 {"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": " "}, "commit": "", "preedit": ""}
@@ -8,7 +8,7 @@
 {"in": {"ch": "a"}, "commit": "", "preedit": "유"}
 {"in": {"ch": "s"}, "commit": "", "preedit": "윤"}
 {"in": {"ch": "u"}, "commit": "윤", "preedit": "ㄷ"}
-{"in": {"ch": "/"}, "commit": "", "preedit": "도"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "도"}
 {"in": {"ch": "a"}, "commit": "", "preedit": "동"}
 {"in": {"ch": "l"}, "commit": "동", "preedit": "ㅈ"}
 {"in": {"ch": "b"}, "commit": "", "preedit": "주"}
@@ -82,7 +82,7 @@
 {"in": {"ch": "y"}, "commit": "기", "preedit": "ㄹ"}
 {"in": {"ch": "g"}, "commit": "", "preedit": "르"}
 {"in": {"ch": "w"}, "commit": "", "preedit": "를"}
-{"meta": {"case": "line-22", "text": "잎새에 이는 바람에도", "keys": "jdfnejc jdhgs ;fyfzjcu/"}}
+{"meta": {"case": "line-22", "text": "잎새에 이는 바람에도", "keys": "jdfnejc jdhgs ;fyfzjcuv"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "d"}, "commit": "", "preedit": "이"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "잎"}
@@ -105,8 +105,8 @@
 {"in": {"ch": "j"}, "commit": "람", "preedit": "ㅇ"}
 {"in": {"ch": "c"}, "commit": "", "preedit": "에"}
 {"in": {"ch": "u"}, "commit": "에", "preedit": "ㄷ"}
-{"in": {"ch": "/"}, "commit": "", "preedit": "도"}
-{"meta": {"case": "line-23", "text": "나는 괴로워했다.", "keys": "hfhgs k/dy/jormexuf."}}
+{"in": {"ch": "v"}, "commit": "", "preedit": "도"}
+{"meta": {"case": "line-23", "text": "나는 괴로워했다.", "keys": "hfhgs k/dyvjormexuf."}}
 {"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "나"}
 {"in": {"ch": "h"}, "commit": "나", "preedit": "ㄴ"}
@@ -117,7 +117,7 @@
 {"in": {"ch": "/"}, "commit": "", "preedit": "고"}
 {"in": {"ch": "d"}, "commit": "", "preedit": "괴"}
 {"in": {"ch": "y"}, "commit": "괴", "preedit": "ㄹ"}
-{"in": {"ch": "/"}, "commit": "", "preedit": "로"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "로"}
 {"in": {"ch": "j"}, "commit": "로", "preedit": "ㅇ"}
 {"in": {"ch": "o"}, "commit": "", "preedit": "우"}
 {"in": {"ch": "r"}, "commit": "", "preedit": "워"}
@@ -127,7 +127,7 @@
 {"in": {"ch": "u"}, "commit": "했", "preedit": "ㄷ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "다"}
 {"in": {"ch": "."}, "commit": "다.", "preedit": ""}
-{"meta": {"case": "line-24", "text": "별을 노래하는 마음으로", "keys": ";twjgw h/yemfhgs ifjgzjgy/"}}
+{"meta": {"case": "line-24", "text": "별을 노래하는 마음으로", "keys": ";twjgw hvyemfhgs ifjgzjgyv"}}
 {"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
 {"in": {"ch": "t"}, "commit": "", "preedit": "벼"}
 {"in": {"ch": "w"}, "commit": "", "preedit": "별"}
@@ -136,7 +136,7 @@
 {"in": {"ch": "w"}, "commit": "", "preedit": "을"}
 {"in": {"ch": " "}, "commit": "을", "preedit": ""}
 {"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
-{"in": {"ch": "/"}, "commit": "", "preedit": "노"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "노"}
 {"in": {"ch": "y"}, "commit": "노", "preedit": "ㄹ"}
 {"in": {"ch": "e"}, "commit": "", "preedit": "래"}
 {"in": {"ch": "m"}, "commit": "래", "preedit": "ㅎ"}
@@ -153,10 +153,10 @@
 {"in": {"ch": "j"}, "commit": "음", "preedit": "ㅇ"}
 {"in": {"ch": "g"}, "commit": "", "preedit": "으"}
 {"in": {"ch": "y"}, "commit": "으", "preedit": "ㄹ"}
-{"in": {"ch": "/"}, "commit": "", "preedit": "로"}
-{"meta": {"case": "line-25", "text": "모든 죽어 가는 것을 사랑해야지.", "keys": "i/ugs lbcjr kfhgs krqjgw nfyfamejwld."}}
+{"in": {"ch": "v"}, "commit": "", "preedit": "로"}
+{"meta": {"case": "line-25", "text": "모든 죽어 가는 것을 사랑해야지.", "keys": "ivugs lbcjr kfhgs krqjgw nfyfamejwld."}}
 {"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
-{"in": {"ch": "/"}, "commit": "", "preedit": "모"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "모"}
 {"in": {"ch": "u"}, "commit": "모", "preedit": "ㄷ"}
 {"in": {"ch": "g"}, "commit": "", "preedit": "드"}
 {"in": {"ch": "s"}, "commit": "", "preedit": "든"}
@@ -192,13 +192,13 @@
 {"in": {"ch": "l"}, "commit": "야", "preedit": "ㅈ"}
 {"in": {"ch": "d"}, "commit": "", "preedit": "지"}
 {"in": {"ch": "."}, "commit": "지.", "preedit": ""}
-{"meta": {"case": "line-26", "text": "그리고 나한테 주어진 길을", "keys": "kgydk/ hfmfs'c lbjrlds kdwjgw"}}
+{"meta": {"case": "line-26", "text": "그리고 나한테 주어진 길을", "keys": "kgydkv hfmfs'c lbjrlds kdwjgw"}}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
 {"in": {"ch": "g"}, "commit": "", "preedit": "그"}
 {"in": {"ch": "y"}, "commit": "그", "preedit": "ㄹ"}
 {"in": {"ch": "d"}, "commit": "", "preedit": "리"}
 {"in": {"ch": "k"}, "commit": "리", "preedit": "ㄱ"}
-{"in": {"ch": "/"}, "commit": "", "preedit": "고"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "고"}
 {"in": {"ch": " "}, "commit": "고", "preedit": ""}
 {"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "나"}
@@ -238,9 +238,9 @@
 {"in": {"ch": "u"}, "commit": "겠", "preedit": "ㄷ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "다"}
 {"in": {"ch": "."}, "commit": "다.", "preedit": ""}
-{"meta": {"case": "line-29", "text": "오늘 밤에도 별이 바람에 스치운다.", "keys": "j/hgw ;fzjcu/ ;twjd ;fyfzjc ngodjbsuf."}}
+{"meta": {"case": "line-29", "text": "오늘 밤에도 별이 바람에 스치운다.", "keys": "jvhgw ;fzjcuv ;twjd ;fyfzjc ngodjbsuf."}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
-{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "오"}
 {"in": {"ch": "h"}, "commit": "오", "preedit": "ㄴ"}
 {"in": {"ch": "g"}, "commit": "", "preedit": "느"}
 {"in": {"ch": "w"}, "commit": "", "preedit": "늘"}
@@ -251,7 +251,7 @@
 {"in": {"ch": "j"}, "commit": "밤", "preedit": "ㅇ"}
 {"in": {"ch": "c"}, "commit": "", "preedit": "에"}
 {"in": {"ch": "u"}, "commit": "에", "preedit": "ㄷ"}
-{"in": {"ch": "/"}, "commit": "", "preedit": "도"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "도"}
 {"in": {"ch": " "}, "commit": "도", "preedit": ""}
 {"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
 {"in": {"ch": "t"}, "commit": "", "preedit": "벼"}
