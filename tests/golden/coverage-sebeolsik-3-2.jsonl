@@ -1,4 +1,4 @@
-{"meta": {"layout": "sebeolsik-3-2", "tool": "tools/gen-coverage-golden.py", "unit": "one case per (jamo, slot): the composed SYLLABLE is asserted, so a jamo admitted in one slot and refused in another is visible", "keys_from": "tools/sin3p2-ksgen.py BFS over the layout's own automaton, hunmin-sim --batch as oracle", "expectations": "hunmin-sim --trace over those keys -- never typed by hand", "not_reached": [{"case": "cho/ㅉ", "target": "짜", "because": "no keystroke composes it in this slot"}], "cases": "66 of 67 probes admitted by the engine"}}
+{"meta": {"layout": "sebeolsik-3-2", "tool": "tools/gen-coverage-golden.py", "unit": "one case per (jamo, slot): the composed SYLLABLE is asserted, so a jamo admitted in one slot and refused in another is visible", "keys_from": "tools/sin3p2-ksgen.py BFS over the layout's own automaton, hunmin-sim --batch as oracle", "expectations": "hunmin-sim --trace over those keys -- never typed by hand", "not_reached": [], "cases": "67 of 67 probes admitted by the engine"}}
 {"meta": {"case": "key/'", "keys": "'"}}
 {"in": {"ch": "'"}, "commit": "'", "preedit": ""}
 {"meta": {"case": "key/shift-'", "keys": "\\s'"}}
@@ -231,6 +231,10 @@
 {"meta": {"case": "cho/ㅈ", "target": "자", "keys": "wK"}}
 {"in": {"ch": "w"}, "commit": "", "preedit": "ㅈ"}
 {"in": {"ch": "K"}, "commit": "", "preedit": "자"}
+{"meta": {"case": "cho/ㅉ", "target": "짜", "keys": "wwK"}}
+{"in": {"ch": "w"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "ㅉ"}
+{"in": {"ch": "K"}, "commit": "", "preedit": "짜"}
 {"meta": {"case": "cho/ㅊ", "target": "차", "keys": "cK"}}
 {"in": {"ch": "c"}, "commit": "", "preedit": "ㅊ"}
 {"in": {"ch": "K"}, "commit": "", "preedit": "차"}

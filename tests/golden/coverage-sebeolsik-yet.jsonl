@@ -1,4 +1,4 @@
-{"meta": {"layout": "sebeolsik-yet", "tool": "tools/gen-coverage-golden.py", "unit": "one case per (jamo, slot): the composed SYLLABLE is asserted, so a jamo admitted in one slot and refused in another is visible", "keys_from": "tools/sin3p2-ksgen.py BFS over the layout's own automaton, hunmin-sim --batch as oracle", "expectations": "hunmin-sim --trace over those keys -- never typed by hand", "not_reached": [{"case": "cho/ᄡ", "target": "ᄡᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄢ", "target": "ᄢᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄣ", "target": "ᄣᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄤ", "target": "ᄤᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄥ", "target": "ᄥᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄦ", "target": "ᄦᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄬ", "target": "ᄬᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄳ", "target": "ᄳᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄴ", "target": "ᄴᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅙ", "target": "ᅙᅡ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆋ", "target": "ᄋᆋ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆞ", "target": "ᄋᆞ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇄ", "target": "아ᇄ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇏ", "target": "아ᇏ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇔ", "target": "아ᇔ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇕ", "target": "아ᇕ", "because": "no keystroke composes it in this slot"}], "cases": "235 of 251 probes admitted by the engine"}}
+{"meta": {"layout": "sebeolsik-yet", "tool": "tools/gen-coverage-golden.py", "unit": "one case per (jamo, slot): the composed SYLLABLE is asserted, so a jamo admitted in one slot and refused in another is visible", "keys_from": "tools/sin3p2-ksgen.py BFS over the layout's own automaton, hunmin-sim --batch as oracle", "expectations": "hunmin-sim --trace over those keys -- never typed by hand", "not_reached": [{"case": "cho/ᄢ", "target": "ᄢᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄣ", "target": "ᄣᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄤ", "target": "ᄤᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄥ", "target": "ᄥᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄦ", "target": "ᄦᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄬ", "target": "ᄬᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄳ", "target": "ᄳᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄴ", "target": "ᄴᅡ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆋ", "target": "ᄋᆋ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆞ", "target": "ᄋᆞ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇄ", "target": "아ᇄ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇏ", "target": "아ᇏ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇔ", "target": "아ᇔ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇕ", "target": "아ᇕ", "because": "no keystroke composes it in this slot"}], "cases": "237 of 251 probes admitted by the engine"}}
 {"meta": {"case": "key/'", "keys": "'"}}
 {"in": {"ch": "'"}, "commit": "", "preedit": "ㅌ"}
 {"meta": {"case": "key/shift-'", "keys": "\\s'"}}
@@ -489,6 +489,10 @@
 {"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
 {"in": {"ch": "u"}, "commit": "", "preedit": "ㅳ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "ᄠᅡ"}
+{"meta": {"case": "cho/ᄡ", "target": "ᄡᅡ", "keys": ";nf"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅄ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄡᅡ"}
 {"meta": {"case": "cho/ᄧ", "target": "ᄧᅡ", "keys": ";lf"}}
 {"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
 {"in": {"ch": "l"}, "commit": "", "preedit": "ㅶ"}
@@ -660,6 +664,9 @@
 {"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
 {"in": {"ch": "m"}, "commit": "", "preedit": "ㆅ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "ᅘᅡ"}
+{"meta": {"case": "cho/ᅙ", "target": "ᅙᅡ", "keys": "Mf"}}
+{"in": {"ch": "M"}, "commit": "", "preedit": "ㆆ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅙᅡ"}
 {"meta": {"case": "cho/ᅚ", "target": "ᅚᅡ", "keys": "kuf"}}
 {"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
 {"in": {"ch": "u"}, "commit": "", "preedit": "ᅚᅠ"}

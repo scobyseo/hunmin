@@ -29,7 +29,11 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 SIM = REPO / "build" / "hunmin-sim"
 DATA = REPO / "libhunmin" / "data"
 LAYOUT = "sin3-p2-yet"
-ALL = [chr(c) for c in range(0x20, 0x7f) if chr(c) not in ('"', '\\')]
+# The alphabet is KEYSTROKE strings, not characters: hunmin-sim writes a literal
+# `\` key as `\\`, and 세벌식 no-shift puts ㅋ on that key (the maintainer's
+# rule, and the reason `jong/ㅋ` read as not_reached). A bare `\` would be read as
+# the start of an escape.
+ALL = [chr(c) for c in range(0x20, 0x7f) if chr(c) not in ('"', '\\')] + ["\\\\"]
 
 
 def batch(kl, layout=None):
@@ -112,7 +116,11 @@ def probe_slots(layout=None, g=None, a=None):
             continue
         pre = d[:-1]
         if len(pre) == 1 and 0x1100 <= ord(pre[0]) <= 0x115F:
-            cho.setdefault(pre[0], rec["keys"][0])
+            # The WHOLE keystroke, not its first character: a 된소리 is the same
+            # 초성 key twice (measured: ㅉ is ㅈ then ㅈ), and keeping only the
+            # first character typed 자 instead of 짜 -- which is why
+            # sebeolsik-3-2 reported cho/ㅉ as not_reached.
+            cho.setdefault(pre[0], rec["keys"][:-len(a_key)] or rec["keys"][0])
         elif len(pre) == 2 and all(0x1100 <= ord(c) <= 0x115F for c in pre):
             cho_pair.setdefault("".join(pre), rec["keys"][:2])
     # A 된소리 is TWO 초성 keys in the 세벌식 family (its shift row is the 종성
@@ -203,7 +211,8 @@ def probe_slots(layout=None, g=None, a=None):
         for k, rec in zip(ALL, batch([g_key + probe_jk + c for c in ALL], layout)):
             d = list(_strip_filler(canon(rec["preedit"])))
             if len(d) == 3 and d[0] == "ᄀ" and d[1] == jamo:
-                jong_ctx.setdefault((jamo, d[2]), k)
+                # The tail, not the single character `c`: a jong can be two keys.
+                jong_ctx.setdefault((jamo, d[2]), rec["keys"][len(g_key) + len(probe_jk):])
     return cho, jung, jong, cho_pair, jung_pair, jong_pair, jong_ctx, cho_compose
 
 
@@ -261,7 +270,11 @@ def build(cho, jung, jong, C, J, G, COMPOSE, JG, JJ=None, JC=None, CH=None):
     # it used to concatenate J/JG directly, which dropped the 아래아 p/z choice
     # and the (jung, jong) 종성 table (measured: `ᄍᆞᆼ` typed as `ᄍᆞᅲ` although
     # `llz`+`a` renders ᄍᆞᆼ).
-    ck = COMPOSE.get(cho) or C.get(cho) or (CH or {}).get(cho, '')
+    # Measured beats guessed, in this order. `COMPOSE` holds hand-written
+    # constituent pairs (`ᄍ` = ᄌ+ㅅ, plus a `measured` map taken on ONE layout);
+    # on sebeolsik-3-2 the ᄍ pair is ㅈ+ㅈ and the hand-written pair typed the
+    # wrong letter, so the layout's own measured compose keys must come first.
+    ck = C.get(cho) or (CH or {}).get(cho, '') or COMPOSE.get(cho, '')
     if jung == 'ᆞ':
         jk = 'z' if jong else 'p'
     else:
