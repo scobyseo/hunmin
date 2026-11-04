@@ -102,9 +102,10 @@ endif()
 # gtest runs. add_test calls are written out literally (no loop variable)
 # because tools/docs-lint.py check 6 greps the sources for add_test(NAME id).
 add_executable(tsf-test tsf-test.cpp
-    tsf-config-test.cpp tsf-settings-test.cpp tsf-candidate-test.cpp
+    tsf-config-test.cpp tsf-judgement-test.cpp tsf-settings-test.cpp tsf-candidate-test.cpp
     tsf-langbaritem-test.cpp tsf-datadir-test.cpp tsf-legacy-test.cpp
     tsf-registration-test.cpp tsf-session-test.cpp mock-tsf-registration.cpp
+    ${HUNMIN_TSF_REPO_ROOT}/third_party/cJSON/cJSON.c
     ../src/tsf.cpp ../src/ids.cpp ../src/registration.cpp
     ../src/delivery.cpp ../src/candidates.cpp
     ../src/langbar.cpp ../src/displayattr.cpp ../src/datadir.cpp
@@ -116,7 +117,8 @@ add_executable(tsf-test tsf-test.cpp
 target_compile_definitions(tsf-test PRIVATE UNICODE _UNICODE)
 target_include_directories(tsf-test PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
-    ${HUNMIN_TSF_REPO_ROOT}/libhunmin/include)
+    ${HUNMIN_TSF_REPO_ROOT}/libhunmin/include
+    ${HUNMIN_TSF_REPO_ROOT}/third_party/cJSON)
 target_link_libraries(tsf-test PRIVATE
     ${HUNMIN_ENGINE_LIB}
     GTest::gtest_main

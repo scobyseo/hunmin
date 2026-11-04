@@ -400,11 +400,22 @@ route keys through `HunminInputMethodService`, so the service's choice of which
 adapter receives a Latin-mode key is not measured here; that surface remains a
 separate question.
 
-**The TSF mock is the remaining half** (tier F1): it still carries its own corpus,
-so a judgement case is asserted against the shared layer, fcitx5 and Android, not
-yet against TSF. It can be replayed the same way — the corpus needs nothing a lane
-does not already have — but it does not run on this host (no Windows), so writing
-that lane unverified would be a claim rather than a test.
+**The TSF lane exists: `tsf-test`'s `TsfJudgementTest.CorpusReplay`** (tier F1,
+issue #180) reads the same corpus file and replays every case through the real
+adapter over the mock TSF layer. It takes one difference the other two lanes do
+not, and names it: TSF native delivery inserts each completed syllable into the
+document as it is typed, so the corpus's `step_commits` timing — the x11/Android
+dialect — is not TSF's observable, and the lane asserts the delivered text
+cumulatively (the corpus's `commit`) instead. The mode it asserts directly off
+`Snapshot().hangulMode` (a read-back the fcitx5 lane cannot reach), and the
+probe after each case; it does not skip `mode: latin`, because the service owns
+its language and has a manual switch, so the lane toggles into Latin before
+typing. `r4-nothing-is-judged-in-flight` ends mid-word with no boundary, so the
+total is not asserted there — the mode read-back is its assertion, as in the
+Android lane. Measured 2026-11-04 on a Windows host (MSVC, Visual Studio 17
+2022): 17 cases, 0 failed; forcing the adapter's autoswitch OFF turns the lane
+red (10 mode/total failures), so the probe is load-bearing rather than
+decorative.
 
 What the fcitx5 lane itself does not do, named rather than hidden: a case whose
 `mode` is `latin` is skipped, because the starting language belongs to the host

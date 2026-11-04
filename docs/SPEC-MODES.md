@@ -1160,6 +1160,21 @@ verification.
 keyboard yet, so stage (b) of E2 cannot currently be verified — it is left in the
 document as it is.
 
+**Measured 2026-11-04 (issue #180, E7):** stage (b) now runs on all three
+frontends against one corpus (`tests/golden/judgement-r8.jsonl`): fcitx5 at
+tier D1 (`engine-d1-judgement`, replays every case whose start mode the host
+owns and skips `mode: latin` — the starting language is the host's there),
+Android at tier E1 (`JudgementCorpusTest`, every case through the real pair
+adapter, no skips), and TSF at tier F1 (`TsfJudgementTest.CorpusReplay`, every
+case through the real adapter over the mock layer, no skips). The one difference
+taken is named in each lane: TSF's native delivery inserts completed syllables
+as typed, so its lane asserts the delivered text cumulatively rather than the
+corpus's per-key timing. Same keys, same delivered text, same mode after the
+boundary — the identity E7 asks for. What is still NOT covered: the felt
+display flicker at `judge_timing` 1 (a display-quality judgement, not identity),
+and the tier-C corpus path on Android, which bypasses the adapter
+(`TC-SHIFTARROW-BLIND`, issue #39's scope, not E7's).
+
 
 ## E8. A Sino-Korean compound marker is not a delimiter [E]
 
