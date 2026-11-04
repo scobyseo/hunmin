@@ -1136,3 +1136,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   them had been reported to me as layout facts, and neither was. New pages:
   [[2026-11-04-coverage-golden-per-layout]]. Board rows added:
   `COVERAGE-SLOT-MODERN-227`, `COVERAGE-SLOT-PARTIAL-227`.
+
+- **2026-11-04** — the shared edit-key note at the repository root was
+  untracked, unowned and already executed: seven sequences (EK1-EK7), six of them
+  asserted on fcitx5, Android and TSF, and the note's own "not yet" cells had
+  been filled without anyone updating it. Recorded as
+  [[2026-11-04-shared-edit-key-catalogue-was-executed]], the root file deleted
+  (no history was lost: it had none), and two board rows added —
+  `EDITKEY-CATALOGUE-95` and `EDITKEY-EK7-TSF`, the one real gap, which stays a
+  ruling rather than an agent's test. Also noted: the note's E1-E7 labels collide
+  with the automatic-switch experiments, so the record uses EK1-EK7.

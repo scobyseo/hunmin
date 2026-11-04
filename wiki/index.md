@@ -422,6 +422,9 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   the two TSF defects the live session found routed to #175.
 - [[2026-11-03-tier-c-takes-the-digit-row-and-a-declined-backspace]] - issue #229's
 - [[2026-11-04-coverage-golden-per-layout]] - one coverage golden per layout
+- [[2026-11-04-shared-edit-key-catalogue-was-executed]] - a 2026-10-25 note
+  found untracked at the root: seven edit-key sequences, already asserted on all
+  three frontends except EK7 on TSF, and the E1-E7 label collision it exposed.
   (issue #227): the slot unit, the gate that refuses a thin file, and the four
   instrument defects that every number that would not move exposed.
   second half: one designed case (`0123456789 \b`) for each x11 layout, so the
