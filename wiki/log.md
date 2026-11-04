@@ -1126,3 +1126,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Board rows re-measured in `docs/REMAINING-WORK.md`: `TIER-C-WIRING-DECLINE` and
   `TIER-C-WIRING-DIGITROW` now assert present artefacts, `TIER-C-WIRING-ARROW`
   is new and stays `path-absent` on a ruling nobody has made.
+
+- **2026-11-04** — one coverage golden per layout (issue #227): the unit is
+  (jamo, slot), the generator refuses to publish below `--require-modern`, and
+  four probe defects were found by numbers that would not move — a misaligned
+  batched answer, a two-key 초성 truncated to its first key (ㅉ = ㅈ twice), the
+  literal `\` key dropped from the alphabet (세벌식 no-shift's ㅋ), and a
+  hand-written compose pair beating the measured one. Recorded because two of
+  them had been reported to me as layout facts, and neither was. New pages:
+  [[2026-11-04-coverage-golden-per-layout]]. Board rows added:
+  `COVERAGE-SLOT-MODERN-227`, `COVERAGE-SLOT-PARTIAL-227`.
