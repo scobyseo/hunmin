@@ -1104,6 +1104,19 @@ if [ -n "${HUNMIN_D3_EDIT_CASES:-}" ] && [ -f "${HUNMIN_D3_EDIT_CASES}" ]; then
         fi
     done
     exec 4<&-
+    # STOP HERE. The ordinary cases.tsv run below is NOT repeated in edit mode:
+    # engine-d3-x11 runs that same file through this same stack and client, so
+    # running it here measured 43.6s of the tier's 93.3s (2026-11-04,
+    # docs/D3-PERFORMANCE.md) with no assertion the x11 tier does not already
+    # make. The CMake comment for this tier says the edit cases are separate
+    # "so a failure is diagnosed by its scenario, not mixed into the ordinary
+    # D3 cases" -- running both here contradicted that.
+    if [ -n "$HPID" ]; then
+        kill "$HPID" 2>/dev/null
+        wait "$HPID" 2>/dev/null
+    fi
+    stop_fcitx
+    exit "$fail"
 fi
 while IFS=$'\t' read -r -u 3 layout keys mode _; do
     case "$layout" in '' | \#*) continue ;; esac

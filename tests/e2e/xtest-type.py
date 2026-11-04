@@ -44,6 +44,17 @@ def main() -> int:
         print(__doc__, file=sys.stderr)
         return 2
     display, keys = sys.argv[1], sys.argv[2]
+    # 40ms per EVENT, i.e. 80ms per character. It is half of a D3 tier's runtime,
+    # so it is the obvious thing to lower -- and two rounds of measurement say
+    # do not, yet. Standalone, 5ms runs a tier clean (10/10 cases, idle and
+    # under 12 CPU hogs). In the parallel selection (`ctest -j16 -L slow`,
+    # three D3 tiers, three X stacks) a 5-pair A/B gave 40ms 2/5 runs with a D3
+    # failure and 5ms 3/5: the delay is NOT established as the cause, and 1ms
+    # saves only ~2s (5ms 27.5s, 1ms 25.1-27.6s, tier alone). The failures that
+    # do appear are stack-level ("key injection failed", a garbled first word),
+    # and they happen at 40ms too -- so the flake is a separate defect and
+    # lowering this constant neither fixes nor reliably worsens it.
+    # See docs/D3-PERFORMANCE.md, 2026-11-04.
     delay_ms = int(sys.argv[3]) if len(sys.argv) > 3 else 40
 
     libx11 = ctypes.util.find_library("X11")

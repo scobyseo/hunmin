@@ -86,3 +86,108 @@ the maintainer to rule on.
 
 1 + 2 together reach ~22s. Nothing here reaches 15s without also changing the
 injector's pacing.
+
+## 2026-11-04 — two levers measured: one taken, one refused by measurement
+
+The edit tier (`engine-d3-edit`) is the one that was on the critical path
+(94.0 s of the slow tier's 94.8 s), so this round measured its two biggest
+components instead of the GTK tier's.
+
+### Lever taken: the tier was running another registered test's cases
+
+`engine-d3-edit` ran `cases-edit.tsv` and then `cases.tsv` — and
+`engine-d3-x11` runs that same `cases.tsv` through the same XIM stack and
+client. The duplication was 8 of the tier's 18 cases and **43.6 s of its
+93.3 s**, with no assertion the x11 tier does not already make. The CMake
+comment for the tier already said the edit cases are separate "so a failure is
+diagnosed by its scenario, not mixed into the ordinary D3 cases"; the extra
+run contradicted it. `run-d3.sh` now stops after the edit loop.
+
+| | before | after |
+|---|---|---|
+| `engine-d3-edit` | 94.0 s | **49.7 s** |
+| slow tier (`-j16 -L slow`) | 94.8 s | **50.0 s** (3 runs: 50.0 / 50.2 / 50.3) |
+| D3 failures in those runs | 0 | **0** |
+
+Both are inside the 60 s slow-tier budget, with the injector untouched — no
+margin moved.
+
+### Lever refused: lowering the injection delay
+
+The 40 ms per event is half of the edit tier and the obvious target. It is also
+the margin between injection and the stack processing each key, so the first
+sweep looked decisive — six `ctest -j16 -L slow` runs, three D3 tiers starting
+three X stacks at once:
+
+| delay | runs | runs with a D3 failure |
+|---|---|---|
+| 40 ms | 3 | 0 |
+| 20 ms | 2 | 1 |
+| 15 ms | 2 | 0 |
+| 10 ms | 2 | 2 |
+| 5 ms | 1 | 1 |
+
+**A 5-pair A/B then undercut that reading, and the A/B is the experiment that
+counts.** Alternating the two values on the same tree, same selection:
+
+| delay | runs | runs with a D3 failure |
+|---|---|---|
+| 40 ms | 5 | **2** (`engine-d3-edit` twice) |
+| 5 ms | 5 | **3** (`engine-d3-edit` 3×, `engine-d3-x11` 3×) |
+
+2/5 against 3/5 at n=5 does not separate the two values: **the delay is not
+established as the cause, and lowering it is not established as safe.** What the
+A/B does establish is worse than either: this host currently flakes a D3 tier in
+roughly half of `-j16` slow-tier runs *at the shipped 40 ms too*, with two
+failure modes that are both stack-level rather than injector-level —
+
+- `FAIL […]: key injection failed` — `xtest-type.py` exited nonzero, i.e. it
+  could not inject into the display at all; and
+- a garbled **first** word followed by correct output (`ㄷ왕ㄶ내ㅕㅁㅇ눌과` where the
+  engine says `동해물과`), i.e. keys arriving before the case's focus settled.
+
+Neither is a lost key in the middle of a sentence, which is what a too-short
+margin would produce. The standalone tier passes; only the parallel selection
+shows it.
+
+**And it is not this change.** Master's own `run-d3.sh`, injector untouched at
+40 ms, three `-j16` slow-tier runs: **2 had a D3 failure** (`engine-d3-edit`),
+one ran clean at 93.4 s. Same failure messages, same tier. So the flake predates
+the dedupe above and has its own issue (#250); what this page records is that no
+measurement of a D3 tier's *wall time* is trustworthy while it is in the mix — a
+run that loses a tier halfway finishes faster than a green one (70 s against
+93 s on the same runner).
+
+**1 ms is not a lever at all.** With the duplication removed, injection is ~3 s
+of the 27.5 s the tier would take at 5 ms, and measured: 5 ms 27.5 s, 1 ms
+25.1–27.6 s. It buys ~2 s and, per the A/B, does not buy reliability.
+
+**Serialising the D3 tiers is the other way to remove the failure mode, and it
+costs the budget.** Measured at 1 ms, `-j1` over the three tiers: **63.9 s** and
+**64.3 s**, both fully green (`engine-d3-x11` 24.0 / 23.9, `engine-d3-edit` 24.8
+/ 25.3, `engine-d3-candidate` 15.1 / 15.2). That is the three D3 tiers alone,
+before the rest of the slow tier — `frontend-mutations` is 37 s in the same
+selection — and the budget is 60 s *wall*. Parallel, the same selection costs
+50 s and flakes about half the time. So `RUN_SERIAL` on the D3 tiers would move
+the slow tier from "flaky under budget" to "reliable and ~2× over budget"; that
+trade is a decision, and it is not taken here.
+
+Note what the flake rate means for this document: a single green `-j16` run is
+not evidence that a D3 change is safe, and neither is a single red one. Rates
+need repeats at the same value — the A/B exists because the first sweep, which
+looked decisive at n≤3, did not survive one.
+
+### What is left, in measured size
+
+For the edit tier at 40 ms with the duplication gone (49.7 s): injection ~25 s,
+the fixed sleeps ~17 s (per case 0.4 + 0.5 + 0.3, per layout restart 1.0, ~0.1
+polling), stack startup ~4 s, parsing/teardown ~2 s. The injector can only be
+reduced by giving the stack something better to synchronise on than a clock:
+a per-key or per-run completion signal from the harness would let the injector
+run at full speed on an idle box and slow down only when the stack lags. That is
+a harness change, not a constant, and it is not measured here.
+
+A probe of the *other* structural option was taken incidentally: the `-j16`
+selection starts three X stacks that between them consume all six display
+reservations (`/tmp/hunmin-d3-disp.94` … `.99`), so a fourth concurrent D3 tier
+would find none and skip. Not a defect at three tiers; it is the ceiling.

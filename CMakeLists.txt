@@ -1095,7 +1095,10 @@ if(BUILD_TESTING)
     endforeach()
     # D3-EDIT: edit-key scenarios (backspace, mode toggle, candidate window),
     # separate so a failure is diagnosed by its scenario, not mixed into the
-    # ordinary D3 cases.
+    # ordinary D3 cases. The tier therefore runs ONLY cases-edit.tsv: it used to
+    # run cases.tsv afterwards as well, which engine-d3-x11 already does on the
+    # same stack and client, and that duplicated half of a 93 s tier
+    # (docs/D3-PERFORMANCE.md, 2026-11-04).
     add_test(NAME engine-d3-edit
       COMMAND testfcitx5d3
               --mode edit
