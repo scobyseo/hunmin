@@ -27,6 +27,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 ENGINE_REL = pathlib.Path("frontends/fcitx5/src/hunminadapter.cpp")
@@ -163,6 +164,27 @@ def _run(cmd: list[str], timeout: int = 180, cwd: pathlib.Path | None = None,
     return proc.returncode
 
 
+def _run_text(cmd: list[str], cwd: pathlib.Path | None = None,
+              timeout: int = 180) -> tuple[int, str]:
+    """Run, and KEEP the output. `_run` discards it, which is fine while a test
+    passes and useless the moment it does not (issue: a GAP in CI printed two
+    booleans and nothing a reader could act on)."""
+    proc = subprocess.run(cmd, cwd=cwd or REPO, capture_output=True, text=True,
+                          timeout=timeout)
+    return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+
+
+def _excerpt(text: str, limit: int = 12) -> list[str]:
+    """The lines a reader needs: the first error, or the tail. Bounded, always."""
+    lines = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return []
+    for i, ln in enumerate(lines):
+        if "error" in ln.lower() or "fail" in ln.lower():
+            return lines[i:i + limit]
+    return lines[-limit:]
+
+
 def _apply(text: str, old: str, new: str) -> str | None:
     if old not in text:
         return None
@@ -187,9 +209,9 @@ MUT_TARGETS = ["hunmin", "testhunmin", "testhunminui"]
 JOBS = str(os.cpu_count() or 4)
 
 
-def _build_cmd(target_dir: pathlib.Path) -> list[str]:
+def _build_cmd(target_dir: pathlib.Path, jobs: int | None = None) -> list[str]:
     return ["cmake", "--build", str(target_dir), "--target", *MUT_TARGETS,
-            "-j", JOBS]
+            "-j", str(jobs or JOBS)]
 
 _COPY_IGNORE_BASENAMES = (
     ".git", "__pycache__", ".gradle", ".cxx", "node_modules", "Testing",
@@ -300,6 +322,10 @@ def _check_copy(src: pathlib.Path, dst: pathlib.Path) -> None:
 class Strategy:
     """Where a mutation is planted, and what gets rebuilt to test it.
 
+    `jobs` is the -j this instance's builds use. A slot pool gives each slot a
+    share of the cores: nine `-j16` builds at once oversubscribe into slower,
+    which is why the pool divides rather than multiplies.
+
     This tier used to have exactly one behaviour -- plant the mutation in the
     working tree, rebuild the shared build/ -- and that behaviour is why it had
     to be RUN_SERIAL. Making it a strategy turns the isolation from a property
@@ -314,11 +340,24 @@ class Strategy:
                 session's ctest, which is why it was RUN_SERIAL.
 
       sandbox   copy the sources to a temp dir, configure and build there,
-                and plant and test entirely inside it. Measured at 2451fdc
-                with -j16: 10 s of setup (configure + first build) and ~1.5 s
-                per mutation, against 24.8 s for the in-tree run of the same
-                nine. So isolation costs almost nothing here, and the tier
-                stops needing RUN_SERIAL.
+                and plant and test entirely inside it. Measured 2026-11-04 on
+                the reference host, where the tree has grown since this note was
+                written: copy 0.11 s, configure 2.9 s, first build 9.4 s, then
+                3.6 s per mutation (one compile + one link) and ~1.2 s of
+                guards. Nine mutations serially are 38 s; in a slot pool they
+                are 23 s. The in-tree run of the same nine was 24.8 s at 2451fdc
+                and is not the comparison any more.
+
+    Slots: the mutations are independent, so they run in several sandboxes at
+    once. Measured 2026-11-04, verdicts identical in every run:
+
+        16 cores, 1 slot    38.2 s      16 cores, 4 slots  23.3 / 23.7 s
+         4 cores, 1 slot    36.4 / 37.3 s    4 cores, 2 slots  27.5 / 29.4 s
+
+    (4 cores simulated with `taskset -c 0-3`, which is what the CI runner has.)
+    Half the cores per slot, capped at four slots -- nine at once oversubscribes
+    into slower. The in-tree strategy mutates the shared checkout and is always
+    one slot.
 
     The copy is of the WORKING TREE, not of HEAD: a mutation self-test that
     silently ran against a commit other than the one under test would be
@@ -326,6 +365,7 @@ class Strategy:
     """
 
     name = "abstract"
+    jobs: int | None = None   # None = the whole box (JOBS)
 
     def __enter__(self) -> pathlib.Path:
         raise NotImplementedError
@@ -334,7 +374,8 @@ class Strategy:
         """The hunminadapter.cpp this strategy mutates."""
         raise NotImplementedError
 
-    def build(self) -> int:
+    def build(self, log_path: pathlib.Path | None = None) -> int:
+        """Rebuild with the mutation planted; 0 means it compiles."""
         raise NotImplementedError
 
     def restore(self) -> None:
@@ -354,8 +395,9 @@ class InTree(Strategy):
     def engine(self) -> pathlib.Path:
         return ENGINE
 
-    def build(self) -> int:
-        return _run(_build_cmd(REPO / "build"), timeout=900)
+    def build(self, log_path: pathlib.Path | None = None) -> int:
+        return _run(_build_cmd(REPO / "build", self.jobs), timeout=900,
+                    stderr_path=log_path)
 
     def restore(self) -> None:
         # Restore AND rebuild: leaving build/ holding binaries compiled from a
@@ -510,16 +552,16 @@ class Sandbox(Strategy):
         # future mutation turns out to need the real flags.
         return os.environ.get("HUNMIN_MUTATION_BUILD_TYPE", "")
 
-    @classmethod
-    def _build_in(cls, src: pathlib.Path, stderr_path: pathlib.Path | None = None) -> int:
-        return _run(_build_cmd(src / "build"), cwd=src, timeout=900,
-                    stderr_path=stderr_path, env=cls._sandbox_env())
+    def _build_in(self, src: pathlib.Path,
+                  stderr_path: pathlib.Path | None = None) -> int:
+        return _run(_build_cmd(src / "build", self.jobs), cwd=src, timeout=900,
+                    stderr_path=stderr_path, env=self._sandbox_env())
 
     def engine(self) -> pathlib.Path:
         return self.dir / "src" / ENGINE_REL
 
-    def build(self) -> int:
-        return self._build_in(self.dir / "src")
+    def build(self, log_path: pathlib.Path | None = None) -> int:
+        return self._build_in(self.dir / "src", stderr_path=log_path)
 
     def restore(self) -> None:
         # Nothing to restore: the whole tree is about to be deleted, and
@@ -533,6 +575,115 @@ class Sandbox(Strategy):
 STRATEGIES: dict[str, type[Strategy]] = {"in-tree": InTree, "sandbox": Sandbox}
 
 
+def _run_mutation(strategy: Strategy, job: tuple, root: pathlib.Path,
+                  pristine: str) -> tuple[str, list[str], list[str]]:
+    """Plant one mutation in this slot's tree and ask the three guards.
+
+    Everything happens under `root`, which belongs to exactly one slot, so no
+    two slots ever write the same file. Returns the report line, the gaps it
+    found -- a gap is data (an expectation that did not hold), not an error of
+    this file -- and the evidence a reader needs when the line is not "guarded":
+    the compiler's error, or the guard's own output.
+    """
+    mid, old, new, want_chk, want_d1, want_d2 = job
+    engine = root / ENGINE_REL
+    # Applied to the PRISTINE text, not to what the previous mutation left:
+    # within one slot the file carries the last mutation, and stacking them
+    # changes every verdict (measured: nine false expectation mismatches).
+    mutated = _apply(pristine, old, new)
+    if mutated is None:
+        return (f"{mid:30} {'-':<6} {'-':9} {'-':6} {'-':6} ANCHOR NOT FOUND",
+                [f"{mid}: anchor not found (source moved)"], [])
+    engine.write_text(mutated)
+    build_log = root / "mutation-build.log"
+    if strategy.build(log_path=build_log) != 0:
+        why: list[str] = []
+        if build_log.is_file():
+            why = [f"build: {ln}" for ln in
+                   _excerpt(build_log.read_text(encoding="utf-8", errors="replace"), 4)]
+        return (f"{mid:30} {'fail':<6} {'-':9} {'-':6} {'-':6} build rejects",
+                [], why)
+    # Relative to `root`, not REPO: under a sandbox these must be the sandbox's
+    # copies, or the checker reads the untouched file and every mutation looks
+    # caught.
+    chk, chk_txt = _run_text([sys.executable, str(root / CHECKER_REL)], cwd=root)
+    d1, d1_txt = _run_text(["ctest", "--test-dir", str(root / "build"),
+                            "-R", "engine-d1-fcitx5"], cwd=root, timeout=900)
+    d2, d2_txt = _run_text(["ctest", "--test-dir", str(root / "build"),
+                            "-R", "engine-d2-ui"], cwd=root, timeout=900)
+    chk_rej, d1_rej, d2_rej = chk != 0, d1 != 0, d2 != 0
+    guarded = (chk_rej and d1_rej) or (chk_rej and d2_rej) or d2_rej
+    verdict = "guarded" if guarded else "GAP"
+    gaps: list[str] = []
+    if chk_rej != want_chk:
+        gaps.append(f"{mid}: checker_rejects={chk_rej}, expected {want_chk}")
+    if d1_rej != want_d1:
+        gaps.append(f"{mid}: d1_rejects={d1_rej}, expected {want_d1}")
+    if d2_rej != want_d2:
+        gaps.append(f"{mid}: d2_rejects={d2_rej}, expected {want_d2}")
+    # Only the guards that REJECTED, and only when this row is not a plain
+    # "guarded": a normal mutation's d1 rejection is the expected result, and
+    # printing it nine times would bury the one row that needs reading.
+    detail: list[str] = []
+    if verdict == "GAP" or gaps:
+        for label, text, rejected in (("checker", chk_txt, chk_rej),
+                                      ("d1", d1_txt, d1_rej),
+                                      ("d2", d2_txt, d2_rej)):
+            if rejected:
+                detail += [f"{label}: {ln}" for ln in _excerpt(text, 6)]
+    return (f"{mid:30} {'ok':<6} {str(chk_rej):9} {str(d1_rej):6} "
+            f"{str(d2_rej):6} {verdict}", gaps, detail)
+
+
+def _slot(name: str, jobs: int, tasks: list[tuple], gaps: list[str],
+          lock: threading.Lock) -> None:
+    """One slot: its own tree, its own -j, its mutations in sequence.
+
+    `with` is what restores: InTree puts hunminadapter.cpp back AND rebuilds,
+    Sandbox just deletes its tree. A try/finally here would be a second, weaker
+    copy of that contract.
+    """
+    strategy = STRATEGIES[name]()
+    strategy.jobs = jobs
+    try:
+        with strategy as root:
+            pristine = (root / ENGINE_REL).read_text()
+            for job in tasks:
+                line, found, detail = _run_mutation(strategy, job, root, pristine)
+                with lock:
+                    print(line, flush=True)
+                    for d in detail:
+                        print(f"    {d}", flush=True)
+                    gaps.extend(found)
+    except SystemExit as exc:   # sandbox configure/initial build failed
+        with lock:
+            gaps.append(f"slot with {len(tasks)} mutation(s): {exc}")
+
+
+def _default_slots(name: str, count: int) -> int:
+    """How many sandboxes to run at once, from the cores that are there.
+
+    Measured 2026-11-04, same machine, same set, verdicts identical in all of
+    these (8 guarded / 1 GAP):
+
+        16 cores, 1 slot   38.2 s     16 cores, 4 slots   23.3 / 23.7 s
+         4 cores, 1 slot   36.4 / 37.3 s    4 cores, 2 slots   27.5 / 29.4 s
+
+    Four cores were simulated with `taskset -c 0-3`, which is what the CI runner
+    has -- so the pool is worth having there too, not just locally. Half the
+    cores per slot, capped at four slots: nine sandboxes at once oversubscribe
+    into slower, which a three-slot probe showed (27.6 s at -j16 each, worse
+    than four at -j4).
+
+    The in-tree strategy mutates the shared checkout, so it is never more than
+    one slot.
+    """
+    if name == "in-tree":
+        return 1
+    return max(1, min(count, min(4, (os.cpu_count() or 4) // 2)))
+
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--list", action="store_true", help="print the set and exit")
@@ -540,6 +691,9 @@ def main() -> int:
     ap.add_argument("--strategy", choices=sorted(STRATEGIES), default=None,
                     help="where to plant the mutation (default: $HUNMIN_MUTATION_STRATEGY "
                          "or sandbox)")
+    ap.add_argument("--jobs", type=int, default=None,
+                    help="sandboxes to run at once (default: half the cores, "
+                         "capped at four; always 1 for the in-tree strategy)")
     args = ap.parse_args()
 
     if args.list:
@@ -559,53 +713,33 @@ def main() -> int:
         print("unknown id(s); see --list")
         return 2
 
-    original = ENGINE.read_text()
+    tasks = [tuple(m) for m in selected]
+    slots = args.jobs if args.jobs is not None else _default_slots(name, len(tasks))
+    if name == "in-tree" and slots > 1:
+        print(f"note: in-tree mutates the shared checkout; --jobs {slots} "
+              f"reduced to 1", file=sys.stderr)
+        slots = 1
+    slots = max(1, min(slots, len(tasks)))
+    per_slot = max(1, (os.cpu_count() or 4) // slots)
 
     print(f"{'mutation':30} {'build':6} {'checker':9} {'d1':6} {'d2':6} verdict")
+    print(f"strategy: {name} ({slots} slot(s), -j{per_slot} each)", flush=True)
     gaps: list[str] = []
-    strategy = STRATEGIES[name]()
-    # `with` is what restores: InTree puts hunminadapter.cpp back AND rebuilds,
-    # Sandbox just deletes the tree. A separate try/finally here would be a
-    # second, weaker copy of that contract.
-    with strategy as root:
-        # Relative to `root`, not REPO: under the sandbox these must be the
-        # sandbox's copies, or the checker would read the untouched file and
-        # every mutation would look caught.
-        engine = root / ENGINE_REL
-        checker = root / CHECKER_REL
-        original = engine.read_text()
-        print(f"strategy: {name}")
-        for mid, old, new, want_chk, want_d1, want_d2 in selected:
-            mutated = _apply(original, old, new)
-            if mutated is None:
-                print(f"{mid:30} {'-':6} {'-':9} {'-':6} ANCHOR NOT FOUND")
-                gaps.append(f"{mid}: anchor not found (source moved)")
-                continue
-            engine.write_text(mutated)
-            if strategy.build() != 0:
-                print(f"{mid:30} {'fail':<6} {'-':9} {'-':6} build rejects")
-                continue
-            chk = _run([sys.executable, str(checker)], cwd=root)
-            d1 = _run(["ctest", "--test-dir", str(root / "build"),
-                       "-R", "engine-d1-fcitx5"], cwd=root)
-            d2 = _run(["ctest", "--test-dir", str(root / "build"),
-                       "-R", "engine-d2-ui"], cwd=root)
-            chk_rej, d1_rej, d2_rej = chk != 0, d1 != 0, d2 != 0
-            guarded = (chk_rej and d1_rej) or (chk_rej and d2_rej) or d2_rej
-            verdict = "guarded" if guarded else "GAP"
-            if chk_rej != want_chk:
-                gaps.append(f"{mid}: checker_rejects={chk_rej}, expected {want_chk}")
-            if d1_rej != want_d1:
-                gaps.append(f"{mid}: d1_rejects={d1_rej}, expected {want_d1}")
-            if d2_rej != want_d2:
-                gaps.append(f"{mid}: d2_rejects={d2_rej}, expected {want_d2}")
-            print(f"{mid:30} {'ok':<6} {str(chk_rej):9} {str(d1_rej):6} "
-                  f"{str(d2_rej):6} {verdict}")
+    lock = threading.Lock()
+    buckets = [tasks[i::slots] for i in range(slots)]
+    threads = [threading.Thread(target=_slot,
+                                args=(name, per_slot, bucket, gaps, lock),
+                                name=f"slot{i}")
+               for i, bucket in enumerate(buckets) if bucket]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
 
     print()
     if gaps:
         print(f"{len(gaps)} expectation mismatch(es) — update MUTATIONS or fix:")
-        for g in gaps:
+        for g in sorted(gaps):
             print("  -", g)
         return 1
     print(f"mutation set matches its recorded expectations; hunminadapter.cpp restored "
