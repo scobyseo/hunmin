@@ -3055,6 +3055,39 @@ retired, not a blocked one.
 - Changed by this branch: `docs/OPTIONS-MEASURED.md` (this section and the header
   table), `README.md` (its index row).
 
+## PAS-7 Re-measured 2026-11-04: which premises above still hold
+
+`§PAS-0`–`§PAS-6` are left as written. What moved is the set of premises the
+analysis rests on, recorded here rather than edited into the sections that made
+them, so the earlier reasoning stays readable against the facts it had.
+
+- **§PAS-0 item 3 — "the judgement that applies R8's formula at the boundary —
+  not shipped": superseded.** #168 landed 2026-11-03; `boundary()` in
+  `libhunmin/src/buffered_preedit.c` now applies R8 at the boundary. A replay can
+  therefore switch, not only read the two validity halves.
+- **§PAS-0 item 4 — "No sentence corpus is on this host": superseded, for this
+  host.** `tools/build-modes-sentences.py` extracts mixed-script sentences from a
+  licensed dump (CC BY-SA 4.0), writes its provenance beside the corpus, and the
+  corpus stays outside the repository. It is one genre and a lower bound on the
+  target population — `docs/MODES-DATA.md` §4's genre note still applies.
+- **§PAS-6's host line ("Nothing here needed a build"):** this re-measurement ran
+  on the Linux development host, against a built `libhunmin.so` and
+  `hunmin-sim`, so the figures it produced are from a built engine.
+- **§PAS-1's `d`/`k`/`u`/`q` are no longer hypothetical.** The harness
+  `tools/modes-metrics.py` (#181) reports all four; the measured values and the
+  reading each candidate shape (§PAS-2/§PAS-3) would grade are in
+  `docs/MODES-METRICS.md` §1.2 and §2 — **cited, not restated here**, because a
+  figure with two homes is the drift this repo's pointer rule exists to prevent.
+- **§PAS-5's recommendation is unchanged and still not a ruling**, and this
+  note does not make it one. What the measurement adds is the input it named as
+  decisive: a `d` and a `k` from a real corpus, and a `q` that is negative on
+  that corpus. Whether that argues for a different pair, for the K2/T3 forms at
+  all, or for nothing, is the maintainer's.
+- **What did not change:** §PAS-4's six sub-decisions are still open (§PAS-4 item
+  1, *which corpus*, is now *which corpus, since one exists*), and the reason
+  `q`/`u` were preferred — they do not change meaning when the corpus does — is
+  untouched by a run on any single corpus.
+
 ## MRO — who owns the modes judgement: the shared layer, or each adapter (issue #164)
 
 **Decided 2026-11-01: option C — the engine judges, the frontend performs the
