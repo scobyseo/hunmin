@@ -90,6 +90,12 @@ def jamo(s):
     return ''.join(_COMPAT[c] if c in _COMPAT else c for c in s)
 
 
+# 중성 decisions where more than one physical key renders the vowel. Filled by
+# _pick_jung and written into the table JSON, so the artefact carries the choice
+# and its reason (see the twin-key rule there).
+TWINS = {}
+
+
 # A representative 초성 key (ㄱ = k) used to prime the buffer so a vowel key
 # is emitted as a 중성, and a cho+jung (가 = kf) to prime for 종성. The 초성
 # table is built first, so the prime uses whatever ㄱ maps to.
@@ -143,14 +149,21 @@ def probe_cho(jamo_target, layout, _cache={}):
     return min(pair) if pair else None
 
 
-def _pick_jung(cands, layout, cho_key, target):
+def _pick_jung(cands, layout, cho_key, target, jamo_target):
     """Among keys that render the vowel, prefer the STANDALONE one.
 
     THE RULE (maintainer, 2026-11-04): a 중성 can have two keys and they are not
-    interchangeable. sin3-p2 puts ㅗ on both `/` and `v`, and ㅜ on both `o` and
-    `b`; the left-hand member of each pair (`/`, `o`) is the CONNECTING form —
-    it exists to build the compound 중성 (와 `f`, 워 `r`), while the other (`v`,
-    `b`) is the standalone one. So 오 takes `v`, 우 takes `b`.
+    interchangeable. EXACTLY THREE pairs exist on sin3-p2 — measured over all 47
+    keys and their shifts, so this is not "the vowels I happened to check":
+
+        ㅗ  `/` connecting (와)      |  `v` standalone
+        ㅜ  `o` connecting (워)      |  `b` standalone
+        ㅡ  `i` connecting (의 ㅢ)   |  `g` standalone
+
+    (`p`/`z` for 아래아 is the separate 종성-admission gate, and every other
+    duplicate is one key's own Shift.) The left-hand member builds a compound
+    중성 with a following vowel; the right-hand one is what a running syllable
+    takes. So 오 takes `v`, 우 takes `b`, 으 takes `g`.
 
     THE BUG THIS FIXES (measured, issue #227). Both members render the vowel
     from a ㄱ-primed buffer, so the "shortest, plainest" rule took `/` — and
@@ -181,7 +194,22 @@ def _pick_jung(cands, layout, cho_key, target):
     def rank(s):
         return (extensions[s], sum(c.isupper() for c in s), len(s), s)
 
-    return min(cands, key=rank)
+    chosen = min(cands, key=rank)
+    # Record the decision beside it when a 중성 has more than one physical key:
+    # the twin pairs are the 세벌식-family fact this rule exists for (sin3-p2:
+    # ㅗ /|v, ㅜ o|b, ㅡ i|g — and NOTHING else, measured 2026-11-04 over all 47
+    # keys and their shifts; every other duplicate is one key's own shift, and
+    # 아래아's p|z is the separate 종성-admission gate). A table written from this
+    # probe must say which twin it took and why, or the next layout silently
+    # takes the connecting form again.
+    def base(c):      # '\\sv' and 'V' are the same physical key as 'v'
+        return (c[2:] if c.startswith("\\s") else c).lower()
+    bases = {base(c) for c in cands}
+    if len(bases) > 1:
+        TWINS[jamo_target] = {"candidates": {c: extensions[c] for c in sorted(cands)},
+                              "chosen": chosen,
+                              "rule": "fewest compound-vowel extensions (standalone over connecting)"}
+    return chosen
 
 
 def probe_jung(jamo_target, layout, cho_key):
@@ -200,7 +228,7 @@ def probe_jung(jamo_target, layout, cho_key):
             if len(d) == 2 and d[1] == target and 0x1100 <= ord(d[0]) <= 0x115F:
                 cands.append(s)
         if cands:
-            return _pick_jung(cands, layout, cho_key, target)
+            return _pick_jung(cands, layout, cho_key, target, jamo_target)
     return None
 
 
@@ -307,7 +335,8 @@ def main():
 
     if args.table_out:
         args.table_out.write_text(json.dumps(
-            {"layout": args.layout, "table": table, "not_found": not_found},
+            {"layout": args.layout, "table": table, "not_found": not_found,
+             "jung_twins": TWINS},
             ensure_ascii=False, indent=1), encoding="utf-8")
 
     if args.text_file:
