@@ -362,13 +362,49 @@ Getting there needed two things the addon did not have, both found by building i
   silently dropped: `hello ` delivered nothing. TSF and Android read the commit
   before their judgement call and were never affected. Fixed by copying first.
 
-**The other two frontends have no lane yet**, and that is the remaining half of
-this ruling: Android (tier E1) and the TSF mock (tier F1) still carry their own
-corpora, so a judgement case is asserted against the shared layer and against
-fcitx5, not yet against them. Both can be replayed the same way — the corpus
-needs nothing a lane does not already have (`step_commits` for the delivery
-timing, `probe` for the mode) — but neither runs on this host (no device, no
-Windows), so writing those lanes unverified would be a claim rather than a test.
+**The Android lane exists: `engine-android-e1`** (`JudgementCorpusTest`, tier E1,
+issue #211), and it reads the same corpus file. It replays every case through the
+real pair adapter (`HunminAdapter` + the host JNI shim) and asserts three things
+the adapter can get wrong: the per-key delivered text (`step_commits`, so R6's
+held run is distinct from a per-key commit), the judgement sequence the adapter
+reads, and the mode after the case through the corpus's `probe`. It takes two
+Android-specific differences, both named in the lane:
+
+- **It does not skip `mode: latin`.** The fcitx5 addon has no key that sets the
+  layer's initial language, but Android's pair adapter owns both slots (FE7), so
+  the lane asks it for the Latin start with `toggleLanguage()` and runs those
+  cases.
+- **The one mid-word case has no probe.** `r4-nothing-is-judged-in-flight` ends
+  before a boundary, so a probe typed after it would append to the word still in
+  the buffer. The corpus therefore carries no probe for it, and the lane asserts
+  the adapter's own language read-back instead.
+
+Measured 2026-11-04 on a host with `ANDROID_HOME` set: 17 corpus cases, 0 skipped,
+0 failed, 0.44 s; removing the lane's `toggleLanguage()` call turns it red at
+`r8-english-word-switches` (probe delivered `ㅏ` where the Latin reading `k` is
+expected), so the probe is load-bearing rather than decorative.
+
+**The lane is green, and so is the tier.** Measured 2026-11-05 on `1a61ed6`
+plus this lane, with `ANDROID_HOME` set: `tools/android-unit.sh` (ctest
+`engine-android-e1`) passes **157 of 157**. What this paragraph recorded before
+was 8 `HunminAdapterTest` failures on 2026-11-04 at `c90e88c` — 158 tests, 8
+failed, and 157 tests with the same 8 with the lane absent, so the lane neither
+caused nor hid them. They were pre-existing (#246) and #257 fixed them on
+2026-11-04, which is why the count is 157 and not 158. The correction is kept
+rather than deleted: the earlier text concluded "the tier is red" from a
+measurement that was true that day, and the fix is what changed it.
+
+The lane's scope is the adapter, as §6.2.1 asks: it builds the pair adapter the
+service builds and performs the frontend's half of R8 itself. It does **not**
+route keys through `HunminInputMethodService`, so the service's choice of which
+adapter receives a Latin-mode key is not measured here; that surface remains a
+separate question.
+
+**The TSF mock is the remaining half** (tier F1): it still carries its own corpus,
+so a judgement case is asserted against the shared layer, fcitx5 and Android, not
+yet against TSF. It can be replayed the same way — the corpus needs nothing a lane
+does not already have — but it does not run on this host (no Windows), so writing
+that lane unverified would be a claim rather than a test.
 
 What the fcitx5 lane itself does not do, named rather than hidden: a case whose
 `mode` is `latin` is skipped, because the starting language belongs to the host
