@@ -498,3 +498,127 @@ document would otherwise be used for:
    checked against until CI runs again. Its own numbers are local, and CI-TIMING
    §2 is the standing warning that local and CI do not measure the same suite —
    which is now the whole comparison, since only the local side is available.
+
+## 6. A red run's evidence — audited 2026-11-04
+
+Asked as three questions: where the time goes when CI runs, how it actually
+runs, and whether a failure leaves enough behind to debug without re-running.
+The third one had holes, and they are fixed here.
+
+### How it runs
+
+Enabled jobs only, from `.github/workflows/ci.yml` as it stands: **`linux`**, on
+pull requests, ceiling 3 minutes; **`mingw`**, on every trigger, ceiling 3
+minutes, build-only (no ctest). `android`, `deb`, `android-release`, `windows`
+and `nightly-fuzz` all carry `if: false`. And nothing runs at all today: issue
+#102 is the account-level billing failure, and the repository reports
+`actions/permissions: enabled=false` (checked 2026-11-04), so every job starts
+and dies in seconds.
+
+### Where the time goes
+
+The `linux` job's own budget (§5): apt 22 s + cache restore ~10 s + cmake/build
+9 s + ctest ~37 s + snapshot 0.14 s ≈ **78 s of 180 s** when the fcitx5 install
+tree is cached. The only segment that can exceed the ceiling is the cold fcitx5
+build (**197 s**) — a cache MISS is over the ceiling before ctest starts, which
+is why the file says a timeout there is the cold path and not a regression.
+
+Inside ctest on the runner's 4 cores, the mutation self-test was the local pole
+after #249/#255 removed the D3 tiers' dead clock. Measured on a 4-core slice
+(`taskset -c 0-3`, the runner's parallelism) with the new slot pool:
+
+| cores | slots | wall |
+|---|---|---|
+| 16 | 1 | 38.2 s |
+| 16 | 4 | 23.3 / 23.7 s |
+| 4 | 1 | 36.4 / 37.3 s |
+| 4 | 2 | **27.5 / 29.4 s** |
+
+Verdicts identical in all of them. The registered tier now measures **27.0 s**
+in `ctest` on this host (43–56 s before), and the slow tier's wall is **50.7 s**
+on this branch alone — the D3 tiers' own dead clock (issue #255, PR #256) is
+what takes it to 40.6 s once that change is on top. The 4-core numbers are why
+the pool defaults to half the cores rather than being a local-only trick.
+
+### What a failure left behind, and what was missing
+
+The `linux` job's evidence step uploaded exactly two paths:
+`ci-env-snapshot.txt` and `build/Testing/Temporary/LastTest.log`. Four holes:
+
+1. **`if: failure()` does not fire on a timeout.** GitHub cancels the job when
+   `timeout-minutes` expires, and a cancelled run does not satisfy `failure()` —
+   so the one failure the file says to expect (the 197 s cold build) produced
+   **no artefact at all**. Now `failure() || cancelled()`.
+2. **No machine-readable result.** `LastTest.log` is prose. Added
+   `ctest --output-junit build/junit.xml`, and the artifact carries it.
+3. **The failed/skipped lists were left behind.** `LastTestsFailed.log` names
+   the failures in two lines; `LastTestsSkipped.log` says which tests skipped
+   and is the only place a "green" run that measured nothing shows up. Both are
+   in the artifact now.
+4. **The mutation tier's own output was discarded.** `_run()` captured the
+   compiler and ctest output into a variable and dropped it, so a GAP printed
+   two booleans and a build failure printed `build rejects` with the compiler's
+   error lost. Both are printed now, bounded: the rejecting guards' output
+   (6 lines each) when a row is not a plain `guarded`, and the first compiler
+   error (4 lines) when a build fails. Measured on the standing GAP
+   (`I12-autoswitch-not-reapplied`): the row now carries
+   `engine-d1-fcitx5 (Subprocess aborted)` instead of nothing.
+
+### What a run prints, so the judgement does not need a person
+
+Three outputs, in the order a run produces them. The question each answers is
+stated, because that is what makes an output worth printing.
+
+**1. `ci-env-snapshot.txt`, before ctest** (`tools/ci-env-snapshot.sh`):
+
+| section | the question it settles |
+|---|---|
+| runner, os, nproc, date | which image this was, and how much parallelism |
+| toolchain variables, each printed even when `(unset)` | why a tier is absent rather than skipped |
+| tools, each `path` or `MISSING` | which tier *could* have run |
+| fcitx5 version | whether the addon's 5.1.13 floor is met |
+| **build configuration from the CMake cache** — generator, build type, `BUILD_TESTING`, `HUNMIN_TRACE_BUILD`, both compilers, `CMAKE_PREFIX_PATH`, `Fcitx5Core_DIR` | what the suite was built *to do*, as opposed to what the command line asked for |
+| **cache outcomes** — `HUNMIN_CI_CACHE_FCITX5`, `HUNMIN_CI_CACHE_GRADLE` | the one fact that explains a job 197 s longer than the last |
+| registered tests per label | how many of each tier this configuration actually has |
+| data inputs, `present`/`ABSENT` | a missing table reads as a skip, not a pass |
+
+**2. `ctest` timing, always, on green runs too** (`tools/ci-test-timing.py`,
+reading `--output-junit`):
+
+```
+tests: N  passed: N  failed: 0  skipped: 0
+sum of per-test times: … s (wall clock is ctest's own total, smaller under -j)
+slowest 10:
+   27.0 s  pass  frontend-mutations
+   …
+skipped (a skip is not a pass):
+   …
+```
+
+plus the same table as markdown on the run's **summary page**, so "where is it
+slow" is answered without downloading anything. This is the output whose absence
+made a 47 s tier look like weather: a green run that is 3× the previous one is
+the finding, and it only shows if it is printed on every run.
+
+**3. On failure or cancellation**, the artifact: the snapshot, `LastTest.log`,
+`LastTestsFailed.log`, `LastTestsSkipped.log`, `build/junit.xml`.
+
+**Still not printed, and why.** Per-step wall times are only in the log
+timestamps and the UI's step list — GitHub provides them, so a duplicate in the
+artifact would drift. The budget comparison (78 s against 180 s) is a local
+figure from `tools/ci-time-budget.sh`; a CI run cannot compare itself to it
+without knowing its own expected cost, which is the number under measurement.
+
+### What is still not collected, named rather than fixed
+
+- The mutation sandboxes are deleted on exit; a post-mortem on a failed build
+  needs the log the tool now prints into the job output, not the tree.
+- D3's stage directories (`/tmp/hunmin-d3.*`, with `fcitx5.log`,
+  `harness.log` and the gate dump) are deleted unless `HUNMIN_D3_KEEP=1`. D3
+  skips on the runner, so this is a local-debug gap, not a CI one.
+- The `android` job's emulator log-on-failure step lives inside a disabled job.
+
+**Evidence status.** None of the above has run in CI: the workflow is disabled
+at the account level, so the two workflow edits are unexecuted and are recorded
+as such. The tool changes are measured locally (25.5 s, verdicts unchanged, the
+GAP row carrying its evidence).
