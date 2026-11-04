@@ -474,6 +474,22 @@ Only `sin3-p2-yet` reads the option, so a test on `sin3-p2` asserts nothing —
 `android-mutations` proves this by deleting the `set_option` call and watching
 the suite catch it.
 
+### A4. Pass-through is the return value, not a re-sent key event
+
+`HunminAdapter.onKey` answers `false` for a key the engine declined — space,
+Enter, punctuation, an arrow, an unmapped keycode — and
+`HunminInputMethodService` then hands that key to the platform through
+`super.onKeyDown()`. The adapter never calls `InputConnection.sendKeyEvent`:
+doing both would deliver the character twice.
+
+That makes `onKey`'s boolean the tier-E1 instrument for pass-through, and it is
+what the edit-key cases assert (`enter after a committed word is not consumed`,
+`comma after a word commits the word and passes through`). An earlier revision
+of those cases counted `sendKeyEvent` payloads on the recording fake, which the
+adapter never sends, so they could only ever read zero — the assertion measured
+the fake, not the contract. The fake records the call now so a future
+double-delivery would be visible rather than swallowed by a stub.
+
 ### B1. A hardware-key IME still needs an input view — measured, not assumed
 
 `onCreateInputView` returns an empty `View`, not null, and

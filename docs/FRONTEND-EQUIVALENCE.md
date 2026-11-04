@@ -549,6 +549,14 @@ normalisation.
    *Environmental part:* fcitx5's trigger belongs to fcitx, so the addon cannot
    see a Han/Eng key. What the platform allows is the mapping, not the key
    (FE13).
+   *Measured 2026-11-04 (issue #246): "calls the layer" was not the whole
+   contract.* The layer commits the pending word at the toggle's boundary and
+   hands it back, and Android's `toggleLanguage()` dropped that commit — so the
+   word being composed at the moment of the 한/영 press was lost on that
+   frontend, while TSF's `ToggleModeCore` and fcitx5's `applyJudgement` both
+   insert it. The adapter now takes the `InputConnection` and delivers it;
+   `HunminAdapterTest.mode toggle is a boundary that flushes the word` pins the
+   delivery and the `no-toggle-delivery` mutation proves the test can fail.
 2. **The classifier's `CANDIDATE` answer is used by one frontend.** fcitx5 asks
    and then routes locally, Android reports no candidate window, TSF never
    reaches it. The rule is shared; the use is not. Resolving it means routing

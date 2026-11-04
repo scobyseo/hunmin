@@ -401,65 +401,76 @@ class HunminAdapterTest {
 
     @Test
     fun `backspace edits the pending composition`() {
-        // TSF case 11 mapped to Android: backspace removes the in-flight
-        // syllable and still commits the buffered word at the boundary.
+        // TSF case 11a-c (tsf-candidate-test.cpp), mapped to Android and measured
+        // through the shared layer: backspace pops ONE jamo, so 안녕 becomes
+        // 안녀, then 안ㄴ, then 안 -- and the buffered word (안) is untouched the
+        // whole way. An earlier revision assumed one backspace removes the
+        // in-flight SYLLABLE and asserted 안 after the first press; the engine
+        // deletes a jamo, and a jamo is what the contract is about.
         val ic = RecordingInputConnection()
         val engine = HunminAdapter(ctx, "dubeolsik")
-        engine.typeChar('d', ic)
-        engine.typeChar('k', ic)
-        engine.typeChar('s', ic)
-        engine.typeChar('s', ic)
+        for (k in "dkssud") engine.typeChar(k, ic)
         assertEquals("안녕", ic.composing())
-        engine.onKey(67 /* KEYCODE_DEL */, 0, ic)
-        assertEquals("안", ic.composing())
-        engine.onKey(67 /* KEYCODE_DEL */, 0, ic)
-        assertTrue("after delete the composing region must be empty",
-            ic.composings.last().isEmpty())
+
+        assertTrue("the engine must consume a backspace it can edit",
+            engine.onKey(67 /* KEYCODE_DEL */, 0, ic))
+        assertEquals("안녀", ic.composing())
+        assertTrue(engine.onKey(67 /* KEYCODE_DEL */, 0, ic))
+        assertEquals("안ㄴ", ic.composing())
+        assertTrue(engine.onKey(67 /* KEYCODE_DEL */, 0, ic))
+        assertEquals("the emptied preedit leaves only the buffered word",
+            "안", ic.composing())
+        assertEquals("an edit inside the engine delivers nothing", emptyList<String>(), ic.commits)
         engine.close()
     }
 
     @Test
     fun `mode toggle is a boundary that flushes the word`() {
-        // TSF case 10 mapped to Android: the Hangul/English toggle commits
-        // the buffered word instead of dropping it.
+        // TSF case 10 mapped to Android -- and, the day this was made to run, a
+        // real defect: the ACTION is the layer's (FE7), so the adapter must ask
+        // a TWO-SLOT layer for it. A one-slot adapter refuses by design, which
+        // is why the old revision (built with "dubeolsik" alone) never reached
+        // the code under test and passed with commitWord as the only route.
+        // The layer commits the pending word at the boundary, and the adapter
+        // must DELIVER that commit: tsf.cpp's ToggleModeCore and fcitx5's
+        // applyJudgement both insert out.commit, and this adapter was dropping
+        // it, so a 한/영 press lost the word that was composing.
         val ic = RecordingInputConnection()
-        val engine = HunminAdapter(ctx, "dubeolsik")
-        engine.typeChar('d', ic)
-        engine.typeChar('k', ic)
-        engine.typeChar('s', ic)
-        engine.typeChar('s', ic)
+        val engine = HunminAdapter(ctx, "dubeolsik", "us-qwerty")
+        assumeTrue(engine.isUsable)
+        for (k in "dkssud") engine.typeChar(k, ic)
         assertEquals("안녕", ic.composing())
-        engine.toggleLanguage()
-        assertTrue("the toggle must commit the word",
-            ic.commits.any { it == "안녕" })
+        assertTrue("the pair must own the language action", engine.toggleLanguage(ic))
+        assertEquals("the toggle must commit the word", listOf("안녕"), ic.commits)
+        assertEquals("the composing region must be cleared by the commit", "", ic.composing())
         engine.close()
     }
 
     @Test
     fun `backspace past empty preedit commits the buffered word`() {
-        // TSF case 11 boundary: backspace after the in-flight syllable is
-        // gone must not reach the app empty-handed; the buffered word lands
-        // first, then the pass-through delete reaches the client.
+        // TSF case 11d. Three backspaces empty the engine's preedit (11a-c,
+        // above); the fourth finds nothing to edit, so the engine declines, the
+        // LAYER turns the decline into the word boundary, and the key passes to
+        // the client. The word is 안 and not 안녕 because the user deleted the
+        // in-flight 녕 -- TSF asserts the same end state with
+        // AssertCompositionEnded(kAnchorAn).
         val ic = RecordingInputConnection()
         val engine = HunminAdapter(ctx, "dubeolsik")
-        engine.typeChar('d', ic)
-        engine.typeChar('k', ic)
-        engine.typeChar('s', ic)
-        engine.typeChar('s', ic)
-        engine.typeChar('u', ic)
-        engine.typeChar('d', ic)
-        assertEquals("안녕", ic.composings.last())
-        val before = ic.sentEvents.size
-        engine.onKey(67 /* KEYCODE_DEL */, 0, ic)
-        assertTrue("the buffered word must have been committed",
-            ic.commits.any { it == "안녕" })
+        for (k in "dkssud") engine.typeChar(k, ic)
+        repeat(3) {
+            assertTrue("setup: backspace $it edits the preedit",
+                engine.onKey(67 /* KEYCODE_DEL */, 0, ic))
+        }
+        assertEquals("setup: the engine's preedit is empty, the word is not",
+            "안", ic.composing())
+        assertEquals("setup: nothing has been delivered yet", emptyList<String>(), ic.commits)
+
+        assertFalse("backspace past the empty preedit must pass through",
+            engine.onKey(67 /* KEYCODE_DEL */, 0, ic))
+        assertEquals("the buffered word must reach the client once",
+            listOf("안"), ic.commits)
         assertEquals("after the flush the composing region must be cleared",
-            "", ic.composings.last())
-        val after = ic.sentEvents.size
-        assertEquals("backspace must pass through after the boundary",
-            1, after - before)
-        assertEquals("the pass-through must be a real KEYCODE_DEL event",
-            67, ic.sentEvents.last().keyCode)
+            "", ic.composing())
         engine.close()
     }
 
@@ -471,85 +482,81 @@ class HunminAdapterTest {
         val engine = HunminAdapter(ctx, "dubeolsik")
         assertFalse("nothing to backspace over", engine.onKey(67 /* KEYCODE_DEL */, 0, ic))
         assertTrue("no commits", ic.commits.isEmpty())
-        assertTrue("composing region stayed empty", ic.composings.last().isEmpty())
+        // composing(), not composings.last(): a no-op means the adapter emitted
+        // NO setComposingText at all, so the list is empty and .last() is the
+        // IndexOutOfBounds this test used to report. The property under test is
+        // that the client's composing region is empty, which is what
+        // composing() answers for both an empty list and a cleared one.
+        assertEquals("composing region stayed empty", "", ic.composing())
+        assertTrue("a no-op must not publish a composing region",
+            ic.composings.isEmpty())
         engine.close()
     }
 
     @Test
-    fun `candidate window open + pick first candidate + commit`() {
-        // TSF case 21 mapped to Android: F9 opens candidates; choosing one
-        // commits the Hanja and drops the Hangul preedit.
-        val ic = RecordingInputConnection()
-        val engine = HunminAdapter(ctx, "sin3-p2")
-        engine.typeChar('k', ic)
-        engine.typeChar('f', ic)
-        engine.onKey(63 /* KEYCODE_F9 */, 0, ic)
-        assertTrue("candidate window must be open",
-            ic.sentEvents.any { it.keyCode == 63 })
-        assertEquals("가", ic.composings.last())
-        // The Android adapter does not expose selectCandidate(); the contract
-        // worth pinning is that the preedit is still present while the window
-        // is open and the candidate event was forwarded. The actual Hanja
-        // replacement is covered by commitHanja's unit test and by D3 candidate.
-        engine.close()
+    fun `F9 and Escape are not candidate keys here, so they are plain boundaries`() {
+        // TSF case 21 (pick a candidate) and its Escape half do NOT map to this
+        // adapter, and asserting them is one of the ways this tier read red.
+        // F9 has no AOSP keycode at all -- the class header of HunminAdapter
+        // says so, and tools/keymap-fixture.py holds it in ANDROID_UNREACHABLE
+        // -- and the Hanja list on this platform is an OverlayActivity the
+        // service opens from its own binding, so the engine never reports an
+        // open candidate window. Both keys are therefore simply unmapped: the
+        // layer's BOUNDARY_PASS path, where the word lands once and the key is
+        // not consumed. The mapping assertions are the part worth keeping: a
+        // candidate feature has to register a base for these keycodes before
+        // anything else here could become true.
+        assertEquals(null, HunminKeyRegistry.engineBase(63))   // KEYCODE_F9
+        assertEquals(null, HunminKeyRegistry.engineBase(111))  // KEYCODE_ESCAPE
+        for (code in listOf(63, 111)) {
+            val ic = RecordingInputConnection()
+            val engine = HunminAdapter(ctx, "sin3-p2")
+            engine.typeChar('k', ic)
+            engine.typeChar('f', ic)
+            assertEquals("가", ic.composing())
+            assertFalse("key $code must pass through", engine.onKey(code, 0, ic))
+            assertEquals("key $code must deliver the word once", listOf("가"), ic.commits)
+            assertEquals("key $code left a composition behind", "", ic.composing())
+            engine.close()
+        }
     }
 
     @Test
-    fun `candidate window open + escape closes without committing`() {
-        // Escape must close the candidate window without turning the preedit
-        // into a committed Hanja. The composing text survives as Hangul.
-        val ic = RecordingInputConnection()
-        val engine = HunminAdapter(ctx, "sin3-p2")
-        engine.typeChar('k', ic)
-        engine.typeChar('f', ic)
-        assertEquals("가", ic.composings.last())
-        val before = ic.commits.size
-        engine.onKey(111 /* KEYCODE_ESCAPE */, 0, ic)
-        assertEquals("escape must not commit the preedit",
-            before, ic.commits.size)
-        assertEquals("the preedit must survive as Hangul", "가", ic.composings.last())
-        engine.close()
-    }
-
-    @Test
-    fun `enter after a committed word passes through as newline`() {
-        // Shared edit-key sequence E6: Enter is not a layout key. After the
-        // word commits, the newline must reach the client as a separate event.
+    fun `enter after a committed word is not consumed`() {
+        // Shared edit-key sequence EK6 (tests/e2e/cases-edit.tsv): Enter is not a
+        // layout key. On Android the pass-through IS the return value -- false
+        // tells the service to hand the key to the platform through
+        // super.onKeyDown(), which inserts the newline. The adapter must not
+        // also send the key itself, or the newline arrives twice; that is what
+        // sentEvents is asserted empty for.
         val ic = RecordingInputConnection()
         val engine = HunminAdapter(ctx, "dubeolsik")
-        engine.typeChar('d', ic)
-        engine.typeChar('k', ic)
-        engine.typeChar('s', ic)
-        engine.typeChar('s', ic)
-        engine.typeChar('u', ic)
-        engine.typeChar('d', ic)
+        for (k in "dkssud") engine.typeChar(k, ic)
         engine.commitWord(ic)
         assertEquals("the word must commit first", "안녕", ic.text())
-        val before = ic.sentEvents.size
-        engine.onKey(66 /* KEYCODE_ENTER */, 0, ic)
-        assertEquals("enter must pass through once", 1, ic.sentEvents.size - before)
-        assertEquals("enter keycode must be preserved", 66, ic.sentEvents.last().keyCode)
+        val commitsBefore = ic.commits.size
+        assertFalse("enter must pass through", engine.onKey(66 /* KEYCODE_ENTER */, 0, ic))
+        assertEquals("enter must not commit anything of its own",
+            commitsBefore, ic.commits.size)
+        assertTrue("the adapter must not re-send the key: ${ic.sentEvents}",
+            ic.sentEvents.isEmpty())
         engine.close()
     }
 
     @Test
-    fun `comma after a word commits the word and forwards the comma`() {
-        // Shared edit-key sequence E7: comma is declined punctuation. The word
-        // lands before the comma, and the comma itself is forwarded.
+    fun `comma after a word commits the word and passes through`() {
+        // Shared edit-key sequence EK7: comma is declined punctuation. The word
+        // lands before the comma, and the comma itself is the platform's -- the
+        // adapter reports it unconsumed rather than committing anything.
         val ic = RecordingInputConnection()
         val engine = HunminAdapter(ctx, "dubeolsik")
-        engine.typeChar('d', ic)
-        engine.typeChar('k', ic)
-        engine.typeChar('s', ic)
-        engine.typeChar('s', ic)
-        engine.typeChar('u', ic)
-        engine.typeChar('d', ic)
+        for (k in "dkssud") engine.typeChar(k, ic)
         engine.onKey(62 /* KEYCODE_SPACE */, 0, ic)
         assertEquals("word must commit at space boundary", "안녕", ic.text())
-        val before = ic.sentEvents.size
-        engine.onKey(55 /* KEYCODE_COMMA */, 0, ic)
-        assertEquals("comma must pass through once", 1, ic.sentEvents.size - before)
-        assertEquals("comma keycode must be preserved", 55, ic.sentEvents.last().keyCode)
+        val commitsBefore = ic.commits.size
+        assertFalse("comma must pass through", engine.onKey(55 /* KEYCODE_COMMA */, 0, ic))
+        assertEquals("comma must not commit anything of its own",
+            commitsBefore, ic.commits.size)
         engine.close()
     }
 

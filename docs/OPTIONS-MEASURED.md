@@ -503,7 +503,7 @@ The task this responds to says the tier takes **43.64 s**. That number does not
 reproduce in this worktree, and the difference is worth recording before any
 comparison:
 
-| `tools/android-mutations.sh`, all nine mutations | run |
+| `tools/android-mutations.sh`, every mutation | run |
 |---|---|
 | first run after a fresh `cmake` configure | 34.06 s |
 | subsequent runs, warm Gradle daemon | 24.69 s, 25.55 s |

@@ -1,0 +1,9 @@
+if (ic_ != null) {
+            val word = native.layerDelivered(layer)
+            if (word.isNotEmpty()) ic_.commitText(word, 1)
+            updatePreedit(ic_)
+        }
+        return switched
+---REPLACE---
+        // mutation: the layer's toggle commit is never delivered to the client
+        return switched

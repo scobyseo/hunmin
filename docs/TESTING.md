@@ -1070,12 +1070,12 @@ Four layers, cheap→real:
   Expectations come from the repo's own tier-A corpora, replayed **case by
   case** (each `{"meta":{"case":...}}` opens a fresh `hunmin_ic`, as
   `hunmin-sim` does); concatenating the cases into one stream interleaves them
-  and compares nonsense. `ctest android-mutations` plants nine defects and
-  requires all nine to be caught; a tenth candidate is deliberately NOT planted
-  because it was measured to be unobservable, and is documented as such in both
-  `HunminAdapterTest` and `tools/android-mutations.py`. The tier runs the
-  unmutated suite once before planting anything, because a checkout that is
-  already red reports all nine as "caught" for the wrong reason; see
+  and compares nonsense. `ctest android-mutations` plants ten defects and
+  requires all ten to be caught; one further candidate is deliberately NOT
+  planted because it was measured to be unobservable, and it is documented as
+  such in both `HunminAdapterTest` and `tools/android-mutations.py`. The tier
+  runs the unmutated suite once before planting anything, because a checkout
+  that is already red reports every mutation as "caught" for the wrong reason; see
   `docs/OPTIONS-MEASURED.md` §AND-4.2 for the measurement and §AND-2/§AND-3 for
   the harness, and what its sandbox strategy costs.
   **The 2026-10-11 character-loss trio** is asserted here, because every one of
