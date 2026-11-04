@@ -32,9 +32,16 @@ LAYOUT = "sin3-p2-yet"
 ALL = [chr(c) for c in range(0x20, 0x7f) if chr(c) not in ('"', '\\')]
 
 
-def batch(kl):
-    r = subprocess.run([str(SIM), "--data", str(DATA), "--layout", LAYOUT, "--batch"],
-                       input="\n".join(kl), capture_output=True, text=True)
+def batch(kl, layout=None):
+    """Run keystroke walks through one layout (`layout` defaults to LAYOUT).
+
+    The parameter exists so tools/gen-coverage-golden.py can measure ANY layout
+    with this probe instead of owning a second, slower one (measured: this probe
+    does the 훈민정음 eight lines in 0.5 s; the BFS in tools/sin3p2-ksgen.py needs
+    minutes per 세벌식 layout).
+    """
+    r = subprocess.run([str(SIM), "--data", str(DATA), "--layout", layout or LAYOUT,
+                        "--batch"], input="\n".join(kl), capture_output=True, text=True)
     return [json.loads(l) for l in r.stdout.splitlines() if l.strip()]
 
 
@@ -68,15 +75,38 @@ def _strip_filler(s):
     return s
 
 
-def probe_slots():
+def probe_slots(layout=None, g=None, a=None):
     """Probe 초/중/종 key tables from the engine, once, batched.
 
     A compose-only 초성 is TWO 초성 keys and renders as two jamo before the
     vowel (`nnf` -> ᄉ+ᄉ+ᅡ in sin3-p2-yet), so the probe keeps the pairs it
     sees instead of discarding anything that is not length 2.
+
+    `g`/`a` are the context keys (초성 ㄱ, 중성 ㅏ). They are ARGUMENTS because
+    the 세벌식 family puts 초성 and 종성 on separate physical sides and no single
+    literal works everywhere: `k` is ㄱ on sin3-p2-yet and ㅏ on dubeolsik, so a
+    hardcoded context measures a vowel as a consonant (measured: 10 of 67 slots
+    on dubeolsik). The caller picks them by SCORE -- see
+    tools/gen-coverage-golden.py -- and falls back to discovery here.
     """
+    g_key, a_key = g, a
+    if g_key is None or a_key is None:
+        g_key, a_key = "k", "f"          # this probe's home layout
+        rec = batch([g_key + a_key], layout)[0]
+        d = list(_strip_filler(canon(rec["preedit"])))
+        if not (len(d) == 2 and d[0] == "ᄀ" and d[1] == "ᅡ"):
+            for x in ALL:
+                for y in ALL:
+                    rec = batch([x + y], layout)[0]
+                    d = list(_strip_filler(canon(rec["preedit"])))
+                    if len(d) == 2 and d[0] == "ᄀ" and d[1] == "ᅡ":
+                        g_key, a_key = x, y
+                        break
+                else:
+                    continue
+                break
     cho, cho_pair = {}, {}
-    for rec in batch([k + "f" for k in ALL]):  # key+ㅏ -> 초성+ㅏ
+    for rec in batch([k + a_key for k in ALL], layout):  # key+ㅏ -> 초성+ㅏ
         d = list(_strip_filler(canon(rec["preedit"])))
         if not d or d[-1] != "ᅡ":
             continue
@@ -86,7 +116,7 @@ def probe_slots():
         elif len(pre) == 2 and all(0x1100 <= ord(c) <= 0x115F for c in pre):
             cho_pair.setdefault("".join(pre), rec["keys"][:2])
     jung, jung_pair = {}, {}
-    for rec in batch(["k" + k for k in ALL]):  # ㄱ+key -> ㄱ+중성
+    for rec in batch([g_key + k for k in ALL], layout):  # ㄱ+key -> ㄱ+중성
         d = list(_strip_filler(canon(rec["preedit"])))
         if not d or d[0] != "ᄀ":
             continue
@@ -96,12 +126,12 @@ def probe_slots():
     # gives 귀, so ᅱ is b+d). Without this pass every compound vowel came out
     # as its first constituent -- `귁` typed as `게`.
     pairs = [(c1, c2) for c1 in ALL for c2 in ALL]
-    for (c1, c2), rec in zip(pairs, batch(["k" + a + b for a, b in pairs])):
+    for (c1, c2), rec in zip(pairs, batch([g_key + a + b for a, b in pairs], layout)):
         d = list(_strip_filler(canon(rec["preedit"])))
         if len(d) == 2 and d[0] == "ᄀ" and 0x1161 <= ord(d[1]) <= 0x11A7:
             jung_pair.setdefault(d[1], c1 + c2)
     jong, jong_pair = {}, {}
-    for rec in batch(["kf" + k for k in ALL]):  # 가+key -> 종성
+    for rec in batch([g_key + a_key + k for k in ALL], layout):  # 가+key -> 종성
         d = list(_strip_filler(canon(rec["preedit"])))
         if len(d) < 3 or d[0] != "ᄀ" or d[1] != "ᅡ":
             continue
@@ -118,7 +148,7 @@ def probe_slots():
         # consonant, `z` with one (type-hunminjeong.py's own docstring). Probing
         # the `p` form would measure a state the text never uses.
         probe_jk = "z" if jamo == "ᆞ" else jkeys
-        for k, rec in zip(ALL, batch(["k" + probe_jk + c for c in ALL])):
+        for k, rec in zip(ALL, batch([g_key + probe_jk + c for c in ALL], layout)):
             d = list(_strip_filler(canon(rec["preedit"])))
             if len(d) == 3 and d[0] == "ᄀ" and d[1] == jamo:
                 jong_ctx.setdefault((jamo, d[2]), k)
