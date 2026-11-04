@@ -33,6 +33,7 @@ type it" and "the test forgot it" must not look the same.
         --out tests/golden/coverage-dubeolsik.jsonl
 """
 import argparse
+import importlib.util
 import json
 import pathlib
 import subprocess
@@ -68,6 +69,23 @@ for _i, _c in enumerate("ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄ�
 
 def compat(s: str) -> str:
     return "".join(COMPAT.get(c, c) for c in s)
+
+
+def load_probe():
+    """tools/type-hunminjeong.py as a module (its filename has a hyphen)."""
+    spec = importlib.util.spec_from_file_location(
+        "type_hunminjeong", REPO / "tools" / "type-hunminjeong.py")
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+# One map PER SLOT: the same letter is a different codepoint in two of them (ㄱ is
+# ᄀ as a 초성 and ᆨ as a 종성), so a single map would silently pick the wrong one.
+CONJ = {c: chr(0x1100 + i) for i, c in enumerate(CHO)}
+CONJ_JUNG = {c: chr(0x1161 + i) for i, c in enumerate(JUNG)}
+CONJ_JONG = {c: chr(0x11A8 + i) for i, c in enumerate(JONG)}
 
 
 def syllable(cho: str, jung: str, jong: str = "") -> str:
@@ -172,6 +190,16 @@ def main() -> int:
                          "on 신세벌식 P2, so 2 is too small)")
     ap.add_argument("--keys-case", action="store_true",
                     help="also sweep every key id plain and shifted")
+    ap.add_argument("--probe", action="store_true",
+                    help="assemble the slot keys with tools/type-hunminjeong.py's "
+                         "measured probe instead of searching: the 세벌식 family "
+                         "has 초성 on the right-hand keys, 중성 in the middle and "
+                         "종성 on the left (measured 67/67 for sebeolsik-final "
+                         "and sin3-p2, where the BFS needed minutes)")
+    ap.add_argument("--require-modern", type=int, default=0,
+                    help="refuse to write the golden unless at least N of the 67 "
+                         "modern slots compose (the gate that catches a probe "
+                         "which silently measures the wrong side of the board)")
     ap.add_argument("--jamo-table", type=pathlib.Path, default=None,
                     help="tools/jamo-keytable.py JSON: cho/jung/jong sit on "
                          "separate keys, so no search is needed")
@@ -207,7 +235,54 @@ def main() -> int:
     for j in sorted(extra["jong"] - set(JONG)):
         probes.append((f"jong/{j}", "\u110b\u1161" + j, "jong", j))
 
-    if table:
+    if a.probe:
+        th = load_probe()
+        # The context keys are chosen by SCORE, not by a literal: `k` is ㄱ on
+        # sin3-p2-yet and ㅏ on dubeolsik, and a hardcoded pair measures a vowel
+        # as a consonant (measured: 10 of 67 slots on dubeolsik with a literal
+        # context, 0 without the (jung, jong) 종성 table).
+        def modern_score(g, ak):
+            C, J, G, C2, J2, G2, JC, CH = th.probe_slots(a.layout, g, ak)
+            COMPOSE = th.build_compose(C, G)
+            JG = dict(th.build_jong_compose(G))
+            for pair, kk in (G2 or {}).items():
+                JG.setdefault(pair[-1], kk)
+            ks = [th.build(CONJ[c], CONJ_JUNG["ㅏ"], "", C, J, G, COMPOSE, JG, J2, JC, CH)
+                  for c in CHO]
+            outs = sim_batch(a, [k or "" for k in ks])
+            return sum(1 for c, o in zip(CHO, outs) if o == syllable(c, "ㅏ"))
+
+        best = None
+        for g, ak in (("k", "f"), ("r", "k"), ("r", "K"), ("j", "f")):
+            try:
+                s = modern_score(g, ak)
+            except SystemExit:
+                continue
+            if best is None or s > best[2]:
+                best = (g, ak, s)
+        if best is None:
+            raise SystemExit(f"{a.layout}: no context pair renders 가, so the slot "
+                             "probe has nothing to stand on")
+        g, ak, s = best
+        C, J, G, C2, J2, G2, JC, CH = th.probe_slots(a.layout, g, ak)
+        COMPOSE = th.build_compose(C, G)
+        JG = dict(th.build_jong_compose(G))
+        for pair, kk in (G2 or {}).items():
+            JG.setdefault(pair[-1], kk)
+
+        def keys_for(slot, jamo):
+            if slot == "cho":
+                cho, jung, jong = CONJ.get(jamo, jamo), CONJ_JUNG["ㅏ"], ""
+            elif slot == "jung":
+                cho, jung, jong = CONJ["ㅇ"], CONJ_JUNG.get(jamo, jamo), ""
+            else:
+                cho, jung, jong = CONJ["ㅇ"], CONJ_JUNG["ㅏ"], CONJ_JONG.get(jamo, jamo)
+            return th.build(cho, jung, jong, C, J, G, COMPOSE, JG, J2, JC, CH)
+
+        keys = {t: keys_for(slot, j) for _, t, slot, j in probes}
+        print(f"probe context {g}+{ak}: cho {len(C)}, jung {len(J)}, jong {len(G)}, "
+              f"compose {len(CH)} -> {s}/19 초성", file=sys.stderr)
+    elif table:
         # A jamo-table entry is the keystroke for that jamo IN ITS SLOT (ㄱ -> 'k'
         # renders ㄱ, not 가), so a probe's keys are the slot keystrokes
         # concatenated: cho+ㅏ, ㅇ+jung, ㅇ+ㅏ+jong. Read as a whole syllable the
@@ -243,6 +318,19 @@ def main() -> int:
                                 "because": "no keystroke composes it in this slot"
                                            if target in keys
                                            else f"keys render {r!r}"})
+
+    if a.require_modern:
+        modern_labels = {f"cho/{c}" for c in CHO} | {f"jung/{j}" for j in JUNG} \
+            | {f"jong/{j}" for j in JONG}
+        hit = sum(1 for label, _t, _k in cases if label in modern_labels)
+        if hit < a.require_modern:
+            raise SystemExit(
+                f"{a.layout}: {hit} modern slots compose, below --require-modern "
+                f"{a.require_modern} -- refusing to write a golden that would look "
+                f"like coverage (see docs/TESTING.md, the instrument decides the "
+                f"number)")
+        print(f"gate: {hit} modern slots compose (>= {a.require_modern})",
+              file=sys.stderr)
 
     out = [json.dumps({"meta": {
         "layout": a.layout,

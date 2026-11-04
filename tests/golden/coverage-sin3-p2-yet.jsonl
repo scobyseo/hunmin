@@ -1,0 +1,698 @@
+{"meta": {"layout": "sin3-p2-yet", "tool": "tools/gen-coverage-golden.py", "unit": "one case per (jamo, slot): the composed SYLLABLE is asserted, so a jamo admitted in one slot and refused in another is visible", "keys_from": "tools/sin3p2-ksgen.py BFS over the layout's own automaton, hunmin-sim --batch as oracle", "expectations": "hunmin-sim --trace over those keys -- never typed by hand", "not_reached": [{"case": "cho/ᄚ", "target": "ᄚᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄡ", "target": "ᄡᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄢ", "target": "ᄢᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄣ", "target": "ᄣᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄤ", "target": "ᄤᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄥ", "target": "ᄥᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄦ", "target": "ᄦᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄨ", "target": "ᄨᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄪ", "target": "ᄪᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄬ", "target": "ᄬᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄱ", "target": "ᄱᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄳ", "target": "ᄳᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄴ", "target": "ᄴᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄷ", "target": "ᄷᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄸ", "target": "ᄸᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄺ", "target": "ᄺᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄽ", "target": "ᄽᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᄿ", "target": "ᄿᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅁ", "target": "ᅁᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅃ", "target": "ᅃᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅄ", "target": "ᅄᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅆ", "target": "ᅆᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅈ", "target": "ᅈᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅉ", "target": "ᅉᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅋ", "target": "ᅋᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅏ", "target": "ᅏᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅑ", "target": "ᅑᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅒ", "target": "ᅒᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅜ", "target": "ᅜᅡ", "because": "no keystroke composes it in this slot"}, {"case": "cho/ᅝ", "target": "ᅝᅡ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᅶ", "target": "ᄋᅶ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᅷ", "target": "ᄋᅷ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᅸ", "target": "ᄋᅸ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᅹ", "target": "ᄋᅹ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᅺ", "target": "ᄋᅺ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᅻ", "target": "ᄋᅻ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᅼ", "target": "ᄋᅼ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᅽ", "target": "ᄋᅽ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᅾ", "target": "ᄋᅾ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆄ", "target": "ᄋᆄ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆅ", "target": "ᄋᆅ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆆ", "target": "ᄋᆆ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆇ", "target": "ᄋᆇ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆈ", "target": "ᄋᆈ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆋ", "target": "ᄋᆋ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆎ", "target": "ᄋᆎ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆏ", "target": "ᄋᆏ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆐ", "target": "ᄋᆐ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆑ", "target": "ᄋᆑ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆒ", "target": "ᄋᆒ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆓ", "target": "ᄋᆓ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆔ", "target": "ᄋᆔ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆗ", "target": "ᄋᆗ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆘ", "target": "ᄋᆘ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆙ", "target": "ᄋᆙ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆚ", "target": "ᄋᆚ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆛ", "target": "ᄋᆛ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆜ", "target": "ᄋᆜ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆝ", "target": "ᄋᆝ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆣ", "target": "ᄋᆣ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆤ", "target": "ᄋᆤ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆥ", "target": "ᄋᆥ", "because": "no keystroke composes it in this slot"}, {"case": "jung/ᆧ", "target": "ᄋᆧ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇃ", "target": "아ᇃ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇄ", "target": "아ᇄ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇅ", "target": "아ᇅ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇆ", "target": "아ᇆ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇇ", "target": "아ᇇ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇈ", "target": "아ᇈ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇉ", "target": "아ᇉ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇊ", "target": "아ᇊ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇋ", "target": "아ᇋ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇌ", "target": "아ᇌ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇍ", "target": "아ᇍ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇎ", "target": "아ᇎ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇏ", "target": "아ᇏ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇐ", "target": "아ᇐ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇑ", "target": "아ᇑ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇒ", "target": "아ᇒ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇓ", "target": "아ᇓ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇔ", "target": "아ᇔ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇕ", "target": "아ᇕ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇖ", "target": "아ᇖ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇗ", "target": "아ᇗ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇘ", "target": "아ᇘ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇙ", "target": "아ᇙ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇚ", "target": "아ᇚ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇛ", "target": "아ᇛ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇜ", "target": "아ᇜ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇝ", "target": "아ᇝ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇞ", "target": "아ᇞ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇟ", "target": "아ᇟ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇠ", "target": "아ᇠ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇡ", "target": "아ᇡ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇢ", "target": "아ᇢ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇣ", "target": "아ᇣ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇤ", "target": "아ᇤ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇥ", "target": "아ᇥ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇦ", "target": "아ᇦ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇧ", "target": "아ᇧ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇨ", "target": "아ᇨ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇩ", "target": "아ᇩ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇪ", "target": "아ᇪ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇫ", "target": "아ᇫ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇬ", "target": "아ᇬ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇭ", "target": "아ᇭ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇮ", "target": "아ᇮ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇯ", "target": "아ᇯ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇱ", "target": "아ᇱ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇲ", "target": "아ᇲ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇳ", "target": "아ᇳ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇴ", "target": "아ᇴ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇵ", "target": "아ᇵ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇶ", "target": "아ᇶ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇷ", "target": "아ᇷ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇸ", "target": "아ᇸ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇹ", "target": "아ᇹ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇺ", "target": "아ᇺ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇻ", "target": "아ᇻ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇼ", "target": "아ᇼ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇽ", "target": "아ᇽ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇾ", "target": "아ᇾ", "because": "no keystroke composes it in this slot"}, {"case": "jong/ᇿ", "target": "아ᇿ", "because": "no keystroke composes it in this slot"}], "cases": "131 of 254 probes admitted by the engine"}}
+{"meta": {"case": "key/'", "keys": "'"}}
+{"in": {"ch": "'"}, "commit": "", "preedit": "ㅌ"}
+{"meta": {"case": "key/shift-'", "keys": "\\s'"}}
+{"in": {"ch": "'", "shift": true}, "commit": "/", "preedit": ""}
+{"meta": {"case": "key/,", "keys": ","}}
+{"in": {"ch": ","}, "commit": ",", "preedit": ""}
+{"meta": {"case": "key/shift-,", "keys": "\\s,"}}
+{"in": {"ch": ",", "shift": true}, "commit": "<", "preedit": ""}
+{"meta": {"case": "key/-", "keys": "-"}}
+{"in": {"ch": "-"}, "commit": "-", "preedit": ""}
+{"meta": {"case": "key/shift--", "keys": "\\s-"}}
+{"in": {"ch": "-", "shift": true}, "commit": "_", "preedit": ""}
+{"meta": {"case": "key/.", "keys": "."}}
+{"in": {"ch": "."}, "commit": ".", "preedit": ""}
+{"meta": {"case": "key/shift-.", "keys": "\\s."}}
+{"in": {"ch": ".", "shift": true}, "commit": ">", "preedit": ""}
+{"meta": {"case": "key//", "keys": "/"}}
+{"in": {"ch": "/"}, "commit": "", "preedit": "ㅋ"}
+{"meta": {"case": "key/shift-/", "keys": "\\s/"}}
+{"in": {"ch": "/", "shift": true}, "commit": "?", "preedit": ""}
+{"meta": {"case": "key/0", "keys": "0"}}
+{"in": {"ch": "0"}, "commit": "0", "preedit": ""}
+{"meta": {"case": "key/shift-0", "keys": "\\s0"}}
+{"in": {"ch": "0", "shift": true}, "commit": ")", "preedit": ""}
+{"meta": {"case": "key/1", "keys": "1"}}
+{"in": {"ch": "1"}, "commit": "1", "preedit": ""}
+{"meta": {"case": "key/shift-1", "keys": "\\s1"}}
+{"in": {"ch": "1", "shift": true}, "commit": "!", "preedit": ""}
+{"meta": {"case": "key/2", "keys": "2"}}
+{"in": {"ch": "2"}, "commit": "2", "preedit": ""}
+{"meta": {"case": "key/shift-2", "keys": "\\s2"}}
+{"in": {"ch": "2", "shift": true}, "commit": "@", "preedit": ""}
+{"meta": {"case": "key/3", "keys": "3"}}
+{"in": {"ch": "3"}, "commit": "3", "preedit": ""}
+{"meta": {"case": "key/shift-3", "keys": "\\s3"}}
+{"in": {"ch": "3", "shift": true}, "commit": "#", "preedit": ""}
+{"meta": {"case": "key/4", "keys": "4"}}
+{"in": {"ch": "4"}, "commit": "4", "preedit": ""}
+{"meta": {"case": "key/shift-4", "keys": "\\s4"}}
+{"in": {"ch": "4", "shift": true}, "commit": "$", "preedit": ""}
+{"meta": {"case": "key/5", "keys": "5"}}
+{"in": {"ch": "5"}, "commit": "5", "preedit": ""}
+{"meta": {"case": "key/shift-5", "keys": "\\s5"}}
+{"in": {"ch": "5", "shift": true}, "commit": "%", "preedit": ""}
+{"meta": {"case": "key/6", "keys": "6"}}
+{"in": {"ch": "6"}, "commit": "6", "preedit": ""}
+{"meta": {"case": "key/shift-6", "keys": "\\s6"}}
+{"in": {"ch": "6", "shift": true}, "commit": "^", "preedit": ""}
+{"meta": {"case": "key/7", "keys": "7"}}
+{"in": {"ch": "7"}, "commit": "7", "preedit": ""}
+{"meta": {"case": "key/shift-7", "keys": "\\s7"}}
+{"in": {"ch": "7", "shift": true}, "commit": "&", "preedit": ""}
+{"meta": {"case": "key/8", "keys": "8"}}
+{"in": {"ch": "8"}, "commit": "8", "preedit": ""}
+{"meta": {"case": "key/shift-8", "keys": "\\s8"}}
+{"in": {"ch": "8", "shift": true}, "commit": "*", "preedit": ""}
+{"meta": {"case": "key/9", "keys": "9"}}
+{"in": {"ch": "9"}, "commit": "9", "preedit": ""}
+{"meta": {"case": "key/shift-9", "keys": "\\s9"}}
+{"in": {"ch": "9", "shift": true}, "commit": "(", "preedit": ""}
+{"meta": {"case": "key/;", "keys": ";"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"meta": {"case": "key/shift-;", "keys": "\\s;"}}
+{"in": {"ch": ";", "shift": true}, "commit": ":", "preedit": ""}
+{"meta": {"case": "key/=", "keys": "="}}
+{"in": {"ch": "="}, "commit": "=", "preedit": ""}
+{"meta": {"case": "key/shift-=", "keys": "\\s="}}
+{"in": {"ch": "=", "shift": true}, "commit": "+", "preedit": ""}
+{"meta": {"case": "key/[", "keys": "["}}
+{"in": {"ch": "["}, "commit": "[", "preedit": ""}
+{"meta": {"case": "key/shift-[", "keys": "\\s["}}
+{"in": {"ch": "[", "shift": true}, "commit": "{", "preedit": ""}
+{"meta": {"case": "key/\\", "keys": "\\\\"}}
+{"in": {"ch": "\\"}, "commit": "\\", "preedit": ""}
+{"meta": {"case": "key/shift-\\", "keys": "\\s\\\\"}}
+{"in": {"ch": "\\", "shift": true}, "commit": "|", "preedit": ""}
+{"in": {"ch": "\\"}, "commit": "\\", "preedit": ""}
+{"meta": {"case": "key/]", "keys": "]"}}
+{"in": {"ch": "]"}, "commit": "]", "preedit": ""}
+{"meta": {"case": "key/shift-]", "keys": "\\s]"}}
+{"in": {"ch": "]", "shift": true}, "commit": "}", "preedit": ""}
+{"meta": {"case": "key/`", "keys": "`"}}
+{"in": {"ch": "`"}, "commit": "`", "preedit": ""}
+{"meta": {"case": "key/shift-`", "keys": "\\s`"}}
+{"in": {"ch": "`", "shift": true}, "commit": "~", "preedit": ""}
+{"meta": {"case": "key/a", "keys": "a"}}
+{"in": {"ch": "a"}, "commit": "", "preedit": "ㅇ"}
+{"meta": {"case": "key/shift-a", "keys": "\\sa"}}
+{"in": {"ch": "a", "shift": true}, "commit": "", "preedit": "ㅠ"}
+{"meta": {"case": "key/b", "keys": "b"}}
+{"in": {"ch": "b"}, "commit": "", "preedit": "ㅊ"}
+{"meta": {"case": "key/shift-b", "keys": "\\sb"}}
+{"in": {"ch": "b", "shift": true}, "commit": "", "preedit": "ㅜ"}
+{"meta": {"case": "key/c", "keys": "c"}}
+{"in": {"ch": "c"}, "commit": "", "preedit": "ㄱ"}
+{"meta": {"case": "key/shift-c", "keys": "\\sc"}}
+{"in": {"ch": "c", "shift": true}, "commit": "", "preedit": "ㅔ"}
+{"meta": {"case": "key/d", "keys": "d"}}
+{"in": {"ch": "d"}, "commit": "", "preedit": "ㅎ"}
+{"meta": {"case": "key/shift-d", "keys": "\\sd"}}
+{"in": {"ch": "d", "shift": true}, "commit": "", "preedit": "ㅣ"}
+{"meta": {"case": "key/e", "keys": "e"}}
+{"in": {"ch": "e"}, "commit": "", "preedit": "ㅂ"}
+{"meta": {"case": "key/shift-e", "keys": "\\se"}}
+{"in": {"ch": "e", "shift": true}, "commit": "", "preedit": "ㅐ"}
+{"meta": {"case": "key/f", "keys": "f"}}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ㅍ"}
+{"meta": {"case": "key/shift-f", "keys": "\\sf"}}
+{"in": {"ch": "f", "shift": true}, "commit": "", "preedit": "ㅏ"}
+{"meta": {"case": "key/g", "keys": "g"}}
+{"in": {"ch": "g"}, "commit": "", "preedit": "ㄷ"}
+{"meta": {"case": "key/shift-g", "keys": "\\sg"}}
+{"in": {"ch": "g", "shift": true}, "commit": "", "preedit": "ㅡ"}
+{"meta": {"case": "key/h", "keys": "h"}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"meta": {"case": "key/shift-h", "keys": "\\sh"}}
+{"in": {"ch": "h", "shift": true}, "commit": "□", "preedit": ""}
+{"meta": {"case": "key/i", "keys": "i"}}
+{"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
+{"meta": {"case": "key/shift-i", "keys": "\\si"}}
+{"in": {"ch": "i", "shift": true}, "commit": "", "preedit": ""}
+{"meta": {"case": "key/j", "keys": "j"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"meta": {"case": "key/shift-j", "keys": "\\sj"}}
+{"in": {"ch": "j", "shift": true}, "commit": "'", "preedit": ""}
+{"meta": {"case": "key/k", "keys": "k"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"meta": {"case": "key/shift-k", "keys": "\\sk"}}
+{"in": {"ch": "k", "shift": true}, "commit": "\"", "preedit": ""}
+{"meta": {"case": "key/l", "keys": "l"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"meta": {"case": "key/shift-l", "keys": "\\sl"}}
+{"in": {"ch": "l", "shift": true}, "commit": "·", "preedit": ""}
+{"meta": {"case": "key/m", "keys": "m"}}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
+{"meta": {"case": "key/shift-m", "keys": "\\sm"}}
+{"in": {"ch": "m", "shift": true}, "commit": "…", "preedit": ""}
+{"meta": {"case": "key/n", "keys": "n"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"meta": {"case": "key/shift-n", "keys": "\\sn"}}
+{"in": {"ch": "n", "shift": true}, "commit": "―", "preedit": ""}
+{"meta": {"case": "key/o", "keys": "o"}}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅊ"}
+{"meta": {"case": "key/shift-o", "keys": "\\so"}}
+{"in": {"ch": "o", "shift": true}, "commit": "", "preedit": ""}
+{"meta": {"case": "key/p", "keys": "p"}}
+{"in": {"ch": "p"}, "commit": "", "preedit": "ㅍ"}
+{"meta": {"case": "key/shift-p", "keys": "\\sp"}}
+{"in": {"ch": "p", "shift": true}, "commit": ";", "preedit": ""}
+{"meta": {"case": "key/q", "keys": "q"}}
+{"in": {"ch": "q"}, "commit": "", "preedit": "ㅅ"}
+{"meta": {"case": "key/shift-q", "keys": "\\sq"}}
+{"in": {"ch": "q", "shift": true}, "commit": "", "preedit": "ㅒ"}
+{"meta": {"case": "key/r", "keys": "r"}}
+{"in": {"ch": "r"}, "commit": "", "preedit": "ㅌ"}
+{"meta": {"case": "key/shift-r", "keys": "\\sr"}}
+{"in": {"ch": "r", "shift": true}, "commit": "", "preedit": "ㅓ"}
+{"meta": {"case": "key/s", "keys": "s"}}
+{"in": {"ch": "s"}, "commit": "", "preedit": "ㄴ"}
+{"meta": {"case": "key/shift-s", "keys": "\\ss"}}
+{"in": {"ch": "s", "shift": true}, "commit": "", "preedit": "ㅖ"}
+{"meta": {"case": "key/t", "keys": "t"}}
+{"in": {"ch": "t"}, "commit": "", "preedit": "ㅋ"}
+{"meta": {"case": "key/shift-t", "keys": "\\st"}}
+{"in": {"ch": "t", "shift": true}, "commit": "", "preedit": "ㅕ"}
+{"meta": {"case": "key/u", "keys": "u"}}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㄷ"}
+{"meta": {"case": "key/shift-u", "keys": "\\su"}}
+{"in": {"ch": "u", "shift": true}, "commit": "〮", "preedit": ""}
+{"meta": {"case": "key/v", "keys": "v"}}
+{"in": {"ch": "v"}, "commit": "", "preedit": "ㅈ"}
+{"meta": {"case": "key/shift-v", "keys": "\\sv"}}
+{"in": {"ch": "v", "shift": true}, "commit": "", "preedit": "ㅗ"}
+{"meta": {"case": "key/w", "keys": "w"}}
+{"in": {"ch": "w"}, "commit": "", "preedit": "ㄹ"}
+{"meta": {"case": "key/shift-w", "keys": "\\sw"}}
+{"in": {"ch": "w", "shift": true}, "commit": "", "preedit": "ㅑ"}
+{"meta": {"case": "key/x", "keys": "x"}}
+{"in": {"ch": "x"}, "commit": "", "preedit": "ㅆ"}
+{"meta": {"case": "key/shift-x", "keys": "\\sx"}}
+{"in": {"ch": "x", "shift": true}, "commit": "", "preedit": "ㅛ"}
+{"meta": {"case": "key/y", "keys": "y"}}
+{"in": {"ch": "y"}, "commit": "", "preedit": "ㄹ"}
+{"meta": {"case": "key/shift-y", "keys": "\\sy"}}
+{"in": {"ch": "y", "shift": true}, "commit": "〯", "preedit": ""}
+{"meta": {"case": "key/z", "keys": "z"}}
+{"in": {"ch": "z"}, "commit": "", "preedit": "ㅁ"}
+{"meta": {"case": "key/shift-z", "keys": "\\sz"}}
+{"in": {"ch": "z", "shift": true}, "commit": "", "preedit": "ㆍ"}
+{"meta": {"case": "cho/ㄱ", "target": "가", "keys": "kf"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "가"}
+{"meta": {"case": "cho/ㄲ", "target": "까", "keys": "kkf"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄲ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "까"}
+{"meta": {"case": "cho/ㄴ", "target": "나", "keys": "hf"}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "나"}
+{"meta": {"case": "cho/ㄷ", "target": "다", "keys": "uf"}}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㄷ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "다"}
+{"meta": {"case": "cho/ㄸ", "target": "따", "keys": "uuf"}}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㄷ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㄸ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "따"}
+{"meta": {"case": "cho/ㄹ", "target": "라", "keys": "yf"}}
+{"in": {"ch": "y"}, "commit": "", "preedit": "ㄹ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "라"}
+{"meta": {"case": "cho/ㅁ", "target": "마", "keys": "if"}}
+{"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "마"}
+{"meta": {"case": "cho/ㅂ", "target": "바", "keys": ";f"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "바"}
+{"meta": {"case": "cho/ㅃ", "target": "빠", "keys": ";;f"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅃ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "빠"}
+{"meta": {"case": "cho/ㅅ", "target": "사", "keys": "nf"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "사"}
+{"meta": {"case": "cho/ㅆ", "target": "싸", "keys": "nnf"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅆ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "싸"}
+{"meta": {"case": "cho/ㅇ", "target": "아", "keys": "jf"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"meta": {"case": "cho/ㅈ", "target": "자", "keys": "lf"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "자"}
+{"meta": {"case": "cho/ㅉ", "target": "짜", "keys": "llf"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅉ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "짜"}
+{"meta": {"case": "cho/ㅊ", "target": "차", "keys": "of"}}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅊ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "차"}
+{"meta": {"case": "cho/ㅋ", "target": "카", "keys": "/f"}}
+{"in": {"ch": "/"}, "commit": "", "preedit": "ㅋ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "카"}
+{"meta": {"case": "cho/ㅌ", "target": "타", "keys": "'f"}}
+{"in": {"ch": "'"}, "commit": "", "preedit": "ㅌ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "타"}
+{"meta": {"case": "cho/ㅍ", "target": "파", "keys": "pf"}}
+{"in": {"ch": "p"}, "commit": "", "preedit": "ㅍ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "파"}
+{"meta": {"case": "cho/ㅎ", "target": "하", "keys": "mf"}}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "하"}
+{"meta": {"case": "jung/ㅏ", "target": "아", "keys": "jf"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"meta": {"case": "jung/ㅐ", "target": "애", "keys": "je"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "애"}
+{"meta": {"case": "jung/ㅑ", "target": "야", "keys": "jw"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "야"}
+{"meta": {"case": "jung/ㅒ", "target": "얘", "keys": "jq"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "얘"}
+{"meta": {"case": "jung/ㅓ", "target": "어", "keys": "jr"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "어"}
+{"meta": {"case": "jung/ㅔ", "target": "에", "keys": "jc"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "에"}
+{"meta": {"case": "jung/ㅕ", "target": "여", "keys": "jt"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "t"}, "commit": "", "preedit": "여"}
+{"meta": {"case": "jung/ㅖ", "target": "예", "keys": "js"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "예"}
+{"meta": {"case": "jung/ㅗ", "target": "오", "keys": "j/"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"meta": {"case": "jung/ㅘ", "target": "와", "keys": "j/f"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "와"}
+{"meta": {"case": "jung/ㅙ", "target": "왜", "keys": "j/e"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "왜"}
+{"meta": {"case": "jung/ㅚ", "target": "외", "keys": "j/d"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "외"}
+{"meta": {"case": "jung/ㅛ", "target": "요", "keys": "jx"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "x"}, "commit": "", "preedit": "요"}
+{"meta": {"case": "jung/ㅜ", "target": "우", "keys": "jb"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "b"}, "commit": "", "preedit": "우"}
+{"meta": {"case": "jung/ㅝ", "target": "워", "keys": "jor"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "o"}, "commit": "", "preedit": "우"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "워"}
+{"meta": {"case": "jung/ㅞ", "target": "웨", "keys": "joc"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "o"}, "commit": "", "preedit": "우"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "웨"}
+{"meta": {"case": "jung/ㅟ", "target": "위", "keys": "jod"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "o"}, "commit": "", "preedit": "우"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "위"}
+{"meta": {"case": "jung/ㅠ", "target": "유", "keys": "ja"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "a"}, "commit": "", "preedit": "유"}
+{"meta": {"case": "jung/ㅡ", "target": "으", "keys": "jg"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "으"}
+{"meta": {"case": "jung/ㅢ", "target": "의", "keys": "jid"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "i"}, "commit": "", "preedit": "으"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "의"}
+{"meta": {"case": "jung/ㅣ", "target": "이", "keys": "jd"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "이"}
+{"meta": {"case": "jong/ㄱ", "target": "악", "keys": "jfc"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "악"}
+{"meta": {"case": "jong/ㄲ", "target": "앆", "keys": "jfcc"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "악"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "앆"}
+{"meta": {"case": "jong/ㄳ", "target": "앇", "keys": "jfcq"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "악"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "앇"}
+{"meta": {"case": "jong/ㄴ", "target": "안", "keys": "jfs"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "안"}
+{"meta": {"case": "jong/ㄵ", "target": "앉", "keys": "jfsv"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "안"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "앉"}
+{"meta": {"case": "jong/ㄶ", "target": "않", "keys": "jfsd"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "안"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "않"}
+{"meta": {"case": "jong/ㄷ", "target": "앋", "keys": "jfg"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "g"}, "commit": "", "preedit": "앋"}
+{"meta": {"case": "jong/ㄹ", "target": "알", "keys": "jfw"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "알"}
+{"meta": {"case": "jong/ㄺ", "target": "앍", "keys": "jfwc"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "알"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "앍"}
+{"meta": {"case": "jong/ㄻ", "target": "앎", "keys": "jfwz"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "알"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "앎"}
+{"meta": {"case": "jong/ㄼ", "target": "앏", "keys": "jfwe"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "알"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "앏"}
+{"meta": {"case": "jong/ㄽ", "target": "앐", "keys": "jfwq"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "알"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "앐"}
+{"meta": {"case": "jong/ㄾ", "target": "앑", "keys": "jfwr"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "알"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "앑"}
+{"meta": {"case": "jong/ㄿ", "target": "앒", "keys": "jfwf"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "알"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "앒"}
+{"meta": {"case": "jong/ㅀ", "target": "앓", "keys": "jfwd"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "알"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "앓"}
+{"meta": {"case": "jong/ㅁ", "target": "암", "keys": "jfz"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "암"}
+{"meta": {"case": "jong/ㅂ", "target": "압", "keys": "jfe"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "압"}
+{"meta": {"case": "jong/ㅄ", "target": "앖", "keys": "jfeq"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "압"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "앖"}
+{"meta": {"case": "jong/ㅅ", "target": "앗", "keys": "jfq"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "q"}, "commit": "", "preedit": "앗"}
+{"meta": {"case": "jong/ㅆ", "target": "았", "keys": "jfx"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "x"}, "commit": "", "preedit": "았"}
+{"meta": {"case": "jong/ㅇ", "target": "앙", "keys": "jfa"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "a"}, "commit": "", "preedit": "앙"}
+{"meta": {"case": "jong/ㅈ", "target": "앚", "keys": "jfv"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "앚"}
+{"meta": {"case": "jong/ㅊ", "target": "앛", "keys": "jfb"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "b"}, "commit": "", "preedit": "앛"}
+{"meta": {"case": "jong/ㅋ", "target": "앜", "keys": "jft"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "t"}, "commit": "", "preedit": "앜"}
+{"meta": {"case": "jong/ㅌ", "target": "앝", "keys": "jfr"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "앝"}
+{"meta": {"case": "jong/ㅍ", "target": "앞", "keys": "jff"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "앞"}
+{"meta": {"case": "jong/ㅎ", "target": "앟", "keys": "jfd"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "앟"}
+{"meta": {"case": "cho/ᄓ", "target": "ᄓᅡ", "keys": "hkf"}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ᄓᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄓᅡ"}
+{"meta": {"case": "cho/ᄔ", "target": "ᄔᅡ", "keys": "hhf"}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㅥ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄔᅡ"}
+{"meta": {"case": "cho/ᄕ", "target": "ᄕᅡ", "keys": "huf"}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㅦ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄕᅡ"}
+{"meta": {"case": "cho/ᄖ", "target": "ᄖᅡ", "keys": "h;f"}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ᄖᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄖᅡ"}
+{"meta": {"case": "cho/ᄗ", "target": "ᄗᅡ", "keys": "ukf"}}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㄷ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ᄗᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄗᅡ"}
+{"meta": {"case": "cho/ᄘ", "target": "ᄘᅡ", "keys": "yhf"}}
+{"in": {"ch": "y"}, "commit": "", "preedit": "ㄹ"}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ᄘᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄘᅡ"}
+{"meta": {"case": "cho/ᄙ", "target": "ᄙᅡ", "keys": "yyf"}}
+{"in": {"ch": "y"}, "commit": "", "preedit": "ㄹ"}
+{"in": {"ch": "y"}, "commit": "", "preedit": "ᄙᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄙᅡ"}
+{"meta": {"case": "cho/ᄛ", "target": "ᄛᅡ", "keys": "yjf"}}
+{"in": {"ch": "y"}, "commit": "", "preedit": "ㄹ"}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ᄛᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄛᅡ"}
+{"meta": {"case": "cho/ᄜ", "target": "ᄜᅡ", "keys": "i;f"}}
+{"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅮ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄜᅡ"}
+{"meta": {"case": "cho/ᄝ", "target": "ᄝᅡ", "keys": "ijf"}}
+{"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅱ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄝᅡ"}
+{"meta": {"case": "cho/ᄞ", "target": "ᄞᅡ", "keys": ";kf"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㅲ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄞᅡ"}
+{"meta": {"case": "cho/ᄟ", "target": "ᄟᅡ", "keys": ";hf"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ᄟᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄟᅡ"}
+{"meta": {"case": "cho/ᄠ", "target": "ᄠᅡ", "keys": ";uf"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㅳ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄠᅡ"}
+{"meta": {"case": "cho/ᄧ", "target": "ᄧᅡ", "keys": ";lf"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅶ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄧᅡ"}
+{"meta": {"case": "cho/ᄩ", "target": "ᄩᅡ", "keys": ";'f"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "'"}, "commit": "", "preedit": "ㅷ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄩᅡ"}
+{"meta": {"case": "cho/ᄫ", "target": "ᄫᅡ", "keys": ";jf"}}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅂ"}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅸ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄫᅡ"}
+{"meta": {"case": "cho/ᄭ", "target": "ᄭᅡ", "keys": "nkf"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㅺ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄭᅡ"}
+{"meta": {"case": "cho/ᄮ", "target": "ᄮᅡ", "keys": "nhf"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㅻ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄮᅡ"}
+{"meta": {"case": "cho/ᄯ", "target": "ᄯᅡ", "keys": "nuf"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㅼ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄯᅡ"}
+{"meta": {"case": "cho/ᄰ", "target": "ᄰᅡ", "keys": "nyf"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "y"}, "commit": "", "preedit": "ᄰᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄰᅡ"}
+{"meta": {"case": "cho/ᄲ", "target": "ᄲᅡ", "keys": "n;f"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ㅽ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄲᅡ"}
+{"meta": {"case": "cho/ᄵ", "target": "ᄵᅡ", "keys": "njf"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ᄵᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄵᅡ"}
+{"meta": {"case": "cho/ᄶ", "target": "ᄶᅡ", "keys": "nlf"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅾ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄶᅡ"}
+{"meta": {"case": "cho/ᄹ", "target": "ᄹᅡ", "keys": "n'f"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "'"}, "commit": "", "preedit": "ᄹᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄹᅡ"}
+{"meta": {"case": "cho/ᄻ", "target": "ᄻᅡ", "keys": "nmf"}}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅅ"}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ᄻᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄻᅡ"}
+{"meta": {"case": "cho/ᄼ", "target": "ᄼᅡ", "keys": "lnf"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ᄼᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄼᅡ"}
+{"meta": {"case": "cho/ᄾ", "target": "ᄾᅡ", "keys": "onf"}}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅊ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ᄾᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄾᅡ"}
+{"meta": {"case": "cho/ᅀ", "target": "ᅀᅡ", "keys": "knf"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ㅿ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅀᅡ"}
+{"meta": {"case": "cho/ᅂ", "target": "ᅂᅡ", "keys": "juf"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ᅂᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅂᅡ"}
+{"meta": {"case": "cho/ᅅ", "target": "ᅅᅡ", "keys": "jnf"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ᅅᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅅᅡ"}
+{"meta": {"case": "cho/ᅇ", "target": "ᅇᅡ", "keys": "jjf"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㆀ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅇᅡ"}
+{"meta": {"case": "cho/ᅊ", "target": "ᅊᅡ", "keys": "j'f"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "'"}, "commit": "", "preedit": "ᅊᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅊᅡ"}
+{"meta": {"case": "cho/ᅌ", "target": "ᅌᅡ", "keys": "kjf"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㆁ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅌᅡ"}
+{"meta": {"case": "cho/ᅍ", "target": "ᅍᅡ", "keys": "ljf"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ᅍᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅍᅡ"}
+{"meta": {"case": "cho/ᅎ", "target": "ᅎᅡ", "keys": "luf"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ᅎᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅎᅡ"}
+{"meta": {"case": "cho/ᅐ", "target": "ᅐᅡ", "keys": "lkf"}}
+{"in": {"ch": "l"}, "commit": "", "preedit": "ㅈ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ᅐᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅐᅡ"}
+{"meta": {"case": "cho/ᅓ", "target": "ᅓᅡ", "keys": "omf"}}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅊ"}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ᅓᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅓᅡ"}
+{"meta": {"case": "cho/ᅔ", "target": "ᅔᅡ", "keys": "ouf"}}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅊ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ᅔᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅔᅡ"}
+{"meta": {"case": "cho/ᅕ", "target": "ᅕᅡ", "keys": "okf"}}
+{"in": {"ch": "o"}, "commit": "", "preedit": "ㅊ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ᅕᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅕᅡ"}
+{"meta": {"case": "cho/ᅖ", "target": "ᅖᅡ", "keys": "p;f"}}
+{"in": {"ch": "p"}, "commit": "", "preedit": "ㅍ"}
+{"in": {"ch": ";"}, "commit": "", "preedit": "ᅖᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅖᅡ"}
+{"meta": {"case": "cho/ᅗ", "target": "ᅗᅡ", "keys": "pjf"}}
+{"in": {"ch": "p"}, "commit": "", "preedit": "ㅍ"}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㆄ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅗᅡ"}
+{"meta": {"case": "cho/ᅘ", "target": "ᅘᅡ", "keys": "mmf"}}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㆅ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅘᅡ"}
+{"meta": {"case": "cho/ᅙ", "target": "ᅙᅡ", "keys": "kmf"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "m"}, "commit": "", "preedit": "ㆆ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅙᅡ"}
+{"meta": {"case": "cho/ᅚ", "target": "ᅚᅡ", "keys": "kuf"}}
+{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ᅚᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅚᅡ"}
+{"meta": {"case": "cho/ᅛ", "target": "ᅛᅡ", "keys": "hnf"}}
+{"in": {"ch": "h"}, "commit": "", "preedit": "ㄴ"}
+{"in": {"ch": "n"}, "commit": "", "preedit": "ᅛᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅛᅡ"}
+{"meta": {"case": "cho/ᅞ", "target": "ᅞᅡ", "keys": "uyf"}}
+{"in": {"ch": "u"}, "commit": "", "preedit": "ㄷ"}
+{"in": {"ch": "y"}, "commit": "", "preedit": "ᅞᅠ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᅞᅡ"}
+{"meta": {"case": "jung/ᅿ", "target": "ᄋᅿ", "keys": "j/r"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "ᄋᅿ"}
+{"meta": {"case": "jung/ᆀ", "target": "ᄋᆀ", "keys": "j/c"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "c"}, "commit": "", "preedit": "ᄋᆀ"}
+{"meta": {"case": "jung/ᆁ", "target": "ᄋᆁ", "keys": "j/s"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "ᄋᆁ"}
+{"meta": {"case": "jung/ᆂ", "target": "ᄋᆂ", "keys": "j/v"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "v"}, "commit": "", "preedit": "ᄋᆂ"}
+{"meta": {"case": "jung/ᆃ", "target": "ᄋᆃ", "keys": "j/B"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "B"}, "commit": "", "preedit": "ᄋᆃ"}
+{"meta": {"case": "jung/ᆉ", "target": "ᄋᆉ", "keys": "jof"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "o"}, "commit": "", "preedit": "우"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "ᄋᆉ"}
+{"meta": {"case": "jung/ᆊ", "target": "ᄋᆊ", "keys": "joe"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "o"}, "commit": "", "preedit": "우"}
+{"in": {"ch": "e"}, "commit": "", "preedit": "ᄋᆊ"}
+{"meta": {"case": "jung/ᆌ", "target": "ᄋᆌ", "keys": "jos"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "o"}, "commit": "", "preedit": "우"}
+{"in": {"ch": "s"}, "commit": "", "preedit": "ᄋᆌ"}
+{"meta": {"case": "jung/ᆍ", "target": "ᄋᆍ", "keys": "joB"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "o"}, "commit": "", "preedit": "우"}
+{"in": {"ch": "B"}, "commit": "", "preedit": "ᄋᆍ"}
+{"meta": {"case": "jung/ᆕ", "target": "ᄋᆕ", "keys": "jiB"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "i"}, "commit": "", "preedit": "으"}
+{"in": {"ch": "B"}, "commit": "", "preedit": "ᄋᆕ"}
+{"meta": {"case": "jung/ᆖ", "target": "ᄋᆖ", "keys": "jiG"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "i"}, "commit": "", "preedit": "으"}
+{"in": {"ch": "G"}, "commit": "", "preedit": "ᄋᆖ"}
+{"meta": {"case": "jung/ᆞ", "target": "ᄋᆞ", "keys": "jp"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "p"}, "commit": "", "preedit": "ᄋᆞ"}
+{"meta": {"case": "jung/ᆟ", "target": "ᄋᆟ", "keys": "jpr"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "p"}, "commit": "", "preedit": "ᄋᆞ"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "ᄋᆟ"}
+{"meta": {"case": "jung/ᆠ", "target": "ᄋᆠ", "keys": "jpB"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "p"}, "commit": "", "preedit": "ᄋᆞ"}
+{"in": {"ch": "B"}, "commit": "", "preedit": "ᄋᆠ"}
+{"meta": {"case": "jung/ᆡ", "target": "ᄋᆡ", "keys": "jpd"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "p"}, "commit": "", "preedit": "ᄋᆞ"}
+{"in": {"ch": "d"}, "commit": "", "preedit": "ᄋᆡ"}
+{"meta": {"case": "jung/ᆢ", "target": "ᄋᆢ", "keys": "jpz"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "p"}, "commit": "", "preedit": "ᄋᆞ"}
+{"in": {"ch": "z"}, "commit": "", "preedit": "ᄋᆢ"}
+{"meta": {"case": "jung/ᆦ", "target": "ᄋᆦ", "keys": "j/w"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "/"}, "commit": "", "preedit": "오"}
+{"in": {"ch": "w"}, "commit": "", "preedit": "ᄋᆦ"}
+{"meta": {"case": "jong/ᇰ", "target": "아ᇰ", "keys": "jfaf"}}
+{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
+{"in": {"ch": "a"}, "commit": "", "preedit": "앙"}
+{"in": {"ch": "f"}, "commit": "", "preedit": "아ᇰ"}
