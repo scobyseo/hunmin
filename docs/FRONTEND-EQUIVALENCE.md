@@ -425,6 +425,28 @@ one batched android trace per layout, and each layout reports what it could take
 | `dubeolsik` | 11 of 11 | 308 | — (its punctuation has no key, so the client inserts it) |
 | `sin3-p2` | 11 of 11 | 310 | — (`'` is Shift+`j` and `/` is Shift+`'`) |
 
+**A second Korean text, the anthem** (`tests/golden/texts/anthem.txt`): 애국가
+1~4절, ten lines, typed through the same two layouts. It is here because the
+anthem is the only thing in the tree that types 2~4절, and because a four-verse
+lyric reaches syllables 서시 never does — `닳도록`, `철갑`, `공활한데`.
+
+| layout | cases | events | what it could not take |
+|---|---|---|---|
+| `dubeolsik` | 10 of 10 | 378 | — |
+| `sin3-p2` | 10 of 10 | 378 | — |
+
+That second row cost a defect to earn, and the defect is the interesting part. The
+first run took **9 of 10** on `sin3-p2` and blamed the layout: `높고` rendered
+놔고. It was the INSTRUMENT. `sin3-p2` has two keys for ㅗ — `/` and `v` — and
+they are not interchangeable: `/` is the connecting form that builds 워/와/외
+with a following 중성, `v` is the standalone one. The probe took whichever key
+rendered the vowel first, so it picked `/`, and `/`+`f` is ㅏ (ㅗ+ㅏ=ㅘ) — while
+the 종성 probe had found ㅍ on `f` using a ㄱ+ㅏ prime. 노+`f` was therefore 놔,
+and 높 was called untypeable when 높 is ㄴ+`v`+`f`. ㅜ/`o`/`b` is the same pair.
+`tools/jamo-keytable.py` now prefers the candidate that does not extend into
+another 중성 (`v`, `b`), measured by appending every single key and counting the
+compound vowels, and the same run reports 10 of 10.
+
 A layout's reach over the text is a MEASUREMENT, not an assumption, and the measurement
 has to be made the right way. `tools/gen-cultural-golden.py` asks, per character: which
 single key event emits it? It probes the character itself AND every key of the layout

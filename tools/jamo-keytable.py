@@ -143,25 +143,64 @@ def probe_cho(jamo_target, layout, _cache={}):
     return min(pair) if pair else None
 
 
+def _pick_jung(cands, layout, cho_key, target):
+    """Among keys that render the vowel, prefer the STANDALONE one.
+
+    THE RULE (maintainer, 2026-11-04): a 중성 can have two keys and they are not
+    interchangeable. sin3-p2 puts ㅗ on both `/` and `v`, and ㅜ on both `o` and
+    `b`; the left-hand member of each pair (`/`, `o`) is the CONNECTING form —
+    it exists to build the compound 중성 (와 `f`, 워 `r`), while the other (`v`,
+    `b`) is the standalone one. So 오 takes `v`, 우 takes `b`.
+
+    THE BUG THIS FIXES (measured, issue #227). Both members render the vowel
+    from a ㄱ-primed buffer, so the "shortest, plainest" rule took `/` — and
+    `/`+`f` is ㅏ, because a connecting ㅗ keeps composing vowels (ㅗ+ㅏ=ㅘ). The
+    jong probe had found 종성 ㅍ on `f` using a ㄱ+ㅏ prime, so the two halves of
+    the table disagreed about which ㅗ they meant: 노+`f` came out 놔 and 높 was
+    reported untypeable, when 높 is ㄴ+`v`+`f`. Measured: `v`+`f` → 높,
+    `/`+`f` → 놔; `b`+`r` → 웉 (jong), `o`+`r` → 워 (compound).
+
+    Measured, not read off the table: a candidate is CONNECTING if some single
+    key after cho+candidate yields cho + a DIFFERENT 중성 (a compound vowel) —
+    that is what `/` does with `f` and `o` does with `r`. The candidate with
+    fewest such extensions wins; ties fall back to plain, then short, then
+    lexicographic.
+    """
+    probes, owner = [], []
+    for s in cands:
+        for x in ALL_KEYS:
+            probes.append(cho_key + s + x)
+            owner.append(s)
+    rendered = _render_all(probes, layout)
+    extensions = {s: 0 for s in cands}
+    for seq, s in zip(probes, owner):
+        d = rendered.get(seq)
+        if d and len(d) == 2 and 0x1161 <= ord(d[1]) <= 0x11A7 and d[1] != target:
+            extensions[s] += 1
+
+    def rank(s):
+        return (extensions[s], sum(c.isupper() for c in s), len(s), s)
+
+    return min(cands, key=rank)
+
+
 def probe_jung(jamo_target, layout, cho_key):
     """중성 key: on a buffer primed with cho_key, the key that yields the vowel.
 
     One key, or two for a compound vowel (base vowel + second key: sin3-p2
-    ㅘ=/f, ㅟ=od). plain beats shifted at equal length. All candidates render
-    in one batch, so this is a few subprocess calls, not thousands.
+    ㅘ=/f, ㅟ=od). All candidates render in one batch, so this is a few
+    subprocess calls, not thousands.
     """
     target = jamo(jamo_target)
     for nkeys in (1, 2):
         seqs = ALL_KEYS if nkeys == 1 else [a + b for a in ALL_KEYS for b in ALL_KEYS]
-        best = None  # (nshift, len, seq)
+        cands = []
         for keys, d in _render_all([cho_key + s for s in seqs], layout).items():
             s = keys[len(cho_key):]
             if len(d) == 2 and d[1] == target and 0x1100 <= ord(d[0]) <= 0x115F:
-                cand = (sum(c.isupper() for c in s), len(s), s)
-                if best is None or cand < best:
-                    best = cand
-        if best:
-            return best[2]
+                cands.append(s)
+        if cands:
+            return _pick_jung(cands, layout, cho_key, target)
     return None
 
 
