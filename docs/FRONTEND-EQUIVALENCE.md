@@ -509,20 +509,24 @@ normalisation.
 | delivery strategies | one | one | two (native, interim) | allowed; only TSF meets classic hosts |
 | candidate anchor | `display()` | the service owns the Hanja UI | native `display()`, interim `composing()` | allowed, §3.3 |
 | candidate key routing | the adapter's own switch | none in the adapter | the adapter's own window | allowed — but see 8.3 (2) |
-| Han/Eng | not in the addon: fcitx owns the trigger | Kana VK to `KeyAction.HANGUL_ENG` | `ToggleModeCore` plus configurable bindings | **open**, §4 |
+| Han/Eng | not in the addon: fcitx owns the trigger (FE13) | Kana VK to `KeyAction.HANGUL_ENG`, performed by the layer | `ToggleModeCore`, performed by the layer, plus configurable bindings | resolved 2026-10-25 (#136 ruling): the two frontends that own a key call `hunmin_buffered_preedit_toggle_language()`; fcitx5's half is environmental (FE13) |
 | R8 language detection | no: the engine judges, the adapter acts | no: same | no: same | resolved 2026-11-01 (#164) — the judgement is the engine's for all three, and each frontend performs only the switch its host allows |
 | voice / external text | — | yes | — | allowed, but invariant 5 is exercised on one frontend only |
 
 ### 8.3 Open asymmetries, to be resolved where the platform allows
 
-1. **Han/Eng is not normalised (§4).** TSF and Android each own a mechanism and
-   fcitx5 has none in the addon. `hunmin_buffered_preedit_toggle_language()`
-   exists and no frontend calls it, because each carries a layout-pair model the
-   layer's two-slot version does not yet describe. Resolving it means deciding
-   that model first; the verification is a tier-A case plus one per frontend
-   driving the same abstract action.
+1. **~~Han/Eng is not normalised (§4).~~** Resolved for the two frontends that
+   own a key, 2026-10-25 (#136 ruling; commits `8b8a2f9` TSF, `5d4b3f0`
+   Android): both build the layer with two slots and map their Han/Eng key to
+   `hunmin_buffered_preedit_toggle_language()`, so neither performs a switch of
+   its own. The tier-A case is `LayerTest.ModeChangeIsABoundaryAndSwitchesLayout`
+   (`engine-buffered-preedit`); the per-frontend mapping is asserted by
+   `TsfConfigTest.AdapterKeyDriveOverTheMockLayer`,
+   `CandidateTest.ModeToggleIsABoundaryWithTheWindowOpen`, and
+   `HunminAdapterTest.the language action is the layer's, not the adapter's`.
    *Environmental part:* fcitx5's trigger belongs to fcitx, so the addon cannot
-   see a Han/Eng key. What the platform allows is the mapping, not the key.
+   see a Han/Eng key. What the platform allows is the mapping, not the key
+   (FE13).
 2. **The classifier's `CANDIDATE` answer is used by one frontend.** fcitx5 asks
    and then routes locally, Android reports no candidate window, TSF never
    reaches it. The rule is shared; the use is not. Resolving it means routing
