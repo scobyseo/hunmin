@@ -435,6 +435,12 @@ from an `active` page. That is the failure this wiki was created for.- [[2026-10
   golden's `{"ch":"\u0008"}` spelling was not a BackSpace. The base-0 key
   (arrow/Return) still cannot be generated — tier A has no encoding for it — and
   is now its own board row, `TIER-C-WIRING-ARROW`.
+- [[2026-11-04-tier-e1s-eight-reds-were-seven-tests]] - issue #246: the eight red
+  `HunminAdapterTest` cases were seven assertions about a contract this frontend
+  does not have, and one real defect — the layer's 한/영 toggle commits the
+  pending word and Android dropped that commit, so a mode press lost it. Fixed,
+  the delivery is now pinned by a tenth planted mutation, and EK4/EK5 are
+  recorded as not mapping to Android.
 - [[2026-10-31-milestone-f-win32-conformance-corpus]] - milestone F: the win32
   corpus grew 3 -> 11 traces by porting the eight tier-A families x11 replays
   (106 cases / 688 events, tier-F1 12/12); the work exposed a generator that

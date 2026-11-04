@@ -1146,3 +1146,18 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `EDITKEY-CATALOGUE-95` and `EDITKEY-EK7-TSF`, the one real gap, which stays a
   ruling rather than an agent's test. Also noted: the note's E1-E7 labels collide
   with the automatic-switch experiments, so the record uses EK1-EK7.
+
+- **2026-11-04** — issue #246's eight red `HunminAdapterTest` cases became one
+  real defect and seven wrong tests: two typed `dkss` and expected `안녕` (the
+  layer shows `안ㄴ`), two counted `sendKeyEvent` payloads the adapter never
+  sends (pass-through is the return value), one read `.last()` off an empty list,
+  one reached the boundary with one BackSpace instead of four, and two asserted
+  a candidate window this frontend does not have (F9 has no AOSP keycode).
+  The real one: the layer's `toggle_language()` commits the pending word and
+  Android discarded it, so a 한/영 press lost the word being composed — TSF and
+  fcitx5 both insert it. Fixed, and `no-toggle-delivery` is the tenth planted
+  mutation. Tier E1: 156/156 green in 9 s; `android-mutations` 10 caught + 1
+  recorded gap. The `slow` tier is over its 60 s budget with or without the new
+  mutation — recorded, not re-decided. New page:
+  [[2026-11-04-tier-e1s-eight-reds-were-seven-tests]]; board rows
+  `EDITKEY-CATALOGUE-95`, `AND-SPECIAL-159`, `AND-SETTINGS-E1-177` re-measured.
