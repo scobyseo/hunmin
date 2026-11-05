@@ -316,6 +316,14 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             current = {k: v for k, v in rec["meta"].items() if k != "case"}
             for k in current:
                 if k in OPTION_KEYS:
+                    # Only refuse when the offending case is actually going
+                    # to be emitted. With --only-case, a case carrying an
+                    # unsupported engine option (w/W) is dropped from the
+                    # output by the filter below, so it must not abort the
+                    # whole golden -- that is what lets the pure-caps cases
+                    # of p2-2-4-3-caps.jsonl be emitted (issue #184).
+                    if a.only_case and name not in a.only_case:
+                        continue
                     unsupported.add(k)
             # A caps case is encodable on every platform that carries the
             # bit in `mods` (x11 LockMask, win32 0x02); it is applied per
