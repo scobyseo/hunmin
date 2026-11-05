@@ -1292,18 +1292,16 @@ Four layers, cheap→real:
   generator copies verbatim from tier A — identical on all 688 events, so
   nothing was accepted blind.
 
-  One case is **excluded, not replayed**: `manual-sin3-p2-yet`'s caps-on `k/`.
-  Win32 has no caps encoding (docs/trace-spec.md "`in` — the native event"), and
-  emitting it at `mods: 0` asserts caps-off keys against a caps-on expectation —
-  measured: the adapter composes 고 where tier A records commit ㄱ + preedit ㅋ.
-  `tools/gen-conformance.py` therefore refuses a caps case for win32 and writes
-  the refusal into the trace's `meta.excluded`, so
-  `tests/conformance/win32/manual-sin3-p2-yet.trace.in` covers 14 of the
-  golden's 15 cases and says so in the artefact.
+  Caps-on `k/` is now covered (issue #184): win32 `mods` bit `0x02` is the
+  CapsLock state, and `manual-sin3-p2-yet.trace.in` replays all 15 cases /
+  48 events with no `meta.excluded`. (The 2026-10-31 measurement above — 고
+  where tier A records commit ㄱ + preedit ㅋ — was the caps-OFF emission that
+  proved the bit was necessary.)
 
-  Not yet covered: caps-on key sequences on win32 (excluded, above), a backspace
-  boundary (no sin3-p2 tier-A golden carries one) and overlay-window
-  presentation (needs real HWNDs, stubbed via `ITfContextView::GetTextExt`).
+  Not yet covered: the `w`/`W` cases in `p2-2-4-3-caps` (needs an engine-option
+  channel in the runner), a backspace boundary (no sin3-p2 tier-A golden
+  carries one) and overlay-window presentation (needs real HWNDs, stubbed via
+  `ITfContextView::GetTextExt`).
 - **F2 TAT** (Microsoft TSF Accommodation Tool, the official TIP stress-tester) driven on
   a Windows runner; plus UIAutomation-based text assertions in Notepad/test edit control
   with injected keys (`SendKeys`/`keybd_event`) — best-effort automation, flaky-allowed,

@@ -394,6 +394,9 @@ int main(int argc, char **argv) {
         // chain: OnTestKeyDown (preview), then OnKeyDown (docs/
         // WINDOWS-TSF-REGISTRATION.md "C&C: key-down propagation").
         g_mockKeyState[VK_SHIFT & 0xFF] = (mods & 0x01) ? (SHORT)0x8000 : (SHORT)0;
+        /* CapsLock bit 0x02: GetKeyState(VK_CAPITAL) toggled-on, the seam
+         * hunmin_tsf_capslock_from_state() reads (docs/trace-spec.md). */
+        g_mockKeyState[VK_CAPITAL & 0xFF] = (mods & 0x02) ? (SHORT)0x8001 : (SHORT)0;
         const std::wstring wordBefore = SvcSnap().finished;
         const int endsBefore = ctx->compositionEnds;
         const size_t insertsBefore = ctx->insertions.size();

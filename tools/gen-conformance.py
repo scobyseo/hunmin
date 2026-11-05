@@ -99,11 +99,10 @@ _WIN32_SCAN_NAMED = {
     "backspace": 0x0E, "return": 0x1C, "tab": 0x0F, "space": 0x39,
     "left": 0x4B, "up": 0x48, "right": 0x4D, "down": 0x50,
 }
-# mods bit 0x01 = Shift, i.e. GetKeyState(VK_SHIFT) < 0 at delivery time
-# (docs/trace-spec.md). Win32 has no CapsLock encoding here: a caps case is
-# refused below, because the adapter models Caps Lock as a mode toggle, not
-# as engine input.
+# mods bit 0x01 = Shift, i.e. GetKeyState(VK_SHIFT) < 0 at delivery time;
+# bit 0x02 = CapsLock, i.e. GetKeyState(VK_CAPITAL) toggled on (docs/trace-spec.md).
 WIN32_SHIFT = 0x01
+WIN32_CAPS_LOCK = 0x02
 
 
 def _win32_vk(ch: str) -> tuple[int, int, int]:
@@ -318,17 +317,9 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             for k in current:
                 if k in OPTION_KEYS:
                     unsupported.add(k)
-            # win32 has no caps encoding: its adapter models the key as a mode
-            # toggle, so a trace cannot say "this case ran with Caps Lock on".
-            # Emitting the case at mods=0 anyway asserts the caps-OFF text against
-            # a caps-ON expectation -- measured on manual-sin3-p2-yet's `k/`
-            # case, which fails at its second key: the adapter composes 고 where
-            # tier A recorded commit ㄱ + preedit ㅋ. So the case is EXCLUDED and
-            # the exclusion is written into the emitted meta, rather than
-            # silently emitting a trace that asserts the wrong thing.
-            if a.platform == "win32" and current.get("caps"):
-                refused = "caps"
-                unsupported.discard("caps")
+            # A caps case is encodable on every platform that carries the
+            # bit in `mods` (x11 LockMask, win32 0x02); it is applied per
+            # event in the emit loop below. Issue #184.
             continue
         # tier A writes inputs two ways: {"ch": "q"} for a character and
         # {"key": "backspace"} for a named key (docs/SPEC-SCHEMA.md "Reference
@@ -382,12 +373,12 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             spec_ch = shift_char(spec["ch"]) if spec.get("shift") else spec["ch"]
             event = build(spec_ch)
             consumed = _layout_maps(a.layout, spec_ch)
-        if a.platform == "x11" and current.get("caps"):
-            # X11 is the only platform that encodes Caps Lock in `mods`
-            # (LockMask). Android applies the same bit below for historical
-            # corpus; win32 has no encoding at all, so a caps case is excluded
-            # at the separator above rather than emitted at mods=0.
-            event["mods"] = event.get("mods", 0) | X_LOCK_MASK
+        if current.get("caps") and a.platform in ("x11", "win32"):
+            # x11 LockMask / win32 mods 0x02 (docs/trace-spec.md). A caps
+            # case sets the bit on every event of the case, matching the
+            # shipped TIP, which feeds the engine caps option per event.
+            mask = X_LOCK_MASK if a.platform == "x11" else WIN32_CAPS_LOCK
+            event["mods"] = event.get("mods", 0) | mask
         previous_preedit = rec.get("preedit", "")
         cumulative_commits += rec.get("commit", "")
         last_preedit = rec.get("preedit", "")
@@ -410,7 +401,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
         excluded.append({"case": name, "state": [refused]})
     elif body:
         cases.append((name, body, cumulative_commits + last_preedit, mid_stream_commit))
-    unsupported -= {"caps"}  # encoded in x11 mods; win32 excludes the case instead
+    unsupported -= {"caps"}  # encoded in x11/win32 mods
     return cases, unsupported, head, excluded
 
 

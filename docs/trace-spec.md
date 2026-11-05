@@ -87,13 +87,18 @@ CapsLock cannot be tested for it, and that is the point of the tier.
 
 Win32 (`vk`/`scan`/`mods`): `vk` is the virtual-key code (`VK_*`), `scan` the US-keyboard
 set-1 make code carried in `lParam` — informational; the shipped TIP reads `lParam` and
-ignores it. `mods` has one bit so far: `0x01` = Shift, meaning
-`GetKeyState(VK_SHIFT) < 0` at delivery time. Shift is therefore a property of the
+ignores it. `mods` bits: `0x01` = Shift, meaning
+`GetKeyState(VK_SHIFT) < 0` at delivery time; `0x02` = CapsLock, meaning
+`GetKeyState(VK_CAPITAL)` carries the toggled-on bit (`& 0x01`) at delivery
+time. Shift is therefore a property of the
 *event*, not of the character: `{"vk": 0x44, "scan": 0x20, "mods": 1}` is a shifted `D`,
-exactly what a real `WM_KEYDOWN` carries. There is no CapsLock bit: the Windows TIP
-models the key as a Hangul/English mode toggle (`VK_CAPITAL`), which is a different
-thing from the engine's caps variable, and a generator refuses a caps case for the
-platform rather than encode one as the other.
+exactly what a real `WM_KEYDOWN` carries. CapsLock is per-event for the same
+reason: the shipped TIP feeds the engine `caps` option from
+`hunmin_tsf_capslock_from_state()` on every key event, so a caps case replay
+sets `0x02` on every event of that case; the trace runner mocks the bit
+through the same registered key-state seam it uses for Shift
+(`frontends/tsf/test/trace-emit.cpp`). The despatch of `VK_CAPITAL` itself as
+a mode toggle is a separate key path and is not what this bit encodes.
 
 Keys that are not single characters — BackSpace, Return, arrows, Tab — are named by their
 platform constant (`{"keysym": 0xff08}`, `{"keycode": 67}`). They must still be traceable,
