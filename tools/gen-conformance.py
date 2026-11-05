@@ -267,7 +267,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
     # p2-2-4-3-caps.jsonl is the corpus that exercises this; a case with any of
     # these keys is refused below unless the caller opted in, because the
     # current runner cannot reproduce a hunmin-option case from a trace alone.
-    OPTION_KEYS = ("caps", "w", "W", "z", "h", "H", "mode")
+    OPTION_KEYS = ("w", "W", "z", "h", "H")
     X_LOCK_MASK = 0x02
 
     current: dict = {}
@@ -278,7 +278,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
     # adapter can only reproduce under HUNMIN_COMMIT_PER_SYLLABLE. They are
     # alternative answers to the same question -- name the model, or switch the
     # policy -- so a trace carries at most one (see the writer below).
-    cases: list[tuple[str, list[str], str, bool]] = []
+    cases: list[tuple[str, list[str], str, bool, dict]] = []
     excluded: list[dict] = []  # cases this platform cannot encode, and why
     body: list[str] = []
     # True once this case has committed a syllable on a key it also consumed:
@@ -303,8 +303,9 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             if refused:
                 excluded.append({"case": name, "state": [refused]})
             elif body:
+                _opts = {k: v for k, v in current.items() if k in OPTION_KEYS}
                 cases.append((name, body, cumulative_commits + last_preedit,
-                              mid_stream_commit))
+                              mid_stream_commit, _opts))
             body = []
             cumulative_commits = ""
             last_preedit = ""
@@ -314,17 +315,10 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             name = rec["meta"]["case"]
             # per-case engine state, minus the label itself
             current = {k: v for k, v in rec["meta"].items() if k != "case"}
-            for k in current:
-                if k in OPTION_KEYS:
-                    # Only refuse when the offending case is actually going
-                    # to be emitted. With --only-case, a case carrying an
-                    # unsupported engine option (w/W) is dropped from the
-                    # output by the filter below, so it must not abort the
-                    # whole golden -- that is what lets the pure-caps cases
-                    # of p2-2-4-3-caps.jsonl be emitted (issue #184).
-                    if a.only_case and name not in a.only_case:
-                        continue
-                    unsupported.add(k)
+            # Engine-option flags (w/W/z/h/H) are no longer refused:
+            # they are carried in the case separator's `options` field and
+            # applied by the runner via hunmin_buffered_preedit_set_option.
+            # Issue #184.
             # A caps case is encodable on every platform that carries the
             # bit in `mods` (x11 LockMask, win32 0x02); it is applied per
             # event in the emit loop below. Issue #184.
@@ -408,7 +402,8 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
     if refused:
         excluded.append({"case": name, "state": [refused]})
     elif body:
-        cases.append((name, body, cumulative_commits + last_preedit, mid_stream_commit))
+        _opts = {k: v for k, v in current.items() if k in OPTION_KEYS}
+        cases.append((name, body, cumulative_commits + last_preedit, mid_stream_commit, _opts))
     unsupported -= {"caps"}  # encoded in x11/win32 mods
     return cases, unsupported, head, excluded
 
@@ -492,12 +487,13 @@ def main() -> int:
               + ", ".join(f"{e['case']} ({'+'.join(e['state'])})" for e in excluded),
               file=sys.stderr)
 
+    # All OPTION_KEYS are now carried in the trace's case separator as an
+    # `options` field and applied by the runner, so `unsupported` should be
+    # empty. Keep the guard for genuinely unknown keys (mode, autoswitch, ...).
     if unsupported:
         raise SystemExit(
             f"{a.golden}: case state {sorted(unsupported)} has no "
-            "native encoding in the trace format; replaying it needs an engine-"
-            "option channel that tools/trace-check.py cannot yet drive. Refusing "
-            "to emit a trace that would assert the wrong expectation."
+            "native encoding in the trace format."
         )
 
     # A golden's {"meta": {"case": ...}} lines separate INDEPENDENT cases: each
@@ -521,19 +517,21 @@ def main() -> int:
         # text and compares it cumulatively, so a mid-stream commit is observed
         # wherever the adapter chooses to deliver it. Say so in the terminal
         # rather than in a field the dialect does not define.
-        needs = [name for name, _, _, mid in cases if mid]
+        needs = [name for name, _, _, mid, _ in cases if mid]
         if needs:
             print(f"{a.out}: {len(needs)} case(s) commit mid-stream ({', '.join(needs)}); "
                   "a batch trace leaves the delivery point to the runner",
                   file=sys.stderr)
         batch = [out_lines[0]]
-        for i, (name, body, _, _) in enumerate(cases, 1):
-            batch.append(json.dumps({"meta": {"case": name, "case_index": i}},
-                                    ensure_ascii=False))
+        for i, (name, body, _, _, opts) in enumerate(cases, 1):
+            _sep = {"case": name, "case_index": i}
+            if opts:
+                _sep["options"] = opts
+            batch.append(json.dumps({"meta": _sep}, ensure_ascii=False))
             batch.extend(body)
         a.out.write_text("\n".join(batch) + "\n", encoding="utf-8")
         print(f"{a.out}: {len(cases)} cases, "
-              f"{sum(len(b) for _, b, _, _ in cases)} events", file=sys.stderr)
+              f"{sum(len(b) for _, b, _, _, _ in cases)} events", file=sys.stderr)
         return 0
 
     def delivery_meta(total: str) -> dict:

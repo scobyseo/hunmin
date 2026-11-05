@@ -7,6 +7,16 @@
 {"in": {"vk": 74, "scan": 36, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
 {"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
 {"in": {"vk": 49, "scan": 2, "mods": 0}, "commit": "ㅇµ", "preedit": "", "consumed": true}
-{"meta": {"case": "caps-vowel", "case_index": 3}}
+{"meta": {"case": "caps-w0-tier-open", "case_index": 3, "options": {"w": 0}}}
+{"in": {"vk": 74, "scan": 36, "mods": 2}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 75, "scan": 37, "mods": 2}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 49, "scan": 2, "mods": 2}, "commit": "ㅇµ", "preedit": "", "consumed": true}
+{"meta": {"case": "caps-vowel", "case_index": 4}}
 {"in": {"vk": 75, "scan": 37, "mods": 2}, "commit": "", "preedit": "ㄱ", "consumed": true}
 {"in": {"vk": 191, "scan": 53, "mods": 2}, "commit": "ㄱ", "preedit": "ㅋ", "consumed": true}
+{"meta": {"case": "W-off-I", "case_index": 5, "options": {"W": 0}}}
+{"in": {"vk": 74, "scan": 36, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 73, "scan": 23, "mods": 1}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"meta": {"case": "W-on-I", "case_index": 6, "options": {"W": 1}}}
+{"in": {"vk": 74, "scan": 36, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
+{"in": {"vk": 73, "scan": 23, "mods": 1}, "commit": "", "preedit": "ᅃᅠ", "consumed": true}
