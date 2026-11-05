@@ -1161,3 +1161,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   mutation — recorded, not re-decided. New page:
   [[2026-11-04-tier-e1s-eight-reds-were-seven-tests]]; board rows
   `EDITKEY-CATALOGUE-95`, `AND-SPECIAL-159`, `AND-SETTINGS-E1-177` re-measured.
+
+## [2026-11-05] create | the settings row names the support condition (issue #215)
+
+- Decided by the maintainer: the TSF settings row reads
+  `자동 한/영 전환 (지원 앱에서만, Ctrl+한/영)`. The dialog has no host handle and
+  delivery is frontend state, so the label states the condition instead of
+  guessing the running host's mode; the data-missing suffix is unchanged and the
+  fcitx5/Android labels stay `자동 한/영 전환`. Recorded in
+  `docs/FRONTEND-EQUIVALENCE.md` §2.1, pinned by
+  `TsfSettingsTest.TheAutomaticSwitchRowComesFromTheEngine`.
+- New page: [[2026-11-05-the-settings-row-names-the-support-condition]].
+  Updated the 2026-11-02 page's open-question bullet to point at it. Board row
+  `TSF-AUTOSWITCH-ROW-HOST-215` re-pointed; `AUTOSWITCH-TSF-ROW-175` re-measured.

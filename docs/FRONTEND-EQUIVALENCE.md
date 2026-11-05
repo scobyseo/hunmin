@@ -66,12 +66,22 @@ engine never holds a state this delivery cannot honour. Pinned by
 `TsfConfigTest.TheInterimDeliveryDoesNotHoldTheSwitch`: the store says 1, the
 layer answers 0, and a Latin-mode key still passes to the app.
 
+**What the settings row may say — decided 2026-11-05 (issue #215).** The dialog
+is a separate process and cannot know a host's runtime delivery mode, so it
+cannot say whether the running host will honour the switch. The row therefore
+names the support condition instead of the host's state. Maintainer's wording:
+
+> 자동 한/영 전환 (지원 앱에서만, Ctrl+한/영)
+
+The qualifier is true whatever host reads it, so the control no longer promises
+something the interim delivery ignores, and the standalone rundll32 path (which
+has no live service to ask) needs no new channel. The data-missing suffix is
+unchanged: `… — 사전 없음: 사용할 수 없음`. The fcitx5 and Android rows stay
+`자동 한/영 전환`: they have no interim delivery and their chord is already
+correct.
+
 What this ruling does NOT decide:
 
-- **The settings row still shows the stored value.** The dialog is a separate
-  process and cannot know a host's runtime delivery mode, so on a classic
-  default-sink host the row can advertise ON while that host does nothing with it.
-  Whether the row should say so (and how it could know) is open.
 - **Whether a future interim shape could carry it.** The two shapes priced in the
   pre-ruling text — hold the word in one growing span, or keep the asymmetry —
   were the options; the ruling picks the second for now, and it does not say the

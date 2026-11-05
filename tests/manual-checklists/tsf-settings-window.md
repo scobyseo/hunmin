@@ -94,10 +94,13 @@ number LARGER than the current 216x164 DU template).
    apply to it with combos in place of the lists; the apply logs
    `settings: saved hangul=... latin=... keys=... autoswitch=N` and Cancel/X
    close with `settings: dialog closed got=-1 applied=0`, no write. Expected
-   row: **자동 한/영 전환 (Ctrl+한/영)** — a checkbox, checked when the store's
+   row: **자동 한/영 전환 (지원 앱에서만, Ctrl+한/영)** — a checkbox, checked when the store's
    `Autoswitch` is 1, and labelled from the ENGINE (issue #175): the chord half
    is the chord the engine holds for `HUNMIN_SPECIAL_AUTOSWITCH`, the key name
-   is the platform's. On a tree WITHOUT `libhunmin/data/modes/en-US.json` the
+   is the platform's. `지원 앱에서만` is intentional (issue #215, ruled
+   2026-11-05): the dialog is a separate process and cannot know whether the
+   reading host uses the native or interim delivery, so it names the condition
+   rather than guessing. On a tree WITHOUT `libhunmin/data/modes/en-US.json` the
    control is disabled and the label reads **— 사전 없음: 사용할 수 없음**; the
    open log line carries `autoswitch=<0|1> available=<0|1> key=<chord>한/영`.
 

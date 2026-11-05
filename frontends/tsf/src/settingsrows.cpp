@@ -88,11 +88,19 @@ void hunmin_tsf_autoswitch_row(hunmin_ctx *ctx, const char *hangulId, const char
         out->value = 0;
         snprintf(out->key, sizeof out->key, "Ctrl+\uD55C/\uC601");
     }
+    /* Issue #215, ruled 2026-11-05: the dialog cannot know a host's delivery
+     * mode, so the label names the condition instead of the host's state --
+     * "supported apps only", the maintainer's wording. The qualifier is true
+     * for both deliveries and never guesses, which is what the standalone
+     * rundll32 path needs (it has no live service to ask). */
     if (out->available) {
-        snprintf(out->label, sizeof out->label, "\uC790\uB3D9 \uD55C/\uC601 \uC804\uD658 (%s)", out->key);
+        snprintf(out->label, sizeof out->label, "\uC790\uB3D9 \uD55C/\uC601 \uC804\uD658 (\uC9C0\uC6D0 \uC571\uC5D0\uC11C\uB9CC, %s)", out->key);
     } else {
         /* R13-정정's discoverability rule applies to the disabled state: say
          * WHICH data is missing, not merely that the control is off. */
-        snprintf(out->label, sizeof out->label, "\uC790\uB3D9 \uD55C/\uC601 \uC804\uD658 (%s) \u2014 \uC0AC\uC804 \uC5C6\uC74C: \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC74C", out->key);
+        snprintf(out->label, sizeof out->label,
+                 "\uC790\uB3D9 \uD55C/\uC601 \uC804\uD658 (\uC9C0\uC6D0 \uC571\uC5D0\uC11C\uB9CC, %s) "
+                 "\u2014 \uC0AC\uC804 \uC5C6\uC74C: \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC74C",
+                 out->key);
     }
 }
