@@ -37,6 +37,23 @@
  *   - r4-nothing-is-judged-in-flight carries no probe (it ends mid-word);
  *     the mode read-back is the assertion for it, as in the Android lane.
  *
+ * Issue #212: every case is replayed in BOTH delivery modes (§2). The
+ * interim replay forces HUNMIN_TSF_INTERIM=1 and reads the client through
+ * mock-tsf-edit.h's MockEditControl (the interim writer's channel, as in
+ * trace-emit), settling each posted write with FlushPendingDocWrites().
+ * Its expectations are NOT the corpus's: §2.1 (ruled 2026-11-02, "interim
+ * model cannot support autoswitch") makes the layer answer autoswitch=0
+ * there, so a case the corpus judges (`judged` non-empty) must stay in its
+ * starting mode -- the named difference, asserted, not skipped. For a
+ * hangul-mode judged case the delivered text is the Hangul reading (the
+ * corpus carries no autoswitch-off reading for it, so the lane asserts it
+ * differs from the judged commit); for a latin-mode judged case the keys
+ * are the app's passthrough (§2.2's interim arm), the mock emulates no app,
+ * and the control must stay empty. Cases the judgement does not move must
+ * deliver the corpus commit through either delivery -- that is §2's
+ * same-text rule, and it is what makes the interim replay an equivalence
+ * measurement rather than a second native run.
+ *
  * A case whose `mode` is `latin` IS replayed here: unlike the fcitx5 addon,
  * the TSF service owns its language and has a manual switch (the bare
  * Han/Eng key), so the lane toggles into Latin before typing. The toggle
@@ -57,6 +74,7 @@
 #include "../src/config.h"
 #include "../src/tsf.h"
 #include "mock-tsf.h"
+#include "mock-tsf-edit.h"
 #include "tsf-keystate-mock.h"
 #include "tsf-testdir.h"
 
@@ -101,6 +119,7 @@ struct CorpusCase {
     std::string modeAfter;
     std::string commit;
     int autoswitch = 1;
+    int judgedCount = 0;
     bool hasProbe = false;
     std::string probeKeys;
     std::string probeHangul;
@@ -139,6 +158,8 @@ std::vector<CorpusCase> loadCorpus(const std::string &path) {
             c.commit = jstr(j, "commit");
             const cJSON *as = cJSON_GetObjectItemCaseSensitive(j, "autoswitch");
             if (cJSON_IsNumber(as)) c.autoswitch = as->valueint;
+            const cJSON *jd = cJSON_GetObjectItemCaseSensitive(j, "judged");
+            if (cJSON_IsArray(jd)) c.judgedCount = cJSON_GetArraySize(jd);
             const cJSON *p = cJSON_GetObjectItemCaseSensitive(j, "probe");
             if (cJSON_IsObject(p)) {
                 c.hasProbe = true;
@@ -191,6 +212,7 @@ bool keyAt(const std::string &s, size_t &i, KeyPress &out) {
 }
 
 class TsfJudgementTest : public ::testing::Test {
+    friend void RunCase(TsfJudgementTest *, const CorpusCase &, bool);
 protected:
     void SetUp() override {
         _putenv_s("HUNMIN_DATA_DIR", HUNMIN_TSF_DATA_DIR);
@@ -207,34 +229,6 @@ protected:
         }
     }
 
-    /* Send one corpus key through test+down, Shift held for \s keys. Returns
-     * the text the mock document gained from it (UTF-8). */
-    std::string press(CTextService *svc, tsfmock::MockContext *mctx, const KeyPress &k) {
-        const std::wstring before = mctx->doc;
-        g_mockKeyState[VK_SHIFT & 0xFF] = k.shift ? (SHORT)0x8000 : (SHORT)0;
-        BOOL eat = FALSE;
-        svc->OnTestKeyDown(mctx, k.vk, 0, &eat);
-        svc->OnKeyDown(mctx, k.vk, 0, &eat);
-        g_mockKeyState[VK_SHIFT & 0xFF] = 0;
-        const std::wstring after = mctx->doc;
-        if (after.size() < before.size()) return std::string("\x01");
-        return wideToUtf8(after.substr(before.size()));
-    }
-
-    std::string type(CTextService *svc, tsfmock::MockContext *mctx, const std::string &keys,
-                     const std::string &what) {
-        std::string delivered;
-        size_t i = 0;
-        while (i < keys.size()) {
-            KeyPress k;
-            EXPECT_TRUE(keyAt(keys, i, k)) << "unknown key escape in " << what;
-            delivered += press(svc, mctx, k);
-        }
-        return delivered;
-    }
-
-    HunminTsfSnapshot Snap(CTextService *s) { return s->Snapshot(); }
-
     hunmin_ctx *ctx_ = nullptr;
 
     struct Service {
@@ -242,6 +236,7 @@ protected:
         tsfmock::MockContext *mctx = nullptr;
         tsfmock::MockDocumentMgr *dm = nullptr;
         CTextService *svc = nullptr;
+        tsfmock::MockEditControl *edit = nullptr;
         ~Service() {
             if (svc) svc->Release();
             if (mctx) mctx->Release();
@@ -250,21 +245,65 @@ protected:
         }
     };
 
+    /* The document a delivery writes: the mock's TSF document under
+     * native, the edit control under interim (trace-emit: DocText). */
+    std::wstring DocOf(Service &s, bool interim) { return interim ? s.edit->doc() : s.mctx->doc; }
+
+    /* Send one corpus key through test+down, Shift held for \s keys. Returns
+     * the text the delivery's document gained from it (UTF-8). Under the
+     * interim delivery the write is posted, so settle it before reading --
+     * exactly as trace-emit and the live host's next key event do. */
+    std::string press(Service &s, bool interim, const KeyPress &k) {
+        const std::wstring before = DocOf(s, interim);
+        g_mockKeyState[VK_SHIFT & 0xFF] = k.shift ? (SHORT)0x8000 : (SHORT)0;
+        BOOL eat = FALSE;
+        s.svc->OnTestKeyDown(s.mctx, k.vk, 0, &eat);
+        s.svc->OnKeyDown(s.mctx, k.vk, 0, &eat);
+        if (interim) s.svc->FlushPendingDocWrites();
+        g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+        const std::wstring after = DocOf(s, interim);
+        if (after.size() < before.size()) return std::string("\x01");
+        return wideToUtf8(after.substr(before.size()));
+    }
+
+    std::string type(Service &s, bool interim, const std::string &keys,
+                     const std::string &what) {
+        std::string delivered;
+        size_t i = 0;
+        while (i < keys.size()) {
+            KeyPress k;
+            EXPECT_TRUE(keyAt(keys, i, k)) << "unknown key escape in " << what;
+            delivered += press(s, interim, k);
+        }
+        return delivered;
+    }
+
+    HunminTsfSnapshot Snap(CTextService *s) { return s->Snapshot(); }
+
     /* A fresh service per case, with every env seam pinned so the host's
      * real HKCU store cannot leak in. The case's layout pair and autoswitch
      * VALUE are written before Activate. */
-    void makeService(Service &s, const CorpusCase &c) {
+    void makeService(Service &s, const CorpusCase &c, bool interim) {
         _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, c.layout.c_str());
         _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, c.latin.c_str());
         _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, c.autoswitch ? "1" : "0");
         _putenv_s(HUNMIN_TSF_ENV_COMMIT_UNIT, "word");
         _putenv_s(HUNMIN_TSF_ENV_TOGGLE_KEYS, "v1:165:0");
-        _putenv_s("HUNMIN_TSF_INTERIM", "");
+        _putenv_s("HUNMIN_TSF_INTERIM", interim ? "1" : "");
 
         s.tm = new tsfmock::MockThreadMgr();
         s.mctx = new tsfmock::MockContext();
         s.dm = new tsfmock::MockDocumentMgr(s.mctx);
         s.mctx->AddRef();
+        if (interim) {
+            /* The interim writer resolves its control by focus (issue
+             * #185): one control per process, reset per case -- the same
+             * harness trace-emit runs both modes through. */
+            static tsfmock::MockEditControl edit;
+            ASSERT_TRUE(edit.Create()) << "the mock edit control could not be created";
+            edit.Reset();
+            s.edit = &edit;
+        }
         s.svc = new CTextService();
         s.svc->Activate(s.tm, 1);
         g_mockKeyState[VK_SHIFT & 0xFF] = 0;
@@ -280,60 +319,87 @@ protected:
     }
 };
 
-TEST_F(TsfJudgementTest, CorpusReplay) {
+/* One case under one delivery. Returns void; failures carry SCOPED_TRACE. */
+void RunCase(TsfJudgementTest *t, const CorpusCase &c, bool interim) {
+    SCOPED_TRACE(std::string(interim ? "interim" : "native") + " case " + c.name);
+    TsfJudgementTest::Service s;
+    t->makeService(s, c, interim);
+    if (interim) {
+        EXPECT_TRUE(t->Snap(s.svc).legacyMode) << "the interim run is not on the interim delivery";
+        EXPECT_EQ(t->Snap(s.svc).autoswitch, 0)
+            << "§2.1: the interim delivery must answer autoswitch off at the layer";
+    }
+    ASSERT_TRUE(t->Snap(s.svc).hangulMode) << "the service starts in hangul mode";
+
+    if (c.mode == "latin") {
+        BOOL eat = FALSE;
+        s.svc->OnTestKeyDown(s.mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eat);
+        s.svc->OnKeyDown(s.mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eat);
+        if (interim) s.svc->FlushPendingDocWrites();
+        ASSERT_FALSE(t->Snap(s.svc).hangulMode) << "the toggle entered latin mode";
+    }
+
+    /* §2.1's named difference, in one place: under the interim delivery a
+     * judged case cannot switch, so its expected mode is its starting mode;
+     * every other case (unjudged, or autoswitch already off) must match the
+     * corpus mode_after through either delivery. */
+    const bool judged = c.judgedCount > 0;
+    const bool expectSwitch = !interim || !judged;
+    const std::string wantMode = expectSwitch ? c.modeAfter : c.mode;
+
+    t->type(s, interim, c.keys, "case keys");
+    const bool bounded = !c.keys.empty() && c.keys.back() == ' ';
+    if (bounded) {
+        const std::string total = wideToUtf8(t->DocOf(s, interim));
+        if (interim && c.mode == "latin") {
+            /* §2.2 interim arm: latin-mode keys are the app's passthrough
+             * and the mock emulates no app, so the control stays empty --
+             * named, measured, not skipped. */
+            EXPECT_EQ(total, "")
+                << "interim latin-mode passthrough: the control must stay empty (the app's text is not the mock's)";
+        } else if (interim && judged) {
+            /* §2.1: the word is delivered in the language it was typed in
+             * (the Hangul reading), never the judged commit. */
+            EXPECT_NE(total, c.commit)
+                << "interim judged case delivered the judged text anyway -- the switch fired where §2.1 says it cannot";
+            EXPECT_FALSE(total.empty()) << "interim judged case delivered nothing at all";
+        } else {
+            EXPECT_EQ(total, c.commit) << "the case delivered the wrong total text";
+        }
+    } else {
+        EXPECT_EQ(c.commit, "") << "a case with no trailing boundary but a commit the lane cannot place";
+    }
+
+    EXPECT_EQ(t->Snap(s.svc).hangulMode, wantMode == "hangul")
+        << "the case ended in the wrong mode (want " << wantMode << ")";
+
+    if (c.hasProbe) {
+        if (interim && wantMode == "latin") {
+            /* The probe keys are the app's too: nothing is delivered. */
+            EXPECT_EQ(t->type(s, interim, c.probeKeys, "probe"), "")
+                << "interim latin-mode probe delivered through the engine";
+        } else {
+            const std::string want = (wantMode == "latin") ? c.probeLatin : c.probeHangul;
+            EXPECT_EQ(t->type(s, interim, c.probeKeys, "probe"), want)
+                << "the probe did not deliver the " << wantMode << " reading";
+        }
+    }
+
+    t->clearEnv();
+}
+
+TEST_F(TsfJudgementTest, CorpusReplayNative) {
     const std::string path = corpusPath();
     const std::vector<CorpusCase> cases = loadCorpus(path);
     ASSERT_FALSE(cases.empty()) << "the corpus replayed nothing -- an unloaded file is not a green lane";
-    for (const CorpusCase &c : cases) {
-        SCOPED_TRACE("case " + c.name);
-        Service s;
-        makeService(s, c);
-        ASSERT_TRUE(Snap(s.svc).hangulMode) << "the service starts in hangul mode";
+    for (const CorpusCase &c : cases) RunCase(this, c, false);
+}
 
-        if (c.mode == "latin") {
-            /* The service owns its language: the bare Han/Eng key is the
-             * manual switch into Latin. */
-            BOOL eat = FALSE;
-            s.svc->OnTestKeyDown(s.mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eat);
-            s.svc->OnKeyDown(s.mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eat);
-            ASSERT_FALSE(Snap(s.svc).hangulMode) << "the toggle entered latin mode";
-        }
-
-        /* Every key, with the delivered text asserted CUMULATIVELY: TSF's
-         * native delivery inserts each completed syllable into the document
-         * as it is typed (its commit granularity is the syllable, where the
-         * corpus's step_commits timing is the x11/Android dialect -- §3's
-         * allowed difference, taken here and said out loud). So what this
-         * lane can compare is the total the case delivered, which must be
-         * the corpus's commit, word for word. */
-        type(s.svc, s.mctx, c.keys, "case keys");
-        if (!c.keys.empty() && c.keys.back() == ' ') {
-            EXPECT_EQ(wideToUtf8(s.mctx->doc), c.commit)
-                << "the case delivered the wrong total text";
-        } else {
-            /* Mid-word case (r4): no boundary key, so there is no commit to
-             * compare -- the document holds TSF's per-syllable inserts of
-             * the word in flight. The mode read-back below is this case's
-             * assertion, as in the Android lane; the total is not asserted
-             * where the corpus carries no commit either. */
-            EXPECT_EQ(c.commit, "") << "a case with no trailing boundary but a commit the lane cannot place";
-        }
-
-        /* The mode, read directly off the adapter: the corpus's mode_after
-         * must be the mode the service is actually in. */
-        EXPECT_EQ(Snap(s.svc).hangulMode, c.modeAfter == "hangul")
-            << "the case ended in the wrong mode (mode_after=" << c.modeAfter << ")";
-
-        /* And through its consequence: the corpus probe typed in the mode
-         * the case ended in must deliver the reading the corpus says. */
-        if (c.hasProbe) {
-            const std::string want = (c.modeAfter == "latin") ? c.probeLatin : c.probeHangul;
-            EXPECT_EQ(type(s.svc, s.mctx, c.probeKeys, "probe"), want)
-                << "the probe did not deliver the " << c.modeAfter << " reading";
-        }
-
-        clearEnv();
-    }
+TEST_F(TsfJudgementTest, CorpusReplayInterim) {
+    const std::string path = corpusPath();
+    const std::vector<CorpusCase> cases = loadCorpus(path);
+    ASSERT_FALSE(cases.empty()) << "the corpus replayed nothing -- an unloaded file is not a green lane";
+    for (const CorpusCase &c : cases) RunCase(this, c, true);
 }
 
 } // namespace
