@@ -238,6 +238,12 @@ not a frontend that fails. Three facts, each measured rather than assumed:
   given, field for field. It reads the expectation verbatim from the `.in` and
   replays through `hunmin_ic`, so mid-word commits are fine, and it resets its input
   context at a case separator, so a batch file is one ctest here too.
+- **win32 case separator `options`** — a case separator may carry an `options` object
+  (`{"meta": {"case": "...", "options": {"w": 0}}}`) whose keys are engine
+  option names (`w`, `W`, `z`, `h`, `H`) and values are 0/1. The runner
+  applies them via `hunmin_buffered_preedit_set_option` at the case
+  boundary, mirroring the TIP's per-event option feed. CapsLock stays in
+  `mods` (`0x02`), not in `options`.
 - **win32 can express any golden** — `mods` carries Shift (`0x01`) and the emitter
   reconstructs tier A's per-event commit from the adapter's own buffered word
   (`frontends/tsf/test/trace-emit.cpp`) — but emitting a `.gold` needs a Windows host.
