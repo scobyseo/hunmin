@@ -194,6 +194,12 @@ TEST_F(TsfSettingsTest, TheAutomaticSwitchRowComesFromTheEngine) {
     EXPECT_EQ(row.value, 1) << "the stored value reached the engine and came back";
     EXPECT_STREQ(row.key, "Ctrl+\xED\x95\x9C/\xEC\x98\x81") << "the chord is the engine's, the key name is the platform's (UTF-8 한/영)";
     EXPECT_NE(std::string(row.label).find(row.key), std::string::npos) << "the label names the key: '" << row.label << "'";
+    /* Issue #215, ruled 2026-11-05: the dialog has no host handle, so the label
+     * names the condition ("지원 앱에서만") instead of the host's delivery state. */
+    EXPECT_STREQ(row.label,
+                 "\xEC\x9E\x90\xEB\x8F\x99\x20\xED\x95\x9C\x2F\xEC\x98\x81\x20\xEC\xA0\x84\xED\x99\x98\x20\x28\xEC\xA7\x80\xEC\x9B\x90"
+                 "\x20\xEC\x95\xB1\xEC\x97\x90\xEC\x84\x9C\xEB\xA7\x8C\x2C\x20\x43\x74\x72\x6C\x2B\xED\x95\x9C\x2F\xEC\x98\x81\x29")
+        << "the label qualifies the host without guessing it: '" << row.label << "'";
 
     /* Stored OFF: the same row, unchecked -- the value is read, not assumed. */
     hunmin_tsf_autoswitch_row(ctx_, "dubeolsik", "us-qwerty", 0, &row);
@@ -207,6 +213,12 @@ TEST_F(TsfSettingsTest, TheAutomaticSwitchRowComesFromTheEngine) {
     EXPECT_EQ(row.available, 0) << "no data gate answer means not available";
     EXPECT_EQ(row.value, 0) << "a stored 1 cannot be shown as ON when the data is absent";
     EXPECT_NE(std::string(row.label).find(row.key), std::string::npos) << "the disabled row still names the key: '" << row.label << "'";
+    EXPECT_STREQ(row.label,
+                 "\xEC\x9E\x90\xEB\x8F\x99\x20\xED\x95\x9C\x2F\xEC\x98\x81\x20\xEC\xA0\x84\xED\x99\x98\x20\x28\xEC\xA7\x80\xEC\x9B\x90"
+                 "\x20\xEC\x95\xB1\xEC\x97\x90\xEC\x84\x9C\xEB\xA7\x8C\x2C\x20\x43\x74\x72\x6C\x2B\xED\x95\x9C\x2F\xEC\x98\x81\x29"
+                 "\x20\xE2\x80\x94\x20\xEC\x82\xAC\xEC\xA0\x84\x20\xEC\x97\x86\xEC\x9D\x8C\x3A\x20\xEC\x82\xAC\xEC\x9A\xA9\xED\x95\xA0"
+                 "\x20\xEC\x88\x98\x20\xEC\x97\x86\xEC\x9D\x8C")
+        << "the disabled row says which data is missing: '" << row.label << "'";
     EXPECT_NE(row.label[0], '\0') << "a disabled row that says nothing is the defect this guards";
 }
 

@@ -49,9 +49,10 @@ shipped.
 ## What neither one decides
 
 - **What the settings row may say** about a host whose delivery ignores the
-  setting: the dialog is a separate process and cannot know the running host's
-  mode, so it can advertise ON where the interim path does nothing. Recorded as an
-  open question in `docs/FRONTEND-EQUIVALENCE.md` §2.1 and filed as issue #215.
+  setting — decided 2026-11-05 as issue #215: the dialog cannot know the running
+  host's mode, so the row names the support condition instead of guessing. The
+  wording and reasoning are on
+  [[2026-11-05-the-settings-row-names-the-support-condition]].
 - **Whether routing English keys through the engine is free on a live host** —
   caret, undo units and selection in a real control. Filed as issue #216; the mock
   has no host insertion policy to measure against.
