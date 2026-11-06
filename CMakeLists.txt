@@ -128,7 +128,12 @@ if(PkgConfig_FOUND)
   endif()
 endif()
 
-find_program(HUNMIN_SH sh PATHS /bin /usr/bin)
+# One shell resolver for every test that needs a POSIX shell. A Windows host
+# has no sh on PATH (Git for Windows keeps sh.exe under its install root), so
+# hint at both Git locations; POSIX still resolves /bin/sh below.
+find_program(HUNMIN_SH sh
+  PATHS /bin /usr/bin
+  HINTS "$ENV{ProgramFiles}/Git/usr/bin" "$ENV{ProgramFiles}/Git/bin")
 if(HUNMIN_HAS_LIBHANGUL AND HUNMIN_SH)
   add_custom_target(goldens
     COMMAND ${HUNMIN_SH} ${CMAKE_CURRENT_SOURCE_DIR}/tools/regen-goldens.sh
@@ -473,7 +478,7 @@ if(BUILD_TESTING AND Python3_FOUND)
   # `fcitx5-modules-dev` silently dropped the addon and 104 conformance tests
   # never registered, which reads as green (see ci.yml's build-deps comment).
   add_test(NAME builds-fcitx5-addon
-    COMMAND sh -c
+    COMMAND ${HUNMIN_SH} -c
       "if cmake --build ${CMAKE_BINARY_DIR} --target help 2>/dev/null | grep -q hunmin_addon; then
          cmake --build ${CMAKE_BINARY_DIR} --target hunmin_addon;
        else
@@ -1292,5 +1297,19 @@ if(BUILD_TESTING)
       COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tools/abi-check.sh
               $<TARGET_FILE:hunmin> ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/tests/abi/symbols.txt)
     set_tests_properties(abi PROPERTIES LABELS "tier-B;guard")
+  endif()
+
+  # One UTF-8 default for every test's Python tools. Python on Windows defaults
+  # to the ANSI code page (cp949 here), so Korean output and em dashes became
+  # UnicodeDecodeError in subprocess text mode and UnicodeEncodeError on print
+  # at 37 separate call sites. UTF-8 mode changes open(), Path.read_text() and
+  # subprocess text mode at once, and the environment variable is inherited by
+  # child Python processes (a -X utf8 flag would not be). Tests in
+  # subdirectories are C++ today; a Python test added there needs this block
+  # in that directory too.
+  get_property(HUNMIN_TESTS DIRECTORY PROPERTY TESTS)
+  if(HUNMIN_TESTS)
+    set_tests_properties(${HUNMIN_TESTS} PROPERTIES
+      ENVIRONMENT_MODIFICATION "PYTHONUTF8=set:1")
   endif()
 endif()

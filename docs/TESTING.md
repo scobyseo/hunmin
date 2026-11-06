@@ -1292,17 +1292,24 @@ Four layers, cheap→real:
   generator copies verbatim from tier A — identical on all 688 events, so
   nothing was accepted blind. Regenerated 2026-11-06 from the goldens after
   the 2026-11-03 case merge (issue #231): each family is one merged case, so
-  the corpus is 11 traces / 14 cases / 780 events and tier-F1 is 23/23 green
-  in both delivery modes; the 92 added events are exactly the space
-  boundaries the merge introduced, every `.gold` still equals its `.in` on
-  all 780 events, and each family's cumulative text is unchanged — the merge
-  moved where the boundaries sit, not what the corpus asserts.
+  the corpus was 11 traces / 14 cases / 780 events and tier-F1 was 23/23
+  green in both delivery modes; the 92 added events were exactly the space
+  boundaries the merge introduced, every `.gold` equalled its `.in` on all
+  780 events, and each family's cumulative text was unchanged — the merge
+  moved where the boundaries sit, not what the corpus asserts. On 2026-11-07
+  the caps family (issue #184) brought it to 12 traces / 21 cases / 797
+  events and tier-F1 to 25/25 green, with every `.gold` equal to its `.in` on
+  all 797 events.
 
   Caps-on `k/` is now covered (issue #184): win32 `mods` bit `0x02` is the
   CapsLock state, and `tests/conformance/win32/manual-sin3-p2-yet.trace.in`
   replays all merged cases with no `meta.excluded`. (The 2026-10-31
   measurement — 고 where tier A records commit ㄱ + preedit ㅋ — was the
-  caps-OFF emission that proved the bit was necessary.)
+  caps-OFF emission that proved the bit was necessary.) `p2-2-4-3-caps`
+  joins the corpus with its six cases, including the per-case `w`/`W` engine
+  options: the case separator's `options` object (docs/trace-spec.md) is
+  applied through `hunmin_buffered_preedit_set_option` on the fresh engine,
+  and its `.gold` was re-emitted and compared event for event to the `.in`.
 
   Not yet covered: a backspace boundary (no sin3-p2 tier-A golden
   carries one) and overlay-window presentation (needs real HWNDs, stubbed via

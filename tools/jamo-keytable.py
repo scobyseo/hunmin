@@ -78,7 +78,8 @@ def batch(keys_list, layout):
     if not keys_list:
         return []
     r = subprocess.run([str(SIM), "--data", str(DATA), "--layout", layout, "--batch"],
-                       input="\n".join(keys_list), capture_output=True, text=True, timeout=600)
+                       input="\n".join(keys_list), capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=600)
     if r.returncode != 0:
         raise RuntimeError(f"sim --batch failed: {r.stderr.strip()[:300]}")
     return [json.loads(l) for l in r.stdout.splitlines() if l.strip()]

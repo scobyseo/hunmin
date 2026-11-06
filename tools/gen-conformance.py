@@ -462,7 +462,7 @@ def main() -> int:
     cases = all_cases
 
     if a.only_case:
-        seen = {name for name, _, _, _ in cases}
+        seen = {name for name, *_ in cases}
         missing = [c for c in a.only_case if c not in seen]
         if missing:
             raise SystemExit(f"{a.golden}: --only-case named no case: {missing} "
@@ -556,13 +556,14 @@ def main() -> int:
         # ';' splits CMake's list. So the label stays in `meta.case` for humans
         # and the FILENAME gets a stable ASCII index instead. Deterministic
         # because cases are emitted in file order.
-        for i, (name, body, total, mid_stream_commit) in enumerate(cases, 1):
+        for i, (name, body, total, mid_stream_commit, opts) in enumerate(cases, 1):
             f = a.out.with_name(f"{stem}-case{i:02d}.trace.in")
             # manual-sin3-p2-yet.jsonl has two cases both labelled "k/" -- one
             # caps:0, one caps:1 -- so a label alone does not identify a case.
             # case_index is authoritative; the label is for humans.
             case_meta = {**json.loads(out_lines[0])["meta"], "case": name,
                          "case_index": i, "case_id": f"{a.case}#{i:02d}",
+                         **({"options": opts} if opts else {}),
                          **delivery_meta(total)}
             # One answer per trace: naming the delivery model and switching the
             # addon's policy would assert two different things about one run.
@@ -576,8 +577,10 @@ def main() -> int:
     # Single-case golden: the events live in `body`, not `out_lines` (which
     # holds only the header). Writing out_lines here produced a header-only file,
     # i.e. a trace that asserts nothing.
-    name, body, total, mid_stream_commit = cases[0]
-    head = {**json.loads(out_lines[0])["meta"], **delivery_meta(total)}
+    name, body, total, mid_stream_commit, opts = cases[0]
+    head = {**json.loads(out_lines[0])["meta"],
+            **({"options": opts} if opts else {}),
+            **delivery_meta(total)}
     if body and mid_stream_commit and not a.delivery:
         head["commit_mode"] = COMMIT_MODE_FOR_MID_STREAM
     a.out.write_text("\n".join([json.dumps({"meta": head}, ensure_ascii=False)] + body) + "\n",

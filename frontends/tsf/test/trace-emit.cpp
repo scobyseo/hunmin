@@ -33,6 +33,7 @@
 #include <richedit.h>
 #include <shlwapi.h>
 #include <string>
+#include <utility>
 #include <vector>
 #include <windows.h>
 
@@ -185,6 +186,41 @@ std::string stringField(const std::string &line, const char *key) {
         o += line[p++];
     }
     return o;
+}
+
+// Case-separator engine options (docs/trace-spec.md): `options` is an object
+// of option name -> 0/1, applied to the fresh engine at the case boundary.
+std::vector<std::pair<std::string, int>> optionFields(const std::string &line) {
+    std::vector<std::pair<std::string, int>> out;
+    auto p = line.find("\"options\"");
+    if (p == std::string::npos)
+        return out;
+    p = line.find('{', p);
+    if (p == std::string::npos)
+        return out;
+    const auto end = line.find('}', p);
+    if (end == std::string::npos)
+        return out;
+    while (p < end) {
+        const auto q = line.find('"', p);
+        if (q == std::string::npos || q >= end)
+            break;
+        const auto r = line.find('"', q + 1);
+        if (r == std::string::npos || r > end)
+            break;
+        const std::string name = line.substr(q + 1, r - q - 1);
+        auto c = line.find(':', r + 1);
+        if (c == std::string::npos || c > end)
+            break;
+        ++c;
+        while (c < end && std::isspace(static_cast<unsigned char>(line[c])))
+            ++c;
+        out.emplace_back(name, static_cast<int>(std::strtol(line.c_str() + c, nullptr, 0)));
+        p = line.find(',', c);
+        if (p == std::string::npos || p > end)
+            break;
+    }
+    return out;
 }
 
 std::vector<std::string> readLines(const std::string &path) {
@@ -388,6 +424,14 @@ int main(int argc, char **argv) {
             startRun();
             heldExpected.clear();
             cumulativeCommits.clear();
+            /* The case separator's `options` (docs/trace-spec.md): engine
+             * options the source golden pinned for this case, applied to the
+             * fresh engine before its first key. A rejected name is a trace the
+             * runner cannot reproduce, not a value to ignore. */
+            for (const auto &opt : optionFields(line)) {
+                if (!hunmin_buffered_preedit_set_option(SvcSnap().layer, opt.first.c_str(), opt.second))
+                    fail("case separator option \"" + opt.first + "\" is not an engine option");
+            }
             std::cout << line << "\n";
             continue;
         }

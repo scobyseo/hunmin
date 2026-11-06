@@ -36,7 +36,7 @@ remaining lines are events.
 | `layout` | hunmin layout id the frontend was configured with. |
 | `case` | free-form label; ties the trace back to the tier A case it replays. |
 | `source` | optional provenance: which `tests/golden/*.jsonl` case this replays. |
-| `excluded` | optional provenance: the source golden's cases this platform cannot encode, e.g. `[{"case": "k/", "state": ["caps"]}]`. A trace carrying it covers every case of that golden **except** these; the omission lives in the artefact rather than in a terminal. `tools/gen-conformance.py` writes it (win32 refuses caps cases — see `in` below). |
+| `excluded` | optional provenance: the source golden's cases this platform cannot encode, e.g. `[{"case": "k/", "state": ["some-option"]}]`. A trace carrying it covers every case of that golden **except** these; the omission lives in the artefact rather than in a terminal. `tools/gen-conformance.py` writes it only for a case state the platform has no encoding for (the 2026-10 win32 caps refusal was lifted by issue #184 — caps is now `mods` `0x02`). |
 | `delivery` | optional: `{"model": "word-buffered", "total": "<text>"}` when the frontend buffers a whole eojeol and delivers it at a boundary, so tier A's per-key `commit` is not what the client receives. `total` is the cumulative text the case produces, computed from the golden by `tools/gen-conformance.py --delivery`. The runner rejects a model it does not know — see "Word-buffered adapters". |
 | `commit_mode` | optional: `word` \| `syllable`, the delivery **policy** the adapter must run under for tier A's per-event expectations to be observable at the points they were recorded. Absent means the addon's own default (`word`). |
 

@@ -26,6 +26,8 @@ import subprocess
 import sys
 import tempfile
 
+from _hostcompat import native_cc_cxx
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # Files the Linux build/tests read as text and compare byte-for-byte (or run
@@ -116,6 +118,14 @@ def check_toolchain_pick() -> list[str]:
     try:
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
+            # The native pair must be on THIS host's PATH: POSIX images have
+            # cc/c++, while a Windows MinGW host has gcc/g++. A fixture that
+            # hardcodes cc/c++ fails here for being "foreign", which is the
+            # bug this guard is supposed to catch, not reproduce.
+            native_cc, native_cxx = native_cc_cxx()
+            if not (native_cc and native_cxx):
+                return ["host-guards: no C/C++ compiler on PATH to stand in for "
+                        "the native cache"]
             # Sorts before build-native, so it is the first glob hit -- the
             # exact way the Windows tree won on WSL.
             write_cache(
@@ -127,15 +137,15 @@ def check_toolchain_pick() -> list[str]:
             write_cache(
                 root / "build-b-native",
                 "CMAKE_GENERATOR:INTERNAL=Ninja\n"
-                "CMAKE_C_COMPILER:FILEPATH=cc\n"
-                "CMAKE_CXX_COMPILER:FILEPATH=c++\n",
+                f"CMAKE_C_COMPILER:FILEPATH={native_cc}\n"
+                f"CMAKE_CXX_COMPILER:FILEPATH={native_cxx}\n",
             )
             got = mod.Sandbox._parent_toolchain(root)
             want = [
                 "-G",
                 "Ninja",
-                "-DCMAKE_C_COMPILER=cc",
-                "-DCMAKE_CXX_COMPILER=c++",
+                f"-DCMAKE_C_COMPILER={native_cc}",
+                f"-DCMAKE_CXX_COMPILER={native_cxx}",
             ]
             problems = []
             if got != want:

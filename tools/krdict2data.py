@@ -33,6 +33,8 @@ import re
 import sys
 from pathlib import Path
 
+from _hostcompat import write_lf
+
 HANJA = re.compile(
     "[\u4e00-\u9fff"        # CJK Unified Ideographs
     "\u3400-\u4dbf"        # Extension A
@@ -147,8 +149,8 @@ def main() -> int:
     out_dir = args.out / "krdict"
     out_dir.mkdir(parents=True, exist_ok=True)
     dst = out_dir / f"{args.name}.json"
-    dst.write_text(json.dumps(table, ensure_ascii=False,
-                              separators=(",", ":")) + "\n", encoding="utf-8")
+    write_lf(dst, json.dumps(table, ensure_ascii=False,
+                             separators=(",", ":")) + "\n")
 
     m = table["meta"]
     print(f"krdict2data: {m['entries']} entries from {len(files)} file(s), "

@@ -577,6 +577,15 @@ does NOT exclude the slow tier here (docs-lint, labelled slow, runs inside it
 and passes; the run stays far inside the 30 s budget anyway). `-LE slow` alone
 is what excludes it. The semantics changed with CMake, not with this repo.
 
+**Python tools and the ANSI code page.** Python here defaults to cp949, so a
+tool that reads or writes Korean, or prints an em dash, fails outside UTF-8
+mode. CTest sets `PYTHONUTF8=1` for the tests registered in `CMakeLists.txt`
+(the `ENVIRONMENT_MODIFICATION` block at the end of its test section); a
+direct run needs the same setting:
+`PYTHONUTF8=1 python3 tools/...` or `python3 -X utf8 tools/...`. Prefer the
+environment variable when the tool spawns another Python process: only it is
+inherited, while `-X utf8` applies to the one interpreter that carries it.
+
 PATH entries to add (per-user, no admin):
 ```
 C:\Program Files\LLVM\bin
