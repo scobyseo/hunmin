@@ -8,9 +8,14 @@
  * (resolveLayoutSlot in src/tsf.cpp) against the real data dir.
  *
  * Registry hygiene: the round-trip case runs against an isolated throwaway
- * key (HKCU\Software\Hunmin\TSF-selftest, deleted on every exit path) and
- * never reads or writes the production store HKCU\Software\Hunmin\TSF — the
- * production store stays a manual-checklist surface, not a test side effect.
+ * key (HKCU\Software\Hunmin\TSF-selftest, deleted on every exit path). One
+ * case cannot avoid the production store HKCU\Software\Hunmin\TSF — the
+ * AUTOSWITCH chord goes through CTextService::SpecialPerform, which saves to
+ * HKEY_CURRENT_USER by design (that is a real user's path) — so the fixture
+ * snapshots those six values before every case and puts them back in
+ * TearDown (production-store-guard.h). Measured 2026-11-06: without the
+ * restore, this file flipped Autoswitch on every run and the tier-F1 win32
+ * corpus alternated pass/fail with it.
  *
  * Standalone TU (the include-.cpp seam is retired): the ctest entry
  * `tsf-config-test` selects this group with
@@ -29,6 +34,7 @@
 
 #include "../src/tsf.h"
 #include "mock-tsf.h"
+#include "production-store-guard.h"
 #include "tsf-keystate-mock.h"
 #include "tsf-testdir.h"
 
@@ -43,6 +49,11 @@ protected:
         tsf_test_register_keystate();
     }
     void TearDown() override {
+        /* The AUTOSWITCH chord case writes the production store through
+         * SpecialPerform -> config_save(HKEY_CURRENT_USER). Put back what was
+         * there before the test touched it -- the fixture snapshot (a member,
+         * so it was taken before SetUp) holds the raw registry values. */
+        store_.Restore();
         if (ctx_) {
             hunmin_ctx_free(ctx_);
             ctx_ = nullptr;
@@ -51,6 +62,7 @@ protected:
 
     HunminTsfSnapshot Snap(CTextService *s) { return s->Snapshot(); }
 
+    tsfmock::ProductionStoreSnapshot store_;
     hunmin_ctx *ctx_ = nullptr;
     HunminTsfConfig cfg_ = {}; /* the round-trip case's buffer */
 };
