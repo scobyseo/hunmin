@@ -1,41 +1,41 @@
 {"meta": {"platform": "win32", "layout": "sin3-p2-yet", "case": "p2-2-4-1-yetrules", "source": "p2-2-4-1-yetrules.jsonl (gate)"}}
-{"meta": {"case": "gs-banggih", "case_index": 1}}
+{"meta": {"case": "p2-2-4-1-yetrules-merged", "case_index": 1}}
 {"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
 {"in": {"vk": 78, "scan": 49, "mods": 0}, "commit": "", "preedit": "ㅿ", "consumed": true}
-{"meta": {"case": "gy-eng", "case_index": 2}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ㅿ", "preedit": "", "consumed": false}
 {"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
 {"in": {"vk": 74, "scan": 36, "mods": 0}, "commit": "", "preedit": "ㆁ", "consumed": true}
-{"meta": {"case": "gh-ieung-ieung", "case_index": 3}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ㆁ", "preedit": "", "consumed": false}
 {"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
 {"in": {"vk": 77, "scan": 50, "mods": 0}, "commit": "", "preedit": "ㆆ", "consumed": true}
-{"meta": {"case": "gh-h-ieung", "case_index": 4}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ㆆ", "preedit": "", "consumed": false}
 {"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
 {"in": {"vk": 77, "scan": 50, "mods": 0}, "commit": "", "preedit": "ㆆ", "consumed": true}
 {"in": {"vk": 77, "scan": 50, "mods": 0}, "commit": "", "preedit": "ꥼᅠ", "consumed": true}
-{"meta": {"case": "js-sieot", "case_index": 5}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ꥼᅠ", "preedit": "", "consumed": false}
 {"in": {"vk": 76, "scan": 38, "mods": 0}, "commit": "", "preedit": "ㅈ", "consumed": true}
 {"in": {"vk": 78, "scan": 49, "mods": 0}, "commit": "", "preedit": "ᄼᅠ", "consumed": true}
-{"meta": {"case": "cs-sieot", "case_index": 6}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ᄼᅠ", "preedit": "", "consumed": false}
 {"in": {"vk": 79, "scan": 24, "mods": 0}, "commit": "", "preedit": "ㅊ", "consumed": true}
 {"in": {"vk": 78, "scan": 49, "mods": 0}, "commit": "", "preedit": "ᄾᅠ", "consumed": true}
-{"meta": {"case": "jd-digeut", "case_index": 7}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ᄾᅠ", "preedit": "", "consumed": false}
 {"in": {"vk": 76, "scan": 38, "mods": 0}, "commit": "", "preedit": "ㅈ", "consumed": true}
 {"in": {"vk": 85, "scan": 22, "mods": 0}, "commit": "", "preedit": "ᅎᅠ", "consumed": true}
-{"meta": {"case": "cd-digeut", "case_index": 8}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ᅎᅠ", "preedit": "", "consumed": false}
 {"in": {"vk": 79, "scan": 24, "mods": 0}, "commit": "", "preedit": "ㅊ", "consumed": true}
 {"in": {"vk": 85, "scan": 22, "mods": 0}, "commit": "", "preedit": "ᅔᅠ", "consumed": true}
-{"meta": {"case": "jg-giyeok", "case_index": 9}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ᅔᅠ", "preedit": "", "consumed": false}
 {"in": {"vk": 76, "scan": 38, "mods": 0}, "commit": "", "preedit": "ㅈ", "consumed": true}
 {"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ᅐᅠ", "consumed": true}
-{"meta": {"case": "cg-giyeok", "case_index": 10}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ᅐᅠ", "preedit": "", "consumed": false}
 {"in": {"vk": 79, "scan": 24, "mods": 0}, "commit": "", "preedit": "ㅊ", "consumed": true}
 {"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ᅕᅠ", "consumed": true}
-{"meta": {"case": "ns-p-gihyeok", "case_index": 11}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ᅕᅠ", "preedit": "", "consumed": false}
 {"in": {"vk": 81, "scan": 16, "mods": 0}, "commit": "", "preedit": "ㅅ", "consumed": true}
 {"in": {"vk": 70, "scan": 33, "mods": 0}, "commit": "", "preedit": "ᅟᅠᇫ", "consumed": true}
-{"meta": {"case": "ng-p-giyeok", "case_index": 12}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ᅟᅠᇫ", "preedit": "", "consumed": false}
 {"in": {"vk": 67, "scan": 46, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
 {"in": {"vk": 70, "scan": 33, "mods": 0}, "commit": "ㄱ", "preedit": "ㅍ", "consumed": true}
-{"meta": {"case": "nh-p-giyeok", "case_index": 13}}
+{"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ㅍ", "preedit": "", "consumed": false}
 {"in": {"vk": 68, "scan": 32, "mods": 0}, "commit": "", "preedit": "ㅎ", "consumed": true}
 {"in": {"vk": 70, "scan": 33, "mods": 0}, "commit": "", "preedit": "ᅟᅠᇹ", "consumed": true}
