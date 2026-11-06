@@ -34,16 +34,14 @@ bool FindInDir(const wchar_t *dllDir, wchar_t *exe, size_t cap) {
     };
     for (const wchar_t *fmt : kCandidates) {
         wchar_t cand[2 * MAX_PATH];
-        _snwprintf(cand, _countof(cand), fmt, dllDir);
+        _snwprintf_s(cand, _countof(cand), _TRUNCATE, fmt, dllDir);
         if (!Exists(cand))
             continue;
         wchar_t full[MAX_PATH];
         if (GetFullPathNameW(cand, MAX_PATH, full, nullptr)) {
-            wcsncpy(exe, full, cap - 1);
-            exe[cap - 1] = L'\0';
+            wcsncpy_s(exe, cap, full, cap - 1);
         } else {
-            wcsncpy(exe, cand, cap - 1);
-            exe[cap - 1] = L'\0';
+            wcsncpy_s(exe, cap, cand, cap - 1);
         }
         return true;
     }
@@ -79,8 +77,7 @@ bool hunmin_tsf_settings_exe_find(const void *anchor, wchar_t *exe, size_t cap) 
         return false;
     }
     wchar_t dir[MAX_PATH];
-    wcsncpy(dir, dll, MAX_PATH - 1);
-    dir[MAX_PATH - 1] = L'\0';
+    wcsncpy_s(dir, MAX_PATH, dll, MAX_PATH - 1);
     wchar_t *slash = wcsrchr(dir, L'\\');
     if (!slash)
         return false;

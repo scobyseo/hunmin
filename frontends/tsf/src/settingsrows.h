@@ -41,6 +41,9 @@ int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *r
  *     engine's by ruling, the key's NAME is the one thing only the platform
  *     knows (docs/FRONTEND-EQUIVALENCE.md §3.1);
  *   - `available` is the data gate, and `label` carries the reason when it is 0.
+ *     Every label also names the support condition ("지원 앱에서만"): the dialog
+ *     is a separate process and cannot know a host's delivery mode, so it states
+ *     the condition rather than guessing the host's state (issue #215).
  * Returns 1 when the layer could be built (ctx and both ids), 0 otherwise -- in
  * which case the row still answers with the data gate and a reason, because a
  * settings surface that silently disables itself is the defect R13-정정 bans. */

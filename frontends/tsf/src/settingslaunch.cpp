@@ -29,8 +29,7 @@ bool hunmin_tsf_settings_exe_run(HWND parent, wchar_t *exeResolved, size_t cap) 
     if (!hunmin_tsf_settings_exe_find((const void *)&hunmin_tsf_settings_exe_run, exe, MAX_PATH))
         return false;
     if (exeResolved && cap) {
-        wcsncpy(exeResolved, exe, cap - 1);
-        exeResolved[cap - 1] = L'\0';
+        wcsncpy_s(exeResolved, cap, exe, cap - 1);
     }
 
     hunmin_logger.log("settings-exe: launching %ls\n", exe);

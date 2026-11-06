@@ -132,15 +132,11 @@ TEST(HangulValidTest, EveryAllowedTripleIsAccepted) {
             for (uint32_t jong = 0; jong <= kJongCount; jong++) {
                 /* jong == 0 is the (cho + jung) shape; 1..27 are the 27
                  * jongseong of the (cho + jung + jong) shape. 28 slots. */
-                const uint32_t expected =
-                    kSyllableFirst + ((cho * kJungCount + jung) * 28) + jong;
+                const uint32_t expected = kSyllableFirst + ((cho * kJungCount + jung) * 28) + jong;
                 const std::string text = one(expected);
                 checked++;
                 if (hunmin_hangul_valid(text.c_str()) != 1) {
-                    if (mismatched < 8) {
-                        ADD_FAILURE() << "rejected cho#" << cho << " jung#" << jung
-                                      << " jong#" << jong << " (" << text << ")";
-                    }
+                    if (mismatched < 8) { ADD_FAILURE() << "rejected cho#" << cho << " jung#" << jung << " jong#" << jong << " (" << text << ")"; }
                     mismatched++;
                 }
             }
@@ -227,9 +223,7 @@ TEST(HangulValidTest, NoRunOfJamoIsEverValid) {
         for (uint32_t b : jamo) {
             const std::string pair = first + one(b);
             if (valid(pair) != 0 || valid("랴" + pair) != 0) {
-                if (wrong < 8) {
-                    ADD_FAILURE() << "accepted U+" << std::hex << a << " U+" << b;
-                }
+                if (wrong < 8) { ADD_FAILURE() << "accepted U+" << std::hex << a << " U+" << b; }
                 wrong++;
             }
         }
@@ -255,8 +249,7 @@ TEST(HangulValidTest, RunsKeepValidityAndOneForeignCharacterBreaksIt) {
     for (char foreign : {' ', '1', 'a', '.', '-', '\t'}) {
         EXPECT_EQ(0, valid(run + foreign)) << "'" << foreign << "' appended";
         EXPECT_EQ(0, valid(foreign + run)) << "'" << foreign << "' prepended";
-        EXPECT_EQ(0, valid(run.substr(0, 4) + foreign + run.substr(4)))
-            << "'" << foreign << "' in the middle";
+        EXPECT_EQ(0, valid(run.substr(0, 4) + foreign + run.substr(4))) << "'" << foreign << "' in the middle";
     }
 }
 
@@ -265,10 +258,10 @@ TEST(HangulValidTest, RunsKeepValidityAndOneForeignCharacterBreaksIt) {
 TEST(HangulValidTest, EmptyNullAndMalformedAreZero) {
     EXPECT_EQ(0, hunmin_hangul_valid(nullptr));
     EXPECT_EQ(0, valid(""));
-    EXPECT_EQ(0, valid("\xC3"));                 /* truncated 2-byte sequence */
-    EXPECT_EQ(0, valid("\xED\xA0\x80"));         /* UTF-16 surrogate half */
-    EXPECT_EQ(0, valid("\xC0\xAF"));             /* overlong "/" */
-    EXPECT_EQ(0, valid("\x80"));                 /* stray continuation byte */
+    EXPECT_EQ(0, valid("\xC3")); /* truncated 2-byte sequence */
+    EXPECT_EQ(0, valid("\xED\xA0\x80")); /* UTF-16 surrogate half */
+    EXPECT_EQ(0, valid("\xC0\xAF")); /* overlong "/" */
+    EXPECT_EQ(0, valid("\x80")); /* stray continuation byte */
     EXPECT_EQ(0, valid("\xF8\x88\x80\x80\x80")); /* 5-byte form */
 }
 
@@ -320,15 +313,9 @@ std::vector<uint32_t> set_range(std::initializer_list<std::pair<uint32_t, uint32
     return v;
 }
 
-std::vector<uint32_t> cho_set() {
-    return set_range({{0x1100, 0x115F}, {0xA960, 0xA97C}});
-}
-std::vector<uint32_t> jung_set() {
-    return set_range({{0x1160, 0x11A7}, {0xD7B0, 0xD7C6}});
-}
-std::vector<uint32_t> jong_set() {
-    return set_range({{0x11A8, 0x11FF}, {0xD7CB, 0xD7FB}});
-}
+std::vector<uint32_t> cho_set() { return set_range({{0x1100, 0x115F}, {0xA960, 0xA97C}}); }
+std::vector<uint32_t> jung_set() { return set_range({{0x1160, 0x11A7}, {0xD7B0, 0xD7C6}}); }
+std::vector<uint32_t> jong_set() { return set_range({{0x11A8, 0x11FF}, {0xD7CB, 0xD7FB}}); }
 
 int old_valid(const std::string &s) { return hunmin_hangul_valid_old(s.c_str()); }
 
@@ -338,24 +325,20 @@ TEST(HangulValidOldTest, TheRuledCases) {
     /* cho+jung and cho+jung+jong over the extended sets — what dubeolsik-yet and
      * ahnmatmae actually render (measured: \sa k -> ᅀᅡ, \sak\sf -> ᅀᅡᆶ,
      * \sg k -> ᅌᅵ, sin3-p2-basic k\sz -> ᄀᆞ). */
-    for (const char *s : {"ᅀᅡ", "ᅌᅵ", "ᅀᅡᆶ", "ᄀᆞ"})
-        EXPECT_EQ(1, old_valid(s)) << s;
+    for (const char *s : {"ᅀᅡ", "ᅌᅵ", "ᅀᅡᆶ", "ᄀᆞ"}) EXPECT_EQ(1, old_valid(s)) << s;
     EXPECT_EQ(1, old_valid("\xE1\x85\x9F\xE1\x85\xA1")); /* CF filler + ㅏ */
 
     /* 랴ㅜㄷ and its parts: a jungseong with no leading cho is not a group the
      * composer emits (it writes the CF filler instead). */
-    for (const char *s : {"랴ㅜㄷ", "랴ㅜ", "ㅜㄷ", "ᅡᆨ"})
-        EXPECT_EQ(0, old_valid(s)) << s;
+    for (const char *s : {"랴ㅜㄷ", "랴ㅜ", "ㅜㄷ", "ᅡᆨ"}) EXPECT_EQ(0, old_valid(s)) << s;
 
     /* in-flight syllables: a cho with no jung, or a lone jamo */
-    for (const char *s : {"ᅀ", "ㄱ", "ㆍ", ""})
-        EXPECT_EQ(0, old_valid(s)) << s;
+    for (const char *s : {"ᅀ", "ㄱ", "ㆍ", ""}) EXPECT_EQ(0, old_valid(s)) << s;
     EXPECT_EQ(0, hunmin_hangul_valid_old(nullptr));
 
     /* modern input is a subset; non-Hangul never is */
     EXPECT_EQ(1, old_valid("안녕"));
-    for (const char *s : {"hello", "1234", "안녕 하세요", "안녕."})
-        EXPECT_EQ(0, old_valid(s)) << s;
+    for (const char *s : {"hello", "1234", "안녕 하세요", "안녕."}) EXPECT_EQ(0, old_valid(s)) << s;
 }
 
 /* The property, generated: every cho of the extended set opens a group, every
@@ -408,8 +391,7 @@ TEST(HangulValidOldTest, LayoutCapabilityIsDerivedFromTheData) {
     const int n = hunmin_ctx_layout_count(ctx);
     EXPECT_EQ(15, n) << "a layout was added or removed: place it in the lists below";
 
-    const char *old_layouts[] = {"ahnmatmae", "dubeolsik-yet", "sebeolsik-yet",
-                                 "sin3-p2",    "sin3-p2-basic", "sin3-p2-yet"};
+    const char *old_layouts[] = {"ahnmatmae", "dubeolsik-yet", "sebeolsik-yet", "sin3-p2", "sin3-p2-basic", "sin3-p2-yet"};
     const char *latin_only[] = {"colemak", "dvorak", "us-qwerty"};
 
     int old_seen = 0, latin_seen = 0;
@@ -441,7 +423,9 @@ TEST(HangulValidOldTest, LayoutCapabilityIsDerivedFromTheData) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    kDataPath = std::getenv("HUNMIN_DATA_PATH");
+    char *env_buf = nullptr;
+    _dupenv_s(&env_buf, nullptr, "HUNMIN_DATA_PATH");
+    kDataPath = env_buf;
     if (!kDataPath) {
         std::fprintf(stderr, "HUNMIN_DATA_PATH is not set; this test drives the "
                              "shipped tables, not a copy\n");

@@ -255,9 +255,10 @@ static int list_json(const char *dir, char names[MAX_FILES][MAX_LINE]) {
         for (int j = i + 1; j < n; j++)
             if (strcmp(names[j], names[i]) < 0) {
                 char t[MAX_LINE];
-                strcpy(t, names[i]);
-                strcpy(names[i], names[j]);
-                strcpy(names[j], t);
+                size_t a = strlen(names[i]) + 1, b = strlen(names[j]) + 1;
+                memcpy(t, names[i], a);
+                memcpy(names[i], names[j], b);
+                memcpy(names[j], t, a);
             }
     return n;
 #else
@@ -275,9 +276,10 @@ static int list_json(const char *dir, char names[MAX_FILES][MAX_LINE]) {
         for (int j = i + 1; j < n; j++)
             if (strcmp(names[j], names[i]) < 0) {
                 char t[MAX_LINE];
-                strcpy(t, names[i]);
-                strcpy(names[i], names[j]);
-                strcpy(names[j], t);
+                size_t a = strlen(names[i]) + 1, b = strlen(names[j]) + 1;
+                memcpy(t, names[i], a);
+                memcpy(names[i], names[j], b);
+                memcpy(names[j], t, a);
             }
     return n;
 #endif
@@ -442,8 +444,7 @@ static void hm_val_clear(hm_val *v) {
  */
 static bool modern_jamo(uint32_t c) {
     if (c == 0x11a7) return true; /* the no-jongseong filler, inside the jong set */
-    return hm_is_choseong_conjoinable((ucschar)c) || hm_is_jungseong_conjoinable((ucschar)c) ||
-           hm_is_jongseong_conjoinable((ucschar)c);
+    return hm_is_choseong_conjoinable((ucschar)c) || hm_is_jungseong_conjoinable((ucschar)c) || hm_is_jongseong_conjoinable((ucschar)c);
 }
 
 static void note_jamo(uint32_t c, bool *any, bool *old) {
@@ -455,9 +456,7 @@ static void note_jamo(uint32_t c, bool *any, bool *old) {
 static void val_jamo_scan(const hm_val *v, bool *any, bool *old) {
     if (!v) return;
     switch (v->kind) {
-    case HK_JAMO:
-        note_jamo(v->code, any, old);
-        break;
+    case HK_JAMO: note_jamo(v->code, any, old); break;
     case HK_CASE:
         val_jamo_scan(v->then, any, old);
         val_jamo_scan(v->els, any, old);
@@ -465,8 +464,7 @@ static void val_jamo_scan(const hm_val *v, bool *any, bool *old) {
     case HK_SEQ:
         for (size_t i = 0; i < v->seqlen; i++) note_jamo(v->seq[i], any, old);
         break;
-    default:
-        break; /* HK_LIT / HK_TIER / HK_NONE carry no jamo */
+    default: break; /* HK_LIT / HK_TIER / HK_NONE carry no jamo */
     }
 }
 
@@ -748,10 +746,13 @@ hunmin_ctx *hm_data_load(const char *const *dirs, int ndirs) {
         for (int d = 0; d < ndirs; d++) cap += strlen(dirs[d]) + 1;
         ctx->data_dir = malloc(cap);
         if (ctx->data_dir) {
+            size_t off = 0;
             ctx->data_dir[0] = '\0';
             for (int d = 0; d < ndirs; d++) {
-                if (d) strncat(ctx->data_dir, ":", cap - strlen(ctx->data_dir) - 1);
-                strncat(ctx->data_dir, dirs[d], cap - strlen(ctx->data_dir) - 1);
+                size_t len = strlen(dirs[d]);
+                if (d) ctx->data_dir[off++] = ':';
+                memcpy(ctx->data_dir + off, dirs[d], len + 1);
+                off += len;
             }
         }
     }

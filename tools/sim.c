@@ -197,14 +197,32 @@ static int keys_step(const char **s, uint32_t *ch, uint32_t *shift, const char *
     return 0;
 }
 
+/* In-place line splitter: replaces '\n' with '\0' and hands back each line in
+ * turn. Equivalent to strtok's splitting here, and portable without the
+ * MSVC C4996 noise. */
+static char *next_line(char **cursor) {
+    char *s = *cursor;
+    char *p;
+    if (!s) return NULL;
+    p = strchr(s, '\n');
+    if (p) {
+        *p = '\0';
+        *cursor = p + 1;
+    } else {
+        *cursor = NULL;
+    }
+    return s;
+}
+
 static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layout) {
     char *txt = read_file(path, NULL);
     if (!txt) return 2;
-    char *save = NULL;
     int line = 0, fails = 0;
     hunmin_ic *ic = NULL;
 
-    for (char *s = strtok(txt, "\n"); s; s = strtok(NULL, "\n")) {
+    for (char *cursor = txt;;) {
+        char *s = next_line(&cursor);
+        if (!s) break;
         line++;
         if (!*s) continue;
         cJSON *j = cJSON_Parse(s);
@@ -334,12 +352,9 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
  */
 static const char *lang_name(int v) {
     switch (v) {
-    case HUNMIN_LANGUAGE_HANGUL:
-        return "hangul";
-    case HUNMIN_LANGUAGE_LATIN:
-        return "latin";
-    default:
-        return "";
+    case HUNMIN_LANGUAGE_HANGUL: return "hangul";
+    case HUNMIN_LANGUAGE_LATIN: return "latin";
+    default: return "";
     }
 }
 
@@ -388,10 +403,8 @@ static int judge_step(judge_case *c, uint32_t base, uint32_t shift, int *judged_
  * (B3: absent data answers "not ready", and then nothing switches — which is
  * why --judge reports that state instead of pretending), and the ruling's
  * default OFF overridden only when the caller asked for a value. */
-static hunmin_buffered_preedit *judge_layer(hunmin_ctx *ctx, const char *layout, const char *latin,
-                                           int autoswitch, int start_latin) {
-    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(
-        ctx, layout, (latin && latin[0]) ? latin : NULL, HUNMIN_COMMIT_AT_BOUNDARY);
+static hunmin_buffered_preedit *judge_layer(hunmin_ctx *ctx, const char *layout, const char *latin, int autoswitch, int start_latin) {
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx, layout, (latin && latin[0]) ? latin : NULL, HUNMIN_COMMIT_AT_BOUNDARY);
     if (!l) return NULL;
     hunmin_buffered_preedit_load_english_shipped(l);
     if (autoswitch >= 0) hunmin_buffered_preedit_set_option(l, "autoswitch", autoswitch ? 1 : 0);
@@ -417,13 +430,14 @@ static hunmin_buffered_preedit *judge_layer(hunmin_ctx *ctx, const char *layout,
  * layer is left in. Comparing the last two as well as the first is what stops
  * a corpus from asserting a switch no adapter would perform.
  */
-static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force_layout,
-                            const char *force_latin, int force_autoswitch) {
+static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force_layout, const char *force_latin, int force_autoswitch) {
     char *txt = read_file(path, NULL);
     if (!txt) return 2;
     int line = 0, fails = 0;
 
-    for (char *s = strtok(txt, "\n"); s; s = strtok(NULL, "\n")) {
+    for (char *cursor = txt;;) {
+        char *s = next_line(&cursor);
+        if (!s) break;
         line++;
         if (!*s) continue;
         cJSON *j = cJSON_Parse(s);
@@ -478,16 +492,15 @@ static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force
             if (cJSON_IsArray(wsteps)) {
                 const cJSON *want = cJSON_GetArrayItem(wsteps, si);
                 if (!cJSON_IsString(want) || strcmp(want->valuestring, c.key_commit)) {
-                    fprintf(stderr, "%s:%d: CASE FAIL '%s' step %d commit: expected '%s' got '%s'\n", path, line,
-                            name, si, cJSON_IsString(want) ? want->valuestring : "(missing)", c.key_commit);
+                    fprintf(stderr, "%s:%d: CASE FAIL '%s' step %d commit: expected '%s' got '%s'\n", path, line, name, si,
+                            cJSON_IsString(want) ? want->valuestring : "(missing)", c.key_commit);
                     fails++;
                 }
             }
             si++;
         }
         if (cJSON_IsArray(wsteps) && cJSON_GetArraySize(wsteps) != si) {
-            fprintf(stderr, "%s:%d: CASE FAIL '%s': step_commits has %d entries for %d keys\n", path, line, name,
-                    cJSON_GetArraySize(wsteps), si);
+            fprintf(stderr, "%s:%d: CASE FAIL '%s': step_commits has %d entries for %d keys\n", path, line, name, cJSON_GetArraySize(wsteps), si);
             fails++;
         }
 
@@ -512,9 +525,7 @@ static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force
                     "    expected commit='%s' judged=[%s] mode_after='%s'\n"
                     "    got      commit='%s' judged=[%s] mode_after='%s'\n",
                     path, line, name,
-                    cJSON_IsString(cJSON_GetObjectItemCaseSensitive(j, "req"))
-                        ? cJSON_GetObjectItemCaseSensitive(j, "req")->valuestring
-                        : "",
+                    cJSON_IsString(cJSON_GetObjectItemCaseSensitive(j, "req")) ? cJSON_GetObjectItemCaseSensitive(j, "req")->valuestring : "",
                     jkeys->valuestring, ec, ej, em, c.delivered, c.judged, got_mode);
             fails++;
         }
@@ -573,10 +584,10 @@ static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force
 #define OFF_X11_LOCK 0x04
 
 typedef struct off_case {
-    hunmin_ic *ic;                       /* the pre-feature engine: the oracle */
-    hunmin_buffered_preedit *boundary;    /* the layer at HUNMIN_COMMIT_AT_BOUNDARY */
-    hunmin_buffered_preedit *syllable;    /* the layer at HUNMIN_COMMIT_PER_SYLLABLE */
-    char odel[OFF_TEXT_CAP];             /* delivered text, cumulative */
+    hunmin_ic *ic; /* the pre-feature engine: the oracle */
+    hunmin_buffered_preedit *boundary; /* the layer at HUNMIN_COMMIT_AT_BOUNDARY */
+    hunmin_buffered_preedit *syllable; /* the layer at HUNMIN_COMMIT_PER_SYLLABLE */
+    char odel[OFF_TEXT_CAP]; /* delivered text, cumulative */
     char bdel[OFF_TEXT_CAP];
     char sdel[OFF_TEXT_CAP];
 } off_case;
@@ -614,8 +625,7 @@ static void off_free(off_case *c) {
  * shipped English list loaded, and `autoswitch` written to 0 AND read back. A
  * write the engine refused would leave the option ON, and then this whole check
  * would be measuring the ON path and calling it identity. */
-static hunmin_buffered_preedit *off_layer(hunmin_ctx *ctx, const char *layout, const char *latin,
-                                         int policy, int *held) {
+static hunmin_buffered_preedit *off_layer(hunmin_ctx *ctx, const char *layout, const char *latin, int policy, int *held) {
     hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx, layout, latin, policy);
     if (!l) return NULL;
     hunmin_buffered_preedit_load_english_shipped(l);
@@ -649,9 +659,8 @@ static void off_apply(off_case *c, int caps, int *flags) {
  * for every case of a multi-case golden was measured at ~40 ms per case (the
  * whole check took 15 s). Reset returns the same text state -- composition,
  * word, keys, delivered bytes -- and leaves the option state in place. */
-static int off_begin(off_case *c, char *held_layout, size_t held_cap, hunmin_ctx *ctx, const char *path,
-                     int line, const char *layout, const char *latin, int caps, int *flags,
-                     int *ready_out) {
+static int off_begin(off_case *c, char *held_layout, size_t held_cap, hunmin_ctx *ctx, const char *path, int line, const char *layout,
+                     const char *latin, int caps, int *flags, int *ready_out) {
     /* The reuse cache keys on the LAYOUT PAIR: a judgement case drives the same
      * layout with a different second language (or none) than a golden does. */
     char want[192];
@@ -672,8 +681,7 @@ static int off_begin(off_case *c, char *held_layout, size_t held_cap, hunmin_ctx
     c->boundary = off_layer(ctx, layout, latin, HUNMIN_COMMIT_AT_BOUNDARY, &hb);
     c->syllable = off_layer(ctx, layout, latin, HUNMIN_COMMIT_PER_SYLLABLE, &hs);
     if (!c->ic || !c->boundary || !c->syllable) {
-        fprintf(stderr, "%s:%d: cannot build the drivers for layout '%s' (a layer for %s)\n",
-                path, line, layout, OFF_LATIN_LAYOUT);
+        fprintf(stderr, "%s:%d: cannot build the drivers for layout '%s' (a layer for %s)\n", path, line, layout, OFF_LATIN_LAYOUT);
         off_free(c);
         return -1;
     }
@@ -692,8 +700,7 @@ static int off_begin(off_case *c, char *held_layout, size_t held_cap, hunmin_ctx
 }
 
 /* One key through all three drivers, and the comparisons §4 asks for. */
-static int off_key(off_case *c, const char *path, int line, uint32_t base, uint32_t shift,
-                   int caps, long *checks) {
+static int off_key(off_case *c, const char *path, int line, uint32_t base, uint32_t shift, int caps, long *checks) {
     int fails = 0;
     /* A case that could not be built must fail here, not compare two empty
      * texts and report identity. */
@@ -724,23 +731,18 @@ static int off_key(off_case *c, const char *path, int line, uint32_t base, uint3
 
     (*checks)++;
     if (ocons != bcons || ocons != scons)
-        fprintf(stderr, "%s:%d: key 0x%02x: consumed engine=%d boundary=%d syllable=%d\n", path, line,
-                base, ocons, bcons, scons);
+        fprintf(stderr, "%s:%d: key 0x%02x: consumed engine=%d boundary=%d syllable=%d\n", path, line, base, ocons, bcons, scons);
     fails += (ocons != bcons) + (ocons != scons);
 
-    if (off_append(c->odel, sizeof c->odel, ocopy) || off_append(c->bdel, sizeof c->bdel, bcommit) ||
-        off_append(c->sdel, sizeof c->sdel, scommit)) {
-        fprintf(stderr, "%s:%d: accumulated text passed %d bytes -- raise OFF_TEXT_CAP\n", path, line,
-                OFF_TEXT_CAP);
+    if (off_append(c->odel, sizeof c->odel, ocopy) || off_append(c->bdel, sizeof c->bdel, bcommit) || off_append(c->sdel, sizeof c->sdel, scommit)) {
+        fprintf(stderr, "%s:%d: accumulated text passed %d bytes -- raise OFF_TEXT_CAP\n", path, line, OFF_TEXT_CAP);
         return fails + 1;
     }
 
     /* The visible text: what the client already holds plus what is composing. */
     char ovis[2 * OFF_TEXT_CAP], bvis[2 * OFF_TEXT_CAP], svis[2 * OFF_TEXT_CAP];
-    if (off_join(ovis, sizeof ovis, c->odel, opcopy) || off_join(bvis, sizeof bvis, c->bdel, bpre) ||
-        off_join(svis, sizeof svis, c->sdel, spre)) {
-        fprintf(stderr, "%s:%d: visible text passed %d bytes -- raise OFF_TEXT_CAP\n", path, line,
-                2 * OFF_TEXT_CAP);
+    if (off_join(ovis, sizeof ovis, c->odel, opcopy) || off_join(bvis, sizeof bvis, c->bdel, bpre) || off_join(svis, sizeof svis, c->sdel, spre)) {
+        fprintf(stderr, "%s:%d: visible text passed %d bytes -- raise OFF_TEXT_CAP\n", path, line, 2 * OFF_TEXT_CAP);
         return fails + 1;
     }
     (*checks)++;
@@ -765,8 +767,7 @@ static int off_key(off_case *c, const char *path, int line, uint32_t base, uint3
      * commit is part of the contract there and not merely a setting. */
     (*checks)++;
     if (strcmp(ocopy, scommit)) {
-        fprintf(stderr, "%s:%d: per-syllable commit differs at key 0x%02x: engine='%s' layer='%s'\n",
-                path, line, base, ocopy, scommit);
+        fprintf(stderr, "%s:%d: per-syllable commit differs at key 0x%02x: engine='%s' layer='%s'\n", path, line, base, ocopy, scommit);
         fails++;
     }
     return fails;
@@ -786,8 +787,7 @@ static int off_flush(off_case *c, const char *path, int line, long *checks) {
     const char *sc = hunmin_buffered_preedit_commit_word(c->syllable);
     char scopy[OFF_TEXT_CAP];
     snprintf(scopy, sizeof scopy, "%s", sc ? sc : "");
-    if (off_append(c->odel, sizeof c->odel, ocopy) || off_append(c->bdel, sizeof c->bdel, bcopy) ||
-        off_append(c->sdel, sizeof c->sdel, scopy)) {
+    if (off_append(c->odel, sizeof c->odel, ocopy) || off_append(c->bdel, sizeof c->bdel, bcopy) || off_append(c->sdel, sizeof c->sdel, scopy)) {
         fprintf(stderr, "%s:%d: accumulated text passed %d bytes at the flush\n", path, line, OFF_TEXT_CAP);
         return fails + 1;
     }
@@ -813,15 +813,11 @@ static int off_flush(off_case *c, const char *path, int line, long *checks) {
  * The layout compared is the one the person was typing on: the Hangul layout in
  * hangul mode, the Latin layout in latin mode (where the pre-feature build had
  * one language, so the off layer is built with no second one). */
-static int off_judgement_pair(hunmin_ctx *ctx, off_case *c, char *held_layout, size_t held_cap,
-                              const char *path, int line, const char *layout, const char *latin,
-                              int start_latin, int expect_switch, const char *keys, long *keys_seen,
-                              long *checks) {
-    hunmin_buffered_preedit *on =
-        hunmin_buffered_preedit_new(ctx, layout, latin, HUNMIN_COMMIT_AT_BOUNDARY);
+static int off_judgement_pair(hunmin_ctx *ctx, off_case *c, char *held_layout, size_t held_cap, const char *path, int line, const char *layout,
+                              const char *latin, int start_latin, int expect_switch, const char *keys, long *keys_seen, long *checks) {
+    hunmin_buffered_preedit *on = hunmin_buffered_preedit_new(ctx, layout, latin, HUNMIN_COMMIT_AT_BOUNDARY);
     if (!on) {
-        fprintf(stderr, "%s:%d: cannot build the on-path layer for %s/%s\n", path, line, layout,
-                latin ? latin : "-");
+        fprintf(stderr, "%s:%d: cannot build the on-path layer for %s/%s\n", path, line, layout, latin ? latin : "-");
         return 1;
     }
     hunmin_buffered_preedit_load_english_shipped(on);
@@ -906,7 +902,9 @@ static int check_off_files(hunmin_ctx *ctx, const char *const *paths, int npaths
             hunmin_buffered_preedit_set_option(c.boundary, "caps", 0);
             hunmin_buffered_preedit_set_option(c.syllable, "caps", 0);
         }
-        for (char *s = strtok(txt, "\n"); s; s = strtok(NULL, "\n")) {
+        for (char *cursor = txt;;) {
+            char *s = next_line(&cursor);
+            if (!s) break;
             line++;
             if (!*s) continue;
             cJSON *j = cJSON_Parse(s);
@@ -921,8 +919,7 @@ static int check_off_files(hunmin_ctx *ctx, const char *const *paths, int npaths
                  * corpus repeats it once per file. */
                 if (started && off_flush(&c, path, line, &file_checks)) file_fails++;
                 const cJSON *lay = cJSON_GetObjectItemCaseSensitive(meta, "layout");
-                if (cJSON_IsString(lay) && lay->valuestring[0])
-                    snprintf(cur_layout, sizeof cur_layout, "%s", lay->valuestring);
+                if (cJSON_IsString(lay) && lay->valuestring[0]) snprintf(cur_layout, sizeof cur_layout, "%s", lay->valuestring);
                 if (!cur_layout[0]) {
                     /* A provenance-only meta (the judgement corpus's first line)
                      * carries no layout because its lines carry their own; a file
@@ -939,10 +936,9 @@ static int check_off_files(hunmin_ctx *ctx, const char *const *paths, int npaths
                      * default -- not the previous case's value. */
                     cur_flags[k] = cJSON_IsNumber(fv) ? fv->valueint : -2;
                 }
-                if (off_begin(&c, held_layout, sizeof held_layout, ctx, path, line, cur_layout,
-                              OFF_LATIN_LAYOUT, cur_caps, cur_flags, &ready)) {
+                if (off_begin(&c, held_layout, sizeof held_layout, ctx, path, line, cur_layout, OFF_LATIN_LAYOUT, cur_caps, cur_flags, &ready)) {
                     file_fails++;
-                    started = 0;        /* the drivers are gone: the next keys are unattributable */
+                    started = 0; /* the drivers are gone: the next keys are unattributable */
                     held_layout[0] = 0; /* and nothing may reuse them */
                     cJSON_Delete(j);
                     continue;
@@ -982,9 +978,8 @@ static int check_off_files(hunmin_ctx *ctx, const char *const *paths, int npaths
                 const int latin_mode = cJSON_IsString(jmode) && !strcmp(jmode->valuestring, "latin");
                 const cJSON *wjudged = cJSON_GetObjectItemCaseSensitive(j, "judged");
                 const int switches = cJSON_IsArray(wjudged) && cJSON_GetArraySize(wjudged) > 0;
-                file_fails += off_judgement_pair(ctx, &c, held_layout, sizeof held_layout, path, line,
-                                                 lay, lat, latin_mode, switches, jkeys->valuestring,
-                                                 &file_keys, &file_checks);
+                file_fails += off_judgement_pair(ctx, &c, held_layout, sizeof held_layout, path, line, lay, lat, latin_mode, switches,
+                                                 jkeys->valuestring, &file_keys, &file_checks);
                 cases++;
                 cJSON_Delete(j);
                 continue;
@@ -1025,8 +1020,7 @@ static int check_off_files(hunmin_ctx *ctx, const char *const *paths, int npaths
                 /* The Android dialect spells keys as KEYCODE_*, which is ASCII
                  * for the printable range this corpus uses; the named keys are
                  * not (backspace is 67), so it is not driven here. */
-                fprintf(stderr, "%s:%d: android keycode records are not driven by --off-check\n", path,
-                        line);
+                fprintf(stderr, "%s:%d: android keycode records are not driven by --off-check\n", path, line);
                 file_fails++;
                 cJSON_Delete(j);
                 continue;
@@ -1077,8 +1071,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--judge-check") && ++i < argc) judgecheck = argv[i];
         else if (!strcmp(argv[i], "--off-check")) {
             while (i + 1 < argc && strncmp(argv[i + 1], "--", 2) && noff < 256) offcheck[noff++] = argv[++i];
-        }
-        else if (!strcmp(argv[i], "--autoswitch") && ++i < argc) autoswitch = atoi(argv[i]);
+        } else if (!strcmp(argv[i], "--autoswitch") && ++i < argc) autoswitch = atoi(argv[i]);
         else if (!strcmp(argv[i], "--caps")) caps = 1;
         else if (!strcmp(argv[i], "--judge")) judge = 1;
         else if (!strcmp(argv[i], "--start-latin")) start_latin = 1;
@@ -1188,12 +1181,11 @@ int main(int argc, char **argv) {
                 json_escape(c.key_preedit, pbuf, sizeof pbuf);
                 printf("{\"in\":{\"ch\":\"%s\"%s},\"commit\":\"%s\",\"preedit\":\"%s\","
                        "\"consumed\":%s%s%s%s}\n",
-                       kbuf, shift ? ",\"shift\":true" : "", cbuf, pbuf, consumed ? "true" : "false",
-                       judged >= 0 ? ",\"judged\":\"" : "", judged >= 0 ? lang_name(judged) : "",
-                       judged >= 0 ? "\"" : "");
+                       kbuf, shift ? ",\"shift\":true" : "", cbuf, pbuf, consumed ? "true" : "false", judged >= 0 ? ",\"judged\":\"" : "",
+                       judged >= 0 ? lang_name(judged) : "", judged >= 0 ? "\"" : "");
             } else {
-                printf("[%c%s] commit='%s' preedit='%s'%s\n", (unsigned char)key, shift ? "+" : "",
-                       c.key_commit, c.key_preedit, judged >= 0 ? (judged == HUNMIN_LANGUAGE_LATIN ? " judged=latin" : " judged=hangul") : "");
+                printf("[%c%s] commit='%s' preedit='%s'%s\n", (unsigned char)key, shift ? "+" : "", c.key_commit, c.key_preedit,
+                       judged >= 0 ? (judged == HUNMIN_LANGUAGE_LATIN ? " judged=latin" : " judged=hangul") : "");
             }
         }
         /* The three facts a judgement case pins, in the corpus's own vocabulary. */
@@ -1215,8 +1207,7 @@ int main(int argc, char **argv) {
                 if (*p == ',') p++;
             }
         }
-        printf("{\"delivered\":\"%s\",\"judged\":[%s],\"mode_after\":\"%s\"}\n", dbuf, jbuf,
-               lang_name(hunmin_buffered_preedit_language(c.l)));
+        printf("{\"delivered\":\"%s\",\"judged\":[%s],\"mode_after\":\"%s\"}\n", dbuf, jbuf, lang_name(hunmin_buffered_preedit_language(c.l)));
         hunmin_buffered_preedit_free(c.l);
         return 0;
     }

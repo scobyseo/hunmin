@@ -24,6 +24,12 @@
 #include <vector>
 #include <windows.h>
 
+/* COM stubs: most parameters carry interface signatures, not values; the cJSON-style file-scoped mute below quiets MSVC C4100 for them only. */
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4100)
+#endif
+
 // The members the interfaces declare but the adapter never calls. Their
 // exact signatures come from msctf.h; the compiler flags any drift. The
 // macro lives at header scope: a per-class define/undef lapse was exactly
@@ -891,3 +897,6 @@ inline HRESULT MockCompartment::SetValue(TfClientId tid, const VARIANT *pvarValu
 }
 
 } // namespace tsfmock
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

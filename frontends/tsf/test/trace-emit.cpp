@@ -287,6 +287,15 @@ int main(int argc, char **argv) {
     }
     _putenv_s("HUNMIN_TSF_HANGUL_LAYOUT", traceLayout.c_str());
     _putenv_s("HUNMIN_TSF_LATIN_LAYOUT", "us-qwerty");
+    /* Autoswitch (R13-정정) is stored state the corpus was NOT recorded under,
+     * and it changes what the layer shows: with it ON the engine replaces an
+     * invalid Hangul word with its Latin reading, so a replay composited `Hs`
+     * where tier A recorded `ㅗ` and the buffered-word assertions broke at
+     * dubeolsik-seosi event 117 (measured 2026-11-06: the production store had
+     * Autoswitch=1, persisted by a settings chord test's SpecialPerform). Pin
+     * the seam OFF, non-empty so config.cpp's loadSlot lets it override the
+     * registry -- the same rule the layout pins above follow. */
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "0");
     /* The delivery seam (issue #185): the adapter's own forced-mode hatch
      * (tsf.cpp DetectLegacyMode). Cleared for a native run too, so a value a
      * sibling case or the caller's environment leaked cannot flip the mode
@@ -393,7 +402,7 @@ int main(int argc, char **argv) {
         // Inject the event's own key state, then walk the documented
         // chain: OnTestKeyDown (preview), then OnKeyDown (docs/
         // WINDOWS-TSF-REGISTRATION.md "C&C: key-down propagation").
-        g_mockKeyState[VK_SHIFT & 0xFF] = (mods & 0x01) ? (SHORT)0x8000 : (SHORT)0;
+        g_mockKeyState[VK_SHIFT & 0xFF] = (mods & 0x01) ? (SHORT)-32768 : (SHORT)0;
         /* CapsLock bit 0x02: GetKeyState(VK_CAPITAL) toggled-on, the seam
          * hunmin_tsf_capslock_from_state() reads (docs/trace-spec.md). */
         g_mockKeyState[VK_CAPITAL & 0xFF] = (mods & 0x02) ? (SHORT)0x8001 : (SHORT)0;

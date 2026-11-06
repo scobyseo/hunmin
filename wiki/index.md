@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-10-25   (no page count: three counters disagreed, so the
+> Last updated: 2026-11-05   (no page count: three counters disagreed, so the
 > number a reader needs is the one a tool prints — `python tools/wiki-lint.py`)
 
 ## Concepts
@@ -34,6 +34,9 @@
   from one message: the interim delivery cannot carry the switch (and why it is
   structural), and with the switch on English stops passing through so R8's E1 line
   can judge; what each leaves open is in the page, not here.
+- [[2026-11-05-the-settings-row-names-the-support-condition]] — the row says
+  `자동 한/영 전환 (지원 앱에서만, Ctrl+한/영)`: the dialog has no host handle, so
+  it states the condition rather than guessing the running host's delivery.
 - [[decisions-belong-to-the-maintainer]] — the standing instruction that
   measurements are the agent's and rulings are the maintainer's, and the three
   later instances where it bound.

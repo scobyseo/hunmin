@@ -1290,16 +1290,21 @@ Four layers, cheap→real:
   sin3-p2-yet), 12/12 green on `ctest --test-dir build-msvc -C Release -L
   tier-F1`. Each emitted `.gold` was diffed against the `.in` expectations the
   generator copies verbatim from tier A — identical on all 688 events, so
-  nothing was accepted blind.
+  nothing was accepted blind. Regenerated 2026-11-06 from the goldens after
+  the 2026-11-03 case merge (issue #231): each family is one merged case, so
+  the corpus is 11 traces / 14 cases / 780 events and tier-F1 is 23/23 green
+  in both delivery modes; the 92 added events are exactly the space
+  boundaries the merge introduced, every `.gold` still equals its `.in` on
+  all 780 events, and each family's cumulative text is unchanged — the merge
+  moved where the boundaries sit, not what the corpus asserts.
 
   Caps-on `k/` is now covered (issue #184): win32 `mods` bit `0x02` is the
-  CapsLock state, and `manual-sin3-p2-yet.trace.in` replays all 15 cases /
-  48 events with no `meta.excluded`. (The 2026-10-31 measurement above — 고
-  where tier A records commit ㄱ + preedit ㅋ — was the caps-OFF emission that
-  proved the bit was necessary.)
+  CapsLock state, and `tests/conformance/win32/manual-sin3-p2-yet.trace.in`
+  replays all merged cases with no `meta.excluded`. (The 2026-10-31
+  measurement — 고 where tier A records commit ㄱ + preedit ㅋ — was the
+  caps-OFF emission that proved the bit was necessary.)
 
-  Not yet covered: the `w`/`W` cases in `p2-2-4-3-caps` (needs an engine-option
-  channel in the runner), a backspace boundary (no sin3-p2 tier-A golden
+  Not yet covered: a backspace boundary (no sin3-p2 tier-A golden
   carries one) and overlay-window presentation (needs real HWNDs, stubbed via
   `ITfContextView::GetTextExt`).
 - **F2 TAT** (Microsoft TSF Accommodation Tool, the official TIP stress-tester) driven on

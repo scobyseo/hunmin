@@ -94,8 +94,7 @@ class AutoswitchDataGateTest : public ::testing::Test {
         const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
         std::error_code ec;
         root_ = std::filesystem::temp_directory_path(ec) /
-                ("hunmin-autoswitch-gate-no-modes-" + std::string(info->name()) + "-" +
-                 std::to_string(stamp) + "-" + std::to_string(seq++));
+                ("hunmin-autoswitch-gate-no-modes-" + std::string(info->name()) + "-" + std::to_string(stamp) + "-" + std::to_string(seq++));
         std::filesystem::remove_all(root_, ec);
         ec.clear();
         std::filesystem::create_directories(root_, ec);
@@ -104,8 +103,7 @@ class AutoswitchDataGateTest : public ::testing::Test {
         ASSERT_FALSE(ec) << "could not create the staging root: " << ec.message();
         for (const char *sub : {"layouts", "compose"}) {
             ec.clear();
-            std::filesystem::copy(std::filesystem::path(kDataPath) / sub, root_ / sub,
-                                  std::filesystem::copy_options::recursive, ec);
+            std::filesystem::copy(std::filesystem::path(kDataPath) / sub, root_ / sub, std::filesystem::copy_options::recursive, ec);
             ASSERT_FALSE(ec) << "could not stage " << sub << ": " << ec.message();
         }
         dirs_ = root_.string();
@@ -131,8 +129,7 @@ class AutoswitchDataGateTest : public ::testing::Test {
     void write_modes(const std::string &body) {
         std::error_code ec;
         std::filesystem::create_directories(root_ / "modes", ec);
-        std::ofstream out((root_ / "modes" / "en-US.json").string(),
-                          std::ios::binary | std::ios::trunc);
+        std::ofstream out((root_ / "modes" / "en-US.json").string(), std::ios::binary | std::ios::trunc);
         out << body;
     }
 
@@ -148,8 +145,7 @@ class AutoswitchDataGateTest : public ::testing::Test {
 };
 
 TEST_F(AutoswitchDataGateTest, TheDataTheSwitchNeedsIsReportedAbsent) {
-    EXPECT_FALSE(hunmin_ctx_autoswitch_data_present(ctx_))
-        << "no modes/en-US.json on this context's search path";
+    EXPECT_FALSE(hunmin_ctx_autoswitch_data_present(ctx_)) << "no modes/en-US.json on this context's search path";
     /* It is a query, not a write: asking twice answers the same and changes no
      * option. */
     EXPECT_FALSE(hunmin_ctx_autoswitch_data_present(ctx_));
@@ -164,8 +160,7 @@ TEST_F(AutoswitchDataGateTest, EnablingItWhereTheDataIsAbsentIsRefused) {
     EXPECT_FALSE(hunmin_buffered_preedit_set_option(layer_, "autoswitch", 1));
 
     int v = -1;
-    EXPECT_TRUE(hunmin_buffered_preedit_get_option(layer_, "autoswitch", &v))
-        << "the NAME is known: the refusal is about the data, not the option";
+    EXPECT_TRUE(hunmin_buffered_preedit_get_option(layer_, "autoswitch", &v)) << "the NAME is known: the refusal is about the data, not the option";
     EXPECT_EQ(v, 0) << "off, data missing -- distinguishable from off by choice by "
                        "pairing this with the presence query";
 
@@ -217,8 +212,7 @@ TEST_F(AutoswitchDataGateTest, AnInstalledButBrokenDictionaryDoesNotCountAsData)
     write_modes("[\"computer\", 3, \"\", \"running\"]");
     hunmin_ctx *partial = fresh_ctx();
     ASSERT_NE(partial, nullptr);
-    EXPECT_TRUE(hunmin_ctx_autoswitch_data_present(partial))
-        << "a file the loader fills is a countable install";
+    EXPECT_TRUE(hunmin_ctx_autoswitch_data_present(partial)) << "a file the loader fills is a countable install";
     hunmin_ctx_free(partial);
 
     /* ...but a file that parses and yields NO word is not: the load answers 1
@@ -254,8 +248,7 @@ TEST_F(KeyRuleTest, ALayoutKeyIsFed) {
 }
 
 TEST_F(KeyRuleTest, EveryChordIsABoundaryAndTheKeyPasses) {
-    const uint32_t chords[] = {HUNMIN_MOD_CTRL, HUNMIN_MOD_ALT, HUNMIN_MOD_GUI,
-                               HUNMIN_MOD_CTRL | HUNMIN_MOD_ALT,
+    const uint32_t chords[] = {HUNMIN_MOD_CTRL, HUNMIN_MOD_ALT, HUNMIN_MOD_GUI, HUNMIN_MOD_CTRL | HUNMIN_MOD_ALT,
                                HUNMIN_MOD_CTRL | HUNMIN_MOD_ALT | HUNMIN_MOD_GUI};
     for (uint32_t m : chords) {
         hunmin_key_event ev = ch('a');
@@ -274,7 +267,7 @@ TEST_F(KeyRuleTest, AnUnmappedKeyIsABoundary) {
 }
 
 TEST_F(KeyRuleTest, NamedKeysAreBoundariesUnlessACandidateListIsOpen) {
-    const hunmin_key_id ids[] = {HUNMIN_KEY_UP,      HUNMIN_KEY_DOWN,     HUNMIN_KEY_LEFT,    HUNMIN_KEY_RIGHT,
+    const hunmin_key_id ids[] = {HUNMIN_KEY_UP,      HUNMIN_KEY_DOWN,      HUNMIN_KEY_LEFT,  HUNMIN_KEY_RIGHT,
                                  HUNMIN_KEY_PAGE_UP, HUNMIN_KEY_PAGE_DOWN, HUNMIN_KEY_ENTER, HUNMIN_KEY_ESCAPE};
     for (hunmin_key_id id : ids) {
         hunmin_key_event ev = named(id);
@@ -312,19 +305,16 @@ TEST_F(KeyRuleTest, TheLanguageKeyWinsOverEverythingElse) {
      * changed it, and the binding table is what decides. */
     for (uint32_t mods : {HUNMIN_MOD_CTRL, HUNMIN_MOD_ALT}) {
         ev.mods = mods;
-        EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_CHORD)
-            << "bound mods=" << mods;
+        EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_CHORD) << "bound mods=" << mods;
         /* A list being open does not change that: the language key is still
          * the one key that is never the list's. */
         ev.candidates_open = 1;
-        EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_CHORD)
-            << "bound mods=" << mods;
+        EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_CHORD) << "bound mods=" << mods;
         ev.candidates_open = 0;
     }
     for (uint32_t mods : {HUNMIN_MOD_GUI, (uint32_t)(HUNMIN_MOD_ALT | HUNMIN_MOD_CTRL)}) {
         ev.mods = mods;
-        EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE)
-            << "unbound mods=" << mods;
+        EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_LANGUAGE_TOGGLE) << "unbound mods=" << mods;
     }
     /* SHIFT is a layout row for characters, and it is NOT in HUNMIN_MOD_CHORD:
      * a shift bit in `mods` is ignored. With the language key, Shift is a
@@ -486,8 +476,7 @@ TEST_F(KeyRuleTest, ShiftIsASpecialCombinationOnlyWithTheLanguageKey) {
      * language_key is what separates them. */
     hunmin_key_event ev = ch('d');
     ev.shift = 1; /* Shift held, no language key: a layout row */
-    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_FEED)
-        << "Shift + a letter is the shifted row, not a chord";
+    EXPECT_EQ(hunmin_buffered_preedit_classify(l_, &ev), HUNMIN_KEY_FEED) << "Shift + a letter is the shifted row, not a chord";
     EXPECT_EQ(hunmin_buffered_preedit_special(l_, &ev), 0);
 
     /* Unbound Shift + 한/영 is still the toggle, not a dead key. */
@@ -558,8 +547,7 @@ TEST_F(KeyRuleTest, TheHookFiresInEveryLayoutTheEngineShips) {
         int on = 7;
         ASSERT_TRUE(hunmin_buffered_preedit_get_option(d, "autoswitch", &on)) << id;
         EXPECT_EQ(on, 1) << id << ": the press flips the state the dialog reads";
-        EXPECT_EQ(hunmin_buffered_preedit_language(d), HUNMIN_LANGUAGE_HANGUL)
-            << id << ": AUTOSWITCH is not the language toggle";
+        EXPECT_EQ(hunmin_buffered_preedit_language(d), HUNMIN_LANGUAGE_HANGUL) << id << ": AUTOSWITCH is not the language toggle";
         ASSERT_NE(hunmin_buffered_preedit_layout_id(d), nullptr);
         EXPECT_STREQ(hunmin_buffered_preedit_layout_id(d), id) << "the press must not switch layouts";
 
@@ -619,8 +607,7 @@ TEST_F(KeyRuleTest, TheHookIsDecidedBeforeTheBufferIsFed) {
      * and the judgement can never fire, which would make the cases below pass
      * for the wrong reason. */
     auto pair = [this](int autoswitch) {
-        hunmin_buffered_preedit *p =
-            hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+        hunmin_buffered_preedit *p = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
         if (!p) return (hunmin_buffered_preedit *)nullptr;
         EXPECT_EQ(hunmin_buffered_preedit_load_english_shipped(p), 1) << "the shipped en_US list";
         EXPECT_TRUE(hunmin_buffered_preedit_set_option(p, "autoswitch", autoswitch));
@@ -669,20 +656,15 @@ TEST_F(KeyRuleTest, TheHookIsDecidedBeforeTheBufferIsFed) {
     /* A syllable is in flight (the whole word is only visible at the boundary:
      * `composing` is the in-flight syllable, and on this layer `display` shows
      * the judged language per key, E6's default). */
-    ASSERT_FALSE(std::string(hunmin_buffered_preedit_composing(on)).empty())
-        << "premise: a word is composing";
+    ASSERT_FALSE(std::string(hunmin_buffered_preedit_composing(on)).empty()) << "premise: a word is composing";
 
     hunmin_key_result press{};
     ASSERT_EQ(hunmin_buffered_preedit_toggle_language(on, &press), 1);
-    EXPECT_EQ(as_typed, press.commit ? press.commit : "")
-        << "the press delivers the word as typed, not the judged reading";
-    EXPECT_EQ(hunmin_buffered_preedit_take_judgement(on), -1)
-        << "the press leaves no judgement: inference did not decide this key";
-    EXPECT_EQ(hunmin_buffered_preedit_language(on), HUNMIN_LANGUAGE_LATIN)
-        << "the press's own action stands";
+    EXPECT_EQ(as_typed, press.commit ? press.commit : "") << "the press delivers the word as typed, not the judged reading";
+    EXPECT_EQ(hunmin_buffered_preedit_take_judgement(on), -1) << "the press leaves no judgement: inference did not decide this key";
+    EXPECT_EQ(hunmin_buffered_preedit_language(on), HUNMIN_LANGUAGE_LATIN) << "the press's own action stands";
     hunmin_buffered_preedit_free(on);
 }
-
 
 /* ---- R13-정정's one on/off state (issue #165) ---------------------------- */
 
@@ -753,8 +735,7 @@ TEST_F(KeyRuleTest, TheAutoswitchStateSurvivesALanguageToggle) {
      * first time the person switched language -- the "saved, reloaded, did
      * nothing" defect class. Pinned here because no frontend would show it: the
      * value is set once by a settings surface and read later. */
-    hunmin_buffered_preedit *l =
-        hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(l, nullptr);
     ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 1));
 
@@ -834,7 +815,8 @@ TEST_F(KeyRuleTest, TheAutoswitchChordFlipsTheOneValue) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    const char *v = getenv("HUNMIN_DATA_PATH");
-    kDataPath = v && *v ? v : "libhunmin/data";
+    char *env_buf = nullptr;
+    _dupenv_s(&env_buf, nullptr, "HUNMIN_DATA_PATH");
+    kDataPath = env_buf && *env_buf ? env_buf : "libhunmin/data";
     return RUN_ALL_TESTS();
 }

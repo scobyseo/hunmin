@@ -66,12 +66,22 @@ engine never holds a state this delivery cannot honour. Pinned by
 `TsfConfigTest.TheInterimDeliveryDoesNotHoldTheSwitch`: the store says 1, the
 layer answers 0, and a Latin-mode key still passes to the app.
 
+**What the settings row may say — decided 2026-11-05 (issue #215).** The dialog
+is a separate process and cannot know a host's runtime delivery mode, so it
+cannot say whether the running host will honour the switch. The row therefore
+names the support condition instead of the host's state. Maintainer's wording:
+
+> 자동 한/영 전환 (지원 앱에서만, Ctrl+한/영)
+
+The qualifier is true whatever host reads it, so the control no longer promises
+something the interim delivery ignores, and the standalone rundll32 path (which
+has no live service to ask) needs no new channel. The data-missing suffix is
+unchanged: `… — 사전 없음: 사용할 수 없음`. The fcitx5 and Android rows stay
+`자동 한/영 전환`: they have no interim delivery and their chord is already
+correct.
+
 What this ruling does NOT decide:
 
-- **The settings row still shows the stored value.** The dialog is a separate
-  process and cannot know a host's runtime delivery mode, so on a classic
-  default-sink host the row can advertise ON while that host does nothing with it.
-  Whether the row should say so (and how it could know) is open.
 - **Whether a future interim shape could carry it.** The two shapes priced in the
   pre-ruling text — hold the word in one growing span, or keep the asymmetry —
   were the options; the ruling picks the second for now, and it does not say the
@@ -400,11 +410,22 @@ route keys through `HunminInputMethodService`, so the service's choice of which
 adapter receives a Latin-mode key is not measured here; that surface remains a
 separate question.
 
-**The TSF mock is the remaining half** (tier F1): it still carries its own corpus,
-so a judgement case is asserted against the shared layer, fcitx5 and Android, not
-yet against TSF. It can be replayed the same way — the corpus needs nothing a lane
-does not already have — but it does not run on this host (no Windows), so writing
-that lane unverified would be a claim rather than a test.
+**The TSF lane exists: `tsf-test`'s `TsfJudgementTest.CorpusReplay`** (tier F1,
+issue #180) reads the same corpus file and replays every case through the real
+adapter over the mock TSF layer. It takes one difference the other two lanes do
+not, and names it: TSF native delivery inserts each completed syllable into the
+document as it is typed, so the corpus's `step_commits` timing — the x11/Android
+dialect — is not TSF's observable, and the lane asserts the delivered text
+cumulatively (the corpus's `commit`) instead. The mode it asserts directly off
+`Snapshot().hangulMode` (a read-back the fcitx5 lane cannot reach), and the
+probe after each case; it does not skip `mode: latin`, because the service owns
+its language and has a manual switch, so the lane toggles into Latin before
+typing. `r4-nothing-is-judged-in-flight` ends mid-word with no boundary, so the
+total is not asserted there — the mode read-back is its assertion, as in the
+Android lane. Measured 2026-11-04 on a Windows host (MSVC, Visual Studio 17
+2022): 17 cases, 0 failed; forcing the adapter's autoswitch OFF turns the lane
+red (10 mode/total failures), so the probe is load-bearing rather than
+decorative.
 
 What the fcitx5 lane itself does not do, named rather than hidden: a case whose
 `mode` is `latin` is skipped, because the starting language belongs to the host

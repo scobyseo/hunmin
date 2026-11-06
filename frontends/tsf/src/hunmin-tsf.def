@@ -1,5 +1,5 @@
 EXPORTS
-    DllGetClassObject
-    DllRegisterServer
-    DllUnregisterServer
+    DllGetClassObject PRIVATE
+    DllRegisterServer PRIVATE
+    DllUnregisterServer PRIVATE
     HunminSettingsShow

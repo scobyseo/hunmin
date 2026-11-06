@@ -28,11 +28,9 @@ int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *r
             if (!id || !id[0])
                 continue;
             rows[n].index = i;
-            strncpy(rows[n].id, id, HUNMIN_TSF_SETTINGS_TEXT_CAP - 1);
-            rows[n].id[HUNMIN_TSF_SETTINGS_TEXT_CAP - 1] = '\0';
+            strncpy_s(rows[n].id, HUNMIN_TSF_SETTINGS_TEXT_CAP, id, _TRUNCATE);
             const char *name = hunmin_ctx_layout_name(ctx, i, "ko");
-            strncpy(rows[n].name, (name && name[0]) ? name : id, HUNMIN_TSF_SETTINGS_TEXT_CAP - 1);
-            rows[n].name[HUNMIN_TSF_SETTINGS_TEXT_CAP - 1] = '\0';
+            strncpy_s(rows[n].name, HUNMIN_TSF_SETTINGS_TEXT_CAP, (name && name[0]) ? name : id, _TRUNCATE);
             rows[n].supported = hunmin_ctx_layout_supported(ctx, i) ? 1 : 0;
             ++n;
         }
@@ -45,12 +43,16 @@ int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *r
 /* The chord's modifier bits, in the order Windows spells them. The bits are
  * the ENGINE's (hunmin_buffered_preedit_special_chord), so a frontend that
  * rebinds nothing still advertises the chord the engine honours. */
-static const char *modsText(unsigned mods, char *buf) {
+static const char *modsText(unsigned mods, char *buf, size_t cap) {
     buf[0] = '\0';
-    if (mods & HUNMIN_MOD_CTRL) strcat(buf, "Ctrl+");
-    if (mods & HUNMIN_MOD_ALT) strcat(buf, "Alt+");
-    if (mods & HUNMIN_MOD_GUI) strcat(buf, "Win+");
-    if (mods & HUNMIN_MOD_SHIFT) strcat(buf, "Shift+");
+    if (mods & HUNMIN_MOD_CTRL)
+        strncat_s(buf, cap, "Ctrl+", _TRUNCATE);
+    if (mods & HUNMIN_MOD_ALT)
+        strncat_s(buf, cap, "Alt+", _TRUNCATE);
+    if (mods & HUNMIN_MOD_GUI)
+        strncat_s(buf, cap, "Win+", _TRUNCATE);
+    if (mods & HUNMIN_MOD_SHIFT)
+        strncat_s(buf, cap, "Shift+", _TRUNCATE);
     return buf;
 }
 
@@ -71,7 +73,7 @@ void hunmin_tsf_autoswitch_row(hunmin_ctx *ctx, const char *hangulId, const char
         /* The key's NAME is the platform's (the physical Han/Eng key); only the
          * chord half is the engine's. A frontend on a host with a different
          * physical key passes its own name here -- no frontend spells Ctrl. */
-        snprintf(out->key, sizeof out->key, "%s\uD55C/\uC601", modsText(chord, mods));
+        snprintf(out->key, sizeof out->key, "%s\uD55C/\uC601", modsText(chord, mods, sizeof mods));
         /* Hand the stored preference to the layer the way the adapter does, then
          * read back what the ENGINE settled on: a 1 the engine refused (data
          * absent) reads 0 here without the dialog guessing. */
@@ -86,11 +88,19 @@ void hunmin_tsf_autoswitch_row(hunmin_ctx *ctx, const char *hangulId, const char
         out->value = 0;
         snprintf(out->key, sizeof out->key, "Ctrl+\uD55C/\uC601");
     }
+    /* Issue #215, ruled 2026-11-05: the dialog cannot know a host's delivery
+     * mode, so the label names the condition instead of the host's state --
+     * "supported apps only", the maintainer's wording. The qualifier is true
+     * for both deliveries and never guesses, which is what the standalone
+     * rundll32 path needs (it has no live service to ask). */
     if (out->available) {
-        snprintf(out->label, sizeof out->label, "\uC790\uB3D9 \uD55C/\uC601 \uC804\uD658 (%s)", out->key);
+        snprintf(out->label, sizeof out->label, "\uC790\uB3D9 \uD55C/\uC601 \uC804\uD658 (\uC9C0\uC6D0 \uC571\uC5D0\uC11C\uB9CC, %s)", out->key);
     } else {
         /* R13-정정's discoverability rule applies to the disabled state: say
          * WHICH data is missing, not merely that the control is off. */
-        snprintf(out->label, sizeof out->label, "\uC790\uB3D9 \uD55C/\uC601 \uC804\uD658 (%s) \u2014 \uC0AC\uC804 \uC5C6\uC74C: \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC74C", out->key);
+        snprintf(out->label, sizeof out->label,
+                 "\uC790\uB3D9 \uD55C/\uC601 \uC804\uD658 (\uC9C0\uC6D0 \uC571\uC5D0\uC11C\uB9CC, %s) "
+                 "\u2014 \uC0AC\uC804 \uC5C6\uC74C: \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC74C",
+                 out->key);
     }
 }

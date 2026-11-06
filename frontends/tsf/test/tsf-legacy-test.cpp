@@ -188,8 +188,7 @@ TEST_F(LegacyTest, CommitUnitBufferedHoldsTheWordUntilTheBoundary) {
         FlushDocWrites();
         /* Buffered: the layer finalises nothing until the boundary, on every
          * key including the one where the engine commits a syllable. */
-        EXPECT_TRUE(Snap().finished.empty())
-            << "buffered unit finalised text at key " << (p - "dkssud" + 1);
+        EXPECT_TRUE(Snap().finished.empty()) << "buffered unit finalised text at key " << (p - "dkssud" + 1);
     }
     EXPECT_EQ(CtrlText(ctrl), word) << "the display is the same word either way";
 
@@ -220,13 +219,11 @@ TEST_F(LegacyTest, CommitUnitSyllableFinalisesAsTheEngineDoes) {
          * delivered at the key it finalises on, so it is already document
          * text by the time this line runs (measured: Snapshot().finished is
          * empty at every key, and that IS the unit's signature). */
-        EXPECT_TRUE(Snap().finished.empty())
-            << "syllable unit holds nothing at key " << key;
+        EXPECT_TRUE(Snap().finished.empty()) << "syllable unit holds nothing at key " << key;
         if (key >= 4) {
             const std::wstring doc = CtrlText(ctrl);
             EXPECT_EQ(doc.substr(0, first.size()), first)
-                << "the finalised syllable must be in the document from key " << key
-                << ", got: " << std::string(doc.begin(), doc.end());
+                << "the finalised syllable must be in the document from key " << key << ", got: " << wideToUtf8(doc);
         }
     }
     EXPECT_EQ(CtrlText(ctrl), word) << "same word, delivered earlier";
@@ -347,14 +344,12 @@ TEST_F(LegacyTest, PeriodThenEnterLandsTheBreak) {
     const BOOL periodEat = KeyHost(VK_OEM_PERIOD, L'.');
     FlushDocWrites();
     EXPECT_EQ(periodEat, FALSE) << "a period is declined: it belongs to the app";
-    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L".")
-        << "the word landed, then the app's period";
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L".") << "the word landed, then the app's period";
 
     const BOOL enterEat = KeyHost(VK_RETURN, L'\r');
     FlushDocWrites();
     EXPECT_EQ(enterEat, FALSE) << "Enter must pass at the test phase";
-    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L".\r\n")
-        << "the paragraph break must survive the boundary";
+    EXPECT_EQ(CtrlText(ctrl), std::wstring() + L'\uC548' + L'\uB155' + L".\r\n") << "the paragraph break must survive the boundary";
     LegacyTeardown();
 }
 
@@ -380,16 +375,14 @@ TEST_F(LegacyTest, PeriodIsALayoutKeyAndEnterStillBreaksTheLine) {
     /* The interim path writes the composition INTO the document, so the
      * consuming word and its period are already on screen here -- what is
      * still in flight is the layer's word buffer, not the text. */
-    ASSERT_NE(before.find(L'.'), std::wstring::npos)
-        << "sin3-p2 composes the period as a layout key";
+    ASSERT_NE(before.find(L'.'), std::wstring::npos) << "sin3-p2 composes the period as a layout key";
 
     const BOOL enterEat = KeyHost(VK_RETURN, L'\r');
     FlushDocWrites();
     EXPECT_EQ(enterEat, FALSE) << "Enter passes: the app inserts the break";
     const std::wstring after = CtrlText(ctrl);
     EXPECT_GE(after.size(), before.size() + 2) << "the paragraph break must be in the document";
-    EXPECT_EQ(after.compare(after.size() - 2, 2, L"\r\n"), 0)
-        << "the break must be the last thing in the document";
+    EXPECT_EQ(after.compare(after.size() - 2, 2, L"\r\n"), 0) << "the break must be the last thing in the document";
     LegacyTeardown();
 }
 
@@ -649,10 +642,12 @@ TEST_F(LegacyTest, MockEditChannelRecordsTheInterimWrites) {
         std::string previous;
         bool had = false;
         EnvSeam(const char *n, const char *value) : name(n) {
-            const char *p = std::getenv(n);
-            had = p != nullptr;
-            if (p)
-                previous = p;
+            char *buf = nullptr;
+            if (_dupenv_s(&buf, nullptr, n) == 0 && buf) {
+                had = true;
+                previous = buf;
+            }
+            free(buf);
             _putenv_s(n, value);
         }
         ~EnvSeam() { _putenv_s(name, had ? previous.c_str() : ""); }
