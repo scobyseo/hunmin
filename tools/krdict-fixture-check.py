@@ -17,6 +17,7 @@ stale. Regenerate the expected output deliberately:
         --out /tmp/kf && cp /tmp/kf/krdict/krdict.json \
         tests/fixtures/krdict/expected/krdict.json
 """
+import difflib
 import filecmp
 import subprocess
 import sys
@@ -44,9 +45,11 @@ with tempfile.TemporaryDirectory() as td:
     if not filecmp.cmp(expected, got, shallow=False):
         print(f"--- expected ({expected})", file=sys.stderr)
         print(f"+++ produced ({got})", file=sys.stderr)
-        diff = subprocess.run(["diff", "-u", str(expected), str(got)],
-                              capture_output=True, text=True)
-        print(diff.stdout, file=sys.stderr)
+        # difflib, not an external `diff`: Git-for-Windows does not put one on
+        # PATH, so the failure path itself crashed with FileNotFoundError.
+        exp = expected.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+        prod = got.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+        sys.stderr.writelines(difflib.unified_diff(exp, prod, fromfile=str(expected), tofile=str(got)))
         sys.exit("krdict-fixture: committed fixture output diverges from the "
                  "committed expected krdict.json — either the converter "
                  "changed or the expected output is stale; see the docstring.")

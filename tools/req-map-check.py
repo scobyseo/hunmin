@@ -51,6 +51,13 @@ import re
 import subprocess
 import sys
 
+# The map quotes requirement prose, which contains em dashes; a Windows
+# console default (cp949) raises UnicodeEncodeError on the first such byte.
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if _reconfigure:
+        _reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_MAP = "docs/REQ-MAP.md"
 

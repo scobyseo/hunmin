@@ -1,4 +1,4 @@
-{"meta": {"platform": "win32", "layout": "sin3-p2-yet", "case": "manual-sin3-p2-yet", "source": "manual-sin3-p2-yet.jsonl (manual)", "excluded": [{"case": "manual-sin3-p2-yet-merged-2", "state": ["caps"]}]}}
+{"meta": {"platform": "win32", "layout": "sin3-p2-yet", "case": "manual-sin3-p2-yet", "source": "manual-sin3-p2-yet.jsonl (manual)"}}
 {"meta": {"case": "manual-sin3-p2-yet-merged-1", "case_index": 1}}
 {"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
 {"in": {"vk": 32, "scan": 57, "mods": 0}, "commit": "ㄱ", "preedit": "", "consumed": false}
@@ -46,3 +46,6 @@
 {"in": {"vk": 74, "scan": 36, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
 {"in": {"vk": 75, "scan": 37, "mods": 0}, "commit": "", "preedit": "ㅇ", "consumed": true}
 {"in": {"vk": 49, "scan": 2, "mods": 0}, "commit": "ㅇµ", "preedit": "", "consumed": true}
+{"meta": {"case": "manual-sin3-p2-yet-merged-2", "case_index": 2}}
+{"in": {"vk": 75, "scan": 37, "mods": 2}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"vk": 191, "scan": 53, "mods": 2}, "commit": "ㄱ", "preedit": "ㅋ", "consumed": true}

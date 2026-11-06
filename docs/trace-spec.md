@@ -36,7 +36,7 @@ remaining lines are events.
 | `layout` | hunmin layout id the frontend was configured with. |
 | `case` | free-form label; ties the trace back to the tier A case it replays. |
 | `source` | optional provenance: which `tests/golden/*.jsonl` case this replays. |
-| `excluded` | optional provenance: the source golden's cases this platform cannot encode, e.g. `[{"case": "k/", "state": ["caps"]}]`. A trace carrying it covers every case of that golden **except** these; the omission lives in the artefact rather than in a terminal. `tools/gen-conformance.py` writes it (win32 refuses caps cases — see `in` below). |
+| `excluded` | optional provenance: the source golden's cases this platform cannot encode, e.g. `[{"case": "k/", "state": ["some-option"]}]`. A trace carrying it covers every case of that golden **except** these; the omission lives in the artefact rather than in a terminal. `tools/gen-conformance.py` writes it only for a case state the platform has no encoding for (the 2026-10 win32 caps refusal was lifted by issue #184 — caps is now `mods` `0x02`). |
 | `delivery` | optional: `{"model": "word-buffered", "total": "<text>"}` when the frontend buffers a whole eojeol and delivers it at a boundary, so tier A's per-key `commit` is not what the client receives. `total` is the cumulative text the case produces, computed from the golden by `tools/gen-conformance.py --delivery`. The runner rejects a model it does not know — see "Word-buffered adapters". |
 | `commit_mode` | optional: `word` \| `syllable`, the delivery **policy** the adapter must run under for tier A's per-event expectations to be observable at the points they were recorded. Absent means the addon's own default (`word`). |
 
@@ -87,13 +87,18 @@ CapsLock cannot be tested for it, and that is the point of the tier.
 
 Win32 (`vk`/`scan`/`mods`): `vk` is the virtual-key code (`VK_*`), `scan` the US-keyboard
 set-1 make code carried in `lParam` — informational; the shipped TIP reads `lParam` and
-ignores it. `mods` has one bit so far: `0x01` = Shift, meaning
-`GetKeyState(VK_SHIFT) < 0` at delivery time. Shift is therefore a property of the
+ignores it. `mods` bits: `0x01` = Shift, meaning
+`GetKeyState(VK_SHIFT) < 0` at delivery time; `0x02` = CapsLock, meaning
+`GetKeyState(VK_CAPITAL)` carries the toggled-on bit (`& 0x01`) at delivery
+time. Shift is therefore a property of the
 *event*, not of the character: `{"vk": 0x44, "scan": 0x20, "mods": 1}` is a shifted `D`,
-exactly what a real `WM_KEYDOWN` carries. There is no CapsLock bit: the Windows TIP
-models the key as a Hangul/English mode toggle (`VK_CAPITAL`), which is a different
-thing from the engine's caps variable, and a generator refuses a caps case for the
-platform rather than encode one as the other.
+exactly what a real `WM_KEYDOWN` carries. CapsLock is per-event for the same
+reason: the shipped TIP feeds the engine `caps` option from
+`hunmin_tsf_capslock_from_state()` on every key event, so a caps case replay
+sets `0x02` on every event of that case; the trace runner mocks the bit
+through the same registered key-state seam it uses for Shift
+(`frontends/tsf/test/trace-emit.cpp`). The despatch of `VK_CAPITAL` itself as
+a mode toggle is a separate key path and is not what this bit encodes.
 
 Keys that are not single characters — BackSpace, Return, arrows, Tab — are named by their
 platform constant (`{"keysym": 0xff08}`, `{"keycode": 67}`). They must still be traceable,
@@ -233,6 +238,12 @@ not a frontend that fails. Three facts, each measured rather than assumed:
   given, field for field. It reads the expectation verbatim from the `.in` and
   replays through `hunmin_ic`, so mid-word commits are fine, and it resets its input
   context at a case separator, so a batch file is one ctest here too.
+- **win32 case separator `options`** — a case separator may carry an `options` object
+  (`{"meta": {"case": "...", "options": {"w": 0}}}`) whose keys are engine
+  option names (`w`, `W`, `z`, `h`, `H`) and values are 0/1. The runner
+  applies them via `hunmin_buffered_preedit_set_option` at the case
+  boundary, mirroring the TIP's per-event option feed. CapsLock stays in
+  `mods` (`0x02`), not in `options`.
 - **win32 can express any golden** — `mods` carries Shift (`0x01`) and the emitter
   reconstructs tier A's per-event commit from the adapter's own buffered word
   (`frontends/tsf/test/trace-emit.cpp`) — but emitting a `.gold` needs a Windows host.

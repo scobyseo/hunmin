@@ -99,11 +99,10 @@ _WIN32_SCAN_NAMED = {
     "backspace": 0x0E, "return": 0x1C, "tab": 0x0F, "space": 0x39,
     "left": 0x4B, "up": 0x48, "right": 0x4D, "down": 0x50,
 }
-# mods bit 0x01 = Shift, i.e. GetKeyState(VK_SHIFT) < 0 at delivery time
-# (docs/trace-spec.md). Win32 has no CapsLock encoding here: a caps case is
-# refused below, because the adapter models Caps Lock as a mode toggle, not
-# as engine input.
+# mods bit 0x01 = Shift, i.e. GetKeyState(VK_SHIFT) < 0 at delivery time;
+# bit 0x02 = CapsLock, i.e. GetKeyState(VK_CAPITAL) toggled on (docs/trace-spec.md).
 WIN32_SHIFT = 0x01
+WIN32_CAPS_LOCK = 0x02
 
 
 def _win32_vk(ch: str) -> tuple[int, int, int]:
@@ -268,7 +267,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
     # p2-2-4-3-caps.jsonl is the corpus that exercises this; a case with any of
     # these keys is refused below unless the caller opted in, because the
     # current runner cannot reproduce a hunmin-option case from a trace alone.
-    OPTION_KEYS = ("caps", "w", "W", "z", "h", "H", "mode")
+    OPTION_KEYS = ("w", "W", "z", "h", "H")
     X_LOCK_MASK = 0x02
 
     current: dict = {}
@@ -279,7 +278,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
     # adapter can only reproduce under HUNMIN_COMMIT_PER_SYLLABLE. They are
     # alternative answers to the same question -- name the model, or switch the
     # policy -- so a trace carries at most one (see the writer below).
-    cases: list[tuple[str, list[str], str, bool]] = []
+    cases: list[tuple[str, list[str], str, bool, dict]] = []
     excluded: list[dict] = []  # cases this platform cannot encode, and why
     body: list[str] = []
     # True once this case has committed a syllable on a key it also consumed:
@@ -304,8 +303,9 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             if refused:
                 excluded.append({"case": name, "state": [refused]})
             elif body:
+                _opts = {k: v for k, v in current.items() if k in OPTION_KEYS}
                 cases.append((name, body, cumulative_commits + last_preedit,
-                              mid_stream_commit))
+                              mid_stream_commit, _opts))
             body = []
             cumulative_commits = ""
             last_preedit = ""
@@ -315,20 +315,13 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             name = rec["meta"]["case"]
             # per-case engine state, minus the label itself
             current = {k: v for k, v in rec["meta"].items() if k != "case"}
-            for k in current:
-                if k in OPTION_KEYS:
-                    unsupported.add(k)
-            # win32 has no caps encoding: its adapter models the key as a mode
-            # toggle, so a trace cannot say "this case ran with Caps Lock on".
-            # Emitting the case at mods=0 anyway asserts the caps-OFF text against
-            # a caps-ON expectation -- measured on manual-sin3-p2-yet's `k/`
-            # case, which fails at its second key: the adapter composes 고 where
-            # tier A recorded commit ㄱ + preedit ㅋ. So the case is EXCLUDED and
-            # the exclusion is written into the emitted meta, rather than
-            # silently emitting a trace that asserts the wrong thing.
-            if a.platform == "win32" and current.get("caps"):
-                refused = "caps"
-                unsupported.discard("caps")
+            # Engine-option flags (w/W/z/h/H) are no longer refused:
+            # they are carried in the case separator's `options` field and
+            # applied by the runner via hunmin_buffered_preedit_set_option.
+            # Issue #184.
+            # A caps case is encodable on every platform that carries the
+            # bit in `mods` (x11 LockMask, win32 0x02); it is applied per
+            # event in the emit loop below. Issue #184.
             continue
         # tier A writes inputs two ways: {"ch": "q"} for a character and
         # {"key": "backspace"} for a named key (docs/SPEC-SCHEMA.md "Reference
@@ -382,12 +375,12 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             spec_ch = shift_char(spec["ch"]) if spec.get("shift") else spec["ch"]
             event = build(spec_ch)
             consumed = _layout_maps(a.layout, spec_ch)
-        if a.platform == "x11" and current.get("caps"):
-            # X11 is the only platform that encodes Caps Lock in `mods`
-            # (LockMask). Android applies the same bit below for historical
-            # corpus; win32 has no encoding at all, so a caps case is excluded
-            # at the separator above rather than emitted at mods=0.
-            event["mods"] = event.get("mods", 0) | X_LOCK_MASK
+        if current.get("caps") and a.platform in ("x11", "win32"):
+            # x11 LockMask / win32 mods 0x02 (docs/trace-spec.md). A caps
+            # case sets the bit on every event of the case, matching the
+            # shipped TIP, which feeds the engine caps option per event.
+            mask = X_LOCK_MASK if a.platform == "x11" else WIN32_CAPS_LOCK
+            event["mods"] = event.get("mods", 0) | mask
         previous_preedit = rec.get("preedit", "")
         cumulative_commits += rec.get("commit", "")
         last_preedit = rec.get("preedit", "")
@@ -409,8 +402,9 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
     if refused:
         excluded.append({"case": name, "state": [refused]})
     elif body:
-        cases.append((name, body, cumulative_commits + last_preedit, mid_stream_commit))
-    unsupported -= {"caps"}  # encoded in x11 mods; win32 excludes the case instead
+        _opts = {k: v for k, v in current.items() if k in OPTION_KEYS}
+        cases.append((name, body, cumulative_commits + last_preedit, mid_stream_commit, _opts))
+    unsupported -= {"caps"}  # encoded in x11/win32 mods
     return cases, unsupported, head, excluded
 
 
@@ -468,7 +462,7 @@ def main() -> int:
     cases = all_cases
 
     if a.only_case:
-        seen = {name for name, _, _, _ in cases}
+        seen = {name for name, *_ in cases}
         missing = [c for c in a.only_case if c not in seen]
         if missing:
             raise SystemExit(f"{a.golden}: --only-case named no case: {missing} "
@@ -493,12 +487,13 @@ def main() -> int:
               + ", ".join(f"{e['case']} ({'+'.join(e['state'])})" for e in excluded),
               file=sys.stderr)
 
+    # All OPTION_KEYS are now carried in the trace's case separator as an
+    # `options` field and applied by the runner, so `unsupported` should be
+    # empty. Keep the guard for genuinely unknown keys (mode, autoswitch, ...).
     if unsupported:
         raise SystemExit(
             f"{a.golden}: case state {sorted(unsupported)} has no "
-            "native encoding in the trace format; replaying it needs an engine-"
-            "option channel that tools/trace-check.py cannot yet drive. Refusing "
-            "to emit a trace that would assert the wrong expectation."
+            "native encoding in the trace format."
         )
 
     # A golden's {"meta": {"case": ...}} lines separate INDEPENDENT cases: each
@@ -522,19 +517,21 @@ def main() -> int:
         # text and compares it cumulatively, so a mid-stream commit is observed
         # wherever the adapter chooses to deliver it. Say so in the terminal
         # rather than in a field the dialect does not define.
-        needs = [name for name, _, _, mid in cases if mid]
+        needs = [name for name, _, _, mid, _ in cases if mid]
         if needs:
             print(f"{a.out}: {len(needs)} case(s) commit mid-stream ({', '.join(needs)}); "
                   "a batch trace leaves the delivery point to the runner",
                   file=sys.stderr)
         batch = [out_lines[0]]
-        for i, (name, body, _, _) in enumerate(cases, 1):
-            batch.append(json.dumps({"meta": {"case": name, "case_index": i}},
-                                    ensure_ascii=False))
+        for i, (name, body, _, _, opts) in enumerate(cases, 1):
+            _sep = {"case": name, "case_index": i}
+            if opts:
+                _sep["options"] = opts
+            batch.append(json.dumps({"meta": _sep}, ensure_ascii=False))
             batch.extend(body)
         a.out.write_text("\n".join(batch) + "\n", encoding="utf-8")
         print(f"{a.out}: {len(cases)} cases, "
-              f"{sum(len(b) for _, b, _, _ in cases)} events", file=sys.stderr)
+              f"{sum(len(b) for _, b, _, _, _ in cases)} events", file=sys.stderr)
         return 0
 
     def delivery_meta(total: str) -> dict:
@@ -559,13 +556,14 @@ def main() -> int:
         # ';' splits CMake's list. So the label stays in `meta.case` for humans
         # and the FILENAME gets a stable ASCII index instead. Deterministic
         # because cases are emitted in file order.
-        for i, (name, body, total, mid_stream_commit) in enumerate(cases, 1):
+        for i, (name, body, total, mid_stream_commit, opts) in enumerate(cases, 1):
             f = a.out.with_name(f"{stem}-case{i:02d}.trace.in")
             # manual-sin3-p2-yet.jsonl has two cases both labelled "k/" -- one
             # caps:0, one caps:1 -- so a label alone does not identify a case.
             # case_index is authoritative; the label is for humans.
             case_meta = {**json.loads(out_lines[0])["meta"], "case": name,
                          "case_index": i, "case_id": f"{a.case}#{i:02d}",
+                         **({"options": opts} if opts else {}),
                          **delivery_meta(total)}
             # One answer per trace: naming the delivery model and switching the
             # addon's policy would assert two different things about one run.
@@ -579,8 +577,10 @@ def main() -> int:
     # Single-case golden: the events live in `body`, not `out_lines` (which
     # holds only the header). Writing out_lines here produced a header-only file,
     # i.e. a trace that asserts nothing.
-    name, body, total, mid_stream_commit = cases[0]
-    head = {**json.loads(out_lines[0])["meta"], **delivery_meta(total)}
+    name, body, total, mid_stream_commit, opts = cases[0]
+    head = {**json.loads(out_lines[0])["meta"],
+            **({"options": opts} if opts else {}),
+            **delivery_meta(total)}
     if body and mid_stream_commit and not a.delivery:
         head["commit_mode"] = COMMIT_MODE_FOR_MID_STREAM
     a.out.write_text("\n".join([json.dumps({"meta": head}, ensure_ascii=False)] + body) + "\n",

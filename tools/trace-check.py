@@ -24,9 +24,10 @@ import json
 import os
 import pathlib
 import shlex
-import shutil
 import subprocess
 import sys
+
+from _hostcompat import posix_shell
 
 
 def load(path: pathlib.Path) -> list[dict]:
@@ -134,22 +135,6 @@ def cumulative_text(events: list[dict]) -> str:
 DELIVERY_MODELS = ("word-buffered",)
 
 
-def find_bash() -> str | None:
-    """A POSIX shell to wrap .sh runners on Windows (shutil.which, then the
-    usual Git-for-Windows install roots)."""
-    cand = shutil.which("bash")
-    if cand:
-        return cand
-    for pf in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)")):
-        if not pf:
-            continue
-        for sub in (os.path.join(pf, "Git", "usr", "bin", "bash.exe"),
-                    os.path.join(pf, "Git", "bin", "bash.exe")):
-            if os.path.exists(sub):
-                return sub
-    return None
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("trace", type=pathlib.Path)
@@ -173,7 +158,7 @@ def main() -> int:
     tokens = shlex.split(a.runner, posix=(os.name != "nt"))
     bashp = None
     if os.name == "nt" and tokens and tokens[0].lower().endswith(".sh"):
-        bashp = find_bash()
+        bashp = posix_shell()
         if bashp is None:
             print(f"skip: no POSIX shell to run {a.runner!r}", file=sys.stderr)
             return 77

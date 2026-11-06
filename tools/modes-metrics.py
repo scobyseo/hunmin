@@ -311,7 +311,7 @@ def probe_literals(layout, sim, data):
     """
     cmd = [str(sim), "--data", str(data), "--layout", layout, "--batch"]
     r = subprocess.run(cmd, input="\n".join(_PROBE_KEYS), capture_output=True,
-                       text=True, errors="replace", timeout=300)
+                       text=True, encoding="utf-8", errors="replace", timeout=300)
     if r.returncode != 0:
         raise SystemExit(f"{' '.join(cmd)} failed: {r.stderr.strip()[:300]}")
     recs = [json.loads(l) for l in r.stdout.splitlines() if l.strip()]
@@ -472,8 +472,8 @@ def sim_judge(engine_path, data, layout, latin, keys, autoswitch):
            "--keys", keys]
     # errors=replace: a long preedit can be cut mid-character by sim's %c
     # print path, and the last line — the only one parsed — is not.
-    r = subprocess.run(cmd, capture_output=True, text=True, errors="replace",
-                       timeout=120)
+    r = subprocess.run(cmd, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=120)
     if r.returncode != 0:
         raise SystemExit(f"{' '.join(cmd)} failed: {r.stderr.strip()[:300]}")
     lines = [l for l in r.stdout.splitlines() if l.strip().startswith("{")]
