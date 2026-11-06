@@ -682,6 +682,54 @@ TEST_F(WordSetTest, PerKeyTimingFlickersOnAnEnglishWordAndBoundaryTimingDoesNot)
     hunmin_buffered_preedit_free(boundary);
 }
 
+/* Issue #221, measured in the engine rather than in TSF: the same per-key
+ * display, E1 direction. `english` typed in Latin mode shows `E En Eng`
+ * then the Hangul reading `뚜히` at the fourth key, then Latin again --
+ * the live TSF round read exactly that (`preedit=뚜히` at key `l`, 5 of 5
+ * ON rounds). The condition is `judged_display`'s Latin branch: the prefix
+ * is not a dictionary word (`Engl` is not one) and its Hangul reading is
+ * well-formed syllables (`뚜히` is). The next key breaks the reading
+ * (`Engli` reads with a dangling 초성), so the display returns to Latin
+ * one key later and the delivered word is `English` either way. Display
+ * only: the boundary timing shows `Engl` at that key and delivers the same
+ * text. This pins where the flash comes from -- the layer, not the
+ * adapter, whose log line prints the layer's display -- so a TSF-side
+ * change cannot be the fix for it. */
+TEST_F(WordSetTest, PerKeyTimingInLatinModeShowsHangulForEnglishThenReturns) {
+    auto run = [this](int timing, std::vector<std::string> *shown) {
+        hunmin_buffered_preedit *l = pair_layer(ctx_, 1);
+        EXPECT_NE(l, nullptr);
+        EXPECT_TRUE(hunmin_buffered_preedit_set_option(l, "judge_timing", timing));
+        hunmin_key_result toggled{};
+        EXPECT_EQ(1, hunmin_buffered_preedit_toggle_language(l, &toggled));
+        EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, hunmin_buffered_preedit_language(l));
+        std::string delivered;
+        const char *keys = "english ";
+        for (size_t i = 0; keys[i]; ++i) {
+            hunmin_key_result out{};
+            const uint32_t shift = (i == 0) ? 1u : 0u;
+            hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(keys[i]), shift, &out);
+            if (shown) shown->push_back(out.preedit ? out.preedit : "");
+            if (out.commit && *out.commit) delivered += out.commit;
+        }
+        EXPECT_EQ(-1, hunmin_buffered_preedit_take_judgement(l)) << "an English word in Latin mode judges nothing";
+        EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, hunmin_buffered_preedit_language(l));
+        hunmin_buffered_preedit_free(l);
+        return delivered;
+    };
+
+    std::vector<std::string> per_key_shown;
+    const std::string per_key = run(1, &per_key_shown);
+    const std::vector<std::string> expected = {"E", "En", "Eng", "뚜히", "Engli", "Englis", "English", ""};
+    EXPECT_EQ(expected, per_key_shown) << "the per-key display of `english` in Latin mode, key by key";
+    EXPECT_EQ("English", per_key) << "the flash is display only: the delivered word is unchanged";
+
+    std::vector<std::string> boundary_shown;
+    const std::string boundary = run(0, &boundary_shown);
+    EXPECT_EQ("Engl", boundary_shown[3]) << "boundary timing never shows the other language while typing";
+    EXPECT_EQ(per_key, boundary);
+}
+
 TEST_F(WordSetTest, AutoswitchOffIsTheIdentityPath) {
     hunmin_buffered_preedit *off = pair_layer(ctx_, 0);
     ASSERT_NE(off, nullptr);
