@@ -216,6 +216,29 @@ in here:
   reading for one key (`preedit=뚜히` where the word is `Engli`), 5 of 5 ON rounds
   and 0 of 5 OFF. The document held it too, so it is a delivery defect, not a
   paint.
+
+  Cause, attributed 2026-11-07 (issue #221): the layer, not the adapter.
+  The adapter's log line prints `ComposeDisplay()`, which is the layer's
+  `build_preedit` — and in Latin mode its `judged_display` branch (E1 +
+  E6's per-key default) answers the Hangul reading whenever the prefix is not
+  a dictionary word and the reading is well-formed syllables. At `l` that is
+  `Engl` (not a word) over `뚜히` (two syllables); at `i` the reading gains a
+  dangling 초성 and stops being well-formed, so the display falls back to
+  Latin one key later. That is why the flash is exactly one key, why the
+  mixed sentence typed from Hangul mode shows no such step (Hangul is the
+  current mode there, so its display is Hangul throughout), and why the
+  document held it: the native delivery writes `ComposeDisplay()` into the
+  composition range, faithfully. The engine case
+  `WordSetTest.PerKeyTimingInLatinModeShowsHangulForEnglishThenReturns`
+  pins the per-key sequence (`E En Eng 뚜히 Engli Englis English`) and that
+  the boundary timing shows `Engl` at that key with the same delivered
+  text. No TSF code change follows from this attribution: the ruled options
+  are the timing default itself (`judge_timing`, E6) and the E1 per-key
+  rule, and changing either is a ruling, not a fix — the priced Hangul
+  direction of the same flicker is §BND-4, and its Latin direction is the
+  unpriced half this round measured. What would change the recommendation
+  is a human typing measurement of the Latin direction, which this round
+  did not take (see below).
 - **issue #222** — in 1 of 8 ON rounds the host accumulated the composition text
   (26 characters for a 7-key word, 10 `composition start` for 1 `composition
   end`) and the adapter consumed Ctrl+Z in that run. A race, measured once; its
