@@ -29,6 +29,12 @@
 #include "../src/registrationseam.h"
 #include "mock-tsf.h"
 
+/* COM stubs: most parameters carry interface signatures, not values; the file-scoped mute quiets MSVC C4100 for them only. */
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4100)
+#endif
+
 namespace tsfmock {
 
 /* The ordered, cross-object log every double below appends to. Method names
@@ -253,3 +259,6 @@ struct RegistrationDoubles {
 };
 
 } // namespace tsfmock
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

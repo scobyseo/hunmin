@@ -388,7 +388,7 @@ TEST_F(CandidateTest, ShiftedRowIsTheEnginesDecision) {
 }
 TEST_F(CandidateTest, InjectedShiftSelectsTheShiftRow) {
     Begin();
-    g_mockKeyState[VK_SHIFT & 0xFF] = (SHORT)0x8000;
+    g_mockKeyState[VK_SHIFT & 0xFF] = (SHORT)-32768;
     Key('R'); /* the VK the OS sends for the key; case is the engine's */
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
     AssertPreedit("\xE3\x84\xB2", "case 19: shifted r is not ssang-gigyeong");

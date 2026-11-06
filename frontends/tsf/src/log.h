@@ -136,7 +136,8 @@ private:
         char path[MAX_PATH];
         if (!PathFor(T::kFileName, path, sizeof(path)))
             return nullptr;
-        return fopen(path, mode);
+        FILE *f = nullptr;
+        return fopen_s(&f, path, mode) == 0 ? f : nullptr;
     }
 };
 

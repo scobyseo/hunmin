@@ -187,7 +187,6 @@ static std::vector<WORD> buildDialogTemplate() {
     wstr(t, L"Hunmin settings");
     t.push_back(9); /* DS_SETFONT needs this size word, then the face */
     wstr(t, L"Segoe UI");
-    const size_t first = t.size();
     /* Compact grid, tightened twice after the user's live run ("spacing
      * between widgets is too big"): 200x150 dlu, rows 13-14 dlu apart,
      * edit->hint 2 dlu. The 키 입력 button beside each key field enters the
@@ -246,14 +245,13 @@ static void applyAndClose(HWND h, SettingsState *s) {
      * combo was filled in vector order without sort). */
     int sel = (int)SendMessageW(GetDlgItem(h, IDC_HANGUL_LIST), CB_GETCURSEL, 0, 0);
     if (sel >= 0 && (size_t)sel < s->hangulRows.size())
-        strncpy(s->cfg.hangulLayout, s->hangulRows[(size_t)sel].id, HUNMIN_TSF_LAYOUT_ID_CAP - 1);
+        strncpy_s(s->cfg.hangulLayout, HUNMIN_TSF_LAYOUT_ID_CAP, s->hangulRows[(size_t)sel].id, _TRUNCATE);
     sel = (int)SendMessageW(GetDlgItem(h, IDC_LATIN_LIST), CB_GETCURSEL, 0, 0);
     if (sel >= 0 && (size_t)sel < s->latinRows.size())
-        strncpy(s->cfg.latinLayout, s->latinRows[(size_t)sel].id, HUNMIN_TSF_LAYOUT_ID_CAP - 1);
+        strncpy_s(s->cfg.latinLayout, HUNMIN_TSF_LAYOUT_ID_CAP, s->latinRows[(size_t)sel].id, _TRUNCATE);
     /* Commit unit (issue #128): index 0 is the buffered word, 1 the syllable. */
     sel = (int)SendMessageW(GetDlgItem(h, IDC_COMMIT_LIST), CB_GETCURSEL, 0, 0);
-    strncpy(s->cfg.commitUnit, sel == 1 ? "syllable" : "word", HUNMIN_TSF_COMMIT_UNIT_CAP - 1);
-    s->cfg.commitUnit[HUNMIN_TSF_COMMIT_UNIT_CAP - 1] = '\0';
+    strncpy_s(s->cfg.commitUnit, HUNMIN_TSF_COMMIT_UNIT_CAP, sel == 1 ? "syllable" : "word", _TRUNCATE);
     /* Toggle-key list, wide control text -> the store grammar. Fixed-cap
      * never truncates: a too-long list is exactly the store save's failure
      * path, surfaced below. */
@@ -262,8 +260,7 @@ static void applyAndClose(HWND h, SettingsState *s) {
         MessageBoxW(h, L"Toggle key list too long.", L"Hunmin settings", MB_OK | MB_ICONWARNING);
         return; /* stay on the dialog: the user fixes the value */
     }
-    strncpy(s->cfg.toggleKeys, keys.c_str(), HUNMIN_TSF_TOGGLE_KEYS_CAP - 1);
-    s->cfg.toggleKeys[HUNMIN_TSF_TOGGLE_KEYS_CAP - 1] = '\0';
+    strncpy_s(s->cfg.toggleKeys, HUNMIN_TSF_TOGGLE_KEYS_CAP, keys.c_str(), _TRUNCATE);
     /* The candidate-window key (issue #67): ONE combo, same grammar. An
      * empty edit means "reset to the default" — the store save then writes
      * the default explicitly, so the resolved value always round-trips. */
@@ -277,8 +274,7 @@ static void applyAndClose(HWND h, SettingsState *s) {
         MessageBoxW(h, L"Hanja key binding too long.", L"Hunmin settings", MB_OK | MB_ICONWARNING);
         return; /* stay on the dialog: the user fixes the value */
     }
-    strncpy(s->cfg.hanjaKey, hanjaKey.c_str(), HUNMIN_TSF_HANJA_KEY_CAP - 1);
-    s->cfg.hanjaKey[HUNMIN_TSF_HANJA_KEY_CAP - 1] = '\0';
+    strncpy_s(s->cfg.hanjaKey, HUNMIN_TSF_HANJA_KEY_CAP, hanjaKey.c_str(), _TRUNCATE);
     /* The automatic switch (issue #175): the checkbox writes the STORE's copy of
      * a state the engine owns; the adapter hands it to the layer on the next
      * Apply (hunmin_buffered_preedit_set_option), and the engine refuses it where
@@ -287,8 +283,8 @@ static void applyAndClose(HWND h, SettingsState *s) {
     s->cfg.autoswitch = SendMessageW(GetDlgItem(h, IDC_FEATURE_ROW), BM_GETCHECK, 0, 0) == BST_CHECKED ? 1 : 0;
     if (hunmin_tsf_config_save(HKEY_CURRENT_USER, &s->cfg)) {
         s->applied = true;
-        hunmin_logger.log("settings: saved hangul=%s latin=%s keys=%s hanja=%s autoswitch=%d\n", s->cfg.hangulLayout, s->cfg.latinLayout, s->cfg.toggleKeys,
-                          s->cfg.hanjaKey, s->cfg.autoswitch);
+        hunmin_logger.log("settings: saved hangul=%s latin=%s keys=%s hanja=%s autoswitch=%d\n", s->cfg.hangulLayout, s->cfg.latinLayout,
+                          s->cfg.toggleKeys, s->cfg.hanjaKey, s->cfg.autoswitch);
         EndDialog(h, 1);
     } else {
         hunmin_logger.log("settings: save FAILED\n");
@@ -547,8 +543,7 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         /* Commit unit (issue #128): two literal rows, index == the store value. */
         SendMessageW(GetDlgItem(h, IDC_COMMIT_LIST), CB_ADDSTRING, 0, (LPARAM)COMMIT_WORD_ROW);
         SendMessageW(GetDlgItem(h, IDC_COMMIT_LIST), CB_ADDSTRING, 0, (LPARAM)COMMIT_SYL_ROW);
-        SendMessageW(GetDlgItem(h, IDC_COMMIT_LIST), CB_SETCURSEL,
-                     (WPARAM)(strcmp(s->cfg.commitUnit, "syllable") == 0 ? 1 : 0), 0);
+        SendMessageW(GetDlgItem(h, IDC_COMMIT_LIST), CB_SETCURSEL, (WPARAM)(strcmp(s->cfg.commitUnit, "syllable") == 0 ? 1 : 0), 0);
         /* Toggle keys into the edit. */
         std::wstring w = utf8ToWide(s->cfg.toggleKeys);
         SetWindowTextW(GetDlgItem(h, IDC_TOGGLE_EDIT), w.c_str());
@@ -582,8 +577,8 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
             RECT wa = {}, rc = {};
             SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0);
             GetWindowRect(h, &rc);
-            int w = rc.right - rc.left, ht = rc.bottom - rc.top;
-            SetWindowPos(h, HWND_TOPMOST, wa.left + ((wa.right - wa.left) - w) / 2, wa.top + ((wa.bottom - wa.top) - ht) / 2, 0, 0, SWP_NOSIZE);
+            int winW = rc.right - rc.left, ht = rc.bottom - rc.top;
+            SetWindowPos(h, HWND_TOPMOST, wa.left + ((wa.right - wa.left) - winW) / 2, wa.top + ((wa.bottom - wa.top) - ht) / 2, 0, 0, SWP_NOSIZE);
             SetForegroundWindow(h);
             GetWindowRect(h, &rc);
             hunmin_logger.log("settings: initdialog rect=(%ld,%ld)-(%ld,%ld) visible=%d\n", (long)rc.left, (long)rc.top, (long)rc.right,

@@ -73,8 +73,8 @@
 
 #include "../src/config.h"
 #include "../src/tsf.h"
-#include "mock-tsf.h"
 #include "mock-tsf-edit.h"
+#include "mock-tsf.h"
 #include "tsf-keystate-mock.h"
 #include "tsf-testdir.h"
 
@@ -82,19 +82,22 @@ namespace {
 
 std::string wideToUtf8(const std::wstring &w) {
     int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
-    if (n <= 0) return std::string();
+    if (n <= 0)
+        return std::string();
     std::string s((size_t)n, '\0');
     WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr, nullptr);
     return s;
 }
 
 std::string readFile(const char *path) {
-    FILE *f = fopen(path, "rb");
-    if (!f) return std::string();
+    FILE *f = nullptr;
+    if (fopen_s(&f, path, "rb") != 0 || !f)
+        return std::string();
     std::string out;
     char buf[8192];
     size_t n;
-    while ((n = fread(buf, 1, sizeof buf, f)) > 0) out.append(buf, n);
+    while ((n = fread(buf, 1, sizeof buf, f)) > 0)
+        out.append(buf, n);
     fclose(f);
     return out;
 }
@@ -106,7 +109,8 @@ std::string corpusPath() {
     std::string data = HUNMIN_TSF_DATA_DIR;
     const std::string tail = "/libhunmin/data";
     size_t at = data.rfind(tail);
-    if (at == std::string::npos) return std::string();
+    if (at == std::string::npos)
+        return std::string();
     return data.substr(0, at) + "/tests/golden/judgement-r8.jsonl";
 }
 
@@ -138,10 +142,12 @@ std::vector<CorpusCase> loadCorpus(const std::string &path) {
     size_t pos = 0;
     while (pos < body.size()) {
         size_t end = body.find('\n', pos);
-        if (end == std::string::npos) end = body.size();
+        if (end == std::string::npos)
+            end = body.size();
         const std::string line = body.substr(pos, end - pos);
         pos = end + 1;
-        if (line.empty()) continue;
+        if (line.empty())
+            continue;
         cJSON *j = cJSON_Parse(line.c_str());
         if (!j) {
             EXPECT_NE(j, nullptr) << "bad JSON in the corpus: " << line;
@@ -157,9 +163,11 @@ std::vector<CorpusCase> loadCorpus(const std::string &path) {
             c.modeAfter = jstr(j, "mode_after");
             c.commit = jstr(j, "commit");
             const cJSON *as = cJSON_GetObjectItemCaseSensitive(j, "autoswitch");
-            if (cJSON_IsNumber(as)) c.autoswitch = as->valueint;
+            if (cJSON_IsNumber(as))
+                c.autoswitch = as->valueint;
             const cJSON *jd = cJSON_GetObjectItemCaseSensitive(j, "judged");
-            if (cJSON_IsArray(jd)) c.judgedCount = cJSON_GetArraySize(jd);
+            if (cJSON_IsArray(jd))
+                c.judgedCount = cJSON_GetArraySize(jd);
             const cJSON *p = cJSON_GetObjectItemCaseSensitive(j, "probe");
             if (cJSON_IsObject(p)) {
                 c.hasProbe = true;
@@ -213,6 +221,7 @@ bool keyAt(const std::string &s, size_t &i, KeyPress &out) {
 
 class TsfJudgementTest : public ::testing::Test {
     friend void RunCase(TsfJudgementTest *, const CorpusCase &, bool);
+
 protected:
     void SetUp() override {
         _putenv_s("HUNMIN_DATA_DIR", HUNMIN_TSF_DATA_DIR);
@@ -238,10 +247,14 @@ protected:
         CTextService *svc = nullptr;
         tsfmock::MockEditControl *edit = nullptr;
         ~Service() {
-            if (svc) svc->Release();
-            if (mctx) mctx->Release();
-            if (dm) dm->Release();
-            if (tm) tm->Release();
+            if (svc)
+                svc->Release();
+            if (mctx)
+                mctx->Release();
+            if (dm)
+                dm->Release();
+            if (tm)
+                tm->Release();
         }
     };
 
@@ -255,19 +268,20 @@ protected:
      * exactly as trace-emit and the live host's next key event do. */
     std::string press(Service &s, bool interim, const KeyPress &k) {
         const std::wstring before = DocOf(s, interim);
-        g_mockKeyState[VK_SHIFT & 0xFF] = k.shift ? (SHORT)0x8000 : (SHORT)0;
+        g_mockKeyState[VK_SHIFT & 0xFF] = k.shift ? (SHORT)-32768 : (SHORT)0;
         BOOL eat = FALSE;
         s.svc->OnTestKeyDown(s.mctx, k.vk, 0, &eat);
         s.svc->OnKeyDown(s.mctx, k.vk, 0, &eat);
-        if (interim) s.svc->FlushPendingDocWrites();
+        if (interim)
+            s.svc->FlushPendingDocWrites();
         g_mockKeyState[VK_SHIFT & 0xFF] = 0;
         const std::wstring after = DocOf(s, interim);
-        if (after.size() < before.size()) return std::string("\x01");
+        if (after.size() < before.size())
+            return std::string("\x01");
         return wideToUtf8(after.substr(before.size()));
     }
 
-    std::string type(Service &s, bool interim, const std::string &keys,
-                     const std::string &what) {
+    std::string type(Service &s, bool interim, const std::string &keys, const std::string &what) {
         std::string delivered;
         size_t i = 0;
         while (i < keys.size()) {
@@ -326,8 +340,7 @@ void RunCase(TsfJudgementTest *t, const CorpusCase &c, bool interim) {
     t->makeService(s, c, interim);
     if (interim) {
         EXPECT_TRUE(t->Snap(s.svc).legacyMode) << "the interim run is not on the interim delivery";
-        EXPECT_EQ(t->Snap(s.svc).autoswitch, 0)
-            << "§2.1: the interim delivery must answer autoswitch off at the layer";
+        EXPECT_EQ(t->Snap(s.svc).autoswitch, 0) << "§2.1: the interim delivery must answer autoswitch off at the layer";
     }
     ASSERT_TRUE(t->Snap(s.svc).hangulMode) << "the service starts in hangul mode";
 
@@ -335,7 +348,8 @@ void RunCase(TsfJudgementTest *t, const CorpusCase &c, bool interim) {
         BOOL eat = FALSE;
         s.svc->OnTestKeyDown(s.mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eat);
         s.svc->OnKeyDown(s.mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eat);
-        if (interim) s.svc->FlushPendingDocWrites();
+        if (interim)
+            s.svc->FlushPendingDocWrites();
         ASSERT_FALSE(t->Snap(s.svc).hangulMode) << "the toggle entered latin mode";
     }
 
@@ -355,13 +369,11 @@ void RunCase(TsfJudgementTest *t, const CorpusCase &c, bool interim) {
             /* §2.2 interim arm: latin-mode keys are the app's passthrough
              * and the mock emulates no app, so the control stays empty --
              * named, measured, not skipped. */
-            EXPECT_EQ(total, "")
-                << "interim latin-mode passthrough: the control must stay empty (the app's text is not the mock's)";
+            EXPECT_EQ(total, "") << "interim latin-mode passthrough: the control must stay empty (the app's text is not the mock's)";
         } else if (interim && judged) {
             /* §2.1: the word is delivered in the language it was typed in
              * (the Hangul reading), never the judged commit. */
-            EXPECT_NE(total, c.commit)
-                << "interim judged case delivered the judged text anyway -- the switch fired where §2.1 says it cannot";
+            EXPECT_NE(total, c.commit) << "interim judged case delivered the judged text anyway -- the switch fired where §2.1 says it cannot";
             EXPECT_FALSE(total.empty()) << "interim judged case delivered nothing at all";
         } else {
             EXPECT_EQ(total, c.commit) << "the case delivered the wrong total text";
@@ -370,18 +382,15 @@ void RunCase(TsfJudgementTest *t, const CorpusCase &c, bool interim) {
         EXPECT_EQ(c.commit, "") << "a case with no trailing boundary but a commit the lane cannot place";
     }
 
-    EXPECT_EQ(t->Snap(s.svc).hangulMode, wantMode == "hangul")
-        << "the case ended in the wrong mode (want " << wantMode << ")";
+    EXPECT_EQ(t->Snap(s.svc).hangulMode, wantMode == "hangul") << "the case ended in the wrong mode (want " << wantMode << ")";
 
     if (c.hasProbe) {
         if (interim && wantMode == "latin") {
             /* The probe keys are the app's too: nothing is delivered. */
-            EXPECT_EQ(t->type(s, interim, c.probeKeys, "probe"), "")
-                << "interim latin-mode probe delivered through the engine";
+            EXPECT_EQ(t->type(s, interim, c.probeKeys, "probe"), "") << "interim latin-mode probe delivered through the engine";
         } else {
             const std::string want = (wantMode == "latin") ? c.probeLatin : c.probeHangul;
-            EXPECT_EQ(t->type(s, interim, c.probeKeys, "probe"), want)
-                << "the probe did not deliver the " << wantMode << " reading";
+            EXPECT_EQ(t->type(s, interim, c.probeKeys, "probe"), want) << "the probe did not deliver the " << wantMode << " reading";
         }
     }
 
@@ -392,14 +401,16 @@ TEST_F(TsfJudgementTest, CorpusReplayNative) {
     const std::string path = corpusPath();
     const std::vector<CorpusCase> cases = loadCorpus(path);
     ASSERT_FALSE(cases.empty()) << "the corpus replayed nothing -- an unloaded file is not a green lane";
-    for (const CorpusCase &c : cases) RunCase(this, c, false);
+    for (const CorpusCase &c : cases)
+        RunCase(this, c, false);
 }
 
 TEST_F(TsfJudgementTest, CorpusReplayInterim) {
     const std::string path = corpusPath();
     const std::vector<CorpusCase> cases = loadCorpus(path);
     ASSERT_FALSE(cases.empty()) << "the corpus replayed nothing -- an unloaded file is not a green lane";
-    for (const CorpusCase &c : cases) RunCase(this, c, true);
+    for (const CorpusCase &c : cases)
+        RunCase(this, c, true);
 }
 
 } // namespace

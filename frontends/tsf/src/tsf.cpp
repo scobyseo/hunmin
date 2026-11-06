@@ -66,7 +66,7 @@ HRESULT hunmin_tsf_launch_settings() {
         sei.lpFile = exe;
         sei.lpParameters = nullptr;
     } else {
-        _snwprintf(cmd, _countof(cmd), L"\"%s,HunminSettingsShow\"", dll);
+        _snwprintf_s(cmd, _countof(cmd), _TRUNCATE, L"\"%s,HunminSettingsShow\"", dll);
         sei.lpFile = L"rundll32.exe";
         sei.lpParameters = cmd;
     }
@@ -77,8 +77,8 @@ HRESULT hunmin_tsf_launch_settings() {
 
 CTextService::CTextService()
     : ref_(1), threadMgr_(nullptr), clientId_(TF_CLIENTID_NULL), sinkCookie_(0), ctx_(nullptr), preedit_(nullptr), hangulMode_(true),
-      hasPreeditRect_(false), lastCtx_(nullptr), composition_(nullptr), compCtx_(nullptr), displayAttr_(new DisplayAttr()),
-      interimForce_(false), legacyMode_(false), endingSelf_(false), hangulId_(kHangulDefaultId), latinId_(kLatinDefaultId),
+      hasPreeditRect_(false), lastCtx_(nullptr), composition_(nullptr), compCtx_(nullptr), displayAttr_(new DisplayAttr()), interimForce_(false),
+      legacyMode_(false), endingSelf_(false), hangulId_(kHangulDefaultId), latinId_(kLatinDefaultId),
       hanjaCombo_(HunminKeyCombo{HUNMIN_TSF_VIRTUAL_HANJA, 0}) {
     /* Each component registers its own implementations; the shell
      * composes and owns them. A missing registration must be loud, not a
@@ -369,13 +369,17 @@ void CTextService::ApplyJudgement(ITfContext *pic) {
      * left is the state the next key reads: the layer's slot, the conversion
      * compartment the host stores, and the langbar. */
     const int judged = hunmin_buffered_preedit_take_judgement(preedit_);
-    if (judged < 0) return;
-    if (judged == hunmin_buffered_preedit_language(preedit_)) return; /* already there */
+    if (judged < 0)
+        return;
+    if (judged == hunmin_buffered_preedit_language(preedit_))
+        return; /* already there */
     hunmin_key_result out{};
-    if (!hunmin_buffered_preedit_toggle_language(preedit_, &out)) return;
+    if (!hunmin_buffered_preedit_toggle_language(preedit_, &out))
+        return;
     /* A one-language layer cannot reach here, but the boundary the switch
      * performs may still hold text; deliver it rather than drop it. */
-    if (out.commit && out.commit[0]) InsertText(pic, HunminUtf8ToWide(out.commit));
+    if (out.commit && out.commit[0])
+        InsertText(pic, HunminUtf8ToWide(out.commit));
     hangulMode_ = (hunmin_buffered_preedit_language(preedit_) == HUNMIN_LANGUAGE_HANGUL);
     UpdateConversionCompartment();
     UpdateLangBarItem(threadMgr_);
