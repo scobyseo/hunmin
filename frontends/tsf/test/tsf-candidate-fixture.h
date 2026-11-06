@@ -34,6 +34,16 @@
 
 /* g_hunmin_hinst lives in the target's main TU (trace-emit.cpp / tsf-test.cpp). */
 
+inline std::string wideToUtf8(const std::wstring &w) {
+    if (w.empty())
+        return {};
+    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
+    std::string s(n > 0 ? (size_t)n : 0, '\0');
+    if (n > 0)
+        WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr, nullptr);
+    return s;
+}
+
 struct CandidateTest : public ::testing::Test {
     tsfmock::MockThreadMgr *tm = nullptr;
     tsfmock::MockContext *ctx = nullptr;
@@ -53,12 +63,14 @@ struct CandidateTest : public ::testing::Test {
          * _putenv_s still overrides (case 15 sets F9 BEFORE Begin(),
          * so the default only fills an UNSET variable). */
         {
-            const char *have = std::getenv("HUNMIN_TSF_HANJA_KEY");
-            if (!have)
+            char *buf = nullptr;
+            if (_dupenv_s(&buf, nullptr, "HUNMIN_TSF_HANJA_KEY") != 0 || !buf)
                 _putenv_s("HUNMIN_TSF_HANJA_KEY", "v1:25:0");
-            have = std::getenv("HUNMIN_TSF_TOGGLE_KEYS");
-            if (!have)
+            free(buf);
+            buf = nullptr;
+            if (_dupenv_s(&buf, nullptr, "HUNMIN_TSF_TOGGLE_KEYS") != 0 || !buf)
                 _putenv_s("HUNMIN_TSF_TOGGLE_KEYS", "v1:21:0");
+            free(buf);
         }
         g_mockKeyState[VK_SHIFT & 0xFF] = 0;
         tsf_test_register_keystate();
@@ -144,7 +156,8 @@ struct CandidateTest : public ::testing::Test {
     }
     void AssertPreedit(const char *utf8Expected, const char *what) {
         HunminTsfSnapshot s = Snap();
-        EXPECT_EQ(std::string(s.layer ? hunmin_buffered_preedit_composing(s.layer) : ""), std::string(utf8Expected ? utf8Expected : "")) << what << ": preedit";
+        EXPECT_EQ(std::string(s.layer ? hunmin_buffered_preedit_composing(s.layer) : ""), std::string(utf8Expected ? utf8Expected : ""))
+            << what << ": preedit";
     }
     void AssertNoInsert(const char *what) { EXPECT_EQ(ctx->insertions.size(), (size_t)0) << what << ": insertions happened, want none"; }
 
@@ -176,7 +189,7 @@ static const char *kAnchorGaGa = "\xEA\xB0\x80\xEA\xB0\x80"; /* 가가 */
 static const char *kAnchorGaGaGa = "\xEA\xB0\x80\xEA\xB0\x80\xEA\xB0\x80"; /* 가가가 */
 
 /* Type `dkssud`: wordbuf_ reaches `안`, preedit reaches `녕` (engine-measured). */
-static void TypeAnNyeng(CandidateTest &f) {
+inline void TypeAnNyeng(CandidateTest &f) {
     f.Type("dkssud");
     f.AssertWordbuf(kAnchorAn, "dkssud");
     f.AssertPreedit(kAnchorPreeditNyeng, "dkssud");

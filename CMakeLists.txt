@@ -72,7 +72,9 @@ target_compile_definitions(hunmin PRIVATE
 # consumers. Android (and every ELF target) exports by default visibility, and
 # NDK's ld.lld rejects --export-all-symbols outright (measured: it fails the
 # cross-build outright, it does not warn), so the option stays PE-only.
-if(WIN32)
+# MSVC exports via CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS above and would reject
+# the -Wl, spelling (LNK4044), so the flag is MinGW-only.
+if(WIN32 AND NOT MSVC)
   target_link_options(hunmin PRIVATE -Wl,--export-all-symbols)
 endif()
 
@@ -302,6 +304,10 @@ if(BUILD_TESTING AND Python3_FOUND)
   target_link_libraries(commit-text-test PRIVATE GTest::gtest_main)
   target_link_options(commit-text-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
   target_include_directories(commit-text-test PRIVATE libhunmin/include libhunmin/src third_party/cJSON)
+  # The engine sources are compiled in directly, so the dllimport defaults in
+  # hunmin.h would contradict their own definitions (MSVC C4273); declare the
+  # static linkage, the same define the tsf harness carries.
+  target_compile_definitions(commit-text-test PRIVATE HUNMIN_STATIC)
   target_sources(commit-text-test PRIVATE
     libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/schema_loader.c
     libhunmin/src/expr.c libhunmin/src/ic.c libhunmin/src/candidate_tables.c

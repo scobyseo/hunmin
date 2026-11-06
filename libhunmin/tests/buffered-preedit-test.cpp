@@ -40,8 +40,13 @@ namespace {
 const char *kDataPath = nullptr;
 
 std::string env_or(const char *name, const char *fallback) {
-    const char *v = getenv(name);
-    return v && *v ? std::string(v) : std::string(fallback);
+    char *buf = nullptr;
+    std::string out = fallback;
+    if (_dupenv_s(&buf, nullptr, name) == 0 && buf) {
+        if (*buf) out = buf;
+        free(buf);
+    }
+    return out;
 }
 
 hunmin_ctx *make_ctx() {
@@ -65,12 +70,10 @@ std::vector<Key> keys_of(const std::string &s) {
 /* What the user sees for the current word: the text already committed for this
  * word plus the composing preedit. This is the quantity the invariant is stated
  * over, because the commit boundary is a frontend choice. */
-std::string rendered(const std::string &word_committed, const char *preedit) {
-    return word_committed + std::string(preedit ? preedit : "");
-}
+std::string rendered(const std::string &word_committed, const char *preedit) { return word_committed + std::string(preedit ? preedit : ""); }
 
 struct RunResult {
-    std::string total;      /* every commit the frontend would have inserted */
+    std::string total; /* every commit the frontend would have inserted */
     std::vector<int> eaten; /* consumed answer per key */
     std::vector<std::string> shown; /* rendered text after each key */
 };
@@ -145,9 +148,8 @@ class LayerTest : public ::testing::Test {
  * three adapters: a word continued across a syllable boundary, a space and an
  * Enter, a digit (the interim dubeolsik defect's key class), a backspace inside
  * a composition, and a backspace over an empty composition (the decline path). */
-const char *kSequences[] = {"dkssud",   "dkssud ",  "dkssud gksrmf", "dkssud1",
-                            "dkssu",    "dkssud\bd", "dkssud \b",   "rkqt",
-                            "gksrmf",   "dkssud\n", "qk",            "0"};
+const char *kSequences[] = {"dkssud",    "dkssud ", "dkssud gksrmf", "dkssud1",  "dkssu", "dkssud\bd",
+                            "dkssud \b", "rkqt",    "gksrmf",        "dkssud\n", "qk",    "0"};
 
 TEST_F(LayerTest, BothCommitModesAgreeWithTheEngine) {
     for (const char *seq : kSequences) {
@@ -166,9 +168,7 @@ TEST_F(LayerTest, BothCommitModesAgreeOnConsumptionAndDisplay) {
         ASSERT_EQ(buffered.eaten.size(), keys_of(seq).size()) << "sequence: " << seq;
         EXPECT_EQ(buffered.eaten, syllable.eaten) << "sequence: " << seq;
         const size_t n = std::min(buffered.shown.size(), syllable.shown.size());
-        for (size_t i = 0; i < n; i++) {
-            EXPECT_EQ(buffered.shown[i], syllable.shown[i]) << "sequence: " << seq << " key " << i;
-        }
+        for (size_t i = 0; i < n; i++) { EXPECT_EQ(buffered.shown[i], syllable.shown[i]) << "sequence: " << seq << " key " << i; }
     }
 }
 
@@ -346,8 +346,7 @@ TEST_F(LayerTest, TheCapIsConfigurableAndZeroMeansNoCap) {
     for (int i = 0; i < 200; ++i) sequence += "dks"; /* 600 B */
 
     auto run = [&](int cap_value, size_t *flushes, size_t *largest) {
-        hunmin_buffered_preedit *l =
-            hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+        hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
         EXPECT_NE(l, nullptr);
         if (!l) return std::string();
         EXPECT_TRUE(hunmin_buffered_preedit_set_option(l, "word_cap", cap_value));
@@ -426,8 +425,7 @@ TEST_F(LayerTest, EachFlushedHalfIsTheNextPrefixAndTheRemainderFlushesCleanly) {
         if (out.commit && out.commit[0]) {
             const std::string half = out.commit;
             ++flushes;
-            EXPECT_EQ(half, expected.substr(cursor, half.size()))
-                << "the flushed half is not the next prefix (flush " << flushes << ")";
+            EXPECT_EQ(half, expected.substr(cursor, half.size())) << "the flushed half is not the next prefix (flush " << flushes << ")";
             cursor += half.size();
         }
         /* The preedit is the FINISHED part still held plus the syllable composing, so
@@ -440,8 +438,7 @@ TEST_F(LayerTest, EachFlushedHalfIsTheNextPrefixAndTheRemainderFlushesCleanly) {
         const std::string shown = out.preedit ? out.preedit : "";
         ASSERT_GE(shown.size(), composing.size());
         const std::string held = shown.substr(0, shown.size() - composing.size());
-        EXPECT_EQ(held, expected.substr(cursor, held.size()))
-            << "the held word is not the remainder after " << cursor << " bytes (key " << i << ")";
+        EXPECT_EQ(held, expected.substr(cursor, held.size())) << "the held word is not the remainder after " << cursor << " bytes (key " << i << ")";
     }
     ASSERT_GE(flushes, 2u) << "600 B could not fit under the 256 B cap without splitting";
 
@@ -495,8 +492,7 @@ TEST_F(LayerTest, DigitRunIsHeldInTheBufferNotCommittedPerDigit) {
     std::string shown;
     for (const char *k = run; *k; ++k) {
         hunmin_key_result out{};
-        EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)*k, 0, &out), 1)
-            << "a digit of a sebeolsik run was not composition input: " << *k;
+        EXPECT_EQ(hunmin_buffered_preedit_process_key(l, (uint32_t)*k, 0, &out), 1) << "a digit of a sebeolsik run was not composition input: " << *k;
         EXPECT_STREQ(out.commit, "") << "the digit escaped the buffer at key " << *k;
         shown = out.preedit ? out.preedit : "";
         EXPECT_EQ(shown, std::string(run, size_t(k - run) + 1)) << "the buffer does not hold the run so far";
@@ -562,8 +558,7 @@ TEST_F(LayerTest, TheCapCountsDigitRunsInBytesLikeSyllables) {
     }
     EXPECT_EQ(delivered, "12") << "the flush is the first half of a 5-byte word";
     EXPECT_EQ(preedit, "345") << "the tail keeps composing";
-    EXPECT_EQ(delivered + hunmin_buffered_preedit_commit_word(l), std::string("12345"))
-        << "the digits were lost or reordered across the flush";
+    EXPECT_EQ(delivered + hunmin_buffered_preedit_commit_word(l), std::string("12345")) << "the digits were lost or reordered across the flush";
     hunmin_buffered_preedit_free(l);
 }
 
@@ -580,8 +575,7 @@ TEST_F(LayerTest, TurningTheSwitchOffMidWordLosesNothing) {
      * -1 keeps it on for the whole word (the control). */
     auto run = [&](int flip_after) {
         std::string total;
-        hunmin_buffered_preedit *l =
-            hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+        hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
         EXPECT_NE(l, nullptr);
         if (!l) return total;
         EXPECT_EQ(1, hunmin_buffered_preedit_load_english_shipped(l));
@@ -622,8 +616,7 @@ TEST_F(LayerTest, TurningTheSwitchOffMidWordLosesNothing) {
      * behind: after the flip it is the off path's display for the same prefix. */
     const std::string prefix = "hel";
     const RunResult off_prefix = drive_layer(ctx_, prefix, HUNMIN_COMMIT_AT_BOUNDARY);
-    hunmin_buffered_preedit *l =
-        hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(l, nullptr);
     ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(l));
     ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 1));

@@ -42,15 +42,26 @@ namespace {
 const char *kDataPath = nullptr;
 
 std::string scratch_dir() {
-    const char *tmp = std::getenv("TEMP");
-    if (!tmp) tmp = std::getenv("TMPDIR");
-    return tmp ? std::string(tmp) : std::string(".");
+    char *buf = nullptr;
+    std::string out;
+    if (_dupenv_s(&buf, nullptr, "TEMP") == 0 && buf) {
+        if (*buf) out = buf;
+        free(buf);
+    }
+    if (out.empty()) {
+        buf = nullptr;
+        if (_dupenv_s(&buf, nullptr, "TMPDIR") == 0 && buf) {
+            if (*buf) out = buf;
+            free(buf);
+        }
+    }
+    return out.empty() ? std::string(".") : out;
 }
 
 /* A scratch file the test owns and removes: a user dictionary, or a malformed
  * one. Kept out of the source tree so a failing run leaves nothing behind. */
 class ScratchFile {
-public:
+  public:
     ScratchFile(const char *name, const std::string &body) {
         path_ = scratch_dir() + "/" + name;
         std::ofstream out(path_.c_str(), std::ios::binary | std::ios::trunc);
@@ -60,18 +71,17 @@ public:
     ~ScratchFile() { std::remove(path_.c_str()); }
     const char *c_str() const { return path_.c_str(); }
 
-private:
+  private:
     std::string path_;
 };
 
 class WordSetTest : public ::testing::Test {
-protected:
+  protected:
     void SetUp() override {
         const char *dirs[1] = {kDataPath};
         ctx_ = hunmin_ctx_new(dirs, 1);
         ASSERT_NE(ctx_, nullptr);
-        layer_ = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr,
-                                             HUNMIN_COMMIT_AT_BOUNDARY);
+        layer_ = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
         ASSERT_NE(layer_, nullptr);
     }
     void TearDown() override {
@@ -108,27 +118,24 @@ TEST_F(WordSetTest, ShippedListAnswersForEnglishAndNotForTheKoreanTypedGap) {
     EXPECT_EQ(1, hunmin_buffered_preedit_english_ready(layer_));
 
     const char *english[] = {"computer", "running", "dogs", "the", "her"};
-    for (const char *w : english)
-        EXPECT_EQ(1, hunmin_buffered_preedit_english_valid(layer_, w)) << w;
+    for (const char *w : english) EXPECT_EQ(1, hunmin_buffered_preedit_english_valid(layer_, w)) << w;
     /* Case folds: the artefact is lowercased, the buffer is not. */
     EXPECT_EQ(1, hunmin_buffered_preedit_english_valid(layer_, "Computer"));
 
     /* The measured gap the ruling accepted (MODES-DATA 4-7d): these are in no
      * English dictionary, and the user dictionary is the ruled answer. */
     const char *gap[] = {"kbs", "mbc", "fifa", "uefa", "nhk", "xyzzyy"};
-    for (const char *w : gap)
-        EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(layer_, w)) << w;
+    for (const char *w : gap) EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(layer_, w)) << w;
 }
 
 TEST_F(WordSetTest, UserFileIsFoundExactlyWhereABaseWordIs) {
     ASSERT_EQ(1, hunmin_buffered_preedit_load_english(layer_, shipped_list().c_str()));
 
     /* A person's file: a BOM, a comment, a blank line, CRLF, stray spaces. */
-    ScratchFile user("hunmin-user-words.txt",
-                     "\xEF\xBB\xBF# my words\r\n"
-                     "\r\n"
-                     "  kbs  \r\n"
-                     "fifa # a broadcaster\r\n");
+    ScratchFile user("hunmin-user-words.txt", "\xEF\xBB\xBF# my words\r\n"
+                                              "\r\n"
+                                              "  kbs  \r\n"
+                                              "fifa # a broadcaster\r\n");
     ASSERT_EQ(1, hunmin_buffered_preedit_load_user_words(layer_, user.c_str()));
 
     EXPECT_EQ(1, hunmin_buffered_preedit_english_valid(layer_, "kbs"));
@@ -153,8 +160,7 @@ TEST_F(WordSetTest, AddWordIsTheEditingPathAndPersistsNowhere) {
     const char *dirs[1] = {kDataPath};
     hunmin_ctx *ctx = hunmin_ctx_new(dirs, 1);
     ASSERT_NE(ctx, nullptr);
-    hunmin_buffered_preedit *other =
-        hunmin_buffered_preedit_new(ctx, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *other = hunmin_buffered_preedit_new(ctx, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(other, nullptr);
     ASSERT_EQ(1, hunmin_buffered_preedit_load_english(other, shipped_list().c_str()));
     EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(other, "kbs"));
@@ -178,7 +184,7 @@ namespace {
  * the compose tables and one layout and nothing else -- the shape of a machine
  * with the engine's data but not the dictionary package (B3, issue #190). */
 class ScratchDataDir {
-public:
+  public:
     explicit ScratchDataDir(const char *name) {
         path_ = scratch_dir() + "/" + name;
         std::error_code ec;
@@ -210,7 +216,7 @@ public:
         out.write(body.data(), static_cast<std::streamsize>(body.size()));
     }
 
-private:
+  private:
     std::string path_;
 };
 
@@ -246,9 +252,7 @@ TEST_F(WordSetTest, ShippedListIsFoundThroughTheContextsDataDirs) {
 
     const char *words[] = {"computer", "don't", "the", "kbs", "xyzzyy"};
     for (const char *w : words) {
-        EXPECT_EQ(hunmin_buffered_preedit_english_valid(by_path.layer, w),
-                  hunmin_buffered_preedit_english_valid(layer_, w))
-            << w;
+        EXPECT_EQ(hunmin_buffered_preedit_english_valid(by_path.layer, w), hunmin_buffered_preedit_english_valid(layer_, w)) << w;
     }
 }
 
@@ -324,15 +328,13 @@ namespace {
 
 /* Feed a key sequence at shift=0. */
 void type_keys(hunmin_buffered_preedit *l, const char *keys) {
-    for (const char *p = keys; *p; p++)
-        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, nullptr);
+    for (const char *p = keys; *p; p++) hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, nullptr);
 }
 
 } // namespace
 
 TEST_F(WordSetTest, TheLatinReadingIsTheSameKeysOnTheLatinLayout) {
-    hunmin_buffered_preedit *pair =
-        hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *pair = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(pair, nullptr);
     ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(pair));
 
@@ -360,8 +362,7 @@ TEST_F(WordSetTest, TheLatinReadingIsTheSameKeysOnTheLatinLayout) {
 }
 
 TEST_F(WordSetTest, ShiftSurvivesTheReplay) {
-    hunmin_buffered_preedit *pair =
-        hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *pair = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(pair, nullptr);
     ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(pair));
 
@@ -394,8 +395,7 @@ TEST_F(WordSetTest, TheReadingBelongsToTheFinishedWordOnly) {
      * hooked below the delivery split would silently be missing there. */
     const int policies[] = {HUNMIN_COMMIT_AT_BOUNDARY, HUNMIN_COMMIT_PER_SYLLABLE};
     for (int policy : policies) {
-        hunmin_buffered_preedit *pair =
-            hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", policy);
+        hunmin_buffered_preedit *pair = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", policy);
         ASSERT_NE(pair, nullptr) << policy;
 
         type_keys(pair, "hello");
@@ -450,9 +450,9 @@ namespace {
 
 struct WordRun {
     std::string commit; /* everything the client would have received */
-    int mode;           /* the last non-negative take_judgement, or -1 */
-    int second;         /* a second read after the last one: must be -1 */
-    bool twice;         /* a non-negative answer was seen twice */
+    int mode; /* the last non-negative take_judgement, or -1 */
+    int second; /* a second read after the last one: must be -1 */
+    bool twice; /* a non-negative answer was seen twice */
 };
 
 /* Type `keys` the way a frontend does: deliver each out->commit, then ask for
@@ -476,8 +476,7 @@ WordRun type_and_judge(hunmin_buffered_preedit *l, const char *keys) {
 
 /* A two-language layer with the shipped dictionary loaded and `autoswitch` set
  * the way a settings UI would leave it. */
-hunmin_buffered_preedit *pair_layer(hunmin_ctx *ctx, int autoswitch,
-                                    int policy = HUNMIN_COMMIT_AT_BOUNDARY) {
+hunmin_buffered_preedit *pair_layer(hunmin_ctx *ctx, int autoswitch, int policy = HUNMIN_COMMIT_AT_BOUNDARY) {
     hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx, "dubeolsik", "us-qwerty", policy);
     if (!l) return nullptr;
     hunmin_buffered_preedit_load_english_shipped(l);
@@ -562,13 +561,13 @@ TEST_F(WordSetTest, TheZeroThreeGateMixedSentenceWorksInOneStream) {
     struct Word {
         const char *keys;
         const char *layout; /* the layout the person was in for this word */
-        int shift_first;    /* the two capitalised words */
-        int expected_mode;  /* HUNMIN_LANGUAGE_*, or -1 for no judgement */
+        int shift_first; /* the two capitalised words */
+        int expected_mode; /* HUNMIN_LANGUAGE_*, or -1 for no judgement */
     };
     const Word words[] = {
         {"english", "us-qwerty", 1, HUNMIN_LANGUAGE_LATIN},
-        {"sms", "dubeolsik", 0, HUNMIN_LANGUAGE_HANGUL},     /* 는 */
-        {"whgdms", "dubeolsik", 0, -1},                      /* 좋은: Hangul in, Hangul out */
+        {"sms", "dubeolsik", 0, HUNMIN_LANGUAGE_HANGUL}, /* 는 */
+        {"whgdms", "dubeolsik", 0, -1}, /* 좋은: Hangul in, Hangul out */
         {"language", "us-qwerty", 1, HUNMIN_LANGUAGE_LATIN},
         {"dlqslek", "dubeolsik", 0, HUNMIN_LANGUAGE_HANGUL}, /* 입니다 */
     };
@@ -610,8 +609,7 @@ TEST_F(WordSetTest, TheZeroThreeGateMixedSentenceWorksInOneStream) {
     }
     hunmin_buffered_preedit_free(l);
 
-    EXPECT_EQ(expected, delivered)
-        << "the mixed sentence did not come out in the languages the person meant";
+    EXPECT_EQ(expected, delivered) << "the mixed sentence did not come out in the languages the person meant";
 }
 
 TEST_F(WordSetTest, JudgeTimingIsAnOptionAndDefaultsToPerKey) {
@@ -664,8 +662,7 @@ TEST_F(WordSetTest, PerKeyTimingFlickersOnAnEnglishWordAndBoundaryTimingDoesNot)
      * property: a word that changes language inside itself. */
     hunmin_buffered_preedit *per_key = pair_layer(ctx_, 1);
     ASSERT_NE(per_key, nullptr);
-    EXPECT_EQ(1, display_changes(per_key, "hello"))
-        << "`hello` flips once, at the key where the guard stops applying";
+    EXPECT_EQ(1, display_changes(per_key, "hello")) << "`hello` flips once, at the key where the guard stops applying";
     hunmin_buffered_preedit_free(per_key);
 
     hunmin_buffered_preedit *deep = pair_layer(ctx_, 1);
@@ -702,8 +699,7 @@ TEST_F(WordSetTest, AutoswitchOffIsTheIdentityPath) {
     /* The identity the requirement asks for: with the switch off, the text is
      * exactly what it was before the feature existed -- which is the same keys
      * on a layer with no judgement data at all. */
-    hunmin_buffered_preedit *bare = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty",
-                                                                HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *bare = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(bare, nullptr);
     hunmin_buffered_preedit_set_option(bare, "autoswitch", 0);
     EXPECT_EQ(type_and_judge(bare, "hello ").commit, a.commit);
@@ -755,8 +751,7 @@ TEST_F(WordSetTest, R9sGuardCountsKeyInputs) {
 
     hunmin_buffered_preedit *three = pair_layer(ctx_, 1);
     ASSERT_NE(three, nullptr);
-    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, type_and_judge(three, "one ").mode)
-        << "three key inputs are (R9, ruled 2026-11-01)";
+    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, type_and_judge(three, "one ").mode) << "three key inputs are (R9, ruled 2026-11-01)";
     hunmin_buffered_preedit_free(three);
 }
 
@@ -770,13 +765,10 @@ TEST_F(WordSetTest, TheJudgementIsTakenOnceAndClearedByTheNextBoundary) {
     /* A word that judges nothing clears the previous answer: the frontend acts
      * on the word it was told about, never on the one before it. */
     hunmin_key_result out{};
-    for (const char *p = "one "; *p; ++p)
-        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, &out);
+    for (const char *p = "one "; *p; ++p) hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, &out);
     ASSERT_EQ(HUNMIN_LANGUAGE_LATIN, hunmin_buffered_preedit_take_judgement(l));
-    for (const char *p = "the "; *p; ++p)
-        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, &out);
-    EXPECT_EQ(-1, hunmin_buffered_preedit_take_judgement(l))
-        << "the second word judged nothing, so nothing is left over from the first";
+    for (const char *p = "the "; *p; ++p) hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, &out);
+    EXPECT_EQ(-1, hunmin_buffered_preedit_take_judgement(l)) << "the second word judged nothing, so nothing is left over from the first";
     hunmin_buffered_preedit_free(l);
 }
 
@@ -789,10 +781,8 @@ TEST_F(WordSetTest, UserWordKbsDrivesTheJudgementEndToEnd) {
     ASSERT_NE(with_user, nullptr);
     ASSERT_EQ(1, hunmin_buffered_preedit_add_user_word(with_user, "kbs"));
     const WordRun switched = type_and_judge(with_user, "kbs ");
-    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, switched.mode)
-        << "kbs is a user word, so it must be judged Latin";
-    EXPECT_EQ("kbs", switched.commit)
-        << "the triggering word is delivered in the judged language (R10)";
+    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, switched.mode) << "kbs is a user word, so it must be judged Latin";
+    EXPECT_EQ("kbs", switched.commit) << "the triggering word is delivered in the judged language (R10)";
     hunmin_buffered_preedit_free(with_user);
 
     /* Without the user word, the same keys do not switch: kbs is not in en_US. */
@@ -803,8 +793,7 @@ TEST_F(WordSetTest, UserWordKbsDrivesTheJudgementEndToEnd) {
     hunmin_buffered_preedit_free(without_user);
 
     /* (b) with no dictionary installed, the mode never changes. */
-    hunmin_buffered_preedit *no_dict = hunmin_buffered_preedit_new(
-        ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *no_dict = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(no_dict, nullptr);
     hunmin_buffered_preedit_set_option(no_dict, "autoswitch", 1);
     const WordRun absent = type_and_judge(no_dict, "kbs ");
@@ -824,8 +813,7 @@ TEST_F(WordSetTest, UserWordKbsDrivesTheJudgementEndToEnd) {
 TEST_F(WordSetTest, NoDictionaryMeansNoJudgement) {
     /* B3: data absent is a normal state, and the judgement abstains rather than
      * calling every word not-English. */
-    hunmin_buffered_preedit *fresh = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty",
-                                                                 HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *fresh = hunmin_buffered_preedit_new(ctx_, "dubeolsik", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(fresh, nullptr);
     hunmin_buffered_preedit_set_option(fresh, "autoswitch", 1);
     const WordRun r = type_and_judge(fresh, "hello ");
@@ -843,27 +831,23 @@ TEST_F(WordSetTest, WhatTheJudgementCannotDecideItDeclines) {
      * rather than guessing: one language (no second reading), a Hangul slot that
      * composes no Hangul (R8-정정-3), and per-syllable delivery (the earlier
      * syllables are already in the client, R10). */
-    hunmin_buffered_preedit *one_language = hunmin_buffered_preedit_new(
-        ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *one_language = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(one_language, nullptr);
     hunmin_buffered_preedit_load_english_shipped(one_language);
     hunmin_buffered_preedit_set_option(one_language, "autoswitch", 1);
     EXPECT_EQ(-1, type_and_judge(one_language, "hello ").mode);
     hunmin_buffered_preedit_free(one_language);
 
-    hunmin_buffered_preedit *latin_slot = hunmin_buffered_preedit_new(
-        ctx_, "us-qwerty", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    hunmin_buffered_preedit *latin_slot = hunmin_buffered_preedit_new(ctx_, "us-qwerty", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(latin_slot, nullptr);
     hunmin_buffered_preedit_load_english_shipped(latin_slot);
     hunmin_buffered_preedit_set_option(latin_slot, "autoswitch", 1);
-    EXPECT_EQ(-1, type_and_judge(latin_slot, "hello ").mode)
-        << "a Hangul slot that composes no Hangul has no syllables to judge";
+    EXPECT_EQ(-1, type_and_judge(latin_slot, "hello ").mode) << "a Hangul slot that composes no Hangul has no syllables to judge";
     hunmin_buffered_preedit_free(latin_slot);
 
     hunmin_buffered_preedit *per_syllable = pair_layer(ctx_, 1, HUNMIN_COMMIT_PER_SYLLABLE);
     ASSERT_NE(per_syllable, nullptr);
-    EXPECT_EQ(-1, type_and_judge(per_syllable, "hello ").mode)
-        << "per-syllable delivery has already handed the word over syllable by syllable";
+    EXPECT_EQ(-1, type_and_judge(per_syllable, "hello ").mode) << "per-syllable delivery has already handed the word over syllable by syllable";
     hunmin_buffered_preedit_free(per_syllable);
 }
 
@@ -880,9 +864,7 @@ namespace {
 
 std::size_t count_of(const std::string &hay, const std::string &needle) {
     std::size_t n = 0;
-    for (std::size_t at = hay.find(needle); at != std::string::npos;
-         at = hay.find(needle, at + needle.size()))
-        ++n;
+    for (std::size_t at = hay.find(needle); at != std::string::npos; at = hay.find(needle, at + needle.size())) ++n;
     return n;
 }
 
@@ -892,8 +874,7 @@ TEST_F(WordSetTest, ASchemaViolatingFileLoadsAndSaysSoOutLoud) {
     /* A number and an object cannot be words; `""` is not one either. A capital
      * and a space are interpretable, so they are kept -- and the capital is even
      * findable, because the lookup folds case. All five are named. */
-    ScratchFile mixed("hunmin-schema-violating.json",
-                      "[\"computer\", 3, {\"w\":\"dog\"}, \"\", \"Computer\", \"ice cream\"]");
+    ScratchFile mixed("hunmin-schema-violating.json", "[\"computer\", 3, {\"w\":\"dog\"}, \"\", \"Computer\", \"ice cream\"]");
     ::testing::internal::CaptureStderr();
     const int rc = hunmin_buffered_preedit_load_english(layer_, mixed.c_str());
     const std::string log = ::testing::internal::GetCapturedStderr();
@@ -933,14 +914,15 @@ TEST_F(WordSetTest, AWhollyBrokenFileIsOneFactNotOneLinePerElement) {
      * otherwise be 118k lines of stderr. */
     EXPECT_EQ(std::size_t{8}, count_of(log, "is not a word string")) << log;
     EXPECT_NE(std::string::npos, log.find("12 elements are outside the schema")) << log;
-    EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(layer_, "computer"))
-        << "no word was added, and 1 still means loaded here -- which is why the "
-           "warning carries the count";
+    EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(layer_, "computer")) << "no word was added, and 1 still means loaded here -- which is why the "
+                                                                               "warning carries the count";
 }
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    kDataPath = std::getenv("HUNMIN_DATA_PATH");
+    char *env_buf = nullptr;
+    _dupenv_s(&env_buf, nullptr, "HUNMIN_DATA_PATH");
+    kDataPath = env_buf;
     if (!kDataPath) {
         std::fprintf(stderr, "HUNMIN_DATA_PATH is not set; this test reads the "
                              "shipped tables, not a copy\n");

@@ -271,7 +271,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
     svc->OnKeyDown(mctx, VK_SPACE, 0, &eaten);
     EXPECT_EQ(eaten, FALSE) << "bare space is not a toggle (exact mods rule)";
     EXPECT_FALSE(Snap(svc).hangulMode) << "bare space is not a toggle (exact mods rule)";
-    g_mockKeyState[VK_SHIFT & 0xFF] = 0x8000;
+    g_mockKeyState[VK_SHIFT & 0xFF] = (SHORT)-32768;
     svc->OnKeyDown(mctx, VK_SPACE, 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "shift+space toggles back to hangul";
     EXPECT_TRUE(Snap(svc).hangulMode) << "shift+space toggles back to hangul";
@@ -356,7 +356,7 @@ TEST_F(TsfConfigTest, TheHanEngKeyCarriesTheSpecialFunctionOnAChord) {
     EXPECT_EQ(hunmin_buffered_preedit_special_chord(layer, HUNMIN_SPECIAL_AUTOSWITCH), HUNMIN_MOD_CTRL);
 
     /* 1. Ctrl + 한/영: AUTOSWITCH is bound and this host services it. */
-    g_mockKeyState[VK_CONTROL & 0xFF] = (SHORT)0x8000;
+    g_mockKeyState[VK_CONTROL & 0xFF] = (SHORT)-32768;
     svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "a serviceable chord is claimed in the test phase";
     svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
@@ -368,7 +368,7 @@ TEST_F(TsfConfigTest, TheHanEngKeyCarriesTheSpecialFunctionOnAChord) {
     /* 2. Alt + 한/영: VOICE is bound but this platform has no recogniser, so the
      * host refuses -- and a refused chord must not be claimed by the test, or
      * the host never delivers the down at all (the `dkssud1` defect class). */
-    g_mockKeyState[VK_MENU & 0xFF] = (SHORT)0x8000;
+    g_mockKeyState[VK_MENU & 0xFF] = (SHORT)-32768;
     svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
     EXPECT_EQ(eaten, FALSE) << "a refused chord is not claimed in the test";
     svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
@@ -378,8 +378,8 @@ TEST_F(TsfConfigTest, TheHanEngKeyCarriesTheSpecialFunctionOnAChord) {
 
     /* 3. Ctrl+Alt + 한/영: nothing is bound to that chord, so the engine
      * degrades it to the plain toggle rather than leaving a dead key. */
-    g_mockKeyState[VK_CONTROL & 0xFF] = (SHORT)0x8000;
-    g_mockKeyState[VK_MENU & 0xFF] = (SHORT)0x8000;
+    g_mockKeyState[VK_CONTROL & 0xFF] = (SHORT)-32768;
+    g_mockKeyState[VK_MENU & 0xFF] = (SHORT)-32768;
     svc->OnTestKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);
     EXPECT_EQ(eaten, TRUE) << "an unbound chord is still ours (it is a toggle)";
     svc->OnKeyDown(mctx, HUNMIN_TSF_VIRTUAL_HANGEUL, 0, &eaten);

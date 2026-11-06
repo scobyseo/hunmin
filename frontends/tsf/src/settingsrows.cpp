@@ -28,11 +28,9 @@ int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *r
             if (!id || !id[0])
                 continue;
             rows[n].index = i;
-            strncpy(rows[n].id, id, HUNMIN_TSF_SETTINGS_TEXT_CAP - 1);
-            rows[n].id[HUNMIN_TSF_SETTINGS_TEXT_CAP - 1] = '\0';
+            strncpy_s(rows[n].id, HUNMIN_TSF_SETTINGS_TEXT_CAP, id, _TRUNCATE);
             const char *name = hunmin_ctx_layout_name(ctx, i, "ko");
-            strncpy(rows[n].name, (name && name[0]) ? name : id, HUNMIN_TSF_SETTINGS_TEXT_CAP - 1);
-            rows[n].name[HUNMIN_TSF_SETTINGS_TEXT_CAP - 1] = '\0';
+            strncpy_s(rows[n].name, HUNMIN_TSF_SETTINGS_TEXT_CAP, (name && name[0]) ? name : id, _TRUNCATE);
             rows[n].supported = hunmin_ctx_layout_supported(ctx, i) ? 1 : 0;
             ++n;
         }
@@ -45,12 +43,16 @@ int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *r
 /* The chord's modifier bits, in the order Windows spells them. The bits are
  * the ENGINE's (hunmin_buffered_preedit_special_chord), so a frontend that
  * rebinds nothing still advertises the chord the engine honours. */
-static const char *modsText(unsigned mods, char *buf) {
+static const char *modsText(unsigned mods, char *buf, size_t cap) {
     buf[0] = '\0';
-    if (mods & HUNMIN_MOD_CTRL) strcat(buf, "Ctrl+");
-    if (mods & HUNMIN_MOD_ALT) strcat(buf, "Alt+");
-    if (mods & HUNMIN_MOD_GUI) strcat(buf, "Win+");
-    if (mods & HUNMIN_MOD_SHIFT) strcat(buf, "Shift+");
+    if (mods & HUNMIN_MOD_CTRL)
+        strncat_s(buf, cap, "Ctrl+", _TRUNCATE);
+    if (mods & HUNMIN_MOD_ALT)
+        strncat_s(buf, cap, "Alt+", _TRUNCATE);
+    if (mods & HUNMIN_MOD_GUI)
+        strncat_s(buf, cap, "Win+", _TRUNCATE);
+    if (mods & HUNMIN_MOD_SHIFT)
+        strncat_s(buf, cap, "Shift+", _TRUNCATE);
     return buf;
 }
 
@@ -71,7 +73,7 @@ void hunmin_tsf_autoswitch_row(hunmin_ctx *ctx, const char *hangulId, const char
         /* The key's NAME is the platform's (the physical Han/Eng key); only the
          * chord half is the engine's. A frontend on a host with a different
          * physical key passes its own name here -- no frontend spells Ctrl. */
-        snprintf(out->key, sizeof out->key, "%s\uD55C/\uC601", modsText(chord, mods));
+        snprintf(out->key, sizeof out->key, "%s\uD55C/\uC601", modsText(chord, mods, sizeof mods));
         /* Hand the stored preference to the layer the way the adapter does, then
          * read back what the ENGINE settled on: a 1 the engine refused (data
          * absent) reads 0 here without the dialog guessing. */
