@@ -108,11 +108,18 @@ rc=$?
 echo "=== dpkg-buildpackage rc=$rc"
 tail -20 "$LOG"
 
-deb=$(ls "$HOME/hunmin_${VERSION}_"*.deb 2>/dev/null | head -1)
-if [ "$rc" = 0 ] && [ -n "$deb" ]; then
+# Every binary package debian/control declares, not just the one whose name
+# the script used to hardcode: the build emits hunmin_<ver>_amd64.deb AND
+# hunmin-en-us_<ver>_all.deb (the autoswitch data half, Recommends), and
+# staging only the first left a release directory that could not satisfy
+# the Recommends it declares (measured 2026-11-07).
+debs=$(ls "$HOME/hunmin_${VERSION}_"*.deb "$HOME/hunmin-en-us_${VERSION}_"*.deb 2>/dev/null)
+if [ "$rc" = 0 ] && [ -n "$debs" ]; then
     mkdir -p "$STAGE"
-    cp -f "$deb" "$STAGE/"
-    echo "=== staged: $STAGE/$(basename "$deb") ($(wc -c < "$deb") bytes)"
+    for d in $debs; do
+        cp -f "$d" "$STAGE/"
+        echo "=== staged: $STAGE/$(basename "$d") ($(wc -c < "$d") bytes)"
+    done
 else
     echo "=== no .deb produced; full log at $LOG" >&2
     [ "$KEEP" = 0 ] && rm -rf "$DEST"
