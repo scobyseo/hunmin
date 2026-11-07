@@ -180,15 +180,20 @@ than assumed.
   worktree.
 - **`Build-Depends` is not enough to build this package.** Measured on the
   Linux box, with every declared dependency satisfied: the suite's
-  `tests/e2e/xim-harness.c` includes `<xkbcommon/xkbcommon.h>`
-  unconditionally, `CMakeLists.txt` treats xkbcommon as **optional**
-  (it warns and skips the library when `pkg_check_modules` misses), and
-  `debian/control` does not name `libxkbcommon-dev`. CI installs it in the
-  workflow's apt line instead, so the gap is invisible there and hard-fails
-  on any host that trusts the packaging. Either the include gets a guard
-  matching the CMake branch, or the package joins `Build-Depends`; that is
-  a ruling, not a build-script change. `tools/deb-build-remote.sh` probes
-  the header first so the failure arrives before the compile.
+  `tests/e2e/xim-harness.c` includes `<xkbcommon/xkbcommon.h>` and
+  `<xcb/xcb.h>` unconditionally, `CMakeLists.txt` treats xkbcommon as
+  **optional** (it warns and skips the library when `pkg_check_modules`
+  misses), and `debian/control` named neither package. CI installs both in
+  the workflow's apt line instead, so the gap is invisible there and
+  hard-fails on any host that trusts the packaging.
+  **Ruled 2026-11-07: declare them.** `libxcb1-dev` and
+  `libxkbcommon-dev` are now in `Build-Depends`, so
+  `dpkg-checkbuilddeps` enforces what the source actually includes; the
+  CMake warning branch stays as the non-package-build safety net, and the
+  CI apt line keeps its copies (harmless, and the linux job installs far
+  more for the fcitx5 source build). `tools/deb-build-remote.sh` still
+  probes the header first so a host without the package hears about it
+  before the compile.
 
 ## Unified design
 
