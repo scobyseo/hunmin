@@ -1,6 +1,6 @@
-hunmin (0.3.0~rc) unstable; urgency=medium
+hunmin (0.3.0) unstable; urgency=medium
 
-  * 0.3 prerelease: automatic Hangul/English switch (docs/SPEC-MODES.md
+  * 0.3: automatic Hangul/English switch (docs/SPEC-MODES.md
     R1-R15, E1-E8). The engine judges at the composition boundary, each
     frontend performs the switch, and with the option off the layer
     delivers exactly what 0.2 delivered.
@@ -10,10 +10,8 @@ hunmin (0.3.0~rc) unstable; urgency=medium
   * The han/yeong key: a single press switches manually, modifier + the
     key addresses the special-function namespace; the engine names the
     chord and every frontend's settings surface reads the state back.
-  * Prerelease versioning: the package says 0.3.0~rc so it sorts before
-    the 0.3.0 release; the Android build says 0.3.0-rc with versionCode 3.
 
- -- Seo Bon Keun <scobyseo@gmail.com>  Sat, 07 Nov 2026 19:25:00 +0900
+ -- Seo Bon Keun <scobyseo@gmail.com>  Sun, 08 Nov 2026 00:00:00 +0900
 
 hunmin (0.2.0) unstable; urgency=medium
 

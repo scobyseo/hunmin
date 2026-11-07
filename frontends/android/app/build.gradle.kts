@@ -131,7 +131,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 3
-        versionName = "0.3.0-rc"
+        versionName = "0.3.0"
 
         externalNativeBuild {
             cmake {
@@ -433,8 +433,8 @@ tasks.register("printTraceEmitClasspath") {
 // variant's output dir as hunmin-<versionName>[-<buildType>].apk — the product
 // name and the version are the two facts a file that leaves this tree has to
 // carry. Readers glob rather than hardcode, so a version bump needs no edit:
-//   release -> hunmin-0.3.0-rc.apk
-//   debug   -> hunmin-0.3.0-rc-debug.apk
+//   release -> hunmin-0.3.0.apk
+//   debug   -> hunmin-0.3.0-debug.apk
 // VariantOutputImpl is AGP's own implementation type; the public
 // VariantOutput interface has no outputFileName setter as of 8.6.
 androidComponents {

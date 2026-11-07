@@ -1,0 +1,236 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 0.3.0)'
+        required: true
+        default: '0.3.0'
+
+jobs:
+  # --- .deb: ubuntu-24.04, dpkg-buildpackage -us -uc -b -------------------
+  build-deb:
+    name: build .deb
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
+            build-essential dpkg-dev debhelper fakeroot python3 \
+            extra-cmake-modules gettext \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
+            libxcb-icccm4-dev libxcb-xinerama0-dev libxcb-randr0-dev \
+            libxcb-ewmh-dev libxcb-keysyms1-dev libxcb-imdkit-dev \
+            libxcb-util0-dev libxcb-image0-dev libxcb-render0-dev \
+            libxcb-shape0-dev libxcb-cursor-dev \
+            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev \
+            libglib2.0-dev libexpat1-dev libxkbfile-dev \
+            libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
+            libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
+            iso-codes xkb-data
+
+      # fcitx5 5.1.13 from source (distro ships 5.1.7, below the addon floor)
+      - name: Restore or build fcitx5 5.1.13 install tree
+        id: fcitx5
+        run: |
+          if [ -d /tmp/fcitx5-install ] && pkg-config --modversion Fcitx5Core 2>/dev/null; then
+            echo "fcitx5 already installed"
+          else
+            git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
+            cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
+              -DCMAKE_INSTALL_PREFIX=/tmp/fcitx5-install -DCMAKE_BUILD_TYPE=Release \
+              -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
+              -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
+              > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
+            cmake --build /tmp/fcitx5/build --target install
+            sudo cp -a /tmp/fcitx5-install/. /usr/
+            sudo ldconfig
+            pkg-config --modversion Fcitx5Core
+          fi
+
+      - name: Build the .deb
+        run: |
+          ./tools/build-release.sh deb
+
+      - name: Stage the .deb
+        run: |
+          mkdir -p artifacts
+          deb="$(ls -t ../hunmin_*_*.deb 2>/dev/null | head -1)"
+          [ -n "$deb" ] || { echo "no .deb produced"; exit 1; }
+          cp -f "$deb" artifacts/
+
+      - name: Upload the .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunmin-deb
+          path: artifacts/hunmin_*.deb
+          retention-days: 30
+
+  # --- release APK: ubuntu-24.04 + Android SDK/NDK -----------------------
+  build-apk:
+    name: build release APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install the Android SDK
+        run: |
+          sdk_root="$HOME/Android/Sdk"
+          mkdir -p "$sdk_root/cmdline-tools"
+          curl -fsSL -o tools.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+          unzip -q tools.zip -d "$sdk_root/cmdline-tools"
+          mv "$sdk_root/cmdline-tools/cmdline-tools" "$sdk_root/cmdline-tools/latest"
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
+          export PATH="$sdk_root/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install \
+            "platform-tools" "platforms;android-35" "build-tools;35.0.0" \
+            "cmake;3.22.1" "ndk;27.3.13750724"
+          echo "$sdk_root/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Build the release APK
+        run: |
+          echo "ANDROID_NDK=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
+          ./tools/build-release.sh apk arm64-v8a
+
+      - name: Stage the APK
+        run: |
+          mkdir -p artifacts
+          apk=$(ls -t frontends/android/app/build/outputs/apk/release/hunmin-*.apk 2>/dev/null | head -1)
+          [ -n "$apk" ] || { echo "no APK produced"; exit 1; }
+          cp -f "$apk" artifacts/hunmin-${{ github.event.inputs.version }}-arm64-v8a.apk
+
+      - name: Upload the release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunmin-release-apk
+          path: artifacts/hunmin-*.apk
+          retention-days: 30
+
+  # --- Windows installer: windows-latest + MSVC + Inno Setup 6 -----------
+  build-windows:
+    name: build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Inno Setup 6
+        run: |
+          $isUrl = "https://jrsoftware.org/download.php/is.exe"
+          $isPath = "$env:TEMP\innosetup.exe"
+          Invoke-WebRequest -Uri $isUrl -OutFile $isPath
+          Start-Process -FilePath $isPath -ArgumentList '/VERYSILENT /NORESTART /SUPPRESSMSGBOXES' -Wait
+          $iscc = Get-ChildItem -Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe", "C:\Program Files\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) { throw "Inno Setup 6 not found after install" }
+          echo "ISCC=$($iscc.FullName)" >> "$env:GITHUB_ENV"
+
+      - name: Build the Windows installer
+        shell: bash
+        run: |
+          ./tools/build-windows-installer.sh
+
+      - name: Stage the installer
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          exe=$(ls -t build-msvc/installer/hunmin-*.exe 2>/dev/null | head -1)
+          [ -n "$exe" ] || { echo "no installer produced"; exit 1; }
+          cp -f "$exe" artifacts/hunmin-${{ github.event.inputs.version }}-setup.exe
+
+      - name: Upload the Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunmin-installer
+          path: artifacts/hunmin-*.exe
+          retention-days: 30
+
+  # --- create tag + release + upload assets -------------------------------
+  release:
+    name: create release
+    needs: [build-deb, build-apk, build-windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: |
+          ls -la artifacts/
+
+      - name: Configure git
+        run: |
+          git config user.name "hunmin-release"
+          git config user.email "hunmin-release@users.noreply.github.com"
+
+      - name: Create and push tag
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          TAG="$VERSION"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "tag $TAG already exists locally"
+          else
+            git tag -a "$TAG" -m "hunmin $TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Create GitHub Release and upload assets
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$VERSION"
+          ROOT="$PWD"
+          STAGE="$ROOT/build/release-$TAG"
+          NOTES="$ROOT/docs/release-notes/$TAG.md"
+          mkdir -p "$STAGE"
+
+          # Copy downloaded artifacts into stage with channel names
+          for f in artifacts/hunmin-*-amd64.deb; do [ -f "$f" ] && cp -f "$f" "$STAGE/hunmin_${VERSION}_amd64.deb"; done
+          for f in artifacts/hunmin-*-arm64-v8a.apk; do [ -f "$f" ] && cp -f "$f" "$STAGE/hunmin-${VERSION}-arm64-v8a.apk"; done
+          for f in artifacts/hunmin-*-setup.exe; do [ -f "$f" ] && cp -f "$f" "$STAGE/hunmin-${VERSION}-setup.exe"; done
+
+          ls -la "$STAGE/"
+
+          ASSET_ARGS=()
+          for name in "hunmin_${VERSION}_amd64.deb" "hunmin-${VERSION}-arm64-v8a.apk" "hunmin-${VERSION}-setup.exe"; do
+            [ -f "$STAGE/$name" ] || { echo "MISSING $STAGE/$name"; exit 1; }
+            ASSET_ARGS+=("$STAGE/$name")
+          done
+
+          gh release create "$TAG" --repo scobyseo/hunmin \
+            --title "hunmin $TAG" \
+            --notes-file "$NOTES" \
+            "${ASSET_ARGS[@]}"
+
+      - name: Verify release
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$VERSION"
+          gh release view "$TAG" --repo scobyseo/hunmin --json tagName,isDraft,assets

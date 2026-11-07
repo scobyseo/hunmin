@@ -24,8 +24,8 @@ android {
         applicationId = "org.hunmin.keymaps"
         minSdk = 21
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-p5.5"
+        versionCode = 3
+        versionName = "0.3.0"
 
         // No test runner needed - no code to test
     }
