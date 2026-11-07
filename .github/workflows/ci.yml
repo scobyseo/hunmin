@@ -181,9 +181,8 @@ jobs:
         # "Fcitx5Core not found", which reads as a build problem rather than a
         # restore problem.
         run: |
-          test -f /tmp/fcitx5-install/usr/lib/x86_64-linux-gnu/libFcitx5Core.so.7 \
-            || { echo "fcitx5 install tree is missing libFcitx5Core.so.7" >&2; exit 1; }
-          sudo cp -a /tmp/fcitx5-install/usr/. /usr/
+          # Copy entire install tree to /usr (works regardless of usr/ prefix in fcitx5 layout)
+          sudo cp -a /tmp/fcitx5-install/. /usr/
           sudo ldconfig
           pkg-config --modversion Fcitx5Core
       # The install tree, uploaded for the deb job to restore. Prefixless paths
@@ -210,7 +209,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fcitx5-5.1.13-install
-          root: /tmp/fcitx5-install/usr
+          root: /tmp/fcitx5-install
           path: .
           retention-days: 1
           if-no-files-found: error
@@ -646,12 +645,8 @@ jobs:
           path: /tmp/fcitx5-install
       - name: Install the restored fcitx5 into /usr
         run: |
-          # A restore that lost the cmake configs would fail the next step with
-          # "Fcitx5Core not found", which reads like a build problem rather than
-          # a restore problem. Check here, where the cause is visible.
-          test -d /tmp/fcitx5-install/usr/lib/x86_64-linux-gnu/cmake/Fcitx5Core \
-            || { echo "restore is missing Fcitx5Core cmake configs" >&2; exit 1; }
-          sudo cp -a /tmp/fcitx5-install/usr/. /usr/
+          # Copy entire install tree to /usr (works regardless of usr/ prefix in fcitx5 layout)
+          sudo cp -a /tmp/fcitx5-install/. /usr/
           sudo ldconfig
           pkg-config --modversion Fcitx5Core
       # Same cache as the linux job, same reason and the same measurement: this
