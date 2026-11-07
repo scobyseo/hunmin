@@ -17,12 +17,16 @@ places"). Item ids (B1–B9, §2's items, W/N rows) are cited, never restated.
 | 0.1 | fcitx5 + Android first edition |
 | 0.2 | Windows TSF frontend (P6) |
 | 0.3 | 자동 한/영 전환 (the language detection feature, ReqMode8/E5) |
-| 0.4 | 소프트 키보드 — 두벌식 + QWERTY + 기호 입력 |
+| 0.4 | Linux stand-alone IME + auto-switch improvement + Android 소프트 키보드 + 한자 부분 매칭 |
 | 1.0 | after a usage-polish pass |
 
 The 0.4 lane was added by the maintainer on 2026-10-11, after the first cut of this
-file recorded the soft keyboard as laneless. Its goal, stated by the maintainer:
-두벌식 + qwerty + 기호 입력 지원.
+file recorded the soft keyboard as laneless. Its original goal, stated by the
+maintainer: 두벌식 + qwerty + 기호 입력 지원. On 2026-11-08 the lane was
+expanded by the maintainer to four tracks (§0.4 below): a Linux stand-alone IME
+alongside fcitx5, auto-switch performance improvement, the Android virtual
+keypads, and partial-match Hanja recommendation. All decisions in §0.4 are made in earlier issues of the milestone work —
+this section lists them; it does not settle them.
 
 **Lane assignment is a plan, and a plan can be re-cut.** Nothing here settles a
 blocked item; B1–B9 remain the maintainer's rulings wherever they are named.
@@ -193,12 +197,94 @@ gave it one: it is release **0.4**, below. Voice stage 7 (configurable key bindi
 remains unplaced; whether it joins the 0.4 lane is the same decision the lane now
 makes concrete.
 
-## 0.4 — 소프트 키보드 (두벌식 + QWERTY + 기호)
+## 0.4 — stand-alone IME + auto-switch + 소프트 키보드
 
-The maintainer's goal, verbatim: 두벌식 + qwerty + 기호 입력 지원. This was the
+Expanded 2026-11-08 to three tracks. The soft-keyboard track below keeps its
+original goal, verbatim: 두벌식 + qwerty + 기호 입력 지원. This was the
 item `REMAINING-WORK.md` §3 recorded as "no priority has been assigned to it by
 anyone" — the assignment is now made, and the board pointer at the top of that file
 reflects the plan, not the item rows (status claims stay there; this lane cites).
+
+**Common area (all tracks):** widen `libhunmin` + `hunmin_buffered_preedit` and
+the frontend contract (`docs/FRONTEND-EQUIVALENCE.md`, `docs/FRONTEND-CONTRACT.md`)
+so every frontend reuses the same shared layer; each frontend stays thin (FE11).
+Design rationale lives in `docs/DESIGN-*.md` (umbrella #272); requirement text
+stays in `docs/SPEC-*.md`; `docs/TESTING.md` keeps only the evaluation method.
+
+**Phases.** Each track begins with ruling issues (decided in earlier issues of
+the milestone work — listed below); implementation issues follow, one per PR.
+
+- **Phase A — baseline + rulings.** Capture the `ctest -N` baseline; file the
+  ruling issues in "Decisions" below; record each ruling in `docs/` + wiki.
+- **Phase B — Track 3 keypad** (frontend-only, smallest, shippable first).
+- **Phase C — Track 2 gates** on a pinned corpus artefact (G0–G2 below).
+- **Phase D — Track 1 stand-alone IME** D1/D2 → D3 full-stack.
+- **Phase E — Track 2 expectability/latency** (G3/G4) + Track 1 candidate gate.
+- **Phase F — Track 4 partial-match Hanja** (engine lookup first, then frontend
+  window re-open on the remainder).
+
+**Verification (every phase):** `ctest -N` diff identical to baseline,
+`ctest --test-dir build -j16 -LE slow`, `docs-lint`, `req-map`, `abi`,
+`schema-contract`, and `tools/ci-time-budget.sh build` before adding any test.
+
+### Track 1 — Linux stand-alone IME (fcitx5 also supported)
+
+A second Linux frontend beside fcitx5, sharing the common area above.
+The first candidate evaluated is an IBus engine (lowest new infrastructure,
+widest coverage via IBus's own X11/Wayland/GTK/Qt frontends; the core and the
+`HunminState` key-path pattern are reusable, the host mapping table is per-frontend).
+XIM server (X11-only), GTK/Qt immodules (per-app), and a stand-alone Wayland
+IME (highest cost, the deferred D4) remain comparable alternatives in the
+ruling issue. Verification mirrors the fcitx5 D-tiers: D1 host-independent
+state object against a fake sink, D2 host UI capture, D3 real daemon + client
+harness reusing `tests/e2e/run-d3.sh` with expectations from `hunmin-sim --trace`;
+a candidate-window-drawn gate is mandatory for any own-window candidate UI.
+
+**Decisions (earlier issues):** target coverage (all desktop apps vs X11/GTK/Qt
+only); accept an IBus dependency or build a hunmin-owned daemon; language-trigger
+ownership FE7 vs FE13; candidate UI (host lookup table vs own window) and page
+ceiling; config backend (gsettings/ini/own dialog) for the same five option rows;
+voice special host now or keep refusing; whether daemon code counts against FE11's
+thin budget; test placement/budget for the new D3; packaging (distribution name,
+debian Build-Depends, FE14 data terms).
+
+### Track 2 — auto-switch improvement (correctness, expectability, …)
+
+Measured baseline (`docs/MODES-METRICS.md`, wiki-1000 corpus): as shipped the
+feature costs keystrokes (negative `q`), because it abstains on about half of
+transitions and every abstention delivers the wrong script; the wrong-direction
+rate is clean precisely because the judgement rarely fires. Improvement therefore
+means firing more *correctly*, not firing more — success stays R11/R12's
+keystroke reduction with repairs priced in (`docs/SPEC-MODES.md` R11/R12).
+The harness (`tools/modes-metrics.py`, ctest `modes-metrics-selfcheck`) already
+emits every quantity below; no new harness is needed for G0–G2.
+
+- **G0 reproduce** — the harness reproduces the recorded baseline on the fixed
+  corpus (precondition; a run that does not reproduce it has drifted).
+- **G1 no net loss** — `q_pool_share_measured ≥ 0` on the pinned corpus.
+- **G2 pool capture** — stepwise pool-share + manual-intervention lines (K2/T3
+  corpus-invariant shapes), each stated with its implied misfire budget at the
+  measured repair cost, plus a wrong-direction guard per direction.
+- **G3 expectability** — mid-word display flips reduced at equal pool share
+  (E6 flicker, `docs/SPEC-MODES.md` E6); changing the ruled per-key default is
+  a ruling, not an optimization.
+- **G4 latency** — per-keystroke wall time of the display path measured first,
+  numeric line set after the first measurement (no baseline exists today).
+
+Every run uses a sha256-pinned corpus artefact (provenance in `meta.json`, bulk
+corpora stay outside the repo per AGENTS.md) and is stratified by direction,
+guard class, and token class. Issue #239 (옛한글 byte-exact) stays a separate
+SPEC decision and is not folded into these gates.
+
+**Decisions (earlier issues):** target corpus population (typed messages vs broad
+text); aggregation (per-sentence mean vs corpus-wide ratio); assumed repair cost
+`k`; whether a repair counts as a manual intervention; two numbers or three for
+E4/B2; data-absent precondition statement; the numeric G1–G4 lines themselves;
+R9 threshold re-basing now that `hangul_valid` is structural; second-dictionary
+distribution shape; `word_cap`/`judge_timing` settings rows; app preedit-tolerance
+measurement.
+
+### Track 3 — Android virtual keypads (original 0.4 lane)
 
 **What already exists, measured against the tree:**
 
@@ -254,6 +340,67 @@ not sufficient** — the third layer does not exist in the data today.
 Android IMEs universally ship a soft keyboard, so this lane closes a standard
 capability, and the interesting question is only which layer model the data should
 carry.
+
+**Decisions (earlier issues):** symbol layer — third layer in layout data
+(schema+engine+doctor change, golden-testable) vs separate frontend symbol page
+(zero ABI cost, 0.4-shippable) vs long-press emulation; geometry home (hardcoded
+US rows vs schema field); keypad coverage for the default `sin3-p2` (case
+values, no `.kcm`) vs dubeolsik-only; shift behaviour (one-shot minimum, lock /
+auto-capitals out unless the lane spec asks); functional-key placement and
+gestures (in or out); candidate window (`onCreateCandidatesView()` vs
+preedit-only + existing Hanja dialog); mic button in English mode; touch-key
+data source (build-time codegen vs runtime JSON vs new JNI); accessibility /
+haptics / landscape conventions; fcitx5 stays out of scope unless named.
+
+### Track 4 — partial-match Hanja recommendation
+
+Today (A3, `docs/SPEC-OVERVIEW.md` §A3): word candidates first, single char as
+fallback — `hunmin_suggest_*` (`libhunmin/src/candidate_tables.c`) answers from
+krdict/hanja/idioms for the whole buffer, and the F9 window commits the whole
+word or nothing. When the buffer is not in the dictionary the user gets only
+single-syllable candidates and types the rest by hand. The maintainer's idea,
+recorded here for the ruling issues: recommend up to the matching part of the
+dictionary, let the user select it, then recommend again for the remaining
+buffer up to its next matching part — iterating until the buffer is consumed.
+
+The mechanism is comparable, not decided (AGENTS.md: analysis presents designs
+as comparable; the maintainer chooses):
+
+1. **Engine-side longest-prefix match** — `candidate_tables.c` tries the
+   buffer's prefixes against krdict (word entries first, then idioms), returns
+   partial candidates with the consumed length, and the frontend commits the
+   selected Hanja plus keeps the remainder as a fresh composition for a second
+   `suggest` round. Cost: a new suggest contract (consumed length in the ABI),
+   prefix-search cost measurement, and a clear rule for what "matching part"
+   means when several prefixes match (longest? highest frequency?). Still data +
+   rule tables, no per-layout anything in the core.
+2. **Frontend-side segmentation** — the adapter splits the buffer and queries
+   each part. Cost: the split logic lives in three frontends instead of one
+   shared place, and every frontend must re-derive the same segmentation —
+   the drift class `docs/FRONTEND-EQUIVALENCE.md` exists to prevent.
+3. **No engine change, manual retype** — after a partial selection the user
+   retypes the remainder. Cost: zero ABI work, but the efficiency gain the
+   track exists for is unmeasured and likely small; it is the baseline the
+   other two options must beat.
+
+What the measurement must settle before any code: on the shipped krdict, how
+often a typed Hangul buffer has a dictionary prefix at all, how long that prefix
+is on average, and how many selection rounds the average out-of-dictionary word
+needs — priced in keystrokes against the current single-char fallback, the same
+way Track 2 prices auto-switch. The candidate window already re-opens per
+selection on fcitx5/TSF/Android, so the presentation half is mostly reuse; the
+open half is the lookup contract and what happens to the remainder of the
+buffer (re-compose as Hangul, commit as-is, or keep in preedit).
+
+**Decisions (earlier issues):** longest-prefix vs frequency-ranked match;
+whether single-char candidates stay as fallback below the prefix; consumed-length
+representation in the ABI (`hunmin_suggest_*` extension vs new entry point);
+remainder handling (fresh composition vs in-place); prefix-search data structure
+and its measured cost; gloss coverage for partial candidates
+(`docs/HANJA-GLOSS-DESIGN.md` hanja/2 approval is a separate open item);
+window re-open behaviour per frontend (F9, TSF candidate window, Android
+candidates view from Track 3); keystroke-saved pass line on a pinned corpus,
+shaped like Track 2's G1/G2.
 
 ## 1.0 — after usage polish
 
