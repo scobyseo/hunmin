@@ -397,6 +397,24 @@ class HunminInputMethodService : InputMethodService() {
         // InputMethodService is killed and recreated often), falling back to
         // Hangul when there is no stored value (first install).
         isHangulMode = modeStore.recall(KEY_HANGUL_MODE)
+        /* The pair is BUILT in the Hangul language, and `isHangulMode` is the
+         * person's remembered mode -- nothing was making the two agree. A
+         * session started in English therefore had a service that believed
+         * English and a layer that composed Hangul: the judgement ran the Hangul
+         * branch, so a Latin word could switch *out* of Hangul but the E1 line
+         * (Latin -> Hangul, "jgz" -> 음) could never fire, because the layer was
+         * already Hangul and correctly abstained there. Measured 2026-11-07:
+         * `judged=1 (latin)` for `test` while hangulMode=false, then `judged=-1`
+         * for `jgz`. The layer follows the mode, not the other way round: the
+         * mode is what the person last chose. Ordered AFTER the recall on
+         * purpose -- reading the mode first and syncing after is the difference
+         * between a switch and a silent no-op, because the recall overwrites the
+         * field this compares against. */
+        val pair = engine
+        if (pair != null && pair.isHangulLanguage() != isHangulMode) {
+            val synced = pair.toggleLanguage(null)
+            Log.i(TAG, "hunmin: layer language synced to mode=$isHangulMode (toggled=$synced, now=${pair.isHangulLanguage()})")
+        }
         currentInputConnection?.let { engine?.updatePreedit(it) }
         // The view is created once per IME window but the engine per editor, so
         // the picker's list and selection are refreshed here rather than trusted
@@ -490,12 +508,20 @@ class HunminInputMethodService : InputMethodService() {
         // binding layer normalises it -- seeing the delivered bits is the point.
         Log.d(TAG, "onKeyDown: keyCode=$keyCode, metaState=${event.metaState}")
 
-        // Space during composition: commit syllable AND forward space
-        // This is a frontend responsibility (engine declines space during composition).
-        // Not in a password editor: there is no composition to flush, and the
-        // secure-editor guard below would return the key anyway -- handled here
-        // first so the branch reads as one policy rather than two.
-        if (keyCode == KeyEvent.KEYCODE_SPACE && isHangulMode && !isSecureEditor) {
+        /* Space during composition: commit syllable AND forward space
+         * This is a frontend responsibility (engine declines space during composition).
+         * Not in a password editor: there is no composition to flush, and the
+         * secure-editor guard below would return the key anyway -- handled here
+         * first so the branch reads as one policy rather than two.
+         *
+         * BOTH modes, not just Hangul: the space is the word boundary, and R8's
+         * judgement only happens at a boundary. Gating this on `isHangulMode`
+         * meant a word typed in English mode never reached the layer's boundary
+         * at all, so `jgz` stayed `jgz` instead of being judged 음 and switching
+         * back (measured on a device 2026-11-07). The commit is also where the
+         * judgement is TAKEN -- this branch returns before the general path, so
+         * leaving it pending deferred the switch to the next keystroke. */
+        if (keyCode == KeyEvent.KEYCODE_SPACE && !isSecureEditor) {
             val e = engine ?: return super.onKeyDown(keyCode, event)
             val target: InputConnection = currentInputConnection
                 ?: return super.onKeyDown(keyCode, event)
@@ -505,6 +531,7 @@ class HunminInputMethodService : InputMethodService() {
             // password editor: no composition, the guard below returns the key.
             e.commitWord(target)
             target.commitText(" ", 1)
+            adoptJudgement(e)
             return true
         }
 
@@ -598,11 +625,29 @@ class HunminInputMethodService : InputMethodService() {
          * the Latin slot was active was TAKEN and dropped -- take_judgement is
          * consuming -- and the E1 gate's symmetric line ("typed in one stream,
          * both directions") could never pass on this frontend. */
+        adoptJudgement(e)
+        return if (consumed) true else super.onKeyDown(keyCode, event)
+    }
+
+    /**
+     * Take the engine's judgement and adopt it as the mode (R8).
+     *
+     * The answer is a MODE, not a direction: the engine says which language the
+     * finished word was in, and the frontend adopts it. Called from BOTH places a
+     * boundary can happen — the general key path and the space branch, which
+     * returns early — because `takeJudgement` is consuming: a judgement left
+     * pending on one path is a switch that never fires.
+     */
+    private fun adoptJudgement(e: HunminAdapter?) {
         val judged = e?.takeJudgement() ?: -1
+        /* Logged because the judgement is invisible otherwise: it is a value the
+         * engine produces once per boundary and the frontend consumes, so "the
+         * switch did not happen" cannot be told apart from "the engine did not
+         * judge" without it. -1 means no judgement; 0/1 is the language. */
+        Log.d(TAG, "judgement: judged=$judged hangulMode=$isHangulMode layerHangul=${e?.isHangulLanguage()} autoswitch=${e?.autoswitch()}")
         if (judgedModeDiffers(judged, isHangulMode)) {
             toggleHangulEnglish()
         }
-        return if (consumed) true else super.onKeyDown(keyCode, event)
     }
 
     /**
