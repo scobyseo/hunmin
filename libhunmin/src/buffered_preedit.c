@@ -28,6 +28,7 @@
 #include "hunmin_internal.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 /* R9's threshold (docs/SPEC-MODES.md §R9, ruled 2026-11-01): three KEY INPUTS, the
@@ -559,6 +560,105 @@ static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
     return out;
 }
 
+/* ---------------------------------------------------- the symbol delimiter */
+
+/* R4, the sentences this predicate exists for:
+ *
+ *   "Composition buffer = the whole span from after the immediately preceding
+ *    space character or symbol until the next space character or symbol
+ *    appears." ... "A symbol is also a termination condition."
+ *
+ * A space reaches the layer as a DECLINED key, so `process_key` already ends the
+ * word there. A symbol does not: `.` is a mapped key on every Latin layout, the
+ * engine consumes it, and its per-key commit carries the in-flight syllable plus
+ * the symbol (`ic.c` process_jamo's literal branch). Without this the word
+ * buffer simply swallowed it -- `jgz` + `.` became the word `jgz.`, which is
+ * neither an English word nor a Hangul reading, so the judgement abstained and
+ * the switch never happened (measured on a device 2026-11-07, SPEC-MODES R4).
+ *
+ * So the word keeps the symbol for delivery, and the JUDGEMENT runs on the text
+ * before it: `음` + `.`, not `음.` judged as a word.
+ *
+ * WHAT COUNTS AS A SYMBOL, and what deliberately does not:
+ *
+ *   symbol        punctuation, the mathematical/currency blocks, the circled
+ *                 and tier forms a sebeolsik digit row reaches (`①`, `⑪`).
+ *   not symbol    ASCII letters and digits: they are the Latin reading's own
+ *                 material, and R6 keeps a DIGIT RUN inside the buffer, so a
+ *                 digit must not terminate anything.
+ *   not symbol    Hangul, syllables and jamo: a consumed Hangul key continues
+ *                 the word, which is the whole point of the buffer.
+ *   not symbol    space and the control characters, which never arrive here
+ *                 consumed.
+ *   not symbol    the Latin-1/Greek/Cyrillic letter blocks. This repo's layouts
+ *                 emit ASCII Latin, so a letter from those blocks is a symbol
+ *                 tier's output only by accident; erring towards "letter" is
+ *                 the safe direction, because a wrong "symbol" would cut a word
+ *                 in half.
+ */
+static bool cp_is_symbol(uint32_t c) {
+    if (c < 0x80) {
+        if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) return false;
+        if (c < 0x21) return false; /* space and every control character */
+        return true;
+    }
+    if (c >= 0x0080 && c <= 0x04ff) return false; /* Latin-1 supplement through Cyrillic: text, not symbol */
+    if (c >= 0x1100 && c <= 0x11ff) return false; /* Hangul jamo */
+    if (c >= 0x3130 && c <= 0x318f) return false; /* Hangul compatibility jamo */
+    if (c >= 0xac00 && c <= 0xd7a3) return false; /* Hangul syllables */
+    if (c >= 0xa960 && c <= 0xa97f) return false; /* Hangul jamo extended-A */
+    if (c >= 0xd7b0 && c <= 0xd7ff) return false; /* Hangul jamo extended-B */
+    /* NUMBER FORMS are not symbols, and this is R6 speaking: a sebeolsik digit
+     * key resolves at a symbol tier to `µ`/`①`/`⑪` (and their super/subscript
+     * and Roman forms), and R6 requires the digit RUN to stay in the buffer. A
+     * tier form that terminated the word would deliver a digit run early --
+     * measured: LayerTest.DigitResolvedAtASymbolTierIsHeldToo. */
+    if (c >= 0x2070 && c <= 0x209f) return false; /* super/subscripts */
+    if (c >= 0x2150 && c <= 0x218f) return false; /* number forms (Roman, fractions) */
+    if (c >= 0x2460 && c <= 0x24ff) return false; /* enclosed alphanumerics ①⑪ */
+    if (c >= 0x2776 && c <= 0x2793) return false; /* dingbat circled numbers */
+    if (c >= 0x3248 && c <= 0x325f) return false; /* circled numbers, CJK */
+    if (c >= 0x32b1 && c <= 0x32bf) return false; /* circled numbers, CJK, continued */
+    if (c >= 0x1f100 && c <= 0x1f1ff) return false; /* enclosed alphanumeric supplement */
+    return true;
+}
+
+/* One UTF-8 code point. Returns its length in bytes, or 0 when malformed. */
+static size_t cp_next(const unsigned char *p, uint32_t *out) {
+    uint32_t c = p[0];
+    int extra;
+    uint32_t min;
+    if (c < 0x80) { *out = c; return 1; }
+    if ((c & 0xe0) == 0xc0) { extra = 1; c &= 0x1f; min = 0x80; }
+    else if ((c & 0xf0) == 0xe0) { extra = 2; c &= 0x0f; min = 0x800; }
+    else if ((c & 0xf8) == 0xf0) { extra = 3; c &= 0x07; min = 0x10000; }
+    else return 0;
+    for (int i = 1; i <= extra; i++) {
+        if ((p[i] & 0xc0) != 0x80) return 0;
+        c = (c << 6) | (uint32_t)(p[i] & 0x3f);
+    }
+    if (c < min || (c >= 0xd800 && c <= 0xdfff)) return 0;
+    *out = c;
+    return (size_t)extra + 1;
+}
+
+/* Bytes of the trailing run of symbols in `s`, 0 when it does not end with one.
+ * Malformed text stops the scan: cutting a word on a byte we cannot read is the
+ * failure this exists to avoid. */
+static size_t trailing_symbol_bytes(const char *s) {
+    if (!s || !*s) return 0;
+    const unsigned char *p = (const unsigned char *)s;
+    size_t run_start = strlen(s), i = 0;
+    while (p[i]) {
+        uint32_t cp;
+        size_t n = cp_next(p + i, &cp);
+        if (!n) return 0;
+        if (!cp_is_symbol(cp)) run_start = i + n;
+        i += n;
+    }
+    return i > run_start ? i - run_start : 0;
+}
+
 int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t base, uint32_t shift, hunmin_key_result *out) {
     if (out) {
         out->consumed = 0;
@@ -567,18 +667,61 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
     }
     if (!l || !l->ic) return 0;
 
+    /* The ic's composing text, copied BEFORE the key: it is invalidated by the
+     * next hunmin_ic_* call, and the symbol test below compares against it. */
+    char *pre_before = NULL;
+    if (l->commit_policy != HUNMIN_COMMIT_PER_SYLLABLE) {
+        const char *pb = hunmin_ic_preedit(l->ic);
+        if (pb && *pb) pre_before = dup_or_null(pb);
+    }
+
     const bool consumed = hunmin_ic_process_key(l->ic, base, shift);
     if (consumed) {
         const char *c = drain_engine_commit(l);
+        bool ended_by_symbol = false;
         if (l->commit_policy == HUNMIN_COMMIT_PER_SYLLABLE) {
             set_commit(l, c); /* deliver the syllable now */
         } else {
             word_append(l, c); /* hold it until the boundary */
-            /* R4-정정: a word past WORD_CAP delivers its first half here, so what
-             * the frontend must render stays bounded. "" for every real word. */
-            (void)word_flush_half(l);
+            /* R4: "A symbol is also a termination condition." The symbol stays
+             * in the delivered text, and the judgement runs on the word BEFORE
+             * it -- `음` judged and delivered, then `.` -- because the whole
+             * `음.` is not a word in either language and would abstain.
+             *
+             * The key was consumed, so no frontend will insert the symbol: it
+             * rides in this commit (R10: the client ends up holding exactly the
+             * text the person typed). */
+            size_t symlen = trailing_symbol_bytes(l->word);
+            if (symlen && symlen < (size_t)l->wordlen) {
+                char *sym = malloc(symlen + 1);
+                if (sym) {
+                    memcpy(sym, l->word + l->wordlen - symlen, symlen);
+                    sym[symlen] = 0;
+                    l->wordlen -= symlen;
+                    l->word[l->wordlen] = 0;
+                    const char *word = boundary(l, true);
+                    size_t n = strlen(word);
+                    char *both = malloc(n + symlen + 1);
+                    if (both) {
+                        memcpy(both, word, n);
+                        memcpy(both + n, sym, symlen + 1);
+                        set_commit(l, both);
+                        free(both);
+                    } else {
+                        set_commit(l, word);
+                    }
+                    free(sym);
+                    ended_by_symbol = true;
+                }
+            }
+            if (!ended_by_symbol) {
+                /* R4-정정: a word past WORD_CAP delivers its first half here, so
+                 * what the frontend must render stays bounded. "" for every real
+                 * word. */
+                (void)word_flush_half(l);
+            }
         }
-        keys_push(l, base, shift); /* the Latin reading's raw material */
+        if (!ended_by_symbol) keys_push(l, base, shift); /* the Latin reading's raw material */
     } else {
         /* A declined key IS the boundary: the engine finalises the syllable it
          * was holding, and the frontend passes the key to its client. Every

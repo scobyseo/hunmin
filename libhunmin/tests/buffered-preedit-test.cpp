@@ -637,6 +637,73 @@ TEST_F(LayerTest, TurningTheSwitchOffMidWordLosesNothing) {
     hunmin_buffered_preedit_free(l);
 }
 
+TEST_F(LayerTest, TheSymbolEndsTheWordSoTheJudgementRunsBeforeIt) {
+    /* R4: "A symbol is also a termination condition." A `.` is a mapped key, so
+     * the engine CONSUMES it -- unlike the space, which it declines. The word
+     * therefore has to end here, in the layer, or the buffer swallows the symbol
+     * and the judgement sees `jgz.` (a word in neither language) instead of
+     * `jgz`. Measured on a device 2026-11-07: the switch worked on space and
+     * never on a period. */
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "sin3-p2", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(l));
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 1));
+    hunmin_key_result sw{};
+    ASSERT_EQ(1, hunmin_buffered_preedit_toggle_language(l, &sw)); /* start in Latin */
+    for (const char *k = "jgz"; *k; ++k) {
+        hunmin_key_result out{};
+        EXPECT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)*k, 0, &out));
+        EXPECT_EQ(hunmin_buffered_preedit_take_judgement(l), -1) << "a letter is not a delimiter";
+    }
+    hunmin_key_result out{};
+    EXPECT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)'.', 0, &out));
+    EXPECT_EQ(std::string(out.commit ? out.commit : ""), "음.") << "the symbol stays in the text";
+    EXPECT_EQ(hunmin_buffered_preedit_take_judgement(l), HUNMIN_LANGUAGE_HANGUL)
+        << "the judgement runs at the symbol, not after it";
+    EXPECT_EQ(std::string(out.preedit ? out.preedit : ""), "") << "the word is finished";
+    hunmin_buffered_preedit_free(l);
+}
+
+TEST_F(LayerTest, ASymbolEndsTheWordInHangulModeToo) {
+    /* The other direction, and the reason the test above is not enough: in the
+     * Hangul slot the text in flight lives inside the ic and reaches the word
+     * buffer through the literal key's own commit, so a rule that asked the word
+     * buffer first answered only for Latin text. */
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "sin3-p2", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(l));
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 1));
+    for (const char *k = "test"; *k; ++k) {
+        hunmin_key_result out{};
+        EXPECT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)*k, 0, &out));
+        EXPECT_EQ(hunmin_buffered_preedit_take_judgement(l), -1);
+    }
+    hunmin_key_result out{};
+    EXPECT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)'.', 0, &out));
+    EXPECT_EQ(std::string(out.commit ? out.commit : ""), "test.") << "the word and its symbol";
+    EXPECT_EQ(hunmin_buffered_preedit_take_judgement(l), HUNMIN_LANGUAGE_LATIN);
+    hunmin_buffered_preedit_free(l);
+}
+
+TEST_F(LayerTest, ASymbolDoesNotSplitTheDigitRun) {
+    /* R6 and R4 together: the trailing `.` ends the buffer, and a digit run is
+     * still not a word in either language, so nothing is judged and nothing
+     * changes language -- the run leaves in one commit with its symbol. */
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "sin3-p2", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(l));
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 1));
+    for (const char *k = "2024"; *k; ++k) {
+        hunmin_key_result out{};
+        EXPECT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)*k, 0, &out));
+    }
+    hunmin_key_result out{};
+    EXPECT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)'.', 0, &out));
+    EXPECT_EQ(std::string(out.commit ? out.commit : ""), "2024.");
+    EXPECT_EQ(hunmin_buffered_preedit_take_judgement(l), -1) << "a digit run is not judged";
+    hunmin_buffered_preedit_free(l);
+}
+
 } // namespace
 
 int main(int argc, char **argv) {

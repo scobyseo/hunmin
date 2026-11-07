@@ -108,6 +108,16 @@ CASES = [
     dict(case="r8-mixed-sentence-gate", req="R8", layout="dubeolsik", mode="hangul",
          autoswitch=1, keys="\\senglish sms whgdms \\slanguage dlqslek ",
          note="'English는 좋은 Language입니다' typed as one stream (E1's release gate)"),
+    # --- R4: a symbol is a termination condition too ---------------------
+    dict(case="r4-symbol-ends-the-word-in-latin-mode", req="R4", layout="sin3-p2", mode="latin",
+         autoswitch=1, keys="jgz.",
+         note="R4: 'A symbol is also a termination condition.' A period is a mapped key, so the engine consumes it and the layer has to end the word there; without this the buffer holds 'jgz.' and the judgement abstains (measured on a device 2026-11-07)"),
+    dict(case="r4-symbol-ends-the-word-in-hangul-mode", req="R4", layout="sin3-p2", mode="hangul",
+         autoswitch=1, keys="test.",
+         note="the same rule in the other direction: the Latin reading 'test' is a word, so the switch happens at the period"),
+    dict(case="r4-symbol-does-not-split-a-digit-run", req="R6", layout="sin3-p2", mode="hangul",
+         autoswitch=1, keys="2024.",
+         note="R4 and R6 together: the period ends the buffer, and a digit run is not a word in either language, so nothing is judged and nothing switches"),
 ]
 
 
