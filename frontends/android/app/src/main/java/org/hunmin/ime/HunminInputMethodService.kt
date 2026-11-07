@@ -565,7 +565,15 @@ class HunminInputMethodService : InputMethodService() {
         // with no notion of an editor, and the policy belongs to the adapter.
         if (isSecureEditor) return super.onKeyDown(keyCode, event)
 
-        val e = if (isHangulMode) engine else latinEngine
+        /* ONE layer takes every key: the PAIR (FE7). Routing by mode sent
+         * Latin-mode keys to `latinEngine`, a one-language layer that has no
+         * Hangul slot — so the judgement could never answer HANGUL there and
+         * the reverse direction of the gate line was unreachable (measured on a
+         * device 2026-11-07: Hangul->English switched, English->Hangul never).
+         * The pair owns the language action and the layout slots; `latinEngine`
+         * survives for the paths that address the latin slot directly (voice,
+         * the switch's commit), not for key input. */
+        val e = engine ?: latinEngine
         val target: InputConnection = currentInputConnection
             ?: return super.onKeyDown(keyCode, event)
 
