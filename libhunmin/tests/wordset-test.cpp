@@ -33,6 +33,8 @@
 #include <system_error>
 #include <vector>
 
+#include "test-env.h"
+
 extern "C" {
 #include "hunmin.h"
 }
@@ -42,27 +44,20 @@ namespace {
 const char *kDataPath = nullptr;
 
 std::string scratch_dir() {
-#if defined(_WIN32) && defined(_MSC_VER)
-    char *buf = nullptr;
+    char *buf = hunmin_test_getenv_dup("TEMP");
     std::string out;
-    if (_dupenv_s(&buf, nullptr, "TEMP") == 0 && buf) {
+    if (buf) {
         if (*buf) out = buf;
         free(buf);
     }
     if (out.empty()) {
-        buf = nullptr;
-        if (_dupenv_s(&buf, nullptr, "TMPDIR") == 0 && buf) {
+        buf = hunmin_test_getenv_dup("TMPDIR");
+        if (buf) {
             if (*buf) out = buf;
             free(buf);
         }
     }
     return out.empty() ? std::string(".") : out;
-#else
-    const char *v = std::getenv("TEMP");
-    if (v && *v) return v;
-    v = std::getenv("TMPDIR");
-    return (v && *v) ? std::string(v) : std::string(".");
-#endif
 }
 
 /* A scratch file the test owns and removes: a user dictionary, or a malformed
@@ -975,13 +970,8 @@ TEST_F(WordSetTest, AWhollyBrokenFileIsOneFactNotOneLinePerElement) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-#if defined(_WIN32) && defined(_MSC_VER)
-    char *env_buf = nullptr;
-    _dupenv_s(&env_buf, nullptr, "HUNMIN_DATA_PATH");
+    char *env_buf = hunmin_test_getenv_dup("HUNMIN_DATA_PATH");
     kDataPath = env_buf;
-#else
-    kDataPath = std::getenv("HUNMIN_DATA_PATH");
-#endif
     if (!kDataPath) {
         std::fprintf(stderr, "HUNMIN_DATA_PATH is not set; this test reads the "
                              "shipped tables, not a copy\n");

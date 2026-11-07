@@ -28,9 +28,10 @@
  */
 #include <gtest/gtest.h>
 
-#include <cstdlib>
 #include <string>
 #include <vector>
+
+#include "test-env.h"
 
 extern "C" {
 #include "hunmin.h"
@@ -41,18 +42,13 @@ namespace {
 const char *kDataPath = nullptr;
 
 std::string env_or(const char *name, const char *fallback) {
-#if defined(_WIN32) && defined(_MSC_VER)
-    char *buf = nullptr;
+    char *buf = hunmin_test_getenv_dup(name);
     std::string out = fallback;
-    if (_dupenv_s(&buf, nullptr, name) == 0 && buf) {
+    if (buf) {
         if (*buf) out = buf;
         free(buf);
     }
     return out;
-#else
-    const char *v = std::getenv(name);
-    return (v && *v) ? std::string(v) : std::string(fallback);
-#endif
 }
 
 hunmin_ctx *make_ctx() {

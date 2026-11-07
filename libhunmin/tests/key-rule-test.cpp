@@ -15,13 +15,13 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <system_error>
+
+#include "test-env.h"
 
 extern "C" {
 #include "hunmin.h"
@@ -817,13 +817,7 @@ TEST_F(KeyRuleTest, TheAutoswitchChordFlipsTheOneValue) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-#if defined(_WIN32) && defined(_MSC_VER)
-    char *env_buf = nullptr;
-    _dupenv_s(&env_buf, nullptr, "HUNMIN_DATA_PATH");
+    char *env_buf = hunmin_test_getenv_dup("HUNMIN_DATA_PATH");
     kDataPath = env_buf && *env_buf ? env_buf : "libhunmin/data";
-#else
-    kDataPath = std::getenv("HUNMIN_DATA_PATH");
-    if (!kDataPath || !*kDataPath) kDataPath = "libhunmin/data";
-#endif
     return RUN_ALL_TESTS();
 }
