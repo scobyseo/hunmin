@@ -62,7 +62,7 @@ build_deb() {
     # suite. So the exit code is captured, the failures are printed, and the
     # caller decides.
     set +e
-    dpkg-buildpackage -us -uc -b 2>&1 | tee /tmp/hunmin-deb-build.log
+    dpkg-buildpackage -us -uc -b -d 2>&1 | tee /tmp/hunmin-deb-build.log
     local rc=${PIPESTATUS[0]}
     set -e
     if [ "$rc" -ne 0 ]; then

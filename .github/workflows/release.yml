@@ -132,9 +132,8 @@ jobs:
 
       - name: Install Inno Setup 6
         run: |
-          $isUrl = "https://jrsoftware.org/download.php/is.exe"
           $isPath = "$env:TEMP\innosetup.exe"
-          Invoke-WebRequest -Uri $isUrl -OutFile $isPath
+          curl -fL -o $isPath "https://jrsoftware.org/download.php/is.exe"
           Start-Process -FilePath $isPath -ArgumentList '/VERYSILENT /NORESTART /SUPPRESSMSGBOXES' -Wait
           $iscc = Get-ChildItem -Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe", "C:\Program Files\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $iscc) { throw "Inno Setup 6 not found after install" }
