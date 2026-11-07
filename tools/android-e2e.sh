@@ -35,7 +35,10 @@ ABI="${1:-x86_64}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PKG="org.hunmin.ime"
 SVC="$PKG/.HunminInputMethodService"
-APK="$ROOT/frontends/android/app/build/outputs/apk/debug/app-debug.apk"
+# The build names its own output hunmin-<versionName>-<buildType>.apk; glob so
+# a version bump does not break this tier.
+APK=$(ls "$ROOT"/frontends/android/app/build/outputs/apk/debug/hunmin-*.apk 2>/dev/null | head -1)
+APK=${APK:-"$ROOT/frontends/android/app/build/outputs/apk/debug/hunmin-none.apk"}
 EDITOR_PKG="org.hunmin.testeditor"
 EDITOR_APK="$ROOT/frontends/android/testeditor/build/outputs/apk/debug/testeditor-debug.apk"
 

@@ -826,8 +826,10 @@ worktree, from a clean tree:
 
 - `tools/build-android.sh arm64-v8a 24` and `x86_64 24` — both engine .so
   cross-build with the pinned NDK clang, `llvm-readelf` machine lines correct.
-- `./gradlew :app:assembleDebug` in `frontends/android` — `app-debug.apk`
-  (4.1 MB) builds; the JNI shim's POST_BUILD symbol guard passes.
+- `./gradlew :app:assembleDebug` in `frontends/android` — the APK names
+  itself `hunmin-<versionName>-debug.apk` (see the `androidComponents` block in
+  `app/build.gradle.kts`; `app-debug.apk` before 2026-11-07) and builds at
+  ~4.5 MB; the JNI shim's POST_BUILD symbol guard passes.
 - `ctest -L tier-C` with `ANDROID_HOME` set — 16/16, including all 14
   `engine-android-conformance-*` traces via the host JVM runner.
 - `ctest -j16 -LE slow` — 50/54; tier-A 26/26. The four failures are
@@ -850,7 +852,7 @@ worktree, from a clean tree:
   install is found without the shell being on `PATH`. If no bash exists at
   all, the test registers a Python skip (77) instead of a command-spawn
   failure. The Linux CI job keeps the direct shebang form.
-- `tools/android-e2e.sh` installs two APKs: `app-debug.apk` and the
+- `tools/android-e2e.sh` installs two APKs: `hunmin-<versionName>-debug.apk` and the
   `testeditor` fixture (`frontends/android/testeditor`). The fixture replaced
   Settings' search field as the assertion surface: it has one `EditText` with a
   stable resource id, so the same node is tapped and read on every image.

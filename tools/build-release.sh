@@ -114,8 +114,12 @@ build_apk() {
     ./tools/build-android.sh "$ABI" 24
     cd frontends/android
     ./gradlew --no-daemon :app:assembleRelease
-    local apk="app/build/outputs/apk/release/app-release.apk"
-    [ -f "$apk" ] || { echo "apk: no artefact at $apk" >&2; exit 1; }
+    # The build names its own output hunmin-<versionName>.apk (see the
+    # androidComponents block in app/build.gradle.kts), so glob rather than
+    # hardcode: a version bump must not need an edit here.
+    local apk
+    apk=$(ls app/build/outputs/apk/release/hunmin-*.apk 2>/dev/null | head -1)
+    [ -n "$apk" ] || { echo "apk: no hunmin-*.apk under app/build/outputs/apk/release (run :app:assembleRelease)" >&2; exit 1; }
     printf '  %s bytes  ->  %s\n' "$(stat -c %s "$apk")" "$ROOT/frontends/android/$apk"
     echo "  signed with: build/release-ci.keystore (THROWAWAY -- not release-grade)"
 }

@@ -181,7 +181,8 @@ echo "== gradlew assembleDebug assembleDebugAndroidTest"
 ./gradlew --quiet :app:assembleDebug :app:assembleDebugAndroidTest \
   || fail "the instrumentation APK did not build"
 
-APP_APK="$APP/app/build/outputs/apk/debug/app-debug.apk"
+APP_APK=$(ls "$APP"/app/build/outputs/apk/debug/hunmin-*.apk 2>/dev/null | head -1)
+APP_APK=${APP_APK:-"$APP/app/build/outputs/apk/debug/hunmin-none.apk"}
 TEST_APK="$APP/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 [ -f "$APP_APK" ]  || fail "no $APP_APK"
 [ -f "$TEST_APK" ] || fail "no $TEST_APK"
