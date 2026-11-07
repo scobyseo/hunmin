@@ -31,6 +31,28 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 
+/** hunmin.h's HUNMIN_LANGUAGE_*: the value the judgement reports and the mode
+ *  the service adopts. File-level rather than companion-private so the decision
+ *  below can be a pure function tier E1 drives without a service instance. */
+internal const val HUNMIN_LANGUAGE_HANGUL = 0
+internal const val HUNMIN_LANGUAGE_LATIN = 1
+
+/**
+ * Whether R8's judgement asks for a mode change.
+ *
+ * The engine answers the language the finished word was in (`take_judgement`,
+ * consuming, -1 when it judged nothing); the frontend's job is to adopt it.
+ * Testing "judged LATIN and we are in Hangul" instead — the form this replaced
+ * — consumes the other direction and drops it, which is why E1's symmetric gate
+ * line could not pass on this frontend: the second half of the sentence, typed
+ * after the first switch, was judged HANGUL and lost.
+ */
+internal fun judgedModeDiffers(judged: Int, isHangulMode: Boolean): Boolean {
+    if (judged < 0) return false
+    val current = if (isHangulMode) HUNMIN_LANGUAGE_HANGUL else HUNMIN_LANGUAGE_LATIN
+    return judged != current
+}
+
 class HunminInputMethodService : InputMethodService() {
 
     companion object {
@@ -40,8 +62,6 @@ class HunminInputMethodService : InputMethodService() {
         const val COMMIT_SYLLABLE = "syllable"
 
         private const val TAG = "HunminIme"
-        /** hunmin.h's HUNMIN_LANGUAGE_LATIN; the judgement reports a mode as one of these. */
-        private const val HUNMIN_LANGUAGE_LATIN = 1 /* hunmin.h: HANGUL 0, LATIN 1 */
 
         /**
          * Whether an EditorInfo's inputType marks a password editor.
@@ -562,8 +582,16 @@ class HunminInputMethodService : InputMethodService() {
          * so what is left is the MODE half -- and here the mode is which adapter
          * receives the next key, which only this service knows. Taken on every
          * key because the judgement fires on the boundary key, which is usually
-         * one the engine declined (space). */
-        if (e?.takeJudgement() == HUNMIN_LANGUAGE_LATIN && isHangulMode) {
+         * one the engine declined (space).
+         *
+         * The answer is a MODE, not a direction: the engine says which language
+         * the word was in, and the frontend adopts it. The earlier form tested
+         * `judged == LATIN && isHangulMode` only, so a word judged HANGUL while
+         * the Latin slot was active was TAKEN and dropped -- take_judgement is
+         * consuming -- and the E1 gate's symmetric line ("typed in one stream,
+         * both directions") could never pass on this frontend. */
+        val judged = e?.takeJudgement() ?: -1
+        if (judgedModeDiffers(judged, isHangulMode)) {
             toggleHangulEnglish()
         }
         return if (consumed) true else super.onKeyDown(keyCode, event)
