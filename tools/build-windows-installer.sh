@@ -38,7 +38,7 @@ BUILD=build-msvc
 TSF_BUILD="frontends/tsf/$BUILD"
 OUT="$BUILD/installer"
 STAGE="$OUT/stage"
-APP_VERSION=0.2.0
+APP_VERSION=0.3.0-rc
 GENERATOR="${HUNMIN_CMAKE_GENERATOR:-Visual Studio 17 2022}"
 
 # --- toolchain locations: env override first, then the known shapes ------

@@ -146,7 +146,15 @@ echo "=== dpkg-buildpackage rc=$rc"
 tail -20 "$LOG"
 
 parent=$(dirname "$SRC")
-for deb in "$parent"/hunmin_"${VERSION}"_*.deb "$parent"/hunmin-en-us_"${VERSION}"_*.deb; do
+# The package version is the CHANGELOG's, not the CMake project version: a
+# prerelease says 0.3.0~rc in debian/changelog while CMake can only spell
+# 0.3.0 (numeric VERSION), so dpkg names the files hunmin_0.3.0~rc_*.deb.
+# Globbing every .deb in this per-run parent dir is version-agnostic and
+# still exact — the dir was created empty for this build, and the -dbgsym
+# package is a .ddeb, so it cannot be picked up by mistake.
+PKG_VERSION=$(dpkg-parsechangelog -S Version 2>/dev/null || echo "$VERSION")
+echo "=== package version: $PKG_VERSION"
+for deb in "$parent"/*.deb; do
     [ -f "$deb" ] && printf 'DEB %s\n' "$deb"
 done
 exit "$rc"
