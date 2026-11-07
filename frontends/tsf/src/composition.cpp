@@ -36,8 +36,7 @@ bool IsClassicEditHost() {
 STDMETHODIMP CTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComposition *pComposition) {
     (void)ecWrite;
     (void)pComposition;
-    hunmin_logger.log("OnCompositionTerminated comp=%p display=%zu self=%d\n", (void *)composition_, ComposeDisplay().size(),
-                      endingSelf_ ? 1 : 0);
+    hunmin_logger.log("OnCompositionTerminated comp=%p display=%zu self=%d\n", (void *)composition_, ComposeDisplay().size(), endingSelf_ ? 1 : 0);
     if (endingSelf_) {
         /* Our own EndComposition (issue #98): the composed text is
          * document text by OUR decision, so the buffers drain and the
@@ -211,14 +210,29 @@ public:
                  * backspace, issue #98; a real host shows the same
                  * ghost). Empty fuses nothing if the boundary ends it
                  * next. */
+                /* Publish the shown text BEFORE the host-visible writes
+                 * (issue #222): the sink can fire re-entrantly from
+                 * inside them, and it records what the composition
+                 * showed. Publishing after left it holding the previous
+                 * key's text - the next composition re-adopted the wrong
+                 * copy, the verify refused it, and the key APPENDED
+                 * (26 chars for a 7-key word). */
+                svc_->compText_ = t_;
                 hr = range->SetText(ec, 0, t_, -1);
                 svc_->displayAttr_->Apply(ctx_, ec, range, endAfter_);
                 /* Caret: the COLLAPSE must never touch the composition's
                  * own range (escaping a collapsed-at-end range would
                  * make the next rewrite splice AFTER the text instead
                  * of replacing it). Write mode keeps the selection on
-                 * the composition; end mode walks a clone to the end. */
-                if (endAfter_) {
+                 * the composition; end mode walks a clone to the end.
+                 * A host that ended the composition from inside this
+                 * session (the sink ran above) gets the same clone
+                 * collapse: the next session's GetSelection must be a
+                 * caret after the fused copy - the shape re-adoption
+                 * (#144) measures - and selecting the dead range again
+                 * hands it the non-collapsed selection instead. */
+                const bool hostEndedMidSession = (svc_->composition_ == nullptr);
+                if (endAfter_ || hostEndedMidSession) {
                     ITfRange *caret = nullptr;
                     if (SUCCEEDED(range->Clone(&caret)) && caret) {
                         caret->Collapse(ec, TF_ANCHOR_END);
@@ -238,22 +252,36 @@ public:
                 }
                 range->Release();
             }
-            svc_->compText_ = t_;
+            /* NO assignment of compText_ after the writes: if the sink
+             * ran it already moved the shown text into hostFusedCopy_
+             * and cleared compText_, and re-asserting t_ would resurrect
+             * a shown text with no composition behind it (issue #222). */
             if (endAfter_) {
                 /* Issue #119: our own end is flagged so the sink cannot
                  * mistake it for a host-driven termination (measured:
                  * the sink has never fired for a service-called
                  * EndComposition - the wrap is protection, not assumed
-                 * behaviour). */
-                svc_->endingSelf_ = true;
-                svc_->composition_->EndComposition(ec);
-                hunmin_logger.log("composition end text=%ls\n", t_);
-                svc_->composition_->Release();
-                svc_->composition_ = nullptr;
-                if (svc_->compCtx_) {
-                    svc_->compCtx_->Release();
-                    svc_->compCtx_ = nullptr;
+                 * behaviour). A host that already ended the composition
+                 * mid-session fused this final text itself, which is the
+                 * same committed state: there is nothing of ours left to
+                 * end, and the end below must not run on a null
+                 * composition. */
+                if (svc_->composition_) {
+                    svc_->endingSelf_ = true;
+                    svc_->composition_->EndComposition(ec);
+                    hunmin_logger.log("composition end text=%ls\n", t_);
+                    svc_->composition_->Release();
+                    svc_->composition_ = nullptr;
+                    if (svc_->compCtx_) {
+                        svc_->compCtx_->Release();
+                        svc_->compCtx_ = nullptr;
+                    }
                 }
+                /* The final text is committed, whichever side ended the
+                 * composition: a pending fused copy here is stale, and
+                 * the next composition must not re-adopt the word the
+                 * boundary just committed. */
+                svc_->hostFusedCopy_.clear();
                 svc_->compText_.clear();
                 svc_->endingSelf_ = false;
             }
@@ -283,9 +311,37 @@ bool CTextService::AdoptHostFusedCopy(TfEditCookie ec, ITfRange *sel) {
     if (want.empty() || !sel)
         return false;
     const LONG len = (LONG)want.size();
+    /* The range the host hands back is normally a caret AFTER the fused
+     * copy (the #144 shape), but a raced host can leave the terminated
+     * composition's range selected, or the caret inside the copy. Measure
+     * what the range already covers - GetText with capacity n reports
+     * min(range length, n) - and shift the start only by what the copy
+     * still needs: the copy ends at the range's END, so the target start
+     * is end-len. The document's own text stays the arbiter. */
+    LONG shift = -len;
+    std::wstring probe((size_t)len + 1, L'\0');
+    ULONG covered = 0;
+    if (SUCCEEDED(sel->GetText(ec, 0, &probe[0], (ULONG)len + 1, &covered))) {
+        if (covered == (ULONG)len && wcsncmp(probe.c_str(), want.c_str(), want.size()) == 0) {
+            /* The selection already covers the copy exactly. */
+            hunmin_logger.log("native recovery: re-adopted %ld fused chars into the next composition\n", len);
+            return true;
+        }
+        if (covered > (ULONG)len) {
+            /* The range outgrows the copy: it cannot be positioned onto
+             * the copy by this protocol, and a -len shift here would
+             * only be accepted when unrelated text happens to match. */
+            hunmin_logger.log("native recovery: re-adopt refused (selection outgrows the fused copy)\n");
+            return false;
+        }
+        if (covered == (ULONG)len)
+            shift = 0; /* same length, different text: the verify must see it */
+        else
+            shift = (LONG)covered - len;
+    }
     LONG moved = 0;
-    if (FAILED(sel->ShiftStart(ec, -len, &moved, nullptr)) || moved != -len) {
-        hunmin_logger.log("native recovery: re-adopt refused (shift moved=%ld of %ld)\n", moved, len);
+    if (FAILED(sel->ShiftStart(ec, shift, &moved, nullptr)) || moved != shift) {
+        hunmin_logger.log("native recovery: re-adopt refused (shift moved=%ld of %ld)\n", moved, shift);
         return false;
     }
     std::wstring have(want.size() + 1, L'\0');

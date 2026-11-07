@@ -556,6 +556,111 @@ TEST_F(NonEditHostTest, PerKeyTerminatingNonEditHostComposesAcrossKeys) {
     HostTeardown();
 }
 
+/* Issue #222: the Chromium run where the host accumulated the composition
+ * text (26 chars for a 7-key word, 10 composition starts for 0 ends). The
+ * timing pinned here is the race shape the issue names - the host closes the
+ * composition while the adapter's edit session is still running (the
+ * textarea ends its HTML composition when the selection moves over the
+ * in-flight text; the mock delivers the sink from inside SetSelection)
+ * - in Latin mode with the switch on, where the engine, not the host,
+ * delivers the keys. Each new composition must REPLACE the fused copy.
+ * Before the fix the adapter published the shown text only after the
+ * host-visible writes, the in-session sink recorded the previous key's
+ * text, and the word accumulated (the document read the displays
+ * concatenated: e en eng 뚜히 engli englis english = 26 chars).
+ * The per-key displays are the round's own (round.json per-key lengths
+ * 1,2,3,2,5,6,7) - the per-key judged display tier A pins for this word
+ * (WordSetTest.PerKeyTimingInLatinModeShowsHangulForEnglishThenReturns).
+ * wide \uXXXX literals per the file-header MSVC rule. */
+TEST_F(NonEditHostTest, HostEndingCompositionInsideTheSessionComposesTheWord) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
+    HostBegin();
+    if (HasFatalFailure()) {
+        _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+        HostTeardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    ASSERT_EQ(GetFocus(), win) << "the non-edit capture window must hold the focus";
+    g_mockKeyState[VK_CONTROL & 0xFF] = 0;
+    g_mockKeyState[VK_MENU & 0xFF] = 0;
+    ctx->hostEndsCompositionOnSelection = true;
+
+    /* The {L} of the issue's key list: the toggle reaches Latin, and with
+     * the switch on the engine keeps the Latin keys. */
+    Key((WPARAM)HUNMIN_TSF_VIRTUAL_HANGEUL);
+    ASSERT_FALSE(Snap().hangulMode) << "the toggle reaches Latin";
+
+    /* "The document holds the display" is read off the layer itself
+     * (Snap().display), not written out here: the per-key judged display
+     * is the engine's own answer for the letters (the #221 attribution),
+     * and the issue's per-key lengths are 1,2,3,2,5,6,7 - the displays
+     * concatenated are the 26-char accumulation. */
+    for (size_t i = 0; i < 7; ++i) {
+        Key((WPARAM)std::toupper((unsigned char)"English"[i]));
+        /* The fused copy is replaced by the next display each key: the
+         * document holds exactly the current display, never the sum of
+         * the displays so far (the issue's 1,3,6,8,13,19,26 lengths). */
+        EXPECT_EQ(ctx->doc, Snap().display) << "key " << i << ": the document holds the display, not the accumulation";
+    }
+
+    /* The boundary: the host already fused the word when it ended the
+     * last composition, so the drain adds nothing. */
+    BOOL spaceTestEat = TRUE;
+    TestKey(VK_SPACE, &spaceTestEat);
+    EXPECT_EQ(spaceTestEat, FALSE) << "space passes at the TEST phase too";
+    EXPECT_EQ(ctx->doc, std::wstring(L"english")) << "the boundary keeps the word once";
+    EXPECT_EQ(ctx->hostTerminations, 7) << "every key's composition was ended by the host";
+    EXPECT_EQ(ctx->compositionStarts, 7) << "each key reopened a composition after the host closed it";
+    EXPECT_EQ(ctx->compositionEnds, 0) << "the host, not the adapter, ended them (the issue's 0 ends)";
+    EXPECT_FALSE(Snap().legacyMode) << "a non-edit host never flips";
+
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    HostTeardown();
+}
+
+/* Issue #222's second symptom: in the same run the adapter consumed Ctrl+Z
+ * (`OnTestKeyDown w=90 eat=1`). The chord rule in the test phase was gated
+ * to Hangul mode, while the down phase classified the chord mode-free, so
+ * in Latin mode with the switch on the test phase claimed the letter and
+ * the down phase passed it. Test and down are one decision (keydispatch's
+ * registration-work rule): a Ctrl chord passes in both phases in Latin mode
+ * too, and a plain Latin key is still the engine's. */
+TEST_F(NonEditHostTest, CtrlChordPassesInLatinModeWithTheSwitchOn) {
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
+    HostBegin();
+    if (HasFatalFailure()) {
+        _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+        HostTeardown();
+        GTEST_SKIP() << "fixture could not start";
+    }
+    ASSERT_EQ(GetFocus(), win) << "the non-edit capture window must hold the focus";
+    g_mockKeyState[VK_SHIFT & 0xFF] = 0;
+    g_mockKeyState[VK_CONTROL & 0xFF] = 0;
+    g_mockKeyState[VK_MENU & 0xFF] = 0;
+
+    Key((WPARAM)HUNMIN_TSF_VIRTUAL_HANGEUL);
+    ASSERT_FALSE(Snap().hangulMode) << "the toggle reaches Latin";
+
+    g_mockKeyState[VK_CONTROL & 0xFF] = (SHORT)-32768;
+    BOOL chordTestEat = TRUE, chordEat = TRUE;
+    TestKey((WPARAM)'Z', &chordTestEat);
+    Key((WPARAM)'Z', &chordEat);
+    EXPECT_EQ(chordTestEat, FALSE) << "Ctrl+Z reaches the app in Latin mode with the switch on";
+    EXPECT_EQ(chordEat, FALSE) << "the down phase agrees: the chord is not the engine's";
+    EXPECT_EQ(ctx->doc, std::wstring()) << "the chord types nothing";
+    g_mockKeyState[VK_CONTROL & 0xFF] = 0;
+
+    BOOL plainTestEat = FALSE, plainEat = FALSE;
+    TestKey((WPARAM)'Z', &plainTestEat);
+    Key((WPARAM)'Z', &plainEat);
+    EXPECT_EQ(plainTestEat, TRUE) << "a plain Latin key is claimed in the test phase";
+    EXPECT_EQ(plainEat, TRUE) << "and fed to the engine in the down";
+    EXPECT_EQ(ctx->doc, std::wstring(L"z")) << "the engine delivered the plain key";
+
+    _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
+    HostTeardown();
+}
+
 } // namespace
 
 /* The punctuation pair from the report on the classic host: `?` and `,` are
