@@ -25,8 +25,10 @@ So this check is deliberately narrow and mechanical, and it fails closed:
 WHAT REGISTERED MEANS
 ---------------------
 A ctest id counts as registered when the given build directory lists it in
-`ctest -N`, OR when some source CMakeLists.txt declares it with
-`add_test(NAME <id>`. The disjunction is deliberate and measured: the fcitx5
+`ctest -N`, OR when some source CMakeLists.txt or cmake/*.cmake file declares
+it with `add_test(NAME <id>` or its H2 helper spelling
+`hunmin_add_test(NAME <id>` (cmake/HunminTestHelpers.cmake, issue #271).
+The disjunction is deliberate and measured: the fcitx5
 (D1/D2), Android (E1) and trace-build tiers register **only where their SDKs
 are present**, so a pure `ctest -N` test would red on a host without fcitx5 for
 a row that is true -- the false-positive class docs-lint.py's header says gets
@@ -190,9 +192,11 @@ def build_ids(build_dir: str) -> set[str] | None:
 
 
 def source_registration(test_id: str) -> str:
-    """The repo-relative CMakeLists that declares `add_test(NAME <id>`, or ""."""
-    for cmake in sorted(glob.glob(os.path.join(ROOT, "**", "CMakeLists.txt"),
-                                  recursive=True)):
+    """The repo-relative CMakeLists/cmake file declaring the test, or ""."""
+    cmake_files = sorted(glob.glob(os.path.join(ROOT, "**", "CMakeLists.txt"),
+                                   recursive=True)
+                         + glob.glob(os.path.join(ROOT, "cmake", "*.cmake")))
+    for cmake in cmake_files:
         rel = os.path.relpath(cmake, ROOT).replace(os.sep, "/")
         if rel.startswith("build") or "/build" in rel or "/.git" in rel:
             continue
@@ -200,7 +204,7 @@ def source_registration(test_id: str) -> str:
             text = open(cmake, encoding="utf-8", errors="replace").read()
         except OSError:
             continue
-        if re.search(rf"add_test\(\s*NAME\s+{re.escape(test_id)}\b", text):
+        if re.search(rf"(?:add_test|hunmin_add_test)\(\s*NAME\s+{re.escape(test_id)}\b", text):
             return rel
         # A test registered from a LOOP has no literal `add_test(NAME <id>`, so
         # the search above cannot see it and the row reads dead on any build
@@ -209,8 +213,11 @@ def source_registration(test_id: str) -> str:
         # FE1/FE4/FE10/TSF9/A2 fail with "neither registered in the build nor
         # declared by any add_test(NAME ...)" -- five true rows reported dead.
         # A loop's literal prefix is the declaration, so match that too; an id
-        # that is not a prefix-extension of any registration still fails.
-        for prefix in re.findall(r"add_test\(\s*NAME\s+([A-Za-z0-9_.\-]+)\$\{", text):
+        # that is not a prefix-extension of any registration still fails. Since
+        # the #271 split, the loop registrations live in cmake/*.cmake and go
+        # through hunmin_add_test, so the prefix scan must cover that file set
+        # and that spelling.
+        for prefix in re.findall(r"(?:add_test|hunmin_add_test)\(\s*NAME\s+([A-Za-z0-9_.\-]+)\$\{", text):
             if test_id.startswith(prefix):
                 return rel
     return ""

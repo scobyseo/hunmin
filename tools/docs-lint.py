@@ -468,20 +468,26 @@ def rw_evaluate(kind: str, target: str) -> tuple[bool, str]:
         # read it from. CTestTestfile.cmake is the *generated* file: exact, but
         # it only exists under a configured build dir, so on a fresh checkout
         # the check would find nothing and read "not registered". The source
-        # CMakeLists is what actually declares it and is always present, so read
-        # that instead. `add_test(NAME <name>` and `add_test(<name>` are both in
-        # use in this repo; the second is the bare form CMake also accepts.
-        for cmake in sorted(glob.glob(os.path.join(ROOT, "**", "CMakeLists.txt"),
-                                      recursive=True)):
+        # CMakeLists and cmake/*.cmake files are what actually declare it and are
+        # always present, so read those instead. `add_test(NAME <name>` and
+        # `add_test(<name>` are both in use in this repo; the second is the bare
+        # form CMake also accepts. Since the #271 split, registrations go through
+        # the `hunmin_add_test` helper (cmake/HunminTestHelpers.cmake), so that
+        # spelling must be seen as well -- otherwise the check reads "not
+        # registered" for a test the build does register.
+        cmake_files = sorted(glob.glob(os.path.join(ROOT, "**", "CMakeLists.txt"),
+                                       recursive=True)
+                             + glob.glob(os.path.join(ROOT, "cmake", "*.cmake")))
+        for cmake in cmake_files:
             if "/build" in cmake.replace(os.sep, "/") or "/.git" in cmake.replace(os.sep, "/"):
                 continue
             with open(cmake, encoding="utf-8", errors="replace") as fh:
                 text = fh.read()
-            if re.search(rf"add_test\(\s*(?:NAME\s+)?\[?=?\s*{re.escape(target)}\b",
+            if re.search(rf"(?:add_test|hunmin_add_test)\(\s*(?:NAME\s+)?\[?=?\s*{re.escape(target)}\b",
                          text):
                 rel = os.path.relpath(cmake, ROOT)
                 return True, f"add_test({target}) in {rel}"
-        return False, f"no add_test({target}) in any source CMakeLists.txt"
+        return False, f"no add_test({target}) in any source CMakeLists.txt or cmake/*.cmake"
     if kind == "grep":
         tgt, _, pat = target.partition(":")
         if not pat:
