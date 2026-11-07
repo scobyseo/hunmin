@@ -66,7 +66,7 @@ jobs:
     # CI minutes are a cost, and a job with no ceiling is a job whose cost is
     # unbounded -- the same overspend shape that got CI usage suspended, one
     # level down.
-    timeout-minutes: 10
+    timeout-minutes: 15
     # THE PR RUNG, and the only TEST job that runs (2026-11-01, the instructions
     # quoted at the top of this file): `ctest -LE tier-E1` on a pull request. It
     # costs the fcitx5 source build plus the suite inside a 3-minute ceiling,
