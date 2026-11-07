@@ -128,7 +128,7 @@ Turn the trace into a corpus in `tests/golden/`, one file per case, in the
   `meta.spec` are not decoration; a golden nobody can trace back to an
   authority is an assertion with no provenance.
 
-Then register it (`CMakeLists.txt` has one `engine-golden-*` per layout) and run
+Then register it (`cmake/HunminEngineTests.cmake` has one `engine-golden-*` per layout) and run
 it:
 
 ```sh
@@ -162,7 +162,7 @@ it checks was wrong for all 47 keys before that was measured.
 - [ ] key ids use the unshifted US-QWERTY character; shifted forms via `"shift"`
 - [ ] non-jamo characters written `"=c"`
 - [ ] golden added in `tests/golden/`, one independent case per line group
-- [ ] registered in `CMakeLists.txt`, `ctest -R engine-golden-<id>` passes
+- [ ] registered in `cmake/HunminEngineTests.cmake`, `ctest -R engine-golden-<id>` passes
 - [ ] `keymap-fixture.py` passes (every key reachable on every platform)
 - [ ] `hunmin-sim --trace` output matches what you intended, key by key
 - [ ] if `engine: h3`: every `case` expression has a golden for **both** branches
