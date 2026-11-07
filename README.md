@@ -1,7 +1,7 @@
 # hunmin
 
 A portable Hangul (한글) input engine: a C library with a stable ABI, and thin
-frontends for fcitx5, Android, and (planned) Windows TSF.
+frontends for fcitx5, Android, and Windows TSF.
 
 **The design constraint that shapes everything: layout behaviour is data, never
 code.** Adding a keyboard layout means adding a JSON file and golden tests — no
@@ -15,7 +15,13 @@ frontends/      fcitx5 addon (C++), Android IME (Kotlin + JNI)
 
 ## Status
 
-**P0–P5 implemented; P6 (Windows TSF) in progress.** Milestone A (TSF frontend scaffold, #64) is done — `hunmin-tsf.dll` builds natively on the Windows 11 host and registration was verified end-to-end in Notepad. Milestone B (core input integration, #65) is open. `ctest`: **green**.
+**P0–P6 implemented; automatic Hangul/English switching in check for 0.3.**
+TSF (`hunmin-tsf.dll`, #64) shipped in 0.2. The 0.3 lane (issue #183)
+judges in the engine and switches in each frontend; OFF is the default
+and the feature enables only where its data is present. Check status in
+[`docs/release-notes/0.3.0.md`](docs/release-notes/0.3.0.md) (draft) and
+the requirements in [`docs/SPEC-MODES.md`](docs/SPEC-MODES.md). `ctest`:
+**green**.
 
 | | |
 |---|---|
@@ -27,8 +33,9 @@ frontends/      fcitx5 addon (C++), Android IME (Kotlin + JNI)
 | Hanja | works — `hunmin_suggest_*` reads the 한국어기초사전 extract |
 | Romaja | ported and parity-verified against libhangul |
 | fcitx5 addon | tier C/D green, packaged as a `.deb` |
-| Android IME | `InputMethodService` + JNI; 4 ctest tiers, verified on an emulator |
-| Windows TSF | milestone A done (#64); milestone B (#65) open |
+| Android IME | `InputMethodService` + JNI; verified on an emulator |
+| Windows TSF | shipped in 0.2 (#64, #99); automatic switch in 0.3 check |
+| Automatic switch | engine judges once at the boundary, each frontend performs it; OFF by default, data-gated |
 
 Not done, explicitly: a soft keyboard (the input view is a layout strip, not
 keys); the E3 manual session on a real Bluetooth keyboard, so no device is
@@ -95,17 +102,20 @@ diffs.
 ## Install
 
 ```sh
-# engine + fcitx5 addon
-gh release download 0.1.0 --repo scobyseo/hunmin   # needs repo access; see below
-dpkg -i hunmin_0.1.0_amd64.deb     # or build it: tools/build-release.sh deb
+# engine + fcitx5 addon (0.2: three channels — .deb, release APK, Windows
+# installer; see docs/release-notes/0.2.0.md. 0.3 is in check, see
+# docs/release-notes/0.3.0.md)
+gh release download 0.2.0 --repo scobyseo/hunmin   # needs repo access; see below
 
-# or build the PPA package yourself — see PLAN.md, gate is the tier-D suite
+# or build from a clean checkout — gate is the tier-D suite
+tools/build-release.sh deb
 ```
 
 Android: `frontends/android/gradlew assembleDebug` after building the core for
-each ABI (`tools/build-android.sh`). The APK's `versionName` is `0.1.0-p5` —
-the release is `0.1.0` and the `-p5` is the Android build-phase label, not a
-different release; the keymaps APK carries `0.1.0-p5.5` for the same reason.
+each ABI (`tools/build-android.sh`). The APK's `versionName` is `0.2.0-p5` —
+the release is `0.2.0` and the `-p5` is the Android build-phase label, not a
+different release; the keymaps APK still reads `0.1.0-p5.5` (measured debt,
+carried into #182's bump).
 The convention is recorded in `docs/MILESTONES.md` §0.1 (issue #9).
 
 **Where the release artefacts come from (issue #8):** CI now builds both —
@@ -154,6 +164,7 @@ names the limitation if shipped unmeasured; the measurement record lives in
 | [`docs/D3-ROOT-CAUSE.md`](docs/D3-ROOT-CAUSE.md) | why tier D3 looked green while measuring nothing |
 | [`docs/D3-PERFORMANCE.md`](docs/D3-PERFORMANCE.md) | where tier D3's wall clock goes, and the case-count defect it hid |
 | [`docs/OPTIONS-MEASURED.md`](docs/OPTIONS-MEASURED.md) | twelve priced questions and their rulings: the mutation tier, the android sandbox, the test framework, the `ch` input, the TSF unregister mirror, whether the Han/Eng key can act as a held modifier, what each single/compound 한/영 assignment costs, which English dictionary `english_valid` looks up, whether the modes judgement's B1 blocker still exists, the units the two modes pass lines can be graded in, who owns the modes judgement itself, and the three parameters of the judgement boundary (buffer cap, short-word threshold, flicker) |
+| [`docs/SPEC-MODES.md`](docs/SPEC-MODES.md) | the automatic Hangul/English switch: requirements R1–R15, E1–E8, and what ships in 0.3 |
 | [`docs/MODES-SURFACE-B.md`](docs/MODES-SURFACE-B.md) | the automatic switch's settings row, implemented once: the engine calls it is built from, the four traps, and what each frontend still decides |
 | [`docs/REMAINING-WORK.md`](docs/REMAINING-WORK.md) | what is left, what is blocked on whom, and the assertions that keep it honest |
 | [`docs/MILESTONES.md`](docs/MILESTONES.md) | the release plan (0.1 / 0.2 / 0.3 / 0.4 / 1.0) and which lane each open item sits in |

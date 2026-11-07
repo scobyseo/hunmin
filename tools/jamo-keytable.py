@@ -41,6 +41,12 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 SIM = REPO / "build" / "hunmin-sim"
 DATA = REPO / "libhunmin" / "data"
 
+# The sim binary `batch()` drives. Defaults to the in-tree build; a caller
+# that builds elsewhere (build-wsl, debian's obj dir) sets it explicitly.
+# `tools/modes-metrics.py` does, because the ctest lane passes its own
+# --sim and the jamo probe is one of three sim consumers in that harness.
+SIM_OVERRIDE = None
+
 CHOSEONG = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ']
 JUNGSEONG = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ']
 JONGSEONG = ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ']
@@ -77,7 +83,8 @@ _JONG_COMPAT = {
 def batch(keys_list, layout):
     if not keys_list:
         return []
-    r = subprocess.run([str(SIM), "--data", str(DATA), "--layout", layout, "--batch"],
+    sim = SIM_OVERRIDE or SIM
+    r = subprocess.run([str(sim), "--data", str(DATA), "--layout", layout, "--batch"],
                        input="\n".join(keys_list), capture_output=True, text=True,
                        encoding="utf-8", errors="replace", timeout=600)
     if r.returncode != 0:

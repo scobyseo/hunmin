@@ -32,6 +32,17 @@ class AutoSwitchSettingsTest {
     private var stored = false
     private var writes = 0
 
+    /* Copy fallback for hosts where JVM symlinks need a privilege the test
+     * JVM does not have (Windows without Developer Mode). */
+    private fun copyTree(src: java.nio.file.Path, dst: java.nio.file.Path) {
+        Files.walk(src).use { stream ->
+            stream.forEach { p ->
+                val t = dst.resolve(src.relativize(p))
+                if (Files.isDirectory(p)) Files.createDirectories(t) else Files.copy(p, t)
+            }
+        }
+    }
+
     private val repoRoot: File by lazy {
         System.getenv("HUNMIN_REPO_ROOT")?.let { File(it) } ?: File("../..").canonicalFile
     }
@@ -89,12 +100,16 @@ class AutoSwitchSettingsTest {
                 for (name in listOf("layouts", "compose", "hanja", "idioms", "krdict")) {
                     val src = File(data, name)
                     if (src.isDirectory) {
-                        Files.createSymbolicLink(File(dir, name).toPath(), src.toPath())
+                        runCatching {
+                            Files.createSymbolicLink(File(dir, name).toPath(), src.toPath())
+                        }.onFailure {
+                            copyTree(src.toPath(), File(dir, name).toPath())
+                        }
                     }
                 }
             }
         }.getOrNull()
-        assumeTrue("this host cannot create symlinks for the gate fixture", tmp != null)
+        assumeTrue("the gate fixture could not be built (link and copy both failed)", tmp != null)
 
         try {
             open(tmp!!).use { settings ->
@@ -108,10 +123,16 @@ class AutoSwitchSettingsTest {
                 assertFalse("a refused ON is stored as OFF", stored)
             }
         } finally {
-            // Delete the LINKS, never their targets: walking through a
-            // directory symlink deletes the repository's data tree (the lesson
-            // AutoSwitchGateTest records). Each entry is unlinked directly.
-            tmp?.listFiles()?.forEach { runCatching { Files.deleteIfExists(it.toPath()) } }
+            /* Symlink entries are unlinked with Files.deleteIfExists (never
+             * their target); copy-fallback entries are real directories,
+             * removed with deleteRecursively instead. */
+            tmp?.listFiles()?.forEach { entry ->
+                runCatching {
+                    if (Files.isSymbolicLink(entry.toPath())) Files.deleteIfExists(entry.toPath())
+                    else if (entry.isDirectory) entry.deleteRecursively()
+                    else Files.deleteIfExists(entry.toPath())
+                }
+            }
             tmp?.let { runCatching { Files.deleteIfExists(it.toPath()) } }
         }
     }

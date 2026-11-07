@@ -31,6 +31,18 @@ class AutoSwitchGateTest {
         System.getenv("HUNMIN_REPO_ROOT")?.let { File(it) } ?: File("../..").canonicalFile
     }
 
+    /* Copy fallback for hosts where JVM symlinks need a privilege the test
+     * JVM does not have (Windows without Developer Mode). The engines treat
+     * a copy and a link identically: the directory search is the same. */
+    private fun copyTree(src: java.nio.file.Path, dst: java.nio.file.Path) {
+        Files.walk(src).use { stream ->
+            stream.forEach { p ->
+                val t = dst.resolve(src.relativize(p))
+                if (Files.isDirectory(p)) Files.createDirectories(t) else Files.copy(p, t)
+            }
+        }
+    }
+
     @Before
     fun setUp() {
         val shim = System.getenv("HUNMIN_JNI_LIB")
@@ -45,14 +57,18 @@ class AutoSwitchGateTest {
                 for (name in listOf("layouts", "compose", "hanja", "idioms", "krdict")) {
                     val src = File(data, name)
                     if (src.isDirectory) {
-                        Files.createSymbolicLink(File(dir, name).toPath(), src.toPath())
+                        runCatching {
+                            Files.createSymbolicLink(File(dir, name).toPath(), src.toPath())
+                        }.onFailure {
+                            copyTree(src.toPath(), File(dir, name).toPath())
+                        }
                     }
                 }
             }
         }.getOrNull()
-        // A host that cannot make symlinks cannot build the fixture; skipping
-        // with a message beats a green case that needed a different tree.
-        assumeTrue("this host cannot create symlinks for the gate fixture", tmp != null)
+        // If neither a link nor a copy could be built, skipping states
+        // exactly what was measured instead of a green case on a wrong tree.
+        assumeTrue("the gate fixture could not be built (link and copy both failed)", tmp != null)
         root = tmp
         ctx = HunminNativeBridge.nativeCtxNew(tmp!!.absolutePath)
         assertTrue(
@@ -64,12 +80,18 @@ class AutoSwitchGateTest {
     @After
     fun tearDown() {
         if (ctx != 0L) HunminNativeBridge.nativeCtxFree(ctx)
-        /* Delete the LINKS, never their targets. `File.deleteRecursively()` walks
-         * through a directory symlink, which deleted the repository's own data
-         * tree when this fixture first ran (measured 2026-11-01, restored from
-         * git) -- so each entry is unlinked with Files.deleteIfExists, which
-         * removes the link and nothing behind it. */
-        root?.listFiles()?.forEach { runCatching { Files.deleteIfExists(it.toPath()) } }
+        /* Symlink entries are unlinked with Files.deleteIfExists (deleting
+         * the link, never its target); copy-fallback entries are real
+         * directories and go with deleteRecursively instead. The split is
+         * what makes both shapes clean up without ever walking through a
+         * link into the repository's own data tree. */
+        root?.listFiles()?.forEach { entry ->
+            runCatching {
+                if (Files.isSymbolicLink(entry.toPath())) Files.deleteIfExists(entry.toPath())
+                else if (entry.isDirectory) entry.deleteRecursively()
+                else Files.deleteIfExists(entry.toPath())
+            }
+        }
         root?.let { runCatching { Files.deleteIfExists(it.toPath()) } }
     }
 

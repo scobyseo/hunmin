@@ -28,6 +28,7 @@
  */
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -40,6 +41,7 @@ namespace {
 const char *kDataPath = nullptr;
 
 std::string env_or(const char *name, const char *fallback) {
+#if defined(_WIN32) && defined(_MSC_VER)
     char *buf = nullptr;
     std::string out = fallback;
     if (_dupenv_s(&buf, nullptr, name) == 0 && buf) {
@@ -47,6 +49,10 @@ std::string env_or(const char *name, const char *fallback) {
         free(buf);
     }
     return out;
+#else
+    const char *v = std::getenv(name);
+    return (v && *v) ? std::string(v) : std::string(fallback);
+#endif
 }
 
 hunmin_ctx *make_ctx() {

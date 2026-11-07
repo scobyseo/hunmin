@@ -42,6 +42,7 @@ namespace {
 const char *kDataPath = nullptr;
 
 std::string scratch_dir() {
+#if defined(_WIN32) && defined(_MSC_VER)
     char *buf = nullptr;
     std::string out;
     if (_dupenv_s(&buf, nullptr, "TEMP") == 0 && buf) {
@@ -56,6 +57,12 @@ std::string scratch_dir() {
         }
     }
     return out.empty() ? std::string(".") : out;
+#else
+    const char *v = std::getenv("TEMP");
+    if (v && *v) return v;
+    v = std::getenv("TMPDIR");
+    return (v && *v) ? std::string(v) : std::string(".");
+#endif
 }
 
 /* A scratch file the test owns and removes: a user dictionary, or a malformed
@@ -968,9 +975,13 @@ TEST_F(WordSetTest, AWhollyBrokenFileIsOneFactNotOneLinePerElement) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
+#if defined(_WIN32) && defined(_MSC_VER)
     char *env_buf = nullptr;
     _dupenv_s(&env_buf, nullptr, "HUNMIN_DATA_PATH");
     kDataPath = env_buf;
+#else
+    kDataPath = std::getenv("HUNMIN_DATA_PATH");
+#endif
     if (!kDataPath) {
         std::fprintf(stderr, "HUNMIN_DATA_PATH is not set; this test reads the "
                              "shipped tables, not a copy\n");
