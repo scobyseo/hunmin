@@ -43,6 +43,8 @@
 #include <string>
 #include <vector>
 
+#include "test-env.h"
+
 extern "C" {
 #include "hunmin.h"
 }
@@ -423,8 +425,7 @@ TEST(HangulValidOldTest, LayoutCapabilityIsDerivedFromTheData) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    char *env_buf = nullptr;
-    _dupenv_s(&env_buf, nullptr, "HUNMIN_DATA_PATH");
+    char *env_buf = hunmin_test_getenv_dup("HUNMIN_DATA_PATH");
     kDataPath = env_buf;
     if (!kDataPath) {
         std::fprintf(stderr, "HUNMIN_DATA_PATH is not set; this test drives the "

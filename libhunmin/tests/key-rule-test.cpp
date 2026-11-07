@@ -21,6 +21,8 @@
 #include <string>
 #include <system_error>
 
+#include "test-env.h"
+
 extern "C" {
 #include "hunmin.h"
 }
@@ -815,8 +817,7 @@ TEST_F(KeyRuleTest, TheAutoswitchChordFlipsTheOneValue) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    char *env_buf = nullptr;
-    _dupenv_s(&env_buf, nullptr, "HUNMIN_DATA_PATH");
+    char *env_buf = hunmin_test_getenv_dup("HUNMIN_DATA_PATH");
     kDataPath = env_buf && *env_buf ? env_buf : "libhunmin/data";
     return RUN_ALL_TESTS();
 }
