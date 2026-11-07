@@ -240,9 +240,42 @@ in here:
   is a human typing measurement of the Latin direction, which this round
   did not take (see below).
 - **issue #222** — in 1 of 8 ON rounds the host accumulated the composition text
-  (26 characters for a 7-key word, 10 `composition start` for 1 `composition
+  (26 characters for a 7-key word, 10 `composition start` for 0 `composition
   end`) and the adapter consumed Ctrl+Z in that run. A race, measured once; its
   trigger is not claimed.
+
+  Fixed 2026-11-07 (issue #222): two adapter-side defects, both pinned in tier
+  F1 by `NonEditHostTest.HostEndingCompositionInsideTheSessionComposesTheWord`
+  and `NonEditHostTest.CtrlChordPassesInLatinModeWithTheSwitchOn`, and both
+  fail against the pre-fix sources with exactly the reported shapes (the
+  26-character accumulation, `OnTestKeyDown w=90 eat=1`).
+
+  1. *Ctrl+Z.* The test-phase chord rule was gated to Hangul mode, while the
+     down phase classified the chord mode-free: in Latin mode with the switch
+     on, the test claimed the letter (`eat=1`) and the down phase passed it. The
+     gate is now mode-free (the English-passthrough branch above it still
+     returns when the engine owns no keys), so test and down agree.
+  2. *The accumulation.* The composition edit session published the shown
+     text (`compText_`) only AFTER the host-visible `SetText`/`SetSelection`,
+     so a host termination delivered re-entrantly from inside the session
+     (the mock delivers the sink from its `SetSelection`) recorded the
+     PREVIOUS key's text. The next composition then re-adopted the wrong copy,
+     the document-text verify refused it, and the key appended: each key's
+     display landed after the last, `1+2+3+2+5+6+7 = 26`. The session now
+     publishes before the writes, collapses the caret at the range end when the
+     sink ended the composition mid-session (the caret the next re-adoption
+     measures), guards its own end against a composition the host already
+     ended, clears the stale fused note at a boundary end, and re-adoption
+     measures what the selection already covers instead of assuming a caret
+     after the copy.
+
+  What this does NOT claim: the trigger, still. The mock models the timing the
+  issue names - the host closing inside the session - it does not measure
+  Chromium. Whether the in-session window is where Chromium closes, at what
+  rate, and whether the fixed shape holds against the host's own closing
+  policy, is the live round's to measure (`tools/tsf-autoswitch-round.py`,
+  repeated `--switch on --keys '{L}English {UNDO}...'` runs). The 1-of-8 rate
+  above stands until that round re-measures it.
 
 ### What this round does not measure
 

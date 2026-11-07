@@ -289,6 +289,14 @@ public:
      * killed ended - the caret the adapter's re-adoption reads. */
     int hostTerminations = 0;
     LONG compositionEnd = 0;
+    /* The sink of the live composition, so the mock can deliver the host's
+     * termination re-entrantly from inside an adapter call (issue #222):
+     * hostEndsCompositionOnSelection makes the host end its composition
+     * when the adapter moves the selection over the in-flight text - the
+     * textarea ends its HTML composition on selection change - while the
+     * edit session is still running. */
+    ITfCompositionSink *compositionSink_ = nullptr;
+    bool hostEndsCompositionOnSelection = false;
     std::wstring compositionText; // last full composition-range content
     std::vector<std::wstring> compositionInsertions; // one per composition-range SetText
     int attrWrites = 0; // SetValue(TF composition range)
@@ -334,6 +342,15 @@ public:
         MockRange *r = static_cast<MockRange *>(pSelection[0].range);
         selStart_ = r->startForSelection();
         selEnd_ = r->endForSelection();
+        /* The host ends the composition the selection move just touched,
+         * while the edit session that moved it is still running (issue
+         * #222): the sink fires inline here, between the adapter's
+         * SetText and its bookkeeping - the window in which the adapter
+         * used to publish the shown text only afterwards. */
+        if (hostEndsCompositionOnSelection && compositionActive && compositionSink_) {
+            HostTerminateComposition();
+            compositionSink_->OnCompositionTerminated(kCookie, nullptr);
+        }
         return S_OK;
     }
     STDMETHOD(GetActiveView)(ITfContextView **ppView) override {
@@ -831,7 +848,10 @@ inline HRESULT MockContext::StartComposition(TfEditCookie ecWrite, ITfRange *pCo
      * releases it); no Release here. */
     compositionActive = true;
     ++compositionStarts;
-    (void)pSink; /* the external-termination path is not exercised here */
+    /* The sink the adapter passed for this composition: the live
+     * composition's own sink (issue #222), kept so the in-session
+     * termination hook above has the real sink to call. */
+    compositionSink_ = pSink;
     *ppComposition = c;
     return S_OK;
 }

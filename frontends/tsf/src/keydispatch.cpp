@@ -12,7 +12,7 @@
 #include "tsf.h"
 
 #include "delivery.h" /* HUNMIN_TSF_DELIVERY_INTERIM */
-#include "utf.h"      /* HunminUtf8ToWide: the layer speaks UTF-8 */
+#include "utf.h" /* HunminUtf8ToWide: the layer speaks UTF-8 */
 
 #include <string>
 
@@ -60,10 +60,16 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
          * of tables already in memory. */
         bool fallback = false;
         eat = cand_->ListCount(&fallback) > 0 ? TRUE : FALSE;
-    } else if (hangulMode_ && (hunmin_tsf_keymods_from_state() & (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT))) {
+    } else if (hunmin_tsf_keymods_from_state() & (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) {
         /* Mirror of the down-side chord rule: a Ctrl/Alt chord belongs
          * to the app (Ctrl+A is not composition input) - test phase
-         * answers the same uneaten the down phase will act on. */
+         * answers the same uneaten the down phase will act on. The gate is
+         * mode-free: the English-passthrough branch above already returned
+         * when the engine owns no keys, and with the switch ON the engine
+         * owns Latin keys too, so a chord past the toggle must pass there
+         * as well. Gating it to Hangul mode was the measured defect of
+         * issue #222: in Latin mode with the switch on, Ctrl+Z test-eaten
+         * (the letter branch below) while the down phase passed it. */
         eat = FALSE;
     } else if (wParam >= 'A' && wParam <= 'Z') {
         eat = TRUE;
@@ -258,8 +264,10 @@ hunmin_key_event CTextService::LanguageKeyEvent(WPARAM wParam) const {
     hunmin_key_event ev{};
     ev.base = VkToBase(wParam);
     ev.shift = (mods & HUNMIN_TSF_KEYMOD_SHIFT) ? 1u : 0u;
-    if (mods & HUNMIN_TSF_KEYMOD_CTRL) ev.mods |= HUNMIN_MOD_CTRL;
-    if (mods & HUNMIN_TSF_KEYMOD_ALT) ev.mods |= HUNMIN_MOD_ALT;
+    if (mods & HUNMIN_TSF_KEYMOD_CTRL)
+        ev.mods |= HUNMIN_MOD_CTRL;
+    if (mods & HUNMIN_TSF_KEYMOD_ALT)
+        ev.mods |= HUNMIN_MOD_ALT;
     ev.id = HUNMIN_KEY_TEXT;
     ev.language_key = 1;
     return ev;
