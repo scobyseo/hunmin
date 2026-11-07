@@ -9,7 +9,7 @@ on:
         default: '0.3.0'
 
 jobs:
-  # --- .deb: ubuntu-24.04, dpkg-buildpackage -us -uc -b -------------------
+  # --- .deb: ubuntu-24.04, dpkg-buildpackage -us -uc -b -d -----------------
   build-deb:
     name: build .deb
     runs-on: ubuntu-24.04
@@ -36,23 +36,24 @@ jobs:
             iso-codes xkb-data
 
       # fcitx5 5.1.13 from source (distro ships 5.1.7, below the addon floor)
-      - name: Restore or build fcitx5 5.1.13 install tree
-        id: fcitx5
+      - name: Build fcitx5 5.1.13 from source
         run: |
-          if [ -d /tmp/fcitx5-install ] && pkg-config --modversion Fcitx5Core 2>/dev/null; then
-            echo "fcitx5 already installed"
-          else
-            git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
-            cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
-              -DCMAKE_INSTALL_PREFIX=/tmp/fcitx5-install -DCMAKE_BUILD_TYPE=Release \
-              -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
-              -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
-              > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
-            cmake --build /tmp/fcitx5/build --target install
-            sudo cp -a /tmp/fcitx5-install/. /usr/
-            sudo ldconfig
-            pkg-config --modversion Fcitx5Core
-          fi
+          git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
+          cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
+            -DCMAKE_INSTALL_PREFIX=/tmp/fcitx5-install -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
+            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
+            > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
+          cmake --build /tmp/fcitx5/build --target install
+          sudo cp -a /tmp/fcitx5-install/. /usr/
+          sudo ldconfig
+          pkg-config --modversion Fcitx5Core
+
+      # Pre-populate googletest for FETCHCONTENT_FULLY_DISCONNECTED builds
+      - name: Pre-populate googletest
+        run: |
+          git clone --depth 1 --branch v1.17.0 https://github.com/google/googletest.git \
+            obj-x86_64-linux-gnu/_deps/googletest-src
 
       - name: Build the .deb
         run: |
@@ -122,47 +123,10 @@ jobs:
           path: artifacts/hunmin-*.apk
           retention-days: 30
 
-  # --- Windows installer: windows-latest + MSVC + Inno Setup 6 -----------
-  build-windows:
-    name: build Windows installer
-    runs-on: windows-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Inno Setup 6
-        run: |
-          $isPath = "$env:TEMP\innosetup.exe"
-          curl -fL -o $isPath "https://jrsoftware.org/download.php/is.exe"
-          Start-Process -FilePath $isPath -ArgumentList '/VERYSILENT /NORESTART /SUPPRESSMSGBOXES' -Wait
-          $iscc = Get-ChildItem -Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe", "C:\Program Files\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $iscc) { throw "Inno Setup 6 not found after install" }
-          echo "ISCC=$($iscc.FullName)" >> "$env:GITHUB_ENV"
-
-      - name: Build the Windows installer
-        shell: bash
-        run: |
-          ./tools/build-windows-installer.sh
-
-      - name: Stage the installer
-        shell: bash
-        run: |
-          mkdir -p artifacts
-          exe=$(ls -t build-msvc/installer/hunmin-*.exe 2>/dev/null | head -1)
-          [ -n "$exe" ] || { echo "no installer produced"; exit 1; }
-          cp -f "$exe" artifacts/hunmin-${{ github.event.inputs.version }}-setup.exe
-
-      - name: Upload the Windows installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: hunmin-installer
-          path: artifacts/hunmin-*.exe
-          retention-days: 30
-
   # --- create tag + release + upload assets -------------------------------
   release:
     name: create release
-    needs: [build-deb, build-apk, build-windows]
+    needs: [build-deb, build-apk]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -211,12 +175,11 @@ jobs:
           # Copy downloaded artifacts into stage with channel names
           for f in artifacts/hunmin-*-amd64.deb; do [ -f "$f" ] && cp -f "$f" "$STAGE/hunmin_${VERSION}_amd64.deb"; done
           for f in artifacts/hunmin-*-arm64-v8a.apk; do [ -f "$f" ] && cp -f "$f" "$STAGE/hunmin-${VERSION}-arm64-v8a.apk"; done
-          for f in artifacts/hunmin-*-setup.exe; do [ -f "$f" ] && cp -f "$f" "$STAGE/hunmin-${VERSION}-setup.exe"; done
 
           ls -la "$STAGE/"
 
           ASSET_ARGS=()
-          for name in "hunmin_${VERSION}_amd64.deb" "hunmin-${VERSION}-arm64-v8a.apk" "hunmin-${VERSION}-setup.exe"; do
+          for name in "hunmin_${VERSION}_amd64.deb" "hunmin-${VERSION}-arm64-v8a.apk"; do
             [ -f "$STAGE/$name" ] || { echo "MISSING $STAGE/$name"; exit 1; }
             ASSET_ARGS+=("$STAGE/$name")
           done
