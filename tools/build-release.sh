@@ -49,7 +49,11 @@ build_deb() {
     # Pre-populated googletest for FETCHCONTENT_FULLY_DISCONNECTED builds:
     # debian/rules reads FETCHCONTENT_SOURCE_DIR_GOOGLETEST and passes it to
     # cmake so FetchContent uses the local copy instead of downloading.
-    if [ -d "$ROOT/obj-x86_64-linux-gnu/_deps/googletest-src" ]; then
+    # $HOME copy is preferred because obj-x86_64-linux-gnu/_deps gets cleaned
+    # by dh_auto_clean before cmake runs; $HOME survives the clean.
+    if [ -d "$HOME/googletest-src" ]; then
+        export FETCHCONTENT_SOURCE_DIR_GOOGLETEST="$HOME/googletest-src"
+    elif [ -d "$ROOT/obj-x86_64-linux-gnu/_deps/googletest-src" ]; then
         export FETCHCONTENT_SOURCE_DIR_GOOGLETEST="$ROOT/obj-x86_64-linux-gnu/_deps/googletest-src"
     fi
     log "deb: dpkg-buildpackage -us -uc -b -d (source $VERSION)"
