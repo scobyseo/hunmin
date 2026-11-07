@@ -46,7 +46,13 @@ build_deb() {
         log "deb: delegating to tools/build-deb.sh (this host cannot package directly)"
         exec "$ROOT/tools/build-deb.sh"
     fi
-    log "deb: dpkg-buildpackage -us -uc -b (source $VERSION)"
+    # Pre-populated googletest for FETCHCONTENT_FULLY_DISCONNECTED builds:
+    # debian/rules reads FETCHCONTENT_SOURCE_DIR_GOOGLETEST and passes it to
+    # cmake so FetchContent uses the local copy instead of downloading.
+    if [ -d "$ROOT/obj-x86_64-linux-gnu/_deps/googletest-src" ]; then
+        export FETCHCONTENT_SOURCE_DIR_GOOGLETEST="$ROOT/obj-x86_64-linux-gnu/_deps/googletest-src"
+    fi
+    log "deb: dpkg-buildpackage -us -uc -b -d (source $VERSION)"
     # -us -uc: unsigned. A key is not required to build the .deb, and
     # requiring one would make the artefact unbuildable on CI and on a fresh
     # machine — the exact property issue #8 is about.

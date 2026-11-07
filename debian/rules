@@ -9,8 +9,13 @@ override_dh_auto_configure:
 	# The addon installs alongside fcitx5's own modules; without this option
 	# Fcitx5UtilsConfig.cmake points FCITX_INSTALL_* at $(prefix)/lib/fcitx5
 	# instead of the multiarch path fcitx5 actually loads from.
+	# FETCHCONTENT_SOURCE_DIR_GOOGLETEST: pre-populated googletest source dir
+	# for FETCHCONTENT_FULLY_DISCONNECTED builds (CI sets this via
+	# tools/build-release.sh; local builds leave it unset so FetchContent
+	# downloads googletest normally).
 	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
-		-DFCITX_INSTALL_USE_FCITX_SYS_PATHS=On
+		-DFCITX_INSTALL_USE_FCITX_SYS_PATHS=On \
+		$(if $(FETCHCONTENT_SOURCE_DIR_GOOGLETEST),-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=$(FETCHCONTENT_SOURCE_DIR_GOOGLETEST))
 
 # override_dh_auto_test runs ctest, which reaches the Android-tier scripts
 # (android-unit.sh, android-trace-emit.sh, build-host-jni.sh). Two packaging-tree
