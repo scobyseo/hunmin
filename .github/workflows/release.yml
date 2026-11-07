@@ -52,6 +52,7 @@ jobs:
       # Pre-populate googletest for FETCHCONTENT_FULLY_DISCONNECTED builds
       - name: Pre-populate googletest
         run: |
+          mkdir -p obj-x86_64-linux-gnu/_deps
           git clone --depth 1 --branch v1.17.0 https://github.com/google/googletest.git \
             obj-x86_64-linux-gnu/_deps/googletest-src
 
