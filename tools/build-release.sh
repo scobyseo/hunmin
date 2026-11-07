@@ -38,6 +38,14 @@ ABI="${2:-arm64-v8a}"
 log() { printf '\n=== %s ===\n' "$*"; }
 
 build_deb() {
+    # A Windows shell cannot run dpkg-buildpackage, and with HUNMIN_LINUX_HOST
+    # set the operator has asked for the LAN box explicitly. Delegate so that
+    # `build-release.sh deb` stays the one name a person types; the route is
+    # printed by the callee. CI (native Linux, host unset) is unaffected.
+    if [ -n "${HUNMIN_LINUX_HOST:-}" ] || uname -s | grep -qi 'msys\|mingw\|cygwin'; then
+        log "deb: delegating to tools/build-deb.sh (this host cannot package directly)"
+        exec "$ROOT/tools/build-deb.sh"
+    fi
     log "deb: dpkg-buildpackage -us -uc -b (source $VERSION)"
     # -us -uc: unsigned. A key is not required to build the .deb, and
     # requiring one would make the artefact unbuildable on CI and on a fresh
@@ -106,8 +114,12 @@ build_apk() {
     ./tools/build-android.sh "$ABI" 24
     cd frontends/android
     ./gradlew --no-daemon :app:assembleRelease
-    local apk="app/build/outputs/apk/release/app-release.apk"
-    [ -f "$apk" ] || { echo "apk: no artefact at $apk" >&2; exit 1; }
+    # The build names its own output hunmin-<versionName>.apk (see the
+    # androidComponents block in app/build.gradle.kts), so glob rather than
+    # hardcode: a version bump must not need an edit here.
+    local apk
+    apk=$(ls app/build/outputs/apk/release/hunmin-*.apk 2>/dev/null | head -1)
+    [ -n "$apk" ] || { echo "apk: no hunmin-*.apk under app/build/outputs/apk/release (run :app:assembleRelease)" >&2; exit 1; }
     printf '  %s bytes  ->  %s\n' "$(stat -c %s "$apk")" "$ROOT/frontends/android/$apk"
     echo "  signed with: build/release-ci.keystore (THROWAWAY -- not release-grade)"
 }

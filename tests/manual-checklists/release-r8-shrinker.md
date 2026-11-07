@@ -36,7 +36,7 @@ export ANDROID_NDK=$ANDROID_HOME/ndk/27.3.13750724
 
 # 1. The release build. Exit code must be 0.
 ./frontends/android/gradlew -p frontends/android assembleRelease
-#    -> frontends/android/app/build/outputs/apk/release/app-release.apk
+#    -> frontends/android/app/build/outputs/apk/release/hunmin-<versionName>.apk
 
 # 2. The shrinker actually ran: the mapping outputs must exist.
 ls -l frontends/android/app/build/outputs/mapping/release/
@@ -48,7 +48,7 @@ ls -l frontends/android/app/build/outputs/mapping/release/
 $ANDROID_HOME/emulator/emulator -avd hunmin-e2e \
     -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot &
 #    wait for: adb shell getprop sys.boot_completed  -> 1
-adb install -r frontends/android/app/build/outputs/apk/release/app-release.apk
+adb install -r frontends/android/app/build/outputs/apk/release/hunmin-*.apk
 adb shell ime list -a | grep -i hunmin
 #    -> org.hunmin.ime/.HunminInputMethodService
 

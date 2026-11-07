@@ -130,8 +130,8 @@ android {
         // lower would mean a .so nobody has ever run.
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0-p5"
+        versionCode = 3
+        versionName = "0.3.0-rc"
 
         externalNativeBuild {
             cmake {
@@ -425,5 +425,30 @@ tasks.register("printTraceEmitClasspath") {
     dependsOn("compileDebugUnitTestKotlin", "compileDebugUnitTestJavaWithJavac")
     doLast {
         traceEmitClasspath().files.forEach { println(it.absolutePath) }
+    }
+}
+
+// Artifact naming (issue: app-release.apk says nothing about what it is).
+// Every build, from the IDE or from tools/build-release.sh, lands in the
+// variant's output dir as hunmin-<versionName>[-<buildType>].apk — the product
+// name and the version are the two facts a file that leaves this tree has to
+// carry. Readers glob rather than hardcode, so a version bump needs no edit:
+//   release -> hunmin-0.3.0-rc.apk
+//   debug   -> hunmin-0.3.0-rc-debug.apk
+// VariantOutputImpl is AGP's own implementation type; the public
+// VariantOutput interface has no outputFileName setter as of 8.6.
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val impl = output as? com.android.build.api.variant.impl.VariantOutputImpl
+                ?: return@forEach
+            val versioned = "hunmin-${output.versionName.get()}"
+            impl.outputFileName.set(
+                when {
+                    variant.buildType == "release" -> "$versioned.apk"
+                    else -> "$versioned-${variant.buildType}.apk"
+                }
+            )
+        }
     }
 }

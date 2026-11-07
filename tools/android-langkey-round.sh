@@ -28,7 +28,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 command -v cygpath >/dev/null 2>&1 && ROOT="$(cygpath -m "$ROOT")"
 PKG="org.hunmin.ime"
 SVC="$PKG/.HunminInputMethodService"
-APK="$ROOT/frontends/android/app/build/outputs/apk/debug/app-debug.apk"
+APK=$(ls "$ROOT"/frontends/android/app/build/outputs/apk/debug/hunmin-*.apk 2>/dev/null | head -1)
+APK=${APK:-"$ROOT/frontends/android/app/build/outputs/apk/debug/hunmin-none.apk"}
 EDITOR_PKG="org.hunmin.testeditor"
 EDITOR_APK="$ROOT/frontends/android/testeditor/build/outputs/apk/debug/testeditor-debug.apk"
 

@@ -544,6 +544,26 @@ class HunminAdapterTest {
     }
 
     @Test
+    fun `enter during composition commits the word and passes through`() {
+        // Maintainer's report, 2026-11-07: with a composition in flight, Enter
+        // advanced the line and left the buffer untouched. Enter is a boundary
+        // key with the same policy as Space (docs/ANDROID-BUFFERING.md rule 2
+        // lists space, Enter, punctuation, backspace and unmapped keys), so the
+        // word must reach the client FIRST and the key must then be handed to
+        // the platform, which inserts the break. Nothing may stay composing.
+        val ic = RecordingInputConnection()
+        val engine = HunminAdapter(ctx, "dubeolsik")
+        for (k in "dkssud") engine.typeChar(k, ic)
+        assertEquals("setup: the word is composing", "안녕", ic.composing())
+        assertFalse("enter must pass through", engine.onKey(66 /* KEYCODE_ENTER */, 0, ic))
+        assertEquals("enter must deliver the word once", listOf("안녕"), ic.commits)
+        assertEquals("enter left a composition behind", "", ic.composing())
+        assertTrue("the adapter must not re-send the key: ${ic.sentEvents}",
+            ic.sentEvents.isEmpty())
+        engine.close()
+    }
+
+    @Test
     fun `comma after a word commits the word and passes through`() {
         // Shared edit-key sequence EK7: comma is declined punctuation. The word
         // lands before the comma, and the comma itself is the platform's -- the

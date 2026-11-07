@@ -31,8 +31,9 @@ package org.hunmin.ime
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.EditorInfo
 
-/** hunmin.h's HUNMIN_LANGUAGE_HANGUL; the layer reports its language as this value. */
-private const val HUNMIN_LANGUAGE_HANGUL = 0 /* hunmin.h: HANGUL 0, LATIN 1 */
+/* HUNMIN_LANGUAGE_* is declared once, in HunminInputMethodService.kt: the
+ * judgement, the adapter read-back and the service's adoption of it are one
+ * vocabulary, and a second copy in this file was a second home for it. */
 
 
 /**

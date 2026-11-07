@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(hunmin LANGUAGES C VERSION 0.2.0)
+project(hunmin LANGUAGES C VERSION 0.3.0)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -1039,6 +1039,11 @@ if(BUILD_TESTING)
     # xkbcommon resolves a forwarded keycode to the character the application
     # would receive. Without it the harness can only report "something came
     # back", which cannot distinguish a space from any other pass-through key.
+    #
+    # The header include in tests/e2e/xim-harness.c is unconditional, so this
+    # branch guards NON-package builds only: the package declares the dev
+    # packages in debian/control Build-Depends (libxcb1-dev, libxkbcommon-dev,
+    # ruled 2026-11-07) and dpkg-checkbuilddeps enforces them there.
     find_package(PkgConfig)
     if(PKG_CONFIG_FOUND)
       pkg_check_modules(D3_XKB xkbcommon)

@@ -343,6 +343,8 @@ def load_keytable(layout, cache_path=None, sim=SIM, data=DATA):
         # The layout moved under the cache: a table keyed on the old one would
         # silently type the wrong jamo, so it is rebuilt rather than trusted.
     _KT = _load_tool("jamo-keytable")
+    if sim != SIM:
+        _KT.SIM_OVERRIDE = pathlib.Path(sim)
     table, not_found = _KT.build_table(layout)
     literals = probe_literals(layout, sim, data)
     blob = {"layout": layout, "layout_sha256": layout_sha,

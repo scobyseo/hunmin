@@ -253,4 +253,37 @@ class AutoSwitchTest {
         assertNotNull(adapter.autoswitch())
         adapter.close()
     }
+
+    @Test
+    fun `the judged mode is adopted in both directions`() {
+        // SPEC-MODES E1's gate line is ONE stream typed in both directions, so
+        // the decision that adopts a judgement cannot be directional. The form
+        // this replaced was `judged == LATIN && isHangulMode`: it consumed the
+        // reverse answer and dropped it (take_judgement is consuming), which is
+        // exactly the second half of the gate sentence.
+        assertTrue(
+            "a Latin word judged in Hangul mode switches",
+            judgedModeDiffers(HUNMIN_LANGUAGE_LATIN, isHangulMode = true),
+        )
+        assertTrue(
+            "a Hangul word judged in Latin mode switches",
+            judgedModeDiffers(HUNMIN_LANGUAGE_HANGUL, isHangulMode = false),
+        )
+        assertFalse(
+            "the mode the layer is already in is not a change",
+            judgedModeDiffers(HUNMIN_LANGUAGE_LATIN, isHangulMode = false),
+        )
+        assertFalse(
+            "...in the other direction too",
+            judgedModeDiffers(HUNMIN_LANGUAGE_HANGUL, isHangulMode = true),
+        )
+        assertFalse(
+            "no judgement (the switch is off, the word was short, both readings agreed) is no switch",
+            judgedModeDiffers(-1, isHangulMode = true),
+        )
+        assertFalse(
+            "...and stays no switch in Latin mode",
+            judgedModeDiffers(-1, isHangulMode = false),
+        )
+    }
 }

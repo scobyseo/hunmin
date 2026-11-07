@@ -19,7 +19,7 @@ cd frontends/android && ./gradlew :app:assembleDebug   # the APK the steps use
 # on the attached device (tools/android-e2e.sh runs the whole tier-E2 flow and
 # installs it itself, but it also types into the emulator, so a device session
 # installs by hand):
-adb install -r -g app/build/outputs/apk/debug/app-debug.apk
+adb install -r -g app/build/outputs/apk/debug/hunmin-*-debug.apk
 ```
 
 Settings → System → Languages & input → On-screen keyboard → hunmin → the gear

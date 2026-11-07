@@ -31,6 +31,28 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 
+/** hunmin.h's HUNMIN_LANGUAGE_*: the value the judgement reports and the mode
+ *  the service adopts. File-level rather than companion-private so the decision
+ *  below can be a pure function tier E1 drives without a service instance. */
+internal const val HUNMIN_LANGUAGE_HANGUL = 0
+internal const val HUNMIN_LANGUAGE_LATIN = 1
+
+/**
+ * Whether R8's judgement asks for a mode change.
+ *
+ * The engine answers the language the finished word was in (`take_judgement`,
+ * consuming, -1 when it judged nothing); the frontend's job is to adopt it.
+ * Testing "judged LATIN and we are in Hangul" instead — the form this replaced
+ * — consumes the other direction and drops it, which is why E1's symmetric gate
+ * line could not pass on this frontend: the second half of the sentence, typed
+ * after the first switch, was judged HANGUL and lost.
+ */
+internal fun judgedModeDiffers(judged: Int, isHangulMode: Boolean): Boolean {
+    if (judged < 0) return false
+    val current = if (isHangulMode) HUNMIN_LANGUAGE_HANGUL else HUNMIN_LANGUAGE_LATIN
+    return judged != current
+}
+
 class HunminInputMethodService : InputMethodService() {
 
     companion object {
@@ -40,8 +62,6 @@ class HunminInputMethodService : InputMethodService() {
         const val COMMIT_SYLLABLE = "syllable"
 
         private const val TAG = "HunminIme"
-        /** hunmin.h's HUNMIN_LANGUAGE_LATIN; the judgement reports a mode as one of these. */
-        private const val HUNMIN_LANGUAGE_LATIN = 1 /* hunmin.h: HANGUL 0, LATIN 1 */
 
         /**
          * Whether an EditorInfo's inputType marks a password editor.
@@ -377,6 +397,24 @@ class HunminInputMethodService : InputMethodService() {
         // InputMethodService is killed and recreated often), falling back to
         // Hangul when there is no stored value (first install).
         isHangulMode = modeStore.recall(KEY_HANGUL_MODE)
+        /* The pair is BUILT in the Hangul language, and `isHangulMode` is the
+         * person's remembered mode -- nothing was making the two agree. A
+         * session started in English therefore had a service that believed
+         * English and a layer that composed Hangul: the judgement ran the Hangul
+         * branch, so a Latin word could switch *out* of Hangul but the E1 line
+         * (Latin -> Hangul, "jgz" -> 음) could never fire, because the layer was
+         * already Hangul and correctly abstained there. Measured 2026-11-07:
+         * `judged=1 (latin)` for `test` while hangulMode=false, then `judged=-1`
+         * for `jgz`. The layer follows the mode, not the other way round: the
+         * mode is what the person last chose. Ordered AFTER the recall on
+         * purpose -- reading the mode first and syncing after is the difference
+         * between a switch and a silent no-op, because the recall overwrites the
+         * field this compares against. */
+        val pair = engine
+        if (pair != null && pair.isHangulLanguage() != isHangulMode) {
+            val synced = pair.toggleLanguage(null)
+            Log.i(TAG, "hunmin: layer language synced to mode=$isHangulMode (toggled=$synced, now=${pair.isHangulLanguage()})")
+        }
         currentInputConnection?.let { engine?.updatePreedit(it) }
         // The view is created once per IME window but the engine per editor, so
         // the picker's list and selection are refreshed here rather than trusted
@@ -470,12 +508,20 @@ class HunminInputMethodService : InputMethodService() {
         // binding layer normalises it -- seeing the delivered bits is the point.
         Log.d(TAG, "onKeyDown: keyCode=$keyCode, metaState=${event.metaState}")
 
-        // Space during composition: commit syllable AND forward space
-        // This is a frontend responsibility (engine declines space during composition).
-        // Not in a password editor: there is no composition to flush, and the
-        // secure-editor guard below would return the key anyway -- handled here
-        // first so the branch reads as one policy rather than two.
-        if (keyCode == KeyEvent.KEYCODE_SPACE && isHangulMode && !isSecureEditor) {
+        /* Space during composition: commit syllable AND forward space
+         * This is a frontend responsibility (engine declines space during composition).
+         * Not in a password editor: there is no composition to flush, and the
+         * secure-editor guard below would return the key anyway -- handled here
+         * first so the branch reads as one policy rather than two.
+         *
+         * BOTH modes, not just Hangul: the space is the word boundary, and R8's
+         * judgement only happens at a boundary. Gating this on `isHangulMode`
+         * meant a word typed in English mode never reached the layer's boundary
+         * at all, so `jgz` stayed `jgz` instead of being judged 음 and switching
+         * back (measured on a device 2026-11-07). The commit is also where the
+         * judgement is TAKEN -- this branch returns before the general path, so
+         * leaving it pending deferred the switch to the next keystroke. */
+        if (keyCode == KeyEvent.KEYCODE_SPACE && !isSecureEditor) {
             val e = engine ?: return super.onKeyDown(keyCode, event)
             val target: InputConnection = currentInputConnection
                 ?: return super.onKeyDown(keyCode, event)
@@ -485,6 +531,7 @@ class HunminInputMethodService : InputMethodService() {
             // password editor: no composition, the guard below returns the key.
             e.commitWord(target)
             target.commitText(" ", 1)
+            adoptJudgement(e)
             return true
         }
 
@@ -545,7 +592,15 @@ class HunminInputMethodService : InputMethodService() {
         // with no notion of an editor, and the policy belongs to the adapter.
         if (isSecureEditor) return super.onKeyDown(keyCode, event)
 
-        val e = if (isHangulMode) engine else latinEngine
+        /* ONE layer takes every key: the PAIR (FE7). Routing by mode sent
+         * Latin-mode keys to `latinEngine`, a one-language layer that has no
+         * Hangul slot — so the judgement could never answer HANGUL there and
+         * the reverse direction of the gate line was unreachable (measured on a
+         * device 2026-11-07: Hangul->English switched, English->Hangul never).
+         * The pair owns the language action and the layout slots; `latinEngine`
+         * survives for the paths that address the latin slot directly (voice,
+         * the switch's commit), not for key input. */
+        val e = engine ?: latinEngine
         val target: InputConnection = currentInputConnection
             ?: return super.onKeyDown(keyCode, event)
 
@@ -562,11 +617,37 @@ class HunminInputMethodService : InputMethodService() {
          * so what is left is the MODE half -- and here the mode is which adapter
          * receives the next key, which only this service knows. Taken on every
          * key because the judgement fires on the boundary key, which is usually
-         * one the engine declined (space). */
-        if (e?.takeJudgement() == HUNMIN_LANGUAGE_LATIN && isHangulMode) {
+         * one the engine declined (space).
+         *
+         * The answer is a MODE, not a direction: the engine says which language
+         * the word was in, and the frontend adopts it. The earlier form tested
+         * `judged == LATIN && isHangulMode` only, so a word judged HANGUL while
+         * the Latin slot was active was TAKEN and dropped -- take_judgement is
+         * consuming -- and the E1 gate's symmetric line ("typed in one stream,
+         * both directions") could never pass on this frontend. */
+        adoptJudgement(e)
+        return if (consumed) true else super.onKeyDown(keyCode, event)
+    }
+
+    /**
+     * Take the engine's judgement and adopt it as the mode (R8).
+     *
+     * The answer is a MODE, not a direction: the engine says which language the
+     * finished word was in, and the frontend adopts it. Called from BOTH places a
+     * boundary can happen — the general key path and the space branch, which
+     * returns early — because `takeJudgement` is consuming: a judgement left
+     * pending on one path is a switch that never fires.
+     */
+    private fun adoptJudgement(e: HunminAdapter?) {
+        val judged = e?.takeJudgement() ?: -1
+        /* Logged because the judgement is invisible otherwise: it is a value the
+         * engine produces once per boundary and the frontend consumes, so "the
+         * switch did not happen" cannot be told apart from "the engine did not
+         * judge" without it. -1 means no judgement; 0/1 is the language. */
+        Log.d(TAG, "judgement: judged=$judged hangulMode=$isHangulMode layerHangul=${e?.isHangulLanguage()} autoswitch=${e?.autoswitch()}")
+        if (judgedModeDiffers(judged, isHangulMode)) {
             toggleHangulEnglish()
         }
-        return if (consumed) true else super.onKeyDown(keyCode, event)
     }
 
     /**

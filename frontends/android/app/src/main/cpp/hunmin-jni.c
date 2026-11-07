@@ -541,8 +541,24 @@ JNIEXPORT void JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerSpecial
     }
 
     jclass cls = (*env)->GetObjectClass(env, host);
+    /* GetMethodID THROWS when the member is absent: ART raises
+     * NoSuchMethodError and leaves it PENDING. Calling the second lookup with
+     * an exception already pending aborts the process —
+     *   'Throwing new exception ... with unexpected pending exception'
+     * SIGABRT, measured 2026-11-07 on a release build whose shrinker had
+     * renamed these two methods. So each lookup is followed by its own check
+     * and clear, and the "cannot find the callbacks" branch below stays a
+     * refusal instead of a crash. */
     jmethodID supports = (*env)->GetMethodID(env, cls, "specialSupports", "(I)Z");
-    jmethodID perform = (*env)->GetMethodID(env, cls, "specialPerform", "(I)V");
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        supports = NULL;
+    }
+    jmethodID perform = supports ? (*env)->GetMethodID(env, cls, "specialPerform", "(I)V") : NULL;
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        perform = NULL;
+    }
     (*env)->DeleteLocalRef(env, cls);
     if (!supports || !perform) {
         /* Registering a host whose callbacks cannot be found would answer

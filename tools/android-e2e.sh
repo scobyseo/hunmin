@@ -35,9 +35,25 @@ ABI="${1:-x86_64}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PKG="org.hunmin.ime"
 SVC="$PKG/.HunminInputMethodService"
-APK="$ROOT/frontends/android/app/build/outputs/apk/debug/app-debug.apk"
+# The build names its own output hunmin-<versionName>-<buildType>.apk; glob so
+# a version bump does not break this tier.
+APK=$(ls "$ROOT"/frontends/android/app/build/outputs/apk/debug/hunmin-*.apk 2>/dev/null | head -1)
+APK=${APK:-"$ROOT/frontends/android/app/build/outputs/apk/debug/hunmin-none.apk"}
 EDITOR_PKG="org.hunmin.testeditor"
 EDITOR_APK="$ROOT/frontends/android/testeditor/build/outputs/apk/debug/testeditor-debug.apk"
+
+# adb is a NATIVE program. MSYS normally converts a /c/... argument on the way
+# out, but a caller may have switched that off wholesale (measured: this
+# agent's shell exports MSYS_NO_PATHCONV=1 and MSYS2_ARG_CONV_EXCL=*, and
+# `adb install -r /c/.../app-debug.apk` then dies with
+#   adb.exe: failed to stat /c/.../app-debug.apk: No such file or directory
+# while the same path converted -- or a relative one -- installs fine).
+# Normalise the host paths explicitly, the way build-android.sh does for
+# cmake/ninja, so the tier does not depend on the caller's shell settings.
+if command -v cygpath >/dev/null 2>&1; then
+  APK="$(cygpath -m "$APK")"
+  EDITOR_APK="$(cygpath -m "$EDITOR_APK")"
+fi
 EDITOR_ACTIVITY="$EDITOR_PKG/.EditorActivity"
 EDITOR_ID="$EDITOR_PKG:id/editor"
 
@@ -593,17 +609,30 @@ LIST="$(dump_ui /sdcard/keys1b.xml)"
 # label and its chord are checked as nodes, not as one "label: chord" string.
 #
 # 2026-10-12 (issue #2, B4 ruling): the auto-toggle's Right-Alt+Enter default
-# is GONE — the row shows 미정 (0.3). The old loop asserted a default chord
-# the ruling deliberately removed; the chord itself is still covered below by
-# the live capture-then-fire steps (F9), which is the stronger assertion.
+# is GONE — the action carries no chord until the user sets one. The old loop
+# asserted a default chord the ruling deliberately removed; the chord itself is
+# still covered below by the live capture-then-fire steps (F9), which is the
+# stronger assertion.
+#
+# 2026-11-07 (issue #174 landed): the row's WORDING moved. It used to read the
+# provisional 미정 (0.3) while the engine feature was pending; now the action is
+# live and the row shows the shared NOT_SET placeholder
+# (OverlayActivity.NOT_SET). Both wordings encode the same requirement — no
+# chord until the user sets one — so the assertion is on the VALUE node that
+# follows the row title, not on the wording: a label is a display choice either
+# design may change, the absence of a chord is the fact.
 for row in '한/영 전환' '한자 입력' '음성 입력' '자동 한/영 토글' \
            '설정 안 됨 (고정 키 사용)'; do
   printf '%s' "$LIST" | grep -q "$row" \
     || fail "the key binding section does not list '$row' -- the stored/default state is not being shown"
 done
-printf '%s' "$LIST" | grep -q '미정' \
-  || fail "the auto-toggle row does not read 미정 (0.3) -- the B4 disabled-by-default ruling is not shown"
-echo "the key bindings section lists all four actions; the auto-toggle row reads 미정 (0.3)"
+TEXTS="$(printf '%s' "$LIST" | tr '>' '\n' | grep -o 'text="[^"]*"' \
+  | sed -e 's/^text="//' -e 's/"$//' | grep -v '^$' || true)"
+auto_value="$(printf '%s\n' "$TEXTS" \
+  | awk 'f { print; exit } $0 == "자동 한/영 토글" { f = 1 }')"
+[ "$auto_value" = '설정 안 됨 (고정 키 사용)' ] \
+  || fail "the auto-toggle row's value reads '$auto_value'; the B4 ruling leaves that action without a chord (expected the NOT_SET placeholder)"
+echo "the key bindings section lists all four actions; the auto-toggle row has no chord"
 
 # The input view says which mode is active — by SELECTION, not by label.
 # The dock's segment reads `[ 한 | A ]` (the maintainer's design, where Latin is
