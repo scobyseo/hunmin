@@ -96,23 +96,11 @@ void hunmin_ic_free(hunmin_ic *ic);
  * Returns true when consumed by the engine. */
 bool hunmin_ic_process(hunmin_ic *ic, uint32_t ch);
 
-/* Feed one key event as base character + explicit modifier (issue #90,
- * docs/IC-INPUT-OPTIONS.md §2-B option B). base is the *unshifted* US-QWERTY
- * character; shift is nonzero when Shift is held. The engine owns the case
- * endpoint: it reuses the loader's own US-QWERTY shift map, so no host parses
- * shift as a character bit — a frontend passes unshifted + the bit and the
- * CapsLock×Shift decision moves here (docs/SPEC-P2 §"IC input entry points").
- *
- * The dual-convention rule (specified in SPEC-P2, not invented per-host): a
- * character that is already the shifted form of a key (an uppercase letter, or
- * a shifted punctuation — a fcitx5-shaped host) is treated as already
- * resolved, and a shift bit on it selects nothing further: ch reaches the
- * engine as-is. Equivalently, the shift bit is only honoured when the base
- * character has a shifted form under the loader's map.
- *
- * The legacy case-encoding call hunmin_ic_process stays byte-for-byte valid:
- * fcitx5 and the tier C trace runners use it. The Android adapter passes
- * base + shift through this call instead (issue #105). */
+/* Feed one key event as the unshifted US-QWERTY base plus the Shift bit; the
+ * engine owns the case endpoint, including the dual-convention rule for a
+ * caller that already resolved the character. The rule is specified once in
+ * `docs/SPEC-P2.md` §IC input entry points; `hunmin_ic_process` stays
+ * byte-for-byte valid for the callers that hand over a resolved character. */
 bool hunmin_ic_process_key(hunmin_ic *ic, uint32_t base, uint32_t shift);
 
 /* Predicts whether hunmin_ic_process_key(ic, base, shift) would be consumed,
@@ -152,22 +140,15 @@ const char *hunmin_ic_flush(hunmin_ic *ic); /* commit in-flight syllable */
 
 /* --- External text pass-through (PLAN.md invariant 5) ---
  *
- * Voice input, and any other text arriving from outside the keyboard, must
- * reach the client as-is and must NOT be fed through the jamo pipeline: doing
- * that would compose it a second time. This call therefore does not touch the
- * composition buffer, the tier state, or the 전처리수식 flags.
+ * Text from outside the keyboard reaches the client as-is: not composed, no
+ * buffer/tier/전처리수식 state touched, and any in-flight composition is
+ * committed first so the two arrive in the order they were produced.
  *
- * Any in-flight composition is committed first, so the two texts come out in
- * the order the user produced them (typed, then spoke) instead of interleaved.
- *
- * Unlike hunmin_ic_commit() the text is neither routed through the fixed
- * 64-char engine buffer nor truncated: a spoken sentence is longer than a
- * syllable, and STR_CAP is a libhangul-parity artefact of single-keystroke
- * composition. The returned string is owned by the ic and stays valid until the
- * next hunmin_ic_* call on it -- the same lifetime rule as hunmin_ic_commit().
- *
- * Returns "" (never NULL) when ic is NULL, text is NULL/empty, or text is not
- * valid UTF-8; malformed input is rejected rather than committed as mojibake. */
+ * Unlike hunmin_ic_commit() the text is neither routed through the 64-char
+ * engine buffer nor truncated (STR_CAP is a libhangul-parity artefact of
+ * single-keystroke composition). The returned string is owned by the ic and
+ * stays valid until the next hunmin_ic_* call on it. Returns "" (never NULL) for
+ * a NULL ic, empty text, or malformed UTF-8 — rejected, not committed. */
 const char *hunmin_ic_commit_text(hunmin_ic *ic, const char *text);
 
 /* --- Hanja candidates (P3) ---
@@ -197,20 +178,15 @@ const char *hunmin_suggest_kind(hunmin_ctx *ctx, int i);
 
 /* --- Shared buffered / syllable preedit object (issue #128)
  *
- * One level above hunmin_ic, not a second engine. It owns the word buffer and
- * answers, for every frontend, the three questions the invariant in
- * docs/DESIGN-FRONTEND.md Part A §1 is stated over: is this key consumed, what is
- * committed, what is the preedit. Frontends only map their physical key to
+ * One level above hunmin_ic, not a second engine: it owns the word buffer and
+ * answers the three questions `docs/DESIGN-FRONTEND.md` Part A §1 is stated
+ * over (consumed / committed / preedit). Frontends map a physical key to
  * (base, shift) and render what this layer hands them.
  *
- * Two commit policies, identical text: BUFFERED holds the finalised syllables and
- * commits the whole word at the boundary; SYLLABLE commits each one as the
- * engine finalises it. The commit BOUNDARY is not part of the contract; the
- * concatenation is.
- *
- * A declined key is itself the boundary (the engine finalises the syllable it
- * held, and the key passes to the client) - so a frontend never has to know
- * when a word ends.
+ * Two commit policies with identical text — BUFFERED commits the whole word at
+ * the boundary, SYLLABLE commits each finalised syllable. The boundary is not
+ * part of the contract; the concatenation is, and a declined key *is* the
+ * boundary, so a frontend never needs to know when a word ends.
  */
 typedef struct hunmin_buffered_preedit hunmin_buffered_preedit;
 
@@ -260,20 +236,13 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_display(hunmin_buffered_preedi
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_delivered(const hunmin_buffered_preedit *l);
 HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
 
-/* The layer's options: the ic's own ("caps", "autoswitch") pass through, and one
- * is the layer's. "word_cap" is the cap on the word this object holds for one
- * word, in BYTES of UTF-8 (docs/SPEC-MODES.md §ReqMode4, ruled 2026-11-01): when
- * the word plus the syllable still composing would exceed it, the word's first
- * half is delivered as that key's commit and the tail keeps composing, so what a
- * frontend must render stays bounded. 0 means no cap, which is what the default
- * was before the ruling. A lowered value applies from the next key. "judge_timing"
- * selects WHEN the modes judgement is shown (docs/SPEC-MODES.md §E6, ruled
- * 2026-11-01): 1 = at every key, so the word flips language while it is typed (the
- * flicker, and the default the maintainer chose), 0 = at the boundary only, so the
- * word stays in the current mode until the delimiter. It changes the display and
- * never the delivered text -- the word is committed once, in the language the
- * boundary decides -- and only those two values are accepted. Returns false for an
- * unknown name or a value out of range. */
+/* The layer's options. The ic's own names ("caps", "autoswitch") pass through;
+ * two are the layer's, each specified in the SPEC: "word_cap" (bytes of UTF-8,
+ * 0 = no cap; an overflow commits the word's first half and the tail keeps
+ * composing — §ReqMode4) and "judge_timing" (1 = judge at every key, the
+ * flicker default; 0 = at the boundary only — §E6). judge_timing changes the
+ * display and never the delivered text. A lowered word_cap applies from the next
+ * key. Returns false for an unknown name or an out-of-range value. */
 HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);
 
 /* The layer's read of the same options: ReqMode13's settings surface asks this for
@@ -499,49 +468,31 @@ HUNMIN_EXPORT int hunmin_buffered_preedit_english_ready(const hunmin_buffered_pr
 
 /* ------------------------------------------- hangul validity (ReqMode8)
  *
- * The OTHER half of the modes judgement: `hangul_valid` is "the buffer composes
- * as Korean syllables of the shape (choseong + jungseong) or (choseong +
- * jungseong + jongseong) only" (docs/SPEC-MODES.md §ReqMode8, issue #166).
+ * The other half of the modes judgement: the buffer composes as Korean
+ * syllables of the shape (cho+jung) or (cho+jung+jong), and nothing else
+ * (`docs/SPEC-MODES.md` §ReqMode8). It takes TEXT rather than the layer because
+ * there is nothing to look up — a predicate over the composition rule, with no
+ * data behind it, so every frontend and every test gets the same answer.
  *
- * It takes TEXT, not the layer, because there is nothing to look up: it is a
- * predicate over the composition rule, so no data directory can change its
- * answer and it is the same function for the fcitx5 adapter, Android, TSF and
- * a test. Pass a finished buffer (`..._preedit()` or `..._display()`), not a
- * sentence -- a space, digit, latin letter, punctuation or an in-flight jamo
- * all answer 0, since none of them is a well-formed syllable.
- *
- * Old Hangul answers 0 by construction: the composer's syllable step accepts
- * only the modern 19/21/28, so an archaic jongseong is rendered as jamo. The
- * four 옛글 layouts (dubeolsik-yet, sebeolsik-yet, ahnmatmae, sin3-p2-yet) are
- * therefore not hangul-valid -- the literal reading of "well-formed MODERN
- * syllable", and the single place to change it if the judgement should treat
- * old-Hangul buffers as Hangul.
+ * Pass a finished buffer, not a sentence: a space, digit, latin letter,
+ * punctuation or an in-flight jamo answers 0. Old Hangul answers 0 by
+ * construction — the syllable step accepts only the modern 19/21/28, so an
+ * archaic jongseong renders as jamo (the widened rule for those layouts is
+ * `hunmin_hangul_valid_old`, and `docs/DESIGN-CORE.md` §ReqMode8/3 readings and
+ * validity records why the judgement picks per layout).
  *
  * 0 for NULL and for malformed UTF-8. 1 for one syllable or a run of them.
  */
 HUNMIN_EXPORT int hunmin_hangul_valid(const char *text);
 
-/* The same shape rule with the EXTENDED (옛한글) jamo sets, for the layouts that
+/* The same shape rule over the EXTENDED (옛한글) jamo sets, for the layouts that
  * compose them — ask `hunmin_ctx_layout_old_hangul` which rule applies, and use
- * this one exactly there.
- *
- * The rule is unchanged; only the sets widen. A group is still (cho)(jung)(jong)
- * and a leading choseong is still required, so:
- *
- *   valid     `ᅀᅡ`  `ᅌᅵ`  `ᅀᅡᆶ`  `ᄀᆞ`   cho+jung — what the 옛글 layouts render for a
- *                                        finished syllable, since no precomposed
- *                                        form exists for these
- *   invalid   `랴ㅜㄷ`  `랴ㅜ`  `ㅜㄷ`     a jungseong with no leading cho is not a
- *                                        shape the composer emits (it writes the
- *                                        CF filler U+115F instead)
- *   invalid   `ᅀ`  `ㄱ`  `ㆍ`             an in-flight syllable: a cho with no jung
- *
- * Modern precomposed syllables are accepted here too, so this is a superset of
- * the function above; a caller that always used it would only lose the check
- * that a modern layout cannot produce jamo buffers in the first place.
- * 0 for NULL, for empty, for malformed UTF-8, and for anything that contains a
- * latin letter, digit, space or punctuation.
- */
+ * this one exactly there. The rule is unchanged; only the sets widen, so a
+ * leading choseong is still required and an in-flight syllable is still
+ * invalid. Modern precomposed syllables are accepted too (a superset), so a
+ * caller that always used this one would only lose the check that a modern
+ * layout cannot produce jamo buffers at all. 0 for NULL, empty, malformed
+ * UTF-8, or any latin letter, digit, space or punctuation. */
 HUNMIN_EXPORT int hunmin_hangul_valid_old(const char *text);
 
 #ifdef __cplusplus

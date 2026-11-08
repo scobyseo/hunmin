@@ -63,6 +63,33 @@ REQ: `docs/SPEC-MODES.md` ReqMode8/ReqMode8. Implementation fields/helpers in
 - ReqMode8: Hangul validity uses widened 옛한글 sets when the active Hangul
   layout composes archaic jamo (`hangul_valid_for`).
 
+### What `hunmin_hangul_valid` rejects
+
+Each rejection is a decision, not a filter. The predicate consults no data file: it needs only the composition rule, so an
+absent data directory cannot change its answer (ReqMode8's point — the Hangul
+side of the pair has no source to choose).
+
+| Rejected | Why |
+|---|---|
+| an in-flight syllable | the engine keeps a partial syllable as jamo, so `가ㄴ` is not a finished buffer |
+| latin, digits, space, punctuation | a buffer that completes at a delimiter never holds one; seeing one means the caller passed a sentence, and a digit run is a buffer (ReqMode6) that is not a Hangul word |
+| old Hangul | `hm_jamo_to_syllable` accepts only the modern 19/21/28, so an archaic jongseong cannot be precomposed and renders as jamo — the four 옛글 layouts read as NOT hangul-valid, which is the literal reading of "well-formed MODERN syllable" |
+
+It is equivalent to "every character is a precomposed syllable" (U+AC00..U+D7A3
+is exactly the 19×21×28 block); the decomposition is done anyway so the rule is
+checkable against the requirement rather than against Unicode arithmetic, and a
+future widening of the block cannot pass silently.
+
+### The English set: two sources, one lookup
+
+The base dictionary (`en-US.json`, generated) and a person's user file (plain
+text, one word per line, `#` comments) are merged into one set, so a user word is
+found exactly where a base word is. Absent base data is a *normal* state (B3), so
+the loader keeps three states — 0 untried, 1 loaded, -1 absent — and a lookup
+answers 0 while absent rather than reporting the word as unknown to English.
+Supply stays in `libhunmin/src/wordset.c`; the file contract is
+`docs/SPEC-SCHEMA.md` §English word list.
+
 ## B3 autoswitch data gate and default
 
 REQ: `docs/SPEC-MODES.md` ReqMode13 / B3 (autoswitch OFF by default; ON requires
