@@ -467,55 +467,25 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffere
  * Cost: one replay per finished word (~0.5-0.9 us measured overhead). */
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_latin_text(const hunmin_buffered_preedit *l);
 
-/* ---------------------------------------------- english words (ReqMode8)
- *
- * The data half of the modes judgement: `english_valid` is "a lookup in the
- * ENGLISH DICTIONARY" (docs/SPEC-MODES.md ReqMode8), and the maintainer's ruling
- * of 2026-11-01 fixed the source -- hunspell en_US, with a user dictionary the
- * person can extend. docs/OPTIONS-MEASURED.md §EDW is the measurement behind
- * that choice.
- *
- * TWO SOURCES, ONE SET. The shipped list and the user's words are looked up
- * together, so `..._english_valid` answers without asking which file a word
- * came from. Loading is lazy (status 0 = untried, 1 = loaded, -1 = absent),
- * because B3 ships this data separately: an absent base dictionary is a normal
- * state in which the judgement must answer "not english", not fail.
- *
- * The USER file is plain text, one word per line, `#` for comments -- a person
- * edits it. It is deliberately not the JSON the shipped list uses.
- *
- * Reloading is the CALLER's decision: there is no file watching and no stat per
- * lookup, so a frontend calls ..._load_user_words again when its setting
- * changes. Add a word at runtime with ..._add_user_word and persist it in the
- * frontend's own store -- that is the "editing" half of the same mechanism.
- *
- * Nothing here decides to switch modes; the judgement that consumes it is not
- * implemented yet (issue: modes judgement).
- */
+/* English words for ReqMode8 (SPEC-MODES, OPTIONS-MEASURED §EDW): shipped hunspell
+ * en_US-derived list + optional user dictionary, looked up as one set. Lazy load
+ * (B3: absent base is normal; judgement answers "not english", not fail). User
+ * file is plain text (one word/line, # comments), not shipped JSON. Caller owns
+ * reload (no watch/stat per lookup); runtime add via add_user_word is frontend
+ * store/editing path. Lookup data only; mode decision is engine judgement. */
 
-/* Path to the shipped list (libhunmin/data/modes/en-US.json). Returns 1 loaded,
- * -1 absent, 0 malformed. An absent file leaves the set empty and not ready. */
+/* Load shipped list by path. Returns 1 loaded, -1 absent, 0 malformed (absent => empty/not ready). */
 HUNMIN_EXPORT int hunmin_buffered_preedit_load_english(hunmin_buffered_preedit *l, const char *path);
 
-/* The same load, but the SHIPPED list is FOUND rather than named: the search is
- * the one the hanja/krdict/idioms tables already use (the context's data dirs,
- * else HUNMIN_DATA_PATH, else the build default -- hm_data_dirs), so a frontend
- * never assembles "<dir>/modes/en-US.json" itself and a dictionary installed
- * beside the other data is found from any of them. Two searches are how two
- * data directories start to disagree, which is why this exists and why the
- * path-taking call above stays for a caller that has a path already.
- *
- * Returns 1 loaded, -1 when no searched directory holds the file (a normal
- * state under B3: the feature is off, and every lookup answers 0), 0 when the
- * file is found and malformed -- an installed-but-broken dictionary is an error,
- * never "no english words exist". */
+/* Find+load shipped list via hm_data_dirs (same search as hanja/krdict/idioms/modes).
+ * Returns 1 loaded, -1 absent in searched dirs (normal/B3), 0 found but malformed
+ * (error, not "no words"). Path-taking load remains for explicit paths. */
 HUNMIN_EXPORT int hunmin_buffered_preedit_load_english_shipped(hunmin_buffered_preedit *l);
 
-/* Add the user's words from a text file (one per line, `#` comments). Returns
- * 1 loaded, -1 absent (also normal), 0 error. Merges; it does not replace. */
+/* Merge user words from text file (one/line, # comments). Returns 1 loaded, -1 absent (normal), 0 error. */
 HUNMIN_EXPORT int hunmin_buffered_preedit_load_user_words(hunmin_buffered_preedit *l, const char *path);
 
-/* Add one word at runtime (the frontend's editing path). Returns 1 accepted. */
+/* Add one user word at runtime. Returns 1 accepted. */
 HUNMIN_EXPORT int hunmin_buffered_preedit_add_user_word(hunmin_buffered_preedit *l, const char *word);
 
 /* 1 when the word is in the shipped list or the user's words, 0 otherwise --
