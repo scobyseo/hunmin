@@ -1266,5 +1266,7 @@ int main(int argc, char **argv) {
                    kbuf, shift ? ",\"shift\":true" : "", cbuf, pbuf, consumed ? "true" : "false");
         } else printf("[%c%s] commit='%s' preedit='%s'\n", (unsigned char)key, shift ? "+" : "", hunmin_ic_commit(ic), hunmin_ic_preedit(ic));
     }
+    hunmin_ic_free(ic);
+    hunmin_ctx_free(ctx);
     return 0;
 }
