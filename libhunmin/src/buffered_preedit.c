@@ -455,40 +455,14 @@ static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
 
 /* ---------------------------------------------------- the symbol delimiter */
 
-/* ReqMode4, the sentences this predicate exists for:
- *
- *   "Composition buffer = the whole span from after the immediately preceding
- *    space character or symbol until the next space character or symbol
- *    appears." ... "A symbol is also a termination condition."
- *
- * A space reaches the layer as a DECLINED key, so `process_key` already ends the
- * word there. A symbol does not: `.` is a mapped key on every Latin layout, the
- * engine consumes it, and its per-key commit carries the in-flight syllable plus
- * the symbol (`ic.c` process_jamo's literal branch). Without this the word
- * buffer simply swallowed it -- `jgz` + `.` became the word `jgz.`, which is
- * neither an English word nor a Hangul reading, so the judgement abstained and
- * the switch never happened (measured on a device 2026-11-07, SPEC-MODES ReqMode4).
- *
- * So the word keeps the symbol for delivery, and the JUDGEMENT runs on the text
- * before it: `음` + `.`, not `음.` judged as a word.
- *
- * WHAT COUNTS AS A SYMBOL, and what deliberately does not:
- *
- *   symbol        punctuation, the mathematical/currency blocks, the circled
- *                 and tier forms a sebeolsik digit row reaches (`①`, `⑪`).
- *   not symbol    ASCII letters and digits: they are the Latin reading's own
- *                 material, and ReqMode6 keeps a DIGIT RUN inside the buffer, so a
- *                 digit must not terminate anything.
- *   not symbol    Hangul, syllables and jamo: a consumed Hangul key continues
- *                 the word, which is the whole point of the buffer.
- *   not symbol    space and the control characters, which never arrive here
- *                 consumed.
- *   not symbol    the Latin-1/Greek/Cyrillic letter blocks. This repo's layouts
- *                 emit ASCII Latin, so a letter from those blocks is a symbol
- *                 tier's output only by accident; erring towards "letter" is
- *                 the safe direction, because a wrong "symbol" would cut a word
- *                 in half.
- */
+/* Symbol delimiter classification (SPEC-MODES ReqMode4/ReqMode6; DESIGN-MODES.md#2).
+ * Space arrives declined (already a boundary). Consumed symbol keys (e.g. `.` on
+ * Latin layouts) would be swallowed into the word; we keep the symbol for delivery
+ * but judge on text before it. Classification facts (local, correctness-critical):
+ * - symbol: punctuation, math/currency, circled/tier forms (`①`,`⑪`).
+ * - not symbol: ASCII letters/digits (Latin reading material; ReqMode6 digit runs
+ *   stay in buffer), Hangul/syllables/jamo, space/control chars, Latin-1/Greek/
+ *   Cyrillic letter blocks (safe direction: avoid cutting words). */
 static bool cp_is_symbol(uint32_t c) {
     if (c < 0x80) {
         if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) return false;
