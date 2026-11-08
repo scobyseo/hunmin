@@ -89,7 +89,10 @@ import subprocess
 import sys
 from typing import Any
 
-REPO = pathlib.Path(__file__).resolve().parent.parent
+try:
+    from _common import ROOT as REPO
+except ImportError:
+    REPO = pathlib.Path(__file__).resolve().parents[1]
 DATA = REPO / "libhunmin" / "data"
 LIB = REPO / "build" / "libhunmin.so"
 SIM = REPO / "build" / "hunmin-sim"
