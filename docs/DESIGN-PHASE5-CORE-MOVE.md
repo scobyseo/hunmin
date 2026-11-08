@@ -84,3 +84,49 @@ For each implementation PR/commit series:
   shell versus shared logic?
 - fcitx5 has one-IM/two-modes behavior (FE13 context noted in code comments);
   any shared judgement helper must not assume host mode topology.
+
+## Step 1 inventory (2026-11-08, #272 P5/D1)
+
+Purpose: make the D1 move testable and incremental by recording where the same
+engine-facing workflow is consumed today. Facts only; no design decision.
+Requirement/contract homes remain `docs/SPEC-MODES.md`, `docs/SPEC-FRONTEND.md`,
+`docs/FRONTEND-EQUIVALENCE.md` (stub → `DESIGN-FRONTEND.md`), and REQ-MAP.
+
+### Engine seams frontends consume (stable API surface)
+
+- Context/layout/data: `hunmin_ctx_*`, layout mode/capability, `hunmin_ctx_autoswitch_data_present`.
+- IC/layer: `hunmin_ic_*`, `hunmin_buffered_preedit_*` (`new`, `process_key`/option path,
+  `commit_word`/flush, `take_judgement`, `latin_text`, `hangul_text`/readings as exposed,
+  `classify`/key action, `special_{peek,set_mods,set_host,functions,clear,chord}`,
+  options `caps`/`autoswitch`/`word_cap`/`judge_timing`/commit policy/layout ids).
+- Candidate/hanja/idiom: `hunmin_ic_hanja_*` and related UI-facing candidate APIs.
+- Frontends must not re-implement judgement, readings validity, autoswitch data gate,
+  or special-chord resolution semantics (SPEC-MODES ReqMode3/8/13; DESIGN-FRONTEND).
+
+### Triplication map (engine-facing workflow)
+
+| Concern | fcitx5 | Android | TSF | Host-specific remainder |
+|---|---|---|---|---|
+| Adapter entry | `frontends/fcitx5/src/hunminadapter.{h,cpp}` | `HunminAdapter.kt`, `HunminNativeBridge.kt`, `hunmin-jni.c` | `keydispatch.cpp`, `composition.cpp`, `delivery.cpp`, `tsf.cpp` | fcitx5 InputContext/preedit/candidate UI; Android InputConnection/IME lifecycle/Compose UI; TSF ITf* composition/display-attribute/candidate window/threadmgr |
+| Key/feed path | adapter handles key event → layer/classify/process | `onKey`/key handling → JNI/native layer | `OnKeyDown/Up` + keydispatch/composition | key code translation, modifier models (A2/A3/A2'/A3'), candidate navigation keys |
+| Boundary/delivery | commit string + preedit update | commit/preedit via InputConnection | native/interim delivery modes | host delivery contracts, undo/selection behavior |
+| Judgement action | reads `take_judgement`, performs mode change per host rules | reads/apply judgement, mode/autoswitch state updates | `ApplyAutoswitch`/judgement handling; interim/native differences | FE13 trigger ownership, interim cannot hold switch the same way (DESIGN-FRONTEND §2.x) |
+| Autoswitch UI/state | config/UI wiring (partial per REQ-MAP) | `AutoSwitchSettings`, `OverlayActivity`, `SettingsActivity`, service wiring | `settingsrows.cpp`, `config.cpp`, dialog rows | settings storage/presentation remains frontend-owned; state meaning is engine-owned |
+| Special chords | config/keybinding mapping to layer | `SpecialFunction.kt`, `KeyBinding.kt`, host handling | `keybinding.*`, settings/config | physical key names, default bindings, host-consumable actions |
+| Candidates | fcitx5 candidate list | Android candidate UI | TSF candidate UI/window | presentation only; core owns candidate state/policy where exposed |
+
+### Test coverage to preserve during D1 moves
+
+- Tier A/G core: `engine-*` (buffered-preedit, key-rule, wordset, hangul-valid,
+  golden-judgement, process-key, etc.), `abi`, `schema-contract`, `req-map`.
+- fcitx5: `engine-d1-fcitx5`, `engine-d1-judgement`, `frontend-mutations`, conformance/corpus tests as registered.
+- Android: tier E1 unit/instrumented tests registered in `cmake/HunminAndroidTests.cmake` where SDK present (`AutoSwitch*`, `JudgementCorpusTest`, etc.); `android-mutations`.
+- TSF: tests under `frontends/tsf/test` (Windows build/test environment; not registered in this Linux ctest run).
+- Guards: `docs-lint`, `wiki-lint`, `req-map-check`, frontend invariants/FE11 scope per DESIGN-FRONTEND.
+
+### D1 constraints (restate)
+
+- No frontend-local reimplementation of engine-owned semantics.
+- Host-specific APIs stay in frontends; move only shared, test-equivalent logic.
+- One step at a time, green targeted tests/baseline properties preserved.
+- Any moved contract must keep REQ-MAP/SPEC/DESIGN pointers accurate (no `file:line` anchors).
