@@ -56,3 +56,22 @@ python3 tools/wiki-lint.py
 ctest --test-dir build -R '^(req-map|abi|schema-contract)$' --output-on-failure
 ctest --test-dir build --show-only=json-v1  # compare to docs/issue-272-phase0-baseline.json
 ```
+
+## Adjacent migration fallout found while verifying (2026-11-08)
+
+Recovered by running the generators' own `--check` gates, not by inspection:
+
+- `tests/golden/judgement-r8.jsonl` was stale against
+  `tools/gen-judgement-golden.py`: the committed `req`/`meta` fields still held
+  `R4/R6/R8/R9/R13` and `R8-정정-3` while the generator emits `ReqMode*`, so
+  `--check` failed. Regenerated; the diff is id text only.
+- The four designed `case-*.jsonl` provenance lines still held `R6` in
+  `meta.spec` after `tools/gen-case-golden.py` began emitting `ReqMode6`.
+  Regenerated and re-merged with `tools/merge-golden-cases.py` (the documented
+  one-trace-per-family flow); the diff is the meta id text only.
+
+Both were invisible to ctest because `goldens-reproducible` covers the
+libhangul reference set, not these generators, and the case corpora are
+replayed as merged traces. The remaining `R6`/`R*-정정*` text in the tree is
+either the historical quote in `OPTIONS-MEASURED.md` or the migration note in
+`WINDOWS-TSF-DEVENV-CHECKS.md`.
