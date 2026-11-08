@@ -54,7 +54,10 @@ from pathlib import Path
 SKIP = 77
 EXPECT_ALIGN = 0x4000
 
-REPO = Path(__file__).resolve().parent.parent
+try:
+    from _common import ROOT as REPO
+except ImportError:
+    REPO = Path(__file__).resolve().parent.parent
 APK = (REPO / "frontends/android/app/build/outputs/apk/debug/app-debug.apk")
 
 
