@@ -42,7 +42,7 @@ APP_VERSION=0.3.0
 GENERATOR="${HUNMIN_CMAKE_GENERATOR:-Visual Studio 17 2022}"
 
 # --- toolchain locations: env override first, then the known shapes ------
-VSVARS="${HUNMIN_VS2022_ROOT:-}/VC/Auxiliary/Build/vcvarsall.bat"
+VSVARS="${HUNMIN_VS2022_ROOT:-/c/Program Files (x86)/Microsoft Visual Studio/18/BuildTools}/VC/Auxiliary/Build/vcvarsall.bat"
 if [ ! -f "$VSVARS" ]; then
   for c in "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools" \
            "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools" \

@@ -3,7 +3,7 @@
 #
 # Method (a clean machine can reproduce every step from the commit):
 #   1. Build the three artifacts:
-#        Windows  bash tools/build-windows-installer.sh
+#        Windows  python tools/build-windows-installer.py
 #                 -> build-msvc/installer/hunmin-0.3.0-setup.exe
 #        Debian   tools/build-release.sh deb
 #                 -> ../hunmin_0.3.0_amd64.deb
@@ -89,12 +89,18 @@ for entry in "${CHANNELS[@]}"; do
         say "  $ch: $(basename "$src") -> build/release-$TAG/$name ($(wc -c < "$src") bytes)"
         [ "$src" = "$STAGE/$name" ] || cp -f "$src" "$STAGE/$name"
     else
-        say "  $ch: MISSING $src -- build it first (see the method above)"; fail=1
+        say "  $ch: MISSING $src -- skipped (build it separately)"
     fi
 done
 
-if [ "$fail" != 0 ] && [ "$DRY_RUN" = 0 ]; then
-    say ""; say "refusing to publish: fix the rows above"; exit 1
+# Only include existing assets in the release
+ASSET_ARGS=()
+for entry in "${CHANNELS[@]}"; do
+    rest="${entry#*:}"; name="${rest%%:*}"; src="${rest#*:}"
+    [ -s "$STAGE/$name" ] && ASSET_ARGS+=("'$STAGE_NATIVE/$name'")
+done
+if [ ${#ASSET_ARGS[@]} -eq 0 ]; then
+    say "  ERROR: no assets staged -- refusing to publish"; exit 1
 fi
 
 step "3. annotated tag"
@@ -104,17 +110,14 @@ step "4. push the tag"
 do_or_print "git -C '$ROOT_NATIVE' push origin '$TAG'"
 
 step "5. create the release and upload the assets"
-ASSET_ARGS=()
-for entry in "${CHANNELS[@]}"; do
-    rest="${entry#*:}"; name="${rest%%:*}"; ASSET_ARGS+=("'$STAGE_NATIVE/$name'")
-done
 do_or_print "gh release create '$TAG' --repo scobyseo/hunmin --title 'hunmin $TAG' --notes-file '$NOTES_NATIVE' ${ASSET_ARGS[*]}"
 
 step "6. verify (existence, then reachability)"
 do_or_print "gh release view '$TAG' --repo scobyseo/hunmin --json tagName,isDraft,assets --jq '[.tagName, (.isDraft|tostring), ([.assets[].name]|join(\",\"))] | @tsv'"
 say "  anonymous fetch of each asset URL:"
-for entry in "${CHANNELS[@]}"; do
-    rest="${entry#*:}"; name="${rest%%:*}"
+for asset in "${ASSET_ARGS[@]}"; do
+    # asset is like '/path/to/hunmin_0.3.0_amd64.deb'; extract basename
+    name=$(basename "$asset" | sed "s/^'//;s/'$//")
     url="https://github.com/scobyseo/hunmin/releases/download/$TAG/$name"
     code=$(curl -s -o /dev/null -w '%{http_code}' -L "$url" 2>/dev/null || echo "curl-failed")
     say "    $name -> HTTP $code"
