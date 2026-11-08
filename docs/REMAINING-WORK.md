@@ -297,7 +297,7 @@ half.
 | "no NDK-clang job at all" (`grep -c android` = 0) | `TESTING.md:40-41` | That grep is **19**. `.github/workflows/ci.yml:23` defines the `android` job, which installs NDK 27.3.13750724. The claim was made *on the evidence of the grep* and the grep was wrong. |
 | 5 CI jobs incl. `nightly`, fuzz, debs, TIP/TAT | `ENVIRONMENT.md:405-413` | **4** jobs: `linux`, `android`, `mingw`, `windows`. No nightly, no fuzz, no deb build, no TIP/TAT. mingw/windows are `-DBUILD_TESTING=OFF`. |
 | "Candidate assertions remain impossible until P3 adds candidates" | `TESTING.md:155` | P3 landed 2026-10-03; `testhunminui.cpp:168-200` asserts list, size, kind label and text. |
-| "nothing in the addon uses candidates yet" | `FRONTEND-CONTRACT.md:287-291` | Same. |
+| "nothing in the addon uses candidates yet" | `docs/DESIGN-FRONTEND.md` Part B (the candidate paragraph) | Same. |
 | P3 has no progress marker; licence gate unstruck | `PLAN.md:136,314` | P3 shipped; the source gate closed 2026-10-02. |
 | P1b-2 ⏳ "romaja, symbol tiers, CapsLock/W" | `PLAN.md:131-132` | All three ship. Only `seq` is open. |
 | "no keystore config, no version-code scheme" | `AGENTS.md:194-195`, `PLAN.md:196-205`, `README.md:33` | Both were added. ReqMode8 rules remain genuinely missing. The hardcoded keystore path is the real defect (B8). |
