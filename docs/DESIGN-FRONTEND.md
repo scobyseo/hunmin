@@ -8,6 +8,20 @@
 
 ---
 
+## Related decisions index (gathered, #272)
+
+| Decision/theme | Part A (equivalence) | Part B (contract/assumptions) | Notes |
+|---|---|---|---|
+| Same committed text / one delivery | §1 invariant, §5 shared layer, §6 corpus | invariants, A4/A5/A10 | Core delivers; frontends present/host-integrate. |
+| TSF delivery modes | §2 interim/native, §2.1/§2.2 rulings | TSF assumptions | Interim/native differ in delivery, not composition. |
+| Han/Eng / mode switch | §4 Han/Eng identity, §5.1 layer action | A3/platform key mapping | Abstract action in layer; frontend maps physical key. |
+| Buffered-preedit layer | §5 (5.1-5.3) | adapter assumptions | One owner of word buffer (FE3). |
+| Caps / modifiers | §8 measured asymmetries | A2/A3, Android A2'/A3' | Per key event; host models differ. |
+| Candidate/presentation | §3 allowed differences | UI/panel notes | Host-owned presentation; core owns policy/state. |
+| Corpus/conformance | §6, §6.1-6.3 | coverage/gaps | One corpus, frontend-specific delivery constraints. |
+
+---
+
 # Part A — Equivalence (formerly `FRONTEND-EQUIVALENCE.md`)
 
 # Cross-frontend equivalence
