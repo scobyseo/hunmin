@@ -55,7 +55,11 @@ import re
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import ROOT as _ROOT
+    ROOT = str(_ROOT)
+except ImportError:
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DOCS = ["PLAN.md", "README.md", "AGENTS.md"] + sorted(
     os.path.relpath(p, ROOT) for p in glob.glob(os.path.join(ROOT, "docs", "*.md"))

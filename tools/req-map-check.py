@@ -60,7 +60,11 @@ for _stream in (sys.stdout, sys.stderr):
     if _reconfigure:
         _reconfigure(encoding="utf-8", errors="replace")
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import ROOT as _ROOT
+    ROOT = str(_ROOT)
+except ImportError:
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_MAP = "docs/REQ-MAP.md"
 
 COLUMNS = ("REQ", "requirement", "architecture", "design", "implementation",
