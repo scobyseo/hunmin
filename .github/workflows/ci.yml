@@ -874,7 +874,43 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y \
             cmake ninja-build pkg-config libhangul-dev python3 \
-            fcitx5-modules-dev libasan8 liblsan0
+            extra-cmake-modules gettext \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
+            libxcb-icccm4-dev libxcb-xinerama0-dev libxcb-randr0-dev \
+            libxcb-ewmh-dev libxcb-keysyms1-dev libxcb-imdkit-dev \
+            libxcb-util0-dev libxcb-image0-dev libxcb-render0-dev \
+            libxcb-shape0-dev libxcb-cursor-dev \
+            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev \
+            libglib2.0-dev libexpat1-dev libxkbfile-dev \
+            libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
+            libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
+            iso-codes xkb-data libasan8 liblsan0
+
+      # fcitx5 5.1.13 from source (distro ships 5.1.7, below the addon floor).
+      - name: Restore the fcitx5 5.1.13 install tree
+        id: fcitx5-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/fcitx5-install
+          key: ${{ runner.os }}-fcitx5-5.1.13-install-v1
+          restore-keys: |
+            ${{ runner.os }}-fcitx5-5.1.13-install-
+      - name: Build fcitx5 5.1.13 from source (distro ships 5.1.7, below the floor)
+        if: steps.fcitx5-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
+          cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
+            -DCMAKE_INSTALL_PREFIX=/tmp/fcitx5-install -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
+            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
+            > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
+          cmake --build /tmp/fcitx5/build --target install
+      - name: Install fcitx5 into /usr
+        run: |
+          sudo cp -a /tmp/fcitx5-install/. /usr/
+          sudo ldconfig
+          pkg-config --modversion Fcitx5Core
 
       - name: Configure with LeakSanitizer
         run: |
