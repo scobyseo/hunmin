@@ -393,7 +393,7 @@ void CTextService::DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat, con
  * key's UNSHIFTED US-QWERTY character. The shift column the adapter
  * used to carry is the engine's own map (schema_loader.c BASE/SHIFTED), selected
  * in the engine by the Shift bit that travels beside the base
- * (FRONTEND-CONTRACT.md A3'). */
+ * (DESIGN-FRONTEND.md Part B A3'). */
 uint32_t CTextService::VkToBase(WPARAM wParam) {
     if (wParam >= 'A' && wParam <= 'Z')
         return (uint32_t)(wParam + 32); /* the lowercase half */

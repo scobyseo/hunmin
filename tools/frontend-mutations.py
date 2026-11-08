@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Mutation set for check-frontend-invariants.py — self-test.
 
-docs/FRONTEND-CONTRACT.md §5 claims those invariants are guarded. A guard
+docs/DESIGN-FRONTEND.md Part B §5 claims those invariants are guarded. A guard
 nobody ever tries is an assumption. This file plants each known-interesting
 mutation of hunminadapter.cpp and records whether the checker and/or engine-d1-fcitx5
 reject it, so the claims stay checkable instead of aspirational.

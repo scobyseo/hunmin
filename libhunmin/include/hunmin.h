@@ -199,7 +199,7 @@ const char *hunmin_suggest_kind(hunmin_ctx *ctx, int i);
  *
  * One level above hunmin_ic, not a second engine. It owns the word buffer and
  * answers, for every frontend, the three questions the invariant in
- * docs/FRONTEND-EQUIVALENCE.md §1 is stated over: is this key consumed, what is
+ * docs/DESIGN-FRONTEND.md Part A §1 is stated over: is this key consumed, what is
  * committed, what is the preedit. Frontends only map their physical key to
  * (base, shift) and render what this layer hands them.
  *
@@ -217,7 +217,7 @@ typedef struct hunmin_buffered_preedit hunmin_buffered_preedit;
 #define HUNMIN_COMMIT_AT_BOUNDARY 0
 #define HUNMIN_COMMIT_PER_SYLLABLE 1
 
-/* Which layout the layer is composing with (docs/FRONTEND-EQUIVALENCE.md §4). */
+/* Which layout the layer is composing with (docs/DESIGN-FRONTEND.md Part A §4). */
 #define HUNMIN_LANGUAGE_HANGUL 0
 #define HUNMIN_LANGUAGE_LATIN 1
 
@@ -435,10 +435,10 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_take_word(hunmin_buffered_pree
 /* The syllable in flight alone, without the finished word and without a key.
  * The interim delivery mode keeps the finished word as document text and
  * rewrites only this, so the two halves the display joins have to be readable
- * separately (docs/FRONTEND-EQUIVALENCE.md §3.3). */
+ * separately (docs/DESIGN-FRONTEND.md Part A §3 item 3). */
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_composing(hunmin_buffered_preedit *l);
 
-/* The Han/Eng action (docs/FRONTEND-EQUIVALENCE.md §4): one abstract event, so
+/* The Han/Eng action (docs/DESIGN-FRONTEND.md Part A §4): one abstract event, so
  * an adapter's raw platform code never reaches the engine. It is a boundary -
  * whatever was composing in the old language is committed before the switch.
  * Returns 1 when the mode changed; 0 when this frontend has one language only

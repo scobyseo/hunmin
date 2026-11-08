@@ -202,7 +202,7 @@ class VoiceSessionTest {
     fun `the in-process path is what a live recogniser selects`() {
         // The other half of the same route: a device with a recogniser must not
         // be routed to the activity, whose result cannot reach an IME at all
-        // (FRONTEND-CONTRACT.md B5). So this is a pair, not one test.
+        // (DESIGN-FRONTEND.md Part B B5). So this is a pair, not one test.
         assertEquals(
             VoicePath.SPEECH_RECOGNIZER,
             VoiceLauncher.decide(recognizerAvailable = true, activityAvailable = true),

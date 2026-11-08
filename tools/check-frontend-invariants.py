@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Structural checks for the fcitx5 frontend adapter.
 
-Every rule here corresponds to an invariant in docs/FRONTEND-CONTRACT.md §5.
+Every rule here corresponds to an invariant in docs/DESIGN-FRONTEND.md Part B §5.
 Those invariants are the ones tier D1 does *not* cover -- mutation testing
 showed that dropping the commit/flush split, or the caps option, still builds
 and still passes engine-d1-fcitx5. This script is the only guard on them.
@@ -174,7 +174,7 @@ def main() -> int:
 
     # I8 -- the "frontends stay thin" budget (PLAN.md invariant 4, <~700 LOC).
     # This is a *rule*, not a description, so it is measured rather than written
-    # down: docs/FRONTEND-CONTRACT.md used to carry exact per-file LOC counts,
+    # down: docs/DESIGN-FRONTEND.md Part B used to carry exact per-file LOC counts,
     # which rotted on every commit that added a line and were never checked.
     # Counting code lines (comments and blanks excluded) rather than raw lines
     # keeps the budget about logic.
@@ -272,7 +272,7 @@ def main() -> int:
     print()
     if failures:
         print(f"{len(failures)} invariant(s) violated -- see "
-              "docs/FRONTEND-CONTRACT.md §5")
+              "docs/DESIGN-FRONTEND.md Part B §5")
         return 1
     print("all frontend invariants hold (advisory; D1 does not cover I1/I2/I5)")
     return 0

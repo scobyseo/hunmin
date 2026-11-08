@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * buffered_preedit.c - the shared buffered/syllable preedit object, one level above
- * hunmin_ic (issue #128, docs/FRONTEND-EQUIVALENCE.md §5).
+ * hunmin_ic (issue #128, docs/DESIGN-FRONTEND.md Part A §5).
  *
  * Why it exists: TSF, fcitx5 and Android each grew their own word buffer and
  * their own answer to "when is a word finished" - TSF drained its wordbuf_ on

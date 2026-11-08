@@ -117,7 +117,7 @@ CASES = {
         # absent from a corpus that types words, and both are layout-visible:
         # this layout maps 26 letters, so all ten digits are declined and reach
         # the client, and the trailing BackSpace finds an empty buffer and is
-        # declined for the same reason (docs/FRONTEND-CONTRACT.md invariant 3).
+        # declined for the same reason (docs/DESIGN-FRONTEND.md Part B invariant 3).
         dict(case="digit-row-and-empty-backspace", feature="the number row, and the declined key after the word",
              keys="0123456789 \\b",
              note="0-9 are not this layout's (it maps 26 letters), so each is DECLINED and reaches the client; "

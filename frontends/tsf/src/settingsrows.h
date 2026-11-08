@@ -39,7 +39,7 @@ int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *r
  *   - `key` is the chord the engine holds for HUNMIN_SPECIAL_AUTOSWITCH plus the
  *     platform's own name for the physical Han/Eng key -- the chord half is the
  *     engine's by ruling, the key's NAME is the one thing only the platform
- *     knows (docs/FRONTEND-EQUIVALENCE.md §3.1);
+ *     knows (docs/DESIGN-FRONTEND.md Part A §3 item 1);
  *   - `available` is the data gate, and `label` carries the reason when it is 0.
  *     Every label also names the support condition ("지원 앱에서만"): the dialog
  *     is a separate process and cannot know a host's delivery mode, so it states

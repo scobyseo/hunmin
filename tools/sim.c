@@ -10,7 +10,7 @@
  *
  * --judge moves the driver up one level: instead of hunmin_ic it drives
  * hunmin_buffered_preedit, the shared layer every frontend sits on
- * (docs/FRONTEND-EQUIVALENCE.md §5), and it performs the frontend's half of
+ * (docs/DESIGN-FRONTEND.md Part A §5), and it performs the frontend's half of
  * SPEC-MODES ReqMode8 exactly as the adapters do — read take_judgement() after each
  * key, and switch language when it answers a mode. That is what makes a
  * judgement case replayable from the command line: the delivered text, the

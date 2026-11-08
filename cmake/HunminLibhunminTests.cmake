@@ -14,7 +14,7 @@ add_executable(commit-text-test libhunmin/tests/commit-text-test.cpp)
 target_link_libraries(commit-text-test PRIVATE GTest::gtest_main)
 target_link_options(commit-text-test PRIVATE ${HUNMIN_TEST_LINK_OPTS})
 target_include_directories(commit-text-test PRIVATE libhunmin/include libhunmin/src third_party/cJSON)
-# Engine sources are compiled in here, so the dllimport defaults would contradict them (BUILD-SYSTEM file layout).
+# Engine sources are compiled in here, so the dllimport defaults would contradict them (DESIGN-BUILD.md file layout).
 target_compile_definitions(commit-text-test PRIVATE HUNMIN_STATIC)
 target_sources(commit-text-test PRIVATE libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/schema_loader.c libhunmin/src/expr.c libhunmin/src/ic.c libhunmin/src/candidate_tables.c libhunmin/src/wordset.c third_party/cJSON/cJSON.c)
 hunmin_add_test(NAME engine-commit-text COMMAND commit-text-test LABELS tier-A WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")

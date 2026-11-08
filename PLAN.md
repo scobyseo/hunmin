@@ -80,7 +80,7 @@ frontend gets it.
                         then the working set:
                           TESTING.md         tiers A-E, what proves what
                           ENGINEERING.md     how to investigate, what to write down
-                          FRONTEND-CONTRACT.md  what each frontend file assumes
+                          DESIGN-FRONTEND.md Part B  what each frontend file assumes
                           FCITX5-ADDON-NOTES.md  addon/pitfalls, X11-specific
                           ENVIRONMENT.md     host facts and installed toolchains
                           D3-ROOT-CAUSE.md   why tier D3 looked green while measuring nothing

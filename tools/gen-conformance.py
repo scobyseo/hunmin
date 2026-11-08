@@ -340,7 +340,7 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             named = "backspace"
         # `consumed` means the engine took the key, so it is a property of the
         # LAYOUT for a character and of the BUFFER for BackSpace: the adapter
-        # consumes exactly when the layer returns true (FRONTEND-CONTRACT.md
+        # consumes exactly when the layer returns true (DESIGN-FRONTEND.md Part B
         # invariant 3), and tier A cannot supply that -- it records only commit
         # and preedit. Both branches derive it below, never from a guess.
         #

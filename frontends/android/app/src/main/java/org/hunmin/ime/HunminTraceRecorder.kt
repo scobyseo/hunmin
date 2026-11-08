@@ -8,7 +8,7 @@
  * trace "so device quirks become regression data". That is only true if the IME
  * a person is holding can produce one. A sink that existed only in a test build
  * would capture a different adapter than the one that shipped, which is the
- * mistake docs/FRONTEND-CONTRACT.md §3 already records once for fcitx5.
+ * mistake docs/DESIGN-FRONTEND.md Part B §3 already records once for fcitx5.
  *
  * OFF UNLESS TURNED ON. Inert unless [enable] is called, which tier E3 does
  * explicitly. A released IME does not write files, and the cost when off is one

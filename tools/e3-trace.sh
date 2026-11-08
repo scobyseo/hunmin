@@ -11,7 +11,7 @@
 # WHY adb AND NOT A DEBUG-ONLY INTENT. An IME's service cannot be started from
 # `am start`; it is bound by the platform when the user selects it. And it
 # cannot receive `onActivityResult` or a permission result at all
-# (docs/FRONTEND-CONTRACT.md B5), so there is no callback path to turn tracing
+# (docs/DESIGN-FRONTEND.md Part B B5), so there is no callback path to turn tracing
 # on from outside. What an IME *can* be driven with is a broadcast, so the sink
 # is toggled by one -- which also means the toggle is testable on the emulator,
 # not just claimed.

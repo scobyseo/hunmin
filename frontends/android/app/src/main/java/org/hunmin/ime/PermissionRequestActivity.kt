@@ -42,7 +42,7 @@
  * IME takes, but the dialog itself, the tap inside it, the app-op background
  * state, and the "stopped asking" state the platform enters after two refusals
  * are the framework's and cannot be driven or observed from a test. See
- * docs/FRONTEND-CONTRACT.md B5.
+ * docs/DESIGN-FRONTEND.md Part B B5.
  */
 package org.hunmin.ime
 

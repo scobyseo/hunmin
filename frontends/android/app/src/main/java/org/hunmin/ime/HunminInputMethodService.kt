@@ -15,7 +15,7 @@
  * key events to an IME through the IME's window token, and whether that routing
  * happens at all depends on the window being present: this is the single most
  * important thing to verify on a device, and it is verified rather than assumed
- * (see tools/android-e2e.sh and docs/FRONTEND-CONTRACT.md §3, B1).
+ * (see tools/android-e2e.sh and docs/DESIGN-FRONTEND.md Part B §3, B1).
  */
 package org.hunmin.ime
 
@@ -860,7 +860,7 @@ class HunminInputMethodService : InputMethodService() {
      * A broadcast is the only channel that reaches an IME from outside: its
      * service is bound by the platform and cannot be started with `am start`,
      * and it receives neither activity results nor permission results
-     * (FRONTEND-CONTRACT.md B5), so there is no callback path. Guarded on the
+     * (DESIGN-FRONTEND.md Part B B5), so there is no callback path. Guarded on the
      * app being debuggable, because a released IME must not accept a broadcast
      * that turns on file writing.
      *
@@ -1058,7 +1058,7 @@ class HunminInputMethodService : InputMethodService() {
      *
      * This is not decoration. A hardware-key IME still needs an input view,
      * because key events reach an IME through the IME window and a service that
-     * shows no view has nowhere for them to arrive (FRONTEND-CONTRACT.md B1) --
+     * shows no view has nowhere for them to arrive (DESIGN-FRONTEND.md Part B B1) --
      * verified on the emulator, where one `input keyevent KEYCODE_K` alone puts
      * ㄱ in the field. The picker now occupies that view; a soft keyboard would
      * replace its body, not its existence.

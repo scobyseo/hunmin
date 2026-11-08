@@ -20,7 +20,7 @@
  *     with a Kotlin-side buffer, because a buffer would be a second copy of
  *     that rule and could disagree with it.
  *
- * See docs/FRONTEND-CONTRACT.md for the per-function assumptions.
+ * See docs/DESIGN-FRONTEND.md Part B for the per-function assumptions.
  */
 #include <jni.h>
 #include <stdlib.h>
@@ -43,7 +43,7 @@
  * every NULL and returns "" or 0 (see str_or_empty and each guard below), so
  * a zero handle degrades to "no text" instead of crashing. That is deliberate
  * -- the fcitx5 addon defends some call sites and not others for the same
- * reason (docs/FRONTEND-CONTRACT.md §3, A9).
+ * reason (docs/DESIGN-FRONTEND.md Part B §3, A9).
  */
 
 /* --- strings --------------------------------------------------------------
@@ -256,7 +256,7 @@ JNIEXPORT jstring JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeCommitTex
 
 /* ===================== hunmin_buffered_preedit ==========================
  *
- * The shared buffered/syllable layer (issue #128, docs/FRONTEND-EQUIVALENCE.md
+ * The shared buffered/syllable layer (issue #128, docs/DESIGN-FRONTEND.md Part A
  * §5). JNI cannot return a struct, so a key's answer is read through three
  * calls on the same object: layerKey -> layerDelivered -> layerDisplay. They
  * are reads of state the layer already holds, not a second computation.

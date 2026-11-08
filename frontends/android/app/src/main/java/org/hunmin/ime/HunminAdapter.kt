@@ -13,7 +13,7 @@
  * What is deliberately absent, and why each is not an oversight:
  *
  *  - No keyboard view. P5 is a hardware-keyboard IME; a soft keyboard is
- *    later work (docs/FRONTEND-CONTRACT.md). See HunminInputMethodService for
+ *    later work (docs/DESIGN-FRONTEND.md Part B). See HunminInputMethodService for
  *    why that is a real design constraint rather than a simplification.
  *  - No F9 / Hanja window. F9 has no AOSP keycode at all — on Android the
  *    function row is a modifier combination — so the trigger has to be chosen
@@ -42,7 +42,7 @@ import android.view.inputmethod.EditorInfo
  * Not a singleton and not a service-wide field: [HunminInputMethodService]
  * creates one per `onStartInput`, which is what makes two visible editors
  * independent. The fcitx5 addon attaches the same thing to a per-InputContext
- * property for the same reason (FRONTEND-CONTRACT §2).
+ * property for the same reason (DESIGN-FRONTEND.md Part B §2).
  *
  * @param native the engine surface, injectable so tier E1 can drive the voice
  *   path with no device; production is [JniOps].
@@ -215,7 +215,7 @@ class HunminAdapter(
      *  2. The key reaches the engine as its UNSHIFTED base plus the AOSP
      *     shift bit, verbatim (hunmin_ic_process_key), and CapsLock as the
      *     `caps` option: the CapsLock×Shift case endpoint is the engine's,
-     *     not this adapter's (invariant 5 of §5; FRONTEND-CONTRACT §3 A3',
+     *     not this adapter's (invariant 5 of §5; DESIGN-FRONTEND.md Part B §3 A3',
      *     SPEC-P2 "IC input entry points").
      *  3. An unmapped key flushes and passes through. That is how space and
      *     friends reach the client.
@@ -352,7 +352,7 @@ class HunminAdapter(
         // shift bit + the caps option above. hunmin_ic_process_key resolves
         // the row from the loader's own US-QWERTY map, so CapsLock×Shift is
         // no longer re-derived here -- the site of the earlier wrong-case
-        // defect (FRONTEND-CONTRACT §3 A3') is deleted, not rewritten. The
+        // defect (DESIGN-FRONTEND.md Part B §3 A3') is deleted, not rewritten. The
         // bit passes verbatim, so CapsLock+Shift now composes the shifted
         // row; that delta is recorded in A3' and reversing it would be a
         // one-line change here awaiting a ruling.

@@ -346,7 +346,7 @@ void CTextService::UpdateLangBarItem(ITfThreadMgr *ptm) {
  *     absent (B3, #169), and the value reads back 0;
  *   - this FRONTEND's: the interim delivery moves the finished word into the
  *     document per key, so at its boundary the layer holds no whole word to
- *     judge (docs/FRONTEND-EQUIVALENCE.md §2.1, ruled 2026-11-02: "interim model
+ *     judge (docs/DESIGN-FRONTEND.md Part A §2.1, ruled 2026-11-02: "interim model
  *     cannot support autoswitch"). The option is therefore only ON while the
  *     native path is active, and every site that flips the delivery re-applies
  *     it -- otherwise a host that flips mid-word would keep a state it cannot

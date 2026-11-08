@@ -170,7 +170,7 @@ object HunminNativeBridge {
      * hunmin_ic_commit — a DESTRUCTIVE read: the text is delivered exactly once
      * and the buffer is cleared. Calling it twice for one keypress drops the
      * second result; calling it and then hunmin_ic_flush double-emits. See
-     * docs/FRONTEND-CONTRACT.md §5 rules 1 and 2.
+     * docs/DESIGN-FRONTEND.md Part B §5 rules 1 and 2.
      */
     @JvmStatic external fun nativeCommit(ic: Long): String
 

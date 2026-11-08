@@ -30,7 +30,7 @@ The TIP's policy comes from the environment the host is launched with
 the two rounds differ in exactly one variable. The TIP log in the run dir is
 the delivery evidence: a native round has `composition start`/`composition
 end` and NO `legacy detection` row -- with the interim delivery the switch is
-deliberately off (docs/FRONTEND-EQUIVALENCE.md §2.1) and the round would be
+deliberately off (docs/DESIGN-FRONTEND.md Part A §2.1) and the round would be
 measuring nothing.
 """
 import argparse

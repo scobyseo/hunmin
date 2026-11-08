@@ -3,7 +3,7 @@
  *
  * Tier E1, the JUDGEMENT lane (issue #211).
  *
- * docs/FRONTEND-EQUIVALENCE.md §6.2.1 records the maintainer's ruling: every
+ * docs/DESIGN-FRONTEND.md Part A §6.2.1 records the maintainer's ruling: every
  * frontend is evaluated against the same corpus, and a frontend's own
  * characteristics may differ only where §3 lists them. This is the Android half
  * of that. It replays tests/golden/judgement-r8.jsonl -- the same file

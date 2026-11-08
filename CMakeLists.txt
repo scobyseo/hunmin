@@ -5,11 +5,11 @@ cmake_minimum_required(VERSION 3.22)
 project(hunmin LANGUAGES C VERSION 0.3.0)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-# MSVC exports via CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS; PE flags stay MinGW-only (BUILD-SYSTEM).
+# MSVC exports via CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS; PE flags stay MinGW-only (DESIGN-BUILD.md).
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(GNUInstallDirs)
-# Every .c/.h is UTF-8; /utf-8 keeps MSVC literals byte-correct (BUILD-SYSTEM).
+# Every .c/.h is UTF-8; /utf-8 keeps MSVC literals byte-correct (DESIGN-BUILD.md).
 if(MSVC)
   add_compile_options(/std:c11 /W4 /utf-8)
 else()
@@ -20,12 +20,12 @@ include(CTest)
 include(FetchContent)
 find_package(PkgConfig QUIET)
 find_package(Python3 QUIET COMPONENTS Interpreter)
-# Packaged TIP shape: static CRT so a clean image needs no VC redist (BUILD-SYSTEM).
+# Packaged TIP shape: static CRT so a clean image needs no VC redist (DESIGN-BUILD.md).
 option(HUNMIN_MSVC_STATIC_RUNTIME "Link the MSVC CRT statically (/MT); the packaged TIP shape (issue #99)" OFF)
 if(HUNMIN_MSVC_STATIC_RUNTIME AND MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
-# One source list, shared for POSIX and static for the Windows TSF TIP (BUILD-SYSTEM).
+# One source list, shared for POSIX and static for the Windows TSF TIP (DESIGN-BUILD.md).
 set(HUNMIN_CORE_SOURCES libhunmin/src/version.c libhunmin/src/tables.c libhunmin/src/schema_loader.c libhunmin/src/expr.c libhunmin/src/ic.c libhunmin/src/buffered_preedit.c libhunmin/src/candidate_tables.c libhunmin/src/wordset.c libhunmin/src/hangul_valid.c third_party/cJSON/cJSON.c)
 add_library(hunmin SHARED ${HUNMIN_CORE_SOURCES})
 target_include_directories(hunmin PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/include)
@@ -54,7 +54,7 @@ if(PkgConfig_FOUND)
     set(HUNMIN_HAS_LIBHANGUL ON)
   endif()
 endif()
-# One shell for tests needing POSIX sh; Windows has no sh on PATH (BUILD-SYSTEM).
+# One shell for tests needing POSIX sh; Windows has no sh on PATH (DESIGN-BUILD.md).
 find_program(HUNMIN_SH sh PATHS /bin /usr/bin HINTS "$ENV{ProgramFiles}/Git/usr/bin" "$ENV{ProgramFiles}/Git/bin")
 if(HUNMIN_HAS_LIBHANGUL AND HUNMIN_SH)
   add_custom_target(goldens COMMAND ${HUNMIN_SH} ${CMAKE_CURRENT_SOURCE_DIR}/tools/regen-goldens.sh ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -68,7 +68,7 @@ if(NOT MSVC)
 else()
   install(TARGETS hunmin LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
-# GoogleTest via FetchContent; INSTALL_GTEST OFF keeps the SDK out of the packages (BUILD-SYSTEM).
+# GoogleTest via FetchContent; INSTALL_GTEST OFF keeps the SDK out of the packages (DESIGN-BUILD.md).
 if(BUILD_TESTING AND Python3_FOUND)
   enable_language(CXX)
   FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.17.0 GIT_SHALLOW TRUE)
@@ -78,7 +78,7 @@ if(BUILD_TESTING AND Python3_FOUND)
     set(HUNMIN_TEST_LINK_OPTS -static)
   endif()
 endif()
-# fcitx5 floor: Fcitx5Core >= 5.1.13 (BUILD-SYSTEM); skipped when unavailable.
+# fcitx5 floor: Fcitx5Core >= 5.1.13 (DESIGN-BUILD.md); skipped when unavailable.
 option(HUNMIN_FCITX5 "Build the fcitx5 addon" ON)
 if(HUNMIN_FCITX5)
   find_package(Fcitx5Core 5.1.13 QUIET)
@@ -94,7 +94,7 @@ endif()
 if(WIN32 AND MSVC)
   add_subdirectory(frontends/tsf)
 endif()
-# Tests: one file per coverage subject; bodies in cmake/Hunmin*.cmake (BUILD-SYSTEM file-layout).
+# Tests: one file per coverage subject; bodies in cmake/Hunmin*.cmake (DESIGN-BUILD.md file-layout).
 if(BUILD_TESTING)
   include(cmake/HunminTestHelpers.cmake)
   include(cmake/HunminLibhunminTests.cmake)

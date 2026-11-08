@@ -351,7 +351,7 @@ if [ "$TYPED" != "$EXPECTED" ]; then
 fi
 
 # The IME window itself must be on screen: the input view is what carries the
-# key events (FRONTEND-CONTRACT.md B1), so a run where the window is absent
+# key events (DESIGN-FRONTEND.md Part B B1), so a run where the window is absent
 # would have typed nothing and the field assertion would already have failed --
 # but saying so explicitly turns "the field is empty" from a mystery into a
 # named cause.

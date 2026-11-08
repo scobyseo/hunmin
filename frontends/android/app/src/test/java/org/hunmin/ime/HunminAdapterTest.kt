@@ -583,7 +583,7 @@ class HunminAdapterTest {
     @Test
     fun `a two-syllable word composes on the client and commits once at its boundary`() {
         // Invariant 2, the one tier A cannot see. Two commitText calls for one
-        // word would mean every word lands twice. FRONTEND-CONTRACT §4 records
+        // word would mean every word lands twice. DESIGN-FRONTEND.md Part B §4 records
         // that dropping the commit/flush split passes the fcitx5 D1 suite, so
         // this assertion is here for a reason that is not paranoia. Measured:
         // `hunmin-sim --layout dubeolsik --keys dkssud` commits 안 and leaves
@@ -747,11 +747,11 @@ class HunminAdapterTest {
 
     @Test
     fun `one keystroke yields at most one commit call`() {
-        // FRONTEND-CONTRACT section 5 rule 1: exactly one of commit and flush
+        // DESIGN-FRONTEND.md Part B section 5 rule 1: exactly one of commit and flush
         // per keypress.
         //
         // MEASURED LIMITATION, recorded because it is not obvious and it is the
-        // same finding as FRONTEND-CONTRACT section 4's "still open" note for
+        // same finding as DESIGN-FRONTEND.md Part B section 4's "still open" note for
         // the desktop adapter. Replacing flush() with commit() on the declined
         // path is NOT observable, and tools/android-mutations.sh confirms it:
         // the planted mutation leaves this suite green. The reason is in
@@ -805,7 +805,7 @@ class HunminAdapterTest {
         // branch is that the composing region is left on screen holding a
         // syllable that has just been committed -- text the user sees twice.
         //
-        // This is the same defect FRONTEND-CONTRACT section 4 records as passing
+        // This is the same defect DESIGN-FRONTEND.md Part B section 4 records as passing
         // the desktop D1 suite. Asserting the commit COUNT does not catch it;
         // asserting the PREEDIT does.
         val beforeSpace = ic.commits.size
@@ -829,7 +829,7 @@ class HunminAdapterTest {
 
     @Test
     fun `capslock reaches the engine as an option`() {
-        // FRONTEND-CONTRACT section 5 rule 5. Only sin3-p2-yet reads `caps`
+        // DESIGN-FRONTEND.md Part B section 5 rule 5. Only sin3-p2-yet reads `caps`
         // (SPEC-P2.md), so a test on sin3-p2 asserts nothing and the set_option
         // call can be deleted with the suite still green -- which is exactly
         // what the mutation test found. This one pins the layout to sin3-p2-yet

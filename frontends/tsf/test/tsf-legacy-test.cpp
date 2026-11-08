@@ -159,7 +159,7 @@ TEST_F(LegacyTest, FlipOnFirstMidWordTerminationAndCompose) {
 }
 
 /* Interim delivery x both commit units (issue #128, deliverable 2 as narrowed
- * in docs/FRONTEND-EQUIVALENCE.md 6.1).
+ * in docs/DESIGN-FRONTEND.md Part A 6.1).
  *
  * The unit is a WHEN, not a WHAT: the same text must reach the host control
  * either way, and only the moment differs. That is what these two cases
