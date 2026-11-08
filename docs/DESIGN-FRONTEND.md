@@ -725,7 +725,7 @@ discoverable by re-reading our own code.
 **Status: a dated audit, still cited for §3–§6.** The per-assumption entries
 (A1–A13, A1′–A3′, B1–B7) are the record of what was believed and measured on
 that date — keep them. What is NOT this document's job any more: describing the
-interfaces (now `docs/SPEC-FRONTEND.md` and `docs/FRONTEND-EQUIVALENCE.md` §8)
+interfaces (now `docs/SPEC-FRONTEND.md` and `docs/DESIGN-FRONTEND.md` Part A §8)
 and stating the invariants to preserve (now `docs/SPEC-FRONTEND.md` FE1–FE12).
 
 Scope: `frontends/fcitx5/src/`, `frontends/android/`, and the Windows TSF
@@ -734,7 +734,7 @@ engine core is covered by `docs/SPEC-P2.md`; this file is about the adapter
 boundary where platform events meet the engine.
 
 **Cross-frontend equivalence is a separate, normative requirement:**
-`docs/FRONTEND-EQUIVALENCE.md`. This audit records what each adapter assumes;
+`docs/DESIGN-FRONTEND.md` Part A (above). This audit records what each adapter assumes;
 that document defines what all adapters must agree on (the same key sequence
 must yield the same commit, preedit, and consumption, and TSF's interim and
 native delivery modes must agree).
@@ -790,7 +790,7 @@ appearing in the frontend, which is rule #4's actual failure mode.
 
 The description of what each frontend exposes, and the invariants that keep them
 equivalent, live in `docs/SPEC-FRONTEND.md` (FE1–FE12) and
-`docs/FRONTEND-EQUIVALENCE.md` §8. What stays here is the fcitx5 hook contract
+`docs/DESIGN-FRONTEND.md` Part A §8. What stays here is the fcitx5 hook contract
 this audit was written against, because it is the shape the addon must keep.
 
 | Hook | When fcitx5 calls it | What we do |

@@ -5,7 +5,7 @@
 > `libhunmin/src/buffered_preedit.c:6`), and the Android adapter now calls that
 > layer (`frontends/android/app/src/main/java/org/hunmin/ime/HunminAdapter.kt` holds no `wordbuf`), with the
 > commit unit a user setting. What remains true and is NOT restated here: the
-> layer's contract lives in `docs/FRONTEND-EQUIVALENCE.md` §5 and §8.1, and the
+> layer's contract lives in `docs/DESIGN-FRONTEND.md` Part A §5 and §8.1, and the
 > measured reason the three buffers were one buffer is the comment at
 > `buffered_preedit.c:6-25`. This page stays as the dated record of the design
 > that preceded it — do not read its `[wordbuf]` prose as the current shape.

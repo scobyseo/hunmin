@@ -74,7 +74,7 @@ one character at a time).
   replaced by the chosen text, and the normal boundary path inserts it
   exactly once. The Hangul is never typed into the document, so there is
   nothing to delete and no surrounding-text surgery anywhere — the same
-  invariant I9 the fcitx5 frontend holds (FRONTEND-CONTRACT.md §5).
+  invariant I9 the fcitx5 frontend holds (DESIGN-FRONTEND.md Part B §5).
 - **Boundaries close the window.** A mode toggle (or a settings-Apply
   rebuild, issue #71) is a composition boundary: the candidate list belongs
   to the composition being flushed, so it closes with it and the buffered

@@ -6,7 +6,7 @@ frontend that cannot satisfy one must say so in its own SPEC with the reason
 Frontend-specific requirements live in `SPEC-TSF.md`, `SPEC-RELEASE.md` and the
 per-platform SPECs; they cite these ids instead of restating them.
 
-`docs/FRONTEND-EQUIVALENCE.md` is the design document: it explains *why* these
+`docs/DESIGN-FRONTEND.md` is the design document: it explains *why* these
 hold and records which differences are permitted. It does not restate them.
 
 # Requirements

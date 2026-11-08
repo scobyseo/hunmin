@@ -815,7 +815,7 @@ and the price of turning it off mid-word.)
   whichever commit policy a frontend is set to, not "the suite is still green".
 - **What it constrains is delivery: the text handed to the client, and the
   consumed/declined decision for each key.** How a frontend draws that text is
-  an allowed difference (`docs/FRONTEND-EQUIVALENCE.md` §3) and is not covered
+  an allowed difference (`docs/DESIGN-FRONTEND.md` Part A §3) and is not covered
   by this item.
 - **It covers the Latin layouts too**, by the same equality: the corpus carries
   `dvorak`, `colemak` and `romaja`, and what they deliver is compared the same

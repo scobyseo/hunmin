@@ -93,7 +93,7 @@ the switch ON and OFF, and the caret, the undo unit and the selection compared a
 numbers instead of described.
 
 `Autoswitch` ON means English-mode keys go **through the engine** instead of
-being passed to the host (`docs/FRONTEND-EQUIVALENCE.md` §2.2), so the delivery
+being passed to the host (`docs/DESIGN-FRONTEND.md` Part A §2.2), so the delivery
 is no longer the host's insertion. That is the surface measured here; the text is
 the same, the delivery is not.
 
