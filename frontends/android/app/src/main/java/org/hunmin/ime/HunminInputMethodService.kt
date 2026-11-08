@@ -15,7 +15,7 @@
  * key events to an IME through the IME's window token, and whether that routing
  * happens at all depends on the window being present: this is the single most
  * important thing to verify on a device, and it is verified rather than assumed
- * (see tools/android-e2e.sh and docs/FRONTEND-CONTRACT.md §3, B1).
+ * (see tools/android-e2e.sh and docs/DESIGN-FRONTEND.md Part B §3, B1).
  */
 package org.hunmin.ime
 
@@ -38,7 +38,7 @@ internal const val HUNMIN_LANGUAGE_HANGUL = 0
 internal const val HUNMIN_LANGUAGE_LATIN = 1
 
 /**
- * Whether R8's judgement asks for a mode change.
+ * Whether ReqMode8's judgement asks for a mode change.
  *
  * The engine answers the language the finished word was in (`take_judgement`,
  * consuming, -1 when it judged nothing); the frontend's job is to adopt it.
@@ -134,7 +134,7 @@ class HunminInputMethodService : InputMethodService() {
 
         /**
          * The platform's persistence for a value the ENGINE owns
-         * (docs/SPEC-MODES.md §R13-정정): the layer is rebuilt per editor and its
+         * (docs/SPEC-MODES.md §ReqMode13): the layer is rebuilt per editor and its
          * ic starts OFF, so this is what carries the choice to the next one.
          * Only the read-back is written here, never the request.
          */
@@ -377,7 +377,7 @@ class HunminInputMethodService : InputMethodService() {
         latinEngine?.registerSpecialHost(specialHost)
         /* Both layers are new, so the engine's option is at its default (OFF,
          * B3) whatever the person chose before. The preference is the platform's
-         * persistence for a value the ENGINE owns (R13-정정), and a refusal --
+         * persistence for a value the ENGINE owns (ReqMode13), and a refusal --
          * the data gate -- is stored as the engine's answer rather than as the
          * request. */
         restoreAutoswitch()
@@ -514,7 +514,7 @@ class HunminInputMethodService : InputMethodService() {
          * secure-editor guard below would return the key anyway -- handled here
          * first so the branch reads as one policy rather than two.
          *
-         * BOTH modes, not just Hangul: the space is the word boundary, and R8's
+         * BOTH modes, not just Hangul: the space is the word boundary, and ReqMode8's
          * judgement only happens at a boundary. Gating this on `isHangulMode`
          * meant a word typed in English mode never reached the layer's boundary
          * at all, so `jgz` stayed `jgz` instead of being judged 음 and switching
@@ -612,7 +612,7 @@ class HunminInputMethodService : InputMethodService() {
             latinEngine = null
             false
         }
-        /* R8's automatic switch (ruled 2026-11-01, issue #164): the engine judged
+        /* ReqMode8's automatic switch (ruled 2026-11-01, issue #164): the engine judged
          * the finished word and has already delivered it in the judged language,
          * so what is left is the MODE half -- and here the mode is which adapter
          * receives the next key, which only this service knows. Taken on every
@@ -630,7 +630,7 @@ class HunminInputMethodService : InputMethodService() {
     }
 
     /**
-     * Take the engine's judgement and adopt it as the mode (R8).
+     * Take the engine's judgement and adopt it as the mode (ReqMode8).
      *
      * The answer is a MODE, not a direction: the engine says which language the
      * finished word was in, and the frontend adopts it. Called from BOTH places a
@@ -731,7 +731,7 @@ class HunminInputMethodService : InputMethodService() {
 
     /** Toggle the engine's automatic Hangul/English switch on/off. */
     private fun toggleAutoHangulEnglish() {
-        /* R13-정정: the state is ONE value the engine owns. This binding reads
+        /* ReqMode13: the state is ONE value the engine owns. This binding reads
          * it, asks for the inverse, and then reports what the engine ANSWERED --
          * ON is refused when the modes data is absent (B3's gate, issue #169),
          * so echoing the request would show a state the judgement cannot use. */
@@ -762,7 +762,7 @@ class HunminInputMethodService : InputMethodService() {
      *
      * Two things this is not allowed to be. It is not a per-frontend copy of the
      * value: what it stores is the read-back, so a gate refusal is stored as
-     * OFF rather than as the request (R13-정정, issue #169). And it is not
+     * OFF rather than as the request (ReqMode13, issue #169). And it is not
      * editor-scoped: the layer is rebuilt per editor and its ic starts OFF, so
      * the platform's prefs are what carry the preference to the next editor,
      * re-applied in [onStartInput].
@@ -860,7 +860,7 @@ class HunminInputMethodService : InputMethodService() {
      * A broadcast is the only channel that reaches an IME from outside: its
      * service is bound by the platform and cannot be started with `am start`,
      * and it receives neither activity results nor permission results
-     * (FRONTEND-CONTRACT.md B5), so there is no callback path. Guarded on the
+     * (DESIGN-FRONTEND.md Part B B5), so there is no callback path. Guarded on the
      * app being debuggable, because a released IME must not accept a broadcast
      * that turns on file writing.
      *
@@ -1058,7 +1058,7 @@ class HunminInputMethodService : InputMethodService() {
      *
      * This is not decoration. A hardware-key IME still needs an input view,
      * because key events reach an IME through the IME window and a service that
-     * shows no view has nowhere for them to arrive (FRONTEND-CONTRACT.md B1) --
+     * shows no view has nowhere for them to arrive (DESIGN-FRONTEND.md Part B B1) --
      * verified on the emulator, where one `input keyevent KEYCODE_K` alone puts
      * ㄱ in the field. The picker now occupies that view; a soft keyboard would
      * replace its body, not its existence.
@@ -1194,7 +1194,7 @@ class HunminInputMethodService : InputMethodService() {
             // need a field change to appear.
             picker?.applyStyle(style)
         }
-        /* R13-정정's surface B: the settings window reads the value and the key
+        /* ReqMode13's surface B: the settings window reads the value and the key
          * from the engine, and writes through the same option the chord writes.
          * Every accessor answers null when no layer is live, which the window
          * renders as "not running" rather than as OFF. */

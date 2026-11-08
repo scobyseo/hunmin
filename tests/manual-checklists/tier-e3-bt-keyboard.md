@@ -112,7 +112,7 @@ inert and only proves nothing crashes. ☐
 **On device (this tier):** Tap the mic on the IME strip, speak a Korean sentence,
 confirm it lands **verbatim** and is not re-composed. If RECORD_AUDIO has not
 been granted the IME says so and keeps typing — that is the correct outcome,
-not a failure. An IME has no permission-request hook (FRONTEND-CONTRACT B5),
+not a failure. An IME has no permission-request hook (DESIGN-FRONTEND.md Part B B5),
 so the grant happens in system settings. ☐
 
 **On emulator (tier E2):** `tools/android-e2e.sh` taps the mic button in both
@@ -159,5 +159,5 @@ unreproducible.
 - Whether a *specific* OEM build behaves like the ones tested here. One signed
   off is a sample, not a guarantee, and the tier says so rather than implying
   coverage it does not have.
-- Voice recognition quality. Recognition is an external service (FRONTEND-CONTRACT
+- Voice recognition quality. Recognition is an external service (DESIGN-FRONTEND.md Part B
   B6); step 4 checks the *path*, not the speech.

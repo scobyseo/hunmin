@@ -16,7 +16,7 @@ WHY THIS FILE, GIVEN THE REPO ALREADY HAS tools/frontend-mutations.py:
 
   That file plants mutations in the fcitx5 adapter and checks D1/D2 catch
   them. It exists because "the suite is green" proved nothing there: five
-  mutations in the F9 path all survived a green run (docs/FRONTEND-CONTRACT.md
+  mutations in the F9 path all survived a green run (docs/DESIGN-FRONTEND.md Part B
   section 3). The same reasoning applies with more force to a brand-new suite,
   so this plants the mutations that MATTER for this adapter and asserts each
   one is caught.
@@ -61,8 +61,10 @@ import sys
 import tempfile
 from types import ModuleType
 
-REPO = pathlib.Path(__file__).resolve().parents[1]
-
+try:
+    from _common import ROOT as REPO
+except ImportError:
+    REPO = pathlib.Path(__file__).resolve().parents[1]
 KOTLIN = pathlib.Path("frontends/android/app/src/main/java/org/hunmin/ime")
 ENGINE = "HunminAdapter.kt"
 KEYS = "HunminKeyRegistry.kt"
@@ -124,7 +126,7 @@ MUTATIONS: list[tuple[str, str, str, bool]] = [
 
 # NOT a mutation: swapping flush for commit on the declined path. It was
 # planted, measured, and survives -- see the note in HunminAdapterTest and
-# FRONTEND-CONTRACT section 4. Unlike the entry above this one is NOT planted,
+# DESIGN-FRONTEND.md Part B section 4. Unlike the entry above this one is NOT planted,
 # so nothing here fails if the two branches later stop differing.
 
 

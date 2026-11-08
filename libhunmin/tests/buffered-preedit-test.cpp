@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * buffered-preedit-test.cpp - tier A for the shared buffered/syllable layer (issue #128,
- * docs/FRONTEND-EQUIVALENCE.md §5).
+ * docs/DESIGN-FRONTEND.md Part A §5).
  *
  * The layer's whole job is that the commit MODE cannot change the result, so
  * the assertions are equalities between two runs of the same key sequence, not
@@ -31,30 +31,13 @@
 #include <string>
 #include <vector>
 
-#include "test-env.h"
-
-extern "C" {
-#include "hunmin.h"
-}
+#include "libhunmin-test.h"
 
 namespace {
 
 const char *kDataPath = nullptr;
 
-std::string env_or(const char *name, const char *fallback) {
-    char *buf = hunmin_test_getenv_dup(name);
-    std::string out = fallback;
-    if (buf) {
-        if (*buf) out = buf;
-        free(buf);
-    }
-    return out;
-}
-
-hunmin_ctx *make_ctx() {
-    const char *dirs[1] = {kDataPath};
-    return hunmin_ctx_new(dirs, 1);
-}
+hunmin_ctx *make_ctx() { return hunmin_test::make_ctx(kDataPath); }
 
 /* One event of a test sequence. base is the unshifted US-QWERTY character;
  * shift is the explicit modifier bit (hunmin_ic_process_key's contract). */
@@ -134,16 +117,14 @@ std::string drive_engine(hunmin_ctx *ctx, const std::string &sequence, const cha
     return total;
 }
 
-class LayerTest : public ::testing::Test {
+class LayerTest : public hunmin_test::CtxTest {
   protected:
+    /* This binary's main() resolves the data path once (kDataPath), so the
+     * fixture takes it from there rather than re-reading the environment. */
     void SetUp() override {
         ctx_ = make_ctx();
         ASSERT_NE(ctx_, nullptr);
     }
-    void TearDown() override {
-        if (ctx_) hunmin_ctx_free(ctx_);
-    }
-    hunmin_ctx *ctx_ = nullptr;
 };
 
 /* The sequences below are chosen for the shapes that used to differ between the
@@ -284,7 +265,7 @@ TEST_F(LayerTest, RejectsUnknownLayoutAndBadMode) {
     EXPECT_EQ(hunmin_buffered_preedit_new(ctx_, nullptr, nullptr, HUNMIN_COMMIT_AT_BOUNDARY), nullptr);
 }
 
-/* R4-정정 (docs/SPEC-MODES.md, ruled 2026-11-01): the layer's word is capped at
+/* ReqMode4 (docs/SPEC-MODES.md, ruled 2026-11-01): the layer's word is capped at
  * 256 bytes of UTF-8 by default, and a word that would outgrow it commits its
  * first half so that the preedit a frontend re-renders on every key stays bounded.
  * 256 B is 85 syllables of `안` (three bytes each), so 200 syllables crosses it.
@@ -459,9 +440,9 @@ TEST_F(LayerTest, EachFlushedHalfIsTheNextPrefixAndTheRemainderFlushesCleanly) {
     hunmin_buffered_preedit_free(l);
 }
 
-/* ------------------------------------------------------- digit runs (R6)
+/* ------------------------------------------------------- digit runs (ReqMode6)
  *
- * docs/SPEC-MODES.md §R6: in the ON state the composition buffer holds digit
+ * docs/SPEC-MODES.md §ReqMode6: in the ON state the composition buffer holds digit
  * runs too, because in sebeolsik the digit keys are not digits. Two shapes are
  * pinned here, measured 2026-11-01 (issue #171) before either case was written:
  *
@@ -470,7 +451,7 @@ TEST_F(LayerTest, EachFlushedHalfIsTheNextPrefixAndTheRemainderFlushesCleanly) {
  *                  holds it: preedit `1`, `12`, `123`; the boundary delivers
  *                  the run whole. Without the layer's word buffer the digit run
  *                  would be in the client before the second digit was typed,
- *                  which is the break R6 names.
+ *                  which is the break ReqMode6 names.
  *   sebeolsik-final the digit keys are jamo (`1`=ᇂ, `2`=ᆻ, …), so the run
  *                  composes as Hangul and the engine commits a syllable per key
  *                  exactly as it does for letters.
@@ -483,7 +464,7 @@ TEST_F(LayerTest, EachFlushedHalfIsTheNextPrefixAndTheRemainderFlushesCleanly) {
  *                  so the layer holds it for the same reason.
  *
  * What these do NOT pin: no digit escapes early because of being a digit. The
- * one early delivery there is, R4-정정's word cap, is counted in BYTES and is
+ * one early delivery there is, ReqMode4's word cap, is counted in BYTES and is
  * therefore reached by a digit run at 256 keys rather than 85 syllables — the
  * last case pins that it is the same rule, not a second one.
  */
@@ -541,9 +522,9 @@ TEST_F(LayerTest, DigitRunsAgreeWithTheEngineInBothCommitModes) {
 }
 
 TEST_F(LayerTest, TheCapCountsDigitRunsInBytesLikeSyllables) {
-    /* The cap is R4-정정's, in bytes: 4 B is four digits but one syllable, so a
+    /* The cap is ReqMode4's, in bytes: 4 B is four digits but one syllable, so a
      * run of five digits flushes its first half at the fifth key. Nothing is
-     * delivered before the cap, which is the part R6 cares about. */
+     * delivered before the cap, which is the part ReqMode6 cares about. */
     hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "sin3-p2", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(l, nullptr);
     ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "word_cap", 4));
@@ -564,7 +545,7 @@ TEST_F(LayerTest, TheCapCountsDigitRunsInBytesLikeSyllables) {
     hunmin_buffered_preedit_free(l);
 }
 
-/* R15 (docs/SPEC-MODES.md §R15): the remedy for a word the switch took is the
+/* ReqMode15 (docs/SPEC-MODES.md §ReqMode15): the remedy for a word the switch took is the
  * switch itself, so turning it off may not cost anything -- not the word, and
  * not a byte. `hello` is a word the judgement reads as English, which is the
  * loss the requirement is about; the run that stays on is the control, and
@@ -634,7 +615,7 @@ TEST_F(LayerTest, TurningTheSwitchOffMidWordLosesNothing) {
 }
 
 TEST_F(LayerTest, TheSymbolEndsTheWordSoTheJudgementRunsBeforeIt) {
-    /* R4: "A symbol is also a termination condition." A `.` is a mapped key, so
+    /* ReqMode4: "A symbol is also a termination condition." A `.` is a mapped key, so
      * the engine CONSUMES it -- unlike the space, which it declines. The word
      * therefore has to end here, in the layer, or the buffer swallows the symbol
      * and the judgement sees `jgz.` (a word in neither language) instead of
@@ -682,7 +663,7 @@ TEST_F(LayerTest, ASymbolEndsTheWordInHangulModeToo) {
 }
 
 TEST_F(LayerTest, ASymbolDoesNotSplitTheDigitRun) {
-    /* R6 and R4 together: the trailing `.` ends the buffer, and a digit run is
+    /* ReqMode6 and ReqMode4 together: the trailing `.` ends the buffer, and a digit run is
      * still not a word in either language, so nothing is judged and nothing
      * changes language -- the run leaves in one commit with its symbol. */
     hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "sin3-p2", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
@@ -700,11 +681,40 @@ TEST_F(LayerTest, ASymbolDoesNotSplitTheDigitRun) {
     hunmin_buffered_preedit_free(l);
 }
 
+TEST_F(LayerTest, TakeJudgementIsConsumingAfterBoundaryDelivery) {
+    /* P5/D1 characterization (#272): boundary processing produces the delivered
+     * commit for that key; take_judgement is read after and is consuming
+     * (read-once). Frontends must copy/use commit before any further layer call
+     * that depends on state, and must not act on a stale judgement. */
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "sin3-p2", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(l));
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 1));
+    hunmin_key_result sw{};
+    ASSERT_EQ(1, hunmin_buffered_preedit_toggle_language(l, &sw)); /* Latin */
+
+    for (const char *k = "jgz"; *k; ++k) {
+        hunmin_key_result out{};
+        EXPECT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)*k, 0, &out));
+        EXPECT_EQ(hunmin_buffered_preedit_take_judgement(l), -1);
+    }
+    hunmin_key_result boundary{};
+    ASSERT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)'.', 0, &boundary));
+    // Delivered text for this boundary key is in boundary.commit.
+    EXPECT_STREQ("음.", boundary.commit ? boundary.commit : "");
+    // Judgement is answered after boundary processing and consumed on read.
+    EXPECT_EQ(HUNMIN_LANGUAGE_HANGUL, hunmin_buffered_preedit_take_judgement(l));
+    EXPECT_EQ(-1, hunmin_buffered_preedit_take_judgement(l)) << "take_judgement is consuming/read-once";
+    // Later boundary with no switch leaves no stale judgement.
+    EXPECT_EQ(-1, hunmin_buffered_preedit_take_judgement(l));
+    hunmin_buffered_preedit_free(l);
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    const std::string path = env_or("HUNMIN_DATA_PATH", "libhunmin/data");
+    const std::string path = hunmin_test::env_or("HUNMIN_DATA_PATH", "libhunmin/data");
     kDataPath = path.c_str();
     return RUN_ALL_TESTS();
 }

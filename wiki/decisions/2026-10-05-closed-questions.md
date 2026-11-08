@@ -28,7 +28,7 @@ removing or correcting it.
 **Maintainer, 2026-10-05: "1.2는 지금 문서가 맞아. drop 해."**
 — *the document is right as it stands; drop it.*
 
-**So: no change, and the reasoning matters.** R2 puts English mode *inside*
+**So: no change, and the reasoning matters.** ReqMode2 puts English mode *inside*
 hunmin as a mode over a Latin layout. The conf file's comment says romaja — a
 transliteration layout that outputs Hangul — is the English input mode. Those
 read as contradictory, and the audit was right that they do.
@@ -37,8 +37,8 @@ The resolution is that **the conf describes a second configuration surface, not 
 second definition of "English mode".** Its own first paragraph says so: two
 registrations for one addon is how fcitx5 offers two configurations in the IM
 list, and the per-item `Layout=` in the profile selects between them. That is a
-packaging statement. It does not claim romaja *is* English mode in R2's sense, and
-R2's "no separate `us` registration" is not violated by a second configuration of
+packaging statement. It does not claim romaja *is* English mode in ReqMode2's sense, and
+ReqMode2's "no separate `us` registration" is not violated by a second configuration of
 the same addon.
 
 **The trap for the next session:** an audit that reads only the one-line comment

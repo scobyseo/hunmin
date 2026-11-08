@@ -1,4 +1,4 @@
-{"meta": {"source": "designed", "spec": "the layout's own key arrangement; R6 for the number row (docs/SPEC-MODES.md)", "layout": "sebeolsik-final", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "note": "expected commit/preedit per key are the engine's answers, never typed; a diff here is a change to the layout or the composer and must be reviewed"}}
+{"meta": {"source": "designed", "spec": "the layout's own key arrangement; ReqMode6 for the number row (docs/SPEC-MODES.md)", "layout": "sebeolsik-final", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "note": "expected commit/preedit per key are the engine's answers, never typed; a diff here is a change to the layout or the composer and must be reviewed"}}
 {"meta": {"case": "case-sebeolsik-final-merged"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "아"}

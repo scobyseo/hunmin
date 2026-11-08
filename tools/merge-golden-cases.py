@@ -34,11 +34,14 @@ reviewed by a human rather than trusted.
 import argparse
 import json
 import pathlib
+try:
+    from _common import ROOT
+except ImportError:
+    ROOT = pathlib.Path(__file__).resolve().parents[1]
 import subprocess
 import sys
 import tempfile
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
 OPTION_KEYS = frozenset({"caps", "w", "W", "z", "h", "H", "mode"})
 SPACE = {"ch": " "}
 

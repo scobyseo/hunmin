@@ -37,9 +37,13 @@ import subprocess
 import sys
 import unicodedata
 
-REPO = pathlib.Path(__file__).resolve().parent.parent
-SIM = REPO / "build" / "hunmin-sim"
-DATA = REPO / "libhunmin" / "data"
+try:
+    from _common import ROOT as REPO, DEFAULT_DATA as DATA, DEFAULT_SIM as _DEFAULT_SIM
+except ImportError:
+    REPO = pathlib.Path(__file__).resolve().parent.parent
+    DATA = REPO / "libhunmin" / "data"
+    _DEFAULT_SIM = REPO / "build" / "hunmin-sim"
+SIM = _DEFAULT_SIM
 
 # The sim binary `batch()` drives. Defaults to the in-tree build; a caller
 # that builds elsewhere (build-wsl, debian's obj dir) sets it explicitly.

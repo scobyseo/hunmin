@@ -16,7 +16,7 @@
  * registration shape -- not the framework -- is what the 30 s inner-loop
  * budget is sensitive to (docs/TEST-FRAMEWORK-OPTIONS.md §2).
  */
-#include "hunmin.h"
+#include "libhunmin-test.h"
 
 #include <gtest/gtest.h>
 
@@ -43,17 +43,7 @@ int first_hanja_index(hunmin_ctx *ctx, int n) {
     return -1;
 }
 
-class SuggestTest : public ::testing::Test {
-  protected:
-    void SetUp() override {
-        const char *dirs[] = {"libhunmin/data"};
-        ctx_ = hunmin_ctx_new(dirs, 1);
-        ASSERT_NE(ctx_, nullptr);
-    }
-    void TearDown() override { hunmin_ctx_free(ctx_); }
-
-    hunmin_ctx *ctx_ = nullptr;
-};
+class SuggestTest : public hunmin_test::CtxTest {};
 
 /* --- a single syllable: word senses first (they carry a meaning), then the
  * syllable's Hanja candidates in upstream frequency order --- */

@@ -1,4 +1,4 @@
-# Android integration (tier-E). Rationale: docs/BUILD-SYSTEM.md.
+# Android integration (tier-E). Rationale: docs/DESIGN-BUILD.md.
 if(NOT BUILD_TESTING OR NOT Python3_FOUND)
   return()
 endif()
@@ -6,7 +6,7 @@ if(WIN32)
   find_program(HUNMIN_BASH_EXECUTABLE NAMES bash HINTS "$ENV{ProgramFiles}/Git/bin" "$ENV{ProgramFiles}/Git/usr/bin")
 endif()
 find_program(JAVA_EXECUTABLE java HINTS $ENV{JAVA_HOME}/bin)
-# Sandbox strategy is named so CI is deterministic; in-tree is the caller's to honour (docs/BUILD-SYSTEM.md#android-sandbox-mutations).
+# Sandbox strategy is named so CI is deterministic; in-tree is the caller's to honour (docs/DESIGN-BUILD.md#android-sandbox-mutations).
 if(JAVA_EXECUTABLE AND DEFINED ENV{ANDROID_HOME})
   hunmin_android_shell_command(HUNMIN_ANDROID_E1_COMMAND engine-android-e1 ${CMAKE_CURRENT_SOURCE_DIR}/tools/android-unit.sh)
   hunmin_add_test(NAME engine-android-e1 COMMAND ${HUNMIN_ANDROID_E1_COMMAND} LABELS tier-E1 slow SKIP_RETURN_CODE 77 TIMEOUT 900 RUN_SERIAL TRUE)

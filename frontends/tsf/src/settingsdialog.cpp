@@ -15,7 +15,7 @@
  *     hunmin_ctx_layout_supported;
  *   - the mode-toggle key list row, editing the HangulEngKeys
  *     "v1:<vk>:<mods>;..." grammar (keybinding.h);
- *   - the automatic Han/Eng switch (issue #175, R13-정정 surface B): a checkbox
+ *   - the automatic Han/Eng switch (issue #175, ReqMode13 surface B): a checkbox
  *     whose label, key name and enablement all come from the ENGINE
  *     (hunmin_tsf_autoswitch_row), so the dialog spells neither the value nor
  *     the key, and says why it is disabled when the dictionary is absent.
@@ -212,7 +212,7 @@ static std::vector<WORD> buildDialogTemplate() {
      * document. Same text either way, so this is a preference, not a mode. */
     addItem(t, WS_CHILD | WS_VISIBLE, 0, 10, 116, 140, 10, 0, ATOM_STATIC, TITLE_COMMIT);
     addItem(t, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | CBS_DROPDOWNLIST, 0, 10, 126, 86, 56, IDC_COMMIT_LIST, ATOM_COMBOBOX, L"");
-    /* The automatic-switch row (issue #175, R13-정정 surface B): a CHECKBOX that
+    /* The automatic-switch row (issue #175, ReqMode13 surface B): a CHECKBOX that
      * reads and writes the engine's one state. The label, the key it advertises
      * and whether the control is usable all come from
      * hunmin_tsf_autoswitch_row(), so the dialog never spells "Ctrl+한/영" and
@@ -554,7 +554,7 @@ static INT_PTR CALLBACK settingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
          * the key it honours), the engine's value, and -- when B3's data gate
          * says the dictionary is not installed -- a DISABLED control whose label
          * says why. "off by choice" and "off, data missing" must be tellable
-         * apart (R13-정정). */
+         * apart (ReqMode13). */
         {
             HWND box = GetDlgItem(h, IDC_FEATURE_ROW);
             SetWindowTextW(box, utf8ToWide(s->featureRow.label).c_str());

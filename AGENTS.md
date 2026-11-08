@@ -142,7 +142,7 @@ no bare count belongs in prose. `docs-lint` checks that it has not crept back in
 
 Turning text into keystrokes is solved in this tree, and hand-rolled versions of
 it are the recorded failure mode — six harnesses that returned confident zeros
-(`docs/MODES-METRICS.md` §3), one of them a hand-derived jamo map.
+(`docs/MODES-MEASUREMENT.md` §3), one of them a hand-derived jamo map.
 
 - **`tools/jamo-keytable.py`** — jamo → key for a 세벌식 layout, probed per slot:
   초성 and 종성 sit on different physical keys, 겹받침 is two jong keys, and the
@@ -243,7 +243,7 @@ Two rules follow from this and they are not optional:
 
 `wiki/` is **not** a second copy of `docs/`.
 
-- **`docs/` stays authoritative.** A figure that lives in `docs/MODES-DATA.md` is
+- **`docs/` stays authoritative.** A figure that lives in `docs/MODES-MEASUREMENT.md` is
   cited from there with a provenance marker. Never write the same number in two
   places — a second home is how they drift apart.
 - **`wiki/` holds how we got there and what we decided**: session records,

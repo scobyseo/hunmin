@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * wordset-test.cpp - tier A for the english word set (SPEC-MODES R8-정정,
+ * wordset-test.cpp - tier A for the english word set (SPEC-MODES ReqMode8,
  * ruling 2026-11-01: hunspell en_US base + a user dictionary).
  *
  * The three states are the point, because B3 ships this data separately:
@@ -12,7 +12,7 @@
  *            NOT a failure: the feature is off until its data is installed.
  *   loaded   the shipped list answers for a word an English dictionary has
  *            (`running`, `computer`) and still answers 0 for the Korean-typed
- *            latin strings MODES-DATA 4-7d names (`kbs`, `fifa`) -- that gap is
+ *            latin strings MODES-MEASUREMENT.md §6 names (`kbs`, `fifa`) -- that gap is
  *            the measured cost of the ruling, asserted here so it cannot be
  *            quietly filled in and forgotten.
  *   user     a user word (`kbs`) is found exactly where a base word is, from a
@@ -33,32 +33,13 @@
 #include <system_error>
 #include <vector>
 
-#include "test-env.h"
-
-extern "C" {
-#include "hunmin.h"
-}
+#include "libhunmin-test.h"
 
 namespace {
 
 const char *kDataPath = nullptr;
 
-std::string scratch_dir() {
-    char *buf = hunmin_test_getenv_dup("TEMP");
-    std::string out;
-    if (buf) {
-        if (*buf) out = buf;
-        free(buf);
-    }
-    if (out.empty()) {
-        buf = hunmin_test_getenv_dup("TMPDIR");
-        if (buf) {
-            if (*buf) out = buf;
-            free(buf);
-        }
-    }
-    return out.empty() ? std::string(".") : out;
-}
+std::string scratch_dir() { return hunmin_test::scratch_dir(); }
 
 /* A scratch file the test owns and removes: a user dictionary, or a malformed
  * one. Kept out of the source tree so a failing run leaves nothing behind. */
@@ -77,8 +58,10 @@ class ScratchFile {
     std::string path_;
 };
 
-class WordSetTest : public ::testing::Test {
+class WordSetTest : public hunmin_test::CtxTest {
   protected:
+    /* kDataPath is this binary's main() resolution; the base fixture would read
+     * HUNMIN_DATA_PATH again, and the two must not be able to disagree. */
     void SetUp() override {
         const char *dirs[1] = {kDataPath};
         ctx_ = hunmin_ctx_new(dirs, 1);
@@ -88,12 +71,11 @@ class WordSetTest : public ::testing::Test {
     }
     void TearDown() override {
         if (layer_) hunmin_buffered_preedit_free(layer_);
-        if (ctx_) hunmin_ctx_free(ctx_);
+        hunmin_test::CtxTest::TearDown();
     }
 
     std::string shipped_list() const { return std::string(kDataPath) + "/modes/en-US.json"; }
 
-    hunmin_ctx *ctx_ = nullptr;
     hunmin_buffered_preedit *layer_ = nullptr;
 };
 
@@ -124,7 +106,7 @@ TEST_F(WordSetTest, ShippedListAnswersForEnglishAndNotForTheKoreanTypedGap) {
     /* Case folds: the artefact is lowercased, the buffer is not. */
     EXPECT_EQ(1, hunmin_buffered_preedit_english_valid(layer_, "Computer"));
 
-    /* The measured gap the ruling accepted (MODES-DATA 4-7d): these are in no
+    /* The measured gap the ruling accepted (MODES-MEASUREMENT.md §6): these are in no
      * English dictionary, and the user dictionary is the ruled answer. */
     const char *gap[] = {"kbs", "mbc", "fifa", "uefa", "nhk", "xyzzyy"};
     for (const char *w : gap) EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(layer_, w)) << w;
@@ -312,10 +294,10 @@ TEST_F(WordSetTest, CaseAndHyphenPolicyIsTheSchemasNotTheLoadersMood) {
 
 /* ------------------------------------------------ the Latin reading (#167)
  *
- * R8's english_valid reads "the word the buffer would have produced under the
+ * ReqMode8's english_valid reads "the word the buffer would have produced under the
  * Latin layout". A Hangul layout cannot produce Latin, so the reading is the
  * same keys replayed through the Latin half of the frontend's layout pair --
- * SPEC-MODES R2's shadow mechanism, which lived in the fcitx5 adapter alone
+ * SPEC-MODES ReqMode2's shadow mechanism, which lived in the fcitx5 adapter alone
  * until this moved into the shared layer (issue #164 asks who owns the
  * JUDGEMENT; the reading is what it reads).
  *
@@ -344,7 +326,7 @@ TEST_F(WordSetTest, TheLatinReadingIsTheSameKeysOnTheLatinLayout) {
     EXPECT_STREQ("", hunmin_buffered_preedit_latin_text(pair));
 
     type_keys(pair, "hello");
-    /* A word in flight has no reading: R8 judges at the boundary, once. */
+    /* A word in flight has no reading: ReqMode8 judges at the boundary, once. */
     EXPECT_STREQ("", hunmin_buffered_preedit_latin_text(pair));
 
     hunmin_buffered_preedit_process_key(pair, ' ', 0, nullptr); /* the boundary */
@@ -423,7 +405,7 @@ TEST_F(WordSetTest, TheReadingBelongsToTheFinishedWordOnly) {
     }
 }
 
-/* ---------------------------------- R8's judgement at the boundary (#164)
+/* ---------------------------------- ReqMode8's judgement at the boundary (#164)
  *
  * The engine judges and delivers the triggering word in the judged language;
  * the frontend performs the mode switch by reading
@@ -438,11 +420,11 @@ TEST_F(WordSetTest, TheReadingBelongsToTheFinishedWordOnly) {
  * by any rule this file could re-derive -- it is what the engine produces).
  *
  * The pairs are the formula's three lines, on words whose two readings this
- * tree can be asked about (docs/SPEC-MODES.md §R8):
+ * tree can be asked about (docs/SPEC-MODES.md §ReqMode8):
  *
  *   hello   the Latin reading is an English word, the Hangul is not  -> switch
- *   one     same, at exactly R9's three key inputs                   -> switch
- *   on      same two-key word: R9's guard                            -> keep
+ *   one     same, at exactly ReqMode9's three key inputs                   -> switch
+ *   on      same two-key word: ReqMode9's guard                            -> keep
  *   the     both readings valid (`the` is a word, `솓` is a syllable) -> keep
  *   kbs     neither valid                                            -> keep
  *   dkssud  the Hangul only (`안녕`)                                  -> keep
@@ -549,7 +531,7 @@ std::string render_with(hunmin_ctx *ctx, const char *layout, const std::string &
  *
  * `English는 좋은 Language입니다` typed as ONE key stream with `autoswitch` on and
  * the shipped dictionary: every word must come out in the language the person meant,
- * which needs BOTH lines of R8's formula — Hangul to English for `English` and
+ * which needs BOTH lines of ReqMode8's formula — Hangul to English for `English` and
  * `Language`, English to Hangul for `는`, `좋은` and `입니다` (E1).
  *
  * The expectation is the engine's own text for each word on the layout that word was
@@ -656,7 +638,7 @@ TEST_F(WordSetTest, TheJudgementTimingChangesTheDisplayAndNeverTheText) {
 }
 
 TEST_F(WordSetTest, PerKeyTimingFlickersOnAnEnglishWordAndBoundaryTimingDoesNot) {
-    /* The measured shape (docs/OPTIONS-MEASURED.md §BND-4), with R9's three-key
+    /* The shape E6's ruling produces (docs/SPEC-MODES.md §E6), with ReqMode9's three-key
      * guard applied: the first two keys of any word are never judged, so a flip can
      * only start at key 3. `hello` therefore flips once (Hangul, Hangul, Hangul,
      * Latin, Latin); `alphabetically` flips back and forth 11 times. The count is a
@@ -761,7 +743,7 @@ TEST_F(WordSetTest, AutoswitchOffIsTheIdentityPath) {
 
 TEST_F(WordSetTest, TheFormulaSwitchesOnlyWhenTheTwoReadingsDisagree) {
     /* Switch only when exactly one side is valid; otherwise keep the current
-     * mode (R8's third line, which is the common case, not a failure). */
+     * mode (ReqMode8's third line, which is the common case, not a failure). */
     struct Case {
         const char *keys;
         int expected; /* HUNMIN_LANGUAGE_LATIN or -1 */
@@ -796,12 +778,12 @@ TEST_F(WordSetTest, R9sGuardCountsKeyInputs) {
      * threshold. */
     hunmin_buffered_preedit *two = pair_layer(ctx_, 1);
     ASSERT_NE(two, nullptr);
-    EXPECT_EQ(-1, type_and_judge(two, "on ").mode) << "two key inputs are not judged (R9)";
+    EXPECT_EQ(-1, type_and_judge(two, "on ").mode) << "two key inputs are not judged (ReqMode9)";
     hunmin_buffered_preedit_free(two);
 
     hunmin_buffered_preedit *three = pair_layer(ctx_, 1);
     ASSERT_NE(three, nullptr);
-    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, type_and_judge(three, "one ").mode) << "three key inputs are (R9, ruled 2026-11-01)";
+    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, type_and_judge(three, "one ").mode) << "three key inputs are (ReqMode9, ruled 2026-11-01)";
     hunmin_buffered_preedit_free(three);
 }
 
@@ -823,7 +805,7 @@ TEST_F(WordSetTest, TheJudgementIsTakenOnceAndClearedByTheNextBoundary) {
 }
 
 /* Issue #191: the judgement that consumes english_valid, end to end through
- * the layer. `kbs` is the ruled gap word (MODES-DATA 4-7d): not in en_US,
+ * the layer. `kbs` is the ruled gap word (MODES-MEASUREMENT.md §6): not in en_US,
  * so it switches only when it is a user word. */
 TEST_F(WordSetTest, UserWordKbsDrivesTheJudgementEndToEnd) {
     /* (a) with the user word present, `kbs` switches to English. */
@@ -832,7 +814,7 @@ TEST_F(WordSetTest, UserWordKbsDrivesTheJudgementEndToEnd) {
     ASSERT_EQ(1, hunmin_buffered_preedit_add_user_word(with_user, "kbs"));
     const WordRun switched = type_and_judge(with_user, "kbs ");
     EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, switched.mode) << "kbs is a user word, so it must be judged Latin";
-    EXPECT_EQ("kbs", switched.commit) << "the triggering word is delivered in the judged language (R10)";
+    EXPECT_EQ("kbs", switched.commit) << "the triggering word is delivered in the judged language (ReqMode10)";
     hunmin_buffered_preedit_free(with_user);
 
     /* Without the user word, the same keys do not switch: kbs is not in en_US. */
@@ -850,13 +832,13 @@ TEST_F(WordSetTest, UserWordKbsDrivesTheJudgementEndToEnd) {
     EXPECT_EQ(-1, absent.mode) << "absent data means no english_valid (B3)";
     hunmin_buffered_preedit_free(no_dict);
 
-    /* (c) a short buffer under R9's threshold never switches, even when the
+    /* (c) a short buffer under ReqMode9's threshold never switches, even when the
      * word is in the dictionary. */
     hunmin_buffered_preedit *short_word = pair_layer(ctx_, 1);
     ASSERT_NE(short_word, nullptr);
     ASSERT_EQ(1, hunmin_buffered_preedit_add_user_word(short_word, "kb"));
     const WordRun short_run = type_and_judge(short_word, "kb ");
-    EXPECT_EQ(-1, short_run.mode) << "two key inputs are below R9's guard";
+    EXPECT_EQ(-1, short_run.mode) << "two key inputs are below ReqMode9's guard";
     hunmin_buffered_preedit_free(short_word);
 }
 
@@ -879,8 +861,8 @@ TEST_F(WordSetTest, NoDictionaryMeansNoJudgement) {
 TEST_F(WordSetTest, WhatTheJudgementCannotDecideItDeclines) {
     /* Three frontends cannot be judged the same way, so each declines out loud
      * rather than guessing: one language (no second reading), a Hangul slot that
-     * composes no Hangul (R8-정정-3), and per-syllable delivery (the earlier
-     * syllables are already in the client, R10). */
+     * composes no Hangul (ReqMode8), and per-syllable delivery (the earlier
+     * syllables are already in the client, ReqMode10). */
     hunmin_buffered_preedit *one_language = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(one_language, nullptr);
     hunmin_buffered_preedit_load_english_shipped(one_language);

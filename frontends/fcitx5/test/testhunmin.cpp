@@ -45,7 +45,7 @@ void scheduleEvent(Instance *instance) {
         // Per-item Layout is what a real user's profile carries, and it must
         // override the addon-wide default (sin3-p2). Pins it to sin3-p2-yet so
         // the caps option below is actually consumed -- see
-        // docs/FRONTEND-CONTRACT.md A3/§4; hunminadapter.cpp reads it via
+        // docs/DESIGN-FRONTEND.md Part B A3/§4; hunminadapter.cpp reads it via
         // InputMethodGroup::layoutFor().
         defaultGroup.inputMethodList().push_back(InputMethodGroupItem("hunmin").setLayout("sin3-p2-yet"));
         defaultGroup.setDefaultInputMethod("");
@@ -75,7 +75,7 @@ void scheduleEvent(Instance *instance) {
         // (issue #128 / #74), is held as preedit until the word boundary.
         // The text is unchanged; only the point it reaches the client moved,
         // and that is explicitly not part of the contract
-        // (docs/FRONTEND-EQUIVALENCE.md §1). Space is the boundary and passes.
+        // (docs/DESIGN-FRONTEND.md Part A §1). Space is the boundary and passes.
         testfrontend->call<ITestFrontend::pushCommitExpectation>("ㅇµ");
         press(uuid, Key("j"));
         press(uuid, Key("k"));
@@ -84,7 +84,7 @@ void scheduleEvent(Instance *instance) {
 
         // Empty buffer: space and backspace pass through to the client. The engine
         // declines both with nothing composing, and an unaccepted key is not
-        // consumed (FRONTEND-CONTRACT.md 5, rule 3) -- that is how the client
+        // consumed (DESIGN-FRONTEND.md Part B §5 rule 3) -- that is how the client
         // gets them. F9 needs no exception: it is intercepted above, on
         // candidates, before it ever reaches the engine.
         press(uuid, Key("space"), false);
@@ -146,7 +146,7 @@ void scheduleEvent(Instance *instance) {
         press(uuid, Key("k"));
         press(uuid, Key("space"), false);
 
-        // --- the automatic-switch ROW (issue #176, docs/SPEC-MODES.md §R13-정정)
+        // --- the automatic-switch ROW (issue #176, docs/SPEC-MODES.md §ReqMode13)
         //
         // Surface B is visibility + discoverability of ONE engine-owned value, so
         // what is asserted here is the issue's checklist: the row names the key
@@ -156,7 +156,7 @@ void scheduleEvent(Instance *instance) {
         // missing.
         //
         // The block runs on dubeolsik, and that is a measurement rather than a
-        // preference: R8 keeps the mode when BOTH readings are valid, and on
+        // preference: ReqMode8 keeps the mode when BOTH readings are valid, and on
         // sin3-p2 (this test's per-item layout above) `hello` composes 내쭈 -- a
         // valid syllable run -- so no judgement fires. On dubeolsik it composes
         // ㅗ디ㅣㅣㅐ, which is not, and the English reading is `hello`: the vector
@@ -189,7 +189,7 @@ void scheduleEvent(Instance *instance) {
             FCITX_ASSERT(row.find("Ctrl") != std::string::npos) << "row: " << row;
             FCITX_ASSERT(row.find("한/영") != std::string::npos) << "row: " << row;
             // Discoverability is the tooltip's job: the row has to teach that the
-            // same state is reachable by key (R13's own wording).
+            // same state is reachable by key (ReqMode13's own wording).
             FCITX_ASSERT(tip.find("한/영") != std::string::npos) << "tip: " << tip;
             // The word list is installed in this tree, so the row must not call
             // itself unavailable.
@@ -232,8 +232,8 @@ void scheduleEvent(Instance *instance) {
 
         // ...and the value really reached the LAYER, which is the half a config
         // round trip alone cannot show. `hello` is an English word and its Hangul
-        // reading is not a syllable run, so R8 delivers the English reading and
-        // the mode follows it (docs/SPEC-MODES.md §R8/R10, issue #164).
+        // reading is not a syllable run, so ReqMode8 delivers the English reading and
+        // the mode follows it (docs/SPEC-MODES.md §ReqMode8/ReqMode10, issue #164).
         testfrontend->call<ITestFrontend::pushCommitExpectation>("hello");
         press(uuid, Key("h"));
         press(uuid, Key("e"));

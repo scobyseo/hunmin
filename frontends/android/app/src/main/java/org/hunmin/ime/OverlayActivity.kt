@@ -149,7 +149,7 @@ class OverlayActivity : AppCompatActivity() {
             val title: String,
             val badge: String,
             /** False renders the row dimmed and inert: a control that cannot
-             *  take effect is not offered (R13-정정's discoverability rule applies
+             *  take effect is not offered (ReqMode13's discoverability rule applies
              *  to the disabled state too, so [badge] says why). */
             val enabled: Boolean = true,
             val onClick: () -> Unit,
@@ -166,7 +166,7 @@ class OverlayActivity : AppCompatActivity() {
             SettingItem("창 스타일", ImeSettings.toolbarStyle().label) {
                 showStyleSection()
             },
-            /* R13-정정's surface B, and the row issue #174 asks for: the value
+            /* ReqMode13's surface B, and the row issue #174 asks for: the value
              * and the key are the ENGINE's, read at dialog time. Nothing here
              * remembers them -- the chord writes the same option. */
             SettingItem(
@@ -372,7 +372,7 @@ class OverlayActivity : AppCompatActivity() {
      *
      * Every field comes from the ENGINE, read at dialog time: the value from
      * `hunmin_buffered_preedit_get_option`, the key from the engine's chord
-     * table, and the data answer from B3's gate (docs/SPEC-MODES.md §R13-정정,
+     * table, and the data answer from B3's gate (docs/SPEC-MODES.md §ReqMode13,
      * issues #165/#169). Nothing is remembered here, which is what makes the row
      * and the chord one state instead of two that agree until they don't.
      *

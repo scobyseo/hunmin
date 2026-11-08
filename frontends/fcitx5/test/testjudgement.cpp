@@ -5,7 +5,7 @@
  *
  * Tier D1, the CORPUS lane (issue #178).
  *
- * docs/FRONTEND-EQUIVALENCE.md §6.2.1 records the maintainer's ruling: every
+ * docs/DESIGN-FRONTEND.md Part A §6.2.1 records the maintainer's ruling: every
  * frontend is evaluated against the same corpus, and a frontend's own
  * characteristics may differ only where §3 lists them. This lane is the fcitx5
  * half of that: it replays tests/golden/judgement-r8.jsonl -- the same file the
@@ -39,7 +39,7 @@
  *
  * ⚠️ Corrected 2026-11-03 (issue #233): the first cut PRESSED Ctrl+한/영 once for
  * every case whose corpus row said `autoswitch: 1`. That chord is a TOGGLE of the
- * value (SPEC-MODES §R13-정정 surface A; engine-d1's watcher case asserts ON ->
+ * value (SPEC-MODES §ReqMode13 surface A; engine-d1's watcher case asserts ON ->
  * OFF), so one press per case alternated the state instead of setting it:
  * r9-three-keys-are-judged is the sixth case that presses it and got the value
  * OFF, failing with the Hangul reading `ㅏ됴` delivered where the corpus says

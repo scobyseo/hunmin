@@ -67,7 +67,7 @@ is the reported `적어두자.적어두자.` (issue #175 comment, 2026-11-01).
 The rule now: a pending fused copy means the document holds the text, so a
 boundary DROPS the layer's copy instead of inserting it (`InsertBufferedWord`;
 the reset also clears any judgement that would have rewritten text the client
-already holds, R10). Pinned in both deliveries by the same invariant — *the
+already holds, ReqMode10). Pinned in both deliveries by the same invariant — *the
 boundary adds nothing*:
 
 - `TsfConfigTest.HostTerminationThenBoundaryKeepsTheWordOnce` (native; measured
@@ -87,13 +87,13 @@ unchanged — but the boundary rule assumes the fused copy is still there.
 
 ## The automatic switch, measured live (2026-11-02, issue #216)
 
-R8's E1 line is judged in the mock; what the client does with the keys was not.
+ReqMode8's E1 line is judged in the mock; what the client does with the keys was not.
 This section is the live round: one host, one control, the same keystrokes with
 the switch ON and OFF, and the caret, the undo unit and the selection compared as
 numbers instead of described.
 
 `Autoswitch` ON means English-mode keys go **through the engine** instead of
-being passed to the host (`docs/FRONTEND-EQUIVALENCE.md` §2.2), so the delivery
+being passed to the host (`docs/DESIGN-FRONTEND.md` Part A §2.2), so the delivery
 is no longer the host's insertion. That is the surface measured here; the text is
 the same, the delivery is not.
 
@@ -138,7 +138,7 @@ are **consumed** one at a time, but they are delivered into ONE inline
 composition range that the adapter grows per key and closes once at the boundary.
 Not one edit per character.
 
-### The sentence (R8's release gate, live)
+### The sentence (ReqMode8's release gate, live)
 
 Keys `English sms whgdms Language dlqslek `, typed from Hangul mode with no
 manual toggle, on `dubeolsik` — the keystrokes of
@@ -235,7 +235,8 @@ in here:
   text. No TSF code change follows from this attribution: the ruled options
   are the timing default itself (`judge_timing`, E6) and the E1 per-key
   rule, and changing either is a ruling, not a fix — the priced Hangul
-  direction of the same flicker is §BND-4, and its Latin direction is the
+  direction of the same flicker was priced in the withdrawn boundary paper
+  (`tools/modes-boundary-probe.py` re-derives it), and its Latin direction is the
   unpriced half this round measured. What would change the recommendation
   is a human typing measurement of the Latin direction, which this round
   did not take (see below).

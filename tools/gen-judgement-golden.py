@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 hunmin contributors
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Generate tests/golden/judgement-r8.jsonl (SPEC-MODES R8, issue #178).
+"""Generate tests/golden/judgement-r8.jsonl (SPEC-MODES ReqMode8, issue #178).
 
 The hand-authored half of a case is the INPUT a person replays: which layout,
 which mode to start in, whether the automatic switch is on, and the keys. The
@@ -18,15 +18,15 @@ the committed file is the reviewed record of both.
 the committed file differs, so an engine change that moves a judgement shows up
 as a diff to review instead of quietly rewriting the corpus.
 
-Every case here is a line of SPEC-MODES R8's formula or a guard around it:
+Every case here is a line of SPEC-MODES ReqMode8's formula or a guard around it:
 
     english_valid AND NOT hangul_valid   -> switch to English   (line 1)
     hangul_valid AND NOT english_valid   -> switch to Hangul    (line 2, E1)
     otherwise                            -> keep the current mode
 
-plus R9's three-key guard (both sides of it), R6's digit run (which is why the
-delivery TIMING is asserted as well as the text), R4's "judged once, at the
-boundary", R13's off-is-the-identity state, and R8-정정-3's widened shape rule on
+plus ReqMode9's three-key guard (both sides of it), ReqMode6's digit run (which is why the
+delivery TIMING is asserted as well as the text), ReqMode4's "judged once, at the
+boundary", ReqMode13's off-is-the-identity state, and ReqMode8's widened shape rule on
 a layout that composes archaic jamo.
 """
 
@@ -38,86 +38,90 @@ import subprocess
 import sys
 from typing import Any
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import ROOT as _ROOT
+    REPO = str(_ROOT)
+except ImportError:  # run from elsewhere: derive from this file
+    REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(REPO, "libhunmin", "data")
 OUT = os.path.join(REPO, "tests", "golden", "judgement-r8.jsonl")
 
 # The INPUT of each case. `keys` uses hunmin-sim's escape language ("\s<char>"
 # is Shift held, "\b" backspace). Nothing here states an expectation.
 CASES = [
-    # --- R8 line 1: only the Latin reading is valid -> switch to English ----
-    dict(case="r8-english-word-switches", req="R8", layout="dubeolsik", mode="hangul",
+    # --- ReqMode8 line 1: only the Latin reading is valid -> switch to English ----
+    dict(case="r8-english-word-switches", req="ReqMode8", layout="dubeolsik", mode="hangul",
          autoswitch=1, keys="hello ",
          note="line 1 of the formula: the Latin reading is a word and the Hangul reading is not"),
-    # --- R8 line 2 in Hangul mode: the no-op half of "stay Hangul" ---------
-    dict(case="r8-hangul-word-keeps-hangul", req="R8", layout="dubeolsik", mode="hangul",
+    # --- ReqMode8 line 2 in Hangul mode: the no-op half of "stay Hangul" ---------
+    dict(case="r8-hangul-word-keeps-hangul", req="ReqMode8", layout="dubeolsik", mode="hangul",
          autoswitch=1, keys="gksrmf ",
          note="the Hangul reading is well-formed and the Latin one is not: no switch is needed"),
-    # --- R8 "otherwise": both valid, both invalid --------------------------
-    dict(case="r8-both-valid-keeps-the-mode", req="R8", layout="dubeolsik", mode="hangul",
+    # --- ReqMode8 "otherwise": both valid, both invalid --------------------------
+    dict(case="r8-both-valid-keeps-the-mode", req="ReqMode8", layout="dubeolsik", mode="hangul",
          autoswitch=1, keys="ahem ",
          note="both readings are valid ('ahem' is English, 모드 is well-formed): keep the mode"),
-    dict(case="r8-both-invalid-keeps-the-mode", req="R8", layout="dubeolsik", mode="hangul",
+    dict(case="r8-both-invalid-keeps-the-mode", req="ReqMode8", layout="dubeolsik", mode="hangul",
          autoswitch=1, keys="dkssudg ",
          note="the maintainer's own example 안녕ㅎ: neither a Hangul word nor an English one"),
-    # --- R8 line 2 as a real switch: E1's symmetric direction --------------
-    dict(case="r8-symmetric-hangul-in-latin-mode", req="R8", layout="dubeolsik", mode="latin",
+    # --- ReqMode8 line 2 as a real switch: E1's symmetric direction --------------
+    dict(case="r8-symmetric-hangul-in-latin-mode", req="ReqMode8", layout="dubeolsik", mode="latin",
          autoswitch=1, keys="dlqslek ",
          note="E1 (ruled 2026-11-01): typed in Latin mode, reads 입니다 in Hangul, so it switches"),
-    dict(case="r8-symmetric-english-in-latin-mode", req="R8", layout="dubeolsik", mode="latin",
+    dict(case="r8-symmetric-english-in-latin-mode", req="ReqMode8", layout="dubeolsik", mode="latin",
          autoswitch=1, keys="hello ",
          note="the same direction where nothing should happen: already the right language"),
-    # --- R9's three-key guard, both sides --------------------------------
-    dict(case="r9-two-keys-are-not-judged", req="R9", layout="dubeolsik", mode="hangul",
+    # --- ReqMode9's three-key guard, both sides --------------------------------
+    dict(case="r9-two-keys-are-not-judged", req="ReqMode9", layout="dubeolsik", mode="hangul",
          autoswitch=1, keys="on ",
          note="'on' is English, so without the guard this would switch; two keys is under it"),
-    dict(case="r9-three-keys-are-judged", req="R9", layout="dubeolsik", mode="hangul",
+    dict(case="r9-three-keys-are-judged", req="ReqMode9", layout="dubeolsik", mode="hangul",
          autoswitch=1, keys="key ",
          note="the control for the line above: three key inputs is inside the guard"),
-    # --- R4: one judgement, at the boundary ------------------------------
-    dict(case="r4-nothing-is-judged-in-flight", req="R4", layout="dubeolsik", mode="hangul",
+    # --- ReqMode4: one judgement, at the boundary ------------------------------
+    dict(case="r4-nothing-is-judged-in-flight", req="ReqMode4", layout="dubeolsik", mode="hangul",
          autoswitch=1, keys="hello",
          note="no delimiter, so no boundary: the word is still in the buffer and undecided"),
-    # --- R6: a digit run is part of the buffer, not a per-key commit -----
-    dict(case="r6-digit-run-is-held-to-the-boundary", req="R6", layout="sin3-p2", mode="hangul",
+    # --- ReqMode6: a digit run is part of the buffer, not a per-key commit -----
+    dict(case="r6-digit-run-is-held-to-the-boundary", req="ReqMode6", layout="sin3-p2", mode="hangul",
          autoswitch=1, keys="2024 ",
          note="the engine commits each digit; the shared layer must hold the run (issue #171)"),
-    # --- R6 on the layout R6 is about: 세벌식 최종's digit row is JAMO ---
-    dict(case="r6-jamo-digit-row-held-to-the-boundary", req="R6", layout="sebeolsik-final",
+    # --- ReqMode6 on the layout ReqMode6 is about: 세벌식 최종's digit row is JAMO ---
+    dict(case="r6-jamo-digit-row-held-to-the-boundary", req="ReqMode6", layout="sebeolsik-final",
          mode="hangul", autoswitch=1, keys="123 ",
-         note="세벌식 최종 keys 1 2 3 are the jongseong jamo ᇂ ᆻ ᆸ: R6's own case -- committing a digit key on its own would break the run"),
-    dict(case="r6-literal-digit-row-held-to-the-boundary", req="R6", layout="sebeolsik-final",
+         note="세벌식 최종 keys 1 2 3 are the jongseong jamo ᇂ ᆻ ᆸ: ReqMode6's own case -- committing a digit key on its own would break the run"),
+    dict(case="r6-literal-digit-row-held-to-the-boundary", req="ReqMode6", layout="sebeolsik-final",
          mode="hangul", autoswitch=1, keys="\\sj\\sk\\sl ",
-         note="literal digits on the shifted letter row (Shift+j..l = 1,2,3): held as one run as well, so R6's condition is not limited to keys that compose jamo. This is not the unshifted digit row, which is jamo (docs/OPTIONS-MEASURED.md §BND-7). Corrected 2026-11-01: the first cut of this case put a delimiter after each digit and recorded its own spaces as a per-key commit"),
-    # --- R8 on 세벌식 최종, whose keys are jamo rather than syllables ------
-    dict(case="r8-word-keeps-hangul-on-sebeolsik-final", req="R8", layout="sebeolsik-final",
+         note="literal digits on the shifted letter row (Shift+j..l = 1,2,3): held as one run as well, so ReqMode6's condition is not limited to keys that compose jamo. This is not the unshifted digit row, which is jamo (docs/SPEC-MODES.md §ReqMode6). Corrected 2026-11-01: the first cut of this case put a delimiter after each digit and recorded its own spaces as a per-key commit"),
+    # --- ReqMode8 on 세벌식 최종, whose keys are jamo rather than syllables ------
+    dict(case="r8-word-keeps-hangul-on-sebeolsik-final", req="ReqMode8", layout="sebeolsik-final",
          mode="hangul", autoswitch=1, keys="jfshea ",
          note="안녕 on 세벌식 최종 (j f s h e a): the Hangul reading is a word and the Latin one is not, so the mode stays"),
-    dict(case="r8-english-word-switches-on-sebeolsik-final", req="R8", layout="sebeolsik-final",
+    dict(case="r8-english-word-switches-on-sebeolsik-final", req="ReqMode8", layout="sebeolsik-final",
          mode="hangul", autoswitch=1, keys="hello ",
          note="line 1 on a jamo layout: the Latin reading of the same keys is still looked up, so it switches"),
-    # --- R8-정정-3: an 옛한글 layout is judged by the widened shape rule ----
-    dict(case="r8-old-hangul-widened-rule-keeps-the-mode", req="R8-정정-3",
+    # --- ReqMode8: an 옛한글 layout is judged by the widened shape rule ----
+    dict(case="r8-old-hangul-widened-rule-keeps-the-mode", req="ReqMode8",
          layout="dubeolsik-yet", mode="hangul", autoswitch=1, keys="\\sahem ",
          note="the Hangul reading is ᅀᅩ드 (archaic ᅀ): valid only under the widened sets, and its Latin reading 'Ahem' is an English word. Both valid, so the mode stays; the modern rule would call it invalid and switch to English"),
-    # --- R13-정정 / B3: off is the identity path -------------------------
-    dict(case="r13-autoswitch-off-is-the-identity", req="R13", layout="dubeolsik", mode="hangul",
+    # --- ReqMode13 / B3: off is the identity path -------------------------
+    dict(case="r13-autoswitch-off-is-the-identity", req="ReqMode13", layout="dubeolsik", mode="hangul",
          autoswitch=0, keys="hello ",
          note="with the switch off nothing is looked up and the Hangul reading is delivered"),
     # --- E1's 0.3 gate: the maintainer's mixed sentence, one stream ------
-    dict(case="r8-mixed-sentence-gate", req="R8", layout="dubeolsik", mode="hangul",
+    dict(case="r8-mixed-sentence-gate", req="ReqMode8", layout="dubeolsik", mode="hangul",
          autoswitch=1, keys="\\senglish sms whgdms \\slanguage dlqslek ",
          note="'English는 좋은 Language입니다' typed as one stream (E1's release gate)"),
-    # --- R4: a symbol is a termination condition too ---------------------
-    dict(case="r4-symbol-ends-the-word-in-latin-mode", req="R4", layout="sin3-p2", mode="latin",
+    # --- ReqMode4: a symbol is a termination condition too ---------------------
+    dict(case="r4-symbol-ends-the-word-in-latin-mode", req="ReqMode4", layout="sin3-p2", mode="latin",
          autoswitch=1, keys="jgz.",
-         note="R4: 'A symbol is also a termination condition.' A period is a mapped key, so the engine consumes it and the layer has to end the word there; without this the buffer holds 'jgz.' and the judgement abstains (measured on a device 2026-11-07)"),
-    dict(case="r4-symbol-ends-the-word-in-hangul-mode", req="R4", layout="sin3-p2", mode="hangul",
+         note="ReqMode4: 'A symbol is also a termination condition.' A period is a mapped key, so the engine consumes it and the layer has to end the word there; without this the buffer holds 'jgz.' and the judgement abstains (measured on a device 2026-11-07)"),
+    dict(case="r4-symbol-ends-the-word-in-hangul-mode", req="ReqMode4", layout="sin3-p2", mode="hangul",
          autoswitch=1, keys="test.",
          note="the same rule in the other direction: the Latin reading 'test' is a word, so the switch happens at the period"),
-    dict(case="r4-symbol-does-not-split-a-digit-run", req="R6", layout="sin3-p2", mode="hangul",
+    dict(case="r4-symbol-does-not-split-a-digit-run", req="ReqMode6", layout="sin3-p2", mode="hangul",
          autoswitch=1, keys="2024.",
-         note="R4 and R6 together: the period ends the buffer, and a digit run is not a word in either language, so nothing is judged and nothing switches"),
+         note="ReqMode4 and ReqMode6 together: the period ends the buffer, and a digit run is not a word in either language, so nothing is judged and nothing switches"),
 ]
 
 
@@ -192,8 +196,8 @@ def render(cases):
     head = {
         "meta": {
             "corpus": "judgement",
-            "req": "R8; R9; R10; R4; R6 (issue #178)",
-            "spec": "docs/SPEC-MODES.md R8 formula and its guards",
+            "req": "ReqMode8; ReqMode9; ReqMode10; ReqMode4; ReqMode6 (issue #178)",
+            "spec": "docs/SPEC-MODES.md ReqMode8 formula and its guards",
             "tool": "tools/gen-judgement-golden.py",
             "sim": "hunmin-sim --judge --autoswitch N --trace",
             "note": "expected values are the engine's own answers, never hand-typed; "

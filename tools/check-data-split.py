@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Assert that the English word list ships apart from the base engine data
-(ctest: data-split; issue #172, docs/SPEC-MODES.md R8-정정-2).
+(ctest: data-split; issue #172, docs/SPEC-MODES.md ReqMode8).
 
 B3's ruling -- "자동변환에 필요한 사전이든 뭐든 추가 데이터는 별도 배포를 가정하고 그
 데이터가 있을때만 기능을 켤 수 있게 하면 transition이 용이할 거 같아" (quoted in
@@ -38,6 +38,10 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Optional
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
 # The one place the proposed package name appears in code: B3's decision page
 # rules the name "design work, not ruled", so a rename should be one edit here,
@@ -211,7 +215,7 @@ def main() -> None:
                     help="$<CONFIG> from the build system; empty for single-config")
     args = ap.parse_args()
 
-    root = Path(__file__).resolve().parent.parent
+    root = _COMMON_ROOT
     build = Path(args.build_dir).resolve()
     data = Path(args.data).resolve() if args.data else root / "libhunmin" / "data"
     if not (build / "CMakeCache.txt").is_file():

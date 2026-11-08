@@ -177,7 +177,7 @@ TEST_F(TsfSettingsTest, FunctionProviderAndConfigureFunction) {
     fnUnk->Release();
 }
 
-/* 2b. R13-정정 surface B (issue #175): the settings row is DERIVED from the
+/* 2b. ReqMode13 surface B (issue #175): the settings row is DERIVED from the
  * engine. The dialog spells neither the value nor the key, so this case pins
  * what the engine supplies: the chord it holds for HUNMIN_SPECIAL_AUTOSWITCH
  * appears in the label, the label carries the platform's name for the physical
@@ -207,7 +207,7 @@ TEST_F(TsfSettingsTest, TheAutomaticSwitchRowComesFromTheEngine) {
     EXPECT_EQ(row.value, 0) << "off by choice is a value the engine answers";
 
     /* No context at all is the "data missing" state as far as the row can tell:
-     * the control is disabled AND the label says why (R13-정정: discoverability
+     * the control is disabled AND the label says why (ReqMode13: discoverability
      * applies to the disabled state too). */
     hunmin_tsf_autoswitch_row(nullptr, nullptr, nullptr, 1, &row);
     EXPECT_EQ(row.available, 0) << "no data gate answer means not available";

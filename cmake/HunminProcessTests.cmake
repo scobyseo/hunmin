@@ -1,4 +1,4 @@
-# Release gates and process (tier-G + guard). Rationale: docs/BUILD-SYSTEM.md.
+# Release gates and process (tier-G + guard). Rationale: docs/DESIGN-BUILD.md.
 if(NOT BUILD_TESTING OR NOT Python3_FOUND)
   return()
 endif()

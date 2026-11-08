@@ -67,7 +67,7 @@ if(Python3_EXECUTABLE)
   file(GLOB HUNMIN_TSF_CONFORMANCE_TRACES
        "${HUNMIN_TSF_REPO_ROOT}/tests/conformance/win32/*.trace.in")
   # The corpus replays in BOTH of TSF's delivery modes (issue #185,
-  # docs/FRONTEND-EQUIVALENCE.md §2/§6): the mode is the only difference
+  # docs/DESIGN-FRONTEND.md Part A §2/§6): the mode is the only difference
   # between the two entries, so the same .trace.in and the same .gold are the
   # expectation for both, and a divergence between the modes shows up as one of
   # them failing against the shared expectation. The mode is passed to the

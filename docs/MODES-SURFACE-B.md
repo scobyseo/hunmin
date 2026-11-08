@@ -1,8 +1,8 @@
 # MODES-SURFACE-B — the settings row, implemented once
 
 The automatic Hangul/English switch has two surfaces: a key combination and a settings
-UI. The requirement is `docs/SPEC-MODES.md` §R13-정정 and is **not restated here**; the
-state it governs is described once in `docs/MODES-ENGINE-RULES.md` §3.
+UI. The requirement is `docs/SPEC-MODES.md` §ReqMode13 and is **not restated here**; the
+state it governs is described once in `docs/DESIGN-MODES.md` §3.
 
 This page exists because that UI half is built three times, once per frontend, and only
 one of the three exists (#176, fcitx5). #177 (Android) and #175/#203 (TSF) build theirs
@@ -26,7 +26,7 @@ and exists for hosts that hold an ic directly.
 
 | need | call | answers |
 |---|---|---|
-| write the value | `hunmin_buffered_preedit_set_option(l, "autoswitch", v)` | `false` when the engine refuses — ON is refused where the mode word list is absent (`docs/SPEC-MODES.md` §R13-정정's data gate, issue #169) |
+| write the value | `hunmin_buffered_preedit_set_option(l, "autoswitch", v)` | `false` when the engine refuses — ON is refused where the mode word list is absent (`docs/SPEC-MODES.md` §ReqMode13's data gate, issue #169) |
 | read the value | `hunmin_buffered_preedit_get_option(l, "autoswitch", &v)` | what the engine actually holds; this is what the row must show |
 | is the feature possible here | `hunmin_ctx_autoswitch_data_present(ctx)` | the presence half of the pair above; computed once per context and cached |
 | which key | `hunmin_buffered_preedit_special_chord(l, HUNMIN_SPECIAL_AUTOSWITCH)` | the modifier bits (`HUNMIN_MOD_*`) the engine binds to the function |
@@ -99,14 +99,14 @@ Recorded here rather than decided, because each is that task's own call:
   disabled widget. A platform whose dialog *can* disable the control may prefer to keep
   the preference, and then must say which of the two the row is showing.
 - **What "disabled" looks like** on that platform, and whether the row is hidden or shown
-  with a reason. R13-정정's discoverability rule applies to the disabled state too.
+  with a reason. ReqMode13's discoverability rule applies to the disabled state too.
 - **Whether the row also remaps the key.** The 2026-10-31 ruling says the composition is
   selectable in the config dialog; no frontend implements remapping yet, and it needs a
   store the engine can read at judgement time. fcitx5's row is read-only on the key.
 
 ## 6. What "verified" looks like
 
-The engine's own contract is pinned in `libhunmin/tests` (`docs/MODES-ENGINE-RULES.md` §3
+The engine's own contract is pinned in `libhunmin/tests` (`docs/DESIGN-MODES.md` §3
 lists the cases). A new surface has to show four things of its own:
 
 1. the label and the reason come from the engine's answers, not constants;

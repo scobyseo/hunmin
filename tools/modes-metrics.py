@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Measure the hangul/latin autoswitch on a sentence corpus — SPEC-MODES E4.
 
-Docs: `docs/MODES-METRICS.md` §1.2 (② sentence replay), §1.4 (③-bis
+Docs: `docs/MODES-MEASUREMENT.md` §1.2 (② sentence replay), §1.4 (③-bis
 wrong-direction switch), §2 (②b manual intervention); the units and the
-keystroke arithmetic are `docs/OPTIONS-MEASURED.md` §PAS-1; the reason a
-hand-built corpus is void is `docs/MODES-METRICS.md` §3.
+keystroke arithmetic are `docs/MODES-MEASUREMENT.md` §2; the reason a
+hand-built corpus is void is `docs/MODES-MEASUREMENT.md` §3.
 
 WHAT IT REPORTS, and in whose words
 -----------------------------------
 E4 grades numbers nobody has measured: ② the keystroke delta between the
 feature on and off, ②b the manual interventions, ③-bis the switches whose
-direction contradicts the script the person actually typed. §PAS-1 fixes the
+direction contradicts the script the person actually typed. MODES-MEASUREMENT §2.1 fixes the
 units: for one text of `n` characters and `t` script transitions (t is exactly
 the number of 한/영 presses the same text needs by hand),
 
@@ -53,7 +53,7 @@ transitions    one per eojeol whose script differs from the previous eojeol's,
                presses the OFF arm actually makes.
 off arm        autoswitch 0; the replayer presses 한/영 at each transition.
 on arm         autoswitch 1; no presses of its own. A eojeol that arrives in
-               the wrong script is a MISFIRE and costs, per §PAS-1, backspaces
+               the wrong script is a MISFIRE and costs, per MODES-MEASUREMENT §2.1, backspaces
                (one per delivered character) + one 한/영 press to reach the
                script that was typed + the eojeol's own keys to retype it.
 repairs        counted, not replayed. The mode is corrected on the layer so
@@ -89,7 +89,10 @@ import subprocess
 import sys
 from typing import Any
 
-REPO = pathlib.Path(__file__).resolve().parent.parent
+try:
+    from _common import ROOT as REPO
+except ImportError:
+    REPO = pathlib.Path(__file__).resolve().parents[1]
 DATA = REPO / "libhunmin" / "data"
 LIB = REPO / "build" / "libhunmin.so"
 SIM = REPO / "build" / "hunmin-sim"
@@ -301,7 +304,7 @@ def probe_literals(layout, sim, data):
     the key named after it: sin3-p2 delivers `; " '` from Shift+P / Shift+K /
     Shift+J, while the `; " '` keys themselves deliver a jamo. Assuming the
     ASCII identity made 30 of 1,000 corpus sentences look untypeable when they
-    are typeable — the same failure class `docs/MODES-METRICS.md` §3 lists.
+    are typeable — the same failure class `docs/MODES-MEASUREMENT.md` §3 lists.
 
     A candidate counts only when it DELIVERS the character and leaves nothing
     composing: `;` commits `'` but leaves `ㅂ` in the preedit, which is not a
@@ -445,7 +448,7 @@ def replay(engine, plan, hangul_id, latin_id, autoswitch, repairs, layer=None):
                    "mode_after": mode, "keys": len(events) + 1,
                    "missing": item["missing"], "backspaces": 0, "repair": 0}
             if repairs and not rec["correct"]:
-                # §PAS-1's repair, counted: delete what arrived (the space stays),
+                # MODES-MEASUREMENT §2.1's repair, counted: delete what arrived (the space stays),
                 # 한/영 once if the layer is not in the script that was typed,
                 # retype the eojeol.
                 body = got[:-1] if got.endswith(" ") else got
@@ -489,10 +492,10 @@ def sim_judge(engine_path, data, layout, latin, keys, autoswitch):
 def summarise(cases):
     """The outcome table, counted — no share is computed here.
 
-    Two partitions are reported because §PAS-1's `a/r/s` and what the replay
+    Two partitions are reported because MODES-MEASUREMENT §2.1's `a/r/s` and what the replay
     actually charges are not the same partition: a transition can fire no
     switch AND deliver the wrong script (the judgement abstained after the word
-    was already delivered), which §PAS-1's `s` prices at one 한/영 press. The
+    was already delivered), which MODES-MEASUREMENT §2.1's `s` prices at one 한/영 press. The
     table keeps both axes so neither reading is hidden.
     """
     table = {
@@ -504,7 +507,7 @@ def summarise(cases):
     wrong_dir = {"hangul->latin": 0, "latin->hangul": 0}
     per_dir = {d: {"switched_to_typed": 0, "switched_to_other": 0,
                    "no_switch": 0, "delivered_wrong": 0,
-                   # R9's guard is three key inputs: a eojeol under it is never
+                   # ReqMode9's guard is three key inputs: a eojeol under it is never
                    # judged, so its misfire belongs to the guard and not to the
                    # judgement's precision.
                    "wrong_below_guard": 0, "wrong_at_or_above_guard": 0}
@@ -589,7 +592,7 @@ def build_report(cases, sentences_total, not_inputtable, layout, latin,
         "retype_keys": agg["repair_keys"] - agg["backspaces"] - agg["manual_presses_on"],
         "transitions": t,
         "transition_density_d": ratio(t, chars),
-        # The units the pass-line shapes of OPTIONS-MEASURED §PAS-2/§PAS-3 read,
+        # The units the pass-line shapes of MODES-MEASUREMENT.md §2 read,
         # so a ruling can be made from this output without recomputing by hand.
         "keys_saved_per_1000_chars": (1000 * (keys_off - keys_on) / chars) if chars else None,
         "manual_presses_on_per_10_sentences":
@@ -598,12 +601,12 @@ def build_report(cases, sentences_total, not_inputtable, layout, latin,
         "counts": {"transitions": t, "switched_to_typed": switched_typed,
                    "switched_to_other": switched_other, "no_switch": no_switch,
                    "delivered_wrong": delivered_wrong},
-        "a_switched_correctly": a,       # §PAS-1's a: share of transitions
-        "r_misfires": r,                  # §PAS-1's r: share that cost a repair
-        "s_no_switch": s,                 # §PAS-1's s: share that fired no switch
-        "u_manual_intervention": u,       # ②b, §PAS-3's strict reading
+        "a_switched_correctly": a,       # MODES-MEASUREMENT §2.1's a: share of transitions
+        "r_misfires": r,                  # MODES-MEASUREMENT §2.1's r: share that cost a repair
+        "s_no_switch": s,                 # MODES-MEASUREMENT §2.1's s: share that fired no switch
+        "u_manual_intervention": u,       # ②b, §2.3's strict reading
         "k_mean_backspaces": k_mean,
-        "q_pool_share_model": q_model,       # §PAS-1's q, from a r s k
+        "q_pool_share_model": q_model,       # MODES-MEASUREMENT §2.1's q, from a r s k
         "q_pool_share_measured": q_measured,  # (off-on)/t, straight off the replay
         "wrong_direction_switches": switched_other,
         "switches": switches,
@@ -614,17 +617,17 @@ def build_report(cases, sentences_total, not_inputtable, layout, latin,
         "cross_check": cross,
         "notes": [
             "③-bis is wrong_direction_rate over switches, both directions — never a "
-            "switch count (MODES-METRICS §1.4)",
+            "switch count (MODES-MEASUREMENT.md §1.4)",
             "②b is u = 1 - a: transitions that were not switched correctly, one "
-            "manual press each (§PAS-3's strict reading). Whether a repair also "
-            "counts is §PAS-4 item 4 and is not decided here",
+            "manual press each (§2.3's strict reading). Whether a repair also "
+            "counts is §2.4 item 4 and is not decided here",
             "a, r and s are three different partitions of the same t and overlap "
             "where the judgement abstained: r counts delivered_wrong, s counts "
-            "no_switch, and a word can be both. q_pool_share_model applies §PAS-1's "
+            "no_switch, and a word can be both. q_pool_share_model applies MODES-MEASUREMENT §2.1's "
             "formula as written; q_pool_share_measured is the replay's own answer",
             "the model charges s like a misfire when it delivers the wrong script, "
             "because the judgement runs at the boundary and the word is already in "
-            "the client (R10) — §PAS-1's s costs one 한/영 press instead",
+            "the client (ReqMode10) — MODES-MEASUREMENT §2.1's s costs one 한/영 press instead",
         ],
     }
     return {
@@ -774,7 +777,7 @@ def run(args):
                   file=sys.stderr)
         raise SystemExit(f"{len(mismatches)} of {checked} sentences disagree with "
                          f"hunmin-sim --judge — the receive paths differ, so no number "
-                         f"from this run is a measurement (MODES-METRICS §3)")
+                         f"from this run is a measurement (MODES-MEASUREMENT.md §5)")
 
     cross = {"sentences_compared": checked, "mismatches": 0,
              "every": every,
@@ -870,7 +873,7 @@ def main():
         return selfcheck(args)
     if not args.corpus:
         ap.error("--corpus is required (a corpus built in-session is void: "
-                 "docs/MODES-METRICS.md §3)")
+                 "docs/MODES-MEASUREMENT.md §5)")
 
     report, cases = run(args)
     lines = [json.dumps(report["instrument"], ensure_ascii=False),
@@ -924,7 +927,7 @@ def main():
               f"switched={row['switched_to_typed']:5}  no-switch={row['no_switch']:5}  "
               f"wrong={row['delivered_wrong']:5}  wrong-dir="
               f"{t['wrong_direction_by_direction'][d]}  "
-              f"(below R9 guard {row['wrong_below_guard']}, at/above "
+              f"(below ReqMode9 guard {row['wrong_below_guard']}, at/above "
               f"{row['wrong_at_or_above_guard']})")
     print(f"cross-check       {t['cross_check']['sentences_compared']} sentences vs "
           f"hunmin-sim --judge, {t['cross_check']['mismatches']} mismatches")

@@ -19,8 +19,12 @@ import re
 import string
 import subprocess
 import sys
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
-REPO = pathlib.Path(__file__).resolve().parent.parent
+REPO = _COMMON_ROOT
 SIM = REPO / "build/hunmin-sim"
 DATA = REPO / "libhunmin/data"
 

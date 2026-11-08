@@ -5,7 +5,7 @@
 # Neither is vendored: AIHub's terms are use-and-training only, redistribution
 # is not permitted, and the outputs (235 MB + 155 MB) belong outside the repo
 # anyway. Only the converted tables are the instrument, and even those may not
-# be shipped in the deb -- see docs/MODES-DATA.md 2.
+# be shipped in the deb -- see docs/MODES-MEASUREMENT.md §4.
 #
 # THE ROUTE IS aihubshell, a standalone script from the same operator as the
 # API. The dataset page needs a login session AND a captcha; the MCP server

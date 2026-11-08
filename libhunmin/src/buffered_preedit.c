@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * buffered_preedit.c - the shared buffered/syllable preedit object, one level above
- * hunmin_ic (issue #128, docs/FRONTEND-EQUIVALENCE.md §5).
+ * hunmin_ic (issue #128, docs/DESIGN-FRONTEND.md Part A §5).
  *
  * Why it exists: TSF, fcitx5 and Android each grew their own word buffer and
  * their own answer to "when is a word finished" - TSF drained its wordbuf_ on
@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-/* R9's threshold (docs/SPEC-MODES.md §R9, ruled 2026-11-01): three KEY INPUTS, the
+/* ReqMode9's threshold (docs/SPEC-MODES.md §ReqMode9, ruled 2026-11-01): three KEY INPUTS, the
  * unit the maintainer named the same day -- not characters, not syllables. Lives at
  * file scope because two readers share it: judge_boundary() decides with it, and
  * judged_display() may not show a judgement the guard would refuse. */
@@ -46,53 +46,32 @@ struct hunmin_buffered_preedit {
     hunmin_ic *ic;
     char *word; /* buffered word (UTF-8), only used in BUFFERED mode */
     size_t wordlen, wordcap;
-    size_t cap; /* WORD_CAP by default; 0 = no cap (option "word_cap", R4-정정) */
+    size_t cap; /* WORD_CAP by default; 0 = no cap (option "word_cap", ReqMode4) */
     char *commit_out; /* returned strings, owned, valid until the next call */
     size_t commitcap;
     char *preedit_out;
     size_t preeditcap;
-    /* The compound press's assignment (docs/SPEC-MODES.md §E5): function ->
-     * chord bits, seeded by the frontend from its default and its store, and
-     * the host that services a resolved function. Zero/absent = not bound,
-     * which is how a platform refuses a function it has no implementation for. */
+    /* E5 function->chord mapping + host (docs/SPEC-MODES.md §E5;
+     * DESIGN-CORE.md#e5-special-function-chords). Zero = not bound. */
     unsigned special_mods[HUNMIN_SPECIAL_LIMIT];
     hunmin_special_host special_host;
     bool special_host_set;
-    hm_wordset *english; /* the modes judgement's data (R8-정정-2); NULL until asked for */
-    /* R8's judgement, once, at the boundary (ruled 2026-11-01, issue #164: the
-     * ENGINE judges, the frontend performs the switch). -1 = no judgement for
-     * the frontend to act on; HUNMIN_LANGUAGE_* = the mode it must adopt. Read
-     * once by hunmin_buffered_preedit_take_judgement(), so a mode cannot be
-     * applied twice, and replaced at every boundary, so a finished word is
-     * never acted on after the next one starts. */
+    hm_wordset *english; /* the modes judgement's data (ReqMode8); NULL until asked for */
+    /* ReqMode8 judgement (DESIGN-CORE.md#r8-judgement--judge_boundary-implementation):
+     * -1 none, else HUNMIN_LANGUAGE_*; read once by take_judgement(). */
     int judged;
-    /* R8's english_valid reads the Latin text the buffer WOULD have produced,
-     * and a Hangul layout cannot produce Latin (measured: the 12 Hangul layouts
-     * emit no Latin letter for any printable key -- the text is destroyed, not
-     * transliterated). So the reading is the same keys replayed through the frontend's
-     * Latin layout, which is SPEC-MODES R2's shadow mechanism; the keys live
-     * here because this object is what sees them. `keys` is the word in flight
-     * and `latin_out` the reading of the word that last finished. */
-    uint32_t *keys; /* interleaved (base, shift) of the word in flight */
-    size_t keylen, keycap; /* in slots, not bytes */
-    /* E6 (docs/SPEC-MODES.md §E6, ruled 2026-11-01): WHEN the judgement is shown.
-     * 1 = per key (the default): the preedit answers in the judged language while
-     * the word is still being typed, which is the flicker the item describes and
-     * the behaviour the maintainer chose as the default ("default는 B로").
-     * 0 = at the boundary only: the word is shown in the current mode and answers
-     * once, at the delimiter. The delivered text is identical either way -- only
-     * when it is shown differs -- and that equality is what the tier-A case pins. */
+    /* ReqMode8/3 readings (DESIGN-CORE.md#r8-정정-23-readings-and-validity). */
+    uint32_t *keys; /* (base,shift) slots, word in flight */
+    size_t keylen, keycap;
+    /* E6 judge_timing (DESIGN-CORE.md#e6-judged-display-judge_timing):
+     * 1=per key (default), 0=boundary only. */
     int judge_timing;
     char *judged_out; /* the per-key display's reading, owned */
     size_t judgedcap;
-    /* E1's half (docs/SPEC-MODES.md §R8, ruled 2026-11-01: "E1도 당연히 지원해야지"):
-     * the Hangul reading of a word typed in Latin mode, which is what the symmetric
-     * line of R8's formula judges. Same shape as latin_out and for the same reason --
-     * a Latin layout cannot produce Hangul, so the reading is the keys replayed
-     * through the frontend's Hangul layout. */
+    /* E1/ReqMode8 replayed readings (DESIGN-CORE.md#r8-정정-23-readings-and-validity). */
     char *hangul_out;
     size_t hangulcap;
-    char *latin_out; /* the finished word's reading; "" while a word composes */
+    char *latin_out; /* finished word's reading; "" while composing */
     size_t latincap;
 };
 
@@ -192,16 +171,10 @@ static void hangul_reading(hunmin_buffered_preedit *l) {
     replay_reading(l, l->hangul_id, &l->hangul_out, &l->hangulcap);
 }
 
-/* R8-정정-3: the shape rule is the same; the jamo sets widen on a layout that can
- * emit a jamo outside the modern 19/21/28. The answer is derived at load time
- * from that layout's own keys and combination table (schema_loader.c
- * compute_capability), never declared, so a new layout cannot forget it.
- *
- * The text judged is always the Hangul reading, which `hangul_id` produces -- in
- * Latin mode too, where the active ic is the Latin layout. So the rule is picked
- * from `hangul_id`, not from `l->ic->L`: asking the Latin layout would answer
- * "modern" for every word and mark a valid 옛한글 buffer invalid. The answer is
- * asked through `hunmin_ctx_layout_old_hangul`, the same seam a frontend uses. */
+/* ReqMode8/옛한글 widening (DESIGN-CORE.md#r8-정정-23-readings-and-validity): choose
+ * modern vs widened shape rule from hangul_id (not active ic; in Latin mode active
+ * ic is Latin). Derived from layout keys/combination table via
+ * hunmin_ctx_layout_old_hangul/schema capability. */
 static int hangul_valid_for(const hunmin_buffered_preedit *l, const char *text) {
     bool old = false;
     if (l->ctx && l->hangul_id) {
@@ -223,7 +196,7 @@ static const char *set_commit(hunmin_buffered_preedit *l, const char *s) {
     return l->commit_out;
 }
 
-/* ------------------------------------------------------- the cap (R4-정정) */
+/* ------------------------------------------------------- the cap (ReqMode4) */
 
 /* set_commit for a LENGTH rather than a NUL-terminated string: the half being
  * committed is a prefix of the word buffer, which is not terminated at that
@@ -236,29 +209,9 @@ static const char *set_commit_n(hunmin_buffered_preedit *l, const char *s, size_
     return l->commit_out;
 }
 
-/* The cap's overflow path (docs/SPEC-MODES.md §R4-정정, ruled 2026-11-01): a word
- * past WORD_CAP bytes delivers its first half now, so the preedit a frontend must
- * render stays bounded, and the tail keeps composing. Always answers what this key
- * delivers — "" while the word is under the cap, which is every real word.
- *
- * Three things it deliberately does NOT do, each a decision taken when it was
- * written rather than an omission:
- *
- *  - it does not JUDGE. The judgement (#164's judge_boundary) runs only in
- *    boundary(), so a flushed half is committed in the current language unjudged,
- *    and the word that later reaches the boundary is judged against the REMAINDER:
- *    keys_clear() below empties the reading's raw material, so latin_reading()
- *    replays only the tail's keys (measured: after three flushes of a 400-key word
- *    the boundary's reading is the 61 keys still uncommitted, not 400 —
- *    docs/OPTIONS-MEASURED.md §BND-2). That is "the remainder is its own word",
- *    which is the only reading the layer still has.
- *  - it does not cut on a byte: the half backs up to a UTF-8 lead byte, so a
- *    syllable is never delivered as a fragment.
- *  - it drops the Latin key log instead of splitting it. The reading is what the
- *    same keys produce on the Latin layout, and half a word's reading is not the
- *    reading of anything: failing closed (english_valid answers 0 for the tail) is
- *    the only answer that cannot turn into a wrong switch.
- */
+/* ReqMode4 cap overflow. Multi-place rationale:
+ * docs/DESIGN-CORE.md#r4-정정-cap-word_flush_half. Returns commit output ("" if
+ * under cap); on OOM leaves the word whole. */
 static const char *word_flush_half(hunmin_buffered_preedit *l) {
     set_commit(l, "");
     /* The cap bounds what the frontend RENDERS, which is the word plus the
@@ -279,30 +232,14 @@ static const char *word_flush_half(hunmin_buffered_preedit *l) {
     return out;
 }
 
-/* E6's per-key display (docs/SPEC-MODES.md §E6, ruled 2026-11-01: "default는 B로").
- *
- * Answers the text to SHOW for the word in flight when the judgement runs at this
- * key, or NULL when the current mode's rendering stands. It asks exactly the two
- * questions judge_boundary() asks, over the keys recorded so far and the Hangul
- * text as rendered -- english_valid on the reading, hangul_valid on what is on
- * screen -- so the display and the delivery cannot answer differently about the
- * same word.
- *
- * What it does NOT do: it does not deliver, switch, or record a judgement. The word
- * still goes out at the boundary, in the language judge_boundary() decides there,
- * and `take_judgement` still answers once per word -- so R10 (nothing retroactive)
- * and the "one switch per word" the frontends perform are untouched. The cost of
- * the default is the flicker the item describes: 94.18% of dictionary forms would
- * change language at least once while being typed (docs/OPTIONS-MEASURED.md
- * §BND-4), which is the trade the ruling accepted.
- *
- * The reading is replayed per key from the recorded keys, so this is O(keys) per
- * keystroke; the 256 B word cap bounds that at 256 keys. */
+/* E6 per-key judged display (SPEC-MODES E6). Multi-place rationale:
+ * docs/DESIGN-CORE.md#e6-judged-display-judge_timing. Display only; no
+ * delivery/switch/recorded judgement (ReqMode10). */
 static const char *judged_display(hunmin_buffered_preedit *l, const char *shown_text) {
     if (l->judge_timing != 1) return NULL;
     if (!l->ic || !l->ic->autoswitch) return NULL;
     if (!l->latin_id) return NULL; /* one-language layer: no second reading */
-    if (l->keylen / 2 < JUDGE_MIN_KEYS) return NULL; /* R9's guard, both directions */
+    if (l->keylen / 2 < JUDGE_MIN_KEYS) return NULL; /* ReqMode9's guard, both directions */
     if (!hm_wordset_ready(l->english)) return NULL;
 
     if (l->hangul_mode) {
@@ -430,79 +367,29 @@ void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l) {
 
 /* ------------------------------------------------------------------- keys */
 
-/* ------------------------------------------------------- R8's judgement
- *
- * The formula is docs/SPEC-MODES.md §R8, and it is evaluated ONCE, at the
- * boundary, over the finished word:
- *
- *     english_valid AND NOT hangul_valid  ->  deliver English, switch to English
- *     hangul_valid AND NOT english_valid  ->  deliver Hangul, stay in Hangul
- *     otherwise                           ->  deliver in the current mode
- *
- * WHO DOES WHAT (ruled 2026-11-01, issue #164): the ENGINE judges, and it
- * delivers the triggering word in the judged language -- R10 forbids
- * reassembling text already in the client, and this word is not in the client
- * yet, so the boundary is the last moment the reading can be delivered. The
- * FRONTEND performs the mode switch, because that is the one half a host can
- * own (fcitx5's trigger, §FE13); it asks for the answer with
- * hunmin_buffered_preedit_take_judgement() right after the key that ended the
- * word.
- *
- * Both lines of the formula ship. A word judged Hangul while already in Hangul
- * mode preserves the current mode, which needs no action; the symmetric line
- * (E1, ruled 2026-11-01: "E1도 당연히 지원해야지") is the branch below, and it
- * switches when the Latin text is not a dictionary word but its Hangul reading
- * is well-formed syllables.
- *
- * The Hangul shape test is `hangul_valid_for`, which picks the modern or the
- * widened 옛한글 sets from the Hangul layout (R8-정정-3). Using the modern rule
- * on a layout that composes archaic jamo would call a valid 옛한글 buffer
- * invalid and switch it to English.
- *
- * Returns the text to deliver instead of the Hangul word, or NULL to deliver
- * the word unchanged.
- */
+/* ReqMode8 judgement (SPEC-MODES ReqMode8/ReqMode8/E1, ReqMode3; REQ-MAP ReqMode8). Multi-place
+ * rationale: docs/DESIGN-CORE.md#r8-judgement--judge_boundary-implementation
+ * (formula/ownership: docs/DESIGN-MODES.md#1).
+ * Returns replacement text to deliver, or NULL to deliver the Hangul word. */
 
 static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
-    /* R13-정정's one on/off state, default OFF (B3): the switch is the person's
-     * preference, and OFF is the identity path -- no reading, no lookup, no
-     * delivery change. One state for both directions: a person who turned the
-     * feature off did not ask for half of it. */
+    /* Identity/fail-closed gates (B3/ReqMode13, ReqMode9 key guard, missing data). */
     if (!l->ic || !l->ic->autoswitch) return NULL;
-    /* A layer with one language cannot be judged at all: the other half of R8's
-     * pair is a reading it has no layout to produce. */
     if (!l->latin_id) return NULL;
-    /* R9's guard: three key inputs or more. Counted in KEYS, not syllables and
-     * not characters, because the two readings of one word disagree on both --
-     * `안녕` is two syllables from six keys, and two letters on the Latin
-     * reading would let `an`/`at`/`of` switch, which is the stray-keystroke
-     * case R9 exists to prevent. */
     if (keys < JUDGE_MIN_KEYS) return NULL;
-    /* B3's fail-closed state: no dictionary loaded means no `english_valid`, so
-     * the judgement abstains instead of treating every word as not-English. */
     if (!hm_wordset_ready(l->english)) return NULL;
 
     if (l->hangul_mode) {
-        /* The word is Hangul; `latin_out` is its Latin reading, replayed at the
-         * boundary by the caller. */
-        /* R8-정정-3: a layout that composes no Hangul has no syllables to judge, so
-         * the feature stays disabled there rather than reading its output as an
-         * invalid Hangul word and switching on every keystroke. */
-        if (!l->ic->L || !l->ic->L->composes_hangul) return NULL;
+        if (!l->ic->L || !l->ic->L->composes_hangul) return NULL; /* ReqMode8 */
         if (!l->latin_out || !*l->latin_out) return NULL;
         const bool english_valid = hm_wordset_has(l->english, l->latin_out);
         const bool hangul_valid = hangul_valid_for(l, l->word ? l->word : "");
-        if (!english_valid || hangul_valid) return NULL; /* switch only when they disagree */
+        if (!english_valid || hangul_valid) return NULL;
         l->judged = HUNMIN_LANGUAGE_LATIN;
         return l->latin_out;
     }
 
-    /* E1, the symmetric line of R8 (docs/SPEC-MODES.md §R8, ruled 2026-11-01:
-     * "E1도 당연히 지원해야지"). The word on screen is Latin as typed; the other half
-     * of the pair is its Hangul reading, and the switch fires when that reading is
-     * well-formed syllables and the Latin text is not a dictionary word. A layout
-     * that composes no Hangul needs no guard here: its reading cannot be a
-     * well-formed syllable, so `hangul_valid` is false and nothing switches. */
+    /* E1 symmetric line (SPEC-MODES ReqMode8). */
     const char *reading = l->hangul_out;
     if (!reading || !*reading) return NULL;
     const bool english_valid = hm_wordset_has(l->english, l->word ? l->word : "");
@@ -512,28 +399,15 @@ static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
     return reading;
 }
 
-/* The boundary. One place answers "the word is finished": the engine's own
- * flush finalises the in-flight syllable, and the mode decides whether the
- * client receives that syllable or the whole word.
- *
- * `judge` says whether R8's judgement (#164) may run here. It is false for one
- * caller and only one -- the Han/Eng press -- because R13 requires the hook to
- * be processed BEFORE inference (docs/MODES-ENGINE-RULES.md §3: "pressing the
- * hangul/latin key while inference is on is the signal 'do not do this
- * automatically'", issue #170). The readings are still taken when judging is
- * off: they are what `hunmin_buffered_preedit_latin_text()` reports for the word
- * that finished, which is a separate contract from the decision. */
+/* Boundary: flush finalises in-flight syllable; mode decides syllable vs word.
+ * judge=false only for Han/Eng (ReqMode13 before inference, #170): readings still
+ * taken because latin_text() contract is separate. latin_reading() runs before
+ * delivery split (both modes; PER_SYLLABLE keeps no word buffer). hangul_reading()
+ * must run here in Latin mode, before keys_clear(), for E1 symmetry (#168). */
 static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
     const char *flushed = hunmin_ic_flush(l->ic);
     if (!flushed) flushed = "";
-    /* Above the delivery split on purpose: the reading and the cleared key log
-     * belong to BOTH modes. PER_SYLLABLE mode keeps no word buffer, so a hook
-     * below the split would leave the reading of half the frontends unwritten. */
     latin_reading(l);
-    /* E1's other half, and it must be taken HERE: keys_clear() below is what stops a
-     * finished word being judged twice, so a reading replayed after it is empty
-     * (measured — the symmetric direction answered "no switch" on every word until
-     * this moved). Only one direction needs it, so only that one pays for it. */
     if (!l->hangul_mode) hangul_reading(l);
     const size_t keys = l->keylen / 2; /* slots are (base, shift) pairs */
     keys_clear(l);
@@ -545,7 +419,7 @@ static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
     word_append(l, flushed);
     /* Judged while the word is still whole. PER_SYLLABLE mode cannot reach this
      * line: by the boundary its earlier syllables are already in the client,
-     * and R10 forbids reassembling them, so the judgement has nothing to judge. */
+     * and ReqMode10 forbids reassembling them, so the judgement has nothing to judge. */
     const char *judged = judge ? judge_boundary(l, keys) : NULL;
     if (judged) {
         word_clear(l);
@@ -562,40 +436,14 @@ static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
 
 /* ---------------------------------------------------- the symbol delimiter */
 
-/* R4, the sentences this predicate exists for:
- *
- *   "Composition buffer = the whole span from after the immediately preceding
- *    space character or symbol until the next space character or symbol
- *    appears." ... "A symbol is also a termination condition."
- *
- * A space reaches the layer as a DECLINED key, so `process_key` already ends the
- * word there. A symbol does not: `.` is a mapped key on every Latin layout, the
- * engine consumes it, and its per-key commit carries the in-flight syllable plus
- * the symbol (`ic.c` process_jamo's literal branch). Without this the word
- * buffer simply swallowed it -- `jgz` + `.` became the word `jgz.`, which is
- * neither an English word nor a Hangul reading, so the judgement abstained and
- * the switch never happened (measured on a device 2026-11-07, SPEC-MODES R4).
- *
- * So the word keeps the symbol for delivery, and the JUDGEMENT runs on the text
- * before it: `음` + `.`, not `음.` judged as a word.
- *
- * WHAT COUNTS AS A SYMBOL, and what deliberately does not:
- *
- *   symbol        punctuation, the mathematical/currency blocks, the circled
- *                 and tier forms a sebeolsik digit row reaches (`①`, `⑪`).
- *   not symbol    ASCII letters and digits: they are the Latin reading's own
- *                 material, and R6 keeps a DIGIT RUN inside the buffer, so a
- *                 digit must not terminate anything.
- *   not symbol    Hangul, syllables and jamo: a consumed Hangul key continues
- *                 the word, which is the whole point of the buffer.
- *   not symbol    space and the control characters, which never arrive here
- *                 consumed.
- *   not symbol    the Latin-1/Greek/Cyrillic letter blocks. This repo's layouts
- *                 emit ASCII Latin, so a letter from those blocks is a symbol
- *                 tier's output only by accident; erring towards "letter" is
- *                 the safe direction, because a wrong "symbol" would cut a word
- *                 in half.
- */
+/* Symbol delimiter classification (SPEC-MODES ReqMode4/ReqMode6; DESIGN-MODES.md#2).
+ * Space arrives declined (already a boundary). Consumed symbol keys (e.g. `.` on
+ * Latin layouts) would be swallowed into the word; we keep the symbol for delivery
+ * but judge on text before it. Classification facts (local, correctness-critical):
+ * - symbol: punctuation, math/currency, circled/tier forms (`①`,`⑪`).
+ * - not symbol: ASCII letters/digits (Latin reading material; ReqMode6 digit runs
+ *   stay in buffer), Hangul/syllables/jamo, space/control chars, Latin-1/Greek/
+ *   Cyrillic letter blocks (safe direction: avoid cutting words). */
 static bool cp_is_symbol(uint32_t c) {
     if (c < 0x80) {
         if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) return false;
@@ -608,9 +456,9 @@ static bool cp_is_symbol(uint32_t c) {
     if (c >= 0xac00 && c <= 0xd7a3) return false; /* Hangul syllables */
     if (c >= 0xa960 && c <= 0xa97f) return false; /* Hangul jamo extended-A */
     if (c >= 0xd7b0 && c <= 0xd7ff) return false; /* Hangul jamo extended-B */
-    /* NUMBER FORMS are not symbols, and this is R6 speaking: a sebeolsik digit
+    /* NUMBER FORMS are not symbols, and this is ReqMode6 speaking: a sebeolsik digit
      * key resolves at a symbol tier to `µ`/`①`/`⑪` (and their super/subscript
-     * and Roman forms), and R6 requires the digit RUN to stay in the buffer. A
+     * and Roman forms), and ReqMode6 requires the digit RUN to stay in the buffer. A
      * tier form that terminated the word would deliver a digit run early --
      * measured: LayerTest.DigitResolvedAtASymbolTierIsHeldToo. */
     if (c >= 0x2070 && c <= 0x209f) return false; /* super/subscripts */
@@ -683,13 +531,13 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
             set_commit(l, c); /* deliver the syllable now */
         } else {
             word_append(l, c); /* hold it until the boundary */
-            /* R4: "A symbol is also a termination condition." The symbol stays
+            /* ReqMode4: "A symbol is also a termination condition." The symbol stays
              * in the delivered text, and the judgement runs on the word BEFORE
              * it -- `음` judged and delivered, then `.` -- because the whole
              * `음.` is not a word in either language and would abstain.
              *
              * The key was consumed, so no frontend will insert the symbol: it
-             * rides in this commit (R10: the client ends up holding exactly the
+             * rides in this commit (ReqMode10: the client ends up holding exactly the
              * text the person typed). */
             size_t symlen = trailing_symbol_bytes(l->word);
             if (symlen && symlen < (size_t)l->wordlen) {
@@ -715,7 +563,7 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
                 }
             }
             if (!ended_by_symbol) {
-                /* R4-정정: a word past WORD_CAP delivers its first half here, so
+                /* ReqMode4: a word past WORD_CAP delivers its first half here, so
                  * what the frontend must render stays bounded. "" for every real
                  * word. */
                 (void)word_flush_half(l);
@@ -780,7 +628,7 @@ void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
 bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value) {
     if (!l || !l->ic || !name) return false;
     /* The word cap is the LAYER's, not the ic's: it bounds the text this object
-     * holds for one word (docs/SPEC-MODES.md §R4-정정). Bytes, 0 = no cap. A
+     * holds for one word (docs/SPEC-MODES.md §ReqMode4). Bytes, 0 = no cap. A
      * lowered cap applies from the next key, which keeps the setter free of the
      * "flush while the caller is mid-edit" question -- the word is flushed as soon
      * as the next key makes it exceed the new bound. */
@@ -791,7 +639,7 @@ bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *
     }
     /* E6's option: 1 = judge at every key (the default), 0 = at the boundary only.
      * A change takes effect on the next rendered key; nothing already displayed is
-     * rewritten, which is R10 seen from the display side. */
+     * rewritten, which is ReqMode10 seen from the display side. */
     if (!strcmp(name, "judge_timing")) {
         if (value != 0 && value != 1) return false;
         l->judge_timing = value;
@@ -940,7 +788,7 @@ hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit
 }
 
 /* ------------------------------------------------------ special functions */
-/* The binding lives here, not in the frontends (R13-정정: one value, three
+/* The binding lives here, not in the frontends (ReqMode13: one value, three
  * readers), but it is empty until a frontend seeds it -- the platform owns its
  * key codes, the engine owns the assignment and the resolution. */
 
@@ -983,12 +831,8 @@ int hunmin_buffered_preedit_special_peek(const hunmin_buffered_preedit *l, const
         if (l->special_mods[fn] != want) continue;
         if (!l->special_host_set) return -1;
         if (l->special_host.supports && !l->special_host.supports(l->special_host.user, (hunmin_special_function)fn)) return -1;
-        /* B3's data gate reaches the key surface too (issue #169): the chord and
-         * the settings row write ONE value, so a press that cannot be honoured
-         * must not move it -- otherwise a machine without the dictionary could be
-         * switched ON from the keyboard while the option writer refuses. The
-         * answer is the unserviceable-platform one (-1): the key passes through
-         * and, like a platform that refuses, nothing flips. */
+        /* B3 key-surface gate (DESIGN-CORE.md#b3-autoswitch-data-gate-and-default):
+         * autoswitch chord cannot move state when modes data is absent. */
         if (fn == HUNMIN_SPECIAL_AUTOSWITCH && hm_modes_data_present(l->ctx) != 1) return -1;
         return fn;
     }
@@ -1001,13 +845,8 @@ int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key
      * claims and the gesture the down services would drift apart. */
     const int fn = hunmin_buffered_preedit_special_peek(l, ev);
     if (fn <= 0) return fn;
-    /* The ENGINE owns the transition of the state AUTOSWITCH flips (ruled
-     * 2026-11-01, issue #165): one home, so the three frontends cannot disagree
-     * about what toggling means, and the value the settings UI reads is the one
-     * this key writes. Only a SERVICED press flips -- a refusal (`-1`) and a
-     * not-ours event (`0`) leave the state alone, which is what keeps an
-     * unserviceable platform from moving a preference it cannot honour. The
-     * host's perform() stays the platform half: the data-gated feature work. */
+    /* B3/E5: engine owns AUTOSWITCH transition (DESIGN-CORE.md#b3-autoswitch-data-gate-and-default, #e5-special-function-chords);
+     * only serviced press flips; refusal/not-ours leaves state unchanged. */
     if (fn == HUNMIN_SPECIAL_AUTOSWITCH && l->ic) l->ic->autoswitch = !l->ic->autoswitch;
     if (l->special_host.perform) l->special_host.perform(l->special_host.user, (hunmin_special_function)fn);
     return fn;
@@ -1035,25 +874,11 @@ const char *hunmin_buffered_preedit_composing(hunmin_buffered_preedit *l) {
     return hunmin_ic_preedit(l->ic);
 }
 
-/* ------------------------------------------------------------ Han/Eng mode
- *
- * docs/FRONTEND-EQUIVALENCE.md §4: Android delivers the Han/Eng key as a Kana
- * VK and the other frontends must reach the same abstract action. The action
- * is here, so a frontend maps its physical key to it and the raw platform code
- * never reaches the engine.
- *
- * The switch IS a boundary: whatever was composing belongs to the language that
- * was active and is committed before the other layout takes over. The engine is
- * re-created because the two languages are two layouts, which is what the
- * engine's own model says.
- *
- * It is a boundary that does NOT judge (R13, issue #170): the press is the
- * person's own decision, and R8's inference must not decide it too. Measured
- * before that was honoured: with `autoswitch` on and `hello` in flight, this
- * call delivered the judged Latin reading and left `judged = LATIN` for the
- * frontend, so one press answered with both the judgement and the switch
- * (issue #170's third checklist item). The word is delivered in the language
- * that was active, which is what a manual switch means. */
+/* Han/Eng toggle (SPEC-MODES ReqMode13/FE7; DESIGN-FRONTEND.md Part A §4;
+ * DESIGN-CORE.md#r8-judgement--judge_boundary-implementation). Boundary commits
+ * current language's composing; re-creates engine for target layout. Does NOT
+ * judge (ReqMode13): manual press overrides ReqMode8 inference; word delivered in active
+ * language. */
 int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_key_result *out) {
     if (out) {
         out->consumed = 0;
@@ -1083,21 +908,10 @@ int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_k
     return 1;
 }
 
-/* The judgement the boundary just made, TAKEN: HUNMIN_LANGUAGE_* is the mode the
- * frontend must adopt now, and -1 means there is nothing to act on (the switch
- * is off, no word finished, the word was shorter than R9's guard, the layout
- * cannot be judged, no dictionary is loaded, or both readings agreed).
- *
- * Read once, immediately after the key that ended the word: the answer is
- * cleared by the read, so a mode change cannot be applied twice, and it is
- * replaced at every boundary, so a finished word is never acted on after the
- * next one starts. Under HUNMIN_COMMIT_PER_SYLLABLE it always answers -1 --
- * the earlier syllables of the word are already in the client and R10 forbids
- * reassembling them, so there is nothing left to decide.
- *
- * The word itself has already been delivered in the judged language in
- * out->commit (or by hunmin_buffered_preedit_commit_word): this is the MODE
- * half only, which is the half a frontend's host may own. */
+/* Take ReqMode8 judgement once (SPEC-MODES ReqMode8/ReqMode10; DESIGN-CORE.md#r8-judgement--judge_boundary-implementation).
+ * Returns HUNMIN_LANGUAGE_* for frontend to adopt, or -1 if no action. Cleared
+ * on read, replaced per boundary; PER_SYLLABLE => -1 (ReqMode10). Word text is
+ * already delivered in commit; this is the mode half only. */
 int hunmin_buffered_preedit_take_judgement(hunmin_buffered_preedit *l) {
     if (!l) return -1;
     const int judged = l->judged;
@@ -1112,17 +926,17 @@ const char *hunmin_buffered_preedit_layout_id(const hunmin_buffered_preedit *l) 
     return l->hangul_mode ? l->hangul_id : l->latin_id;
 }
 
-/* The Latin reading of the word that last finished -- R8's `english_valid`
+/* The Latin reading of the word that last finished -- ReqMode8's `english_valid`
  * input, already replayed, so a caller does no engine work of its own.
  * Empty while a word is composing and empty after a boundary that ended no
  * word, so a stale word is never judged twice; empty for a layer built with one
- * language, which is fail-closed and not an error (SPEC-MODES R8-정정-2). */
+ * language, which is fail-closed and not an error (SPEC-MODES ReqMode8). */
 const char *hunmin_buffered_preedit_latin_text(const hunmin_buffered_preedit *l) {
     if (!l || !l->latin_out || l->keylen) return "";
     return l->latin_out;
 }
 
-/* ------------------------------------------------- english words (R8-정정) */
+/* ------------------------------------------------- english words (ReqMode8) */
 
 /* The set is created on the first call that needs it and stays for the life of
  * the layer, so a frontend may load the dictionary once at construction and

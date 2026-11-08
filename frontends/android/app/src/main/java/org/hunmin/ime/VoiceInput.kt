@@ -39,7 +39,7 @@
  * WHERE THE RECORD_AUDIO PROMPT LIVES. Neither this file nor
  * `HunminInputMethodService` can raise it: `requestPermissions` is an `Activity`
  * method and `InputMethodService` has no permission-request hook at all
- * (FRONTEND-CONTRACT.md B5). The decision about *whether* to raise one is
+ * (DESIGN-FRONTEND.md Part B B5). The decision about *whether* to raise one is
  * therefore here, as a pure function over three booleans
  * ([VoiceLauncher.decidePermission]), and the Android objects stay behind
  * [PermissionRequestActivity]. The session needs no Context to reach that
@@ -304,7 +304,7 @@ object VoiceLauncher {
      *
      * The authority. An IME cannot be told "permission granted" by anyone, so
      * every decision to record reads this again rather than caching an answer
-     * from when the dialog was raised (FRONTEND-CONTRACT.md B5).
+     * from when the dialog was raised (DESIGN-FRONTEND.md Part B B5).
      */
     fun hasPermission(context: Context): Boolean =
         context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
@@ -418,7 +418,7 @@ interface PermissionGate {
 
 /**
  * The production gate: `checkSelfPermission` for the fact, and a transparent
- * Activity for the action (FRONTEND-CONTRACT.md B5 — an `InputMethodService`
+ * Activity for the action (DESIGN-FRONTEND.md Part B B5 — an `InputMethodService`
  * has no permission-request hook, so the prompt has to be somebody else's).
  */
 class AndroidPermissionGate(private val context: Context) : PermissionGate {

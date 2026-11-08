@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Measure the embed cap for the hangul/latin mode-guess word lists (SPEC-MODES R8).
+"""Measure the embed cap for the hangul/latin mode-guess word lists (SPEC-MODES ReqMode8).
 
-Reproduces every number in docs/MODES-DATA.md 4-7. Run from the repo root:
+Reproduces the coverage-and-cap readings the withdrawn 2026-10 paper carried
+(`docs/MODES-MEASUREMENT.md` §6 names the removal). Run from the repo root:
 
     ~/work/wikicorpus/.venv/bin/python tools/modes-cap.py
 
@@ -17,9 +18,9 @@ and one that lives inside it -- OUT OF SCOPE, see the note below:
     libhunmin/data/krdict/krdict.json
 
 Why 624 is the probe, and what it is not: it is english tokens that actually
-appear next to hangul in typed text -- the closest thing to R8's
-english_valid firing. It is NOT a substitute for R12's ② sentence replay.
-It is one vertical (news/IT), a bias MODES-DATA.md 2 already records, so the
+appear next to hangul in typed text -- the closest thing to ReqMode8's
+english_valid firing. It is NOT a substitute for ReqMode12's ② sentence replay.
+It is one vertical (news/IT), a bias MODES-MEASUREMENT.md §4 already records, so the
 cap it produces is falsifiable against any other corpus.
 
 SCOPE (maintainer, 2026-10-05): "krdict.json은 한자 변환시에만 쓰는 걸로 하자.
@@ -27,8 +28,9 @@ SCOPE (maintainer, 2026-10-05): "krdict.json은 한자 변환시에만 쓰는 �
 hangul section therefore has two modes:
 
     --hangul              corpus + krdict, behind an OUT OF SCOPE banner.
-                          Retained to reproduce MODES-DATA.md 4-7b; not
-                          evidence for a decision.
+                          Retained to reproduce the withdrawn record
+                          (docs/MODES-MEASUREMENT.md §6); not evidence for a
+                          decision.
     --hangul --no-krdict  corpus only. This is the in-scope measurement, and
                           it is what the "no cap for hangul" conclusion
                           actually rests on -- no dictionary is involved.
@@ -187,8 +189,8 @@ def main():
     #   "krdict.json은 한자 변환시에만 쓰는 걸로 하자. 이 연구에 가지고 들어오지 마."
     # krdict is for hanja conversion only; it must not enter this research.
     #
-    # What follows is OUT OF SCOPE, kept so MODES-DATA.md §4-7b stays
-    # reproducible. The in-scope measurement is the corpus curve, which
+    # What follows is OUT OF SCOPE, kept so the removed §6-7b record stays
+    # reproducible (`docs/MODES-MEASUREMENT.md` §6). The in-scope measurement is the corpus curve, which
     # involves no dictionary; --no-krdict prints that and stops.
     # ------------------------------------------------------------------
     hangul = load(WIKI_HANGUL, word_first=False)
@@ -200,7 +202,8 @@ def main():
     if use_krdict:
         print(f"\n{'=' * 72}\n"
               "  OUT OF SCOPE from here on: krdict (maintainer, 2026-10-05).\n"
-              "  Kept to reproduce MODES-DATA.md §4-7b. Not evidence for a\n"
+              "  Kept to reproduce the removed §6-7b record (MODES-MEASUREMENT.md\n"
+              "  §6). Not evidence for a\n"
               "  decision. --no-krdict prints the in-scope, dictionary-free run.\n"
               f"{'=' * 72}")
         entries = json.load(open(KRDICT, encoding="utf-8"))["entries"]
@@ -218,7 +221,8 @@ def main():
     if not use_krdict:
         print()
         print("=> corpus-only. This is the in-scope curve: no dictionary is")
-        print("   involved, and it is what MODES-DATA.md 4-7b's conclusion rests on.")
+        print("   involved, and it is what the withdrawn 'no cap for hangul'")
+        print("   conclusion rested on.")
         return 0
 
     section("4-7b  is the gap a normalisation artefact? (POSTMORTEM 10 says check)")

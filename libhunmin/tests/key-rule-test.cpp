@@ -21,20 +21,13 @@
 #include <string>
 #include <system_error>
 
-#include "test-env.h"
-
-extern "C" {
-#include "hunmin.h"
-}
+#include "libhunmin-test.h"
 
 namespace {
 
 const char *kDataPath = nullptr;
 
-hunmin_ctx *make_ctx() {
-    const char *dirs[1] = {kDataPath};
-    return hunmin_ctx_new(dirs, 1);
-}
+hunmin_ctx *make_ctx() { return hunmin_test::make_ctx(kDataPath); }
 
 /* A plain character event: no modifiers, no list, not the language key. */
 hunmin_key_event ch(uint32_t base) {
@@ -50,19 +43,17 @@ hunmin_key_event named(hunmin_key_id id) {
     return ev;
 }
 
-class KeyRuleTest : public ::testing::Test {
+class KeyRuleTest : public hunmin_test::CtxTest {
   protected:
     void SetUp() override {
-        ctx_ = make_ctx();
-        ASSERT_NE(ctx_, nullptr);
+        hunmin_test::CtxTest::SetUp();
         l_ = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
         ASSERT_NE(l_, nullptr);
     }
     void TearDown() override {
         if (l_) hunmin_buffered_preedit_free(l_);
-        if (ctx_) hunmin_ctx_free(ctx_);
+        hunmin_test::CtxTest::TearDown();
     }
-    hunmin_ctx *ctx_ = nullptr;
     hunmin_buffered_preedit *l_ = nullptr;
 };
 
@@ -73,7 +64,7 @@ class KeyRuleTest : public ::testing::Test {
  * HUNMIN_DATA_PATH still names the FULL data directory in a ctest run, so a
  * negative answer proves the context's own dirs are the search being consulted
  * -- the same resolution Android's sandbox depends on. */
-class AutoswitchDataGateTest : public ::testing::Test {
+class AutoswitchDataGateTest : public hunmin_test::CtxTest {
   protected:
     /* A path of its own per test, not one shared literal.
      *
@@ -117,7 +108,7 @@ class AutoswitchDataGateTest : public ::testing::Test {
     }
     void TearDown() override {
         if (layer_) hunmin_buffered_preedit_free(layer_);
-        if (ctx_) hunmin_ctx_free(ctx_);
+        hunmin_test::CtxTest::TearDown();
         std::error_code ec;
         std::filesystem::remove_all(root_, ec);
     }
@@ -157,7 +148,7 @@ TEST_F(AutoswitchDataGateTest, TheDataTheSwitchNeedsIsReportedAbsent) {
 }
 
 TEST_F(AutoswitchDataGateTest, EnablingItWhereTheDataIsAbsentIsRefused) {
-    /* The whole point (B3, SPEC-MODES §R13-정정): a stale stored preference on a
+    /* The whole point (B3, SPEC-MODES §ReqMode13): a stale stored preference on a
      * machine without the data package must not half-enable the feature. */
     EXPECT_FALSE(hunmin_buffered_preedit_set_option(layer_, "autoswitch", 1));
 
@@ -505,11 +496,11 @@ TEST_F(KeyRuleTest, ShiftIsASpecialCombinationOnlyWithTheLanguageKey) {
         << "no binding for Shift+Alt, and VOICE was rebound away from Alt";
 }
 
-/* ---- the hook is top-level: one rule, every shipped layout (R13, #170) ---- */
+/* ---- the hook is top-level: one rule, every shipped layout (ReqMode13, #170) ---- */
 
 TEST_F(KeyRuleTest, TheHookFiresInEveryLayoutTheEngineShips) {
-    /* R13's "identical whichever layout it is pressed in"
-     * (docs/MODES-ENGINE-RULES.md §3) is a claim about the RULE, not about one
+    /* ReqMode13's "identical whichever layout it is pressed in"
+     * (docs/DESIGN-MODES.md §3) is a claim about the RULE, not about one
      * layout, so the assertion is a census over the shipped data rather than the
      * dubeolsik the fixture happens to build: every layout the engine can
      * instantiate answers the same two actions for the same event. A new layout
@@ -561,7 +552,7 @@ TEST_F(KeyRuleTest, TheHookFiresInEveryLayoutTheEngineShips) {
 }
 
 TEST_F(KeyRuleTest, TheHookIsDecidedBeforeTheBufferIsFed) {
-    /* docs/MODES-ENGINE-RULES.md §3: "this hook must be processed before
+    /* docs/DESIGN-MODES.md §3: "this hook must be processed before
      * inference -- pressing the hangul/latin key while inference is on is the
      * signal 'do not do this automatically'". Two halves, both measured here.
      *
@@ -569,11 +560,11 @@ TEST_F(KeyRuleTest, TheHookIsDecidedBeforeTheBufferIsFed) {
      * classify() consults language_key before the feed/boundary branches, and
      * servicing it feeds the buffer nothing.
      *
-     * INFERENCE. R8's judgement landed after this issue was written (#164), and
+     * INFERENCE. ReqMode8's judgement landed after this issue was written (#164), and
      * before that it ran on the toggle's own boundary: with `autoswitch` on and
      * `hello` in flight, `toggle_language()` delivered the judged Latin reading
      * ("hello") and left `judged = LATIN` for the frontend, so one press was
-     * answered by the judgement as well as by its own action. R13 says the press
+     * answered by the judgement as well as by its own action. ReqMode13 says the press
      * IS the signal not to do that automatically, so it is now a boundary that
      * does not judge (`boundary(l, false)`): the word goes out in the language
      * that was active, and the frontend is handed no judgement. Asserted as an
@@ -668,11 +659,11 @@ TEST_F(KeyRuleTest, TheHookIsDecidedBeforeTheBufferIsFed) {
     hunmin_buffered_preedit_free(on);
 }
 
-/* ---- R13-정정's one on/off state (issue #165) ---------------------------- */
+/* ---- ReqMode13's one on/off state (issue #165) ---------------------------- */
 
 TEST_F(KeyRuleTest, TheAutoswitchOptionIsOneValueTheLayerReadsBack) {
     /* The requirement is one value the engine holds and a settings surface only
-     * reads and writes (docs/SPEC-MODES.md §R13-정정), so the assertion is the
+     * reads and writes (docs/SPEC-MODES.md §ReqMode13), so the assertion is the
      * round trip: no option call at all answers the B3 default (OFF,
      * 2026-10-11), and every write is what the next read returns. */
     int v = 7;
@@ -700,7 +691,7 @@ TEST_F(KeyRuleTest, TheAutoswitchOptionIsOneValueTheLayerReadsBack) {
     EXPECT_FALSE(hunmin_buffered_preedit_set_option(l_, "no-such-option", 1));
     EXPECT_FALSE(hunmin_buffered_preedit_get_option(l_, "autoswitch", nullptr));
 
-    /* The key surface beside the value is the engine's too (R13-정정's
+    /* The key surface beside the value is the engine's too (ReqMode13's
      * "explainable" bullet): the dialog asks, it does not spell a chord. */
     EXPECT_EQ(hunmin_buffered_preedit_special_chord(l_, HUNMIN_SPECIAL_AUTOSWITCH), HUNMIN_MOD_CTRL);
 }
@@ -765,7 +756,7 @@ TEST_F(KeyRuleTest, TheAutoswitchChordFlipsTheOneValue) {
     /* Ruled 2026-11-01 (issue #165): the engine owns the transition. The chord
      * surface and the settings surface therefore write the same field, and a
      * frontend never has to decide what "toggle" means -- which is the whole
-     * point of R13-정정's "one value". */
+     * point of ReqMode13's "one value". */
     hunmin_key_event ev = ch('d');
     ev.language_key = 1;
     ev.mods = HUNMIN_MOD_CTRL; /* AUTOSWITCH's ruled default (Table A) */

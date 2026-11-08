@@ -7,7 +7,7 @@
  * The Android IME keeps its engine per editor and throws it away between
  * fields, so the system settings screen can be reached with no layer in the
  * process. It still has to show the value the engine holds, the key the engine
- * names, and B3's data answer (docs/SPEC-MODES.md §R13-정정). This class builds
+ * names, and B3's data answer (docs/SPEC-MODES.md §ReqMode13). This class builds
  * the same kind of layer the IME builds, hands it the stored read-back, and
  * reports what the ENGINE settled on -- a refused ON reads as 0, never as the
  * request.
@@ -59,7 +59,7 @@ internal class AutoSwitchSettings(
         }
     }
 
-    /** The three facts R13-정정's surface B has to display. */
+    /** The three facts ReqMode13's surface B has to display. */
     data class State(
         val on: Int?,
         val key: String,

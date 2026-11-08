@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Count hangul runs glued across a symbol, in ko.wikipedia or an aihub corpus.
 
-Docs: docs/SPEC-MODES.md R4 (are symbols a valid composition separator?),
-docs/MODES-DATA.md §2 (aihub is a measurement instrument, never shippable).
+Docs: docs/SPEC-MODES.md ReqMode4 (are symbols a valid composition separator?),
+docs/MODES-MEASUREMENT.md §4 (aihub is a measurement instrument, never shippable).
 
-WHY THIS EXISTS AS A COMPARISON. The R4 question is whether hangul follows a
+WHY THIS EXISTS AS A COMPARISON. The ReqMode4 question is whether hangul follows a
 symbol with no space -- a question about ordinary writing. ko.wikipedia is
 encyclopaedic prose and may under-represent informal punctuation, so a single
 corpus cannot answer it. If a web corpus disagreed, the wikipedia result would
@@ -56,7 +56,7 @@ DEFAULT_WIKI = "/home/scoby/work/kowiki-dump/kowiki.xml"
 def wiki_texts(path, limit):
     """Yield rendered page bodies. Whole bodies, never the first line only --
     that single-line reader is what made every earlier corpus number wrong
-    (docs/MODES-DATA.md §4-1)."""
+    (docs/MODES-MEASUREMENT.md §5)."""
     import mwparserfromhell as mw  # type: ignore[import]
     in_text = in_ns0 = False
     cur = []

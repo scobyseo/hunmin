@@ -48,7 +48,7 @@ measurement, and it has to say so.
 
 ## What the dispatch measured, and the documents that were wrong
 
-Issue #6, one dispatched Task (GitHub issue #4, the R8 shrinker), one `hermes` worker,
+Issue #6, one dispatched Task (GitHub issue #4, the ReqMode8 shrinker), one `hermes` worker,
 Orca 1.4.219:
 
 - **Placement is nested and immovable.** `--worktree new-child --name …` produced

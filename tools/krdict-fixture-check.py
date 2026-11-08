@@ -23,8 +23,12 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
-root = Path(__file__).resolve().parent.parent
+root = _COMMON_ROOT
 fixture = root / "tests/fixtures/krdict"
 expected = fixture / "expected" / "krdict.json"
 

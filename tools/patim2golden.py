@@ -9,8 +9,13 @@ import re
 import sys
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[1] / "data-orig/patim/Hangul3ShinP2Tests.swift"
-OUT = Path(__file__).resolve().parents[1] / "tests/golden/patim-sin3-p2-basic.jsonl"
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = Path(__file__).resolve().parent.parent
+
+SRC = _COMMON_ROOT / "data-orig/patim/Hangul3ShinP2Tests.swift"
+OUT = _COMMON_ROOT / "tests/golden/patim-sin3-p2-basic.jsonl"
 
 lines = SRC.read_text(encoding="utf-8").splitlines()
 # patim implements an extra araea-chain composition mode (el-style djamo queue)

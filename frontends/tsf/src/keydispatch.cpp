@@ -47,7 +47,7 @@ STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM 
         eat = TRUE;
     else if (!hangulMode_ && !AutoswitchOn())
         /* The English passthrough (ruled 2026-11-02: with autoswitch ON the
-         * engine keeps the keys so R8's E1 line can answer Hangul). Both key
+         * engine keeps the keys so ReqMode8's E1 line can answer Hangul). Both key
          * phases answer the same way, or the host loses a key the down phase
          * would have claimed. */
         eat = FALSE;
@@ -174,9 +174,9 @@ STDMETHODIMP CTextService::OnKeyDown(ITfContext *pic, WPARAM wParam, LPARAM lPar
     }
     /* The English passthrough, ruled 2026-11-02: "autoswitch ON stops English
      * passthrough to support eng -> han support". With the switch on the engine
-     * keeps seeing the keys in Latin mode too, so R8's E1 line can judge a word
+     * keeps seeing the keys in Latin mode too, so ReqMode8's E1 line can judge a word
      * typed there and answer Hangul. The delivered TEXT is unchanged either way
-     * (the layer commits each Latin character as the host did, R5); what changes
+     * (the layer commits each Latin character as the host did, ReqMode5); what changes
      * is who delivers it. With the switch OFF this branch is exactly what
      * shipped, and the interim delivery keeps it too: that path cannot carry the
      * judgement (ruled 2026-11-02), so the feature is off there and the engine
@@ -253,7 +253,7 @@ void CTextService::ApplyModeToggle(ITfContext *pic, WPARAM wParam, LPARAM lParam
  * special-function namespace. The engine holds the assignment -- which chord
  * carries which function -- so this translates the platform state into the
  * shared key event and lets the layer answer; a per-frontend table of modifiers
- * is exactly what R13-정정 forbids.
+ * is exactly what ReqMode13 forbids.
  *
  * The event carries `language_key`, which is the flag the classifier reads
  * first: that is why a chord on the language key can never be mistaken for
@@ -393,7 +393,7 @@ void CTextService::DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat, con
  * key's UNSHIFTED US-QWERTY character. The shift column the adapter
  * used to carry is the engine's own map (schema_loader.c BASE/SHIFTED), selected
  * in the engine by the Shift bit that travels beside the base
- * (FRONTEND-CONTRACT.md A3'). */
+ * (DESIGN-FRONTEND.md Part B A3'). */
 uint32_t CTextService::VkToBase(WPARAM wParam) {
     if (wParam >= 'A' && wParam <= 'Z')
         return (uint32_t)(wParam + 32); /* the lowercase half */

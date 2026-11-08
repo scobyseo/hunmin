@@ -70,7 +70,7 @@ for g in "$ROOT"/tests/golden/*.jsonl; do
   # Two kinds of corpus live in tests/golden: the per-key engine transcripts,
   # replayed through hunmin_ic with --check, and the judgement corpus, whose
   # cases drive hunmin_buffered_preedit with --judge-check (the judgement is the
-  # shared layer's, docs/FRONTEND-EQUIVALENCE.md §6.2). Same binary, same data
+  # shared layer's, docs/DESIGN-FRONTEND.md Part A §6.2). Same binary, same data
   # push; only the flag differs.
   case "$name" in
     judgement-*) check=--judge-check ;;

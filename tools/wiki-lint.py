@@ -19,7 +19,11 @@ import re
 import sys
 from collections import defaultdict
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import ROOT as _ROOT
+    ROOT = str(_ROOT)
+except ImportError:
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WIKI = os.path.join(ROOT, "wiki")
 
 FM = re.compile(r"\A---\n(.*?)\n---\n", re.S)

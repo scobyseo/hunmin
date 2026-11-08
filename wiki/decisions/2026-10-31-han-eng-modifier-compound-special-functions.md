@@ -8,7 +8,7 @@ tags: [decision, modes, engine, fcitx5, android, tsf]
 sources:
   - ../../../docs/SPEC-MODES.md
   - ../../../docs/OPTIONS-MEASURED.md
-  - ../../../docs/MODES-ENGINE-RULES.md
+  - ../../../docs/DESIGN-MODES.md
 confidence: high
 ---
 
@@ -39,13 +39,13 @@ and, when asked what the phrasing left unclear about the default and about chang
    auto-mode switch), so the namespace is the decision and the occupants are its
    population.
 3. **All three frontends.** Android, TSF and fcitx5 are in scope together, which is
-   R13-정정's "one value the engine holds, three readers" applied to this assignment:
+   ReqMode13's "one value the engine holds, three readers" applied to this assignment:
    the value may not be three per-frontend choices that happen to agree.
 4. **It is the default, not an option someone opts into** — and **the composition is
    selectable in the config dialog.** So the assignment is *remappable*, and the surface
    is the settings dialog each frontend already has, which answers the E5 sub-question
-   "whether the assignment can be changed" and R13-정정's "it has to be changeable"
-   bullet. Per R13-정정 the dialog must show the composition the engine actually
+   "whether the assignment can be changed" and ReqMode13's "it has to be changeable"
+   bullet. Per ReqMode13 the dialog must show the composition the engine actually
    honours, not a value the frontend invented.
 
 The two-slot shape the priced options in `docs/OPTIONS-MEASURED.md` §E5-3 described
@@ -73,8 +73,8 @@ gets built:
   is per platform (Android preferences, TSF registry/env, fcitx5 addon conf) and no store
   crosses them, so "remappable in the config dialog" still needs an answer to: does the
   engine hold the default and each frontend only the override, and how does the dialog
-  string it shows stay the one the hook honours (R13-정정's own condition)? Today three
-  stores hold an assignment each (§E5-1), which is the divergence R13-정정 forbids.
+  string it shows stay the one the hook honours (ReqMode13's own condition)? Today three
+  stores hold an assignment each (§E5-1), which is the divergence ReqMode13 forbids.
 - **Which functions exist per frontend.** Voice is Android's alone today
   (`docs/FRONTEND-EQUIVALENCE.md` §8.3(4)); "for all three frontends" is a rule about
   the *mechanism* being uniform, and it does not by itself create a voice path on

@@ -7,7 +7,7 @@ status: active
 tags: [decision, engine, keybinding, fcitx5, android, tsf]
 sources:
   - ../../../docs/SPEC-MODES.md
-  - ../../../docs/MODES-ENGINE-RULES.md
+  - ../../../docs/DESIGN-MODES.md
   - ../../../docs/OPTIONS-MEASURED.md
 confidence: high
 ---
@@ -114,6 +114,6 @@ shape makes that disagreement impossible by construction, and the price is named
 the default chord has to be chosen once, and the platform keeps the part only it can know.
 
 Measurement and provenance for the engine change: `docs/OPTIONS-MEASURED.md` §E5-6;
-requirement: `docs/SPEC-MODES.md` §E5; design: `docs/MODES-ENGINE-RULES.md` §3.
+requirement: `docs/SPEC-MODES.md` §E5; design: `docs/DESIGN-MODES.md` §3.
 
 See [[decisions-belong-to-the-maintainer]].

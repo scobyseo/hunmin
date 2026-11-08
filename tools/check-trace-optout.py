@@ -5,7 +5,7 @@
 The trace sink is #ifdef'd out unless -DHUNMIN_TRACE=ON, so a released addon
 should contain neither the env-var name it reads nor the literal it writes.
 A "compiled out" claim that is never checked is the same kind of prose rule
-FRONTEND-CONTRACT.md §5 was written to eliminate, and this one is cheap to
+DESIGN-FRONTEND.md Part B §5 was written to eliminate, and this one is cheap to
 verify: the strings are either in the binary or they are not.
 
     tools/check-trace-optout.py <path/to/libhunmin.so> [...]

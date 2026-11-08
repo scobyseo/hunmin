@@ -10,8 +10,8 @@
  *
  * --judge moves the driver up one level: instead of hunmin_ic it drives
  * hunmin_buffered_preedit, the shared layer every frontend sits on
- * (docs/FRONTEND-EQUIVALENCE.md §5), and it performs the frontend's half of
- * SPEC-MODES R8 exactly as the adapters do — read take_judgement() after each
+ * (docs/DESIGN-FRONTEND.md Part A §5), and it performs the frontend's half of
+ * SPEC-MODES ReqMode8 exactly as the adapters do — read take_judgement() after each
  * key, and switch language when it answers a mode. That is what makes a
  * judgement case replayable from the command line: the delivered text, the
  * judgement and the mode after the boundary are all observations of the layer.
@@ -341,7 +341,7 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
 
 /* --------------------------------------------------------------- judgement
  *
- * SPEC-MODES R8 at the shared layer. The engine judges and the frontend
+ * SPEC-MODES ReqMode8 at the shared layer. The engine judges and the frontend
  * performs the switch (ruled 2026-11-01, #164), so a replay has to do what an
  * adapter does or it would report a judgement nobody acts on: after every key,
  * read take_judgement(), and when it answers a language, act on it. What is
@@ -418,15 +418,15 @@ static hunmin_buffered_preedit *judge_layer(hunmin_ctx *ctx, const char *layout,
 /* tests/golden/judgement-*.jsonl: one case per line.
  *
  *   {"meta": ...}                                  provenance, ignored
- *   {"case":"hello","req":"R8","layout":"dubeolsik","latin":"us-qwerty",
+ *   {"case":"hello","req":"ReqMode8","layout":"dubeolsik","latin":"us-qwerty",
  *    "autoswitch":1,"mode":"hangul","keys":"hello ",
  *    "commit":"hello","judged":["latin"],"mode_after":"latin"}
  *
  * The first four fields are the INPUT a person is replaying; the last three are
  * what the engine answered and are what the checker asserts. `mode` is the mode
- * the case starts in (R8's symmetric line needs latin), `judged` is the
+ * the case starts in (ReqMode8's symmetric line needs latin), `judged` is the
  * judgement taken at each boundary in order — empty when nothing switched,
- * which is R8's "keep the current mode" — and `mode_after` is the mode the
+ * which is ReqMode8's "keep the current mode" — and `mode_after` is the mode the
  * layer is left in. Comparing the last two as well as the first is what stops
  * a corpus from asserting a switch no adapter would perform.
  */
@@ -486,7 +486,7 @@ static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force
                 break;
             }
             judge_step(&c, key, shift, NULL);
-            /* Delivery TIMING, per key, when a case needs it. R6 is the reason
+            /* Delivery TIMING, per key, when a case needs it. ReqMode6 is the reason
              * this exists: a held digit run and a per-key-committed one deliver
              * the same final text, so the final text cannot tell them apart. */
             if (cJSON_IsArray(wsteps)) {
@@ -550,7 +550,7 @@ static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force
  * SAME key sequences driven one level up, through hunmin_buffered_preedit --
  * the layer every frontend now sits on -- with `autoswitch` explicitly OFF and
  * the rest of the feature PRESENT (the Latin layout, the shipped English list,
- * R8's reading replayed at every boundary), so the option is the only thing
+ * ReqMode8's reading replayed at every boundary), so the option is the only thing
  * standing between the layer and a different delivery.
  *
  * What is compared, per key, byte for byte:
@@ -804,7 +804,7 @@ static int off_flush(off_case *c, const char *path, int line, long *checks) {
     return fails;
 }
 
-/* R15's first clause, on the cases we know switch: for a judgement case whose
+/* ReqMode15's first clause, on the cases we know switch: for a judgement case whose
  * replay really takes a judgement, the SAME keys with `autoswitch` 0 must deliver
  * what the engine delivers. The judgement is the control -- a case the feature
  * ignores would pass this comparison without proving anything, which is why a
@@ -841,12 +841,12 @@ static int off_judgement_pair(hunmin_ctx *ctx, off_case *c, char *held_layout, s
     hunmin_buffered_preedit_free(on);
     /* The corpus says which cases switch (`judged` non-empty) and which keep the
      * mode; the control is required exactly on the former, because those are the
-     * words R15's fallback is about. A case the corpus says switches and the
+     * words ReqMode15's fallback is about. A case the corpus says switches and the
      * layer no longer switches is drift between the two, and it fails. */
     if (expect_switch && !judged) {
         fprintf(stderr,
                 "%s:%d: this case's corpus entry says it switches and the replay took no judgement "
-                "-- the judgement stopped firing on a case R15 is about\n",
+                "-- the judgement stopped firing on a case ReqMode15 is about\n",
                 path, line);
         return fails + 1;
     }
@@ -961,7 +961,7 @@ static int check_off_files(hunmin_ctx *ctx, const char *const *paths, int npaths
             }
             /* A judgement case (tests/golden/judgement-*.jsonl): a key STRING and
              * its own layout, so it is driven as a pair -- the switch as the
-             * control, the off path as the thing R15 constrains. */
+             * control, the off path as the thing ReqMode15 constrains. */
             const cJSON *jkeys = cJSON_GetObjectItemCaseSensitive(j, "keys");
             if (cJSON_IsString(jkeys) && !cJSON_GetObjectItemCaseSensitive(j, "in")) {
                 const cJSON *jl = cJSON_GetObjectItemCaseSensitive(j, "layout");

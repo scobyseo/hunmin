@@ -12,7 +12,7 @@
  *  - the value is the engine's, not the stored request (a refused ON read back
  *    as ON would make the switch claim a feature the judgement cannot use);
  *  - the key is the engine's chord, so the screen cannot advertise a different
- *    key from the one OverlayActivity and the key hook use (R13-정정);
+ *    key from the one OverlayActivity and the key hook use (ReqMode13);
  *  - B3's data gate is asked of the engine, and absent data disables the row
  *    rather than showing a switch that does nothing.
  */

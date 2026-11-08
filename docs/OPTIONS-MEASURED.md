@@ -1,4 +1,4 @@
-# OPTIONS-MEASURED — twelve cost questions, measured
+# OPTIONS-MEASURED — seven cost questions, measured
 
 Four documents that were one genre: a question nobody had priced, the options
 priced against each other, and the maintainer left to choose. They are one file
@@ -6,27 +6,24 @@ now — the four shared preambles and provenance blocks were the duplication, an
 each section keeps its own status, because two of the four have been decided
 since they were written. §URM arrived later, as a section rather than a fifth
 document, because an issue that asks a question and leaves it open belongs in
-the file that already holds the open ones; §HEK, §E5 and §EDW followed the same way.
+the file that already holds the open ones; §HEK and §E5 followed the same way.
 
-Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`, `HEK-`,
-`E5-`, `EDW-`, `B1-`, `PAS-`, `MRO-`, `BND-`) so a cross-document citation stays unambiguous: `docs/OPTIONS-MEASURED.md §AND-4.2`
-is the android sandbox's §4.2. `HEK` and `E5` are the two halves of issue #159 and are
-deliberately separate, because they answer different questions: **§HEK** measures whether
-each environment can deliver the gesture at all (key shapes), and **§E5** prices what the
-gesture *means* (the assignment). §HEK-4's shapes and §E5-3's assignments are not
-alternatives to each other. §EDW (issue #160) is a third subject and cites itself.
-§B1 (issue #161) asks a different kind of question again: not which option to pick but
-whether the block the other items sit behind still exists, so its options are answers to
-§PAS (issue #162) is arithmetic rather than a probe: the
-two numbers it prices are gradeable only once #181's harness picks a corpus, so it
-prices the units instead. §MRO (issue #164) is the first section whose subject
-already exists twice in the tree — it asks which home the rule should keep, not
-whether one is missing, and its ruling is the one that also fixed R9's threshold.
-§BND (issue #163) prices three parameters of one function — the buffer cap, the
-short-word threshold and the flicker — and finds that two of the three premises the
-issue states are not what the tree does. §BND-7 (issue #171) measures a fourth
-thing on the same object: whether R6's digit run is actually held in the layer's
-word.
+Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`,
+`HEK-`, `E5-`) so a cross-document citation stays unambiguous:
+`docs/OPTIONS-MEASURED.md §AND-4.2` is the android sandbox's §4.2. `HEK` and `E5`
+are the two halves of issue #159 and are deliberately separate, because they
+answer different questions: **§HEK** measures whether each environment can
+deliver the gesture at all (key shapes), and **§E5** prices what the gesture
+*means* (the assignment). §HEK-4's shapes and §E5-3's assignments are not
+alternatives to each other.
+
+**The five modes sections that used to sit after §E5 — §EDW, §B1, §PAS, §MRO and
+§BND — were deleted on 2026-11-08 by the maintainer's order** ("delete the
+measurement history … just leave how to remeasure with new data and new
+approach"). Their rulings survive in `docs/SPEC-MODES.md` and in the wiki's
+decision pages, each with the maintainer's words verbatim; how to measure the
+judgement again is `docs/MODES-MEASUREMENT.md`. The figures are in git history
+and are not a home anybody can cite as current.
 
 | section | question | status |
 |---|---|---|
@@ -35,21 +32,14 @@ word.
 | TST | what a test-framework migration would cost | **decided: option 1b**, shipped (#109) |
 | IC | the case-encoding `ch` input | **decided: option B**, recorded (#87 close) |
 | URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | **Q1 decided: option C**, shipped (#146); Q2 measured 2026-10-30 — the residue is the per-user `Enable` key, one ruling away |
-| HEK | whether the Han/Eng key can act as a held modifier in each frontend environment, and what the compound press would cost | measured per environment (Windows live, Android emulator, fcitx5 read-only); the **compound's action is decided** 2026-10-31 — `docs/SPEC-MODES.md` §E5, §E5 status below | 
+| HEK | whether the Han/Eng key can act as a held modifier in each frontend environment, and what the compound press would cost | measured per environment (Windows live, Android emulator, fcitx5 read-only); the **compound's action is decided** 2026-10-31 — `docs/SPEC-MODES.md` §E5, §E5 status below |
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
-| EDW | which English dictionary R8-정정's `english_valid` looks up, under what licence, and whether it ships separately | **decided 2026-11-01: hunspell `en_US` + a user dictionary, shipped in-tree for now** (#160); four candidate dictionaries and the corpus-list baseline were priced on one probe. The curated supplement is deferred; the separate-distribution split is #190 |
-| B1 | whether the board's B1 ("the hangul judgement source") is still a blocker at all now that `hangul_valid` is a structural test | **decided 2026-11-01: option A — B1 retired** (#161); the Hangul half is answered by R8-정정, the English half is decided and shipped by R8-정정-2 |
-| PAS | the pass lines for the two scored metrics (keystroke saving, manual toggles) — in which unit each can be graded at all | open (#162); the arithmetic is measured, no number is chosen. Both validity halves and the autoswitch state shipped 2026-11-01, but the judgement the numbers grade is still #168 and the harness that would run them is still #181 — so the units are priced and the corpus that fixes them is named as the missing input, not the number |
-| MRO | who owns the modes judgement — the shared layer, which already holds the buffer, both layouts and the mode, or each adapter | **decided 2026-11-01: option C** (#164) — the engine judges, the frontend performs the switch; the same ruling sets R9's threshold at three **key inputs** (unit clarified 2026-11-01, §R9). The material is measured in three places and the formula in none; the fcitx5 act still needs an input method to switch to |
-| BND | the three parameters of the judgement boundary: where the buffer must end (E2), what counts as a short word (E3), and whether judgement ever moves inside the word (E6) | **E2 decided 2026-11-01 (issue #163): option B at 256 B, configurable** — implemented, the preedit bounded and lossless at every length; **E3's value came from §MRO's ruling** — three key inputs (2026-11-01, unit clarified the same day) — and this section measures what that N partitions; **E6 decided 2026-11-01: both timings, per-key by default** — `judge_timing` is an option, 64.05% of dictionary forms flick back inside the word under the default (94.18% without R9's guard), and the delivered text is identical in both timings. **E1 was ruled the same day** while this section's mixed-sentence measurement was on the table: the symmetric line ships, and that sentence is the 0.3 gate |
 
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
 find the optimum design, not to judge one candidate", and a decision is the
 maintainer's. Each section states what a choice costs and what it would lose, and
 records the ruling once one exists.
-
-
 
 ## MUT — Mutation tier: what `frontend-mutations` costs
 
@@ -413,7 +403,7 @@ PR run.
 
 #### MUT-6.3 What each costs the guards
 
-The guards `docs/FRONTEND-CONTRACT.md` §5 claims are checked *only* by this
+The guards `docs/DESIGN-FRONTEND.md` Part B §5 claims are checked *only* by this
 tier. If it runs nightly instead of per-push:
 
 - A commit that breaks an invariant is caught **up to 24 h later** rather than
@@ -738,9 +728,9 @@ precisely so it is not quietly omitted.
 naming an uncaught mutation is better than omitting it silently, and that
 principle currently has an exception nobody wrote down. Options that follow —
 plant it as `EXPECTED-TO-SURVIVE`, delete the file, or document it in
-`docs/FRONTEND-CONTRACT.md` next to §5.1's flush/commit entry — are the
+`docs/DESIGN-FRONTEND.md` Part B next to §5.1's flush/commit entry — are the
 maintainer's to pick. The measurement above is the same shape as the one
-`FRONTEND-CONTRACT.md` §5.1 already records for flush/commit, so the
+`DESIGN-FRONTEND.md` Part B §5.1 already records for flush/commit, so the
 documentation route is the closest fit; that is a recommendation, and the
 ruling is not this document's to make.
 
@@ -1070,7 +1060,7 @@ relied on, and one part is wrong in a way that matters for the ruling.
    `frontends/android/…/HunminKeyRegistry.kt` (generated by
    `tools/keymap-fixture.py`, which is ctest `keymap-fixture`); the fcitx5
    adapter buys its mapping from the host XKB resolve instead
-   (`docs/FRONTEND-CONTRACT.md` A1) and then *undoes* one case at the
+   (`docs/DESIGN-FRONTEND.md` Part B A1) and then *undoes* one case at the
    adapter for CapsLock (`hunminadapter.cpp:326-330`,
    `frontends/fcitx5/src/hunminadapter.cpp`).
    **Correction 2026-10-19 (issue #106):** the `tsf.cpp` runtime home is
@@ -1104,7 +1094,7 @@ shifted; the uppercase `"H"`/`"W"` strings in the two sin3-p2 files are
 `flags` overrides, the 전처리수식 set_option keys, not keys entries). The
 uppercase indexes of the runtime `keys[128]` table are purely the loader's
 materialisation — the loader puts the shift row at the shifted character's
-index — so `docs/FRONTEND-CONTRACT.md` A2's "layouts encode shift as
+index — so `docs/DESIGN-FRONTEND.md` Part B A2's "layouts encode shift as
 uppercase rows" describes that materialisation, not the authoring
 convention. Saying "uppercase rows" as if the data had them is how a reader
 ends up concluding a data-model change is required for an explicit-modifier
@@ -1158,7 +1148,7 @@ Outward-facing costs are measured; opportunity costs are stated as such.
 - **The case decision lives in the adapters.** Three of them each decide
   CapsLock-and-shift interaction on their own, and the Android one is where
   a CapsLock×Shift interaction already shipped wrong in an earlier revision
-  (`FRONTEND-CONTRACT.md` A3': the revision ignored Shift under CapsLock).
+  (`DESIGN-FRONTEND.md` Part B A3': the revision ignored Shift under CapsLock).
   A second frontend of that shape would inherit the same decision to make
   rather than the made decision.
 - **The engine-level composition has only one home today** — tier A
@@ -1189,7 +1179,7 @@ measured surface is the shape).
   cheap faithful rule is "the char is treated as already
   resolved whenever `shifted_of(char)` is zero and the char is not a
   lowercase/base form", but the wording belongs in the ruling, in
-  `docs/SPEC-P2.md` (engine interface) and `docs/FRONTEND-CONTRACT.md`.
+  `docs/SPEC-P2.md` (engine interface) and `docs/DESIGN-FRONTEND.md` Part B.
 - ABI: +1 symbol onto the 22 (append-only act, `nm` command in AGENTS.md;
   the `abi` test prints the command when it fails).
 - Tier A: an equality test — for every shipped layout and every key row, the
@@ -1693,7 +1683,7 @@ running Android image:
    both `KEYCODE_LANGUAGE_SWITCH` (204) and `KEYCODE_KANA` (218); what Android
    lacks is a keycode that *reaches the IME*. Measured (HEK-2): 204 is consumed
    by the framework before any IME sees it, 218 and 212 are delivered.
-2. **"the state is one value the engine owns" (R13-정정) — verified for the
+2. **"the state is one value the engine owns" (ReqMode13) — verified for the
    mode, absent for the compound assignment.** The mode lives in the shared
    layer; the assignment has no home there yet, because the engine's key
    vocabulary is press-only and `hunmin_key_event.language_key` is one boolean
@@ -1721,7 +1711,7 @@ Three consequences, all of them work that any option for HEK pays:
 |---|---|---|
 | distinguish single press from chord | impossible: the toggle fires on the press | the decision moves to key-up, or a timeout appears |
 | carry the held state | no field, no bit | a `HUNMIN_MOD_*` bit or a new event field (append-only ABI) |
-| hold the assignment (R13-정정: the engine owns it) | per frontend | a new engine-level value + readers per frontend |
+| hold the assignment (ReqMode13: the engine owns it) | per frontend | a new engine-level value + readers per frontend |
 
 ### HEK-2 Per-environment measurement
 
@@ -1806,14 +1796,14 @@ back to the key-down toggle and the case above was replaced by
 from the measurement is §HEK-2's platform rows -- that Windows reports the held
 `VK_HANGEUL` as down, and that a second key arrives while it is held -- which is
 what made the chord believable before it was built. See
-`docs/MODES-ENGINE-RULES.md` §3 for what replaced it.
+`docs/DESIGN-MODES.md` §3 for what replaced it.
 
 ### HEK-4 The options
 
 **A — Han/Eng held as a modifier (the shape measured above).** Gain: the E5
 assignment becomes expressible at all, and the press/release distinction lives
 in one place per frontend. Cost: the toggle moves to the release everywhere; an
-engine-side home for the assignment is still owed (R13-정정); fcitx5 needs
+engine-side home for the assignment is still owed (ReqMode13); fcitx5 needs
 release tracking, a keysym mapping and a two-slot layer; Android needs its own
 held-state map because the key is not a modifier bit in `metaState`.
 What would change the answer: a measurement showing the release timing is
@@ -1873,7 +1863,7 @@ switch on/off") cannot be built on any frontend.
 ## E5 — the 한/영 key: what each single-press / compound-press assignment costs
 
 Status: **open** (issue #159). The requirement is `docs/SPEC-MODES.md` §E5 and the
-hook's placement is `docs/MODES-ENGINE-RULES.md` §3; neither is restated here. What is
+hook's placement is `docs/DESIGN-MODES.md` §3; neither is restated here. What is
 priced here is the assignment those two leave open, and the two *mechanisms* the words
 "단일 입력 / 복합 입력" can mean.
 
@@ -1890,7 +1880,7 @@ layers that exist and a sequence does not.
 ### E5-0 The premises, checked first
 
 Four premises are carried by the issue, `docs/SPEC-MODES.md` §E5 and
-`docs/MODES-ENGINE-RULES.md` §3. `AGENTS.md` asks for stated premises to be checked as
+`docs/DESIGN-MODES.md` §3. `AGENTS.md` asks for stated premises to be checked as
 carefully as one's own result, so each was run against the tree before anything was
 priced.
 
@@ -1899,7 +1889,7 @@ priced.
 | 1 | F9 is occupied by 전처리수식 (the preprocessing expression) | **does not hold as stated.** The 전처리수식 keys are the `flags` overrides on `z`, `h`, `H` (and `w`, `W` in the yet variant) in `libhunmin/data/layouts/sin3-p2.json` — pat.im §2-6, recorded in `docs/SPEC-P2.md` §"ist file anatomy". F9 is a key of **no** layout: 15 layouts × 47 key entries, **0 named (non-printable) keys** — `tools/keymap-fixture.py` prints that count on this tree. F9's only claim in the tree is the fcitx5 adapter's Hanja window (`frontends/fcitx5/src/hunminadapter.cpp` `keyEvent`, `FcitxKey_F9` → the P3 flow): a frontend's window key, not a layout key. **And the maintainer ruled the same day that F9's use as the Hanja key was a test scaffold**, with the Hanja key as the shipped default — `wiki/decisions/2026-10-31-hanja-key-default-f9-was-a-test-scaffold.md`. |
 | 2 | Android has no AOSP keycode for F9 | **does not hold as stated.** `android.view.KeyEvent.KEYCODE_F9` exists and is **139**; see below. What is true is narrower and is *not* about the keycode. |
 | 3 | the 0.1 half shipped the feature inert | **holds.** `KeyAction.AUTO_TOGGLE` has `defaults = emptyList()`, the service's dispatch skips the action (`if (action == KeyAction.AUTO_TOGGLE) continue`), and the settings row renders disabled at 미정 (0.3). Ruled 2026-10-12, `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`. |
-| 4 | the assignment must be a value the engine holds (R13-정정) | **holds as a requirement; the tree cannot express it.** `grep -rn autoswitch libhunmin/ frontends/ tests/` → **0**. `hunmin_ic_set_option()` accepts one name (`caps`); `hunmin_buffered_preedit_set_option()` takes the same shape; no exported symbol returns a key binding. So the value named on screen has no home today, and nothing can diverge from it yet only because nothing shows it. |
+| 4 | the assignment must be a value the engine holds (ReqMode13) | **holds as a requirement; the tree cannot express it.** `grep -rn autoswitch libhunmin/ frontends/ tests/` → **0**. `hunmin_ic_set_option()` accepts one name (`caps`); `hunmin_buffered_preedit_set_option()` takes the same shape; no exported symbol returns a key binding. So the value named on screen has no home today, and nothing can diverge from it yet only because nothing shows it. |
 
 **Correction (2026-11-01, issue #165): row 4's implementation half no longer holds.**
 The value has a home now — `"autoswitch"` on `hunmin_ic_set_option()`, read back through
@@ -1908,7 +1898,7 @@ carried across a language toggle — the binding this row says no symbol returns
 `hunmin_buffered_preedit_special_chord()`, and the transition is the engine's
 (`hunmin_buffered_preedit_special()` flips its own value on a serviced press, ruled
 2026-11-01). What survives from the row is its *requirement* half only. Both halves are
-recorded in `docs/MODES-ENGINE-RULES.md` §3 ("The value the `AUTOSWITCH` function flips").
+recorded in `docs/DESIGN-MODES.md` §3 ("The value the `AUTOSWITCH` function flips").
 The row above is left as measured on its own date rather than rewritten.
 
 **Correction (2026-11-02, issue #174): row 3 no longer holds.** The inert shipping state
@@ -1964,14 +1954,14 @@ moved) says it.
 
 | | Android | TSF | fcitx5 |
 |---|---|---|---|
-| the Han/Eng action | `hunmin_buffered_preedit_toggle_language()` over JNI (`frontends/android/app/src/main/cpp/hunmin-jni.c`) | the same symbol, from `ToggleModeCore` (`frontends/tsf/src/tsf.cpp`) | **not in the addon.** fcitx's own trigger owns the key (FE13; `docs/FRONTEND-EQUIVALENCE.md` §4, §8.3(1)) |
+| the Han/Eng action | `hunmin_buffered_preedit_toggle_language()` over JNI (`frontends/android/app/src/main/cpp/hunmin-jni.c`) | the same symbol, from `ToggleModeCore` (`frontends/tsf/src/tsf.cpp`) | **not in the addon.** fcitx's own trigger owns the key (FE13; `docs/DESIGN-FRONTEND.md` Part A §4, §8.3(1)) |
 | the physical key | `platformAlternates` of `KeyAction.HANGUL_ENG`: bare `ALT_RIGHT`, `LANGUAGE_SWITCH`, KANA `218` — no default chord. **Measured (§HEK-2): `LANGUAGE_SWITCH` (204) never reaches the service on the API 35 image — the framework switches the IME to Gboard instead**; 218 and 212 arrive | `{VK_HANGEUL (0x15), mods 0}` appended by `LoadToggleKeys()` whatever the store says | none by default: `Hangul` is one of fcitx's default `triggerKeys`, consumed before the addon (§E5-2 addendum) |
 | stored form | `"v1:<keycode>:<normalised metaState>"`, one per row | `"v1:<vk>:<mods>;…"`, a list per action (`toggleKeys`, `hanjaKey`) | — |
 | remap path | yes: settings window, per action | yes: registry/env list + settings dialog | — |
 | does a compound arrive as a distinct event? | **yes, with no code change**: `modifiersMatch()` compares Shift by equality and Alt/Ctrl by family, so a bare alternate does not fire under a modifier | **yes**: `hunmin_tsf_keybindings_match()` compares the three family bits exactly | — |
 | precedence / ownership order | `HANGUL_ENG` 0 < `VOICE` 1 < `AUTO_TOGGLE` 2 < `HANJA` 3 (`KeyAction.byPrecedence()`) | toggle first (`IsModeToggle`), then the candidate window, then the chord rule | — |
 
-So the tree holds **three** assignments of one abstract action, plus one absence. R13-정정
+So the tree holds **three** assignments of one abstract action, plus one absence. ReqMode13
 asks for one value with three readers; §E5-3 counts the edits that takes.
 
 ### E5-2 The collision map — measured, per platform
@@ -2018,7 +2008,7 @@ matching, and only `Mod3`/`Super` survive the mask above (`Mod5` is dropped).
 `{Control+space, Zenkaku_Hankaku, Hangul}` (`globalconfig.cpp`), and the trigger watcher is
 registered at `EventWatcherPhase::InputMethod` in `instance.cpp` and calls
 `keyEvent.filterAndAccept()` on a match — so under the shipped defaults the press is
-consumed before the addon's `keyEvent` runs at all. That is `docs/FRONTEND-EQUIVALENCE.md`
+consumed before the addon's `keyEvent` runs at all. That is `docs/DESIGN-FRONTEND.md`
 §4/§8.3(1)'s "fcitx owns the trigger", and it is **a default configuration, not an API
 limit**. Two routes exist:
 
@@ -2138,14 +2128,14 @@ app", on every Windows host.
 in the engine (§E5-0 premise 4), so this is the only one that cannot ship without new
 engine surface *and* three re-mappings; and it takes the single press away from the
 interaction the physical key exists for on all three platforms.
-*Loses:* R13 said on/off is "a key combination"; a single press is not a combination, so
-this reading needs R13 re-read, not just E5 answered.
+*Loses:* ReqMode13 said on/off is "a key combination"; a single press is not a combination, so
+this reading needs ReqMode13 re-read, not just E5 answered.
 
 **4 — compound = the 한/영 key pressed twice.**
 *Cost:* a clock. Every layer decides one event at a time and statelessly
 (`KeyBindings.matches`, `hunmin_tsf_keybindings_match`, `fcitx5 keyEvent`), and the
 engine's key path takes `(base, shift, mods)` with no time. Putting the window in each
-frontend is three copies of one rule (R3); putting it in the engine needs a per-event clock
+frontend is three copies of one rule (ReqMode3); putting it in the engine needs a per-event clock
 seam that does not exist.
 *Loses:* a mistimed second press — the natural reaction when a switch misfires — silently
 toggles a feature the user did not aim at. Nothing in the tree measures double-press timing.
@@ -2154,7 +2144,7 @@ toggles a feature the user did not aim at. Nothing in the tree measures double-p
 only.**
 *Cost:* the smallest in the tree — Android already has the disabled row, TSF and fcitx5
 need one settings item each, and the engine still needs the state (§E5-0 premise 4).
-*Loses:* R13's stated preference ("the most preferred way is a key combination, not UI"),
+*Loses:* ReqMode13's stated preference ("the most preferred way is a key combination, not UI"),
 and the 0.3 row would show 미정 forever.
 
 **6 — a key combination that is not built on 한/영 (e.g. Shift + Space).**
@@ -2165,7 +2155,7 @@ carve-out above the space boundary branch on Android and TSF (`onKeyDown`'s
 state.
 *Loses:* discoverability — Shift+Space is the 한/영 convention of other IMEs, so it reads
 as a language switch rather than as a feature switch; and it does not use the key the
-question is about, so it answers R13 without answering E5.
+question is about, so it answers ReqMode13 without answering E5.
 
 ### E5-4 What a ruling has to include
 
@@ -2188,7 +2178,7 @@ ruling says all five of these — otherwise the implementer decides the rest by 
    (§E5-2 addendum). This one sentence decides options 1, 2, 3 and 6.
 
 The engine-side prerequisite is the same for every option and is the one piece that can be
-built before the ruling: one append-only symbol that exposes the assignment (and R13-정정's
+built before the ruling: one append-only symbol that exposes the assignment (and ReqMode13's
 state), so the three frontends read one value instead of holding three.
 
 ### E5-5 Summary
@@ -2197,9 +2187,9 @@ state), so the three frontends read one value instead of holding three.
 |---|---|---|---|---|---|
 | 1 Shift+한/영 | chord | alternate list + precedence reorder | new action + store entry | `PreInputMethod` watcher (shadows the trigger), or a TriggerKeys edit | Shift+KANA means 음성 입력 |
 | 2 Alt/Ctrl+한/영 | chord | free (Alt caveat) | blocked by the transient chord rule | same two routes as 1 | exception to "chords belong to the app" |
-| 3 reversed | chord-less | 3 re-mappings | 3 re-mappings | 3 re-mappings | the key's own purpose; contradicts R13's wording |
+| 3 reversed | chord-less | 3 re-mappings | 3 re-mappings | 3 re-mappings | the key's own purpose; contradicts ReqMode13's wording |
 | 4 double press | sequence | clock | clock | clock | silent toggles on a misfire; no measurement |
-| 5 UI only | — | smallest | smallest | smallest | R13's stated preference |
+| 5 UI only | — | smallest | smallest | smallest | ReqMode13's stated preference |
 | 6 Shift+Space | chord | boundary carve-out | boundary carve-out | **works** | discoverability; does not answer E5 |
 
 **If a starting point is wanted rather than a menu:** option 1 keeps the key the user
@@ -2238,7 +2228,7 @@ route the Han/Eng press through it. That routing *is* the per-frontend work:
 | fcitx5 | three things before any test can pass: report `language_key = 1` for the `Hangul` keysym, stop returning early on releases (a hold state needs the release), and get the keysym past fcitx's trigger (`TriggerKeys` or a `PreInputMethod` watcher — §E5-2 addendum). Then the same three calls as Android, with a host that refuses `VOICE` (`supports()` → 0), because there is no recorder on the platform | a tier-D1 case in `testhunmin`: feed `FcitxKey_Hangul` with the Alt state and assert `..._special()` returns the bound function and the refusal path returns `-1`, plus a release-order case. Not writable here: no fcitx5 tree on this host |
 
 **The dispatch has a home too, ruled the same day** (the maintainer's paragraph quoted in
-`docs/MODES-ENGINE-RULES.md` §3): the frontend supplies the key codes and the function
+`docs/DESIGN-MODES.md` §3): the frontend supplies the key codes and the function
 implementations, the engine owns each `function → chord` binding, resolves one event to one
 function and refuses what nobody can service. Five append-only symbols carry it —
 `hunmin_buffered_preedit_special_bind/_special_chord/_special_host/_special` and
@@ -2289,7 +2279,7 @@ and Shift is a free slot a frontend or a store may bind, not the default for eit
   this box (no cmake, no headers), so every claim in that addendum is code-shape, not
   observed keystrokes. The version the tree requires (>= 5.1.13) is what CI builds.
 - Changed files: `docs/OPTIONS-MEASURED.md` (this section and the header table),
-  `docs/SPEC-MODES.md` §E5 and `docs/MODES-ENGINE-RULES.md` §3 (a one-line pointer each —
+  `docs/SPEC-MODES.md` §E5 and `docs/DESIGN-MODES.md` §3 (a one-line pointer each —
   no requirement text moves).
 - Changed by §E5-6 (engine): `libhunmin/include/hunmin.h` (the appended enum value),
   `libhunmin/src/buffered_preedit.c` (`classify`), `libhunmin/tests/key-rule-test.cpp`
@@ -2305,1581 +2295,3 @@ and Shift is a free slot a frontend or a store may bind, not the default for eit
   the pair kept alive in `docs/TESTING.md`. Planted-failure checked, not just green.
 - Issue #159 stays open and decision-gated: nothing here chooses, and a ruling is the
   maintainer's (`wiki/decisions/decisions-belong-to-the-maintainer.md`).
-## EDW — which English dictionary `english_valid` looks up (issue #160)
-
-**Measurements only. No option is recommended here and nothing is decided; the
-choice is the maintainer's.** Issue #160 asks for three things that are one
-question — the source, its licence, and whether the artefact ships separately —
-so all three are priced below on one probe, and can be compared.
-
-**Ruled 2026-11-01, after this section was written:**
-
-> "hunspell en_US 를 사용하고, 사용자 사전을 추가할 수 있게 하자."
-
-So `libhunmin/data/modes/en-US.json` ships (generated by `tools/en-us2data.py`,
-SCOWL permission notice + BSD `.aff`), and a person's own words are merged into
-the same lookup — `hunmin_buffered_preedit_load_english`,
-`..._load_user_words`, `..._add_user_word`, `..._english_valid`,
-`..._english_ready`. Requirement text: `docs/SPEC-MODES.md` R8-정정-2; file
-schema: `docs/SPEC-SCHEMA.md` "English word list". **Not** shipped by that
-ruling: the curated supplement of EDW-3 (deferred), and the separate
-distribution of EDW-4 (follow-up issue). The measurements below are unchanged —
-they are what the ruling was made on.
-
-Produced 2026-11-01 on branch `scobyseo/modes-ruling-which-english-dictionary-its-licenc`
-(base `master` at `0d72312`), Windows 11, `python3` 3.13. Deliberately **not**
-touched by this branch: `docs/REMAINING-WORK.md` and `AGENTS.md`, which parallel
-sessions patch.
-
-### EDW-0 The premise, checked first
-
-The issue's claims in its own words, each measured:
-
-1. "**The tree has no such data**: `libhunmin/data/` holds `compose, hanja,
-   idioms, krdict, layouts` only" — **verified** (`ls -d libhunmin/data/*/`).
-2. "`docs/SPEC-MODES.md` R8-정정 defines `english_valid` as 'a lookup in the
-   ENGLISH DICTIONARY'" — **verified verbatim**, and one thing the issue does
-   not say is worth stating: that definition has **no consumer in the tree yet**.
-   `grep -rn english_valid libhunmin/ frontends/` returns 0; all 23 hits are in
-   `docs/` and `tools/`. So this ruling gates an unimplemented path, and nothing
-   in the engine breaks while the source stays unnamed.
-3. "a dictionary filter drops reproduction 86.35% → 43.87% on the 624-word
-   evaluation" — **not re-derivable on this host**, and the reason is not a
-   defect: both inputs live outside the repository by licence and size
-   (`~/work/wikicorpus/full/latin.txt`,
-   `~/work/aihub-records-corpus/624-en-mixed.txt`), and the AIHub terms are
-   use-and-training only. What was measured instead:
-   - **§4-7d's dictionary has a name now.** `/usr/share/dict/words` on Debian is
-     the `wamerican` package (2020.12.07, 104,334 lines), and the `README_en_US.txt`
-     shipped with the hunspell dictionary states "the normal (non-large)
-     dictionaries correspond to SCOWL size 60". The 43.87% figure was measured
-     against one member of a **family** whose members share a vocabulary size
-     and a licence — which is what makes the other members' cost predictable
-     instead of guessed.
-   - **A second instrument**: `tools/modes-dict-probe.py` walks ko.wikipedia
-     through the MediaWiki API using the stripper and token rule of
-     `tools/build-modes-corpus.py` (imported from it, never re-typed — that file
-     exists because both of those steps were once wrong). Two disjoint walks:
-     **A** = 3,000 pages from `가` (4,769 forms / 16,815 tokens), which builds
-     the corpus-list baseline; **B** = 3,000 pages from `히` (2,987 forms /
-     12,018 tokens), the holdout every candidate is scored on.
-4. The premise the issue does **not** state, which every option inherits:
-   R8-정정 defers the fate of the 50,000 cap and of the corpus list, so any
-   dictionary choice re-opens "what happens to `docs/MODES-DATA.md` §4". And
-   §4-7a records that a dictionary calls markup valid — `px km cm align center
-   style` are all in `/usr/share/dict/words` — a precision cost a harvested list
-   does not have. It is re-measured per candidate in EDW-2.
-
-### EDW-1 What `english_valid` asks of the data
-
-One membership test on the Latin reading of the keys, once per finished buffer
-(space or symbol); the three-line judgement formula in `docs/SPEC-MODES.md` R8
-decides from that one bit plus `hangul_valid`, which is structural and needs no
-data at all. So the artefact is
-a **word set**, not a lexicon: no senses, no part of speech, no definitions, and
-no morphology *output* — but morphology *coverage* matters, because a buffer that
-completes as `dogs` or `played` has to be found. Measured (EDW-2): one level of
-affix expansion is worth +4.39pp on the holdout, i.e. it is a real property of
-the data, not an implementation detail.
-
-| cost | value | how measured |
-|---|---|---|
-| in-memory, 8 B per slot at 50% load | 0.82 MB for 102,485 forms | `len(words) * 8`, the model MODES-DATA §4-7a uses |
-| plain text list, one form per line | 985 KB (`wamerican`'s 102,485) | `wc -c` |
-| JSON array of the same forms | 1.30 MB raw / 275 KB gzipped | `json.dumps` + `gzip -9` |
-| hunspell `.dic` + `.aff` | 555 KB raw / 192 KB gzipped | `ls -l`, `gzip -9` |
-
-Case has to be folded by the loader: the dictionaries ship lowercase plus some
-capitalised and `'s` forms, the buffer is whatever the layout produced. Every
-number below is lowercased on both sides, and the tool prints that it did.
-
-### EDW-2 The candidates, measured on the holdout
-
-Token-weighted coverage of B, `python3 tools/modes-dict-probe.py measure …`:
-
-| candidate | licence | entries | ships | embed | cover (raw) | cover (≥2 chars) |
-|---|---|---|---|---|---|---|
-| SCOWL-60 `wamerican` 2020.12.07 | permissive, notice | 102,485 | 0.99 MB | 0.82 MB | 69.90% | 62.59% |
-| hunspell `en_US` stems | same (SCOWL) | 48,262 | 0.55 MB | 0.39 MB | 68.41% | 60.75% |
-| hunspell `en_US` + affixes | same (SCOWL) + BSD `.aff` | 118,173 | 0.55 MB | 0.95 MB | 71.94% | 65.14% |
-| `english-words` (dwyl) | Unlicense | 370,105 | 4.23 MB | 2.96 MB | 70.75% | 63.66% |
-| `google-10000-english` | **none stated** | 10,000 | 0.08 MB | 0.08 MB | 66.58% | 58.48% |
-| corpus list (all of A) | CC BY-SA 4.0 (Wikipedia) | 4,769 | — | 0.04 MB | 66.16% | 57.95% |
-
-Five things this table says, and one it cannot:
-
-- **Among general English dictionaries the choice is worth ~3pp** (60.75–65.14%
-  at ≥2 chars), while licence, size and provenance differ by everything. The
-  source that decides the licence question barely moves the reproduction
-  question.
-- **Affix expansion is a data property**: the same SCOWL stems score 60.75% raw
-  stems, 65.14% expanded — the gap is not in the dictionary choice.
-- **A frequency-capped 10,000-entry list costs 2–4pp** against a 48,000–102,000
-  entry one (58.48% vs 60.75% and 62.59%), the same direction as MODES-DATA
-  §4-7a's cap table measured on its own instrument.
-- **Every dictionary counts markup as valid**: `px km cm align center style` are
-  found in all three general dictionaries (`px` is absent from the two
-  harvested lists). §4-7a's finding is a property of the class, not of one list.
-- **What it cannot say**: this is a 3,000-page sample, so the corpus-list row is
-  not comparable with §4-7's 86.35%. There the list had 50,000 entries harvested
-  from a whole dump and was scored on typed text; here it has 4,769 entries and
-  only 806 of B's 2,987 forms (780 at ≥2 chars) are among them. The rows compare
-  **candidates on one probe**, which is what the ruling needs; they do not
-  reproduce the absolute figures, which need the corpora that are not in the
-  repo.
-
-The 10 named tokens — the mechanism §4-7d says halves reproduction — replicate
-exactly, at every size:
-
-| candidate | has | missing |
-|---|---|---|
-| SCOWL-60 / `wamerican` | 0 / 10 | `kbs mbc sbs fc fifa uefa sk kt nhk cj` |
-| hunspell `en_US` | 2 / 10 | `kbs mbc sbs fc fifa uefa nhk cj` (`sk kt` present) |
-| `english-words` | 3 / 10 | `kbs mbc sbs fifa uefa nhk cj` (`fc sk kt` present) |
-| `google-10k` | 3 / 10 | `kbs mbc sbs fifa uefa kt nhk` (`fc sk cj` present) |
-
-### EDW-3 What a supplement buys, and what it costs in licence
-
-The dictionary is not where the loss is, so the obvious repair is dictionary +
-a list of the forms it lacks. Measured on the same probe (SCOWL-60 plus the
-top-k word-shaped forms of A that SCOWL lacks, scored on B, ≥2 chars):
-
-| added forms | cover on B | gain | added embed |
-|---|---|---|---|
-| 0 | 62.59% | — | — |
-| 100 | 71.16% | +8.57pp | 0.001 MB |
-| 250 | 72.19% | +9.59pp | 0.002 MB |
-| 500 | 72.77% | +10.17pp | 0.004 MB |
-| 1,000 | 73.99% | +11.39pp | 0.008 MB |
-| 2,000 | 75.53% | +12.93pp | 0.016 MB |
-
-2,425 of A's word-shaped forms are missing from SCOWL-60 — 35.78% of A's
-word-shaped tokens.
-The curve flattens at ~2,000 because that is where A's vocabulary runs out; it is
-a ceiling of the sample, not of the design. The forms at the top are `fc` `png`
-`fifa` `isbn` `uefa` `nhk` `mbc` `kbs` plus markup (`colspan`, `text-align`), so
-the supplement is organisations, file formats and residue — the thing §4-7d
-identified — and a curated list of those is small in bytes and large in gain.
-
-**The licence consequence is the point of this subsection.** A supplement
-harvested from Wikipedia prose is CC BY-SA and pulls the ShareAlike question back
-in, in a directory of its own at best (`libhunmin/data/krdict/` is the precedent);
-a supplement written by hand has no upstream to attribute, but then its content
-is decided by a person, not measured. Neither is priced further here: it is a
-ruling, not a measurement.
-
-### EDW-4 Where the artefact ships — B3's mechanics, priced per surface
-
-B3's wording is the constraint, quoted in the decision page
-(`wiki/decisions/2026-10-11-auto-switch-off-by-default.md`):
-
-> 자동변환에 필요한 사전이든 뭐든 추가 데이터는 별도 배포를 가정하고 그 데이터가
-> 있을때만 기능을 켤 수 있게 하면 transition이 용이할 거 같아.
-
-That same page rules the *mechanism* out of scope — "The mechanism (data format,
-presence detection, package name) is design work, not ruled" — so what follows
-prices four mechanisms, not four decisions.
-
-| surface | what a separate artefact costs today |
-|---|---|
-| Debian | `debian/control` has one `Package: hunmin`; a second package is a new stanza plus splitting `install(DIRECTORY libhunmin/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin)` in the top-level `CMakeLists.txt`, plus `debian/copyright` and `changelog` entries |
-| Windows installer | `frontends/tsf/installer/hunmin.iss` ships `data\` whole (krdict already sits in its own tree for ShareAlike isolation); an optional component is a `[Components]` entry with `Flags: unchecked` |
-| Android | assets are staged by a `Sync` from `libhunmin/data` that already excludes `krdict/**` (`frontends/android/app/build.gradle.kts`); data that must not ship needs a download step or an asset flavour — the only surface with a runtime path |
-| engine | the presence gate has a precedent: `libhunmin/src/candidate_tables.c` keeps `loaded` as 0 untried / 1 loaded / **-1 absent**; the same three-state answer at the judgement boundary needs no new ABI symbol |
-
-Four mechanisms, each with what it buys and what it costs:
-
-- **In `libhunmin/data/modes/`, shipped whole.** Cheapest: one directory, its
-  `LICENSE.md` (the `hanja`/`idioms`/`krdict` convention), a `docs/SPEC-SCHEMA.md`
-  section, one provenance `meta.json`. It requires a **permissive** source —
-  SCOWL and `english-words` qualify, a Wikipedia-derived list does not without
-  the krdict-style isolation. And it makes B3's gate a build-time option rather
-  than a distribution fact, because the data can no longer be absent.
-- **As a separate package** (`hunmin`-adjacent deb binary, installer component,
-  Android download): the B3 shape as written, at the cost of the three surfaces
-  above; the gate stays real because absence is a real state.
-- **Downloaded on first use**: no data in any package and the licence stays at
-  the host, but it adds a network at a moment the person is typing, an integrity
-  and hosting answer, and a failure mode on the two frontends whose users may be
-  offline.
-- **No data at all**: `english_valid` would have no source, which is R8-정정
-  reverted — an option only in the sense that the requirement could change.
-
-#### EDW-4 status, 2026-11-01 — the second mechanism, as far as it is buildable here
-
-Issue #172 (and #190, which prices the same change) shipped the **separate
-package** row as a *seam*, not as a default: the maintainer's 2026-11-01 ruling
-is one dictionary by default, additional ones later. What each surface now
-says, measured on the host that made the change:
-
-| surface | state after #172 | evidence, and what was not executed |
-|---|---|---|
-| Debian | **shipped** | `data` and `modes-data` install components (`CMakeLists.txt`), binary package `hunmin-en-us` (`debian/control`, `debian/hunmin-en-us.install`), and `Recommends: hunmin-en-us` on the base package (ruled 2026-11-01, "Recommends.") — one dictionary on a plain install, and still a package of its own. The partition was exercised with debhelper 13.31's `dh_install` against a staged tree: three files to `hunmin-en-us`, 35 to `hunmin`, no file in both. The `.deb` itself was **not built** — debhelper is not installed on that host and the CI `.deb` job is where dpkg-buildpackage runs. |
-| Windows installer | unchanged | the `data\\` copy in `hunmin.iss` still ships `modes\`. The edit is a `[Components]` entry plus `Components:` on that one `[Files]` line; ISCC is not on that host, so it is written-not-executed and issue #172 keeps it. |
-| Android | unchanged, and now deliberately so | the asset `Sync` ships `modes/`, so the APK carries one dictionary — which is what the 2026-11-01 ruling asks for ("have one dict by default because we don't have additional distribution mech."). The runtime path (an asset flavour without `modes/`, or a download step) is what a *second* dictionary would need, and it is not built. |
-| engine | **complete** | `hunmin_buffered_preedit_english_ready` answers the presence question, the base-only install tree delivers byte-identical text to the full one (`ctest data-split`), and the half that acts on the answer shipped as #169 (PR #201): `hunmin_ic_set_option(ic,"autoswitch",1)` is refused and the stored value vetoed to 0 where the words are absent. Measured on a base-only component install — `data_present=0, set(1)=0, stored=0` — against the full tree's `1, 1, 1`. |
-
-Two facts from that pass worth keeping:
-
-- `hunmin_ctx_layout_autoswitch_capable()` is **not** the gate. Its body answers
-  "does this layout's keys emit conjoining jamo" (`schema_loader.c`
-  `compute_capability`), a static property of the *layout*, and a machine with
-  twelve Hangul layouts and no word list answers 1 for all twelve. Anyone
-  wiring a "feature available" row to it would be wiring it to the wrong
-  question.
-- **The default is one dictionary, and that is a ruling, not a packaging
-  accident** (2026-11-01, issue #172 — the words and the record are in
-  `wiki/decisions/2026-11-01-one-dict-by-default-the-release-page-later.md`):
-
-  > "Recommends."
-  >
-  > "have one dict by default because we don't have additional distribution
-  > mech. may use github release page for additional package distribution
-  > mech. we need to test the feature even before we have distribution mech."
-
-  So the words package is `Recommends` (installed by default, removable), the
-  APK keeps its dictionary, and the mechanism for a *second* dictionary is
-  deferred to the GitHub release page. What the ruling does not settle is the
-  release page's shape (an asset name, a checksum, whether the app or the
-  person fetches it), and the absent state stays real — `--no-install-recommends`,
-  a distro that drops the words package, an uninstall — which is why the gate
-  (#169) is still owed rather than retired.
-
-### EDW-5 Summary
-
-| option | ABI | data | tier A goldens | tier C corpora | adapters | where it decides |
-|---|---|---|---|---|---|---|
-| SCOWL-60 in-tree | none | +0.99 MB, licence + notice | none (judgement tables, not text) | none | none | licence/attribution only |
-| `en_US` + affixes in-tree | none | +0.55 MB, SCOWL + BSD | none | none | loader gains affix expansion or ships the expanded set | same, plus a build step |
-| `english-words` in-tree | none | +4.23 MB, Unlicense | none | none | none | size, and no provenance per form |
-| dictionary + curated supplement | none | +dictionary, +≈16 KB at 2,000 forms | a new engine test (no tier carries the judgement: it is unimplemented) | none | none | who curates, and under what licence |
-| separate artefact (any source) | none | none in the tree | the presence-gated case in that same new test | none | deb splits, installer component, Android download | B3's gate, made real |
-| corpus list only | none | +6.53 MB at 815,822 forms (MODES-DATA §4-7a) | the pre-정정 definition's cases | none | none | ShareAlike, and §4's fate |
-
-Nothing here is a verdict. The measurements that would change a reader's choice
-are named: a typed-text probe (the 624 set, or another AIHub vertical) would move
-the coverage ranking; a 50,000-form harvest from a full dump would make the
-corpus-list row comparable with §4-7; and the supplement's plateau at ~2,000
-forms is a property of this sample's vocabulary, so a larger harvest would move
-that knee.
-
-### EDW-6 Provenance
-
-- Host: Windows 11, `python3` 3.13.14 (`mwparserfromhell` 0.7.2 installed into it
-  for the walk). No Linux host in this session, so nothing here is a statement
-  about the fcitx5 frontend.
-- Instrument: `tools/modes-dict-probe.py`, new on this branch.
-  - `fetch --pages 3000 --start 가 --out <A>` and `--start 히 --out <B>`: the two
-    walks. `meta.json` beside each records source, timestamp, page count, the
-    token rule and stripper it borrowed, the licence, and what the sample does
-    **not** represent (typed text, the 624 set, sentence replay, a
-    frequency-ordered corpus of its own).
-  - `measure` on B with `--corpus-list <A>`; its output is the EDW-2 table.
-- Candidate files, fetched 2026-10-31 into a gitignored `build/edl/`, none
-  committed: `wamerican` 2020.12.07 (`apt-get download` + `dpkg-deb -x`, no root
-  needed), hunspell `en_US` from `LibreOffice/dictionaries` (its README names
-  SCOWL 2020.12.07 as the base; the `.aff` carries a 2024-01-29 changelog entry,
-  so it is the same family one revision later), `dwyl/english-words`
-  `words_alpha.txt`, `first20hours/google-10000-english`.
-- Licences read at the source, not summarised from memory: `debian/copyright`
-  inside the `wamerican` package (SCOWL's permission notice, verbatim),
-  `README_en_US.txt` (SCOWL lineage, "SCOWL size 60"), the `.aff`'s BSD note in
-  the same file, `dwyl/english-words`'s `LICENSE.md` (Unlicense),
-  `first20hours/google-10000-english`'s repo licence (`NOASSERTION` via the
-  GitHub API), and `rspeer/wordfreq`'s README — whose licence section refuses
-  the separable-list form this ruling would need: "No. The CSV format does not
-  have any space for attribution or license information, and therefore does not
-  follow the CC-By-SA license."
-- **Read but not executed**: nothing in EDW-4 is measured — the deb/installer/
-  Android rows are read off the packaging files named there. The one test that
-  would make them measured is a presence-gated judgement case in tier F1, which
-  cannot exist before the judgement does.
-- Changed by this branch: `docs/OPTIONS-MEASURED.md` (this section and the
-  header table), `README.md` (its index row), `tools/modes-dict-probe.py` (new).
-
-
-## B1 — is B1 still a blocker now that `hangul_valid` is structural (issue #161)
-
-**Decided 2026-11-01: option A — B1 is retired.** The maintainer, verbatim:
-*"want to select A"*. What that changes is the cost list under A in B1-4; it was
-propagated in the same commit to `docs/REMAINING-WORK.md` (the B1 row, §2 restated
-per B1-2, the voice stage 8 row, and the assertion-table comment),
-`docs/MILESTONES.md`, `PLAN.md`'s P8 table and D1/D2 of
-`wiki/decisions/the-outstanding-decisions.md`. **Not decided by it:** whether the
-corpus list, its cap and the `MODES-DATA` sections are deleted or kept (R8-정정
-left that open and it still has no issue), and whether E1 gets an owner.
-
-As written, this section was measurements only — no option chosen, the choice the
-maintainer's — because issue #161 asks for a ruling and asks that the options stay
-comparable. It asks three things: whether B1 is retired or narrowed, whether §2's
-five items stay frozen, and whether R9's threshold is re-based. This section prices
-each answer against the tree and records what the tree already decides.
-
-Produced 2026-11-01 on `scobyseo/modes-ruling-is-b1-still-a-blocker-now-that-hang`
-at base `7f20be8` (`origin/master`), Windows host, engine built with the
-llvm-mingw toolchain into this worktree's `build/`. It deliberately does **not**
-edit `docs/REMAINING-WORK.md` or `AGENTS.md`: both are shared mutable files that
-parallel sessions patch, and the board edits a ruling on B1 triggers belong after
-the ruling, not in its support paper — issue #161's own verification step says the
-same.
-
-### B1-0 The premise, checked first
-
-| # | what issue #161 says | measured in the tree | verdict |
-|---|---|---|---|
-| 1 | the board records B1 as blocking everything in §2 | row B1 ends "Everything in §2 inherits this"; §2's heading is "Blocked behind B1 — measurable only once the source is chosen" and its preamble says the items "are simply downstream of the judgement source" | **verified** |
-| 2 | the voice-input stage 8 row still reads "🔒 Blocked on B1" | stage 8 of the voice table reads exactly that, and its note repeats "gated on B1 as before" | **verified** |
-| 3 | R8-정정 (2026-10-25) changed what the question was about | the ruling's formula block reads "`hangul_valid` = the buffer composes as Korean syllables of the shape (choseong + jungseong) or (choseong + jungseong + jongseong) only" | **verified** |
-| 4 | so the Hangul side needs no word source at all | no data path exists or is planned for it: there is no `hangul_valid` symbol in the ABI, no file it could consult, and the ruling says "`hangul_valid` becomes a structural test, not a word test" | **verified** — and nothing implements the test yet (#166) |
-| 5 | "the source problem that remains is the English one (separate issue)" | **it no longer remains.** R8-정정-2 (2026-11-01) named hunspell `en_US` plus a user dictionary; issue #160 is closed and its work is shipped and merged: `libhunmin/data/modes/en-US.json` (118,150 forms, `meta.json` provenance beside it), `libhunmin/src/wordset.c`, the `hunmin_buffered_preedit_english*` ABI, and `libhunmin/tests/wordset-test.cpp` | **corrected** |
-
-Two premises the issue does not state, and every option inherits them:
-
-**(a) §2's five items are not only board rows any more — four of them carry their
-own issue.** Enumerated from the open set: #181 is the harness ③-bis needs,
-#163 holds E2/E3/E6, #180 holds E7, and the judgement itself is #166 (the
-structural test), #168 (the call site) and #178 (its golden corpus). **E1 (M2) is
-the one item with no filed owner.** A retirement decision therefore reclassifies
-issues rather than unfreezing prose.
-
-**(b) R9's threshold — the issue's third question — was answered 74 minutes
-later in the same document.** `git log` dates the two edits: R8-정정 landed as
-`72c668e` at 15:45:07 on 2026-10-25 and still ends "Not decided by this entry,
-and left open: … whether R9's threshold (E3) is re-based"; R9's own text landed
-as `343ba6a` at 16:59:41 the same day and opens "**The numeric threshold is not a
-requirement (ruled 2026-10-25).** §2.E3 is retired". So the question has an
-answer in the requirement's home, and the earlier sentence was never updated — a
-stale cross-reference inside one file, not a disagreement about the ruling.
-
-There *is* a real conflict one level down, and it is already filed: §2.E3 still
-specifies a **measured** N ("set N to 2, 3, 4 and measure …, find the N at which
-(b) is minimal"), while R9 now makes it a **design-time** choice "made where the
-judgement is built and recorded there". That is a question of method, not of
-wording; #163 holds it, so this paper records it and leaves it there.
-
-### B1-1 What the words mean now, and what of it is built
-
-- **`hangul_valid` has no source to choose.** It is a predicate over the finished
-  buffer, and the only input it needs is the composition rule the engine already
-  carries (`libhunmin/src/tables.c`). Its decision surface is the 11,172-syllable
-  modern block (19 choseong × 21 jungseong × 28 jongseong): every precomposed
-  syllable in U+AC00–U+D7A3 is well-formed by construction, so the test is
-  "the rendered text is syllables and nothing else". "No source" is not the same
-  as "no cost" — the definition admits any well-formed run, word or not, which is
-  the trade the ruling accepted in its own text.
-- **`english_valid` has a source, and it is settled and shipped** — see B1-0
-  row 5. Two states are normal rather than errors: an absent shipped list answers
-  "not english" and `..._english_ready` answers 0 (B3's data gate); the user's
-  words are a plain-text file merged into the same lookup at load time.
-- **The substrate the judgement needs already ships**, which
-  `docs/MODES-ENGINE-RULES.md` does not yet say. That document's header reads
-  "design direction settled, no core implementation" and its "Where the mode
-  lives" section plans the mode onto `hunmin_ctx`; the tree instead has
-  `hunmin_buffered_preedit` constructed with **both** layout ids
-  (`hunmin_buffered_preedit_new(ctx, hangul_layout_id, latin_layout_id, …)`),
-  owning the composition buffer, the language state, the boundary
-  (`HUNMIN_KEY_BOUNDARY_PASS`) and the toggle. #168's body states the same against
-  the header. **What remains of the modes work is one predicate (#166) and one
-  call site (#168), not an architecture** — which is the only reason retiring B1
-  changes anything. MODES-ENGINE-RULES §1's "future work" paragraphs are obsolete
-  as written; they are recorded here and left for #168's PR rather than edited
-  into this one.
-- **The formula needs both renderings of one key sequence** — the composed Hangul
-  (for structure) and the literal Latin (for the dictionary). That is why neither
-  validity is a lookup alone, and it is the work #168 evaluates.
-
-### B1-2 What each §2 item actually needs
-
-| §2 item | what its own text says it needs | measured state | needs a Hangul source? | owner now |
-|---|---|---|---|---|
-| **M1** ③-bis wrong-direction metric | "needs the same source R8 does" | `docs/MODES-METRICS.md` §1.4 is `NOT MEASURED`; no runnable judgement and no harness exist | **no** — the pair is a structural predicate plus a shipped dictionary | #181 (harness) + #168 |
-| **M2** E1 symmetry | "Was measurable via krdict's `pos`; that route left scope, so it must be re-derived inside the boundary" | not measured, and unfiled | **no** — under the structural definition the measurement needs a corpus of typed Korean (outside the repo, path as an argument) and the shipped list; the josa/eomi/pos requirement disappeared with the word test | nobody |
-| **M3** E2/E3/E6/E7 thresholds | "all `[E]`" | E3 retired by R9; E2 and E6 are #163; E7 is #180 | **no** | #163, #180 |
-| **M4** third-party correctness | "evaluated against both 두벌식 and 세벌식, at minimum 신세벌식 P2" (`PLAN.md`, P8 table) | not started; P2's oracles already exist (pat.im worked examples, kime facts) | **no** — this is composition correctness, independent of any judgement | nobody (P2 lane) |
-| **M5** word-list schema | "`docs/SPEC-SCHEMA.md` has no word-list section" | **stale**: that document now carries "English word list (`data/modes/`)", the JSON shape, `meta.json`'s contents and the user dictionary's file format; `debian/copyright` carries the SCOWL entry | **no** | done for the shipped list; its pos/frequency/level and josa/eomi sub-questions are moot on the Korean side because there is no Korean list any more |
-
-**Counted: none of the five waits on a Hangul word source.** Three wait on
-implementation or a harness (#166/#168/#178/#181), one on nothing but its own
-measurement (E1), one is already answered (M5), and M4 was never a judgement
-question at all.
-
-### B1-3 The structural test's decision surface, measured
-
-The question a reader should not have to take on faith: if `hangul_valid` consults
-no data, does it still discriminate, or does it say "yes" to everything? Measured
-by rendering every word of the shipped dictionary through the 두벌식 layout with
-the engine's own simulator (`build/hunmin-sim.exe --batch`, one fresh `ic` per
-line) and classifying the rendered text against R8-정정's definition — every
-character a syllable in U+AC00–U+D7A3, and nothing else.
-
-| | count |
-|---|---|
-| shipped forms in `libhunmin/data/modes/en-US.json` | 118,150 |
-| fed to the engine (letters only) | 85,718 |
-| skipped (internal `'` or `-`, not layout keys) | 32,432 |
-| **both valid** — rendering is all well-formed syllables | **1,722 (2.01%)** |
-| **english only** — rendering leaves a jamo or a Latin char | **83,996 (97.99%)** |
-
-Examples of the both-valid class, where R8's formula keeps the current mode:
-`aback → 뮴차`, `abeam → 뮫므`, `abraham → 뮥모므`. Examples of the english-only
-class, where the formula switches: `aa → ㅁㅁ`, `aachen → ㅁㅁ초두`,
-`aardvark → ㅁㅁㄱㅇㅍㅁ가`.
-
-Read plainly: an English word typed in Hangul mode usually leaves a word-final
-consonant or a doubled initial as a lone jamo, which is not a syllable — that is
-what makes it `hangul_valid = false` and lets the dictionary side decide alone.
-The structural test is not a rubber stamp on Latin input. The 2.01% are the cases
-where R8 specifies **no switch**; that is the measured size of the class the
-ruling's definition makes inert, and it is a different quantity from the
-86.35% → 43.87% reproduction loss R8-정정 records (that one is about the
-dictionary, not about structure).
-
-**What this probe is not.** The classifier is re-implemented in Python and stands
-in for the predicate #166 will add to the engine; the composition it classifies
-comes from the engine, so only the "is it syllables" step is duplicated. It says
-nothing about the Korean side of the pair: the only Korean word list in the tree
-is `krdict/`, which the maintainer's 2026-10-05 boundary excludes from this
-research, so Korean input is reasoned about from the definition in B1-1 and
-labelled as such. E1's measurement is the one that would test it, and it needs a
-corpus path rather than a dictionary.
-
-### B1-4 The options
-
-**A — Retire B1. ← selected 2026-11-01.** Its Hangul half is answered by R8-정정 and its English half is
-decided and shipped by R8-정정-2, so the row has no surviving content; §2's rows
-are then restated per B1-2 and the "everything inherits this" claim comes out.
-*Cost:* prose only — the B1 row, §2's heading and preamble and the voice stage 8
-row in `docs/REMAINING-WORK.md` (**6 of its 10 mentions carry the claim; the other
-four are the B1–B9 legend and table comments**), the "hostage to B1" bullets in
-`docs/MILESTONES.md` (**5 of its 8 mentions are claims; three are the id-range
-legend**), P8's "judgement source … **OPEN**" row in `PLAN.md`, and the dated
-status line on `wiki/decisions/the-outstanding-decisions.md` that this branch
-already added under D1 (it records that the ruling exists and points at #161 for
-the board row; it does not retire anything). No code, no ABI, no data, no goldens.
-*Gain:* the block on §2 becomes what it is — implementation issues #166/#168/#178
-and #181 — so the next session reads the issue list instead of re-deriving a
-source question that no longer exists.
-*What would change it:* evidence that a Korean word source is needed for
-something **outside** R8's validity (a future feature asking "is this a word?",
-not "is this well-formed"). Nothing in the tree asks that today.
-
-**B — Retire only the Hangul half, keep B1 as "the English source".** *Cost:* a
-board row whose answer is R8-정정-2 — a second home for a decided fact, which the
-repository forbids. *Gain:* none measured; #160 is closed, and the only live part
-of its subject is #190 (the separate distribution), which is packaging, not a
-source. *What would change it:* a decision to re-open the dictionary choice —
-which would re-open §EDW, not B1.
-
-**C — Retire B1 and carry its one genuinely open remnant as its own row.** R8-정정
-left "whether the corpus list, the cap and the `MODES-DATA` sections that describe
-them are deleted or kept as the record of the measurement" open, and R8-정정-2 did
-not answer it. That remnant is about the **English** list, so it is not B1 either;
-but it is the only undecided item in B1's neighbourhood and it has no issue.
-*Cost:* one row plus one issue. *Gain:* the delete-or-keep decision stops
-travelling inside a blocker that is being retired. *What would change it:* evidence
-that `MODES-DATA` §4 is already cited as live by something — measured: SPEC-MODES
-§5's file table still calls it "the `valid` criterion of R8", which R8-정정 has
-since demoted to a record, so that pointer needs the same correction whichever
-option wins.
-
-**D — Leave B1 open as written.** *Cost:* the two homes keep disagreeing (the SPEC
-has not mentioned B1 since R8-정정; the board has never mentioned R8-정정 or
-R8-정정-2), and this page is re-derived. *Gain:* none measured — the disagreement
-has not produced a wrong decision yet, only re-reads.
-
-### B1-5 Summary
-
-| option | board / milestones prose | SPEC text | issues reclassified | code, ABI, data, goldens | docs-lint |
-|---|---|---|---|---|---|
-| A | 6 of REMAINING-WORK's 10 mentions, 5 of MILESTONES' 8, 1 PLAN row, 1 wiki line | none | none closed by this paper | none | 0 errors |
-| B | 1 row reworded, same footprint elsewhere | none | none | none | 0 errors |
-| C | A's footprint plus 1 row | none | 1 new issue proposed | none | 0 errors |
-| D | none | none | none | none | 0 errors |
-
-### B1-6 Provenance
-
-- **Measured with:** `git log -1 --format='%ad'` on `72c668e` and `343ba6a` (the
-  74-minute gap); `git merge-base --is-ancestor` (confirms the order);
-  `grep -rn "\bB1\b" --include=*.md` over `docs PLAN.md README.md wiki AGENTS.md`
-  (the 10/8/2 split, with `docs/FRONTEND-CONTRACT.md`'s two hits being a
-  different B1 — an A/B finding label — and `AGENTS.md`'s one being the B1–B9
-  legend); `gh issue list --state open` for the owner map; the engine probe in
-  B1-3 (`cmake --build build --target hunmin-sim` then `python3
-  build/probe_b1_structure.py`, 1.2 s, one process over all lines).
-- **Read, not executed:** nothing claimed as measured above is unmeasured. The
-  Korean side of the validity pair is stated from R8-정정's definition and
-  labelled as such; its measurement is E1's, and E1's test does not exist.
-- **Not touched deliberately:** `docs/REMAINING-WORK.md` and `AGENTS.md`
-  (parallel sessions); `docs/MODES-ENGINE-RULES.md` §1 (edited here as a finding,
-  belongs to #168's PR); `docs/SPEC-MODES.md` (no requirement text changed — the
-  R9/E3 method conflict is #163's, and R8-정정's stale "left open" sentence is
-  recorded in B1-0 rather than rewritten, because the two texts disagree about
-  method and only the maintainer settles that).
-- **Propagated, not decided:** the header table row, the section key and the
-  `README.md` count line, plus the `README.md` count correction described in the
-  commit (it said "seven priced questions" over eight sections).
-
-## PAS — pass lines for the two scored metrics (issue #162)
-
-**Measurements and arithmetic only. Neither number is chosen here; both are the
-maintainer's** (`AGENTS.md`, "never decide on your own"). Issue #162 asks for a
-value for the keystroke metric (`docs/SPEC-MODES.md` R12, E4) and for the manual
-on/off count (R7-정정, `docs/MODES-METRICS.md` §2). What is priced below is what
-each candidate number *costs* — the corpus property it requires, the misfire
-budget it implies, and what it fails to grade when the corpus is not what the
-person who chose it assumed.
-
-Produced 2026-11-01 on branch
-`scobyseo/modes-ruling-pass-lines-for-the-metrics-b2-e4-ke` (base `master` at
-`7f20be8`), Windows 11. Deliberately **not** touched by this branch:
-`docs/REMAINING-WORK.md` and `AGENTS.md`, which parallel sessions patch.
-
-### PAS-0 The premises, checked first
-
-The issue's own claims, each measured against the tree:
-
-1. "`docs/MODES-METRICS.md` §2 states it plainly: *Pass Line — none [E]*" —
-   **verified**, and the file's three grading rows (`②`, `②b`, `③-bis`) each
-   read `undetermined`.
-2. "the numbers must come with the harness that produces them (separate
-   issue)" — the harness is **#181, open and unbuilt**: `ls tools/ | grep -i
-   'metric\|replay'` returns nothing, and the six harnesses
-   `docs/MODES-METRICS.md` §3 lists as unfit were scratch scripts that are not in
-   the tree. So the harness is a precondition of a *run*, not of a *number*.
-3. **The feature the numbers grade is half on `master`.** Re-measured 2026-11-01
-   after rebasing onto `master` `1029377`, per half:
-   - `english_valid` — **shipped**: `hunmin_buffered_preedit_english_valid` over
-     `libhunmin/data/modes/en-US.json` (1,492,075 bytes), and the Latin reading it
-     is asked about is replayed by the layer itself
-     (`hunmin_buffered_preedit_latin_text`, #167).
-   - `hangul_valid` — **shipped**: `hunmin_hangul_valid` in
-     `libhunmin/src/hangul_valid.c` (#166), a predicate over the composition rule
-     with no data behind it.
-   - the `autoswitch` state — **shipped**: `hunmin_ctx_layout_autoswitch_capable`,
-     `ic->autoswitch`, and the AUTOSWITCH chord flipping it (#165). The state the
-     feature's ON/OFF is read from exists.
-   - the judgement that applies R8's formula at the boundary — **not shipped**.
-     #168 is open: `boundary()` (behind `hunmin_buffered_preedit_commit_word` and
-     the declined key) commits the finished word in the current mode and asks
-     neither predicate, and `libhunmin/include/hunmin.h` still says "Nothing here
-     decides to switch modes".
-   So a replay today can measure both validity halves and nothing that switches. A
-   number ruled now is a number the harness can only report **after #168**, and it
-   has to be worded so that it is gradeable then rather than measured now.
-4. **No sentence corpus is on this host.** `ls ~/work` returns `edw` only; the
-   three measurement inputs `docs/MODES-DATA.md` §4-3 names
-   (`~/work/wikicorpus/full/*.txt`, `~/work/aihub-records-corpus/...`) are
-   absent. Nothing below is derived from replay data, and because
-   `docs/MODES-METRICS.md` §3 voids every number produced from a corpus
-   constructed in-session, **no such corpus was constructed here.** The arithmetic
-   below needs no corpus: it is the shape the harness will have to report.
-5. **The board and the SPEC disagree on how many numbers there are, and the reason
-   the SPEC gives for there being two has just expired.** Board row B2
-   (`docs/REMAINING-WORK.md` §1) says "pass lines for **all three** metrics"; E4's
-   text says "the **two** numbers needed now are two", on the ground that `③-bis`
-   has no judgement source. **B1 was retired 2026-11-01 (#161, `§B1`):** the
-   Hangul half is the structural rule `hangul_valid` now ships and the English half
-   is R8-정정-2's shipped list, so `③-bis` no longer lacks a source — it lacks only
-   the judgement (#168) and a row in the harness (#181). Whether the ruling covers
-   two numbers or three is therefore a live choice, not a settled one. Recorded,
-   not edited: both files are outside this branch's scope.
-
-### PAS-1 What the two numbers are quantities *of*
-
-A pass line is a number in some unit, and the unit decides whether the number can
-be met at all. Fix the units first.
-
-Notation for one text: `n` characters, `t` script transitions — a transition is a
-point where the script changes, and `t` is exactly the number of 한/영 presses the
-same text needs by hand. Let `d = t/n`, the corpus's **transition density**.
-
-Per transition the feature has three outcomes:
-
-| outcome | share | keys the person spends |
-|---|---|---|
-| switches correctly | `a` | 0 |
-| misfires — wrong word committed | `r` | `2k+1` (backspace `k`, 한/영 once, retype `k`) |
-| does not switch | `s = 1-a-r` | 1 (한/영) |
-
-`k` is the mean length of the word a misfire costs. The feature **off** is
-`s = 1`: `n + t` keys. The feature **on** is `n + t·(s + r(2k+1))`.
-
-So, as a share of the switching the same text needs by hand — the pool the feature
-can act on — and then over all keystrokes:
-
-```
-q  = pool share captured  = a - (2k+1)r = 1 - u - (2k+1)r
-u  = 1 - a                = manual-toggle share of the pool, the ②b metric
-overall saving            = q · d/(1+d)
-```
-
-Two consequences that decide the rest of this section:
-
-- **A ruled pair `(q, u)` is a precision requirement on the judgement.** Inverting
-  the line gives the misfire budget the ruling implies, `r ≤ (1-u-q)/(2k+1)` —
-  whether or not that was intended, the two numbers do not leave `r` free.
-- **`②` has a hard ceiling that is a property of the text, not of the feature.**
-  Even with `r = 0` and `u = 0`, the most any implementation can save is `t` keys
-  against `n + t`, i.e. `d/(1+d)`.
-
-| `d` (transitions per character) | 0.01 | 0.02 | 0.05 | 0.10 | 0.20 | 0.50 |
-|---|---|---|---|---|---|---|
-| ceiling on `②`, `r=u=0` | 1.0% | 2.0% | 4.8% | 9.1% | 16.7% | 33.3% |
-
-and, inverted, an overall-percentage pass line requires this much switching:
-
-| overall pass line, `r=u=0` | 2% | 5% | 10% | 25% |
-|---|---|---|---|---|
-| `d` required (one transition per this many characters) | 0.020 (49) | 0.053 (19) | 0.111 (9) | 0.333 (3) |
-
-`d` is not a free parameter the ruling may ignore, because **the corpus is
-unwritten**. `docs/MODES-METRICS.md` §1.1's census (marked measured, finalized)
-counts 259,590 English tokens appearing near Hangul against 1,016,338,031 Hangul
-tokens in the 624 corpus — one English token per ~3,915 — so `d ≈ 2.6·10⁻⁴` and
-the overall ceiling is **0.03%**. On a broad corpus this metric measures nothing
-at all. The opposite extreme is a corpus of messenger sentences, where a person
-switches between Korean and English a few times per sentence. **The pass line's
-meaning is therefore a property of the corpus #181 has not chosen yet** — which is
-why a number stated as a percentage of all keystrokes cannot be ruled before that
-choice, while a number stated as a share of the pool can.
-
-*(§1.1's figures are read from that section, not re-derived: the 624 corpus is not
-on this host. They are used here only for the order of magnitude.)*
-
-### PAS-2 `②` — the options for the keystroke pass line
-
-| | shape | reads | what it costs, and where it fails |
-|---|---|---|---|
-| K1 | **percentage of all keystrokes**, e.g. "≥5% fewer" | `q·d/(1+d)` | Requires `d ≥ 0.053` at `q=1` — one transition per 19 characters. On the broad corpus of §1.1 it is unsatisfiable by any implementation; on a dense corpus it is passed by a mediocre one. The number silently moves by an order of magnitude when the corpus changes |
-| K2 | **share of the pool `q`**, e.g. "≥50% of the switching removed" | `a - (2k+1)r` | Corpus-invariant: the same number grades a dense corpus and a sparse one. Loses the "how big is the win overall" reading, which is `q·d/(1+d)` and can be printed beside it |
-| K3 | **absolute**, e.g. "≥25 keystrokes per 1,000 characters" | `1000·d·q` | Comparable only across runs on the *same* corpus; means nothing as a quality statement until `d` is fixed |
-| K4 | **no net loss** (`q ≥ 0`, i.e. `r ≤ (1-u)/(2k+1)`) | sign | Satisfiable by an implementation that is merely careful; grades the absence of harm, not the presence of the feature. Its value is as a *guard* beside a K2 line, not as the line |
-
-The risk every one of these carries is the one R11 states plainly — a person is
-allowed to fix a misfire with backspace — so **the repair cost has to be inside
-the metric**, not excluded from it. K1 and K3 do not put it anywhere near the
-number unless `d` is fixed; K2 does, because `q` is defined net of repair.
-
-### PAS-3 `②b` — the options for the manual-toggle cap
-
-R7-정정's words are about "turning the feature off and on"
-(`docs/SPEC-MODES.md` §R7-정정), so the strict reading counts **mode presses
-only** — backspace repairs are `②`'s business. That is a choice, and it has a
-price: measured solely as mode presses, the metric reads well for an
-implementation that lets the person repair constantly rather than toggle.
-
-| | shape | reads | what it costs, and where it fails |
-|---|---|---|---|
-| T1 | **zero toggles per sentence** | `u = 0` | Binary and it forbids the behaviour R7-정정 explicitly permits ("사용자가 의도적으로 어색한 단어를 입력할 수 있으니"). A single deliberate word for one sentence fails it |
-| T2 | **rate cap**, e.g. "≤1 per 10 sentences" | `u·t/sentences` | Attainable and readable, but it hides `t`: one toggle per 10 sentences is excellent on dense text and impossible to beat on sparse text if `t` itself is small |
-| T3 | **ratio to the manual baseline**, `u ≤ X%` | `u` | The same quantity as T2 divided by the corpus's own `t`; corpus-invariant for the same reason K2 is. Must be stated with the `k` it assumes, or `②` and `②b` can be ruled into a negative `r` |
-
-T2 and T3 are the same quantity scaled by the corpus's own `t`, so they agree
-only when `t` is fixed. The ruling has to say which of them is *binding*: the
-harness can report either, and a rate cap reads differently on a corpus with four
-transitions per sentence than on one with none.
-
-**The misfire budget a pair implies** — `r ≤ (1-u-q)/(2k+1)`:
-
-| `q` \ `u` | `k=2` | `k=3` | `k=4` | `k=5` |
-|---|---|---|---|---|
-| `q=0`, `u=25%` | 15.0% | 10.7% | 8.3% | 6.8% |
-| `q=25%`, `u=25%` | 10.0% | 7.1% | 5.6% | 4.5% |
-| `q=40%`, `u=25%` | 7.0% | 5.0% | 3.9% | 3.2% |
-| `q=50%`, `u=25%` | 5.0% | 3.6% | 2.8% | 2.3% |
-| `q=50%`, `u=10%` | 8.0% | 5.7% | 4.4% | 3.6% |
-| `q=75%`, `u=5%` | 4.0% | 2.9% | 2.2% | 1.8% |
-
-Read across a row: the same saving at a longer repaired word needs more precision.
-Read down a column: 25 percentage points of extra saving costs a few points of
-misfire budget. Every cell is a requirement on the judgement (#168) and on the
-short-word threshold (#163's E3), not on the harness.
-
-### PAS-4 What a ruling has to include
-
-Each of these is a sub-decision a bare number leaves open, and each one changes
-the measured value:
-
-1. **The corpus**, and whether it is the target population (typed messages where
-   people mix scripts) or a broad one. `d` differs by three orders of magnitude
-   between them (§PAS-1).
-2. **Aggregation**: per sentence (mean of ratios) or corpus-wide (ratio of sums).
-   They are different numbers, and the per-sentence mean is dominated by the many
-   sentences with `t=0` or `t=1`.
-3. **`k`**, the mean length of a repaired word — the tables above are per `k`.
-4. **Whether a repair counts as a manual intervention** (`②b`) or only a mode
-   press does.
-5. **Which metric set the numbers cover.** B2 says three, E4 says two. `③-bis` has
-   no source (B1), so two is what can be ruled; the third needs its own line, or
-   the board row narrowed.
-6. **What happens on a corpus where the feature cannot fire** (no `en-US.json`
-   present — B3's data gate). A metric that can be met by not switching needs the
-   OFF-by-default state stated as a precondition, not silently averaged in.
-
-### PAS-5 Summary and the recommendation
-
-Nothing above decides. If a recommendation is wanted:
-**`②` as a share of the pool, `q ≥ 50%`, with `②b` as `u ≤ 10%`** — the deciding
-reason is that `q` and `u` are the only two forms in these tables that do not
-change meaning when #181's corpus changes, and that pair implies a misfire budget
-of `r ≤ 5.7%` at `k=3`, which is a number the judgement can be built to instead
-of a number discovered after.
-
-What would change it: a measured `d` and `k` from the harness's chosen corpus (if
-`k=2` the same `q` permits `r ≤ 8.0%`, and if the corpus is dense enough that
-`d ≥ 0.11`, an overall-percentage form becomes meaningful and K1 becomes the
-readable choice); and a ruling that `③-bis` joins the scored set, which would add
-a third line with its own `k`-independent definition — a live choice since B1 was
-retired, not a blocked one.
-
-### PAS-6 Provenance
-
-- Host: Windows 11, `python3` 3.13. Nothing here needed a build: no C was
-  compiled and no binary was run, because the feature these numbers grade is
-  unimplemented on this base (§PAS-0, item 3).
-- The tables in §PAS-1/§PAS-3 are arithmetic from
-  `q = 1 - u - (2k+1)r` and `ceiling = d/(1+d)`; they are re-derivable in one line
-  each, e.g.
-  `python3 -c "q=0.5;u=0.1;print([round((1-u-q)/(2*k+1)*100,1) for k in (2,3,4,5)])"`
-  → `[8.0, 5.7, 4.4, 3.6]`, the `q=50%,u=10%` row above. No script is
-  committed for them, deliberately: a tool here would be a second home for the
-  harness #181 owns, and there is no input data for it to read.
-- Read, not re-derived: `docs/MODES-METRICS.md` §1.1's 624 census figures (the
-  corpus is not on this host) and §3's harness table (the scripts are not in the
-  tree).
-- Checked against the tree by `gh issue view` (161/163/165/166/168/181 state),
-  `git worktree list` + the sibling branches' `git log` (which half of the
-  judgement existed where), and `ls ~/work` (the absent corpora). Re-measured
-  after rebasing onto `master` `1029377`, where #165/#166/#167 had merged and
-  `§B1` had retired B1 — the two premises that changed are §PAS-0 items 3 and 5.
-- Changed by this branch: `docs/OPTIONS-MEASURED.md` (this section and the header
-  table), `README.md` (its index row).
-
-## PAS-7 Re-measured 2026-11-04: which premises above still hold
-
-`§PAS-0`–`§PAS-6` are left as written. What moved is the set of premises the
-analysis rests on, recorded here rather than edited into the sections that made
-them, so the earlier reasoning stays readable against the facts it had.
-
-- **§PAS-0 item 3 — "the judgement that applies R8's formula at the boundary —
-  not shipped": superseded.** #168 landed 2026-11-03; `boundary()` in
-  `libhunmin/src/buffered_preedit.c` now applies R8 at the boundary. A replay can
-  therefore switch, not only read the two validity halves.
-- **§PAS-0 item 4 — "No sentence corpus is on this host": superseded, for this
-  host.** `tools/build-modes-sentences.py` extracts mixed-script sentences from a
-  licensed dump (CC BY-SA 4.0), writes its provenance beside the corpus, and the
-  corpus stays outside the repository. It is one genre and a lower bound on the
-  target population — `docs/MODES-DATA.md` §4's genre note still applies.
-- **§PAS-6's host line ("Nothing here needed a build"):** this re-measurement ran
-  on the Linux development host, against a built `libhunmin.so` and
-  `hunmin-sim`, so the figures it produced are from a built engine.
-- **§PAS-1's `d`/`k`/`u`/`q` are no longer hypothetical.** The harness
-  `tools/modes-metrics.py` (#181) reports all four; the measured values and the
-  reading each candidate shape (§PAS-2/§PAS-3) would grade are in
-  `docs/MODES-METRICS.md` §1.2 and §2 — **cited, not restated here**, because a
-  figure with two homes is the drift this repo's pointer rule exists to prevent.
-- **§PAS-5's recommendation is unchanged and still not a ruling**, and this
-  note does not make it one. What the measurement adds is the input it named as
-  decisive: a `d` and a `k` from a real corpus, and a `q` that is negative on
-  that corpus. Whether that argues for a different pair, for the K2/T3 forms at
-  all, or for nothing, is the maintainer's.
-- **What did not change:** §PAS-4's six sub-decisions are still open (§PAS-4 item
-  1, *which corpus*, is now *which corpus, since one exists*), and the reason
-  `q`/`u` were preferred — they do not change meaning when the corpus does — is
-  untouched by a run on any single corpus.
-
-## MRO — who owns the modes judgement: the shared layer, or each adapter (issue #164)
-
-**Decided 2026-11-01: option C — the engine judges, the frontend performs the
-switch.** The maintainer's words, verbatim:
-
-> "fcitx5의 제약이 있으면, engine은 판정만 하고, 전환은 frontend가 할 수 밖에
-> 없지 않니? 3자 이상이면 판단하자."
-
-The same message rules R9's threshold — **three key inputs or more are judged**
-(the ruling's wording was `3자`; **corrected 2026-11-01**, when the maintainer named
-the unit: *"3. 키입력 세개로 명확히 하자."*), which is §MRO-4 item 2 — and asks the
-fcitx5 ON/OFF surface to be built if this decision leaves no problem, which is
-§MRO-4 item 1.
-
-**Not settled by this, and named rather than dropped:** ~~the threshold's unit
-(characters typed, syllables produced, or the Latin reading's length give three
-different answers for `안녕`)~~ — **settled 2026-11-01: key inputs**, so `안녕` (6
-keys) is judged and the guard is `JUDGE_MIN_KEYS 3`; whether fcitx5 must ship an
-English input-method entry before its act can work at all (§MRO-4 item 1). ~~and the
-symmetric direction of R8's formula, which §R8 already leaves open~~ — **settled
-2026-11-01 (E1): both lines of the formula ship**, pinned by the 0.3 gate
-(`docs/SPEC-MODES.md` §E1).
-
-*As written, this section was measurements only with no option recommended. The
-pricing below is left exactly as it was — the decision is quoted here rather than
-folded back into the options, so what was weighed stays visible.*
-
-**What shipped with the decision (same branch, 2026-11-01):** the formula and R9's
-guard in `libhunmin/src/buffered_preedit.c#judge_boundary`, the answer in
-`hunmin_buffered_preedit_take_judgement`, tier-A cases in `engine-wordset`, the
-three frontends acting on it (TSF, Android, fcitx5 — the last of which needed the
-English slot it had been passing as NULL), and `language_detect.{h,cpp}` retired
-with its `engine-d1-language-detect` case. The fcitx5 settings row (§MRO-4 item 1's
-surface) is #176, and the ON/OFF state is still not persisted by any frontend.
-
-Produced 2026-11-01 on branch `scobyseo/modes-ruling-does-the-shared-layer-own-the-judge`,
-base `a099f4f`, host Windows 11. This branch touches documentation only: nothing
-under `libhunmin/`, `frontends/`, `tools/` or `tests/` is modified, so it cannot
-collide with the sessions working this repo in parallel (`git worktree list` shows
-the primary tree, this one, and `modes-ruling-e2-e3-e6-buffer-cap-short-word-thre`).
-
-### MRO-0 The premise, checked first
-
-The issue's own words, once: *"does the judgement go into the shared layer (where
-the buffer, both layouts and the mode already live), with the fcitx5 detector
-retired, or does the adapter stay the owner and each frontend repeats it?"* Its
-stated premises were measured against the tree, in the order it states them.
-
-| # | the issue's statement | measured | verdict |
-|---|---|---|---|
-| 1 | **B9 (2026-10-14) ruled R8 adaptor-owned**; "the owner is a design decision, not a requirement" | `docs/REMAINING-WORK.md` row B9 (`DECIDED 2026-10-14`), `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md`, and `docs/SPEC-MODES.md` §R3 in the same words | **verified** |
-| 2 | **#128 put the state, both layout ids, the word buffer and the boundary into the shared layer**, with `HUNMIN_LANGUAGE_HANGUL/LATIN`, `..._toggle_language` and `HUNMIN_KEY_LANGUAGE_TOGGLE` | `libhunmin/include/hunmin.h` (the layer's construct takes `hangul_layout_id` + `latin_layout_id`; the language enum, the toggle and the key action are exported); `libhunmin/src/buffered_preedit.c`'s struct holds `hangul_mode`, both ids, `word`, `keys` | **verified** |
-| 3 | "the fcitx5 detector replays the word on a shadow Latin context and returns text with **no validity test at all** (only a `minLen` guard)" | `frontends/fcitx5/src/language_detect.cpp#LanguageDetector::judge` is `minLen` + replay, nothing else; `grep -rn "english_valid\|hangul_valid" frontends/` returns no line | **verified** |
-| 4 | "its single call site discards the result" | `frontends/fcitx5/src/hunminadapter.cpp#HunminState::keyEvent` calls `switcher_.judge(*engine_->config().latinLayout);` and uses nothing it returns | **verified** |
-| 5 | "`hunmin_buffered_preedit_toggle_language` has **no caller in any frontend** (issue #136)" | `frontends/tsf/src/tsf.cpp#CTextService::ToggleModeCore` and `frontends/android/app/src/main/cpp/hunmin-jni.c` (`nativeLayerToggleLanguage`, called from `HunminAdapter.toggleLanguage`, used by `HunminInputMethodService`'s HANGUL_ENG action) both call it. fcitx5 has zero call sites, **by design and already recorded** (`hunminadapter.cpp`'s language comment, `docs/SPEC-FRONTEND.md` §FE13, `docs/REQ-MAP.md` FE7: "implemented on the two frontends that own a key (TSF, Android); fcitx5 is FE13's case") | **corrected** — two of the three frontends call it, so #136's zero-call-site measurement is stale as written (the board row it cites has since been re-pointed) |
-| 6 | "nothing user-visible depends on it (issue #132)" | the adapter's *answer* is discarded, so that half is verified; but see N1 and N3 — in fcitx5 the feature cannot even be turned ON | **verified for the answer, corrected for the feature**; superseded 2026-11-01 by #164 — the engine judges, fcitx5 acts on `hunmin_buffered_preedit_take_judgement`, and the detector is gone |
-
-**Premises the issue does not state, and the tree forces on every option:**
-
-**N1 — fcitx5 builds its layer with one language.** `hunminadapter.cpp` passes
-`nullptr` as the layer's Latin id, with a comment saying so ("the layer's toggle
-reports 'not ours' (NULL latin layout)"). In fcitx5 the layer's `english_valid`,
-its Latin reading and its toggle therefore all answer "nothing"; the only live
-judgement there is the adapter's discarded one. TSF and Android both pass a
-Latin id (`tsf.cpp`, `hunmin-jni.c`).
-
-**N2 — the replay mechanism already lives in the core.** `latin_reading()` in
-`libhunmin/src/buffered_preedit.c` (27 lines) rebuilds the finished word's Latin
-reading by replaying the logged `(base, shift)` pairs through the pair's Latin
-layout, at the boundary, and `hunmin_buffered_preedit_latin_text` hands it out.
-`libhunmin/tests/wordset-test.cpp` pins it (`TheLatinReadingIsTheSameKeysOnTheLatinLayout`,
-`ShiftSurvivesTheReplay`), and its own comment says the mechanism "lived in the
-fcitx5 adapter alone until this moved into the shared layer (issue #164 asks who
-owns the JUDGEMENT; the reading is what it reads)". So the question is no longer
-"does the layer have the material" — it has it, tested; the adapter now carries a
-second copy of the same replay (64 lines in `language_detect.cpp`).
-
-**N3 — the ON/OFF state is unreachable in fcitx5.** `grep -rn "special" frontends/fcitx5/src/`
-returns no line, and `config.h` has three options, none of them the autoswitch
-state; the state exists in the engine (`hunmin_ic_set_option("autoswitch")`,
-`HUNMIN_SPECIAL_AUTOSWITCH`) and reachable on TSF (`keydispatch.cpp`) and Android
-(`HunminAdapter.special`). Whichever component owns the judgement, fcitx5 gets no
-behaviour from it until a settings row or a chord exists there.
-
-**N4 — one quoted document is stale about the state, not about the ruling.**
-`docs/SPEC-MODES.md` §R3 says "The current implementation is an *adaptor*: …
-keeps a shadow `hunmin_ctx` on the Latin layout and replays the buffered word".
-That described the tree before #167 moved the same mechanism into the core; the
-sentence is a design note, so a dated state correction is recorded under §R3
-rather than a rewrite (see "Changed by this branch" in §MRO-5). Its requirement
-half — one rule, one owner, identical on every frontend — is untouched and is
-what the options below are measured against.
-
-### MRO-1 The unpacked subject — "the judgement" is six pieces, in different homes
-
-Reading the issue's phrase as one thing is how the comparison goes wrong: R8's
-formula is three lines, and the pieces around it are where the cost is.
-
-| piece | where it lives at this base | symbol, and what pins it |
-|---|---|---|
-| the **reading** (the keys replayed on the Latin layout) | **twice**: core `latin_reading()` (from the layer's `keys` log, at the boundary) and adapter `LanguageDetector::judge` (from its own `record()` buffer) | `hunmin_buffered_preedit_latin_text` / `LanguageDetector::judge`; `engine-wordset`, `engine-d1-language-detect` |
-| **english_valid** | core | `hunmin_buffered_preedit_english_valid` + `..._load_english_shipped` + the user dictionary; `engine-wordset` |
-| **hangul_valid** | core | `hunmin_hangul_valid`, `hunmin_hangul_valid_old`, and the two layout answers `hunmin_ctx_layout_autoswitch_capable` / `..._old_hangul`; `engine-hangul-valid` |
-| the **formula** (R8's three lines) | **nowhere** | `#168`; `boundary()` still delivers in the current mode unconditionally (`buffered_preedit.c`, 14 lines) |
-| the **act** (boundary + switch + the other layout's ic, with the word delivered in the judged language) | TSF and Android: the layer. fcitx5: the host | `hunmin_buffered_preedit_toggle_language`; fcitx5's slot is the profile's per-item `Layout=` read through `layoutFor()` at `Activate` (§FE13) |
-| the **ON/OFF state** | core (the ic option, carried across `attach_ic`) | `hunmin_ic_set_option("autoswitch")`; no fcitx5 surface (N3) |
-
-So "the owner" is not one decision about one function. It is four: who produces
-the reading (one copy or two), who holds the formula, who can *act* on an answer
-(the layer on two frontends, the host on fcitx5), and who owns the state. The
-options differ on the four in different ways, which is why they are priced
-separately below rather than ranked.
-
-| frontend | layer's languages | today's judgement | today's switch owner | mode display | autoswitch reachable |
-|---|---|---|---|---|---|
-| fcitx5 | **one** (`nullptr` Latin id) | the adapter's, answer discarded | the host (per-IM `Layout=` in the profile) | none | **no** |
-| TSF | two | **none** | the layer (`ToggleModeCore`) | langbar + conversion compartment, mirrored from `..._language` after a toggle | yes |
-| Android | two | **none** | the layer (`toggleLanguage()` → `HANGUL_ENG`) | picker + toast, mirrored from `..._language` after a toggle | yes |
-
-Two consequences a reader can check in the table: the feature is unimplemented
-everywhere (no frontend delivers a mode from a judgement), and the split runs
-opposite to intuition at this base — the two frontends that own a Han/Eng key are
-exactly the two that hand the switch to the layer, while the one that owns no key
-(fcitx5) is the one carrying its own judgement code. The
-indicator column matters for all three options: TSF and Android update their
-display only on a toggle key today, so an automatic switch at a boundary would
-move the layer's mode without moving the indicator — two small reads per
-frontend, not zero.
-
-### MRO-2 The options
-
-#### A — the shared layer owns the formula and performs the switch
-
-The shape #168 already specifies: at the boundary, when `autoswitch` is ON,
-compute the validity pair over the reading and the buffer, apply R8's three
-lines, and on a switch take the existing switch path — the word is delivered in
-the judged language and the mode change applies from the next key (R10).
-
-- **What changes**: `latin_reading()`'s neighbours in `boundary()`; fcitx5 passes
-  `latinLayout.c_str()` at its `hunmin_buffered_preedit_new` call and deletes
-  `language_detect.{h,cpp}`; TSF and Android re-read `..._language` after a key so
-  the indicator follows.
-- **ABI**: none. The formula runs inside `process_key`, `out->commit` already
-  carries the delivered word, and `..._language` already reports the mode. No new
-  symbol, so `libhunmin/tests/abi/symbols.txt` does not move.
-- **Cost**: the core grows one formula function (~40 lines) plus tier-A cases per
-  formula line including both-valid and both-invalid; fcitx5 sheds
-  `language_detect.cpp` (64 lines), `language_detect.h` (94) and a 206-line test
-  with its `engine-d1-language-detect` registration; TSF and Android a few lines
-  each. Documentation: six `docs/REQ-MAP.md` rows name the retired code or the
-  retired test (R2, R3, R7, R8, R9 and the parent A9, whose architecture and
-  implementation cells both name the class), and `tools/req-map-check.py`
-  fails on a `verified by` id that is not registered — so retiring the test and
-  re-pointing the rows is one atomic change, not two.
-- **Gain**: one implementation of R3's "two frontends must never answer
-  differently"; the material the formula reads is already in the layer and already
-  tested; TSF and Android get the feature without new per-frontend judgement code;
-  and fcitx5 needs **no** host-level switch action, because the layer's switch is
-  an `attach_ic` inside it.
-- **What would change the answer**: evidence that fcitx5's mode must stay the
-  host's (§FE13's reading). Under A, fcitx5's layer can be in Latin mode while the
-  host's input method still says Hangul — the host's IM entry carries no state the
-  layer writes. Whether that divergence is acceptable is a ruling, not a
-  measurement; the seam that would remove it is priced in §MRO-4 item 1.
-
-#### B — the adapter stays the owner, each frontend repeats it
-
-B9 taken literally: one judgement rule, one owner per frontend.
-
-- **What changes**: the fcitx5 detector gains the two validities; TSF and Android
-  each grow a detector (neither has one, and neither has a test for one).
-- **ABI**: none.
-- **Cost**: three formulas. The reading is already one copy in the core and the
-  layer hands it out — so the honest form of B is "three formulas over one
-  reading", and a frontend that keeps its own reading (as fcitx5 does today) pays
-  a second replay per finished word (the adapter's own header measures one
-  judgement at 3.48 µs). The three adapters measure 683, 646 and 562 lines
-  (`hunminadapter.cpp`, `tsf.cpp`, `hunmin-jni.c`), so the two that would grow a
-  detector are the two nearest the ~700-line guidance for a frontend, and one of
-  them is the JNI file that also carries the candidate and settings bridges.
-- **Gain**: B9 stands untouched, no `REQ-MAP` row moves, and fcitx5 keeps choosing
-  the Latin layout it judges on through its own config rather than the layer's
-  constructor argument.
-- **What would change the answer**: a measurement that the three frontends judge
-  the same word differently in practice. R3 forbids it as a requirement, so B
-  would need a *shared* test for the three copies to prove equality — a shared
-  home for the cases, which is most of what the ownership question was about.
-- **Already visible under B**: the two copies that exist today do not agree, and
-  neither is the R8-정정 formula. The adapter enforces `minLen` (default 2, a
-  value R9's threshold issue has not fixed); the core applies no length guard at
-  all. Shift survives both, by different means (the adapter replays a
-  case-encoded `A`–`Z` character through `hunmin_ic_process`; the core logs
-  `(base, shift)` and replays through `hunmin_ic_process_key`). Neither consults
-  `english_valid` or `hangul_valid`. That is the shape of the divergence R3 exists
-  to prevent, measured before either copy has been adopted.
-
-#### C — the layer owns the formula, the frontend performs the act ← **selected 2026-11-01**
-
-The split the 2026-10-31 special-function ruling already uses: the engine resolves,
-the frontend performs what only it can perform.
-
-- **What changes**: one append-only query answering "the finished word is judged
-  to be <language> / keep the current mode"; TSF and Android act with
-  `hunmin_buffered_preedit_toggle_language` (already implemented and called);
-  fcitx5 acts through its host.
-- **ABI**: one new symbol. Not a wider `hunmin_key_result`: callers allocate that
-  struct on their own stack (`hunmin_key_result out{}` in all three frontends), and
-  the ABI guard compares symbol names only (`tools/abi-check.sh` against
-  `symbols.txt`), so a grown struct would break the contract without failing the
-  guard.
-- **Cost**: the query plus tier-A cases; three act paths instead of one; and on
-  fcitx5 the act needs a mode in the *host* to switch to. Measured: `Instance`
-  exposes `setCurrentInputMethod(const std::string &imName)` and a per-input-context
-  overload (`/usr/include/Fcitx5/Core/fcitx/instance.h:381-397`, read on the WSL
-  side — no fcitx5 build exists on this host, so this is **read, not executed**),
-  and what it sets is an **input method**, not a layout: the addon registers two
-  IM entries (한 / 로) and neither carries `Layout=`; the layout arrives from the
-  profile's per-item override. So C's fcitx5 act reaches an English mode only if
-  an IM entry with a Latin layout exists in the user's group — today that is a user
-  configuration, not a shipped one.
-- **Gain**: §FE13 stays honest on fcitx5 (the host's language remains the host's),
-  and the act stays where the platform knows how to perform it — the same rule the
-  special-function ruling fixed.
-- **What would change the answer**: a ruling that §FE13 already answers "the host"
-  for fcitx5 — then C is the only shape consistent with it, and A needs the seam
-  in §MRO-4 item 1.
-
-### MRO-3 Summary — each option against each surface
-
-Counts are file- and row-counts from the tree at the base named above, not
-estimates. Behaviour is net-new in every column: no frontend delivers a mode from
-a judgement today (§MRO-1).
-
-| surface | A — layer owns both | B — adapter owns | C — layer judges, frontend acts |
-|---|---|---|---|
-| ABI symbols | none | none | one, and not a struct field |
-| data files | none (`en-US.json` shipped) | none | none |
-| core code | one formula function, `~40` lines | none | the formula + a query |
-| tier-A | a case per formula line, incl. both-valid / both-invalid | none in the core | the formula's cases + the query's |
-| tier-D1 | `engine-d1-language-detect` retires | two suites added (TSF, Android) | the D1 suite retires |
-| fcitx5 | −`language_detect.cpp`/`.h`, +1 constructor argument | +the two validities in its detector | +an act path through the host |
-| TSF / Android | a few lines each (indicator) | ~one detector each, plus tests | none |
-| `docs/REQ-MAP.md` rows to re-point | 6 (R2, R3, R7, R8, R9, A9) | 0 | 6 |
-| where `language_detect` is named in prose | rewritten, 19 lines across 10 files | unchanged | rewritten, 19 lines across 10 files |
-| fcitx5 can show the mode | no (the layer has no display) | no | n/a — it is the host's mode |
-
-### MRO-4 Facts the question does not state, and every option pays
-
-1. **The fcitx5 mode seam.** Under A and C, fcitx5's mode either lives in the
-   layer and diverges from the host's IM entry, or has to be pushed to the host.
-   The push mechanism exists (`setCurrentInputMethod`, read above) and costs an
-   English IM entry that ships with a Latin `Layout=`, which the addon does not
-   have today. B is the option that never faces this, because it never switches
-   anything in fcitx5 — which is also why B leaves fcitx5's own answer discarded
-   unless the wiring is added.
-2. **R9's threshold is still open** (`#163`). The adapter hardcodes `minLen = 2`;
-   whichever component owns the formula needs the value, and the value is a
-   ruling, not a measurement this paper can supply.
-3. **The reading needs a pair.** `hunmin_buffered_preedit_latin_text` answers
-   empty for a one-language layer (fail-closed, B3). A and C therefore require
-   fcitx5 to pass a Latin id; B does not, because it keeps its own shadow context.
-4. **Documentation is atomic with the code.** `language_detect` is named on 19
-   lines across 10 files, and `engine-d1-language-detect` is the `verified by`
-   cell of five `REQ-MAP` rows, and `A9` names the class in both its architecture
-   and its implementation cells while its `verified by` cell already says `none`.
-   `req-map-check`
-   fails on an unregistered id in that cell, so a retirement that leaves the rows
-   behind is a red run, not a stale sentence.
-5. **The OFF path must be byte-identical** (#168's third checklist item). A
-   changes the boundary function, which every key every frontend processes; the
-   other two options do not touch it. That is A's one regression surface and the
-   reason its verification is a whole-tier run plus an identity assertion, not the
-   formula's own cases alone.
-
-### MRO-5 Provenance
-
-- Host: Windows 11, base `a099f4f`, branch as named in the header. `git worktree
-  list` used to establish the parallel-session scope; `gh issue view` for
-  132/136/164/166/168 to check which half of the judgement had shipped where.
-- Every count here is re-derivable: `wc -l frontends/fcitx5/src/language_detect.{h,cpp}`
-  and `frontends/fcitx5/test/testlanguagedetect.cpp`; `grep -rn "language_detect\|LanguageDetector"
-  --include=*.md docs README.md PLAN.md` → 19 lines over 10 files;
-  `grep -n "language_detect\|engine-d1-language-detect" docs/REQ-MAP.md` → the six
-  rows named in §MRO-3; `grep -rn "toggle_language" frontends/` → two call sites
-  (TSF's `ToggleModeCore`, the Android JNI entry point), with the engine's own
-  cases in `buffered-preedit-test.cpp` and `key-rule-test.cpp`.
-- **Read, not executed**: `Instance::setCurrentInputMethod` (fcitx5 headers on the
-  WSL side; there is no fcitx5 build on this Windows host, so nothing in this
-  section was compiled or run against fcitx5). The 3.48 µs per-judgement figure is
-  quoted from `language_detect.h`'s own measurement, not re-timed here.
-- Nothing in this section needed a build: no C was compiled and no binary was run.
-  The facts are file contents, symbol names, and `grep`/`wc` counts, each named
-  above.
-- Changed by this branch: `docs/OPTIONS-MEASURED.md` (this section, its header row,
-  the section-key sentence, the H1's count), `README.md` (its index row), and a
-  dated state note under `docs/SPEC-MODES.md` §R3 (N4) — a factual correction, not
-  a ruling.
-
-## BND — the judgement boundary's three parameters: buffer cap (E2), short-word threshold (E3), flicker (E6) (issue #163)
-
-**As written, this section was measurements only: no option recommended, no
-value chosen** (`AGENTS.md`, "never decide on your own"). **E2 was ruled on
-2026-11-01 and is implemented on this branch** — the decision is at the end of
-this preamble and §BND-2 carries the post-ruling measurement beside the
-pre-ruling one. **E3 and E6 remain open**: nothing below chooses an N or moves a
-judgement point.
-
-Issue #163 asks for one ruling covering three evaluable parameters of
-`docs/SPEC-MODES.md` §2 — how far the composition buffer may grow (E2), what
-counts as a short word that is not switched (E3), and whether judgement ever
-moves inside the word (E6). Each is priced below against what the tree actually
-does today, because two of the three premises the issue states do not survive
-being measured (§BND-0).
-
-Produced 2026-11-01 on branch
-`scobyseo/modes-ruling-e2-e3-e6-buffer-cap-short-word-thre` (base `master` at
-`a099f4f`), Windows 11. The engine was built in this worktree's `build-mingw/`
-with the llvm-mingw toolchain and driven through `tools/modes-boundary-probe.py`,
-which this branch commits so that every number below is re-derivable (§BND-6).
-Deliberately **not** touched: `docs/REMAINING-WORK.md` and `AGENTS.md`, which
-parallel sessions patch.
-
-The maintainer's steer, verbatim, given mid-session on 2026-11-01 while this
-paper was being written:
-
-> "buffer cap should be reasonable; at least longest english word should be
-> covered by it. i think 4KB buffer can be managable; if it is to be overflowed,
-> we can flush first half of the buffer."
-
-That is the shape §BND-2 measures E2 against. It says nothing about E3 or E6, and
-it left three things open that §BND-2's last table named rather than settled.
-
-**E2 — decided 2026-11-01 (option B), and the value is not the one first
-proposed.** Asked whether the cap should shrink to 256 B, the maintainer's
-answer was *"make cap 256B by default, and make it configurable."* So: the
-layer's word cap is **256 bytes of UTF-8 by default**, an overflow commits the
-word's first half, and the value is a layer option (`word_cap`, bytes, `0` = no
-cap) rather than a constant. The three things that stays silent about — bytes or
-characters (bytes, because an allocation is what is bounded), whether a flushed
-half is judged (not decided; #168's call site, unreachable in practice), and how
-the flush treats the Latin key log (dropped, fail-closed) — are recorded in
-§BND-2 and in the code's own comments, not inferred here.
-
-### BND-0 The premises, checked first
-
-| # | what issue #163 states | measured in the tree | verdict |
-|---|---|---|---|
-| 1 | "R4 extends the buffer to the delimiter; the engine's `STR_CAP` is 64 ucschar (`libhunmin/src/ic.c`) and overflowing it truncates silently" | `STR_CAP` is not in `ic.c`: it is `hunmin_internal.h` (`#define STR_CAP 64 /* ucschar buffer capacity (libhangul parity) */`), and `libhunmin/src/ic.c` has no `STR_CAP` at all. It sizes `ucschar commit[STR_CAP], preedit[STR_CAP]` on a `hunmin_ic` | **corrected** — right constant, wrong file |
-| 2 | it is "the effective ceiling on buffer extension" | it is not reached: the commit is cleared at the entry of every `hunmin_ic_process*` call, and a finished syllable is at most three characters, so the longest single read measured over a 30-syllable run is **1 character**. The buffer that actually grows is the shared layer's `word`, a heap string with no ceiling (§BND-2) | **corrected** — the ceiling is elsewhere, and it is a different buffer |
-| 3 | "the engine's boundary code" is where a ruled cap would be cited | the shipped path's buffer is `hunmin_buffered_preedit`'s `word` (`libhunmin/src/buffered_preedit.c`, `word_append`), and all three frontends go through that object: `frontends/fcitx5/src/hunminadapter.cpp`, `frontends/tsf/src/keydispatch.cpp`, and Android's `HunminAdapter` through its `layerKey` call. A cap on `hunmin_ic`'s arrays would bound nothing a frontend sees | **corrected** — the issue's verification step names the wrong layer |
-| 4 | "E3's numeric threshold was retired 2026-10-25 … R9 now says only that a threshold exists" | verified: R9 reads "**The numeric threshold is not a requirement (ruled 2026-10-25).** §2.E3 is retired … a design choice, made where the judgement is built and recorded there" | **verified**, and the method conflict is real: §2.E3 still prescribes "set N to 2, 3, 4 and measure … find the N at which (b) is minimal" |
-| 5 | "judging once at the delimiter (R4) means the display never flips mid-word" | verified structurally: `boundary()` is the only place a word is completed, and `build_preedit()` renders `word` plus the in-flight syllable in the layer's current language only. Nothing in the object can show one language and then another while a word is open | **verified**, and now shipped: the judgement is `judge_boundary()` inside `boundary()` (#164, `f9f5992`, merged 2026-11-01), called once per finished word |
-
-Two premises the issue does not state, and every option inherits them:
-
-- **The threshold has no home in the tree, in any of the three senses "where"
-  can mean.** No constant, no data key, no option carries it:
-  `hunmin_ic_set_option`/`get_option` answer only `caps` and `autoswitch`, and
-  `docs/SPEC-SCHEMA.md` has no length key. So "record it where the judgement is
-  built" is literally #168's call site, and every other home — an option value, a
-  schema key, a per-layout field — is new surface, not an existing one.
-- **The two directions of R8 do not share a length semantics.** With
-  `hangul_valid` structural, a Hangul buffer of any length that composes to whole
-  syllables is Hangul-valid, so in the Hangul to English direction the threshold
-  can only suppress a switch that the dictionary side alone decided. In the
-  English to Hangul direction (E1) the same N forbids switching a Latin run whose
-  Hangul reading is well-formed — a different population, counted in §BND-3.
-
-### BND-1 What "length" is a length of
-
-Three quantities travel under the word "buffer", and a cap or threshold that
-names one of them bounds the other two only through a conversion:
-
-| quantity | where it lives | how it grows |
-|---|---|---|
-| keys typed | the frontend, and the layer's `keys` log | one per event |
-| characters in the buffer | `word` (finished syllables) plus the ic's in-flight syllable | 1 syllable per 2–3 keys on 두벌식 (`아` is 2, `안` is 3) |
-| bytes | the same string as UTF-8 | 3 per modern syllable, 1 per ASCII digit (R6's digit runs) |
-
-So **a threshold expressed in syllables is 2–3× a threshold expressed in
-keystrokes**, and a cap in bytes is a third of the same cap in characters for
-Hangul while equal to it for a digit run. A cap of N characters is therefore met
-at 2N–3N keystrokes on 두벌식, and the exhaustive sweep of §BND-3 lands in the same
-range from the other side: over 1–4 letter strings the rendering averages
-0.75–1.0 characters per key. Those are letter strings, not Korean, which is why
-the layout fact above is the one to quote.
-
-The judgement boundary itself is one function with four callers, and that number
-is what E6 turns on: `boundary()` — a declined key in
-`hunmin_buffered_preedit_process_key`, plus `..._commit_word`, `..._external_text`
-and the language toggle. Every one of them is a word ending.
-
-### BND-2 E2 — where the buffer must end, measured
-
-`tools/modes-boundary-probe.py buffer` drives the shared layer key by key with
-`안` repeated (three keys per syllable). Measured **before** the ruling, when no cap
-existed — the record of what the tree did, and why the question was open:
-
-| syllables typed | bytes typed | longest preedit seen | commit at the boundary | lossless | over a 4 KiB cap |
-|---|---|---|---|---|---|
-| 1 | 3 | 3 | 3 | yes | no |
-| 21 | 63 | 63 | 63 | yes | no |
-| 22 | 66 | 66 | 66 | yes | no |
-| 64 | 192 | 192 | 192 | yes | no |
-| 200 | 600 | 600 | 600 | yes | no |
-| 1,365 | 4,095 | 4,095 | 4,095 | yes | no |
-| 1,366 | 4,098 | 4,098 | 4,098 | yes | **yes** |
-| 2,000 | 6,000 | 6,000 | 6,000 | yes | **yes** |
-
-**As implemented 2026-11-01 (option B: 256 B cap, flush the first half,
-configurable).** The same probe against the same build, with the cap read from the
-layer's own `word_cap` option:
-
-| syllables typed | bytes typed | longest preedit seen | delivered bytes | mid-word commits | lossless | over the 256 B cap |
-|---|---|---|---|---|---|---|
-| 64 | 192 | 192 | 192 | 0 | yes | no |
-| 85 | 255 | 255 | 255 | 0 | yes | no |
-| 200 | 600 | **255** | 600 | 3 | yes | no |
-| 1,365 | 4,095 | **255** | 4,095 | 31 | yes | no |
-| 2,000 | 6,000 | **255** | 6,000 | 46 | yes | no |
-
-Three facts that table establishes, each pinned by a test in
-`libhunmin/tests/buffered-preedit-test.cpp`
-(`TheCapCommitsTheFirstHalfAndLosesNothing`, `TheCapIsConfigurableAndZeroMeansNoCap`,
-`EachFlushedHalfIsTheNextPrefixAndTheRemainderFlushesCleanly`): **the preedit never
-exceeds the cap** (255 B is the largest multiple of three below 256, because the
-in-flight syllable counts against the cap); **nothing is lost, duplicated or
-reordered** (delivered equals typed at every length); **the cut is on a syllable
-boundary** and no single commit exceeds the cap. The third test evaluates the split
-piece by piece instead of in aggregate — each mid-word commit must be the exact next
-prefix of what the engine produces, the held text must be the exact continuation,
-and the explicit flush (`..._commit_word`, what a frontend calls on focus loss) must
-deliver exactly the remainder and leave the layer empty and usable.
-
-**Non-vacuity, and a defect it exposed.** Every cap test fails with `WORD_CAP` 0 and
-passes at 256. The piece-by-piece test was also run against a deliberately broken
-flush (`word_flush_half` skipping one syllable in the tail) — and **passed**, because
-200 repetitions of `안` are one string of one repeated three-byte syllable, in which
-a one-syllable shift is invisible. With the sequence varied (`dks rk dl tj gks` →
-`안 가 이 서 핫`, 2 and 3 keys per syllable) the same mutation fails at the first
-post-flush key. That is why the test is non-uniform, and it is the reason an
-aggregate "the totals match" assertion is not enough for this code: it cannot see a
-shift at all.
-
-**What the cap is *not*, measured.** The cap bounds the layer's own buffer. It does
-not carry the option that was proposed first (4 KiB, "at least the longest English
-word") any further than 256 B already does: the longest form in the oracle is 24
-characters / 24 bytes (`electroencephalography's`), the mean is 8.64, and **0 of
-118,150 forms exceed 256 bytes** — a 10.7× margin, where 4 KiB was a 170.7× one.
-What shrinks with the value is the length at which the overflow path becomes
-reachable: 256 B is 85 syllables, so ~256 consecutive letter keys with no space and
-no symbol, against ~4,096 for the first proposal. Nothing a person types reaches
-either; a stuck key or a machine-generated line reaches 256.
-
-**The 4 KiB pricing, kept because the arithmetic is what the 256 B value inherits:**
-
-**The pre-ruling state, in words.** **There was no cap, and nothing truncated.** The 21- and 22-syllable rows are
-there because 64 characters (the `STR_CAP` number) falls between them for a
-one-character syllable: the boundary sails past it, which is the point. The word
-buffer doubles its allocation (`reserve()`), the preedit a frontend is handed is
-`word` plus the in-flight syllable, and the commit at the boundary is the whole
-word.
-
-**What the first steer (4 KiB) bought, measured against its own premise.** The longest form
-in the shipped oracle is 24 characters / 24 bytes
-(`electroencephalography's`); the longest that is layout keys only is 23
-(`electroencephalographic`); the mean form is 8.64 characters and no form at all
-exceeds the cap (0 of 118,150). 4,096 bytes is **1,365 syllables** and **170.7×**
-the longest word the dictionary knows, so "at least the longest English word is
-covered" holds with two orders of magnitude to spare. Two things the margin does
-not cover, named rather than measured: a **user word**
-(`..._add_user_word` takes any line) longer than 1,365 syllables, and a buffer
-that never sees a delimiter — reaching 4 KiB needs **4,095 consecutive letter keys
-with no space and no symbol**, which no delivered text does but a stuck key or a
-replayed paste could.
-
-**The cap and the shipped judgement interact in exactly one place, measured.** The
-judgement is `boundary()`'s (#164), so a flush commutes a half **unjudged** — and
-because the flush empties the reading's key log, the word that later reaches the
-boundary is judged against the **remainder**: a 400-key word (`가` × 200) flushed
-three times arrives at the boundary with a **61-key** reading, not 400. So the
-remainder is treated as its own word, which is the only reading the layer still
-holds; the alternative (halving the key log) would describe a word the buffer no
-longer contains.
-
-**What a flush at half does, and what it must also do.** Flushing the first half
-at overflow (as implemented: 128 bytes of the 256, about 42 syllables) commits text
-at a boundary that is not a delimiter, which R4 did not authorise — R4's sentence
-was "the moment the next delimiter (space or symbol) appears", and its own
-amendment clause ("in groups of at most N characters") is exactly that grant, which
-is now `docs/SPEC-MODES.md` §R4-정정. Two shapes existed and they were not the same
-ruling:
-
-- **flush silently** — the first half is committed in the current language with no
-  judgement and the surviving half continues, so a word longer than the cap is
-  never judged as a whole and can never switch. The layer's Latin key log (`keys`)
-  must then be shortened by the same half, or `latin_text` describes a word the
-  buffer no longer holds — a divergence nothing would crash on, and every misfire
-  after it would read like a judgement bug.
-- **flush as a boundary** — the half is judged before it is committed, i.e. a
-  judgement point inside a word. That is legal only as an explicit E6 exception, and
-  it is where E2 and E6 stop being independent: nothing judges yet (#168), and the
-  implementation chose the silent flush (§R4-정정), so E6 stays inert at 256 B and
-  would go live only under option C or a small display cap (option D below).
-
-**E2's own stated worry is not answered by any cap on memory.** §E2 quotes "if
-the preedit becomes too long, most apps misbehave": that is a threshold of tens of
-syllables, and 256 B is 85. The cap is a bound on the layer's buffer and on the
-longest preedit a frontend can be handed; it is not a measurement of what an
-application tolerates, and it does not bite at any length a person can actually
-reach (no word is 85 syllables). Nothing on this host measures what an application
-tolerates —
-Fcitx5, TSF and Android are three different preedit carriers and none was driven
-here — so the number that would settle that question is unmeasured, not small.
-
-Options, as costs:
-
-| option | cost | gain | what would change it |
-|---|---|---|---|
-| **A — no cap (the pre-ruling state, still reachable as `word_cap` 0)** | a pathological run grows the word unboundedly; no reachable failure measured | nothing to change | evidence that a stuck-key or replay run can reach megabytes |
-| **B — cap, flush the first half ← selected 2026-11-01, at 256 B, as an option** | one R4 amendment's worth of prose (now §R4-정정); the flush drops the Latin key log rather than splitting it; a word over the cap is never judged whole (0 forms in the oracle at either value) | a bound on what a frontend must render, and a hard allocation bound | a word longer than 85 syllables that must be judged as a whole — a user-dictionary word nothing bounds; the implementation records the choice |
-| **C — cap, judge at the cap** | as B plus a mid-word judgement, which R4 forbade and E6 was written to avoid | a flush that never commits unjudged text | a decision that an overflow is a boundary; it is only ever reached at ~42 syllables now, so this is the option that would make E6 live |
-| **D — cap the displayed preedit at a small N (about 10 syllables)** | every word longer than N is committed and judged in pieces: R4's "extend to the delimiter" becomes false for ordinary long words, and E6's flicker becomes visible at N rather than theoretical | the only option that bounds what the application is asked to render, which is what §E2 names | a measurement of how long a preedit each of the three carriers tolerates — not available on this host |
-
-### BND-3 E3 — what a threshold of N would be a threshold on
-
-R9 requires that short words are not switched, and the number is now a design
-choice. What a value chooses between is measured exhaustively: every `a`–`z`
-string of length 1–4 is a thing a person can type, `english_valid` is the shipped
-`en-US.json` membership test, and `hangul_valid` is the engine's own predicate over
-that string's rendering through the 두벌식 layout.
-
-| length (keys) | strings | both valid (R8 keeps the mode) | english only | hangul only (E1) | neither (keeps the mode) | **switches to English, after R9's guard** | **switches to Hangul, after R9's guard** | rendered chars per key |
-|---|---|---|---|---|---|---|---|---|
-| 1 | 26 | 0 | 26 | 0 | 0 | **0** | **0** | 1.000 |
-| 2 | 676 | 80 (11.83%) | 268 (39.64%) | 88 (13.02%) | 240 (35.50%) | **0** | **0** | 0.862 |
-| 3 | 17,576 | 212 (1.21%) | 1,066 (6.07%) | 2,238 (12.73%) | 14,060 (80.00%) | **1,066 (6.07%)** | **2,238 (12.73%)** | 0.775 |
-| 4 | 456,976 | 230 (0.05%) | 3,239 (0.71%) | 31,214 (6.83%) | 422,293 (92.41%) | **3,239 (0.71%)** | **31,214 (6.83%)** | 0.745 |
-
-**The value is no longer chosen here: R9 records the maintainer's "3자 이상이면
-판단하자" (§MRO, ruled 2026-11-01) and its unit, named the same day — "키입력 세개로
-명확히 하자" — so `libhunmin/src/buffered_preedit.c` carries it as `JUDGE_MIN_KEYS 3`,
-three **key inputs**.** The table below is what that N partitions, in the same unit,
-so the `1` row is what N=2 removes and the `3` row is what ships at N=3:
-
-Read plainly — these are the facts a threshold N is a choice between:
-
-- **At N = 1 and N = 2 nothing switches at all — because of R9's guard, not because
-  of the validities.** All 26 one-letter buffers are English words and none renders
-  as a syllable, and 268 of the 676 two-letter strings are English-only: without the
-  guard those would switch. The shipped `JUDGE_MIN_KEYS 3` is what removes both rows,
-  so the first switchable length is 3 and the guard — not the validity pair — is the
-  reason the two shortest rows are empty. (An earlier draft of this section read the
-  unguarded columns as the behaviour; the two right-hand columns are the correction.)
-- **The two directions have different sizes at every length.** A 3-letter buffer
-  that switches to English is 6.07% of that space; one that switches to Hangul is
-  12.73%. A single N applies to both, so its cost is not symmetric — and the
-  hangul-only column is conditional on E1, the symmetric rule, which is still
-  unmeasured.
-- **The unit is key inputs, clarified 2026-11-01, and that is what the table counts.**
-  The ruling's wording was `3자` (three characters); asked which unit the requirement
-  should name, the maintainer settled it — *"3. 키입력 세개로 명확히 하자."* — which is
-  what `JUDGE_MIN_KEYS 3` already implemented. The gap the question was about is
-  §BND-1's 2–3× conversion: `안녕` is 6 keys and 2 characters, so a key rule judges
-  it on the sixth key and a character rule would never judge it. Every row below is
-  in keys typed, so the `3` row is the class the shipped guard admits.
-- **The threshold's price on the English side, in the oracle's own terms:** forms
-  at or below N are 26 (N=1), 374 (N=2), 1,655 (N=3), 5,268 (N=4) — 0.02%, 0.32%,
-  1.40%, 4.46% of 118,150. Those forms could never switch automatically while the
-  threshold holds. That is a count of vocabulary, not of typing: nothing in the
-  shipped data says how often any form is typed.
-
-Where it could live, and what each home costs:
-
-| home | cost today |
-|---|---|
-| a constant in the judgement's own rule (`boundary()`) — **what shipped**: `JUDGE_MIN_KEYS 3` above `judge_boundary()` | none — the constant arrived with the judgement's first implementation (#164), so R9's "recorded where the judgement is built" is met as written |
-| an `hunmin_ic_set_option` value | the option namespace has exactly `caps` and `autoswitch`; a third name is an ABI-compatible addition, but it makes a requirement a runtime preference, which nothing has asked for |
-| a `docs/SPEC-SCHEMA.md` key | the schema has no length key at all; a new section plus `tools/doctor.py` validation, for a value that is a design parameter, not data |
-| a per-layout field | the one thing `AGENTS.md` forbids by name ("no per-layout anything in the core") |
-
-What a measured N would need, and why no N is offered here: §2.E3's method — "set
-N to 2, 3, 4, count misfires and manual toggles, take the N that minimises the
-toggles" — needs a corpus of typed Korean with real frequencies. No such corpus
-is on this host (`ls ~/work` returns `edw` only) and `docs/MODES-METRICS.md` §3
-voids numbers from a corpus built in session, so no corpus was built. The sweep
-above is the space a threshold partitions; the weight of each cell in it is the
-missing input.
-
-### BND-4 E6 — what moving judgement inside the word would cost
-
-**Ruled 2026-11-01: both timings ship, per-key is the default** — *"옵션처리하자.
-설정할 수 있게. default는 B로."* So this is no longer a choice between two futures:
-`judge_timing` selects the display (1 = per key, the default; 0 = boundary only) and
-`docs/SPEC-MODES.md` §E6 carries the ruling. What follows is the price of the default,
-and it is the 도깨비 the item describes.
-
-The boundary timing's cost is zero by construction: `judge_boundary()` is called
-once, in `boundary()`, over the finished word (#164), and the display is `word` +
-the in-flight syllable in one language (§BND-0 row 5). The price of the alternative
-is countable over the same oracle: judge at every prefix, and count how often the
-judged language **changes more than once** inside one form — a flip away from the
-current mode and back.
-
-**R9's three-key guard is part of the count.** A buffer under
-`JUDGE_MIN_KEYS` key inputs is judged by nothing, so the first two keys of a word can
-never flip, and the pre-guard figures (measured before the guard existed in this
-sweep) are larger than what ships:
-
-| | without the guard | **with the guard (shipped)** |
-|---|---|---|
-| forms that flip at least once | 82,408 (96.1%) | **83,746 (97.7%)** |
-| forms that flip **back** inside the word | 80,730 (94.18%) | **54,903 (64.05%)** |
-| mean changes per form | 2.95 | **2.59** |
-| deepest | `alphabetically`, 12 | **`alphabetically`, 11** |
-
-| | forms | share of 85,718 |
-|---|---|---|
-| never changes (the whole word stays Hangul) | 3,310 | 3.86% |
-| one flip (the switch R8 intends) | 1,678 | 1.96% |
-| **flips back at least once (flicker)** | **80,730** | **94.18%** |
-| mean flips per form, all forms | 2.95 | — |
-| deepest | `alphabetically`, 12 | — |
-
-Distribution of flips, with the guard: 0 → 1,972 forms, 1 → 28,843, 2 → 253,
-3 → 41,526, 5 → 11,804, 7 → 1,244, 9 → 72, 11 → 4. The odd values dominate because
-the first flip is the intended switch and every further pair is a flip back: a prefix
-that is a dictionary word arrives, then a prefix that is not (`algebraicall` before
-`algebraically`), then it recovers.
-
-Two limits on that number, stated rather than hidden: it is over dictionary forms
-typed in Hangul mode, not over what people type, and it counts the Hangul to
-English direction only — the English to Hangul direction's display is not
-implemented (E1). What it establishes is the order of magnitude: per-key judgement
-does not flicker on an edge case, it flickers on almost every English word.
-
-**What the maintainer's own mixed sentence would need — measured, and it is not
-E6.** `English는 좋은 Language입니다` typed in one stream through the shipped build
-(`autoswitch` on, shipped dictionary, `judge_timing` at its default):
-
-| word | keys | preedit while typing | delivered at the space | judgement | mode after |
-|---|---|---|---|---|---|
-| `English` | `english` (+Shift) | `ㄸ 뚜 뚷 뚜히 뚜히ㅑ 뚜히ㅑㄴ` then **`English`** | `English` | switch to Latin | **Latin** |
-| `는` | `sms` | `s sm sms` | `sms` | none | Latin |
-| `좋은` | `whdms` | `whdms` | `whdms` | none | Latin |
-| `Language` | `language` (+Shift) | Latin | `Language` | none | Latin |
-| `입니다` | `dlqkTek` | Latin | `dlqkTek` | none | Latin |
-
-At the time of that measurement the first word worked, including its
-capitalisation, and everything after it came out as raw Latin: `judge_boundary()`
-only fired in Hangul mode, so the return direction (English → Hangul) did not exist.
-**That was E1, not E6, and it was ruled the same day** — *"E1도 당연히 지원해야지.
-내 예제가 동작하는 것까지를 0.3 release gate로 보자."* The symmetric line now ships
-(`hangul_reading()` and the Latin branch of `judge_boundary()`), so the table above
-describes the tree before that ruling; the same sentence now delivers
-`English 는 좋은 Language 입니다` and is the 0.3 gate,
-`WordSetTest.TheZeroThreeGateMixedSentenceWorksInOneStream`. E6 still decides only
-what the person sees *while* one word is typed.
-
-**The coupling, stated once.** E2 and E6 are not independent choices, and which E2
-option is picked decides whether E6 is live at all: with A, B or C the flicker
-cannot occur at any reachable length, because the boundary is the only judgement
-point and the one exception needs 682 syllables; with D it occurs at the cap, for
-words longer than the cap, and the 94.18% above becomes the size of the problem
-rather than a hypothetical. §E6's own sentence — "the two options are mutually
-exclusive" — is true of D and false of A, B and C, which is a sharper statement
-than the item currently makes.
-
-### BND-5 The three items against each surface
-
-| item | options priced | ABI | data / schema | tier-A goldens | engine code | gradeable today against |
-|---|---|---|---|---|---|---|
-| E2 | A, B, C, D (§BND-2) — **B selected, shipped** | none — the cap is a name-value option (`word_cap`), not a symbol | none | `engine-buffered-preedit`'s two cap cases | `word_flush_half` / `word_cap` in `buffered_preedit.c` | `tools/modes-boundary-probe.py buffer` — the pre-ruling and post-ruling rows, and both tests fail with `WORD_CAP` 0 |
-| E3 | a constant (shipped), an option, a schema key, a per-layout field (§BND-3) | an option name would be additive | schema work only for the schema option | a golden per direction per N | `JUDGE_MIN_KEYS` and `judge_boundary()` in `buffered_preedit.c` | the sweep's four columns; the shipped guard's own cases in `engine-wordset`; **no** corpus for the weights |
-| E6 | both, as an option — **per-key default, shipped** | none — `judge_timing` is a name-value option | none | `TheJudgementTimingChangesTheDisplayAndNeverTheText`, `PerKeyTimingFlickersOnAnEnglishWordAndBoundaryTimingDoesNot` | `judged_display` / `build_preedit` in `buffered_preedit.c` | §BND-4's flip counts, guarded and unguarded, and the tier-A equality between the two timings; felt experience: unmeasured |
-
-No option changes the ABI, and none needs new data. That is the summary of the
-whole section: **all three items are parameters of one function's behaviour, and
-the expensive option in each case re-opens a requirement — R4's "extend to the
-delimiter" for D in E2, R9's existence of a threshold for "no threshold" in E3,
-R4's single judgement point for per-key in E6 — rather than a mechanism.**
-
-### BND-7 R6 — where a digit run actually ends (issue #171)
-
-Added after the three items above, on the same object: R6 (`docs/SPEC-MODES.md`
-§R6) says the ON buffer holds **digit runs** as well as eojeols, which is a
-statement about this layer's `word`. Measured 2026-11-01 on Linux with the built
-tree (`python3 tools/modes-boundary-probe.py digits`); "engine" is the raw
-`hunmin_ic` driven key by key, "layer" is `hunmin_buffered_preedit` with
-`HUNMIN_COMMIT_AT_BOUNDARY` and one declined key (space) as the boundary.
-
-| layout | keys | what the raw engine does | what the layer holds after the last key | early deliveries | boundary commit | lossless |
-|---|---|---|---|---|---|---|
-| `sin3-p2` | `1234567890` | commits a digit **per key** (10 commits, preedit always empty) | `1234567890` | 0 | `1234567890` | yes |
-| `sin3-p2` | `dks123` | `ㅎ계` then `1`,`2`,`3` as separate commits | `ㅎ계123` | 0 | `ㅎ계123` | yes |
-| `sin3-p2` | `jk1` | tier 101 entered by `k`, then `1` → `µ` | `ㅇµ` | 0 | `ㅇµ` | yes |
-| `sin3-p2` | `jl1` | tier 102, `1` → `①` | `ㅇ①` | 0 | `ㅇ①` | yes |
-| `sin3-p2` | `j;1` | tier 103, `1` → `⑪` | `ㅇ⑪` | 0 | `ㅇ⑪` | yes |
-| `sebeolsik-final` | `1234567890` | the digit keys are jamo (`1`=ᇂ …, `0`=ᄏ): a syllable per commit | `ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ` | 0 | same | yes |
-| `sebeolsik-final` | `dks123` | `ㅣ`, `ᄀᅠᆭ`, `ㅆ` | `ㅣᄀᅠᆭㅆㅂ` | 0 | same | yes |
-
-What the table settles, and the four observations it added to R6's grounds:
-
-- **R6 holds in buffered mode, on the layout it names.** `sin3-p2`'s digit keys
-  are the case the requirement is about — they resolve to literals and the
-  ENGINE commits each one immediately, so without the layer's word the second
-  digit is typed into a buffer that has already handed the first to the client.
-  With the layer the run accumulates in the preedit and leaves once, whole, at
-  the boundary. Zero early deliveries in every row.
-- **`sebeolsik-final` (3f) is not a literal-digit layout.** Its digit keys are
-  jamo, so "a digit run" there is a run of jamo and the engine's per-syllable
-  commit applies exactly as it does to letters. R6's Korean text
-  (*"세벌식에서는 숫자열까지 사용하기 때문에"*) is about the number ROW being part
-  of composition, and 3f spends that row on jamo; the layout where a run of
-  literal digits exists is `sin3-p2`. **The issue's verification command names
-  `sebeolsik-3-final`, which is not a layout id** — the shipped ids are
-  `sebeolsik-final` (alias `3f`), `sebeolsik-3-2` and `sebeolsik-3-90`.
-- **The symbol tier resolves only the first digit of a run.** `T` is single-shot
-  (`ic.c`, `ic->T = 0; /* tier is single-shot */`), so `jk123` is `µ`,`2`,`3`:
-  the tier applies to `1` and the run continues as plain digits.
-- **The spec's tier examples are the shift row.** §R6 says `1` becomes `Ⅰ` at 101,
-  `₁` at 102, `¹` at 103; measured, those three are `shift+1`, and plain `1` at
-  those tiers is `µ`, `①`, `⑪`. §R6's wording was then replaced on the
-  maintainer's instruction the same day (*"R6문구는 적절히 변경하자"*), and the new
-  sentence states exactly this: the shift row is the shift row, and the tier is
-  single-shot.
-- **The only early delivery is R4-정정's cap, and it is counted in bytes.** With
-  `word_cap` 4 on `sin3-p2`, digits `1`…`4` are held and the fifth key flushes
-  `12`; a digit costs 1 byte where a syllable costs 3, so a digit run reaches the
-  default 256 B at 256 keys rather than 85. It is the same rule, not a second one,
-  and `engine-buffered-preedit` now pins it.
-
-**Not a property of the layout, a property of the policy.** Under
-`HUNMIN_COMMIT_PER_SYLLABLE` the same `sin3-p2` digit run is delivered one digit
-per key (measured: commits `1`, `2`, `3`) — R6's guarantee is what the BUFFERED
-policy buys, and all three frontends default to it
-(`frontends/fcitx5/src/hunminadapter.cpp`, `frontends/tsf/src/tsf.cpp`,
-`frontends/android/app/src/main/cpp/hunmin-jni.c`), with `syllable` a per-user
-option. Whether "ON" must therefore pin the policy is R13's state and is not
-decided here.
-
-### BND-6 Provenance
-
-- **The probe is committed**, because every number above is load-bearing:
-  `tools/modes-boundary-probe.py`, added by this branch. It loads the built
-  library through ctypes and uses the engine as the oracle — rendering,
-  composition and `hangul_valid` are the engine's own functions; only dictionary
-  membership is Python's, over the same `libhunmin/data/modes/en-US.json` the layer
-  loads. Reproduce with:
-  ```sh
-  cmake -S . -B build-mingw -G Ninja -DCMAKE_C_COMPILER=C:/llvm-mingw-20261006-msvcrt-x86_64/bin/gcc.exe
-  cmake --build build-mingw
-  python3 tools/modes-boundary-probe.py all --max-len 4
-  ```
-  Timings on this host: `space` 0.4 s at `--max-len 3` and 3.7 s at 4; `prefix`
-  2.6 s; `buffer` 0.2 s. Length 5 was not swept: it is 11.9 million strings and
-  adds nothing the 1–4 rows do not already say.
-- **Measured, not read:** every count and every buffer row. **Read, not
-  executed:** the four `boundary()` call sites (a grep, not a run), the option
-  namespace (read from `hunmin_ic_set_option`), and §E2's and §E3's own wording.
-- **Absent, and named as missing inputs rather than assumed away:** a corpus of
-  typed Korean with frequencies (E3's weights; `ls ~/work` returns `edw` only), and
-  any measurement of how long a preedit Fcitx5, TSF or an Android editor tolerates
-  (E2's option D). Neither is estimated here.
-- **Corrections recorded, not rewritten:** §BND-0 rows 1–3 are left in
-  `docs/SPEC-MODES.md` for the ruling to act on, because that sentence is an
-  evaluable item's own text. The one factual fix made in this commit is the file
-  citation inside it, which named `ic.c` for a constant that lives in
-  `hunmin_internal.h`; the reasoning is §BND-0 row 1.
-- **Re-measured after rebasing onto master `d1e90fb`, where #164 had merged the
-  judgement itself**: `judge_boundary()` now runs in `boundary()` and R9's guard is
-  `JUDGE_MIN_KEYS 3`, so §BND-0 row 5, §BND-2, §BND-3 and §BND-4 were corrected from
-  "not implemented" to what ships, and the unit gap between the ruling's `3자` and
-  the guard's three keys was recorded — then **settled the same day**, when the
-  maintainer named key inputs; §BND-3 and `§R9` state the unit rather than question
-  it. The cap and the judgement were built independently and combined without a
-  conflict; the flush/reading measurement above is the one place they meet.
-- **The ruling landed on the same branch, so the probe now measures the shipped
-  behaviour as well as the pre-ruling one.** §BND-2 carries both tables; the
-  post-ruling rows come from the same command, and the two cap tests fail when
-  `WORD_CAP` is 0 (they were confirmed that way, then restored).
-- **Parallel-session scope:** this branch touches `docs/OPTIONS-MEASURED.md`
-  (this section and the header table), `README.md` (its index row and count),
-  `docs/SPEC-MODES.md` (§R4-정정, §R9's unit, §E2/§E3/§E6's markers, the §E6 ruling,
-  the §E2 file citation), `libhunmin/src/buffered_preedit.c` and
-  `libhunmin/src/hunmin_internal.h` (the cap, the judgement timing and their
-  options), `libhunmin/include/hunmin.h` (both options' contract),
-  `libhunmin/tests/buffered-preedit-test.cpp` (the cap cases),
-  `libhunmin/tests/wordset-test.cpp` (the timing cases) and
-  `tools/modes-boundary-probe.py` (the guard-aware sweep and the reading). It does
-  not touch `AGENTS.md`, `PLAN.md` or any frontend (no frontend exposes either
-  option yet). It does touch `docs/REMAINING-WORK.md` §2's M2 and M3 rows and
-  `docs/MILESTONES.md`'s 0.3 lane, once the maintainer ruled E1 and named the mixed
-  sentence as the release gate: a board that says "E1 has no owner" beside a shipped
-  E1 is the drift the board exists to catch.

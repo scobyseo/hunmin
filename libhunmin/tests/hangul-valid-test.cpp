@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * hangul-valid-test.cpp - tier A for the structural half of the modes judgement
- * (docs/SPEC-MODES.md §R8-정정, issue #166).
+ * (docs/SPEC-MODES.md §ReqMode8, issue #166).
  *
  * The requirement is one sentence: `hangul_valid` holds when the buffer
  * "composes as Korean syllables of the shape (choseong + jungseong) or
@@ -43,11 +43,7 @@
 #include <string>
 #include <vector>
 
-#include "test-env.h"
-
-extern "C" {
-#include "hunmin.h"
-}
+#include "libhunmin-test.h"
 
 namespace {
 
@@ -98,10 +94,7 @@ int valid_at(uint32_t c) { return hunmin_hangul_valid(one(c).c_str()); }
 
 int valid(const std::string &s) { return hunmin_hangul_valid(s.c_str()); }
 
-hunmin_ctx *make_ctx() {
-    const char *dirs[1] = {kDataPath};
-    return hunmin_ctx_new(dirs, 1);
-}
+hunmin_ctx *make_ctx() { return hunmin_test::make_ctx(kDataPath); }
 
 /* Everything the client would have received for one word: the per-key commits
  * accumulated, plus the syllable still composing. */
@@ -289,7 +282,7 @@ TEST(HangulValidTest, AgreesWithWhatTheEngineRenders) {
     EXPECT_EQ(0, valid(unfinished)) << unfinished;
     EXPECT_EQ(word, unfinished.substr(0, word.size()));
 
-    EXPECT_EQ(0, valid(word + "ㅎ")) << "R8's own example (안녕ㅎ) must be invalid";
+    EXPECT_EQ(0, valid(word + "ㅎ")) << "ReqMode8's own example (안녕ㅎ) must be invalid";
 }
 
 /* The predicate takes a string and no context, so there is no data directory it

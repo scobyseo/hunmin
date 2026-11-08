@@ -41,7 +41,7 @@ separate axis; splitting hangul from latin is not.
 > "사전은 … 명백히 한글로 쳤는데, 그게 영어로 바뀌어 버리는 경우" — the failure that
 > motivates the whole feature.
 
-That last sentence is what R8's *"when the judgement diverges, depend on the
+That last sentence is what ReqMode8's *"when the judgement diverges, depend on the
 current mode"* is, and `docs/MODES-POSTMORTEM.md` #19 records what happened when
 it was generalised into a one-directional rule instead.
 

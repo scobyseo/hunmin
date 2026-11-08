@@ -13,7 +13,7 @@
  * What is deliberately absent, and why each is not an oversight:
  *
  *  - No keyboard view. P5 is a hardware-keyboard IME; a soft keyboard is
- *    later work (docs/FRONTEND-CONTRACT.md). See HunminInputMethodService for
+ *    later work (docs/DESIGN-FRONTEND.md Part B). See HunminInputMethodService for
  *    why that is a real design constraint rather than a simplification.
  *  - No F9 / Hanja window. F9 has no AOSP keycode at all — on Android the
  *    function row is a modifier combination — so the trigger has to be chosen
@@ -42,7 +42,7 @@ import android.view.inputmethod.EditorInfo
  * Not a singleton and not a service-wide field: [HunminInputMethodService]
  * creates one per `onStartInput`, which is what makes two visible editors
  * independent. The fcitx5 addon attaches the same thing to a per-InputContext
- * property for the same reason (FRONTEND-CONTRACT §2).
+ * property for the same reason (DESIGN-FRONTEND.md Part B §2).
  *
  * @param native the engine surface, injectable so tier E1 can drive the voice
  *   path with no device; production is [JniOps].
@@ -76,7 +76,7 @@ class HunminAdapter(
         fun layerExternalText(layer: Long, text: String): String
         fun layerReset(layer: Long)
         fun layerSetOption(layer: Long, name: String, value: Int): Boolean
-        /** R13-정정's read half: the engine's answer, null for an unknown name. */
+        /** ReqMode13's read half: the engine's answer, null for an unknown name. */
         fun layerGetOption(layer: Long, name: String): IntArray?
         /** B3's data gate (issue #169): whether this install carries the list. */
         fun ctxAutoswitchDataPresent(ctx: Long): Boolean
@@ -84,7 +84,7 @@ class HunminAdapter(
         fun layerToggleLanguage(layer: Long): Boolean
         /** HUNMIN_LANGUAGE_* as the layer reports it. */
         fun layerLanguage(layer: Long): Int
-        /** R8's judgement: the mode to adopt now, or -1 (ruled 2026-11-01, #164). */
+        /** ReqMode8's judgement: the mode to adopt now, or -1 (ruled 2026-11-01, #164). */
         fun layerTakeJudgement(layer: Long): Int
         /* The special-function host and resolver (hunmin.h): the engine owns
          * which chord means which function, this adapter only carries it. */
@@ -185,12 +185,12 @@ class HunminAdapter(
         layer != 0L && native.layerLanguage(layer) == HUNMIN_LANGUAGE_HANGUL
 
     /**
-     * R8's judgement for the key just processed (ruled 2026-11-01, issue #164).
+     * ReqMode8's judgement for the key just processed (ruled 2026-11-01, issue #164).
      *
      * The ENGINE judged the finished word and has ALREADY delivered it in the
      * judged language -- `layerDelivered` carried it -- so this is the MODE half
      * only: HUNMIN_LANGUAGE_* is the mode to adopt now, -1 means the engine
-     * judged nothing (the switch is off, the word was shorter than R9's guard,
+     * judged nothing (the switch is off, the word was shorter than ReqMode9's guard,
      * both readings agreed, or this layer cannot be judged at all).
      *
      * Consuming, so it is read exactly once per key, right after the layer
@@ -215,7 +215,7 @@ class HunminAdapter(
      *  2. The key reaches the engine as its UNSHIFTED base plus the AOSP
      *     shift bit, verbatim (hunmin_ic_process_key), and CapsLock as the
      *     `caps` option: the CapsLock×Shift case endpoint is the engine's,
-     *     not this adapter's (invariant 5 of §5; FRONTEND-CONTRACT §3 A3',
+     *     not this adapter's (invariant 5 of §5; DESIGN-FRONTEND.md Part B §3 A3',
      *     SPEC-P2 "IC input entry points").
      *  3. An unmapped key flushes and passes through. That is how space and
      *     friends reach the client.
@@ -259,13 +259,13 @@ class HunminAdapter(
      *  table, which is what the settings window must display. */
     fun specialChord(fn: Int): Int = if (layer == 0L) 0 else native.layerSpecialChord(layer, fn)
 
-    // ------------------------------------------------- R13-정정's one value
+    // ------------------------------------------------- ReqMode13's one value
 
     /**
      * The engine's automatic-switch value: 1 on, 0 off, null when this layer
      * cannot answer at all (freed, or an engine without the option).
      *
-     * Read, never cached (docs/SPEC-MODES.md §R13-정정): the key chord, the
+     * Read, never cached (docs/SPEC-MODES.md §ReqMode13): the key chord, the
      * settings row and the judgement all address this one field, so a frontend
      * that remembered it would be the second copy the requirement forbids. A
      * null is reported as null rather than as 0 because "off" and "cannot say"
@@ -352,7 +352,7 @@ class HunminAdapter(
         // shift bit + the caps option above. hunmin_ic_process_key resolves
         // the row from the loader's own US-QWERTY map, so CapsLock×Shift is
         // no longer re-derived here -- the site of the earlier wrong-case
-        // defect (FRONTEND-CONTRACT §3 A3') is deleted, not rewritten. The
+        // defect (DESIGN-FRONTEND.md Part B §3 A3') is deleted, not rewritten. The
         // bit passes verbatim, so CapsLock+Shift now composes the shifted
         // row; that delta is recorded in A3' and reversing it would be a
         // one-line change here awaiting a ruling.

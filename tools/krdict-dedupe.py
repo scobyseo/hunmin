@@ -32,6 +32,10 @@ import argparse
 import json
 import sys
 from pathlib import Path
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
 SCHEMA = "hunmin.krdict/1"
 
@@ -64,7 +68,7 @@ def main() -> int:
     ap.add_argument("--out", dest="dst", default=None,
                     help="where to write the deduped table (default: same file)")
     args = ap.parse_args()
-    root = Path(__file__).resolve().parent.parent
+    root = _COMMON_ROOT
     src = Path(args.src) if args.src else root / "libhunmin/data/krdict/krdict.json"
     dst = Path(args.dst) if args.dst else src
     doc = json.loads(src.read_text(encoding="utf-8"))

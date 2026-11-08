@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-11-05   (no page count: three counters disagreed, so the
+> Last updated: 2026-11-08   (no page count: three counters disagreed, so the
 > number a reader needs is the one a tool prints — `python tools/wiki-lint.py`)
 
 ## Concepts
@@ -26,13 +26,13 @@
 
 ## Decisions
 
-- [[2026-11-02-spec-modes-4-splits-into-an-invariant-and-a-metric]] — §4 read as two claims of different kinds: the decidable half became R14
+- [[2026-11-02-spec-modes-4-splits-into-an-invariant-and-a-metric]] — §4 read as two claims of different kinds: the decidable half became ReqMode14
   (A2's child, oracle = the recorded corpus, verified by `engine-off-identity`),
   and the ON half points at ③ unrepresentability instead of restating it; why
   `req-map` could not see the section at all.
 - [[2026-11-02-interim-cannot-support-autoswitch-and-on-stops-passthrough]] — two rulings
   from one message: the interim delivery cannot carry the switch (and why it is
-  structural), and with the switch on English stops passing through so R8's E1 line
+  structural), and with the switch on English stops passing through so ReqMode8's E1 line
   can judge; what each leaves open is in the page, not here.
 - [[2026-11-05-the-settings-row-names-the-support-condition]] — the row says
   `자동 한/영 전환 (지원 앱에서만, Ctrl+한/영)`: the dialog has no host handle, so
@@ -90,25 +90,25 @@
   honor the `HUNMIN_RELEASE_STORE` env override (CI `android-release` job +
   `tools/build-release.sh`), and generate a throwaway release key at build time
   when no keystore is present.
-- [[2026-10-13-r8-mode-guessing-is-adaptor-owned]] — R8 mode guessing is
+- [[2026-10-13-r8-mode-guessing-is-adaptor-owned]] — ReqMode8 mode guessing is
   adaptor-owned; the engine stays ABI-clean and the adaptor (`modeswitch.*`)
   keeps the cross-frontend validity judgement. **Superseded 2026-11-01.**
 - [[2026-11-01-the-engine-judges-the-frontend-switches]] — the judgement is the
-  engine's and the switch is each frontend's; R9's threshold at three key
+  engine's and the switch is each frontend's; ReqMode9's threshold at three key
   inputs, and the fcitx5 detector retired.
 - [[2026-11-01-the-judgement-timing-is-per-key-by-default]] — E6 ruled: both
   judgement timings ship as the `judge_timing` option and the per-key flicker is
   the default; the delivered text is identical either way (64.05% of dictionary
-  forms flip back inside the word under the default, with R9's guard applied).
+  forms flip back inside the word under the default, with ReqMode9's guard applied).
 - [[2026-11-01-the-symmetric-rule-ships-and-the-0-3-gate]] — E1 ruled: both lines
-  of R8's formula ship (the Hangul reading of Latin-mode keys), and the 0.3 gate is
+  of ReqMode8's formula ship (the Hangul reading of Latin-mode keys), and the 0.3 gate is
   the maintainer's mixed sentence `English는 좋은 Language입니다` typed as one stream.
 - [[2026-11-01-one-dict-by-default-the-release-page-later]] — issue #172 ruled:
   `Recommends` and one dictionary on every surface; the words stay a package of
   their own as a seam for the *next* dictionary, whose mechanism (the GitHub
   release page) is deferred. The feature is developed and tested with the
   in-tree data, before any distribution mechanism exists.
-- [[2026-11-01-syllable-commit-turns-autoswitch-off]] — R6 measured (§BND-7): the
+- [[2026-11-01-syllable-commit-turns-autoswitch-off]] — ReqMode6 measured (§BND-7): the
   digit run is the buffered policy's, so the maintainer ruled the two settings
   dependent — reconciled at settings time, off-switched at run time when syllable
   commit is on, and the reason named in the debug output. Autoswitch has no
@@ -145,6 +145,32 @@
   the log and `docs/REMAINING-WORK.md` B5 record the *decision* as closed with
   no quoted ruling, and the measurement page says it is still the maintainer's.
   Named here, resolved by nobody.
+- [[2026-11-01-the-english-source-is-hunspell-en-us-plus-a-user-dictionary]] —
+  ReqMode8's English half ruled: hunspell `en_US` ships as `en-US.json` and a
+  person's own words merge at lookup; the Korean-typed Latin gap (`kbs`, `fifa`)
+  is accepted and asserted, not filled. The curated supplement stays deferred.
+- [[2026-11-01-the-buffer-cap-is-256-bytes-configurable]] — E2 ruled after a
+  4 KB steer: `word_cap` is bytes of UTF-8, 256 by default, `0` meaning none,
+  and an overflow commits the first half losslessly at a syllable boundary.
+- [[2026-11-01-the-reqmode6-tier-examples-are-the-shift-row]] — the requirement's
+  three-digit tier example was the shift row and the tier is single-shot; the
+  sentence was replaced on the maintainer's instruction rather than kept as a
+  measurement footnote.
+- [[2026-11-08-no-modes-measurement-until-the-maintainer-says-so]] — no ② / ②b /
+  ③-bis run is planned or permitted until the maintainer raises it, and the
+  shipped English dictionary is the whole of the judgement's data: the retired
+  corpus list, its cap, a curated supplement and a typed-text corpus search are
+  unwanted, not deferred.
+- [[2026-11-08-no-frontend-core-move-the-seam-is-a-contract]] — D1 closed: the
+  inventory separates each host action from the engine-facing workflow, so the
+  judgement branch does not move into the core; the seam is
+  `docs/DESIGN-FRONTEND.md` §11, and reopening it needs FE11 written down or a
+  second frontend with an identical state contract.
+- [[2026-11-08-the-retired-corpus-measurement-is-deleted]] — the standing order
+  that deleted `MODES-DATA`, `MODES-METRICS` and the five modes pricing papers:
+  the rulings survive, the figures do not, and `MODES-MEASUREMENT.md` keeps only
+  how to measure again. Names what the removal leaves unsettled (B2's pass
+  lines, ReqMode9's threshold, whether to build a new corpus at all).
 
 ## Raw — sessions
 

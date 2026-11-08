@@ -3,7 +3,7 @@
 Audience: the next agent picking up milestone **0.3 — automatic
 Hangul/English switch** in this worktree/branch
 (`scobyseo/modes-milestone-0.3-automatic-hangul-english-swi`).
-Requirement home: `docs/SPEC-MODES.md` (R1–R15, E1–E8).
+Requirement home: `docs/SPEC-MODES.md` (ReqMode1–ReqMode15, E1–E8).
 Tracker: issue #183 (stays OPEN — maintainer closes).
 Release close-out: issue #182 (stays OPEN).
 

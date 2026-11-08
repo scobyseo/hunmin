@@ -40,7 +40,7 @@ on screen. Where a step compares the two, that is the window it means.
 2. **The value shown is the engine's.**
    The row reads `자동 한/영 전환` with `꺼짐` (OFF is the default, ruled
    B3 2026-10-11) on a fresh install, and `켜짐` after turning it on in the
-   in-keyboard settings window (the input view's gear). If the two surfaces disagree, that is R13-정정's
+   in-keyboard settings window (the input view's gear). If the two surfaces disagree, that is ReqMode13's
    invariant broken and the case is a bug.
 
 3. **The key named is the engine's chord.**

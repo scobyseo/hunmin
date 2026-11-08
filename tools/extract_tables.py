@@ -10,9 +10,13 @@ Regenerate after updating data-orig:  python3 tools/extract_tables.py
 import re
 import sys
 from pathlib import Path
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
-SRC = Path(__file__).resolve().parent.parent / "data-orig/libhangul/hangulctype.c"
-OUT = Path(__file__).resolve().parent.parent / "libhunmin/src"
+SRC = _COMMON_ROOT / "data-orig/libhangul/hangulctype.c"
+OUT = _COMMON_ROOT / "libhunmin/src"
 
 FUNCS = [
     "hangul_is_choseong", "hangul_is_jungseong", "hangul_is_jongseong",

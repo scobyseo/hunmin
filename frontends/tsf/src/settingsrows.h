@@ -30,7 +30,7 @@ typedef struct HunminTsfLayoutRow {
  * accepts stored ids by). Returns the row count. */
 int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *rows, int cap);
 
-/* R13-정정 surface B (issue #175): the automatic-switch row, DERIVED from the
+/* ReqMode13 surface B (issue #175): the automatic-switch row, DERIVED from the
  * engine so the dialog spells neither the value, the key, nor the reason it can
  * be disabled:
  *   - `value` is what hunmin_buffered_preedit_get_option(layer,"autoswitch")
@@ -39,14 +39,14 @@ int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *r
  *   - `key` is the chord the engine holds for HUNMIN_SPECIAL_AUTOSWITCH plus the
  *     platform's own name for the physical Han/Eng key -- the chord half is the
  *     engine's by ruling, the key's NAME is the one thing only the platform
- *     knows (docs/FRONTEND-EQUIVALENCE.md §3.1);
+ *     knows (docs/DESIGN-FRONTEND.md Part A §3 item 1);
  *   - `available` is the data gate, and `label` carries the reason when it is 0.
  *     Every label also names the support condition ("지원 앱에서만"): the dialog
  *     is a separate process and cannot know a host's delivery mode, so it states
  *     the condition rather than guessing the host's state (issue #215).
  * Returns 1 when the layer could be built (ctx and both ids), 0 otherwise -- in
  * which case the row still answers with the data gate and a reason, because a
- * settings surface that silently disables itself is the defect R13-정정 bans. */
+ * settings surface that silently disables itself is the defect ReqMode13 bans. */
 #define HUNMIN_TSF_KEYNAME_CAP 48
 #define HUNMIN_TSF_FEATURE_LABEL_CAP 160
 typedef struct HunminTsfAutoswitchRow {

@@ -26,9 +26,12 @@ import argparse
 import collections
 import json
 import pathlib
+try:
+    from _common import ROOT
+except ImportError:
+    ROOT = pathlib.Path(__file__).resolve().parents[1]
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONF = ROOT / "tests/conformance"
 
 # Native event -> the character it means. Named keys come back as "<name>";

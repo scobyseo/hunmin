@@ -60,13 +60,17 @@ for _stream in (sys.stdout, sys.stderr):
     if _reconfigure:
         _reconfigure(encoding="utf-8", errors="replace")
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import ROOT as _ROOT
+    ROOT = str(_ROOT)
+except ImportError:
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_MAP = "docs/REQ-MAP.md"
 
 COLUMNS = ("REQ", "requirement", "architecture", "design", "implementation",
            "verified by", "status", "parent")
 
-# `R8`, `R7-정정`, `4-7`, `4-3b`, `1.4` -- the section keys this repo's
+# `ReqMode8`, `ReqMode7`, `4-7`, `4-3b`, `1.4` -- the section keys this repo's
 # requirement-bearing documents actually use. Kept as one regex because both
 # the SPEC heading scan and the `§` anchors are read through it.
 KEY = re.compile(r"^([A-Za-z]*\d+(?:[.\-][0-9]+[a-z]?)*(?:-[^\s.]+)?)\.?")

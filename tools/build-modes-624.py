@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Build the AIHub 624 hangul frequency list.
 
-Docs: docs/MODES-DATA.md (corpus survey and licences), docs/SPEC-MODES.md R8
+Docs: docs/MODES-MEASUREMENT.md (corpus survey and licences), docs/SPEC-MODES.md ReqMode8
 (the "valid" test this list feeds).
 
 WHY THIS EXISTS, and why its own provenance records a gap. The 624 frequency
@@ -15,7 +15,7 @@ cannot promise is byte-identity with what is already on disk. It is verified
 against that file instead (see --compare).
 
 WHAT 624 IS. AIHub dataset 030, 텍스트 웹데이터 말뭉치 구축, dataset number
-624. Two facts from MODES-DATA.md 2 that this file exists to preserve:
+624. Two facts from MODES-MEASUREMENT.md §4 that this file exists to preserve:
 
   * It is the ONLY AIHub corpus in which english is actually TYPED rather
     than being a schema field name. 71788/119's `end`/`start` are metadata;

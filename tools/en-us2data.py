@@ -3,19 +3,22 @@
 """Generate libhunmin/data/modes/en-US.json from the hunspell en_US dictionary.
 
 Ruling (maintainer, 2026-11-01): `english_valid` looks up hunspell `en_US`, and
-people may extend it with a user dictionary. The measurement behind that choice
-is docs/OPTIONS-MEASURED.md §EDW; the requirement is docs/SPEC-MODES.md R8-정정.
+people may extend it with a user dictionary. The requirement is
+docs/SPEC-MODES.md §ReqMode8; the comparison that priced the candidate
+dictionaries was withdrawn as measurement history on 2026-11-08, and
+`tools/modes-dict-probe.py` re-derives it.
 
 WHY A GENERATED FILE AND NOT THE .dic/.aff PAIR. The engine needs a word SET,
 not a speller: one membership test per finished buffer, no affix rules at
 runtime. Expanding once here, at build-authoring time, also removes the only
 reason the engine would need hunspell's affix semantics — and it buys real
-coverage: on the §EDW probe the same stems score 60.75% unexpanded against
-65.14% expanded (≥2 characters, token-weighted).
+coverage: the same stems cover more of the text people type once their
+inflections are expanded than as bare stems (`tools/modes-dict-probe.py` scores
+both — the 2026-11-01 figures were withdrawn with the measurement history).
 
 THE EXPANSION IS NOT REIMPLEMENTED HERE. `load_hunspell`, `load_aff` and
-`expand` come from tools/modes-dict-probe.py, so the number measured in §EDW and
-the file shipped to users are produced by one implementation. A second copy
+`expand` come from tools/modes-dict-probe.py, so a comparison this generator is
+scored by and the file shipped to users are produced by one implementation. A second copy
 would be free to drift, and drift would be invisible: the file would still load.
 
 WHAT THIS DOES NOT DO, recorded in meta.json rather than left to be discovered:
@@ -36,6 +39,10 @@ import json
 import os
 import re
 import sys
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parents[1]
 
 # A word this set can carry: ascii letters, plus an internal apostrophe or
 # hyphen. Everything else (digits, ordinals like `1st`, `0th`, unicode forms) is
@@ -72,7 +79,7 @@ def main():
     ap.add_argument("--aff", required=True, help="the matching .aff")
     ap.add_argument("--out", required=True, help="directory to write into (libhunmin/data/modes)")
     ap.add_argument("--readme", help="README_en_US.txt, for the SCOWL version line")
-    ap.add_argument("--repo-root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ap.add_argument("--repo-root", default=str(_COMMON_ROOT))
     args = ap.parse_args()
 
     probe = load_probe(args.repo_root)
@@ -109,7 +116,7 @@ def main():
                     break
 
     meta = {
-        "what": "the english word set behind SPEC-MODES R8-정정's `english_valid`",
+        "what": "the english word set behind SPEC-MODES ReqMode8's `english_valid`",
         "source": {
             "name": "hunspell en_US (SCOWL size 60 family)",
             "dic": os.path.basename(args.dic),
@@ -144,7 +151,7 @@ def main():
             "inflections outside one affix level (continuation classes skipped)",
             "compound words (COMPOUNDRULE not applied)",
             "korean-typed latin strings such as kbs/mbc/fifa -- absent from every "
-            "english dictionary (docs/MODES-DATA.md 4-7d); the user dictionary is "
+            "english dictionary (docs/MODES-MEASUREMENT.md §6); the user dictionary is "
             "the ruled answer to that gap",
         ],
         "generator": "tools/en-us2data.py",

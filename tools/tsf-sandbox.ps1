@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   The dev host has a product install registered; a live TSF test must never
-  touch it (docs/FRONTEND-EQUIVALENCE.md section 7). This script builds the
+  touch it (docs/DESIGN-FRONTEND.md Part A section 7). This script builds the
   engine and TIP with the static CRT, stages them beside libhunmin/data and
   ime-probe.exe, then boots a disposable Windows Sandbox with the kit as a
   read-only mapped folder and a writable out folder.

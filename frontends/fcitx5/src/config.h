@@ -39,7 +39,7 @@ private:
  *  syllable  commit each syllable as the engine finalises it; the preedit is
  *            only the syllable in flight
  *
- * The TEXT is identical either way (docs/FRONTEND-EQUIVALENCE.md §1), which is
+ * The TEXT is identical either way (docs/DESIGN-FRONTEND.md Part A §1), which is
  * what makes this a safe preference rather than a behaviour fork. */
 struct CommitBehaviorAnnotation : public EnumAnnotation {
     void dumpDescription(RawConfig &config) const {
@@ -51,7 +51,7 @@ struct CommitBehaviorAnnotation : public EnumAnnotation {
     }
 };
 
-/* The automatic-switch row: `docs/SPEC-MODES.md` §R13-정정's surface B, issue
+/* The automatic-switch row: `docs/SPEC-MODES.md` §ReqMode13's surface B, issue
  * #176. The row must not spell either half of what it shows itself:
  *
  *   the VALUE  `hunmin_buffered_preedit_{get,set}_option(layer, "autoswitch", …)`
@@ -95,7 +95,7 @@ struct AutoswitchAnnotation {
 private:
     /* The modifier is the engine's; "한/영" is this platform's name for the
      * language key (fcitx5's Hangul keysym), and the frontend is the side that
-     * knows what its own key is called (docs/FRONTEND-EQUIVALENCE.md §3). */
+     * knows what its own key is called (docs/DESIGN-FRONTEND.md Part A §3). */
     static std::string chordText(unsigned mods) {
         std::string text;
         auto add = [&text](const char *part) {
@@ -120,7 +120,7 @@ FCITX_CONFIGURATION(HunminConfig,
                     /* Latin layout picker: layouts with mode="latin" (QWERTY, DVORAK, COLEMAK) */
                     OptionWithAnnotation<std::string, LayoutAnnotation> latinLayout{this, "LatinLayout", _("영어 배열"), "us-qwerty"};
                     OptionWithAnnotation<std::string, CommitBehaviorAnnotation> commitBehavior{this, "CommitBehavior", _("커밋 단위"), "word"};
-                    /* R13-정정's one on/off state (issue #176). The engine holds
+                    /* ReqMode13's one on/off state (issue #176). The engine holds
                      * the value and the key; this item is the addon's store and
                      * the dialog's face for them, and the adapter writes it
                      * through `hunmin_buffered_preedit_set_option(…, "autoswitch", …)`

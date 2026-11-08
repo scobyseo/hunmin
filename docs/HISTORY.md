@@ -57,13 +57,13 @@ turned out to need an fcitx5 restart, which is a real cost rather than a detail.
 
 ## 2026-10-04 → 10-05 — 한영 automatic detection, and its ceiling
 
-**Shipped.** The MODES requirement set R1–R13 and a measured ceiling on the
+**Shipped.** The MODES requirement set ReqMode1–ReqMode13 and a measured ceiling on the
 detection data. `tools/modes-cap.py` reports what each candidate source covers.
 
 **The finding that shaped everything after.** The English side saturates — a
 50,000-token cap recovers 86.35%, so the cap is justified. The Korean side does
 **not**: 200,000 entries yields 2.90% of the forms, and cutting to that size
-drops `hangul_valid` from 73% to false, which under R8's "when ambiguous, keep
+drops `hangul_valid` from 73% to false, which under ReqMode8's "when ambiguous, keep
 the current mode" makes the Korean mode vanish quietly. Dictionary lookup is
 also not the answer — filtering by an English dictionary takes recovery from
 86.35% to 43.87%, and `kbs`, `fbc`, `fc`, `sbs` are absent from it.
@@ -72,7 +72,7 @@ also not the answer — filtering by an English dictionary takes recovery from
 only for hanja conversion. Every measurement that used it is marked as outside
 the boundary and was re-derived inside it.
 
-**Also.** The R8 adapter shipped with a real bug that verification caught, and
+**Also.** The ReqMode8 adapter shipped with a real bug that verification caught, and
 a drift audit was run because documents had begun claiming things the tree
 disagreed with.
 

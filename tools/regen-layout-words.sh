@@ -5,7 +5,7 @@
 # tier-A parity walk (`ref-<layout>.jsonl`) cannot be replayed as a tier-C trace:
 # one key there finalises a syllable and the very next key starts another, so
 # tier A's per-event `commit` sits mid-word, while the fcitx5 adapter commits a
-# whole buffered word at the boundary (docs/FRONTEND-EQUIVALENCE.md §6.3). A
+# whole buffered word at the boundary (docs/DESIGN-FRONTEND.md Part A §6.3). A
 # SHORT WORD is replayed identically on every platform, so that is what this
 # script builds: one word per layout, keys found by tools/sin3p2-ksgen.py
 # (BFS over the layout's OWN key table, hunmin-sim --batch as the oracle) and
@@ -21,7 +21,7 @@
 # an expectation only at the boundary, so the trace it emits cannot equal the
 # `.in` it was given (measured: every event of `hello` differs). That is a
 # limitation of the x11 dialect, not of these layouts, and it is recorded in
-# docs/FRONTEND-EQUIVALENCE.md §6.3 rather than worked around here.
+# docs/DESIGN-FRONTEND.md Part A §6.3 rather than worked around here.
 #
 # Usage:
 #   tools/regen-layout-words.sh [BUILD_DIR]     default: build

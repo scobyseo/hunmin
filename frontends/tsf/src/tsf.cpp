@@ -271,7 +271,7 @@ void CTextService::RebuildLayer() {
         const int policy = (strcmp(commitUnit_, "syllable") == 0) ? HUNMIN_COMMIT_PER_SYLLABLE : HUNMIN_COMMIT_AT_BOUNDARY;
         preedit_ = hunmin_buffered_preedit_new(ctx_, hangulId_.c_str(), latinId_.c_str(), policy);
         if (preedit_) {
-            /* R13-정정's ON/OFF (issue #175) is applied once per rebuild, before
+            /* ReqMode13's ON/OFF (issue #175) is applied once per rebuild, before
              * anything can judge: the layer's state is the engine's, and this is
              * the one place the stored preference reaches it. The engine REFUSES
              * the value where its word list is absent (B3, #169) and this
@@ -279,7 +279,7 @@ void CTextService::RebuildLayer() {
              * so a stale stored 1 leaves the feature off rather than half-enabled
              * -- which is why the dialog reads the value back from the layer. */
             ApplyAutoswitch();
-            /* R8's judgement needs the English list (R8-정정-2, ruled
+            /* ReqMode8's judgement needs the English list (ReqMode8, ruled
              * 2026-11-01). Loaded per layer, from the same data dirs the
              * layouts came from; absent data is a normal state (B3) and the
              * judgement then abstains instead of calling every word not-English. */
@@ -340,13 +340,13 @@ void CTextService::UpdateLangBarItem(ITfThreadMgr *ptm) {
     langbar_->Update();
 }
 
-/* R13-정정's ON/OFF as this delivery can carry it (issue #175). Two gates sit
+/* ReqMode13's ON/OFF as this delivery can carry it (issue #175). Two gates sit
  * behind the one call:
  *   - the ENGINE's: hunmin_ic_set_option refuses 1 where the modes word list is
  *     absent (B3, #169), and the value reads back 0;
  *   - this FRONTEND's: the interim delivery moves the finished word into the
  *     document per key, so at its boundary the layer holds no whole word to
- *     judge (docs/FRONTEND-EQUIVALENCE.md §2.1, ruled 2026-11-02: "interim model
+ *     judge (docs/DESIGN-FRONTEND.md Part A §2.1, ruled 2026-11-02: "interim model
  *     cannot support autoswitch"). The option is therefore only ON while the
  *     native path is active, and every site that flips the delivery re-applies
  *     it -- otherwise a host that flips mid-word would keep a state it cannot
@@ -359,13 +359,13 @@ void CTextService::ApplyAutoswitch() {
 }
 
 void CTextService::ApplyJudgement(ITfContext *pic) {
-    /* R8, ruled 2026-11-01 (#164): the engine judges and delivers the word; the
+    /* ReqMode8, ruled 2026-11-01 (#164): the engine judges and delivers the word; the
      * frontend performs the switch. Asking costs one call and answers -1 in the
      * common case (the switch is off, the word was too short, or both readings
      * agreed), so this is safe to call on every key.
      *
      * The word is already in the client by the time this runs -- it arrived in
-     * out.commit -- so nothing is inserted or rewritten here (R10). What is
+     * out.commit -- so nothing is inserted or rewritten here (ReqMode10). What is
      * left is the state the next key reads: the layer's slot, the conversion
      * compartment the host stores, and the langbar. */
     const int judged = hunmin_buffered_preedit_take_judgement(preedit_);

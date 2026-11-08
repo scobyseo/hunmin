@@ -53,7 +53,7 @@ the same text until a declined key or teardown. Two honest answers follow:
 - **switch the policy** (`commit_mode: syllable`): run the adapter in per-syllable mode,
   where tier A's expectations hold verbatim, event by event (issue #187). This asserts
   the **per-syllable mode**, which is the other policy a user can select
-  (`hunmin_buffered_preedit`, `docs/FRONTEND-EQUIVALENCE.md` §5.1).
+  (`hunmin_buffered_preedit`, `docs/DESIGN-FRONTEND.md` Part A §5.1).
 
 `tools/gen-conformance.py` writes `commit_mode` only for cases whose golden commits on a
 key it also consumed — it asks the golden, not the adapter — and never together with
@@ -248,7 +248,7 @@ not a frontend that fails. Three facts, each measured rather than assumed:
   reconstructs tier A's per-event commit from the adapter's own buffered word
   (`frontends/tsf/test/trace-emit.cpp`) — but emitting a `.gold` needs a Windows host.
 
-Which layouts appear in the corpus at all is `docs/FRONTEND-EQUIVALENCE.md` §6.3, not a
+Which layouts appear in the corpus at all is `docs/DESIGN-FRONTEND.md` Part A §6.3, not a
 second list here.
 
 ## Runner

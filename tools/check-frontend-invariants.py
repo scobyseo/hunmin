@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Structural checks for the fcitx5 frontend adapter.
 
-Every rule here corresponds to an invariant in docs/FRONTEND-CONTRACT.md §5.
+Every rule here corresponds to an invariant in docs/DESIGN-FRONTEND.md Part B §5.
 Those invariants are the ones tier D1 does *not* cover -- mutation testing
 showed that dropping the commit/flush split, or the caps option, still builds
 and still passes engine-d1-fcitx5. This script is the only guard on them.
@@ -12,8 +12,12 @@ Advisory, not a formatter: it reads source and reports violations.
 import pathlib
 import re
 import sys
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
-ENGINE = pathlib.Path(__file__).resolve().parents[1] / "frontends/fcitx5/src/hunminadapter.cpp"
+ENGINE = _COMMON_ROOT / "frontends/fcitx5/src/hunminadapter.cpp"
 failures: list[str] = []
 
 
@@ -77,7 +81,7 @@ def main() -> int:
     # is where "exactly one, gated on the answer" applies.
     #
     # The anchor is `if (used) {`, not `if (!used) {`: the declined-key branch
-    # existed only to hand the word to the R8 detector, and the detector retired
+    # existed only to hand the word to the ReqMode8 detector, and the detector retired
     # on 2026-11-01 (issue #164) -- the engine now judges and the adapter acts on
     # its answer. The rule the two checks below assert is unchanged: the key the
     # engine declined reaches the client, and filterAndAccept appears once, in
@@ -133,7 +137,7 @@ def main() -> int:
     # one (`probe`) long enough to ask `special_chord()` and frees it. That layer
     # never processes a key -- it is a read, not a second owner -- and counting it
     # here would make the invariant demand a literal chord in the addon instead,
-    # which is the thing R13-정정 forbids.
+    # which is the thing ReqMode13 forbids.
     decl = [ln for ln in code.splitlines() if "hunmin_buffered_preedit *" in ln and "=" in ln]
     held = [ln for ln in decl if re.search(r"hunmin_buffered_preedit \*\w+_", ln)]
     check("I6 exactly one layer handle", len(held) == 1,
@@ -174,7 +178,7 @@ def main() -> int:
 
     # I8 -- the "frontends stay thin" budget (PLAN.md invariant 4, <~700 LOC).
     # This is a *rule*, not a description, so it is measured rather than written
-    # down: docs/FRONTEND-CONTRACT.md used to carry exact per-file LOC counts,
+    # down: docs/DESIGN-FRONTEND.md Part B used to carry exact per-file LOC counts,
     # which rotted on every commit that added a line and were never checked.
     # Counting code lines (comments and blanks excluded) rather than raw lines
     # keeps the budget about logic.
@@ -186,7 +190,7 @@ def main() -> int:
     # nothing said so. One number, one home (AGENTS.md), enforced.
     # Every file the adapter owns is counted, not just hunminadapter.{h,cpp}.
     #
-    # Two moves forced this. language_detect.* is the R8 detector's own translation
+    # Two moves forced this. language_detect.* is the ReqMode8 detector's own translation
     # unit; config.h holds HunminConfig and came out of hunminadapter.h when the
     # adapter needed the room. Counting hunminadapter.{h,cpp} alone would have made
     # the config.h move look like a 23-line saving when it is a relocation --
@@ -238,7 +242,7 @@ def main() -> int:
     # Still a grep, with the ceiling that implies: a mutation keeping both
     # bindings and ignoring them passes. D2 is the real guard -- it counts the
     # dumped rows against the shipped data. I11 is the cheap no-build check.
-    # setLayouts() moved to config.h with the rest of the config when the R8
+    # setLayouts() moved to config.h with the rest of the config when the ReqMode8
     # adapter needed the room (see I8). Bind to wherever it now lives rather
     # than to the file it was written in, so a later move cannot silently turn
     # this check into a grep for a string that is no longer there -- which would
@@ -272,7 +276,7 @@ def main() -> int:
     print()
     if failures:
         print(f"{len(failures)} invariant(s) violated -- see "
-              "docs/FRONTEND-CONTRACT.md §5")
+              "docs/DESIGN-FRONTEND.md Part B §5")
         return 1
     print("all frontend invariants hold (advisory; D1 does not cover I1/I2/I5)")
     return 0

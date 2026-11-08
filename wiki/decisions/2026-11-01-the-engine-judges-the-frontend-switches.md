@@ -19,7 +19,7 @@ confidence: high
 > "fcitx5의 제약이 있으면, engine은 판정만 하고, 전환은 frontend가 할 수 밖에
 > 없지 않니? 3자 이상이면 판단하자."
 
-The same message set R9's threshold at three, and **the unit was clarified the same
+The same message set ReqMode9's threshold at three, and **the unit was clarified the same
 day: key inputs.**
 
 > "3. 키입력 세개로 명확히 하자."
@@ -27,7 +27,7 @@ day: key inputs.**
 The ruling's own wording was `3자` (three characters) and this page first repeated
 it; asked which unit the requirement should name, the maintainer named key inputs,
 which is what `JUDGE_MIN_KEYS` had already implemented and what
-`docs/SPEC-MODES.md` §R9 now says. The distinction is not cosmetic: `안녕` is 6 keys
+`docs/SPEC-MODES.md` §ReqMode9 now says. The distinction is not cosmetic: `안녕` is 6 keys
 and 2 characters, so a key rule judges it and a character rule never would. The
 message also asked for the fcitx5 off/on surface to be built if the decision left no
 problem (it is #176).
@@ -46,11 +46,11 @@ so it is the frontend's, as variability.
 
 ## What it settles
 
-- **The judgement is engine-owned.** R8's formula runs once, at the boundary, over
+- **The judgement is engine-owned.** ReqMode8's formula runs once, at the boundary, over
   the finished word (`libhunmin/src/buffered_preedit.c#judge_boundary`), and the
   answer is read through `hunmin_buffered_preedit_take_judgement`.
 - **The triggering word is delivered in the judged language** by the engine, since
-  R10 forbids reassembling text already in the client and the boundary is the last
+  ReqMode10 forbids reassembling text already in the client and the boundary is the last
   moment before it lands.
 - **Each frontend performs the mode change** its host allows: TSF (conversion
   compartment + langbar), Android (which adapter receives the next key), fcitx5
@@ -61,7 +61,7 @@ so it is the frontend's, as variability.
 
 ## What it does not settle
 
-- **R8's symmetric half** ("hangul_valid AND NOT english_valid") — the requirement
+- **ReqMode8's symmetric half** ("hangul_valid AND NOT english_valid") — the requirement
   itself leaves it open, and only the Hangul-to-English direction switches anything.
 - **The ON/OFF state's persistence** — no frontend stores it yet; it flips through
   the ruled chord and lives with the layer, so a rebuilt layer starts from the

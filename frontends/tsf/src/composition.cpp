@@ -460,7 +460,7 @@ void CTextService::InsertBufferedWord(ITfContext *pic) {
      * below writes a SECOND copy of the same word -- the reported
      * `적어두자.적어두자.` (issue #175 comment, 2026-11-01). The fused copy IS the
      * layer's display by construction (`hostFusedCopy_ = compText_` at the
-     * termination), so the layer's copy is dropped rather than delivered: R10
+     * termination), so the layer's copy is dropped rather than delivered: ReqMode10
      * forbids rewriting text the client already holds, and any judgement that
      * wanted to rewrite it is cleared with the same reset. */
     if (!hostFusedCopy_.empty()) {
@@ -518,7 +518,7 @@ void CTextService::ComposeReset() {
  * commit_word() closes the in-flight syllable and hands back the whole word,
  * which InsertBufferedWord delivers once.
  *
- * R8's judgement is taken HERE, after the delivery and before the next key
+ * ReqMode8's judgement is taken HERE, after the delivery and before the next key
  * (issue #175). It has to be this drain and not only the declined-key path: a
  * boundary key on TSF (space, Enter) is settled in OnTestKeyDown and PASSED, so
  * the host never calls the down phase and the declined branch never runs --

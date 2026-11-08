@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Build a mixed-script sentence corpus from a MediaWiki XML dump.
 
-Docs: `docs/MODES-METRICS.md` §1.2 (the ② replay this feeds) and §3 (why a
-corpus built in-session is void); `docs/OPTIONS-MEASURED.md` §PAS-1/§PAS-4
-(the corpus's transition density `d` is what a pass line's meaning hangs on).
+Docs: `docs/MODES-MEASUREMENT.md` §1.2 (the ② replay this feeds), §2 (the
+pass-line shapes: the corpus's transition density `d` is what a shape's meaning
+hangs on) and §3 (why a corpus built in-session is void).
 
 WHY THIS EXISTS. ② and ③-bis replay *sentences*, and `tools/build-modes-corpus.py`
 emits word-frequency lists, not sentences. A corpus assembled by hand in a
@@ -20,7 +20,7 @@ a filter whose effect is not recorded is how the earlier corpora lost 75% of
 their English without anyone noticing (§3).
 
 WHAT IT DOES NOT REPRESENT. Wikipedia is encyclopedia prose, and
-`docs/MODES-DATA.md` §4 records that this genre understates the thing the metric
+`docs/MODES-MEASUREMENT.md` §4 records that this genre understates the thing the metric
 is about: people mix scripts far more in typed messages than in an article. The
 `d` this corpus produces is therefore a *lower* bound on the target population's
 transition density, and a ② number computed on it is a lower bound too. The
@@ -49,7 +49,7 @@ import unicodedata
 
 # tools/build-modes-corpus.py is the page reader and the wiki stripper. Its page
 # reader exists because the one-line reader it replaced measured page headers
-# (MODES-DATA §4-3); re-implementing it here would re-open that bug, so it is
+# (MODES-MEASUREMENT.md §5 rule 2); re-implementing it here would re-open that bug, so it is
 # imported rather than copied. The hyphens in the name are why this is not a
 # plain `import`.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -296,7 +296,7 @@ def main():
         },
         "sentences_kept": len(sentences),
         "does_not_represent": [
-            "encyclopedia prose, not typed messages — MODES-DATA §4 records this "
+            "encyclopedia prose, not typed messages — MODES-MEASUREMENT.md §6 records this "
             "genre understates how often people switch scripts, so the transition "
             "density here is a lower bound on the target population",
             "the dump's page order is not a random sample of Wikipedia",

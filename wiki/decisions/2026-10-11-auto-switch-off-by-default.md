@@ -25,7 +25,7 @@ Closes **B3** ("ON or OFF by default") from `docs/REMAINING-WORK.md` §1.
 ## The two parts, kept distinct
 
 1. **Ruling — the default.** Automatic Hangul/English switch is **OFF by default**
-   until release 0.3. `docs/SPEC-MODES.md` R13/E5 recorded this as "not settled by
+   until release 0.3. `docs/SPEC-MODES.md` ReqMode13/E5 recorded this as "not settled by
    guesswork"; it is now settled by the maintainer, and both places in that file
    say so. Release lanes are in `docs/MILESTONES.md`: this removes B3 from 0.1's
    blocking set.
@@ -45,7 +45,7 @@ Closes **B3** ("ON or OFF by default") from `docs/REMAINING-WORK.md` §1.
   E5 is closed.
 - **B2 — pass lines.** A feature defaulted off and data-gated still needs the
   maintainer's numbers before 0.3 exits.
-- The **user-facing on/off control** itself (R13's surfaces) is unaffected — it
+- The **user-facing on/off control** itself (ReqMode13's surfaces) is unaffected — it
   continues to exist; what changed is its initial state.
 
 ## Why the record matters later

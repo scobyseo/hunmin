@@ -29,7 +29,7 @@ found and what it left.
   id), so its own copy of the judgement could not have been wired even if someone
   had read its answer.
 - **`hunmin_buffered_preedit_take_judgement`** — the engine judges at the boundary
-  and the frontend performs the switch. R9's threshold landed at three **key
+  and the frontend performs the switch. ReqMode9's threshold landed at three **key
   inputs** (`JUDGE_MIN_KEYS`), the unit the ruling's "3자" resolves to once the two
   readings of one word are compared (`안녕` is six keys and two syllables).
 - **The three acts** — TSF (compartment + langbar), Android (which adapter receives
@@ -58,7 +58,7 @@ found and what it left.
 - **#202** — three Linux-tier reds on a CRLF worktree (`abi`, `krdict-fixture`, and
   the mutation sandbox picking a Windows toolchain cache), all measured.
 - **Unfiled, and named here rather than invented as an issue:** no frontend persists
-  the ON/OFF state, so a rebuilt layer starts from the engine default; R8's
+  the ON/OFF state, so a rebuilt layer starts from the engine default; ReqMode8's
   symmetric half stays open exactly as the requirement states.
 
 ## The lesson worth keeping

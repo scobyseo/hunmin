@@ -367,10 +367,10 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   has no Makefile; the script is the command.
   Sources: pat.im worked examples (갭/겹, `cq`→ㄱㅅ, `cQ`→ㄳ, 있 repeat, tier samples),
   kime test expectations (transcribed facts, clean-room), one case per line of SPEC-P2.md.
-- **Judgement corpus** `tests/golden/judgement-r8.jsonl` — the SPEC-MODES R8
+- **Judgement corpus** `tests/golden/judgement-r8.jsonl` — the SPEC-MODES ReqMode8
   formula and the guards around it (both switch directions, both-valid and
-  both-invalid, R9's three-key boundary from each side, R4's boundary-only
-  moment, R6's digit run, and the OFF identity state). One case per line: the
+  both-invalid, ReqMode9's three-key boundary from each side, ReqMode4's boundary-only
+  moment, ReqMode6's digit run, and the OFF identity state). One case per line: the
   input (`layout`, `latin`, `mode`, `autoswitch`, `keys`) plus the engine's own
   answer (`commit`, `judged[]`, `mode_after`, and `step_commits` where delivery
   timing is the point). It is driven through `hunmin_buffered_preedit`, not the
@@ -384,7 +384,7 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   same file**: ctest `engine-d1-judgement` (tier D1) replays it through the real
   fcitx5 addon — commits per key and the mode after each word, asserted through
   the corpus's probe — so the frontend is measured against the corpus rather than
-  a second copy of the expectations (`docs/FRONTEND-EQUIVALENCE.md` §6.2.1).
+  a second copy of the expectations (`docs/DESIGN-FRONTEND.md` Part A §6.2.1).
 - **Designed cases** `tests/golden/case-<layout>.jsonl` — the other kind of
   corpus, for a layout whose identity is its key arrangement rather than its
   parity with libhangul. `ref-*.jsonl` catches a data change but cannot say what
@@ -396,6 +396,17 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   precomposed form, and a symbol as the boundary. It uses the ordinary
   `hunmin-sim --check` schema; regen:
   `python3 tools/gen-case-golden.py --sim build/hunmin-sim`.
+- **Regenerating a case golden is two stages, and only the first is checked by
+  the generator.** `tools/gen-case-golden.py` writes one `meta.case` header per
+  designed case; `tools/merge-golden-cases.py --write` then merges the family
+  into the one trace the policy ships (a case boundary is replay state, so the
+  merge is the step that decides the committed file). `gen-case-golden.py
+  --check` therefore reports a *merged* family as stale by design — it compares
+  per-case output against a merged header, and no flag makes those agree. The
+  check that guards the committed artefact is the merge's own: it refuses to
+  write unless `hunmin-sim --check` replays the merged result identically. Read
+  a `--check` failure as "the generator's cases moved"; re-run the generator,
+  re-merge, and review the diff.
 - **Case boundaries are state, so merging is not free.** Tier A replays each
   `{"meta": {"case": ...}}` case from a clean engine, and the split is only a
   label when the cases would also replay identically **as one stream**. Measure
@@ -480,7 +491,7 @@ that every tier-A case of every family the corpus replays has a trace and that e
 trace belongs to a recorded family (`tools/conformance-coverage.py`). Eight of the
 twenty-four are the per-layout word probes of issue #186 (`words-<layout>`, one case
 each), which is also what closes that issue's coverage hole: every shipped layout now
-appears on some platform, and `docs/FRONTEND-EQUIVALENCE.md` §6.3 records which.
+appears on some platform, and `docs/DESIGN-FRONTEND.md` Part A §6.3 records which.
 
 **One coverage golden per layout, since 2026-11-04.** `coverage-<layout>.jsonl`
 (`engine-golden-coverage-<layout>`) asserts the slots a layout admits, not a word:
@@ -548,7 +559,7 @@ aid on the first kind.
 family trace instead of a case label (which for these families repeated the expected
 text — `가`, `나` — that the event carries anyway). **What it buys, besides 92 fewer
 files:** those space boundaries are *declined keys*, so the x11 corpus now observes the
-pass-through half of `FRONTEND-CONTRACT` invariant 3 — 0 events to 92 when the merge
+pass-through half of `DESIGN-FRONTEND.md` Part B invariant 3 — 0 events to 92 when the merge
 landed, 193 now that the 두벌식 family adds declined characters and every designed family
 ends with a BackSpace into an empty buffer (#229) — which is the gap
 `tools/tier-c-wiring-coverage.py` was written to expose.
@@ -637,7 +648,7 @@ decision.
 - **keys** — distinct layout keys pressed / keys the layout maps. This is where a mapping
   bug lives: an unpressed key is an unproven mapping.
 - **consumed vs passed** — the adapter's two outcomes. `passed` is the half of
-  `docs/FRONTEND-CONTRACT.md` invariant 3 that decides what the *client* receives; a corpus
+  `docs/DESIGN-FRONTEND.md` Part B invariant 3 that decides what the *client* receives; a corpus
   with `passed = 0` never observes it.
 - **mods** — events carrying CapsLock or Shift state (`docs/trace-spec.md` "`in`").
 - **commit policy** — events per `meta.commit_mode`; the same case replayed once is one
@@ -658,7 +669,7 @@ Three gaps that follow, none of them a defect in a frontend:
    into an empty buffer.** 193 of its passed events are the merge's case-boundary spaces,
    the digits, shifted digits and `.` the 두벌식 family presses (that layout maps 26
    letters and nothing else), and one BackSpace per layout that finds the buffer empty.
-   The pass-through half of `docs/FRONTEND-CONTRACT.md` invariant 3 is therefore observed
+   The pass-through half of `docs/DESIGN-FRONTEND.md` Part B invariant 3 is therefore observed
    for a character, for whitespace, and for the deletion key that has nothing to delete.
    Still unobserved on x11: a key the platform maps to nothing at all (an arrow, Return,
    Tab), which the shared layer answers with `HUNMIN_KEY_BOUNDARY_PASS` from `base == 0`
@@ -673,7 +684,7 @@ Three gaps that follow, none of them a defect in a frontend:
    P2's three layouts deliver them as text (`commit: "<the digit>"`, `consumed: true` — the
    engine's answer, not the client's echo), and 세벌식 최종 turns them into jongseong jamo
    that the closing space delivers. This is the row whose rules differ most between
-   layouts and modes (R6's digit run, the unshifted row as jongseong on 세벌식), and before
+   layouts and modes (ReqMode6's digit run, the unshifted row as jongseong on 세벌식), and before
    2026-11-03 `4`-`9` appeared in no x11 event in any layout. Most punctuation
    (`, - = [ \ ]`, and the backtick) is still unpressed; that is what the same sweep
    would widen next.
@@ -690,7 +701,7 @@ their **ASCII** value (`tools/gen-conformance.py` `ANDROID_KEYCODES`), not as
 real constants are covered by ctest `keymap-fixture`, not by the corpus.
 
 **Equivalence extension (2026-10-24, requirement).** The rule in
-`docs/FRONTEND-EQUIVALENCE.md` makes this tier the cross-frontend authority:
+`docs/DESIGN-FRONTEND.md` Part A makes this tier the cross-frontend authority:
 the same key sequence must produce the same commit, preedit, and consumed
 decision in fcitx5, Android, and TSF, and TSF's interim and native delivery
 modes must agree. The corpus must be replayed in both buffered and syllable
@@ -717,7 +728,7 @@ SHARE are `p2-2-1-basic` and the word probes, so "fcitx5 and Android agree" is m
 for basic syllable composition and one-syllable layout wiring, not for the designed
 families or the P2 gate corpora — which is the shape PLAN.md gates P5 on. Which layouts
 each platform covers, and why the Latin ones are measured by a text rather than a word,
-is `docs/FRONTEND-EQUIVALENCE.md` §6.3 — it is not restated here.
+is `docs/DESIGN-FRONTEND.md` Part A §6.3 — it is not restated here.
 
 ## Tier D — Desktop integration: real fcitx5 🤖 (Linux CI)
 
@@ -1229,7 +1240,7 @@ Four layers, cheap→real:
   `hunmin-sim` invocations, not remembered answers.
   ✅ **The trace capture it depends on works, and is not just claimed.** A tier-C
   trace sink in the **shipped** APK (`HunminTraceRecorder`) — a test-only sink would capture a
-  different adapter than the one a person holds, the mistake FRONTEND-CONTRACT §3
+  different adapter than the one a person holds, the mistake DESIGN-FRONTEND.md Part B §3
   already records for fcitx5. It is inert unless a broadcast opens it, and only on a
   debuggable build, so a release IME cannot be made to write files. `tools/e3-trace.sh`
   drives open/close/pull over adb.

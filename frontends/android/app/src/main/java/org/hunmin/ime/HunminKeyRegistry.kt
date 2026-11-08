@@ -18,7 +18,7 @@
  * it). The layout data is authored in the US-QWERTY convention, so the adapter
  * must be too: keycode -> character, no OS layout consulted.
  *
- * This mirrors the fcitx5 adapter's assumption A1 (docs/FRONTEND-CONTRACT.md)
+ * This mirrors the fcitx5 adapter's assumption A1 (docs/DESIGN-FRONTEND.md Part B)
  * and inherits its stated cost: a layout wanting a non-US physical key cannot
  * be expressed. Accepting that here is the same decision, for the same reason.
  *
@@ -156,7 +156,7 @@ object HunminKeyRegistry {
      * VERBATIM: no CapsLock inversion happens here — the deleted engineChar
      * matrix made CapsLock win over Shift, and which row the bit selects
      * under CapsLock+Shift is now the engine's decision (SPEC-P2 "IC input
-     * entry points"). Recorded as a behaviour delta in FRONTEND-CONTRACT
+     * entry points"). Recorded as a behaviour delta in DESIGN-FRONTEND.md Part B
      * A3', not re-decided in the adapter.
      */
     fun isShiftOn(metaState: Int): Boolean = (metaState and META_SHIFT_ON) != 0

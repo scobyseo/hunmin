@@ -20,8 +20,12 @@ import argparse
 import json
 import pathlib
 import sys
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
-REPO = pathlib.Path(__file__).resolve().parent.parent
+REPO = _COMMON_ROOT
 DEFAULT_OUT = REPO / "libhunmin/data/layouts/us-qwerty.json"
 
 # The 21 punctuation key ids and their shifted forms, in SPEC-SCHEMA.md order.
@@ -53,9 +57,9 @@ HEADER = {
     "compose": ["modern"],
     "source": "US QWERTY as the physical key names in docs/SPEC-SCHEMA.md (Key ids); each key id is named by its unshifted character and each modifier emits that character directly. This is not copied from any implementation -- the mapping IS the US keyboard, and the key-id convention is this project's own (SPEC-SCHEMA.md 'Key ids').",
     "x-notes": {
-        "why": "SPEC-MODES R2 requires an English mode that selects qwerty/dvorak, and R6's OFF+English behaviour requires 'English mode has to be a Latin layout rather than a Hangul layout -- since a Latin key produces a Latin letter there is nothing to compose'. No such layout existed in libhunmin/data/layouts/, so R2's English arm was unmeasurable. This adds it.",
-        "composition": "There is none, by design. A literal value is not a jamo, so process_jamo() takes the ic.c:170 branch and commits it directly, leaving the buffer empty. That is what makes R6's 'commit per character' fall out rather than be special-cased.",
-        "not_a_layout_choice": "This is a data addition required to measure R8, not a decision to ship qwerty as the English mode. The maintainer decides which Latin layouts English mode offers.",
+        "why": "SPEC-MODES ReqMode2 requires an English mode that selects qwerty/dvorak, and ReqMode6's OFF+English behaviour requires 'English mode has to be a Latin layout rather than a Hangul layout -- since a Latin key produces a Latin letter there is nothing to compose'. No such layout existed in libhunmin/data/layouts/, so ReqMode2's English arm was unmeasurable. This adds it.",
+        "composition": "There is none, by design. A literal value is not a jamo, so process_jamo() takes the ic.c:170 branch and commits it directly, leaving the buffer empty. That is what makes ReqMode6's 'commit per character' fall out rather than be special-cased.",
+        "not_a_layout_choice": "This is a data addition required to measure ReqMode8, not a decision to ship qwerty as the English mode. The maintainer decides which Latin layouts English mode offers.",
     },
 }
 

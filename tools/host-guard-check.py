@@ -22,13 +22,15 @@ Run:  python3 tools/host-guard-check.py
 import importlib.util
 import os
 import pathlib
+try:
+    from _common import ROOT
+except ImportError:
+    ROOT = pathlib.Path(__file__).resolve().parents[1]
 import subprocess
 import sys
 import tempfile
 
 from _hostcompat import native_cc_cxx
-
-ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # Files the Linux build/tests read as text and compare byte-for-byte (or run
 # with an LF-sensitive interpreter). None may check out CRLF.

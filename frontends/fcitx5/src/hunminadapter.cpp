@@ -263,7 +263,7 @@ public:
         else if (ev.id == HUNMIN_KEY_TEXT && sym >= 0x20 && sym <= 0x7E) ev.base = static_cast<uint32_t>(sym);
         /* An uppercase symbol means the row was shifted; the engine resolves
          * the case endpoint from (base, shift) itself. The layer logs the same
-         * pair for R8's Latin reading, so no adapter-side copy of the key is
+         * pair for ReqMode8's Latin reading, so no adapter-side copy of the key is
          * kept here any more (the detector that needed one is retired). */
         if (ev.base >= 'A' && ev.base <= 'Z') {
             ev.shift = 1;
@@ -362,29 +362,24 @@ public:
             updateUI();
         }
 
-        /* The shared layer above libhunmin decides consumption, commit and
-         * preedit for every frontend (issue #128, docs/FRONTEND-EQUIVALENCE.md
-         * §5); this adapter keeps no buffer of its own. The commit POLICY is
-         * the layer's, chosen by the user (config.h CommitBehavior): AT_BOUNDARY
-         * keeps the word visible and lands it in one insert, PER_SYLLABLE
-         * delivers each syllable as the engine finalises it. */
+        /* The shared layer owns consumption, commit and preedit for every
+         * frontend (docs/DESIGN-FRONTEND.md §5); this adapter keeps no buffer
+         * of its own, and the user's CommitBehavior reaches it as an option. */
         hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);
         hunmin_key_result out{};
         const bool used = hunmin_buffered_preedit_process_key(preedit_, ev.base, ev.shift, &out) != 0;
-        /* Both strings the engine just produced are borrowed -- valid only until
-         * the next hunmin_* call -- and applyJudgement() below makes two of them
-         * (take_judgement, then a possible toggle that re-creates the ic). Read
-         * after that, `out.commit` is whatever the rewritten buffer holds, which
-         * on the boundary key that both delivers a word and switches language is
-         * nothing: measured with `hello` + a switch, the word vanished from the
-         * client. Copy first.
-         */
+        /* Both strings are borrowed until the next hunmin_* call, and
+         * applyJudgement() below makes two of them (take_judgement, then a
+         * possible toggle that re-creates the ic). On a boundary key that both
+         * delivers a word and switches language, reading `out.commit` after
+         * that yields nothing -- measured with `hello` + a switch, the word
+         * vanished from the client. Copy first. */
         const std::string justDelivered = out.commit ? std::string(out.commit) : std::string();
         const std::string justComposing = out.preedit ? std::string(out.preedit) : std::string();
-        /* The judgement belongs to the word that just ended, delivered or
-         * declined: ask before anything else can start the next word. Its text
-         * joins the same delivery, after the word, because R10 means the word
-         * is already the judged language and nothing is rewritten. */
+        /* The judgement belongs to the word that just ended: ask before
+         * anything else can start the next word. Its text joins the same
+         * delivery after the word (ReqMode10: the word is already the judged
+         * language, nothing is rewritten). */
         const std::string switched = applyJudgement();
 
         if (!justDelivered.empty() || !switched.empty()) {
@@ -400,23 +395,21 @@ public:
 #endif
         updateUI();
         // Only consume what the layer actually took: a declined key belongs to
-        // the client (FRONTEND-CONTRACT §5 rule 3).
+        // the client (docs/DESIGN-FRONTEND.md Part B §5 rule 3).
         if (used) {
             keyEvent.filterAndAccept();
         }
     }
 
-    /* R8's judgement, the MODE half (ruled 2026-11-01, issue #164): the ENGINE
-     * judged the finished word and delivered it in the judged language; this
-     * performs the switch, which is the same layer call TSF and Android make.
-     * fcitx5 registers one input method for the addon in practice (R2: one IM,
-     * two modes inside it), so the addon's mode IS the layer's slot -- there is
-     * no host language for it to disagree with, unlike the two-IM arrangement
-     * FE13 describes.
+    /* ReqMode8's judgement, the MODE half (docs/SPEC-MODES.md; ruled 2026-11-01,
+     * issue #164): the engine judged the finished word and delivered it in the
+     * judged language; this performs the switch, the same layer call TSF and
+     * Android make. fcitx5 registers one input method for the addon (ReqMode2),
+     * so the addon's mode IS the layer's slot -- no host language can disagree
+     * with it, unlike the two-IM arrangement FE13 describes.
      *
-     * -1 means there is nothing to act on: the switch is off (the default), the
-     * word was shorter than R9's guard, both readings agreed, this layer cannot
-     * be judged, or no dictionary is loaded. Asked once per key, like the other
+     * -1 means there is nothing to act on; which conditions produce it is the
+     * engine's business, not this adapter's. Asked once per key, like the other
      * two frontends, so the answer cannot outlive the word it belongs to. */
     std::string applyJudgement() {
         if (!preedit_) {
@@ -444,11 +437,10 @@ public:
         return boundary;
     }
 
-    /* R13-정정's on/off state, pushed into the live layer and read back: what
-     * this returns is what the ENGINE holds, not what the caller asked for, so
-     * the row can show the engine's answer. The engine refuses ON where the
-     * modes word list is missing (B3's data gate, issue #169), and that refusal
-     * is the half no frontend is allowed to re-implement. */
+    /* ReqMode13's on/off state, pushed into the live layer and read back: this
+     * returns what the ENGINE holds, not what the caller asked for, so the row
+     * shows the engine's answer. The engine's refusals (see its B3 data gate)
+     * are not re-implemented here. */
     int applyAutoswitch(int want) {
         if (!preedit_) {
             return want; // no layer yet: ensureIc() seeds one from the stored value
@@ -512,14 +504,14 @@ private:
          * the layer read the word on the Latin layout, judge it and switch its
          * own slot -- until this, the Latin id was NULL and every one of those
          * answers "not ours". The Latin half is the user's choice in config.h
-         * (LatinLayout), the same option the R8 detector used to judge on. */
+         * (LatinLayout), the same option the ReqMode8 detector used to judge on. */
         const std::string latin = *engine_->config().latinLayout;
         preedit_ = hunmin_buffered_preedit_new(engine_->ctx(), want.c_str(), latin.c_str(), policy_);
         if (!preedit_) {
             FCITX_ERROR() << "hunmin: unsupported layout: " << want;
         } else {
             hunmin_buffered_preedit_special_host(preedit_, engine_->specialHost());
-            /* R8's `english_valid` reads this list (R8-정정-2, ruled 2026-11-01);
+            /* ReqMode8's `english_valid` reads this list (ReqMode8, ruled 2026-11-01);
              * absent data is a normal state (B3) and the judgement then
              * abstains rather than calling every word not-English. */
             hunmin_buffered_preedit_load_english_shipped(preedit_);
@@ -877,7 +869,7 @@ void HunminAdapter::setConfig(const fcitx::RawConfig &rawConfig) {
     config_.load(rawConfig, true);
     /* The dialog's tick reaches the engine here and what comes back is what is
      * stored: fcitx5's config surface is the persistence, the engine's option is
-     * the one value both surfaces read (R13-정정's "no second copy"). */
+     * the one value both surfaces read (ReqMode13's "no second copy"). */
     pushAutoswitch(*config_.autoswitch ? 1 : 0);
     instance_->inputContextManager().foreach ([this](InputContext *ic) {
         state(ic)->reset(); // in-flight composition dropped; layout swaps

@@ -21,16 +21,16 @@ The maintainer, 2026-11-01, on issue #161:
 > want to select A
 
 "A" is option A of `docs/OPTIONS-MEASURED.md` §B1: **retire B1**, the status
-board's row "the hangul judgement source — what R8's `hangul_valid` looks up".
+board's row "the hangul judgement source — what ReqMode8's `hangul_valid` looks up".
 
 ## Why the row had no surviving content
 
 Two rulings had already emptied it, and neither had reached the board:
 
-- **`docs/SPEC-MODES.md` §R8-정정 (2026-10-25)** replaced the word test with a
+- **`docs/SPEC-MODES.md` §ReqMode8 (2026-10-25)** replaced the word test with a
   syllable-structure test. `hangul_valid` asks whether the buffer composes into
   well-formed syllables — it looks nothing up, so there is no source to choose.
-- **§R8-정정-2 (2026-11-01)** named the English half — hunspell `en_US` plus a
+- **§ReqMode8 (2026-11-01)** named the English half — hunspell `en_US` plus a
   user dictionary — and that artefact is shipped and its issue (#160) closed.
 
 The board and `docs/MILESTONES.md` carried zero mentions of either ruling, which
@@ -53,14 +53,14 @@ discriminates (it is not a rubber stamp on Latin input), are
 ## What it does not decide
 
 - **Whether the corpus list, its 50,000 cap and the `MODES-DATA` §4 sections that
-  describe them are deleted or kept as the record.** `§R8-정정` left that open by
+  describe them are deleted or kept as the record.** `§ReqMode8` left that open by
   name and it still has no issue. This is the one item in B1's neighbourhood that
   is genuinely undecided, and it is about the *English* list, not the Hangul one.
 - **Whether E1 (the symmetric-rule measurement) gets an owner.** It now needs a
   corpus of typed Korean plus the shipped `en-US.json`, and no Korean dictionary —
   the krdict `pos` route its text names left the 2026-10-05 boundary.
-- **Whether `§R8-정정`'s trailing "left open … whether R9's threshold is re-based"
-  sentence is repaired**, since R9 itself retired the threshold 74 minutes later;
+- **Whether `§ReqMode8`'s trailing "left open … whether ReqMode9's threshold is re-based"
+  sentence is repaired**, since ReqMode9 itself retired the threshold 74 minutes later;
   the surviving method conflict (a measured N versus a design-time choice) is
   issue #163's.
 

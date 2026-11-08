@@ -145,7 +145,7 @@ duplicate it. The rule:
 - `wiki/` holds **how we got there and what we decided**, plus the session and
   measurement records `docs/` has no place for.
 
-A figure that lives in `docs/MODES-DATA.md` is cited from there, with a
+A figure that lives in `docs/MODES-MEASUREMENT.md` is cited from there, with a
 `^[...]` marker pointing at the `raw/measurements/` record that produced it.
 The wiki never becomes a second home for the same number — a second home is how
 the two drift apart, which is the failure this wiki is for.

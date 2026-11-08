@@ -18,7 +18,7 @@ confidence: high
 
 > "E1도 당연히 지원해야지. 내 예제가 동작하는 것까지를 0.3 release gate로 보자."
 
-E1 had been open since R8 was written: the formula's second line (English → Hangul)
+E1 had been open since ReqMode8 was written: the formula's second line (English → Hangul)
 was implemented on neither side, and the item asked which word list would make it
 hold. The ruling answers by building it — both lines ship — and by naming the gate
 that proves it.
@@ -32,14 +32,14 @@ engine's own rendering of each word on the layout that word was meant in, so the
 states intent without typing Hangul by hand. It fails when the symmetric line is
 switched off (verified by rebuilding in that state).
 
-**How it works.** The other half of R8's pair, for a word typed in Latin mode, is the
+**How it works.** The other half of ReqMode8's pair, for a word typed in Latin mode, is the
 *Hangul reading* of the same keys — `hangul_reading()` replaying them through the
 frontend's Hangul layout, exactly the shadow the other direction already used. The
-rule is unchanged, and so are its guards: R9's three key inputs apply in both
+rule is unchanged, and so are its guards: ReqMode9's three key inputs apply in both
 directions, and `autoswitch` OFF turns both off.
 
 **What the ruling does not measure, and the risk it takes.** The return direction's
-misfire surface is the short-word space: with R9's guard applied it switches on
+misfire surface is the short-word space: with ReqMode9's guard applied it switches on
 12.73% of all three-key strings and 6.83% of four-key ones
 (`docs/OPTIONS-MEASURED.md` §BND-3). A typo — `helo` — is not an English word and its
 Hangul reading is well-formed, so it flips to Hangul. No corpus on this host can

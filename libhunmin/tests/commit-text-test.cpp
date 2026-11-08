@@ -20,7 +20,7 @@
  * because registration shape -- not the framework -- is what the 30 s
  * inner-loop budget is sensitive to (docs/TEST-FRAMEWORK-OPTIONS.md §2).
  */
-#include "hunmin.h"
+#include "libhunmin-test.h"
 
 #include <gtest/gtest.h>
 
@@ -35,22 +35,13 @@ bool has_hangul(const char *s) {
     return false;
 }
 
-class CommitTextTest : public ::testing::Test {
+class CommitTextTest : public hunmin_test::CtxTest {
   protected:
-    void SetUp() override {
-        const char *dirs[] = {"libhunmin/data"};
-        ctx_ = hunmin_ctx_new(dirs, 1);
-        ASSERT_NE(ctx_, nullptr);
-    }
-    void TearDown() override { hunmin_ctx_free(ctx_); }
-
     hunmin_ic *fresh(const char *layout) {
         hunmin_ic *ic = hunmin_ic_new(ctx_, layout);
         EXPECT_NE(ic, nullptr) << "hunmin_ic_new(" << layout << ")";
         return ic;
     }
-
-    hunmin_ctx *ctx_ = nullptr;
 };
 
 /* --- verbatim, not composed --- */

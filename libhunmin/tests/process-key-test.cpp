@@ -23,7 +23,7 @@
  * because registration shape -- not the framework -- is what the 30 s
  * inner-loop budget is sensitive to (docs/TEST-FRAMEWORK-OPTIONS.md §2).
  */
-#include "hunmin.h"
+#include "libhunmin-test.h"
 
 #include <gtest/gtest.h>
 
@@ -47,17 +47,7 @@ uint32_t legacy_ch(uint32_t base, uint32_t shift) {
     return base; /* already-resolved rule: nothing to shift (SPEC-P2) */
 }
 
-class ProcessKeyTest : public ::testing::Test {
-  protected:
-    void SetUp() override {
-        const char *dirs[] = {"libhunmin/data"};
-        ctx_ = hunmin_ctx_new(dirs, 1);
-        ASSERT_NE(ctx_, nullptr);
-    }
-    void TearDown() override { hunmin_ctx_free(ctx_); }
-
-    hunmin_ctx *ctx_ = nullptr;
-};
+class ProcessKeyTest : public hunmin_test::CtxTest {};
 
 /* One event through both front doors; every difference names WHERE it
  * diverged, not just that it did. */

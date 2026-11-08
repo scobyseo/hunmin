@@ -33,7 +33,7 @@
  * because refusing a chord the user did press is the worse error.
  *
  * CapsLock and Shift are deliberately *not* normalised away: Shift is a layout row
- * (invariant 4 in docs/FRONTEND-CONTRACT.md) and CapsLock is the engine's `caps`
+ * (invariant 4 in docs/DESIGN-FRONTEND.md Part B) and CapsLock is the engine's `caps`
  * option, so a binding may legitimately ask for either. Their live bits
  * (META_SHIFT_ON) are kept; the stuck-state bits are not part of a chord.
  */

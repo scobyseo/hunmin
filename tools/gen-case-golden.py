@@ -25,6 +25,15 @@ Schema: the existing tier-A one, so `hunmin-sim --check` runs it unchanged.
 
 --check regenerates in memory and fails on drift; the suite runs the checker, the
 generator run is a review event (never a build step).
+
+TWO STAGES, AND --check ONLY SEES THE FIRST. The committed file is not this
+generator's output: after a rewrite, `tools/merge-golden-cases.py --write`
+merges the family's cases into one trace (one `meta.case` header per family,
+because a case boundary is replay state, not a label). So `--check` reports a
+merged family as stale by design -- it compares per-case output against a file
+that carries a merged header. Read its failure as "this generator's cases
+moved"; re-merge, then let `hunmin-sim --check` (which the merge refuses to
+write without) decide whether the committed trace is current.
 """
 
 import argparse
@@ -33,7 +42,11 @@ import os
 import subprocess
 import sys
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import ROOT as _ROOT
+    REPO = str(_ROOT)
+except ImportError:  # run from elsewhere: derive from this file
+    REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(REPO, "libhunmin", "data")
 
 # The layout's defining facts, one case each. Keys only — no expectations here.
@@ -58,7 +71,7 @@ CASES = {
              keys="ifS ", note="많: ᆭ is Shift+s"),
         dict(case="digit-row-is-jamo", feature="the number row is jongseong jamo",
              keys="1234567890 ",
-             note="1..0 are ᇂ ᆻ ᆸ ᅭ ᅲ ᅣ ᅨ ᅴ ᅮ ᄏ: this row is why R6 exists (SPEC-MODES §R6)"),
+             note="1..0 are ᇂ ᆻ ᆸ ᅭ ᅲ ᅣ ᅨ ᅴ ᅮ ᄏ: this row is why ReqMode6 exists (SPEC-MODES §ReqMode6)"),
         dict(case="shifted-digit-row", feature="된소리/겹받침 on the shifted number row",
              keys="!@#$% ", note="ᆩ ᆰ ᆽ ᆵ ᆴ: the shifted number row, where the final consonants live"),
         dict(case="literal-digits-on-the-letter-row", feature="literal digits are Shift+letter",
@@ -76,7 +89,7 @@ CASES = {
         # into an empty buffer, which the adapter must decline.
         dict(case="digit-row-and-empty-backspace", feature="the number row, and the declined key after the word",
              keys="0123456789 \\b",
-             note="0-9 are ᄏ ᇂ ᆻ ᆸ ᅭ ᅲ ᅣ ᅨ ᅴ ᅮ in ROW order (R6: this row is jongseong jamo, typed without a "
+             note="0-9 are ᄏ ᇂ ᆻ ᆸ ᅭ ᅲ ᅣ ᅨ ᅴ ᅮ in ROW order (ReqMode6: this row is jongseong jamo, typed without a "
                   "Shift); the space delivers the composed jamo and the BackSpace after it finds an empty "
                   "buffer and is declined, so the client receives it"),
     ],
@@ -117,7 +130,7 @@ CASES = {
         # absent from a corpus that types words, and both are layout-visible:
         # this layout maps 26 letters, so all ten digits are declined and reach
         # the client, and the trailing BackSpace finds an empty buffer and is
-        # declined for the same reason (docs/FRONTEND-CONTRACT.md invariant 3).
+        # declined for the same reason (docs/DESIGN-FRONTEND.md Part B invariant 3).
         dict(case="digit-row-and-empty-backspace", feature="the number row, and the declined key after the word",
              keys="0123456789 \\b",
              note="0-9 are not this layout's (it maps 26 letters), so each is DECLINED and reaches the client; "
@@ -160,7 +173,7 @@ CASES = {
         dict(case="sentence-hangeulimnida", feature="real text, five syllables",
              keys="mfskgwjdehduf ", note="한글입니다: ᆸ then ᆫ in 입니다, each jongseong on its own key"),
         # Issue #229: the number row in full, and the declined key after the
-        # word. P2 spends the row on literal digits, so this is the row R6's
+        # word. P2 spends the row on literal digits, so this is the row ReqMode6's
         # digit run is about -- the 1 2 3 0 the other cases press are the half
         # of it a word happens to need.
         dict(case="digit-row-and-empty-backspace", feature="the number row, and the declined key after the word",
@@ -195,16 +208,16 @@ CASES = {
 HEAD_SPEC = {
     "dubeolsik": ("the libhangul 0.2.0 두벌식 table this repository ships "
                   "(libhunmin/data/layouts/dubeolsik.json)"),
-    "sebeolsik-final": "the layout's own key arrangement; R6 for the number row (docs/SPEC-MODES.md)",
-    "sin3-p2": "pat.im/1136 (normative, docs/SPEC-P2.md); R6 for the number row (docs/SPEC-MODES.md)",
+    "sebeolsik-final": "the layout's own key arrangement; ReqMode6 for the number row (docs/SPEC-MODES.md)",
+    "sin3-p2": "pat.im/1136 (normative, docs/SPEC-P2.md); ReqMode6 for the number row (docs/SPEC-MODES.md)",
     # The two P2 siblings added for #229. Their only designed case is the digit
     # row + decline, so their identity facts stay with the gate corpora
     # (p2-2-1-basic.jsonl, manual-sin3-p2-yet.jsonl) and are NOT restated here --
     # one home per fact.
     "sin3-p2-basic": ("pat.im/1136's basic tier (docs/SPEC-P2.md, gate corpus "
-                      "p2-2-1-basic.jsonl); R6 for the number row (docs/SPEC-MODES.md)"),
+                      "p2-2-1-basic.jsonl); ReqMode6 for the number row (docs/SPEC-MODES.md)"),
     "sin3-p2-yet": ("pat.im/1136's 옛한글 tier (docs/SPEC-P2.md, gate corpus "
-                    "manual-sin3-p2-yet.jsonl); R6 for the number row (docs/SPEC-MODES.md)"),
+                    "manual-sin3-p2-yet.jsonl); ReqMode6 for the number row (docs/SPEC-MODES.md)"),
 }
 
 

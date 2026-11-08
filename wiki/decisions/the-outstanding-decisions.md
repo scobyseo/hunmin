@@ -19,12 +19,12 @@ state is visible rather than reconstructed from commit messages.
 
 ## D1. The hangul judgement method
 
-R8's `hangul_valid` must answer "is this a hangul word?". Three candidate
+ReqMode8's `hangul_valid` must answer "is this a hangul word?". Three candidate
 definitions, and the evidence is genuinely mixed:
 
 | | what it looks up | status |
 |---|---|---|
-| (a) corpus top-N | a frequency list | **rejected by measurement** — no saturation; 200,000 forms reach 2.90% of hangul forms, and R8's "ambiguous → keep current mode" then silently disables the feature |
+| (a) corpus top-N | a frequency list | **rejected by measurement** — no saturation; 200,000 forms reach 2.90% of hangul forms, and ReqMode8's "ambiguous → keep current mode" then silently disables the feature |
 | (b) dictionary lookup | a dictionary | **weakened** — the 45.42% figure came from a hanja-filtered subset (31,253 of 56,555), so the real coverage is unknown and probably higher; still not measured |
 | (c) combination test | "is this any hangul vowel/final combination" | **the fallback, and the one the maintainer has provisionally adopted** |
 
@@ -33,21 +33,21 @@ accepts every combinable form, so it will admit 형용사·부사·관형사·�
 dictionary contains. See [[the-outstanding-decisions]]'s open measurement below.
 
 **Status 2026-11-01 — this decision has been made, elsewhere.** `docs/SPEC-MODES.md`
-§R8-정정 (2026-10-25) ruled option (c) and replaced the word test with a
+§ReqMode8 (2026-10-25) ruled option (c) and replaced the word test with a
 syllable-structure test, so `hangul_valid` no longer looks anything up; the English
-half was ruled separately (§R8-정정-2, 2026-11-01, issue #160). The table above is
+half was ruled separately (§ReqMode8, 2026-11-01, issue #160). The table above is
 the record of the evidence, not the current definition. Whether board row B1 is
 therefore retired — and what happens to the corpus list this page's siblings still
 describe — is issue #161, priced in `docs/OPTIONS-MEASURED.md` §B1.
 
 ## D2. E1 — whether the symmetry rule holds
 
-R8's second line (english mode → hangul) is implemented-or-not independent of
+ReqMode8's second line (english mode → hangul) is implemented-or-not independent of
 the first. The corpus now makes the measurement possible: krdict carries `pos`,
 so 조사/어미 separation is countable. **Not yet measured.**
 
 **Status 2026-11-01:** the route named here left the 2026-10-05 scope boundary, and
-§R8-정정 removed the need for it — the measurement now needs a corpus of typed
+§ReqMode8 removed the need for it — the measurement now needs a corpus of typed
 Korean and the shipped `libhunmin/data/modes/en-US.json`, no Korean dictionary and
 no `pos` field. Still not measured, and still unfiled (`docs/OPTIONS-MEASURED.md`
 §B1-2).

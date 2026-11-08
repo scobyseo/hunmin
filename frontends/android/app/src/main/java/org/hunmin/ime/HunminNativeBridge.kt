@@ -64,7 +64,7 @@ object HunminNativeBridge {
     /** "hangul" | "latin" — the layout JSON's `mode` (docs/SPEC-SCHEMA.md). */
     @JvmStatic external fun nativeLayoutMode(ctx: Long, i: Int): String
 
-    /** B3's data gate (docs/SPEC-MODES.md §R13-정정, issue #169): whether the
+    /** B3's data gate (docs/SPEC-MODES.md §ReqMode13, issue #169): whether the
      *  modes word list this install can find. False means the automatic switch
      *  cannot be enabled at all, and the settings row says so instead of
      *  offering a control that never fires. */
@@ -130,7 +130,7 @@ object HunminNativeBridge {
 
     @JvmStatic external fun nativeLayerSetOption(layer: Long, name: String, value: Int): Boolean
 
-    /** The read half of the same option surface (R13-정정): a one-element array
+    /** The read half of the same option surface (ReqMode13): a one-element array
      *  holding the value, or null for a name the engine does not know. */
     @JvmStatic external fun nativeLayerGetOption(layer: Long, name: String): IntArray?
 
@@ -140,7 +140,7 @@ object HunminNativeBridge {
     /** HUNMIN_LANGUAGE_HANGUL / _LATIN. */
     @JvmStatic external fun nativeLayerLanguage(layer: Long): Int
 
-    /** R8's judgement, taken once per key (ruled 2026-11-01, #164): the mode to
+    /** ReqMode8's judgement, taken once per key (ruled 2026-11-01, #164): the mode to
      *  adopt now, or -1 when the engine judged nothing. */
     @JvmStatic external fun nativeLayerTakeJudgement(layer: Long): Int
 
@@ -170,7 +170,7 @@ object HunminNativeBridge {
      * hunmin_ic_commit — a DESTRUCTIVE read: the text is delivered exactly once
      * and the buffer is cleared. Calling it twice for one keypress drops the
      * second result; calling it and then hunmin_ic_flush double-emits. See
-     * docs/FRONTEND-CONTRACT.md §5 rules 1 and 2.
+     * docs/DESIGN-FRONTEND.md Part B §5 rules 1 and 2.
      */
     @JvmStatic external fun nativeCommit(ic: Long): String
 

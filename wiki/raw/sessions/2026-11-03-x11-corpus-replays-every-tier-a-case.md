@@ -146,7 +146,7 @@ than only at case starts.
   `engine-d3-edit` alone is 95 s under `-j16`, so the budget line needs a
   measurement on a quiet host before anyone calls it a regression.
 - `engine-d1-judgement` is red on this host at the branch's commit, before and
-  after this work: the R9 control case (`keys`, judged English) delivers `ㅏ됴`
+  after this work: the ReqMode9 control case (`keys`, judged English) delivers `ㅏ됴`
   instead of `key`. It is a mode-judgement observation, not a corpus one.
 ## 두벌식 and 신세벌식 P2, the same shape
 

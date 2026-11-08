@@ -38,7 +38,7 @@ int hunmin_tsf_rows_for_mode(hunmin_ctx *ctx, bool hangul, HunminTsfLayoutRow *r
     return n;
 }
 
-/* ---- the automatic-switch row (issue #175, R13-정정 surface B) ---- */
+/* ---- the automatic-switch row (issue #175, ReqMode13 surface B) ---- */
 
 /* The chord's modifier bits, in the order Windows spells them. The bits are
  * the ENGINE's (hunmin_buffered_preedit_special_chord), so a frontend that
@@ -65,7 +65,7 @@ void hunmin_tsf_autoswitch_row(hunmin_ctx *ctx, const char *hangulId, const char
     out->available = (ctx && hunmin_ctx_autoswitch_data_present(ctx)) ? 1 : 0;
     out->value = stored ? 1 : 0;
     /* The chord and the value are both read from a LAYER, never spelled here:
-     * the engine owns the assignment (R13-정정) and it owns the data veto. */
+     * the engine owns the assignment (ReqMode13) and it owns the data veto. */
     hunmin_buffered_preedit *layer = (ctx && hangulId && latinId) ? hunmin_buffered_preedit_new(ctx, hangulId, latinId, HUNMIN_COMMIT_AT_BOUNDARY) : nullptr;
     if (layer) {
         char mods[24];
@@ -96,7 +96,7 @@ void hunmin_tsf_autoswitch_row(hunmin_ctx *ctx, const char *hangulId, const char
     if (out->available) {
         snprintf(out->label, sizeof out->label, "\uC790\uB3D9 \uD55C/\uC601 \uC804\uD658 (\uC9C0\uC6D0 \uC571\uC5D0\uC11C\uB9CC, %s)", out->key);
     } else {
-        /* R13-정정's discoverability rule applies to the disabled state: say
+        /* ReqMode13's discoverability rule applies to the disabled state: say
          * WHICH data is missing, not merely that the control is off. */
         snprintf(out->label, sizeof out->label,
                  "\uC790\uB3D9 \uD55C/\uC601 \uC804\uD658 (\uC9C0\uC6D0 \uC571\uC5D0\uC11C\uB9CC, %s) "
