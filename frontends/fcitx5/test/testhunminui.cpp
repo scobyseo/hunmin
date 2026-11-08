@@ -132,7 +132,7 @@ void scheduleEvent(Instance *instance) {
         // the word so far plus the syllable in flight. The text the client
         // receives at the boundary is unchanged; only the point it lands moved,
         // and the commit boundary is explicitly not part of the contract
-        // (docs/FRONTEND-EQUIVALENCE.md §1).
+        // (docs/DESIGN-FRONTEND.md Part A §1).
         tap(uuid, Key("k"));
         FCITX_ASSERT(panelOf(ic).toString() == "\uac00\u3131");
 
@@ -174,7 +174,7 @@ void scheduleEvent(Instance *instance) {
         // --- F9 opens the Hanja window for the current preedit (P3).
         // The whole reason the adapter consumes keys the engine declined: F9
         // is outside printable ASCII, so hunmin_ic_process() never sees it
-        // (FRONTEND-CONTRACT.md A11).
+        // (DESIGN-FRONTEND.md Part B A11).
         //
         // 푸 is chosen because it is in hanja/ and in neither krdict nor
         // idioms, so every candidate is a bare syllable: one Hanja each.

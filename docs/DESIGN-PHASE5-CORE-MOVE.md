@@ -186,3 +186,33 @@ assertion yet):
 **Status:** Option 1 characterization pass complete for the core-observable seam.
 Production micro-slice (Option 2 additive ABI or Option 3 fcitx5-only) still needs a
 target choice; Option 2 additionally needs explicit ABI approval.
+
+## Step 3 — P5/D1 Option 3: fcitx5 adapter comment dedupe (2026-11-08)
+
+Selected Option 3 (fcitx5-only, behaviour-preserving) as the first code-adjacent
+slice; no production logic changed, no ABI change, no cross-frontend claims.
+
+- `frontends/fcitx5/src/hunminadapter.cpp`: condensed the rationale that belongs
+  to a design home, keeping only adapter-local correctness facts:
+  - shared-layer ownership of consumption/commit/preedit → pointer to
+    `DESIGN-FRONTEND.md` §5; the CommitBehavior wording stays a short local note.
+  - borrowed-string ordering (`out.commit` read after `applyJudgement()` loses
+    the word) kept as a local measured fact, tightened.
+  - `applyJudgement` keeps "one IM ⇒ mode is the layer slot" (ReqMode2) and the
+    once-per-key read; the engine's list of `-1` conditions is no longer
+    restated here.
+  - `applyAutoswitch` keeps push-and-read-back; the B3 refusal stays the
+    engine's and is no longer spelled out in the adapter.
+- Old stub filenames in fcitx5 comments retargeted to
+  `DESIGN-FRONTEND.md` Part A/Part B (`config.h`, adapter, and the fcitx5 tests
+  that cite the equivalence/contract text). Part B is named explicitly where the
+  old `§5` meant the invariants rather than the shared layer.
+
+Not done in this slice: Android and TSF comment cleanup (their tiers are not
+runnable here), and any logic move (needs a named seam plus all three fronts).
+
+**Verification:** `cmake --build build -j8`; `engine-d1-fcitx5`,
+`engine-d1-judgement`, `frontend-invariants`, `frontend-mutations` all pass;
+`tools/check-frontend-invariants.py` holds (adapter 656 code LOC, limit 700);
+`tools/req-map-check.py` passes; ctest registration/properties still match the
+Phase 0 baseline.

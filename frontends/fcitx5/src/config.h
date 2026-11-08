@@ -39,7 +39,7 @@ private:
  *  syllable  commit each syllable as the engine finalises it; the preedit is
  *            only the syllable in flight
  *
- * The TEXT is identical either way (docs/FRONTEND-EQUIVALENCE.md §1), which is
+ * The TEXT is identical either way (docs/DESIGN-FRONTEND.md Part A §1), which is
  * what makes this a safe preference rather than a behaviour fork. */
 struct CommitBehaviorAnnotation : public EnumAnnotation {
     void dumpDescription(RawConfig &config) const {
@@ -95,7 +95,7 @@ struct AutoswitchAnnotation {
 private:
     /* The modifier is the engine's; "한/영" is this platform's name for the
      * language key (fcitx5's Hangul keysym), and the frontend is the side that
-     * knows what its own key is called (docs/FRONTEND-EQUIVALENCE.md §3). */
+     * knows what its own key is called (docs/DESIGN-FRONTEND.md Part A §3). */
     static std::string chordText(unsigned mods) {
         std::string text;
         auto add = [&text](const char *part) {

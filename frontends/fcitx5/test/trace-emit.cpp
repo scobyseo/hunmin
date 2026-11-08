@@ -269,7 +269,7 @@ int main(int argc, char **argv) {
         // first mismatch. That is stronger than observation: a wrong commit
         // cannot pass silently, it kills the process.
         // The queue's SHAPE follows the delivery policy, because that is what
-        // the policy decides (hunmin_buffered_preedit, docs/FRONTEND-EQUIVALENCE.md
+        // the policy decides (hunmin_buffered_preedit, docs/DESIGN-FRONTEND.md Part A
         // §5.1): a word-buffered adapter commits whole words at boundaries, a
         // syllable adapter commits each syllable as the engine finalises it --
         // which is exactly what tier A recorded, event by event.
@@ -335,7 +335,7 @@ int main(int argc, char **argv) {
         }
 
         // One entry per event: the adapter commits at most one string per
-        // keypress (FRONTEND-CONTRACT invariant 2). Under word buffering,
+        // keypress (DESIGN-FRONTEND.md Part B invariant 2). Under word buffering,
         // most events commit nothing; only boundary events carry a commit.
         size_t emitted = 0;
         for (size_t i = 1; i < lines.size(); ++i) {

@@ -45,7 +45,7 @@ void scheduleEvent(Instance *instance) {
         // Per-item Layout is what a real user's profile carries, and it must
         // override the addon-wide default (sin3-p2). Pins it to sin3-p2-yet so
         // the caps option below is actually consumed -- see
-        // docs/FRONTEND-CONTRACT.md A3/§4; hunminadapter.cpp reads it via
+        // docs/DESIGN-FRONTEND.md Part B A3/§4; hunminadapter.cpp reads it via
         // InputMethodGroup::layoutFor().
         defaultGroup.inputMethodList().push_back(InputMethodGroupItem("hunmin").setLayout("sin3-p2-yet"));
         defaultGroup.setDefaultInputMethod("");
@@ -75,7 +75,7 @@ void scheduleEvent(Instance *instance) {
         // (issue #128 / #74), is held as preedit until the word boundary.
         // The text is unchanged; only the point it reaches the client moved,
         // and that is explicitly not part of the contract
-        // (docs/FRONTEND-EQUIVALENCE.md §1). Space is the boundary and passes.
+        // (docs/DESIGN-FRONTEND.md Part A §1). Space is the boundary and passes.
         testfrontend->call<ITestFrontend::pushCommitExpectation>("ㅇµ");
         press(uuid, Key("j"));
         press(uuid, Key("k"));
@@ -84,7 +84,7 @@ void scheduleEvent(Instance *instance) {
 
         // Empty buffer: space and backspace pass through to the client. The engine
         // declines both with nothing composing, and an unaccepted key is not
-        // consumed (FRONTEND-CONTRACT.md 5, rule 3) -- that is how the client
+        // consumed (DESIGN-FRONTEND.md Part B §5 rule 3) -- that is how the client
         // gets them. F9 needs no exception: it is intercepted above, on
         // candidates, before it ever reaches the engine.
         press(uuid, Key("space"), false);

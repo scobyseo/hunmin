@@ -362,29 +362,24 @@ public:
             updateUI();
         }
 
-        /* The shared layer above libhunmin decides consumption, commit and
-         * preedit for every frontend (issue #128, docs/FRONTEND-EQUIVALENCE.md
-         * §5); this adapter keeps no buffer of its own. The commit POLICY is
-         * the layer's, chosen by the user (config.h CommitBehavior): AT_BOUNDARY
-         * keeps the word visible and lands it in one insert, PER_SYLLABLE
-         * delivers each syllable as the engine finalises it. */
+        /* The shared layer owns consumption, commit and preedit for every
+         * frontend (docs/DESIGN-FRONTEND.md §5); this adapter keeps no buffer
+         * of its own, and the user's CommitBehavior reaches it as an option. */
         hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);
         hunmin_key_result out{};
         const bool used = hunmin_buffered_preedit_process_key(preedit_, ev.base, ev.shift, &out) != 0;
-        /* Both strings the engine just produced are borrowed -- valid only until
-         * the next hunmin_* call -- and applyJudgement() below makes two of them
-         * (take_judgement, then a possible toggle that re-creates the ic). Read
-         * after that, `out.commit` is whatever the rewritten buffer holds, which
-         * on the boundary key that both delivers a word and switches language is
-         * nothing: measured with `hello` + a switch, the word vanished from the
-         * client. Copy first.
-         */
+        /* Both strings are borrowed until the next hunmin_* call, and
+         * applyJudgement() below makes two of them (take_judgement, then a
+         * possible toggle that re-creates the ic). On a boundary key that both
+         * delivers a word and switches language, reading `out.commit` after
+         * that yields nothing -- measured with `hello` + a switch, the word
+         * vanished from the client. Copy first. */
         const std::string justDelivered = out.commit ? std::string(out.commit) : std::string();
         const std::string justComposing = out.preedit ? std::string(out.preedit) : std::string();
-        /* The judgement belongs to the word that just ended, delivered or
-         * declined: ask before anything else can start the next word. Its text
-         * joins the same delivery, after the word, because ReqMode10 means the word
-         * is already the judged language and nothing is rewritten. */
+        /* The judgement belongs to the word that just ended: ask before
+         * anything else can start the next word. Its text joins the same
+         * delivery after the word (ReqMode10: the word is already the judged
+         * language, nothing is rewritten). */
         const std::string switched = applyJudgement();
 
         if (!justDelivered.empty() || !switched.empty()) {
@@ -400,23 +395,21 @@ public:
 #endif
         updateUI();
         // Only consume what the layer actually took: a declined key belongs to
-        // the client (FRONTEND-CONTRACT §5 rule 3).
+        // the client (docs/DESIGN-FRONTEND.md Part B §5 rule 3).
         if (used) {
             keyEvent.filterAndAccept();
         }
     }
 
-    /* ReqMode8's judgement, the MODE half (ruled 2026-11-01, issue #164): the ENGINE
-     * judged the finished word and delivered it in the judged language; this
-     * performs the switch, which is the same layer call TSF and Android make.
-     * fcitx5 registers one input method for the addon in practice (ReqMode2: one IM,
-     * two modes inside it), so the addon's mode IS the layer's slot -- there is
-     * no host language for it to disagree with, unlike the two-IM arrangement
-     * FE13 describes.
+    /* ReqMode8's judgement, the MODE half (docs/SPEC-MODES.md; ruled 2026-11-01,
+     * issue #164): the engine judged the finished word and delivered it in the
+     * judged language; this performs the switch, the same layer call TSF and
+     * Android make. fcitx5 registers one input method for the addon (ReqMode2),
+     * so the addon's mode IS the layer's slot -- no host language can disagree
+     * with it, unlike the two-IM arrangement FE13 describes.
      *
-     * -1 means there is nothing to act on: the switch is off (the default), the
-     * word was shorter than ReqMode9's guard, both readings agreed, this layer cannot
-     * be judged, or no dictionary is loaded. Asked once per key, like the other
+     * -1 means there is nothing to act on; which conditions produce it is the
+     * engine's business, not this adapter's. Asked once per key, like the other
      * two frontends, so the answer cannot outlive the word it belongs to. */
     std::string applyJudgement() {
         if (!preedit_) {
@@ -444,11 +437,10 @@ public:
         return boundary;
     }
 
-    /* ReqMode13's on/off state, pushed into the live layer and read back: what
-     * this returns is what the ENGINE holds, not what the caller asked for, so
-     * the row can show the engine's answer. The engine refuses ON where the
-     * modes word list is missing (B3's data gate, issue #169), and that refusal
-     * is the half no frontend is allowed to re-implement. */
+    /* ReqMode13's on/off state, pushed into the live layer and read back: this
+     * returns what the ENGINE holds, not what the caller asked for, so the row
+     * shows the engine's answer. The engine's refusals (see its B3 data gate)
+     * are not re-implemented here. */
     int applyAutoswitch(int want) {
         if (!preedit_) {
             return want; // no layer yet: ensureIc() seeds one from the stored value
