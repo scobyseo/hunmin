@@ -15,11 +15,11 @@ frontends/      fcitx5 addon (C++), Android IME (Kotlin + JNI)
 
 ## Status
 
-**P0–P6 implemented; automatic Hangul/English switching in check for 0.3.**
+**P0–P6 implemented; automatic Hangul/English switching shipped in 0.3.**
 TSF (`hunmin-tsf.dll`, #64) shipped in 0.2. The 0.3 lane (issue #183)
 judges in the engine and switches in each frontend; OFF is the default
 and the feature enables only where its data is present. Check status in
-[`docs/release-notes/0.3.0.md`](docs/release-notes/0.3.0.md) (draft) and
+[`docs/release-notes/0.3.0.md`](docs/release-notes/0.3.0.md) and
 the requirements in [`docs/SPEC-MODES.md`](docs/SPEC-MODES.md). `ctest`:
 **green**.
 
@@ -102,20 +102,17 @@ diffs.
 ## Install
 
 ```sh
-# engine + fcitx5 addon (0.2: three channels — .deb, release APK, Windows
-# installer; see docs/release-notes/0.2.0.md. 0.3 is in check, see
-# docs/release-notes/0.3.0.md)
-gh release download 0.2.0 --repo scobyseo/hunmin   # needs repo access; see below
+# engine + fcitx5 addon (0.3: three channels — .deb, release APK, Windows
+# installer; see docs/release-notes/0.3.0.md)
+gh release download 0.3.0 --repo scobyseo/hunmin
 
 # or build from a clean checkout — gate is the tier-D suite
 tools/build-release.sh deb
 ```
 
-Android: `frontends/android/gradlew assembleDebug` after building the core for
-each ABI (`tools/build-android.sh`). The APK's `versionName` is `0.2.0-p5` —
-the release is `0.2.0` and the `-p5` is the Android build-phase label, not a
-different release; the keymaps APK still reads `0.1.0-p5.5` (measured debt,
-carried into #182's bump).
+Android: `frontends/android/gradlew assembleRelease` after building the core for
+each ABI (`tools/build-android.sh`). The APK's `versionName` is `0.3.0` —
+the release is `0.3.0`; the keymaps APK also reads `0.3.0`.
 The convention is recorded in `docs/MILESTONES.md` §0.1 (issue #9).
 
 **Where the release artefacts come from (issue #8):** CI now builds both —
@@ -129,18 +126,13 @@ generating a throwaway key, so a CI-built release APK proves the release
 requires CI-built artefacts at all, or a local build suffices, is the ruling
 issue #8 asks the maintainer for.
 
-**Where a 0.1 user gets them (issue #7):** the channel is a **GitHub Release on
-tag `0.1.0`**, with `hunmin_0.1.0_amd64.deb` attached — recorded in
-`docs/MILESTONES.md` §0.1, scripted in `tools/release-0.1.sh`. The release is
-published and its attached `.deb` is the artefact from that release run, not the
-stale earlier build (verified by download and `dpkg -c`, 1,252,740 bytes). **But
-this repository is private until after 0.2** (maintainer ruling 2026-10-16), so
-the channel is account-gated: `curl` on the download URL returns 404
-unauthenticated, and a user without repo access cannot fetch 0.1 at all. That is
-the recorded state, not a defect — but it is why issue #7 is still open, whose
-third verification item asks whether the channel is reachable from a clean
-machine. The `.deb` is unsigned, so `dpkg -i` warns; the signed release APK stays
-blocked on issue #1.
+**Where a user gets them (issue #7):** the channel is a **GitHub Release**, with
+`hunmin_0.3.0_amd64.deb`, `hunmin-0.3.0-setup.exe`, and `hunmin-0.3.0-arm64-v8a.apk`
+attached on tag `0.3.0` — recorded in
+`docs/MILESTONES.md` §0.3, scripted in `tools/release-0.3.sh`. This repository
+is public, so `curl` on each download URL returns 200 unauthenticated.
+The `.deb` is unsigned (`-us -uc`), so `dpkg -i` warns; the signed release APK
+stays blocked on issue #1.
 
 **Known limitation (Android voice input):** recognition quality has no
 automated assertion — recorded audio cannot be replayed into the recogniser,
