@@ -890,7 +890,7 @@ int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key
      * claims and the gesture the down services would drift apart. */
     const int fn = hunmin_buffered_preedit_special_peek(l, ev);
     if (fn <= 0) return fn;
-    /* B3/E5: engine owns AUTOSWITCH transition (DESIGN-CORE.md#b3.../#e5...);
+    /* B3/E5: engine owns AUTOSWITCH transition (DESIGN-CORE.md#b3-autoswitch-data-gate-and-default, #e5-special-function-chords);
      * only serviced press flips; refusal/not-ours leaves state unchanged. */
     if (fn == HUNMIN_SPECIAL_AUTOSWITCH && l->ic) l->ic->autoswitch = !l->ic->autoswitch;
     if (l->special_host.perform) l->special_host.perform(l->special_host.user, (hunmin_special_function)fn);
