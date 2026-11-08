@@ -38,7 +38,11 @@ import subprocess
 import sys
 from typing import Any
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import ROOT as _ROOT
+    REPO = str(_ROOT)
+except ImportError:  # run from elsewhere: derive from this file
+    REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(REPO, "libhunmin", "data")
 OUT = os.path.join(REPO, "tests", "golden", "judgement-r8.jsonl")
 

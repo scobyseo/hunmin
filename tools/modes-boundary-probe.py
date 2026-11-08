@@ -73,7 +73,11 @@ import os
 import string
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import ROOT as _ROOT
+    ROOT = str(_ROOT)
+except ImportError:  # run from elsewhere: derive from this file
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Hunmin's own constants, mirrored from libhunmin/src/hunmin_internal.h and
 # libhunmin/include/hunmin.h so a reader does not have to open two files to check

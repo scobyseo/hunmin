@@ -75,3 +75,15 @@ libhangul reference set, not these generators, and the case corpora are
 replayed as merged traces. The remaining `R6`/`R*-정정*` text in the tree is
 either the historical quote in `OPTIONS-MEASURED.md` or the migration note in
 `WINDOWS-TSF-DEVENV-CHECKS.md`.
+
+## Open tooling observation (not fixed)
+
+`tools/gen-case-golden.py --check` cannot pass for the merged case families
+(`case-sebeolsik-final.jsonl`, `case-sin3-p2.jsonl`): the generator emits one
+`meta.case` header per case, while the committed files were merged by
+`tools/merge-golden-cases.py` under the one-trace-per-family policy. The check
+therefore reports "stale" for a file that the merge tool confirms is current.
+The ctest gate is unaffected (`engine-golden-case-*` replays the merged files),
+but the generator's own `--check` has no merged-form comparison. Whether to
+teach `--check` the merge step or document the two-stage flow in its usage is a
+maintainer choice.

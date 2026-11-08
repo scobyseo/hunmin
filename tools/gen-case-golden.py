@@ -33,7 +33,11 @@ import os
 import subprocess
 import sys
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _common import ROOT as _ROOT
+    REPO = str(_ROOT)
+except ImportError:  # run from elsewhere: derive from this file
+    REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(REPO, "libhunmin", "data")
 
 # The layout's defining facts, one case each. Keys only — no expectations here.
