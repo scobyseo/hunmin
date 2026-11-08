@@ -130,3 +130,31 @@ Requirement/contract homes remain `docs/SPEC-MODES.md`, `docs/SPEC-FRONTEND.md`,
 - Host-specific APIs stay in frontends; move only shared, test-equivalent logic.
 - One step at a time, green targeted tests/baseline properties preserved.
 - Any moved contract must keep REQ-MAP/SPEC/DESIGN pointers accurate (no `file:line` anchors).
+
+## Step 1b — P5 micro-slice proposal (investigation, 2026-11-08)
+
+No code move made. Facts gathered to identify a host-agnostic, testable D1 slice.
+
+### Observed frontend patterns
+
+- **fcitx5** (`hunminadapter.cpp`): copies `out.commit` before `applyJudgement()` (ordering fix #178); `take_judgement` → if `HUNMIN_LANGUAGE_*`, deliver switched text and perform host mode change; autoswitch apply/read-back/push with config and `autoswitchDataPresent_`.
+- **TSF** (`keydispatch.cpp`, `composition.cpp`, `tsf.cpp`/settings): consumes `take_judgement`/autoswitch in key/composition flows; delivery differs (native/interim/legacy), and switch-ON disables English passthrough per ruling; host composition/edit sessions own delivery.
+- **Android** (`HunminInputMethodService.kt`, `HunminAdapter.kt`, JNI): consumes `takeJudgement()` and performs `isHangulMode`/InputConnection/layer changes; autoswitch applied to both engines where present; explicit logging for rejected/null cases.
+
+### Candidate slices (not selected)
+
+| Candidate | Why it looks movable | Block / risk |
+|---|---|---|
+| "take judgement and emit host switch" | all read `take_judgement` and branch on `HUNMIN_LANGUAGE_*` | host action is host-specific (fcitx5 input method trigger/config, TSF mode/delivery/passthrough, Android IME mode/layers/InputConnection). Core already owns judgement; moving the branch target is not host-agnostic. |
+| autoswitch desired→effective apply | B3/data gate exists in core; frontends gate/push/read-back | each frontend has different config/store/state propagation (fcitx5 config watcher/push, Android prefs + two engines, TSF registry/config + ApplyAutoswitch). Consolidation needs a cross-frontend state contract; verify on fcitx5+Android+TSF tiers. |
+| key classify→action dispatch | `classify` already in core | dispatch performs host delivery/candidate UI/focus actions. |
+| English shipped load/setup | `load_english_shipped`/data presence in core | when to load, error reporting, and per-frontend data-dir/lifecycle differ. |
+
+### Recommended next investigation (before any D1 code)
+
+1. Choose **one** seam with existing multi-frontend tests (fcitx5 D1/mutations, Android E1 AutoSwitch/Judgement where available, TSF tier-F1/judgement on Windows).
+2. Define acceptance as **no behavior change**: same commits/preedit/judgement outcomes and host-observable state transitions for covered cases.
+3. Prefer an **additive** core/helper API or documented adapter pattern first; refactor frontends one at a time only when that tier is runnable.
+4. Record the micro-slice in an issue (`[core/frontend] #272 P5/D1: ...`) with verification commands; do not close issues.
+
+**Status:** proposal only, for maintainer/next-session selection. No implementation in this step.
