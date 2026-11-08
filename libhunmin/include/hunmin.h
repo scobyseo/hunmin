@@ -300,45 +300,16 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_get_autoswitch_reason(const hu
  * Returns the concatenation. */
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_external_text(hunmin_buffered_preedit *l, const char *text);
 
-/* --- The key rule (issue #128, decision 2026-10-25) ---
- *
- * Precedence is BEHAVIOUR, not presentation, so it lives here instead of being
- * spelled out in each adapter: three frontends used to carry three copies of
- * "a Ctrl chord is a boundary and the key passes", "an unmapped key is a
- * boundary", "the Han/Eng key is the language action", and each copy had its own
- * chance to drift.
- *
- * What stays with the frontend is everything the contract calls a frontend
- * difference (docs/FRONTEND-EQUIVALENCE.md §3): mapping a platform key to
- * (base, shift, mods), and saying whether a candidate list it owns is open and
- * whether this key is one that list consumes. The rule then answers what the
- * shared layer must do with it.
- */
+/* Key rule (issue #128): precedence is behaviour in core; frontends map platform
+ * keys/mods and report candidate ownership (DESIGN-FRONTEND.md Part A/B, FE*). */
 typedef enum hunmin_key_action {
-    /* Ours: feed it and take the commit/preedit the layer produces. */
-    HUNMIN_KEY_FEED = 0,
-    /* The word is finished (or the key is not ours): deliver the word now and
-     * let the key reach the client. */
-    HUNMIN_KEY_BOUNDARY_PASS = 1,
-    /* The Han/Eng action: a boundary, then the other language takes over. */
-    HUNMIN_KEY_LANGUAGE_TOGGLE = 2,
-    /* A key of an open candidate list: the frontend routes it to the list. */
-    HUNMIN_KEY_CANDIDATE = 3,
-    /* The Han/Eng key pressed WITH a chord modifier held: the compound press,
-     * which carries the frontend's special functions instead of toggling the
-     * language (docs/SPEC-MODES.md §E5, ruled 2026-10-31). Appended after
-     * CANDIDATE rather than inserted, because the values are ABI.
-     *
-     * SHIFT is admitted HERE and only here: with an ordinary character it
-     * selects a layout row (`HUNMIN_MOD_SHIFT` is not part of the chord set),
-     * while Shift + the language key is a special combination by ruling
-     * (2026-10-31: "if it is used with normal characters, work as capitalize.
-     * but with special combination such as shift + han/eng, it should be able
-     * to do special work"). A binding on SHIFT alone therefore only ever fires
-     * from the language key; no character event can reach it.
-     *
-     * An unbound chord stays the plain toggle, so a platform with nothing bound
-     * never ends up with a dead Shift+한/영. */
+    HUNMIN_KEY_FEED = 0,           /* feed; consume commit/preedit */
+    HUNMIN_KEY_BOUNDARY_PASS = 1,  /* deliver word; pass key to client */
+    HUNMIN_KEY_LANGUAGE_TOGGLE = 2,/* boundary, then other language */
+    HUNMIN_KEY_CANDIDATE = 3,     /* frontend routes key to open candidate list */
+    /* Han/Eng + chord modifier: special function (SPEC-MODES E5). Appended for ABI.
+     * SHIFT is admitted only here (Shift+Han/Eng special; char Shift selects row;
+     * SHIFT not a chord mod). Unbound chord remains plain toggle. */
     HUNMIN_KEY_LANGUAGE_CHORD = 4
 } hunmin_key_action;
 
