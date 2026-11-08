@@ -16,7 +16,7 @@
  * registration shape -- not the framework -- is what the 30 s inner-loop
  * budget is sensitive to (docs/TEST-FRAMEWORK-OPTIONS.md §2).
  */
-#include "hunmin.h"
+#include "libhunmin-test.h"
 
 #include <gtest/gtest.h>
 
@@ -46,8 +46,7 @@ int first_hanja_index(hunmin_ctx *ctx, int n) {
 class SuggestTest : public ::testing::Test {
   protected:
     void SetUp() override {
-        const char *dirs[] = {"libhunmin/data"};
-        ctx_ = hunmin_ctx_new(dirs, 1);
+        ctx_ = hunmin_test::make_ctx(hunmin_test::env_or("HUNMIN_DATA_PATH","libhunmin/data").c_str());
         ASSERT_NE(ctx_, nullptr);
     }
     void TearDown() override { hunmin_ctx_free(ctx_); }
