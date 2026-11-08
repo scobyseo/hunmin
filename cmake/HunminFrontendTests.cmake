@@ -1,4 +1,4 @@
-# Desktop frontend integration (tier-D1/D2/D3). Rationale: docs/BUILD-SYSTEM.md.
+# Desktop frontend integration (tier-D1/D2/D3). Rationale: docs/DESIGN-BUILD.md.
 if(NOT BUILD_TESTING OR NOT Python3_FOUND)
   return()
 endif()

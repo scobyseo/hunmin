@@ -75,7 +75,7 @@ frontend gets it.
                           SPEC-SCHEMA.md     data file contracts
                           MODES-DATA.md      sources, licences, corpus measurement
                           MODES-METRICS.md   metric definitions + pass lines
-                          MODES-ENGINE-RULES.md  the judgement state machine
+                          DESIGN-MODES.md  the judgement state machine
                           MODES-POSTMORTEM.md    what went wrong, numbered
                         then the working set:
                           TESTING.md         tiers A-E, what proves what
@@ -331,7 +331,7 @@ frontend gets it.
   | requirements R1–R13 | settled | `docs/SPEC-MODES.md` |
   | judgement source (what "valid" looks up) | **ANSWERED** — a syllable-structure test for Hangul (no source), hunspell `en_US` + a user dictionary for English; B1 retired 2026-11-01 | `docs/SPEC-MODES.md` §R8-정정, §R8-정정-2 |
   | metrics + pass lines | defined, none measured | `docs/MODES-METRICS.md` |
-  | engine rules | drafted | `docs/MODES-ENGINE-RULES.md` |
+  | engine rules | drafted | `docs/DESIGN-MODES.md` |
   | third-party correctness | **not started** — must be evaluated against **both** 두벌식 and 세벌식, at minimum 신세벌식 P2 | transcript 2026-10-03 |
   | corpora | three, all outside the repo and all reproducible | `docs/MODES-DATA.md` |
 

@@ -1,4 +1,4 @@
-# Cross-platform conformance (tier-C). Rationale: docs/BUILD-SYSTEM.md.
+# Cross-platform conformance (tier-C). Rationale: docs/DESIGN-BUILD.md.
 if(NOT BUILD_TESTING)
   return()
 endif()

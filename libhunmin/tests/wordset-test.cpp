@@ -33,32 +33,13 @@
 #include <system_error>
 #include <vector>
 
-#include "test-env.h"
-
-extern "C" {
-#include "hunmin.h"
-}
+#include "libhunmin-test.h"
 
 namespace {
 
 const char *kDataPath = nullptr;
 
-std::string scratch_dir() {
-    char *buf = hunmin_test_getenv_dup("TEMP");
-    std::string out;
-    if (buf) {
-        if (*buf) out = buf;
-        free(buf);
-    }
-    if (out.empty()) {
-        buf = hunmin_test_getenv_dup("TMPDIR");
-        if (buf) {
-            if (*buf) out = buf;
-            free(buf);
-        }
-    }
-    return out.empty() ? std::string(".") : out;
-}
+std::string scratch_dir() { return hunmin_test::scratch_dir(); }
 
 /* A scratch file the test owns and removes: a user dictionary, or a malformed
  * one. Kept out of the source tree so a failing run leaves nothing behind. */

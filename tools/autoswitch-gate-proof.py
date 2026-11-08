@@ -22,12 +22,15 @@ green again after the restore. Nothing is left modified on either path.
 import argparse
 import os
 import pathlib
+try:
+    from _common import ROOT
+except ImportError:
+    ROOT = pathlib.Path(__file__).resolve().parents[1]
 import re
 import shutil
 import subprocess
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "libhunmin" / "src"
 DATA = ROOT / "libhunmin" / "data"
 

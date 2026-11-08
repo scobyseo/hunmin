@@ -143,22 +143,14 @@ HUNMIN_EXPORT bool hunmin_ic_peek_key(const hunmin_ic *ic, uint32_t base, uint32
 const char *hunmin_ic_commit(hunmin_ic *ic);
 const char *hunmin_ic_preedit(hunmin_ic *ic);
 
-/* "caps" -> Caps Lock state for expression var P (yethangul modes);
+/* "caps" -> Caps Lock state for expression var P (yethangul modes).
  * "w"/"W"/"z"/"h"/"H" -> 전처리수식 override (pat.im/1136 §2-6), cleared by
- * hunmin_ic_reset (layout defaults return);
- * "autoswitch" -> R13-정정's one on/off state for the automatic Hangul/English
- * switch (docs/SPEC-MODES.md §R13-정정). OFF on a fresh ic and NOT cleared by
- * hunmin_ic_reset: it is a person's preference, not input state. The key
- * surface that would toggle it is HUNMIN_SPECIAL_AUTOSWITCH, whose chord the
- * engine already holds (hunmin_buffered_preedit_special_chord).
- *
- * B3's data gate: ON is REFUSED here -- false, and the value is left at 0 --
- * when hunmin_ctx_autoswitch_data_present(ic's context) answers 0, because the
- * judgement has no dictionary to run on and an enabled switch that can never
- * fire is a lie the settings row would show. OFF is always accepted, so an
- * install that lost its data can still record the preference. A refusal is told
- * from an unknown NAME by hunmin_ic_get_option(), which answers this name in
- * both cases. */
+ * hunmin_ic_reset (layout defaults return).
+ * "autoswitch" -> R13-정정 automatic Hangul/English switch state (SPEC-MODES
+ * R13-정정): OFF on a fresh ic, NOT cleared by hunmin_ic_reset (preference).
+ * ON is refused (false, value left 0) when hunmin_ctx_autoswitch_data_present()
+ * is 0 (B3 gate; DESIGN-CORE.md#b3-autoswitch-data-gate-and-default); OFF is
+ * always accepted. Distinguish refusal from unknown name via get_option(). */
 bool hunmin_ic_set_option(hunmin_ic *ic, const char *name, int value);
 
 /* Reads back what hunmin_ic_set_option() writes; the same names, one home. The

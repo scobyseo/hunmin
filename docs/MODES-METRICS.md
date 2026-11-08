@@ -327,104 +327,14 @@ being contradicted four times in the body text they were recreated in prose.
 **The loss of the ④ strip rules also contaminates the follow-on numbers** —
 MODES-DATA.md §4. The EFFECT/COST figures inherit that loss.
 
-### Harnesses that were unfit (all returned "confident zeros")
+## 3. Harness design (moved, #272 D4)
 
-| Harness | Defect |looked like |
-|---|---|---|
-| `count-corpus.py` | `len(obj) > 40` discards all short JSON bodies | All JSON counted as 0 |
-| `count-corpus.py` | `obj.get("data", [])` discards other schemas | Records disappear |
-| `metric-2-3.py` | Passes Hangul to `hunmin-sim --keys` (which requires keyboard keys) | Empty commit |
-| `measure.py` | conjoining (U+1100) vs compatibility (U+3131) jamo | All None |
-| `measure.py` | jungseong range ends at `JUNG+9` (actually `+20`) | Missing ㅜㅛㅠㅡㅣ |
-| debug probe | `hunmin_ic_commit` is a **destructive** read; read per key | 사람 → 람 |
-| `tools/modes-metrics.py`, first run 2026-11-04 | typed punctuation as its own ASCII key; sin3-p2 types `; " '` as Shift+P / Shift+K / Shift+J | 31 of 1,000 sentences "untypeable", 969 graded, −12.78% — **void**, §1.2/§1.3 carry the corrected run |
+The harness lessons, keystroke-inversion notes, and "what was built instead"
+design rationale were folded into
+[`DESIGN-MODES.md` §4 — Measurement and harness design](DESIGN-MODES.md#4-measurement-and-harness-design-folded-from-modes-metrics-272-d4)
+per issue #272 (D4). Measured figures and metric readings remain in this
+document's §1–§2.
 
-**Every failure in this file has the same shape: a plausible-looking number
-produced by a tool that cannot fail loudly.** The seventh member of that table is
-this document's own harness: its first run was committed and quoted before the
-literal probe existed, so those figures travelled (commit `8fc387d`, PR #254).
-The correction is a probe, not a nudge — see §1.3(a).
-
-### Filter table (unusable — because of §3)
-
-```
-filter          runs     EFFECT    COST
-raw 7.85M    7,850,834    88.7%   84.5%
-len>=2       7,839,312    88.7%   84.5%   ← 2자 필터는 비용 없다
-len>=3       7,653,438   100.0%   50.7%   ← 3자 필터가 COST를 반으로
-len>=4       6,268,792   100.0%   21.8%
-len>=2 top200k  200,000  100.0%   80.0%   ← 실용적 선택지
-```
-
-The `len>=2` cap of 200k is written as 2.5 MB, EFFECT 100%, COST 80% — but this
-figure is **a re-measurement target and has no basis, because the procedure that
-produced the filter table below is invalid.** It must be re-measured with the
-conclusion that `len>=2 top200k` is the "practical choice" at its center.
-
-`len>=4` dropping to COST 21.8% is the only power-saving step in the table that
-points in the right direction: **length filters are the direction of the work**
-(SPEC-MODES E3).
-
-### Keystroke inversion rules — obtained by brute force
-
-`hunmin_ic_process` takes US-QWERTY characters (header: "case encodes shift,
-0x08 is backspace") — therefore a Hangul word must be turned back into a
-keystroke sequence. Those facts were obtained by brute-forcing the engine (not
-by reading a table):
-
-```
-가→rk   나→sk   사→tk                      초성/중성: 예상대로
-사+t→살   사+t+T→ㄳㅆ   사+tt→삿             쌍받침은 키를 두 번
-rnR→굮   rnrR→국ㄲ                        시프트는 자음 쪽
-```
-
-The inversion in `measure.py` now produces the correct keys (`사람` → `tkfka`,
-verified with `hunmin-sim`), **but with ctypes the same keys return `람` while
-the CLI returns `사람`.** One unexplained difference remains in the receive
-path. That `hunmin_ic_commit` is a destructive read, so reading per key, was
-part of that difference, and reporting "the receive path is broken" without
-comparing the two paths with the same keys was mistake number 14.
-
-**Recommendation:** do not build more new harnesses; use the **already existing
-and verified X11 e2e path** (`tests/e2e/`, the dkit client) — real key input
-works there and there is no inversion. If that cannot be done, add a test-only
-entry point to libhunmin that receives finished text. Neither re-derives the
-combination rules the engine has already implemented.
-
-### What was built instead, and why it is not a seventh member of the table (2026-11-04)
-
-`tools/modes-metrics.py` is a new harness, so it has to answer the recommendation
-above rather than quietly become the seventh row. Three answers, each a
-measurement rather than a preference:
-
-- **It does not re-derive the combination rules.** Hangul keys come from
-  `tools/jamo-keytable.py`, which probes the engine per jamo in its slot
-  (`사람` → `nfyfz`, 겹받침 as two jong keys) and records which twin 중성 it chose.
-  The one thing §3 proves is fatal — a hand-derived jamo→key map — is not in the
-  path.
-- **The X11 e2e path cannot answer this question.** It types real key events into
-  a real client, which is why it has no inversion; but E4 grades what the
-  *judgement* decided per eojeol, and that answer only exists in
-  `hunmin_buffered_preedit` (`take_judgement`, the delivered script). Reading it
-  off a client's text afterwards cannot tell a correct switch from a lucky
-  coincidence, and it needs an X session. The harness drives the same layer
-  `tools/sim.c` drives, at the seam the frontends sit on.
-- **The unexplained ctypes difference is now a control, not a footnote.** §3
-  recorded ctypes returning `람` where the CLI returned `사람`. The harness
-  compares its replay against `hunmin-sim --judge` for the same key string — every
-  10th sentence by default, `--cross-check-every 1` for all — and **one mismatch
-  fails the whole run** with both answers printed. The 2026-11-04 run compared 99
-  sentences and found 0. A run whose receive paths disagree produces no number.
-
-Two more guards sit on the same principle, because §3's six failures all returned
-a confident zero: the OFF arm must deliver every eojeol as written (1,000 of
-1,000 do; a sentence it could not would be counted, not averaged in), and `--selfcheck` asserts that the
-comparator notices a changed sentence, that the transition count matches a hand
-count, and that the two receive paths agree — registered as ctest
-`modes-metrics-selfcheck`, so the guards run where a guard that cannot fail would
-otherwise stay green.
-
----
 
 # 4. References
 

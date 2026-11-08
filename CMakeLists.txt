@@ -1,4 +1,4 @@
-# Build system index. Rationale: docs/BUILD-SYSTEM.md (bodies there, 1-line pointers here).
+# Build system index. Rationale: docs/DESIGN-BUILD.md (bodies there, 1-line pointers here).
 # The root is libraries, install, toolchains, frontend discovery, then test includes (issue #271).
 # clangd needs a compilation database (gitignored).
 cmake_minimum_required(VERSION 3.22)
@@ -42,7 +42,7 @@ set_target_properties(hunmin_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_definitions(hunmin_static PUBLIC HUNMIN_STATIC)
 target_compile_definitions(hunmin_static PRIVATE HUNMIN_DEFAULT_DATA_DIR=\"${CMAKE_INSTALL_FULL_DATADIR}/hunmin\")
 install(FILES libhunmin/include/hunmin.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-# data, in two parts (see docs/BUILD-SYSTEM.md#data-installs-as-two-components).
+# data, in two parts (see docs/DESIGN-BUILD.md#data-installs-as-two-components).
 install(DIRECTORY libhunmin/data/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin COMPONENT data PATTERN "modes" EXCLUDE)
 install(DIRECTORY libhunmin/data/modes/ DESTINATION ${CMAKE_INSTALL_DATADIR}/hunmin/modes COMPONENT modes-data)
 set(HUNMIN_HAS_LIBHANGUL OFF)

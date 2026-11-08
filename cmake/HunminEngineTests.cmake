@@ -1,4 +1,4 @@
-# Engine golden coverage (tier-A goldens over hunmin-sim). Rationale: docs/BUILD-SYSTEM.md.
+# Engine golden coverage (tier-A goldens over hunmin-sim). Rationale: docs/DESIGN-BUILD.md.
 if(BUILD_TESTING AND Python3_FOUND AND HUNMIN_HAS_LIBHANGUL AND HUNMIN_SH)
   hunmin_add_test(NAME goldens-reproducible COMMAND ${HUNMIN_SH} ${CMAKE_CURRENT_SOURCE_DIR}/tools/regen-goldens.sh ${CMAKE_CURRENT_BINARY_DIR}/goldens-check ${CMAKE_CURRENT_SOURCE_DIR} check LABELS tier-A)
 endif()

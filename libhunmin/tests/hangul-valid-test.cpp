@@ -43,11 +43,7 @@
 #include <string>
 #include <vector>
 
-#include "test-env.h"
-
-extern "C" {
-#include "hunmin.h"
-}
+#include "libhunmin-test.h"
 
 namespace {
 
@@ -98,10 +94,7 @@ int valid_at(uint32_t c) { return hunmin_hangul_valid(one(c).c_str()); }
 
 int valid(const std::string &s) { return hunmin_hangul_valid(s.c_str()); }
 
-hunmin_ctx *make_ctx() {
-    const char *dirs[1] = {kDataPath};
-    return hunmin_ctx_new(dirs, 1);
-}
+hunmin_ctx *make_ctx() { return hunmin_test::make_ctx(kDataPath); }
 
 /* Everything the client would have received for one word: the per-key commits
  * accumulated, plus the syllable still composing. */

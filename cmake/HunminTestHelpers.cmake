@@ -1,4 +1,4 @@
-# hunmin_add_test (H2) and the Android shell helper. Rationale: docs/BUILD-SYSTEM.md.
+# hunmin_add_test (H2) and the Android shell helper. Rationale: docs/DESIGN-BUILD.md.
 function(hunmin_add_test)
   set(options "")
   set(oneValueArgs NAME TIMEOUT SKIP_RETURN_CODE RUN_SERIAL WORKING_DIRECTORY)

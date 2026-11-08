@@ -2,7 +2,7 @@
 
 The automatic Hangul/English switch has two surfaces: a key combination and a settings
 UI. The requirement is `docs/SPEC-MODES.md` §R13-정정 and is **not restated here**; the
-state it governs is described once in `docs/MODES-ENGINE-RULES.md` §3.
+state it governs is described once in `docs/DESIGN-MODES.md` §3.
 
 This page exists because that UI half is built three times, once per frontend, and only
 one of the three exists (#176, fcitx5). #177 (Android) and #175/#203 (TSF) build theirs
@@ -106,7 +106,7 @@ Recorded here rather than decided, because each is that task's own call:
 
 ## 6. What "verified" looks like
 
-The engine's own contract is pinned in `libhunmin/tests` (`docs/MODES-ENGINE-RULES.md` §3
+The engine's own contract is pinned in `libhunmin/tests` (`docs/DESIGN-MODES.md` §3
 lists the cases). A new surface has to show four things of its own:
 
 1. the label and the reason come from the engine's answers, not constants;

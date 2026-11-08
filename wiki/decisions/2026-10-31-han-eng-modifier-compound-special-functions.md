@@ -8,7 +8,7 @@ tags: [decision, modes, engine, fcitx5, android, tsf]
 sources:
   - ../../../docs/SPEC-MODES.md
   - ../../../docs/OPTIONS-MEASURED.md
-  - ../../../docs/MODES-ENGINE-RULES.md
+  - ../../../docs/DESIGN-MODES.md
 confidence: high
 ---
 

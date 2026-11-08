@@ -21,20 +21,13 @@
 #include <string>
 #include <system_error>
 
-#include "test-env.h"
-
-extern "C" {
-#include "hunmin.h"
-}
+#include "libhunmin-test.h"
 
 namespace {
 
 const char *kDataPath = nullptr;
 
-hunmin_ctx *make_ctx() {
-    const char *dirs[1] = {kDataPath};
-    return hunmin_ctx_new(dirs, 1);
-}
+hunmin_ctx *make_ctx() { return hunmin_test::make_ctx(kDataPath); }
 
 /* A plain character event: no modifiers, no list, not the language key. */
 hunmin_key_event ch(uint32_t base) {
@@ -509,7 +502,7 @@ TEST_F(KeyRuleTest, ShiftIsASpecialCombinationOnlyWithTheLanguageKey) {
 
 TEST_F(KeyRuleTest, TheHookFiresInEveryLayoutTheEngineShips) {
     /* R13's "identical whichever layout it is pressed in"
-     * (docs/MODES-ENGINE-RULES.md §3) is a claim about the RULE, not about one
+     * (docs/DESIGN-MODES.md §3) is a claim about the RULE, not about one
      * layout, so the assertion is a census over the shipped data rather than the
      * dubeolsik the fixture happens to build: every layout the engine can
      * instantiate answers the same two actions for the same event. A new layout
@@ -561,7 +554,7 @@ TEST_F(KeyRuleTest, TheHookFiresInEveryLayoutTheEngineShips) {
 }
 
 TEST_F(KeyRuleTest, TheHookIsDecidedBeforeTheBufferIsFed) {
-    /* docs/MODES-ENGINE-RULES.md §3: "this hook must be processed before
+    /* docs/DESIGN-MODES.md §3: "this hook must be processed before
      * inference -- pressing the hangul/latin key while inference is on is the
      * signal 'do not do this automatically'". Two halves, both measured here.
      *

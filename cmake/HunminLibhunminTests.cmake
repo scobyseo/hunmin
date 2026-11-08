@@ -1,4 +1,4 @@
-# libhunmin unit coverage. Rationale: docs/BUILD-SYSTEM.md (1-line pointers here).
+# libhunmin unit coverage. Rationale: docs/DESIGN-BUILD.md (1-line pointers here).
 if(NOT BUILD_TESTING OR NOT Python3_FOUND)
   return()
 endif()

@@ -23,11 +23,13 @@ when it does not, what the first divergence is.
 import argparse
 import json
 import pathlib
+try:
+    from _common import ROOT
+except ImportError:
+    ROOT = pathlib.Path(__file__).resolve().parents[1]
 import subprocess
 import sys
 import tempfile
-
-ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 # The same per-case engine options tools/gen-conformance.py knows about: a case
 # names these in its meta, so one merged case cannot carry two different values.

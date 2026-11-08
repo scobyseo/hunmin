@@ -12,7 +12,7 @@ dictionaries drops English reproduction rate to half.
 
 This document contains **requirements only**. Measurement results are in
 `docs/MODES-METRICS.md`, data and licences in `docs/MODES-DATA.md`, engine rules
-and the state machine in `docs/MODES-ENGINE-RULES.md`, and the failures of the
+and the state machine in `docs/DESIGN-MODES.md`, and the failures of the
 investigation in `docs/MODES-POSTMORTEM.md`.
 
 ## How to read this document — what is settled and what can change
@@ -405,7 +405,7 @@ current `save_preedit()` (`ic.c:127-128`) renders **only one**
 `jaso_to_string(cho, jung, jong)`, so it is a single-syllable preedit, and this
 has to change too.
 
-The load and how to measure it are put in `docs/MODES-ENGINE-RULES.md` §4.
+The load and how to measure it are put in `docs/DESIGN-MODES.md` §4.
 
 ## R5. The composition buffer in the OFF state [D]
 > 자동변환 기능이 꺼져있을 때, 영어 모드에서는 글자 단위로 commit 되어야 해.
@@ -772,7 +772,7 @@ the value:**
   separately and the feature is only enable-able where that data is present.
   Recorded with its reasoning in
   `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`; the mechanism that
-  enforces it is design, recorded in `docs/MODES-ENGINE-RULES.md` §3, not in this
+  enforces it is design, recorded in `docs/DESIGN-MODES.md` §3, not in this
   requirement. (The assignment part of E5 remains undecided; see below.)
 
 ## Does this decision erase the earlier ones
@@ -1223,7 +1223,7 @@ delimiters.
 
 | File | Content |
 |---|---|
-| `docs/MODES-ENGINE-RULES.md` | the engine state machine of R4/R3, the key hook of R13, the load and its measurement |
+| `docs/DESIGN-MODES.md` | the engine state machine of R4/R3, the key hook of R13, the load and its measurement |
 | `docs/MODES-DATA.md` | corpus scale, licences, and the measurements behind the *old* `valid` criterion — R8-정정 replaced it, so these sections are the record of a measurement, not the current definition |
 | `docs/MODES-METRICS.md` | definitions of metrics ①②③, pass lines, measurement results and invalidation declarations |
 | `docs/MODES-POSTMORTEM.md` | the failures committed while investigating this requirement |
@@ -1237,5 +1237,5 @@ What is not in this document, and where it is:
 | EFFECT/COST numbers, filter table, key-inversion rules | MODES-METRICS.md §3 (but the numbers in §3 are declared invalid) |
 | Corpus scale numbers, whether distributable | MODES-DATA.md §2 |
 | AIHub corpus schema, cross-validation method | MODES-DATA.md §2 (AIHub section) |
-| Candidates and constraints for the key combination assignment | MODES-ENGINE-RULES.md §3 |
+| Candidates and constraints for the key combination assignment | DESIGN-MODES.md §3 |
 | The 22 failures committed during the investigation | MODES-POSTMORTEM.md |

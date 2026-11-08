@@ -36,10 +36,12 @@ what it guards is not a check).
 """
 import argparse
 import pathlib
+try:
+    from _common import ROOT
+except ImportError:
+    ROOT = pathlib.Path(__file__).resolve().parents[1]
 import subprocess
 import sys
-
-ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # Not driven here, and each one has a home that does drive it. A golden with no
 # home belongs in this list only with the ctest id that replaced it, because the

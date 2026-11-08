@@ -24,12 +24,15 @@ import argparse
 import json
 import os
 import pathlib
+try:
+    from _common import ROOT
+except ImportError:
+    ROOT = pathlib.Path(__file__).resolve().parents[1]
 import re
 import shutil
 import subprocess
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
 LAYOUTS = ROOT / "libhunmin/data/layouts"
 
 # US-QWERTY shifted punctuation, needed because layouts key on the unshifted

@@ -7,7 +7,7 @@ status: active
 tags: [decision, modes, question]
 sources:
   - ../../../docs/SPEC-MODES.md
-  - ../../../docs/MODES-ENGINE-RULES.md
+  - ../../../docs/DESIGN-MODES.md
   - ../../../docs/architecture.md
 confidence: high
 ---
@@ -47,7 +47,7 @@ confidence: high
 The engine's job is composition and commit/preedit. R8's judgement probes the
 composition buffer (syllable→word, the delimiter boundary on every layout,
 `STR_CAP` truncation, preedit length) — a load question with no measurement yet
-(`docs/MODES-ENGINE-RULES.md` §4) and a state model not built for dual-layout
+(`docs/DESIGN-MODES.md` §4) and a state model not built for dual-layout
 shadow sessions. Moving that into the engine would add speculative ABI surface
 before the measurement exists. The engine owns *how* text composes; the frontend
 owns *which* word is a valid word.

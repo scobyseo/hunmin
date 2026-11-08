@@ -1806,7 +1806,7 @@ back to the key-down toggle and the case above was replaced by
 from the measurement is §HEK-2's platform rows -- that Windows reports the held
 `VK_HANGEUL` as down, and that a second key arrives while it is held -- which is
 what made the chord believable before it was built. See
-`docs/MODES-ENGINE-RULES.md` §3 for what replaced it.
+`docs/DESIGN-MODES.md` §3 for what replaced it.
 
 ### HEK-4 The options
 
@@ -1873,7 +1873,7 @@ switch on/off") cannot be built on any frontend.
 ## E5 — the 한/영 key: what each single-press / compound-press assignment costs
 
 Status: **open** (issue #159). The requirement is `docs/SPEC-MODES.md` §E5 and the
-hook's placement is `docs/MODES-ENGINE-RULES.md` §3; neither is restated here. What is
+hook's placement is `docs/DESIGN-MODES.md` §3; neither is restated here. What is
 priced here is the assignment those two leave open, and the two *mechanisms* the words
 "단일 입력 / 복합 입력" can mean.
 
@@ -1890,7 +1890,7 @@ layers that exist and a sequence does not.
 ### E5-0 The premises, checked first
 
 Four premises are carried by the issue, `docs/SPEC-MODES.md` §E5 and
-`docs/MODES-ENGINE-RULES.md` §3. `AGENTS.md` asks for stated premises to be checked as
+`docs/DESIGN-MODES.md` §3. `AGENTS.md` asks for stated premises to be checked as
 carefully as one's own result, so each was run against the tree before anything was
 priced.
 
@@ -1908,7 +1908,7 @@ carried across a language toggle — the binding this row says no symbol returns
 `hunmin_buffered_preedit_special_chord()`, and the transition is the engine's
 (`hunmin_buffered_preedit_special()` flips its own value on a serviced press, ruled
 2026-11-01). What survives from the row is its *requirement* half only. Both halves are
-recorded in `docs/MODES-ENGINE-RULES.md` §3 ("The value the `AUTOSWITCH` function flips").
+recorded in `docs/DESIGN-MODES.md` §3 ("The value the `AUTOSWITCH` function flips").
 The row above is left as measured on its own date rather than rewritten.
 
 **Correction (2026-11-02, issue #174): row 3 no longer holds.** The inert shipping state
@@ -2238,7 +2238,7 @@ route the Han/Eng press through it. That routing *is* the per-frontend work:
 | fcitx5 | three things before any test can pass: report `language_key = 1` for the `Hangul` keysym, stop returning early on releases (a hold state needs the release), and get the keysym past fcitx's trigger (`TriggerKeys` or a `PreInputMethod` watcher — §E5-2 addendum). Then the same three calls as Android, with a host that refuses `VOICE` (`supports()` → 0), because there is no recorder on the platform | a tier-D1 case in `testhunmin`: feed `FcitxKey_Hangul` with the Alt state and assert `..._special()` returns the bound function and the refusal path returns `-1`, plus a release-order case. Not writable here: no fcitx5 tree on this host |
 
 **The dispatch has a home too, ruled the same day** (the maintainer's paragraph quoted in
-`docs/MODES-ENGINE-RULES.md` §3): the frontend supplies the key codes and the function
+`docs/DESIGN-MODES.md` §3): the frontend supplies the key codes and the function
 implementations, the engine owns each `function → chord` binding, resolves one event to one
 function and refuses what nobody can service. Five append-only symbols carry it —
 `hunmin_buffered_preedit_special_bind/_special_chord/_special_host/_special` and
@@ -2289,7 +2289,7 @@ and Shift is a free slot a frontend or a store may bind, not the default for eit
   this box (no cmake, no headers), so every claim in that addendum is code-shape, not
   observed keystrokes. The version the tree requires (>= 5.1.13) is what CI builds.
 - Changed files: `docs/OPTIONS-MEASURED.md` (this section and the header table),
-  `docs/SPEC-MODES.md` §E5 and `docs/MODES-ENGINE-RULES.md` §3 (a one-line pointer each —
+  `docs/SPEC-MODES.md` §E5 and `docs/DESIGN-MODES.md` §3 (a one-line pointer each —
   no requirement text moves).
 - Changed by §E5-6 (engine): `libhunmin/include/hunmin.h` (the appended enum value),
   `libhunmin/src/buffered_preedit.c` (`classify`), `libhunmin/tests/key-rule-test.cpp`
@@ -2672,7 +2672,7 @@ wording; #163 holds it, so this paper records it and leaves it there.
   "not english" and `..._english_ready` answers 0 (B3's data gate); the user's
   words are a plain-text file merged into the same lookup at load time.
 - **The substrate the judgement needs already ships**, which
-  `docs/MODES-ENGINE-RULES.md` does not yet say. That document's header reads
+  `docs/DESIGN-MODES.md` does not yet say. That document's header reads
   "design direction settled, no core implementation" and its "Where the mode
   lives" section plans the mode onto `hunmin_ctx`; the tree instead has
   `hunmin_buffered_preedit` constructed with **both** layout ids
@@ -2810,7 +2810,7 @@ has not produced a wrong decision yet, only re-reads.
   Korean side of the validity pair is stated from R8-정정's definition and
   labelled as such; its measurement is E1's, and E1's test does not exist.
 - **Not touched deliberately:** `docs/REMAINING-WORK.md` and `AGENTS.md`
-  (parallel sessions); `docs/MODES-ENGINE-RULES.md` §1 (edited here as a finding,
+  (parallel sessions); `docs/DESIGN-MODES.md` §1 (edited here as a finding,
   belongs to #168's PR); `docs/SPEC-MODES.md` (no requirement text changed — the
   R9/E3 method conflict is #163's, and R8-정정's stale "left open" sentence is
   recorded in B1-0 rather than rewritten, because the two texts disagree about

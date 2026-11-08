@@ -34,7 +34,7 @@ architectures satisfy it:
 **Decision (2026-10-13): Adaptor-owned.** R8 is too heavy for the engine: it
 touches composition-unit (syllable→word), the composition boundary on every
 layout, `STR_CAP` truncation semantics, and preedit length — a load question
-with no measurement yet (`MODES-ENGINE-RULES.md §4`), plus a `hunmin_ctx` state
+with no measurement yet (`DESIGN-MODES.md §4`), plus a `hunmin_ctx` state
 model that is not built for dual-layout shadow sessions. The engine's job is
 composition and commit/preedit; a cross-frontend validity judgement is a
 frontend concern. The engine keeps `hunmin_ctx` as a single-layout session and

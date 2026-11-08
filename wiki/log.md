@@ -832,7 +832,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   three frontends; default behaviour, composition selectable in the config dialog), and
   the sub-decisions that were *not* made, listed rather than absorbed.
 - Consequential updates, not wiki actions: `docs/SPEC-MODES.md` §E5 (assignment decided
-  → `[D]`, remaining parameters named), `docs/MODES-ENGINE-RULES.md` §3 (the hook's
+  → `[D]`, remaining parameters named), `docs/DESIGN-MODES.md` §3 (the hook's
   allocation), `docs/OPTIONS-MEASURED.md` §E5 header row (§E5-3's option 1/2 family is
   what was chosen; the modifier-per-function slot stays open), `docs/REMAINING-WORK.md`
   B4 (the "assignment still open" clause is superseded).

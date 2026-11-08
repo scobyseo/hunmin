@@ -31,30 +31,13 @@
 #include <string>
 #include <vector>
 
-#include "test-env.h"
-
-extern "C" {
-#include "hunmin.h"
-}
+#include "libhunmin-test.h"
 
 namespace {
 
 const char *kDataPath = nullptr;
 
-std::string env_or(const char *name, const char *fallback) {
-    char *buf = hunmin_test_getenv_dup(name);
-    std::string out = fallback;
-    if (buf) {
-        if (*buf) out = buf;
-        free(buf);
-    }
-    return out;
-}
-
-hunmin_ctx *make_ctx() {
-    const char *dirs[1] = {kDataPath};
-    return hunmin_ctx_new(dirs, 1);
-}
+hunmin_ctx *make_ctx() { return hunmin_test::make_ctx(kDataPath); }
 
 /* One event of a test sequence. base is the unshifted US-QWERTY character;
  * shift is the explicit modifier bit (hunmin_ic_process_key's contract). */
@@ -704,7 +687,7 @@ TEST_F(LayerTest, ASymbolDoesNotSplitTheDigitRun) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    const std::string path = env_or("HUNMIN_DATA_PATH", "libhunmin/data");
+    const std::string path = hunmin_test::env_or("HUNMIN_DATA_PATH", "libhunmin/data");
     kDataPath = path.c_str();
     return RUN_ALL_TESTS();
 }

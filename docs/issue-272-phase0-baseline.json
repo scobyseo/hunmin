@@ -1,0 +1,3738 @@
+{
+  "cmake_show_only": "json-v1",
+  "kind": "issue-272-phase0-ctest-baseline",
+  "test_count": 113,
+  "tests": [
+    {
+      "backtrace": 369,
+      "command": [
+        "/usr/bin/sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/abi-check.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/libhunmin.so.0.3.0",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/tests/abi/symbols.txt"
+      ],
+      "name": "abi",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "guard",
+            "tier-B"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 514,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/check-align-16k.py"
+      ],
+      "name": "align-16k",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-E"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 519,
+      "command": [
+        "/usr/bin/cmake",
+        "--build",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build",
+        "-j",
+        "4"
+      ],
+      "name": "builds",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "guard"
+          ]
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 600.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 523,
+      "command": [
+        "/usr/bin/sh",
+        "-c",
+        "if cmake --build /home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build --target help 2>/dev/null | grep -q hunmin_addon; then\n       cmake --build /home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build --target hunmin_addon;\n     else\n       echo 'builds-fcitx5-addon: SKIPPED -- no hunmin_addon target, which means Fcitx5Core >= 5.1.13 was not found when this tree was configured (CMakeLists.txt printed \"Fcitx5Core not found: fcitx5 addon disabled\"). The addon was NOT compiled and NOT checked here; the tier-C/D rows that need it did not run either.';\n       exit 77;\n     fi"
+      ],
+      "name": "builds-fcitx5-addon",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "guard"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 600.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 374,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/conformance-coverage.py",
+        "--check"
+      ],
+      "name": "conformance-coverage",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "guard",
+            "tier-C"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 504,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/d3-reservation-test.sh"
+      ],
+      "name": "d3-reservation",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "slow",
+            "tier-D3"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 354,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/check-data-split.py",
+        "--build-dir",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build",
+        "--cmake",
+        "/usr/bin/cmake",
+        "--sim",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--config",
+        ""
+      ],
+      "name": "data-split",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-B"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 533,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/docs-lint.py",
+        "--build-dir",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+      ],
+      "name": "docs-lint",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "guard",
+            "slow",
+            "tier-G"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 379,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/basic-syllables.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_basic-syllables.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 384,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/cultural-anthem-dubeolsik.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_cultural-anthem-dubeolsik.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 389,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/cultural-anthem-sin3-p2.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_cultural-anthem-sin3-p2.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 394,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/cultural-pangram-colemak.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_cultural-pangram-colemak.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 399,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/cultural-pangram-dvorak.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_cultural-pangram-dvorak.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 404,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/cultural-pangram-us-qwerty.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_cultural-pangram-us-qwerty.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 409,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/cultural-seosi-dubeolsik.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_cultural-seosi-dubeolsik.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 414,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/cultural-seosi-sin3-p2.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_cultural-seosi-sin3-p2.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 419,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/shift-arrow-selection.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_shift-arrow-selection.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 424,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/words-ahnmatmae.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_words-ahnmatmae.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 429,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/words-dubeolsik-yet.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_words-dubeolsik-yet.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 434,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/words-romaja.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_words-romaja.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 439,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/words-sebeolsik-3-2.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_words-sebeolsik-3-2.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 444,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/words-sebeolsik-3-90.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_words-sebeolsik-3-90.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 449,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/words-sebeolsik-final.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_words-sebeolsik-final.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 454,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/words-sebeolsik-noshift.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_words-sebeolsik-noshift.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 459,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/trace-check.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/android/words-sebeolsik-yet.trace.in",
+        "--runner",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh"
+      ],
+      "name": "engine-android-conformance-tests_conformance_android_words-sebeolsik-yet.trace.in",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_BUILD_DIR=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 24,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/buffered-preedit-test"
+      ],
+      "name": "engine-buffered-preedit",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_DATA_PATH=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole"
+        }
+      ]
+    },
+    {
+      "backtrace": 9,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/candidate-tables-test"
+      ],
+      "name": "engine-candidates",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_DATA_PATH=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole"
+        }
+      ]
+    },
+    {
+      "backtrace": 14,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/commit-text-test"
+      ],
+      "name": "engine-commit-text",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_DATA_PATH=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole"
+        }
+      ]
+    },
+    {
+      "backtrace": 550,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/test/testhunmin"
+      ],
+      "name": "engine-d1-fcitx5",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-D1"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/test"
+        }
+      ]
+    },
+    {
+      "backtrace": 552,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/test/testjudgement"
+      ],
+      "name": "engine-d1-judgement",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-D1"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/test"
+        }
+      ]
+    },
+    {
+      "backtrace": 554,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/test/testhunminui"
+      ],
+      "name": "engine-d2-ui",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-D2"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/test"
+        }
+      ]
+    },
+    {
+      "backtrace": 509,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/testfcitx5d3",
+        "--mode",
+        "candidate",
+        "--run-d3",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/run-d3.sh",
+        "--sim",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--harness",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/xim-harness",
+        "--typer",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/xtest-type.py",
+        "--addon-dir",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/fcitx5-addon",
+        "--im-conf",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/src/hunmin.conf",
+        "--addon-conf",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/src/hunmin-addon.conf",
+        "--src",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole",
+        "--cases",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/cases-candidate.tsv",
+        "--sys-addon-dir",
+        "/usr/lib/x86_64-linux-gnu/fcitx5",
+        "--sys-pkgdatadir",
+        "/usr/share/fcitx5"
+      ],
+      "name": "engine-d3-candidate",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "slow",
+            "tier-D3"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 300.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 499,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/testfcitx5d3",
+        "--mode",
+        "edit",
+        "--edit-cases",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/cases-edit.tsv",
+        "--run-d3",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/run-d3.sh",
+        "--sim",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--harness",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/xim-harness",
+        "--typer",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/xtest-type.py",
+        "--addon-dir",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/fcitx5-addon",
+        "--im-conf",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/src/hunmin.conf",
+        "--addon-conf",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/src/hunmin-addon.conf",
+        "--src",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole",
+        "--cases",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/cases.tsv",
+        "--sys-addon-dir",
+        "/usr/lib/x86_64-linux-gnu/fcitx5",
+        "--sys-pkgdatadir",
+        "/usr/share/fcitx5"
+      ],
+      "name": "engine-d3-edit",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "slow",
+            "tier-D3"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 300.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 489,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/testfcitx5d3",
+        "--mode",
+        "gtk3",
+        "--gtk-ver",
+        "3.0",
+        "--run-d3",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/run-d3.sh",
+        "--sim",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--harness",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/gtk-harness.py",
+        "--typer",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/xtest-type.py",
+        "--addon-dir",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/fcitx5-addon",
+        "--im-conf",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/src/hunmin.conf",
+        "--addon-conf",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/src/hunmin-addon.conf",
+        "--src",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole",
+        "--cases",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/cases.tsv",
+        "--sys-addon-dir",
+        "/usr/lib/x86_64-linux-gnu/fcitx5",
+        "--sys-pkgdatadir",
+        "/usr/share/fcitx5"
+      ],
+      "name": "engine-d3-gtk3",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "slow",
+            "tier-D3"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 300.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 494,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/testfcitx5d3",
+        "--mode",
+        "gtk4",
+        "--gtk-ver",
+        "4.0",
+        "--run-d3",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/run-d3.sh",
+        "--sim",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--harness",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/gtk-harness.py",
+        "--typer",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/xtest-type.py",
+        "--addon-dir",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/fcitx5-addon",
+        "--im-conf",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/src/hunmin.conf",
+        "--addon-conf",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/src/hunmin-addon.conf",
+        "--src",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole",
+        "--cases",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/cases.tsv",
+        "--sys-addon-dir",
+        "/usr/lib/x86_64-linux-gnu/fcitx5",
+        "--sys-pkgdatadir",
+        "/usr/share/fcitx5"
+      ],
+      "name": "engine-d3-gtk4",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "slow",
+            "tier-D3"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 300.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 484,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/testfcitx5d3",
+        "--mode",
+        "x11",
+        "--run-d3",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/run-d3.sh",
+        "--sim",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--harness",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/xim-harness",
+        "--typer",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/xtest-type.py",
+        "--addon-dir",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/fcitx5-addon",
+        "--im-conf",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/src/hunmin.conf",
+        "--addon-conf",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/frontends/fcitx5/src/hunmin-addon.conf",
+        "--src",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole",
+        "--cases",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/cases.tsv",
+        "--sys-addon-dir",
+        "/usr/lib/x86_64-linux-gnu/fcitx5",
+        "--sys-pkgdatadir",
+        "/usr/share/fcitx5"
+      ],
+      "name": "engine-d3-x11",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "slow",
+            "tier-D3"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 300.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 269,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/case-dubeolsik.jsonl"
+      ],
+      "name": "engine-golden-case-dubeolsik",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 264,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/case-sebeolsik-final.jsonl"
+      ],
+      "name": "engine-golden-case-sebeolsik-final",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 274,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/case-sin3-p2.jsonl"
+      ],
+      "name": "engine-golden-case-sin3-p2",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 279,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/case-sin3-p2-basic.jsonl"
+      ],
+      "name": "engine-golden-case-sin3-p2-basic",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 284,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/case-sin3-p2-yet.jsonl"
+      ],
+      "name": "engine-golden-case-sin3-p2-yet",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 94,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/ref-colemak.jsonl"
+      ],
+      "name": "engine-golden-colemak",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 179,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-ahnmatmae.jsonl"
+      ],
+      "name": "engine-golden-coverage-ahnmatmae",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 189,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-dubeolsik.jsonl"
+      ],
+      "name": "engine-golden-coverage-dubeolsik",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 184,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-dubeolsik-yet.jsonl"
+      ],
+      "name": "engine-golden-coverage-dubeolsik-yet",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 194,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-romaja.jsonl"
+      ],
+      "name": "engine-golden-coverage-romaja",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 199,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-sebeolsik-3-2.jsonl"
+      ],
+      "name": "engine-golden-coverage-sebeolsik-3-2",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 204,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-sebeolsik-3-90.jsonl"
+      ],
+      "name": "engine-golden-coverage-sebeolsik-3-90",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 209,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-sebeolsik-final.jsonl"
+      ],
+      "name": "engine-golden-coverage-sebeolsik-final",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 214,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-sebeolsik-noshift.jsonl"
+      ],
+      "name": "engine-golden-coverage-sebeolsik-noshift",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 219,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-sebeolsik-yet.jsonl"
+      ],
+      "name": "engine-golden-coverage-sebeolsik-yet",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 234,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-sin3-p2.jsonl"
+      ],
+      "name": "engine-golden-coverage-sin3-p2",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 224,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-sin3-p2-basic.jsonl"
+      ],
+      "name": "engine-golden-coverage-sin3-p2-basic",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 229,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/coverage-sin3-p2-yet.jsonl"
+      ],
+      "name": "engine-golden-coverage-sin3-p2-yet",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 144,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/cultural-anthem-dubeolsik.jsonl"
+      ],
+      "name": "engine-golden-cultural-anthem-dubeolsik",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 149,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/cultural-anthem-sin3-p2.jsonl"
+      ],
+      "name": "engine-golden-cultural-anthem-sin3-p2",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 154,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/cultural-pangram-colemak.jsonl"
+      ],
+      "name": "engine-golden-cultural-pangram-colemak",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 159,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/cultural-pangram-dvorak.jsonl"
+      ],
+      "name": "engine-golden-cultural-pangram-dvorak",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 164,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/cultural-pangram-us-qwerty.jsonl"
+      ],
+      "name": "engine-golden-cultural-pangram-us-qwerty",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 169,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/cultural-seosi-dubeolsik.jsonl"
+      ],
+      "name": "engine-golden-cultural-seosi-dubeolsik",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 174,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/cultural-seosi-sin3-p2.jsonl"
+      ],
+      "name": "engine-golden-cultural-seosi-sin3-p2",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 49,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/ref-dubeolsik.jsonl"
+      ],
+      "name": "engine-golden-dubeolsik",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 54,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/ref-dubeolsik-yet.jsonl"
+      ],
+      "name": "engine-golden-dubeolsik-yet",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 89,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/ref-dvorak.jsonl"
+      ],
+      "name": "engine-golden-dvorak",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 254,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/manual-hunminjeong-seosi.jsonl"
+      ],
+      "name": "engine-golden-hunminjeong-seosi",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 259,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--judge-check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/judgement-r8.jsonl"
+      ],
+      "name": "engine-golden-judgement",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 299,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/p2-2-1-basic.jsonl"
+      ],
+      "name": "engine-golden-p2-2-1-basic",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 304,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/p2-2-2-tiers.jsonl"
+      ],
+      "name": "engine-golden-p2-2-2-tiers",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 309,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/p2-2-3-chosung.jsonl"
+      ],
+      "name": "engine-golden-p2-2-3-chosung",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 314,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/p2-2-4-1-yetrules.jsonl"
+      ],
+      "name": "engine-golden-p2-2-4-1-yetrules",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 319,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/p2-2-4-2-eung.jsonl"
+      ],
+      "name": "engine-golden-p2-2-4-2-eung",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 324,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/p2-2-4-3-caps.jsonl"
+      ],
+      "name": "engine-golden-p2-2-4-3-caps",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 329,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/p2-2-6-flags.jsonl"
+      ],
+      "name": "engine-golden-p2-2-6-flags",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 334,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/p2-2-6-flags-s.jsonl"
+      ],
+      "name": "engine-golden-p2-2-6-flags-s",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 339,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/p2-3-swapped.jsonl"
+      ],
+      "name": "engine-golden-p2-3-swapped",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 244,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/patim-sin3-p2-basic.jsonl"
+      ],
+      "name": "engine-golden-patim-sin3-p2",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 84,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/ref-romaja.jsonl"
+      ],
+      "name": "engine-golden-romaja",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 59,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/ref-sebeolsik-3-2.jsonl"
+      ],
+      "name": "engine-golden-sebeolsik-3-2",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 64,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/ref-sebeolsik-3-90.jsonl"
+      ],
+      "name": "engine-golden-sebeolsik-3-90",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 69,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/ref-sebeolsik-final.jsonl"
+      ],
+      "name": "engine-golden-sebeolsik-final",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 74,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/ref-sebeolsik-noshift.jsonl"
+      ],
+      "name": "engine-golden-sebeolsik-noshift",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 79,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/ref-sebeolsik-yet.jsonl"
+      ],
+      "name": "engine-golden-sebeolsik-yet",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 289,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/shift-field.jsonl"
+      ],
+      "name": "engine-golden-shift-field",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 239,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/manual-sin3-p2.jsonl"
+      ],
+      "name": "engine-golden-sin3-p2",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 249,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/manual-sin3-p2-yet.jsonl"
+      ],
+      "name": "engine-golden-sin3-p2-yet",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 99,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/words-ahnmatmae.jsonl"
+      ],
+      "name": "engine-golden-words-ahnmatmae",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 104,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/words-dubeolsik-yet.jsonl"
+      ],
+      "name": "engine-golden-words-dubeolsik-yet",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 109,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/words-romaja.jsonl"
+      ],
+      "name": "engine-golden-words-romaja",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 114,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/words-sebeolsik-3-2.jsonl"
+      ],
+      "name": "engine-golden-words-sebeolsik-3-2",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 119,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/words-sebeolsik-3-90.jsonl"
+      ],
+      "name": "engine-golden-words-sebeolsik-3-90",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 124,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/words-sebeolsik-final.jsonl"
+      ],
+      "name": "engine-golden-words-sebeolsik-final",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 129,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/words-sebeolsik-noshift.jsonl"
+      ],
+      "name": "engine-golden-words-sebeolsik-noshift",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 134,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/words-sebeolsik-yet.jsonl"
+      ],
+      "name": "engine-golden-words-sebeolsik-yet",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 139,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden/words-sin3-p2.jsonl"
+      ],
+      "name": "engine-golden-words-sin3-p2",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 34,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hangul-valid-test"
+      ],
+      "name": "engine-hangul-valid",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_DATA_PATH=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole"
+        }
+      ]
+    },
+    {
+      "backtrace": 39,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/key-rule-test"
+      ],
+      "name": "engine-key-rule",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_DATA_PATH=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole"
+        }
+      ]
+    },
+    {
+      "backtrace": 294,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/off-identity-check.py",
+        "--sim",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--data",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data",
+        "--golden-dir",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/golden",
+        "--trace-dir",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/conformance/x11"
+      ],
+      "name": "engine-off-identity",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "slow",
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 19,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/process-key-test"
+      ],
+      "name": "engine-process-key",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_DATA_PATH=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole"
+        }
+      ]
+    },
+    {
+      "backtrace": 29,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/wordset-test"
+      ],
+      "name": "engine-wordset",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "HUNMIN_DATA_PATH=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data"
+          ]
+        },
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole"
+        }
+      ]
+    },
+    {
+      "backtrace": 4,
+      "command": [
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/expr-test"
+      ],
+      "name": "expr-vectors",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 474,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/check-frontend-invariants.py"
+      ],
+      "name": "frontend-invariants",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-D1"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 479,
+      "command": [
+        "/usr/bin/cmake",
+        "-E",
+        "env",
+        "HUNMIN_MUTATION_STRATEGY=sandbox",
+        "HUNMIN_MUTATION_CACHE=/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/CMakeCache.txt",
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/frontend-mutations.py"
+      ],
+      "name": "frontend-mutations",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "mutation",
+            "slow",
+            "tier-D1",
+            "tier-D2"
+          ]
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 900.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 44,
+      "command": [
+        "/usr/bin/sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/regen-goldens.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/goldens-check",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole",
+        "check"
+      ],
+      "name": "goldens-reproducible",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 364,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/host-guard-check.py"
+      ],
+      "name": "host-guards",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-B"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 469,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/keymap-fixture.py"
+      ],
+      "name": "keymap-fixture",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 359,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/krdict-fixture-check.py"
+      ],
+      "name": "krdict-fixture",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-B"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 543,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/build-modes-corpus.py",
+        "--selfcheck",
+        "--out",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/modes-corpus"
+      ],
+      "name": "modes-corpus-selfcheck",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-G"
+          ]
+        },
+        {
+          "name": "SKIP_RETURN_CODE",
+          "value": 77
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 548,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/modes-metrics.py",
+        "--selfcheck",
+        "--lib",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/libhunmin.so.0.3.0",
+        "--sim",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/hunmin-sim",
+        "--keytable",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/sin3-p2.keytable.json"
+      ],
+      "name": "modes-metrics-selfcheck",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-G"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 344,
+      "command": [
+        "/usr/bin/sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/parity-sweep.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole",
+        "25"
+      ],
+      "name": "parity-sweep",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-A"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 538,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/req-map-check.py",
+        "--build-dir",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+      ],
+      "name": "req-map",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-G"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 349,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/doctor.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/libhunmin/data"
+      ],
+      "name": "schema-contract",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "guard",
+            "tier-B"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 528,
+      "command": [
+        "/home/scoby/.local/bin/shellcheck",
+        "-S",
+        "error",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tests/e2e/run-d3.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/abi-check.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-e2e.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-espresso.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-golden-check.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-langkey-round.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-mutations.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-trace-emit.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-unit.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/android-voice-check.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/build-android.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/build-deb-linux.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/build-deb-wsl.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/build-deb.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/build-host-jni.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/build-release.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/build-windows-installer.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/ci-env-snapshot.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/ci-time-budget.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/ctest-select.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/d3-gate-failure-test.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/d3-reservation-test.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/deb-build-remote.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/e3-trace.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/fetch-aihub.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/fetch-krdict.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/host-env.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/orchestrate.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/parity-sweep.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/regen-cultural.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/regen-goldens.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/regen-layout-words.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/release-0.1.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/release-0.2.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/release-gate.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/repro-f9-candidates.sh",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/selfcheck-krdict.sh"
+      ],
+      "name": "shell-lint",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "guard"
+          ]
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 300.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    },
+    {
+      "backtrace": 464,
+      "command": [
+        "/home/scoby/.local/bin/python3.11",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/tools/check-trace-optout.py",
+        "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build/fcitx5-addon/libhunmin.so"
+      ],
+      "name": "trace-optout",
+      "properties": [
+        {
+          "name": "ENVIRONMENT_MODIFICATION",
+          "value": [
+            "PYTHONUTF8=set:1"
+          ]
+        },
+        {
+          "name": "LABELS",
+          "value": [
+            "tier-C"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/home/scoby/work/hunmin/docs-local-vs-multi-place-judgement-across-whole/build"
+        }
+      ]
+    }
+  ]
+}
