@@ -683,6 +683,35 @@ TEST_F(LayerTest, ASymbolDoesNotSplitTheDigitRun) {
     hunmin_buffered_preedit_free(l);
 }
 
+TEST_F(LayerTest, TakeJudgementIsConsumingAfterBoundaryDelivery) {
+    /* P5/D1 characterization (#272): boundary processing produces the delivered
+     * commit for that key; take_judgement is read after and is consuming
+     * (read-once). Frontends must copy/use commit before any further layer call
+     * that depends on state, and must not act on a stale judgement. */
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "sin3-p2", "us-qwerty", HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    ASSERT_EQ(1, hunmin_buffered_preedit_load_english_shipped(l));
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "autoswitch", 1));
+    hunmin_key_result sw{};
+    ASSERT_EQ(1, hunmin_buffered_preedit_toggle_language(l, &sw)); /* Latin */
+
+    for (const char *k = "jgz"; *k; ++k) {
+        hunmin_key_result out{};
+        EXPECT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)*k, 0, &out));
+        EXPECT_EQ(hunmin_buffered_preedit_take_judgement(l), -1);
+    }
+    hunmin_key_result boundary{};
+    ASSERT_EQ(1, hunmin_buffered_preedit_process_key(l, (uint32_t)'.', 0, &boundary));
+    // Delivered text for this boundary key is in boundary.commit.
+    EXPECT_STREQ("음.", boundary.commit ? boundary.commit : "");
+    // Judgement is answered after boundary processing and consumed on read.
+    EXPECT_EQ(HUNMIN_LANGUAGE_HANGUL, hunmin_buffered_preedit_take_judgement(l));
+    EXPECT_EQ(-1, hunmin_buffered_preedit_take_judgement(l)) << "take_judgement is consuming/read-once";
+    // Later boundary with no switch leaves no stale judgement.
+    EXPECT_EQ(-1, hunmin_buffered_preedit_take_judgement(l));
+    hunmin_buffered_preedit_free(l);
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
