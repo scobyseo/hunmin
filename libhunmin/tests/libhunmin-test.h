@@ -11,6 +11,8 @@
 #include <cstdlib>
 #include <string>
 
+#include <gtest/gtest.h>
+
 #include "test-env.h"
 
 extern "C" {
@@ -39,6 +41,23 @@ inline std::string scratch_dir() {
     if (out.empty()) out = env_or("TMPDIR", "");
     return out.empty() ? std::string(".") : out;
 }
+
+/* One context for the test body, from HUNMIN_DATA_PATH with the repo-relative
+ * fallback. A fixture that needs a layer, a staged data tree or its own path
+ * overrides SetUp and calls this one first (or creates its own ctx where the
+ * path differs); the ctx's lifetime is written once, here. */
+class CtxTest : public ::testing::Test {
+  protected:
+    void SetUp() override {
+        ctx_ = make_ctx(env_or("HUNMIN_DATA_PATH", "libhunmin/data").c_str());
+        ASSERT_NE(ctx_, nullptr) << "the data tree does not load as a data dir";
+    }
+    void TearDown() override {
+        if (ctx_) hunmin_ctx_free(ctx_);
+        ctx_ = nullptr;
+    }
+    hunmin_ctx *ctx_ = nullptr;
+};
 
 } // namespace hunmin_test
 

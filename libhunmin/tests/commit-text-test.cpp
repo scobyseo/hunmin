@@ -35,21 +35,13 @@ bool has_hangul(const char *s) {
     return false;
 }
 
-class CommitTextTest : public ::testing::Test {
+class CommitTextTest : public hunmin_test::CtxTest {
   protected:
-    void SetUp() override {
-        ctx_ = hunmin_test::make_ctx(hunmin_test::env_or("HUNMIN_DATA_PATH","libhunmin/data").c_str());
-        ASSERT_NE(ctx_, nullptr);
-    }
-    void TearDown() override { hunmin_ctx_free(ctx_); }
-
     hunmin_ic *fresh(const char *layout) {
         hunmin_ic *ic = hunmin_ic_new(ctx_, layout);
         EXPECT_NE(ic, nullptr) << "hunmin_ic_new(" << layout << ")";
         return ic;
     }
-
-    hunmin_ctx *ctx_ = nullptr;
 };
 
 /* --- verbatim, not composed --- */

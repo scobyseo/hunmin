@@ -43,19 +43,17 @@ hunmin_key_event named(hunmin_key_id id) {
     return ev;
 }
 
-class KeyRuleTest : public ::testing::Test {
+class KeyRuleTest : public hunmin_test::CtxTest {
   protected:
     void SetUp() override {
-        ctx_ = make_ctx();
-        ASSERT_NE(ctx_, nullptr);
+        hunmin_test::CtxTest::SetUp();
         l_ = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
         ASSERT_NE(l_, nullptr);
     }
     void TearDown() override {
         if (l_) hunmin_buffered_preedit_free(l_);
-        if (ctx_) hunmin_ctx_free(ctx_);
+        hunmin_test::CtxTest::TearDown();
     }
-    hunmin_ctx *ctx_ = nullptr;
     hunmin_buffered_preedit *l_ = nullptr;
 };
 
@@ -66,7 +64,7 @@ class KeyRuleTest : public ::testing::Test {
  * HUNMIN_DATA_PATH still names the FULL data directory in a ctest run, so a
  * negative answer proves the context's own dirs are the search being consulted
  * -- the same resolution Android's sandbox depends on. */
-class AutoswitchDataGateTest : public ::testing::Test {
+class AutoswitchDataGateTest : public hunmin_test::CtxTest {
   protected:
     /* A path of its own per test, not one shared literal.
      *
@@ -110,7 +108,7 @@ class AutoswitchDataGateTest : public ::testing::Test {
     }
     void TearDown() override {
         if (layer_) hunmin_buffered_preedit_free(layer_);
-        if (ctx_) hunmin_ctx_free(ctx_);
+        hunmin_test::CtxTest::TearDown();
         std::error_code ec;
         std::filesystem::remove_all(root_, ec);
     }

@@ -43,16 +43,7 @@ int first_hanja_index(hunmin_ctx *ctx, int n) {
     return -1;
 }
 
-class SuggestTest : public ::testing::Test {
-  protected:
-    void SetUp() override {
-        ctx_ = hunmin_test::make_ctx(hunmin_test::env_or("HUNMIN_DATA_PATH","libhunmin/data").c_str());
-        ASSERT_NE(ctx_, nullptr);
-    }
-    void TearDown() override { hunmin_ctx_free(ctx_); }
-
-    hunmin_ctx *ctx_ = nullptr;
-};
+class SuggestTest : public hunmin_test::CtxTest {};
 
 /* --- a single syllable: word senses first (they carry a meaning), then the
  * syllable's Hanja candidates in upstream frequency order --- */

@@ -58,8 +58,10 @@ class ScratchFile {
     std::string path_;
 };
 
-class WordSetTest : public ::testing::Test {
+class WordSetTest : public hunmin_test::CtxTest {
   protected:
+    /* kDataPath is this binary's main() resolution; the base fixture would read
+     * HUNMIN_DATA_PATH again, and the two must not be able to disagree. */
     void SetUp() override {
         const char *dirs[1] = {kDataPath};
         ctx_ = hunmin_ctx_new(dirs, 1);
@@ -69,12 +71,11 @@ class WordSetTest : public ::testing::Test {
     }
     void TearDown() override {
         if (layer_) hunmin_buffered_preedit_free(layer_);
-        if (ctx_) hunmin_ctx_free(ctx_);
+        hunmin_test::CtxTest::TearDown();
     }
 
     std::string shipped_list() const { return std::string(kDataPath) + "/modes/en-US.json"; }
 
-    hunmin_ctx *ctx_ = nullptr;
     hunmin_buffered_preedit *layer_ = nullptr;
 };
 

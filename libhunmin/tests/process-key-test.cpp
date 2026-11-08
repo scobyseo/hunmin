@@ -47,16 +47,7 @@ uint32_t legacy_ch(uint32_t base, uint32_t shift) {
     return base; /* already-resolved rule: nothing to shift (SPEC-P2) */
 }
 
-class ProcessKeyTest : public ::testing::Test {
-  protected:
-    void SetUp() override {
-        ctx_ = hunmin_test::make_ctx(hunmin_test::env_or("HUNMIN_DATA_PATH","libhunmin/data").c_str());
-        ASSERT_NE(ctx_, nullptr);
-    }
-    void TearDown() override { hunmin_ctx_free(ctx_); }
-
-    hunmin_ctx *ctx_ = nullptr;
-};
+class ProcessKeyTest : public hunmin_test::CtxTest {};
 
 /* One event through both front doors; every difference names WHERE it
  * diverged, not just that it did. */

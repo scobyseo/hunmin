@@ -117,16 +117,14 @@ std::string drive_engine(hunmin_ctx *ctx, const std::string &sequence, const cha
     return total;
 }
 
-class LayerTest : public ::testing::Test {
+class LayerTest : public hunmin_test::CtxTest {
   protected:
+    /* This binary's main() resolves the data path once (kDataPath), so the
+     * fixture takes it from there rather than re-reading the environment. */
     void SetUp() override {
         ctx_ = make_ctx();
         ASSERT_NE(ctx_, nullptr);
     }
-    void TearDown() override {
-        if (ctx_) hunmin_ctx_free(ctx_);
-    }
-    hunmin_ctx *ctx_ = nullptr;
 };
 
 /* The sequences below are chosen for the shapes that used to differ between the
