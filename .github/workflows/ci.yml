@@ -892,8 +892,8 @@ jobs:
           cd build
           for i in $(seq 1 10000); do
             # Generate random valid key sequence from the layout tables
-            python3 ../tools/fuzz-generate-keys.py --layout sin3-p2 --len 50 \
-              | ../build/hunmin-sim --data ../libhunmin/data --layout sin3-p2 --trace \
+            KEYS="$(python3 ../tools/fuzz-generate-keys.py --layout sin3-p2 --len 50)"
+            ../build/hunmin-sim --data ../libhunmin/data --layout sin3-p2 --keys "$KEYS" --trace \
               > /tmp/fuzz-$i.trace 2>&1 || {
                 echo "FAIL: fuzz iteration $i crashed"
                 cat /tmp/fuzz-$i.trace
