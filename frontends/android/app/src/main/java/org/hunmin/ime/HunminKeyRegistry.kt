@@ -89,12 +89,12 @@ object HunminKeyRegistry {
         for (d in 0..9) {
             val c = '0' + d
             val shifted = SHIFTED_DIGITS[d]
-            k(7 + d, c, shifted)?.let { put(7 + d, it) }
+            k(7 + d, c, shifted).let { put(7 + d, it) }
         }
         // Letters: KEYCODE_A is 29, contiguous to KEYCODE_Z at 54.
         for (i in 0..25) {
             val u = 'a' + i
-            k(29 + i, u, u.uppercaseChar())?.let { put(29 + i, it) }
+            k(29 + i, u, u.uppercaseChar()).let { put(29 + i, it) }
         }
         // Sin3-p2's symbol and consonant tiers key on UPPERCASE letters -- that is
         // what "shift is data, not a modifier" means (invariant 4). The map above

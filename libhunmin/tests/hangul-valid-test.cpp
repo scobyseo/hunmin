@@ -404,7 +404,7 @@ TEST(HangulValidOldTest, LayoutCapabilityIsDerivedFromTheData) {
         /* an old-Hangul layout must still compose Hangul: the two answers are not
          * independent, and asking the wide rule about a layout that cannot produce
          * these buffers at all would be meaningless. */
-        if (is_old) EXPECT_TRUE(composes) << id;
+        if (is_old) { EXPECT_TRUE(composes) << id; }
         if (is_old) old_seen++;
         if (named_latin) latin_seen++;
     }

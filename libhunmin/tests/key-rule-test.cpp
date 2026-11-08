@@ -27,8 +27,6 @@ namespace {
 
 const char *kDataPath = nullptr;
 
-hunmin_ctx *make_ctx() { return hunmin_test::make_ctx(kDataPath); }
-
 /* A plain character event: no modifiers, no list, not the language key. */
 hunmin_key_event ch(uint32_t base) {
     hunmin_key_event ev{};
@@ -346,7 +344,7 @@ TEST_F(KeyRuleTest, AClassifiedFeedMatchesTheLayerAnswer) {
         if (action == HUNMIN_KEY_FEED) {
             /* Not every feedable key is consumed by every layout state; but a
              * key the classifier passes must never be consumed. */
-            if (!peeked) EXPECT_EQ(action, HUNMIN_KEY_FEED);
+            if (!peeked) { EXPECT_EQ(action, HUNMIN_KEY_FEED); }
         } else {
             EXPECT_EQ(peeked, 0) << "base=" << base << " was classified as a boundary but the layer consumes it";
         }
