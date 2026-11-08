@@ -49,12 +49,12 @@ jobs:
           sudo ldconfig
           pkg-config --modversion Fcitx5Core
 
-      # Pre-populate googletest for FETCHCONTENT_FULLY_DISCONNECTED builds
+      # Pre-populate googletest for FETCHCONTENT_FULLY_DISCONNECTED builds.
+      # $HOME copy survives dh_auto_clean of obj-x86_64-linux-gnu/_deps.
       - name: Pre-populate googletest
         run: |
-          mkdir -p obj-x86_64-linux-gnu/_deps
-          git clone --depth 1 --branch v1.17.0 https://github.com/google/googletest.git \
-            obj-x86_64-linux-gnu/_deps/googletest-src
+          mkdir -p ~/googletest-src
+          git clone --depth 1 --branch v1.17.0 https://github.com/google/googletest.git ~/googletest-src
 
       - name: Build the .deb
         run: |
@@ -124,10 +124,53 @@ jobs:
           path: artifacts/hunmin-*.apk
           retention-days: 30
 
+  # --- Windows installer: windows-latest + MSVC + Inno Setup 6 -----------
+  build-windows:
+    name: build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          $isPath = "$env:TEMP\innosetup.exe"
+          curl -fL -o $isPath "https://jrsoftware.org/download.php/is.exe"
+          # Verify it's a PE executable, not an HTML redirect page
+          $bytes = Get-Content $isPath -Encoding Byte -TotalCount 2
+          if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+            throw "Inno Setup download returned HTML instead of exe"
+          }
+          Start-Process -FilePath $isPath -ArgumentList '/VERYSILENT /NORESTART /SUPPRESSMSGBOXES' -Wait
+          $iscc = Get-ChildItem -Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe", "C:\Program Files\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) { throw "Inno Setup 6 not found after install" }
+          echo "ISCC=$($iscc.FullName)" >> "$env:GITHUB_ENV"
+
+      - name: Build the Windows installer
+        shell: bash
+        run: |
+          python tools/build-windows-installer.py
+
+      - name: Stage the installer
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          exe=$(ls -t build-msvc/installer/hunmin-*.exe 2>/dev/null | head -1)
+          [ -n "$exe" ] || { echo "no installer produced"; exit 1; }
+          cp -f "$exe" artifacts/hunmin-${{ github.event.inputs.version }}-setup.exe
+
+      - name: Upload the Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunmin-installer
+          path: artifacts/hunmin-*.exe
+          retention-days: 30
+
   # --- create tag + release + upload assets -------------------------------
   release:
     name: create release
-    needs: [build-deb, build-apk]
+    needs: [build-deb, build-apk, build-windows]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -176,11 +219,12 @@ jobs:
           # Copy downloaded artifacts into stage with channel names
           for f in artifacts/hunmin-*-amd64.deb; do [ -f "$f" ] && cp -f "$f" "$STAGE/hunmin_${VERSION}_amd64.deb"; done
           for f in artifacts/hunmin-*-arm64-v8a.apk; do [ -f "$f" ] && cp -f "$f" "$STAGE/hunmin-${VERSION}-arm64-v8a.apk"; done
+          for f in artifacts/hunmin-*-setup.exe; do [ -f "$f" ] && cp -f "$f" "$STAGE/hunmin-${VERSION}-setup.exe"; done
 
           ls -la "$STAGE/"
 
           ASSET_ARGS=()
-          for name in "hunmin_${VERSION}_amd64.deb" "hunmin-${VERSION}-arm64-v8a.apk"; do
+          for name in "hunmin_${VERSION}_amd64.deb" "hunmin-${VERSION}-arm64-v8a.apk" "hunmin-${VERSION}-setup.exe"; do
             [ -f "$STAGE/$name" ] || { echo "MISSING $STAGE/$name"; exit 1; }
             ASSET_ARGS+=("$STAGE/$name")
           done
