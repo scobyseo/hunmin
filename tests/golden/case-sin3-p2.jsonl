@@ -1,4 +1,4 @@
-{"meta": {"source": "designed", "spec": "pat.im/1136 (normative, docs/SPEC-P2.md); R6 for the number row (docs/SPEC-MODES.md)", "layout": "sin3-p2", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "note": "expected commit/preedit per key are the engine's answers, never typed; a diff here is a change to the layout or the composer and must be reviewed"}}
+{"meta": {"source": "designed", "spec": "pat.im/1136 (normative, docs/SPEC-P2.md); ReqMode6 for the number row (docs/SPEC-MODES.md)", "layout": "sin3-p2", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "note": "expected commit/preedit per key are the engine's answers, never typed; a diff here is a change to the layout or the composer and must be reviewed"}}
 {"meta": {"case": "case-sin3-p2-merged"}}
 {"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
 {"in": {"ch": "f"}, "commit": "", "preedit": "아"}
