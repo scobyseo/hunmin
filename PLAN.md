@@ -73,8 +73,7 @@ frontend gets it.
                           SPEC-P2.md         composition engine, normative (pat.im)
                           SPEC-MODES.md      hangul/latin automatic mode (ReqMode1-ReqMode13)
                           SPEC-SCHEMA.md     data file contracts
-                          MODES-DATA.md      sources, licences, corpus measurement
-                          MODES-METRICS.md   metric definitions + pass lines
+                          MODES-MEASUREMENT.md  metrics, corpus terms, reproduction methods
                           DESIGN-MODES.md  the judgement state machine
                           MODES-POSTMORTEM.md    what went wrong, numbered
                         then the working set:
@@ -330,10 +329,10 @@ frontend gets it.
   |---|---|---|
   | requirements ReqMode1–ReqMode13 | settled | `docs/SPEC-MODES.md` |
   | judgement source (what "valid" looks up) | **ANSWERED** — a syllable-structure test for Hangul (no source), hunspell `en_US` + a user dictionary for English; B1 retired 2026-11-01 | `docs/SPEC-MODES.md` §ReqMode8, §ReqMode8 |
-  | metrics + pass lines | defined, none measured | `docs/MODES-METRICS.md` |
+  | metrics + pass lines | defined, none measured | `docs/MODES-MEASUREMENT.md` |
   | engine rules | drafted | `docs/DESIGN-MODES.md` |
   | third-party correctness | **not started** — must be evaluated against **both** 두벌식 and 세벌식, at minimum 신세벌식 P2 | transcript 2026-10-03 |
-  | corpora | three, all outside the repo and all reproducible | `docs/MODES-DATA.md` |
+  | corpora | three, all outside the repo and all reproducible | `docs/MODES-MEASUREMENT.md` |
 
   ReqMode3 [D] places the decision in the **engine**, not the frontend adapter, so it
   can serve Android and Windows alike. That supersedes the P5 note below about

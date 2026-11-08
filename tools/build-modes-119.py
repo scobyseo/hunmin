@@ -10,7 +10,7 @@ runs:
 1. 119's latin list is dominated by the tagging markup. `<|start|>` and
    `<|end|>` tokenise to the words `start` and `end`, 386,746 occurrences
    each -- 5.9% of every latin token in the corpus. That is why
-   MODES-DATA.md 2 called 119 unfit for the english side, and it was
+   MODES-MEASUREMENT.md §4 called 119 unfit for the english side, and it was
    right for a reason nobody had looked at. The corpus is not field names;
    it is a corpus with the field names' own markers in the text.
 

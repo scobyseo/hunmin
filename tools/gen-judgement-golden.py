@@ -92,7 +92,7 @@ CASES = [
          note="세벌식 최종 keys 1 2 3 are the jongseong jamo ᇂ ᆻ ᆸ: ReqMode6's own case -- committing a digit key on its own would break the run"),
     dict(case="r6-literal-digit-row-held-to-the-boundary", req="ReqMode6", layout="sebeolsik-final",
          mode="hangul", autoswitch=1, keys="\\sj\\sk\\sl ",
-         note="literal digits on the shifted letter row (Shift+j..l = 1,2,3): held as one run as well, so ReqMode6's condition is not limited to keys that compose jamo. This is not the unshifted digit row, which is jamo (docs/OPTIONS-MEASURED.md §BND-7). Corrected 2026-11-01: the first cut of this case put a delimiter after each digit and recorded its own spaces as a per-key commit"),
+         note="literal digits on the shifted letter row (Shift+j..l = 1,2,3): held as one run as well, so ReqMode6's condition is not limited to keys that compose jamo. This is not the unshifted digit row, which is jamo (docs/SPEC-MODES.md §ReqMode6). Corrected 2026-11-01: the first cut of this case put a delimiter after each digit and recorded its own spaces as a per-key commit"),
     # --- ReqMode8 on 세벌식 최종, whose keys are jamo rather than syllables ------
     dict(case="r8-word-keeps-hangul-on-sebeolsik-final", req="ReqMode8", layout="sebeolsik-final",
          mode="hangul", autoswitch=1, keys="jfshea ",

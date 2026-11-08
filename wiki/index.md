@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-11-05   (no page count: three counters disagreed, so the
+> Last updated: 2026-11-08   (no page count: three counters disagreed, so the
 > number a reader needs is the one a tool prints — `python tools/wiki-lint.py`)
 
 ## Concepts
@@ -145,6 +145,22 @@
   the log and `docs/REMAINING-WORK.md` B5 record the *decision* as closed with
   no quoted ruling, and the measurement page says it is still the maintainer's.
   Named here, resolved by nobody.
+- [[2026-11-01-the-english-source-is-hunspell-en-us-plus-a-user-dictionary]] —
+  ReqMode8's English half ruled: hunspell `en_US` ships as `en-US.json` and a
+  person's own words merge at lookup; the Korean-typed Latin gap (`kbs`, `fifa`)
+  is accepted and asserted, not filled. The curated supplement stays deferred.
+- [[2026-11-01-the-buffer-cap-is-256-bytes-configurable]] — E2 ruled after a
+  4 KB steer: `word_cap` is bytes of UTF-8, 256 by default, `0` meaning none,
+  and an overflow commits the first half losslessly at a syllable boundary.
+- [[2026-11-01-the-reqmode6-tier-examples-are-the-shift-row]] — the requirement's
+  three-digit tier example was the shift row and the tier is single-shot; the
+  sentence was replaced on the maintainer's instruction rather than kept as a
+  measurement footnote.
+- [[2026-11-08-the-retired-corpus-measurement-is-deleted]] — the standing order
+  that deleted `MODES-DATA`, `MODES-METRICS` and the five modes pricing papers:
+  the rulings survive, the figures do not, and `MODES-MEASUREMENT.md` keeps only
+  how to measure again. Names what the removal leaves unsettled (B2's pass
+  lines, ReqMode9's threshold, whether to build a new corpus at all).
 
 ## Raw — sessions
 

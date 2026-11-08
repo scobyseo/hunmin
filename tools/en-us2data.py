@@ -3,19 +3,22 @@
 """Generate libhunmin/data/modes/en-US.json from the hunspell en_US dictionary.
 
 Ruling (maintainer, 2026-11-01): `english_valid` looks up hunspell `en_US`, and
-people may extend it with a user dictionary. The measurement behind that choice
-is docs/OPTIONS-MEASURED.md §EDW; the requirement is docs/SPEC-MODES.md ReqMode8.
+people may extend it with a user dictionary. The requirement is
+docs/SPEC-MODES.md §ReqMode8; the comparison that priced the candidate
+dictionaries was withdrawn as measurement history on 2026-11-08, and
+`tools/modes-dict-probe.py` re-derives it.
 
 WHY A GENERATED FILE AND NOT THE .dic/.aff PAIR. The engine needs a word SET,
 not a speller: one membership test per finished buffer, no affix rules at
 runtime. Expanding once here, at build-authoring time, also removes the only
 reason the engine would need hunspell's affix semantics — and it buys real
-coverage: on the §EDW probe the same stems score 60.75% unexpanded against
-65.14% expanded (≥2 characters, token-weighted).
+coverage: the same stems cover more of the text people type once their
+inflections are expanded than as bare stems (`tools/modes-dict-probe.py` scores
+both — the 2026-11-01 figures were withdrawn with the measurement history).
 
 THE EXPANSION IS NOT REIMPLEMENTED HERE. `load_hunspell`, `load_aff` and
-`expand` come from tools/modes-dict-probe.py, so the number measured in §EDW and
-the file shipped to users are produced by one implementation. A second copy
+`expand` come from tools/modes-dict-probe.py, so a comparison this generator is
+scored by and the file shipped to users are produced by one implementation. A second copy
 would be free to drift, and drift would be invisible: the file would still load.
 
 WHAT THIS DOES NOT DO, recorded in meta.json rather than left to be discovered:
@@ -144,7 +147,7 @@ def main():
             "inflections outside one affix level (continuation classes skipped)",
             "compound words (COMPOUNDRULE not applied)",
             "korean-typed latin strings such as kbs/mbc/fifa -- absent from every "
-            "english dictionary (docs/MODES-DATA.md 4-7d); the user dictionary is "
+            "english dictionary (docs/MODES-MEASUREMENT.md §6); the user dictionary is "
             "the ruled answer to that gap",
         ],
         "generator": "tools/en-us2data.py",

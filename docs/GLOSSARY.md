@@ -5,7 +5,7 @@ documents. A term belongs here when **the wrong reading would produce a wrong
 measurement**, not merely when it is jargon.
 
 Related: `SPEC-SCHEMA.md` (data contracts), `SPEC-P2.md` (the layout
-specification), `MODES-DATA.md` (corpus sources and licences).
+specification), `MODES-MEASUREMENT.md` (corpus sources and licences).
 
 **Conventions.** The Korean form is authoritative; the English is a gloss, not a
 substitute. Where a term has no settled English rendering, say so rather than

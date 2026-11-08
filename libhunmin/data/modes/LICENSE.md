@@ -5,11 +5,13 @@
 `en-US.json` is generated from the **hunspell `en_US`** dictionary
 (`en_US.dic` + `en_US.aff`), which belongs to the SCOWL family at
 **SCOWL size 60** — the same vocabulary size as Debian's `wamerican` package,
-which is the list `docs/MODES-DATA.md` §4-7d measured.
+which is the list the retired corpus measurement compared against
+(`docs/MODES-MEASUREMENT.md` §6).
 
 - Upstream package: <https://github.com/LibreOffice/dictionaries> (`en/`).
-- Generator: `tools/en-us2data.py`; the measured cost of this choice, and of the
-  alternatives, is `docs/OPTIONS-MEASURED.md` §EDW.
+- Generator: `tools/en-us2data.py`; the ruling is `docs/SPEC-MODES.md` §ReqMode8,
+  and `tools/modes-dict-probe.py` re-derives the comparison between candidate
+  dictionaries (the 2026-11-01 paper was withdrawn as measurement history).
 - `meta.json` next to this file is written by that tool on every run and records
   the input files' SHA-256, the declared version, the expansion method, the
   counts, and what the list does **not** represent. Do not edit it by hand: an

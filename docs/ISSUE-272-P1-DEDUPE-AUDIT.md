@@ -4,7 +4,7 @@
 
 ## Completed in this branch
 
-- D3/D4 consolidation: `DESIGN-BUILD.md`, `DESIGN-MODES.md`, `DESIGN-FRONTEND.md` created; `BUILD-SYSTEM.md`, `MODES-ENGINE-RULES.md`, `FRONTEND-EQUIVALENCE.md`, `FRONTEND-CONTRACT.md` left as pointer stubs. MODES-METRICS harness/design folded into `DESIGN-MODES.md` §5 (anchor alias kept); figures/definitions remain in `MODES-METRICS.md`/`MODES-DATA.md`.
+- D3/D4 consolidation: `DESIGN-BUILD.md`, `DESIGN-MODES.md`, `DESIGN-FRONTEND.md` created; `BUILD-SYSTEM.md`, `MODES-ENGINE-RULES.md`, `FRONTEND-EQUIVALENCE.md`, `FRONTEND-CONTRACT.md` left as pointer stubs. MODES-METRICS harness/design folded into `DESIGN-MODES.md` §5 (anchor alias kept); metric definitions, corpus terms and reproduction rules now live in `docs/MODES-MEASUREMENT.md`, and `MODES-DATA.md`/`MODES-METRICS.md` were removed (D4, 2026-11-08 — see below).
 - ReqMode migration collapsed SPEC-MODES correction IDs to `ReqMode1..15` and collapsed corresponding REQ-MAP rows.
 - `fd95ae1`: retargeted `docs/SPEC-FRONTEND.md` links from `FRONTEND-EQUIVALENCE.md#§1/#§6` stub anchors to `DESIGN-FRONTEND.md` anchors. `req-map-check` still passes.
 - 2026-11-08 (candidate 1 completion): retargeted the remaining *content*
@@ -30,8 +30,8 @@
 
 ## Anchors/authoritative homes to preserve
 
-- **REQ-MAP pointers (must keep resolving):** e.g. `docs/MODES-DATA.md#§4-7`, `docs/MODES-METRICS.md#§1.4/#§1/#§2/#§1.3`, `docs/DESIGN-MODES.md#§1/#§2/#§3`, `docs/DESIGN-FRONTEND.md#§5/#§2.2` (verify exact headings before changing). `req-map-check` validates these.
-- **Figure/data authority:** `MODES-DATA.md` and `MODES-METRICS.md` remain homes for measurements/figures/provenance where already cited. Do not create second homes; add pointers instead.
+- **REQ-MAP pointers (must keep resolving):** e.g. `docs/MODES-MEASUREMENT.md#§1.4/#§1/#§2/#§1.3`, `docs/DESIGN-MODES.md#§1/#§2/#§3`, `docs/DESIGN-FRONTEND.md#§5/#§2.2` (verify exact headings before changing). `req-map-check` validates these.
+- **Figure/data authority:** `MODES-MEASUREMENT.md` is the home for metric definitions, corpus terms and reproduction rules; it deliberately carries no current figures (2026-11-08 removal). Do not create second homes; add pointers instead.
 - **Requirements:** only `docs/SPEC-*.md`.
 - **Build invariants:** consolidated in `DESIGN-BUILD.md`; `BUILD-SYSTEM.md` stub remains for old refs.
 
@@ -40,11 +40,11 @@
 1. **Normative stub-anchor links outside REQ-MAP:** scan for `FRONTEND-EQUIVALENCE.md#...` / `FRONTEND-CONTRACT.md#...` used as content anchors (not just filename mentions) in active specs/docs and retarget to `DESIGN-FRONTEND.md` anchors with `req-map-check`/`docs-lint` verification. *Evidence needed:* exact anchor mapping table.
    **Done 2026-11-08** for active normative/design/testing docs. Deliberately left:
    the pointer stubs themselves, `DESIGN-FRONTEND.md`'s "formerly ..." history
-   lines, `OPTIONS-MEASURED.md` (a dated measurement record whose citations
-   describe what was measured then), and `REMAINING-WORK.md`'s historical
-   `file:line` evidence row.
+   lines, `OPTIONS-MEASURED.md` (which now holds only the seven priced questions
+   that are not modes measurement — its five modes sections were deleted
+   2026-11-08), and `REMAINING-WORK.md`'s historical `file:line` evidence row.
 2. **Duplicated frontend equivalence/contract prose in active docs:** only if text is a true second home (not a summary/pointer). Prefer deleting duplication and leaving one pointer to `DESIGN-FRONTEND.md`/`SPEC-FRONTEND.md`.
-3. **MODES-DATA `§4-*` historical/design narrative:** large and heavily referenced (`#§4-7` in REQ-MAP). D4 asked to fold “design halves”; moving it risks anchor breakage and mixes provenance history with design. Recommendation: **defer** unless a specific subsection is clearly non-authoritative and all anchors are remapped.
+3. **MODES-DATA `§4-*` historical/design narrative:** large and heavily referenced (`#§4-7` in REQ-MAP). D4 asked to fold “design halves”; moving it risked anchor breakage and mixing provenance history with design. **Resolved 2026-11-08** by removal rather than folding: the maintainer ruled the corpus material stale (“no need to retain. remove the file and extract minimal knowledges to reproduce it with new data and approach”). Both files are gone; the surviving definitions are `docs/MODES-MEASUREMENT.md` §1–§5, the removed records are named in §6, and every live anchor was remapped in the same change.
 4. **REMAINING-WORK historical prose refs to stub filenames:** low value; avoid unless causing lint/board failures.
 
 ## Verification commands
@@ -72,9 +72,10 @@ Recovered by running the generators' own `--check` gates, not by inspection:
 
 Both were invisible to ctest because `goldens-reproducible` covers the
 libhangul reference set, not these generators, and the case corpora are
-replayed as merged traces. The remaining `R6`/`R*-정정*` text in the tree is
-either the historical quote in `OPTIONS-MEASURED.md` or the migration note in
-`WINDOWS-TSF-DEVENV-CHECKS.md`.
+replayed as merged traces. The last `R6`/`R*-정정*` text in the tree was the
+historical quote in `OPTIONS-MEASURED.md`'s §BND-7, which was deleted with that
+section on 2026-11-08; the migration note in `WINDOWS-TSF-DEVENV-CHECKS.md`
+remains.
 
 ## Open tooling observation (not fixed)
 

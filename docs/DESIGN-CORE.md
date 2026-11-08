@@ -15,12 +15,12 @@ generated (exempt).
 
 | Area | REQ | Design/mechanism | Implementation notes |
 |---|---|---|---|
-| ReqMode8/E1 judgement at boundary | ReqMode8, ReqMode8, ReqMode3, ReqMode9, ReqMode10 | `docs/DESIGN-MODES.md#§1`, `docs/MODES-DATA.md#§4-7` | `judge_boundary`, `take_judgement`, ReqMode9 `JUDGE_MIN_KEYS`, per-syllable => no retroactive judgement |
+| ReqMode8/E1 judgement at boundary | ReqMode8, ReqMode8, ReqMode3, ReqMode9, ReqMode10 | `docs/DESIGN-MODES.md#§1`; `docs/SPEC-SCHEMA.md#English word list` | `judge_boundary`, `take_judgement`, ReqMode9 `JUDGE_MIN_KEYS`, per-syllable => no retroactive judgement |
 | B3/ReqMode13 autoswitch state & gate | ReqMode13, ReqMode13 | `docs/DESIGN-MODES.md#§3` | `autoswitch` option, `hunmin_ctx_autoswitch_data_present`, `special_peek`/`special` for `HUNMIN_SPECIAL_AUTOSWITCH` |
 | ReqMode4 word cap/overflow | ReqMode4, ReqMode4 | `docs/DESIGN-MODES.md#§2` | `word_flush_half`, UTF-8 boundary cut, no judgement on flushed half |
 | E5 special chords | E5, ReqMode13 family | `docs/DESIGN-MODES.md#§3` | `special_mods`/`special_host`, one resolver for peek+perform |
-| E6 judged display timing | E6, ReqMode8, ReqMode10 | `docs/DESIGN-MODES.md#§1` (display/policy context), `docs/OPTIONS-MEASURED.md` §BND-4 | `judge_timing`, `judged_display` (display only) |
-| ReqMode8/3 readings & validity | ReqMode8, ReqMode8 | `docs/DESIGN-MODES.md#§1`, `docs/MODES-DATA.md` | replayed `latin_out`/`hangul_out`, `hangul_valid_for` widened sets |
+| E6 judged display timing | E6, ReqMode8, ReqMode10 | `docs/DESIGN-MODES.md#§1` (display/policy context), `docs/SPEC-MODES.md` §E6 | `judge_timing`, `judged_display` (display only) |
+| ReqMode8/3 readings & validity | ReqMode8, ReqMode8 | `docs/DESIGN-MODES.md#§1`; `docs/MODES-MEASUREMENT.md#§1` | replayed `latin_out`/`hangul_out`, `hangul_valid_for` widened sets |
 
 ## ReqMode8 judgement — judge_boundary implementation
 
@@ -99,7 +99,8 @@ Implementation: `buffered_preedit.c#judged_display`, `judge_timing` option.
 - Does **not** deliver, switch, or record a judgement; delivery/judgement
   still happen at the boundary (`judge_boundary`, `take_judgement`) per ReqMode10.
 - Cost accepted by ruling: per-key replay is O(keys) (bounded by 256 B word
-  cap) and can flicker (measured in `docs/OPTIONS-MEASURED.md` §BND-4).
+  cap) and can flicker (counted by `tools/modes-boundary-probe.py`; the ruling is
+  `docs/SPEC-MODES.md` §E6).
 - Option: `judge_timing` 1 = per key (default), 0 = boundary only.
 
 ## ReqMode4 cap (word_flush_half)
@@ -113,7 +114,7 @@ REQ: `docs/SPEC-MODES.md` ReqMode4 (word cap/overflow). Implementation in
 - Does **not** judge the flushed half (`judge_boundary` runs only at
   `boundary()`); later judgement applies to the remainder. `keys_clear()`
   drops the reading's raw material, so the boundary reads only the tail's
-  keys (measured: `docs/OPTIONS-MEASURED.md` §BND-2).
+  keys (pinned by tier-A `engine-buffered-preedit`).
 - Cuts at a UTF-8 lead byte boundary (never fragments a syllable).
 - Drops the Latin key log on flush rather than splitting; a half-word reading
   is not meaningful, so fail-closed avoids wrong switches.

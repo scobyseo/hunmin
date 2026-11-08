@@ -30,7 +30,7 @@
     "capitalisation (every form is lowercased)",
     "inflections outside one affix level (continuation classes skipped)",
     "compound words (COMPOUNDRULE not applied)",
-    "korean-typed latin strings such as kbs/mbc/fifa -- absent from every english dictionary (docs/MODES-DATA.md 4-7d); the user dictionary is the ruled answer to that gap"
+    "korean-typed latin strings such as kbs/mbc/fifa -- absent from every english dictionary (docs/MODES-MEASUREMENT.md §6); the user dictionary is the ruled answer to that gap"
   ],
   "generator": "tools/en-us2data.py"
 }

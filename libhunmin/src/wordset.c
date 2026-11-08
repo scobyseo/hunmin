@@ -9,9 +9,9 @@
  *
  * Why a hash set and not a trie: the question is one membership test per
  * finished buffer, so the artifact is a word SET -- no senses, no morphology
- * output (docs/OPTIONS-MEASURED.md §EDW-1). The 8-byte-slot model in
- * MODES-DATA §4-7a is exactly this layout, so the size figures in that
- * document and in §EDW describe what this file allocates.
+ * output (docs/SPEC-MODES.md §ReqMode8). One pointer per form at 50% load is
+ * exactly this layout, so an allocation of `len(words) * 8` bytes is the model
+ * (`docs/SPEC-SCHEMA.md` §English word list).
  *
  * Two sources, one set, and they are not symmetric:
  *

@@ -4,16 +4,17 @@ Status: **Requirements settled. ReqMode8's judgement ships** — the engine deci
 boundary and each frontend acts on `hunmin_buffered_preedit_take_judgement()` — **and
 its cases are `tests/golden/judgement-r8.jsonl`** (ctest `engine-golden-judgement`).
 
-**2026-10-04:** What ReqMode8's `english_valid`/`hangul_valid` must look up has been
-measured (`docs/MODES-DATA.md` §4-7). **Neither is a dictionary lookup.** English is
-a **corpus list with a cap of 50,000**, Hangul has **no cap** (the lookup has to
-come back from the dictionary, or be a composition decision). Defining them as
-dictionaries drops English reproduction rate to half.
+**2026-11-01:** What ReqMode8's `english_valid`/`hangul_valid` look up is settled
+(§ReqMode8 below): `english_valid` is an **English dictionary lookup** (hunspell
+`en_US` plus a user dictionary), and `hangul_valid` is a **syllable-structure
+test**. The earlier corpus list, its cap and the measurements behind them were
+removed on 2026-11-08; they described a definition the ruling replaced.
 
-This document contains **requirements only**. Measurement results are in
-`docs/MODES-METRICS.md`, data and licences in `docs/MODES-DATA.md`, engine rules
-and the state machine in `docs/DESIGN-MODES.md`, and the failures of the
-investigation in `docs/MODES-POSTMORTEM.md`.
+This document contains **requirements only**. How to measure the judgement, and
+the corpus terms a measurement must respect, are in
+`docs/MODES-MEASUREMENT.md`; engine rules and the state machine in
+`docs/DESIGN-MODES.md`; and the failures of the investigation in
+`docs/MODES-POSTMORTEM.md`.
 
 ## How to read this document — what is settled and what can change
 
@@ -140,15 +141,15 @@ at the judgement boundary. An engine-owned variant is the alternative. Both
 satisfy the requirement above. Which one wins is recorded in the ReqMode8
 architecture decision, not in this document.
 
-*State measured 2026-11-01 (`docs/OPTIONS-MEASURED.md` §MRO-0, N4), updated
-2026-11-03: the adaptor sentence above describes the tree before #167, and the
+*State, updated 2026-11-03: the adaptor sentence above describes the tree before #167, and the
 adaptor it names was retired by #164. The replay now lives in the shared layer
 (`latin_reading()` in `libhunmin/src/buffered_preedit.c`, pinned by
 `engine-wordset`), and that layer evaluates ReqMode8's formula at the boundary
 (`judge_boundary`, issue #168). The requirement half of this section is
 unchanged. Which component owns the judgement was ruled 2026-11-01 (#164): **the
-engine judges, the frontend performs the switch** — see
-`docs/OPTIONS-MEASURED.md` §MRO for what that decision does and does not settle.*
+engine judges, the frontend performs the switch** — the ruling and what it did
+not settle are in
+`wiki/decisions/2026-11-01-the-engine-judges-the-frontend-switches.md`.*
 
 The three design facts that came out of the earlier discussion are moved to
 `docs/architecture.md` **§3**: no per-frontend settings store, one state
@@ -211,8 +212,8 @@ current language, unjudged — while the remainder keeps composing.
 flush itself judges nothing — the judgement runs only in `boundary()` (#164) — so
 `§E6`'s flicker stays inert at this cap. What the boundary judges after a flush is
 the **remainder**: the flush empties the reading's key log, so the judgement sees
-the tail's own reading and key count (measured: a 400-key word flushed three times
-reaches the boundary with a 61-key reading, `docs/OPTIONS-MEASURED.md` §BND-2).
+the tail's own reading and key count (pinned by tier-A `engine-buffered-preedit`: a
+400-key word flushed three times reaches the boundary with a 61-key reading).
 A flushed half is therefore never judged, by construction rather than by omission.
 
 **Not decided by this entry:** whether a frontend gets a settings row for the
@@ -268,7 +269,7 @@ fact the correct delimiter — the conclusion is right and only the basis differ
 Tool: `~/work/wikicorpus/measure-symbol-gap.py`, 4,000 pages of ko.wikipedia.
 **Important: this measurement is only valid if you read the page body whole** — a
 reader that only reads line by line measures the header instead of the body
-(`docs/MODES-DATA.md` §4-1).
+(`docs/MODES-MEASUREMENT.md` §5).
 
 The raw data `hangul<symbol>hangul` (no space) has 26,387 cases, but most of them
 are **wiki furniture** — `분류:` chains (all 14,722 of the colons), `15px` flags,
@@ -437,8 +438,8 @@ requirement** and are in ReqMode6 below.
   digit is committed as soon as its key is processed. The buffer this requirement
   asks for is therefore the shared layer's word, and it holds there: with
   `HUNMIN_COMMIT_AT_BOUNDARY` the run accumulates (`1`, `12`, `123`) and leaves once
-  at the boundary with nothing delivered early (`docs/OPTIONS-MEASURED.md` §BND-7;
-  tier-A `engine-buffered-preedit`). Under `HUNMIN_COMMIT_PER_SYLLABLE` it goes out
+  at the boundary with nothing delivered early (tier-A `engine-buffered-preedit`;
+  the designed case `r6-literal-digit-row-held-to-the-boundary`). Under `HUNMIN_COMMIT_PER_SYLLABLE` it goes out
   per key — the guarantee is the policy's, which is why the two settings are
   dependent (issue #207).
 
@@ -551,9 +552,10 @@ hangul_valid   =  the buffer composes as Korean syllables of the shape
 
 Consequences worth stating because they are the point of the simplification:
 
-- **The corpus list is no longer the definition.** `docs/MODES-DATA.md` §4 and its
-  50,000-entry cap described what `english_valid` must look up; under this ruling
-  the cap, the list and its stopword policy describe nothing that is still used.
+- **The corpus list is no longer the definition.** The removed corpus list and
+  its 50,000-entry cap described what `english_valid` must look up; under this
+  ruling the cap, the list and its stopword policy describe nothing that is
+  still used.
 - **`hangul_valid` becomes a structural test, not a word test.** A buffer is
   Korean-valid when it composes into well-formed syllables, whether or not the
   result is a word a dictionary knows — so `안녕` and a novel but well-formed
@@ -566,15 +568,13 @@ Consequences worth stating because they are the point of the simplification:
   mode unless the structural test says otherwise. Recorded here as the measured
   cost of the ruling, not as an objection to it.
 
-**Deferred 2026-10-25:** `docs/MODES-DATA.md` and the corpus list it
-describes are left in place and revisited in a later phase when it is
-needed; the list no longer defines `english_valid`, so its sections are a
-record, not the current definition.
-
-**Not decided by this entry, and left open:** whether the corpus list, the cap
-and the MODES-DATA sections that describe them are deleted or kept as the
-record of the measurement; and whether ReqMode9's threshold (E3) is re-based now that
-`hangul_valid` no longer means "a word exists".
+**Resolved 2026-11-08:** the maintainer ruled the stale corpus material out:
+*"most of modes-data is stale; … no need to retain. remove the file and extract
+minimal knowledges to reproduce it with new data and approach."*
+`docs/MODES-DATA.md` and `docs/MODES-METRICS.md` were deleted; what a new
+measurement must keep is in `docs/MODES-MEASUREMENT.md`. The ruling does not
+re-base ReqMode9's threshold (E3) now that `hangul_valid` no longer means "a
+word exists"; that remains open with board B1's residue.
 
 ### English validity source: hunspell en_US, plus a user dictionary (2026-11-01)
 
@@ -591,15 +591,17 @@ DICTIONARY" now names its dictionary, its artefact and its extension point.
 | user words | a plain-text file (one word per line, `#` comments), merged into the same lookup; `hunmin_buffered_preedit_load_user_words`, with `..._add_user_word` as the editing path |
 | presence | absent data is a normal state (B3): `..._english_ready` answers 0 and every lookup answers 0 |
 
-The measured basis is `docs/OPTIONS-MEASURED.md` §EDW: among general English
-dictionaries the choice moved coverage by ~3pp while licence, size and provenance
-differed by everything. The user dictionary is the ruled answer to the gap that
-measurement found — `kbs` `mbc` `fifa` are in no English dictionary, so a person's
-own words are the only thing that can make them `english_valid`.
+The comparison that priced four candidate dictionaries, and the corpus-list
+baseline, was withdrawn on 2026-11-08; what decided the choice, and what it left
+open, is `wiki/decisions/2026-11-01-the-english-source-is-hunspell-en-us-plus-a-user-dictionary.md`,
+and `tools/modes-dict-probe.py` re-derives the comparison. The user dictionary is
+the ruled answer to the gap that measurement found — `kbs` `mbc` `fifa` are in no
+English dictionary, so a person's own words are the only thing that can make them
+`english_valid`.
 
-**Deferred, and named rather than dropped:** the curated supplement list (a
-measured 62.59% → 75.53% for ~2,000 forms, §EDW-3) is **not** shipped — the
-ruling is "en_US + user dictionary". And this ruling fixes the DATA and the
+**Deferred, and named rather than dropped:** the curated supplement list (priced
+in the withdrawn paper as a coverage gain for a few thousand forms) is **not**
+shipped — the ruling is "en_US + user dictionary". And this ruling fixes the DATA and the
 lookup; the judgement that consumes them (`english_valid` inside the ReqMode8 formula)
 is still unimplemented, so no frontend switches modes yet.
 
@@ -652,30 +654,6 @@ a layout that composes no Hangul has no syllables to judge and the feature stays
 disabled there rather than guessing. The requirement text above is unchanged.
 
 
-### `valid` is not a dictionary lookup (measured 2026-10-04) — SUPERSEDED by ReqMode8 above; kept as the measurement of what the ruling costs
-
-**What `english_valid` / `hangul_valid` in the judgement formula above must look
-up has been measured** (`docs/MODES-DATA.md` §4-7). The requirement (ReqMode8) is
-unchanged, but its definition is not a dictionary:
-
-- **english_valid** = a lookup against a **corpus list** with a cap of
-  **50,000**. Reproduction rate 86.35% (on 624). Even raising the cap to 815,822
-  (all of it) only gives 91.96% — it saturates.
-- **hangul_valid** = **no cap.** A cap must not be applied (§4-7b).
-
-**"Clearly an English word" must not be defined as an English dictionary.**
-Measured: at a cap of 50,000 a dictionary filter drops the reproduction rate from
-**86.35% → 43.87%**, and raising the cap does not recover it (flat at ~44%). The
-reason is that `kbs` `mbc` `fc` `sbs` `fifa` `uefa` `sk` `kt` `nhk` `cj` are
-**absent from English dictionaries** while actually being among the most
-frequently typed tokens. **This list is not a "list of English words" but a
-"list of Latin strings that Koreans type in Hangul."**
-
-Therefore "word" in the judgement formula above means **"something in this
-list",** and the material of that list is not a dictionary but a **corpus
-harvested from text typed in Hangul.** Stopword removal is not done because it
-only costs reproduction rate (§4-7a).
-
 ## ReqMode9. Short words are not switched [D]
 > "짧은 단어에서 이런 변환이 일어나는 건 위험성이 크고, 단순 오타에 대한
 > 방어로도 좋지 않은 것 같아."
@@ -697,10 +675,11 @@ So the measure is what the person pressed, not characters typed and not syllable
 produced — a syllable is 2–3 keys on 두벌식, so the three units disagree on the same
 word (`안녕` is 6 keys, 2 characters, 2 syllables). The guard is
 `JUDGE_MIN_KEYS 3` in `libhunmin/src/buffered_preedit.c`, and
-`docs/OPTIONS-MEASURED.md` §BND-3 measures what that N partitions in the same unit.
+`tools/modes-boundary-probe.py` measures what that N partitions in the same unit.
 **Corrected 2026-11-01:** this paragraph first read "three characters" (the ruling's
 own wording was `3자`); the unit the maintainer then named is key inputs. The wiki
-page and §MRO carry the same dated correction.
+page (`wiki/decisions/2026-11-01-the-engine-judges-the-frontend-switches.md`)
+carries the same dated correction.
 
 ## ReqMode10. Switching is not retroactive [D]
 Settled by the user. After judgement the new mode applies **from the next key
@@ -856,7 +835,7 @@ that remedy real, and one thing is explicitly not claimed.
 - **Not claimed: the intended word arrives first time.** A misjudged word is
   ReqMode11's accepted cost, counted in ReqMode12. The ideal in the sentence above — every
   mode producing all of its own strings — is ③'s target, which has no pass line
-  (`docs/MODES-METRICS.md` §1.3) and is not judged a defect.
+  (`docs/MODES-MEASUREMENT.md` §1.3) and is not judged a defect.
 
 *Verified by:* ctest `engine-off-identity`, whose `--off-check` drives every
 judgement case the corpus records as switching through the off path against the
@@ -869,7 +848,7 @@ engine with the switch itself as the control; and `engine-buffered-preedit`'s
 
 Each item is **an implementation parameter, not a requirement.** Rewrite the
 status marker as `[E]` → `[D]` or "deleted" from the results in
-`docs/MODES-METRICS.md`.
+`docs/MODES-MEASUREMENT.md`.
 
 ## E1. Whether the symmetric rule holds [D] — ruled 2026-11-01, implemented
 The second line of ReqMode8 (the direction from English mode over to Hangul) **should
@@ -920,11 +899,11 @@ gate is the maintainer's own mixed sentence.
   switched off).
 - **What the ruling did not measure, and what the risk is:** the return direction's
   misfire surface is the short-word space. With ReqMode9's guard applied it switches on
-  **12.73%** of all three-key strings and **6.83%** of four-key ones
-  (`docs/OPTIONS-MEASURED.md` §BND-3) — a typo like `helo` is not an English word and
+  a measurable share of every three-key string and a smaller one of four-key
+  strings (`tools/modes-boundary-probe.py` counts both) — a typo like `helo` is not an English word and
   its Hangul reading is well-formed, so it would flip to Hangul. Whether that rate is
   acceptable is a ruling nobody has made; the corpus that would weight it
-  (`docs/MODES-METRICS.md` §3) does not exist here.
+  does not exist here (`docs/MODES-MEASUREMENT.md` §6).
 
 ## E2. Buffer extension cap — how far is extending the buffer worthwhile [D] — value ruled 2026-11-01, §ReqMode4
 > 더 이상 확장해도 개선되지 않는 선을 찾아야 해. 아마 내가 앞에 이야기 한
@@ -949,7 +928,7 @@ to the length of a word. So a cap exists:
   extension". Both reading and measurement disagree with the second claim — the
   shipped path's buffer is the shared layer's `word`, a heap string with no
   ceiling, while the constant sizes a per-ic array that every shipped caller
-  drains once per key. `docs/OPTIONS-MEASURED.md` §BND-0/§BND-2 has the counts.]**
+  drains once per key. `tools/modes-boundary-probe.py` re-derives the counts.]**
   Even below that, editors react to the preedit length (varies per app,
   unmeasured).
 
@@ -968,7 +947,7 @@ improvement becomes 0. **ReqMode4's "extend to the end" can be amended depending
 result of this evaluation** — once the cap is fixed, "in groups of at most N
 characters" is added to ReqMode4.
 
-## E3. Short-word threshold [D] — value ruled 2026-11-01, §ReqMode9/§MRO
+## E3. Short-word threshold [D] — value ruled 2026-11-01, §ReqMode9
 *The paragraphs below are the item as written while N was open; the value that
 closed it, and the unit question it still leaves, are in the note at the end of this
 section.*
@@ -994,8 +973,8 @@ N at which (b) is minimal.
 *Value ruled 2026-11-01, and priced 2026-11-01:* ReqMode9 carries the number and its
 unit — **three key inputs**, clarified 2026-11-01 ("키입력 세개로 명확히 하자") — and
 `libhunmin/src/buffered_preedit.c` implements exactly that as `JUDGE_MIN_KEYS 3`.
-`docs/OPTIONS-MEASURED.md` §BND-3's sweep is in keys typed, so its `3` row is the
-class the shipped guard admits: an earlier draft of this note recorded a
+the sweep `tools/modes-boundary-probe.py` runs is in keys typed, so its `3` row is
+the class the shipped guard admits: an earlier draft of this note recorded a
 characters-versus-keys discrepancy; the maintainer's clarification closed it in
 favour of keys, and the difference it would have made is measurable (`안녕` is 6 keys
 and 2 characters — judged under the shipped rule, not under a character rule). The
@@ -1008,7 +987,7 @@ ReqMode12 said success is "enough if the number of keystrokes goes down", but **
 much** is enough is not specified. Without a scoring line, scoring is impossible
 even when the implementation is finished.
 
-**Metrics ①②③ are the only scoring targets of this spec** (`docs/MODES-METRICS.md`
+**Metrics ①②③ are the only scoring targets of this spec** (`docs/MODES-MEASUREMENT.md`
 §1), and each needs a pass-line number. Because of ReqMode7, the **number of
 manual interventions** (②b) is also a scoring target, so the two numbers needed
 now are two. Both are undecided.
@@ -1111,8 +1090,8 @@ bad, move on to the option of moving judgement earlier, but then E2's preedit
 problem comes back in real time. **The two options are mutually exclusive.**
 
 *Priced 2026-11-01:* the felt experience is not measurable here, but the number of
-times it would flip is: `docs/OPTIONS-MEASURED.md` §BND-4 counts it over the
-shipped dictionary, and §BND-2 shows that the exclusivity above holds only if the
+times it would flip is counted over the shipped dictionary by
+`tools/modes-boundary-probe.py`, and the exclusivity above holds only if the
 buffer cap is small — a cap in kilobytes never creates the second judgement point.
 
 ### Ruling 2026-11-01 — the timing is an option, and per-key is the default [D]
@@ -1140,7 +1119,7 @@ flicker, not the quiet boundary.
   stream still does not work, and E6 was never the reason: the judgement only fires
   in Hangul mode, so after the first switch every later Korean word is delivered as
   Latin (`sms`, `whdms`, `dlqkTek`). That is the symmetric rule — E1 — and it is
-  still unruled (measured in §BND-4).
+  still unruled (measured by `tools/modes-boundary-probe.py`).
 
 ## E7. How to prove identical behaviour on Android/Windows [E]
 ReqMode3 was a decision and the implementation direction is fixed too (an engine rule).
@@ -1218,8 +1197,7 @@ delimiters.
 | File | Content |
 |---|---|
 | `docs/DESIGN-MODES.md` | the engine state machine of ReqMode4/ReqMode3, the key hook of ReqMode13, the load and its measurement |
-| `docs/MODES-DATA.md` | corpus scale, licences, and the measurements behind the *old* `valid` criterion — ReqMode8 replaced it, so these sections are the record of a measurement, not the current definition |
-| `docs/MODES-METRICS.md` | definitions of metrics ①②③, pass lines, measurement results and invalidation declarations |
+| `docs/MODES-MEASUREMENT.md` | metric definitions, pass-line state, corpus terms and licences, reproduction commands, harness rules, and the record of what the 2026-11-08 removal does not settle |
 | `docs/MODES-POSTMORTEM.md` | the failures committed while investigating this requirement |
 | `docs/SPEC-SCHEMA.md` | the data contract of the word list (shares a problem with the P2 typesetting) |
 | `docs/FCITX5-ADDON-NOTES.md` §11c-ter | why the per-IM layout selector is wrong |
@@ -1228,8 +1206,8 @@ What is not in this document, and where it is:
 
 | Not here | Where it is |
 |---|---|
-| EFFECT/COST numbers, filter table, key-inversion rules | MODES-METRICS.md §3 (but the numbers in §3 are declared invalid) |
-| Corpus scale numbers, whether distributable | MODES-DATA.md §2 |
-| AIHub corpus schema, cross-validation method | MODES-DATA.md §2 (AIHub section) |
+| Harness failure modes and the engine-probed key rule | MODES-MEASUREMENT.md §5 |
+| Corpus sources, whether distributable | MODES-MEASUREMENT.md §4 |
+| Reproduction commands, and what the removed records do not settle | MODES-MEASUREMENT.md §3, §6 |
 | Candidates and constraints for the key combination assignment | DESIGN-MODES.md §3 |
 | The 22 failures committed during the investigation | MODES-POSTMORTEM.md |

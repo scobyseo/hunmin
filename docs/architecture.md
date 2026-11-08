@@ -43,7 +43,8 @@ contract (shadow `hunmin_ctx` + per-boundary replay) was the record for what
 Android would do under the same rule.
 
 *Superseded 2026-11-01 (#164):* the maintainer ruled the judgement **engine-owned
-and the switch frontend-owned** (`docs/OPTIONS-MEASURED.md` §MRO). The replay now
+and the switch frontend-owned**
+(`wiki/decisions/2026-11-01-the-engine-judges-the-frontend-switches.md`). The replay now
 lives in `libhunmin/src/buffered_preedit.c#latin_reading`, the formula in
 `#judge_boundary`, the answer in `hunmin_buffered_preedit_take_judgement`, and
 `language_detect.{h,cpp}` is retired. The paragraph above is kept as the record of

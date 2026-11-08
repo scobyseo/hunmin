@@ -7,7 +7,7 @@ status: active
 tags: [decision, modes, requirements, req-map, spec, 0-3]
 sources:
   - ../../../docs/SPEC-MODES.md
-  - ../../../docs/MODES-METRICS.md
+  - ../../../docs/MODES-MEASUREMENT.md
   - ../../../docs/REQ-MAP.md
 confidence: high
 ---

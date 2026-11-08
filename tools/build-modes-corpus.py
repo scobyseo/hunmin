@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Build the hangul/latin mode corpus from a MediaWiki XML dump.
 
-Docs: docs/MODES-DATA.md (word list, licence), docs/SPEC-MODES.md ReqMode8 (the
+Docs: docs/MODES-MEASUREMENT.md (word list, licence), docs/SPEC-MODES.md ReqMode8 (the
 "valid" test the list feeds).
 
 WHAT THIS REPLACES. The earlier strip rules deleted 75% of english and 37.6%
-of hangul (MODES-DATA.md 4). Two defects were behind that, and only the second
+of hangul (MODES-MEASUREMENT.md §6). Two defects were behind that, and only the second
 one mattered:
 
   1. The hand-written regex stripper removed wiki markup with regular
@@ -41,7 +41,7 @@ USAGE
   tools/build-modes-corpus.py --selfcheck --out ~/work/wikicorpus/out
 
 Both corpora are instruments, not dependencies: ko.wikipedia is shippable
-(CC BY-SA 4.0), the AIHub sets are not (MODES-DATA.md 2).
+(CC BY-SA 4.0), the AIHub sets are not (MODES-MEASUREMENT.md §4).
 """
 import argparse
 import collections
@@ -54,7 +54,7 @@ import unicodedata
 
 # mwparserfromhell is imported lazily, inside strip_wiki. It is needed to BUILD
 # a corpus but not to check one, and this tool's --selfcheck is the part that
-# belongs in ctest (docs/MODES-DATA.md). A module-level import made the check
+# belongs in ctest (docs/MODES-MEASUREMENT.md). A module-level import made the check
 # die on a machine without the parser, so ctest would report a missing
 # dependency as a failing test rather than as what it is.
 _MW = None

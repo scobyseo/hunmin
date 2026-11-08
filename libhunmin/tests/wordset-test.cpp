@@ -12,7 +12,7 @@
  *            NOT a failure: the feature is off until its data is installed.
  *   loaded   the shipped list answers for a word an English dictionary has
  *            (`running`, `computer`) and still answers 0 for the Korean-typed
- *            latin strings MODES-DATA 4-7d names (`kbs`, `fifa`) -- that gap is
+ *            latin strings MODES-MEASUREMENT.md §6 names (`kbs`, `fifa`) -- that gap is
  *            the measured cost of the ruling, asserted here so it cannot be
  *            quietly filled in and forgotten.
  *   user     a user word (`kbs`) is found exactly where a base word is, from a
@@ -105,7 +105,7 @@ TEST_F(WordSetTest, ShippedListAnswersForEnglishAndNotForTheKoreanTypedGap) {
     /* Case folds: the artefact is lowercased, the buffer is not. */
     EXPECT_EQ(1, hunmin_buffered_preedit_english_valid(layer_, "Computer"));
 
-    /* The measured gap the ruling accepted (MODES-DATA 4-7d): these are in no
+    /* The measured gap the ruling accepted (MODES-MEASUREMENT.md §6): these are in no
      * English dictionary, and the user dictionary is the ruled answer. */
     const char *gap[] = {"kbs", "mbc", "fifa", "uefa", "nhk", "xyzzyy"};
     for (const char *w : gap) EXPECT_EQ(0, hunmin_buffered_preedit_english_valid(layer_, w)) << w;
@@ -637,7 +637,7 @@ TEST_F(WordSetTest, TheJudgementTimingChangesTheDisplayAndNeverTheText) {
 }
 
 TEST_F(WordSetTest, PerKeyTimingFlickersOnAnEnglishWordAndBoundaryTimingDoesNot) {
-    /* The measured shape (docs/OPTIONS-MEASURED.md §BND-4), with ReqMode9's three-key
+    /* The shape E6's ruling produces (docs/SPEC-MODES.md §E6), with ReqMode9's three-key
      * guard applied: the first two keys of any word are never judged, so a flip can
      * only start at key 3. `hello` therefore flips once (Hangul, Hangul, Hangul,
      * Latin, Latin); `alphabetically` flips back and forth 11 times. The count is a
@@ -804,7 +804,7 @@ TEST_F(WordSetTest, TheJudgementIsTakenOnceAndClearedByTheNextBoundary) {
 }
 
 /* Issue #191: the judgement that consumes english_valid, end to end through
- * the layer. `kbs` is the ruled gap word (MODES-DATA 4-7d): not in en_US,
+ * the layer. `kbs` is the ruled gap word (MODES-MEASUREMENT.md §6): not in en_US,
  * so it switches only when it is a user word. */
 TEST_F(WordSetTest, UserWordKbsDrivesTheJudgementEndToEnd) {
     /* (a) with the user word present, `kbs` switches to English. */

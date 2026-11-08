@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Price the three parameters of the judgement boundary: SPEC-MODES §E2, §E3, §E6.
 
-Docs: `docs/OPTIONS-MEASURED.md` §BND (the paper this produces), the requirement
-text in `docs/SPEC-MODES.md` ReqMode4/ReqMode9 and §E2/§E3/§E6, and the measurement of the
-structural half in §B1-3.
+Docs: the requirement text in `docs/SPEC-MODES.md` ReqMode4/ReqMode9 and
+§E2/§E3/§E6, and the structural half of ReqMode8's formula (the syllable test)
+that this probe also counts against.
 
 WHY A TOOL. The three items share one question — how far the composition buffer
 may grow, how short a buffer is exempt from switching, and whether judgement ever
@@ -47,10 +47,10 @@ the built library through ctypes (`hunmin_ic_*`, `hunmin_hangul_valid`,
 `hunmin_buffered_preedit_*`); only the dictionary membership test is Python's,
 over the same file the layer loads. Nothing here re-implements composition, so a
 number cannot be an artefact of a hand-written composer -- the failure mode
-`docs/MODES-DATA.md` §4-1 records.
+`docs/MODES-MEASUREMENT.md` §5 rule 1 records.
 
 WHAT IT DOES NOT MEASURE. Running-text word lengths (no Korean corpus is in the
-tree; the ones `docs/MODES-DATA.md` §4-3 names live outside it), the preedit
+tree; the ones `docs/MODES-MEASUREMENT.md` §4 names live outside it), the preedit
 length an application tolerates (per-app, no input here), and felt flicker
 (a person's report, not a count). The dictionary is a population of *forms*, not
 of *tokens*: nothing below is frequency-weighted, and a number here says how much
@@ -267,7 +267,8 @@ def load_words(data):
 def letter_keys(form):
     """The layout keys of a form: hunspell's `'` and `-` are not keys on the
     layouts this prices, so those forms are excluded and counted, never silently
-    transliterated (the same rule `docs/OPTIONS-MEASURED.md` §B1-3 used)."""
+    transliterated (the rule the structural reading applies to the English
+    half: a form that is not ordinary letters is not a form this layout types)."""
     if form.isalpha() and form.isascii():
         return form
     return None

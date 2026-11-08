@@ -108,7 +108,8 @@ are the same partition.
 Affects: `install(DIRECTORY … COMPONENT …)`, `data-split` in
 `cmake/HunminDataTests.cmake`.
 Alternatives: One component; excluding `modes/` by default.
-Evidence → `docs/OPTIONS-MEASURED.md` §EDW-4; `docs/REQ-MAP.md` (ReqMode8);
+Evidence → `docs/SPEC-MODES.md` §ReqMode8 (B3's separate-distribution state);
+`docs/REQ-MAP.md` (ReqMode8);
 verified by `data-split`, `engine-wordset`.
 
 ## MSVC `/utf-8`, PE exports, MSVC static runtime

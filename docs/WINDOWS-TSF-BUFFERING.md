@@ -235,7 +235,8 @@ in here:
   text. No TSF code change follows from this attribution: the ruled options
   are the timing default itself (`judge_timing`, E6) and the E1 per-key
   rule, and changing either is a ruling, not a fix — the priced Hangul
-  direction of the same flicker is §BND-4, and its Latin direction is the
+  direction of the same flicker was priced in the withdrawn boundary paper
+  (`tools/modes-boundary-probe.py` re-derives it), and its Latin direction is the
   unpriced half this round measured. What would change the recommendation
   is a human typing measurement of the Latin direction, which this round
   did not take (see below).

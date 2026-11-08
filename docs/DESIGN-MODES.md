@@ -348,12 +348,12 @@ document.**
 
 <a id="4-measurement-and-harness-design-folded-from-modes-metrics-272-d4"></a>
 
-> Folded per issue #272 (D4). Metric definitions and measured figures remain in
-> `docs/MODES-METRICS.md`; corpus/data provenance remains in `docs/MODES-DATA.md`.
-> This section holds the design rationale and harness lessons that applied in
-> multiple places. Cite figures from their authoritative homes, not from here.
+> Folded per issue #272 (D4). Metric definitions, corpus terms and reproduction
+> methods are in `docs/MODES-MEASUREMENT.md`. This section holds the design
+> rationale and harness lessons that apply in multiple places. Cite measurement
+> facts from their authoritative homes, not from here.
 
-## 4.1 Harness lessons (formerly MODES-METRICS §3)
+## 5.1 Harness lessons (formerly MODES-METRICS §3)
 
 ### Harnesses that were unfit (all returned "confident zeros")
 
@@ -365,15 +365,15 @@ document.**
 | `measure.py` | conjoining (U+1100) vs compatibility (U+3131) jamo | All None |
 | `measure.py` | jungseong range ends at `JUNG+9` (actually `+20`) | Missing ㅜㅛㅠㅡㅣ |
 | debug probe | `hunmin_ic_commit` is a **destructive** read; read per key | 사람 → 람 |
-| `tools/modes-metrics.py`, first run 2026-11-04 | typed punctuation as its own ASCII key; sin3-p2 types `; " '` as Shift+P / Shift+K / Shift+J | 31 of 1,000 sentences "untypeable", 969 graded, −12.78% — **void**, §1.2/§1.3 carry the corrected run |
+| `tools/modes-metrics.py`, first run 2026-11-04 | typed punctuation as its own ASCII key; sin3-p2 types `; " '` as Shift+P / Shift+K / Shift+J | 31 of 1,000 sentences "untypeable", 969 graded, −12.78% — **void**; `docs/MODES-MEASUREMENT.md` §1.2/§1.3 define the corrected measurement, and the corrected run is history (§6) |
 
 **Every failure in this file has the same shape: a plausible-looking number
 produced by a tool that cannot fail loudly.** The seventh member of that table is
 this document's own harness: its first run was committed and quoted before the
 literal probe existed, so those figures travelled (commit `8fc387d`, PR #254).
-The correction is a probe, not a nudge — see §1.3(a).
+The correction is a probe, not a nudge — see `docs/MODES-MEASUREMENT.md` §1.3(a).
 
-### Filter table (unusable — because of §3)
+### Filter table (unusable — its numbers were declared invalid)
 
 ```
 filter          runs     EFFECT    COST
@@ -428,7 +428,7 @@ measurement rather than a preference:
 - **It does not re-derive the combination rules.** Hangul keys come from
   `tools/jamo-keytable.py`, which probes the engine per jamo in its slot
   (`사람` → `nfyfz`, 겹받침 as two jong keys) and records which twin 중성 it chose.
-  The one thing §3 proves is fatal — a hand-derived jamo→key map — is not in the
+  The one thing these lessons prove is fatal — a hand-derived jamo→key map — is not in the
   path.
 - **The X11 e2e path cannot answer this question.** It types real key events into
   a real client, which is why it has no inversion; but E4 grades what the
@@ -437,14 +437,14 @@ measurement rather than a preference:
   off a client's text afterwards cannot tell a correct switch from a lucky
   coincidence, and it needs an X session. The harness drives the same layer
   `tools/sim.c` drives, at the seam the frontends sit on.
-- **The unexplained ctypes difference is now a control, not a footnote.** §3
-  recorded ctypes returning `람` where the CLI returned `사람`. The harness
+- **The unexplained ctypes difference is now a control, not a footnote.**
+  The lessons above recorded ctypes returning `람` where the CLI returned `사람`. The harness
   compares its replay against `hunmin-sim --judge` for the same key string — every
   10th sentence by default, `--cross-check-every 1` for all — and **one mismatch
   fails the whole run** with both answers printed. The 2026-11-04 run compared 99
   sentences and found 0. A run whose receive paths disagree produces no number.
 
-Two more guards sit on the same principle, because §3's six failures all returned
+Two more guards sit on the same principle, because the six failures above all returned
 a confident zero: the OFF arm must deliver every eojeol as written (1,000 of
 1,000 do; a sentence it could not would be counted, not averaged in), and `--selfcheck` asserts that the
 comparator notices a changed sentence, that the transition count matches a hand
@@ -458,7 +458,6 @@ otherwise stay green.
 
 - Requirements: `docs/SPEC-MODES.md` (ReqMode4, ReqMode3, ReqMode13, E5; cite REQ ids)
 - Engine: `libhunmin/src/ic.c`, `libhunmin/src/buffered_preedit.c`
-- Data/provenance: `docs/MODES-DATA.md` (figures cited by pointer)
-- Metrics/figures: `docs/MODES-METRICS.md`
+- Measurement, corpus terms, and reproduction: `docs/MODES-MEASUREMENT.md`
 - Core implementation decisions: `docs/DESIGN-CORE.md`
 - Frontend design: `docs/DESIGN-FRONTEND.md` (stub paths kept for history)

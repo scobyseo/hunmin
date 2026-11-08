@@ -95,8 +95,9 @@ struct hunmin_ctx {
  * knows (24 characters, 0 of 118,150 forms exceed it); reaching it takes ~256
  * consecutive letter keys with no space and no symbol. Configurable at runtime
  * through the layer's "word_cap" option (bytes, 0 = no cap); the value is the
- * maintainer's (2026-11-01). `docs/OPTIONS-MEASURED.md` §BND-2 is the
- * measurement, and `tools/modes-boundary-probe.py buffer` re-runs it. */
+ * maintainer's (2026-11-01). `tools/modes-boundary-probe.py buffer` is the probe
+ * a new value would be derived from; `docs/MODES-MEASUREMENT.md` keeps the method
+ * and the readings that chose it are history. */
 #define WORD_CAP 256
 
 typedef struct {

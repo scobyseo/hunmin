@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Price the candidate English dictionaries for SPEC-MODES ReqMode8's `english_valid`.
 
-Docs: docs/OPTIONS-MEASURED.md (the EDW section this produces),
-docs/SPEC-MODES.md ReqMode8 (the definition being priced: "a lookup in the
-ENGLISH DICTIONARY"), docs/MODES-DATA.md 4-7d (the measurement this one is).
+Docs: docs/SPEC-MODES.md §ReqMode8 (the ruling this tool priced and can
+re-derive: "a lookup in the ENGLISH DICTIONARY"), docs/MODES-MEASUREMENT.md §4
+(the corpus terms a new comparison must respect).
 
 WHY A SEPARATE TOOL. modes-cap.py answers "how much does a dictionary filter
 cost when the dictionary is /usr/share/dict/words"; the ruling that came back
@@ -18,7 +18,7 @@ TWO SUBCOMMANDS.
 
   fetch    Sample ko.wikipedia through the MediaWiki API with prop=extracts
            &explaintext, which is WHY it is not a dump reader: the 4-1 defect
-           in MODES-DATA.md was a hand-written markup stripper, and plain-text
+           in MODES-MEASUREMENT.md was a hand-written markup stripper, and plain-text
            extracts have no markup to strip. Emits:
              latin-freq.txt   count<TAB>form, frequency descending
              ids.txt          the page ids, one per line (replay inputs)
@@ -97,7 +97,7 @@ def _corpus_builder():
 
     `tools/build-modes-corpus.py` spent a session fixing exactly two defects in
     this step (a regex markup stripper, and a one-line-per-page reader --
-    MODES-DATA 4-1), so a second copy of the rules here would be a second home
+    MODES-MEASUREMENT.md §5 rule 2), so a second copy of the rules here would be a second home
     for them, free to drift back to the broken shape. Imported lazily for the
     same reason that file gives: a machine without mwparserfromhell must be
     able to run `measure`, which needs no parser.
@@ -223,7 +223,7 @@ def fetch(pages, outdir, start="가", batch=50, pause=0.3):
         "licence": "text is CC BY-SA 4.0 (ko.wikipedia); this artefact is a "
                    "measurement input and is not redistributed with the engine",
         "represents": "latin-script tokens in ko.wikipedia article prose, as "
-                      "the closest public stand-in for the corpus MODES-DATA 4 "
+                      "the closest public stand-in for the corpus MODES-MEASUREMENT.md §4 "
                       "harvested (it was built from a kowiki dump too)",
         "does_not_represent": [
             "typed text: wikipedia prose is written and edited, not typed in a "
@@ -232,7 +232,7 @@ def fetch(pages, outdir, start="가", batch=50, pause=0.3):
             "sentence context: ReqMode12's metric is a sentence replay, not token recall",
             "a frequency-ordered corpus of its own: this sample is ordered by "
             "article, so its counts are a sample of a snapshot, not the kowiki "
-            "corpus MODES-DATA 4-7 was measured on",
+            "corpus MODES-MEASUREMENT.md §6 was measured on",
         ],
         "replay": f"tools/modes-dict-probe.py fetch --pages {pages} --start {start} --out <dir>",
         "generator": "tools/modes-dict-probe.py fetch",
@@ -447,7 +447,7 @@ def measure(args):
         print(f"{r['name']:28} {r['note']}")
     if named:
         print()
-        print(f"named tokens ({len(named)}): the Korean-typed latin strings MODES-DATA 4-7d names")
+        print(f"named tokens ({len(named)}): the Korean-typed latin strings MODES-MEASUREMENT.md §6 names")
         for r in rows:
             miss = [t for t in named if t not in r["named"]]
             print(f"{r['name']:28} has {len(r['named']):>2}/{len(named)}"

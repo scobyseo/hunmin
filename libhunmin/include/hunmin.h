@@ -467,7 +467,7 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffere
  * Cost: one replay per finished word (~0.5-0.9 us measured overhead). */
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_latin_text(const hunmin_buffered_preedit *l);
 
-/* English words for ReqMode8 (SPEC-MODES, OPTIONS-MEASURED §EDW): shipped hunspell
+/* English words for ReqMode8 (SPEC-MODES §ReqMode8): shipped hunspell
  * en_US-derived list + optional user dictionary, looked up as one set. Lazy load
  * (B3: absent base is normal; judgement answers "not english", not fail). User
  * file is plain text (one word/line, # comments), not shipped JSON. Caller owns

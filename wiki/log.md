@@ -1174,3 +1174,24 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - New page: [[2026-11-05-the-settings-row-names-the-support-condition]].
   Updated the 2026-11-02 page's open-question bullet to point at it. Board row
   `TSF-AUTOSWITCH-ROW-HOST-215` re-pointed; `AUTOSWITCH-TSF-ROW-175` re-measured.
+
+## [2026-11-08] create | the retired modes measurement is deleted (#272)
+
+- Maintainer's order, verbatim: "delete the measurement history is my order. just
+  leave how to remeasure with new data and new approach." Executed in one change:
+  `docs/MODES-DATA.md` and `docs/MODES-METRICS.md` deleted, the superseded
+  2026-10-04 judgement measurement removed from `docs/SPEC-MODES.md`, and the five
+  modes sections of `docs/OPTIONS-MEASURED.md` (§EDW, §B1, §PAS, §MRO, §BND)
+  deleted. `docs/MODES-MEASUREMENT.md` keeps the metric definitions, pass-line
+  shapes, reproduction commands, corpus terms and harness rules, and carries no
+  figures.
+- The maintainer quotes those papers held are not lost with them: four were
+  already recorded in decision pages, and the three that were not — the English
+  source, the buffer cap and ReqMode6's tier wording — got pages in this change.
+  New pages: [[2026-11-08-the-retired-corpus-measurement-is-deleted]],
+  [[2026-11-01-the-english-source-is-hunspell-en-us-plus-a-user-dictionary]],
+  [[2026-11-01-the-buffer-cap-is-256-bytes-configurable]],
+  [[2026-11-01-the-reqmode6-tier-examples-are-the-shift-row]]. Index updated.
+- Board rows that cited the deleted sections were re-pointed in the same change;
+  `docs-lint`, `req-map` and the cheap ctest selection stay green.
+

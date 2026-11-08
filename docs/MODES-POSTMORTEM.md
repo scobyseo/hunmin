@@ -172,7 +172,7 @@ Each entry is kept **because the wrong number looked plausible.**
     `cur.append`, and you have to plant that for hangul 5,054·longest 1,976 to fail.
     *A check passing and what that check checks are separate things.* At the same
     time I re-picked the statistical threshold three times (different form/page →
-    tokens/page → longest body length) — the first two only revealed themselves to be non-discriminating after measuring the full corpus. (docs/MODES-DATA.md §4-5)
+    tokens/page → longest body length) — the first two only revealed themselves to be non-discriminating after measuring the full corpus. (docs/MODES-MEASUREMENT.md §5)
 
 ---
 
@@ -181,7 +181,7 @@ Each entry is kept **because the wrong number looked plausible.**
 Each entry should have the form: **what I got wrong** + **why it did not show
 up.** And it separates "what I can say is wrong" from "what I cannot say
 yet". The figures and the requirements live in other documents
-(`docs/MODES-METRICS.md`, `docs/SPEC-MODES.md`); here I write only the
+(`docs/MODES-MEASUREMENT.md`, `docs/SPEC-MODES.md`); here I write only the
 **failures of method.**
 
 Focus on **the points the next attempt (whether a better model or a fresh
