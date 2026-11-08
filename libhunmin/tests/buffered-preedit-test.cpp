@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * buffered-preedit-test.cpp - tier A for the shared buffered/syllable layer (issue #128,
- * docs/FRONTEND-EQUIVALENCE.md §5).
+ * docs/DESIGN-FRONTEND.md Part A §5).
  *
  * The layer's whole job is that the commit MODE cannot change the result, so
  * the assertions are equalities between two runs of the same key sequence, not
