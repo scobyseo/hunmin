@@ -139,3 +139,19 @@ REQ: `docs/SPEC-MODES.md` §E5. Implementation: `special_mods`/`special_host`,
   means not bound (platform refuses unimplemented function).
 - Peek is the test/claim path; `special()` performs and must resolve the same
   gesture (one resolver, two entry points).
+
+
+## R8-정정-2/3 readings and validity
+
+REQ: `docs/SPEC-MODES.md` R8-정정-2/R8-정정-3. Implementation fields/helpers in
+`buffered_preedit.c` (`english`, `keys`/`latin_out`/`hangul_out`, replay readers,
+`hangul_valid_for`).
+
+- `english` is the modes wordset (NULL until loaded/asked for).
+- Hangul layouts cannot produce Latin readings directly; `latin_out` is the
+  finished word's keys replayed through the Latin layout (R2 shadow reading).
+  `keys` stores (base,shift) slots for the word in flight.
+- `hangul_out` is the Hangul reading replayed through the Hangul layout for the
+  symmetric/E1 path.
+- R8-정정-3: Hangul validity uses widened 옛한글 sets when the active Hangul
+  layout composes archaic jamo (`hangul_valid_for`).

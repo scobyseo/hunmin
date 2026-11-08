@@ -57,40 +57,21 @@ struct hunmin_buffered_preedit {
     hunmin_special_host special_host;
     bool special_host_set;
     hm_wordset *english; /* the modes judgement's data (R8-정정-2); NULL until asked for */
-    /* R8's judgement, once, at the boundary (ruled 2026-11-01, issue #164: the
-     * ENGINE judges, the frontend performs the switch). -1 = no judgement for
-     * the frontend to act on; HUNMIN_LANGUAGE_* = the mode it must adopt. Read
-     * once by hunmin_buffered_preedit_take_judgement(), so a mode cannot be
-     * applied twice, and replaced at every boundary, so a finished word is
-     * never acted on after the next one starts. */
+    /* R8 judgement (DESIGN-CORE.md#r8-judgement--judge_boundary-implementation):
+     * -1 none, else HUNMIN_LANGUAGE_*; read once by take_judgement(). */
     int judged;
-    /* R8's english_valid reads the Latin text the buffer WOULD have produced,
-     * and a Hangul layout cannot produce Latin (measured: the 12 Hangul layouts
-     * emit no Latin letter for any printable key -- the text is destroyed, not
-     * transliterated). So the reading is the same keys replayed through the frontend's
-     * Latin layout, which is SPEC-MODES R2's shadow mechanism; the keys live
-     * here because this object is what sees them. `keys` is the word in flight
-     * and `latin_out` the reading of the word that last finished. */
-    uint32_t *keys; /* interleaved (base, shift) of the word in flight */
-    size_t keylen, keycap; /* in slots, not bytes */
-    /* E6 (docs/SPEC-MODES.md §E6, ruled 2026-11-01): WHEN the judgement is shown.
-     * 1 = per key (the default): the preedit answers in the judged language while
-     * the word is still being typed, which is the flicker the item describes and
-     * the behaviour the maintainer chose as the default ("default는 B로").
-     * 0 = at the boundary only: the word is shown in the current mode and answers
-     * once, at the delimiter. The delivered text is identical either way -- only
-     * when it is shown differs -- and that equality is what the tier-A case pins. */
+    /* R8-정정-2/3 readings (DESIGN-CORE.md#r8-정정-23-readings-and-validity). */
+    uint32_t *keys; /* (base,shift) slots, word in flight */
+    size_t keylen, keycap;
+    /* E6 judge_timing (DESIGN-CORE.md#e6-judged-display-judge_timing):
+     * 1=per key (default), 0=boundary only. */
     int judge_timing;
     char *judged_out; /* the per-key display's reading, owned */
     size_t judgedcap;
-    /* E1's half (docs/SPEC-MODES.md §R8, ruled 2026-11-01: "E1도 당연히 지원해야지"):
-     * the Hangul reading of a word typed in Latin mode, which is what the symmetric
-     * line of R8's formula judges. Same shape as latin_out and for the same reason --
-     * a Latin layout cannot produce Hangul, so the reading is the keys replayed
-     * through the frontend's Hangul layout. */
+    /* E1/R8-정정-2 replayed readings (DESIGN-CORE.md#r8-정정-23-readings-and-validity). */
     char *hangul_out;
     size_t hangulcap;
-    char *latin_out; /* the finished word's reading; "" while a word composes */
+    char *latin_out; /* finished word's reading; "" while composing */
     size_t latincap;
 };
 
