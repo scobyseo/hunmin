@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
- * SettingsActivity — surface B of R13-정정, reachable from the SYSTEM IME
+ * SettingsActivity — surface B of ReqMode13, reachable from the SYSTEM IME
  * settings (res/xml/method.xml's settingsActivity).
  *
  * OverlayActivity is the in-keyboard settings window; this is the screen the

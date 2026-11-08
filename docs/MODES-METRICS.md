@@ -1,7 +1,7 @@
 # MODES-METRICS — Metrics for Hangul/English Guessing
 
-Requirements: `docs/SPEC-MODES.md` R12. This document contains the definition of
-R12 (the criterion by which keystroke count measures success) and the measurement
+Requirements: `docs/SPEC-MODES.md` ReqMode12. This document contains the definition of
+ReqMode12 (the criterion by which keystroke count measures success) and the measurement
 results.
 
 Status: **definitions fixed and measurable — the harness exists and has run
@@ -112,9 +112,9 @@ inferred:
   word that is not switched arrives in the wrong script — there is no third
   outcome: of 2,126 transitions, 1,036 switched and 1,090 did not, and every one
   of the 1,090 arrived wrong;
-- 282 of those 1,090 are below R9's three-key guard (268 Hangul→Latin, 14
+- 282 of those 1,090 are below ReqMode9's three-key guard (268 Hangul→Latin, 14
   Latin→Hangul) and are never judged at all — `M.`, `TV`, `가`;
-- of the 808 at or above the guard, **every** abstention is a branch of R8 rather
+- of the 808 at or above the guard, **every** abstention is a branch of ReqMode8 rather
   than a skipped evaluation, and reading which branch is how the text gets lost:
   a Hangul eojeol whose key sequence spells something valid as neither script
   (`2.5cm`, `Bosna`) or as both (`내쭈`), a Latin eojeol the shipped list does not
@@ -137,7 +137,7 @@ what this run supplies is the shape the §PAS-2 row needs: `u = 51.27%`,
 > Being unable to input some word or some expression at all is a defect.
 
 This is a **grading target of the spec**, and the spec states what it grades as
-two requirements of different kinds (`docs/SPEC-MODES.md` §R14 and §R15): the off
+two requirements of different kinds (`docs/SPEC-MODES.md` §ReqMode14 and §ReqMode15): the off
 side and the fallback are checked, while **the frequency of being unable to input
 when it is on is not judged a defect** and has no pass line in E4. What this
 section measures is that frequency — ③ is the only handle on it.
@@ -192,7 +192,7 @@ transcript had no definition and no table row anywhere.
 > either."*
 
 **Read carefully, this is not a separate property from §1.3 — it is an error
-direction, not a rate.** The policy is already decided (SPEC-MODES R8, `[D]`):
+direction, not a rate.** The policy is already decided (SPEC-MODES ReqMode8, `[D]`):
 
 - If the text is valid as **both** Hangul and English, or as **neither**, the
   current mode is kept. That is the specified behaviour, **not a failure.**
@@ -201,12 +201,12 @@ direction, not a rate.** The policy is already decided (SPEC-MODES R8, `[D]`):
   switch occur in the direction the user did not intend"** — a false-positive
   rate on the judgement itself, symmetric across both directions.
 
-**Why it is nonetheless a distinct measurement.** R8's third branch (keep the
+**Why it is nonetheless a distinct measurement.** ReqMode8's third branch (keep the
 current mode) is what *prevents* this, and that branch is correct as written. But
 a rule being correct on paper and a rule never producing the error are different
 claims, and only one of them is testable. `안녕ㅎ` — neither a Hangul word nor an
 English word — is the maintainer's own worked example of a case that must be
-**kept** in Hangul mode, and R8 says keeping it is correct. The metric asks how
+**kept** in Hangul mode, and ReqMode8 says keeping it is correct. The metric asks how
 often the implementation fails to keep it.
 
 **The concrete failure both directions:**
@@ -231,7 +231,7 @@ denominator is what makes this reading honest: 1,036 switches fired and every on
 went the way the person typed. The failure this metric exists to catch did not
 occur on this corpus — which is a measurement, not a clearance, because the
 corpus is one genre and 282 of its 1,090 unswitched eojeol were never judged at
-all (R9's guard, §1.2), so they could not have produced a wrong-direction switch
+all (ReqMode9's guard, §1.2), so they could not have produced a wrong-direction switch
 either way.
 
 ---
@@ -242,13 +242,13 @@ The candidate shapes are `docs/OPTIONS-MEASURED.md` §PAS-2 (②) and §PAS-3
 (②b); the units they are stated in are §PAS-1's, with `d = t/n` the corpus's
 **transition density**.
 
-R12 said "it is enough if the keystroke count goes down," and there is no **how
+ReqMode12 said "it is enough if the keystroke count goes down," and there is no **how
 much**. Even when the implementation is finished, grading is impossible. This
 corresponds to SPEC-MODES E4, and the figure is undetermined.
 
 ## Manual intervention count — the second metric [E]
 
-R7-correction (2026-10-04) adds one more grading criterion.
+ReqMode7-correction (2026-10-04) adds one more grading criterion.
 
 > Since the user can deliberately input awkward words, if we can reduce the work
 > of manually turning this feature off and on, that is the better direction.
@@ -267,7 +267,7 @@ So grading is two values:
 | **②b Manual intervention** | Number of times a human pressed on/off during replay | undetermined |
 
 **Neither distinguishes direction** — Hangul→English mistyping and
-|English→Hangul mistyping are counted as the same number (R7-correction). The
+|English→Hangul mistyping are counted as the same number (ReqMode7-correction). The
 direction distinction was a rule that existed only before 2026-10-04.
 
 **That is true of ② and ②b, and NOT of ③-bis.** The maintainer defined the third
@@ -338,7 +338,7 @@ document's §1–§2.
 
 # 4. References
 
-- Requirements: `docs/SPEC-MODES.md` R12, R15
+- Requirements: `docs/SPEC-MODES.md` ReqMode12, ReqMode15
 - Corpus/license: `docs/MODES-DATA.md`
 - tier structure: `docs/TESTING.md`
 - The harness: `tools/modes-metrics.py` (ctest `modes-metrics-selfcheck` guards

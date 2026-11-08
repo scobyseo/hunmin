@@ -27,7 +27,7 @@ reasoning that lived only in the conversation.
 Two statements, with different force, and the difference is kept:
 
 1. **A ruling.** OFF is the default until 0.3. This closes B3's undecided line in
-   `docs/SPEC-MODES.md` (R13 and E5 both carried it as "not settled by guesswork").
+   `docs/SPEC-MODES.md` (ReqMode13 and E5 both carried it as "not settled by guesswork").
 2. **A design direction, phrased as one** ("~용이할 거 같아"): the additional data
    the automatic switch needs — a dictionary or whatever it ends up being — ships
    separately, and the feature can only be enabled where that data is present.
@@ -57,11 +57,11 @@ where it doesn't. Three consequences the session named:
 
 ## What was checked against the tree before writing this down
 
-- `docs/SPEC-MODES.md` carries the default as undecided in **two** places (the R13
+- `docs/SPEC-MODES.md` carries the default as undecided in **two** places (the ReqMode13
   bullet list and the E5 section), with the same "not settled by guesswork" note.
   Both needed the same update, and updating one would have recreated the two-homes
   failure `docs/REMAINING-WORK.md` §7 describes.
-- The engine already has an option channel precedent: R13's own text records that
+- The engine already has an option channel precedent: ReqMode13's own text records that
   `hunmin_ic_set_option()` is used by the preprocessing-expression override
   (`ic.c:610`). The on/off state mechanism therefore has a documented predecessor;
   the *data-presence gate* does not — that is new design work in 0.3.

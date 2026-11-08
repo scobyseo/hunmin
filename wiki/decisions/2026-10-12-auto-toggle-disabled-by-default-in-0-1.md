@@ -43,7 +43,7 @@ followed, when asked *how*, by the mechanism:
      the 0.3 lane.
    - The settings window's "자동 한/영 토글" row is rendered **disabled**, badge
      **미정 (0.3)**, and does not open the capture dialog. This is the
-     R13-정정 constraint satisfied: the screen no longer advertises a chord
+     ReqMode13 constraint satisfied: the screen no longer advertises a chord
      whose action logs "not yet implemented" (the divergence
      `docs/SPEC-MODES.md` E5 forbids).
 

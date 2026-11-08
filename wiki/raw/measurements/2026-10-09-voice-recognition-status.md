@@ -259,4 +259,4 @@ then fails are indistinguishable until you check whether the touch arrived.
 - **Mic tappability with 3-button navigation**, where the nav bar is 48 dp of
   solid buttons rather than a 63 px gesture strip.
 - **Release behaviour.** The APK measured here is the debug build; the signing
-  and R8 work `PLAN.md` lists as missing is untouched by this record.
+  and ReqMode8 work `PLAN.md` lists as missing is untouched by this record.

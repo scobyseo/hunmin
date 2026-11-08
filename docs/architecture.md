@@ -17,10 +17,10 @@ Status: **shape + contract reference only** — no design verdict, no implementa
 ## 2. Ownership rule
 
 - **Engine owned**: layout discovery, composition, commit/preedit, buffer lifecycle, options, `hunmin_ctx_layout_mode()` (the per-layout `hangul`/`latin` split).
-- **Frontend owned**: key mapping, preedit/candidate display, per-IM settings, on/off *surface* (R13) — the engine owns the state, the frontend exposes it.
+- **Frontend owned**: key mapping, preedit/candidate display, per-IM settings, on/off *surface* (ReqMode13) — the engine owns the state, the frontend exposes it.
 - **None owned in the core**: anything that differs between frontends (adaptation of the same rule to different event spaces) belongs in the frontend, not `libhunmin`.
 
-## 3. The language-detection question (R8) — design, now decided
+## 3. The language-detection question (ReqMode8) — design, now decided
 
 Requirement (SPEC-MODES.md): a single judgement rule, owned by one component,
 delivered identically in fcitx5, Android, and (planned) Windows. Two virtual
@@ -31,7 +31,7 @@ architectures satisfy it:
 - **Adaptor-owned** — `language_detect.*` (fcitx5) keeps a shadow `hunmin_ctx` on the
   Latin layout and replays the buffered word at the judgement boundary.
 
-**Decision (2026-10-13): Adaptor-owned.** R8 is too heavy for the engine: it
+**Decision (2026-10-13): Adaptor-owned.** ReqMode8 is too heavy for the engine: it
 touches composition-unit (syllable→word), the composition boundary on every
 layout, `STR_CAP` truncation semantics, and preedit length — a load question
 with no measurement yet (`DESIGN-MODES.md §4`), plus a `hunmin_ctx` state
@@ -50,7 +50,7 @@ lives in `libhunmin/src/buffered_preedit.c#latin_reading`, the formula in
 the 2026-10-13 decision and of why the load argument did not survive the data
 moving into the core first.
 
-The maintainer's earlier recorded position (`SPEC-MODES.md` R3, now
+The maintainer's earlier recorded position (`SPEC-MODES.md` ReqMode3, now
 requirement-only) is superseded for design; the rule — one state,
 `hunmin_ic_set_option(autoswitch)`, no per-frontend settings store, no new data
 schema for guessing — is unaffected.
@@ -69,7 +69,7 @@ schema for guessing — is unaffected.
 | Context + layout discovery | `hunmin_ctx_new/dirs`, `hunmin_ctx_layout_count/id/mode` | dirs scanned at runtime; NULL dirs → `HUNMIN_DATA_PATH` |
 | Input context | `hunmin_ic_new/process/commit/preedit/flush/reset/set_option` | commit is destructive; one read per consumer |
 | Mode query | `hunmin_ctx_layout_mode(ctx,i) → "hangul"\|"latin"` | `HM_MODE_HANGUL=0`, `HM_MODE_LATIN=1` |
-| Options | `hunmin_ic_set_option(ic,"caps",1)` etc., read back with `hunmin_ic_get_option(ic,"caps"",&v)` | engine-owned state, one home per value; a frontend surfaces it and keeps no copy. `"autoswitch"` (R13-정정) is one of these: OFF on a fresh ic, it survives the layer's ic re-creation on a language toggle, and ON is refused where the modes word list is not installed (B3's data gate, asked with `hunmin_ctx_autoswitch_data_present()`) |
+| Options | `hunmin_ic_set_option(ic,"caps",1)` etc., read back with `hunmin_ic_get_option(ic,"caps"",&v)` | engine-owned state, one home per value; a frontend surfaces it and keeps no copy. `"autoswitch"` (ReqMode13) is one of these: OFF on a fresh ic, it survives the layer's ic re-creation on a language toggle, and ON is refused where the modes word list is not installed (B3's data gate, asked with `hunmin_ctx_autoswitch_data_present()`) |
 | External text pass-through | `hunmin_ic_flush` (commits in-flight first) | voice / out-of-band text must never go through the jamo pipeline |
 | Android data path | `HunminNativeBridge.kt` ↔ `libhunmin.so` | native shim bridges Kotlin → C ABI |
 | fcitx5 addon lifecycle | `HunminAdapter`, `HunminState` | `hunminadapter.cpp#HunminAdapter` owns the adapter; `HunminState::keyEvent` feeds the layer and `HunminState::applyJudgement` performs the mode change the engine's judgement asks for |

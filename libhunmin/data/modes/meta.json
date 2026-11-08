@@ -1,5 +1,5 @@
 {
-  "what": "the english word set behind SPEC-MODES R8-정정's `english_valid`",
+  "what": "the english word set behind SPEC-MODES ReqMode8's `english_valid`",
   "source": {
     "name": "hunspell en_US (SCOWL size 60 family)",
     "dic": "en_US.dic",

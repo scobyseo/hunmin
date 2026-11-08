@@ -3,7 +3,7 @@
 """Price the three parameters of the judgement boundary: SPEC-MODES §E2, §E3, §E6.
 
 Docs: `docs/OPTIONS-MEASURED.md` §BND (the paper this produces), the requirement
-text in `docs/SPEC-MODES.md` R4/R9 and §E2/§E3/§E6, and the measurement of the
+text in `docs/SPEC-MODES.md` ReqMode4/ReqMode9 and §E2/§E3/§E6, and the measurement of the
 structural half in §B1-3.
 
 WHY A TOOL. The three items share one question — how far the composition buffer
@@ -22,21 +22,21 @@ WHAT IT MEASURES, and the unit each number is in:
   space   the short-word threshold's decision surface, exhaustively. Every
           `a`-`z` string of length 1..N is a thing a person can type; classify
           `english_valid`, hangul_valid of its Hangul-layout rendering),
-          which is R8's pair. `english_valid ∧ ¬hangul_valid` switches to
+          which is ReqMode8's pair. `english_valid ∧ ¬hangul_valid` switches to
           English, `¬english_valid ∧ hangul_valid` switches to Hangul (the
-          symmetric rule, E1), and R9's guard means "no switch below three key
+          symmetric rule, E1), and ReqMode9's guard means "no switch below three key
           inputs" -- so the table carries both the validity classes and the
           class each one leaves after the guard.
           The four classes are counted, not sampled: the space is small enough.
   prefix  what showing the judgement at every key costs (E6, now the shipped
-          default): for each dictionary form, the R8 decision at every prefix, and
+          default): for each dictionary form, the ReqMode8 decision at every prefix, and
           how often the displayed language changes inside the word -- the 도깨비
-          flicker. R9's three-key guard is applied, because a buffer under it is
+          flicker. ReqMode9's three-key guard is applied, because a buffer under it is
           judged by nothing; the unguarded figure is 94.18% and the guarded one
           64.05%, so the guard is quoted as part of the measurement. Counted over
           the whole shipped list, not a sample.
   buffer  where the buffer actually ends today (E2), measured, not read: the
-          shared layer is driven key by key past its cap (256 B since R4-정정,
+          shared layer is driven key by key past its cap (256 B since ReqMode4,
           2026-11-01) and the preedit, the mid-word commits and the total
           delivered text are compared with what was typed. The raw `hunmin_ic`
           path is measured beside it, because §E2's premise was about `STR_CAP`
@@ -82,7 +82,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # option -- the probe reports the layer's live value, not this constant).
 STR_CAP = 64
 WORD_CAP_BYTES = 256
-JUDGE_MIN_KEYS = 3  # R9's guard, ruled 2026-11-01: judge from three KEY INPUTS
+JUDGE_MIN_KEYS = 3  # ReqMode9's guard, ruled 2026-11-01: judge from three KEY INPUTS
 BYTES_PER_SYLLABLE = 3  # UTF-8: every modern syllable is 3 bytes
 
 
@@ -181,7 +181,7 @@ class Engine:
     def digit_run(self, layout, keys, boundary_key=" "):
         """The SHARED layer fed a run of digit keys, then one boundary key.
 
-        R6 (docs/SPEC-MODES.md §R6, issue #171) is a statement about THIS object: the
+        ReqMode6 (docs/SPEC-MODES.md §ReqMode6, issue #171) is a statement about THIS object: the
         ON buffer holds a digit run. So the measurement is per key — what the layer
         delivers, what it holds — and the question is where a digit leaves it.
         Returns the per-key rows, every early commit (a digit that left before the
@@ -218,7 +218,7 @@ class Engine:
         seen, the total text delivered, how many mid-word commits it took, and the
         layer's own cap.
 
-        The mid-word commits are why this is read per key: since R4-정정 (256 B,
+        The mid-word commits are why this is read per key: since ReqMode4 (256 B,
         2026-11-01) a word past the cap delivers its first half at a key, and a
         probe that only read the boundary would report the tail as the whole word
         and call a lossless run lossy."""
@@ -305,9 +305,9 @@ def measure_words(forms):
 
 
 def measure_space(engine, forms, hangul_layout, max_len, judge_min_keys=JUDGE_MIN_KEYS):
-    """Every a-z string of length 1..max_len, classified by R8's pair.
+    """Every a-z string of length 1..max_len, classified by ReqMode8's pair.
 
-    `would_switch` is the class AFTER R9's guard: a buffer shorter than
+    `would_switch` is the class AFTER ReqMode9's guard: a buffer shorter than
     `judge_min_keys` key inputs is judged by nothing at all (the shipped
     `JUDGE_MIN_KEYS`), so the length-1 and length-2 rows can never switch in
     practice -- the validities still say what they say, and the column pair
@@ -342,14 +342,14 @@ def measure_space(engine, forms, hangul_layout, max_len, judge_min_keys=JUDGE_MI
 
 
 def r8_decision(english_valid, hangul_valid, current_hangul=True):
-    """R8's formula for the mode the buffer was typed in, expressed as the
+    """ReqMode8's formula for the mode the buffer was typed in, expressed as the
     language the buffer would be DISPLAYED in after judging at this prefix.
 
     Italicised on purpose: the third line ("both valid / both invalid -> keep the
     current mode") is what makes a display quantity. With the current mode
     Hangul, a prefix that switches to English shows English; every other prefix --
     english-only after the formula fails, both-valid, both-invalid -- shows
-    Hangul, because that is what R8 says to keep."""
+    Hangul, because that is what ReqMode8 says to keep."""
     if english_valid and not hangul_valid:
         return "english"
     if hangul_valid and not english_valid:
@@ -372,7 +372,7 @@ def measure_prefix(engine, forms, hangul_layout):
         def note(text, _k=k, _d=decisions, _s=state):
             # english_valid asks about the LATIN prefix typed so far (that is what
             # the dictionary lookup takes); hangul_valid asks about the rendering.
-            # R9's guard applies: a buffer under JUDGE_MIN_KEYS key inputs is judged
+            # ReqMode9's guard applies: a buffer under JUDGE_MIN_KEYS key inputs is judged
             # by nothing, so its display stays in the current mode whatever the
             # validities say -- which is why the shipped guard also removes the
             # first two chances of a flicker in every word.
@@ -451,7 +451,7 @@ def measure_buffer(engine):
 
 
 def measure_digits(engine):
-    """R6's measurement (docs/SPEC-MODES.md §R6, issue #171): where a digit run
+    """ReqMode6's measurement (docs/SPEC-MODES.md §ReqMode6, issue #171): where a digit run
     actually ends in the ON buffer.
 
     The requirement is that digits are composition input in the ON state, so a
@@ -625,7 +625,7 @@ def main(argv):
                      r["kept_by_one_late_read"], r["lost_by_one_late_read"]))
     if "digits" in result:
         d = result["digits"]
-        print("DIGITS — R6: the ON buffer's word against the engine's per-key commit")
+        print("DIGITS — ReqMode6: the ON buffer's word against the engine's per-key commit")
         print("  layout           keys         what                            engine commits/key | layer preedit after last key | early | boundary commit | lossless")
         for r in d["runs"]:
             last = r["layer"]["rows"][-1]

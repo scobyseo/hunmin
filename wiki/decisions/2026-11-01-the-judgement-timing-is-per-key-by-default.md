@@ -32,11 +32,11 @@ behind `build_preedit()` in `libhunmin/src/buffered_preedit.c`.
 flicker: the timing is a *display* setting. The word is still delivered once, at
 the boundary, in the language `judge_boundary()` decides there, and
 `take_judgement` still answers once per word — so [[2026-11-01-the-engine-judges-the-frontend-switches]]
-stands unchanged, and R10 (nothing retroactive) is untouched. A frontend cannot
+stands unchanged, and ReqMode10 (nothing retroactive) is untouched. A frontend cannot
 tell the two timings apart from the text it receives; the tier-A case
 `TheJudgementTimingChangesTheDisplayAndNeverTheText` asserts exactly that equality.
 
-**What the default costs, measured with R9's three-key guard** (the guard keeps the
+**What the default costs, measured with ReqMode9's three-key guard** (the guard keeps the
 first two keys of every word unjudged, so it removes chances to flicker):
 64.05% of the shipped dictionary's forms change language at least once inside the
 word, mean 2.59 changes, `alphabetically` 11. Without the guard the figure is

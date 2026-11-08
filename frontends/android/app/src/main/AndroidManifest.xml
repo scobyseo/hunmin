@@ -104,7 +104,7 @@
             android:exported="false" />
 
         <!--
-          SettingsActivity — the system IME settings screen (R13-정정 surface B,
+          SettingsActivity — the system IME settings screen (ReqMode13 surface B,
           issue #177).
 
           Exported because the Settings app is a different package: it starts

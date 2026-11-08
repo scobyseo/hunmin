@@ -382,7 +382,7 @@ MODES_COUNTS_KEYS = {"stems", "expanded_forms", "shipped", "dropped"}
 
 
 def check_modes(directory: Path, vfile: V):
-    """data/modes/: the english word list behind R8-정정's english_valid."""
+    """data/modes/: the english word list behind ReqMode8's english_valid."""
     vfile.data = "en-US.json"
     listing = directory / "en-US.json"
     try:

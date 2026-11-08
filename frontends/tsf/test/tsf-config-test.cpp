@@ -95,7 +95,7 @@ TEST_F(TsfConfigTest, EmptyEnvRestoresDefaults) {
     _putenv_s(HUNMIN_TSF_ENV_HANJA_KEY, "");
     hunmin_tsf_config_load(nullptr, &cfg);
     EXPECT_STREQ(cfg.hanjaKey, "v1:25:0") << "empty env hanja key -> default";
-    /* R13-정정's ON/OFF (issue #175): OFF is the B3 default, and the flag is
+    /* ReqMode13's ON/OFF (issue #175): OFF is the B3 default, and the flag is
      * spelled "1" -- anything else in the store is OFF (fail-closed). */
     EXPECT_EQ(cfg.autoswitch, 0) << "autoswitch defaults OFF (B3)";
     _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "1");
@@ -137,7 +137,7 @@ TEST_F(TsfConfigTest, RegistryRoundTripAndUnterminatedId) {
     strcpy_s(write.hangulLayout, "sebeolsik-3-90");
     strcpy_s(write.latinLayout, "dvorak");
     strcpy_s(write.hanjaKey, "v1:120:0");
-    write.autoswitch = 1; /* R13-정정's ON/OFF (issue #175) */
+    write.autoswitch = 1; /* ReqMode13's ON/OFF (issue #175) */
     EXPECT_EQ(hunmin_tsf_config_save(selftest, &write), TRUE) << "save returned FALSE";
     int rc = hunmin_tsf_config_load(selftest, &cfg_);
     EXPECT_GE(rc, 1) << "load from registry failed entirely";
@@ -147,7 +147,7 @@ TEST_F(TsfConfigTest, RegistryRoundTripAndUnterminatedId) {
     EXPECT_STREQ(cfg_.hangulLayout, "sebeolsik-3-90") << "round trip hangul";
     EXPECT_STREQ(cfg_.latinLayout, "dvorak") << "round trip latin";
     EXPECT_STREQ(cfg_.hanjaKey, "v1:120:0") << "round trip hanja key";
-    EXPECT_EQ(cfg_.autoswitch, 1) << "round trip autoswitch (R13-정정's ON/OFF)";
+    EXPECT_EQ(cfg_.autoswitch, 1) << "round trip autoswitch (ReqMode13's ON/OFF)";
 
     /* 5. An unterminated id is rejected, never truncated. */
     HunminTsfConfig bad = {};
@@ -344,7 +344,7 @@ TEST_F(TsfConfigTest, AdapterKeyDriveOverTheMockLayer) {
  *      toggle, so no key is ever dead.
  * The binding itself is the engine's value: this case reads it back through
  * hunmin_buffered_preedit_special_chord(), which is what the settings dialog
- * shows (R13-정정: the dialog advertises what is honoured). */
+ * shows (ReqMode13: the dialog advertises what is honoured). */
 TEST_F(TsfConfigTest, TheHanEngKeyCarriesTheSpecialFunctionOnAChord) {
     _putenv_s(HUNMIN_TSF_ENV_HANGUL_LAYOUT, "dubeolsik");
     _putenv_s(HUNMIN_TSF_ENV_LATIN_LAYOUT, "us-qwerty");
@@ -406,7 +406,7 @@ TEST_F(TsfConfigTest, TheHanEngKeyCarriesTheSpecialFunctionOnAChord) {
     tm->Release();
 }
 
-/* R13-정정's surface A, performed by the ADAPTER (issue #175). The ruling of
+/* ReqMode13's surface A, performed by the ADAPTER (issue #175). The ruling of
  * 2026-11-01 (#164) splits the work: the ENGINE judges and delivers the word,
  * the FRONTEND adopts the mode it answers. This case pins the adapter half for
  * the two buffers the issue names -- one English-valid, one Hangul-valid -- so
@@ -417,7 +417,7 @@ TEST_F(TsfConfigTest, TheHanEngKeyCarriesTheSpecialFunctionOnAChord) {
  * Both verdicts are tier A's own for the same buffers on the shipped dictionary
  * (wordset-test, TheZeroThreeGateMixedSentenceWorksInOneStream) -- nothing is
  * typed here. The committed text is the same either way: the judgement changes
- * the MODE, never the word (R10).
+ * the MODE, never the word (ReqMode10).
  *
  * The boundary is a SPACE, which on a real TSF host reaches the adapter in the
  * TEST phase (the key passes, so the host never calls the down phase -- the
@@ -440,12 +440,12 @@ TEST_F(TsfConfigTest, TheAutomaticSwitchFlipsTheModeAtTheBoundary) {
     g_mockKeyState[VK_SHIFT & 0xFF] = 0;
     ASSERT_TRUE(Snap(svc).hangulMode) << "the service starts in hangul mode";
 
-    /* The stored preference reached the engine's ONE state (R13-정정: the
+    /* The stored preference reached the engine's ONE state (ReqMode13: the
      * frontend holds no copy, it reads the engine's answer). */
     hunmin_buffered_preedit *layer = Snap(svc).layer;
     ASSERT_NE(layer, nullptr);
     int on = 0;
-    ASSERT_TRUE(hunmin_buffered_preedit_get_option(layer, "autoswitch", &on)) << "the layer answers the option R13-정정 names";
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(layer, "autoswitch", &on)) << "the layer answers the option ReqMode13 names";
     EXPECT_EQ(on, 1) << "the stored value reached the layer";
 
     auto type = [&](const char *keys) {
@@ -460,7 +460,7 @@ TEST_F(TsfConfigTest, TheAutomaticSwitchFlipsTheModeAtTheBoundary) {
         svc->OnKeyDown(mctx, VK_SPACE, 0, &eat);
     };
 
-    /* 1. A Hangul-valid buffer: 는 is well-formed Hangul, so R8 answers "keep
+    /* 1. A Hangul-valid buffer: 는 is well-formed Hangul, so ReqMode8 answers "keep
      * the current mode" and nothing switches. */
     type("sms");
     EXPECT_TRUE(Snap(svc).hangulMode) << "a Hangul-valid word must not switch the mode";
@@ -471,7 +471,7 @@ TEST_F(TsfConfigTest, TheAutomaticSwitchFlipsTheModeAtTheBoundary) {
     EXPECT_FALSE(Snap(svc).hangulMode) << "an English-valid word must switch the mode to Latin";
 
     /* The word landed in the client, in the language the judgement decided,
-     * and nothing was reassembled (R10): 는 then english. */
+     * and nothing was reassembled (ReqMode10): 는 then english. */
     EXPECT_EQ(mctx->doc, std::wstring(L"\uB294") + L"english") << "the judged words are the delivered text";
 
     /* Process-wide seams back to their defaults: this binary runs every case in
@@ -489,7 +489,7 @@ TEST_F(TsfConfigTest, TheAutomaticSwitchFlipsTheModeAtTheBoundary) {
 /* The English -> Hangul direction, ruled 2026-11-02: *"autoswitch ON stops
  * English passthrough to support eng -> han support"*. Before this the adapter
  * returned at `if (!hangulMode_) return S_OK;` and the engine never saw a key
- * typed in Latin mode, so R8's E1 line (and the 0.3 gate sentence) could not
+ * typed in Latin mode, so ReqMode8's E1 line (and the 0.3 gate sentence) could not
  * fire on TSF at all.
  *
  * One service, two words: `english` switches Hangul -> Latin (the direction the
@@ -549,7 +549,7 @@ TEST_F(TsfConfigTest, TheEnglishDirectionIsJudgedOnceTheSwitchIsOn) {
 }
 
 /* The same keys with the switch OFF: the passthrough is exactly what shipped
- * (R5's per-character English, delivered by the host, judged by nobody), so the
+ * (ReqMode5's per-character English, delivered by the host, judged by nobody), so the
  * ruling above did not change the feature-off path. */
 TEST_F(TsfConfigTest, ThePassthroughStaysWhenTheSwitchIsOff) {
     _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "0");
@@ -587,7 +587,7 @@ TEST_F(TsfConfigTest, ThePassthroughStaysWhenTheSwitchIsOff) {
 
     BOOL eat = TRUE;
     svc->OnTestKeyDown(mctx, 'D', 0, &eat);
-    EXPECT_FALSE(eat) << "switch OFF: a Latin-mode key passes to the app (R5, unchanged)";
+    EXPECT_FALSE(eat) << "switch OFF: a Latin-mode key passes to the app (ReqMode5, unchanged)";
 
     _putenv_s(HUNMIN_TSF_ENV_AUTOSWITCH, "");
     svc->Release();

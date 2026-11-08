@@ -86,7 +86,7 @@ struct hunmin_ctx {
 #define UTF8_CAP 256 /* getter output capacity */
 
 /* The cap on the word the shared buffered layer holds (docs/SPEC-MODES.md
- * §R4-정정, ruled 2026-11-01). The preedit a frontend is asked to render grows
+ * §ReqMode4, ruled 2026-11-01). The preedit a frontend is asked to render grows
  * with the word, so the layer's own buffer is bounded: past this many BYTES of
  * UTF-8 the first half of the word is committed and the tail stays. Bytes rather
  * than characters, because what is being bounded is an allocation.
@@ -130,7 +130,7 @@ struct hunmin_ic {
     size_t extcap;
     uint32_t T; /* symbol-tier state (0/101..103) */
     int caps; /* Caps Lock (expression var P) */
-    /* R13-정정's one on/off state for the automatic Hangul/English switch.
+    /* ReqMode13's one on/off state for the automatic Hangul/English switch.
      * Lives on the ic (the engine's state holder) and is carried across the
      * layer's ic re-creation in attach_ic(), so a language toggle cannot lose a
      * preference the settings UI just wrote. 0 = OFF, the B3 default. */
@@ -170,7 +170,7 @@ int hm_split_dirs(const char *env, char *buf, size_t bufsz, const char *dirs[], 
  * directory the same way -- a per-loader search is how two data dirs disagree. */
 int hm_data_dirs(const hunmin_ctx *ctx, const char *const **out);
 
-/* wordset.c -- the english word set behind R8-정정's `english_valid`
+/* wordset.c -- the english word set behind ReqMode8's `english_valid`
  * (docs/SPEC-MODES.md, ruling 2026-11-01: hunspell en_US base + user words).
  * Internal: the ABI surface is the hunmin_buffered_preedit_english* wrappers in
  * buffered_preedit.c, so this stays out of hunmin.h. */

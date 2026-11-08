@@ -16,7 +16,7 @@
 
   `settingsActivity` is the standard InputMethodService path: the system IME
   settings list reads it from this metadata and opens that Activity when the
-  user taps the IME's settings. It is R13-정정's surface B (issue #177); the
+  user taps the IME's settings. It is ReqMode13's surface B (issue #177); the
   activity is declared exported because Settings, a different package, starts
   it explicitly. The value it edits is the engine's, not a preference key of
   its own.

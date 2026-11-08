@@ -4,7 +4,7 @@
 
 Ruling (maintainer, 2026-11-01): `english_valid` looks up hunspell `en_US`, and
 people may extend it with a user dictionary. The measurement behind that choice
-is docs/OPTIONS-MEASURED.md §EDW; the requirement is docs/SPEC-MODES.md R8-정정.
+is docs/OPTIONS-MEASURED.md §EDW; the requirement is docs/SPEC-MODES.md ReqMode8.
 
 WHY A GENERATED FILE AND NOT THE .dic/.aff PAIR. The engine needs a word SET,
 not a speller: one membership test per finished buffer, no affix rules at
@@ -109,7 +109,7 @@ def main():
                     break
 
     meta = {
-        "what": "the english word set behind SPEC-MODES R8-정정's `english_valid`",
+        "what": "the english word set behind SPEC-MODES ReqMode8's `english_valid`",
         "source": {
             "name": "hunspell en_US (SCOWL size 60 family)",
             "dic": os.path.basename(args.dic),

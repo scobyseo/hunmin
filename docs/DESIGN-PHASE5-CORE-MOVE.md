@@ -20,7 +20,7 @@ current code before each move.
 
 | Area | fcitx5 | Android | TSF | Core today | Candidate move |
 |---|---|---|---|---|---|
-| Apply R8 judgement after boundary key | `hunminadapter.cpp` `applyJudgement()` reads `take_judgement`, toggles layer language, returns boundary commit | `HunminAdapter`/service path reads judgement and applies mode change | TSF key/composition path reads judgement and performs host-allowed switch | `hunmin_buffered_preedit_take_judgement`, `toggle_language`, judged delivery | Shared "apply judgement to layer" helper/API or a thin core step returning structured action; frontends still perform host presentation/IM-state effects. |
+| Apply ReqMode8 judgement after boundary key | `hunminadapter.cpp` `applyJudgement()` reads `take_judgement`, toggles layer language, returns boundary commit | `HunminAdapter`/service path reads judgement and applies mode change | TSF key/composition path reads judgement and performs host-allowed switch | `hunmin_buffered_preedit_take_judgement`, `toggle_language`, judged delivery | Shared "apply judgement to layer" helper/API or a thin core step returning structured action; frontends still perform host presentation/IM-state effects. |
 | Autoswitch option + data gate + read-back | `applyAutoswitch`, `pushAutoswitch`, config annotation/chord/data-present | `applyAutoswitch`, `AutoSwitchSettings`, overlay/settings UI | settings rows/read-back (`hunmin_tsf_autoswitch_row`) + config wiring | `set/get_option("autoswitch")`, `hunmin_ctx_autoswitch_data_present`, special chord | Core owns value/gate/read-back (already mostly true). Unify frontend glue patterns where possible; keep UI presentation frontend-owned. FE11 Android/TSF shell scope still unwritten. |
 | Caps handling (per key event) | `hunminadapter.cpp` reads raw key CapsLock, passes `caps` option | service/adapter path passes caps/meta state per event | key dispatch translates modifiers | `set_option(...,"caps",...)` on layer/ic | Core API for "normalize caps for key event"? Only if it removes real duplication without hiding host key semantics. Many differences are host event models. |
 | Candidate handling | fcitx5 candidate list/UI integration | Android candidate UI (`OverlayActivity`, adapter) | TSF candidate/display integration | candidate pages/list/cursor via layer | Presentation is host-owned; shared policy/state should stay in core. Move only duplicated *policy* not UI. |
@@ -28,7 +28,7 @@ current code before each move.
 
 ## Constraints
 
-- Preserve SPEC/REQ behavior (especially R3/R8/R9/R10/R13/R13-정정/B3, FE*).
+- Preserve SPEC/REQ behavior (especially ReqMode3/ReqMode8/ReqMode9/ReqMode10/ReqMode13/ReqMode13/B3, FE*).
 - Keep frontends thin (AGENTS guideline) but do not force host-specific code
   into core (fcitx5 trigger ownership/FE13, TSF text-store delivery modes,
   Android IME lifecycle/UI).

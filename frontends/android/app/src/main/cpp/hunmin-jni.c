@@ -282,7 +282,7 @@ JNIEXPORT jlong JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerNew(JN
     free(h);
     free(l);
     free(b);
-    /* R8's judgement needs the English list (R8-정정-2, ruled 2026-11-01).
+    /* ReqMode8's judgement needs the English list (ReqMode8, ruled 2026-11-01).
      * Loaded per layer from the context's own data dirs; absent data is a
      * normal state (B3) and every judgement then answers -1. */
     if (p) hunmin_buffered_preedit_load_english_shipped(p);
@@ -372,7 +372,7 @@ JNIEXPORT jboolean JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerSet
     return ok;
 }
 
-/* R13-정정's read half (issue #165): the settings row asks the ENGINE what the
+/* ReqMode13's read half (issue #165): the settings row asks the ENGINE what the
  * value is instead of keeping a copy. Returns a one-element array -- the value
  * -- or NULL for a name the engine does not know, so "unknown name" is
  * distinguishable from "-1, the layout default" (a real value of w/W/z/H/h).
@@ -417,7 +417,7 @@ JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerLanguag
     return l ? (jint)hunmin_buffered_preedit_language(l) : 0;
 }
 
-/* R8's judgement, taken once per key (ruled 2026-11-01, issue #164): the ENGINE
+/* ReqMode8's judgement, taken once per key (ruled 2026-11-01, issue #164): the ENGINE
  * judges and has already delivered the word in the judged language, this is the
  * MODE half. HUNMIN_LANGUAGE_* = adopt that mode now, -1 = nothing to do. */
 JNIEXPORT jint JNICALL Java_org_hunmin_ime_HunminNativeBridge_nativeLayerTakeJudgement(JNIEnv *env, jclass k, jlong layer) {

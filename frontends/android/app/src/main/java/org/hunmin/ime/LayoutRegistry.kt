@@ -171,7 +171,7 @@ object ImeSettings {
 
     /**
      * The engine's automatic-switch value (1 on, 0 off, null when no engine can
-     * answer) — docs/SPEC-MODES.md §R13-정정. The window SHOWS this and never
+     * answer) — docs/SPEC-MODES.md §ReqMode13. The window SHOWS this and never
      * keeps its own copy; the key chord writes the same field.
      */
     var autoSwitchValue: () -> Int? = { null }

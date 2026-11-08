@@ -661,7 +661,7 @@ bool hunmin_ic_set_option(hunmin_ic *ic, const char *name, int value) {
         ic->caps = !!value;
         return true;
     }
-    /* R13-정정's one on/off state: the settings UI writes it and reads it back
+    /* ReqMode13's one on/off state: the settings UI writes it and reads it back
      * here, and the key surface reads the same field, so the two surfaces can
      * only agree. Coerced by !! like "caps" -- the layer's option contract is
      * one name-to-int channel, not a per-option value grammar.
@@ -832,7 +832,7 @@ bool hunmin_ctx_layout_old_hangul(const hunmin_ctx *ctx, int i) {
     return ctx && i >= 0 && i < ctx->n && ctx->layouts[i].old_hangul;
 }
 bool hunmin_ctx_autoswitch_data_present(const hunmin_ctx *ctx) {
-    /* The data half of R13-정정's on/off switch (docs/SPEC-MODES.md §R13-정정,
+    /* The data half of ReqMode13's on/off switch (docs/SPEC-MODES.md §ReqMode13,
      * the B3 bullet): the judgement needs the modes word list, so the feature is
      * enable-able only where that list is installed -- and "installed" is asked
      * through the same search every data subdirectory uses (hm_data_dirs), so no

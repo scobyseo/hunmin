@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Count hangul runs glued across a symbol, in ko.wikipedia or an aihub corpus.
 
-Docs: docs/SPEC-MODES.md R4 (are symbols a valid composition separator?),
+Docs: docs/SPEC-MODES.md ReqMode4 (are symbols a valid composition separator?),
 docs/MODES-DATA.md §2 (aihub is a measurement instrument, never shippable).
 
-WHY THIS EXISTS AS A COMPARISON. The R4 question is whether hangul follows a
+WHY THIS EXISTS AS A COMPARISON. The ReqMode4 question is whether hangul follows a
 symbol with no space -- a question about ordinary writing. ko.wikipedia is
 encyclopaedic prose and may under-represent informal punctuation, so a single
 corpus cannot answer it. If a web corpus disagreed, the wikipedia result would

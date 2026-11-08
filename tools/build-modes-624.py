@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Build the AIHub 624 hangul frequency list.
 
-Docs: docs/MODES-DATA.md (corpus survey and licences), docs/SPEC-MODES.md R8
+Docs: docs/MODES-DATA.md (corpus survey and licences), docs/SPEC-MODES.md ReqMode8
 (the "valid" test this list feeds).
 
 WHY THIS EXISTS, and why its own provenance records a gap. The 624 frequency

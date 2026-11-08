@@ -30,7 +30,7 @@ Posted as the issue comment before any ruling was requested, it established:
 - "Ship working" collides with the B3 ruling (OFF until 0.3, data-gated): a
   working toggle in 0.1 is an ON switch for a feature with no judgement source
   and no data-package mechanism.
-- "Ship inert" is not zero work: R13-정정 forbids the UI advertising a chord
+- "Ship inert" is not zero work: ReqMode13 forbids the UI advertising a chord
   whose action does nothing — the row had to stop advertising or the screen
   lies.
 - The issue body's citation of `docs/TESTING.md:112-114` for the
@@ -57,7 +57,7 @@ undiscovered.
    chord either. The skip is per-action, not per-chord, so precedence order
    and the conflict warning are untouched.
 3. **The row is disabled and honest** (`OverlayActivity`): badge 미정 (0.3),
-   not clickable, does not open the capture dialog — the R13-정정 divergence
+   not clickable, does not open the capture dialog — the ReqMode13 divergence
    removed rather than papered over.
 
 A test pins the binding-layer half (`auto toggle has no default and a stored

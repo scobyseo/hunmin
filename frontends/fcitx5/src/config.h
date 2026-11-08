@@ -51,7 +51,7 @@ struct CommitBehaviorAnnotation : public EnumAnnotation {
     }
 };
 
-/* The automatic-switch row: `docs/SPEC-MODES.md` §R13-정정's surface B, issue
+/* The automatic-switch row: `docs/SPEC-MODES.md` §ReqMode13's surface B, issue
  * #176. The row must not spell either half of what it shows itself:
  *
  *   the VALUE  `hunmin_buffered_preedit_{get,set}_option(layer, "autoswitch", …)`
@@ -120,7 +120,7 @@ FCITX_CONFIGURATION(HunminConfig,
                     /* Latin layout picker: layouts with mode="latin" (QWERTY, DVORAK, COLEMAK) */
                     OptionWithAnnotation<std::string, LayoutAnnotation> latinLayout{this, "LatinLayout", _("영어 배열"), "us-qwerty"};
                     OptionWithAnnotation<std::string, CommitBehaviorAnnotation> commitBehavior{this, "CommitBehavior", _("커밋 단위"), "word"};
-                    /* R13-정정's one on/off state (issue #176). The engine holds
+                    /* ReqMode13's one on/off state (issue #176). The engine holds
                      * the value and the key; this item is the addon's store and
                      * the dialog's face for them, and the adapter writes it
                      * through `hunmin_buffered_preedit_set_option(…, "autoswitch", …)`

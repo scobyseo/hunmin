@@ -108,7 +108,7 @@ extern "C" int hunmin_tsf_config_load(HKEY root, HunminTsfConfig *out) {
      * the registry must not silently change the unit. */
     if (strcmp(out->commitUnit, "syllable") != 0)
         snprintf(out->commitUnit, HUNMIN_TSF_COMMIT_UNIT_CAP, "%s", "word");
-    /* R13-정정's ON/OFF (issue #175), written by the settings dialog and read
+    /* ReqMode13's ON/OFF (issue #175), written by the settings dialog and read
      * once per Activate/Apply. OFF unless the store says "1" (B3). */
     out->autoswitch = loadFlag(root, HUNMIN_TSF_ENV_AUTOSWITCH, HUNMIN_TSF_REGVAL_AUTOSWITCH);
     return fromReg;

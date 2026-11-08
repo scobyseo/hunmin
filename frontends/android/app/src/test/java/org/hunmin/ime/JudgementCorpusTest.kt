@@ -11,7 +11,7 @@
  * through fcitx5 -- through the real HunminAdapter and the real engine.
  *
  * What this lane adds over the shared-layer runner is what only the adapter can
- * get wrong: the delivered text per KEY (the corpus's step_commits, so R6's
+ * get wrong: the delivered text per KEY (the corpus's step_commits, so ReqMode6's
  * held run is distinguished from a per-key commit), the judgements the adapter
  * reads and acts on, and the mode the layer is left in, asked through the same
  * probe the corpus carries for every case that ends at a boundary.
@@ -30,7 +30,7 @@
  *
  * The commit unit is the buffered one, `word`, which is what Android ships
  * (§6.1); the judgement cannot run under PER_SYLLABLE at all, because earlier
- * syllables are already in the client (R10).
+ * syllables are already in the client (ReqMode10).
  *
  * The corpus is read, never transcribed: the fields this file asserts
  * (step_commits, judged, mode_after, probe) all come out of the JSONL.
@@ -184,7 +184,7 @@ class JudgementCorpusTest {
     }
 
     /**
-     * Feed [keys] through the adapter, performing the frontend's half of R8
+     * Feed [keys] through the adapter, performing the frontend's half of ReqMode8
      * after every key: read the judgement, and switch when the engine asked.
      *
      * This is the same sequence `hunmin-sim --judge` uses and the same one

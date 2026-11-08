@@ -43,7 +43,7 @@ public:
     const fcitx::Configuration *getConfig() const override { return &config_; }
     void setConfig(const fcitx::RawConfig &rawConfig) override;
 
-    /* The automatic-switch row (issue #176, docs/SPEC-MODES.md §R13-정정).
+    /* The automatic-switch row (issue #176, docs/SPEC-MODES.md §ReqMode13).
      *
      * One value, two surfaces: this pushes the stored value into every live
      * layer and keeps what the ENGINE holds, which is what the dialog shows.

@@ -1,9 +1,9 @@
 # MODES-DATA — Word List (the "valid" criterion for hangul/latin judgment)
 
-Requirements: `docs/SPEC-MODES.md` R8. This document holds what R8's "is valid"
+Requirements: `docs/SPEC-MODES.md` ReqMode8. This document holds what ReqMode8's "is valid"
 is judged by, that is, **which word list is used**.
 
-Status: **The source is settled, the list is not.** Together with R4 this is a
+Status: **The source is settled, the list is not.** Together with ReqMode4 this is a
 blocker for this feature.
 
 **Added 2026-10-04 — §4-7.** The cap problem was measured. The conclusion is
@@ -84,7 +84,7 @@ but a single vertical. 71788 is useless on the English side (metadata field name
 
 The license blocking distribution is unchanged (§2). However there are **no limits
 on measurement**, and on 2026-10-04 an actual mission was performed: the
-"hangul with no space after a symbol" of `docs/SPEC-MODES.md` R4 was
+"hangul with no space after a symbol" of `docs/SPEC-MODES.md` ReqMode4 was
 **re-validated with a corpus of a different nature from Wikipedia**.
 The result is recorded in SPEC-MODES, and the two corpora gave the same ratio (0.577% vs
 0.522%). Without this cross-validation it would have been impossible to know
@@ -139,7 +139,7 @@ Counting only `content` misses this phenomenon.
 # 3. Data contract
 
 The word list is **data**. A schema must be added to `docs/SPEC-SCHEMA.md`.
-The inference logic is code in the core (SPEC-MODES R3), but **the list itself is a data file.**
+The inference logic is code in the core (SPEC-MODES ReqMode3), but **the list itself is a data file.**
 
 This schema problem is shared with P2 hangul typesetting — the two lists solve the
 same "find a hangul eojeol (어절, space-delimited word)" problem. So it goes into the
@@ -155,7 +155,7 @@ Undecided:
 
 > **Status 2026-11-01 (issue #173) — this list is not the current contract.**
 > The schema it asks for exists: `docs/SPEC-SCHEMA.md` §English word list.
-> Under R8-정정 the list is **English** (R8-정정-2 named hunspell `en_US` plus a
+> Under ReqMode8 the list is **English** (ReqMode8 named hunspell `en_US` plus a
 > user dictionary), the Hangul side is judged by composition and needs none, so
 > the pos/frequency/level and josa/eomi questions above are about a Hangul list
 > this tree no longer ships. They are recorded here as part of the measurement,
@@ -496,9 +496,9 @@ Reproduction command (a dedicated venv is required, the system python3 has no
 ```
 
 The measurement target (`624-en-mixed.txt`, 259,590 forms / 15,322,442 tokens) is
-**English that is actually typed mixed with hangul** — this is where R8's
+**English that is actually typed mixed with hangul** — this is where ReqMode8's
 `english_valid` is directly reproduced. It is not a substitute for ② (sentence
-replay) of R12 but a substitute for the **decision
+replay) of ReqMode12 but a substitute for the **decision
 oracle**, and its limit is stated explicitly.
 
 **Reproduction rate per cap (judged with the list above):**
@@ -538,9 +538,9 @@ rate.** The more it grows beyond 33 to 122, the more disadvantageous this is.
 **Stopword removal is not an embedding-size problem but a problem of decision
 semantics, and is not adopted for now** — reasons:
 
-- The purpose of this feature (R12) is a **reduction in the number of key strokes**, not decision accuracy.
+- The purpose of this feature (ReqMode12) is a **reduction in the number of key strokes**, not decision accuracy.
   Putting `the` in the dictionary does not create a person who types `the`, and misfires do not
-  increase either (if ambiguous, keep the current mode, the third line of R8).
+  increase either (if ambiguous, keep the current mode, the third line of ReqMode8).
 - The price of subtracting 122 stopwords is 3.92pp of reproduction rate, and this is the correction of §4-7c.
 - **It is reversible** — the removal can be undone at any time, but recovering a
   deleted word requires
@@ -588,8 +588,8 @@ in the file, so it is always included in what is paid. That is why the 31,300 ro
 **Even with 200,000 forms in, it is only 2.90% of the whole, and with 2 million in,
 26.80%.**
 Then instead of paying 16 MB you **misjudge 73% of hangul forms as "not a word".**
-`hangul_valid` becomes false at 73% in R8's decision expression, and
-following the third line of R8 (if ambiguous, the current mode) **the hangul mode is
+`hangul_valid` becomes false at 73% in ReqMode8's decision expression, and
+following the third line of ReqMode8 (if ambiguous, the current mode) **the hangul mode is
 simply kept** —
 which is exactly as if this feature did not exist.
 
@@ -637,7 +637,7 @@ list.**
 
 **Since krdict alone will not do, three options remain:** (a) make a list of the
 corpus top N — §4-7b refutes this. (b) **If lexical weight is not needed, revert
-the hangul decision to a dictionary lookup** — R8's `hangul_valid` can
+the hangul decision to a dictionary lookup** — ReqMode8's `hangul_valid` can
 be "not any hangul vowel/final combination" rather than
 "is it in the dictionary" (§4-7c). (c) Revert to a combination list.
 
@@ -711,7 +711,7 @@ tokens this list covers on 624 are outside the dictionary.**
 English words" but **a "list of Latin strings that Koreans type in Hangul".** The
 moment `english_valid` is
 defined as a dictionary English word, this feature loses half of its reproduction.
-**R8's `english_valid` is a list lookup, not a dictionary lookup, and the raw material
+**ReqMode8's `english_valid` is a list lookup, not a dictionary lookup, and the raw material
 of the list is not the dictionary but the corpus.**
 
 **This reverses §4-6a's "harmless":** it is true that `px` `align` are residue,
@@ -721,7 +721,7 @@ must not be permitted is not the residue but the hangul side of §4-7b.
 
 # 5. References
 
-- Requirement: `docs/SPEC-MODES.md` R8
+- Requirement: `docs/SPEC-MODES.md` ReqMode8
 - Schema: `docs/SPEC-SCHEMA.md`
 - krdict license: `libhunmin/data/krdict/LICENSE.md`
 - krdict extraction tools: `tools/fetch-krdict.sh`, `tools/krdict2data.py`

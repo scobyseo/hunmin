@@ -37,7 +37,7 @@ documented:
     and `~/` host paths are not repo paths.
   * abbreviations are a WARNING, not an error: the correct spelling is a ruling
     and the banned forms are named in the documents that ban them.
-  * the REMAINING-WORK assertion check **refuses a `run` kind**: "is the R8
+  * the REMAINING-WORK assertion check **refuses a `run` kind**: "is the ReqMode8
     shrinker path exercised" and "does the mic stay clear of the nav bar" need
     a signed release build and an emulator, and asserting them would fire on
     every checkout without a device. Environment-bound and maintainer-gated
@@ -369,7 +369,7 @@ def check_wiki_index_count() -> None:
 #
 # WHAT THIS CHECK REFUSES TO DO
 # -----------------------------
-# `run` is deliberately not implemented. "Is the R8 shrinker path exercised"
+# `run` is deliberately not implemented. "Is the ReqMode8 shrinker path exercised"
 # and "does the Android mic stay under the nav bar" are environment facts
 # (a signed release build, an emulator), not tree facts, and asserting them
 # here would fire on a clean checkout of a machine without a device -- the

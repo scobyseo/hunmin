@@ -14,7 +14,7 @@ confidence: high
 # The buffer and the autoswitch depend on each other — syllable commit turns autoswitch off, 2026-11-01
 
 The measurement of issue #171 (`docs/OPTIONS-MEASURED.md` §BND-7) ended with a
-fact that is a design question, not a number: R6's digit run is held by the
+fact that is a design question, not a number: ReqMode6's digit run is held by the
 **buffered** commit policy, and under `HUNMIN_COMMIT_PER_SYLLABLE` the same run is
 delivered one digit per key. So the buffer and the automatic Hangul/English switch
 are not independent settings, and it was put to the maintainer as such.
@@ -46,7 +46,7 @@ What the ruling does **not** fix, and what a ruling on it would have to say:
   `stderr` warnings from the loaders only); the three frontends have their own
   (`FCITX_INFO`, TSF's `hunmin_logger`, Android's `Log`). One engine-side reason
   string plus one log line per frontend keeps the value in one home (the shape
-  R13-정정 already chose for the state itself), and is testable in tier A without
+  ReqMode13 already chose for the state itself), and is testable in tier A without
   building a frontend. The alternative — each frontend deciding the reason
   itself — is three copies of one rule.
 - **What the settings surface shows.** Hiding the autoswitch row, disabling it, or
@@ -62,8 +62,8 @@ per [[2026-10-11-auto-switch-off-by-default]] and toggled by the
 a settings row and a persisted value in each frontend before a write can be
 reconciled.
 
-The requirement text this depends on is `docs/SPEC-MODES.md` §R6 (what the buffer
-holds) and §R13-정정 (the one on/off state); the record of how the measurement got
+The requirement text this depends on is `docs/SPEC-MODES.md` §ReqMode6 (what the buffer
+holds) and §ReqMode13 (the one on/off state); the record of how the measurement got
 here is [[2026-11-01-the-judgement-timing-is-per-key-by-default]]'s sibling
 paper, `docs/OPTIONS-MEASURED.md` §BND-7. As always the ruling authorises the work;
 it does not close the question of whether the ON state should pin the policy in

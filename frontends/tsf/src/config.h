@@ -33,7 +33,7 @@
  * Raw load/save only here; the adapter owns validation (see tsf.cpp): a stored
  * id is accepted only when hunmin_ctx_layout_supported() passes AND the
  * layout's mode matches the slot (hangul row / latin row), else the default
- * returns. SPEC-MODES R13 boundary: no per-frontend settings store for engine
+ * returns. SPEC-MODES ReqMode13 boundary: no per-frontend settings store for engine
  * state — the only fields here are layout ids; feature state stays with the
  * engine (hunmin_ic_set_option).
  */
@@ -54,7 +54,7 @@ extern "C" {
  * The TEXT is identical either way -- only when it lands differs -- which is why
  * this is a preference and not a behaviour fork. */
 #define HUNMIN_TSF_ENV_COMMIT_UNIT "HUNMIN_TSF_COMMIT_UNIT"
-/* The automatic Hangul/English switch, "0"/"1" (docs/SPEC-MODES.md §R13-정정,
+/* The automatic Hangul/English switch, "0"/"1" (docs/SPEC-MODES.md §ReqMode13,
  * issue #175). The STATE is the engine's -- hunmin_ic_set_option(ic,
  * "autoswitch") is the single source of truth -- and this slot is only how a
  * separate settings process hands the person's choice to the next Activate();
@@ -96,7 +96,7 @@ typedef struct HunminTsfConfig {
     char hanjaKey[HUNMIN_TSF_HANJA_KEY_CAP];
     /* "word" (default) or "syllable"; see HUNMIN_TSF_ENV_COMMIT_UNIT. */
     char commitUnit[HUNMIN_TSF_COMMIT_UNIT_CAP];
-    /* R13-정정's ON/OFF, as a person's preference: 0 = off (the B3 default),
+    /* ReqMode13's ON/OFF, as a person's preference: 0 = off (the B3 default),
      * 1 = on. The layer is told with hunmin_buffered_preedit_set_option(l,
      * "autoswitch", …) once per rebuild, and the engine's own refusal (data
      * absent, issue #169) wins over this value. */

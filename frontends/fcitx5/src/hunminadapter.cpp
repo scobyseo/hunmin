@@ -263,7 +263,7 @@ public:
         else if (ev.id == HUNMIN_KEY_TEXT && sym >= 0x20 && sym <= 0x7E) ev.base = static_cast<uint32_t>(sym);
         /* An uppercase symbol means the row was shifted; the engine resolves
          * the case endpoint from (base, shift) itself. The layer logs the same
-         * pair for R8's Latin reading, so no adapter-side copy of the key is
+         * pair for ReqMode8's Latin reading, so no adapter-side copy of the key is
          * kept here any more (the detector that needed one is retired). */
         if (ev.base >= 'A' && ev.base <= 'Z') {
             ev.shift = 1;
@@ -383,7 +383,7 @@ public:
         const std::string justComposing = out.preedit ? std::string(out.preedit) : std::string();
         /* The judgement belongs to the word that just ended, delivered or
          * declined: ask before anything else can start the next word. Its text
-         * joins the same delivery, after the word, because R10 means the word
+         * joins the same delivery, after the word, because ReqMode10 means the word
          * is already the judged language and nothing is rewritten. */
         const std::string switched = applyJudgement();
 
@@ -406,16 +406,16 @@ public:
         }
     }
 
-    /* R8's judgement, the MODE half (ruled 2026-11-01, issue #164): the ENGINE
+    /* ReqMode8's judgement, the MODE half (ruled 2026-11-01, issue #164): the ENGINE
      * judged the finished word and delivered it in the judged language; this
      * performs the switch, which is the same layer call TSF and Android make.
-     * fcitx5 registers one input method for the addon in practice (R2: one IM,
+     * fcitx5 registers one input method for the addon in practice (ReqMode2: one IM,
      * two modes inside it), so the addon's mode IS the layer's slot -- there is
      * no host language for it to disagree with, unlike the two-IM arrangement
      * FE13 describes.
      *
      * -1 means there is nothing to act on: the switch is off (the default), the
-     * word was shorter than R9's guard, both readings agreed, this layer cannot
+     * word was shorter than ReqMode9's guard, both readings agreed, this layer cannot
      * be judged, or no dictionary is loaded. Asked once per key, like the other
      * two frontends, so the answer cannot outlive the word it belongs to. */
     std::string applyJudgement() {
@@ -444,7 +444,7 @@ public:
         return boundary;
     }
 
-    /* R13-정정's on/off state, pushed into the live layer and read back: what
+    /* ReqMode13's on/off state, pushed into the live layer and read back: what
      * this returns is what the ENGINE holds, not what the caller asked for, so
      * the row can show the engine's answer. The engine refuses ON where the
      * modes word list is missing (B3's data gate, issue #169), and that refusal
@@ -512,14 +512,14 @@ private:
          * the layer read the word on the Latin layout, judge it and switch its
          * own slot -- until this, the Latin id was NULL and every one of those
          * answers "not ours". The Latin half is the user's choice in config.h
-         * (LatinLayout), the same option the R8 detector used to judge on. */
+         * (LatinLayout), the same option the ReqMode8 detector used to judge on. */
         const std::string latin = *engine_->config().latinLayout;
         preedit_ = hunmin_buffered_preedit_new(engine_->ctx(), want.c_str(), latin.c_str(), policy_);
         if (!preedit_) {
             FCITX_ERROR() << "hunmin: unsupported layout: " << want;
         } else {
             hunmin_buffered_preedit_special_host(preedit_, engine_->specialHost());
-            /* R8's `english_valid` reads this list (R8-정정-2, ruled 2026-11-01);
+            /* ReqMode8's `english_valid` reads this list (ReqMode8, ruled 2026-11-01);
              * absent data is a normal state (B3) and the judgement then
              * abstains rather than calling every word not-English. */
             hunmin_buffered_preedit_load_english_shipped(preedit_);
@@ -877,7 +877,7 @@ void HunminAdapter::setConfig(const fcitx::RawConfig &rawConfig) {
     config_.load(rawConfig, true);
     /* The dialog's tick reaches the engine here and what comes back is what is
      * stored: fcitx5's config surface is the persistence, the engine's option is
-     * the one value both surfaces read (R13-정정's "no second copy"). */
+     * the one value both surfaces read (ReqMode13's "no second copy"). */
     pushAutoswitch(*config_.autoswitch ? 1 : 0);
     instance_->inputContextManager().foreach ([this](InputContext *ic) {
         state(ic)->reset(); // in-flight composition dropped; layout swaps

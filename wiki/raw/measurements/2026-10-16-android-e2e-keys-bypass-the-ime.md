@@ -44,7 +44,7 @@ Every `tap_resource_id`, every `tap_text` and every `LIST=` dump depends on it.
 
 **Why it stayed invisible.** The tier's failure mode is `skip`, which is exit 77.
 So a tier that could not find a widget, could not tap it, and could not read the
-screen reported `100% tests passed`. The R8 checklist's own note that tier E2
+screen reported `100% tests passed`. The ReqMode8 checklist's own note that tier E2
 "asserts against the debug APK by design" is true and was never the issue; the
 issue is that it had stopped asserting.
 

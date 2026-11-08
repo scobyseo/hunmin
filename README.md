@@ -43,7 +43,7 @@ signed off; F9 has no AOSP keycode, so the hanja trigger is still an open design
 question.
 
 Corrected 2026-10-16, because an earlier revision of this paragraph claimed
-"the R8 shrinker path is written but never exercised … `assembleRelease` runs in
+"the ReqMode8 shrinker path is written but never exercised … `assembleRelease` runs in
 no CI job". Both halves were false: the shrinker path was measured end-to-end on
 2026-10-11 (`assembleRelease` + install + composition on an AVD), recorded in
 `tests/manual-checklists/release-r8-shrinker.md`, and CI job `android-release`
@@ -164,7 +164,7 @@ names the limitation if shipped unmeasured; the measurement record lives in
 | [`docs/D3-ROOT-CAUSE.md`](docs/D3-ROOT-CAUSE.md) | why tier D3 looked green while measuring nothing |
 | [`docs/D3-PERFORMANCE.md`](docs/D3-PERFORMANCE.md) | where tier D3's wall clock goes, and the case-count defect it hid |
 | [`docs/OPTIONS-MEASURED.md`](docs/OPTIONS-MEASURED.md) | twelve priced questions and their rulings: the mutation tier, the android sandbox, the test framework, the `ch` input, the TSF unregister mirror, whether the Han/Eng key can act as a held modifier, what each single/compound 한/영 assignment costs, which English dictionary `english_valid` looks up, whether the modes judgement's B1 blocker still exists, the units the two modes pass lines can be graded in, who owns the modes judgement itself, and the three parameters of the judgement boundary (buffer cap, short-word threshold, flicker) |
-| [`docs/SPEC-MODES.md`](docs/SPEC-MODES.md) | the automatic Hangul/English switch: requirements R1–R15, E1–E8, and what ships in 0.3 |
+| [`docs/SPEC-MODES.md`](docs/SPEC-MODES.md) | the automatic Hangul/English switch: requirements ReqMode1–ReqMode15, E1–E8, and what ships in 0.3 |
 | [`docs/MODES-SURFACE-B.md`](docs/MODES-SURFACE-B.md) | the automatic switch's settings row, implemented once: the engine calls it is built from, the four traps, and what each frontend still decides |
 | [`docs/REMAINING-WORK.md`](docs/REMAINING-WORK.md) | what is left, what is blocked on whom, and the assertions that keep it honest |
 | [`docs/MILESTONES.md`](docs/MILESTONES.md) | the release plan (0.1 / 0.2 / 0.3 / 0.4 / 1.0) and which lane each open item sits in |

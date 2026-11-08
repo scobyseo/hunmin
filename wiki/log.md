@@ -228,7 +228,7 @@
   release 0.3, and its additional data ships as a separate distribution, the
   feature enable-able only where that data is present. The ruling is quoted
   verbatim in `raw/sessions/2026-10-11-b3-off-default-and-the-data-gate.md`.
-- **Consequential updates, not wiki actions:** `docs/SPEC-MODES.md` R13 and E5
+- **Consequential updates, not wiki actions:** `docs/SPEC-MODES.md` ReqMode13 and E5
   (the default was undecided in two places; both updated in one pass, because
   updating one is the two-homes defect §7 of `docs/REMAINING-WORK.md` describes)
 , `docs/REMAINING-WORK.md` B3 row and voice stage 8, `docs/MILESTONES.md` 0.1/0.3
@@ -370,7 +370,7 @@
   default chord (Right Alt + Enter unbound; Enter reaches the editor), the
   service dispatch skips the action so a stale stored binding cannot swallow
   the chord, and the settings row renders disabled with badge 미정 (0.3) —
-  the R13-정정 divergence (screen advertising a chord whose action logs "not
+  the ReqMode13 divergence (screen advertising a chord whose action logs "not
   yet implemented") removed. The ruling is quoted verbatim in
   `raw/sessions/2026-10-12-b4-auto-toggle-inert-in-0-1.md`.
 - **What it does not close:** the E5 assignment itself (single vs compound),
@@ -860,10 +860,10 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 
 ## [2026-11-01] update | B1's question was answered elsewhere (#161)
 
-- `wiki/decisions/the-outstanding-decisions.md`: D1 carries a dated status — §R8-정정
-  ruled option (c) and the English half was ruled by §R8-정정-2, so the table is the
+- `wiki/decisions/the-outstanding-decisions.md`: D1 carries a dated status — §ReqMode8
+  ruled option (c) and the English half was ruled by §ReqMode8, so the table is the
   record of the evidence, not the current definition; D2 records that its krdict/`pos`
-  route left the scope boundary and §R8-정정 removed the need for it. Neither is
+  route left the scope boundary and §ReqMode8 removed the need for it. Neither is
   retired here: the board row's fate is issue #161, priced in
   `docs/OPTIONS-MEASURED.md` §B1.
 
@@ -871,14 +871,14 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 
 - `wiki/decisions/2026-11-01-b1-retired-the-hangul-judgement-needs-no-source.md`:
   the maintainer's "want to select A" verbatim. The row had been emptied by
-  §R8-정정 (structure test, no lookup) and §R8-정정-2 (the English source, shipped,
+  §ReqMode8 (structure test, no lookup) and §ReqMode8 (the English source, shipped,
   #160 closed) — neither of which the board or MILESTONES mentioned, which is why
   a decided question kept reading as the root of five blocked rows.
 - Propagated the same day: board §1's B1 row, §2 retitled and restated per item,
   the voice stage 8 row, the assertion table's decision-blocked comment,
   MILESTONES' "hostage to B1" lines, and PLAN's P8 "judgement source" row.
-- Left open and named: the corpus-list delete-or-keep question §R8-정정 wrote down,
-  E1's lack of an owner, and §R8-정정's stale "left open" sentence against R9.
+- Left open and named: the corpus-list delete-or-keep question §ReqMode8 wrote down,
+  E1's lack of an owner, and §ReqMode8's stale "left open" sentence against ReqMode9.
 
 ## [2026-11-01] rule | 옛한글 layouts get the widened validity rule, per layout (#166)
 
@@ -911,9 +911,9 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   (E6 ruled, issue #163: `judge_timing` 1/0, per key by default, display-only) and
   added it to `index.md`.
 - Corrected `decisions/2026-11-01-the-engine-judges-the-frontend-switches.md`:
-  R9's threshold unit is **key inputs**, named by the maintainer
+  ReqMode9's threshold unit is **key inputs**, named by the maintainer
   ("3. 키입력 세개로 명확히 하자."), not the `3자` the page had repeated from the
-  ruling's wording. Same correction in `docs/SPEC-MODES.md` §R9/§E3 and
+  ruling's wording. Same correction in `docs/SPEC-MODES.md` §ReqMode9/§E3 and
   `docs/OPTIONS-MEASURED.md` §MRO/§BND-3.
 - Created `decisions/2026-11-01-one-dict-by-default-the-release-page-later.md`
   (issue #172 ruled: "Recommends.", one dict by default because there is no
@@ -937,7 +937,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - The two rulings from the maintainer's message that answered issue #175's findings,
   quoted verbatim: the interim delivery cannot carry the switch (structural — the word
   leaves the layer per key, so there is nothing whole to judge), and with the switch ON
-  English stops passing through so R8's E1 line reaches the engine. The page records
+  English stops passing through so ReqMode8's E1 line reaches the engine. The page records
   what each authorises and the three things neither decides (the settings row on a host
   that ignores it, #215; the live cost of routing English keys, #216; the separate
   syllable-commit dependency, #207).
@@ -962,13 +962,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 
 - Created `decisions/2026-11-02-spec-modes-4-splits-into-an-invariant-and-a-metric.md`
   from the #179 ruling ("문장을 명확하게 바꿔볼까? 그러고 나서 요구사항 아이디를
-  붙이든지 하자"): §R14 added to `docs/SPEC-MODES.md` §1 with its `REQ-MAP` row
-  (parent A2, `engine-off-identity`), §4's two bullets rewritten to point at R14
+  붙이든지 하자"): §ReqMode14 added to `docs/SPEC-MODES.md` §1 with its `REQ-MAP` row
+  (parent A2, `engine-off-identity`), §4's two bullets rewritten to point at ReqMode14
   and at ③ in `docs/MODES-METRICS.md` §1.3, and the reading-order table extended.
 
 ## [2026-11-02] update | SPEC-MODES §4 splits into an invariant and a metric
 
-- R15 added (`The switch costs no word`), §4 removed and `# 5` renumbered to
+- ReqMode15 added (`The switch costs no word`), §4 removed and `# 5` renumbered to
   `# 4`, `docs/REQ-MAP.md` at 81 rows, and the verification landed: the
   judgement corpus is now driven through the off path as pairs
   (`hunmin-sim --off-check`, 120 files / 4617 keys / 18752 comparisons) plus
@@ -994,7 +994,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   the corpus from goldens. Verified falsifiable by deleting a trace and by
   planting a stray one.
 - Recorded, not resolved: `engine-d1-judgement` is red at this commit on this
-  host (the R9 control case delivers `ㅏ됴` where the corpus expects `key`,
+  host (the ReqMode9 control case delivers `ㅏ됴` where the corpus expects `key`,
   judgement data present), and the `slow` tier measures 94 s against its 60 s
   budget with `engine-d3-edit` at 95 s alone.
 
@@ -1065,7 +1065,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Cost, stated: a red tier-C test now names an event index instead of
   `case01`/`case02`. The per-case labels carried the expected text the event
   already carries.
-- `docs/TESTING.md`, `docs/REQ-MAP.md` (R14's `verified by` id) and the board's
+- `docs/TESTING.md`, `docs/REQ-MAP.md` (ReqMode14's `verified by` id) and the board's
   `TRACE-X11-BOUNDARY-220` / `TIER-C-WIRING-DECLINE` rows re-point at the one
   file; `req-map`, `docs-lint` and `wiki-lint` all green.
 

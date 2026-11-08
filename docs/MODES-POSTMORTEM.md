@@ -117,7 +117,7 @@ Each entry is kept **because the wrong number looked plausible.**
     feature. The user corrected me straight away: the absence in open source is a
     **capability gap**, and the request is to implement it with current capabilities. **Compare only on efficiency. Do not re-argue the requirement.**
 16. **I laid down the premise "while composing" ahead of the requirement.** I
-    defined the composition buffer of §R4 as "preedit text that is not yet
+    defined the composition buffer of §ReqMode4 as "preedit text that is not yet
     finalized" and tried to fit the user's request into it. User correction:
     the composition buffer is the **entire span between whitespace/symbols**,
     not a syllable. That is, **the condition "only changes the text while composing" was itself a wrong constraint on this
@@ -135,8 +135,8 @@ Each entry is kept **because the wrong number looked plausible.**
 19. **I generalized an example into a rule.** The user said "he clearly typed
     it in Hangul but it changes to English" as **an example in one direction**,
     and I generalized it into a rule — "only this direction is allowed" — and
-    put an asymmetry into R7. That (a) went beyond the scope the user described,
-    and (b) collided head-on with R8's symmetry rule. Correction: the rule is
+    put an asymmetry into ReqMode7. That (a) went beyond the scope the user described,
+    and (b) collided head-on with ReqMode8's symmetry rule. Correction: the rule is
     **when the judgement diverges, depend on the current mode**, and the error is
     **the same weight in both directions.** A more important correction — the user
     themself proposed the direction of improvement: "since the user may

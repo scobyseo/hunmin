@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * wordset.c - the english word set behind the modes judgement
- * (docs/SPEC-MODES.md R8-정정, "a lookup in the ENGLISH DICTIONARY";
+ * (docs/SPEC-MODES.md ReqMode8, "a lookup in the ENGLISH DICTIONARY";
  * ruling 2026-11-01: hunspell en_US as the base, plus a user dictionary).
  *
  * Why a hash set and not a trie: the question is one membership test per
@@ -234,7 +234,7 @@ int hm_wordset_load_json(hm_wordset *w, const char *path) {
  * exists and does not parse is an error (0), not a reason to look further, or
  * an installed-but-broken dictionary would silently read as "no english words"
  * (the confident-zero rule). No dir holding one is -1, the state B3 makes
- * normal (docs/SPEC-MODES.md R8-정정-2, issue #167). */
+ * normal (docs/SPEC-MODES.md ReqMode8, issue #167). */
 int hm_wordset_load_shipped(hm_wordset *w, const hunmin_ctx *ctx) {
     if (!w) return 0;
     const char *const *dirs = NULL;

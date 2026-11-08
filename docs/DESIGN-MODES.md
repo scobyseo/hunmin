@@ -1,7 +1,7 @@
 # DESIGN-MODES — Engine rules for hangul/latin inference
 
-Requirements: `docs/SPEC-MODES.md`. This document covers **which state machine those requirements (R4,
-R3, R13) are implemented as inside the engine** and its load cost.
+Requirements: `docs/SPEC-MODES.md`. This document covers **which state machine those requirements (ReqMode4,
+ReqMode3, ReqMode13) are implemented as inside the engine** and its load cost.
 
 Status: **design direction settled, no core implementation.** The load items are
 pre-measurement.
@@ -17,12 +17,12 @@ pre-measurement.
 > over the judgement and fcitx5 began acting on
 > `hunmin_buffered_preedit_take_judgement`, so the detector and its test are
 > gone and the answer is now used. Which design stands is the maintainer's —
-> R3's objection (two frontends answering differently) was settled by that
+> ReqMode3's objection (two frontends answering differently) was settled by that
 > ruling: one judgement in the engine, each frontend performing the switch.
 
 ---
 
-# 1. Why engine rules (the result of R3)
+# 1. Why engine rules (the result of ReqMode3)
 
 If inference is left in the adapter, fcitx5 and Android each end up with their own inference engine, and
 the two can give different answers. Then the fact of "the same engine" becomes false. So:
@@ -58,7 +58,7 @@ immediately.
 
 ---
 
-# 2. 조합 버퍼 (composition buffer) (the implementation of R4)
+# 2. 조합 버퍼 (composition buffer) (the implementation of ReqMode4)
 
 ## Definition
 
@@ -66,13 +66,13 @@ From just after the previous delimiter to the next delimiter. **Not syllable uni
 
 ## The gap between the current engine and the requirement
 
-| | Current | R4 requirement |
+| | Current | ReqMode4 requirement |
 |---|---|---|
 | commit point | immediately, per completed syllable | at the delimiter |
 | preedit content | one syllable (`jaso_to_string`) | the whole buffer |
 | decision point | none | at the delimiter moment, 1 time |
 
-Measurement evidence is in SPEC-MODES R4 (`world` → `재` is finalized on the 4th key).
+Measurement evidence is in SPEC-MODES ReqMode4 (`world` → `재` is finalized on the 4th key).
 
 ## The fact that the decision happens only once eliminates the ghost
 
@@ -84,7 +84,7 @@ mutual exclusivity of the options truly holds at the moment we decide to move th
 
 ---
 
-# 3. on/off key hook (R13)
+# 3. on/off key hook (ReqMode13)
 
 `hunmin_ic_set_option()` has a precedent of accepting a preedit-string override
 (`ic.c:610`). A new option is added here.
@@ -104,10 +104,10 @@ Three consequences for this document:
   better") is now answered by the requirement plus a measurement: the key must behave
   identically in every layout, and no layout can name it — 15 layouts, 47 keys each,
   **0 non-printable keys** (`tools/keymap-fixture.py`). So the hook stays top-level and
-  the assignment is a value the engine holds (R13-정정), which the frontends read and the
+  the assignment is a value the engine holds (ReqMode13), which the frontends read and the
   dialog writes.
 - **It has to be readable as instructions, not computable per frontend.** The dialog
-  shows the composition, so the engine owes a way to *describe* it (the R13-정정
+  shows the composition, so the engine owes a way to *describe* it (the ReqMode13
   "explainable" bullet), beside the value itself.
 - **The per-platform physical key stays the frontend's.** The engine holds the *semantic*
   assignment (which modifier carries which function); each frontend maps it to its own
@@ -132,7 +132,7 @@ press through every layout the engine can instantiate (a census over the shipped
 new layout file fails it until it is placed), and
 `KeyRuleTest.TheHookIsDecidedBeforeTheBufferIsFed` fires the hook with a syllable in flight.
 
-The second bullet stopped being an ordering claim when R8's judgement landed (#164): the
+The second bullet stopped being an ordering claim when ReqMode8's judgement landed (#164): the
 toggle's boundary used to run it, so with `autoswitch` on and `hello` in flight a press
 delivered the judged Latin reading (`hello`) *and* left `LATIN` for the frontend — one press
 answered twice. The press is now a boundary that does not judge (`boundary(l, false)` in
@@ -183,7 +183,7 @@ included — still answers the plain toggle.
 
 ### The value the `AUTOSWITCH` function flips (issue #165, 2026-11-01)
 
-R13-정정 says the on/off state is **one** value and the engine owns it, with a key
+ReqMode13 says the on/off state is **one** value and the engine owns it, with a key
 combination and a settings surface as two paths onto the same state. The state now
 exists, and only the state: what the surfaces are wired to is listed here so the gap
 is a recorded one and not a surprise.
@@ -218,7 +218,7 @@ logs "not yet implemented"). The consequences worth keeping straight:
   frontend's `perform` writing the option again would double-flip; what a frontend does
   there is the feature work the data gate enables.
 - **The B3 data gate is in the option and in the key, in one place** (issue #169). The
-  feature is enable-able only where its data is present (`docs/SPEC-MODES.md` §R13-정정,
+  feature is enable-able only where its data is present (`docs/SPEC-MODES.md` §ReqMode13,
   the default bullet), so `hunmin_ic_set_option(ic,"autoswitch",1)` answers `false` and
   leaves the value at 0 when the modes word list is not installed: a stale stored
   preference on a machine without the package cannot half-enable the switch. OFF is always
@@ -456,7 +456,7 @@ otherwise stay green.
 
 # 6. References
 
-- Requirements: `docs/SPEC-MODES.md` (R4, R3, R13, E5; cite REQ ids)
+- Requirements: `docs/SPEC-MODES.md` (ReqMode4, ReqMode3, ReqMode13, E5; cite REQ ids)
 - Engine: `libhunmin/src/ic.c`, `libhunmin/src/buffered_preedit.c`
 - Data/provenance: `docs/MODES-DATA.md` (figures cited by pointer)
 - Metrics/figures: `docs/MODES-METRICS.md`

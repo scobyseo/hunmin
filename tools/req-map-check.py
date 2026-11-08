@@ -66,7 +66,7 @@ DEFAULT_MAP = "docs/REQ-MAP.md"
 COLUMNS = ("REQ", "requirement", "architecture", "design", "implementation",
            "verified by", "status", "parent")
 
-# `R8`, `R7-정정`, `4-7`, `4-3b`, `1.4` -- the section keys this repo's
+# `ReqMode8`, `ReqMode7`, `4-7`, `4-3b`, `1.4` -- the section keys this repo's
 # requirement-bearing documents actually use. Kept as one regex because both
 # the SPEC heading scan and the `§` anchors are read through it.
 KEY = re.compile(r"^([A-Za-z]*\d+(?:[.\-][0-9]+[a-z]?)*(?:-[^\s.]+)?)\.?")

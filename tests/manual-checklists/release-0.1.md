@@ -184,7 +184,7 @@ Version convention (ruled 2026-10-12, issue #9): the release is `0.1.0` in
 build-phase suffix `0.1.0-p5`. Recorded in `docs/MILESTONES.md` §0.1.
 
 Install and compose on a device or AVD — the full procedure, including the
-`pm clear` and warm-up artefacts that look like R8 damage and are not, is
+`pm clear` and warm-up artefacts that look like ReqMode8 damage and are not, is
 `tests/manual-checklists/release-r8-shrinker.md`. Do not skip it: no CI job
 installs the release APK, and `tools/android-e2e.sh` drives the **debug** APK by
 design.
@@ -242,8 +242,8 @@ Cited, not restated — each carries its own content and its own state.
 |---|---|---|
 | #1 — B8, the keystore path | packaging the signed APK | **Closed 2026-10-13.** Ruling: `wiki/decisions/2026-10-13-b8-keystore-path-resolved.md` |
 | #2 — B4, the E5 한/영 key | 0.1's Android behaviour | **Closed 2026-10-11.** Ruling: `wiki/decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md` |
-| #3 — B9, the R8/R3 contradiction | shipping one architecture description | **Closed 2026-10-14.** Ruling: `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md`; see also `docs/architecture.md` |
-| #4 — the R8 shrinker path end-to-end | release-build confidence | **Closed**; measured 2026-10-11, procedure in §3.2's pointer |
+| #3 — B9, the ReqMode8/ReqMode3 contradiction | shipping one architecture description | **Closed 2026-10-14.** Ruling: `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md`; see also `docs/architecture.md` |
+| #4 — the ReqMode8 shrinker path end-to-end | release-build confidence | **Closed**; measured 2026-10-11, procedure in §3.2's pointer |
 | #5 — tier E3 device sign-off | the P5 gate | **Closed 2026-10-11**; the device rows remain unticked (§4) |
 | #7 — the 0.1 distribution channel | how a user gets 0.1 | **Open.** The channel is ruled and live — a GitHub Release on tag `0.1.0`, published 2026-10-16, scripted in `tools/release-0.1.sh`. Its third verification item (reachable from a clean machine with one command) **fails**: the repository is private until after 0.2, so the asset URL returns 404 unauthenticated. See `wiki/decisions/2026-10-16-the-repository-is-private-until-after-0.2.md` |
 | #8 — CI builds neither 0.1 artefact | artefact reproducibility | **Closed 2026-10-13**: jobs `deb` and `android-release`. The ruling it asked for — must a release use the CI artefacts — is still open; see §1 on whether CI is running at all |
@@ -289,7 +289,7 @@ than quoting a figure.
    a green `-LE slow` run says nothing about this.
 2. **No CI job executes** (§1). Cause not determined here.
 3. **`README.md` still contradicts the tree**, in the two places §5's issues
-   closed: line 36-38 says the R8 shrinker path "has never actually removed
+   closed: line 36-38 says the ReqMode8 shrinker path "has never actually removed
    anything" and that `assembleRelease` "runs in no CI job" (measured green
    2026-10-11, and the `android-release` job exists); line 108-109 says the
    keystore path "is still undecided (issue #1)" (decided 2026-10-13, and the APK

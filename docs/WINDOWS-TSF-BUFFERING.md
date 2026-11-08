@@ -67,7 +67,7 @@ is the reported `적어두자.적어두자.` (issue #175 comment, 2026-11-01).
 The rule now: a pending fused copy means the document holds the text, so a
 boundary DROPS the layer's copy instead of inserting it (`InsertBufferedWord`;
 the reset also clears any judgement that would have rewritten text the client
-already holds, R10). Pinned in both deliveries by the same invariant — *the
+already holds, ReqMode10). Pinned in both deliveries by the same invariant — *the
 boundary adds nothing*:
 
 - `TsfConfigTest.HostTerminationThenBoundaryKeepsTheWordOnce` (native; measured
@@ -87,7 +87,7 @@ unchanged — but the boundary rule assumes the fused copy is still there.
 
 ## The automatic switch, measured live (2026-11-02, issue #216)
 
-R8's E1 line is judged in the mock; what the client does with the keys was not.
+ReqMode8's E1 line is judged in the mock; what the client does with the keys was not.
 This section is the live round: one host, one control, the same keystrokes with
 the switch ON and OFF, and the caret, the undo unit and the selection compared as
 numbers instead of described.
@@ -138,7 +138,7 @@ are **consumed** one at a time, but they are delivered into ONE inline
 composition range that the adapter grows per key and closes once at the boundary.
 Not one edit per character.
 
-### The sentence (R8's release gate, live)
+### The sentence (ReqMode8's release gate, live)
 
 Keys `English sms whgdms Language dlqslek `, typed from Hangul mode with no
 manual toggle, on `dubeolsik` — the keystrokes of

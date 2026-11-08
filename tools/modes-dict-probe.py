@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Price the candidate English dictionaries for SPEC-MODES R8's `english_valid`.
+"""Price the candidate English dictionaries for SPEC-MODES ReqMode8's `english_valid`.
 
 Docs: docs/OPTIONS-MEASURED.md (the EDW section this produces),
-docs/SPEC-MODES.md R8-정정 (the definition being priced: "a lookup in the
+docs/SPEC-MODES.md ReqMode8 (the definition being priced: "a lookup in the
 ENGLISH DICTIONARY"), docs/MODES-DATA.md 4-7d (the measurement this one is).
 
 WHY A SEPARATE TOOL. modes-cap.py answers "how much does a dictionary filter
@@ -229,7 +229,7 @@ def fetch(pages, outdir, start="가", batch=50, pause=0.3):
             "typed text: wikipedia prose is written and edited, not typed in a "
             "hurry, so it over-weights encyclopedic vocabulary",
             "the AIHub 624 evaluation set (one news/IT vertical, unredistributable)",
-            "sentence context: R12's metric is a sentence replay, not token recall",
+            "sentence context: ReqMode12's metric is a sentence replay, not token recall",
             "a frequency-ordered corpus of its own: this sample is ordered by "
             "article, so its counts are a sample of a snapshot, not the kowiki "
             "corpus MODES-DATA 4-7 was measured on",

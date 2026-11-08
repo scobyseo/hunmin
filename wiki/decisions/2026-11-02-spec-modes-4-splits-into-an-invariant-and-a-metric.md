@@ -1,5 +1,5 @@
 ---
-title: SPEC-MODES §4 splits into an invariant and a metric, and the invariant gets R14
+title: SPEC-MODES §4 splits into an invariant and a metric, and the invariant gets ReqMode14
 created: 2026-11-02
 updated: 2026-11-02
 type: decision
@@ -12,7 +12,7 @@ sources:
 confidence: high
 ---
 
-# SPEC-MODES §4 splits into an invariant and a metric, and the invariant gets R14
+# SPEC-MODES §4 splits into an invariant and a metric, and the invariant gets ReqMode14
 
 **Ruling (2026-11-02, issue #179).** The maintainer's words, verbatim:
 
@@ -23,16 +23,16 @@ confidence: high
 
 ## What it settles
 
-- **§4's OFF half is a requirement with an id: R14, a child of A2.** It is the
+- **§4's OFF half is a requirement with an id: ReqMode14, a child of A2.** It is the
   decidable half — *with the switch off the IM delivers what it delivered
   before the feature existed* — and its oracle is the recorded corpus
-  (`tests/golden/`), not a recollection. `docs/SPEC-MODES.md` §R14 holds the
+  (`tests/golden/`), not a recollection. `docs/SPEC-MODES.md` §ReqMode14 holds the
   text; ctest `engine-off-identity` is what verifies it.
 - **The scope of "100% of the previous behaviour" is delivery**: the text handed
   to the client and the consumed/declined decision per key, at whichever commit
   policy a frontend is set to. A frontend's presentation is an allowed
   difference (`docs/FRONTEND-EQUIVALENCE.md` §3) and is named as uncovered in
-  R14's own text rather than left to the reader.
+  ReqMode14's own text rather than left to the reader.
 - **§4's ON half is not a functional requirement at all** (refined the same day,
   below): the statement is a *quality* requirement with no pass line. Its
   measurand is ③ *unrepresentability* (`docs/MODES-METRICS.md` §1.3), whose
@@ -49,7 +49,7 @@ level-1 section whose title contains "requirement"** — `# 1. Settled
 requirements (DECIDED)` only. `# 4. What this feature must not produce [D]` does
 not match, and its contents were bullets rather than numbered headings, so no
 id ever entered the collection and no row was ever owed. The nearest numbered
-item, R5, only *cited* §4 ("preserves current behaviour 100% (§4)"), which is
+item, ReqMode5, only *cited* §4 ("preserves current behaviour 100% (§4)"), which is
 why the pointer chain looked closed from the map and was not.
 
 That is a structural blind spot, not a one-off: any future section that states a
@@ -68,10 +68,10 @@ general case is unruled.
 - **Whether ③'s measurement corpus exists.** It does not: ③ is NOT MEASURED,
   and no tool in the tree computes it (the 2026-11-02 search found the word
   "untypable" only inside `docs/SPEC-MODES.md`).
-- **Whether R5's map row is still true.** Its status cell reads *"none: no OFF
+- **Whether ReqMode5's map row is still true.** Its status cell reads *"none: no OFF
   state exists to be per-character in"* (written 2026-10-25). The layer now
   carries both commit policies and the autoswitch option, which the identity
-  check drives; what R5 also needs is the per-character English path in a
+  check drives; what ReqMode5 also needs is the per-character English path in a
   frontend, and that part was not measured here.
 - **tier-C's delivered-text gap.** The x11 traces carry no boundary key, so the
   frontend lane sees composing text and not committed text (issue #179's
@@ -79,14 +79,14 @@ general case is unruled.
 
 ## Why the record matters later
 
-The next session that reads §4 will find one bullet pointing at R14 and one at
+The next session that reads §4 will find one bullet pointing at ReqMode14 and one at
 ③, instead of two bullets that both looked like requirements and neither of
-which was indexed. It will also find, in R14, the sentence that says what the
+which was indexed. It will also find, in ReqMode14, the sentence that says what the
 oracle is — so "100% of the previous behaviour" cannot be re-derived as "the
 suite is green". The decision itself stays where it belongs: see
 [[decisions-belong-to-the-maintainer]].
 
-The state R14 constrains on its OFF side is
+The state ReqMode14 constrains on its OFF side is
 [[2026-10-12-auto-toggle-disabled-by-default-in-0-1]]'s default: OFF is the
 identity path, and the check fails when the option stops being the only guard.
 
@@ -116,7 +116,7 @@ Three consequences, all applied:
 
 1. **The wording is replaced, not annotated.** §4 carries his 2026-11-02 statement
    verbatim; the 2026-10-04 sentence it replaces stays only in this record. The
-   duplicated copy of the old quote in §R14 is gone — R14 points at §4 for the
+   duplicated copy of the old quote in §ReqMode14 is gone — ReqMode14 points at §4 for the
    basis instead, so a third reword cannot drift in two places.
 2. **§4 is a quality statement and says so in its own first line**: no `[D]`/`[E]`
    marker, no pass line, no acceptance test. That is a genre correction to this
@@ -124,7 +124,7 @@ Three consequences, all applied:
    impossible to type") and given it ③'s rate — the new statement says the
    intended *reading* can be stolen and that this is accepted, with the switch as
    the remedy. The prohibition was stronger than the words.
-3. **R14 stays the only requirement**, and it now carries the finite-sample
+3. **ReqMode14 stays the only requirement**, and it now carries the finite-sample
    sentence: the corpus proves identity for the sequences the shipped layouts
    carry, which is what makes OFF a real fallback for them, and for nothing else.
 
@@ -134,7 +134,7 @@ symbol keys resolve to literals), and "입력할 수 없는 문자열이 없다"
 about (switch off + layout) — a layout's own gaps predate this feature, which ③'s
 own note says.
 
-## Refined again: the explanation becomes a requirement (R15), and §4 disappears
+## Refined again: the explanation becomes a requirement (ReqMode15), and §4 disappears
 
 Asked where a statement that cannot be tested belongs, he answered that the
 question was mine to have created:
@@ -150,29 +150,29 @@ question was mine to have created:
 A statement nothing can test is a statement nobody has refined yet. What the
 refinement produced:
 
-- **R15. The switch costs no word.** Two obligations, both checkable: where the
+- **ReqMode15. The switch costs no word.** Two obligations, both checkable: where the
   judgement changes a word's reading, the off path delivers the engine's text for
-  the same keys (§R14's identity, but over the set the switch actually touches —
+  the same keys (§ReqMode14's identity, but over the set the switch actually touches —
   the judgement corpus is where those words are listed, with the off-path answer
   computed from the engine rather than typed); and flipping the switch while a
   word composes delivers nothing and changes no delivered byte, so the fallback
   cannot cost the word it exists to save.
-- **§4 is gone.** Nothing was left in it: the off-side claim is R14, the on-side
-  fallback is R15, the ideal it named is ③'s target with no pass line, and the
+- **§4 is gone.** Nothing was left in it: the off-side claim is ReqMode14, the on-side
+  fallback is ReqMode15, the ideal it named is ③'s target with no pass line, and the
   digit/symbol caveat is a fact about layouts. `# 5. Other files` became `# 4.`,
   and the two outside citations (`MODES-METRICS` §1.3 and its §8 requirement
-  line) now name R15.
-- **What was deliberately not converted: the ideal sentence.** R15 quotes it and
+  line) now name ReqMode15.
+- **What was deliberately not converted: the ideal sentence.** ReqMode15 quotes it and
   says it has no pass line; setting one is E4's, and ③ would need a corpus before
   a number could mean anything.
 
 Falsified before claiming: with the autoswitch guard removed, the pair reddens on
 the judgement corpus (`ㅗ디ㅣㅐ` → `hello`), so the new clause is a gate and not a
-restatement of R14.
+restatement of ReqMode14.
 
 Sequence of the record, so a later session does not re-derive it: §4 was a
 quality statement with no id (first message), then an invariant plus ③ (second),
 then his own wording as a quality statement (third), and now two requirements
 with cases and no §4 at all (fourth). The first three are history; the numbers
-R14 and R15 are the current answer.
+ReqMode14 and ReqMode15 are the current answer.
 

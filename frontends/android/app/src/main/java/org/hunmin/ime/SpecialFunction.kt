@@ -32,7 +32,7 @@ object SpecialFunction {
     /**
      * The name of a chord, from the ENGINE's own modifier bits (hunmin.h
      * `HUNMIN_MOD_*`) — the frontend names the modifiers it prints, the engine
-     * names the function and holds the assignment (docs/SPEC-MODES.md §R13-정정:
+     * names the function and holds the assignment (docs/SPEC-MODES.md §ReqMode13:
      * "the UI has to know which key it is ... this information is provided by
      * the engine").
      *

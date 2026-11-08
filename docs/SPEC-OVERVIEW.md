@@ -126,12 +126,12 @@ goldens (`engine-golden-*`), `engine-process-key`, `engine-commit-text`.
 > *Provisional — wording to be revisited.*
 
 Design decides what a reading is (dictionary, syllable structure, frequency),
-when it is judged, and any threshold. *Children:* `docs/SPEC-MODES.md` R1–R13
-with their R7/R8/R13 amendments, and `docs/SPEC-FRONTEND.md#§FE7`.
+when it is judged, and any threshold. *Children:* `docs/SPEC-MODES.md` ReqMode1–ReqMode13
+with their ReqMode7/ReqMode8/ReqMode13 amendments, and `docs/SPEC-FRONTEND.md#§FE7`.
 *Implemented by:* `libhunmin/src/buffered_preedit.c#judge_boundary`, with the answer
 `hunmin_buffered_preedit_take_judgement` (the fcitx5 detector it replaced was
 retired 2026-11-01, #164). *Refuted by:* `engine-wordset` — the formula's three
-lines, both-valid/both-invalid and R9's guard each have a case.
+lines, both-valid/both-invalid and ReqMode9's guard each have a case.
 
 ## A10. Data carries its terms and its provenance
 
@@ -203,16 +203,16 @@ map and rerun.
 | TSF16 | A5 | FE10 | A6 |
 | REL13 | A6 | TSF18 | A6 |
 | REL14 | A7 | TSF7 | A8 |
-| TSF8 | A8 | R1 | A9 |
-| R2 | A9 | R3 | A9 |
-| R4 | A9 | R5 | A9 |
-| R6 | A9 | FE7 | A9 |
-| R7 | A9 | R7-정정 | A9 |
-| R8 | A9 | R8-정정 | A9 |
-| R9 | A9 | R10 | A9 |
-| R11 | A9 | R12 | A9 |
-| FE13 | A9 | R13 | A9 |
-| R13-정정 | A9 | FE14 | A10 |
+| TSF8 | A8 | ReqMode1 | A9 |
+| ReqMode2 | A9 | ReqMode3 | A9 |
+| ReqMode4 | A9 | ReqMode5 | A9 |
+| ReqMode6 | A9 | FE7 | A9 |
+| ReqMode7 | A9 | ReqMode7 | A9 |
+| ReqMode8 | A9 | ReqMode8 | A9 |
+| ReqMode9 | A9 | ReqMode10 | A9 |
+| ReqMode11 | A9 | ReqMode12 | A9 |
+| FE13 | A9 | ReqMode13 | A9 |
+| ReqMode13 | A9 | FE14 | A10 |
 | REL1 | A11 | REL2 | A11 |
 | REL3 | A11 | REL4 | A11 |
 | REL5 | A11 | REL6 | A11 |

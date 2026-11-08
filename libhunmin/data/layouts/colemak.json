@@ -15,9 +15,9 @@
   ],
   "source": "ANSI Colemak keyboard layout; key ids are US-QWERTY physical positions named by their unshifted character (docs/SPEC-SCHEMA.md 'Key ids'). Each key id maps to the character that physical key produces in Colemak.",
   "x-notes": {
-    "why": "SPEC-MODES R2 requires an English mode that selects qwerty/dvorak/colemak. This adds Colemak as a selectable Latin layout.",
-    "composition": "There is none, by design. A literal value is not a jamo, so process_jamo() takes the ic.c:170 branch and commits it directly, leaving the buffer empty. That is what makes R6's 'commit per character' fall out rather than be special-cased.",
-    "not_a_layout_choice": "This is a data addition required to measure R8, not a decision to ship colemak as the English mode. The maintainer decides which Latin layouts English mode offers."
+    "why": "SPEC-MODES ReqMode2 requires an English mode that selects qwerty/dvorak/colemak. This adds Colemak as a selectable Latin layout.",
+    "composition": "There is none, by design. A literal value is not a jamo, so process_jamo() takes the ic.c:170 branch and commits it directly, leaving the buffer empty. That is what makes ReqMode6's 'commit per character' fall out rather than be special-cased.",
+    "not_a_layout_choice": "This is a data addition required to measure ReqMode8, not a decision to ship colemak as the English mode. The maintainer decides which Latin layouts English mode offers."
   },
   "keys": {
     "`": {

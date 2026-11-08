@@ -30,14 +30,14 @@ finished word into the document on every key (`hunmin_buffered_preedit_take_word
 REMOVES it) and `InterimDrain` closes with `ComposeReset` rather than
 `commit_word()`, so at the boundary the layer holds only the syllable in flight —
 the frozen log line is `interim boundary: word len=0`. There is no whole word to
-judge, and R10 forbids reassembling syllables that are already client text.
+judge, and ReqMode10 forbids reassembling syllables that are already client text.
 
 Implemented as one setter (`CTextService::ApplyAutoswitch`) answering
 `AutoswitchOn()` = stored value **and** native delivery, re-applied wherever the
 delivery changes, so the engine never holds a state this delivery cannot honour.
 Pinned by `TsfConfigTest.TheInterimDeliveryDoesNotHoldTheSwitch`.
 
-**The second** makes R8's E1 line reachable on TSF. Until it, `OnTestKeyDown`
+**The second** makes ReqMode8's E1 line reachable on TSF. Until it, `OnTestKeyDown`
 answered `eat = FALSE` for everything once the mode was Latin and `OnKeyDown`
 returned at the passthrough branch, so a word typed in English mode never reached
 the engine — and the 0.3 gate sentence (`English는 좋은 Language입니다`, tier A

@@ -51,7 +51,7 @@ Five questions had to be answered from the tree, not assumed:
 
 ## What shipped
 
-`docs/SPEC-MODES.md` §R8-정정-3 is the requirement. The surfaces are
+`docs/SPEC-MODES.md` §ReqMode8 is the requirement. The surfaces are
 `hunmin_hangul_valid_old()`, `hunmin_ctx_layout_autoswitch_capable()` and
 `hunmin_ctx_layout_old_hangul()`; the last two are derived at load time, so
 `docs/SPEC-SCHEMA.md`'s layout section deliberately has **no** new field. The

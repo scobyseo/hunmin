@@ -28,7 +28,7 @@ derived from the file's own `keys` and `compose` tables at load time
 whose keys emit no jamo composes no Hangul, and one that emits a jamo outside the
 modern 19/21/28 needs `hunmin_hangul_valid_old()`. The derivation is deliberate —
 a declared field is one more thing a new layout can forget, and it can contradict
-the tables it sits beside. `docs/SPEC-MODES.md` §R8-정정-3 is the requirement.
+the tables it sits beside. `docs/SPEC-MODES.md` §ReqMode8 is the requirement.
 
 ### Key ids
 Single characters are physical positions in the US layout **named by their unshifted
@@ -137,7 +137,7 @@ directory without a check here is data the gate does not reach.
 
 ## English word list (`data/modes/`)
 
-The data behind SPEC-MODES R8-정정's `english_valid` (ruling 2026-11-01:
+The data behind SPEC-MODES ReqMode8's `english_valid` (ruling 2026-11-01:
 hunspell `en_US` + a user dictionary; `docs/OPTIONS-MEASURED.md` §EDW is the
 measurement behind that choice).
 
@@ -164,14 +164,14 @@ mechanism carries that today, per surface, is
 
 An entry is a **word form and nothing else**: no part of speech, no frequency,
 no level, no per-word annotation of any kind, and no ordering beyond the sort
-above. The question SPEC-MODES R8-정정's `english_valid` asks is membership of
+above. The question SPEC-MODES ReqMode8's `english_valid` asks is membership of
 one finished buffer, and a field nothing reads is a field a later session adds
 and then starts trusting.
 
 The two questions `docs/MODES-DATA.md` §3 left open — whether the list stores
 pos/frequency/level, and whether josa (조사, particle)/eomi (어미, ending)
 attachment is modelled — were questions about a **Hangul** word list. Under
-R8-정정 the Hangul side is judged by composition and needs no list, so they do
+ReqMode8 the Hangul side is judged by composition and needs no list, so they do
 not apply to this artefact and are not deferred to a later schema revision.
 
 That makes the object form's extension point narrow, and it is worth saying how

@@ -507,7 +507,7 @@ def summarise(cases):
     wrong_dir = {"hangul->latin": 0, "latin->hangul": 0}
     per_dir = {d: {"switched_to_typed": 0, "switched_to_other": 0,
                    "no_switch": 0, "delivered_wrong": 0,
-                   # R9's guard is three key inputs: a eojeol under it is never
+                   # ReqMode9's guard is three key inputs: a eojeol under it is never
                    # judged, so its misfire belongs to the guard and not to the
                    # judgement's precision.
                    "wrong_below_guard": 0, "wrong_at_or_above_guard": 0}
@@ -627,7 +627,7 @@ def build_report(cases, sentences_total, not_inputtable, layout, latin,
             "formula as written; q_pool_share_measured is the replay's own answer",
             "the model charges s like a misfire when it delivers the wrong script, "
             "because the judgement runs at the boundary and the word is already in "
-            "the client (R10) — §PAS-1's s costs one 한/영 press instead",
+            "the client (ReqMode10) — §PAS-1's s costs one 한/영 press instead",
         ],
     }
     return {
@@ -927,7 +927,7 @@ def main():
               f"switched={row['switched_to_typed']:5}  no-switch={row['no_switch']:5}  "
               f"wrong={row['delivered_wrong']:5}  wrong-dir="
               f"{t['wrong_direction_by_direction'][d]}  "
-              f"(below R9 guard {row['wrong_below_guard']}, at/above "
+              f"(below ReqMode9 guard {row['wrong_below_guard']}, at/above "
               f"{row['wrong_at_or_above_guard']})")
     print(f"cross-check       {t['cross_check']['sentences_compared']} sentences vs "
           f"hunmin-sim --judge, {t['cross_check']['mismatches']} mismatches")

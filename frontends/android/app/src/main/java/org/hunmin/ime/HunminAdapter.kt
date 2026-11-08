@@ -76,7 +76,7 @@ class HunminAdapter(
         fun layerExternalText(layer: Long, text: String): String
         fun layerReset(layer: Long)
         fun layerSetOption(layer: Long, name: String, value: Int): Boolean
-        /** R13-정정's read half: the engine's answer, null for an unknown name. */
+        /** ReqMode13's read half: the engine's answer, null for an unknown name. */
         fun layerGetOption(layer: Long, name: String): IntArray?
         /** B3's data gate (issue #169): whether this install carries the list. */
         fun ctxAutoswitchDataPresent(ctx: Long): Boolean
@@ -84,7 +84,7 @@ class HunminAdapter(
         fun layerToggleLanguage(layer: Long): Boolean
         /** HUNMIN_LANGUAGE_* as the layer reports it. */
         fun layerLanguage(layer: Long): Int
-        /** R8's judgement: the mode to adopt now, or -1 (ruled 2026-11-01, #164). */
+        /** ReqMode8's judgement: the mode to adopt now, or -1 (ruled 2026-11-01, #164). */
         fun layerTakeJudgement(layer: Long): Int
         /* The special-function host and resolver (hunmin.h): the engine owns
          * which chord means which function, this adapter only carries it. */
@@ -185,12 +185,12 @@ class HunminAdapter(
         layer != 0L && native.layerLanguage(layer) == HUNMIN_LANGUAGE_HANGUL
 
     /**
-     * R8's judgement for the key just processed (ruled 2026-11-01, issue #164).
+     * ReqMode8's judgement for the key just processed (ruled 2026-11-01, issue #164).
      *
      * The ENGINE judged the finished word and has ALREADY delivered it in the
      * judged language -- `layerDelivered` carried it -- so this is the MODE half
      * only: HUNMIN_LANGUAGE_* is the mode to adopt now, -1 means the engine
-     * judged nothing (the switch is off, the word was shorter than R9's guard,
+     * judged nothing (the switch is off, the word was shorter than ReqMode9's guard,
      * both readings agreed, or this layer cannot be judged at all).
      *
      * Consuming, so it is read exactly once per key, right after the layer
@@ -259,13 +259,13 @@ class HunminAdapter(
      *  table, which is what the settings window must display. */
     fun specialChord(fn: Int): Int = if (layer == 0L) 0 else native.layerSpecialChord(layer, fn)
 
-    // ------------------------------------------------- R13-정정's one value
+    // ------------------------------------------------- ReqMode13's one value
 
     /**
      * The engine's automatic-switch value: 1 on, 0 off, null when this layer
      * cannot answer at all (freed, or an engine without the option).
      *
-     * Read, never cached (docs/SPEC-MODES.md §R13-정정): the key chord, the
+     * Read, never cached (docs/SPEC-MODES.md §ReqMode13): the key chord, the
      * settings row and the judgement all address this one field, so a frontend
      * that remembered it would be the second copy the requirement forbids. A
      * null is reported as null rather than as 0 because "off" and "cannot say"

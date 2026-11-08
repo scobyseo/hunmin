@@ -81,7 +81,7 @@ finished word into the document on every key (`hunmin_buffered_preedit_take_word
 REMOVES it) and `InterimDrain` closes with `ComposeReset` rather than
 `commit_word()`, so at the boundary the layer holds only the syllable still in
 flight — the frozen log line is `interim boundary: word len=0`. There is no whole
-word to judge, and R10 forbids reassembling the syllable text already in the
+word to judge, and ReqMode10 forbids reassembling the syllable text already in the
 client.
 
 How it is implemented: `CTextService::ApplyAutoswitch()` is the one setter of the
@@ -119,7 +119,7 @@ Maintainer, 2026-11-02:
 
 > autoswitch ON stops English passthrough to support eng -> han support
 
-R8's E1 line (ruled 2026-11-01, "E1도 당연히 지원해야지") judges a word typed in
+ReqMode8's E1 line (ruled 2026-11-01, "E1도 당연히 지원해야지") judges a word typed in
 Latin mode, and TSF fed the engine only in Hangul mode: `OnTestKeyDown` answered
 `eat = FALSE` for everything once `hangulMode_` was false and `OnKeyDown` returned
 at `if (!hangulMode_) return S_OK; // passthrough English`. Measured before the
@@ -133,7 +133,7 @@ loses a key the down phase would claim):
 
 - the passthrough is now `if (!hangulMode_ && !AutoswitchOn())`. With the switch
   ON the engine keeps seeing the keys in Latin mode, resolves them on the Latin
-  layout per character (the text is what the host used to insert, R5) and judges
+  layout per character (the text is what the host used to insert, ReqMode5) and judges
   at the boundary; with it OFF the branch is exactly what shipped.
 - the two candidate surfaces stay Hangul-mode (`IsCandidateToggle`, the open
   list's keys): a Hanja lookup of a Latin word is not a question anyone asked, and
@@ -338,12 +338,12 @@ The first corpus that carries a JUDGEMENT rather than only text is
 a case the engine can replay: the input (`layout`, `latin`, `mode`,
 `autoswitch`, `keys`) and the engine's own answer — the delivered text, the
 judgements taken in order, and the mode after the boundary, with per-key
-delivery timing where the timing is the assertion (R6's digit run). Its cases
-are the lines of SPEC-MODES R8's formula and the guards around it: the two
-switch directions, both-valid and both-invalid, R9's guard from each side, R4's
-boundary-only moment, R13's off-is-the-identity state, E1's 0.3 gate sentence
-typed as one stream, and the 세벌식 최종 cases R6 is actually about (its digit row
-is the jongseong jamo ᇂ ᆻ ᆸ, so committing each key on its own is what R6
+delivery timing where the timing is the assertion (ReqMode6's digit run). Its cases
+are the lines of SPEC-MODES ReqMode8's formula and the guards around it: the two
+switch directions, both-valid and both-invalid, ReqMode9's guard from each side, ReqMode4's
+boundary-only moment, ReqMode13's off-is-the-identity state, E1's 0.3 gate sentence
+typed as one stream, and the 세벌식 최종 cases ReqMode6 is actually about (its digit row
+is the jongseong jamo ᇂ ᆻ ᆸ, so committing each key on its own is what ReqMode6
 forbids).
 
 It is driven by `hunmin-sim --judge`, which sits on `hunmin_buffered_preedit`
@@ -374,7 +374,7 @@ Getting there needed two things the addon did not have, both found by building i
   the key path never called `hunmin_buffered_preedit_special()` — so the layer sat
   at the engine default (OFF, B3) and `applyJudgement()` answered -1 on every word;
   a replay would have asserted the OFF identity path for all fifteen
-  autoswitch-ON cases. The lane unblocks it the ruled way (R13-정정 surface A):
+  autoswitch-ON cases. The lane unblocks it the ruled way (ReqMode13 surface A):
   the adapter now reports `language_key` for the COMPOUND press (Ctrl+한/영,
   SPEC-MODES §E5) and acts on `hunmin_buffered_preedit_special()`, and it registers
   a `hunmin_special_host` — without which the engine refuses every function with
@@ -383,7 +383,7 @@ Getting there needed two things the addon did not have, both found by building i
   ⚠️ **Corrected 2026-11-03 (issue #233): the lane writes the VALUE, not the
   chord.** The paragraph above is right about the adapter surface the case needs,
   and wrong about the lane's use of it: `Ctrl+한/영` *toggles* the state (SPEC-MODES
-  §R13-정정 surface A, and engine-d1's watcher case asserts ON → OFF), while the
+  §ReqMode13 surface A, and engine-d1's watcher case asserts ON → OFF), while the
   corpus's `autoswitch` field states a value per case. A first cut pressed the
   chord once per case, so the state alternated with the case count and
   `r9-three-keys-are-judged` — the sixth case to press it — ran with the value OFF
@@ -401,7 +401,7 @@ Getting there needed two things the addon did not have, both found by building i
 **The Android lane exists: `engine-android-e1`** (`JudgementCorpusTest`, tier E1,
 issue #211), and it reads the same corpus file. It replays every case through the
 real pair adapter (`HunminAdapter` + the host JNI shim) and asserts three things
-the adapter can get wrong: the per-key delivered text (`step_commits`, so R6's
+the adapter can get wrong: the per-key delivered text (`step_commits`, so ReqMode6's
 held run is distinct from a per-key commit), the judgement sequence the adapter
 reads, and the mode after the case through the corpus's `probe`. It takes two
 Android-specific differences, both named in the lane:
@@ -431,7 +431,7 @@ rather than deleted: the earlier text concluded "the tier is red" from a
 measurement that was true that day, and the fix is what changed it.
 
 The lane's scope is the adapter, as §6.2.1 asks: it builds the pair adapter the
-service builds and performs the frontend's half of R8 itself. It does **not**
+service builds and performs the frontend's half of ReqMode8 itself. It does **not**
 route keys through `HunminInputMethodService`, so the service's choice of which
 adapter receives a Latin-mode key is not measured here; that surface remains a
 separate question.
@@ -460,7 +460,7 @@ the layer per case instead, which is the frontend characteristic taken here.
 Mid-stream switches are covered (the mixed-sentence case flips four times). The commit unit
 of §6.1 is likewise outside this corpus: every case uses
 `HUNMIN_COMMIT_AT_BOUNDARY`, and the judgement cannot run in PER_SYLLABLE at all
-(its earlier syllables are already in the client, which is R10's constraint).
+(its earlier syllables are already in the client, which is ReqMode10's constraint).
 
 ### 6.3 Every shipped layout now appears on some platform (measured 2026-11-03, #186)
 
@@ -615,7 +615,7 @@ normalisation.
 | candidate anchor | `display()` | the service owns the Hanja UI | native `display()`, interim `composing()` | allowed, §3.3 |
 | candidate key routing | the adapter's own switch | none in the adapter | the adapter's own window | allowed — but see 8.3 (2) |
 | Han/Eng | not in the addon: fcitx owns the trigger (FE13) | Kana VK to `KeyAction.HANGUL_ENG`, performed by the layer | `ToggleModeCore`, performed by the layer, plus configurable bindings | resolved 2026-10-25 (#136 ruling): the two frontends that own a key call `hunmin_buffered_preedit_toggle_language()`; fcitx5's half is environmental (FE13) |
-| R8 language detection | no: the engine judges, the adapter acts | no: same | no: same | resolved 2026-11-01 (#164) — the judgement is the engine's for all three, and each frontend performs only the switch its host allows |
+| ReqMode8 language detection | no: the engine judges, the adapter acts | no: same | no: same | resolved 2026-11-01 (#164) — the judgement is the engine's for all three, and each frontend performs only the switch its host allows |
 | voice / external text | — | yes | — | allowed, but invariant 5 is exercised on one frontend only |
 
 ### 8.3 Open asymmetries, to be resolved where the platform allows

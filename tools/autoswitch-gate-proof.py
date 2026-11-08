@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Measure that the autoswitch data gate is what refuses the option.
 
-docs/SPEC-MODES.md §R13-정정 (B3) says the feature is enable-able only where its
+docs/SPEC-MODES.md §ReqMode13 (B3) says the feature is enable-able only where its
 data is present. Two refusals implement that (issue #169): the option writer in
 hunmin_ic_set_option() and the chord in hunmin_buffered_preedit_special_peek().
 This script MEASURES that each refusal is load-bearing, by removing it alone and

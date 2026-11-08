@@ -14,7 +14,7 @@
  *  - the CONTROL. The same keys with `autoswitch` off answer -1, so the two
  *    cases above cannot pass because the judgement fired for another reason
  *    (a dictionary that happened to decide, a boundary that always answers).
- *  - the value is R13-정정's ONE value: written through the adapter, read back
+ *  - the value is ReqMode13's ONE value: written through the adapter, read back
  *    from the engine, and never cached by the caller. The gate is asserted in
  *    both states, because "off because the person chose off" and "off because
  *    the data is missing" are the two sentences a settings row has to tell
@@ -110,7 +110,7 @@ class AutoSwitchTest {
         assertTrue("premise: this install carries the modes data", adapter.autoswitchDataPresent())
 
         /* `computer` on the Android default pair: English-valid, and its sin3-p2
-         * reading is not well-formed Hangul, so R8's two readings disagree and
+         * reading is not well-formed Hangul, so ReqMode8's two readings disagree and
          * the word is delivered in the language it was judged. The space is the
          * boundary the judgement fires on. Measured 2026-11-01 through this shim:
          * the same keys with the switch off deliver the sin3-p2 reading instead
@@ -123,7 +123,7 @@ class AutoSwitchTest {
     @Test
     fun `a Hangul-valid word is not switched`() {
         /* dubeolsik because that is where these keys ARE syllables: `gksrmf` is
-         * 한글, whose Latin reading is not a dictionary word, so R8 says keep the
+         * 한글, whose Latin reading is not a dictionary word, so ReqMode8 says keep the
          * mode. sin3-p2's own 안녕 sequence is `dkssud`, which that layout renders
          * as a non-word (measured), so it would leave this case with no valid
          * Hangul buffer to be about. */
@@ -182,7 +182,7 @@ class AutoSwitchTest {
         adapter.close()
     }
 
-    // -------------------------------------------------- R13-정정's one value
+    // -------------------------------------------------- ReqMode13's one value
 
     @Test
     fun `the value the settings row shows is the engine's read-back`() {
@@ -212,7 +212,7 @@ class AutoSwitchTest {
 
     @Test
     fun `the key the row names is the engine's chord`() {
-        /* R13-정정's "explainable" bullet: the dialog asks for the chord and
+        /* ReqMode13's "explainable" bullet: the dialog asks for the chord and
          * renders it; it never spells one. Ctrl is HUNMIN_MOD_CTRL and the ruled
          * AUTOSWITCH default (docs/SPEC-MODES.md §E5). */
         val adapter = pair()

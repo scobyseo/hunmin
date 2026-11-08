@@ -367,10 +367,10 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   has no Makefile; the script is the command.
   Sources: pat.im worked examples (갭/겹, `cq`→ㄱㅅ, `cQ`→ㄳ, 있 repeat, tier samples),
   kime test expectations (transcribed facts, clean-room), one case per line of SPEC-P2.md.
-- **Judgement corpus** `tests/golden/judgement-r8.jsonl` — the SPEC-MODES R8
+- **Judgement corpus** `tests/golden/judgement-r8.jsonl` — the SPEC-MODES ReqMode8
   formula and the guards around it (both switch directions, both-valid and
-  both-invalid, R9's three-key boundary from each side, R4's boundary-only
-  moment, R6's digit run, and the OFF identity state). One case per line: the
+  both-invalid, ReqMode9's three-key boundary from each side, ReqMode4's boundary-only
+  moment, ReqMode6's digit run, and the OFF identity state). One case per line: the
   input (`layout`, `latin`, `mode`, `autoswitch`, `keys`) plus the engine's own
   answer (`commit`, `judged[]`, `mode_after`, and `step_commits` where delivery
   timing is the point). It is driven through `hunmin_buffered_preedit`, not the
@@ -673,7 +673,7 @@ Three gaps that follow, none of them a defect in a frontend:
    P2's three layouts deliver them as text (`commit: "<the digit>"`, `consumed: true` — the
    engine's answer, not the client's echo), and 세벌식 최종 turns them into jongseong jamo
    that the closing space delivers. This is the row whose rules differ most between
-   layouts and modes (R6's digit run, the unshifted row as jongseong on 세벌식), and before
+   layouts and modes (ReqMode6's digit run, the unshifted row as jongseong on 세벌식), and before
    2026-11-03 `4`-`9` appeared in no x11 event in any layout. Most punctuation
    (`, - = [ \ ]`, and the backtick) is still unpressed; that is what the same sweep
    would widen next.

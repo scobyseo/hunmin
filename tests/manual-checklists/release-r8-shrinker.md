@@ -1,9 +1,9 @@
-# Release build — the R8 shrinker path end-to-end
+# Release build — the ReqMode8 shrinker path end-to-end
 
-This checklist records the measurement issue #4 asked for: does R8 actually run in
+This checklist records the measurement issue #4 asked for: does ReqMode8 actually run in
 `assembleRelease`, and is the resulting APK usable on the AVD. Until 2026-10-11 the
 answer was "the rules exist, the shrinker has never run" — see the measured row in
-`docs/REMAINING-WORK.md` §3 ("The R8 shrinker path end-to-end").
+`docs/REMAINING-WORK.md` §3 ("The ReqMode8 shrinker path end-to-end").
 
 **Status: MEASURED 2026-10-11 on this host (AVD `hunmin-e2e`, API 35, x86_64). All
 four checks below passed.** This is a manual/environment tier like E3: nothing in CI
@@ -68,7 +68,7 @@ adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep -m1 'class="android.widget.Edi
 ## What the 2026-10-11 run observed, beyond the checks
 
 - APK 1,505,137 bytes; both ABIs inside (`lib/arm64-v8a` + `lib/x86_64`,
-  `libhunmin.so` and `libhunjni.so` each) — R8 does not touch the native libs, and
+  `libhunmin.so` and `libhunjni.so` each) — ReqMode8 does not touch the native libs, and
   they were verified present in the release APK.
 - The signingConfig hardcoded to the debug keystore installed without complaint
   (issue #1 records the hardcoding; it is not a build blocker).
@@ -76,7 +76,7 @@ adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep -m1 'class="android.widget.Edi
   own package resets the platform's selected-IME setting back to Latin, and the
   first injected keyevent after re-selecting goes to the previous editor path. Both
   are properties of the injected-event path, already documented in
-  `tools/android-e2e.sh`; they are NOT R8 damage.
+  `tools/android-e2e.sh`; they are NOT ReqMode8 damage.
 
 ## Do NOT
 

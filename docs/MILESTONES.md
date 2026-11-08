@@ -16,7 +16,7 @@ places"). Item ids (B1–B9, §2's items, W/N rows) are cited, never restated.
 |---|---|
 | 0.1 | fcitx5 + Android first edition |
 | 0.2 | Windows TSF frontend (P6) |
-| 0.3 | 자동 한/영 전환 (the language detection feature, R8/E5) |
+| 0.3 | 자동 한/영 전환 (the language detection feature, ReqMode8/E5) |
 | 0.4 | 소프트 키보드 — 두벌식 + QWERTY + 기호 입력 |
 | 1.0 | after a usage-polish pass |
 
@@ -63,18 +63,18 @@ B9 — so what is left on it is the measurement list further down and
   the engine's value; the inert shipping state no longer describes the tree.
   The **E5 assignment itself** (single vs compound meaning) is not decided by
   this and lands here in 0.3 as before.
-- ~~**B9** — the R8/R3 documentation contradiction. A release must not ship two
-  documents describing two architectures as one.~~ **DECIDED 2026-10-14: R8 is
+- ~~**B9** — the ReqMode8/ReqMode3 documentation contradiction. A release must not ship two
+  documents describing two architectures as one.~~ **DECIDED 2026-10-14: ReqMode8 is
   adaptor-owned** — one judgement rule, one owning component, identical on every
-  frontend; `docs/SPEC-MODES.md` R3 is requirement-only and `docs/architecture.md`
+  frontend; `docs/SPEC-MODES.md` ReqMode3 is requirement-only and `docs/architecture.md`
   records the owner and the mechanism. Ruling quoted in
   `wiki/decisions/2026-10-13-r8-mode-guessing-is-adaptor-owned.md` (issue #3,
-  `a5c46dc`). R8's engine integration leaves with it — and it now waits on the
+  `a5c46dc`). ReqMode8's engine integration leaves with it — and it now waits on the
   judgement's implementation (#166, #168), not on a source: B1 retired 2026-11-01.
 
 **Must be measured before shipping (environment-bound, not decision-gated):**
 
-- ~~The **R8 shrinker path end-to-end** (`assembleRelease` + emulator run).~~ **Measured
+- ~~The **ReqMode8 shrinker path end-to-end** (`assembleRelease` + emulator run).~~ **Measured
   2026-10-11** — green; see the row in `REMAINING-WORK.md` §3 and
   `tests/manual-checklists/release-r8-shrinker.md` (issue #4, merged). It left this lane.
   What remains true of it: `tools/android-e2e.sh` drives the **debug** APK by design and
@@ -156,7 +156,7 @@ direction; the mechanism is new work:
   CC-BY-SA precedent in `debian/copyright` and `libhunmin/data/krdict/LICENSE.md`
   shows the pattern), and **presence detection**: how the engine/frontend learns
   the data is installed. `hunmin_ic_set_option()` is the precedent for the on/off
-  option itself (`docs/SPEC-MODES.md` R13); the presence half now has one too —
+  option itself (`docs/SPEC-MODES.md` ReqMode13); the presence half now has one too —
   `hunmin_ctx_autoswitch_data_present()` plus the refusal in the option writer and
   the chord, issue #169, `docs/DESIGN-MODES.md` §3. What is still new work is
   the distribution itself (#190): nothing ships the data separately yet.

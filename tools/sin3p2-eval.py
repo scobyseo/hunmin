@@ -3,7 +3,7 @@
 
 THE PIPELINE, AND WHY IT MATTERS
 --------------------------------
-SPEC-MODES R8 asks for `hangul_valid`: after composing, is this a Hangul word
+SPEC-MODES ReqMode8 asks for `hangul_valid`: after composing, is this a Hangul word
 (keep Hangul mode) or English (switch)? The pipeline in an IME is exactly
 
     keystrokes -> hunmin engine -> composed Hangul -> judge
@@ -28,14 +28,14 @@ Produced by pressing each declared key id once and reading what came out
 at all -- which means "does the composed text look English" is not a question
 the Hangul path can raise, and the mode decision has to be made from the
 keystrokes or not at all. This is the single most important structural fact
-for R8 and it was invisible until it was measured.
+for ReqMode8 and it was invisible until it was measured.
 
 WHAT IS MEASURED HERE
 --------------------
 For a sample of ASCII tokens (the real thing people type in English), each is
 typed through the engine on sin3-p2, and three judges see the *composed*
 output:
-  combination : is every character a composable Hangul syllable (R8 fallback (c))
+  combination : is every character a composable Hangul syllable (ReqMode8 fallback (c))
   kiwi        : full morphological analysis -- does it recognise a Korean word
 
 Usage:

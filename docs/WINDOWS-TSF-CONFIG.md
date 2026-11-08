@@ -14,7 +14,7 @@ BuildTools 14.44, during the 2026-10-17 milestone C work.
 `HKCU\Software\Hunmin\TSF`, `REG_SZ` values `HangulLayout`, `LatinLayout`,
 `HangulEngKeys`, `HanjaKey`, `CommitUnit`; an empty string removes the value.
 The option names mirror the fcitx5 addon so both frontends read the same
-settings; there is no per-frontend store for engine state (SPEC-MODES R13
+settings; there is no per-frontend store for engine state (SPEC-MODES ReqMode13
 boundary — engine options go through `hunmin_ic_set_option`).
 
 Env seams (the tier-F1 override, empty means "no override"): 

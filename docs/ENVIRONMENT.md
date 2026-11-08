@@ -231,7 +231,7 @@ adb install -r -g /tmp/aligned.apk
 
 This is for **verifying the gate**, not for release packaging — it signs with a
 throwaway key. P5's real packaging (a `signingConfigs` entry, a version-code
-scheme, R8 rules) is still open; see PLAN.md.
+scheme, ReqMode8 rules) is still open; see PLAN.md.
 
 A release apk installed this way correctly **ignores** the tier E3 trace broadcast
 and **refuses** `run-as`, which is the `FLAG_DEBUGGABLE` gate doing its job.

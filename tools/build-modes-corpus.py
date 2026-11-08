@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Build the hangul/latin mode corpus from a MediaWiki XML dump.
 
-Docs: docs/MODES-DATA.md (word list, licence), docs/SPEC-MODES.md R8 (the
+Docs: docs/MODES-DATA.md (word list, licence), docs/SPEC-MODES.md ReqMode8 (the
 "valid" test the list feeds).
 
 WHAT THIS REPLACES. The earlier strip rules deleted 75% of english and 37.6%

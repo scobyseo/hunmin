@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What R8's language switch would cost and recover: sin3-p2 alone vs + qwerty.
+"""What ReqMode8's language switch would cost and recover: sin3-p2 alone vs + qwerty.
 
 WHY THIS REPLACES THE OBVIOUS COMPARISON
 -----------------------------------------

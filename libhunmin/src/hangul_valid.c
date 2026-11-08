@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * hangul_valid.c - the structural half of the modes judgement
- * (docs/SPEC-MODES.md §R8-정정, ruling 2026-10-25: `hangul_valid` is "the
+ * (docs/SPEC-MODES.md §ReqMode8, ruling 2026-10-25: `hangul_valid` is "the
  * buffer composes as Korean syllables of the shape (choseong + jungseong) or
  * (choseong + jungseong + jongseong) only"). Issue #166.
  *
  * A PREDICATE OVER RENDERED TEXT, NOT A LOOKUP. It consults no data file, no
  * dictionary and no word list: the only thing it needs is the composition rule
  * tables.c already carries, which is why it is a pure function and why an
- * absent data directory cannot change its answer. R8-정정's point is that the
+ * absent data directory cannot change its answer. ReqMode8's point is that the
  * Hangul side of the pair has no source to choose.
  *
  * WHAT IT REJECTS, and each rejection is a decision this file records:
@@ -22,7 +22,7 @@
  *   latin, digits, space,   a buffer that completes at a delimiter never holds
  *   punctuation             one, so seeing one means the caller passed a
  *                           sentence rather than a buffer -- and a digit run is
- *                           a buffer (R6) that is not a Hangul word.
+ *                           a buffer (ReqMode6) that is not a Hangul word.
  *   old Hangul              `hm_jamo_to_syllable` accepts only the modern
  *                           19/21/28 sets (tables.c `*_conjoinable`), so an
  *                           archaic jongseong cannot be precomposed and the

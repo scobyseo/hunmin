@@ -323,7 +323,7 @@ int main(int argc, char **argv) {
     }
     _putenv_s("HUNMIN_TSF_HANGUL_LAYOUT", traceLayout.c_str());
     _putenv_s("HUNMIN_TSF_LATIN_LAYOUT", "us-qwerty");
-    /* Autoswitch (R13-정정) is stored state the corpus was NOT recorded under,
+    /* Autoswitch (ReqMode13) is stored state the corpus was NOT recorded under,
      * and it changes what the layer shows: with it ON the engine replaces an
      * invalid Hangul word with its Latin reading, so a replay composited `Hs`
      * where tier A recorded `ㅗ` and the buffered-word assertions broke at

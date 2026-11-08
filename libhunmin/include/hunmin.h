@@ -60,7 +60,7 @@ const char *hunmin_ctx_layout_name(const hunmin_ctx *ctx, int i, const char *lan
  * cannot drift from the data it is about. */
 HUNMIN_EXPORT bool hunmin_ctx_layout_autoswitch_capable(const hunmin_ctx *ctx, int i);
 
-/* B3 data gate for enabling autoswitch (SPEC-MODES R13-정정;
+/* B3 data gate for enabling autoswitch (SPEC-MODES ReqMode13;
  * DESIGN-CORE.md#b3-autoswitch-data-gate-and-default). 1 if hm_data_dirs finds
  * a usable modes word list (cached), else 0. Distinct from
  * hunmin_ctx_layout_autoswitch_capable() (layout emits jamo; no data). Pair
@@ -132,8 +132,8 @@ const char *hunmin_ic_preedit(hunmin_ic *ic);
 /* "caps" -> Caps Lock state for expression var P (yethangul modes).
  * "w"/"W"/"z"/"h"/"H" -> 전처리수식 override (pat.im/1136 §2-6), cleared by
  * hunmin_ic_reset (layout defaults return).
- * "autoswitch" -> R13-정정 automatic Hangul/English switch state (SPEC-MODES
- * R13-정정): OFF on a fresh ic, NOT cleared by hunmin_ic_reset (preference).
+ * "autoswitch" -> ReqMode13 automatic Hangul/English switch state (SPEC-MODES
+ * ReqMode13): OFF on a fresh ic, NOT cleared by hunmin_ic_reset (preference).
  * ON is refused (false, value left 0) when hunmin_ctx_autoswitch_data_present()
  * is 0 (B3 gate; DESIGN-CORE.md#b3-autoswitch-data-gate-and-default); OFF is
  * always accepted. Distinguish refusal from unknown name via get_option(). */
@@ -141,7 +141,7 @@ bool hunmin_ic_set_option(hunmin_ic *ic, const char *name, int value);
 
 /* Reads back what hunmin_ic_set_option() writes; the same names, one home. The
  * frontends' settings surfaces read the value through this instead of keeping a
- * copy (R13-정정: a per-frontend settings store is what this state exists to
+ * copy (ReqMode13: a per-frontend settings store is what this state exists to
  * avoid). Returns false for a name the engine does not know and leaves *out
  * untouched; the w/W/z/H/h overrides answer -1 for "not overridden, the layout
  * default", which is a value and not an unknown name. */
@@ -262,7 +262,7 @@ HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
 
 /* The layer's options: the ic's own ("caps", "autoswitch") pass through, and one
  * is the layer's. "word_cap" is the cap on the word this object holds for one
- * word, in BYTES of UTF-8 (docs/SPEC-MODES.md §R4-정정, ruled 2026-11-01): when
+ * word, in BYTES of UTF-8 (docs/SPEC-MODES.md §ReqMode4, ruled 2026-11-01): when
  * the word plus the syllable still composing would exceed it, the word's first
  * half is delivered as that key's commit and the tail keeps composing, so what a
  * frontend must render stays bounded. 0 means no cap, which is what the default
@@ -276,7 +276,7 @@ HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
  * unknown name or a value out of range. */
 HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);
 
-/* The layer's read of the same options: R13-정정's settings surface asks this for
+/* The layer's read of the same options: ReqMode13's settings surface asks this for
  * "autoswitch" and shows the answer, instead of keeping a copy of a state the
  * engine owns. Same contract as hunmin_ic_get_option() -- false for an unknown
  * name, *out untouched. The key that toggles it is
@@ -403,7 +403,7 @@ typedef enum hunmin_special_function {
     HUNMIN_SPECIAL_NONE = 0,
     /* Start voice input. Engine-blind: whoever can record implements it. */
     HUNMIN_SPECIAL_VOICE = 1,
-    /* Flip the automatic Hangul/English switch (R13-정정's state). */
+    /* Flip the automatic Hangul/English switch (ReqMode13's state). */
     HUNMIN_SPECIAL_AUTOSWITCH = 2,
     /* Bound for the table; append new functions ABOVE this line and bump it,
      * because the values are ABI and the table is sized by it. */
@@ -475,14 +475,14 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_composing(hunmin_buffered_pree
 HUNMIN_EXPORT int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_key_result *out);
 HUNMIN_EXPORT int hunmin_buffered_preedit_language(const hunmin_buffered_preedit *l); /* HUNMIN_LANGUAGE_* */
 
-/* R8's judgement, as the ENGINE's answer and the FRONTEND's action (ruled
+/* ReqMode8's judgement, as the ENGINE's answer and the FRONTEND's action (ruled
  * 2026-11-01, issue #164: the engine judges, the frontend performs the switch).
  * Read it immediately after the key that ended a word; HUNMIN_LANGUAGE_* is the
  * mode to adopt now, and -1 means there is nothing to act on.
  *
  * The word has already been delivered in the judged language -- in
  * out->commit of that key, or from hunmin_buffered_preedit_commit_word -- since
- * R10 forbids reassembling text that is already in the client and the boundary
+ * ReqMode10 forbids reassembling text that is already in the client and the boundary
  * is the last moment before it gets there. So an adapter does exactly two
  * things: deliver the text it was handed, then switch its mode if this answers
  * a language. The switch itself stays the frontend's because it is the one half
@@ -490,9 +490,9 @@ HUNMIN_EXPORT int hunmin_buffered_preedit_language(const hunmin_buffered_preedit
  *
  * Answers -1 (and the delivery is byte-identical to a build without this
  * feature) when: `autoswitch` is off (the default, B3); no word finished; the
- * word was shorter than R9's guard of three key inputs; the Hangul layout
- * cannot compose syllables (R8-정정-3); no English dictionary is loaded (B3);
- * both readings agreed, which is R8's "keep the current mode"; or the layer is
+ * word was shorter than ReqMode9's guard of three key inputs; the Hangul layout
+ * cannot compose syllables (ReqMode8); no English dictionary is loaded (B3);
+ * both readings agreed, which is ReqMode8's "keep the current mode"; or the layer is
  * in HUNMIN_COMMIT_PER_SYLLABLE, where the word's earlier syllables are already
  * in the client.
  *
@@ -504,7 +504,7 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffere
 
 /* The LATIN READING of the word that last finished: the same keys replayed
  * through this layer's Latin layout (latin_layout_id at construction), which is
- * how R8's `english_valid` gets "the word the buffer would have produced under
+ * how ReqMode8's `english_valid` gets "the word the buffer would have produced under
  * the Latin layout". A Hangul layout cannot produce Latin -- it destroys the
  * text instead of transliterating it (measured: the 12 Hangul layouts emit no
  * Latin letter for any printable key -- hunmin-sim, every key id) -- so the keys are the only way back.
@@ -517,17 +517,17 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffere
  * word, and a frontend without a Latin layout answers "not English" rather
  * than pretending (B3's fail-closed state, not an error).
  *
- * It decides nothing: no switch, no delivery, no mode change (R10). Valid until
+ * It decides nothing: no switch, no delivery, no mode change (ReqMode10). Valid until
  * the next call on this layer. Cost: one replay per finished word -- measured
  * 0.97-1.52 us for a 6-key word with the reading on against 0.54-0.67 us with
  * no Latin layout (three runs of 20,000 words each), so the reading itself is
  * ~0.5-0.9 us against a keystroke's 16 ms budget. */
 HUNMIN_EXPORT const char *hunmin_buffered_preedit_latin_text(const hunmin_buffered_preedit *l);
 
-/* ---------------------------------------------- english words (R8-정정)
+/* ---------------------------------------------- english words (ReqMode8)
  *
  * The data half of the modes judgement: `english_valid` is "a lookup in the
- * ENGLISH DICTIONARY" (docs/SPEC-MODES.md R8-정정), and the maintainer's ruling
+ * ENGLISH DICTIONARY" (docs/SPEC-MODES.md ReqMode8), and the maintainer's ruling
  * of 2026-11-01 fixed the source -- hunspell en_US, with a user dictionary the
  * person can extend. docs/OPTIONS-MEASURED.md §EDW is the measurement behind
  * that choice.
@@ -584,11 +584,11 @@ HUNMIN_EXPORT int hunmin_buffered_preedit_english_valid(const hunmin_buffered_pr
  * (B3's gate). -1 is never reported here: audit that with the load call. */
 HUNMIN_EXPORT int hunmin_buffered_preedit_english_ready(const hunmin_buffered_preedit *l);
 
-/* ------------------------------------------- hangul validity (R8-정정)
+/* ------------------------------------------- hangul validity (ReqMode8)
  *
  * The OTHER half of the modes judgement: `hangul_valid` is "the buffer composes
  * as Korean syllables of the shape (choseong + jungseong) or (choseong +
- * jungseong + jongseong) only" (docs/SPEC-MODES.md §R8-정정, issue #166).
+ * jungseong + jongseong) only" (docs/SPEC-MODES.md §ReqMode8, issue #166).
  *
  * It takes TEXT, not the layer, because there is nothing to look up: it is a
  * predicate over the composition rule, so no data directory can change its

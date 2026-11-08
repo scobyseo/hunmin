@@ -1,10 +1,10 @@
 # SPEC-MODES — Hangul/latin automatic determination (hangul/latin mode guessing)
 
-Status: **Requirements settled. R8's judgement ships** — the engine decides at the
+Status: **Requirements settled. ReqMode8's judgement ships** — the engine decides at the
 boundary and each frontend acts on `hunmin_buffered_preedit_take_judgement()` — **and
 its cases are `tests/golden/judgement-r8.jsonl`** (ctest `engine-golden-judgement`).
 
-**2026-10-04:** What R8's `english_valid`/`hangul_valid` must look up has been
+**2026-10-04:** What ReqMode8's `english_valid`/`hangul_valid` must look up has been
 measured (`docs/MODES-DATA.md` §4-7). **Neither is a dictionary lookup.** English is
 a **corpus list with a cap of 50,000**, Hangul has **no cap** (the lookup has to
 come back from the dictionary, or be a composition decision). Defining them as
@@ -39,16 +39,16 @@ this document is that the user changes these values by hand.
 **The R number is the reading order.** This document assumes a person reads it
 from the front, and reading in order makes each item the result of the ones before
 it. The first edition numbered in discovery order, which was a reversed order in
-that R3 (when) came before R4 (how) — it was renumbered on 2026-10-04, and the
+that ReqMode3 (when) came before ReqMode4 (how) — it was renumbered on 2026-10-04, and the
 cross references in the other four documents were fixed at the same time.
 
 | Stage | Question | Items |
 |---|---|---|
-| **1. What it solves** | why this feature exists | R1 |
-| **2. What it converts** | what a mode is, how many IMs there are, where it is decided | R2, R3 |
-| **3. When it is judged** | what the composition buffer (조합 버퍼) is and when it ends | R4, R5, R6 |
-| **4. How it is judged** | when to switch and when not to | R7, R8, R9, R10 |
-| **5. When it is wrong, and evaluation** | who fixes it, how it is measured, how to turn it on and off, and what turning it off must give back | R11, R12, R13, R14, R15 |
+| **1. What it solves** | why this feature exists | ReqMode1 |
+| **2. What it converts** | what a mode is, how many IMs there are, where it is decided | ReqMode2, ReqMode3 |
+| **3. When it is judged** | what the composition buffer (조합 버퍼) is and when it ends | ReqMode4, ReqMode5, ReqMode6 |
+| **4. How it is judged** | when to switch and when not to | ReqMode7, ReqMode8, ReqMode9, ReqMode10 |
+| **5. When it is wrong, and evaluation** | who fixes it, how it is measured, how to turn it on and off, and what turning it off must give back | ReqMode11, ReqMode12, ReqMode13, ReqMode14, ReqMode15 |
 
 **Why this order holds:**
 
@@ -60,47 +60,43 @@ cross references in the other four documents were fixed at the same time.
   first before you can talk about its completion moment.**
 - Stage 5 is last because repair-when-wrong and the scoring criteria are not
   defined without the preceding rules.
-- R7-정정 does not reverse the rule of R7, it only changes **the direction of the
-  error**. R13-정정 adds one more surface to R13. Both are placed immediately
-  after the original item.
+- ReqMode7 is stated as a complete rule (including error direction). ReqMode13 is stated as a complete rule (key combination and UI surface, one state). Amendments are integrated into each requirement with dated rulings preserved.
 
-**Items with the `-정정` marker** (R7-정정, R13-정정) are ones the user explicitly
-stated later and which amend existing rules. Instead of deleting the original
-rule, why it changed is left in the same document.
+**Dated rulings/amendments** are integrated into the relevant `ReqMode*` requirement (fully collapsed per issue #272 migration). Original rulings and why they changed remain in the same document as dated text.
 
 ## At a glance — the whole behaviour
 
 ```
 [Hangul mode]  the user types in dubeolsik/sebeolsik
                     │
-      accumulates in the composition buffer (not per syllable, R4)
-      digit runs accumulate together too (R6)
+      accumulates in the composition buffer (not per syllable, ReqMode4)
+      digit runs accumulate together too (ReqMode6)
                     │
       space or symbol = delimiter
                     │
-              ┌─────┴─────┐  judged only at this moment (R4)
+              ┌─────┴─────┐  judged only at this moment (ReqMode4)
               │  judge      │
               └─────┬─────┘
                     │
     ┌───────────────┼───────────────┐
     │               │               │
  commit as English  commit as Hangul  ambiguous → current mode
- + English mode     (stay Hangul)   (R7, R8)
+ + English mode     (stay Hangul)   (ReqMode7, ReqMode8)
     │               │               │
     └───────────────┴───────────────┘
                     │
-        the new mode applies from the next key onward (no retroactive effect, R10)
+        the new mode applies from the next key onward (no retroactive effect, ReqMode10)
                     │
-        if wrong, a person hits backspace (R11)
+        if wrong, a person hits backspace (ReqMode11)
                     │
-        scoring: keystroke count + number of manual on/off toggles (R12, R7-정정)
+        scoring: keystroke count + number of manual on/off toggles (ReqMode12, ReqMode7)
 ```
 
 ---
 
 # 1. Settled requirements (DECIDED)
 
-## R1. What this solves [D]
+## ReqMode1. What this solves [D]
 > "한글로 치던 중, 영어로 바꿔야 하는 불편함이 현재 어떤 모드인지 몰라서
 > 뭔가를 쳤다가 지우고 다시 치는 비용. 이런 것을 줄일 수 있는 방법으로
 > 이 연구를 하고 있는 거야."
@@ -113,9 +109,9 @@ typing, it **removes not knowing the mode.**
 > "나는 개발자라서 코드를 손으로 치면서, 중간에 한글을 작성해야 하는 경우도 꽤 있어. 이 때 잘못된 변환이 발생하면 곤란해."
 
 So what this feature has to be careful about is **not misfires themselves, but
-the number of times a person has to intervene and press on/off** (R7-정정).
+the number of times a person has to intervene and press on/off** (ReqMode7).
 
-## R2. One IM [D]
+## ReqMode2. One IM [D]
 > us layout을 쓸 필요는 없어. us layout을 삭제하고 hunmin만 쓴다고 생각하자구.
 > hunmin 내에 한글 모드, 영어 모드가 있고, 한글 모드에서는 두벌식, 세벌식 등을
 > 선택해서 쓸 수 있고, 영어 모드에서는 qwerty, dvorak 등을 선택할 수 있게
@@ -127,7 +123,7 @@ the number of times a person has to intervene and press on/off** (R7-정정).
 - The per-item `Layout=` in the profile is kept as the only per-IM override
   (`docs/FCITX5-ADDON-NOTES.md` §11c-ter).
 
-## R3. Mode guessing is an engine rule [D]
+## ReqMode3. Mode guessing is an engine rule [D]
 
 > 모드 추측은 엔진 규칙. 안드로이드에서도 윈도우에서도 사용할 수 있어야 함.
 > 마찬가지로 자동변환 기능을 켜고 끄는 기능도 모든 환경에서 동일한
@@ -141,14 +137,14 @@ frontends must never answer differently on the same word.
 decision.** The current implementation is an *adaptor*: `frontends/fcitx5/src/language_detect.*`
 keeps a shadow `hunmin_ctx` on the Latin layout and replays the buffered word
 at the judgement boundary. An engine-owned variant is the alternative. Both
-satisfy the requirement above. Which one wins is recorded in the R8
+satisfy the requirement above. Which one wins is recorded in the ReqMode8
 architecture decision, not in this document.
 
 *State measured 2026-11-01 (`docs/OPTIONS-MEASURED.md` §MRO-0, N4), updated
 2026-11-03: the adaptor sentence above describes the tree before #167, and the
 adaptor it names was retired by #164. The replay now lives in the shared layer
 (`latin_reading()` in `libhunmin/src/buffered_preedit.c`, pinned by
-`engine-wordset`), and that layer evaluates R8's formula at the boundary
+`engine-wordset`), and that layer evaluates ReqMode8's formula at the boundary
 (`judge_boundary`, issue #168). The requirement half of this section is
 unchanged. Which component owns the judgement was ruled 2026-11-01 (#164): **the
 engine judges, the frontend performs the switch** — see
@@ -159,7 +155,7 @@ The three design facts that came out of the earlier discussion are moved to
 (`hunmin_ic_set_option(autoswitch)`), and no new data schema needed for
 mode/guessing.
 
-## R4. Judgement moment — the end of the composition buffer [D]
+## ReqMode4. Judgement moment — the end of the composition buffer [D]
 > "조합이 끝나면 해도 돼. 스페이스바, 기호 등을 사용할 때."
 
 **"Composition" is not a syllable.** This distinction is the core of this
@@ -181,7 +177,7 @@ Precise definition (settled by the user):
 - **A symbol is also a termination condition.** But that is not because the user
   said so.
 
-### R4-정정 — the buffer is capped, and an overflow commits its first half (2026-11-01) [D]
+### Buffer cap and overflow (2026-11-01) [D]
 
 > "buffer cap should be reasonable; at least longest english word should be
 > covered by it. i think 4KB buffer can be managable; if it is to be overflowed,
@@ -189,9 +185,7 @@ Precise definition (settled by the user):
 
 > "make cap 256B by default, and make it configurable."
 
-R4's "extend to the delimiter" now has one exception, and it is the clause R4
-itself offered ("once the cap is fixed, 'in groups of at most N characters' is
-added to R4"): the buffer also ends when the word would outgrow a **cap of 256
+The "extend to the delimiter" rule has one exception (anticipated in this requirement: "once the cap is fixed, 'in groups of at most N characters' is added"): the buffer also ends when the word would outgrow a **cap of 256
 bytes of UTF-8**, and at that point the word's **first half is committed** — in the
 current language, unjudged — while the remainder keeps composing.
 
@@ -213,7 +207,7 @@ current language, unjudged — while the remainder keeps composing.
   typing (it takes ~256 consecutive letter keys with no delimiter); recorded because
   it is what a very long word loses.
 
-**R4's judgement moment is otherwise unchanged: still exactly one per word.** The
+**ReqMode4's judgement moment is otherwise unchanged: still exactly one per word.** The
 flush itself judges nothing — the judgement runs only in `boundary()` (#164) — so
 `§E6`'s flicker stays inert at this cap. What the boundary judges after a flush is
 the **remainder**: the flush empties the reading's key log, so the judgement sees
@@ -265,9 +259,9 @@ fact the correct delimiter — the conclusion is right and only the basis differ
 1. ~~**Hangul after a symbol with no space**~~ — **MEASURED 2026-10-04. Rare.**
    Measured below.
 2. **Symbols inside digit runs** — `1,000` (thousands separator), `3.14`
-   (decimal point), `12:30` (time). R6 says a digit run should be held in the
+   (decimal point), `12:30` (time). ReqMode6 says a digit run should be held in the
    buffer when ON, but if a comma breaks the buffer then `1,000` is not a digit
-   run but three tokens. **R6 and R4 conflict.**
+   run but three tokens. **ReqMode6 and ReqMode4 conflict.**
 
 ### Measurement — Hangul after a symbol with no space is rare [E → measured]
 
@@ -305,7 +299,7 @@ valid delimiters). However, if the Sino-Korean compound marker (`·`) becomes a
 delimiter then `노무현·정몽준` is split into two eojeols, so it is split off as
 item **E8 (a Sino-Korean compound marker is not a delimiter)**. This is
 conversely **evidence that symbols may be used as delimiters**, so it strengthens
-R4's conclusion.
+ReqMode4's conclusion.
 
 ### Cross-validation — Wikipedia and the web corpus give the same answer [E → measured]
 
@@ -338,7 +332,7 @@ And the top forms in 624 show the same composition as well:
 news articles type a full stop separately more often, while wiki sentences attach
 it because it is syntactically optional. Neither side reaches 1%.
 
-**This is the basis for raising R4's [E] to [D].** A corpus of a different nature
+**This is the basis for raising ReqMode4's [E] to [D].** A corpus of a different nature
 gave the same answer.
 
 **What 624 additionally gives:** a notation compound like `신·구 정권` occurs
@@ -377,7 +371,7 @@ is a string.** The extractor always prints the skip count and the reason.
 Part of it can be decided without a corpus — a Latin layout has no composition in
 the first place (Latin key → Latin letter), so **digit notation in English mode
 is not a judgement target of this feature.** Only typing digits in Hangul mode
-(R13) remains.
+(ReqMode13) remains.
 
 **Provisional rule:** use a symbol as a delimiter. But if (1) comes out as
 "exists but is rare" — that is, if the misread rate stays low when it is left as
@@ -385,7 +379,7 @@ a delimiter — keep it as it is. If it comes out as "exists and is common" then
 **even among symbols you have to distinguish sentence punctuation (`. , ? ! :`)
 from interior-word symbols (`-`, `/`, thousands separator `,`).** That is a
 change to a judgement rule and not to data, so it is decided here rather than in
-R4.
+ReqMode4.
 
 **This requires changing an engine invariant.** The current engine commits a
 completed syllable immediately (`libhunmin/src/ic.c:171,184,192,200` — calls to
@@ -407,25 +401,25 @@ has to change too.
 
 The load and how to measure it are put in `docs/DESIGN-MODES.md` §4.
 
-## R5. The composition buffer in the OFF state [D]
+## ReqMode5. The composition buffer in the OFF state [D]
 > 자동변환 기능이 꺼져있을 때, 영어 모드에서는 글자 단위로 commit 되어야 해.
 > 여러 소프트웨어에서 공백문자 없이 영숫자 입력을 처리하는 사례가 있어서,
 > 이런 사례에 사용할 방법이 필요해.
 
 **This requirement applies only when automatic conversion is off (OFF).** The
-requirement for the on case is specified separately in R4.
+requirement for the on case is specified separately in ReqMode4.
 
 - **OFF + English mode:** Latin letters and digits are **committed per
   character.** There is no composition buffer. It is needed because of software
   that handles alphanumeric input without spaces (`abc123`).
-- **OFF + Hangul mode:** preserves current behaviour 100% (§R14).
+- **OFF + Hangul mode:** preserves current behaviour 100% (§ReqMode14).
 
 Per the correction the user gave immediately before ("the case I mentioned earlier
 was only talking about the behaviour when automatic conversion is off"), this
 item is not promoted to an ON-side constraint. **Digit runs in ON are a separate
-requirement** and are in R6 below.
+requirement** and are in ReqMode6 below.
 
-## R6. In the ON state a digit run is part of the composition buffer [D]
+## ReqMode6. In the ON state a digit run is part of the composition buffer [D]
 > 자동변환 기능이 있을 때는 버퍼가 있어야 해. 세벌식에서는 숫자열까지
 > 사용하기 때문에 숫자 입력이라고 곧장 commit 하면 안돼.
 
@@ -451,25 +445,25 @@ requirement** and are in R6 below.
 **The combination of the two requirements is the exact definition of on/off.**
 
 ```
-autoconversion ON  → keep the composition buffer (Hangul eojeol + digit run), judge once at the delimiter (R4, R6)
-autoconversion OFF → no composition buffer. Hangul mode is current behaviour, English mode is per character (R5)
+autoconversion ON  → keep the composition buffer (Hangul eojeol + digit run), judge once at the delimiter (ReqMode4, ReqMode6)
+autoconversion OFF → no composition buffer. Hangul mode is current behaviour, English mode is per character (ReqMode5)
 ```
 
 For this combination to hold, **English mode has to be a Latin layout rather than
 a Hangul layout** — since a Latin key produces a Latin letter there is nothing to
-compose. This is the same statement as R2's "English mode picks qwerty and the
+compose. This is the same statement as ReqMode2's "English mode picks qwerty and the
 like". Therefore there is no need to build a composition buffer in English mode,
 and no dictionary lookup for one either.
 
 ---
 
-## R7. When judgement is ambiguous, depend on the current mode [D]
+## ReqMode7. When judgement is ambiguous, depend on the current mode [D]
 **Core rule: if it can be judged as English or as Hangul, depend on the current
 mode. Only switch when it is clearly the other language.**
 
 While stating this requirement **the user gave an example in only one
 direction.** Generalizing that example into an asymmetric rule was over-
-interpretation, and it is replaced by R7-정정 below.
+interpretation; the complete rule (both error directions, same weight) is below.
 
 > "문제는 내가 명확히 한글로 쳤는데, 그게 영어로 바뀌어 버리는 경우이지.
 > 물론 오타를 내서 영어모드로 바뀌는 것도 조금은 괴로워."
@@ -478,7 +472,7 @@ The direction the user gave as an example is this one, but **this does not defin
 the asymmetry of the rule.** The rule is the first paragraph above, and the rest
 is commentary on it.
 
-## R7-정정. Errors occur in both directions [D]
+### Errors occur in both directions [D]
 | Situation | Judgement |
 |---|---|
 | Can be judged as English or as Hangul | **Keep the current mode.** Do not convert to either side. |
@@ -490,8 +484,8 @@ one side is more permitted than the other.
 
 Why it changed, and what it requires:
 
-- The original R7 wrote that only "Hangul → English" was dangerous, which
-  **contradicted the symmetric rule in R8.** There was a reason for the second
+- An earlier draft wrote that only "Hangul → English" was dangerous, which
+  **contradicted the symmetric rule in ReqMode8.** There was a reason for the second
   line (the direction from English mode over to Hangul) to disappear. **The
   symmetric rule is alive.**
 - The user's original words contain that direction too: "영어 모드에서도 저건
@@ -510,7 +504,7 @@ direction E3 (short-word threshold) is redefined as well: the threshold is set o
 the basis of **"reduces manual intervention"**, not "permits errors". It is not
 decided by which direction of error is more tolerable.
 
-## R8. Judgement rule — only when clear [D]
+## ReqMode8. Judgement rule — only when clear [D]
 > "명백히 영어 단어이면 영어로 바꾸고, 명백히 한글 단어이면 한글로
 > 바꾸는 거지. 모호하면 현재 모드로 출력."
 
@@ -537,7 +531,7 @@ Whether the second line, the symmetric rule, actually holds was left to E1;
 **ruled 2026-11-01 — it is supported, and a mixed sentence working is the 0.3
 release gate** (§E1).
 
-### R8-정정 — the two validities, simplified (2026-10-25)
+### The two validities, simplified (2026-10-25)
 
 > "for SPEC-MODES, i'll simplify the req now to use english dictionary only. if
 > it is in english dict, convert to english mode. if it is not in dict and
@@ -579,14 +573,14 @@ record, not the current definition.
 
 **Not decided by this entry, and left open:** whether the corpus list, the cap
 and the MODES-DATA sections that describe them are deleted or kept as the
-record of the measurement; and whether R9's threshold (E3) is re-based now that
+record of the measurement; and whether ReqMode9's threshold (E3) is re-based now that
 `hangul_valid` no longer means "a word exists".
 
-### R8-정정-2 — the source is named: hunspell en_US, plus a user dictionary (2026-11-01)
+### English validity source: hunspell en_US, plus a user dictionary (2026-11-01)
 
 > "hunspell en_US 를 사용하고, 사용자 사전을 추가할 수 있게 하자."
 
-The ruling fills the second half of R8-정정: "a lookup in the ENGLISH
+The ruling fills the second half of ReqMode8: "a lookup in the ENGLISH
 DICTIONARY" now names its dictionary, its artefact and its extension point.
 
 | what | value |
@@ -606,10 +600,10 @@ own words are the only thing that can make them `english_valid`.
 **Deferred, and named rather than dropped:** the curated supplement list (a
 measured 62.59% → 75.53% for ~2,000 forms, §EDW-3) is **not** shipped — the
 ruling is "en_US + user dictionary". And this ruling fixes the DATA and the
-lookup; the judgement that consumes them (`english_valid` inside the R8 formula)
+lookup; the judgement that consumes them (`english_valid` inside the ReqMode8 formula)
 is still unimplemented, so no frontend switches modes yet.
 
-### R8-정정-3 — 옛한글 layouts: the same shape rule, the widened sets (2026-11-01)
+### 옛한글 layouts: the same shape rule, the widened sets (2026-11-01)
 
 > "can we add 옛한글 support to hangul_valid?"
 
@@ -632,7 +626,7 @@ actually render for a finished syllable, since no precomposed form exists for
 them — are.
 
 The two questions a frontend has to ask are answered by the engine, not by a
-per-frontend list (R3's one-rule rule):
+per-frontend list (ReqMode3's one-rule rule):
 
 | what | symbol |
 |---|---|
@@ -658,10 +652,10 @@ a layout that composes no Hangul has no syllables to judge and the feature stays
 disabled there rather than guessing. The requirement text above is unchanged.
 
 
-### `valid` is not a dictionary lookup (measured 2026-10-04) — SUPERSEDED by R8-정정 above; kept as the measurement of what the ruling costs
+### `valid` is not a dictionary lookup (measured 2026-10-04) — SUPERSEDED by ReqMode8 above; kept as the measurement of what the ruling costs
 
 **What `english_valid` / `hangul_valid` in the judgement formula above must look
-up has been measured** (`docs/MODES-DATA.md` §4-7). The requirement (R8) is
+up has been measured** (`docs/MODES-DATA.md` §4-7). The requirement (ReqMode8) is
 unchanged, but its definition is not a dictionary:
 
 - **english_valid** = a lookup against a **corpus list** with a cap of
@@ -682,7 +676,7 @@ list",** and the material of that list is not a dictionary but a **corpus
 harvested from text typed in Hangul.** Stopword removal is not done because it
 only costs reproduction rate (§4-7a).
 
-## R9. Short words are not switched [D]
+## ReqMode9. Short words are not switched [D]
 > "짧은 단어에서 이런 변환이 일어나는 건 위험성이 크고, 단순 오타에 대한
 > 방어로도 좋지 않은 것 같아."
 
@@ -691,7 +685,7 @@ are not switched.
 
 **The numeric threshold is not a requirement (ruled 2026-10-25).** §2.E3 is
 retired: a number here was calibrated against `hangul_valid` meaning "a word
-exists", and R8-정정 replaced that with a syllable-structure test, so the old
+exists", and ReqMode8 replaced that with a syllable-structure test, so the old
 number measured nothing that exists any more. What length counts as "short" is a
 design choice, made where the judgement is built and recorded there — this
 requirement says only that there is one. The value chosen 2026-11-01 with issue
@@ -708,18 +702,18 @@ word (`안녕` is 6 keys, 2 characters, 2 syllables). The guard is
 own wording was `3자`); the unit the maintainer then named is key inputs. The wiki
 page and §MRO carry the same dated correction.
 
-## R10. Switching is not retroactive [D]
+## ReqMode10. Switching is not retroactive [D]
 Settled by the user. After judgement the new mode applies **from the next key
 onward.** Already committed text is not reassembled.
 
-## R11. Accept that a person fixes it [D]
+## ReqMode11. Accept that a person fixes it [D]
 > 그 후에는 backspace로 사람이 지우고 고치는 방법을 받아들일 수 있어.
 
 Do not aim for 100% agreement. When a switch is wrong, the cost of a person
 fixing it with backspace is accepted. **So the success metric is not accuracy
-but a reduction in keystrokes** (R12).
+but a reduction in keystrokes** (ReqMode12).
 
-## R12. Success is measured in keystrokes [D]
+## ReqMode12. Success is measured in keystrokes [D]
 > 가장 의미있게 2/3번 지표를 측정하는 방법은, 주어진 문장을 한영 전환없이
 > 타이핑 했을 때 동일한 문장이 나오는가? 이고, 이게 100% 성공할 필요는
 > 없어. 중간에 한영 전환이 잘못된 것을 발견하고, 사람이 고친다고 했을 때,
@@ -729,7 +723,7 @@ but a reduction in keystrokes** (R12).
 The metric is **not accuracy. It is keystroke count.** The pass-line number is
 §2.E4.
 
-## R13. on/off is a key combination by default, and there must also be a UI [D]
+## ReqMode13. on/off is a key combination by default, and there must also be a UI [D]
 What the user wanted was **key combination first.**
 
 > 자동변환 기능 on/off 방식으로 가장 선호하는 건 UI로 설정하는 것이 아니라,
@@ -741,8 +735,8 @@ And they stated explicitly that it is **in addition, not exclusively.**
 > 정보를 제공해서, 처음 이 IM을 접하는 사람이 기능을 배울 수 있도록
 > 도와줘야 해.
 
-## R13-정정. Two surfaces, one state [D]
-**The on/off state is one and the engine owns it** (R3). "Do not build a settings
+### Two surfaces, one state [D]
+**The on/off state is one and the engine owns it** (ReqMode3). "Do not build a settings
 store per frontend" is unchanged. What is added here is a **surface** — one more
 path to reach the same state.
 
@@ -807,11 +801,11 @@ records the current factual relationships (not a measurement):
 - fcitx5 already has an addon settings (conf), so surface B is not extra UI but
   one existing settings item.
 
-## R14. Turning it off leaves no trace [D]
+## ReqMode14. Turning it off leaves no trace [D]
 
 **With the switch off, the input method must deliver what it delivered before
 the feature existed.** A person who never turns it on must not be able to tell
-that it shipped. (§R15 is the same identity for the words the switch does take,
+that it shipped. (§ReqMode15 is the same identity for the words the switch does take,
 and the price of turning it off mid-word.)
 
 - **"The previous behaviour" is a recorded thing, not a memory.** The oracle is
@@ -825,7 +819,7 @@ and the price of turning it off mid-word.)
   by this item.
 - **It covers the Latin layouts too**, by the same equality: the corpus carries
   `dvorak`, `colemak` and `romaja`, and what they deliver is compared the same
-  way. OFF + English mode's per-character delivery is R5's rule, not this one's.
+  way. OFF + English mode's per-character delivery is ReqMode5's rule, not this one's.
 - **The identity is proved on a finite corpus, and that is stated rather than
   implied.** The check answers for the sequences the shipped layouts carry —
   which is what makes off a real fallback for them — and for no other string a
@@ -838,7 +832,7 @@ driven through `hunmin_buffered_preedit` with `autoswitch` written 0 and read
 back, at both commit policies, and the text a person sees is compared byte for
 byte against `hunmin_ic`, the engine those corpora were recorded on.
 
-## R15. The switch costs no word [D]
+## ReqMode15. The switch costs no word [D]
 
 > 이상적으로는 어느 모드에서든 사용자가 의도적으로 해당 모드의 문자열을 모두
 > 입력할 수 있어야 하지만, 그럴 수 없는 경우에는 자동변환 기능을 꺼서라도
@@ -850,7 +844,7 @@ that remedy real, and one thing is explicitly not claimed.
 - **Where the switch changes a word's reading, the off path still produces the
   engine's text.** For every key sequence where the switch makes the delivered
   text differ from what `hunmin_ic` delivers for the same keys, the same keys with
-  `autoswitch` 0 must deliver `hunmin_ic`'s text. §R14 states that identity over
+  `autoswitch` 0 must deliver `hunmin_ic`'s text. §ReqMode14 states that identity over
   the goldens; this item states it over the set the switch actually touches — the
   words the judgement corpus records as switching, which is the set a person who
   lost a word is in — with the off-path answer computed from the engine rather
@@ -860,7 +854,7 @@ that remedy real, and one thing is explicitly not claimed.
   at the same boundary, with the off path's text. A fallback that drops the word
   it exists to save is not a fallback.
 - **Not claimed: the intended word arrives first time.** A misjudged word is
-  R11's accepted cost, counted in R12. The ideal in the sentence above — every
+  ReqMode11's accepted cost, counted in ReqMode12. The ideal in the sentence above — every
   mode producing all of its own strings — is ③'s target, which has no pass line
   (`docs/MODES-METRICS.md` §1.3) and is not judged a defect.
 
@@ -878,9 +872,9 @@ status marker as `[E]` → `[D]` or "deleted" from the results in
 `docs/MODES-METRICS.md`.
 
 ## E1. Whether the symmetric rule holds [D] — ruled 2026-11-01, implemented
-The second line of R8 (the direction from English mode over to Hangul) **should
+The second line of ReqMode8 (the direction from English mode over to Hangul) **should
 be implemented**, but in which word list it holds is unmeasured. If there was a
-reason to drop that direction (R7's asymmetric rule), **that reason was corrected
+reason to drop that direction (ReqMode7's asymmetric rule), **that reason was corrected
 on 2026-10-04, so E1 is not "should we throw it away" but "what will we make it
 hold with."**
 
@@ -890,10 +884,10 @@ The record is in `docs/MODES-POSTMORTEM.md` — The National Institute of Korean
 the josa (조사, particle) list and the eomi (어미, ending) list, so without an
 arbitrary precedence rule the lists alone cannot divide them.
 
-**Why this direction is needed:** because R7-정정 made errors in both directions
+**Why this direction is needed:** because ReqMode7 made errors in both directions
 carry the same weight, dropping one side leaves **the manual on/off arising on
 that side intact.** And the decrease in manual interventions is the evaluation
-criterion of this feature (R12, R7-정정). In other words the symmetric rule is
+criterion of this feature (ReqMode12, ReqMode7). In other words the symmetric rule is
 not a convenience but **half of what is being scored.**
 
 **What is a measurement:** when a Hangul eojeol (어절, space-delimited word;
@@ -901,7 +895,7 @@ including josa and eomi, and a meaningful unspaced span) is typed in English mod
 does the judgement actually flip over? Record 3 in the current
 `docs/MODES-POSTMORTEM.md` is "list-only split is not possible without an
 arbitrary precedence rule" (the josa `다`/`은` are in both the josa list and the
-eomi list). If the symmetric rule does not hold, **R8 is narrowed to one side
+eomi list). If the symmetric rule does not hold, **ReqMode8 is narrowed to one side
 (Hangul→English).**
 
 ### Ruling 2026-11-01 — the symmetric line is supported [D]
@@ -909,14 +903,14 @@ eomi list). If the symmetric rule does not hold, **R8 is narrowed to one side
 > "E1도 당연히 지원해야지. 내 예제가 동작하는 것까지를 0.3 release gate로 보자."
 
 So the question this item asked ("does the symmetric rule hold, and in which word
-list") is answered by building it: **both lines of R8's formula ship**, and the
+list") is answered by building it: **both lines of ReqMode8's formula ship**, and the
 gate is the maintainer's own mixed sentence.
 
 - **Mechanism:** the other half of the pair is the *Hangul reading* of the keys typed
   in Latin mode — the same shadow the existing direction uses, replayed through the
   frontend's Hangul layout (`hangul_reading()` in `libhunmin/src/buffered_preedit.c`).
   The rule is unchanged: switch only when `hangul_valid(reading) ∧ ¬english_valid(word)`.
-- **The guard is shared:** R9's three key inputs apply to both directions, and
+- **The guard is shared:** ReqMode9's three key inputs apply to both directions, and
   `autoswitch` OFF turns both off (one state, not half a feature).
 - **The 0.3 gate:** `English는 좋은 Language입니다` typed as one stream comes out in the
   languages the person meant, pinned by
@@ -925,14 +919,14 @@ gate is the maintainer's own mixed sentence.
   test fails when the symmetric line is disabled (verified by rebuilding with it
   switched off).
 - **What the ruling did not measure, and what the risk is:** the return direction's
-  misfire surface is the short-word space. With R9's guard applied it switches on
+  misfire surface is the short-word space. With ReqMode9's guard applied it switches on
   **12.73%** of all three-key strings and **6.83%** of four-key ones
   (`docs/OPTIONS-MEASURED.md` §BND-3) — a typo like `helo` is not an English word and
   its Hangul reading is well-formed, so it would flip to Hangul. Whether that rate is
   acceptable is a ruling nobody has made; the corpus that would weight it
   (`docs/MODES-METRICS.md` §3) does not exist here.
 
-## E2. Buffer extension cap — how far is extending the buffer worthwhile [D] — value ruled 2026-11-01, §R4-정정
+## E2. Buffer extension cap — how far is extending the buffer worthwhile [D] — value ruled 2026-11-01, §ReqMode4
 > 더 이상 확장해도 개선되지 않는 선을 찾아야 해. 아마 내가 앞에 이야기 한
 > 것이 그 지점일거야.
 
@@ -940,12 +934,12 @@ The point the user pointed at is **the preedit length limit.**
 
 > preedit이 너무 길어지면, 대부분의 app이 문제를 일으키기 때문에 주의해야 해.
 
-**As R5/R6 were settled, the character of this item changed.** The ON composition
+**As ReqMode5/ReqMode6 were settled, the character of this item changed.** The ON composition
 buffer is no longer a choice but a **requirement** — it has to hold digit runs
-too (R6). So E2 no longer asks "should we use a buffer" but only **"where must
+too (ReqMode6). So E2 no longer asks "should we use a buffer" but only **"where must
 the buffer end."**
 
-R4 extends the buffer up to the delimiter, but the cost is that the preedit grows
+ReqMode4 extends the buffer up to the delimiter, but the cost is that the preedit grows
 to the length of a word. So a cap exists:
 
 - The buffer of `hunmin_ic` is `STR_CAP` 64 ucschar (libhangul parity,
@@ -959,7 +953,7 @@ to the length of a word. So a cap exists:
   Even below that, editors react to the preedit length (varies per app,
   unmeasured).
 
-  **Ruled 2026-11-01 — `§R4-정정`:** the cap is 256 bytes of UTF-8, an overflow
+  **Ruled 2026-11-01 — `§ReqMode4`:** the cap is 256 bytes of UTF-8, an overflow
   commits the first half, and the value is a layer option (`word_cap`) rather than
   a constant. The measurement the item asked for ((a) judgement degradation,
   (b) preedit problems, (c) perceived delay) is *not* what settled it: the value is
@@ -970,24 +964,24 @@ to the length of a word. So a cap exists:
 **What is a measurement:** with the buffer cap set to N, measure separately (a)
 the degradation in judgement accuracy, (b) the incidence rate of preedit length
 problems, (c) the buffering delay perceived by a person. Find the N at which the
-improvement becomes 0. **R4's "extend to the end" can be amended depending on the
+improvement becomes 0. **ReqMode4's "extend to the end" can be amended depending on the
 result of this evaluation** — once the cap is fixed, "in groups of at most N
-characters" is added to R4.
+characters" is added to ReqMode4.
 
-## E3. Short-word threshold [D] — value ruled 2026-11-01, §R9/§MRO
+## E3. Short-word threshold [D] — value ruled 2026-11-01, §ReqMode9/§MRO
 *The paragraphs below are the item as written while N was open; the value that
 closed it, and the unit question it still leaves, are in the note at the end of this
 section.*
 
-R9 requires "do not switch when it is short", but there is no N.
+ReqMode9 requires "do not switch when it is short", but there is no N.
 does not even settle whether the measure is "in syllables" or "in keystrokes".
 
-**R7-정정 changes the scoring criterion of this item.** The threshold N is set on
+**ReqMode7 changes the scoring criterion of this item.** The threshold N is set on
 the basis of **"the number of times a person intervenes manually and presses
 on/off",** not "permits errors". Therefore:
 
 - The error direction (Hangul→English vs English→Hangul) is **not** used as a
-  basis for deciding N. The two directions carry the same weight (R7-정정).
+  basis for deciding N. The two directions carry the same weight (ReqMode7).
 - The larger N is, the more automatic switching there is and the fewer manual
   interventions, but misfires increase. Which N to pick is decided by **a
   comparison of the two values**, and since that comparison is the same kind of
@@ -997,7 +991,7 @@ on/off",** not "permits errors". Therefore:
 of misfires in each direction, (b) the number of manual on/off toggles. Find the
 N at which (b) is minimal.
 
-*Value ruled 2026-11-01, and priced 2026-11-01:* R9 carries the number and its
+*Value ruled 2026-11-01, and priced 2026-11-01:* ReqMode9 carries the number and its
 unit — **three key inputs**, clarified 2026-11-01 ("키입력 세개로 명확히 하자") — and
 `libhunmin/src/buffered_preedit.c` implements exactly that as `JUDGE_MIN_KEYS 3`.
 `docs/OPTIONS-MEASURED.md` §BND-3's sweep is in keys typed, so its `3` row is the
@@ -1005,17 +999,17 @@ class the shipped guard admits: an earlier draft of this note recorded a
 characters-versus-keys discrepancy; the maintainer's clarification closed it in
 favour of keys, and the difference it would have made is measurable (`안녕` is 6 keys
 and 2 characters — judged under the shipped rule, not under a character rule). The
-item's own method sentence above still asks for a measured N while R9 makes N a
+item's own method sentence above still asks for a measured N while ReqMode9 makes N a
 design-time choice; the ruling answered it by choosing, which is the maintainer's
 call and not this note's.
 
 ## E4. Metric pass line [E]
-R12 said success is "enough if the number of keystrokes goes down", but **how
+ReqMode12 said success is "enough if the number of keystrokes goes down", but **how
 much** is enough is not specified. Without a scoring line, scoring is impossible
 even when the implementation is finished.
 
 **Metrics ①②③ are the only scoring targets of this spec** (`docs/MODES-METRICS.md`
-§1), and each needs a pass-line number. Because of R7-정정, the **number of
+§1), and each needs a pass-line number. Because of ReqMode7, the **number of
 manual interventions** (②b) is also a scoring target, so the two numbers needed
 now are two. Both are undecided.
 
@@ -1055,14 +1049,14 @@ and **neither half holds as stated**: F9 is no layout key and the 전처리수�
 `flags` overrides, and `KeyEvent.KEYCODE_F9` is 139. What constrains the assignment is the
 per-platform collision map (`docs/OPTIONS-MEASURED.md` §E5-2).
 
-**R13-정정 added one more requirement to this item.** The assignment is now shown
+**ReqMode13 added one more requirement to this item.** The assignment is now shown
 verbatim as instructions in the UI (surface B), so **there is not a single
 answer.** If the value written on screen as "press this" and the value that
 actually works diverge, that is not allowed:
 
 - The assignment must be **a value the engine holds**, and the UI reads it. If
   each frontend knew the assignment on its own, the three frontends would each
-  advertise a different key (R13-정정).
+  advertise a different key (ReqMode13).
 - ~~Whether the assignment can be **changed** is undecided.~~ **DECIDED 2026-10-31:**
   it can — the composition is selectable in the config dialog (see the ruling above).
   What that costs is a key-remap path, which hunmin did not have; the engine-owned value
@@ -1070,7 +1064,7 @@ actually works diverge, that is not allowed:
 - **The ON/OFF default is DECIDED 2026-10-11** — OFF by default until release
   0.3, with the feature's additional data shipped separately and the feature
   enable-able only where that data is present (maintainer's ruling, quoted in
-  `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`; see R13 above).
+  `wiki/decisions/2026-10-11-auto-switch-off-by-default.md`; see ReqMode13 above).
 - ~~**The 0.1 shipping state is DECIDED 2026-10-12**~~ — the feature is
   ~~**disabled by default in 0.1, by disabling the default key composition**~~
   (maintainer's ruling, issue #2, quoted in
@@ -1103,7 +1097,7 @@ A risk the user pointed at directly.
 > 확인되면 영어로 바꿔서 보여줘도 되지만, 이건 도깨비 현상을 만들 수 있고,
 > 영어라고 생각했지만 다시 한글로 바뀌는 상황도 있을 거야.
 
-Because of R4, if judgement happens only at the end of the buffer (the
+Because of ReqMode4, if judgement happens only at the end of the buffer (the
 delimiter), this flicker **does not occur** — because judgement happens only
 once. The flicker only arises when judgement is moved earlier, into the middle of
 the buffer (every key).
@@ -1134,10 +1128,10 @@ flicker, not the quiet boundary.
   refused. No frontend exposes it yet, so the default is what ships in all three.
 - **What changes is the display, not the text.** The word is still delivered once,
   at the boundary, in the language `judge_boundary()` decides there, and
-  `take_judgement` still answers once per word — so R10 (nothing retroactive) and
+  `take_judgement` still answers once per word — so ReqMode10 (nothing retroactive) and
   the one-switch-per-word the frontends perform are untouched. The tier-A cases pin
   the equality (`TheJudgementTimingChangesTheDisplayAndNeverTheText`).
-- **What the default costs, measured with R9's three-key guard applied:** 64.05% of
+- **What the default costs, measured with ReqMode9's three-key guard applied:** 64.05% of
   the shipped dictionary's forms change language at least once inside the word (mean
   2.59 changes, `alphabetically` 11). Without the guard the same figure is 94.18%,
   mean 2.95 — the guard removes the first two chances in every word, which is why it
@@ -1149,7 +1143,7 @@ flicker, not the quiet boundary.
   still unruled (measured in §BND-4).
 
 ## E7. How to prove identical behaviour on Android/Windows [E]
-R3 was a decision and the implementation direction is fixed too (an engine rule).
+ReqMode3 was a decision and the implementation direction is fixed too (an engine rule).
 What remains is **how to prove it.** With an engine rule a single golden file
 makes every frontend follow automatically, but the parts where the frontend holds
 state separately (display, key combination handling) each need their own
@@ -1178,7 +1172,7 @@ and the tier-C corpus path on Android, which bypasses the adapter
 
 ## E8. A Sino-Korean compound marker is not a delimiter [E]
 
-An item split off by measurement (SPEC-MODES R4).
+An item split off by measurement (SPEC-MODES ReqMode4).
 
 ```
 노무현·정몽준      a notation joining two Sino-Korean words inside one eojeol with ·
@@ -1223,8 +1217,8 @@ delimiters.
 
 | File | Content |
 |---|---|
-| `docs/DESIGN-MODES.md` | the engine state machine of R4/R3, the key hook of R13, the load and its measurement |
-| `docs/MODES-DATA.md` | corpus scale, licences, and the measurements behind the *old* `valid` criterion — R8-정정 replaced it, so these sections are the record of a measurement, not the current definition |
+| `docs/DESIGN-MODES.md` | the engine state machine of ReqMode4/ReqMode3, the key hook of ReqMode13, the load and its measurement |
+| `docs/MODES-DATA.md` | corpus scale, licences, and the measurements behind the *old* `valid` criterion — ReqMode8 replaced it, so these sections are the record of a measurement, not the current definition |
 | `docs/MODES-METRICS.md` | definitions of metrics ①②③, pass lines, measurement results and invalidation declarations |
 | `docs/MODES-POSTMORTEM.md` | the failures committed while investigating this requirement |
 | `docs/SPEC-SCHEMA.md` | the data contract of the word list (shares a problem with the P2 typesetting) |

@@ -22,7 +22,7 @@ libhangul-era layouts (2, 2y, 32, 39, 3f, 3s, 3y, ro, ahn) ship as data so other
 Hangul mode should switch to English, and typing Hangul while in English mode
 should switch back — **without changing IM**, because the IM change is the part
 that costs the user. This is a requirement, not a proposal; the requirements are
-R1–R13 in `docs/SPEC-MODES.md` and the decision belongs in the engine so every
+ReqMode1–ReqMode13 in `docs/SPEC-MODES.md` and the decision belongs in the engine so every
 frontend gets it.
 
 ## Why not the existing options (evidence trail)
@@ -71,7 +71,7 @@ frontend gets it.
   docs/                 the SPEC set is what an agent reads first, so name it in
                         reading order, not alphabetically:
                           SPEC-P2.md         composition engine, normative (pat.im)
-                          SPEC-MODES.md      hangul/latin automatic mode (R1-R13)
+                          SPEC-MODES.md      hangul/latin automatic mode (ReqMode1-ReqMode13)
                           SPEC-SCHEMA.md     data file contracts
                           MODES-DATA.md      sources, licences, corpus measurement
                           MODES-METRICS.md   metric definitions + pass lines
@@ -207,10 +207,10 @@ frontend gets it.
 - **P5** Android IME (route B primary): HW keyboard e2e on emulator CI; mic launch path;
   picker-switch UX; Play/F-Droid packaging prep. Gate: tier-E suite + BT-keyboard manual matrix.
   Status, measured 2026-10-04 — of the four deliverables, **three are done**
-  (emulator CI job, mic launch path, picker UX) and **R8 rules are not**. The
+  (emulator CI job, mic launch path, picker UX) and **ReqMode8 rules are not**. The
   tier-E suite is green (E1 34/34, mutations 8/8, 21 goldens, E2 on the emulator).
   ⚠️ **Partly done, corrected 2026-10-09.** This used to read "no keystore config,
-  no version-code scheme, no R8 rules". The release-signing prep added a `release`
+  no version-code scheme, no ReqMode8 rules". The release-signing prep added a `release`
   signingConfig and `versionCode = 1` / `versionName = "0.1.0-p5"`, so two of the
   three are done. One defect in that change is recorded and **not** silently
   repaired here, because it is a packaging decision: `build.gradle.kts:75`
@@ -218,7 +218,7 @@ frontend gets it.
   comment one line above says *"keystore lives in local.properties (gitignored)"*.
   The two contradict, and AGENTS.md forbids committed absolute paths into a home
   directory. See `docs/REMAINING-WORK.md`.
-  ❌ **R8 rules are the remaining code work.** `assembleRelease` builds and
+  ❌ **ReqMode8 rules are the remaining code work.** `assembleRelease` builds and
   installs correctly once signed — measured, with a signed release APK ignoring
   the trace broadcast and refusing `run-as`, so the `FLAG_DEBUGGABLE` gate holds.
   `isMinifyEnabled = false` with no `proguard-rules` file means the shrinker path
@@ -306,7 +306,7 @@ frontend gets it.
   phase with no implementation at all.** Stated by the maintainer 2026-10-03:
   type English while in Hangul mode and the mode changes; switching must be
   **without changing IM** ("IM 변경 없이 동작 모드로 한글<->영어 변경이 되는 게 굉장히
-  편리해"). Requirements R1–R13 in **`docs/SPEC-MODES.md`**, read that before
+  편리해"). Requirements ReqMode1–ReqMode13 in **`docs/SPEC-MODES.md`**, read that before
   starting anything here.
 
   Status 2026-10-05, corrected 2026-10-09: **no engine code, and one undocumented
@@ -317,25 +317,25 @@ frontend gets it.
   ⚠️ *(State as of this analysis; superseded 2026-11-01, #164 — the detector below
   is retired and the judgement is the engine's.)* **But this line was also
   incomplete in the other direction.** `frontends/fcitx5/src/
-  language_detect.{h,cpp}` implemented an R8 shadow-layout adapter (shipped, wired at
+  language_detect.{h,cpp}` implemented an ReqMode8 shadow-layout adapter (shipped, wired at
   `hunminadapter.cpp:221`). It keeps a second `hunmin_ctx` on a Latin layout beside the Hangul
   one and replays the buffered word when `hunmin_ic_preedit()` goes empty. It is in
   `master`, it compiles into the addon, **no document mentioned it**, and **no committed
   test covers it** — its verification script lives in the gitignored `out/`, so the
-  artefact that caught its own bug is not retrievable. Its design also diverges from R3's
+  artefact that caught its own bug is not retrievable. Its design also diverges from ReqMode3's
   `[D]` ruling above, which places guessing in the engine. Both the gap and the divergence
   are recorded, not resolved: `docs/REMAINING-WORK.md`.
 
   | area | state | where |
   |---|---|---|
-  | requirements R1–R13 | settled | `docs/SPEC-MODES.md` |
-  | judgement source (what "valid" looks up) | **ANSWERED** — a syllable-structure test for Hangul (no source), hunspell `en_US` + a user dictionary for English; B1 retired 2026-11-01 | `docs/SPEC-MODES.md` §R8-정정, §R8-정정-2 |
+  | requirements ReqMode1–ReqMode13 | settled | `docs/SPEC-MODES.md` |
+  | judgement source (what "valid" looks up) | **ANSWERED** — a syllable-structure test for Hangul (no source), hunspell `en_US` + a user dictionary for English; B1 retired 2026-11-01 | `docs/SPEC-MODES.md` §ReqMode8, §ReqMode8 |
   | metrics + pass lines | defined, none measured | `docs/MODES-METRICS.md` |
   | engine rules | drafted | `docs/DESIGN-MODES.md` |
   | third-party correctness | **not started** — must be evaluated against **both** 두벌식 and 세벌식, at minimum 신세벌식 P2 | transcript 2026-10-03 |
   | corpora | three, all outside the repo and all reproducible | `docs/MODES-DATA.md` |
 
-  R3 [D] places the decision in the **engine**, not the frontend adapter, so it
+  ReqMode3 [D] places the decision in the **engine**, not the frontend adapter, so it
   can serve Android and Windows alike. That supersedes the P5 note below about
   an accessibility-based auto-switch helper, which this makes unnecessary.
 

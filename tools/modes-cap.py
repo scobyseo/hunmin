@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure the embed cap for the hangul/latin mode-guess word lists (SPEC-MODES R8).
+"""Measure the embed cap for the hangul/latin mode-guess word lists (SPEC-MODES ReqMode8).
 
 Reproduces every number in docs/MODES-DATA.md 4-7. Run from the repo root:
 
@@ -17,8 +17,8 @@ and one that lives inside it -- OUT OF SCOPE, see the note below:
     libhunmin/data/krdict/krdict.json
 
 Why 624 is the probe, and what it is not: it is english tokens that actually
-appear next to hangul in typed text -- the closest thing to R8's
-english_valid firing. It is NOT a substitute for R12's ② sentence replay.
+appear next to hangul in typed text -- the closest thing to ReqMode8's
+english_valid firing. It is NOT a substitute for ReqMode12's ② sentence replay.
 It is one vertical (news/IT), a bias MODES-DATA.md 2 already records, so the
 cap it produces is falsifiable against any other corpus.
 

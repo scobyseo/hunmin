@@ -3,14 +3,14 @@
 
 THE QUESTION
 ------------
-SPEC-MODES R8 switches the output mode when a word is clearly one language and
+SPEC-MODES ReqMode8 switches the output mode when a word is clearly one language and
 not the other:
 
     english_valid AND NOT hangul_valid  ->  commit as English, switch
     hangul_valid AND NOT english_valid  ->  commit as Hangul, stay
     otherwise (both valid / both invalid)  ->  commit in the current mode
 
-R2 puts one qwerty layout inside hunmin as the English mode. That means the
+ReqMode2 puts one qwerty layout inside hunmin as the English mode. That means the
 conversion is a **layout switch**, and the interesting question is what the
 user sees at the moment of the switch:
 
@@ -20,7 +20,7 @@ user sees at the moment of the switch:
 
   B. Sin3-p2 + qwerty (English mode exists)
      The word is *also* typed through qwerty, which commits Latin verbatim.
-     If R8 says "English", the Latin is what gets shown.
+     If ReqMode8 says "English", the Latin is what gets shown.
 
 This measures the conversion decision itself: given the same keystrokes, how
 often does each arm produce the right script, and how much text is lost.
@@ -90,13 +90,13 @@ def kiwi():
 
 
 def judge(k, text):
-    """(english_valid, hangul_valid) as R8 defines them.
+    """(english_valid, hangul_valid) as ReqMode8 defines them.
 
     english_valid: the token is Latin script (a Latin layout commits it
     verbatim, so this is the script of the output, not a dictionary lookup --
     SPEC-MODES already ruled a dictionary filter halves the reproduction rate).
     hangul_valid: every character is a composable Hangul syllable, which is
-    SPEC-MODES R8 fallback (c) and the only candidate with no cap problem.
+    SPEC-MODES ReqMode8 fallback (c) and the only candidate with no cap problem.
     """
     eng = bool(text) and all(ord(c) < 128 and c.isalnum() or ord(c) < 128 and not c.isspace()
                              for c in text) and any(c.isalpha() for c in text)
@@ -105,7 +105,7 @@ def judge(k, text):
 
 
 def decide(eng, ko, current="hangul"):
-    """R8's table, verbatim. Returns the mode to commit in."""
+    """ReqMode8's table, verbatim. Returns the mode to commit in."""
     if eng and not ko:
         return "english"
     if ko and not eng:
@@ -139,7 +139,7 @@ def main():
     for w, ra, rb in zip(sample, armA, armB):
         hangul_out = ra["commit"] + ra["preedit"]
         latin_out = rb["commit"] + rb["preedit"]
-        # what R8 would judge: the Latin text is what "English mode" yields
+        # what ReqMode8 would judge: the Latin text is what "English mode" yields
         eng, ko = judge(k, latin_out)
         mode = decide(eng, ko)
         # what the user actually gets in each arm
@@ -180,7 +180,7 @@ def main():
         "seed": a.seed,
         "arms": {
             "A": f"{a.hangul_layout} only (no English mode exists today)",
-            "B": f"{a.hangul_layout} + {a.latin_layout} (R2's English mode)",
+            "B": f"{a.hangul_layout} + {a.latin_layout} (ReqMode2's English mode)",
         },
         "r8_decisions": {"switch_to_english": switched, "keep_hangul": kept},
         "user_typed_english_ground_truth": True,
@@ -205,8 +205,8 @@ def main():
 
     print("\n=== automatic conversion: sin3-p2 alone vs + qwerty ===")
     print(f"  sample (user typed English)        {n}")
-    print(f"  R8 switches to English            {switched}  ({pct(switched)}%)")
-    print(f"  R8 keeps Hangul (ambiguous)       {kept}  ({pct(kept)}%)")
+    print(f"  ReqMode8 switches to English            {switched}  ({pct(switched)}%)")
+    print(f"  ReqMode8 keeps Hangul (ambiguous)       {kept}  ({pct(kept)}%)")
     print(f"\n  arm A  sin3-p2 only:")
     print(f"    shows Latin (what was typed)     {a_latin}  ({pct(a_latin)}%)")
     print(f"    shows Hangul junk               {n - a_latin}  ({pct(n - a_latin)}%)")

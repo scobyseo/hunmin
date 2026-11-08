@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-/* R9's threshold (docs/SPEC-MODES.md §R9, ruled 2026-11-01): three KEY INPUTS, the
+/* ReqMode9's threshold (docs/SPEC-MODES.md §ReqMode9, ruled 2026-11-01): three KEY INPUTS, the
  * unit the maintainer named the same day -- not characters, not syllables. Lives at
  * file scope because two readers share it: judge_boundary() decides with it, and
  * judged_display() may not show a judgement the guard would refuse. */
@@ -46,7 +46,7 @@ struct hunmin_buffered_preedit {
     hunmin_ic *ic;
     char *word; /* buffered word (UTF-8), only used in BUFFERED mode */
     size_t wordlen, wordcap;
-    size_t cap; /* WORD_CAP by default; 0 = no cap (option "word_cap", R4-정정) */
+    size_t cap; /* WORD_CAP by default; 0 = no cap (option "word_cap", ReqMode4) */
     char *commit_out; /* returned strings, owned, valid until the next call */
     size_t commitcap;
     char *preedit_out;
@@ -56,11 +56,11 @@ struct hunmin_buffered_preedit {
     unsigned special_mods[HUNMIN_SPECIAL_LIMIT];
     hunmin_special_host special_host;
     bool special_host_set;
-    hm_wordset *english; /* the modes judgement's data (R8-정정-2); NULL until asked for */
-    /* R8 judgement (DESIGN-CORE.md#r8-judgement--judge_boundary-implementation):
+    hm_wordset *english; /* the modes judgement's data (ReqMode8); NULL until asked for */
+    /* ReqMode8 judgement (DESIGN-CORE.md#r8-judgement--judge_boundary-implementation):
      * -1 none, else HUNMIN_LANGUAGE_*; read once by take_judgement(). */
     int judged;
-    /* R8-정정-2/3 readings (DESIGN-CORE.md#r8-정정-23-readings-and-validity). */
+    /* ReqMode8/3 readings (DESIGN-CORE.md#r8-정정-23-readings-and-validity). */
     uint32_t *keys; /* (base,shift) slots, word in flight */
     size_t keylen, keycap;
     /* E6 judge_timing (DESIGN-CORE.md#e6-judged-display-judge_timing):
@@ -68,7 +68,7 @@ struct hunmin_buffered_preedit {
     int judge_timing;
     char *judged_out; /* the per-key display's reading, owned */
     size_t judgedcap;
-    /* E1/R8-정정-2 replayed readings (DESIGN-CORE.md#r8-정정-23-readings-and-validity). */
+    /* E1/ReqMode8 replayed readings (DESIGN-CORE.md#r8-정정-23-readings-and-validity). */
     char *hangul_out;
     size_t hangulcap;
     char *latin_out; /* finished word's reading; "" while composing */
@@ -171,7 +171,7 @@ static void hangul_reading(hunmin_buffered_preedit *l) {
     replay_reading(l, l->hangul_id, &l->hangul_out, &l->hangulcap);
 }
 
-/* R8-정정-3: the shape rule is the same; the jamo sets widen on a layout that can
+/* ReqMode8: the shape rule is the same; the jamo sets widen on a layout that can
  * emit a jamo outside the modern 19/21/28. The answer is derived at load time
  * from that layout's own keys and combination table (schema_loader.c
  * compute_capability), never declared, so a new layout cannot forget it.
@@ -202,7 +202,7 @@ static const char *set_commit(hunmin_buffered_preedit *l, const char *s) {
     return l->commit_out;
 }
 
-/* ------------------------------------------------------- the cap (R4-정정) */
+/* ------------------------------------------------------- the cap (ReqMode4) */
 
 /* set_commit for a LENGTH rather than a NUL-terminated string: the half being
  * committed is a prefix of the word buffer, which is not terminated at that
@@ -215,7 +215,7 @@ static const char *set_commit_n(hunmin_buffered_preedit *l, const char *s, size_
     return l->commit_out;
 }
 
-/* R4-정정 cap overflow. Multi-place rationale:
+/* ReqMode4 cap overflow. Multi-place rationale:
  * docs/DESIGN-CORE.md#r4-정정-cap-word_flush_half. Returns commit output ("" if
  * under cap); on OOM leaves the word whole. */
 static const char *word_flush_half(hunmin_buffered_preedit *l) {
@@ -240,12 +240,12 @@ static const char *word_flush_half(hunmin_buffered_preedit *l) {
 
 /* E6 per-key judged display (SPEC-MODES E6). Multi-place rationale:
  * docs/DESIGN-CORE.md#e6-judged-display-judge_timing. Display only; no
- * delivery/switch/recorded judgement (R10). */
+ * delivery/switch/recorded judgement (ReqMode10). */
 static const char *judged_display(hunmin_buffered_preedit *l, const char *shown_text) {
     if (l->judge_timing != 1) return NULL;
     if (!l->ic || !l->ic->autoswitch) return NULL;
     if (!l->latin_id) return NULL; /* one-language layer: no second reading */
-    if (l->keylen / 2 < JUDGE_MIN_KEYS) return NULL; /* R9's guard, both directions */
+    if (l->keylen / 2 < JUDGE_MIN_KEYS) return NULL; /* ReqMode9's guard, both directions */
     if (!hm_wordset_ready(l->english)) return NULL;
 
     if (l->hangul_mode) {
@@ -373,20 +373,20 @@ void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l) {
 
 /* ------------------------------------------------------------------- keys */
 
-/* R8 judgement (SPEC-MODES R8/R8-정정/E1, R3; REQ-MAP R8). Multi-place
+/* ReqMode8 judgement (SPEC-MODES ReqMode8/ReqMode8/E1, ReqMode3; REQ-MAP ReqMode8). Multi-place
  * rationale: docs/DESIGN-CORE.md#r8-judgement--judge_boundary-implementation
  * (formula/ownership: docs/DESIGN-MODES.md#1).
  * Returns replacement text to deliver, or NULL to deliver the Hangul word. */
 
 static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
-    /* Identity/fail-closed gates (B3/R13-정정, R9 key guard, missing data). */
+    /* Identity/fail-closed gates (B3/ReqMode13, ReqMode9 key guard, missing data). */
     if (!l->ic || !l->ic->autoswitch) return NULL;
     if (!l->latin_id) return NULL;
     if (keys < JUDGE_MIN_KEYS) return NULL;
     if (!hm_wordset_ready(l->english)) return NULL;
 
     if (l->hangul_mode) {
-        if (!l->ic->L || !l->ic->L->composes_hangul) return NULL; /* R8-정정-3 */
+        if (!l->ic->L || !l->ic->L->composes_hangul) return NULL; /* ReqMode8 */
         if (!l->latin_out || !*l->latin_out) return NULL;
         const bool english_valid = hm_wordset_has(l->english, l->latin_out);
         const bool hangul_valid = hangul_valid_for(l, l->word ? l->word : "");
@@ -395,7 +395,7 @@ static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
         return l->latin_out;
     }
 
-    /* E1 symmetric line (SPEC-MODES R8). */
+    /* E1 symmetric line (SPEC-MODES ReqMode8). */
     const char *reading = l->hangul_out;
     if (!reading || !*reading) return NULL;
     const bool english_valid = hm_wordset_has(l->english, l->word ? l->word : "");
@@ -409,8 +409,8 @@ static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
  * flush finalises the in-flight syllable, and the mode decides whether the
  * client receives that syllable or the whole word.
  *
- * `judge` says whether R8's judgement (#164) may run here. It is false for one
- * caller and only one -- the Han/Eng press -- because R13 requires the hook to
+ * `judge` says whether ReqMode8's judgement (#164) may run here. It is false for one
+ * caller and only one -- the Han/Eng press -- because ReqMode13 requires the hook to
  * be processed BEFORE inference (docs/DESIGN-MODES.md §3: "pressing the
  * hangul/latin key while inference is on is the signal 'do not do this
  * automatically'", issue #170). The readings are still taken when judging is
@@ -438,7 +438,7 @@ static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
     word_append(l, flushed);
     /* Judged while the word is still whole. PER_SYLLABLE mode cannot reach this
      * line: by the boundary its earlier syllables are already in the client,
-     * and R10 forbids reassembling them, so the judgement has nothing to judge. */
+     * and ReqMode10 forbids reassembling them, so the judgement has nothing to judge. */
     const char *judged = judge ? judge_boundary(l, keys) : NULL;
     if (judged) {
         word_clear(l);
@@ -455,7 +455,7 @@ static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
 
 /* ---------------------------------------------------- the symbol delimiter */
 
-/* R4, the sentences this predicate exists for:
+/* ReqMode4, the sentences this predicate exists for:
  *
  *   "Composition buffer = the whole span from after the immediately preceding
  *    space character or symbol until the next space character or symbol
@@ -467,7 +467,7 @@ static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
  * the symbol (`ic.c` process_jamo's literal branch). Without this the word
  * buffer simply swallowed it -- `jgz` + `.` became the word `jgz.`, which is
  * neither an English word nor a Hangul reading, so the judgement abstained and
- * the switch never happened (measured on a device 2026-11-07, SPEC-MODES R4).
+ * the switch never happened (measured on a device 2026-11-07, SPEC-MODES ReqMode4).
  *
  * So the word keeps the symbol for delivery, and the JUDGEMENT runs on the text
  * before it: `음` + `.`, not `음.` judged as a word.
@@ -477,7 +477,7 @@ static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
  *   symbol        punctuation, the mathematical/currency blocks, the circled
  *                 and tier forms a sebeolsik digit row reaches (`①`, `⑪`).
  *   not symbol    ASCII letters and digits: they are the Latin reading's own
- *                 material, and R6 keeps a DIGIT RUN inside the buffer, so a
+ *                 material, and ReqMode6 keeps a DIGIT RUN inside the buffer, so a
  *                 digit must not terminate anything.
  *   not symbol    Hangul, syllables and jamo: a consumed Hangul key continues
  *                 the word, which is the whole point of the buffer.
@@ -501,9 +501,9 @@ static bool cp_is_symbol(uint32_t c) {
     if (c >= 0xac00 && c <= 0xd7a3) return false; /* Hangul syllables */
     if (c >= 0xa960 && c <= 0xa97f) return false; /* Hangul jamo extended-A */
     if (c >= 0xd7b0 && c <= 0xd7ff) return false; /* Hangul jamo extended-B */
-    /* NUMBER FORMS are not symbols, and this is R6 speaking: a sebeolsik digit
+    /* NUMBER FORMS are not symbols, and this is ReqMode6 speaking: a sebeolsik digit
      * key resolves at a symbol tier to `µ`/`①`/`⑪` (and their super/subscript
-     * and Roman forms), and R6 requires the digit RUN to stay in the buffer. A
+     * and Roman forms), and ReqMode6 requires the digit RUN to stay in the buffer. A
      * tier form that terminated the word would deliver a digit run early --
      * measured: LayerTest.DigitResolvedAtASymbolTierIsHeldToo. */
     if (c >= 0x2070 && c <= 0x209f) return false; /* super/subscripts */
@@ -576,13 +576,13 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
             set_commit(l, c); /* deliver the syllable now */
         } else {
             word_append(l, c); /* hold it until the boundary */
-            /* R4: "A symbol is also a termination condition." The symbol stays
+            /* ReqMode4: "A symbol is also a termination condition." The symbol stays
              * in the delivered text, and the judgement runs on the word BEFORE
              * it -- `음` judged and delivered, then `.` -- because the whole
              * `음.` is not a word in either language and would abstain.
              *
              * The key was consumed, so no frontend will insert the symbol: it
-             * rides in this commit (R10: the client ends up holding exactly the
+             * rides in this commit (ReqMode10: the client ends up holding exactly the
              * text the person typed). */
             size_t symlen = trailing_symbol_bytes(l->word);
             if (symlen && symlen < (size_t)l->wordlen) {
@@ -608,7 +608,7 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
                 }
             }
             if (!ended_by_symbol) {
-                /* R4-정정: a word past WORD_CAP delivers its first half here, so
+                /* ReqMode4: a word past WORD_CAP delivers its first half here, so
                  * what the frontend must render stays bounded. "" for every real
                  * word. */
                 (void)word_flush_half(l);
@@ -673,7 +673,7 @@ void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
 bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value) {
     if (!l || !l->ic || !name) return false;
     /* The word cap is the LAYER's, not the ic's: it bounds the text this object
-     * holds for one word (docs/SPEC-MODES.md §R4-정정). Bytes, 0 = no cap. A
+     * holds for one word (docs/SPEC-MODES.md §ReqMode4). Bytes, 0 = no cap. A
      * lowered cap applies from the next key, which keeps the setter free of the
      * "flush while the caller is mid-edit" question -- the word is flushed as soon
      * as the next key makes it exceed the new bound. */
@@ -684,7 +684,7 @@ bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *
     }
     /* E6's option: 1 = judge at every key (the default), 0 = at the boundary only.
      * A change takes effect on the next rendered key; nothing already displayed is
-     * rewritten, which is R10 seen from the display side. */
+     * rewritten, which is ReqMode10 seen from the display side. */
     if (!strcmp(name, "judge_timing")) {
         if (value != 0 && value != 1) return false;
         l->judge_timing = value;
@@ -833,7 +833,7 @@ hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit
 }
 
 /* ------------------------------------------------------ special functions */
-/* The binding lives here, not in the frontends (R13-정정: one value, three
+/* The binding lives here, not in the frontends (ReqMode13: one value, three
  * readers), but it is empty until a frontend seeds it -- the platform owns its
  * key codes, the engine owns the assignment and the resolution. */
 
@@ -919,10 +919,10 @@ const char *hunmin_buffered_preedit_composing(hunmin_buffered_preedit *l) {
     return hunmin_ic_preedit(l->ic);
 }
 
-/* Han/Eng toggle (SPEC-MODES R13/FE7; DESIGN-FRONTEND.md Part A §4;
+/* Han/Eng toggle (SPEC-MODES ReqMode13/FE7; DESIGN-FRONTEND.md Part A §4;
  * DESIGN-CORE.md#r8-judgement--judge_boundary-implementation). Boundary commits
  * current language's composing; re-creates engine for target layout. Does NOT
- * judge (R13): manual press overrides R8 inference; word delivered in active
+ * judge (ReqMode13): manual press overrides ReqMode8 inference; word delivered in active
  * language. */
 int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_key_result *out) {
     if (out) {
@@ -953,9 +953,9 @@ int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_k
     return 1;
 }
 
-/* Take R8 judgement once (SPEC-MODES R8/R10; DESIGN-CORE.md#r8-judgement--judge_boundary-implementation).
+/* Take ReqMode8 judgement once (SPEC-MODES ReqMode8/ReqMode10; DESIGN-CORE.md#r8-judgement--judge_boundary-implementation).
  * Returns HUNMIN_LANGUAGE_* for frontend to adopt, or -1 if no action. Cleared
- * on read, replaced per boundary; PER_SYLLABLE => -1 (R10). Word text is
+ * on read, replaced per boundary; PER_SYLLABLE => -1 (ReqMode10). Word text is
  * already delivered in commit; this is the mode half only. */
 int hunmin_buffered_preedit_take_judgement(hunmin_buffered_preedit *l) {
     if (!l) return -1;
@@ -971,17 +971,17 @@ const char *hunmin_buffered_preedit_layout_id(const hunmin_buffered_preedit *l) 
     return l->hangul_mode ? l->hangul_id : l->latin_id;
 }
 
-/* The Latin reading of the word that last finished -- R8's `english_valid`
+/* The Latin reading of the word that last finished -- ReqMode8's `english_valid`
  * input, already replayed, so a caller does no engine work of its own.
  * Empty while a word is composing and empty after a boundary that ended no
  * word, so a stale word is never judged twice; empty for a layer built with one
- * language, which is fail-closed and not an error (SPEC-MODES R8-정정-2). */
+ * language, which is fail-closed and not an error (SPEC-MODES ReqMode8). */
 const char *hunmin_buffered_preedit_latin_text(const hunmin_buffered_preedit *l) {
     if (!l || !l->latin_out || l->keylen) return "";
     return l->latin_out;
 }
 
-/* ------------------------------------------------- english words (R8-정정) */
+/* ------------------------------------------------- english words (ReqMode8) */
 
 /* The set is created on the first call that needs it and stays for the life of
  * the layer, so a frontend may load the dictionary once at construction and
