@@ -1,4 +1,4 @@
-# OPTIONS-MEASURED — seven cost questions, measured
+# OPTIONS-MEASURED — eight cost questions, measured
 
 Four documents that were one genre: a question nobody had priced, the options
 priced against each other, and the maintainer left to choose. They are one file
@@ -9,7 +9,7 @@ document, because an issue that asks a question and leaves it open belongs in
 the file that already holds the open ones; §HEK and §E5 followed the same way.
 
 Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`,
-`HEK-`, `E5-`) so a cross-document citation stays unambiguous:
+`HEK-`, `E5-`, `PLT-`) so a cross-document citation stays unambiguous:
 `docs/OPTIONS-MEASURED.md §AND-4.2` is the android sandbox's §4.2. `HEK` and `E5`
 are the two halves of issue #159 and are deliberately separate, because they
 answer different questions: **§HEK** measures whether each environment can
@@ -34,6 +34,7 @@ and are not a home anybody can cite as current.
 | URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | **Q1 decided: option C**, shipped (#146); Q2 measured 2026-10-30 — the residue is the per-user `Enable` key, one ruling away |
 | HEK | whether the Han/Eng key can act as a held modifier in each frontend environment, and what the compound press would cost | measured per environment (Windows live, Android emulator, fcitx5 read-only); the **compound's action is decided** 2026-10-31 — `docs/SPEC-MODES.md` §E5, §E5 status below |
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
+| PLT | a second Linux frontend: which host mechanism it plugs into (IBus engine, XIM, immodules, Wayland IME) and what each costs | open (#289); the IBus row measured end to end on this host, no verdict |
 
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
@@ -2295,3 +2296,318 @@ and Shift is a free slot a frontend or a store may bind, not the default for eit
   the pair kept alive in `docs/TESTING.md`. Planted-failure checked, not just green.
 - Issue #159 stays open and decision-gated: nothing here chooses, and a ruling is the
   maintainer's (`wiki/decisions/decisions-belong-to-the-maintainer.md`).
+
+---
+
+## PLT — a second Linux frontend: which host mechanism, and what each costs
+
+Status: **open** (issue #289). The requirement set every candidate must satisfy is
+`docs/SPEC-FRONTEND.md` FE1–FE15; the core/frontend seam is `docs/DESIGN-FRONTEND.md` §11;
+the lane and its decision list are `docs/MILESTONES.md` §0.4 Track 1 and issue #283. None of
+those is restated here — what is priced here is the **host mechanism** a Linux stand-alone
+frontend plugs into, in coverage, code and verification.
+
+The maintainer's words, verbatim (issue #289):
+
+> Comparable analysis: IBus engine (first candidate) vs XIM server, GTK/Qt immodules,
+> stand-alone Wayland IME (deferred D4). Present cost/coverage/maintenance as comparable
+> designs; the maintainer chooses.
+
+and the scope sentence the issue inherits from issue #283:
+
+> A second Linux frontend beside fcitx5, sharing the common area (widened libhunmin +
+> hunmin_buffered_preedit + frontend contract per docs/FRONTEND-EQUIVALENCE.md,
+> docs/FRONTEND-CONTRACT.md).
+
+Two corrections before that sentence is used. `docs/FRONTEND-EQUIVALENCE.md` and
+`docs/FRONTEND-CONTRACT.md` are now one-line pointers into `docs/DESIGN-FRONTEND.md`
+(Part A and Part B), so the design document is the citation. And the four candidates are
+**not four alternatives of one kind**: each answers a different question about *who owns the
+input-method slot* — a framework that hosts engines (IBus), a protocol our own daemon speaks
+(XIM), a library loaded into each application (GTK/Qt immodules), or our own compositor
+client plus surfaces (the deferred D4). That is why the costs below differ by class rather
+than by degree, and why one of the four is not on the same axis at all.
+
+### PLT-0 The premises, checked first
+
+| # | premise (source) | verdict |
+|---|---|---|
+| 1 | "IBus engine (lowest new infrastructure)" — #283, #289 | **holds**, measured: one dev package (18 packages with dependencies), a 23-symbol engine API, and an out-of-tree engine registered, launched by the daemon and committing into a real GTK client in this session |
+| 2 | "widest coverage via IBus's own X11/Wayland/GTK/Qt frontends" — #283 | **holds for GTK3/GTK4/Qt6/XIM on this host** (measured); the Wayland half is a **compositor** property, not an IBus one, and was not driven here |
+| 3 | "the core and the `HunminState` key-path pattern are reusable, the host mapping table is per-frontend" — #283 | **half**: the core is reusable (it is host-agnostic by construction); `HunminState` is **not** — it is an fcitx5 `InputContextProperty`, and only its *shape* transfers |
+| 4 | "XIM server (X11-only), GTK/Qt immodules (per-app), stand-alone Wayland IME (highest cost)" — #283 | **holds, and one half is stronger than stated**: on this host the GTK4 immodule directory holds only `libim-ibus.so`, i.e. GTK4 has no XIM module at all, so an XIM-only answer excludes GTK4 applications, not merely Wayland |
+| 5 | "a frontend stays thin (FE11)" as a constraint on the second frontend | **holds as a requirement, but the tree cannot express a second adapter inside it today**: the shipped fcitx5 adapter measures 660 code LOC against the 700 budget (§PLT-1), so a second adapter of the same surface shape pays its own budget rather than fitting in the first one's |
+
+Premise 3's correction is worth stating in one line, because the reusable part is the whole
+reason this lane is cheap at all: `libhunmin` takes a `hunmin_key_event` and returns
+classify/preedit/commit answers (`hunmin_buffered_preedit_classify`, `…_display`,
+`…_commit_word`), and every frontend's job is to translate its host's event into that struct
+— the same shape `HunminAdapter::keyEvent` implements for fcitx5 (`docs/DESIGN-FRONTEND.md`
+§11 records what the core owns and what stays a frontend's). An IBus engine is a *new*
+translation of the same struct, not a new composition engine.
+
+Premise 5 is issue #283's own open question ("whether daemon code counts against FE11's thin
+budget"), seen from the measurement side: FE11 is stated per frontend, so the second adapter
+is inside budget by construction — unless a frontend is read as "the Linux frontend, both
+hosts", in which case 660 + N is over 700 by the second line of code. Both readings are
+available in the documents today, which is why it is on the ruling list (§PLT-4).
+
+### PLT-1 What exists today, per mechanism
+
+Measured on this host (Linux, Ubuntu 26.04-class, GNOME/mutter session, ibus 1.5.34-rc2
+installed as the system input-method framework, fcitx5 5.1.19 **library and binary in a
+private prefix only**). "New" marks a mechanism no frontend in the tree implements.
+
+| | fcitx5 (shipped) | IBus engine (measured here) | own XIM server (new) | GTK/Qt immodule (new) | stand-alone Wayland IME (new, D4) |
+|---|---|---|---|---|---|
+| what owns the slot | fcitx5 process | `ibus-daemon` | our daemon, `XIM_SERVERS` owner | each application | our process + compositor protocol |
+| how a key arrives | `InputContext::keyEvent`, `HunminAdapter::keyEvent` | `process_key_event(keyval, keycode, state)` | XIM protocol `ForwardEvent` | toolkit IM context callbacks | compositor `input-method` events |
+| preedit surface | `InputPanel` preedit (client or panel) | `ibus_engine_update_preedit_text` | XIM preedit callbacks | the widget's preedit | our own surface |
+| candidate surface | fcitx5 panel, or `InputPanel` aux | `ibus_engine_update_lookup_table` + `show_lookup_table`, drawn by the IBus panel | own window | own window, in-process | own surface |
+| config store | addon conf, `$XDG_CONFIG_HOME` | GSettings schema (conventional) or engine-owned ini | own file | own file | own file |
+| language trigger owner | fcitx5 (FE13) | **ibus-daemon** — measured: the global `trigger` list contains `Hangul` (FE13) | our daemon decides (FE7 would apply) | we decide (FE7) | our daemon decides (FE7) |
+| test home today | D1 `engine-d1-fcitx5`, D1 corpus `engine-d1-judgement`, D2 `engine-d2-ui`, D3 `run-d3.sh` | none; the same D-tier shape is reusable (§PLT-3 A) | none | none | none |
+
+Three facts inside that table that decide more than the table's shape:
+
+- **IBus hands the engine a keysym, not a layout.** `process_key_event(keyval, keycode,
+  state)` mirrors what `HunminAdapter::keyEvent` already does, so the per-frontend mapping
+  table is one more instance of a solved problem — not new logic.
+- **IBus's language trigger is the daemon's, measured.** `ibus read-config` lists
+  `trigger: ['Control+space', 'Zenkaku_Hankaku', 'Alt+Kanji', 'Alt+grave', 'Hangul',
+  'Alt+Release+Alt_R']`. That puts an IBus engine in **FE13's** case (the platform owns the
+  trigger; the frontend's duty is that the host's language reaches the engine as the layout
+  slot), exactly as fcitx5 is — not in FE7's, which is the TSF/Android case.
+- **The shipped fcitx5 adapter is at 660 of FE11's 700 code LOC** —
+  `tools/check-frontend-invariants.py`: "660 code LOC across hunminadapter.cpp=542,
+  hunminadapter.h=50, config.h=68 (limit 700)". A second adapter is a second budget, and the
+  ruling list has to say so.
+
+### PLT-2 The occupancy map on this host
+
+| slot | owner here | mechanism that decides it |
+|---|---|---|
+| the input-method framework | **ibus** | `im-config -m` prints `ibus` for the session; fcitx5 is not the framework on this box |
+| the Korean engine id `hangul` | **ibus-hangul 1.5.5** | `/usr/share/ibus/component/hangul.xml`: engine `hangul`, `exec /usr/libexec/ibus-engine-hangul`, layouts `kr`/`kr104`, rank 99 |
+| the `Hangul` keysym | **ibus-daemon** | the global trigger list (above); an engine sees the key only if the daemon does not take it |
+| the XIM server name on the display | **ibus** | `xprop -root XIM_SERVERS` → `@server=ibus` while `ibus-daemon -x` runs (the fcitx5 d3 notes record the same atom with `@server=fcitx`) |
+| GTK3 and GTK4 input modules | **ibus** | `immodules/im-ibus.so` (GTK3) and `immodules/libim-ibus.so` (GTK4), both installed |
+| Qt6 input module | **ibus** | `qt6/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so` (Qt5 is not installed on this host) |
+| the fcitx5 GTK module | **nothing** | `ls …/gtk-3.0/3.0.0/immodules | grep -E 'fcitx|ibus'` → only `im-ibus.so`; `fcitx5-data`/`fcitx5-modules` are installed as *dev* dependencies, the runtime binary lives in `~/toolchains/fcitx5/usr/bin`, and no GTK frontend is built there |
+
+Two consequences a reader would otherwise skim past. First, **an IBus engine competes with
+`ibus-hangul` for the same slot rather than complementing it**: it would be a second engine id
+(e.g. `hunmin`) that the user selects in the same panel where `ibus-hangul` sits, and the two
+can both be installed. Second, **the existing fcitx5 D3 lane cannot run on this host** — no
+`im-fcitx5.so`, so `run-d3.sh`'s GTK client measures "the module was never loaded" here. That
+is a host fact about the *shipped* frontend's test, not about the candidates, and it is
+recorded so a later session does not read a red D3 as a regression.
+
+### PLT-3 The options
+
+**A — IBus engine (the first candidate, measured end to end here).**
+Mechanism: a C engine process that the daemon spawns and drives over D-Bus.
+*Cost, measured:* one dev package — `apt-get -s install libibus-1.0-dev` plans 18 packages
+including dependencies — and a header surface of **23 `ibus_engine_*` functions**
+(1.5.34-rc2), of which an engine of our shape uses ~10 (`commit_text`,
+`update_preedit_text`, `update_lookup_table`, `show_lookup_table`, `hide_lookup_table`,
+`forward_key_event`, plus the `process_key_event`/`focus_*`/`reset` vfuncs). The engine that
+proves it is **39 lines of C** (`tools/ime-host-probe.sh` embeds it): create factory, add
+engine, request name. Registration needs a component XML — one file — and the only
+out-of-tree route is `IBUS_COMPONENT_PATH`: upstream 1.5.34 has per-user component
+directories `#if 0`-ed out
+("FIXME Should we support install some IME in user dir?", `src/ibusregistry.c`), so a
+packaged engine installs into `/usr/share/ibus/component` and a test engine points the
+variable at its own directory. Config: a GSettings schema is the convention; the five option
+rows would be a `.gschema.xml` plus `glib-compile-schemas` (present on this host) — or the
+engine can own an ini, which is a frontend-choice, not a host constraint. Verification: D1 is
+the shared layer's, unchanged; D2 needs an engine-object harness (the analog of
+`testhunminui`'s `InputPanel` assertions: preedit text/cursor branches and the lookup table
+this engine publishes); D3 is the measured one — a GTK client with `GTK_IM_MODULE=ibus`
+receives the engine's commit.
+*Loses:* the candidate window and the page ceiling become the **host's** (IBus panel draws
+`update_lookup_table`; own UI is impossible on Wayland where only the IM server may create
+popups, the same finding `docs/FCITX5-ADDON-NOTES.md` §8c records for fcitx5). It also adds a
+**second Korean engine next to `ibus-hangul`** and an IBus dependency to the release
+(packaging, `debian/`) that the fcitx5 `.deb` does not have today.
+*Prerequisite:* the `FE13` mapping (host language → engine layout slot) and a decision that
+an IBus dependency is acceptable.
+*Changes the answer:* a ruling that GNOME users are not the target (then the `ibus` framework
+advantage disappears), or a candidate-UI requirement that forbids the host lookup table.
+
+**B — our own XIM server.**
+Mechanism: our daemon registers a server name on `XIM_SERVERS` and speaks XIM to clients.
+*Cost:* the protocol itself. The tree has **no** reusable server: `tests/e2e/xim-harness.c`
+is a *client* built against libxcb-imdkit, and libxcb-imdkit's dev package is not even in
+this host's apt lists (`apt-cache policy libxcb-imdkit-dev` → no candidate), so the server
+would hand-roll XCB framing or vendor a protocol library. Plus a daemon, a selection/atoms
+lifecycle, preedit and candidate windows of our own, and a per-display singleton.
+*Loses:* coverage — X11 only, and GTK4 cannot consume it on this host (no XIM module), so
+GTK4/GNOME applications are out; on Wayland XIM does not exist at all. Candidates and
+preedit are our windows, so the candidate-window-drawn gate is mandatory work, not optional.
+*Prerequisite:* the candidate UI, the page ceiling, and an X11-only coverage ruling.
+*Changes the answer:* if the target is explicitly "X11 legacy applications plus fcitx5
+users", this becomes the only mechanism that reaches a client without a toolkit module —
+but it still does not reach Wayland.
+
+**C — GTK and Qt immodules.**
+Mechanism: a module loaded into each application process; no daemon.
+*Cost:* two toolkits by two generations. GTK3 needs `GtkIMContext` subclassing plus the
+module entry point; GTK4 needs the same through `gtk/gtkimmodule.h` (measured: shipped by
+libgtk-4-dev, i.e. the route exists and is not private-header-only); Qt needs a
+`QPlatformInputContextPlugin` per major version (Qt6's IBus plugin exists as the prior-art
+shape). Each module is a separate artifact with its own ABI against its toolkit, and the toolkits
+release annually.
+*Loses:* coverage is "applications built on those toolkits that were told to load us" — no
+X11-only applications, no Java, no Electron-style own-stack apps, and the user must set
+`GTK_IM_MODULE`-equivalent per toolkit; there is no single "the input method" object for a
+settings dialog to configure. Maintenance is 2×N modules rather than one engine.
+*Prerequisite:* a ruling that per-application coverage is acceptable.
+*Changes the answer:* if the requirement were "no dependency on a framework the user must
+install", this is the only mechanism that has none.
+
+**D — a stand-alone Wayland IME (the deferred D4).**
+Mechanism: our process speaks a compositor's input-method protocol and draws its own
+surfaces.
+*Cost:* the compositor must implement the protocol — GNOME/mutter on this host is the session
+and does not speak `input-method-unstable-v2`; KDE and wlroots-based compositors do. The
+host also has **no Wayland development headers and no `wayland-protocols`**
+(`/usr/include/wayland-client.h` and `/usr/share/wayland-protocols` both absent), so the cost
+cannot even be measured here without a bootstrap. Add a text-input client path and the full
+candidate-window-drawn gate.
+*Loses:* everything outside compositors that implement the protocol, and the most work of the
+four; #283 already records it as deferred.
+*Prerequisite:* a compositor matrix, wayland-protocols, and the candidate window.
+*Changes the answer:* a ruling that GNOME/Wayland coverage is the target *and* that a
+compositor without the protocol is acceptable to exclude — which would still be priced
+against A, whose Wayland story is "whatever the compositor already bridges".
+
+**E — do nothing (keep fcitx5 as the only Linux frontend).**
+Mechanism: none.
+*Cost:* zero.
+*Loses:* GNOME users, on this host measured rather than assumed: the framework `im-config`
+selects is `ibus`, so reaching them means installing fcitx5 *and* switching the framework —
+which is exactly the friction the lane exists to remove. Their alternative stays
+`ibus-hangul`.
+*Changes the answer:* a ruling that 0.4 ships without a second Linux frontend.
+
+**F — A, with the host's extras counted as the candidate's.** IBus's `-x` XIM server
+(measured: `@server=ibus`) and its GTK3/GTK4/Qt6 modules are IBus's own frontends, not ours:
+an IBus engine inherits X11-application coverage and every toolkit IBus ships a module for,
+at zero frontend cost. That is the mechanism behind #283's "widest coverage" sentence, and it
+is why A and B are not additive: B re-implements the part of the stack A inherits, and the
+part it cannot inherit (wayland) is D's.
+
+### PLT-4 What a ruling has to include
+
+Each item is a sentence the answering ruling must contain, phrased so an implementation
+cannot settle it by default; the last one is the issue's own verification line.
+
+1. **Target coverage** — all desktop applications, or X11/GTK/Qt only, or "whatever the
+   chosen framework already reaches". This decides between A, B, C and D more than any cost
+   row does.
+2. **Is an IBus dependency acceptable** (a framework the user may have to install and select),
+   or must hunmin own the daemon. #283's second decision, restated here only as a pointer.
+3. **Language-trigger ownership** — FE13 (host owns the trigger; the frontend maps the
+   outcome) or FE7 (the frontend owns a key). Measured input: IBus's daemon owns `Hangul`,
+   fcitx5's does too, so the current frontends are both FE13.
+4. **Candidate UI and page ceiling** — host lookup table (A, C-in-process, D-own) or our own
+   window; and how many candidates a page holds, because the engine publishes the page size.
+5. **Config backend** for the same five option rows — GSettings (A's convention), ini, or our
+   own dialog — and whether one backend can serve two frontends.
+6. **Whether a second frontend's code counts against FE11 individually** (two budgets of 700)
+   or the Linux frontend is one budget in total, given the shipped adapter is already at 660.
+7. **D3 placement and budget** — whether the IBus lane joins `run-d3.sh` as a stack argument
+   or gets its own runner, and which ctest label pays for it (`tools/ci-time-budget.sh`
+   before the first added test, per `AGENTS.md`).
+8. **Packaging** — distribution name, `debian/Build-Depends` (libibus-1.0-dev's 18 packages
+   measured above), and FE14's data-terms requirement for whatever ships beside the engine.
+9. **Voice host** — voice input stays refused on the new frontend until a decision says
+   otherwise (the existing frontends' answer; #283 lists it).
+
+The ruling is complete when issue #289's verification line is satisfiable: all candidates
+priced with cost, coverage and verification shape; the decision recorded in `docs/` and the
+wiki only after the ruling.
+
+### PLT-5 Summary
+
+| option | mechanism | coverage measured on this host | cost, named | loses | verification shape |
+|---|---|---|---|---|---|
+| A IBus engine | daemon hosts engines over D-Bus | GTK3, GTK4, Qt6, X11 (via IBus's own XIM server) — **driven end to end here** | 1 dev package (18 with deps); 23-symbol API, ~10 used; 39-line probe; 1 component XML; GSettings schema | host owns candidates, pages and the trigger; a second Korean engine; an IBus dependency in the release | D1 shared layer as-is; D2 engine-object harness; D3 GTK client via `run-d3.sh` |
+| B own XIM server | our daemon speaks XIM | X11 only, **GTK4 excluded** | protocol server (no dev package on this host), own daemon, own windows | Wayland, GTK4, a singleton per display | own client harness (dkit) + candidate gate |
+| C immodules | loaded into each application | apps built on GTK3/GTK4/Qt that were told to load us | 2 toolkits × 2 generations, per-toolkit ABIs | X11-only apps, Java, own-stack apps; no single IM object | in-process tests per toolkit + candidate gate |
+| D Wayland IME | our process + compositor protocol | compositors that implement it; GNOME here does not | protocol + surfaces; **not measurable here** (no wayland headers) | most of the tree of coverage, most work | own harness + candidate gate |
+| E do nothing | — | whatever fcitx5 reaches, after the user installs and switches | zero | GNOME users (framework here is `ibus`) | existing fcitx5 tiers |
+
+If a starting point is wanted rather than a menu: **A keeps every requirement in
+`docs/SPEC-FRONTEND.md` satisfiable with the least new code, and its deciding cost is that
+candidates, pages and the language trigger move to the host** — the same trade the fcitx5
+frontend already makes, so the two frontends would then agree in shape as well as in text.
+What would change it: a ruling that the IBus dependency is not acceptable (§PLT-4 item 2), or
+one that requires our own candidate window (item 4), both of which move the answer to B or D.
+
+### PLT-6 Provenance
+
+- Host: Linux (`resolute`-class Ubuntu, kernel 7.0.0-42-generic), GNOME/mutter session live on
+  the default display; worktree
+  `~/orca/workspaces/hunmin/0.4-t1-2-platform-decision-ibus-engine-vs-altern`, branch
+  `scobyseo/0.4-t1-2-platform-decision-ibus-engine-vs-altern`, base `a0a472d`. Measured
+  2026-11-09 (KST).
+- **Executed here, quoted as measurements**: `apt-get -s install libibus-1.0-dev` → 18 `Inst`
+  lines; `pkg-config --modversion ibus-1.0` after `dpkg -x` of the dev package and its
+  headers (note: the unversioned `libibus-1.0.so` symlink points at a runtime `.so.5` that
+  only the runtime package ships, so a hand-extracted prefix links against the system
+  library); `grep -oE 'ibus_engine_[a-z_]+' ibusengine.h | sort -u | wc -l` → 23;
+  `python3 tools/check-frontend-invariants.py` → the 660/700 line quoted;
+  `im-config -m` → `ibus`; `xprop -root XIM_SERVERS` → `@server=ibus`; the immodule
+  directories (`gtk-3.0/…/immodules/im-ibus.so`, `gtk-4.0/…/immodules/libim-ibus.so`,
+  `qt6/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so`);
+  `find ~/toolchains/fcitx5/usr -name 'im-fcitx5*'` → no hit (and the system immodule
+  directory lists only `im-ibus.so`); `dpkg -c libgtk-4-dev*.deb | grep gtkimmodule` → the
+  header ships; `cat /usr/share/ibus/component/hangul.xml`; `ibus read-config` for the
+  trigger list.
+- **The end-to-end probe, committed so the number stays re-derivable:**
+  `tools/ime-host-probe.sh` boots a private `Xvfb`, a private session bus and `ibus-daemon -x
+  -c /usr/libexec/ibus-memconf -p disable`, builds the 39-line engine from source, points
+  `IBUS_COMPONENT_PATH` at a component XML for it, and drives the repository's own
+  `tests/e2e/gtk-harness.py` with `GTK_IM_MODULE=ibus`. On this host it printed: `engine
+  listed: 1`, `engine processes: 1 spawned by the daemon`, `commits in the client: 8 (keys
+  sent: 4)` — 8 because the probe commits on press and release alike. `/proc/self/maps` inside
+  the client shows `im-ibus.so` mapped, so the text arrived through the real GTK module, not
+  GTK's fallback.
+- **The probe was falsified before it was trusted.** Re-running it with the component XML's
+  `exec` replaced by `/bin/true` (engine registered, nothing answers) turned the transcript
+  into raw keys — `TEXT:r`, `TEXT:rk`, `TEXT:rkd`, `TEXT:rkdk` — and the script exited 1. So
+  "the client holds the committed character" is a discriminator, not a fixture property.
+  Two measurement defects were caught this way and fixed in the script, not papered over: `tr
+  -cd '가'` counts bytes and reported 24 commits for 8, and `pgrep -f "probe-engine"` counted
+  a previous session's leftover process as this run's spawn.
+- **Two host traps this measurement paid for, both already recorded for fcitx5 and both true
+  for IBus:** GDK prefers a Wayland display over `DISPLAY` (measured: `Gdk.Display` is a
+  `GdkWaylandDisplay` with `DISPLAY=:97` set, so the harness must run with `GDK_BACKEND=x11`
+  — the same class of trap as `docs/FCITX5-ADDON-NOTES.md` §8), and the harness's `MODULE:`
+  line hardcodes the string `im-fcitx5.so`, so it reports `none` for any other module and
+  cannot be used as evidence as-is (the maps check above is what replaced it).
+- **Read, not executed**: upstream IBus 1.5.34 source — `src/ibusregistry.c` (the `#if 0`
+  user-component comment and `IBUS_COMPONENT_PATH` are read from it) — fetched from
+  `github.com/ibus/ibus`; LGPL-2.1, read for semantics, nothing copied. GNOME's lack of
+  `input-method-unstable-v2`, KDE/wlroots support for it, and `ibus-hangul`'s GPL-3 licence
+  are prior art read elsewhere, not measured here. Qt5 coverage is a statement about this
+  host (not installed), not about Qt5.
+- **Not measured, and why**: the Wayland half of A's coverage (a compositor round is needed —
+  the host has neither wayland headers nor a compositor that speaks the protocol); the
+  candidate-window gate for every option (it needs the panel capture harness that does not
+  exist yet); IBus preedit/lookup-table delivery into a client (the probe committed only —
+  preedit is the API's, unexercised); and the D1/D2 harness shape, which is a design sentence
+  here, not a test written.
+- Changed by this section's branch: `docs/OPTIONS-MEASURED.md` (the header count, the prefix
+  list, the table row and this section), `README.md` (its one-line index row), and
+  `tools/ime-host-probe.sh` (new: the reproducible probe described above; `--help` is not
+  implemented, its header comment is the usage). No engine, layout or frontend code; no
+  requirement text; no board or `docs/REMAINING-WORK.md` status.
+- Deliberately untouched, with the reason: the harness's fcitx5-specific `MODULE:` regex and
+  `run-d3.sh`'s fcitx5 startup block are defects *if* A is ruled, and the whole point of the
+  ordering is that they are not defects yet — fixing them here would be building one option.
+- Issue #289 stays open and decision-gated; so does #283. Nothing in this section chooses,
+  and the ruling is the maintainer's
+  (`wiki/decisions/decisions-belong-to-the-maintainer.md`).
