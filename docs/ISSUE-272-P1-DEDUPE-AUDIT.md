@@ -88,3 +88,17 @@ The ctest gate is unaffected (`engine-golden-case-*` replays the merged files),
 but the generator's own `--check` has no merged-form comparison. Whether to
 teach `--check` the merge step or document the two-stage flow in its usage is a
 maintainer choice.
+
+## Phase completion, measured (2026-11-08)
+
+| Phase | What it did | Measured |
+|---|---|---|
+| P2 `tools/_common.py` | every tool that needed the repo root takes it from `_common`, with the file-relative fallback so each stays runnable from anywhere | 46 of 70 tools import `_common`; no tool outside `_common` computes a repo root any more (the other 24 need none) |
+| P3 core comments | multi-place rationale cites the design heading that owns it; the substance moved into `DESIGN-CORE` rather than disappearing | `hunmin.h` 453 → 295, `buffered_preedit.c` 446 → 260, `wordset.c` 83 → 70, `hangul_valid.c` 55 → 26 (comment lines against master `8cbaf01`); `ic.c` untouched — its comments are the libhangul-parity quirks `CODE_RULES` rule 5 requires |
+| P4 test fixtures | one `hunmin_test::CtxTest` base owns the context; each fixture keeps only what differs | seven fixtures, 34 insertions / 44 deletions in `libhunmin/tests` |
+| P5 / D1 | closed as no core move — the seam is `DESIGN-FRONTEND.md` §11 | no production code moved |
+| P6 (#271) | CMake split landed separately | closed 2026-11-07 |
+
+What the sweep deliberately leaves: per-symbol contract comments in `hunmin.h`
+that a caller cannot get from the design document (return values, lifetimes,
+error cases), the `ic.c` parity recordings, and generated `tables.c`.
