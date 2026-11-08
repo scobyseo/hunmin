@@ -60,25 +60,11 @@ const char *hunmin_ctx_layout_name(const hunmin_ctx *ctx, int i, const char *lan
  * cannot drift from the data it is about. */
 HUNMIN_EXPORT bool hunmin_ctx_layout_autoswitch_capable(const hunmin_ctx *ctx, int i);
 
-/* Whether the AUTOMATIC Hangul/English switch can be ENABLED on this install
- * (docs/SPEC-MODES.md §R13-정정, the B3 bullet: "그 데이터가 있을때만 기능을 켤 수
- * 있게"). The judgement needs the modes word list, and the feature's additional
- * data ships separately, so this answers "installed / not installed" for that
- * list: 1 when a searched data directory holds a usable one, 0 when it does not
- * (also 0 for an installed file that is not a word list -- enabling the feature
- * on one would silently never switch, which is the confident-zero rule).
- *
- * The search is hm_data_dirs -- the same one the hanja/krdict/idioms tables and
- * hunmin_buffered_preedit_load_english_shipped() use -- so a frontend never
- * assembles "<dir>/modes/en-US.json" itself, and it answers the same from a
- * context built with explicit dirs (Android's sandbox) as from HUNMIN_DATA_PATH.
- * The result is computed once per context and cached.
- *
- * This is NOT hunmin_ctx_layout_autoswitch_capable(): that one asks whether a
- * LAYOUT emits jamo the judgement can be about, and consults no data. A frontend
- * drawing the settings row asks this one to decide whether its control is
- * enabled, and pairs the answer with hunmin_ic_get_option(ic,"autoswitch",&v) to
- * tell "off, chosen" (v==0, this 1) from "off, data missing" (v==0, this 0). */
+/* B3 data gate for enabling autoswitch (SPEC-MODES R13-정정;
+ * DESIGN-CORE.md#b3-autoswitch-data-gate-and-default). 1 if hm_data_dirs finds
+ * a usable modes word list (cached), else 0. Distinct from
+ * hunmin_ctx_layout_autoswitch_capable() (layout emits jamo; no data). Pair
+ * with get_option("autoswitch") for "off, chosen" vs "off, data missing". */
 HUNMIN_EXPORT bool hunmin_ctx_autoswitch_data_present(const hunmin_ctx *ctx);
 
 /* 1 when this layout can emit a jamo outside the modern 19/21/28 — the 옛글
