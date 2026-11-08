@@ -171,16 +171,10 @@ static void hangul_reading(hunmin_buffered_preedit *l) {
     replay_reading(l, l->hangul_id, &l->hangul_out, &l->hangulcap);
 }
 
-/* ReqMode8: the shape rule is the same; the jamo sets widen on a layout that can
- * emit a jamo outside the modern 19/21/28. The answer is derived at load time
- * from that layout's own keys and combination table (schema_loader.c
- * compute_capability), never declared, so a new layout cannot forget it.
- *
- * The text judged is always the Hangul reading, which `hangul_id` produces -- in
- * Latin mode too, where the active ic is the Latin layout. So the rule is picked
- * from `hangul_id`, not from `l->ic->L`: asking the Latin layout would answer
- * "modern" for every word and mark a valid 옛한글 buffer invalid. The answer is
- * asked through `hunmin_ctx_layout_old_hangul`, the same seam a frontend uses. */
+/* ReqMode8/옛한글 widening (DESIGN-CORE.md#r8-정정-23-readings-and-validity): choose
+ * modern vs widened shape rule from hangul_id (not active ic; in Latin mode active
+ * ic is Latin). Derived from layout keys/combination table via
+ * hunmin_ctx_layout_old_hangul/schema capability. */
 static int hangul_valid_for(const hunmin_buffered_preedit *l, const char *text) {
     bool old = false;
     if (l->ctx && l->hangul_id) {
@@ -405,28 +399,15 @@ static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
     return reading;
 }
 
-/* The boundary. One place answers "the word is finished": the engine's own
- * flush finalises the in-flight syllable, and the mode decides whether the
- * client receives that syllable or the whole word.
- *
- * `judge` says whether ReqMode8's judgement (#164) may run here. It is false for one
- * caller and only one -- the Han/Eng press -- because ReqMode13 requires the hook to
- * be processed BEFORE inference (docs/DESIGN-MODES.md §3: "pressing the
- * hangul/latin key while inference is on is the signal 'do not do this
- * automatically'", issue #170). The readings are still taken when judging is
- * off: they are what `hunmin_buffered_preedit_latin_text()` reports for the word
- * that finished, which is a separate contract from the decision. */
+/* Boundary: flush finalises in-flight syllable; mode decides syllable vs word.
+ * judge=false only for Han/Eng (ReqMode13 before inference, #170): readings still
+ * taken because latin_text() contract is separate. latin_reading() runs before
+ * delivery split (both modes; PER_SYLLABLE keeps no word buffer). hangul_reading()
+ * must run here in Latin mode, before keys_clear(), for E1 symmetry (#168). */
 static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
     const char *flushed = hunmin_ic_flush(l->ic);
     if (!flushed) flushed = "";
-    /* Above the delivery split on purpose: the reading and the cleared key log
-     * belong to BOTH modes. PER_SYLLABLE mode keeps no word buffer, so a hook
-     * below the split would leave the reading of half the frontends unwritten. */
     latin_reading(l);
-    /* E1's other half, and it must be taken HERE: keys_clear() below is what stops a
-     * finished word being judged twice, so a reading replayed after it is empty
-     * (measured — the symmetric direction answered "no switch" on every word until
-     * this moved). Only one direction needs it, so only that one pays for it. */
     if (!l->hangul_mode) hangul_reading(l);
     const size_t keys = l->keylen / 2; /* slots are (base, shift) pairs */
     keys_clear(l);
