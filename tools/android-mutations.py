@@ -61,8 +61,10 @@ import sys
 import tempfile
 from types import ModuleType
 
-REPO = pathlib.Path(__file__).resolve().parents[1]
-
+try:
+    from _common import ROOT as REPO
+except ImportError:
+    REPO = pathlib.Path(__file__).resolve().parents[1]
 KOTLIN = pathlib.Path("frontends/android/app/src/main/java/org/hunmin/ime")
 ENGINE = "HunminAdapter.kt"
 KEYS = "HunminKeyRegistry.kt"

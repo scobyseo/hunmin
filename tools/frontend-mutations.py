@@ -29,7 +29,10 @@ import sys
 import tempfile
 import threading
 
-REPO = pathlib.Path(__file__).resolve().parents[1]
+try:
+    from _common import ROOT as REPO
+except ImportError:
+    REPO = pathlib.Path(__file__).resolve().parents[1]
 ENGINE_REL = pathlib.Path("frontends/fcitx5/src/hunminadapter.cpp")
 ENGINE = REPO / ENGINE_REL
 CHECKER_REL = pathlib.Path("tools/check-frontend-invariants.py")
