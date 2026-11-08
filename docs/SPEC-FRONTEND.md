@@ -15,7 +15,7 @@ hold and records which differences are permitted. It does not restate them.
 
 Given the same layout, the same options and the same key sequence, every
 frontend produces the same committed text. *Ruling:* the equivalence invariant,
-`docs/FRONTEND-EQUIVALENCE.md#§1`. *Implementation:*
+`docs/DESIGN-FRONTEND.md#part-a--equivalence-formerly-frontend-equivalencemd`. *Implementation:*
 `libhunmin/src/buffered_preedit.c#hunmin_buffered_preedit_process_key`.
 *Refuted by:* `engine-buffered-preedit`, `engine-key-rule`,
 `engine-android-conformance-tests_conformance_android_basic-syllables-case01.trace.in`,
@@ -133,7 +133,7 @@ display). *Implementation:*
 Input behaviour is defined once, as a trace corpus with the layout, options and
 key sequence in its meta, and every frontend replays it. The commit-unit axis is
 asserted where it is cheap: tier A equality, and per frontend where a delivery
-makes the moment observable. *Ruling:* `docs/FRONTEND-EQUIVALENCE.md#§6` and
+makes the moment observable. *Ruling:* `docs/DESIGN-FRONTEND.md#6-one-corpus-frontend-specific-delivery-not-a-second-copy` and
 `#§6.1`. *Implementation:* `tools/gen-conformance.py`,
 `tools/trace-check.py`. *Refuted by:*
 `engine-android-conformance-tests_conformance_android_basic-syllables-case01.trace.in`,
