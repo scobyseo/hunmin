@@ -22,6 +22,10 @@ import argparse
 import json
 import pathlib
 import sys
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
 # US-QWERTY character -> X11 keysym. Only printable ASCII plus the control keys the
 # goldens use; XKB keysym values for those are their ASCII codes by definition
@@ -189,7 +193,7 @@ def _layout_maps(layout: str, ch: str | None) -> bool:
     if layout not in _KEYTABLES:
         import json as _json
 
-        path = pathlib.Path(__file__).resolve().parents[1] / "libhunmin/data/layouts" / f"{layout}.json"
+        path = _COMMON_ROOT / "libhunmin/data/layouts" / f"{layout}.json"
         if not path.is_file():
             raise SystemExit(f"unknown layout {layout!r} (no {path})")
         _KEYTABLES[layout] = set(_json.loads(path.read_text(encoding="utf-8"))["keys"])

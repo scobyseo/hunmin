@@ -34,8 +34,12 @@ import sys
 import tempfile
 import time
 from types import ModuleType
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
-REPO = pathlib.Path(__file__).resolve().parents[1]
+REPO = _COMMON_ROOT
 
 
 def load(name: str, rel: str) -> ModuleType:

@@ -12,8 +12,12 @@ Advisory, not a formatter: it reads source and reports violations.
 import pathlib
 import re
 import sys
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
-ENGINE = pathlib.Path(__file__).resolve().parents[1] / "frontends/fcitx5/src/hunminadapter.cpp"
+ENGINE = _COMMON_ROOT / "frontends/fcitx5/src/hunminadapter.cpp"
 failures: list[str] = []
 
 

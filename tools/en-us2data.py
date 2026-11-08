@@ -39,6 +39,10 @@ import json
 import os
 import re
 import sys
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parents[1]
 
 # A word this set can carry: ascii letters, plus an internal apostrophe or
 # hyphen. Everything else (digits, ordinals like `1st`, `0th`, unicode forms) is
@@ -75,7 +79,7 @@ def main():
     ap.add_argument("--aff", required=True, help="the matching .aff")
     ap.add_argument("--out", required=True, help="directory to write into (libhunmin/data/modes)")
     ap.add_argument("--readme", help="README_en_US.txt, for the SCOWL version line")
-    ap.add_argument("--repo-root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ap.add_argument("--repo-root", default=str(_COMMON_ROOT))
     args = ap.parse_args()
 
     probe = load_probe(args.repo_root)

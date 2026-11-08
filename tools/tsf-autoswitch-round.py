@@ -41,8 +41,12 @@ import os
 import subprocess
 import sys
 import time
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parents[1]
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = str(_COMMON_ROOT)
 
 _spec = importlib.util.spec_from_file_location("devhost", os.path.join(ROOT, "tools", "tsf-devhost-round.py"))
 assert _spec and _spec.loader, "tools/tsf-devhost-round.py is the Win32 plumbing this round reuses"

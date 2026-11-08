@@ -7,8 +7,12 @@ CHO codepoint (0x1100-0x1112) are converted to that jamo's JONG form, matching
 how the engine stores slot contents. 2022-12-24 pat.im deletions applied.
 """
 import json, pathlib, re, sys
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parents[1]
 
-SRC = pathlib.Path(__file__).resolve().parents[1] / "data-orig/ohi/keyboard_table_combination.js"
+SRC = _COMMON_ROOT / "data-orig/ohi/keyboard_table_combination.js"
 CHO2JONG = {0x1100:0x11A8,0x1101:0x11A9,0x1102:0x11AB,0x1103:0x11AE,0x1105:0x11AF,
             0x1106:0x11B7,0x1107:0x11B8,0x1109:0x11BA,0x110A:0x11BB,0x110B:0x11BC,
             0x110C:0x11BD,0x110E:0x11BE,0x110F:0x11BF,0x1110:0x11C0,0x1111:0x11C1,

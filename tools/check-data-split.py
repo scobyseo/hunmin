@@ -38,6 +38,10 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Optional
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
 # The one place the proposed package name appears in code: B3's decision page
 # rules the name "design work, not ruled", so a rename should be one edit here,
@@ -211,7 +215,7 @@ def main() -> None:
                     help="$<CONFIG> from the build system; empty for single-config")
     args = ap.parse_args()
 
-    root = Path(__file__).resolve().parent.parent
+    root = _COMMON_ROOT
     build = Path(args.build_dir).resolve()
     data = Path(args.data).resolve() if args.data else root / "libhunmin" / "data"
     if not (build / "CMakeCache.txt").is_file():

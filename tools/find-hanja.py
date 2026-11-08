@@ -28,6 +28,10 @@ import os
 import re
 import sys
 import unicodedata
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parents[1]
 
 RANGES = [
     ("CJK Unified Ideographs", 0x4E00, 0x9FFF),
@@ -117,7 +121,7 @@ def scan(path):
 
 def main():
     root = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
+        str(_COMMON_ROOT), "docs")
     tot_l = tot_p = 0
     for f in sorted(glob.glob(os.path.join(root, "*.md"))) + \
              [os.path.join(os.path.dirname(root), "AGENTS.md")]:

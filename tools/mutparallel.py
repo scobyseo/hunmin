@@ -29,8 +29,12 @@ import sys
 import threading
 import time
 from types import ModuleType
+try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
+    from _common import ROOT as _COMMON_ROOT
+except ImportError:  # run from outside tools/: derive from this file
+    _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
-REPO = pathlib.Path(__file__).resolve().parents[1]
+REPO = _COMMON_ROOT
 
 # Assigned by main() before any Worker exists; the Worker methods need it
 # to read the tier's own MUT_TARGETS / MUTATIONS / _apply rather than
