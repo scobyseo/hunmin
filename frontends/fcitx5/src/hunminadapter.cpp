@@ -736,6 +736,10 @@ HunminAdapter::HunminAdapter(Instance *instance) : instance_(instance), factory_
                 const int held = pushAutoswitch(want);
                 (void)held;
                 safeSaveAsIni(this->config_, "conf/hunmin.conf");
+                refreshAutoswitchRow();
+                instance_->showCustomInputMethodInformation(ke->inputContext(),
+                    *config_.autoswitch ? "Autoswitch enabled" : "Autoswitch disabled");
+                FCITX_INFO() << "hunmin: Ctrl+Hangul autoswitch toggled, value=" << (*config_.autoswitch ? "ON" : "OFF");
                 ke->filterAndAccept();
             }
         });
