@@ -158,3 +158,31 @@ No code move made. Facts gathered to identify a host-agnostic, testable D1 slice
 4. Record the micro-slice in an issue (`[core/frontend] #272 P5/D1: ...`) with verification commands; do not close issues.
 
 **Status:** proposal only, for maintainer/next-session selection. No implementation in this step.
+
+## Step 2 — P5/D1 characterization results (2026-11-08)
+
+Selected approach: Option 1 — no production refactor, pin the invariants at the
+move boundary before extracting anything.
+
+Added/confirmed characterization (tests only):
+
+- `engine-buffered-preedit` — `LayerTest.TakeJudgementIsConsumingAfterBoundaryDelivery`:
+  a boundary key's delivered text is in that key's commit; `take_judgement()` is
+  answered after boundary processing and is consuming (second read `-1`).
+- Existing coverage already pins adjacent contracts (not duplicated here):
+  - `engine-key-rule` B3 data-gate cases (`hunmin_ctx_autoswitch_data_present`).
+  - `engine-wordset` reading/`latin_text` and second-read/switch cases.
+  - fcitx5 `engine-d1-fcitx5`/`engine-d1-judgement` for adapter ordering/judgement.
+
+Not characterized here (require their environments / no deterministic host-agnostic
+assertion yet):
+
+- Android E1 `takeJudgement`/autoswitch host-apply ordering (needs E1 runner).
+- TSF native/interim/legacy judgement delivery ordering (needs Windows tier per
+  `docs/WINDOWS-TSF-DEVENV-CHECKS.md`).
+- A full “apply judgement then re-read state” adapter contract: the host action is
+  host-specific, so an assertion would pin an adapter, not the core seam.
+
+**Status:** Option 1 characterization pass complete for the core-observable seam.
+Production micro-slice (Option 2 additive ABI or Option 3 fcitx5-only) still needs a
+target choice; Option 2 additionally needs explicit ABI approval.
