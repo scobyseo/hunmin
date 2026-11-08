@@ -331,7 +331,7 @@ MODES-DATA.md §4. The EFFECT/COST figures inherit that loss.
 
 The harness lessons, keystroke-inversion notes, and "what was built instead"
 design rationale were folded into
-[`DESIGN-MODES.md` §4 — Measurement and harness design](DESIGN-MODES.md#4-measurement-and-harness-design-folded-from-modes-metrics-272-d4)
+[`DESIGN-MODES.md` §4 — Measurement and harness design](DESIGN-MODES.md#5-measurement-and-harness-design-folded-from-modes-metrics-272-d4)
 per issue #272 (D4). Measured figures and metric readings remain in this
 document's §1–§2.
 

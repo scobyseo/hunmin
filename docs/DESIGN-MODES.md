@@ -344,14 +344,9 @@ document.**
 
 ---
 
-# 5. References
+# 5. Measurement and harness design (folded from MODES-METRICS, #272 D4)
 
-- Requirements: `docs/SPEC-MODES.md`
-- Basis of libhangul parity: `docs/FRONTEND-CONTRACT.md`, AGENTS.md
-- Golden regeneration: `tools/regen-goldens.sh`
-
-
-# 4. Measurement and harness design (folded from MODES-METRICS, #272 D4)
+<a id="4-measurement-and-harness-design-folded-from-modes-metrics-272-d4"></a>
 
 > Folded per issue #272 (D4). Metric definitions and measured figures remain in
 > `docs/MODES-METRICS.md`; corpus/data provenance remains in `docs/MODES-DATA.md`.
@@ -360,7 +355,7 @@ document.**
 
 ## 4.1 Harness lessons (formerly MODES-METRICS §3)
 
-### Harnesses that were unfit (all returned "confident zeros") (all returned "confident zeros")
+### Harnesses that were unfit (all returned "confident zeros")
 
 | Harness | Defect |looked like |
 |---|---|---|
@@ -458,3 +453,12 @@ count, and that the two receive paths agree — registered as ctest
 otherwise stay green.
 
 ---
+
+# 6. References
+
+- Requirements: `docs/SPEC-MODES.md` (R4, R3, R13, E5; cite REQ ids)
+- Engine: `libhunmin/src/ic.c`, `libhunmin/src/buffered_preedit.c`
+- Data/provenance: `docs/MODES-DATA.md` (figures cited by pointer)
+- Metrics/figures: `docs/MODES-METRICS.md`
+- Core implementation decisions: `docs/DESIGN-CORE.md`
+- Frontend design: `docs/DESIGN-FRONTEND.md` (stub paths kept for history)
