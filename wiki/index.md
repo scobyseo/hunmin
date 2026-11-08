@@ -156,6 +156,16 @@
   three-digit tier example was the shift row and the tier is single-shot; the
   sentence was replaced on the maintainer's instruction rather than kept as a
   measurement footnote.
+- [[2026-11-08-no-modes-measurement-until-the-maintainer-says-so]] — no ② / ②b /
+  ③-bis run is planned or permitted until the maintainer raises it, and the
+  shipped English dictionary is the whole of the judgement's data: the retired
+  corpus list, its cap, a curated supplement and a typed-text corpus search are
+  unwanted, not deferred.
+- [[2026-11-08-no-frontend-core-move-the-seam-is-a-contract]] — D1 closed: the
+  inventory separates each host action from the engine-facing workflow, so the
+  judgement branch does not move into the core; the seam is
+  `docs/DESIGN-FRONTEND.md` §11, and reopening it needs FE11 written down or a
+  second frontend with an identical state contract.
 - [[2026-11-08-the-retired-corpus-measurement-is-deleted]] — the standing order
   that deleted `MODES-DATA`, `MODES-METRICS` and the five modes pricing papers:
   the rulings survive, the figures do not, and `MODES-MEASUREMENT.md` keeps only

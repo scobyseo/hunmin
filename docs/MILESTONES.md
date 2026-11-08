@@ -168,8 +168,14 @@ direction; the mechanism is new work:
   correctness 두/세벌식, word-list schema) now wait on the judgement's implementation
   (#166, #168), on a harness (#181), or on their own rulings (#163, #180) — E1 has
   since been ruled and implemented (§E1, 2026-11-01), so none of them is ownerless.
-- B2 — the pass lines for all three metrics — is the exit gate: the feature is
-  shippable when its own metrics have a number the maintainer set.
+- ~~B2 — the pass lines for all three metrics — is the exit gate: the feature is
+  shippable when its own metrics have a number the maintainer set.~~ **Retired as
+  this lane's exit gate 2026-11-08.** The maintainer's words: *"no measurement
+  until i mention. current rule - using english dict only for auto-switch is
+  enough for me."* — scoped the same day to *"i mean enough for 0.3"*. So 0.3
+  exits on the mixed-sentence gate below and nothing else; B2's pass lines (and
+  every metric reading behind them) move past 0.3 and wait on the maintainer
+  raising the measurement, not on a corpus, a harness or a budget.
 - **The feature's own gate, ruled 2026-11-01:** *"내 예제가 동작하는 것까지를 0.3
   release gate로 보자."* The maintainer's mixed sentence
   `English는 좋은 Language입니다` typed as one key stream must come out in the languages

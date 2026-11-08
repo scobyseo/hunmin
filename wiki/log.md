@@ -1195,3 +1195,36 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Board rows that cited the deleted sections were re-pointed in the same change;
   `docs-lint`, `req-map` and the cheap ctest selection stay green.
 
+
+## [2026-11-08] create | D1 closed, and no modes measurement until the maintainer says so
+
+- **D1 (frontend core-move):** the maintainer closed it as "no core move, record
+  the seam as a contract". `docs/DESIGN-PHASE5-CORE-MOVE.md` gains Step 4 (the
+  ruling, why the inventory supports it, what would reopen it) and is closed as a
+  plan; `docs/DESIGN-FRONTEND.md` §11 is the contract — what the core owns versus
+  what stays a frontend's. New page:
+  [[2026-11-08-no-frontend-core-move-the-seam-is-a-contract]].
+- **Measurement:** asked which corpus a fresh run should use, the maintainer ruled
+  "no measurement until i mention. current rule - using english dict only for
+  auto-switch is enough for me." Recorded in `docs/MODES-MEASUREMENT.md` §6 and in
+  board row B2, which becomes unblocked-by-nobody. New page:
+  [[2026-11-08-no-modes-measurement-until-the-maintainer-says-so]].
+- **Tooling:** the two-stage case-golden flow (`gen-case-golden.py` then
+  `merge-golden-cases.py --write`) is now documented in the generator's usage and
+  in `docs/TESTING.md`, including what `--check` can and cannot compare, so the
+  "merged family reported stale" surprise is documented rather than re-diagnosed.
+- Verification: docs-lint, req-map, wiki-lint and `ctest -j16 -LE slow` green.
+
+
+## [2026-11-08] update | the measurement ruling is scoped to 0.3, and B2 stops gating it
+
+- Clarified by the maintainer the same day: *"i mean enough for 0.3"* — so the
+  statement that `english_valid` as an `en_US` lookup is the whole of the
+  judgement's data is a 0.3-lane statement, not a claim about 0.4 or 1.0.
+- That collided with `docs/MILESTONES.md` §0.3, which made B2's pass lines the
+  lane's exit gate. Asked which governs, the maintainer retired B2 as the gate:
+  0.3 exits on the mixed-sentence gate (`English는 좋은 Language입니다` in one
+  stream) and nothing else; the pass lines move past 0.3. Recorded in
+  `docs/MILESTONES.md` §0.3, `docs/REMAINING-WORK.md` B2, and
+  [[2026-11-08-no-modes-measurement-until-the-maintainer-says-so]].
+

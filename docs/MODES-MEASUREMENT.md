@@ -332,8 +332,27 @@ What the removal does **not** settle, and what stays open:
 - E4's pass line for all three metrics (board B2);
 - ReqMode9's threshold, now that `hangul_valid` is structural (board B1's
   residue);
-- whether a new corpus and harness should be built at all, and on which
-  population.
+
+**Settled 2026-11-08 — there is no run, and none is planned.** The maintainer's
+words, verbatim:
+
+> "no measurement until i mention. current rule - using english dict only for
+> auto-switch is enough for me."
+
+Two things follow, and both are rules rather than observations:
+
+- **Nothing here is measured until the maintainer says so.** Not on the
+  ko.wikipedia dump, not on AIHub 624, not on a corpus found later. The §4 table
+  and §3's commands are what a run would need to respect; they are not a queue
+  of work, and no agent starts one because a budget was declared or a shape was
+  priced.
+- **For 0.3, the shipped English dictionary is the whole of the judgement's
+  data.** Clarified the same day — *"i mean enough for 0.3"* — so the scope is
+  the 0.3 lane and not "for ever": `english_valid` as an `en_US` lookup plus a
+  user dictionary carries the feature through 0.3, and for that lane the corpus
+  list, its cap, a curated supplement and a typed-text corpus search are all
+  *not* wanted. Whether 0.4 or 1.0 needs more English than a dictionary is a
+  later ruling, and nothing in this document asks for it.
 
 ---
 

@@ -25,6 +25,15 @@ Schema: the existing tier-A one, so `hunmin-sim --check` runs it unchanged.
 
 --check regenerates in memory and fails on drift; the suite runs the checker, the
 generator run is a review event (never a build step).
+
+TWO STAGES, AND --check ONLY SEES THE FIRST. The committed file is not this
+generator's output: after a rewrite, `tools/merge-golden-cases.py --write`
+merges the family's cases into one trace (one `meta.case` header per family,
+because a case boundary is replay state, not a label). So `--check` reports a
+merged family as stale by design -- it compares per-case output against a file
+that carries a merged header. Read its failure as "this generator's cases
+moved"; re-merge, then let `hunmin-sim --check` (which the merge refuses to
+write without) decide whether the committed trace is current.
 """
 
 import argparse

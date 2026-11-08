@@ -216,3 +216,31 @@ runnable here), and any logic move (needs a named seam plus all three fronts).
 `tools/check-frontend-invariants.py` holds (adapter 656 code LOC, limit 700);
 `tools/req-map-check.py` passes; ctest registration/properties still match the
 Phase 0 baseline.
+
+## Step 4 — D1 ruled 2026-11-08: no core move
+
+**The maintainer's selection: close D1 as no core move, and record the seam as a
+contract.** The contract is `docs/DESIGN-FRONTEND.md` §11 — what the core owns
+(judgement, readings, guard, autoswitch value/gate/read-back, special-chord
+resolution, key classification, buffer/cap) and what stays a frontend's (the
+host action, key-code translation and modifier models, delivery, candidate
+presentation, settings storage, the stored binding format).
+
+Why the measured inventory supports it rather than merely permitting it: the
+common part of every candidate slice turned out to be a read of something the
+core already returns (`take_judgement`, the `autoswitch` value, `classify`),
+while the part that differs is the host action each frontend performs. Dedupe
+of that branch requires the core to model host topology — which §1 and FE13
+forbid — so the "~570–620 movable lines" measured when the issue was written
+does not survive the separation.
+
+**This document is therefore closed as a plan.** Steps 1–3 stand as the
+evidence: the inventory, the micro-slice proposal, the characterization test and
+the fcitx5 comment dedupe. No production code moves.
+
+**What would reopen it**, recorded so the decision can be revisited rather than
+re-argued: FE11's shell scope for Android and TSF written down and showing
+duplicated *policy* (not wiring); or a second frontend needing an identical
+state contract — today only the autoswitch desired→effective path looks like
+that, and its three stores (fcitx5 config watcher, Android prefs over two
+engines, TSF registry) still differ. Either is a new ruling.

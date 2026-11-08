@@ -711,6 +711,51 @@ Still open, and not decided by the above:
   interface; it forbids a second copy of the expectations).
 
 
+## 11. The core/frontend seam — D1 ruled 2026-11-08 (no core move)
+
+**The ruling: the judgement's host action does not move into the core; the seam
+is written down here as a contract instead.** The inventory that produced it is
+`docs/DESIGN-PHASE5-CORE-MOVE.md` (Steps 1–3, issue #272 P5).
+
+### What the core owns, and no frontend may re-implement
+
+| The core decides | Symbol / home | Requirement |
+|---|---|---|
+| whether a boundary switches, and which language the triggering word arrives in | `hunmin_buffered_preedit_take_judgement` (consuming), `judge_boundary` | ReqMode8, ReqMode10 |
+| what counts as valid in either reading | `hunmin_buffered_preedit_latin_text`, `hunmin_hangul_valid*`, `english_valid` | ReqMode8 |
+| the short-word guard | `JUDGE_MIN_KEYS` | ReqMode9 |
+| the `autoswitch` value, its data gate, and the read-back | `set/get_option("autoswitch")`, `hunmin_ctx_autoswitch_data_present` | ReqMode13, B3 |
+| the special-chord binding and its resolution | the `special_*` family | E5, ReqMode13 |
+| the key classification a frontend acts on | `hunmin_buffered_preedit_classify` | FE2 |
+| the word buffer, its cap and the flush | `word_cap`, `word_flush_half` | ReqMode4 |
+
+### What stays a frontend's, and why that is not duplication
+
+- **The host action after a judgement.** A switch means an input-method trigger
+  on fcitx5, a mode plus delivery/passthrough change on TSF, a layer plus
+  `InputConnection` change on Android. The three read the same core answer and
+  then do three different things; a core helper would have to learn host
+  topology to be useful, which §1 and FE13 forbid.
+- **Key-code translation and modifier models** (fcitx5 key events, TSF VK,
+  Android keyCode), **delivery contracts**, **candidate presentation**, and
+  **settings storage/UI**.
+- **The `v1:` binding grammar as stored.** TSF stores a virtual-key scan code,
+  Android a key code; the shared thing is the format's shape, not a parser.
+
+### The rule this leaves in place
+
+A frontend that needs an engine-owned answer calls the engine for it; it may not
+restate the rule locally, and it may not keep a second copy of the expectations
+(§6). A behaviour that is genuinely shared and currently duplicated gets a
+`DESIGN-*.md` heading — this one — before it gets code.
+
+**What would change the ruling:** FE11's shell scope for Android and TSF written
+down and showing duplicated *policy* rather than duplicated wiring; or a second
+frontend needing an identical state contract (today only the autoswitch
+desired→effective path looks like that, and its three stores differ). Either
+would be a new ruling, not a continuation of this one.
+
+
 ---
 
 # Part B — Contract and assumptions (formerly `FRONTEND-CONTRACT.md`)

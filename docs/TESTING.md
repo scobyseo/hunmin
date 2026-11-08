@@ -396,6 +396,17 @@ all 57 registrations and `ctest -N -L tier-A` reported `Total Tests: 0`.
   precomposed form, and a symbol as the boundary. It uses the ordinary
   `hunmin-sim --check` schema; regen:
   `python3 tools/gen-case-golden.py --sim build/hunmin-sim`.
+- **Regenerating a case golden is two stages, and only the first is checked by
+  the generator.** `tools/gen-case-golden.py` writes one `meta.case` header per
+  designed case; `tools/merge-golden-cases.py --write` then merges the family
+  into the one trace the policy ships (a case boundary is replay state, so the
+  merge is the step that decides the committed file). `gen-case-golden.py
+  --check` therefore reports a *merged* family as stale by design — it compares
+  per-case output against a merged header, and no flag makes those agree. The
+  check that guards the committed artefact is the merge's own: it refuses to
+  write unless `hunmin-sim --check` replays the merged result identically. Read
+  a `--check` failure as "the generator's cases moved"; re-run the generator,
+  re-merge, and review the diff.
 - **Case boundaries are state, so merging is not free.** Tier A replays each
   `{"meta": {"case": ...}}` case from a clean engine, and the split is only a
   label when the cases would also replay identically **as one stream**. Measure
