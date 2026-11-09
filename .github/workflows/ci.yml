@@ -249,10 +249,20 @@ jobs:
         # The M5-CLOSED assertion row runs `pyright tools/` inside docs-lint;
         # without the tool it fails with FileNotFoundError (measured on CI
         # 2026-10-13), not a code defect. Install it so the assertion is real.
+        #
+        # --with pillow, measured 2026-11-09: pyright resolves imports against
+        # its OWN environment, and tools/gen-android-icons.py imports PIL at
+        # module scope. Without Pillow that is one
+        # `error: Import "PIL" could not be resolved (reportMissingImports)` at
+        # tools/gen-android-icons.py:33, which the M5 row reads as "the tree is
+        # dirty" and fails the build with -- reproducible with
+        # `uvx pyright tools/` (1 error) and fixed by `uvx --with pillow pyright
+        # tools/` (0 errors) on the same pyright 1.1.414. The dependency is the
+        # tool's own: it generates the TSF icon set from a PNG.
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           export PATH="$HOME/.local/bin:$PATH"
-          uv tool install pyright
+          uv tool install --with pillow pyright
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHUNMIN_TRACE_BUILD=ON
       - run: cmake --build build -j4
@@ -686,10 +696,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
       - name: Install pyright (debian/rules runs docs-lint, which asserts tools/ is clean)
+        # --with pillow for the reason given at the linux job's install step:
+        # pyright resolves imports in its own environment, and
+        # tools/gen-android-icons.py imports PIL at module scope.
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           export PATH="$HOME/.local/bin:$PATH"
-          uv tool install pyright
+          uv tool install --with pillow pyright
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Build the .deb
         # -us -uc unsigned: a key is not required to build the artefact, and
