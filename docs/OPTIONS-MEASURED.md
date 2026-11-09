@@ -2646,47 +2646,38 @@ jammy distribution is therefore not a port of today's package; it is a package w
 frontend jammy can host.** That is why this subsection belongs to this section rather than
 to a packaging checklist: the distro target decides the frontend question.
 
-**Ruled 2026-11-09, before any of the three was built:** the maintainer answered the paths
-with one sentence —
+**The 22.04 target is decided (2026-11-09).** The maintainer answered the paths above with
+one sentence:
 
 > 22.04 release는 ibus만 지원하면 돼. fcitx5는 포기.
 
-— so **path 1 is the answer for this target and paths 2 and 3 are out**: the 22.04 package
-carries an IBus engine, no fcitx5 dependency of any kind, and path 3 is not "ibus 지원"
-either. The record, with what the sentence does and does not settle, is
-`wiki/decisions/2026-11-09-the-22-04-release-ships-ibus-only.md`; the three paths stay below
-because the reasons are the measurement, and a future jammy that moves `fcitx5` past 5.1.13
-makes path 2 re-readable without re-deriving the ruling.
+So the jammy package ships **an IBus engine** — §PLT-3 option A — and carries **no fcitx5
+dependency in any form**: not an archive dependency, not a bundled build, not a private
+prefix. The record, with what the sentence settles and what it leaves open, is
+`wiki/decisions/2026-11-09-the-22-04-release-ships-ibus-only.md`.
 
-The three paths, priced from the table:
+What that package costs and what it gives up:
 
-1. **jammy package = core + an IBus engine (§PLT-3 A) — RULED, this is the one.** *Cost:* A has to exist first; its
-   `Build-Depends` is `libibus-1.0-dev` from **main**, with no fcitx5 dependency at all;
-   packaging gains one component XML and one config store (GSettings schema or an ini);
-   `debian/` gains either a second packaging dir or a build-profile branch. *Coverage on
-   jammy:* GTK3, GTK4 and XIM arrive from `ibus` 1.5.26 and its modules, all measured present.
-   *Loses:* the candidate window and page ceiling are jammy's IBus panel, and jammy users get
-   a second Korean engine beside `ibus-hangul` 1.5.4.
-2. ~~**jammy package = core + the fcitx5 addon, with fcitx5 ≥ 5.1.13 built from source.**~~
-   **Given up for this target by the ruling above** ("fcitx5는 포기"); kept as a measurement,
-   not as a live path.
-   *Cost:* a private fcitx5 build inside the package build (the route CI already takes for
-   the dev distro — `ce8efbd`, "fcitx5 5.1.13 from source (distro is 5.1.7)"), plus either a
-   second source package for fcitx5 on jammy or a `.deb` whose `Depends: fcitx5` resolves to
-   5.0.14 and therefore installs a frontend that cannot load it. *Loses:* distro-legality —
-   a stock jammy has no archive that can satisfy the dependency — and it makes the maintainer
-   a fcitx5 distributor for one target.
-3. ~~**jammy package = core only, no frontend.**~~ **Out by the same sentence**: a package
-   with no input method is not "ibus 지원". *Cost:* a `debian/control` split and nothing
-   else. *Loses:* the product — `apt install hunmin` on jammy would deliver a library, a
-   simulator and data files with no input method.
+- *Cost:* the IBus frontend has to exist first (§PLT-3 A). Its `Build-Depends` is
+  `libibus-1.0-dev` from jammy **main**, plus the core's own dependencies; packaging gains one
+  component XML and one config store (GSettings schema or an engine-owned ini); `debian/`
+  gains either a second packaging dir or a build-profile branch.
+- *Coverage on jammy:* GTK3, GTK4 and XIM arrive from `ibus` 1.5.26 and its modules, all
+  measured present in the table above.
+- *Loses:* the candidate window and the page ceiling are jammy's IBus panel, and jammy users
+  get a second Korean engine beside `ibus-hangul` 1.5.4.
 
-All three, and path 1 in particular, force one packaging decision the existing package has
-never had to make: **one source package can no longer ship one binary package.** Split by
-frontend (`hunmin` core / `hunmin-fcitx5` / `hunmin-ibus`) and `apt install hunmin` stops
-bringing an IME; or keep `hunmin` as the fcitx5 package and add a differently named jammy
-package. That changes what 0.3's users get with a plain `apt install hunmin`, so it is a
-ruling and not a port.
+**Why the fcitx5 addon is not in this package.** jammy's `fcitx5` is 5.0.14, below the
+tree's 5.1.13 floor, so the addon would need fcitx5 built from source and a `Depends: fcitx5`
+that jammy's archive cannot satisfy — a private dependency for one target, which is what
+"fcitx5는 포기" retires. The measurement stays in the table above: if a future jammy release
+moves `fcitx5` past 5.1.13, the cost of putting the addon back is re-readable from it.
+
+The packaging decision this target forces, and which is still open: **one source package can
+no longer ship one binary package.** Split by frontend (`hunmin` core / `hunmin-fcitx5` /
+`hunmin-ibus`) and `apt install hunmin` stops bringing an IME; or keep `hunmin` as the fcitx5
+package and give the jammy package its own name. That changes what 0.3's users get with a
+plain `apt install hunmin`, so it is a ruling and not a port.
 
 **What was verified here, and what could not be.** Verified: the probe engine
 (`tools/ime-host-probe.sh`, `HUNMIN_PROBE_ENGINE=…`) **compiles against jammy's 1.5.26
@@ -2699,16 +2690,13 @@ So "a jammy `.deb` builds and installs" is environment-bound here, and the hones
 that the frontend's build was measured against jammy's headers while the package build was
 not run at all.
 
-**What the ruling has to include** (the four sub-decisions this goal adds to §PLT-4):
+**What is still open for this target** (these add to §PLT-4):
 
-1. ~~Which of the three paths, i.e. whether IBus becomes the jammy frontend.~~
-   **DECIDED 2026-11-09:** path 1 — IBus engine only, fcitx5 given up for this target
-   (`wiki/decisions/2026-11-09-the-22-04-release-ships-ibus-only.md`).
-2. The binary package layout across both targets: split by frontend, or one package per
+1. The binary package layout across both targets: split by frontend, or one package per
    distribution, and what `apt install hunmin` means on each.
-3. Whether fcitx5 ≥ 5.1.13 may ever be shipped by hunmin for a target whose archive has an
-   older one (a private dependency vs carrying a second source package).
-4. Who builds the jammy artefact and where: a container job, a PPA, or a maintainer host —
+2. Whether fcitx5 ≥ 5.1.13 is ever shipped by hunmin for a target whose archive has an older
+   one — not for 22.04, which this ruling settles, but for any later target that asks.
+3. Who builds the jammy artefact and where: a container job, a PPA, or a maintainer host —
    because this host cannot (§PLT-7, measured), and `AGENTS.md`'s 3-minute CI ceiling applies
    to whichever job it becomes.
 
