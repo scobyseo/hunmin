@@ -34,7 +34,7 @@ and are not a home anybody can cite as current.
 | URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | **Q1 decided: option C**, shipped (#146); Q2 measured 2026-10-30 — the residue is the per-user `Enable` key, one ruling away |
 | HEK | whether the Han/Eng key can act as a held modifier in each frontend environment, and what the compound press would cost | measured per environment (Windows live, Android emulator, fcitx5 read-only); the **compound's action is decided** 2026-10-31 — `docs/SPEC-MODES.md` §E5, §E5 status below |
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
-| PLT | a second Linux frontend: which host mechanism it plugs into (IBus engine, XIM, immodules, Wayland IME) and what each costs | open (#289); the IBus row measured end to end on this host; scoped 2026-11-09 to adding an Ubuntu 22.04 distribution, which jammy's own package inventory turns into a frontend question (§PLT-7); no verdict |
+| PLT | a second Linux frontend: which host mechanism it plugs into (IBus engine, XIM, immodules, Wayland IME) and what each costs | open (#289); the IBus row measured end to end on this host; scoped 2026-11-09 to adding an Ubuntu 22.04 distribution, which jammy's own package inventory turned into a frontend question; **the 22.04 target is decided the same day** — IBus only, fcitx5 given up for it (§PLT-7, `wiki/decisions/2026-11-09-the-22-04-release-ships-ibus-only.md`), while the other targets and the six sub-decisions stay open |
 
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
@@ -2306,8 +2306,9 @@ Status: **open** (issue #289). The requirement set every candidate must satisfy 
 the lane and its decision list are `docs/MILESTONES.md` §0.4 Track 1 and issue #283. None of
 those is restated here — what is priced here is the **host mechanism** a Linux stand-alone
 frontend plugs into, in coverage, code and verification. §PLT-7 records the target the
-maintainer set for this work on 2026-11-09 — adding an Ubuntu 22.04 distribution — and the
-measurement that turns it from a packaging chore into this section's question.
+maintainer set for this work on 2026-11-09 — adding an Ubuntu 22.04 distribution — the
+measurement that turned it from a packaging chore into this section's question, and his ruling
+the same day that the 22.04 artefact ships an IBus engine only.
 
 The maintainer's words, verbatim (issue #289):
 
@@ -2645,23 +2646,38 @@ jammy distribution is therefore not a port of today's package; it is a package w
 frontend jammy can host.** That is why this subsection belongs to this section rather than
 to a packaging checklist: the distro target decides the frontend question.
 
+**Ruled 2026-11-09, before any of the three was built:** the maintainer answered the paths
+with one sentence —
+
+> 22.04 release는 ibus만 지원하면 돼. fcitx5는 포기.
+
+— so **path 1 is the answer for this target and paths 2 and 3 are out**: the 22.04 package
+carries an IBus engine, no fcitx5 dependency of any kind, and path 3 is not "ibus 지원"
+either. The record, with what the sentence does and does not settle, is
+`wiki/decisions/2026-11-09-the-22-04-release-ships-ibus-only.md`; the three paths stay below
+because the reasons are the measurement, and a future jammy that moves `fcitx5` past 5.1.13
+makes path 2 re-readable without re-deriving the ruling.
+
 The three paths, priced from the table:
 
-1. **jammy package = core + an IBus engine (§PLT-3 A).** *Cost:* A has to exist first; its
+1. **jammy package = core + an IBus engine (§PLT-3 A) — RULED, this is the one.** *Cost:* A has to exist first; its
    `Build-Depends` is `libibus-1.0-dev` from **main**, with no fcitx5 dependency at all;
    packaging gains one component XML and one config store (GSettings schema or an ini);
    `debian/` gains either a second packaging dir or a build-profile branch. *Coverage on
    jammy:* GTK3, GTK4 and XIM arrive from `ibus` 1.5.26 and its modules, all measured present.
    *Loses:* the candidate window and page ceiling are jammy's IBus panel, and jammy users get
    a second Korean engine beside `ibus-hangul` 1.5.4.
-2. **jammy package = core + the fcitx5 addon, with fcitx5 ≥ 5.1.13 built from source.**
+2. ~~**jammy package = core + the fcitx5 addon, with fcitx5 ≥ 5.1.13 built from source.**~~
+   **Given up for this target by the ruling above** ("fcitx5는 포기"); kept as a measurement,
+   not as a live path.
    *Cost:* a private fcitx5 build inside the package build (the route CI already takes for
    the dev distro — `ce8efbd`, "fcitx5 5.1.13 from source (distro is 5.1.7)"), plus either a
    second source package for fcitx5 on jammy or a `.deb` whose `Depends: fcitx5` resolves to
    5.0.14 and therefore installs a frontend that cannot load it. *Loses:* distro-legality —
    a stock jammy has no archive that can satisfy the dependency — and it makes the maintainer
    a fcitx5 distributor for one target.
-3. **jammy package = core only, no frontend.** *Cost:* a `debian/control` split and nothing
+3. ~~**jammy package = core only, no frontend.**~~ **Out by the same sentence**: a package
+   with no input method is not "ibus 지원". *Cost:* a `debian/control` split and nothing
    else. *Loses:* the product — `apt install hunmin` on jammy would deliver a library, a
    simulator and data files with no input method.
 
@@ -2685,8 +2701,9 @@ not run at all.
 
 **What the ruling has to include** (the four sub-decisions this goal adds to §PLT-4):
 
-1. Which of the three paths, i.e. whether IBus becomes the jammy frontend — the same question
-   §PLT-3 asks, now with a distribution depending on it.
+1. ~~Which of the three paths, i.e. whether IBus becomes the jammy frontend.~~
+   **DECIDED 2026-11-09:** path 1 — IBus engine only, fcitx5 given up for this target
+   (`wiki/decisions/2026-11-09-the-22-04-release-ships-ibus-only.md`).
 2. The binary package layout across both targets: split by frontend, or one package per
    distribution, and what `apt install hunmin` means on each.
 3. Whether fcitx5 ≥ 5.1.13 may ever be shipped by hunmin for a target whose archive has an
