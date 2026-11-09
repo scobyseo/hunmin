@@ -34,7 +34,7 @@ and are not a home anybody can cite as current.
 | URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | **Q1 decided: option C**, shipped (#146); Q2 measured 2026-10-30 — the residue is the per-user `Enable` key, one ruling away |
 | HEK | whether the Han/Eng key can act as a held modifier in each frontend environment, and what the compound press would cost | measured per environment (Windows live, Android emulator, fcitx5 read-only); the **compound's action is decided** 2026-10-31 — `docs/SPEC-MODES.md` §E5, §E5 status below |
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
-| PLT | a second Linux frontend: which host mechanism it plugs into (IBus engine, XIM, immodules, Wayland IME) and what each costs | open (#289); the IBus row measured end to end on this host, no verdict |
+| PLT | a second Linux frontend: which host mechanism it plugs into (IBus engine, XIM, immodules, Wayland IME) and what each costs | open (#289); the IBus row measured end to end on this host; scoped 2026-11-09 to adding an Ubuntu 22.04 distribution, which jammy's own package inventory turns into a frontend question (§PLT-7); no verdict |
 
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
@@ -2305,7 +2305,9 @@ Status: **open** (issue #289). The requirement set every candidate must satisfy 
 `docs/SPEC-FRONTEND.md` FE1–FE15; the core/frontend seam is `docs/DESIGN-FRONTEND.md` §11;
 the lane and its decision list are `docs/MILESTONES.md` §0.4 Track 1 and issue #283. None of
 those is restated here — what is priced here is the **host mechanism** a Linux stand-alone
-frontend plugs into, in coverage, code and verification.
+frontend plugs into, in coverage, code and verification. §PLT-7 records the target the
+maintainer set for this work on 2026-11-09 — adding an Ubuntu 22.04 distribution — and the
+measurement that turns it from a packaging chore into this section's question.
 
 The maintainer's words, verbatim (issue #289):
 
@@ -2412,7 +2414,8 @@ including dependencies — and a header surface of **23 `ibus_engine_*` function
 (1.5.34-rc2), of which an engine of our shape uses ~10 (`commit_text`,
 `update_preedit_text`, `update_lookup_table`, `show_lookup_table`, `hide_lookup_table`,
 `forward_key_event`, plus the `process_key_event`/`focus_*`/`reset` vfuncs). The engine that
-proves it is **39 lines of C** (`tools/ime-host-probe.sh` embeds it): create factory, add
+proves it is **29 lines of C** (`tools/ime-host-probe.sh` embeds it, and that is the copy the
+jammy build used too): create factory, add
 engine, request name. Registration needs a component XML — one file — and the only
 out-of-tree route is `IBUS_COMPONENT_PATH`: upstream 1.5.34 has per-user component
 directories `#if 0`-ed out
@@ -2533,7 +2536,7 @@ wiki only after the ruling.
 
 | option | mechanism | coverage measured on this host | cost, named | loses | verification shape |
 |---|---|---|---|---|---|
-| A IBus engine | daemon hosts engines over D-Bus | GTK3, GTK4, Qt6, X11 (via IBus's own XIM server) — **driven end to end here** | 1 dev package (18 with deps); 23-symbol API, ~10 used; 39-line probe; 1 component XML; GSettings schema | host owns candidates, pages and the trigger; a second Korean engine; an IBus dependency in the release | D1 shared layer as-is; D2 engine-object harness; D3 GTK client via `run-d3.sh` |
+| A IBus engine | daemon hosts engines over D-Bus | GTK3, GTK4, Qt6, X11 (via IBus's own XIM server) — **driven end to end here** | 1 dev package (18 with deps); 23-symbol API, ~10 used; 29-line probe; 1 component XML; GSettings schema | host owns candidates, pages and the trigger; a second Korean engine; an IBus dependency in the release | D1 shared layer as-is; D2 engine-object harness; D3 GTK client via `run-d3.sh` |
 | B own XIM server | our daemon speaks XIM | X11 only, **GTK4 excluded** | protocol server (no dev package on this host), own daemon, own windows | Wayland, GTK4, a singleton per display | own client harness (dkit) + candidate gate |
 | C immodules | loaded into each application | apps built on GTK3/GTK4/Qt that were told to load us | 2 toolkits × 2 generations, per-toolkit ABIs | X11-only apps, Java, own-stack apps; no single IM object | in-process tests per toolkit + candidate gate |
 | D Wayland IME | our process + compositor protocol | compositors that implement it; GNOME here does not | protocol + surfaces; **not measurable here** (no wayland headers) | most of the tree of coverage, most work | own harness + candidate gate |
@@ -2568,7 +2571,7 @@ one that requires our own candidate window (item 4), both of which move the answ
   trigger list.
 - **The end-to-end probe, committed so the number stays re-derivable:**
   `tools/ime-host-probe.sh` boots a private `Xvfb`, a private session bus and `ibus-daemon -x
-  -c /usr/libexec/ibus-memconf -p disable`, builds the 39-line engine from source, points
+  -c /usr/libexec/ibus-memconf -p disable`, builds the 29-line engine from source, points
   `IBUS_COMPONENT_PATH` at a component XML for it, and drives the repository's own
   `tests/e2e/gtk-harness.py` with `GTK_IM_MODULE=ibus`. On this host it printed: `engine
   listed: 1`, `engine processes: 1 spawned by the daemon`, `commits in the client: 8 (keys
@@ -2611,3 +2614,92 @@ one that requires our own candidate window (item 4), both of which move the answ
 - Issue #289 stays open and decision-gated; so does #283. Nothing in this section chooses,
   and the ruling is the maintainer's
   (`wiki/decisions/decisions-belong-to-the-maintainer.md`).
+
+### PLT-7 The Ubuntu 22.04 target (scope set by the maintainer, 2026-11-09)
+
+The maintainer's words, verbatim:
+
+> 이 작업의 목표로 ubuntu 22.04 를 위한 배포판을 추가하자.
+
+That sentence turns the question from "which host mechanism" into "which host mechanism can
+a jammy package contain", and the answer is measurable, because jammy's own archive decides
+it. Read from `archive.ubuntu.com/dists/jammy/{main,universe}/binary-amd64/Packages.gz` on
+2026-11-09, amd64:
+
+| package | jammy | pocket | against this tree |
+|---|---|---|---|
+| `ibus`, `libibus-1.0-dev`, `ibus-gtk3`, `ibus-gtk4` | 1.5.26-4 | main | the engine API an IBus frontend needs is present — the 29-line probe **compiles against these headers** (measured, commands below) |
+| `ibus-hangul` | 1.5.4-1build2 | main | the Korean engine slot is occupied on jammy too, not only on this host |
+| `fcitx5`, `libfcitx5core-dev`, `fcitx5-modules-dev`, `libfcitx5core7` | **5.0.14-1** | universe | **below the tree's 5.1.13 floor** (`FCITX_ADDON_FACTORY_V2` first appears in 5.1.13 — `frontends/fcitx5/CMakeLists.txt`) |
+| `cmake` | 3.22.1 | main | equals `cmake_minimum_required(VERSION 3.22)` |
+| `debhelper` | 13.6 | main | `debhelper-compat (= 13)` is satisfied |
+| `libhangul-dev`, `libxkbcommon-dev`, `libxcb1-dev`, `libglib2.0-dev`, `python3` | 0.1.0+git20191003, 1.4.0, 1.14, 2.72.1, 3.10.4 | main | the core's own build dependencies are all present |
+| `libxcb-imdkit-dev` | 1.0.3-1 | universe | **present** — this corrects §PLT-3 B: "no dev package" was a fact about *this host's* apt lists, not about jammy, so an XIM server is not packaging-blocked on jammy, only coverage- and protocol-blocked |
+| `libgtk-4-dev` | 4.6.2 | main | the GTK4 immodule route is buildable on jammy |
+
+**The blocking fact, in one line:** today's `debian/control` requires
+`libfcitx5core-dev (>= 5.1.13)` and `fcitx5-modules-dev (>= 5.1.13)`, jammy has 5.0.14, so
+`dpkg-checkbuilddeps` fails before a line compiles — and even forced, `Depends: fcitx5` on
+jammy installs 5.0.14, which cannot load an addon built against 5.1.13's factory macro. **A
+jammy distribution is therefore not a port of today's package; it is a package whose
+frontend jammy can host.** That is why this subsection belongs to this section rather than
+to a packaging checklist: the distro target decides the frontend question.
+
+The three paths, priced from the table:
+
+1. **jammy package = core + an IBus engine (§PLT-3 A).** *Cost:* A has to exist first; its
+   `Build-Depends` is `libibus-1.0-dev` from **main**, with no fcitx5 dependency at all;
+   packaging gains one component XML and one config store (GSettings schema or an ini);
+   `debian/` gains either a second packaging dir or a build-profile branch. *Coverage on
+   jammy:* GTK3, GTK4 and XIM arrive from `ibus` 1.5.26 and its modules, all measured present.
+   *Loses:* the candidate window and page ceiling are jammy's IBus panel, and jammy users get
+   a second Korean engine beside `ibus-hangul` 1.5.4.
+2. **jammy package = core + the fcitx5 addon, with fcitx5 ≥ 5.1.13 built from source.**
+   *Cost:* a private fcitx5 build inside the package build (the route CI already takes for
+   the dev distro — `ce8efbd`, "fcitx5 5.1.13 from source (distro is 5.1.7)"), plus either a
+   second source package for fcitx5 on jammy or a `.deb` whose `Depends: fcitx5` resolves to
+   5.0.14 and therefore installs a frontend that cannot load it. *Loses:* distro-legality —
+   a stock jammy has no archive that can satisfy the dependency — and it makes the maintainer
+   a fcitx5 distributor for one target.
+3. **jammy package = core only, no frontend.** *Cost:* a `debian/control` split and nothing
+   else. *Loses:* the product — `apt install hunmin` on jammy would deliver a library, a
+   simulator and data files with no input method.
+
+All three, and path 1 in particular, force one packaging decision the existing package has
+never had to make: **one source package can no longer ship one binary package.** Split by
+frontend (`hunmin` core / `hunmin-fcitx5` / `hunmin-ibus`) and `apt install hunmin` stops
+bringing an IME; or keep `hunmin` as the fcitx5 package and add a differently named jammy
+package. That changes what 0.3's users get with a plain `apt install hunmin`, so it is a
+ruling and not a port.
+
+**What was verified here, and what could not be.** Verified: the probe engine
+(`tools/ime-host-probe.sh`, `HUNMIN_PROBE_ENGINE=…`) **compiles against jammy's 1.5.26
+headers** and, under this host's 1.5.34 daemon, is registered, spawned and commits into the
+GTK client — PASS, same evidence lines as §PLT-6. Not verified, and not verifiable here: any
+jammy *artefact*. `docker info` answers "permission denied … /var/run/docker.sock", there is
+no `debootstrap`/`mmdebstrap` and no root, and even a hand-assembled `.deb` would get its
+`shlibs:Depends` from this resolute host's libraries — dependency data for the wrong distro.
+So "a jammy `.deb` builds and installs" is environment-bound here, and the honest statement is
+that the frontend's build was measured against jammy's headers while the package build was
+not run at all.
+
+**What the ruling has to include** (the four sub-decisions this goal adds to §PLT-4):
+
+1. Which of the three paths, i.e. whether IBus becomes the jammy frontend — the same question
+   §PLT-3 asks, now with a distribution depending on it.
+2. The binary package layout across both targets: split by frontend, or one package per
+   distribution, and what `apt install hunmin` means on each.
+3. Whether fcitx5 ≥ 5.1.13 may ever be shipped by hunmin for a target whose archive has an
+   older one (a private dependency vs carrying a second source package).
+4. Who builds the jammy artefact and where: a container job, a PPA, or a maintainer host —
+   because this host cannot (§PLT-7, measured), and `AGENTS.md`'s 3-minute CI ceiling applies
+   to whichever job it becomes.
+
+**Commands behind the numbers above** (re-derivable, no root): the inventory is
+`curl -s http://archive.ubuntu.com/ubuntu/dists/jammy/{main,universe}/binary-amd64/Packages.gz`
+parsed for `Package`/`Version`/`Architecture`/`Filename`; the header check is
+`dpkg -x libibus-1.0-dev_1.5.26-4_amd64.deb` (and `libibus-1.0-5`, `libglib2.0-dev`) followed
+by `cc -o jammy-hdr-engine jammy-probe-engine.c -I<jammy>/include/ibus-1.0 …`; the run is
+`HUNMIN_PROBE_ENGINE=<that binary> tools/ime-host-probe.sh`. The engine source is the one
+`tools/ime-host-probe.sh` writes, extracted rather than retyped, so the jammy build and the
+native build are the same 29-line body.

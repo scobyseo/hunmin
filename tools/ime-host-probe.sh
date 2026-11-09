@@ -13,7 +13,7 @@
 #
 #   engine listed | engine spawned by the daemon | commit reached the client
 #
-# The engine it builds is a 40-line probe that commits a fixed string on every
+# The engine it builds is a 29-line probe that commits a fixed string on every
 # key. It is NOT a frontend, it does not read layout data and it is not part of
 # the tree's build; it exists so that "the text arrived" discriminates
 # engine-reached from engine-not-reached (an unhandled key would type 'r').
@@ -31,6 +31,9 @@
 # USAGE
 #   tools/ime-host-probe.sh                 # needs ibus-1.0 headers via pkg-config
 #   HUNMIN_IBUS_PREFIX=~/toolchains/ibus/usr tools/ime-host-probe.sh
+#   HUNMIN_PROBE_ENGINE=/path/to/engine tools/ime-host-probe.sh   # measure a
+#                                           # pre-built engine (another distro's
+#                                           # headers, a cross-compile) instead
 #   KEEP=1 tools/ime-host-probe.sh          # keep the scratch dir for inspection
 #
 # Requirements: Xvfb, dbus-daemon, xdotool, python3 with GObject Introspection and
@@ -57,10 +60,18 @@ done
 # --- engine: headers ------------------------------------------------------
 # pkg-config first; a hand-extracted dev prefix second, because no root is needed
 # to unpack libibus-1.0-dev and the probe should still be runnable on a host
-# where nobody wants to install it system-wide.
+# where nobody wants to install it system-wide. Neither is needed when a
+# pre-built engine is supplied through HUNMIN_PROBE_ENGINE -- that is how a
+# foreign build (another distribution's headers, a cross-compile) is measured.
 CFLAGS_IBUS=""
 LIBS_IBUS=""
-if pkg-config --exists ibus-1.0 2>/dev/null; then
+ENGINE_SRC=$SCRATCH/probe-engine.c
+ENGINE_BIN=$SCRATCH/probe-engine
+if [ -n "${HUNMIN_PROBE_ENGINE:-}" ]; then
+    [ -x "$HUNMIN_PROBE_ENGINE" ] || fail "HUNMIN_PROBE_ENGINE is not executable: $HUNMIN_PROBE_ENGINE"
+    cp "$HUNMIN_PROBE_ENGINE" "$ENGINE_BIN"
+    say "engine:               prebuilt ($HUNMIN_PROBE_ENGINE)"
+elif pkg-config --exists ibus-1.0 2>/dev/null; then
     CFLAGS_IBUS=$(pkg-config --cflags ibus-1.0)
     LIBS_IBUS=$(pkg-config --libs ibus-1.0)
 elif [ -n "${HUNMIN_IBUS_PREFIX:-}" ]; then
@@ -71,8 +82,6 @@ else
     skip "ibus-1.0 headers absent; install libibus-1.0-dev or set HUNMIN_IBUS_PREFIX"
 fi
 
-ENGINE_SRC=$SCRATCH/probe-engine.c
-ENGINE_BIN=$SCRATCH/probe-engine
 cat >"$ENGINE_SRC" <<'C'
 /* Probe engine: commits a fixed string on every key. Not a frontend. */
 #include <ibus.h>
@@ -105,7 +114,9 @@ int main(int argc, char **argv) {
 }
 C
 # shellcheck disable=SC2086
-cc -o "$ENGINE_BIN" "$ENGINE_SRC" $CFLAGS_IBUS $LIBS_IBUS || fail "engine did not build"
+if [ -z "${HUNMIN_PROBE_ENGINE:-}" ]; then
+    cc -o "$ENGINE_BIN" "$ENGINE_SRC" $CFLAGS_IBUS $LIBS_IBUS || fail "engine did not build"
+fi
 
 mkdir -p "$SCRATCH/component"
 cat >"$SCRATCH/component/probe.xml" <<XML
