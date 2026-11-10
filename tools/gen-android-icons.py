@@ -85,7 +85,14 @@ def render_legacy(src: Image.Image, size: int) -> Image.Image:
 
 def render_foreground(src: Image.Image, canvas: int) -> Image.Image:
     badge = round(canvas * FOREGROUND_BADGE_FRACTION)
-    out = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+    # No explicit colour: for "RGBA" the default IS (0, 0, 0, 0), and passing the
+    # tuple spelled out is a type error against Pillow 10.2's stubs, which type
+    # `new()`'s color as `int` alone (measured: pyright 1.1.414 reports "Argument
+    # of type tuple[Literal[0], ...] cannot be assigned to parameter color of type
+    # int" on every spelling of a tuple/str/None, while the same code is clean
+    # against Pillow 13). Dropping the argument keeps the bytes and the type both
+    # right -- `--check` is the proof: the generated icons are unchanged.
+    out = Image.new("RGBA", (canvas, canvas))
     art = src.resize((badge, badge), Image.Resampling.LANCZOS)
     off = (canvas - badge) // 2
     out.paste(art, (off, off), art)
