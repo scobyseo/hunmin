@@ -2679,16 +2679,19 @@ no longer ship one binary package.** Split by frontend (`hunmin` core / `hunmin-
 package and give the jammy package its own name. That changes what 0.3's users get with a
 plain `apt install hunmin`, so it is a ruling and not a port.
 
-**What was verified here, and what could not be.** Verified: the probe engine
-(`tools/ime-host-probe.sh`, `HUNMIN_PROBE_ENGINE=…`) **compiles against jammy's 1.5.26
-headers** and, under this host's 1.5.34 daemon, is registered, spawned and commits into the
-GTK client — PASS, same evidence lines as §PLT-6. Not verified, and not verifiable here: any
-jammy *artefact*. `docker info` answers "permission denied … /var/run/docker.sock", there is
-no `debootstrap`/`mmdebstrap` and no root, and even a hand-assembled `.deb` would get its
-`shlibs:Depends` from this resolute host's libraries — dependency data for the wrong distro.
-So "a jammy `.deb` builds and installs" is environment-bound here, and the honest statement is
-that the frontend's build was measured against jammy's headers while the package build was
-not run at all.
+**Verified on the target, in a VM (2026-11-09).** A 22.04 VM (`ubuntu-24.04` is the CI
+runner; this one is the *target*) was provisioned from the cloud image and driven over SSH:
+Ubuntu 22.04.5 LTS, `libc6 2.35-0ubuntu3.15`, `IBus 1.5.26`, `libibus-1.0-dev 1.5.26-4`. In
+it the tree configures and builds with no fcitx5 present (the addon is skipped, 102 tests
+register), the suite passes apart from the tests that skip by design, and
+`tools/ime-host-probe.sh` **PASSES with its own build against jammy's headers**: `engine
+listed: 1`, `engine processes: 1 spawned by the daemon`, `commits in the client: 8 (keys
+sent: 4)`. So the engine story is no longer header-compilation on the wrong distro — it is
+driven, on 22.04, from an engine compiled there.
+
+**Not yet verified: the `.deb` itself.** `dpkg-buildpackage` has not been run on the 22.04 VM,
+so the package build, its `Build-Depends` resolution and its install are still open; the VM
+exists precisely to close that next. Nothing here claims a jammy artefact exists.
 
 **The three packaging questions, decided the same day** (`wiki/decisions/2026-11-09-22-04-packaging-names-and-the-ci-shaped-dev-vm.md`):
 
