@@ -176,6 +176,12 @@
   needs 5.1.13); what that settles, and the six things it leaves open — package
   layout, the dev-distro addon, candidate UI, config store, build host, FE11's
   budget reading.
+- [[2026-11-09-22-04-packaging-names-and-the-ci-shaped-dev-vm]] — the 22.04
+  package is a separate name (`hunmin-ibus`), hunmin never redistributes fcitx5,
+  CI builds the release artefacts and development runs in a VM shaped like the
+  runner; the page also carries PLT-8, the measurement that a word-ending symbol
+  and a digit are indistinguishable in tier A's stream, so the tier-C model needs
+  one of three repairs rather than a projection tweak.
 
 ## Raw — sessions
 

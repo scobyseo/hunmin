@@ -2690,15 +2690,23 @@ So "a jammy `.deb` builds and installs" is environment-bound here, and the hones
 that the frontend's build was measured against jammy's headers while the package build was
 not run at all.
 
-**What is still open for this target** (these add to §PLT-4):
+**The three packaging questions, decided the same day** (`wiki/decisions/2026-11-09-22-04-packaging-names-and-the-ci-shaped-dev-vm.md`):
 
-1. The binary package layout across both targets: split by frontend, or one package per
-   distribution, and what `apt install hunmin` means on each.
-2. Whether fcitx5 ≥ 5.1.13 is ever shipped by hunmin for a target whose archive has an older
-   one — not for 22.04, which this ruling settles, but for any later target that asks.
-3. Who builds the jammy artefact and where: a container job, a PPA, or a maintainer host —
-   because this host cannot (§PLT-7, measured), and `AGENTS.md`'s 3-minute CI ceiling applies
-   to whichever job it becomes.
+- **The jammy package gets its own binary package name** (`hunmin-ibus`); the existing
+  `hunmin` package keeps shipping the fcitx5 addon unchanged, so `apt install hunmin` means
+  the same thing on both targets.
+- **hunmin never redistributes fcitx5** — no bundled build, no private prefix, no second
+  source package, for this target or any later one. The addon may depend on a distro fcitx5
+  above the 5.1.13 floor; it may not carry one.
+- **CI builds the release artefacts**, with development in a VM shaped like the GitHub runner
+  so a host-versus-runner difference stops being a reason a run goes red. The VM's own shape
+  is not named by the ruling, and `ubuntu-latest` moves, so "like CI" is a target to measure
+  rather than a property a VM has once.
+
+What remains open here is therefore not the packaging but the tier-C model: §PLT-8 records the
+measurement (a word-ending symbol and a digit are indistinguishable in tier A's stream) and the
+three repairs, because item 1's *outcome* — the adapter delivers at the key the engine commits
+on — is decided while the mechanism that makes the corpus assert it is not.
 
 **Commands behind the numbers above** (re-derivable, no root): the inventory is
 `curl -s http://archive.ubuntu.com/ubuntu/dists/jammy/{main,universe}/binary-amd64/Packages.gz`

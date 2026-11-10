@@ -1248,3 +1248,20 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   29-line probe compiles against jammy's 1.5.26 headers and, under this host's
   1.5.34 daemon, registers, is spawned and commits into the GTK client
   (`HUNMIN_PROBE_ENGINE=… tools/ime-host-probe.sh` → PASS).
+
+## [2026-11-09] decision | 22.04 packaging names, no fcitx5 redistribution, and a CI-shaped dev VM
+
+- The maintainer answered the priced option list: *"1-4 까지는 권고안 대로"*, then
+  *"5. release 시에는 CI에서 하면 되나, 개발 중에는 이 linux box에 vm을 하나
+  설치해서 개발하자. vm을 최대한 github CI 환경과 동일하게 만들어서 CI에서
+  실패가 발생하지 않게 하자."* and *"6. fcitx5는 배포하지 않는다."* Recorded in
+  [[2026-11-09-22-04-packaging-names-and-the-ci-shaped-dev-vm]].
+- Consequence: jammy ships `hunmin-ibus` beside an unchanged `hunmin`; fcitx5 is
+  never bundled for any target; release artefacts come from CI; development moves
+  to a VM modelled on the runner.
+- Measured while acting on item 1: the tier-C model cannot be repaired as a
+  projection rule — the layer commits at a word-ending symbol under both policies,
+  and tier A makes that event look like a digit commit, so any local rule that
+  catches `.` also fires on `1`. The three repairs and their costs are §PLT-8 in
+  `docs/OPTIONS-MEASURED.md`; the outcome (the adapter delivers there) is decided,
+  the mechanism is not.
