@@ -28,6 +28,8 @@ if(HUNMIN_MSVC_STATIC_RUNTIME AND MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
+option(HUNMIN_TRACE "Build the opt-in personal key-log sink (default OFF)" OFF)
+
 add_library(hunmin-tsf MODULE
     src/dllmain.cpp
     src/tsf.cpp
@@ -50,6 +52,10 @@ add_library(hunmin-tsf MODULE
     src/settingsprovider.cpp
     src/candwindow.cpp
 )
+
+if(HUNMIN_TRACE)
+  target_compile_definitions(hunmin-tsf PRIVATE HUNMIN_TRACE=1)
+endif()
 
 # Component TUs own their caches: the shell includes no .cpp and the
 # components include no shell .cpp either (DIP + SAP, docs/

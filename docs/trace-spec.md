@@ -279,3 +279,60 @@ Android conformance suite inside `dpkg-buildpackage`, green in every local run:
 - **No per-platform toolchain.** A trace is data; producing one must not require building
   fcitx5, the Android SDK, or Windows. That is why the format is JSONL rather than a
   harness protocol.
+
+## Personal key log — the frontend-independent dialect
+
+Tier C above records each platform's native event (`keysym`, `keycode`, `vk`) so an
+adapter's mapping can be diffed. For a person measuring their own typing the native
+event is the wrong level: the same physical key produces a different `keycode` on
+Android than a `keysym` on X11, so two people's logs cannot be compared, and one
+person's cannot be analysed by a tool that does not know every platform's constants.
+What is identical on every frontend is the value at the engine boundary —
+`hunmin_key_event` (`libhunmin/include/hunmin.h`): `(base, shift, mods, id)`.
+
+The personal dialect uses that shared value. It is a second dialect of this format,
+not a replacement for tier C; tier C keeps native events because its job is to test
+the mapping, and personal logs keep shared events because their job is to measure
+behaviour after the mapping.
+
+One line per event, UTF-8, LF-terminated. Line 1 is a `meta` object with the same
+fields as tier C's `meta`, plus `dialect: "personal-key"`. Each event line is:
+
+```json
+{"in": {"base": 97, "shift": 0, "mods": 0, "id": 1}, "char": "a", "commit": "", "preedit": "ㄱ", "consumed": true}
+```
+
+| field | meaning |
+|---|---|
+| `in.base` | `hunmin_key_event.base` — the shared base value, before any layout resolves it |
+| `in.shift` | `hunmin_key_event.shift` — the row bit |
+| `in.mods` | `hunmin_key_event.mods` — `HUNMIN_MOD_*` bits, not platform-native bits |
+| `in.id` | `hunmin_key_event.id` — `HUNMIN_KEY_*`, so a BackSpace or Han/Eng key is named without a platform constant |
+| `char` | optional adapter-chosen character, for readability; not the input |
+| `commit` / `preedit` / `consumed` | the same output fields as tier C |
+
+Because `in.id` names the key and `in.mods` uses shared bits, analysis need no
+platform table. The BackSpace key is `id == HUNMIN_KEY_TEXT, base == 0x08` on every
+frontend, and a chord is `mods & HUNMIN_MOD_CHORD` on every frontend. A person's log
+from one platform can be handed to an analyzer written for another.
+
+A teardown flush has no driving key, so it is a line of its own rather than a
+fabricated key event:
+
+```json
+{"flush": "<text delivered at teardown>"}
+```
+
+An analyzer folds a `flush` line into the commit sequence but gives it no
+trigger, so a flush cannot be mistaken for a key-driven commit.
+
+A passed-through key (Enter, Alt+Enter, a chord) is also a key the user pressed
+and must be recorded, not only keys the engine consumed. It is a normal event line
+with `commit: ""`, `preedit: ""` and `consumed: false`, followed by a separate
+`flush` line if the boundary delivered a buffered word. Recording only consumed
+keys loses exactly the boundary cases where behaviour diverges from expectation.
+
+Each frontend produces this dialect only in an opt-in build or an explicitly
+enabled session; the default path writes nothing. The sink is not part of tier C's
+runner and emits no `{"kind":...}` records — those belong to the older build-flag
+sink in fcitx5 and are not used for personal logs.
