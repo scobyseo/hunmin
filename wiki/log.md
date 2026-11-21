@@ -1228,3 +1228,8 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `docs/MILESTONES.md` §0.3, `docs/REMAINING-WORK.md` B2, and
   [[2026-11-08-no-modes-measurement-until-the-maintainer-says-so]].
 
+## [2026-11-21] create | modes failures, judgement principles, and domain-mode idea
+
+- Created [[2026-11-21-modes-failures-and-the-domain-mode-idea]]: distilled intent, four live failures with code paths, four corrective principles, five QAS scenarios, a dictionary-coverage probe, and the domain-mode options (recorded, not ruled).
+- Updated [[2026-10-05-closed-questions]] with the maintainer's 2026-11-21 request to re-review the closed coding-corpus question; the exclusion stands and no new verdict is recorded.
+

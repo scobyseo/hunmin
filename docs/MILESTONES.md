@@ -217,7 +217,7 @@ the milestone work — listed below); implementation issues follow, one per PR.
 - **Phase A — baseline + rulings.** Capture the `ctest -N` baseline; file the
   ruling issues in "Decisions" below; record each ruling in `docs/` + wiki.
 - **Phase B — Track 3 keypad** (frontend-only, smallest, shippable first).
-- **Phase C — Track 2 gates** on a pinned corpus artefact (G0–G2 below).
+- **Phase C — Track 2 gates** (G1–G2 below; the earlier G0 reproduce gate is retired).
 - **Phase D — Track 1 stand-alone IME** D1/D2 → D3 full-stack.
 - **Phase E — Track 2 expectability/latency** (G3/G4) + Track 1 candidate gate.
 - **Phase F — Track 4 partial-match Hanja** (engine lookup first, then frontend
@@ -250,17 +250,34 @@ debian Build-Depends, FE14 data terms).
 
 ### Track 2 — auto-switch improvement (correctness, expectability, …)
 
-Measured baseline (`docs/MODES-METRICS.md`, wiki-1000 corpus): as shipped the
-feature costs keystrokes (negative `q`), because it abstains on about half of
-transitions and every abstention delivers the wrong script; the wrong-direction
-rate is clean precisely because the judgement rarely fires. Improvement therefore
-means firing more *correctly*, not firing more — success stays R11/R12's
-keystroke reduction with repairs priced in (`docs/SPEC-MODES.md` R11/R12).
-The harness (`tools/modes-metrics.py`, ctest `modes-metrics-selfcheck`) already
-emits every quantity below; no new harness is needed for G0–G2.
+The earlier "reproduce the recorded baseline" gate (G0) is **retired** on the
+maintainer's 2026-11-21 instruction: the baseline figures and the corpus behind them
+were removed on 2026-11-08 together with `docs/MODES-METRICS.md`, and the judgement
+definition changed, so there is nothing left to reproduce and no pass line to compare
+against. The retirement and its reason are recorded in
+`wiki/raw/sessions/2026-11-21-modes-failures-and-the-domain-mode-idea.md`.
 
-- **G0 reproduce** — the harness reproduces the recorded baseline on the fixed
-  corpus (precondition; a run that does not reproduce it has drifted).
+Problems felt in actual use, collected to feed the next ruling rather than graded by
+a reproduced number (findings, not rulings — same session page carries the detail):
+
+- typing `자동변환` on sin3-p2 in Latin mode is not recognised as Hangul: a jamo key
+  that is punctuation on the Latin layout ends the word and is dropped from the slot
+  log, so the Hangul reading is truncated.
+- `opencode` is not recognised as English: exact-token lookup against en_US does not
+  expand compounds; `open` and `code` are each present, the concatenation is not.
+- shell commands sometimes flip to Hangul: a token absent from the dictionary is read
+  as positive evidence for the other script, and on a jamo-only layout almost any key
+  run is a well-formed syllable.
+- a `/update` slash command is unreliable: `/` is a mapped key, so with autoswitch on
+  the engine consumes it and the host never sees the raw event that opens the palette.
+- Alt+Enter at the end of a word appears to move the edited text to the next line
+  (unverified observation; needs a frontend and a reproduction).
+
+Improvement therefore means firing more *correctly*, not firing more — success stays
+R11/R12's keystroke aim with repairs priced in (`docs/SPEC-MODES.md` R11/R12). The
+harness (`tools/modes-metrics.py`, ctest `modes-metrics-selfcheck`) emits the quantities
+below; no new harness is needed for G1–G2. Issue #307 carries the domain-mode discussion.
+
 - **G1 no net loss** — `q_pool_share_measured ≥ 0` on the pinned corpus.
 - **G2 pool capture** — stepwise pool-share + manual-intervention lines (K2/T3
   corpus-invariant shapes), each stated with its implied misfire budget at the

@@ -174,6 +174,13 @@
 
 ## Raw — sessions
 
+- [[2026-11-21-modes-failures-and-the-domain-mode-idea]] — the maintainer's
+  distilled intent for auto-switch (zero manual presses, no wrong judgement,
+  deliberate awkward words accepted), four live failures traced to code (sin3-p2
+  symbol keys, `opencode`, shell false switches, `/update`), four corrective
+  principles and five QAS scenarios, a dictionary-coverage probe, and the recorded
+  (not ruled) domain-mode idea. Also logs the 2026-11-21 request to re-review
+  [[2026-10-05-closed-questions]].
 - [[2026-10-03-requirement-shaped]] — the hangul/latin requirement in the
   maintainer's words: the quotations `docs/SPEC-MODES.md` paraphrases or omits,
   why one IM and a mode that follows what is typed, the licence distinction that
