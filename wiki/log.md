@@ -1,6 +1,6 @@
 # Wiki Log
 
-> Append-only record of **wiki actions** — a page created, folded, marked, or
+> Append-only record of **wiki actions** ??a page created, folded, marked, or
 > lint-fixed. It is not a change log for the project: `docs/HISTORY.md` carries
 > what shipped, per phase, and a measurement belongs on the page that holds it.
 >
@@ -8,7 +8,7 @@
 > made this file a second home for figures `docs/` owns. They were folded into
 > their pages on 2026-10-10 and the log now records only the wiki action.
 >
-> Format: `## [YYYY-MM-DD] action | subject` — create, update, ingest, query,
+> Format: `## [YYYY-MM-DD] action | subject` ??create, update, ingest, query,
 > lint, archive. Actions: create, update, lint.
 
 ## [2026-10-04] create | Wiki initialised
@@ -19,7 +19,7 @@
 - Placed at `wiki/` **inside the repository**, against the skill's `~/wiki`
   default: a wiki outside git has no history to lose state in.
 - Three departures from the skill's schema are recorded in `SCHEMA.md`
-  §Deviations — `raw/sessions/` is a first-class layer, `entities/`+`concepts/`
+  짠Deviations ??`raw/sessions/` is a first-class layer, `entities/`+`concepts/`
   is not split by kind-of-thing, and Obsidian is not required.
 - `tools/wiki-lint.py` written with it. A schema with no checker is a
   preference. One of its checks is mechanical and is the one this wiki is for:
@@ -30,12 +30,12 @@
 - `concepts/the-three-corpora-are-three-registers.md`
 - `concepts/the-rules-keep-breaking.md`
 - `decisions/decisions-belong-to-the-maintainer.md`
-- `decisions/the-outstanding-decisions.md` — `contested: true`, four open
+- `decisions/the-outstanding-decisions.md` ??`contested: true`, four open
   decisions recorded rather than answered.
 
-## [2026-10-04] ingest | Session 2026-10-04 — the stemming investigation
+## [2026-10-04] ingest | Session 2026-10-04 ??the stemming investigation
 
-- `raw/sessions/2026-10-04-stemming-investigation.md` — first session record.
+- `raw/sessions/2026-10-04-stemming-investigation.md` ??first session record.
   Kept raw because the *sequence* is the finding: the stemming verdict was
   overturned by the second corpus, and no single number explains that.
 - Six mistakes recorded, four of which were breaks of rules written earlier the
@@ -45,8 +45,8 @@
 
 - Two subagents dispatched; no output and no running process. The delegation id
   exists only in conversation context, so a silent dispatch failure is
-  indistinguishable from a slow one — the parallel-work problem in miniature.
-  Recorded in `concepts/the-rules-keep-breaking.md` §The parallel-work failure.
+  indistinguishable from a slow one ??the parallel-work problem in miniature.
+  Recorded in `concepts/the-rules-keep-breaking.md` 짠The parallel-work failure.
 
 ## [2026-10-05] ingest | Sessions 2026-10-02 and 2026-10-03, recovered
 
@@ -85,7 +85,7 @@
   says the engine side has no code at all.
 - **Debt found while writing the audit record:** a page required to carry
   measurement provenance pointed at a measurement that was never made, and
-  `wiki-lint.py` could not see it — it checked wikilinks and the index, not
+  `wiki-lint.py` could not see it ??it checked wikilinks and the index, not
   frontmatter `sources:`. **Paid:** `check_sources_exist` in `tools/wiki-lint.py`
   and `check_wiki_sources` in `tools/docs-lint.py`. Both tools' comments still
   describe the check as owed, which is worth deleting.
@@ -99,17 +99,16 @@
   reverted, so no engine change and no regenerated goldens. Full account:
   [[2026-10-09-where-space-is-emitted]].
 - **The fcitx5 check the maintainer asked for on 2026-10-07 was marked done
-  without being run** — the code was read and the answer inferred. It has now
+  without being run** ??the code was read and the answer inferred. It has now
   been run.
-- ✅ **Space emission is a frontend concern** (measured 2026-10-09). The engine
+- ??**Space emission is a frontend concern** (measured 2026-10-09). The engine
   declines space and flushes the syllable; every frontend (fcitx5 XIM,
   fcitx5 GTK 3/4, Android) forwards the declined space to the client. No
-  engine change is needed or planned. → **Superseded by
+  engine change is needed or planned. ??**Superseded by
   [[space-emission-ownership]]**, which records that the measurement page still
   calls the design question the maintainer's and that no ruling is quoted
   anywhere. `docs/REMAINING-WORK.md` B5 cites this line; it should re-point.
-- **The voice question, answered** —
-  [[2026-10-09-voice-recognition-status]]: the launch path reaches the
+- **The voice question, answered** ??  [[2026-10-09-voice-recognition-status]]: the launch path reaches the
   platform's recogniser, recognition itself has never been tested, RECORD_AUDIO
   is never requested, and the mic on the input view was a comment rather than an
   assertion.
@@ -119,7 +118,7 @@
 - A real GTK client for tier D3 (`tests/e2e/gtk-harness.py`, run through
   `run-d3.sh` with `HUNMIN_D3_CLIENT=gtk`; ctest `engine-d3-gtk3`,
   `engine-d3-gtk4`). The declined key becomes text on both GTK versions, by two
-  different mechanisms — one of which is an empty function in fcitx5's GTK 4
+  different mechanisms ??one of which is an empty function in fcitx5's GTK 4
   module.
 - Three ways the harness was green while measuring something else, all now
   checks: `has_focus()` lies under GTK 4; `python3` on `PATH` cannot `import
@@ -129,45 +128,45 @@
 
 ## [2026-10-11] update | Character-loss trio, 16K align, fcitx5 Hanja keyboard UX
 
-- **Character-loss trio** — three Android bugs invisible on this machine (hanja commit
+- **Character-loss trio** ??three Android bugs invisible on this machine (hanja commit
   appended; modifier-only `onKeyDown` reaching the engine flushed in-flight composition;
   Android only copied `layouts`/`compose` and passed no `data_dir` to `hunmin_suggest_count`,
   so `hanja.json` showed zero candidates). Guards now land in tier E1 (3 tests) and the
   16K-alignment check script, and a modes-corpus inventory records that
   `modes-corpus-selfcheck` is already SKIP-not-green because the corpus is not deployable.
-- **16K alignment** — `libhunjni.so` was 4KB-aligned from the separate AGP
+- **16K alignment** ??`libhunjni.so` was 4KB-aligned from the separate AGP
   `externalNativeBuild`; pinned `max-page-size=16384` in that CMake. The `${HUNMIN_DATA_PATH}`,
   Korean-locale, and NDK-path facts are environment-local and do not belong in the repo.
-- **fcitx5 Hanja UX** — vertical layout hint, plus keyboard selection (Up/Down/PageUp/PageDown/
+- **fcitx5 Hanja UX** ??vertical layout hint, plus keyboard selection (Up/Down/PageUp/PageDown/
   Return/Escape). `CommonCandidateList::moveCursor` rotates over `totalSize()` unless
   `cursorKeepInSamePage` is set (it is not), so Up/Down reaches every candidate; measured
   against a replica, not assumed, and the note in the code says which way the measurement cut.
-  I8 budget 465 → 545 (reason recorded, not code shaved). D2 tier verifies.
+  I8 budget 465 ??545 (reason recorded, not code shaved). D2 tier verifies.
 - **Android conformance cold-run failure, closed** (the "found, not fixed" item
-  in the 10-10 entry below) — two causes behind one red. First:
+  in the 10-10 entry below) ??two causes behind one red. First:
   `tools/build-host-jni.sh`'s ldd proof entered the runner's stdout, which
   `trace-check.py` parses entirely as JSON; the call site now routes it to
   stderr. That fix exposed the second, which only `dpkg-buildpackage` shows:
   its `export LC_ALL=C` makes Java's stdout charset US-ASCII, so every Korean
-  preedit became `?` while the JSON parsed fine — Python's PEP 540 coercion is
+  preedit became `?` while the JSON parsed fine ??Python's PEP 540 coercion is
   why the x11 half stayed green beside it. The runner pins UTF-8 by
   declaration now. Both rules are in `docs/trace-spec.md`; deb build passes
   end to end, 14/14 cold.
 
 ## [2026-10-10] create | D3 case coverage, mutation tiers, ctest labels
 
-- [[2026-10-10-d3-case-coverage]] — `engine-d3-x11` reported Passed in 5.01 s
+- [[2026-10-10-d3-case-coverage]] ??`engine-d3-x11` reported Passed in 5.01 s
   having run one of its eight cases, and hid a second defect behind the first.
   `docs/D3-PERFORMANCE.md` and `docs/TESTING.md` carry the timings; the evidence
   trail is the wiki page, `docs/HISTORY.md` the entry.
 - `tools/android-mutations.sh` counted its own skips as catches: *"PASS: all 9
   planted mutations were caught"*, exit 0, 0.31 s, nothing built. A checkout
   whose suite was already red read the same way. Both closed. Measurements in
-  `docs/OPTIONS-MEASURED.md` §AND; the two parts that generalise on
+  `docs/OPTIONS-MEASURED.md` 짠AND; the two parts that generalise on
   [[2026-10-10-mutation-tiers-measuring-nothing]].
 - A `LABELS` property on every `add_test` registration, plus
   `tools/ctest-select.sh`, which prints the selection **and every omitted test**
-  before running — a filtered run that passes otherwise reads exactly like a
+  before running ??a filtered run that passes otherwise reads exactly like a
   full run that passed. Reasoning and the three designs not taken:
   [[2026-10-10-ctest-labels]].
 - **Mistake, recorded so it is not repeated:** `add_test(NAME x COMMAND y LABELS
@@ -184,9 +183,9 @@
 ## [2026-10-10] update | Orca GUI probe, retracted same day
 
 - The Orca worktree probe was first written as two wiki pages. The maintainer's
-  question — *"does this belong in the LLM wiki?"* — was correct: it is a **host
+  question ??*"does this belong in the LLM wiki?"* ??was correct: it is a **host
   toolchain fact**, so per `SCHEMA.md`'s domain rule the durable facts moved to
-  `docs/ENVIRONMENT.md` §Orca GUI. The measurement page is marked `superseded`,
+  `docs/ENVIRONMENT.md` 짠Orca GUI. The measurement page is marked `superseded`,
   the session page reframed as the evidence trail, and the skill cites
   `docs/ENVIRONMENT.md`. The reasoning behind the retraction is kept on the
   measurement page, because it is a reusable test and not a host fact.
@@ -199,18 +198,17 @@
 - **Space during composition**: When space is pressed during composition, syllable is committed and space character is emitted.
 - **Hangul/English toggle flush**: Mode switch now flushes current composition before switching engines to prevent text loss.
 - **Overlay lifecycle fixed**: onPause/onDestroy now respect dialog showing state; dialogs remain visible during configuration changes.
-- **Samsung 한/영 key (218)**: System consumes this key before IME receives it; alternative keys (Left Alt+Z, Right Alt, Language Switch) work reliably.
+- **Samsung ????key (218)**: System consumes this key before IME receives it; alternative keys (Left Alt+Z, Right Alt, Language Switch) work reliably.
 - **Settings dialog crash (Resource ID)**: Fixed AlertDialog.Builder to use default context theme instead of custom theme.
 
-- **Folded.** The 2026-10-04 stemming measurements → `concepts/
+- **Folded.** The 2026-10-04 stemming measurements ??`concepts/
   the-three-corpora-are-three-registers.md` (two homes for one table is how they
-  drift). The 2026-10-02 practices → `concepts/where-the-practices-came-from.md`
+  drift). The 2026-10-02 practices ??`concepts/where-the-practices-came-from.md`
   (new; `AGENTS.md` can state each rule in one line but not the reason it
-  survives). The five "green while measuring nothing" instances →
-  `concepts/the-rules-keep-breaking.md`, with the two mechanical defences. The
-  mutation-tier detail → `docs/OPTIONS-MEASURED.md` §AND pointers.
+  survives). The five "green while measuring nothing" instances ??  `concepts/the-rules-keep-breaking.md`, with the two mechanical defences. The
+  mutation-tier detail ??`docs/OPTIONS-MEASURED.md` 짠AND pointers.
 - **Kept against the compression default.** `raw/sessions/
-  2026-10-03-requirement-shaped.md` — seven quotations the requirement rests on
+  2026-10-03-requirement-shaped.md` ??seven quotations the requirement rests on
   exist nowhere in `docs/`, and a paraphrase drifts.
 - **New.** `decisions/space-emission-ownership.md`, `contested: true`: the log
   and `docs/REMAINING-WORK.md` B5 record the space-emission question as closed
@@ -224,24 +222,24 @@
 ## [2026-10-11] create | B3 ruled: auto-switch OFF by default, data-gated
 
 - **New decision.** `decisions/2026-10-11-auto-switch-off-by-default.md`: the
-  maintainer ruled B3 — automatic Hangul/English switch is OFF by default until
+  maintainer ruled B3 ??automatic Hangul/English switch is OFF by default until
   release 0.3, and its additional data ships as a separate distribution, the
   feature enable-able only where that data is present. The ruling is quoted
   verbatim in `raw/sessions/2026-10-11-b3-off-default-and-the-data-gate.md`.
 - **Consequential updates, not wiki actions:** `docs/SPEC-MODES.md` ReqMode13 and E5
   (the default was undecided in two places; both updated in one pass, because
-  updating one is the two-homes defect §7 of `docs/REMAINING-WORK.md` describes)
+  updating one is the two-homes defect 짠7 of `docs/REMAINING-WORK.md` describes)
 , `docs/REMAINING-WORK.md` B3 row and voice stage 8, `docs/MILESTONES.md` 0.1/0.3
   lanes. D1, E5-assignment and B2 are named as NOT closed by this ruling.
 - `wiki/index.md` listed both pages; total pages 21.
 ## [2026-10-11] create | Orca orchestration path measured; playbook + script
 
-- **New session page:** `raw/sessions/2026-10-11-orca-orchestration-path.md` — the
-  ≈40-turn / two-accidental-Runs cost of guessing `orca orchestration` flags that one
+- **New session page:** `raw/sessions/2026-10-11-orca-orchestration-path.md` ??the
+  ??0-turn / two-accidental-Runs cost of guessing `orca orchestration` flags that one
   `orca agent-context --json` answers, and the four places the documents were wrong
   about what Orca does (nested placement, `scobyseo/` branch prefix, no `--issue` on
   `worker-start`, worker's terminal absent from `worker-list`'s projection).
-  `docs/ENVIRONMENT.md` §Orca GUI is corrected on the branch-name claim.
+  `docs/ENVIRONMENT.md` 짠Orca GUI is corrected on the branch-name claim.
 - **New durable artefact:** `docs/ORCHESTRATION.md` (procedure) and
   `tools/orchestrate.sh` (the same sequence, with the branch/base/issue defaults,
   validating every flag against the binary's own schema before use).
@@ -250,11 +248,11 @@
   preamble owns `worker_done`, a worker never closes anything).
 - **Left for the maintainer, on purpose:** the two orphaned Runs and one
   never-dispatched Task from the earlier session are reported in
-  `docs/ORCHESTRATION.md` §5 and not reset.
+  `docs/ORCHESTRATION.md` 짠5 and not reset.
 - `wiki/index.md` lists the page; total pages 22.
 ## [2026-10-11] create | Key settings window measured and fixed; N5's tests found never compiled
 
-- **New measurement page:** `raw/measurements/2026-10-11-key-settings-window.md` — three
+- **New measurement page:** `raw/measurements/2026-10-11-key-settings-window.md` ??three
   broken layers (gear button off-screen at 1140 px on a 1080 px screen; the window could
   not receive a key because hardware keys are dispatched to the IME window while an IME
   is current; the save wrote a key nothing read), the two platform facts that shaped the
@@ -263,14 +261,13 @@
 - **New durable artefacts:** `frontends/android/app/src/main/java/org/hunmin/ime/KeyBinding.kt`
   and a tier-E2 section in `tools/android-e2e.sh` that drives the real window on the
   emulator and cleans up after itself.
-- **Consequential, not wiki actions:** `docs/REMAINING-WORK.md` voice stage 7 (Planned →
-  Done) and two new §7.5 assertion rows that the tree can contradict.
+- **Consequential, not wiki actions:** `docs/REMAINING-WORK.md` voice stage 7 (Planned ??  Done) and two new 짠7.5 assertion rows that the tree can contradict.
 - **A finding, not a verdict:** N5's `frontends/android/app/src/androidTest/` does not
   compile and no tier builds it; its board row asserts only that the directory is present.
   Filed as its own issue; scope is the maintainer's.
 - `wiki/index.md` lists the page; total pages 23.
 
-## 2026-10-11 — the dock, and a style that measured nothing
+## 2026-10-11 ??the dock, and a style that measured nothing
 
 - **Measurements, not decisions:** the maintainer's specified toolbar (floating pill,
   48 dp, status left / actions right) implemented as Views rather than Compose, because
@@ -281,7 +278,7 @@
   because its 0.2-opacity silhouette is the listening state. MIT terms in
   `debian/copyright`, upstream paths and the conversion in
   `frontends/android/licences/phosphor-icons/README.md`.
-- **A finding:** style C rendered no content at all — `lp(0)` in a *vertical*
+- **A finding:** style C rendered no content at all ??`lp(0)` in a *vertical*
   LinearLayout is zero pixels wide, not "take the leftover", which is what it means in a
   horizontal one. Measured on the phone: the IME window's a11y tree had the rows and no
   children, and a raw pixel of the band was the window background. Fixed with
@@ -292,7 +289,7 @@
   because `rebuild()` left every button parented to the detached row. Style A is the
   default and `applyStyle()` short-circuits, which is why it looked like "every other
   style crashes" rather than "the rebuild crashes". Fresh views per rebuild now; the mic
-  key carries 漢 rather than `ic_menu_add`, which said "add something".
+  key carries 轢?rather than `ic_menu_add`, which said "add something".
 - **Not settled, and not decided here:** whether style C earns its place now that the
   dock exists, and whether Material Components is worth taking as a dependency for the
   shapes this draws by hand.
@@ -300,7 +297,7 @@
 - **A real defect, found by measurement and fixed:** the dock's `bind()` repainted
   an `ImageView` never added to the view tree, so every mic state change was
   invisible while the log said LISTENING. The a11y dump could not see it because
-  the session lasts ~5 s and a dump takes longer than that — the read landed after
+  the session lasts ~5 s and a dump takes longer than that ??the read landed after
   the state had ended. Validated the replacement pixel gate against both states of
   the same screenshot: `#43A047` listening, `#F3EDF7` idle.
 - **Tier E4 written** (`tools/android-voice-check.sh`, `tests/manual-checklists/tier-e4-voice.md`):
@@ -316,8 +313,7 @@
 
 - **Durable artefact is `docs/ANDROID-UI-NOTES.md`**, the Android analogue of
   `docs/FCITX5-ADDON-NOTES.md`: the style system (dock palette vs `CompactTheme`,
-  row anatomy, 0.92-width window) and the traps that cost the restyle its time —
-  `AlertDialog.setView()` adopting the view's default `WRAP_CONTENT`
+  row anatomy, 0.92-width window) and the traps that cost the restyle its time ??  `AlertDialog.setView()` adopting the view's default `WRAP_CONTENT`
   LayoutParams, `android:background` as a *theme item* leaking to every
   inheriting view (the "onion" of rounded frames, and the starved column with
   the same symptom from a different mechanism), a host activity themed
@@ -335,7 +331,7 @@
   and badge into two TextViews. Updated in the same branch as the structure
   they assert. See `wiki/raw/sessions/2026-10-12-compact-hud-theme-traps.md`.
 
-- **2026-10-12** — `2026-10-11-dock-and-the-zero-width-style` marked
+- **2026-10-12** ??`2026-10-11-dock-and-the-zero-width-style` marked
   **superseded**: the maintainer ruled "F5 -> remove!" and the unreachable
   `DockToolbar`/`DockStyle.kt` is deleted (issue #33, branch
   `task/android-design-review`). The page keeps the measurement as
@@ -346,16 +342,16 @@
 
 - **New decision.** `decisions/2026-10-12-versionname-keeps-the-phase-suffix.md`:
   the maintainer ruled, answering issue #9, that release 0.1's Android
-  `versionName` stays `0.1.0-p5` — `0.1.0` is the release (agreeing with
+  `versionName` stays `0.1.0-p5` ??`0.1.0` is the release (agreeing with
   `CMakeLists.txt` and `debian/changelog`), and `-pN` is the Android
   build-phase label (P5 the IME, P5.5 the keymaps APK; `docs/ENVIRONMENT.md`
   batch 2). The ruling was given in the worktree session that implemented it,
   not in a separate session record, so the issue is the surviving source.
-- **Consequential updates, not wiki actions:** `docs/MILESTONES.md` §0.1 now
+- **Consequential updates, not wiki actions:** `docs/MILESTONES.md` 짠0.1 now
   records the convention (the issue's second verification checkbox), and
-  `README.md` §Install says which string is the release and which is the
+  `README.md` 짠Install says which string is the release and which is the
   phase (the issue's "keeps the phase marker" branch). No version string
-  changed — the ruling is to keep them.
+  changed ??the ruling is to keep them.
 - **NOT closed by the ruling, named so it is not re-derived:** `versionCode = 1`
   has never been incremented, and no tag or GitHub release exists yet; both
   are release-time acts, not documentation.
@@ -364,17 +360,16 @@
 ## [2026-10-12] create | B4's 0.1 half ruled: auto toggle inert, default key composition disabled
 
 - **New decision.** `decisions/2026-10-12-auto-toggle-disabled-by-default-in-0-1.md`:
-  the maintainer ruled the 0.1 shipping half of B4 (issue #2) — the auto
+  the maintainer ruled the 0.1 shipping half of B4 (issue #2) ??the auto
   Hangul/English toggle is disabled by default in 0.1, and the named mechanism
   is "disable the default key composition". In the tree: `AUTO_TOGGLE` gets no
   default chord (Right Alt + Enter unbound; Enter reaches the editor), the
   service dispatch skips the action so a stale stored binding cannot swallow
-  the chord, and the settings row renders disabled with badge 미정 (0.3) —
-  the ReqMode13 divergence (screen advertising a chord whose action logs "not
+  the chord, and the settings row renders disabled with badge 誘몄젙 (0.3) ??  the ReqMode13 divergence (screen advertising a chord whose action logs "not
   yet implemented") removed. The ruling is quoted verbatim in
   `raw/sessions/2026-10-12-b4-auto-toggle-inert-in-0-1.md`.
 - **What it does not close:** the E5 assignment itself (single vs compound),
-  B1/D1, B2 — all named on the decision page; the assignment stays a 0.3-lane
+  B1/D1, B2 ??all named on the decision page; the assignment stays a 0.3-lane
   item per `docs/MILESTONES.md`.
 - **Consequential updates, not wiki actions:** `docs/SPEC-MODES.md` E5 (0.1
   shipping-state bullet), `docs/REMAINING-WORK.md` B4 row, voice stage 2 and
@@ -395,25 +390,25 @@
   candidates with the default page size 5 do not abort. The vertical layout hint
   is a bystander (Horizontal throws at the same index). Not local: the installed
   0.1.0 addon against `/usr/share/hunmin` aborts identically. The issue's
-  `hunmin_suggest_text` reading is refuted — it is a bounded read that does not
-  rebuild — and a separate cross-context clobbering of the process-wide
+  `hunmin_suggest_text` reading is refuted ??it is a bounded read that does not
+  rebuild ??and a separate cross-context clobbering of the process-wide
   candidate list is recorded alongside it. **No ruling:** what the page size
   should be, or whether labels should be supplied, is the maintainer's.
 - **New procedure.** `tools/repro-f9-candidates.sh`: the full stack under Xvfb
   with classicui enabled, which no ctest tier is. It carries the two findings
   that cost time here: `XK_F9` is 0xFFC6 (0xFFC2 is F5), and `FCITX_LOG_RULE` is
-  not read by fcitx5 — the rule is `--verbose`, and `tests/e2e/run-d3.sh`'s
+  not read by fcitx5 ??the rule is `--verbose`, and `tests/e2e/run-d3.sh`'s
   export of it has never had any effect.
 - `wiki/index.md` listed the new page; total pages 29.
 - **Ruling applied (issue #45).** The maintainer ruled the F9 candidate page is
-  **capped at 10** — fcitx5's label ceiling — rather than holding the whole
+  **capped at 10** ??fcitx5's label ceiling ??rather than holding the whole
   list on one page with `setLabels()`. In the tree:
   `frontends/fcitx5/src/engine.cpp` carries a named `kMaxCandidatePageSize = 10`
   (named because the number is fcitx5's `regularLabelSize`, not a preference),
   and `frontends/fcitx5/test/testhunminui.cpp` asserts
-  `pageSize == min(totalSize, 10)` — measured red with the cap reverted
+  `pageSize == min(totalSize, 10)` ??measured red with the cap reverted
   ("page size is 67"), green with it. Verified end to end with classicui
-  enabled: 낙(11) and 간(67) no longer abort, and Page_Down reaches pages 2 and
+  enabled: ??11) and 媛?67) no longer abort, and Page_Down reaches pages 2 and
   3 with the cursor on the first candidate of each, Up wraps to the last, so
   the cap made nothing unreachable. **Not closed by the cap:** no ctest tier
   draws the F9 window, so the abort still cannot regress through `ctest` alone
@@ -424,10 +419,8 @@
 
 - **Two CI jobs red, and the causes are unrelated.** Measured on run 38398739533,
   and the same two on `master`: `debian (.deb artefact)` died at `dh_shlibdeps`
-  *after* all 63 tests had passed inside the package build —
-  `no dependency information found for
-  /lib/x86_64-linux-gnu/libFcitx5Core.so.7 (used by .../fcitx5/libhunmin.so)` —
-  while `windows` died before compiling a line,
+  *after* all 63 tests had passed inside the package build ??  `no dependency information found for
+  /lib/x86_64-linux-gnu/libFcitx5Core.so.7 (used by .../fcitx5/libhunmin.so)` ??  while `windows` died before compiling a line,
   `cl : command line error D8021: invalid numeric argument '/Wextra'`.
 - **The deb cause was measured, not guessed.** dpkg answers that question with
   `dpkg -S <library-file>` plus the owning package's `.symbols`/`.shlibs`, and the
@@ -436,25 +429,25 @@
   already encodes by passing `-d` to `dpkg-buildpackage`.
 - **The fix was chosen by measurement, before it was committed.** The CI shape
   reproduces locally with `--admindir` pointing at an empty dpkg database:
-  identical error, nonzero exit; `--ignore-missing-info` → rc 0.
-  `debian/shlibs.local` does not apply — still fails, in both the soname and the
+  identical error, nonzero exit; `--ignore-missing-info` ??rc 0.
+  `debian/shlibs.local` does not apply ??still fails, in both the soname and the
   absolute-path form the man page allows. So `debian/rules` gained one
   `override_dh_shlibdeps` line and one comment recording what it does not assert.
   It is not a blanket waiver: the flag skips only what cannot be *resolved*, and
   building the .deb on this host (fcitx5 packaged) still produces
   `Depends: ... libfcitx5core7 (>= 5.1.19) ...`. Only on a source-built host do
-  those three drop out, leaving `Depends: fcitx5` — unversioned, where the addon
+  those three drop out, leaving `Depends: fcitx5` ??unversioned, where the addon
   needs >= 5.1.13. That gap is a packaging decision and is left open.
 - **A second deb failure, invisible until the first was fixed.** With
   `dh_shlibdeps` past, the build ran all 63 tests and wrote
-  `../hunmin_0.1.0_amd64.deb` — and the *next* step failed:
+  `../hunmin_0.1.0_amd64.deb` ??and the *next* step failed:
   `Invalid pattern '../hunmin_*_*.deb'. Relative pathing '.' and '..' is not
   allowed.` `upload-artifact@v4` refuses a pattern reaching above the
   workspace, so the package is now copied into `artifacts/` before the upload.
   Worth writing down for the reason it is a finding rather than a nuisance: a
   job cannot report a second failure until the first one is gone, so "the job
   is nearly green" is a claim about the order defects appear in. The same step
-  also printed `tar subprocess returned error exit status 2` — that was EPIPE
+  also printed `tar subprocess returned error exit status 2` ??that was EPIPE
   from `dpkg-deb --contents | head`, not a broken package, and it masked the
   step's exit status into the bargain; it now goes through a file.
 - **Ruling applied (issue #51, item 2).** "for windows, it is not scope of this
@@ -469,12 +462,12 @@
   and that "CI carries the burden from day one" for P6; its job table was two
   jobs out of date. `docs/TESTING.md`'s ABI bullet claimed "CI builds the core
   on linux-gcc, mingw and MSVC". All three are corrected, and
-  `docs/OPTIONS-MEASURED.md` §6.1's "four jobs, no nightly" is corrected
+  `docs/OPTIONS-MEASURED.md` 짠6.1's "four jobs, no nightly" is corrected
   with them. While the job is disabled, **no job compiles the core with `cl`**.
 - **Not done, deliberately, and tracked elsewhere:** whether the F9 candidate
   window gets a ctest tier, a CI job, or neither is a tier-design decision. It
-  was item 1 of issue #51; at the maintainer's instruction — "F9 테스트는 별도
-  이슈로 등록하고 이 작업 범위에서 제외." — it is now **issue #53**, and its
+  was item 1 of issue #51; at the maintainer's instruction ??"F9 ?뚯뒪?몃뒗 蹂꾨룄
+  ?댁뒋濡??깅줉?섍퀬 ???묒뾽 踰붿쐞?먯꽌 ?쒖쇅." ??it is now **issue #53**, and its
   board row is untouched and still asserts `absent`. #51 keeps only the windows
   job, and its title says so. See
   [[2026-10-13-f9-candidate-window-abort]] for what the cap did not close, and
@@ -498,27 +491,27 @@
 ## [2026-10-15] create | F9 candidate window gets a ctest tier (issue #53)
 
 - **New measurement.** `raw/measurements/2026-10-15-f9-candidate-ctest-tier.md`
-  (issue #53): built the option-A disposition — `engine-d3-candidate`, a
+  (issue #53): built the option-A disposition ??`engine-d3-candidate`, a
   tier-D3 variant with classicui enabled, so the F9 candidate window is drawn
   for real and the #45 abort is reachable from `ctest`. Measured red with the
   cap reverted: `CommonCandidateList: invalid label idx`, fcitx5 SIGABRT
   (core dumped). Records the three per-case assertions, the two injector
-  facts (named keys must be braced — a bare `Return` is six Latin keys; F9
-  opens the window asynchronously — a Return at 40ms lands before
+  facts (named keys must be braced ??a bare `Return` is six Latin keys; F9
+  opens the window asynchronously ??a Return at 40ms lands before
   `candidateActive()`), and a Down/Page_Down drift between the #45 wiki
   sentence and the engine's arrow handler, recorded not adjudicated. The
   disposition is the maintainer's to confirm or overturn; see
   [[decisions-belong-to-the-maintainer]].
-- `wiki/index.md` listed the page under Raw — measurements.
-- `wiki/decisions/2026-10-16-0-1-distribution-channel-github-release.md` — the
+- `wiki/index.md` listed the page under Raw ??measurements.
+- `wiki/decisions/2026-10-16-0-1-distribution-channel-github-release.md` ??the
   channel ruling issue #7 asked for: a GitHub Release on tag `0.1.0` with the
   `.deb` attached. Records the cost of the three options the issue named as
-  comparable, and what the ruling does not close — no tag or release exists, so
+  comparable, and what the ruling does not close ??no tag or release exists, so
   the channel is still unverified from a clean machine; the `.deb` is unsigned;
   the signed APK stays blocked on issue #1. The procedure lives in
-  `docs/MILESTONES.md` §0.1, not here.
+  `docs/MILESTONES.md` 짠0.1, not here.
 - `wiki/index.md` listed the page under Decisions.
-- `wiki/decisions/2026-10-16-the-repository-is-private-until-after-0.2.md` — the
+- `wiki/decisions/2026-10-16-the-repository-is-private-until-after-0.2.md` ??the
   maintainer ruled `scobyseo/hunmin` stays private through 0.1, public after 0.2.
   Records the measurement that prompted it (release published, `.deb` correct at
   1,252,740 bytes, asset URL and release page both 404 unauthenticated), that #7
@@ -526,19 +519,19 @@
   documents are read by a stranger, and the 0.1 `.deb` already ships a
   `README.md.gz` claiming no release existed. `tools/release-0.1.sh` now verifies
   reachability unauthenticated against actual repository visibility.
-- `wiki/raw/sessions/2026-10-17-issue-72-buffering-docs-closure.md` — issue #72's
+- `wiki/raw/sessions/2026-10-17-issue-72-buffering-docs-closure.md` ??issue #72's
   doc work completed on the maintainer's direction to add no new issue: the
   four `TSF-BUFFERING-72` assertion rows (the board named #72 nowhere while the
   issue's own REMAINING-WORK deliverable was open), and the design-doc drift
-  correction — `docs/WINDOWS-TSF-BUFFERING.md` claimed `ITfInsertAtSelection`
+  correction ??`docs/WINDOWS-TSF-BUFFERING.md` claimed `ITfInsertAtSelection`
   and `EndComposition`, but the shipped adapter inserts via a synchronous
   edit session's `ITfRange::SetText` (`FlushSession`, `DeactSession`) and never
   opens an inline composition; the doc now describes the shipped mechanism.
   TAT measurement and a ctest TSF tier remain open under milestone B (#65),
   recorded on the row, not hidden. The issue close itself is left to the
   maintainer.
-- `wiki/index.md` listed the page under Raw — sessions.
-- `wiki/raw/sessions/2026-10-17-tsf-scaffold-milestone-a-verification.md` — the
+- `wiki/index.md` listed the page under Raw ??sessions.
+- `wiki/raw/sessions/2026-10-17-tsf-scaffold-milestone-a-verification.md` ??the
   pre-close verification pass over issue #64: the milestone-A branch was a
   rebase no-op because master had already absorbed the scaffold (plus the
   PR-#76 buffering adapter beyond A), the MSVC and llvm-mingw build
@@ -547,8 +540,8 @@
   host-fact corrections it drove through `docs/ENVIRONMENT.md`,
   `docs/MILESTONES.md` and `docs/REMAINING-WORK.md` (with new TSF assertion
   rows). The issue close itself is left to the maintainer.
-- `wiki/index.md` listed the page under Raw — sessions.
-- `wiki/decisions/2026-10-16-release-gate-all-tests-pass.md` — addendum, not a
+- `wiki/index.md` listed the page under Raw ??sessions.
+- `wiki/decisions/2026-10-16-release-gate-all-tests-pass.md` ??addendum, not a
   rewrite: the maintainer's 2026-10-17 instruction unregistered
   `data-selfcheck` from ctest (not touched before its own dev stage; red on
   every pass on the Windows host), so the gate's exception list holds
@@ -557,11 +550,11 @@
 
 ## [2026-10-17] create | clang-format retuned to the tree's own style, applied once (issue #77)
 
-- `wiki/raw/sessions/2026-10-17-clang-format-retune-option-2.md` — the
+- `wiki/raw/sessions/2026-10-17-clang-format-retune-option-2.md` ??the
   implementation pass over issue #77: the maintainer's ruling (option 2,
   steered "ideal for AI workload") kept verbatim, the churn ladder that
-  selected `ColumnLimit: 0` (retuned limit-100 1491 → limit-0 without
-  `AllowShort*` 1673 → limit-0 with them 853 `-w` lines; trailing-comment
+  selected `ColumnLimit: 0` (retuned limit-100 1491 ??limit-0 without
+  `AllowShort*` 1673 ??limit-0 with them 853 `-w` lines; trailing-comment
   alignment measured a no-op under limit 0), the `.clang-format-ignore` probe
   and the `--style=file:<path>` trap, the split configs landing
   (root C core, `frontends/fcitx5`, `frontends/tsf` after `tsf.cpp` fell
@@ -569,58 +562,56 @@
   inner-loop ctest, idempotent second pass, vendored and generated trees
   excluded. The issue close is the maintainer's; see
   [[decisions-belong-to-the-maintainer]].
-- `wiki/index.md` listed the page under Raw — sessions.
+- `wiki/index.md` listed the page under Raw ??sessions.
 
 ## [2026-10-17] update | .clang-format-ignore directory patterns need the ** glob (issue #77)
 
-- `wiki/raw/sessions/2026-10-17-clang-format-retune-option-2.md` — the first
+- `wiki/raw/sessions/2026-10-17-clang-format-retune-option-2.md` ??the first
   full `-n` sweep caught the ignore file's directory pattern `data-orig/`
   failing to match files inside the directory; the glob form `data-orig/**`
   does. The rule and the probe measured with hangulctype.c/cJSON.c/tables.c
   are recorded on the session page; the committed `.clang-format-ignore` uses
   the glob form in the same pass.
-- `wiki/raw/sessions/2026-10-17-milestone-c-layout-wiring-data-loading.md` —
-  milestone C (issue #66): the HKCU layout-pair store mirroring the fcitx5
+- `wiki/raw/sessions/2026-10-17-milestone-c-layout-wiring-data-loading.md` ??  milestone C (issue #66): the HKCU layout-pair store mirroring the fcitx5
   config, slot validation by supported+mode, the single-source data rule
-  (measured: the additive chain double-loaded a staged tree, 15 files →
-  layout_count 30), tier-F1 additions `tsf-config-test` / `tsf-datadir-test`
+  (measured: the additive chain double-loaded a staged tree, 15 files ??  layout_count 30), tier-F1 additions `tsf-config-test` / `tsf-datadir-test`
   and the dubeolsik win32 trace (gold reviewed 400/400 vs tier A), and the
-  measured tier-registration drift — the standalone frontends/tsf configure
+  measured tier-registration drift ??the standalone frontends/tsf configure
   had been registering zero F1 tests until `enable_testing()` and the
   executable-keyed Python3 guard landed.
 
-## [2026-10-17] create | Settings dialog — WinUI 3 exe (issue #71)
+## [2026-10-17] create | Settings dialog ??WinUI 3 exe (issue #71)
 
-- `wiki/raw/sessions/2026-10-17-settings-dialog-winui-exe.md` — the maintainer
+- `wiki/raw/sessions/2026-10-17-settings-dialog-winui-exe.md` ??the maintainer
   ruling executed: the separate WinUI 3 settings exe. Carries the measured
-  window sizes (exe 545x674 px, interim dialog 493x434 px — "compact" as a
+  window sizes (exe 545x674 px, interim dialog 493x434 px ??"compact" as a
   number), the ResizeClient-DPI-factor and XamlCompiler host quirks, the one
-  binding by key capture ("키 입력 방식"), the publish 495 files / 167.4 MiB
+  binding by key capture ("???낅젰 諛⑹떇"), the publish 495 files / 167.4 MiB
   figure for #68, and the still-open device-bound and maintainer-sizing
   questions.
-- `wiki/raw/sessions/2026-10-18-milestone-d-candidate-edit-mode-ux.md` — issue
+- `wiki/raw/sessions/2026-10-18-milestone-d-candidate-edit-mode-ux.md` ??issue
   #67's milestone D: candidate window + Hanja key store + hook-based key
   capture + the screen-presence defect roots (Mica, ownerless rundll32) +
   Start-menu entry + conversion compartment + system-langbar menu
-  extension + the krdict (ko,hanja) dedupe (34,142 → 33,184); overturned:
+  extension + the krdict (ko,hanja) dedupe (34,142 ??33,184); overturned:
   the langbar surface measured closed (reference-item probe), the sink
   direction; pending: last-syllable fallback, mode-persist, re-register,
   CI billing.
 ## [2026-10-18] create | CTRL/ALT chord in hangul mode ruled: transient, no mode switch (issue #101)
 
 - **New decision.** `decisions/2026-10-18-tsf-chord-transient-not-persistent.md`:
-  the maintainer ruled in an issue-#101 comment — "will not switch mode;
+  the maintainer ruled in an issue-#101 comment ??"will not switch mode;
   transient processing is enough." The shipped chord rule (commit the pending
   preedit through the boundary flush, close the candidate window, pass the
   chord to the app uneaten) already matches, so the ruling adds no code; the
   mode-persist alternative recorded since the milestone-D session is closed.
 - What the ruling does not close, recorded on the page: the tier-F1
-  behavioural pin (trace-emit.cpp injects only the Shift bit — a ctrl/alt
+  behavioural pin (trace-emit.cpp injects only the Shift bit ??a ctrl/alt
   chord case waits on the trace-spec.md mods bits), and the chord-chain order
   ahead of the chord block (candidate-window keys see modifiers; the chord
-  flush can land on the Ctrl keydown itself) — read off the code, not measured.
+  flush can land on the Ctrl keydown itself) ??read off the code, not measured.
 - The ruling was given on the issue, not in a session record, like issue #9's
-  ruling in the worktree session — the issue is the surviving source.
+  ruling in the worktree session ??the issue is the surviving source.
 - `wiki/index.md` listed the page; total pages 43.
 
 ## [2026-10-19] create | TSF native composition preedit (issue #98)
@@ -636,11 +627,11 @@
 ## [2026-10-19] create | The test-framework migration, ruled and shipped (issue #109)
 
 - Session page for the day the framework question became a ruling and then
-  the tree: option 1b (FetchContent, not vendored — the issue's
+  the tree: option 1b (FetchContent, not vendored ??the issue's
   "disqualification" did not survive measurement), the engine tier-A trio
   under gtest, the four TSF runner groups merged into one executable with
   one add_test and the rc-77 probes outside the binary, the never-shrinks
-  gate amended (59 → 56 on the MSVC tree), and the two host lessons (the
+  gate amended (59 ??56 on the MSVC tree), and the two host lessons (the
   :UNINITIALIZED cache suffix that revived the #86 hunmin.lib failure;
   -static for llvm-mingw test binaries). The fcitx5 trio is deliberately
   absent, tracked as issue #118.
@@ -753,9 +744,9 @@
   wikilinks each, and an `index.md` entry.
 - `tools/wiki-lint.py`'s page set widened to include root-level content pages
   (`wiki/`); framing pages (`index.md`, `log.md`, `SCHEMA.md`) are excluded by
-  name. Page count moved 58 → 60.
+  name. Page count moved 58 ??60.
 - `wiki/test-scenario-guide.md`: the tier table contradicted `docs/TESTING.md`;
-  replaced with a pointer to `§The vocabulary` and the three specific errors
+  replaced with a pointer to `짠The vocabulary` and the three specific errors
   named (tier-B, tier-D, E3).
 - `wiki/ci-android-lessons.md`: the Recommended CI Flow section and the tier-job
   mapping corrected to match the workflow and `docs/TESTING.md` (automated
@@ -765,7 +756,7 @@
 - `tools/docs-lint.py`: the cross-check of index.md's page count removed.
 - Also: `docs/REQ-MAP.md` re-pointed after heading renames.
 
-Verified: `python tools/wiki-lint.py` → 60 pages, 0 errors; `python tools/docs-lint.py` → 0 errors.
+Verified: `python tools/wiki-lint.py` ??60 pages, 0 errors; `python tools/docs-lint.py` ??0 errors.
 
 ## [2026-10-27] create | The #107 mock-surface session page
 
@@ -811,7 +802,7 @@ both 0 errors.
 - `tools/gen-conformance.py`: a caps case is now EXCLUDED for win32 instead of
   being emitted at `mods: 0` with a caps-on expectation (the blanket
   `unsupported -= {"caps"}` washed the refusal it had just recorded; measured
-  failure — composed 고 where tier A records commit ㄱ + preedit ㅋ), and the
+  failure ??composed 怨?where tier A records commit ??+ preedit ??, and the
   exclusion is written into `meta.excluded`.
 - `docs/trace-spec.md`: `meta.excluded` documented as a meta field.
 - `docs/TESTING.md` tier F1: the corpus breadth, the measured counts and the
@@ -825,15 +816,15 @@ both 0 errors.
 Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 `python3 tools/wiki-lint.py` (0 errors).
 
-## [2026-10-31] create | E5's assignment ruled: modifier + 한/영, default and remappable (#159)
+## [2026-10-31] create | E5's assignment ruled: modifier + ???? default and remappable (#159)
 
 - `wiki/decisions/2026-10-31-han-eng-modifier-compound-special-functions.md`: the
   maintainer's two sentences verbatim (compound = the special-function namespace, on all
   three frontends; default behaviour, composition selectable in the config dialog), and
   the sub-decisions that were *not* made, listed rather than absorbed.
-- Consequential updates, not wiki actions: `docs/SPEC-MODES.md` §E5 (assignment decided
-  → `[D]`, remaining parameters named), `docs/DESIGN-MODES.md` §3 (the hook's
-  allocation), `docs/OPTIONS-MEASURED.md` §E5 header row (§E5-3's option 1/2 family is
+- Consequential updates, not wiki actions: `docs/SPEC-MODES.md` 짠E5 (assignment decided
+  ??`[D]`, remaining parameters named), `docs/DESIGN-MODES.md` 짠3 (the hook's
+  allocation), `docs/OPTIONS-MEASURED.md` 짠E5 header row (짠E5-3's option 1/2 family is
   what was chosen; the modifier-per-function slot stays open), `docs/REMAINING-WORK.md`
   B4 (the "assignment still open" clause is superseded).
 - No implementation: the tree has no `autoswitch` option and no compound hook on any of
@@ -846,7 +837,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   it leaves open (F9 as an accepted alternate, because the conformance corpus drives it;
   and the store question it shares with the E5 assignment).
 - What already matched, recorded rather than re-implemented: TSF's `hanjaKey` default is
-  the bare Hanja key (`docs/SPEC-TSF.md` §TSF9, issue #67) and Android carries
+  the bare Hanja key (`docs/SPEC-TSF.md` 짠TSF9, issue #67) and Android carries
   `KEYCODE_EISU` as a `platformAlternates` entry, while Android's *row* reads "not set"
   because it is an alternate and not a default.
 
@@ -855,37 +846,37 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - `wiki/decisions/2026-10-31-special-functions-engine-resolved-frontend-implemented.md`:
   the maintainer's paragraph verbatim (frontend supplies key codes, engine processes and
   invokes the frontend interface, an unsupported platform refuses), the five-symbol shape
-  that implements it, and the four things it leaves open — the per-function default chord
+  that implements it, and the four things it leaves open ??the per-function default chord
   most of all, because choosing it per frontend is the divergence the ruling removes.
 
 ## [2026-11-01] update | B1's question was answered elsewhere (#161)
 
-- `wiki/decisions/the-outstanding-decisions.md`: D1 carries a dated status — §ReqMode8
-  ruled option (c) and the English half was ruled by §ReqMode8, so the table is the
+- `wiki/decisions/the-outstanding-decisions.md`: D1 carries a dated status ??짠ReqMode8
+  ruled option (c) and the English half was ruled by 짠ReqMode8, so the table is the
   record of the evidence, not the current definition; D2 records that its krdict/`pos`
-  route left the scope boundary and §ReqMode8 removed the need for it. Neither is
+  route left the scope boundary and 짠ReqMode8 removed the need for it. Neither is
   retired here: the board row's fate is issue #161, priced in
-  `docs/OPTIONS-MEASURED.md` §B1.
+  `docs/OPTIONS-MEASURED.md` 짠B1.
 
-## [2026-11-01] rule | B1 retired — the Hangul judgement needs no source (#161)
+## [2026-11-01] rule | B1 retired ??the Hangul judgement needs no source (#161)
 
 - `wiki/decisions/2026-11-01-b1-retired-the-hangul-judgement-needs-no-source.md`:
   the maintainer's "want to select A" verbatim. The row had been emptied by
-  §ReqMode8 (structure test, no lookup) and §ReqMode8 (the English source, shipped,
-  #160 closed) — neither of which the board or MILESTONES mentioned, which is why
+  짠ReqMode8 (structure test, no lookup) and 짠ReqMode8 (the English source, shipped,
+  #160 closed) ??neither of which the board or MILESTONES mentioned, which is why
   a decided question kept reading as the root of five blocked rows.
-- Propagated the same day: board §1's B1 row, §2 retitled and restated per item,
+- Propagated the same day: board 짠1's B1 row, 짠2 retitled and restated per item,
   the voice stage 8 row, the assertion table's decision-blocked comment,
   MILESTONES' "hostage to B1" lines, and PLAN's P8 "judgement source" row.
-- Left open and named: the corpus-list delete-or-keep question §ReqMode8 wrote down,
-  E1's lack of an owner, and §ReqMode8's stale "left open" sentence against ReqMode9.
+- Left open and named: the corpus-list delete-or-keep question 짠ReqMode8 wrote down,
+  E1's lack of an owner, and 짠ReqMode8's stale "left open" sentence against ReqMode9.
 
-## [2026-11-01] rule | 옛한글 layouts get the widened validity rule, per layout (#166)
+## [2026-11-01] rule | ?쏇븳湲 layouts get the widened validity rule, per layout (#166)
 
 - `wiki/decisions/2026-11-01-old-hangul-layouts-get-the-widened-rule.md`: the
-  maintainer's "it is optional for layouts which support 옛한글" verbatim. The rule
-  is unchanged and only the jamo sets widen, so `랴ㅜㄷ` stays invalid while `ᅀᅡ`
-  `ᅌᅵ` `ᅀᅡᆶ` `ᄀᆞ` — what the 옛글 layouts actually render — are valid.
+  maintainer's "it is optional for layouts which support ?쏇븳湲" verbatim. The rule
+  is unchanged and only the jamo sets widen, so `?담뀥?? stays invalid while `???
+  `?뚡뀿` `??■넼` `??? ??what the ?쏄? layouts actually render ??are valid.
 - Measured before choosing the shape: six of fifteen layouts can emit an archaic
   jamo (a key-value scan that reads only JSON strings under-reports at five,
   because the values are nested `case` expressions), and the composer never
@@ -912,9 +903,9 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   added it to `index.md`.
 - Corrected `decisions/2026-11-01-the-engine-judges-the-frontend-switches.md`:
   ReqMode9's threshold unit is **key inputs**, named by the maintainer
-  ("3. 키입력 세개로 명확히 하자."), not the `3자` the page had repeated from the
-  ruling's wording. Same correction in `docs/SPEC-MODES.md` §ReqMode9/§E3 and
-  `docs/OPTIONS-MEASURED.md` §MRO/§BND-3.
+  ("3. ?ㅼ엯???멸컻濡?紐낇솗???섏옄."), not the `3?? the page had repeated from the
+  ruling's wording. Same correction in `docs/SPEC-MODES.md` 짠ReqMode9/짠E3 and
+  `docs/OPTIONS-MEASURED.md` 짠MRO/짠BND-3.
 - Created `decisions/2026-11-01-one-dict-by-default-the-release-page-later.md`
   (issue #172 ruled: "Recommends.", one dict by default because there is no
   additional distribution mechanism, the GitHub release page as the candidate
@@ -926,7 +917,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 ## [2026-11-01] create | Syllable commit turns autoswitch off
 
 - The maintainer's ruling on the dependency issue #171's measurement exposed
-  (§BND-7: the digit run belongs to the buffered policy): reconcile the two
+  (짠BND-7: the digit run belongs to the buffered policy): reconcile the two
   settings when they are written, switch autoswitch off at run time while
   syllable-unit commit is on, and name the reason in the debug output. Quoted
   verbatim; the page records the three obligations and the two things it leaves
@@ -935,7 +926,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 ## [2026-11-02] create | The interim delivery cannot support autoswitch, and ON stops the English passthrough
 
 - The two rulings from the maintainer's message that answered issue #175's findings,
-  quoted verbatim: the interim delivery cannot carry the switch (structural — the word
+  quoted verbatim: the interim delivery cannot carry the switch (structural ??the word
   leaves the layer per key, so there is nothing whole to judge), and with the switch ON
   English stops passing through so ReqMode8's E1 line reaches the engine. The page records
   what each authorises and the three things neither decides (the settings row on a host
@@ -958,17 +949,17 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   [[2026-10-12-auto-toggle-disabled-by-default-in-0-1]], which now carries a
   dated supersession section rather than a rewritten body.
 
-## [2026-11-02] create | SPEC-MODES §4 splits into an invariant and a metric
+## [2026-11-02] create | SPEC-MODES 짠4 splits into an invariant and a metric
 
 - Created `decisions/2026-11-02-spec-modes-4-splits-into-an-invariant-and-a-metric.md`
-  from the #179 ruling ("문장을 명확하게 바꿔볼까? 그러고 나서 요구사항 아이디를
-  붙이든지 하자"): §ReqMode14 added to `docs/SPEC-MODES.md` §1 with its `REQ-MAP` row
-  (parent A2, `engine-off-identity`), §4's two bullets rewritten to point at ReqMode14
-  and at ③ in `docs/MODES-METRICS.md` §1.3, and the reading-order table extended.
+  from the #179 ruling ("臾몄옣??紐낇솗?섍쾶 諛붽퓭蹂쇨퉴? 洹몃윭怨??섏꽌 ?붽뎄?ы빆 ?꾩씠?붾?
+  遺숈씠?좎? ?섏옄"): 짠ReqMode14 added to `docs/SPEC-MODES.md` 짠1 with its `REQ-MAP` row
+  (parent A2, `engine-off-identity`), 짠4's two bullets rewritten to point at ReqMode14
+  and at ??in `docs/MODES-METRICS.md` 짠1.3, and the reading-order table extended.
 
-## [2026-11-02] update | SPEC-MODES §4 splits into an invariant and a metric
+## [2026-11-02] update | SPEC-MODES 짠4 splits into an invariant and a metric
 
-- ReqMode15 added (`The switch costs no word`), §4 removed and `# 5` renumbered to
+- ReqMode15 added (`The switch costs no word`), 짠4 removed and `# 5` renumbered to
   `# 4`, `docs/REQ-MAP.md` at 81 rows, and the verification landed: the
   judgement corpus is now driven through the off path as pairs
   (`hunmin-sim --off-check`, 120 files / 4617 keys / 18752 comparisons) plus
@@ -979,13 +970,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 
 - Created `raw/sessions/2026-11-03-x11-corpus-replays-every-tier-a-case.md` and
   added it to `index.md`: the issue's premise (corpus generated before the
-  goldens gained cases) measured wrong — `git log` shows one commit per golden
+  goldens gained cases) measured wrong ??`git log` shows one commit per golden
   since the import, and commit c773fdd had dropped 22 traces deliberately for
   word buffering (#74), the same set win32 then replayed.
 - The fix is a field, not a re-emit: `tools/gen-conformance.py` derives
   `commit_mode: syllable` from the golden (a commit on a consumed key) and
   `frontends/fcitx5/test/trace-emit.cpp` runs under that policy, so the 22
-  traces match tier A verbatim — 87 -> 109 traces, 263 events, `.in` identical
+  traces match tier A verbatim ??87 -> 109 traces, 263 events, `.in` identical
   to `.gold` on all of them, the 87 previously committed traces regenerating
   byte-identically.
 - Added `tools/conformance-coverage.py` and ctest `conformance-coverage`
@@ -994,7 +985,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   the corpus from goldens. Verified falsifiable by deleting a trace and by
   planting a stray one.
 - Recorded, not resolved: `engine-d1-judgement` is red at this commit on this
-  host (the ReqMode9 control case delivers `ㅏ됴` where the corpus expects `key`,
+  host (the ReqMode9 control case delivers `?뤿맭` where the corpus expects `key`,
   judgement data present), and the `slow` tier measures 94 s against its 60 s
   budget with `engine-d3-edit` at 95 s alone.
 
@@ -1003,7 +994,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Merged the eight tier probes into a single 25-event case after measuring that
   they were not independent in any way that mattered: every one already ended
   with an empty buffer, and `hunmin-sim --check` replays the merged golden
-  identically (`docs/SPEC-P2.md` §P2 gate corpora carries the finding).
+  identically (`docs/SPEC-P2.md` 짠P2 gate corpora carries the finding).
 - The split's only products were failure attribution and a grep-able map of
   which UserKeyTable cells are sampled; the tier-leak bug it once caught needed
   a case ending MID-tier, which none of these did. Corpus 109 -> 102 traces,
@@ -1017,11 +1008,11 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 
 - Added `tools/tier-c-wiring-coverage.py`: per dialect and layout it reports keys
   pressed vs mapped, consumed vs passed, modifier states, commit policies and
-  which tier-A families are replayed at all. A report, not a gate — a gap is a
+  which tier-A families are replayed at all. A report, not a gate ??a gap is a
   statement about the corpus, and widening it is a decision.
 - `docs/TESTING.md` tier C now carries the metric and the measured table, and
   the sentence "the 102 traces prove the adapter applies it" is gone: the x11
-  dialect never declines a key (0 of 263 events), presses 24/47 · 14/47 · 19/47
+  dialect never declines a key (0 of 263 events), presses 24/47 쨌 14/47 쨌 19/47
   layout keys, and reaches none of `0`, `2`-`9`. android has 4 declined events,
   win32 198; the dialects replay 9 / 8 / 1 families.
 - Board: `TIER-C-WIRING-DECLINE` and `TIER-C-WIRING-DIGITROW`, both `path-absent`,
@@ -1039,8 +1030,8 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `.in` identical to its `.gold`.
 - **A prediction was wrong:** I said merging would change file count and not
   coverage. Measured after: x11 `passed` went 0 -> 92, because the boundaries
-  are declined keys — the pass-through half of FRONTEND-CONTRACT invariant 3 is
-  now observed on x11 for the first time. Key coverage (24/47 · 14/47 · 19/47)
+  are declined keys ??the pass-through half of FRONTEND-CONTRACT invariant 3 is
+  now observed on x11 for the first time. Key coverage (24/47 쨌 14/47 쨌 19/47)
   is unchanged, as predicted: a merge cannot press a key the corpus never
   pressed, so issue #229's digit-row gap stands.
 - `manual-sin3-p2-yet` keeps two traces (one case runs with `caps` on); the
@@ -1048,10 +1039,10 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `TIER-C-WIRING-DECLINE` narrows to arrows / BackSpace-on-empty / unmapped
   characters.
 
-## [2026-11-03] update | 세벌식 최종's ten cases become one file
+## [2026-11-03] update | ?몃쾶??理쒖쥌's ten cases become one file
 
-- a1ba784 added ten per-case traces for 세벌식 최종 — the family the corpus had
-  no trace for at all — against the policy the previous entry established. The
+- a1ba784 added ten per-case traces for ?몃쾶??理쒖쥌 ??the family the corpus had
+  no trace for at all ??against the policy the previous entry established. The
   policy is one trace per family, so they were merged the same day:
   `tools/merge-golden-cases.py tests/golden/case-sebeolsik-final.jsonl --write`
   reports 10 cases -> 1 with `hunmin-sim --check` replaying it identically, and
@@ -1059,7 +1050,7 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Verified rather than assumed: the merged trace's 62 events are the ten old
   traces' 53 events plus 9 boundaries, and its `meta.delivery.total` is byte-
   identical to the concatenation of the ten old per-case totals
-  (`안녕한글값많ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋㄲㄺㅈㄿㄾ1230ᄀᅠᆫ가.4"~`). Corpus 20 traces ->
+  (`?덈뀞?쒓?媛믩쭖?롢뀊?귙뀤?졼뀘?뽧뀬?쒌뀑?꿔꽯?덀꽴??230??졹넫媛.4"~`). Corpus 20 traces ->
   11, events 408 -> 417, `passed` 100 -> 109 (all boundary spaces); key
   coverage unchanged at 22/47, as it must be.
 - Cost, stated: a red tier-C test now names an event index instead of
@@ -1069,54 +1060,52 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `TRACE-X11-BOUNDARY-220` / `TIER-C-WIRING-DECLINE` rows re-point at the one
   file; `req-map`, `docs-lint` and `wiki-lint` all green.
 
-## [2026-11-03] update | 두벌식 and 신세벌식 P2 get designed families
+## [2026-11-03] update | ?먮쾶??and ?좎꽭踰뚯떇 P2 get designed families
 
 - Same shape for the other two layouts whose identity is an ARRANGEMENT:
   `tests/golden/case-dubeolsik.jsonl` and `case-sin3-p2.jsonl`, eleven cases
   each, from `tools/gen-case-golden.py` (expectations read back from the engine,
-  never typed), each merged to ONE trace by `tools/merge-golden-cases.py` — the
+  never typed), each merged to ONE trace by `tools/merge-golden-cases.py` ??the
   one-file-per-family policy, applied before the files could multiply.
-- 두벌식's identity is the opposite arrangement and, for the frontend tier, the
+- ?먮쾶??s identity is the opposite arrangement and, for the frontend tier, the
   thing no family stated: it maps 26 letters and NOTHING else, so its digits,
   shifted digits and `.` are DECLINED and reach the client. P2's is the
-  갈마들이 core (`cq` two initials vs `cQ` one 겹받침; `s` is ᅨ in the jung slot
-  and ᆫ in the jong slot), 종성 on its own letter key, the 2024 받침 rule, and a
+  媛덈쭏?ㅼ씠 core (`cq` two initials vs `cQ` one 寃밸컺移? `s` is ??in the jung slot
+  and ??in the jong slot), 醫낆꽦 on its own letter key, the 2024 諛쏆묠 rule, and a
   number row spent on literal digits.
 - Measured: corpus 11 traces / 417 events -> 13 / 589; x11 `passed` 109 -> 159
-  (the 두벌식 family's declined characters are the new ones); key coverage
+  (the ?먮쾶??family's declined characters are the new ones); key coverage
   sin3-p2 24/47 -> 32/47, dubeolsik 0 -> 14/26, sebeolsik-final 22/47 unchanged.
   Both new families replay under tier A's own policy, so `.in` == `.gold`; the
   word-buffered model stays the sebeolsik family's assertion.
 - Board: `TIER-C-WIRING-DECLINE` now records two kinds of declined key (space and
   the characters a layout does not map) with an arrow and BackSpace-on-empty
   left; `TIER-C-WIRING-DIGITROW` narrows to `4`-`9`. `docs/HOWTO-NEW-LAYOUT.md`
-  §4 carried a contradiction with the merge policy ("a golden that concatenates
+  짠4 carried a contradiction with the merge policy ("a golden that concatenates
   cases is wrong") and now states the boundary rule instead.
 
 ## [2026-11-03] fix | the golden schema's `"shift": true` is interpreted
 
 - The field has been written since #90 (`0d6e6cb`, 2026-10-18): `\s<char>`
-  records `{"ch": base, "shift": true}` in `--trace`. Nothing ever read it —
-  `git log -S'"shift"' -- tools/gen-conformance.py` is empty, and
+  records `{"ch": base, "shift": true}` in `--trace`. Nothing ever read it ??  `git log -S'"shift"' -- tools/gen-conformance.py` is empty, and
   `hunmin-sim --check` fed `hunmin_ic_process(ic, ch)` without the modifier.
   `docs/SPEC-SCHEMA.md`'s reference trace format documented neither spelling.
 - That was **unimplemented, not decided**. The record says the corpus keeps the
-  resolved-character spelling (`docs/OPTIONS-MEASURED.md` §IC-2-B: "keeps
+  resolved-character spelling (`docs/OPTIONS-MEASURED.md` 짠IC-2-B: "keeps
   emitting the legacy shape unless a dialect wants both"; the fcitx5 row: "its
-  case *is* the row selector"), and `docs/SPEC-P2.md` §"IC input entry points"
-  makes `(base, shift)` and the resolved character equal by construction —
-  which `ctest engine-process-key` asserts over every layout and row. Nothing
+  case *is* the row selector"), and `docs/SPEC-P2.md` 짠"IC input entry points"
+  makes `(base, shift)` and the resolved character equal by construction ??  which `ctest engine-process-key` asserts over every layout and row. Nothing
   says a checker may ignore the field.
 - Fixed in both readers: `tools/sim.c --check` routes a shifted event through
   `hunmin_ic_process_key(ic, ch, 1)`, and `tools/gen-conformance.py` resolves
   the field into the native character (`shift_char`), so tier C carries
   `FcitxKey_E`, not `e`.
-- Fixture: `tests/golden/shift-field.jsonl` (dubeolsik, e/ㄷ ㄸ, r/ㄱ ㄲ,
-  o/ㅐ ㅒ) plus its x11 trace, wired as tier-A `engine-golden-shift-field` and
+- Fixture: `tests/golden/shift-field.jsonl` (dubeolsik, e/???? r/????
+  o/???? plus its x11 trace, wired as tier-A `engine-golden-shift-field` and
   through `conformance-coverage`. Falsified both ways: the pre-fix
   `hunmin-sim` binary reports 6 MISMATCH lines on it, and a converter patched
-  to ignore the field aborts the adapter (`commitString: ㄷ` where ㄸ was
-  expected). The corpus's spelling is unchanged — resolved characters still.
+  to ignore the field aborts the adapter (`commitString: ?? where ??was
+  expected). The corpus's spelling is unchanged ??resolved characters still.
 
 ## [2026-11-03] create | tier C's x11 corpus takes the digit row and the declined BackSpace
 
@@ -1127,49 +1116,48 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `TIER-C-WIRING-DIGITROW` now assert present artefacts, `TIER-C-WIRING-ARROW`
   is new and stays `path-absent` on a ruling nobody has made.
 
-- **2026-11-04** — one coverage golden per layout (issue #227): the unit is
+- **2026-11-04** ??one coverage golden per layout (issue #227): the unit is
   (jamo, slot), the generator refuses to publish below `--require-modern`, and
-  four probe defects were found by numbers that would not move — a misaligned
-  batched answer, a two-key 초성 truncated to its first key (ㅉ = ㅈ twice), the
-  literal `\` key dropped from the alphabet (세벌식 no-shift's ㅋ), and a
+  four probe defects were found by numbers that would not move ??a misaligned
+  batched answer, a two-key 珥덉꽦 truncated to its first key (??= ??twice), the
+  literal `\` key dropped from the alphabet (?몃쾶??no-shift's ??, and a
   hand-written compose pair beating the measured one. Recorded because two of
   them had been reported to me as layout facts, and neither was. New pages:
   [[2026-11-04-coverage-golden-per-layout]]. Board rows added:
   `COVERAGE-SLOT-MODERN-227`, `COVERAGE-SLOT-PARTIAL-227`.
 
-- **2026-11-04** — the shared edit-key note at the repository root was
+- **2026-11-04** ??the shared edit-key note at the repository root was
   untracked, unowned and already executed: seven sequences (EK1-EK7), six of them
   asserted on fcitx5, Android and TSF, and the note's own "not yet" cells had
   been filled without anyone updating it. Recorded as
   [[2026-11-04-shared-edit-key-catalogue-was-executed]], the root file deleted
-  (no history was lost: it had none), and two board rows added —
-  `EDITKEY-CATALOGUE-95` and `EDITKEY-EK7-TSF`, the one real gap, which stays a
+  (no history was lost: it had none), and two board rows added ??  `EDITKEY-CATALOGUE-95` and `EDITKEY-EK7-TSF`, the one real gap, which stays a
   ruling rather than an agent's test. Also noted: the note's E1-E7 labels collide
   with the automatic-switch experiments, so the record uses EK1-EK7.
 
-- **2026-11-04** — issue #246's eight red `HunminAdapterTest` cases became one
-  real defect and seven wrong tests: two typed `dkss` and expected `안녕` (the
-  layer shows `안ㄴ`), two counted `sendKeyEvent` payloads the adapter never
+- **2026-11-04** ??issue #246's eight red `HunminAdapterTest` cases became one
+  real defect and seven wrong tests: two typed `dkss` and expected `?덈뀞` (the
+  layer shows `?덀꽩`), two counted `sendKeyEvent` payloads the adapter never
   sends (pass-through is the return value), one read `.last()` off an empty list,
   one reached the boundary with one BackSpace instead of four, and two asserted
   a candidate window this frontend does not have (F9 has no AOSP keycode).
   The real one: the layer's `toggle_language()` commits the pending word and
-  Android discarded it, so a 한/영 press lost the word being composed — TSF and
+  Android discarded it, so a ????press lost the word being composed ??TSF and
   fcitx5 both insert it. Fixed, and `no-toggle-delivery` is the tenth planted
   mutation. Tier E1: 156/156 green in 9 s; `android-mutations` 10 caught + 1
   recorded gap. The `slow` tier is over its 60 s budget with or without the new
-  mutation — recorded, not re-decided. New page:
+  mutation ??recorded, not re-decided. New page:
   [[2026-11-04-tier-e1s-eight-reds-were-seven-tests]]; board rows
   `EDITKEY-CATALOGUE-95`, `AND-SPECIAL-159`, `AND-SETTINGS-E1-177` re-measured.
 
 ## [2026-11-05] create | the settings row names the support condition (issue #215)
 
 - Decided by the maintainer: the TSF settings row reads
-  `자동 한/영 전환 (지원 앱에서만, Ctrl+한/영)`. The dialog has no host handle and
+  `?먮룞 ?????꾪솚 (吏???깆뿉?쒕쭔, Ctrl+????`. The dialog has no host handle and
   delivery is frontend state, so the label states the condition instead of
   guessing the running host's mode; the data-missing suffix is unchanged and the
-  fcitx5/Android labels stay `자동 한/영 전환`. Recorded in
-  `docs/FRONTEND-EQUIVALENCE.md` §2.1, pinned by
+  fcitx5/Android labels stay `?먮룞 ?????꾪솚`. Recorded in
+  `docs/FRONTEND-EQUIVALENCE.md` 짠2.1, pinned by
   `TsfSettingsTest.TheAutomaticSwitchRowComesFromTheEngine`.
 - New page: [[2026-11-05-the-settings-row-names-the-support-condition]].
   Updated the 2026-11-02 page's open-question bullet to point at it. Board row
@@ -1181,13 +1169,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   leave how to remeasure with new data and new approach." Executed in one change:
   `docs/MODES-DATA.md` and `docs/MODES-METRICS.md` deleted, the superseded
   2026-10-04 judgement measurement removed from `docs/SPEC-MODES.md`, and the five
-  modes sections of `docs/OPTIONS-MEASURED.md` (§EDW, §B1, §PAS, §MRO, §BND)
+  modes sections of `docs/OPTIONS-MEASURED.md` (짠EDW, 짠B1, 짠PAS, 짠MRO, 짠BND)
   deleted. `docs/MODES-MEASUREMENT.md` keeps the metric definitions, pass-line
   shapes, reproduction commands, corpus terms and harness rules, and carries no
   figures.
 - The maintainer quotes those papers held are not lost with them: four were
-  already recorded in decision pages, and the three that were not — the English
-  source, the buffer cap and ReqMode6's tier wording — got pages in this change.
+  already recorded in decision pages, and the three that were not ??the English
+  source, the buffer cap and ReqMode6's tier wording ??got pages in this change.
   New pages: [[2026-11-08-the-retired-corpus-measurement-is-deleted]],
   [[2026-11-01-the-english-source-is-hunspell-en-us-plus-a-user-dictionary]],
   [[2026-11-01-the-buffer-cap-is-256-bytes-configurable]],
@@ -1201,12 +1189,12 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - **D1 (frontend core-move):** the maintainer closed it as "no core move, record
   the seam as a contract". `docs/DESIGN-PHASE5-CORE-MOVE.md` gains Step 4 (the
   ruling, why the inventory supports it, what would reopen it) and is closed as a
-  plan; `docs/DESIGN-FRONTEND.md` §11 is the contract — what the core owns versus
+  plan; `docs/DESIGN-FRONTEND.md` 짠11 is the contract ??what the core owns versus
   what stays a frontend's. New page:
   [[2026-11-08-no-frontend-core-move-the-seam-is-a-contract]].
 - **Measurement:** asked which corpus a fresh run should use, the maintainer ruled
   "no measurement until i mention. current rule - using english dict only for
-  auto-switch is enough for me." Recorded in `docs/MODES-MEASUREMENT.md` §6 and in
+  auto-switch is enough for me." Recorded in `docs/MODES-MEASUREMENT.md` 짠6 and in
   board row B2, which becomes unblocked-by-nobody. New page:
   [[2026-11-08-no-modes-measurement-until-the-maintainer-says-so]].
 - **Tooling:** the two-stage case-golden flow (`gen-case-golden.py` then
@@ -1218,50 +1206,54 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 
 ## [2026-11-08] update | the measurement ruling is scoped to 0.3, and B2 stops gating it
 
-- Clarified by the maintainer the same day: *"i mean enough for 0.3"* — so the
+- Clarified by the maintainer the same day: *"i mean enough for 0.3"* ??so the
   statement that `english_valid` as an `en_US` lookup is the whole of the
   judgement's data is a 0.3-lane statement, not a claim about 0.4 or 1.0.
-- That collided with `docs/MILESTONES.md` §0.3, which made B2's pass lines the
+- That collided with `docs/MILESTONES.md` 짠0.3, which made B2's pass lines the
   lane's exit gate. Asked which governs, the maintainer retired B2 as the gate:
-  0.3 exits on the mixed-sentence gate (`English는 좋은 Language입니다` in one
+  0.3 exits on the mixed-sentence gate (`English??醫뗭? Language?낅땲?? in one
   stream) and nothing else; the pass lines move past 0.3. Recorded in
-  `docs/MILESTONES.md` §0.3, `docs/REMAINING-WORK.md` B2, and
+  `docs/MILESTONES.md` 짠0.3, `docs/REMAINING-WORK.md` B2, and
   [[2026-11-08-no-modes-measurement-until-the-maintainer-says-so]].
 
 ## [2026-11-09] decision | the 22.04 release ships IBus only
 
-- The maintainer set the goal — *"이 작업의 목표로 ubuntu 22.04 를 위한 배포판을
-  추가하자"* — and, after the measurement that jammy's `fcitx5` is 5.0.14 while the
-  tree requires 5.1.13, ruled: *"22.04 release는 ibus만 지원하면 돼. fcitx5는
-  포기."* Recorded in
+- The maintainer set the goal ??*"???묒뾽??紐⑺몴濡?ubuntu 22.04 瑜??꾪븳 諛고룷?먯쓣
+  異붽??섏옄"* ??and, after the measurement that jammy's `fcitx5` is 5.0.14 while the
+  tree requires 5.1.13, ruled: *"22.04 release??ibus留?吏?먰븯硫??? fcitx5??  ?ш린."* Recorded in
   [[2026-11-09-the-22-04-release-ships-ibus-only]]; the measurement it lands
-  beside is `docs/OPTIONS-MEASURED.md` §PLT-7.
-- Consequence in the tree: the 22.04 package takes §PLT-7 path 1 (core + IBus
+  beside is `docs/OPTIONS-MEASURED.md` 짠PLT-7.
+- Consequence in the tree: the 22.04 package takes 짠PLT-7 path 1 (core + IBus
   engine, `libibus-1.0-dev` from jammy main), carries no fcitx5 dependency, and
   the IBus frontend becomes the work item before that package can exist. The
   jammy package inventory (ibus 1.5.26-4, fcitx5 5.0.14-1, cmake 3.22.1) and the
-  three paths are in §PLT-7 with their commands.
+  three paths are in 짠PLT-7 with their commands.
 - Left open and named in the page: the binary package layout, whether the
   dev-distro `.deb` keeps the fcitx5 addon, candidate UI and page ceiling, config
   backend, where the jammy artefact is built, and FE11's budget reading.
-- Verification: the IBus engine's portability was measured, not assumed — the
+- Verification: the IBus engine's portability was measured, not assumed ??the
   29-line probe compiles against jammy's 1.5.26 headers and, under this host's
   1.5.34 daemon, registers, is spawned and commits into the GTK client
-  (`HUNMIN_PROBE_ENGINE=… tools/ime-host-probe.sh` → PASS).
+  (`HUNMIN_PROBE_ENGINE=??tools/ime-host-probe.sh` ??PASS).
 
 ## [2026-11-09] decision | 22.04 packaging names, no fcitx5 redistribution, and a CI-shaped dev VM
 
-- The maintainer answered the priced option list: *"1-4 까지는 권고안 대로"*, then
-  *"5. release 시에는 CI에서 하면 되나, 개발 중에는 이 linux box에 vm을 하나
-  설치해서 개발하자. vm을 최대한 github CI 환경과 동일하게 만들어서 CI에서
-  실패가 발생하지 않게 하자."* and *"6. fcitx5는 배포하지 않는다."* Recorded in
+- The maintainer answered the priced option list: *"1-4 源뚯???沅뚭퀬???濡?*, then
+  *"5. release ?쒖뿉??CI?먯꽌 ?섎㈃ ?섎굹, 媛쒕컻 以묒뿉????linux box??vm???섎굹
+  ?ㅼ튂?댁꽌 媛쒕컻?섏옄. vm??理쒕???github CI ?섍꼍怨??숈씪?섍쾶 留뚮뱾?댁꽌 CI?먯꽌
+  ?ㅽ뙣媛 諛쒖깮?섏? ?딄쾶 ?섏옄."* and *"6. fcitx5??諛고룷?섏? ?딅뒗??"* Recorded in
   [[2026-11-09-22-04-packaging-names-and-the-ci-shaped-dev-vm]].
 - Consequence: jammy ships `hunmin-ibus` beside an unchanged `hunmin`; fcitx5 is
   never bundled for any target; release artefacts come from CI; development moves
   to a VM modelled on the runner.
 - Measured while acting on item 1: the tier-C model cannot be repaired as a
-  projection rule — the layer commits at a word-ending symbol under both policies,
+  projection rule ??the layer commits at a word-ending symbol under both policies,
   and tier A makes that event look like a digit commit, so any local rule that
-  catches `.` also fires on `1`. The three repairs and their costs are §PLT-8 in
+  catches `.` also fires on `1`. The three repairs and their costs are 짠PLT-8 in
   `docs/OPTIONS-MEASURED.md`; the outcome (the adapter delivers there) is decided,
   the mechanism is not.
+## [2026-11-21] create | modes failures, judgement principles, and domain-mode idea
+
+- Created [[2026-11-21-modes-failures-and-the-domain-mode-idea]]: distilled intent, four live failures with code paths, four corrective principles, five QAS scenarios, a dictionary-coverage probe, and the domain-mode options (recorded, not ruled).
+- Updated [[2026-10-05-closed-questions]] with the maintainer's 2026-11-21 request to re-review the closed coding-corpus question; the exclusion stands and no new verdict is recorded.
+

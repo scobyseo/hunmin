@@ -57,7 +57,7 @@ object HunminTraceRecorder {
             val src = if (source.isEmpty()) "" else """, "source": "$source""""
             write(
                 """{"meta": {"platform": "$platform", "layout": "$layout", """ +
-                    """"case": "$caseLabel"$src}}"""
+                    """"case": "$caseLabel", "dialect": "personal-key"$src}}"""
             )
         } catch (e: Exception) {
             Log.w(TAG, "cannot open a trace at $file; continuing without it", e)
@@ -86,8 +86,10 @@ object HunminTraceRecorder {
      * silently lost exactly when a device quirk produced one.
      */
     fun event(
-        keyCode: Int,
+        base: Int,
+        shift: Int,
         mods: Int,
+        id: Int,
         engineChar: Char?,
         commit: String,
         preedit: String,
@@ -96,9 +98,9 @@ object HunminTraceRecorder {
         if (!open) return
         val ch = if (engineChar == null) "null" else "\"${escape(engineChar.toString())}\""
         write(
-            """{"in": {"keycode": $keyCode, "mods": $mods}, "char": $ch, """ +
-                """"commit": "${escape(commit)}", "preedit": "${escape(preedit)}", """ +
-                """"consumed": $consumed}"""
+            """{"in": {"base": $base, "shift": $shift, "mods": $mods, "id": $id}, """ +
+                """"char": $ch, "commit": "${escape(commit)}", """ +
+                """"preedit": "${escape(preedit)}", "consumed": $consumed}"""
         )
     }
 

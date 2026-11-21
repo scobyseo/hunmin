@@ -16,6 +16,47 @@
 
 #include <string>
 
+#ifdef HUNMIN_TRACE
+#include <cstdio>
+#include <cstdlib>
+namespace {
+FILE *traceSink() {
+    static FILE *sink = nullptr;
+    static bool opened = false;
+    if (!opened) {
+        opened = true;
+        const char *path = getenv("HUNMIN_TRACE_OUT");
+        sink = (path && *path) ? fopen(path, "a") : nullptr;
+        if (!sink)
+            sink = stderr;
+        fputs("{\"meta\":{\"platform\":\"win32\",\"layout\":\"\","
+              "\"case\":\"personal\",\"dialect\":\"personal-key\"}}\n",
+              sink);
+        fflush(sink);
+    }
+    return sink;
+}
+void traceJson(FILE *f, const std::string &s) {
+    fputc('"', f);
+    for (char c : s) {
+        if (c == '"' || c == '\\')
+            fputc('\\', f);
+        fputc(c, f);
+    }
+    fputc('"', f);
+}
+void traceEvent(const hunmin_key_event &ev, const std::string &commit, const std::string &preedit, bool consumed) {
+    FILE *f = traceSink();
+    fprintf(f, "{\"in\":{\"base\":%u,\"shift\":%u,\"mods\":%u,\"id\":%u},\"commit\":", ev.base, ev.shift, ev.mods, (unsigned)ev.id);
+    traceJson(f, commit);
+    fputs(",\"preedit\":", f);
+    traceJson(f, preedit);
+    fprintf(f, ",\"consumed\":%s}\n", consumed ? "true" : "false");
+    fflush(f);
+}
+} // namespace
+#endif /* HUNMIN_TRACE */
+
 STDMETHODIMP CTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPARAM lParam, BOOL *pfEat) {
     (void)lParam;
     /* The previous key's deferred doc write runs before this key is
@@ -386,6 +427,14 @@ bool CTextService::IsKeyOfPassage(WPARAM wParam) {
 }
 
 void CTextService::DrainAndPass(ITfContext *pic, WPARAM wParam, BOOL *pfEat, const char *tag) {
+#ifdef HUNMIN_TRACE
+    {
+        hunmin_key_event ev{};
+        ev.base = VkToBase(wParam);
+        ev.id = (wParam == VK_RETURN) ? HUNMIN_KEY_ENTER : HUNMIN_KEY_TEXT;
+        traceEvent(ev, "", "", false);
+    }
+#endif
     BoundaryFlush(pic);
     if (pfEat)
         *pfEat = FALSE;
@@ -492,6 +541,14 @@ void CTextService::FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
      * (the engine's case endpoint, hunmin_ic_process_key). */
     hunmin_buffered_preedit_set_option(preedit_, "caps", hunmin_tsf_capslock_from_state() ? 1 : 0);
     if (IsModifierVk(wParam)) {
+#ifdef HUNMIN_TRACE
+        {
+            hunmin_key_event modEv{};
+            modEv.base = static_cast<uint32_t>(wParam);
+            modEv.id = HUNMIN_KEY_TEXT;
+            traceEvent(modEv, "", "", false);
+        }
+#endif
         /* A bare modifier is not text and must not disturb the composition. */
         hunmin_logger.log(" modifier/pass key -> leave composition\n");
         return;
@@ -506,6 +563,9 @@ void CTextService::FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
     ev.mods = (mods & (HUNMIN_TSF_KEYMOD_CTRL | HUNMIN_TSF_KEYMOD_ALT)) ? HUNMIN_MOD_CHORD : 0u;
     ev.id = HUNMIN_KEY_TEXT; /* a TSF key of passage never reaches this path */
     if (hunmin_buffered_preedit_classify(preedit_, &ev) != HUNMIN_KEY_FEED) {
+#ifdef HUNMIN_TRACE
+        traceEvent(ev, "", "", false);
+#endif
         cand_->Close();
         BoundaryFlush(pic);
         if (pfEat)
@@ -526,6 +586,9 @@ void CTextService::FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
          * discarded before it was read). */
         if (out.commit && *out.commit)
             InsertText(pic, HunminUtf8ToWide(out.commit));
+#ifdef HUNMIN_TRACE
+        traceEvent(ev, out.commit ? out.commit : "", out.preedit ? out.preedit : "", false);
+#endif
         /* The engine judged the word it just delivered; the mode change is the
          * frontend's half (ruled 2026-11-01, #164). Asked after the delivery so
          * the text inserted above is the one the judgement was made on. */
@@ -538,6 +601,9 @@ void CTextService::FeedEngineKey(ITfContext *pic, WPARAM wParam, BOOL *pfEat) {
      * knowing which unit is in use. */
     if (out.commit && *out.commit)
         InsertText(pic, HunminUtf8ToWide(out.commit));
+#ifdef HUNMIN_TRACE
+    traceEvent(ev, out.commit ? out.commit : "", out.preedit ? out.preedit : "", true);
+#endif
     hunmin_logger.log(" consumed, display len=%zu preedit=%s\n", ComposeDisplay().size(), out.preedit ? out.preedit : "");
     /* Issue #119: the legacy interim path when the host was detected
      * terminating compositions mid-word (or the env said so); the #98

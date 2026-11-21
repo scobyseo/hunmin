@@ -5,7 +5,7 @@
  *
  * Thin fcitx5 adapter: platform KeyEvent <-> hunmin key ids (US-QWERTY
  * character convention, docs/trace-spec.md), commit/preedit presentation.
- * All composition logic lives in libhunmin — keep this file small (rule #4).
+ * All composition logic lives in libhunmin ??keep this file small (rule #4).
  */
 #include "hunminadapter.h"
 #include <cstdlib>
@@ -27,6 +27,7 @@
 #include <fcitx/inputmethodmanager.h>
 #include <fcitx/inputpanel.h>
 #include <fcitx/text.h>
+#include <fstream>
 
 namespace fcitx {
 
@@ -41,6 +42,17 @@ namespace fcitx {
  * would be testing a different adapter than the one released. */
 namespace {
 
+void traceJson(FILE *f, const std::string &s) {
+    fputc('"', f);
+    for (char c : s) {
+        if (c == '"' || c == '\\') {
+            fputc('\\', f);
+        }
+        fputc(c, f);
+    }
+    fputc('"', f);
+}
+
 FILE *traceSink() {
     static FILE *sink = nullptr;
     static bool opened = false;
@@ -51,20 +63,24 @@ FILE *traceSink() {
         if (!sink) {
             sink = stderr;
         }
+        fputs("{\"meta\":{\"platform\":\"x11\",\"layout\":\"\","
+              "\"case\":\"personal\",\"dialect\":\"personal-key\"}}\n",
+              sink);
+        fflush(sink);
     }
     return sink;
 }
 
-void traceEvent(const char *kind, const std::string &text) {
+void traceEvent(const hunmin_key_event &ev, const std::string &commit, const std::string &preedit, bool consumed) {
     FILE *f = traceSink();
-    fprintf(f, "{\"kind\":\"%s\",\"text\":\"", kind);
-    for (char c : text) {
-        if (c == '"' || c == '\\') {
-            fputc('\\', f);
-        }
-        fputc(c, f);
-    }
-    fputs("\"}\n", f);
+    fprintf(f,
+            "{\"in\":{\"base\":%u,\"shift\":%u,\"mods\":%u,\"id\":%u},"
+            "\"commit\":",
+            ev.base, ev.shift, ev.mods, (unsigned)ev.id);
+    traceJson(f, commit);
+    fputs(",\"preedit\":", f);
+    traceJson(f, preedit);
+    fprintf(f, ",\"consumed\":%s}\n", consumed ? "true" : "false");
     fflush(f);
 }
 
@@ -209,9 +225,19 @@ public:
         }
 
         auto sym = keyEvent.key().sym();
+#ifdef HUNMIN_TRACE
+        if (sym == FcitxKey_Shift_L || sym == FcitxKey_Shift_R) {
+            hunmin_key_event shiftEv{};
+            shiftEv.base = static_cast<uint32_t>(sym);
+            shiftEv.id = HUNMIN_KEY_TEXT;
+            traceEvent(shiftEv, "", "", false);
+            return;
+        }
+#else
         if (sym == FcitxKey_Shift_L || sym == FcitxKey_Shift_R) {
             return;
         }
+#endif
 
         // CapsLock. Note key() cannot be used here: Key::normalize() rebuilds
         // states_ down to Ctrl/Alt/Super/Mod3 and drops CapsLock entirely, so
@@ -229,7 +255,14 @@ public:
          * candidates opens one, and anything else returns unconsumed so F9
          * reaches the client. */
         if (sym == FcitxKey_F9) {
-            if (candidateActive()) {
+            const bool f9Open = candidateActive();
+#ifdef HUNMIN_TRACE
+            hunmin_key_event f9Ev{};
+            f9Ev.base = static_cast<uint32_t>(sym);
+            f9Ev.id = HUNMIN_KEY_TEXT;
+            traceEvent(f9Ev, "", "", f9Open);
+#endif
+            if (f9Open) {
                 closeCandidates();
             } else if (!openCandidates()) {
                 return; // no candidates: F9 belongs to the client
@@ -259,8 +292,10 @@ public:
             }
         // A character (base 0 = the platform mapped nothing). 0x08 is BackSpace,
         // the same convention as libhangul and the golden traces.
-        if (ev.id == HUNMIN_KEY_TEXT && sym == FcitxKey_BackSpace) ev.base = 0x08;
-        else if (ev.id == HUNMIN_KEY_TEXT && sym >= 0x20 && sym <= 0x7E) ev.base = static_cast<uint32_t>(sym);
+        if (ev.id == HUNMIN_KEY_TEXT && sym == FcitxKey_BackSpace)
+            ev.base = 0x08;
+        else if (ev.id == HUNMIN_KEY_TEXT && sym >= 0x20 && sym <= 0x7E)
+            ev.base = static_cast<uint32_t>(sym);
         /* An uppercase symbol means the row was shifted; the engine resolves
          * the case endpoint from (base, shift) itself. The layer logs the same
          * pair for ReqMode8's Latin reading, so no adapter-side copy of the key is
@@ -274,6 +309,9 @@ public:
         const hunmin_key_action action = hunmin_buffered_preedit_classify(preedit_, &ev);
 
         if (action == HUNMIN_KEY_CANDIDATE) {
+#ifdef HUNMIN_TRACE
+            traceEvent(ev, "", "", true);
+#endif
             auto list = ic_->inputPanel().candidateList();
             switch (sym) {
             case FcitxKey_Up:
@@ -346,12 +384,15 @@ public:
              * boundary is where the word is finished, and the key belongs to
              * the client. The same flush + pass this adapter used to spell out
              * in two separate branches. */
+#ifdef HUNMIN_TRACE
+            traceEvent(ev, "", "", false);
+#endif
             flush();
             updateUI();
             return;
         }
         /* HUNMIN_KEY_LANGUAGE_TOGGLE is unreachable here: fcitx5 owns its own
-         * trigger, so this adapter always reports language_key = 0. §4's shared
+         * trigger, so this adapter always reports language_key = 0. 짠4's shared
          * action is what removes that asymmetry. */
 
         // Any other key closes an open window and falls through, so typing
@@ -363,7 +404,7 @@ public:
         }
 
         /* The shared layer owns consumption, commit and preedit for every
-         * frontend (docs/DESIGN-FRONTEND.md §5); this adapter keeps no buffer
+         * frontend (docs/DESIGN-FRONTEND.md 짠5); this adapter keeps no buffer
          * of its own, and the user's CommitBehavior reaches it as an option. */
         hunmin_buffered_preedit_set_option(preedit_, "caps", caps ? 1 : 0);
         hunmin_key_result out{};
@@ -384,18 +425,15 @@ public:
 
         if (!justDelivered.empty() || !switched.empty()) {
             const std::string delivered = justDelivered + switched;
-#ifdef HUNMIN_TRACE
-            traceEvent("commit", delivered.c_str());
-#endif
             ic_->commitString(delivered.c_str());
         }
 #ifdef HUNMIN_TRACE
-        traceEvent("preedit", justComposing.c_str());
-        traceEvent(used ? "consumed" : "passed", "");
+        const std::string delivered = justDelivered + switched;
+        traceEvent(ev, delivered, justComposing, used);
 #endif
         updateUI();
         // Only consume what the layer actually took: a declined key belongs to
-        // the client (docs/DESIGN-FRONTEND.md Part B §5 rule 3).
+        // the client (docs/DESIGN-FRONTEND.md Part B 짠5 rule 3).
         if (used) {
             keyEvent.filterAndAccept();
         }
@@ -468,7 +506,11 @@ public:
         }
         if (const char *s = hunmin_buffered_preedit_commit_word(preedit_); s && *s) {
 #ifdef HUNMIN_TRACE
-            traceEvent("commit", s);
+            FILE *f = traceSink();
+            fputs("{\"flush\":", f);
+            traceJson(f, s);
+            fputs("}\n", f);
+            fflush(f);
 #endif
             ic_->commitString(s);
         }
@@ -609,7 +651,7 @@ void HunminState::updateCandidateList() {
      * Vertical, cursor on the first, and a page that never exceeds
      * kMaxCandidatePageSize.
      *
-     * A syllable can carry up to 64 Hanja, and 간 resolves to 67 once the
+     * A syllable can carry up to 64 Hanja, and 媛?resolves to 67 once the
      * krdict word senses are prepended. Laid out horizontally they ran off the
      * screen and the tail was unreachable without the mouse; the layout hint is
      * the whole fix for that.
@@ -646,7 +688,6 @@ void HunminState::updateCandidateList() {
     list->setLayoutHint(CandidateLayoutHint::Vertical);
     ic_->inputPanel().setCandidateList(std::move(list));
 }
-
 
 int HunminAdapter::specialSupports(void * /*user*/, hunmin_special_function fn) {
     /* fcitx5 has no voice recorder yet, so VOICE is refused. The engine's
@@ -691,58 +732,56 @@ HunminAdapter::HunminAdapter(Instance *instance) : instance_(instance), factory_
      * == "hunmin") is what makes this a per-IM chord, not a global hotkey.
      * Route 1 (the user removes Hangul from TriggerKeys) stays available and
      * is required on hosts whose physical keyboard has no Hangul key. */
-    probeWatcher_ = instance_->watchEvent(
-        EventType::InputContextKeyEvent,
-        EventWatcherPhase::PreInputMethod,
-        [this](Event &event) {
-            auto *ke = dynamic_cast<KeyEvent *>(&event);
-            if (!ke || !ke->inputContext()) {
-                return;
+    probeWatcher_ = instance_->watchEvent(EventType::InputContextKeyEvent, EventWatcherPhase::PreInputMethod, [this](Event &event) {
+        auto *ke = dynamic_cast<KeyEvent *>(&event);
+        if (!ke || !ke->inputContext()) {
+            return;
+        }
+        /* Guard: only answer while hunmin is the active IM. Without this
+         * the watcher would steal Ctrl+Hangul from every other IM on the
+         * desktop, which is the behaviour route 2 must not have. */
+        if (instance_->inputMethod(ke->inputContext()) != "hunmin") {
+            return;
+        }
+        /* Match Ctrl+Hangul only. Shift is not included here: the 2026-10-31
+         * ruling reserves Shift+????for a future manual-toggle chord, and
+         * this watcher only services AUTOSWITCH (fn == 2). */
+        KeyStates ctrl(KeyState::Ctrl);
+        if (ke->rawKey().sym() != FcitxKey_Hangul || !(ke->rawKey().states() & ctrl)) {
+            return;
+        }
+        /* The throwaway layer is only to confirm the chord is bound and
+         * serviceable (data gate, host present). The actual toggle is
+         * pushed into every live layer by pushAutoswitch, which is what
+         * the settings row also calls -- one path, one value. */
+        hunmin_key_event ev{};
+        ev.mods |= HUNMIN_MOD_CTRL;
+        ev.language_key = 1;
+        int serviceable = 0;
+        if (ctx_) {
+            if (hunmin_buffered_preedit *probe = hunmin_buffered_preedit_new(this->ctx(), this->config().hangulLayout->c_str(),
+                                                                             this->config().latinLayout->c_str(), HUNMIN_COMMIT_AT_BOUNDARY)) {
+                hunmin_buffered_preedit_special_host(probe, specialHost());
+                const int fn = hunmin_buffered_preedit_special_peek(probe, &ev);
+                if (fn > 0)
+                    serviceable = 1;
+                hunmin_buffered_preedit_free(probe);
             }
-            /* Guard: only answer while hunmin is the active IM. Without this
-             * the watcher would steal Ctrl+Hangul from every other IM on the
-             * desktop, which is the behaviour route 2 must not have. */
-            if (instance_->inputMethod(ke->inputContext()) != "hunmin") {
-                return;
-            }
-            /* Match Ctrl+Hangul only. Shift is not included here: the 2026-10-31
-             * ruling reserves Shift+한/영 for a future manual-toggle chord, and
-             * this watcher only services AUTOSWITCH (fn == 2). */
-            KeyStates ctrl(KeyState::Ctrl);
-            if (ke->rawKey().sym() != FcitxKey_Hangul || !(ke->rawKey().states() & ctrl)) {
-                return;
-            }
-            /* The throwaway layer is only to confirm the chord is bound and
-             * serviceable (data gate, host present). The actual toggle is
-             * pushed into every live layer by pushAutoswitch, which is what
-             * the settings row also calls -- one path, one value. */
-            hunmin_key_event ev{};
-            ev.mods |= HUNMIN_MOD_CTRL;
-            ev.language_key = 1;
-            int serviceable = 0;
-            if (ctx_) {
-                if (hunmin_buffered_preedit *probe = hunmin_buffered_preedit_new(this->ctx(), this->config().hangulLayout->c_str(), this->config().latinLayout->c_str(), HUNMIN_COMMIT_AT_BOUNDARY)) {
-                    hunmin_buffered_preedit_special_host(probe, specialHost());
-                    const int fn = hunmin_buffered_preedit_special_peek(probe, &ev);
-                    if (fn > 0) serviceable = 1;
-                    hunmin_buffered_preedit_free(probe);
-                }
-            }
-            if (serviceable) {
-                /* Toggle the stored value and push into every live layer.
-                 * pushAutoswitch returns what the engine actually holds, so
-                 * a data-gated refusal leaves the row honest. */
-                const int want = !(this->config().autoswitch.value() ? 1 : 0);
-                const int held = pushAutoswitch(want);
-                (void)held;
-                safeSaveAsIni(this->config_, "conf/hunmin.conf");
-                refreshAutoswitchRow();
-                instance_->showCustomInputMethodInformation(ke->inputContext(),
-                    *config_.autoswitch ? "Autoswitch enabled" : "Autoswitch disabled");
-                FCITX_INFO() << "hunmin: Ctrl+Hangul autoswitch toggled, value=" << (*config_.autoswitch ? "ON" : "OFF");
-                ke->filterAndAccept();
-            }
-        });
+        }
+        if (serviceable) {
+            /* Toggle the stored value and push into every live layer.
+             * pushAutoswitch returns what the engine actually holds, so
+             * a data-gated refusal leaves the row honest. */
+            const int want = !(this->config().autoswitch.value() ? 1 : 0);
+            const int held = pushAutoswitch(want);
+            (void)held;
+            safeSaveAsIni(this->config_, "conf/hunmin.conf");
+            refreshAutoswitchRow();
+            instance_->showCustomInputMethodInformation(ke->inputContext(), *config_.autoswitch ? "Autoswitch enabled" : "Autoswitch disabled");
+            FCITX_INFO() << "hunmin: Ctrl+Hangul autoswitch toggled, value=" << (*config_.autoswitch ? "ON" : "OFF");
+            ke->filterAndAccept();
+        }
+    });
     reloadConfig();
 }
 
@@ -858,7 +897,8 @@ void HunminAdapter::refreshAutoswitchRow() {
      * answers what a fresh key press would honour -- which is the only thing the
      * row is entitled to advertise. */
     if (ctx_) {
-        if (hunmin_buffered_preedit *probe = hunmin_buffered_preedit_new(ctx_, config_.hangulLayout->c_str(), config_.latinLayout->c_str(), HUNMIN_COMMIT_AT_BOUNDARY)) {
+        if (hunmin_buffered_preedit *probe =
+                hunmin_buffered_preedit_new(ctx_, config_.hangulLayout->c_str(), config_.latinLayout->c_str(), HUNMIN_COMMIT_AT_BOUNDARY)) {
             if (const unsigned chord = hunmin_buffered_preedit_special_chord(probe, HUNMIN_SPECIAL_AUTOSWITCH)) {
                 autoswitchChord_ = chord;
             }

@@ -1,7 +1,7 @@
 ---
 title: Romaja registration and the coding corpus — both closed, 2026-10-05
 created: 2026-10-05
-updated: 2026-10-10
+updated: 2026-11-21
 type: decision
 status: active
 tags: [decision, modes, scope]
@@ -60,6 +60,14 @@ narrows the search at `[17177]`/`[17242]` but never cancels it.
 
 No corpus will be built, and no document needs to record a register gap for it.
 The narrowing in the transcript was the end of the line, not a pause in it.
+
+**Re-review requested, 2026-11-21.** The maintainer asked to re-examine this
+closed question while discussing explicit domain modes (shell, C++, Python,
+document writing) and command-line input. That request does **not** reverse the
+2026-10-05 exclusion and is not a new ruling — it only means the question may be
+measured again. The discussion and the options are recorded in
+[[2026-11-21-modes-failures-and-the-domain-mode-idea]], and a separate analysis
+issue carries the re-review itself.
 
 ## What remains open, and is not closed by this page
 

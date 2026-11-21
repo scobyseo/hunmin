@@ -367,8 +367,12 @@ class HunminAdapter(
         if (delivered.isNotEmpty()) ic_.commitText(delivered, 1)
         updatePreedit(ic_)
         if (tracing) {
-            HunminTraceRecorder.event(keyCode, metaState, tracedChar, delivered,
-                              preedit(), used)
+            HunminTraceRecorder.event(
+                base.code,
+                if (HunminKeyRegistry.isShiftOn(metaState)) 1 else 0,
+                if (HunminKeyRegistry.isModifierChord(metaState)) HUNMIN_MOD_CHORD else 0,
+                HUNMIN_KEY_TEXT,
+                tracedChar, delivered, preedit(), used)
         }
         return used
     }
