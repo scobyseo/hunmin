@@ -328,6 +328,66 @@ int main(int argc, char **argv) {
             }
         }
 
+        // HUNMIN_TRACE_EXPECT overrides the derivation above with the expectation
+        // the checker itself holds. tools/trace-check.py sets it from
+        // `hunmin-sim --layer word`, i.e. from the shared layer the adapter
+        // drives -- the one source that knows WHEN a word ends. Without it the
+        // two sides would verify different things: the rule below can only see
+        // tier A's stream, where a word-ending symbol and a committed digit look
+        // identical (measured 2026-11-09, docs/OPTIONS-MEASURED.md §PLT-8).
+        if (const char *expectJson = std::getenv("HUNMIN_TRACE_EXPECT")) {
+            std::vector<std::string> fromChecker;
+            std::string cur;
+            bool inStr = false, esc = false;
+            for (const char *p = expectJson; *p; ++p) {
+                const char c = *p;
+                if (!inStr) {
+                    if (c == '"') { inStr = true; cur.clear(); }
+                    continue;
+                }
+                if (esc) {
+                    // The checker emits JSON escapes; only the ones a commit can
+                    // contain are decoded, and anything else is kept literally.
+                    switch (c) {
+                    case 'n': cur += '\n'; break;
+                    case 't': cur += '\t'; break;
+                    case 'r': cur += '\r'; break;
+                    case '"': cur += '"'; break;
+                    case '\\': cur += '\\'; break;
+                    case 'u': {
+                        unsigned cp = 0;
+                        for (int k = 0; k < 4 && p[1]; ++k) {
+                            const char h = *++p;
+                            cp = cp * 16 + (unsigned)(h <= '9' ? h - '0' : (h | 0x20) - 'a' + 10);
+                        }
+                        // UTF-8 encode (BMP only; the corpus is Hangul and ASCII)
+                        if (cp < 0x80) cur += (char)cp;
+                        else if (cp < 0x800) { cur += (char)(0xC0 | (cp >> 6)); cur += (char)(0x80 | (cp & 0x3F)); }
+                        else { cur += (char)(0xE0 | (cp >> 12)); cur += (char)(0x80 | ((cp >> 6) & 0x3F)); cur += (char)(0x80 | (cp & 0x3F)); }
+                        break;
+                    }
+                    default: cur += c; break;
+                    }
+                    esc = false;
+                    continue;
+                }
+                if (c == '\\') { esc = true; continue; }
+                if (c == '"') { inStr = false; fromChecker.push_back(cur); continue; }
+                cur += c;
+            }
+            if (!fromChecker.empty()) {
+                // Per-event: this list IS the trace's `commit` column, and the
+                // non-empty entries are what the client is owed, in order.
+                perEventExpected = fromChecker;
+                expectedCommits.clear();
+                for (const std::string &c : perEventExpected) {
+                    if (!c.empty()) {
+                        expectedCommits.push_back(c);
+                    }
+                }
+            }
+        }
+
         for (const std::string &c : expectedCommits) {
             if (!c.empty()) {
                 tf->call<ITestFrontend::pushCommitExpectation>(c);

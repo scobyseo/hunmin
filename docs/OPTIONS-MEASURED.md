@@ -2719,3 +2719,51 @@ by `cc -o jammy-hdr-engine jammy-probe-engine.c -I<jammy>/include/ibus-1.0 …`;
 `HUNMIN_PROBE_ENGINE=<that binary> tools/ime-host-probe.sh`. The engine source is the one
 `tools/ime-host-probe.sh` writes, extracted rather than retyped, so the jammy build and the
 native build are the same 29-line body.
+
+## PLT-8 — the tier-C model asks the layer, instead of projecting tier A
+
+**Decided 2026-11-09** ("그래", on the reading that the scoring tools ask the engine rather
+than the product deferring delivery). This section is the measurement that forced the
+question and the shape of the answer.
+
+**Measured: the shared layer commits on the key that ends the word, under both policies.**
+
+| keys | word (`HUNMIN_COMMIT_AT_BOUNDARY`) | syllable (`HUNMIN_COMMIT_PER_SYLLABLE`) |
+|---|---|---|
+| `jfsh` (안 + ㄴ) | commit `''`, preedit `안ㄴ` | commit `안`, preedit `ㄴ` |
+| `kf.` (가 + `.`) | **commit `가.`** | **commit `가.`** |
+| `kf4` (가 + a digit) | commit `''`, preedit `가ㅛ` | commit `가`, preedit `ㅛ` |
+| `kfks ` (가나 + space) | commit `가ᄀᅠᆫ` | commit `가` then `ᄀᅠᆫ` on the space |
+
+**Measured: tier A cannot distinguish the two delivery reasons.** In tier A's stream a
+word-ending symbol and a committed digit both appear as "commit non-empty, preedit empty". A
+local rule that catches `.` also fires on `1`: applying one to `case-sebeolsik-final` changed
+11 events, eight of them digits. That case's previous `.gold` was produced by such a rule, so
+it placed `가.` on the following space and merged `4"`+`~` into a single later commit.
+
+**Implemented, in four places:**
+
+- `hunmin-sim --layer word|syllable` replays `--keys` through `hunmin_buffered_preedit`
+  instead of the per-syllable `hunmin_ic`, so the layer's own per-key answers are obtainable
+  from the command line. The default is unchanged: tier A's stream still comes from
+  `hunmin_ic`, so the goldens stay reproducible.
+- `tools/trace-check.py` asks it — leg 2 is now "the `.gold` equals the layer's stream on the
+  same keys, event for event" — and hands the per-event list to the runner through
+  `HUNMIN_TRACE_EXPECT`, so the checker's expectation and the emitter's `TestFrontend`
+  assertions cannot disagree.
+- `frontends/fcitx5/test/trace-emit.cpp` uses that list for both the queue it asserts and the
+  `commit` column it writes. The column used to be the tool's own derivation, which is why a
+  recorded trace placed deliveries one key late.
+- `cmake/HunminConformanceTests.cmake` passes `--sim $<TARGET_FILE:hunmin-sim>`, so the check
+  does not depend on where a developer's build directory happens to be.
+
+**What changed in the corpus: one file, three events.**
+`tests/conformance/x11/case-sebeolsik-final.trace.gold`: `가.` moved from the space to the `.`
+key, and `4"~` split into `4"` on `M` and `~` on the space. The delivered text is unchanged
+(leg 3), and the `.trace.in` was not touched — it is still tier A's record, verified identical
+to a fresh regeneration. 42 tier-C tests pass on this host with the new model.
+
+**What this deliberately leaves as it was:** the emitter keeps its own derivation for a trace
+that arrives without `HUNMIN_TRACE_EXPECT` (a hand run of the binary), and delivery at
+teardown is still covered only by the cumulative-total leg, because the runner flushes the
+last word with no event to report it.
