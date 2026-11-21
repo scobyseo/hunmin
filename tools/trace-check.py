@@ -29,6 +29,25 @@ import sys
 
 from _hostcompat import posix_shell
 
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+SIM_DATA = ROOT / "libhunmin" / "data"
+
+
+def find_sim(explicit: pathlib.Path | None) -> pathlib.Path:
+    """The simulator this checker asks about a word-buffered case's deliveries."""
+    if explicit is not None:
+        if not explicit.exists():
+            raise SystemExit(f"--sim {explicit} does not exist")
+        return explicit
+    for pattern in ("build/hunmin-sim", "build-*/hunmin-sim", "build*/hunmin-sim"):
+        hits = sorted(ROOT.glob(pattern))
+        if hits:
+            return hits[0]
+    raise SystemExit(
+        "no hunmin-sim to ask: configure and build the tree, or pass --sim PATH. "
+        "A word-buffered case's deliveries are the layer's own answers and cannot be "
+        "derived from tier A (docs/OPTIONS-MEASURED.md §PLT-8).")
+
 
 def load(path: pathlib.Path) -> list[dict]:
     recs = []
@@ -121,6 +140,62 @@ def project_word_buffered(declared: list[dict]) -> list[dict]:
     return out
 
 
+def layer_stream(recs: list[dict], sim: pathlib.Path) -> list[dict]:
+    """What the SHARED LAYER delivers, key by key, in the adapter's own policy.
+
+    This replaces a rule over tier A's stream, and the reason is measured
+    (docs/OPTIONS-MEASURED.md §PLT-8): tier A records the per-syllable engine
+    API, so "commit non-empty and preedit empty" means both "a symbol ended the
+    word" (delivered now) and "a digit was committed" (not a delivery point at
+    all). The layer that every frontend drives answers the question directly --
+    it commits on the key the word ends on, which is the key the client is owed
+    text at. So the expectation is obtained by replaying the case through
+    `hunmin-sim --layer word`, not by projecting anything.
+
+    The key string is reconstructed from the trace's own keysyms: ASCII keys are
+    themselves, KEY_BackSpace is the `\\b` escape `hunmin-sim --keys` understands.
+    Any other non-ASCII keysym is refused rather than guessed.
+    """
+    keys = []
+    for e in recs:
+        if "meta" in e:
+            continue
+        ks = (e.get("in") or {}).get("keysym")
+        if ks is None:
+            raise SystemExit("trace has an event without in.keysym; cannot replay it")
+        if ks == 0xFF08:  # XK_BackSpace
+            keys.append("\\b")
+        elif 32 <= ks < 127:
+            keys.append(chr(ks))
+        else:
+            raise SystemExit(
+                f"keysym {ks} has no --keys spelling; extend layer_stream() before "
+                "relying on this trace")
+    layout = (recs[0].get("meta") or {}).get("layout")
+    if not layout:
+        raise SystemExit("trace meta has no layout; cannot replay it")
+    proc = subprocess.run(
+        [str(sim), "--data", str(SIM_DATA), "--layout", layout,
+         "--keys", "".join(keys), "--trace", "--layer", "word"],
+        capture_output=True, text=True, encoding="utf-8",
+    )
+    if proc.returncode != 0:
+        raise SystemExit(f"hunmin-sim --layer word failed rc={proc.returncode}: {proc.stderr.strip()}")
+    rows = [json.loads(line) for line in proc.stdout.splitlines() if line.strip().startswith("{")]
+    ins = [e.get("in") for e in recs if "meta" not in e]
+    out = []
+    for n, row in enumerate(rows):
+        # The trace's own native event, so a diff message names the key the reader
+        # is looking at; the sim emits its own `in.ch` and they are the same event.
+        out.append({"in": ins[n], "commit": row.get("commit") or "",
+                    "preedit": row.get("preedit") or "",
+                    "consumed": row.get("consumed")})
+    if len(out) != len(recs) - 1:
+        raise SystemExit(
+            f"hunmin-sim replayed {len(out)} events, the trace has {len(recs) - 1}")
+    return out
+
+
 def cumulative_text(events: list[dict]) -> str:
     """Everything the case puts in the client: every commit + the live preedit.
 
@@ -144,6 +219,13 @@ def main() -> int:
         default="frontends/fcitx5/build/trace-emit",
         help="command that reads a .trace.in on stdin and writes a trace on stdout",
     )
+    ap.add_argument(
+        "--sim",
+        type=pathlib.Path,
+        default=None,
+        help="hunmin-sim to ask for a word-buffered case's deliveries "
+             "(default: build/hunmin-sim, build-*/hunmin-sim)",
+    )
     a = ap.parse_args()
 
     recs = load(a.trace)
@@ -165,9 +247,25 @@ def main() -> int:
         argv = [bashp, tokens[0]]
     else:
         argv = tokens
+    delivery = (recs[0].get("meta") or {}).get("delivery")
+    projected = None
+    if delivery is not None:
+        projected = layer_stream(recs, find_sim(a.sim))
+
     env = dict(os.environ)
     if bashp:
         env["PATH"] = os.path.dirname(bashp) + os.pathsep + env["PATH"]
+    if projected is not None:
+        # The runner's TestFrontend turns an expectation queue into its only
+        # channel for observing commits, so the queue must be the same expectation
+        # this checker holds -- otherwise the two verify different things and a
+        # wrong expectation passes silently (the defect this file's header names).
+        # One entry per EVENT (empty where nothing is delivered), because the
+        # runner echoes this list into the trace it writes -- handing it only the
+        # non-empty commits would leave the runner free to place them by its own
+        # rule, which is the attribution this change exists to fix.
+        env["HUNMIN_TRACE_EXPECT"] = json.dumps(
+            [p["commit"] for p in projected], ensure_ascii=False)
 
     try:
         proc = subprocess.run(
@@ -239,18 +337,21 @@ def main() -> int:
                   f"tier-A stream accumulates {from_in!r} -- regenerate with --emit",
                   file=sys.stderr)
             return 1
-        # Leg 2: the committed .gold is the tier-A stream projected through the
-        # model, event for event. Same rule as the branch below -- a pair that
-        # disagrees about what it is asserting verifies nothing.
-        projected = project_word_buffered(declared)
-        drift = [(n, p, g) for n, (p, g) in enumerate(zip(projected, want), 1) if p != g]
+        # Leg 2: the committed .gold is what the shared layer delivers on the same
+        # keys, event for event. A pair that disagrees about what it is asserting
+        # verifies nothing (same rule as the branch below).
+        assert projected is not None  # computed above whenever a delivery model exists
+        drift = [(n, p, g) for n, (p, g) in enumerate(zip(projected, want), 1)
+                 if (p["commit"], p["preedit"], p["consumed"]) !=
+                    (g["commit"], g["preedit"], g["consumed"])]
         if drift or len(projected) != len(want):
             for n, p, g in drift[:3]:
                 print(f"event {n}: the model says {p}\n         .gold says {g}", file=sys.stderr)
             if len(projected) != len(want):
                 print(f"length: model {len(projected)}, .gold {len(want)}", file=sys.stderr)
-            print(f"{a.trace}: the .gold is not this word-buffered model's expectation "
-                  "-- regenerate with --emit and review", file=sys.stderr)
+            print(f"{a.trace}: the .gold is not what the shared layer delivers on these "
+                  "keys (hunmin-sim --layer word) -- regenerate with --emit and review",
+                  file=sys.stderr)
             return 1
         # Leg 3: the frontend delivered exactly that text, no byte dropped or
         # duplicated. The runner asserts each commit it was given, but only a

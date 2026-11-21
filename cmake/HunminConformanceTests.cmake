@@ -14,7 +14,11 @@ if(TARGET trace-emit)
     string(REPLACE "\\;" ";" t_real "${t}")
     file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${t_real}")
     string(REGEX REPLACE "[^A-Za-z0-9._-]" "_" name "${rel}")
-    hunmin_add_test(NAME conformance-${name} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/trace-check.py "${t_real}" --runner $<TARGET_FILE:trace-emit> LABELS tier-C SKIP_RETURN_CODE 77 TIMEOUT 120)
+    # --sim: a word-buffered case's delivery points are the shared layer's own
+    # answers (hunmin-sim --layer word), not something derivable from tier A --
+    # docs/OPTIONS-MEASURED.md §PLT-8. Passing the built simulator makes the
+    # check independent of where a developer's build directory happens to be.
+    hunmin_add_test(NAME conformance-${name} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/trace-check.py "${t_real}" --runner $<TARGET_FILE:trace-emit> --sim $<TARGET_FILE:hunmin-sim> LABELS tier-C SKIP_RETURN_CODE 77 TIMEOUT 120)
   endforeach()
 else()
   message(STATUS "Tier C: skipped (build with -DHUNMIN_TRACE_BUILD=ON)")

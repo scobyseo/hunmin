@@ -171,6 +171,16 @@
   the rulings survive, the figures do not, and `MODES-MEASUREMENT.md` keeps only
   how to measure again. Names what the removal leaves unsettled (B2's pass
   lines, ReqMode9's threshold, whether to build a new corpus at all).
+- [[2026-11-09-the-22-04-release-ships-ibus-only]] — the Ubuntu 22.04 artefact
+  ships an IBus engine and no fcitx5 at all (jammy's fcitx5 is 5.0.14, the tree
+  needs 5.1.13); what that settles, and the six things it leaves open — package
+  layout, the dev-distro addon, candidate UI, config store, build host, FE11's
+  budget reading.
+- [[2026-11-09-22-04-packaging-names-and-the-ci-shaped-dev-vm]] — the 22.04
+  package is a separate name (`hunmin-ibus`), hunmin never redistributes fcitx5,
+  CI builds the release artefacts and development runs in a VM shaped like the
+  runner. The tier-C model those tools carry is `docs/OPTIONS-MEASURED.md` §PLT-8
+  (the measurement and the repair that was chosen), not a second copy here.
 
 ## Raw — sessions
 

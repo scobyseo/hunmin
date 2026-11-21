@@ -159,33 +159,41 @@ tier A verbatim therefore produces a `.in` that its own `.gold` contradicts — 
 the first 31 multi-syllable cases were dropped from the corpus rather than re-emitted
 (docs/TESTING.md "Tier C", 2026-10-25).
 
-`meta.delivery` states the model instead, and the model is derived from tier A's own
-numbers — never typed:
+`meta.delivery` names the model; the *expectation* is not projected from tier A at all.
+It is asked from the object the frontends actually drive:
 
 ```
-word := ""                              # what the eojeol has accumulated
-for each tier-A event e:
-    word += e.commit
-    if e.consumed:   out = commit "",      preedit word + e.preedit
-    else:            out = commit word,    preedit e.preedit ; word = ""
-total = Σ e.commit + (last e.preedit)   # the text the client ends up holding
+hunmin-sim --data libhunmin/data --layout <meta.layout> --keys <the trace's own keys> \
+           --trace --layer word
 ```
+
+That is the shared layer's per-key answer at `HUNMIN_COMMIT_AT_BOUNDARY` — the policy a
+word-buffered frontend runs — so its `commit` IS the key the client is owed text at, and its
+`preedit` is what the client should be showing. `tools/trace-check.py` runs it, and hands the
+resulting per-event list to the runner through `HUNMIN_TRACE_EXPECT` so the emitter's
+`TestFrontend` expectations and the checker's comparison cannot disagree.
+
+**Why not a rule over tier A.** It cannot be one: tier A records the per-syllable engine
+API, and there a word-ending symbol (`.` — the engine commits `가.` on a key it consumed)
+and a committed digit arrive identically as "commit non-empty, preedit empty". Measured
+2026-11-09: every local rule that catches the symbol also fires on the digit, and this case's
+previous `.gold` was produced by such a rule — it placed `가.` on the next space and merged
+`4"`+`~` into one commit at a later space (docs/OPTIONS-MEASURED.md §PLT-8).
 
 A trace that opts in is checked on three legs, all of them in `tools/trace-check.py`:
 
-1. the `.in`'s tier-A stream accumulates to `meta.delivery.total` (the generator's number
-   is the golden's, not somebody's);
-2. the `.gold` equals the model projected from the `.in`, event for event (the committed
-   artefact is what the model says, so a hand-edited `.gold` fails);
+1. the `.in`'s tier-A stream accumulates to `meta.delivery.total` (the generator's number is
+   the golden's, not somebody's);
+2. the `.gold` equals the layer's stream on the same keys, event for event — so a `.gold`
+   that places a commit at the wrong key fails, and a hand-edited one fails;
 3. both the `.gold` and the runner's output accumulate to `total` (nothing dropped or
    duplicated at a boundary).
 
-What this deliberately does **not** assert: a per-event commit mid-word (the model says
-there is none), and delivery at teardown (the runner flushes the remaining word with no
-event to report it, so only leg 3 sees it). Both are properties of the adapter, and an
-adapter that got a boundary wrong fails before the diff: the fcitx5 emitter pre-loads the
-commit it expects and `TestFrontend` aborts on a mismatch — measured by replaying a
-`sebeolsik-final` trace under `dubeolsik` (`commitString: ㅓㄹ녿ㅁ` vs `안녕`, runner rc=-6).
+What this deliberately does **not** assert: delivery at teardown (the runner flushes the
+remaining word with no event to report it, so only leg 3 sees it). An adapter that got a
+boundary wrong still fails before the diff: the fcitx5 emitter pre-loads the commits it was
+handed and `TestFrontend` aborts on a mismatch — measured by replaying a `sebeolsik-final`
+trace under `dubeolsik` (`commitString: ㅓㄹ녿ㅁ` vs `안녕`, runner rc=-6).
 
 ## Corpus layout
 

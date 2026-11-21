@@ -155,7 +155,7 @@ names the limitation if shipped unmeasured; the measurement record lives in
 | [`docs/HOWTO-NEW-LAYOUT.md`](docs/HOWTO-NEW-LAYOUT.md) | adding a layout without touching code |
 | [`docs/D3-ROOT-CAUSE.md`](docs/D3-ROOT-CAUSE.md) | why tier D3 looked green while measuring nothing |
 | [`docs/D3-PERFORMANCE.md`](docs/D3-PERFORMANCE.md) | where tier D3's wall clock goes, and the case-count defect it hid |
-| [`docs/OPTIONS-MEASURED.md`](docs/OPTIONS-MEASURED.md) | seven priced questions and their rulings: the mutation tier, the android sandbox, the test framework, the `ch` input, the TSF unregister mirror, whether the Han/Eng key can act as a held modifier, and what each single/compound 한/영 assignment costs |
+| [`docs/OPTIONS-MEASURED.md`](docs/OPTIONS-MEASURED.md) | eight priced questions and their rulings: the mutation tier, the android sandbox, the test framework, the `ch` input, the TSF unregister mirror, whether the Han/Eng key can act as a held modifier, what each single/compound 한/영 assignment costs, and which Linux host mechanism a second frontend plugs into |
 | [`docs/SPEC-MODES.md`](docs/SPEC-MODES.md) | the automatic Hangul/English switch: requirements ReqMode1–ReqMode15, E1–E8, and what ships in 0.3 |
 | [`docs/MODES-SURFACE-B.md`](docs/MODES-SURFACE-B.md) | the automatic switch's settings row, implemented once: the engine calls it is built from, the four traps, and what each frontend still decides |
 | [`docs/REMAINING-WORK.md`](docs/REMAINING-WORK.md) | what is left, what is blocked on whom, and the assertions that keep it honest |

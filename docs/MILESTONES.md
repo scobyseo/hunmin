@@ -248,6 +248,13 @@ voice special host now or keep refusing; whether daemon code counts against FE11
 thin budget; test placement/budget for the new D3; packaging (distribution name,
 debian Build-Depends, FE14 data terms).
 
+**Ruled 2026-11-09, for the Ubuntu 22.04 target only:** that artefact ships an IBus engine
+and carries no fcitx5 dependency of any kind — decision and open residue in
+`wiki/decisions/2026-11-09-the-22-04-release-ships-ibus-only.md`, pricing and the jammy
+package inventory in `docs/OPTIONS-MEASURED.md` §PLT-7. The list above is not narrowed by it
+otherwise: the same target's package layout, the dev-distro addon, the candidate UI, the
+config store, the build host and FE11's reading are still open.
+
 ### Track 2 — auto-switch improvement (correctness, expectability, …)
 
 Measured baseline (`docs/MODES-METRICS.md`, wiki-1000 corpus): as shipped the

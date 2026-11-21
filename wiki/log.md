@@ -1228,3 +1228,40 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `docs/MILESTONES.md` §0.3, `docs/REMAINING-WORK.md` B2, and
   [[2026-11-08-no-modes-measurement-until-the-maintainer-says-so]].
 
+## [2026-11-09] decision | the 22.04 release ships IBus only
+
+- The maintainer set the goal — *"이 작업의 목표로 ubuntu 22.04 를 위한 배포판을
+  추가하자"* — and, after the measurement that jammy's `fcitx5` is 5.0.14 while the
+  tree requires 5.1.13, ruled: *"22.04 release는 ibus만 지원하면 돼. fcitx5는
+  포기."* Recorded in
+  [[2026-11-09-the-22-04-release-ships-ibus-only]]; the measurement it lands
+  beside is `docs/OPTIONS-MEASURED.md` §PLT-7.
+- Consequence in the tree: the 22.04 package takes §PLT-7 path 1 (core + IBus
+  engine, `libibus-1.0-dev` from jammy main), carries no fcitx5 dependency, and
+  the IBus frontend becomes the work item before that package can exist. The
+  jammy package inventory (ibus 1.5.26-4, fcitx5 5.0.14-1, cmake 3.22.1) and the
+  three paths are in §PLT-7 with their commands.
+- Left open and named in the page: the binary package layout, whether the
+  dev-distro `.deb` keeps the fcitx5 addon, candidate UI and page ceiling, config
+  backend, where the jammy artefact is built, and FE11's budget reading.
+- Verification: the IBus engine's portability was measured, not assumed — the
+  29-line probe compiles against jammy's 1.5.26 headers and, under this host's
+  1.5.34 daemon, registers, is spawned and commits into the GTK client
+  (`HUNMIN_PROBE_ENGINE=… tools/ime-host-probe.sh` → PASS).
+
+## [2026-11-09] decision | 22.04 packaging names, no fcitx5 redistribution, and a CI-shaped dev VM
+
+- The maintainer answered the priced option list: *"1-4 까지는 권고안 대로"*, then
+  *"5. release 시에는 CI에서 하면 되나, 개발 중에는 이 linux box에 vm을 하나
+  설치해서 개발하자. vm을 최대한 github CI 환경과 동일하게 만들어서 CI에서
+  실패가 발생하지 않게 하자."* and *"6. fcitx5는 배포하지 않는다."* Recorded in
+  [[2026-11-09-22-04-packaging-names-and-the-ci-shaped-dev-vm]].
+- Consequence: jammy ships `hunmin-ibus` beside an unchanged `hunmin`; fcitx5 is
+  never bundled for any target; release artefacts come from CI; development moves
+  to a VM modelled on the runner.
+- Measured while acting on item 1: the tier-C model cannot be repaired as a
+  projection rule — the layer commits at a word-ending symbol under both policies,
+  and tier A makes that event look like a digit commit, so any local rule that
+  catches `.` also fires on `1`. The three repairs and their costs are §PLT-8 in
+  `docs/OPTIONS-MEASURED.md`; the outcome (the adapter delivers there) is decided,
+  the mechanism is not.

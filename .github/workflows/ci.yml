@@ -99,8 +99,14 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
+          # python3-pil: pyright resolves imports against the interpreter it
+          # inspects (the system python3). `uv tool install --with pillow pyright`
+          # does NOT do that -- measured in a 24.04 VM on 2026-11-09: the tool env
+          # had Pillow and pyright still reported
+          # `Import "PIL" could not be resolved` at tools/gen-android-icons.py:33.
+          # With this package the import resolves.
           sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
-            python3 extra-cmake-modules gettext \
+            python3 python3-pil extra-cmake-modules gettext \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
             libxcb-icccm4-dev libxcb-xinerama0-dev libxcb-randr0-dev \
@@ -249,6 +255,17 @@ jobs:
         # The M5-CLOSED assertion row runs `pyright tools/` inside docs-lint;
         # without the tool it fails with FileNotFoundError (measured on CI
         # 2026-10-13), not a code defect. Install it so the assertion is real.
+        #
+        # Pillow is provided by the apt step above, not by `--with pillow`, and
+        # that distinction was measured on 2026-11-09 in a 24.04 VM: pyright
+        # resolves imports in the interpreter it inspects, so a Pillow inside the
+        # tool environment changes nothing (still
+        # `error: Import "PIL" could not be resolved` at
+        # tools/gen-android-icons.py:33), while python3-pil makes it resolve.
+        # Once it resolved it reported a REAL type error at
+        # tools/gen-android-icons.py:88 (a colour tuple against Pillow 10.2's
+        # `color: int` stub), which is fixed in the same branch -- the M5 row
+        # had been asserting "clean" against an import failure.
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           export PATH="$HOME/.local/bin:$PATH"
@@ -303,10 +320,25 @@ jobs:
       # android-mutations` at its "Tier E0 + E1" step, so the coverage is not
       # lost, it is de-duplicated. The tier-C Android corpus is NOT excluded
       # -- it registers under `tier-C`, and this job is where it runs.
+      # --output-junit IS RESOLVED AFTER ctest CHANGES INTO --test-dir. Measured 2026-11-09
+      # (ctest 4.4.4, a two-test project): `ctest --test-dir build --output-junit
+      # build/junit.xml` writes `build/build/junit.xml`, so the relative path that reads
+      # naturally here created nothing at `build/junit.xml`. The whole chain below then
+      # reported "no JUnit output to summarise" and the failure-evidence artefact silently
+      # dropped the one file it exists to carry -- on a run whose 141 tests had in fact all
+      # been recorded. An absolute path is used so this line and the artefact list below
+      # cannot drift apart again, and a missing file now fails the step: a harness defect
+      # that eats the evidence is not the same thing as a red test, which is the only thing
+      # `|| true` is here to suppress.
       - run: |
-          ctest --test-dir build -j4 --output-on-failure -LE 'tier-E1' --output-junit build/junit.xml || true
+          ctest --test-dir build -j4 --output-on-failure -LE 'tier-E1' \
+            --output-junit "$GITHUB_WORKSPACE/build/junit.xml" || true
           echo "=== ctest finished (exit suppressed) ==="
-          ls -la build/junit.xml 2>&1 || true
+          test -f "$GITHUB_WORKSPACE/build/junit.xml" || {
+            echo "::error::JUnit output missing at build/junit.xml -- the timing summary and the failure-evidence artefact both read it"
+            exit 1
+          }
+          ls -la build/junit.xml
           head -100 build/Testing/Temporary/LastTest.log 2>&1 || true
       # ctest exit code does not fail the job; only the job-level timeout-minutes does.
       # This lets all tests run and be recorded (JUnit + timing) regardless of pass/fail,
@@ -609,7 +641,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
             build-essential \
-            python3 debhelper fakeroot extra-cmake-modules gettext \
+            python3 python3-pil debhelper fakeroot extra-cmake-modules gettext \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
             libxcb-icccm4-dev libxcb-xinerama0-dev libxcb-randr0-dev \
@@ -671,6 +703,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
       - name: Install pyright (debian/rules runs docs-lint, which asserts tools/ is clean)
+        # python3-pil comes from this job's apt step, for the reason given at the
+        # linux job's install step: pyright resolves imports in the interpreter it
+        # inspects, not in its own tool environment.
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           export PATH="$HOME/.local/bin:$PATH"

@@ -1062,6 +1062,14 @@ int main(int argc, char **argv) {
     const char *offcheck[256];
     int noff = 0;
     int trace = 0, caps = 0, batch = 0, judge = 0, start_latin = 0, autoswitch = -1;
+    /* --layer switches the --keys replay from the per-syllable engine API
+     * (hunmin_ic, what tier A records) to the SHARED LAYER the frontends drive
+     * (hunmin_buffered_preedit), at the policy asked for. Tier C needs the
+     * second: a word-buffered frontend delivers at the key the LAYER commits on,
+     * and no rule over tier A's stream can recover that -- a symbol that ends a
+     * word and a digit both arrive as "commit, empty preedit" there (measured
+     * 2026-11-09, docs/OPTIONS-MEASURED.md §PLT-8). */
+    int layer_policy = -1;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--data") && ++i < argc) data = argv[i];
         else if (!strcmp(argv[i], "--layout") && ++i < argc) layout = argv[i];
@@ -1076,12 +1084,21 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--judge")) judge = 1;
         else if (!strcmp(argv[i], "--start-latin")) start_latin = 1;
         else if (!strcmp(argv[i], "--trace")) trace = 1;
+        else if (!strcmp(argv[i], "--layer") && ++i < argc) {
+            if (!strcmp(argv[i], "word")) layer_policy = HUNMIN_COMMIT_AT_BOUNDARY;
+            else if (!strcmp(argv[i], "syllable")) layer_policy = HUNMIN_COMMIT_PER_SYLLABLE;
+            else {
+                fprintf(stderr, "--layer takes word|syllable, not '%s'\n", argv[i]);
+                return 2;
+            }
+        }
         else if (!strcmp(argv[i], "--batch")) batch = 1;
     }
     if (!data) {
         fprintf(stderr, "usage: hunmin-sim --data DIR (--layout ID --keys STR | --batch | --check FILE"
                         " | --judge-check FILE | --off-check FILE... "
-                        "| --layout ID --latin LATIN --judge --keys STR)\n");
+                        "| --layout ID --latin LATIN --judge --keys STR)\n"
+                        "       [--layer word|syllable]   replay through the shared layer, not the ic\n");
         return 2;
     }
     const char *dirs[1] = {data};
@@ -1216,12 +1233,28 @@ int main(int argc, char **argv) {
         fprintf(stderr, "need --layout and --keys\n");
         return 2;
     }
-    hunmin_ic *ic = hunmin_ic_new(ctx, layout);
-    if (!ic) {
-        fprintf(stderr, "layout %s unavailable\n", layout);
-        return 2;
+    /* Two ways to replay the same keys. The default is the per-syllable engine
+     * API (hunmin_ic) -- tier A's stream, unchanged since it was recorded. With
+     * --layer, the replay goes through hunmin_buffered_preedit at the requested
+     * policy, which is the object every frontend actually drives: its per-key
+     * answer IS the delivery a frontend owes, with no projection in between. */
+    hunmin_ic *ic = layer_policy < 0 ? hunmin_ic_new(ctx, layout) : NULL;
+    hunmin_buffered_preedit *bl = NULL;
+    if (layer_policy >= 0) {
+        bl = hunmin_buffered_preedit_new(ctx, layout, NULL, layer_policy);
+        if (!bl) {
+            fprintf(stderr, "cannot build a %s layer for %s\n",
+                    layer_policy == HUNMIN_COMMIT_AT_BOUNDARY ? "word" : "syllable", layout);
+            return 2;
+        }
+        if (caps) hunmin_buffered_preedit_set_option(bl, "caps", 1);
+    } else {
+        if (!ic) {
+            fprintf(stderr, "layout %s unavailable\n", layout);
+            return 2;
+        }
+        if (caps) hunmin_ic_set_option(ic, "caps", 1);
     }
-    if (caps) hunmin_ic_set_option(ic, "caps", 1);
     /* The return value is the engine's CONSUMPTION decision, and --trace threw
      * it away. That made the trace unable to say anything about a key the
      * engine declined -- space above all, which is the one key whose whole
@@ -1241,8 +1274,21 @@ int main(int argc, char **argv) {
         uint32_t key = 0, shift = 0;
         if (keys_step(&s, &key, &shift, "--keys")) return 2;
         bool consumed;
-        if (shift) consumed = hunmin_ic_process_key(ic, key, 1);
-        else consumed = hunmin_ic_process(ic, key);
+        const char *commit_text;
+        const char *preedit_text;
+        if (bl) {
+            hunmin_key_result out = {0, NULL, NULL};
+            consumed = hunmin_buffered_preedit_process_key(bl, key, shift ? 1 : 0, &out) != 0;
+            /* Borrowed until the next layer call; the printing below makes no
+             * such call, and both strings are used once, in order. */
+            commit_text = out.commit ? out.commit : "";
+            preedit_text = out.preedit ? out.preedit : "";
+        } else {
+            if (shift) consumed = hunmin_ic_process_key(ic, key, 1);
+            else consumed = hunmin_ic_process(ic, key);
+            commit_text = hunmin_ic_commit(ic);
+            preedit_text = hunmin_ic_preedit(ic);
+        }
         if (trace) {
             /* Every string in the line is escaped, not just commit and preedit.
              * The input key went through raw `%c`, so sin3-p2's shifted apostrophe
@@ -1256,17 +1302,18 @@ int main(int argc, char **argv) {
             char kbuf[8], cbuf[256], pbuf[256];
             char kraw[2] = {(char)key, 0};
             json_escape(kraw, kbuf, sizeof kbuf);
-            json_escape(hunmin_ic_commit(ic), cbuf, sizeof cbuf);
-            json_escape(hunmin_ic_preedit(ic), pbuf, sizeof pbuf);
+            json_escape(commit_text, cbuf, sizeof cbuf);
+            json_escape(preedit_text, pbuf, sizeof pbuf);
             /* A shift key records itself in "in" so the trace row is self-describing
              * at the same native-event level tier C uses; rows without the escape
              * stay exactly as gen-conformance has always parsed them. */
             printf("{\"in\":{\"ch\":\"%s\"%s},\"commit\":\"%s\",\"preedit\":\"%s\","
                    "\"consumed\":%s}\n",
                    kbuf, shift ? ",\"shift\":true" : "", cbuf, pbuf, consumed ? "true" : "false");
-        } else printf("[%c%s] commit='%s' preedit='%s'\n", (unsigned char)key, shift ? "+" : "", hunmin_ic_commit(ic), hunmin_ic_preedit(ic));
+        } else printf("[%c%s] commit='%s' preedit='%s'\n", (unsigned char)key, shift ? "+" : "", commit_text, preedit_text);
     }
-    hunmin_ic_free(ic);
+    if (bl) hunmin_buffered_preedit_free(bl);
+    else hunmin_ic_free(ic);
     hunmin_ctx_free(ctx);
     return 0;
 }

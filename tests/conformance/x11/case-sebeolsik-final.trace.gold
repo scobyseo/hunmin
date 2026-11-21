@@ -56,12 +56,12 @@
 {"in": {"keysym": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
 {"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
 {"in": {"keysym": 102, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}
-{"in": {"keysym": 46, "mods": 0}, "commit": "", "preedit": "가.", "consumed": true}
-{"in": {"keysym": 32, "mods": 0}, "commit": "가.", "preedit": "", "consumed": false}
+{"in": {"keysym": 46, "mods": 0}, "commit": "가.", "preedit": "", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
 {"in": {"keysym": 58, "mods": 0}, "commit": "", "preedit": "4", "consumed": true}
-{"in": {"keysym": 77, "mods": 0}, "commit": "", "preedit": "4\"", "consumed": true}
-{"in": {"keysym": 41, "mods": 0}, "commit": "", "preedit": "4\"~", "consumed": true}
-{"in": {"keysym": 32, "mods": 0}, "commit": "4\"~", "preedit": "", "consumed": false}
+{"in": {"keysym": 77, "mods": 0}, "commit": "4\"", "preedit": "", "consumed": true}
+{"in": {"keysym": 41, "mods": 0}, "commit": "", "preedit": "~", "consumed": true}
+{"in": {"keysym": 32, "mods": 0}, "commit": "~", "preedit": "", "consumed": false}
 {"in": {"keysym": 48, "mods": 0}, "commit": "", "preedit": "ㅋ", "consumed": true}
 {"in": {"keysym": 49, "mods": 0}, "commit": "", "preedit": "ᄏᅠᇂ", "consumed": true}
 {"in": {"keysym": 50, "mods": 0}, "commit": "", "preedit": "ᄏᅠᇂㅆ", "consumed": true}
