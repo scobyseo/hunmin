@@ -381,6 +381,45 @@ sudo apt install -y swtpm ovmf virt-manager    # Win11 needs TPM2.0+vTPM: swtpm 
   VS2022 BuildTools 14.44 + Windows SDK 10.0.26100 on this host. No composition
   behaviour is implemented yet — the TIP is registration-only.
 
+## Batch 5 — 0.4 T1: IBus engine dev headers (installed 2026-11-22, **no sudo**)
+
+The IBus frontend needs `ibus-1.0.pc` and the `ibus-1.0/` headers at build time and the
+distro's `libibus-1.0.so.5` at run time. `libibus-1.0-dev` is not installed here and
+`sudo -n` fails, so both candidate dev packages were **unpacked under `~`**:
+
+```sh
+apt-get download libibus-1.0-dev                              # 26.04: 1.5.34~rc2-1
+dpkg-deb -x libibus-1.0-dev_*.deb ~/toolchains/ibus/
+# 22.04's own package is the compile-time floor; take it from the archive when needed:
+curl -sSLO http://archive.ubuntu.com/ubuntu/pool/main/i/ibus/libibus-1.0-dev_1.5.26-4_amd64.deb
+```
+
+Three host facts that cost a failed link each if assumed otherwise:
+
+1. **The shipped `.pc` says `prefix=/usr`.** Exporting `PKG_CONFIG_PATH` finds it, but
+   every `-I` still points at `/usr/include` where nothing was unpacked. The file was
+   rewritten with `prefix=$HOME/toolchains/ibus/usr` (same fields, same version string).
+2. **The dev package carries only `libibus-1.0.so`, a symlink to a `so.5.0.534` it does
+   not ship.** `-libus-1.0` therefore fails to link. The symlink was pointed at the
+   runtime library the distro has:
+   `ln -sf /usr/lib/x86_64-linux-gnu/libibus-1.0.so.5 ~/toolchains/ibus/usr/lib/x86_64-linux-gnu/libibus-1.0.so`
+3. **`pkg-config --define-prefix` does not repair (1)**: it derives the prefix from the
+   `pkgconfig` directory's parent, which for `usr/lib/<arch>/pkgconfig` is `usr/lib`.
+
+```sh
+export PKG_CONFIG_PATH=$HOME/toolchains/ibus/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
+cmake -B build && cmake --build build -j16      # hunmin-ibus now builds; see the cache for IBUS_FOUND
+```
+
+`frontends/ibus/CMakeLists.txt` also accepts `-DHUNMIN_IBUS_PREFIX=…/usr` to add the
+unpacked include dir explicitly, for a host where the `.pc` cannot be edited. What the
+build does **not** need: an `ibus-daemon` (D1), or a display (D2 uses `GTestDBus`, which
+spawns `dbus-daemon` and needs no session).
+
+Also measured here: the two header sets differ by exactly two symbols
+(`ibus_engine_send_message`, `ibus_bus_set_global_shortcut_keys_async`), so the 1.5.26
+floor is real rather than cautious.
+
 ## LSP — off by default, one word to turn it on
 
 opencode's LSP is **disabled unless configured**, and it is not hot-reloaded, so the

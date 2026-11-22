@@ -273,6 +273,25 @@ def main() -> int:
               "add_dependencies(copy-addon hunmin_addon)" in body,
               "without it the tests assert against a stale libhunmin.so")
 
+    # The IBus frontend (issue #288) is held to the same 700-line ceiling. That
+    # is the conservative reading of FE11 with two Linux frontends: the ruling
+    # on "one budget per frontend or one for the Linux frontend" is still open
+    # (docs/MILESTONES.md §0.4 Track 1), and applying the existing number twice
+    # pre-empts nothing. Its behaviour is asserted by engine-d1-ibus and
+    # engine-d2-ibus-ui; this is the shape rule a grep can hold for free.
+    ibus_src = _COMMON_ROOT / "frontends/ibus/src"
+    if ibus_src.is_dir():
+        counted = 0
+        parts = {}
+        for path in sorted(ibus_src.glob("*.c")) + sorted(ibus_src.glob("*.h")):
+            n = len([ln for ln in strip_comments(path.read_text()).splitlines() if ln.strip()])
+            counted += n
+            parts[path.name] = n
+        check("I8 the IBus frontend stays inside the thin-adapter budget",
+              counted <= 700,
+              f"{counted} code LOC across "
+              + ", ".join(f"{k}={v}" for k, v in parts.items()) + " (limit 700)")
+
     print()
     if failures:
         print(f"{len(failures)} invariant(s) violated -- see "

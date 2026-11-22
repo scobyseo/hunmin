@@ -59,7 +59,7 @@ answers "what does this test cost me, and what does it do to my working tree?"
 | `tier-A` | engine unit + golden vectors, host, C |
 | `tier-B` | ABI and data contracts (`abi`, `schema-contract`, `krdict-fixture`) |
 | `tier-C` | cross-platform adapter conformance + the keycode fixtures |
-| `tier-D1` / `tier-D2` / `tier-D3` | the three fcitx5 tiers below |
+| `tier-D1` / `tier-D2` / `tier-D3` | the desktop tiers below, on both Linux frontends |
 | `tier-E0` / `tier-E1` / `tier-E2` | the automated Android tiers below |
 | `tier-G` | process: `docs-lint`, `modes-corpus-selfcheck` |
 | `mutation` | the test rewrites repo source and rebuilds, to prove a guard can fail |
@@ -208,6 +208,13 @@ entirely its three D3 tests; D1 and D2 together are 0.23 s and
 `frontend-invariants` 0.03 s, so a change to the fcitx5 adapter that does not
 touch the full stack should select `-L 'tier-D1|tier-D2' -LE mutation` (0.09 s),
 not `-L tier-D`.
+
+**Re-measured 2026-11-22, with the IBus lanes registered** (`engine-d1-ibus`,
+`engine-d2-ibus-ui`): that selection is now **6 tests, 1.07 s** on this host, and
+`-L tier-D` grows by the same two. The IBus D2 lane starts a private session bus
+(`GTestDBus`) per case, so it costs ~0.8 s where the fcitx5 D2 lane costs
+~0.3 s — still under the `slow` cut, and it waits for the signals it expects
+rather than sleeping a fixed time, which is what keeps it there.
 
 ctest also prints a **Label Time Summary** at the end of any labelled run, which
 is the cheapest way to see where a selection's time went:
@@ -767,6 +774,48 @@ Four layers, cheap→real:
   *(This line used to read "Candidate assertions remain impossible until P3 adds
   candidates." It was true when written and is now false; the prediction was correct and
   the prediction was kept as though it were the present tense.)*
+
+### The IBus frontend's D1/D2 (0.4 T1, issue #288)
+
+The second Linux frontend repeats the same two tiers over a different host
+interface, and the split is what makes them cheap:
+
+- **D1 — the key path with no IBus in it** (ctest `engine-d1-ibus`,
+  `frontends/ibus/test/test_state.cpp`). `frontends/ibus/src/hunmin_state.c`
+  includes no IBus header. It owns the shared `hunmin_buffered_preedit` layer and
+  calls a `hunmin_state_sink` when a word is delivered, the preedit changes, or
+  the candidate list opens. The lane supplies a recording sink and drives keys
+  directly, so it asserts the frontend's behaviour — boundary delivery,
+  backspace, the language key, the autoswitch half of ReqMode8, the Hanja list,
+  focus flush — with no bus, no daemon and no display. This is the tier a
+  frontend defect should fail first.
+- **D2 — what the host's UI is told** (ctest `engine-d2-ibus-ui`,
+  `frontends/ibus/test/test_engine_ui.cpp`). It builds the real
+  `HunminIbusEngine` (a `IBusEngine` subclass) on a **private session bus**
+  (`GTestDBus`) and reads the D-Bus signals a panel would receive —
+  `CommitText`, `UpdatePreeditText`, `UpdateLookupTable`,
+  `Show/HideLookupTable` — deserialized with libibus's own
+  `ibus_serializable_deserialize_object()`, not re-parsed from our own shape.
+  It asserts the preedit text **and that its cursor is a character index**
+  (`ㄱ` is one character, three bytes — a byte count puts the caret in the wrong
+  cell), the clear on a boundary commit, the lookup table's page size and
+  candidates, Return committing the highlighted one, and — the half a
+  commit-only lane never sees — that a declined key returns `FALSE` so the
+  client receives it. The key translation itself (`hunmin_ibus_translate_key`)
+  is asserted here: Caps Lock lowercases without setting the row shift bit,
+  Shift+letter does the opposite, backspace travels as `0x08`.
+- **libibus floor.** The component builds against **1.5.26**, Ubuntu 22.04's own
+  package (the release that ships this engine), and against 26.04's 1.5.34. The
+  two header sets were diffed: only `ibus_engine_send_message` and
+  `ibus_bus_set_global_shortcut_keys_async` differ, and neither is used.
+- **Not measured here, and not implied by a green run:** that a daemon spawns
+  the engine, that a real client's text view receives the commit, and that a
+  panel draws the table at this page size. That is tier D3, which is issue #292.
+  Measured once by hand before D3 existed, on this host: an `ibus-daemon` spawned
+  the build-tree engine from an out-of-tree component XML, and a real GTK client
+  typing `dkssud ` held `안녕 ` — recorded on issue #288 as an ad-hoc result, not
+  as a ctest.
+
 - **D3 full-stack X11 e2e**: launch **stock distro `fcitx5`** under Xvfb; start our harness
   app (tiny XIM client window echoing every received commit as `COMMIT:<utf8>` on stdout,
   `tests/e2e/xim-harness.c`); drive a real input path with **XTEST** (libXtst via ctypes,

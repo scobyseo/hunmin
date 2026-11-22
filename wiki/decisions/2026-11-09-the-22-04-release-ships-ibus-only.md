@@ -1,7 +1,7 @@
 ---
 title: The Ubuntu 22.04 release ships an IBus engine only; fcitx5 is given up for that target
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-22
 type: decision
 status: active
 tags: [decision, linux, frontend, packaging, ibus]
@@ -34,9 +34,14 @@ sentence:
 - **The 22.04 package carries no fcitx5 dependency at all** — not an archive dependency,
   not a bundled build, not a private prefix. `dpkg-checkbuilddeps` on jammy is to succeed
   with `libibus-1.0-dev` and the core's own dependencies only.
-- **The tree therefore owes an IBus frontend before the 22.04 package exists.** Nothing in
-  the tree implements one today; the requirement set it must satisfy already exists
-  (`docs/SPEC-FRONTEND.md` FE1–FE15) and the host-mechanism price is in §PLT-3 A.
+- **The tree therefore owed an IBus frontend before the 22.04 package exists.**
+  Until 2026-11-22 nothing in the tree implemented one; the requirement set it had
+  to satisfy already existed (`docs/SPEC-FRONTEND.md` FE1–FE15) and the
+  host-mechanism price is in §PLT-3 A. **Measured 2026-11-22 (issue #288):** the
+  engine now exists under `frontends/ibus/`, builds against 22.04's own libibus
+  1.5.26 and 26.04's 1.5.34 from one source, and has its D1/D2 tiers green
+  (`docs/TESTING.md`, "The IBus frontend's D1/D2"). The package itself still does
+  not exist — this ruling authorises the frontend, not the artefact.
 
 ## What it does not settle
 

@@ -751,6 +751,18 @@ METRICS-HARNESS-181 | path-present | tools/modes-metrics.py | present | issue #1
 METRICS-LITERAL-PROBE-181 | grep | tools/modes-metrics.py:probe_literals | present | the correction that followed the first run: the replay typed a punctuation character as its own ASCII key, but sin3-p2 types `; " '` as Shift+P / Shift+K / Shift+J, so 30 sentences read as "untypeable" when they are typeable. The map is probed from `hunmin-sim --batch` and a key counts only when it delivers the character AND leaves nothing composing; the selfcheck asserts the map has a key for `;`. Recorded as void numbers in `docs/MODES-MEASUREMENT.md` §6
 METRICS-CORPUS-TOOL-181 | path-present | tools/build-modes-sentences.py | present | issue #181's precondition: the corpus is an argument and its provenance is written by the tool that produced it (source sha256, per-filter drop counts, window, what it does not represent), so the rule that a corpus constructed in-session is void is answerable by re-running the extraction. `--selfcheck` reads the artefact back and fails on an empty or single-script corpus
 METRICS-SELFCHECK-181 | ctest | modes-metrics-selfcheck | registered | the guard that can fail: the OFF arm must round-trip a mixed sentence, the comparator must notice a changed one, the transition count must match a hand count, and the ctypes replay must agree with `hunmin-sim --judge`. Registered in tier-G; the key table caches in the build dir keyed on the layout's sha256 (6.5 s cold, 0.17 s cached)
+# -------------------------------------------  issue #288 (0.4 T1-3: IBus D1/D2, 2026-11-22)
+# The frontend is registered only where `ibus-1.0 >= 1.5.26` is found, so the
+# ctest rows below are present in this host's configuration and absent on a host
+# without libibus headers -- the same configuration-dependence the Android rows
+# carry. The compile-time floor is 22.04's own package; 26.04's 1.5.34 was
+# header-diffed against it (two added symbols, neither used).
+IBUS-FRONTEND-288 | path-present | frontends/ibus/src/hunmin_engine.c | present | issue #288: the engine half (IBusEngine subclass, key translation, the sink over libibus). The state object beside it is the D1 seam; the component descriptor is frontends/ibus/component/hunmin.xml.in
+IBUS-STATE-NO-IBUS-288 | grep | frontends/ibus/src/hunmin_state.c:include <ibus.h> | absent | the D1 claim is mechanical: the state object includes no IBus header, which is what lets `engine-d1-ibus` drive it on a host with no bus
+IBUS-FLOOR-288 | grep | CMakeLists.txt:ibus-1.0>=1.5.26 | present | the compile-time floor is Ubuntu 22.04's libibus; the same sources build against 26.04's 1.5.34
+IBUS-D1-288 | ctest | engine-d1-ibus | registered | tier D1, 11 cases through a recording sink: boundary delivery, backspace over a syllable and on empty, the language key, autoswitch ON and OFF, the Hanja list and Return, Escape, flush/reset, a policy change
+IBUS-D1-CORPUS-288 | ctest | engine-d1-ibus-judgement | registered | FE10: replays every case of `tests/golden/judgement-r8.jsonl` (20 cases, including the two `mode: latin` ones fcitx5's lane skips, because this frontend can SET the starting mode) and asserts `step_commits`, `mode_after` and each probe
+IBUS-D2-288 | ctest | engine-d2-ibus-ui | registered | tier D2: the real engine on a private session bus (GTestDBus), asserting `CommitText`, `UpdatePreeditText` (text, character-index cursor, visibility), `UpdateLookupTable` (page size, candidates, cursor) and show/hide, plus that a declined key returns FALSE
 <!-- end docs-lint -->
 
 ---
