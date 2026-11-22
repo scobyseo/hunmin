@@ -155,7 +155,7 @@ class KeypadModelTest {
         assertEquals("backspace", rows[3].last().id)
         // The bottom row, in the picture's order.
         assertEquals(
-            listOf("language-toggle", "symbols-page", "space", ",", ".", "enter"),
+            listOf("language-toggle", "symbols-page", ",", "space", ".", "enter"),
             rows[4].map { it.id },
         )
         // The picture's hints and sublabels.

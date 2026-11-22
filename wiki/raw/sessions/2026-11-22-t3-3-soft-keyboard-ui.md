@@ -136,3 +136,18 @@ Each fix carries an E2E regression assertion. The same session requested KP14
 through the tap machinery (no I9 read), and a 키패드 settings section. The
 maintainer also measured that long-press and swipe-up do nothing — true, they
 are #312, and KP13 draws their hints; the gap is recorded, not hidden.
+
+## Basic functions confirmed; two follow-ups (2026-11-22, later)
+
+The maintainer confirmed the basics work ("일단 기본 기능은 되었네") and gave
+two follow-ups:
+
+1. **Long-press backspace → repeated word-unit delete**, added to #312 verbatim
+   ("backspace를 길게 누르면 적당한 시간간격으로 단어 단위로 삭제를 해주면 좋겠어.
+   많은 글자를 지우기 위해 반복해서 누르는 게 쉬운 일이 아니거든?"). The WORD unit
+   of KP14 is the reusable seam; the prior-art premise is unverified in the
+   survey and becomes a design-analysis item there.
+2. **KP15: comma moves left of space** ("스페이스가 좀더 오른손쪽으로 오는 게
+   좋겠어") — the bottom row is now `[한/영] [기호] , [space] . [⏎]`. The mockup
+   artefacts were amended WITH the ruling so the picture and the SPEC do not
+   drift; the model test pins the new order.

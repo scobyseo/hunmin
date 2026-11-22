@@ -43,7 +43,7 @@ Legend: `KEY` = character/symbol (진하게); `(fn)` = functional (연하게);
  ㅂ<ㅃ> ㅈ<ㅉ> ㄷ<ㄸ> ㄱ<ㄲ> ㅅ<ㅆ> ㅛ ㅕ ㅑ ㅐ<ㅒ> ㅔ<ㅖ>
  ㅁ ㄴ ㅇ ㄹ ㅎ ㅗ ㅓ ㅏ ㅣ
  (⇧) ㅋ ㅌ ㅊ ㅍ ㅠ ㅜ ㅡ (⌫)                          ← one shift; ⌫ separated
- [한/영] [기호] [   space   ] ,<?> .<"> [⏎]              ← KP4 frequent keys; ⏎ separated
+ [한/영] [기호] ,<?> [   space   ] .<"> [⏎]              ← KP4 frequent keys; ⏎ separated
 ```
 
 ### English mode (QWERTY)
@@ -53,7 +53,7 @@ Legend: `KEY` = character/symbol (진하게); `(fn)` = functional (연하게);
  q w e r t y u i o p
  a s d f g h j k l
  (⇧) z x c v b n m (⌫)
- [한/영] [기호] [   space   ] ,<?> .<"> [⏎]
+ [한/영] [기호] ,<?> [   space   ] .<"> [⏎]
 ```
 
 ### Symbol mode (Tier 1 — all 32 symbols as separate buttons, no shift)

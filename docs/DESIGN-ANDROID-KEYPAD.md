@@ -75,7 +75,7 @@ the file is already packaged and extracted, so a second copy would be drift.
 로 정했잖아?"):** the UI is `docs/android-keypad-mockup.html` AS DRAWN. The grid
 is the picture's: a 10-key number row (digits only, shifted-symbol corner
 hints), 10/9/7 letter rows, one ⇧ (⇪ hint) and ⌫ on the third row, and the
-bottom row `[한/영] [기호] [space] ,<?> .<"> [⏎]`. The Hangul screen is 두벌식,
+bottom row `[한/영] [기호] ,<?> [space] .<"> [⏎]` (KP15: comma left of space). The Hangul screen is 두벌식,
 the English screen QWERTY — Track 3's goal layouts. Labels still come from the
 layout's own JSON (§2); the GEOMETRY is the picture's, and the view transcribes
 the picture's palette and proportions (white keys, #f4f5f7 panel, accent
@@ -183,6 +183,11 @@ already exercises. No engine or ABI change is needed by either.
   maintainer's — not decided here.
 - Night-mode palette (the picture draws light only), landscape, haptics,
   accessibility polish (#285 sub-issue).
+- Long-press backspace = repeated WORD-unit delete at a reasonable interval
+  (maintainer request 2026-11-22, verbatim in #312's comment): added to #312's
+  scope; the WORD unit of KP14 is the reusable seam. The prior-art premise
+  ("다른 ime는 그런 기능을 제공할 거야") is unverified in the survey — a
+  design-analysis item there.
 - KP3 frequency-based placement/emphasis beyond the provisional colour
   hierarchy — needs the frequency source the symbols design names.
 

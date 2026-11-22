@@ -387,7 +387,7 @@ The maintainer's words (2026-11-22, verbatim):
 **Decided:** the soft keypad's UI is `docs/android-keypad-mockup.html` AS
 DRAWN — the 두벌식 and QWERTY text screens (10-key number row with the shifted-
 symbol corner hints, 10/9/7 letter rows, the shifted-jamo sublabels, one ⇧ with
-the ⇪ hint, ⌫, and the bottom row `[한/영] [기호] [space] ,<?> .<"> [⏎]`), the
+the ⇪ hint, ⌫, and the bottom row `[한/영] [기호] [space] ,<?> .<"> [⏎]`, amended by KP15 to comma-left-of-space), the
 symbol page, and the picture's palette and proportions. The document's own
 "provisional / not a ruling" header predates this ruling and is superseded by
 it; the header is kept as the record of what was believed when the first
@@ -454,3 +454,21 @@ visible.
 `OverlayActivity` (키패드 section) — `docs/DESIGN-ANDROID-KEYPAD.md`.
 *Verified by:* engine-android-e1 (decision table, unit vocabulary),
 engine-android-e2e (swipe on the device, per-unit deletion).
+
+### KP15. Bottom row amended: comma left of space (DECIDED)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "스페이스 위치가 살짝 애매한데, ,를 스페이스 왼쪽으로 옮겨서, 스페이스가
+> 좀더 오른손쪽으로 오는 게 좋겠어."
+
+**Decided:** the text-mode bottom row reads
+`[한/영] [기호] [,] [space] [.] [⏎]` — the comma moves to the space's LEFT, so
+the space bar sits further toward the right hand. This amends the KP13 picture
+(the mockup artefacts are updated to match; the picture and the ruling must not
+drift). The period stays to the space's right; KP9's positional consistency
+holds — the row is the same in Hangul and English modes.
+
+*Implementation:* `KeypadModel.textRows` bottom row;
+`docs/android-keypad-mockup.html` / `.md` amended. *Verified by:*
+engine-android-e1 (`KeypadModelTest` row order), engine-android-e2e (taps).

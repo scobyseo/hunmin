@@ -198,7 +198,7 @@ data class KeypadKey(
  * grid (the first implementation's deviation, overturned). The picture draws:
  * a 10-key number row (digits only, shifted-symbol corner hints), 10/9/7 letter
  * rows, one ⇧ (⇪ hint) and ⌫ on the third, and the bottom row
- * `[한/영] [기호] [space] ,<?> .<"> [⏎]`. Labels come from the layout data;
+ * `[한/영] [기호] ,<?> [space] .<"> [⏎]` (KP15). Labels come from the layout data;
  * the Hangul screen is 두벌식 and the English screen QWERTY (Track 3's goal
  * layouts). A layout key outside these cells (sin3-p2's punctuation) is not
  * touch-reachable through this geometry — a recorded consequence of the
@@ -286,7 +286,7 @@ object KeypadModel {
      * The text-mode grid for [caps], as the decided picture draws it (KP13):
      * number row with corner hints, 10/9/7 letter rows (the Hangul screen's
      * shifted-jamo sublabels when the layout's mode is hangul), ⇧/⌫ on the
-     * third, and the bottom row `[한/영] [기호] [space] ,<?> .<"> [⏎]`.
+     * third, and the bottom row `[한/영] [기호] ,<?> [space] .<"> [⏎]` (KP15).
      */
     fun textRows(caps: KeypadKeycaps, shift: Boolean): List<List<KeypadKey>> {
         fun letter(id: String): KeypadKey {
@@ -319,8 +319,9 @@ object KeypadModel {
             listOf(
                 KeypadKey("language-toggle", "한/영", KeypadKey.Kind.MODE, -1),
                 KeypadKey("symbols-page", "기호", KeypadKey.Kind.SYMBOLS_PAGE, -1),
-                KeypadKey("space", "space", KeypadKey.Kind.FUNCTION, FUNCTION_KEYCODES.getValue("space")),
+                // KP15: comma LEFT of space — the space sits further right.
                 punct(",", "?"),
+                KeypadKey("space", "space", KeypadKey.Kind.FUNCTION, FUNCTION_KEYCODES.getValue("space")),
                 punct(".", "\""),
                 KeypadKey("enter", "⏎", KeypadKey.Kind.FUNCTION, FUNCTION_KEYCODES.getValue("enter")),
             )
