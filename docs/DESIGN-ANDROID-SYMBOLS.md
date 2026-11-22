@@ -299,3 +299,35 @@ need to share the symbol screen across frontends (move toward B3).
 
 The symbol-screen build itself is the follow-up implementation to this decision,
 not part of #298 (the decision issue).
+
+## Implementation — the data contract (T3-2, issue #297)
+
+The app-read data file is
+`frontends/android/app/src/main/assets/keypad/symbols.json` — a committed
+frontend asset, deliberately outside `assets/data/` (which is synced from
+`libhunmin/data` and belongs to the engine). It carries the symbol screen only:
+the three KP6-ruled symbol rows (all 32 ASCII punctuation, grouped `[]{}` and
+`,.<>`, `` ` `` leading), the navigation row and the KP9 bottom row as
+function-key **ids**. What is deliberately absent, with the reason in the
+file's own `x-notes`: the Tier 2 slot (KP10 prefers gesture variants; #312
+owns that mapping, on this same file) and the main keypads' frequent-symbol
+keys (the frequent set and number-row default are still open,
+`docs/ANDROID-KEYPAD-MOCKUP.md`).
+
+The contract has one owner per half:
+
+- **Content** — `tools/symbol-data-check.py`, ctest `keypad-symbol-data`
+  (tier-B guard): the ruled arrangement, the closed function-id vocabulary,
+  KP9's no-space/enter, the KP6 nav order, and a ban on engine-layout fields
+  (KP11: the engine never loads this file). Runs on hosts with no Android SDK.
+- **App path** — `frontends/android/app/src/main/java/org/hunmin/ime/SymbolScreen.kt`
+  (`SymbolScreen.parse`, `SymbolScreen.commitSymbol`) parses the asset and
+  commits a symbol key's character directly; `SymbolScreenTest` (tier E1,
+  `engine-android-e1`) is the golden: every symbol in the shipped file, tap →
+  exactly that character through `RecordingInputConnection`, nothing
+  composing, no I9 violation. These tests need no JNI shim and never skip.
+  `commitSymbol` is the seam the soft-keyboard UI sub-issue calls — after
+  flushing any pending composition (§4's FE1/FE2 ordering note).
+
+No engine, ABI or composition-schema change was made: `libhunmin/data` and
+`libhunmin/tests/abi/symbols.txt` are untouched by #297.

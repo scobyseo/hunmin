@@ -192,6 +192,12 @@
   three host facts (compound text, stale-preedit commit, teardown routing),
   and the two shared-harness defects the new lanes exposed (`^` typed `6`,
   the edit loop's harness leak).
+- [[2026-11-22-t3-2-symbol-data-and-issue-alignment]] — #297 said "third per-key
+  symbol row, no engine change"; #298's ruling (KP11) said an app-read data file
+  with the engine uninvolved. The maintainer chose KP11, the three T3 issues and
+  three doc sentences were brought back in line, and the data file + content
+  checker + commit-path golden were built. Also records two pre-existing reds
+  the work uncovered (a `meta.json` scan in tier E1, a stale mutation anchor).
 - [[2026-11-21-modes-failures-and-the-domain-mode-idea]] — the maintainer's
   distilled intent for auto-switch (zero manual presses, no wrong judgement,
   deliberate awkward words accepted), four live failures traced to code (sin3-p2
