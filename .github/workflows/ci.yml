@@ -687,6 +687,25 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           uv tool install pyright
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      # Pre-populate googletest, the same step release.yml has (issue #325).
+      #
+      # WHY THIS JOB NEEDS IT AND `linux` DOES NOT. `dh_auto_configure` forces
+      # -DFETCHCONTENT_FULLY_DISCONNECTED=ON, so FetchContent cannot download;
+      # without a pre-populated source dir the GTest::gtest_main target never
+      # exists and cmake fails inside
+      # cmake/HunminLibhunminTests.cmake / HunminFrontendTests.cmake. That is
+      # the noble nightly's red since 2026-11-15, measured on master run
+      # 45014529790 (job 137185330546):
+      #   CMake Error ... GTest::gtest_main ... but the target was not found
+      #   FETCHCONTENT_SOURCE_DIR_GOOGLETEST:PATH=        (empty in the cache)
+      # The `linux` job configures with a plain `cmake -B build`, where
+      # FetchContent is allowed to download, so it never sees this.
+      # release.yml had the step and this job did not; $HOME survives
+      # dh_auto_clean of obj-*/_deps, which is why the copy lives there.
+      - name: Pre-populate googletest
+        run: |
+          mkdir -p ~/googletest-src
+          git clone --depth 1 --branch v1.17.0 https://github.com/google/googletest.git ~/googletest-src
       - name: Build the .deb
         # -us -uc unsigned: a key is not required to build the artefact, and
         # requiring one would make it unbuildable on a machine without one --
@@ -702,8 +721,16 @@ jobs:
         # SECONDS is a bash builtin, so the wall time is printed by the step
         # that actually builds -- no extra action, and no guess from a later
         # summary that cannot see this segment.
+        #
+        # FETCHCONTENT_SOURCE_DIR_GOOGLETEST is exported here rather than routed
+        # through tools/build-release.sh so the builder stays
+        # `dpkg-buildpackage -us -uc -b` with a real build-dep check (release.sh
+        # passes -d, which this job deliberately dropped with issue #322).
+        # debian/rules forwards the variable into cmake; see its
+        # override_dh_auto_configure.
         run: |
           start=$SECONDS
+          export FETCHCONTENT_SOURCE_DIR_GOOGLETEST="$HOME/googletest-src"
           dpkg-buildpackage -us -uc -b
           echo "=== dpkg-buildpackage (noble) wall time: $((SECONDS-start)) s ==="
       - name: What the package contains

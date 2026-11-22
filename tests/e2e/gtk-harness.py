@@ -37,10 +37,27 @@ Not measurable from inside a GTK client, and therefore NOT claimed here:
 
 HARNESS PROTOCOL (consumed by tests/e2e/run-d3.sh)
   READY              the window is mapped and the entry holds the X focus
-  MODULE:...         which GTK IM module library is mapped into this process
+  MODULE:...         which GTK IM module libraries are mapped into this process
+  IMCTX:<id>         the module id GTK actually SELECTED (fcitx5/ibus/xim/simple),
+                     probed from a focused Gtk.IMMulticontext -- the fact the
+                     runner refuses a run on (see report_module for why the
+                     mapped libraries alone are not it)
   TEXT:<content>     the entry's buffer, on every change and once at the end
+  KEYSINK:<keyval>   one line per key press this entry received, printed AFTER
+                     the widget and its input context have handled it
   CASESTART:<id>     a case is starting, on a FRESH entry, already focused
   CASEFAIL:<id>      the fresh entry never took the X focus; the case cannot run
+
+WHY KEYSINK EXISTS (issue #325). TEXT: alone is not a completion signal: a
+GtkEntry prints it per COMMIT, and the engine commits per syllable/word, so the
+log legitimately goes quiet for up to ~1.1 s in the middle of a sentence while
+the next word is being typed. The runner used to wait a fixed 0.8 s and read
+the last TEXT:, which is the clock this replaces -- measured, the final commit
+can land after it and the case then compares a truncated buffer. KEYSINK makes
+the log grow per KEY, which is what the XIM client's COMMIT:/FORWARD: stream
+already does, so the runner's existing "the log stopped growing" settle means
+"the client has caught up with the injection" for a widget too (docs/TESTING.md,
+issue #325).
 
 READY must be unbuffered (flush after write) because the runner greps a
 redirected stdout; see the same note in xim-harness.c about setbuf.
@@ -159,7 +176,37 @@ def main():
     def on_changed(widget):
         out("TEXT:" + widget.get_text())
 
-    entry.connect("changed", on_changed)
+    # The runner's injection ends with a BARRIER key and waits for that key's
+    # marker here (issue #325): a line printed from AFTER the widget's own key
+    # handler means the widget and its GtkIMContext have finished with the key,
+    # so every key injected before it has been processed. GTK 3 uses
+    # connect_after because a plain handler runs BEFORE the class handler that
+    # filters the key through the IM context. A key the IM CONSUMES never
+    # reaches this handler at all -- which is why the barrier has to be a key
+    # the engine declines, and why "one line per key" is not what this is.
+    #
+    # GTK 3's "key-press-event" signal does not exist in GTK 4 (event signals
+    # were replaced by controllers), so the same fact comes from an
+    # EventControllerKey there. Attached to the entry, not the window, so a key
+    # that lands in a different widget cannot be reported as this case's.
+    def on_key_press(widget, event):
+        out("KEYSINK:%04x" % event.keyval)
+        return False
+
+    def on_key_pressed(controller, keyval, keycode, mods):
+        out("KEYSINK:%04x" % keyval)
+        return False
+
+    def wire_entry(e):
+        e.connect("changed", on_changed)
+        if gtk4:
+            ctrl = Gtk.EventControllerKey()
+            ctrl.connect("key-pressed", on_key_pressed)
+            e.add_controller(ctrl)
+        else:
+            e.connect_after("key-press-event", on_key_press)
+
+    wire_entry(entry)
 
     def make_entry():
         """Build a fresh GtkEntry to replace the current one.
@@ -172,7 +219,7 @@ def main():
         """
         new = Gtk.Entry()
         new.set_width_chars(40)
-        new.connect("changed", on_changed)
+        wire_entry(new)
         if gtk4:
             win.set_child(new)
         else:
@@ -188,15 +235,41 @@ def main():
         state["entry"] = new
         return new
 
-    # Which IM module library is actually mapped into this process. Without
-    # this the harness cannot tell "the host's GTK module declined the space
-    # and did nothing" from "the module was never loaded and GTK handled the
-    # keys itself" -- which would make the run a measurement of GTK's built-in
-    # fallback rather than of the frontend under test. Both fcitx5's and
-    # IBus's modules are recognised: the runner names the one it expects, and
-    # a run with the wrong one is refused (both modules can point at a daemon
-    # on the same bus and still fill the buffer).
+    # Which input method module GTK actually SELECTED, and which immodule
+    # libraries are mapped into this process. Two different facts, and the
+    # runner needs both:
+    #
+    #   IMCTX:<id>  the id a focused Gtk.IMMulticontext resolves to -- "fcitx5",
+    #               "ibus", "xim" or "gtk-im-context-simple". This is the
+    #               selection, so `GTK_IM_MODULE=xim` in the environment is
+    #               refused by it even though the buffer would still fill (the
+    #               measured hazard: XMODIFIERS=@im=fcitx points GTK's xim
+    #               module at the same fcitx5, and every case passes by the XIM
+    #               path the tier exists to distinguish from).
+    #   MODULE:<paths>  every im-(fcitx5|ibus).so mapped into the process. A
+    #               COMPLEMENT, not the answer: under GTK 4 GIO loads every
+    #               immodule in the cache to enumerate the extension point, so
+    #               both libim-ibus.so and libim-fcitx5.so are mapped and a
+    #               "which library won" label is a guess (that guess is what
+    #               made engine-d4-gtk4 fail its own module check, issue #325;
+    #                   MODULE:im-ibus.so=.../libim-ibus.so,.../libim-fcitx5.so
+    #               reproduced identically on a clean HEAD). The expected
+    #               library being mapped AND IMCTX naming it is the strong
+    #               form of the check.
+    # The probe context is focused only long enough to read the id, then
+    # focused out and dropped: focusing it is a GTK-level fact and does not
+    # move the X focus, and leaving it focused would leave a stray input
+    # context on the daemon's list for the rest of the run.
     def report_module():
+        ctx_id = "probe-error"
+        try:
+            probe = Gtk.IMMulticontext()
+            probe.focus_in()
+            ctx_id = probe.get_context_id() or "none"
+            probe.focus_out()
+            del probe
+        except Exception as exc:  # noqa: BLE001 - reported, never fatal
+            ctx_id = "probe-error:%s" % exc
         mapped = []
         try:
             with open("/proc/self/maps") as fh:
@@ -208,8 +281,8 @@ def main():
                             mapped.append(p)
         except OSError as exc:
             out("MODULE-ERROR: %s" % exc)
-        label = "im-ibus.so" if any("im-ibus" in p for p in mapped) else "im-fcitx5.so"
-        out("MODULE:" + (label + "=" + ",".join(mapped) if mapped else "none"))
+        out("IMCTX:" + ctx_id)
+        out("MODULE:" + (",".join(mapped) if mapped else "none"))
         out("GTK_IM_MODULE:" + os.environ.get("GTK_IM_MODULE", "<unset>"))
 
     if gtk4:

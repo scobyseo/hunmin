@@ -321,3 +321,115 @@ the flake into 20 s of lost time but would also hide a daemon that was never
 going to connect; or gate on a readiness marker the addon writes after the XIM
 server is registered, which changes what the tier waits for rather than what it
 reports.
+## 2026-11-22 — the GTK lane's two clocks replaced by signals (issue #325)
+
+The lane was red every time it ran standalone on this host (48.4–49.0 s, and
+the issue records the same), with three signatures: an **empty first case** of
+a layout group, a **truncated last syllable** of a long case, and **cross-case
+bleed** (`TEXT:안녕ㄴ)` where the case expects `TEXT:안녕`). Two of those were
+clock, and both clocks are gone.
+
+**What was measured, and with what.** A temporary copy of `run-d3.sh` with
+`MARK inject_start/inject_end` lines plus a timestamped copy of
+`gtk-harness.py` (both throwaway, not committed) and `HUNMIN_D3_KEEP=1` for the
+stage:
+
+- The final commit of a long case lands **0.22 s after the injector returns**.
+  That is inside the old 0.8 s read *on an idle host*, which is why the
+  truncation was intermittent rather than constant.
+- A `GtkEntry` prints `TEXT:` per **buffer change**, and the engine commits per
+  syllable/word, so the buffer is legitimately unchanged for **up to 1.12 s in
+  the middle of a sentence**. A quiet-window settle over `TEXT:` therefore
+  cannot be both cheap and correct — the first version of this fix used 150 ms
+  and truncated four of the eight cases at 189–201 ms. Measured, not assumed.
+- Each case's `GtkIMContext` becomes a **new** fcitx5 input context:
+  `Controller1.DebugInfo` reported ids `ab84… → b6a8… → a1ef… → 716c…` with
+  `focus:1` on the new one and `focus:0` on the one before, ~0.12 s after the
+  case marker. A `DebugInfo` call costs **2 ms** (`dbus-send`, 10 calls timed),
+  so a 30 ms poll is free against the 400 ms clock it replaces.
+
+**What replaced them.**
+
+| was | now | resolution measured |
+|---|---|---|
+| `sleep 0.4` before injection | wait for a focused input-context id this run has not consumed (snapshot taken before the entry swap) | 10–124 ms per case, 10–17 ms for 7 of 8 |
+| `sleep 0.8` then read the last `TEXT:` | inject `{Up}` as a barrier; wait for the harness's `KEYSINK:ff52` for it | 8/8 cases, every run |
+| `layout_settle=1.0` for the GTK client | 0.1 s, the XIM value — the per-case gate is what that sleep stood in for | — |
+
+The barrier key is declined by the engine and ignored by a single-line
+`GtkEntry`, so it moves neither the buffer nor the expectation; the harness
+prints `KEYSINK:<keyval>` from an **after**-handler (GTK 3) or from a
+`Gtk.EventControllerKey` (GTK 4 — the event signal does not exist there), which
+is what makes the marker mean "that key has been through the widget's
+`GtkIMContext`". A declined key flushes the composition, so the expectation fold
+now ends with the trace's trailing `preedit`.
+
+**What it costs, measured on this host (16 cores).**
+
+- `engine-d3-gtk3` standalone: **48.7 s → 36.0–36.9 s**. The saving is the
+  clocks, not the harness: 4 × 0.4 s pre-inject, 4 × 1.0 s layout settle and
+  the part of each 0.8 s settle the barrier does not need.
+- Parallel D3 selection at `-j16` (`ctest -j16 -L tier-D3`, all seven tests
+  including gtk4 and d3-expectation): **39.81, 39.90, 39.70, 39.57, 39.93 s**,
+  **zero skips**, then 26 more runs green — **30 of 31** after the rebuild.
+  The one red (engine-d3-gtk3 at 23.03 s) had no transcript kept
+  (`HUNMIN_D3_KEEP` was not set in that batch) and did not reproduce in the 26
+  runs after it; recorded as-is, not explained.
+- `engine-d3-gtk4` standalone: **35.19 s**, 8/8 green — the first time this
+  lane has RUN under ctest on this host, for two reasons fixed in this round
+  (see below).
+- `ctest -j16 -L slow` (the issue's checklist selection, 11 tests):
+  **green 5/5**, engine-d3-gtk3 38.98 s, whole selection 100.66 s.
+
+**What the second round fixed (2026-11-23), each with its measurement.**
+
+- **The GTK immodule check now gates on the module GTK SELECTED, not on which
+  libraries happen to be mapped.** Under GTK 4, GIO loads *every* immodule in
+  the v4 cache to enumerate the extension point, so both `libim-ibus.so` and
+  `libim-fcitx5.so` are mapped and the old "winner label" logic called the
+  process `ibus` — engine-d3-gtk4 failed its own check while its text
+  comparison passed 8/8 (reproduced on `HEAD`). The harness now prints
+  `IMCTX:<id>`, the id a focused `Gtk.IMMulticontext` resolves to —
+  `fcitx5`/`ibus`/`xim`/`gtk-im-context-simple` — and the runner requires
+  `IMCTX:<expected>` plus the expected library being mapped. The control that
+  the old check could not make (docs/TESTING.md: `GTK_IM_MODULE=xim` used to
+  pass every case) now FAILS the run, on both GTK versions.
+- **`engine-d4-gtk4` had never run under ctest here at all**: the gtest
+  wrapper's module check looked for `im-fcitx5.so` under gtk-4.0, where the
+  file is named `libim-fcitx5.so`, so the lane skipped at 0.11 s as "module
+  not installed" on a host that ships it. Fixed in
+  `frontends/fcitx5/test/testfcitx5d3.cpp`.
+- **The display pool now hosts all five D3 lanes.** The pools are five numbers
+  each (99..95 host, 94..90 Xephyr) — five lanes × two numbers — where three
+  fit before; `d3-reservation-test.sh` moved to 89..87 and
+  `d3-gate-failure-test.sh` to :86 so the tools' cleanups cannot delete a live
+  tier claim. At `-j16` this takes the tier from "one lane silently skipped"
+  to all lanes running.
+- **`start_fcitx` retries once, and only for the recorded #253 signature.**
+  The two failures of the first round (both RESTARTS: daemon alive in
+  `ep_poll`, gate exhausted, log carries no `Connecting to X11 display` — a
+  failed X connection is silent in fcitx5) are now answered with one more
+  start: the retry fires only when a previous start in this run SUCCEEDED
+  (`FCITX_STARTS_OK >= 1`), the daemon is still alive, and the log has no
+  X-connection line; a first start failing falls straight through to the
+  evidence dump. Verified with a stub daemon (the d3-gate-failure-test
+  technique): first start → 1 spawn, no retry, rc=1; restart → 2 spawns, the
+  retry logged in gate.log, attempt-1 log kept as `fcitx5.log.attempt1`.
+- **`tools/d3-gate-failure-test.sh` itself was broken at HEAD**, found while
+  re-verifying: `start_fcitx` gained an `IM_HOST` dispatch when the IBus host
+  support landed, the test runs `set -u`, and an unset `IM_HOST` aborted the
+  extracted function before the gate ever ran — every check after "the gate
+  returns 1" was red. Nothing ran the test in CI and `bash -n` cannot see an
+  unbound variable, so it had been quietly red since. Fixed by exporting
+  `IM_HOST=fcitx5`; all 9 checks green.
+
+**What is STILL not fixed and must not be read as fixed.**
+
+- **The pre-inject gate is not proven to be what makes the lane green.** With
+  the gate forced off (the old `sleep 0.4`) and the barrier in place, 5 of 5
+  runs passed: the empty-first-case signature did not come back, because the
+  barrier's 3 s bound covers a slow first commit as well. So the gate's case
+  here is what it *is* — a per-case signal that resolves in 10–17 ms, replaces
+  400 ms of clock, and fails with a clear message naming the missing context —
+  and not a demonstrated fix for the recorded red. A run under heavier load
+  than this host could produce would be the measurement that separates them.

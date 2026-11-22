@@ -53,7 +53,8 @@ echo "stub fcitx5-remote $*"
 EOF
 chmod +x "$PROBE/bin/fcitx5" "$PROBE/bin/fcitx5-remote"
 
-PANEL=":93"   # outside the pool the tiers reserve (99..94)
+PANEL=":86"   # outside the pool the tiers reserve (99..90) and the
+            # reservation test's own numbers (89..87)
 Xvfb "$PANEL" -screen 0 320x240x24 -nolisten tcp >"$PROBE/xvfb.log" 2>&1 &
 XVFB=$!
 cleanup() {
@@ -77,6 +78,12 @@ for fn in gate_ms start_fcitx; do
         { echo "FAIL: $fn could not be extracted from run-d3.sh" >&2; exit 1; }
 done
 
+# IM_HOST must be set: start_fcitx dispatches on it, and this script runs
+# `set -u` -- an unset IM_HOST aborts the extracted function before the gate
+# ever runs, which reads as "the dump is broken" (found 2026-11-23: the test
+# had been failing since the IBus host support added the dispatch, because
+# nothing ran it in CI and `bash -n` cannot see an unbound variable).
+export IM_HOST=fcitx5
 export DISP="$PANEL" DISPLAY="$PANEL"
 STAGE="$PROBE/stage"
 export STAGE             # the stub daemon writes $STAGE/fcitx5.log

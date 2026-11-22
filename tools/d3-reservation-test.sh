@@ -34,10 +34,12 @@ done
 fail=0
 ok() { printf 'ok   %s\n' "$1"; }
 no() { printf 'FAIL %s\n' "$1"; fail=1; }
-# The numbers this tool claims: NOT 99..94, which the real tiers reserve. A
-# tool that cleaned up /tmp/hunmin-d3-disp.9* would delete a concurrent ctest's
-# live claims, so the glob is bounded to what this file creates.
-POOL="93 92 91"
+# The numbers this tool claims: NOT 99..90, which the real tiers reserve (five
+# lanes x two numbers each, issue #325). A tool that cleaned up
+# /tmp/hunmin-d3-disp.9* would delete a concurrent ctest's live claims, so the
+# numbers are below the tiers' pool and the cleanup list is only what this
+# file creates.
+POOL="89 88 87"
 cleanup() {
     local n
     for n in $POOL; do rm -f "/tmp/hunmin-d3-disp.$n"; done
@@ -46,22 +48,22 @@ trap cleanup EXIT
 cleanup
 
 # 1. A number with a live server on it is not available.
-Xvfb :93 -screen 0 320x240x24 -nolisten tcp >/dev/null 2>&1 &
+Xvfb :89 -screen 0 320x240x24 -nolisten tcp >/dev/null 2>&1 &
 xvfb=$!
-for _ in $(seq 1 50); do x_display_up :93 && break; sleep 0.1; done
+for _ in $(seq 1 50); do x_display_up :89 && break; sleep 0.1; done
 RESERVED=""; RES_DISP=""
-reserve_display "93 92"
-[ "$RES_DISP" = ":92" ] && ok "a live server makes its number unavailable" ||
-    no "reserve_display took '$RES_DISP' where :93 has a live server"
+reserve_display "89 88"
+[ "$RES_DISP" = ":88" ] && ok "a live server makes its number unavailable" ||
+    no "reserve_display took '$RES_DISP' where :89 has a live server"
 kill "$xvfb" 2>/dev/null; wait "$xvfb" 2>/dev/null
-for _ in $(seq 1 50); do x_display_up :92 || break; sleep 0.1; done
+for _ in $(seq 1 50); do x_display_up :88 || break; sleep 0.1; done
 cleanup
 
 # 2. Concurrent claimers never share a number, and the pool is what bounds them.
 : >/tmp/hunmin-d3-claim-out.$$
 for _ in $(seq 1 12); do
     ( RESERVED=""; RES_DISP=""
-      if reserve_display "93 92 91"; then echo "ok $RES_DISP" >>"/tmp/hunmin-d3-claim-out.$$"
+      if reserve_display "89 88 87"; then echo "ok $RES_DISP" >>"/tmp/hunmin-d3-claim-out.$$"
       else echo "none -" >>"/tmp/hunmin-d3-claim-out.$$"; fi ) &
 done
 wait
@@ -75,21 +77,21 @@ cleanup
 
 # 3. A claim whose owner is gone is taken over -- a killed run must not wedge
 #    the pool until someone removes files by hand.
-echo 999999 >/tmp/hunmin-d3-disp.92      # 999999 is not a running pid here
+echo 999999 >/tmp/hunmin-d3-disp.88      # 999999 is not a running pid here
 RESERVED=""; RES_DISP=""
-reserve_display "92"
-[ "$RES_DISP" = ":92" ] && ok "a dead owner's claim is taken over" ||
-    no "a dead owner's claim wedged :92 (got '${RES_DISP:-none}')"
+reserve_display "88"
+[ "$RES_DISP" = ":88" ] && ok "a dead owner's claim is taken over" ||
+    no "a dead owner's claim wedged :88 (got '${RES_DISP:-none}')"
 cleanup
 
 # 4. A claim whose owner is ALIVE is honoured -- this is the whole point.
 bash -c 'sleep 30' &
 live=$!
-echo "$live" >/tmp/hunmin-d3-disp.91
+echo "$live" >/tmp/hunmin-d3-disp.87
 RESERVED=""; RES_DISP=""
-reserve_display "91"
+reserve_display "87"
 [ -z "$RES_DISP" ] && ok "a live owner's claim is honoured" ||
-    no "reserve_display stole :91 from a running pid $live"
+    no "reserve_display stole :87 from a running pid $live"
 kill "$live" 2>/dev/null; wait "$live" 2>/dev/null
 cleanup
 
@@ -97,7 +99,7 @@ cleanup
 #    that started #250: an empty directory had no owner, so a late release
 #    deleted the next run's claim.
 RESERVED=""; RES_DISP=""
-reserve_display "93"
+reserve_display "89"
 claim="${RESERVED# }"
 if [ -n "$claim" ] && [ "$(cat "$claim" 2>/dev/null)" = "$$" ]; then
     stale=999999
@@ -105,7 +107,7 @@ if [ -n "$claim" ] && [ "$(cat "$claim" 2>/dev/null)" = "$$" ]; then
     [ -f "$claim" ] && ok "a release from another pid leaves the claim alone" ||
         no "a release from another pid deleted a live claim"
 else
-    no "could not claim :93 for the release test (got '$claim')"
+    no "could not claim :89 for the release test (got '$claim')"
 fi
 cleanup
 
