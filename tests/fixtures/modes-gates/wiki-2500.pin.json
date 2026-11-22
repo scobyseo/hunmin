@@ -1,0 +1,15 @@
+{
+  "schema": "hunmin.modes-corpus-pin/1",
+  "name": "wiki-2500",
+  "generated_by": "tools/autoswitch-gates.py pin",
+  "generated_at": "2026-11-22T07:41:40+00:00",
+  "corpus": {
+    "basename": "wiki-2500.jsonl",
+    "sha256": "1d3b6e3583f74fb425b6394675a3ec20f9a21831608063942107f2cef869cb27"
+  },
+  "provenance": {
+    "meta_basename": "wiki-2500.jsonl.meta.json",
+    "sha256": "42119ac29e815f87ca10011b71fd34f946f402f0ab3f9a8b12cd88e4eda0ee98",
+    "source_sha256": "de25cba437dd9fba9333a8d3ffbcc220b17185a6d07643945722298d055c752f"
+  }
+}
