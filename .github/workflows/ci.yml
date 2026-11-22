@@ -388,6 +388,16 @@ jobs:
                   continue
               if c.get("status") != "run" or c.find("skipped") is not None or c.find("failure") is not None:
                   bad.append(name + ": status=" + str(c.get("status")))
+          # The tier-C IBus lanes (issue #316) register under
+          # HUNMIN_TRACE_BUILD=ON, which this job sets: the same x11 corpus
+          # the fcitx5 lane replays, through the IBus key path. Counted by
+          # prefix because the names are generated from the corpus filenames.
+          ibus_c = [c for n, c in cases.items() if n.startswith("conformance-ibus-")]
+          if not ibus_c:
+              bad.append("conformance-ibus-*: not registered")
+          for c in ibus_c:
+              if c.get("status") != "run" or c.find("skipped") is not None or c.find("failure") is not None:
+                  bad.append(c.get("name") + ": status=" + str(c.get("status")))
           if bad:
               print("::error::IBus lanes did not register and pass: " + "; ".join(bad))
               sys.exit(1)
@@ -860,8 +870,40 @@ jobs:
       - name: IBus D1/D2/D3 on IBus 1.5.26
         # Not a skip-tolerant selection: D3 registers here (Xvfb and im-ibus
         # are installed above), and a skip would be the "green having measured
-        # nothing" shape this track exists to prevent.
-        run: ctest --test-dir build -j4 -R 'engine-d1-ibus|engine-d1-ibus-judgement|engine-d2-ibus-ui|engine-d3-ibus' --output-on-failure
+        # nothing" shape this track exists to prevent. The -R regex is
+        # unanchored, so engine-d3-ibus also selects the edit and candidate
+        # lanes (issue #316). ctest exits 0 on a SKIP (SKIP_RETURN_CODE 77),
+        # so the JUnit gate below is what makes a skip fail the job.
+        run: |
+          ctest --test-dir build -j4 \
+            -R 'engine-d1-ibus|engine-d1-ibus-judgement|engine-d2-ibus-ui|engine-d3-ibus' \
+            --output-on-failure --output-junit "$GITHUB_WORKSPACE/build/junit-ibus.xml"
+          python3 - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+          root = ET.parse("build/junit-ibus.xml").getroot()
+          cases = {c.get("name"): c for c in root.iter("testcase")}
+          expected = [
+              "engine-d1-ibus",
+              "engine-d1-ibus-judgement",
+              "engine-d2-ibus-ui",
+              "engine-d3-ibus",
+              "engine-d3-ibus-edit",
+              "engine-d3-ibus-candidate",
+          ]
+          bad = []
+          for name in expected:
+              c = cases.get(name)
+              if c is None:
+                  bad.append(name + ": not registered")
+                  continue
+              if c.get("status") != "run" or c.find("skipped") is not None or c.find("failure") is not None:
+                  bad.append(name + ": status=" + str(c.get("status")))
+          if bad:
+              print("::error::IBus lanes did not register and pass: " + "; ".join(bad))
+              sys.exit(1)
+          print("IBus lanes registered and passed: " + ", ".join(expected))
+          PY
       - name: Build the .deb (nobilus profile)
         run: |
           start=$SECONDS
