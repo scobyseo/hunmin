@@ -1264,3 +1264,223 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   while the normal exit was clean. The page keeps the before/after readings,
   the generator grammar fix, and the scheduled-run verification still owed.
 
+## [2026-11-22] create | symbol-layer options for issue #298
+
+- Created [[2026-11-22-symbol-layer-options]]: the third-row "no engine change"
+  premise was measured false against the built loader and key API; the probe
+  procedure is `tools/measure-symbol-layer.py`, and the comparable designs are
+  `docs/DESIGN-ANDROID-SYMBOLS.md`. No ruling is recorded.
+- Baseline findings left open: the inner loop ran tier E2 because E2 is not
+  labelled `slow`, and one Espresso run hit an emulator disappearance race
+  before passing alone. `docs/TESTING.md`'s stale doctor-coverage warning was
+  recorded as a contradiction, not silently resolved.
+
+## [2026-11-22] create | Android Korean IME prior-art survey
+
+- Created [[2026-11-22-android-korean-ime-survey]] and
+  `docs/ANDROID-KOREAN-IME-SURVEY.md`: HeliBoard/FlorisBoard/fcitx5-android/
+  Unexpected Keyboard/open-keyboard compose Hangul; 두벌식 is universal, 천지인 is
+  rare, and the mainstream symbol mechanism is a separate symbol page. Read for
+  facts, copied nothing (GPL-3/Apache-2.0/LGPL-2.1/MIT recorded per app).
+- Recorded the maintainer's verbatim 두벌식 clarification in
+  `docs/MILESTONES.md` Track 3 and the survey doc; corrected the "third row, no
+  engine change" premise there to point at the measured engine cost. No ruling.
+
+## [2026-11-22] create | symbol/number interaction cost mid-Hangul
+
+- Created [[2026-11-22-symbol-interaction-cost]] and
+  `docs/ANDROID-SYMBOL-INTERACTION.md`: the 두벌식 keypad body in HeliBoard/
+  FlorisBoard is jamo only (shift/long-press = doubled jamo), digits come from an
+  optional number row, symbols from a separate page. Interaction-count table for
+  eight mechanisms, with the trade-off each pays.
+- Checked the ISO 25010 premise: usability/operability is the relevant
+  characteristic, interaction count is an efficiency proxy (ISO 9241-11), not a
+  literal clause; time/space/error are the counterweight. Recorded the
+  maintainer's pain verbatim. No ruling.
+
+## [2026-11-22] update | symbol interaction: search time and mis-taps
+
+- Refined [[2026-11-22-symbol-interaction-cost]] and
+  `docs/ANDROID-SYMBOL-INTERACTION.md` with the maintainer's follow-up: the core
+  cost is finding the symbol (visual search), and crowded keys on a narrow screen
+  cause mis-taps. Added two axes (discoverability, target size), the prior art
+  (HeliBoard dedicated comma/period + grouped symbol page, FlorisBoard adjustable
+  key spacing, long-press variant clusters), a geometry-derived target-width
+  table vs the 48 dp guideline, and the trade-off triangle. No ruling.
+
+## [2026-11-22] create | Android keypad criteria KP1–KP3 moved into a SPEC
+
+- Created `docs/SPEC-ANDROID-KEYPAD.md` and [[2026-11-22-android-keypad-criteria]]:
+  the maintainer's keypad criteria are now requirements KP1 (104-key symbols at
+  minimal touch + physical positions, number-row digit↔symbol pairing for
+  passwords), KP2 (space/enter/backspace separated, compact, non-physical; one
+  shift), KP3 (frequency placement + visual emphasis, extended to a whole-keypad
+  hierarchy: characters 진하게, numbers/edit 연하게). Verbatim quotes in the SPEC.
+- Added KP1–KP3 rows to `docs/REQ-MAP.md` (parents A1/A2) and the SPEC-OVERVIEW
+  child index; implementation/verification `none` (mechanism open, #298).
+- Measured: `us-qwerty.json` already holds all 32 ASCII punctuation at physical
+  key ids and the number-row digit→shift-symbol pairs, so KP1 Tier 1 needs no new
+  symbol data. Recorded the fork: prior art categorises the symbol page, KP1 asks
+  for physical positions. No ruling.
+
+## [2026-11-22] update | KP4 direction, symbol-frequency tool, number-row pairing
+
+- Added KP4 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: the
+  maintainer's stated direction — Hangul/English/symbol input separated, very
+  frequent symbols (`, . ? "`) default-visible in Hangul/English mode. Exact
+  symbol set/geometry still open (#298).
+- Added `tools/symbol-frequency.py` (counts P*/S* per million, writes meta.json;
+  raw text / JSONL / wiki-dump). Finding: local corpora are word-frequency lists
+  with no symbols. First prose reading (kowiki 3000 pages stripped) ranks
+  `. , ( ) - : " '` first; password symbols low in prose. Recorded in
+  `docs/ANDROID-SYMBOL-INTERACTION.md` with caveats (register, `~ | =` markup).
+- Compared number-row digit↔symbol mechanisms (long-press/shift/swipe/double-tap)
+  on the password case; long-press fits the number row (no competing long-press
+  meaning), cost is hold latency. Analysis, not a verdict; updated
+  [[2026-11-22-android-keypad-criteria]].
+
+## [2026-11-22] update | KP5 swipe-up + accidental-gesture defences + display
+
+- Added KP5 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: number-row
+  symbols by long-press AND swipe-up; an unintended swipe-up must be preventable
+  (user error protection); symbol display an open question.
+- Analysed accidental-swipe avoidance from Unexpected Keyboard (Pointers/Gesture/
+  Config, read for semantics): adjustable distance threshold (swipe_dist_px),
+  return-to-center cancel (Roundtrip), commit-on-release + preview, direction
+  quantisation; plus velocity gate, movement-vs-time vs long-press, no glide
+  conflict on the number row. Display: digit 진하게 + faint corner hint toward the
+  swipe direction + popup preview. In `docs/ANDROID-SYMBOL-INTERACTION.md` and
+  [[2026-11-22-android-keypad-criteria]]. Analysis, not a verdict.
+
+## [2026-11-22] create | provisional keypad mockup + remaining-decision inventory
+
+- Created `docs/ANDROID-KEYPAD-MOCKUP.md` + `docs/android-keypad-mockup.html` +
+  rendered PNG, and [[2026-11-22-android-keypad-mockup]]: drew Hangul/English/
+  symbol screens from KP1–KP5 (chrome headless render, NanumSquareRound). Answer
+  to "can we draw it yet": yes, provisionally — the picture surfaces the open
+  decisions rather than ruling them.
+- Inventoried #298's core open decision (symbol-layer data home: A third row / B
+  separate page / B3 layout / popup data) and the adjacent Track 3 decisions
+  (frequent set, number-row default, geometry, shift state, gesture defaults,
+  emphasis, frequency source, Tier 2, candidate/mic). The mockup embodies
+  B3 + popup data + dedicated frequent keys as one candidate. No verdict.
+
+## [2026-11-22] update | KP6 symbol-page nav keys, Korean Tier 2 symbols, ~` fix
+
+- Added KP6 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: symbol
+  page needs no shift (symbols shown directly); navigation keys instead
+  (arrows/Tab/Home/End/PgUp/PgDn); Korean-frequent special symbols (Tier 2) to be
+  found and made inputtable.
+- Measured the non-ASCII symbol ranking from kowiki prose
+  (`tools/symbol-frequency.py`): · 《》 〈〉 「」 『』 ‘ ’ “ ” – — … → ° ± × ○ ℃ lead;
+  proposed a grouped Tier 2 set with curated additions (※ ₩ ♡ ★ …) flagged
+  unmeasured in chat. In `docs/ANDROID-SYMBOL-INTERACTION.md`.
+- Clarified the ~` question: a text-number-row mockup gap (digits 1–0 only); both
+  chars are in us-qwerty and on the symbol page. Updated the mockup HTML+PNG
+  (symbol page shift removed + nav keys; 4th Tier 2 panel) and
+  `docs/ANDROID-KEYPAD-MOCKUP.md` + [[2026-11-22-android-keypad-mockup]]. No verdict.
+
+## [2026-11-22] decision | symbol-page arrangement: grouped []{} order
+
+- Maintainer ruling (verbatim): "[]{} 순서로 결정하자." The symbol page shows all
+  32 ASCII punctuation as separate buttons (no shift), grouped order `[]{} `
+  applied consistently to `<>` (`,. <>`), ` leading row 2 before `-`. Layout:
+  `!@#$%^&*()` / `~-_=+[]{}\| / `;:'",.<>/?`. The partner-adjacent alternative
+  (`[{ ]}`, `,< .>`, physical-key pairing) was considered and not chosen.
+- Recorded in `docs/SPEC-ANDROID-KEYPAD.md` KP6 (deliberation quotes kept as
+  history), mockup HTML+PNG re-rendered with the decided layout,
+  `docs/ANDROID-KEYPAD-MOCKUP.md` wireframe, [[2026-11-22-android-keypad-mockup]].
+  This sub-decision is settled; data home / nav-key set / Tier 2 inventory remain
+  open (#298).
+
+## [2026-11-22] update | KP7 swipe-up universal substitute; nav-key order decided
+
+- Added KP7 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: swipe-up
+  on a key reaches its alternate, substituting for long-press/shift (number→symbol,
+  ,→?, .→", shift→capslock, letter/jamo→shifted). Grounded in Unexpected Keyboard's
+  press/swipe key-value model and FlorisBoard ShiftKeyBehavior (capslock by
+  double-tap/cycle). Recorded the glide-typing conflict on letter keys (hunmin has
+  no glide today) and the open shift-unlock detail. In
+  `docs/ANDROID-SYMBOL-INTERACTION.md`.
+- Nav-key order decided (verbatim): "home pgup pgdn end 순서로 변경." Editing
+  cluster now Home·PgUp·PgDn·End (Tab leading, ⌫ trailing). Mockup shift keys show
+  a ⇪ capslock swipe hint; HTML+PNG re-rendered; mockup doc +
+  [[2026-11-22-android-keypad-mockup]] updated. No verdict beyond the maintainer's
+  stated rulings.
+
+## [2026-11-22] decision | glide ruled out; KP8 swipe directions bounded by learnability
+
+- Maintainer ruling (verbatim): "글라이드 기능은 불편하기만 해서 추가할 생각이 없어."
+  Glide typing will not be added, so the KP7 swipe-up-on-letters glide conflict is
+  resolved (no competing gesture). Updated SPEC KP7 + REQ-MAP status.
+- Added KP8 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: a key may
+  carry different functions per swipe direction, but bounded by learnability
+  (verbatim: "너무 복잡하면 사람이 기억하고 쓸 수 없더라"). Analysis in
+  `docs/ANDROID-SYMBOL-INTERACTION.md`: avoid the Unexpected Keyboard 16-direction
+  extreme; recognition over recall via visible per-direction hints (KP3),
+  consistent cross-key mapping, a small direction cap. Mockup stays swipe-up only
+  (the simple end). Direction count / functions / hints open. No verdict.
+
+## [2026-11-22] update | KP9 positional consistency, symbol-page functional keys, Tier 2 10/row
+
+- Added KP9 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: same key
+  in the same position across modes (fewer mis-taps); symbol page drops space and
+  enter, keeps backspace, a return-to-original-mode key labelled 한/영 + the Tier 2
+  button take the mode-key slots, arrows go in the space-bar slot. Tier 2 uses 10
+  keys/row by keeping the 8-key category groups and moving 2 bottom-row symbols
+  up into each (verbatim: "기존에 8개로 묶은 이유가 있을텐데, 맨 아래줄에 있는 기호
+  2개씩을 각 줄로 옮기는 방식이 더 깔끔해.").
+- Mockup HTML: symbol Tier 1 bottom row now [한/영][Tier 2][←↑↓→] (no space/enter),
+  Tier 2 button removed from the symbol row; Tier 2 panel reflowed to 4 rows of 10
+  with the same functional layout; PNG re-rendered. Mockup doc wireframes updated.
+  Exact geometry provisional; positional consistency + space/enter removal binding.
+  No verdict beyond the maintainer's stated direction.
+
+## [2026-11-22] update | Tier 2 has no editing keys
+
+- Maintainer (verbatim): "tier2에는 편집키가 필요없어." Tier 2 is a symbol picker:
+  the navigation cluster, arrows and backspace are removed; correction happens in
+  the text mode. Its bottom row is just the mode-return keys (한/영, 기호 1) in the
+  same slots as Tier 1. Recorded in SPEC KP9; mockup HTML Tier 2 nav row + arrows
+  removed (bottom 한/영/기호 1 only), PNG re-rendered, mockup doc wireframe updated.
+  No verdict.
+
+## [2026-11-22] update | Tier 2 remaining space — open options analysed
+
+- Question (verbatim): "Tier2의 남은 공간을 뭘로 채우면 좋을까?" Recorded comparable
+  options in `docs/ANDROID-KEYPAD-MOCKUP.md` (no ruling): a fifth symbol row (corpus
+  has 194 non-ASCII symbols but the prose tail past 40 is thin), a frequent/recent
+  row (KP3, needs state), larger keys/taller rows (KP2 error protection), category
+  tabs (KP8 complexity caution), an emoji access key. Deciding question: are 40
+  symbols enough for the target population; the measured prose tail is thin, so
+  rare symbols have diminishing returns vs ergonomics or a frequency row.
+
+## [2026-11-22] decision | KP10 gesture selection over Tier 2 button; extension split to #312
+
+- Maintainer (verbatim): "심볼 키에 대한 swipe 동작이나 longpress로 어떤 기호를 입력할지
+  선택하는 게 tier2 버튼을 두는 것보다 나아 보인다. 일단 이렇게만 정리해 두고 이 기능을
+  확장하는 건 별도 이슈로 만들자."
+- Recorded KP10 in `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: swipe/
+  long-press on a symbol key preferred over a Tier 2 button/page; Tier 2 symbols
+  become gesture variants of Tier 1 keys (deprioritises the KP6/KP9 Tier 2 page).
+  #298 records the direction only.
+- Created **#312** `[android] extend symbol selection via swipe/long-press on symbol
+  keys` (labels task/enhancement) for the extension: variant mapping, data home,
+  per-key gesture set bounded by KP8. Mockup doc notes the Tier 2 panels are the
+  considered alternative, not the chosen path. No verdict beyond the stated direction.
+
+## [2026-11-22] decision | symbol screen data home ruled: app-read data file (B2)
+
+- Maintainer ruling (verbatim): "앱이 데이터 파일로 그리기. 엔진은 관여 안함."
+  #298's core question is settled: the Android symbol screen is drawn by the app
+  from a data file, engine uninvolved (option B2). No engine/composition-schema
+  change; the symbol list stays data (app-read), format/validation a frontend
+  contract at implementation. Avoids A's engine cost and B3's settings-list
+  visibility contract.
+- Recorded KP11 in `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP (parent A1) + overview
+  index; Decision section in `docs/DESIGN-ANDROID-SYMBOLS.md`; mockup doc core
+  decision marked decided (B2); created
+  [[2026-11-22-symbol-screen-app-read-data-file]] (wiki/decisions). The symbol
+  screen build is follow-up implementation; gesture variants are #312. #298's
+  decision phase is complete; closure is the maintainer's.
+

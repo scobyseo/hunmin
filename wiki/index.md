@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-11-08   (no page count: three counters disagreed, so the
+> Last updated: 2026-11-22   (no page count: three counters disagreed, so the
 > number a reader needs is the one a tool prints — `python tools/wiki-lint.py`)
 
 ## Concepts
@@ -26,6 +26,9 @@
 
 ## Decisions
 
+- [[2026-11-22-symbol-screen-app-read-data-file]] — #298 ruled: the Android symbol
+  screen is drawn by the app from a data file, engine uninvolved (B2). No engine/
+  schema change; gesture-variant extension split to #312.
 - [[2026-11-02-spec-modes-4-splits-into-an-invariant-and-a-metric]] — §4 read as two claims of different kinds: the decidable half became ReqMode14
   (A2's child, oracle = the recorded corpus, verified by `engine-off-identity`),
   and the ON half points at ③ unrepresentability instead of restating it; why
@@ -326,6 +329,26 @@
   malformed `--keys` token, not a soak leak: the error return skipped cleanup.
   Also the `gh` argv failure, the generator's escape fix and the one check left
   to the scheduled run.
+- [[2026-11-22-symbol-layer-options]] — issue #298's third-row premise measured
+  against the built engine: the loader ignores a `symbol` row, `doctor.py`
+  rejects it, and the reserved `alt` row is accepted but ignored. The probe
+  procedure, the baseline E2/budget finding and the open doctor-doc contradiction.
+- [[2026-11-22-android-korean-ime-survey]] — how open-source Android IMEs compose
+  Hangul: 두벌식 is the common denominator, 천지인 is rare, and the mainstream
+  symbol mechanism is a separate page. The maintainer's 두벌식 clarification and
+  the per-app licences; read for facts, copy nothing.
+- [[2026-11-22-symbol-interaction-cost]] — the mode-switch tax of typing
+  numbers/symbols mid-Hangul, in interaction counts: the 두벌식 keypad body is
+  jamo only, digits come from an optional number row, symbols from a separate
+  page. The ISO 25010 premise checked (count is a proxy, not the whole measure).
+- [[2026-11-22-android-keypad-criteria]] — the maintainer's keypad criteria
+  KP1–KP3 (104-key symbols at physical positions, functional keys separated/
+  compact/one shift, frequency + visual emphasis). Measured: us-qwerty already
+  holds all 32 ASCII punctuation at physical positions; the fork vs categorised
+  symbol pages.
+- [[2026-11-22-android-keypad-mockup]] — provisional Hangul/English/symbol screen
+  mockup from KP1–KP5 (HTML+PNG). Yes, mockup-level; the picture surfaces the open
+  decisions. #298's core open choice is the symbol-layer data home.
 
 ## Raw — upstream
 

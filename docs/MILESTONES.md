@@ -321,6 +321,17 @@ measurement.
 
 ### Track 3 — Android virtual keypads (original 0.4 lane)
 
+**The Korean keypad form is 두벌식.** The maintainer clarified the goal
+(2026-11-22, quoted verbatim): *"그 입력기들이 제공하는 레이아웃을 보면 천지인 등의
+다양한 입력 방식이 있는데, 그 중에서 두벌식 형태를 채용하자는 거였어."* So 두벌식 is
+chosen among the Korean input methods (천지인/세벌식/모아키…); the symbol-layer
+home is a separate question. Prior art: `docs/ANDROID-KOREAN-IME-SURVEY.md`
+(두벌식 is the common denominator of Hangul-supporting open-source Android IMEs;
+their mainstream symbol mechanism is a separate symbol page). The usability
+problem behind 기호 입력 — the mode-switch tax of typing numbers/symbols
+mid-Hangul — is analysed in interaction counts in
+`docs/ANDROID-SYMBOL-INTERACTION.md`.
+
 **What already exists, measured against the tree:**
 
 - **Layouts as data.** `dubeolsik.json` (26 keys) and `us-qwerty.json` (47 keys)
@@ -343,7 +354,9 @@ carry both, nothing carries a third). So 기호 입력 needs a decision before a
 pixel is drawn, and the honest options are comparable:
 
 1. **A symbol layer in the layout data** — a third per-key entry (e.g. `alt` or
-   `symbol`), still data, still no engine change; the engine already takes key
+   `symbol`), still data — but **not** engine-free: the loader and key API select
+   only `plain`/`shift` today, so an engine change is required (measured in
+   `docs/DESIGN-ANDROID-SYMBOLS.md`). The engine already takes key
    primitives (`Literal | SlotJamo | Ambiguous | Sequence`). Cost: a schema change
    to `docs/SPEC-SCHEMA.md` territory and `doctor.py` validation, and every layout
    file grows.
@@ -355,9 +368,12 @@ pixel is drawn, and the honest options are comparable:
    variant, Android-style) on top of option 1.
 
 Which is the optimum is a design analysis for the lane to write, not a ruling here
-(AGENTS.md: analysis presents designs as comparable; the maintainer chooses). What
-the measurement above does settle is that **doing 0.4 as "just render the JSON" is
-not sufficient** — the third layer does not exist in the data today.
+(AGENTS.md: analysis presents designs as comparable; the maintainer chooses).
+The analysis is `docs/DESIGN-ANDROID-SYMBOLS.md` (issue #298); it separates the
+data home, the selection mechanism and the interaction, and records the measured
+engine/doctor costs. What the measurement above does settle is that **doing 0.4
+as "just render the JSON" is not sufficient** — the third layer does not exist in
+the data today.
 
 **Scope boundaries implied by the goal:**
 

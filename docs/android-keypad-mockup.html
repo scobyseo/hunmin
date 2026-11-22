@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --bg:#f4f5f7; --key:#ffffff; --key-border:#d7dae0;
+    --ink:#1a1c20;          /* 진하게: primary characters */
+    --faint:#9aa0ab;        /* 연하게: numbers / editing / hints */
+    --hint:#b6bbc4;         /* corner symbol hints */
+    --fn:#eef0f3; --fn-ink:#6b7280;
+    --accent:#2f6df6; --accent-ink:#ffffff;
+    --space:#e9edf5;
+  }
+  *{box-sizing:border-box; font-family:"NanumSquareRound","Noto Sans CJK KR",sans-serif;}
+  body{margin:0; background:var(--bg); padding:24px;}
+  h1{font-size:20px; margin:0 0 4px;}
+  .sub{color:#6b7280; font-size:13px; margin:0 0 20px;}
+  .row-of-phones{display:flex; gap:24px; flex-wrap:wrap;}
+  .phone{width:360px; background:var(--bg); border:1px solid var(--key-border);
+         border-radius:20px; padding:12px;}
+  .cap{font-size:14px; font-weight:700; margin:2px 4px 10px; color:var(--ink);}
+  .cap small{font-weight:400; color:#6b7280;}
+  .krow{display:flex; gap:5px; margin-bottom:5px; justify-content:center;}
+  .key{position:relative; flex:1; height:46px; background:var(--key);
+       border:1px solid var(--key-border); border-radius:8px;
+       display:flex; align-items:center; justify-content:center;
+       font-size:19px; font-weight:700; color:var(--ink);}
+  .key.num{color:var(--faint); font-weight:700;}      /* 숫자 연하게 */
+  .key .hint{position:absolute; top:2px; right:5px; font-size:11px;
+             font-weight:700; color:var(--hint);}      /* 코너 기호 힌트 */
+  .key .sub{position:absolute; bottom:1px; left:5px; font-size:10px; color:var(--hint);}
+  .key.fn{background:var(--fn); color:var(--fn-ink); font-size:14px; font-weight:700;}
+  .key.shift{flex:1.4;}
+  .key.bspace{flex:1.4;}
+  .key.space{flex:4; background:var(--space); color:var(--fn-ink); font-size:13px;}
+  .key.lang{background:var(--accent); color:var(--accent-ink); font-size:13px;}
+  .key.sym{background:var(--fn); color:var(--fn-ink); font-size:13px;}
+  .key.punct{color:var(--ink);}
+  .key.enter{background:var(--accent); color:var(--accent-ink); font-size:13px;}
+  .key.wide{flex:1.6;}
+  .note{font-size:11px; color:#8a909c; margin:8px 4px 0; line-height:1.5;}
+  .open{color:#c2410c; font-weight:700;}
+  .legend{margin-top:22px; font-size:13px; color:#374151; line-height:1.7;
+          background:#fff; border:1px solid var(--key-border); border-radius:12px; padding:14px 18px; max-width:1140px;}
+  .legend b{color:var(--ink);}
+  .swatch{display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:middle; margin-right:4px; border:1px solid var(--key-border);}
+</style>
+</head>
+<body>
+  <h1>hunmin Android 키패드 — 잠정 목업 (provisional)</h1>
+  <p class="sub">기준 KP1–KP5를 반영한 제안 그림. 확정 아님 — 주황색 <span class="open">OPEN</span> 은 아직 열린 결정. issue #298.</p>
+
+  <div class="row-of-phones">
+
+    <!-- ===================== HANGUL ===================== -->
+    <div class="phone">
+      <div class="cap">한글 입력 모드 <small>(두벌식)</small></div>
+      <div class="krow">
+        <div class="key num">1<span class="hint">!</span></div>
+        <div class="key num">2<span class="hint">@</span></div>
+        <div class="key num">3<span class="hint">#</span></div>
+        <div class="key num">4<span class="hint">$</span></div>
+        <div class="key num">5<span class="hint">%</span></div>
+        <div class="key num">6<span class="hint">^</span></div>
+        <div class="key num">7<span class="hint">&amp;</span></div>
+        <div class="key num">8<span class="hint">*</span></div>
+        <div class="key num">9<span class="hint">(</span></div>
+        <div class="key num">0<span class="hint">)</span></div>
+      </div>
+      <div class="krow">
+        <div class="key">ㅂ<span class="sub">ㅃ</span></div>
+        <div class="key">ㅈ<span class="sub">ㅉ</span></div>
+        <div class="key">ㄷ<span class="sub">ㄸ</span></div>
+        <div class="key">ㄱ<span class="sub">ㄲ</span></div>
+        <div class="key">ㅅ<span class="sub">ㅆ</span></div>
+        <div class="key">ㅛ</div><div class="key">ㅕ</div><div class="key">ㅑ</div>
+        <div class="key">ㅐ<span class="sub">ㅒ</span></div>
+        <div class="key">ㅔ<span class="sub">ㅖ</span></div>
+      </div>
+      <div class="krow">
+        <div class="key">ㅁ</div><div class="key">ㄴ</div><div class="key">ㅇ</div>
+        <div class="key">ㄹ</div><div class="key">ㅎ</div><div class="key">ㅗ</div>
+        <div class="key">ㅓ</div><div class="key">ㅏ</div><div class="key">ㅣ</div>
+      </div>
+      <div class="krow">
+        <div class="key fn shift">⇧<span class="hint">⇪</span></div>
+        <div class="key">ㅋ</div><div class="key">ㅌ</div><div class="key">ㅊ</div>
+        <div class="key">ㅍ</div><div class="key">ㅠ</div><div class="key">ㅜ</div>
+        <div class="key">ㅡ</div>
+        <div class="key fn bspace">⌫</div>
+      </div>
+      <div class="krow">
+        <div class="key lang">한/영</div>
+        <div class="key sym">기호</div>
+        <div class="key space">space</div>
+        <div class="key punct">,<span class="hint">?</span></div>
+        <div class="key punct">.<span class="hint">"</span></div>
+        <div class="key enter">⏎</div>
+      </div>
+      <div class="note">
+        자모 진하게 · 숫자/편집 연하게 (KP3). 숫자 코너 힌트 = 롱프레스/swipe-up 기호 (KP1·KP5).
+        , . 전용 키 + ? " 힌트 (KP4). shift 1개, ⌫/⏎/space 분리 (KP2).<br>
+        <span class="open">OPEN</span> 숫자 행 기본 on/off · 빈출 기호 집합(,.?" vs ,.()) · 기하학.
+      </div>
+    </div>
+
+    <!-- ===================== ENGLISH ===================== -->
+    <div class="phone">
+      <div class="cap">영어 입력 모드 <small>(QWERTY)</small></div>
+      <div class="krow">
+        <div class="key num">1<span class="hint">!</span></div>
+        <div class="key num">2<span class="hint">@</span></div>
+        <div class="key num">3<span class="hint">#</span></div>
+        <div class="key num">4<span class="hint">$</span></div>
+        <div class="key num">5<span class="hint">%</span></div>
+        <div class="key num">6<span class="hint">^</span></div>
+        <div class="key num">7<span class="hint">&amp;</span></div>
+        <div class="key num">8<span class="hint">*</span></div>
+        <div class="key num">9<span class="hint">(</span></div>
+        <div class="key num">0<span class="hint">)</span></div>
+      </div>
+      <div class="krow">
+        <div class="key">q</div><div class="key">w</div><div class="key">e</div>
+        <div class="key">r</div><div class="key">t</div><div class="key">y</div>
+        <div class="key">u</div><div class="key">i</div><div class="key">o</div>
+        <div class="key">p</div>
+      </div>
+      <div class="krow">
+        <div class="key">a</div><div class="key">s</div><div class="key">d</div>
+        <div class="key">f</div><div class="key">g</div><div class="key">h</div>
+        <div class="key">j</div><div class="key">k</div><div class="key">l</div>
+      </div>
+      <div class="krow">
+        <div class="key fn shift">⇧<span class="hint">⇪</span></div>
+        <div class="key">z</div><div class="key">x</div><div class="key">c</div>
+        <div class="key">v</div><div class="key">b</div><div class="key">n</div>
+        <div class="key">m</div>
+        <div class="key fn bspace">⌫</div>
+      </div>
+      <div class="krow">
+        <div class="key lang">한/영</div>
+        <div class="key sym">기호</div>
+        <div class="key space">space</div>
+        <div class="key punct">,<span class="hint">?</span></div>
+        <div class="key punct">.<span class="hint">"</span></div>
+        <div class="key enter">⏎</div>
+      </div>
+      <div class="note">
+        문자 진하게 · 숫자/편집 연하게 (KP3). us-qwerty 데이터가 이미 물리 위치의
+        32개 구두점을 보유 (KP1 Tier 1).<br>
+        <span class="open">OPEN</span> 대문자 shift one-shot/lock · 숫자 행 기본값.
+      </div>
+    </div>
+
+    <!-- ===================== SYMBOL ===================== -->
+    <div class="phone">
+      <div class="cap">기호 모드 <small>(104키 물리 위치 · Tier 1)</small></div>
+      <div class="krow">
+        <div class="key">!</div><div class="key">@</div><div class="key">#</div>
+        <div class="key">$</div><div class="key">%</div><div class="key">^</div>
+        <div class="key">&amp;</div><div class="key">*</div><div class="key">(</div>
+        <div class="key">)</div>
+      </div>
+      <div class="krow">
+        <div class="key">`</div><div class="key">~</div><div class="key">-</div>
+        <div class="key">_</div><div class="key">=</div><div class="key">+</div>
+        <div class="key">[</div><div class="key">]</div><div class="key">{</div>
+        <div class="key">}</div><div class="key">\</div><div class="key">|</div>
+      </div>
+      <div class="krow">
+        <div class="key">;</div><div class="key">:</div><div class="key">'</div>
+        <div class="key">"</div><div class="key">,</div><div class="key">.</div>
+        <div class="key">&lt;</div><div class="key">&gt;</div><div class="key">/</div>
+        <div class="key">?</div>
+      </div>
+      <div class="krow">
+        <div class="key fn">Tab</div>
+        <div class="key fn">Home</div>
+        <div class="key fn">PgUp</div>
+        <div class="key fn">PgDn</div>
+        <div class="key fn">End</div>
+        <div class="key fn bspace">⌫</div>
+      </div>
+      <div class="krow">
+        <div class="key lang">한/영</div>
+        <div class="key sym">Tier 2</div>
+        <div class="key fn">←</div>
+        <div class="key fn">↑</div>
+        <div class="key fn">↓</div>
+        <div class="key fn">→</div>
+      </div>
+      <div class="note">
+        <b>shift 없음</b> — 32개 기호 전부 개별 버튼, []{} 그룹 순서(&lt;&gt; 동일). 탐색키 Tab·Home·PgUp·PgDn·End·⌫.
+        <b>space/enter 삭제</b>(KP9): 원래 모드 복귀 키(한/영) + Tier 2가 모드 키 위치, 방향키는 스페이스바 자리.
+        모드 간 동일 키 동일 위치(KP9).<br>
+        <span class="open">OPEN</span> 데이터 홈 · 탐색키 집합 · 기하학.
+      </div>
+    </div>
+
+    <!-- ===================== SYMBOL TIER 2 (Korean) ===================== -->
+    <div class="phone">
+      <div class="cap">기호 모드 Tier 2 <small>(한글 특수기호 · 그룹)</small></div>
+      <div class="krow">
+        <div class="key">·</div><div class="key">…</div><div class="key">–</div>
+        <div class="key">—</div><div class="key">‘</div><div class="key">’</div>
+        <div class="key">“</div><div class="key">”</div><div class="key">₩</div>
+        <div class="key">€</div>
+      </div>
+      <div class="krow">
+        <div class="key">「</div><div class="key">」</div><div class="key">『</div>
+        <div class="key">』</div><div class="key">《</div><div class="key">》</div>
+        <div class="key">〈</div><div class="key">〉</div><div class="key">£</div>
+        <div class="key">¥</div>
+      </div>
+      <div class="krow">
+        <div class="key">○</div><div class="key">●</div><div class="key">□</div>
+        <div class="key">■</div><div class="key">△</div><div class="key">▲</div>
+        <div class="key">※</div><div class="key">★</div><div class="key">©</div>
+        <div class="key">®</div>
+      </div>
+      <div class="krow">
+        <div class="key">→</div><div class="key">←</div><div class="key">↑</div>
+        <div class="key">↓</div><div class="key">↔</div><div class="key">°</div>
+        <div class="key">±</div><div class="key">×</div><div class="key">™</div>
+        <div class="key">♡</div>
+      </div>
+      <div class="krow">
+        <div class="key lang">한/영</div>
+        <div class="key sym">기호 1</div>
+        <div class="key" style="flex:4;background:transparent;border:none"></div>
+      </div>
+      <div class="note">
+        10키/행(KP9): 8키 카테고리 그룹 유지 + 맨 아래줄 기호 2개씩 각 줄로 이동. <b>편집키 없음</b> — Tier 2는
+        기호 선택 전용이라 탐색/방향/⌫ 불필요(교정은 텍스트 모드에서). 빈도 측정 상위 + 큐레이션(※ ₩ ♡ ★ 등, 채팅 미측정).<br>
+        <span class="open">OPEN</span> Tier 2 목록·그룹 · 데이터 홈 · 빈도 데이터원(채팅).
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <b>범례</b> —
+    <span class="swatch" style="background:#fff"></span>문자/기호 키(진하게) ·
+    <span class="swatch" style="background:#eef0f3"></span>기능키(연하게) ·
+    <span class="swatch" style="background:#2f6df6"></span>모드 전환/엔터 ·
+    코너 작은 글씨 = 롱프레스/swipe-up 힌트.<br>
+    <b>적용된 기준</b> — KP1 104키 기호 최소터치+물리위치·숫자연동 / KP2 기능키 분리·compact·shift 1개 /
+    KP3 빈도강조·문자 진하게 숫자 연하게 / KP4 한·영·기호 분리+빈출기호 상시 / KP5 롱프레스+swipe-up·우발스와이프 방지 /
+    KP6 기호창 shift 없음+탐색키(←↑→↓·Tab·Home/PgUp/PgDn/End)·한글 특수기호(Tier 2) 입력 /
+    KP7 swipe-up = long-press/shift 대체제(키의 변형 도달: 숫자→기호, ,→?, shift→capslock ⇪, 문자→대문자/겹자모) /
+    KP8 방향별 swipe 가능하되 학습성 제한(힌트로 인식, 일관 매핑, 방향 수 제한) /
+    KP9 모드 간 동일 키 동일 위치·기호창 space/enter 삭제·방향키는 스페이스 자리·Tier 2 10키/행.<br>
+    <b>아직 열린 결정(그림이 드러내는 것)</b> — ① 기호 데이터 홈(별도 페이지/레이아웃 vs 키별 제3행, 스키마·엔진 변경)
+    ② 빈출 기호 정확한 집합 ③ 숫자 행 기본 on/off(`~ -_ =+ 포함 13키 vs 10키) ④ 기하학(키 폭·간격·가로모드) ⑤ shift one-shot/lock
+    ⑥ 제스처 임계값 기본값 ⑦ 강조 대상·테마 토큰 ⑧ 빈도 데이터원(산문 측정됨, 채팅/암호 미측정)
+    ⑨ 탐색키 집합·Tier 2 목록/그룹 ⑩ 후보창·마이크·접근성/햅틱(Track 3의 다른 결정).
+  </div>
+</body>
+</html>
