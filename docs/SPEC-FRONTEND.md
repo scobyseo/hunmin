@@ -187,12 +187,18 @@ store, the editing surface, live apply and the packaging are the analysis's reco
 Costs, the options and the decided shape: `docs/OPTIONS-MEASURED.md#§IBC`.
 *Implementation:* `frontends/ibus/src/settings.c` (the store) with
 `frontends/ibus/schema/org.freedesktop.ibus.engine.hunmin.gschema.xml` (the defaults), read
-into `hunmin_ibus_settings_apply` and applied live through `hunmin_ibus_settings_watch`. The
+into `hunmin_ibus_settings_apply` and applied live through `hunmin_ibus_settings_watch`; the
+window is `frontends/ibus/settings/main.c`, which the IBus panel opens from its Preferences
+item through the component XML's `<setup>` element. A captured key is spelled by
+`hunmin_ibus_key_entry_from_event` and judged by `hunmin_ibus_stored_key_ok`, so the window
+holds no second opinion about what a binding means. The
 fifth row is frontend data (which keysyms count as the language key), so implementing this adds
 no `hunmin_*` symbol; the append-only list in `libhunmin/tests/abi/symbols.txt` is untouched.
 *Refuted by:* `engine-d1-ibus-settings` — defaults, a stored value reaching the engine, an
 unloadable layout degrading and being reported, the stored key list driving the translation, the
-two grammar corners refused with a reason, a bad entry costing only itself, and a change
-arriving through the watch. **Not yet built:** the settings window the ruling pairs with the
-store (it needs a toolkit this host does not build), so the *rows* are settable and the *surface*
-is still the five `gsettings` keys.
+two grammar corners refused with a reason, a bad entry costing only itself, a captured key being
+spelled once, and a change arriving through the watch. **Not asserted:** the window's widgets.
+It is presentation and no ctest drives it (`engine-d2-ibus-ui` asserts the engine's surface, not
+a settings dialog), so the widget layout is a manual check; what a capture *stores* is asserted
+above, and the layout list it offers comes from the core (`tools/check-frontend-invariants.py`
+I11 fails a hardcoded picker).

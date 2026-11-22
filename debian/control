@@ -9,6 +9,7 @@ Build-Depends: debhelper-compat (= 13),
                libhangul-dev,
                libxcb1-dev,
                libxkbcommon-dev,
+               libgtk-3-dev,
                libfcitx5core-dev (>= 5.1.7) <!nobilus>,
                fcitx5-modules-dev (>= 5.1.7) <!nobilus>,
                fcitx5-modules <!nobilus>,
@@ -90,6 +91,7 @@ Description: hunspell en_US word list for hunmin's Hangul/English switch
 Package: hunmin-ibus
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libhunmin (= ${binary:Version}), hunmin-data (= ${binary:Version}), ibus (>= 1.5.26)
+Recommends: hunmin-ibus-settings
 Description: Korean input method engine for IBus (Ubuntu 22.04 release frontend)
  hunmin is a portable Hangul input engine where keyboard layouts are data
  files rather than code. This package ships its IBus engine: a real IBus
@@ -104,3 +106,23 @@ Description: Korean input method engine for IBus (Ubuntu 22.04 release frontend)
  .
  The layout/compose data and its licence and provenance statements ship in
  `hunmin-data`; this engine reads them from /usr/share/hunmin.
+ .
+ This package also carries the GSettings schema the engine's five option rows
+ live in. The window that edits them is a separate package (hunmin-ibus-settings)
+ because it needs a toolkit the engine does not.
+
+Package: hunmin-ibus-settings
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, hunmin-ibus (= ${binary:Version})
+Recommends: hunmin-en-us
+Description: settings window for the hunmin IBus engine
+ The five option rows the IBus engine is configured by — the Hangul and Latin
+ layouts, the commit unit, the automatic Hangul/English switch, and the keys
+ that switch the language — as a window the IBus panel opens from its
+ Preferences item.
+ .
+ It is a separate package because it needs a toolkit: an installation that only
+ runs the engine pulls none of that in, which is what the Ubuntu 22.04 artefact
+ requires (decision 2026-11-09, issue #289). The rows are stored in a GSettings
+ schema, the same one the engine reads, so a change takes effect without
+ restarting anything.

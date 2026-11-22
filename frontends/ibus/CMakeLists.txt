@@ -64,10 +64,28 @@ add_executable(hunmin-ibus src/main.c)
 target_link_libraries(hunmin-ibus PRIVATE hunmin_ibus_engine)
 install(TARGETS hunmin-ibus RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT ibus)
 
+# The settings window (issue #327). A separate process because presentation is
+# not what FE11's budget measures, and because the IBus panel launches it from
+# Preferences through the component XML's <setup> — the hook ibus-hangul uses.
+# Optional: a host without GTK3 headers builds the engine and skips the window,
+# exactly as a host without libibus skips this whole directory.
+pkg_check_modules(GTK3 QUIET IMPORTED_TARGET GLOBAL gtk+-3.0)
+if(GTK3_FOUND AND GLIB_COMPILE_SCHEMAS)
+  add_executable(hunmin-ibus-settings settings/main.c)
+  target_link_libraries(hunmin-ibus-settings PRIVATE hunmin_ibus_engine PkgConfig::GTK3)
+  add_dependencies(hunmin-ibus-settings hunmin-ibus-schema)
+  install(TARGETS hunmin-ibus-settings RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+          COMPONENT ibus-settings)
+else()
+  message(STATUS "gtk+-3.0 not found: the IBus settings window is not built "
+                 "(the store and the engine-side reader still are)")
+endif()
+
 # The component descriptor is how the daemon learns the engine exists; IBus
 # 1.5.26 has no per-user component directory (src/ibusregistry.c), so an
 # out-of-tree run points IBUS_COMPONENT_PATH at this file's directory.
 set(HUNMIN_IBUS_EXEC ${CMAKE_INSTALL_FULL_BINDIR}/hunmin-ibus)
+set(HUNMIN_IBUS_SETTINGS_EXEC ${CMAKE_INSTALL_FULL_BINDIR}/hunmin-ibus-settings)
 set(HUNMIN_IBUS_VERSION ${PROJECT_VERSION})
 configure_file(component/hunmin.xml.in ${CMAKE_CURRENT_BINARY_DIR}/hunmin.xml @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hunmin.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/ibus/component COMPONENT ibus)

@@ -82,10 +82,23 @@ unacceptable, the alternative is an ini store plus an environment variable (§IB
 which makes both halves in-process and gives up the schema, the `gsettings` CLI and the
 packaging trigger.
 
+## Built, same day
+
+- **The store** (`frontends/ibus/src/settings.c`, `engine-d1-ibus-settings`) and **the window**
+  (`frontends/ibus/settings/main.c`, opened from the panel's Preferences through the component
+  XML's `<setup>`). Five rows, no OK/Apply, key capture rather than a text field.
+- **The default layout is `sin3-p2`**, the same as fcitx5 and TSF. The first attempt got this
+  wrong in an instructive way: thirteen tier-D2 cases went red because that tier had been
+  inheriting the shipped default, and reverting the default was the wrong repair — the maintainer
+  caught it ("sin3-p2에서 테스트가 깨지면 안되는데?"). The fixture now states the layout its key
+  sequences belong to, and exactly one case pins the default. Both directions measured.
+
 ## Still open
 
-- **#327 stays open.** A ruling authorises implementation and verification; neither exists. The
-  engine still runs its defaults and `HUNMIN_IBUS_LAYOUT` is still a D3 test seam.
+- **#327 stays open.** A ruling authorises implementation and verification; the verification is
+  now partial: the store and the capture spelling are asserted, the window's widgets are not.
+- **The trigger-list edit** (§IBC-4) is not built: the fifth row still names keysyms the daemon
+  may consume before the engine sees them.
 - **The key-list grammar** — keysym names, or `modifier+keysym` as IBus spells its own hotkeys —
   is not settled. It is a design detail inside FE17, and it has to be written before the capture
   widget exists.

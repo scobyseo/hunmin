@@ -79,6 +79,24 @@ const char *hunmin_ibus_stored_key_ok(const char *entry, bool *ok) {
     return NULL;
 }
 
+char *hunmin_ibus_key_entry_from_event(guint keyval, bool shift, bool control, bool alt,
+                                       bool super, bool hyper) {
+    if (keyval == 0) return NULL;
+    char *base = g_strdup(ibus_keyval_name(keyval));
+    if (!base) return NULL;
+    /* Fixed order, so one chord has one spelling and a duplicate is a duplicate
+     * rather than a second entry that matches the same event. */
+    GString *out = g_string_new(NULL);
+    if (control) g_string_append(out, "Control+");
+    if (shift) g_string_append(out, "Shift+");
+    if (alt) g_string_append(out, "Alt+");
+    if (super) g_string_append(out, "Super+");
+    if (hyper) g_string_append(out, "Hyper+");
+    g_string_append(out, base);
+    g_free(base);
+    return g_string_free(out, FALSE);
+}
+
 /* ------------------------------------------------------------------ the store */
 
 static void record_rejection(hunmin_ibus_settings *s, const char *entry) {

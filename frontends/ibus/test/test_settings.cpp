@@ -200,6 +200,45 @@ TEST_F(SettingsTest, ReleaseAndMetaAreRefusedWithAReason) {
     EXPECT_TRUE(ok);
 }
 
+/* Capture spells the entry, not the window (TSF15's rule one level down): the
+ * window turns its key event into flags, this helper decides the string, and the
+ * validator decides whether IBus agrees. One spelling, one order, so the same
+ * chord captured twice is the same entry. */
+TEST_F(SettingsTest, ACapturedKeyIsSpelledOnce) {
+    char *bare = hunmin_ibus_key_entry_from_event(IBUS_KEY_Hangul, false, false, false, false,
+                                                  false);
+    ASSERT_NE(bare, nullptr);
+    EXPECT_STREQ(bare, "Hangul");
+    bool ok = false;
+    EXPECT_EQ(hunmin_ibus_stored_key_ok(bare, &ok), nullptr);
+    EXPECT_TRUE(ok);
+
+    /* The physical key on XKB us arrives as the Alt_R keysym; a capture of it is
+     * the bare keysym, not "Alt+Alt_R". */
+    char *alt_r = hunmin_ibus_key_entry_from_event(IBUS_KEY_Alt_R, false, false, false, false,
+                                                   false);
+    ASSERT_NE(alt_r, nullptr);
+    EXPECT_STREQ(alt_r, "Alt_R");
+
+    /* Fixed modifier order, so two captures of one chord cannot both be stored. */
+    char *chord = hunmin_ibus_key_entry_from_event('h', true, true, false, false, false);
+    ASSERT_NE(chord, nullptr);
+    EXPECT_STREQ(chord, "Control+Shift+h");
+
+    char *space = hunmin_ibus_key_entry_from_event(IBUS_KEY_space, false, false, false, true,
+                                                   false);
+    ASSERT_NE(space, nullptr);
+    EXPECT_STREQ(space, "Super+space");
+
+    /* Nothing to bind. */
+    EXPECT_EQ(hunmin_ibus_key_entry_from_event(0, false, false, false, false, false), nullptr);
+
+    g_free(bare);
+    g_free(alt_r);
+    g_free(chord);
+    g_free(space);
+}
+
 /* A mistyped entry costs that one binding and is reported; it does not take the
  * rest of the row with it (the B3 shape: a missing thing is a normal state). */
 TEST_F(SettingsTest, ABadEntryIsDroppedAndTheGoodOnesSurvive) {

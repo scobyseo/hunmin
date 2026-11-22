@@ -1584,3 +1584,11 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   panel's `<setup>`, the key list also editing the daemon's trigger list, live apply, its own
   binary package. Requirement `docs/SPEC-FRONTEND.md` §FE17, pricing
   `docs/OPTIONS-MEASURED.md` §IBC. Index updated.
+
+## [2026-11-22] update | IBus 설정 저장소·창 구현 (#327)
+
+- [[2026-11-22-ibus-config-store-and-settings-surface]] updated with what was built: the store
+  (`settings.c`, ctest `engine-d1-ibus-settings`), the window opened from the panel's
+  Preferences, the capture path, and the default-layout correction — including the wrong repair
+  I made first (reverting the default instead of fixing the tier) and the maintainer's sentence
+  that caught it.

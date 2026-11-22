@@ -94,6 +94,21 @@ const char *hunmin_ibus_key_entry_reason(const char *entry);
  * becomes a live binding. */
 const char *hunmin_ibus_stored_key_ok(const char *entry, bool *ok);
 
+/* Spell a captured key as a stored entry: "Control+Shift+h", "Alt_R".
+ *
+ * This lives here, not in the settings window, for the reason TSF15 exists: a
+ * key binding that is typed by hand is the recorded failure mode, and a capture
+ * whose SPELLING lives in the UI is the same failure one level down — the window
+ * would be a second place that decides what "Alt_R" means. The window converts
+ * its event to these flags, this function decides the string, and
+ * hunmin_ibus_stored_key_ok decides whether IBus agrees.
+ *
+ * Modifier order is fixed (Control, Shift, Alt, Super, Hyper) so the same chord
+ * captured twice is the same string. Returns NULL when keyval is 0 (nothing to
+ * bind); the caller frees the result. */
+char *hunmin_ibus_key_entry_from_event(guint keyval, bool shift, bool control, bool alt,
+                                       bool super, bool hyper);
+
 #ifdef __cplusplus
 }
 #endif

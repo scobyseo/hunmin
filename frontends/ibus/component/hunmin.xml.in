@@ -22,6 +22,11 @@
             <longname>Hunmin</longname>
             <description>hunmin Korean input engine</description>
             <rank>1</rank>
+            <!-- The panel's Preferences item runs this. Without the element the
+                 engine has no settings entry and the store is reachable only by
+                 gsettings(1); with it, IBus draws the item itself, so the window
+                 needs no launcher of its own. -->
+            <setup>@HUNMIN_IBUS_SETTINGS_EXEC@</setup>
         </engine>
     </engines>
 </component>

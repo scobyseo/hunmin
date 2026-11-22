@@ -2976,6 +2976,27 @@ The IBus frontend now measures 923 of FE11's 1000 code LOC
 (`settings.c=176`), which is what the 2026-11-22 budget raise bought: the same work against the
 old 700 would have needed a budget ruling first.
 
+**The window (2026-11-22).** `frontends/ibus/settings/main.c`, launched from the panel's
+Preferences through the component XML's `<setup>` (the hook `ibus-hangul` uses: measured on this
+host's `/usr/share/ibus/component/hangul.xml`, and IBus's GTK3 panel carries
+`panel_append_preferences_menu` / `panel_show_setup_dialog`). Five rows, no OK/Apply: every change
+goes straight to the schema, which is what the live-apply ruling means from the window's side.
+The key row is CAPTURE, not a text field — TSF15's rule, and the spelling of a captured key is
+`hunmin_ibus_key_entry_from_event` in `settings.c`, not the window, so the UI cannot hold a second
+opinion about `Alt_R` or about the two corners the engine refuses.
+
+Two costs it paid, both now in `docs/ENVIRONMENT.md`: this host has the GTK3 *runtime* but no
+development files, so the headers came from jammy's dev packages extracted into
+`~/toolchains/gtk3` (the `.pc` files need `includedir`/`libdir` repointed and the dangling `.so`
+symlinks fixed); and GDK picks Wayland over `DISPLAY`, so a headless check needs
+`GDK_BACKEND=x11` — without it the window never maps and `xwininfo` shows nothing. The CMake
+target is optional (`pkg_check_modules(GTK3 QUIET …)`), so the engine and its store build on a
+host with no toolkit at all.
+
+Packaging follows §IBC-4: the schema ships in `hunmin-ibus` (the engine reads it), the window in
+`hunmin-ibus-settings` (it needs GTK3), and `hunmin-ibus` only Recommends it, so the 22.04
+artefact still installs with no toolkit. Build-Depends gains `libgtk-3-dev`, present in jammy main.
+
 **What the ruled shape costs, now that the budget is measured correctly.** The engine-side
 reader is inside `frontends/ibus/src/`, which `tools/check-frontend-invariants.py` counts in
 full (only the `src/trace/` subdirectory escapes, and that exclusion is documented as the
