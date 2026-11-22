@@ -1339,3 +1339,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   meaning), cost is hold latency. Analysis, not a verdict; updated
   [[2026-11-22-android-keypad-criteria]].
 
+## [2026-11-22] update | KP5 swipe-up + accidental-gesture defences + display
+
+- Added KP5 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: number-row
+  symbols by long-press AND swipe-up; an unintended swipe-up must be preventable
+  (user error protection); symbol display an open question.
+- Analysed accidental-swipe avoidance from Unexpected Keyboard (Pointers/Gesture/
+  Config, read for semantics): adjustable distance threshold (swipe_dist_px),
+  return-to-center cancel (Roundtrip), commit-on-release + preview, direction
+  quantisation; plus velocity gate, movement-vs-time vs long-press, no glide
+  conflict on the number row. Display: digit 진하게 + faint corner hint toward the
+  swipe direction + popup preview. In `docs/ANDROID-SYMBOL-INTERACTION.md` and
+  [[2026-11-22-android-keypad-criteria]]. Analysis, not a verdict.
+

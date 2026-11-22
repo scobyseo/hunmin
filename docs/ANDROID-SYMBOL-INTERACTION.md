@@ -313,6 +313,73 @@ competing long-press meaning. *What would change it:* a measured password-entry
 time showing hold latency dominates, or a digit:symbol ratio skewed enough to
 favour swipe/shift-lock.
 
+## Swipe-up: accidental-gesture protection and symbol display (KP5)
+
+KP5 offers the number-row symbol by **both long-press and swipe-up**, and
+requires that an unintended swipe-up not insert a symbol. The risk is real: a
+tap whose finger drifts upward can be misread as a swipe. The surveyed
+gesture-heavy IME (Unexpected Keyboard, GPL-3, read for semantics) shows the
+defences are layered, not a single threshold.
+
+### Avoiding the accidental swipe (prior art + principles)
+
+Measured from Unexpected Keyboard `Pointers.java` / `Gesture.java` / `Config.java`:
+
+- **Distance threshold.** A swipe starts only once the pointer travels
+  `swipe_dist_px` (`dist = abs(dx)+abs(dy)`; below it, the pointer is still a
+  tap). The threshold scales with screen size and DPI and is **user-adjustable**
+  (`swipe_dist` pref). A tap's small jitter stays under it, so it remains a tap.
+  This is the primary defence.
+- **Return-to-center cancels.** If the pointer comes back to the origin key, the
+  gesture becomes a *Roundtrip* (`moved_to_center`) — no symbol. The user can
+  abort a begun swipe by returning before lifting.
+- **Commit on release, preview during.** The gesture is confirmed at
+  `pointer_up`, not the instant the threshold is crossed, so the symbol is
+  previewed while swiping and inserted only on lift — leaving the abort window
+  above.
+- **Direction quantisation.** Directions are bucketed (16), so only a
+  sufficiently upward direction counts as swipe-up; a diagonal drift toward a
+  neighbour key is not a vertical swipe. A rotation needs `circle_sensitivity`
+  (also adjustable) before it registers.
+
+Principles that compose with these (not all in that one app):
+
+- **Velocity gate** — a slow drift is a tap, a fast flick is a swipe; combining
+  distance + velocity rejects the slow accidental drag.
+- **Long-press vs swipe by movement-vs-time** — movement past the distance
+  threshold before the hold timeout becomes a swipe (cancelling the long-press);
+  a still hold past the timeout is a long-press. The two gestures share one
+  pointer but are separated by *moved* vs *held*.
+- **No glide conflict on the number row** — glide/slide typing lives on the
+  letter/jamo keys; the number row has none, so swipe-up there is unambiguous.
+  (On letter keys a swipe-up symbol would fight glide typing — another reason
+  the number row is the right home for it.)
+- **Adjustable sensitivity** — expose the threshold like key spacing, so the
+  person tunes it to their touch (accessibility).
+
+So yes, the accidental swipe is avoidable: distance + direction + velocity reject
+most drift at the gate, and return-to-cancel + commit-on-release recover the ones
+that slip through. No single defence is sufficient; the layering is the point.
+
+### How to show the symbols
+
+- **Number row — corner hint + popup preview.** Each digit key shows the digit
+  prominently (진하게) and its symbol as a **faint corner hint** (연하게), placed
+  toward the swipe direction (above). This is KP3's hierarchy applied per key,
+  and it makes the swipe-up target *discoverable* — which itself reduces
+  accidental swipes, because the person sees what the gesture does. During a
+  long-press or swipe, a **popup above the key previews** the symbol (and any
+  variants); release commits.
+- **Main Hangul/English mode — dedicated frequent keys.** KP4's `, . ? "` as
+  always-visible keys; characters 진하게, numbers/editing 연하게 (KP3 hierarchy).
+- **Symbol page — physical positions + emphasis.** Tier 1 at QWERTY positions
+  (KP1), frequent symbols emphasised (KP3, bold/weight — not colour alone, for
+  accessibility); Tier 2 special characters grouped, allowed to cost more.
+
+The display and the gesture defences reinforce each other: a visible hint tells
+the user what swipe-up will do, and the preview-on-gesture / commit-on-release
+lets them undo it before it lands.
+
 ## Measuring symbol frequency (KP3's data source)
 
 **Method.** `tools/symbol-frequency.py` counts Unicode `P*`/`S*` codepoints per

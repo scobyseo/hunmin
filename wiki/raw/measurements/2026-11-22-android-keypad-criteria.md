@@ -20,8 +20,10 @@ are requirements now, with their verbatim text in
 `docs/SPEC-ANDROID-KEYPAD.md` (KP1 symbol keys, KP2 functional keys, KP3
 frequency/emphasis directions including the whole-keypad visual hierarchy, KP4
 mode separation with very frequent symbols default-visible in Hangul/English
-mode). This page records the measurement that grounds them and the fork they
-expose; the quotes and tables live in the SPEC and the analysis doc, not here.
+mode, KP5 number-row symbols by long-press and swipe-up with accidental swipes
+preventable). This page records the measurement that grounds them and the fork
+they expose; the quotes and tables live in the SPEC and the analysis doc, not
+here.
 
 ## The measurement
 
@@ -61,6 +63,20 @@ number row is the one place with no competing long-press meaning (jamo keys
 spend it on doubled jamo), which is why long-press fits there; the cost is hold
 latency, and a measured password digit:symbol ratio is what would change the
 choice. Recorded as analysis, not a verdict.
+
+## Swipe-up defences and symbol display (KP5)
+
+The maintainer asked to add swipe-up alongside long-press, and whether an
+unintended swipe-up can be avoided. Unexpected Keyboard (read for semantics)
+shows layered defences: a user-adjustable swipe distance threshold
+(`swipe_dist_px`, Manhattan distance gates swipe start), return-to-center cancel
+(Roundtrip), commit-on-release with preview during, and direction quantisation.
+Composed with a velocity gate and movement-vs-time separation from long-press,
+and the fact that the number row has no glide-typing conflict, the accidental
+swipe is avoidable. Display: digit 진하게 + faint corner symbol hint toward the
+swipe direction, popup preview on gesture, release commits — the hint also makes
+the gesture discoverable. Details and the per-key display rules are in the
+analysis doc. Recorded as analysis, not a verdict.
 
 ## Status
 

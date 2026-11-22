@@ -118,3 +118,23 @@ comma/period on the main bottom row). It is consistent with the recorded
 criteria; the **exact symbol set, its geometry, and how the separation is
 realised** (separate page vs layer) remain the open mechanism of issue #298.
 *Implementation:* none. *Refuted by:* none yet.
+
+### KP5. Number-row symbols by long-press AND swipe-up; accidental swipes preventable (stated direction)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "swipe up도 함께 제공하면 좋겠네. 문제는 swipe up을 의도하지 않았는데 그렇게
+> 입력되는 것. 회피할 수 있니? 기호를 화면에 어떻게 표시하면 좋을까?"
+
+Stated direction and requirement:
+
+- The number-row digit↔symbol link (KP1) is offered through **both long-press
+  and swipe-up**, not long-press alone.
+- **An unintended swipe-up must be preventable** — a tap that drifts upward must
+  not silently insert a symbol (ISO 25010 user error protection). This is a
+  requirement on the gesture, not a suggestion.
+- How symbols are shown on screen is an open question; the analysis and prior
+  art are in `docs/ANDROID-SYMBOL-INTERACTION.md` (gesture-disambiguation
+  defences and the corner-hint / popup-preview display). The mechanism is open.
+
+*Implementation:* none. *Refuted by:* none yet.
