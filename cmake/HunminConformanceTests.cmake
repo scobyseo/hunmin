@@ -23,6 +23,18 @@ if(TARGET trace-emit)
 else()
   message(STATUS "Tier C: skipped (build with -DHUNMIN_TRACE_BUILD=ON)")
 endif()
+# The IBus frontend replays the SAME x11 corpus through its own translation and
+# key path (issue #316). The .gold files are shared with the fcitx5 lane: one
+# expectation, two frontends (FE10). Where the two legitimately differ it is a
+# finding to record beside the assertion, not a second corpus.
+if(TARGET ibus-trace-emit)
+  file(GLOB HUNMIN_IBUS_CONFORMANCE_TRACES "${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/x11/*.trace.in")
+  foreach(t IN LISTS HUNMIN_IBUS_CONFORMANCE_TRACES)
+    file(RELATIVE_PATH rel "${CMAKE_CURRENT_SOURCE_DIR}" "${t}")
+    string(REGEX REPLACE "[^A-Za-z0-9._-]" "_" name "${rel}")
+    hunmin_add_test(NAME conformance-ibus-${name} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/trace-check.py "${t}" --runner $<TARGET_FILE:ibus-trace-emit> --sim $<TARGET_FILE:hunmin-sim> LABELS tier-C SKIP_RETURN_CODE 77 TIMEOUT 120 ENVIRONMENT "HUNMIN_DATA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data")
+  endforeach()
+endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tools/android-trace-emit.sh")
   file(GLOB HUNMIN_ANDROID_CONFORMANCE_TRACES "${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/android/*.trace.in")
   if(HUNMIN_ANDROID_CONFORMANCE_TRACES)

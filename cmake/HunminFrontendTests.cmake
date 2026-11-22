@@ -72,4 +72,38 @@ if(HUNMIN_HAS_IBUS AND X11_FOUND)
       ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}
     ENVIRONMENT "HUNMIN_D3_HOST=ibus;HUNMIN_D3_CLIENT=gtk;HUNMIN_D3_IBUS_ENGINE=$<TARGET_FILE:hunmin-ibus>;HUNMIN_D3_IBUS_COMPONENT=${CMAKE_CURRENT_BINARY_DIR}/frontends/ibus/hunmin.xml"
     LABELS tier-D3 slow SKIP_RETURN_CODE 77 TIMEOUT 300)
+  # The EDIT case family (issue #316): backspace mid-word, word boundaries,
+  # the mode-toggle boundary and the F9 candidate path, through the real
+  # daemon. Same cases-edit.tsv the fcitx5 edit lane runs, same hunmin-sim
+  # oracle (--layer word for this frontend). The client is GTK, the path
+  # issue #292 measured: IBus's XIM server was probed and found to commit a
+  # stale preedit snapshot beside the real commit (and to route a teardown
+  # flush into the next case's client), so its COMMIT stream is not the
+  # shared oracle's shape -- docs/TESTING.md records the measurement.
+  hunmin_add_test(NAME engine-d3-ibus-edit
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
+      $<TARGET_FILE:hunmin-sim> ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/gtk-harness.py
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
+      ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}
+      ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases.tsv
+      ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}
+    ENVIRONMENT "HUNMIN_D3_HOST=ibus;HUNMIN_D3_CLIENT=gtk;HUNMIN_D3_EDIT_CASES=${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases-edit.tsv;HUNMIN_D3_IBUS_ENGINE=$<TARGET_FILE:hunmin-ibus>;HUNMIN_D3_IBUS_COMPONENT=${CMAKE_CURRENT_BINARY_DIR}/frontends/ibus/hunmin.xml"
+    LABELS tier-D3 slow SKIP_RETURN_CODE 77 TIMEOUT 300)
+  # The CANDIDATE case family (issue #316): the same cases-candidate.tsv, with
+  # the difference this frontend's design records -- IBus publishes the HOST's
+  # lookup table, so there is no own window to draw and the fcitx5 geometry
+  # gate does not apply. The lane asserts the daemon and engine survive the F9
+  # path and the expected commits reach the client; the table's page size and
+  # contents are engine-d2-ibus-ui's assertion.
+  hunmin_add_test(NAME engine-d3-ibus-candidate
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
+      $<TARGET_FILE:hunmin-sim> ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/gtk-harness.py
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
+      ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}
+      ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases-candidate.tsv
+      ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}
+    ENVIRONMENT "HUNMIN_D3_HOST=ibus;HUNMIN_D3_CLIENT=candidate;HUNMIN_D3_IBUS_ENGINE=$<TARGET_FILE:hunmin-ibus>;HUNMIN_D3_IBUS_COMPONENT=${CMAKE_CURRENT_BINARY_DIR}/frontends/ibus/hunmin.xml"
+    LABELS tier-D3 slow SKIP_RETURN_CODE 77 TIMEOUT 300)
 endif()

@@ -79,7 +79,11 @@ pick_python() {
     done
     return 1
 }
-if [ "$CLIENT" = "gtk" ]; then
+if [ "$CLIENT" = "gtk" ] || { [ "$CLIENT" = "candidate" ] && [ "$IM_HOST" = "ibus" ]; }; then
+    # IBus's candidate lane uses the GTK client too (issue #316): the host
+    # lookup table has no own window to draw, and the XIM server's COMMIT
+    # stream was measured to carry a stale preedit snapshot beside the real
+    # commit (docs/TESTING.md), so the buffer is the observable here.
     HARNESS_PY=$(pick_python) || {
         echo "SKIP: no python3 with gobject-introspection (gi) bindings"
         exit 77
@@ -530,7 +534,7 @@ fi
 # which is exactly the thing being measured. The harness prints MODULE: lines
 # naming the im-fcitx5.so mapped into its process, and run_case REFUSES a run
 # where it is absent, so this cannot pass while measuring another input method.
-if [ "$CLIENT" = "gtk" ]; then
+if [ "$CLIENT" = "gtk" ] || { [ "$CLIENT" = "candidate" ] && [ "$IM_HOST" = "ibus" ]; }; then
     # GTK selects its IM module from GTK_IM_MODULE, not XMODIFIERS. The module
     # must be the HOST's or the run measures the wrong frontend (the harness
     # prints a MODULE: line and run_case refuses a run without the right one).
@@ -969,11 +973,35 @@ for line in sys.stdin:
     if done:
         buf.append(done)
     ch = (o.get("in") or {}).get("ch")
-    if ch:
+    # A GtkEntry inserts the CHARACTER of a declined key only when the widget
+    # inserts characters: space yes, Return no (it activates the single-line
+    # entry), Escape no. The XIM stream prints every forward; the buffer fold
+    # models the widget, which is what this expectation compares against.
+    if ch and ch >= " " and ch != "\x7f":
         buf.append(ch)
 # Include trailing in-flight word, because the client buffer holds it.
 if word:
     buf.append(word)
+print("TEXT:" + "".join(buf))
+'
+}
+
+# Fold a handwritten COMMIT:/FORWARD: stream into the TEXT: line a GtkEntry
+# buffer would hold -- the same transformation expected_text performs on the
+# sim trace, applied to the case file's own expectation. One expectation, two
+# views; nothing is re-derived or duplicated (issue #316).
+fold_stream_to_text() { # $1 = stream text
+    printf '%s\n' "$1" | python3 -c '
+import sys
+buf = []
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    if line.startswith("COMMIT:"):
+        buf.append(line[7:])
+    elif line.startswith("FORWARD:"):
+        ch = line[8:]
+        if ch and ch >= " " and ch != "\x7f":
+            buf.append(ch)
 print("TEXT:" + "".join(buf))
 '
 }
@@ -1318,6 +1346,24 @@ run_candidate_case() { # $1=layout $2=keys $3=expectation text or empty
         fail=1
         return
     fi
+    # IBus spawns the engine lazily (see run_case); the first candidate case of
+    # a layout group needs the same gate or its keys arrive with no engine.
+    if [ "$IM_HOST" = "ibus" ]; then
+        local engine_ready=0
+        for _ in $(seq 1 100); do
+            if ps -o args= --ppid "$FCITX_PID" 2>/dev/null | grep -Fq "$IBUS_ENGINE"; then
+                engine_ready=1
+                break
+            fi
+            sleep 0.1
+        done
+        if [ "$engine_ready" -ne 1 ]; then
+            echo "FAIL [candidate/$layout/$keys]: the IBus engine process never spawned"
+            fail=1
+            return
+        fi
+        sleep 0.3
+    fi
     sleep 0.4
 
     if ! python3 "$TYPER" "$DISP" "$keys" </dev/null; then
@@ -1350,6 +1396,48 @@ run_candidate_case() { # $1=layout $2=keys $3=expectation text or empty
         tail -30 "$STAGE/fcitx5.log" 2>/dev/null | sed 's/^/  /'
         wait "$hpid" 2>/dev/null
         fail=1
+        return
+    fi
+
+    # IBus publishes the HOST's lookup table, not an own window: there is no
+    # classicui to draw one and no "Fcitx5 Input Window" to find (the panel is
+    # disabled, -p disable). The survival oracle is the daemon AND the engine
+    # process it spawned; the table's page size and contents are asserted by
+    # engine-d2-ibus-ui, and what this lane adds is that the F9 path's commits
+    # reach a real client through the daemon. The drawing itself is the host
+    # panel's job and is not measured here -- the same difference
+    # docs/TESTING.md records beside the shared assertion (issue #316).
+    if [ "$IM_HOST" = "ibus" ]; then
+        if ! ps -o args= --ppid "$FCITX_PID" 2>/dev/null | grep -Fq "$IBUS_ENGINE"; then
+            echo "FAIL [candidate/$layout/$keys]: the IBus engine DIED during the F9 path"
+            tail -30 "$STAGE/ibus-daemon.log" 2>/dev/null | sed 's/^/  /'
+            kill -TERM "$hpid" 2>/dev/null
+            wait "$hpid" 2>/dev/null
+            fail=1
+            return
+        fi
+        kill -TERM "$hpid" 2>/dev/null
+        wait "$hpid" 2>/dev/null
+        # GTK client: the buffer is the observable; fold the handwritten
+        # expectation into the same shape (fold_stream_to_text).
+        actual=$(grep -E '^TEXT:' "$STAGE/commits.log" | tail -1 || true)
+        if [ -z "$actual" ]; then actual="TEXT:"; fi
+        if ! grep -q "^MODULE:$IMMODULE_GREP=" "$STAGE/commits.log" 2>/dev/null; then
+            echo "FAIL [candidate/$layout/$keys]: $IMMODULE_NAME's GTK IM module is not loaded"
+            fail=1
+            return
+        fi
+        if [ -n "$expect" ]; then
+            expect=$(fold_stream_to_text "$expect")
+            if [ "$actual" != "$expect" ]; then
+                echo "FAIL [candidate/$layout/$keys]"
+                echo "  expected: $expect"
+                echo "  actual:   $actual"
+                fail=1
+                return
+            fi
+        fi
+        echo "ok: [candidate/$layout/$keys] ibus daemon+engine alive${actual:+ -> $actual}"
         return
     fi
 
@@ -1405,6 +1493,24 @@ run_edit_handwritten_case() { # $1=layout $2=keys $3=expected transcript
         fail=1
         return
     fi
+    # IBus spawns the engine lazily (see run_case); the first edit case of a
+    # layout group needs the same gate or its keys arrive with no engine.
+    if [ "$IM_HOST" = "ibus" ]; then
+        local engine_ready=0
+        for _ in $(seq 1 100); do
+            if ps -o args= --ppid "$FCITX_PID" 2>/dev/null | grep -Fq "$IBUS_ENGINE"; then
+                engine_ready=1
+                break
+            fi
+            sleep 0.1
+        done
+        if [ "$engine_ready" -ne 1 ]; then
+            echo "FAIL [edit/$layout/$keys]: the IBus engine process never spawned"
+            fail=1
+            return
+        fi
+        sleep 0.3
+    fi
     if ! python3 "$TYPER" "$DISP" "$keys" </dev/null; then
         echo "FAIL [edit/$layout/$keys]: key injection failed"
         kill "$hpid" 2>/dev/null
@@ -1413,7 +1519,22 @@ run_edit_handwritten_case() { # $1=layout $2=keys $3=expected transcript
         return
     fi
     sleep 0.2
-    actual=$(grep -E '^(COMMIT|FORWARD):' "$STAGE/commits.log" || true)
+    if [ "$CLIENT" = "gtk" ]; then
+        # The buffer is the observable (see expected_text); the handwritten
+        # stream is folded into the same shape, not re-derived.
+        actual=$(grep -E '^TEXT:' "$STAGE/commits.log" | tail -1 || true)
+        if [ -z "$actual" ] && [ "$IM_HOST" = "ibus" ]; then actual="TEXT:"; fi
+        expect=$(fold_stream_to_text "$expect")
+        if ! grep -q "^MODULE:$IMMODULE_GREP=" "$STAGE/commits.log" 2>/dev/null; then
+            echo "FAIL [edit/$layout/$keys]: $IMMODULE_NAME's GTK IM module is not loaded"
+            fail=1
+            kill -TERM "$hpid" 2>/dev/null
+            wait "$hpid" 2>/dev/null
+            return
+        fi
+    else
+        actual=$(grep -E '^(COMMIT|FORWARD):' "$STAGE/commits.log" || true)
+    fi
     if [ "$actual" != "$expect" ]; then
         echo "FAIL [edit/$layout/$keys]"
         echo "  expected: $(printf '%s' "$expect" | paste -sd'|')"
@@ -1491,6 +1612,17 @@ if [ -n "${HUNMIN_D3_EDIT_CASES:-}" ] && [ -f "${HUNMIN_D3_EDIT_CASES}" ]; then
     while IFS=$'\t' read -r -u 4 layout keys mode expect; do
         case "$layout" in '' | \#*) continue ;; esac
         if [ "$layout" != "$cur_layout" ]; then
+            # The group's GTK harness belongs to the old daemon (its IMContext
+            # is wired to it, and its stdout is THIS case log file): leaving it
+            # alive interleaves two harnesses' writes into one log and lets the
+            # old window hold the X focus -- measured as a sparse, NUL-filled
+            # commits.log and keys typed into the previous group's entry
+            # (issue #316). The ordinary case loop below does the same teardown.
+            if [ -n "$HPID" ]; then
+                kill "$HPID" 2>/dev/null
+                wait "$HPID" 2>/dev/null
+                HPID=""
+            fi
             stop_fcitx
             if ! start_fcitx "$layout"; then
                 fail=1
