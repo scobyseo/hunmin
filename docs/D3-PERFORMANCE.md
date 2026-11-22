@@ -369,40 +369,62 @@ now ends with the trace's trailing `preedit`.
 - `engine-d3-gtk3` standalone: **48.7 s → 36.0–36.9 s**. The saving is the
   clocks, not the harness: 4 × 0.4 s pre-inject, 4 × 1.0 s layout settle and
   the part of each 0.8 s settle the barrier does not need.
-- Parallel D3 selection at **`-j3`** (`ctest -j3 -L tier-D3 -E
-  engine-d3-gtk4`): **52.36, 52.28, 52.47, 52.21, 52.08 s**, green 5/5 with
-  **zero skips**. Three is the pool's capacity, not a tuning choice — see the
-  finding below.
-- The same selection at `-j16` is **faster (39.7–39.9 s) and wrong**: ctest
-  starts all four display-hungry lanes at once, the reservation pool holds six
-  numbers and each lane claims **two**, so `engine-d3-gtk3` — the lane this
-  section is about — **SKIPS** in 0.45 s. Green, having measured nothing, which
-  is the failure shape this repository keeps recording. `SKIP_RETURN_CODE` is
-  what makes it invisible: ctest still prints "100% tests passed".
-- Standalone: **46 of 48 runs green**. The two reds were *not* this lane's
-  clocks: both were the startup gate of `start_fcitx` (`@server=fcitx` never
-  appeared in 200 polls; `gate-failure.log` carries the full dump, the daemon
-  had logged no `Connecting to X11 display`, and it was alive in `ep_poll`) —
-  the #253 defect, here on a **sequential** run, which widens its scope beyond
-  "one start in eight parallel runs". Recorded, not fixed here.
+- Parallel D3 selection at `-j16` (`ctest -j16 -L tier-D3`, all seven tests
+  including gtk4 and d3-expectation): **39.81, 39.90, 39.70, 39.57, 39.93 s**,
+  **zero skips**, then 26 more runs green — **30 of 31** after the rebuild.
+  The one red (engine-d3-gtk3 at 23.03 s) had no transcript kept
+  (`HUNMIN_D3_KEEP` was not set in that batch) and did not reproduce in the 26
+  runs after it; recorded as-is, not explained.
+- `engine-d3-gtk4` standalone: **35.19 s**, 8/8 green — the first time this
+  lane has RUN under ctest on this host, for two reasons fixed in this round
+  (see below).
+- `ctest -j16 -L slow` (the issue's checklist selection, 11 tests):
+  **green 5/5**, engine-d3-gtk3 38.98 s, whole selection 100.66 s.
 
-**What was NOT fixed and must not be read as fixed.**
+**What the second round fixed (2026-11-23), each with its measurement.**
 
-- **`engine-d3-gtk4` does not run anywhere.** Its text comparison now passes
-  (8/8 cases match, the barrier and the fold are exercised), and then the lane
-  fails its own immodule check: GIO loads *every* GTK immodule listed in the
-  v4 cache to enumerate the extension point, so both `libim-ibus.so` and
-  `libim-fcitx5.so` are mapped, and the harness labels the process `ibus` when
-  any `im-ibus` path is mapped. Reproduced identically on `HEAD`, so it
-  predates this change. The measurable claim under GTK 4 is "`im-fcitx5` is
-  mapped and `im-xim` is not"; the label logic is what is wrong.
-- **The display pool cannot host the D3 tier at `-j16`, and that is a separate
-  defect.** `reserve_display` claims a host server number from `99 98 97` and a
-  Xephyr number from `96 95 94`, i.e. two per lane, so three lanes fit and a
-  fourth exits 77 ("no free X display"). The numbers below 94 belong to
-  `tools/d3-reservation-test.sh`'s own probe, which is why the pool stops
-  there. Not changed here: widening the pool or making the claim *wait* instead
-  of skipping are both plausible and both change what a red run means.
+- **The GTK immodule check now gates on the module GTK SELECTED, not on which
+  libraries happen to be mapped.** Under GTK 4, GIO loads *every* immodule in
+  the v4 cache to enumerate the extension point, so both `libim-ibus.so` and
+  `libim-fcitx5.so` are mapped and the old "winner label" logic called the
+  process `ibus` — engine-d3-gtk4 failed its own check while its text
+  comparison passed 8/8 (reproduced on `HEAD`). The harness now prints
+  `IMCTX:<id>`, the id a focused `Gtk.IMMulticontext` resolves to —
+  `fcitx5`/`ibus`/`xim`/`gtk-im-context-simple` — and the runner requires
+  `IMCTX:<expected>` plus the expected library being mapped. The control that
+  the old check could not make (docs/TESTING.md: `GTK_IM_MODULE=xim` used to
+  pass every case) now FAILS the run, on both GTK versions.
+- **`engine-d4-gtk4` had never run under ctest here at all**: the gtest
+  wrapper's module check looked for `im-fcitx5.so` under gtk-4.0, where the
+  file is named `libim-fcitx5.so`, so the lane skipped at 0.11 s as "module
+  not installed" on a host that ships it. Fixed in
+  `frontends/fcitx5/test/testfcitx5d3.cpp`.
+- **The display pool now hosts all five D3 lanes.** The pools are five numbers
+  each (99..95 host, 94..90 Xephyr) — five lanes × two numbers — where three
+  fit before; `d3-reservation-test.sh` moved to 89..87 and
+  `d3-gate-failure-test.sh` to :86 so the tools' cleanups cannot delete a live
+  tier claim. At `-j16` this takes the tier from "one lane silently skipped"
+  to all lanes running.
+- **`start_fcitx` retries once, and only for the recorded #253 signature.**
+  The two failures of the first round (both RESTARTS: daemon alive in
+  `ep_poll`, gate exhausted, log carries no `Connecting to X11 display` — a
+  failed X connection is silent in fcitx5) are now answered with one more
+  start: the retry fires only when a previous start in this run SUCCEEDED
+  (`FCITX_STARTS_OK >= 1`), the daemon is still alive, and the log has no
+  X-connection line; a first start failing falls straight through to the
+  evidence dump. Verified with a stub daemon (the d3-gate-failure-test
+  technique): first start → 1 spawn, no retry, rc=1; restart → 2 spawns, the
+  retry logged in gate.log, attempt-1 log kept as `fcitx5.log.attempt1`.
+- **`tools/d3-gate-failure-test.sh` itself was broken at HEAD**, found while
+  re-verifying: `start_fcitx` gained an `IM_HOST` dispatch when the IBus host
+  support landed, the test runs `set -u`, and an unset `IM_HOST` aborted the
+  extracted function before the gate ever ran — every check after "the gate
+  returns 1" was red. Nothing ran the test in CI and `bash -n` cannot see an
+  unbound variable, so it had been quietly red since. Fixed by exporting
+  `IM_HOST=fcitx5`; all 9 checks green.
+
+**What is STILL not fixed and must not be read as fixed.**
+
 - **The pre-inject gate is not proven to be what makes the lane green.** With
   the gate forced off (the old `sleep 0.4`) and the barrier in place, 5 of 5
   runs passed: the empty-first-case signature did not come back, because the

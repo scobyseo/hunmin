@@ -1142,9 +1142,14 @@ event's own modifiers.
   prints which. (3) **With `GTK_IM_MODULE=xim` every case passes** — `run-d3.sh`
   exports `XMODIFIERS=@im=fcitx` for the XIM server and GTK's XIM module honours
   it, so the buffer is right by the XIM path this test exists to distinguish
-  from. The harness prints the `im-fcitx5.so` mapped into its own
-  `/proc/self/maps` and the
-  runner **refuses** a GTK case without it; the `xim` control now fails.
+  from. The harness prints the `IMCTX:` line — the module id a focused
+  `Gtk.IMMulticontext` resolves to — plus every immodule mapped into its
+  `/proc/self/maps`, and the
+  runner **refuses** a GTK case whose selection is not the expected module; the
+  `xim` control now fails. The mapped libraries alone were never enough: under
+  GTK 4 GIO maps *every* immodule in the cache to enumerate the extension
+  point, so a "which library won" label was a guess (issue #325 — that label
+  is what made `engine-d4-gtk4` fail its own check while its cases passed).
   Falsified both ways: dropping the space from the expectation fails the case,
   and adding `" "` to dubeolsik's key table so the engine *consumes* the space
   changes the buffer to `TEXT:안녕ㄴ` and the case passes — the result tracks the
