@@ -570,9 +570,10 @@ registering** (176 -> 167 on the runner, where D3 skips at runtime anyway).
 That is the silent-drop shape this workflow exists to prevent, so `libx11-dev`
 is now explicit in the list — it is genuinely needed for D3 registration, not
 an optional extra. The first prune run (D3 unregistered, 167 tests) measured
-**144 s** on the PR path (apt 19 s, build 20 s, ctest 91 s), already under the
-180 s target; the wall clock with D3 registration restored is recorded from the
-follow-up run. Two earlier runner comparisons (`pull_request`
+**144 s** on the PR path; with `libx11-dev` restored the follow-up PR run
+(45030208426) measured **159 s** (apt 26 s, build 23 s, ctest 91 s), **176/176
+tests pass**, D3 registers again, and the IBus + fcitx5 gate is green — under
+the 180 s target with no source build and no cache dependence. Two earlier runner comparisons (`pull_request`
 45020698685, 45018050862) were 176-196 s warm with the old source build cached,
 so the runner's ctest floor was already ~100 s+, not the ~37 s the older budget
 note assumed.
