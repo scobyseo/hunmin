@@ -10,6 +10,7 @@ sources:
   - ../../../docs/REQ-MAP.md
   - ../../../frontends/ibus/test/test_state.cpp
   - ../../../frontends/ibus/test/test_engine_ui.cpp
+  - ../../../frontends/ibus/test/trace-emit.cpp
   - ../../../tests/e2e/run-d3.sh
   - ../../../tests/e2e/xtest-type.py
   - https://github.com/scobyseo/hunmin/issues/316

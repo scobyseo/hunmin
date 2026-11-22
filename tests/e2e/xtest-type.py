@@ -162,7 +162,14 @@ def main() -> int:
         if not code:
             print(f"xtest-type: no keycode for {ch!r}", file=sys.stderr)
             return 2
-        if ch.isupper():
+        # XTEST does not infer Shift: a character that sits on the SHIFTED row
+        # of the US layout needs an explicit Shift_L pair. Uppercase letters
+        # were handled; shifted symbols were not, so `^` typed `6` (its unshifted
+        # keycode) and the case compared the engine's answer to `^` against a
+        # `6` that was actually typed -- measured on the IBus edit lane, and the
+        # defect is in the shared injector, not in either frontend (issue #316).
+        shifted_symbols = set('!@#$%^&*()_+{}|:"<>?~')
+        if ch.isupper() or ch in shifted_symbols:
             if not shift_l:
                 print("xtest-type: no Shift_L keycode", file=sys.stderr)
                 return 2

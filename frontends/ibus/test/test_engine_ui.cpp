@@ -54,6 +54,7 @@ struct Captured {
     std::vector<PreeditEvent> preedits;
     std::vector<TableEvent> tables;
     std::vector<PreeditEvent> aux; /* FE16: auxiliary text events, same shape */
+    std::vector<std::string> prop_labels;
     int shows = 0;
     int hides = 0;
 };
@@ -116,6 +117,16 @@ void on_signal(GDBusConnection *, const gchar *, const gchar *, const gchar *, c
         cap->aux.push_back(ev);
         if (object) g_object_unref(object);
         g_variant_unref(serialized);
+        } else if (g_strcmp0(member, "UpdateProperty") == 0) {
+        GVariant *serialized = nullptr;
+        g_variant_get(params, "(v)", &serialized);
+        IBusSerializable *object = ibus_serializable_deserialize_object(serialized);
+        if (object && IBUS_IS_PROPERTY(object)) {
+            IBusText *label = ibus_property_get_label(IBUS_PROPERTY(object));
+            cap->prop_labels.emplace_back(label ? label->text : "");
+        }
+        if (object) g_object_unref(object);
+        g_variant_unref(serialized);
     }
 }
 
@@ -161,6 +172,16 @@ protected:
     gboolean Key(guint keyval, guint state = 0) {
         const size_t before = Events();
         last_used_ = IBUS_ENGINE_GET_CLASS(engine_)->process_key_event(engine_, keyval, 0, state);
+        Settle(before);
+        return last_used_;
+    }
+
+    /* Wait until the signals a call produced have all arrived: one event in,
+     * then a short quiet window with nothing pending. Shared by Key() and the
+     * vfunc calls below (focus_out, candidate_clicked, page_down), which
+     * publish on the same bus and need the same gate -- a fixed sleep here was
+     * measured flaky under -j16, where the scheduler, not the bus, is slow. */
+    void Settle(size_t before) {
         gint64 now = g_get_monotonic_time();
         const gint64 deadline = now + 2 * G_TIME_SPAN_SECOND; /* miss, not cost */
         gint64 quiet_at = 0;
@@ -168,14 +189,9 @@ protected:
             const gboolean worked = g_main_context_iteration(nullptr, FALSE);
             now = g_get_monotonic_time();
             if (Events() != before && quiet_at == 0) quiet_at = now + 2 * G_TIME_SPAN_MILLISECOND;
-            /* One signal in, and nothing further pending after a short quiet
-             * window: this key has published everything it is going to. A
-             * fixed sleep here was measured flaky under -j16, where the
-             * scheduler, not the bus, is the slow part. */
             if (quiet_at != 0 && now >= quiet_at && !g_main_context_pending(nullptr)) break;
             if (!worked) g_usleep(200);
         }
-        return last_used_;
     }
 
     void Type(const char *keys) {
@@ -184,7 +200,7 @@ protected:
 
     size_t Events() const {
         return captured_.commits.size() + captured_.preedits.size() + captured_.tables.size() +
-               captured_.aux.size() + static_cast<size_t>(captured_.shows) +
+               captured_.aux.size() + captured_.prop_labels.size() + static_cast<size_t>(captured_.shows) +
                static_cast<size_t>(captured_.hides);
     }
 
@@ -453,6 +469,167 @@ TEST_F(IbusUiTest, HanjaTriggerSpellingsOpenAndToggleTheList) {
     EXPECT_FALSE(Key(IBUS_KEY_F9)) << "F9 must reach the client on this frontend";
     EXPECT_EQ(captured_.shows, shows_before) << "F9 opened the list";
     Key(IBUS_KEY_space);
+}
+
+/* --- issue #316: the fcitx5-pinned behaviours this lane was missing ------- */
+
+/* Focus loss delivers the word in flight and KEEPS the mode. fcitx5's
+ * reset() contract is the shared one (DESIGN-FRONTEND Part B): the text is
+ * handed back, the composition is dropped, and the language slot survives --
+ * a focus cycle that silently returned the user to Hangul would type the next
+ * word in the wrong language. Asserted through the real vfunc, over the bus. */
+TEST_F(IbusUiTest, FocusOutDeliversTheWordAndKeepsTheMode) {
+    Type("rk");
+    captured_.commits.clear();
+    const size_t before = Events();
+    IBUS_ENGINE_GET_CLASS(engine_)->focus_out(engine_);
+    Settle(before);
+    ASSERT_FALSE(captured_.commits.empty());
+    EXPECT_EQ(captured_.commits.back(), "가") << "focus loss must not swallow the word";
+    ASSERT_FALSE(captured_.preedits.empty());
+    EXPECT_EQ(captured_.preedits.back().text, "");
+
+    /* Switch to Latin, type a word, lose focus again: the mode survives. */
+    EXPECT_TRUE(Key(IBUS_KEY_Hangul));
+    Type("r");
+    captured_.commits.clear();
+    const size_t before2 = Events();
+    IBUS_ENGINE_GET_CLASS(engine_)->focus_out(engine_);
+    Settle(before2);
+    ASSERT_FALSE(captured_.commits.empty());
+    EXPECT_EQ(captured_.commits.back(), "r");
+    EXPECT_TRUE(Key('k'));
+    ASSERT_FALSE(captured_.preedits.empty());
+    EXPECT_EQ(captured_.preedits.back().text, "k")
+        << "the next word is still Latin: the focus cycle reset the mode";
+}
+
+/* IBus calls reset() where fcitx5's host resets the context. This engine's
+ * reset delivers then drops (the same flush the focus path performs); a
+ * missing vfunc would leave the composition to be silently discarded. */
+TEST_F(IbusUiTest, ResetDeliversTheWordAndKeepsTheMode) {
+    EXPECT_TRUE(Key(IBUS_KEY_Hangul));
+    Type("r");
+    captured_.commits.clear();
+    const size_t before = Events();
+    IBUS_ENGINE_GET_CLASS(engine_)->reset(engine_);
+    Settle(before);
+    ASSERT_FALSE(captured_.commits.empty());
+    EXPECT_EQ(captured_.commits.back(), "r");
+    EXPECT_TRUE(Key('k'));
+    ASSERT_FALSE(captured_.preedits.empty());
+    EXPECT_EQ(captured_.preedits.back().text, "k") << "reset returned the mode to Hangul";
+}
+
+/* The mouse half of candidate selection: fcitx5's D2 selects through
+ * list->candidate(i).select(ic); the IBus panel reports a click through the
+ * candidate_clicked vfunc. The chosen text is committed, the source syllable
+ * is dropped, and the host window is told to hide. */
+TEST_F(IbusUiTest, CandidateClickedCommitsTheChosenText) {
+    Type("rk");
+    ASSERT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
+    ASSERT_FALSE(captured_.tables.empty());
+    const std::string second = captured_.tables.back().candidates.at(1);
+    captured_.commits.clear();
+    const size_t before = Events();
+    IBUS_ENGINE_GET_CLASS(engine_)->candidate_clicked(engine_, 1, 1, 0);
+    Settle(before);
+    ASSERT_FALSE(captured_.commits.empty());
+    EXPECT_EQ(captured_.commits.back(), second);
+    ASSERT_FALSE(captured_.preedits.empty());
+    EXPECT_EQ(captured_.preedits.back().text, "");
+    EXPECT_GT(captured_.hides, 0);
+}
+
+/* Paging keys are the panel's vfuncs, not key events: the cursor moves by a
+ * page and the published table says where Return will land. 가 has 64
+ * candidates against a page of 9, so this is the pagination path. */
+TEST_F(IbusUiTest, PageDownAndPageUpMoveTheCursorByAPage) {
+    Type("rk");
+    ASSERT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
+    ASSERT_FALSE(captured_.tables.empty());
+    ASSERT_GT(captured_.tables.back().candidates.size(), 9u);
+
+    const size_t before = Events();
+    IBUS_ENGINE_GET_CLASS(engine_)->page_down(engine_);
+    Settle(before);
+    ASSERT_FALSE(captured_.tables.empty());
+    EXPECT_EQ(captured_.tables.back().cursor, 9u);
+
+    const size_t before2 = Events();
+    IBUS_ENGINE_GET_CLASS(engine_)->page_up(engine_);
+    Settle(before2);
+    ASSERT_FALSE(captured_.tables.empty());
+    EXPECT_EQ(captured_.tables.back().cursor, 0u);
+}
+
+/* Keys that are not composition input must reach the client. A key RELEASE
+ * (IBus delivers both halves) and a bare Shift press are declined BEFORE the
+ * state: they publish nothing and leave the word in flight alone. A Ctrl
+ * chord is declined too, but through the shared layer's boundary rule
+ * (classify(): "a chord belongs to the application") -- so it delivers the
+ * word in flight on its way out, exactly as space does. */
+TEST_F(IbusUiTest, ReleaseBareShiftAndChordAreDeclined) {
+    Type("rk");
+    const size_t before = Events();
+    EXPECT_FALSE(Key('r', IBUS_RELEASE_MASK));
+    EXPECT_FALSE(Key(IBUS_KEY_Shift_L));
+    EXPECT_EQ(Events(), before) << "a release or a bare Shift published something";
+    EXPECT_EQ(captured_.preedits.back().text, "가") << "the word in flight was disturbed";
+
+    captured_.commits.clear();
+    EXPECT_FALSE(Key('a', IBUS_CONTROL_MASK)) << "Ctrl+A is the application's key";
+    ASSERT_FALSE(captured_.commits.empty());
+    EXPECT_EQ(captured_.commits.back(), "가") << "the chord is a boundary: the word is delivered";
+    ASSERT_FALSE(captured_.preedits.empty());
+    EXPECT_EQ(captured_.preedits.back().text, "");
+}
+
+/* The host panel's language indicator: fcitx5 draws the IM label in auxUp;
+ * IBus's equivalent is the engine property the panel shows. The label must
+ * track the mode the engine is actually in, on every switch. */
+TEST_F(IbusUiTest, ModePropertyTracksTheLanguage) {
+    EXPECT_TRUE(Key('r'));
+    ASSERT_FALSE(captured_.prop_labels.empty());
+    EXPECT_EQ(captured_.prop_labels.back(), "한");
+    EXPECT_TRUE(Key(IBUS_KEY_Hangul));
+    ASSERT_FALSE(captured_.prop_labels.empty());
+    EXPECT_EQ(captured_.prop_labels.back(), "영");
+    EXPECT_TRUE(Key(IBUS_KEY_Hangul));
+    EXPECT_EQ(captured_.prop_labels.back(), "한");
+}
+
+/* Caps Lock is the layout's `caps` variable, not a shifted row -- asserted
+ * here as COMPOSITION, the half the translation unit test cannot see. The
+ * expectations are tests/golden/p2-2-4-3-caps.jsonl (cases caps-tier-blocked /
+ * caps-tier-open), the same authority fcitx5's D1 replays: on sin3-p2-yet
+ * with Caps Lock the symbol tier is BLOCKED (j k stays choseong jamo), and
+ * without it the tier opens (j k 1 -> ㅇµ). The word layer holds the text to
+ * the boundary, so the commit lands on space. */
+TEST_F(IbusUiTest, CapsLockBlocksTheSymbolTier) {
+    hunmin_state *state = hunmin_ibus_engine_state(HUNMIN_IBUS_ENGINE(engine_));
+    ASSERT_TRUE(hunmin_state_set_layouts(state, "sin3-p2-yet", NULL));
+
+    EXPECT_TRUE(Key('J', IBUS_LOCK_MASK));
+    EXPECT_TRUE(Key('K', IBUS_LOCK_MASK));
+    ASSERT_FALSE(captured_.preedits.empty());
+    EXPECT_EQ(captured_.preedits.back().text, "ᅁᅠ") << "caps must block the symbol tier";
+    EXPECT_TRUE(Key('1', IBUS_LOCK_MASK));
+    captured_.commits.clear();
+    EXPECT_FALSE(Key(IBUS_KEY_space));
+    ASSERT_FALSE(captured_.commits.empty());
+    EXPECT_EQ(captured_.commits.back(), "ᅁᅠ1");
+
+    /* The same keys without Caps Lock: the tier opens. */
+    EXPECT_TRUE(Key('j'));
+    EXPECT_TRUE(Key('k'));
+    EXPECT_TRUE(Key('1'));
+    ASSERT_FALSE(captured_.preedits.empty());
+    EXPECT_EQ(captured_.preedits.back().text, "ㅇµ");
+    captured_.commits.clear();
+    EXPECT_FALSE(Key(IBUS_KEY_space));
+    ASSERT_FALSE(captured_.commits.empty());
+    EXPECT_EQ(captured_.commits.back(), "ㅇµ");
 }
 
 }  // namespace

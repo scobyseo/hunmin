@@ -13,7 +13,14 @@ override_dh_auto_configure:
 	# for FETCHCONTENT_FULLY_DISCONNECTED builds (CI sets this via
 	# tools/build-release.sh; local builds leave it unset so FetchContent
 	# downloads googletest normally).
-	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
+	# BUILD_TESTING follows nocheck: when the in-build suite is skipped, the
+	# test binaries are never run and never shipped, so building them (and
+	# googletest/gmock, ~30 s of the jammy package build on a 4-core runner,
+	# measured on dispatch 45006560489) is pure waste. The jammy evaluation
+	# runs in the job's own gated ctest step; the noble package build does
+	# not set nocheck and keeps BUILD_TESTING=ON (issue #316).
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release \
+		$(if $(filter nocheck,$(DEB_BUILD_OPTIONS)),-DBUILD_TESTING=OFF,-DBUILD_TESTING=ON) \
 		-DFCITX_INSTALL_USE_FCITX_SYS_PATHS=On \
 		$(if $(FETCHCONTENT_SOURCE_DIR_GOOGLETEST),-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=$(FETCHCONTENT_SOURCE_DIR_GOOGLETEST))
 

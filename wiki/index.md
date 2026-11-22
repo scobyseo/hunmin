@@ -198,9 +198,10 @@
 ## Raw — sessions
 
 - [[2026-11-22-ibus-coverage-parity]] — issue #316: the fcitx5↔IBus evaluation
-  inventory, the lanes that closed the gap, the XIM probe's three host facts,
-  and the two shared-harness defects the new lanes exposed.
-
+  inventory, the D1/D2/tier-C/D3 lanes that closed the gap, the XIM probe's
+  three host facts (compound text, stale-preedit commit, teardown routing),
+  and the two shared-harness defects the new lanes exposed (`^` typed `6`,
+  the edit loop's harness leak).
 - [[2026-11-21-modes-failures-and-the-domain-mode-idea]] — the maintainer's
   distilled intent for auto-switch (zero manual presses, no wrong judgement,
   deliberate awkward words accepted), four live failures traced to code (sin3-p2
@@ -275,6 +276,10 @@
   figure 495 files / 167.4 MiB for the #68 packaging weight.
 
 ## Raw — measurements
+
+- [[2026-11-22-ibus-gloss-paths]] — IBus 글로스 표시 검증 경로(aux text, 1.5.26 패널 소스까지 확인)와 "IBus는 못 한다" 주장의 정정. FE16의 분석 홈.
+
+- [[2026-11-22-fcitx5-retirement-ci-cost]] — fcitx5 퇴역 시 CI 비용 실측 A/B: 빌드 −44%, PR 스위트 −53%, 콜드패스 197s 소멸 (결정 아닌 측정).
 
 - [[2026-10-16-android-e2e-keys-bypass-the-ime]] — **two findings.** Closed:
   tier E2 had been asserting nothing, because `dump_ui` was defined below its
