@@ -340,3 +340,28 @@ frontend data contract, settled at implementation. The gesture-variant mapping
 (KP10) is #312. *Implementation:* none yet — the symbol screen build is the
 follow-up to this decision. *Refuted by:* a future need to share the symbol
 screen across frontends would reopen the data home (move toward B3).
+
+### KP12. The soft keypad auto-shows only without a physical keyboard (DECIDED)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "이 UI는 물리 키보드가 없을 때만 자동으로 뜨는 거야."
+
+Observable outcome: the soft key grid appears **automatically only when no
+physical keyboard is attached**. With a physical keyboard present and exposed,
+the input view stays the strip alone — the hardware path is the product there,
+and a key grid over it is noise. The strip itself must remain in every case:
+it is the IME window hardware key events arrive through (the B1 fact tier E2
+measures, `docs/DESIGN-FRONTEND.md` Part B §3); hiding the whole input view
+would break the hardware path this requirement protects.
+
+Mechanism (implementation, not part of the requirement): the platform's own
+`Configuration.keyboard` / `hardKeyboardHidden` answer presence, and the
+platform's standard user opt-in `show_ime_with_hard_keyboard` is an EXPLICIT
+request for the soft keyboard, not an automatic appearance — it is honoured as
+the exception it is. *Implementation:* `KeypadVisibility` (decision table),
+service wiring in `onCreateInputView` / `onConfigurationChanged`
+(`docs/DESIGN-ANDROID-KEYPAD.md` §8). *Verified by:* tier E1
+`KeypadModelTest` (decision table), tier E2 touch round (auto-show on the
+`hw.keyboard=no` AVD); the hardware-present hide path is environment-bound
+(needs a device/AVD with `hw.keyboard=yes`).
