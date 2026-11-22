@@ -219,6 +219,11 @@ HARNESS_PID=""
 FCITX_PID=""
 XVFB_PID=""
 fail=0
+# The input-context ids a case has already taken as "its own" (issue #325).
+# Appended once per case and never pruned: the ids are per GtkIMContext and are
+# never reused, and the stale ones are exactly what must not be re-accepted.
+IC_SEEN="$STAGE/ic-seen"
+: >"$IC_SEEN"
 
 XEPHYR_PID=""
 Xephyr=""
@@ -972,13 +977,39 @@ for line in sys.stdin:
 expected_text() { # $1=layout $2=keys
     local keys
     keys=$(sim_keys "$2")
+    # The FINAL state of a GtkEntry's buffer, derived from the sim trace.
+    #
+    # Two things are folded, and the second one is why this is not simply the
+    # commit sum:
+    #   * every commit, in order, plus the character of every DECLINED key --
+    #     a GtkEntry inserts a character only when the widget inserts
+    #     characters, so space yes, Return no (it activates the single-line
+    #     entry), Escape no;
+    #   * the trailing `preedit`, i.e. the in-flight word the trace reports on
+    #     its last line. The injection ends with a BARRIER key (see run_case)
+    #     that the engine declines, and a declined key flushes the composition,
+    #     so the buffer holds it -- `dkssuds` ends `TEXT:안녕ㄴ`, not `TEXT:안녕`.
+    #     Measured on this host 2026-11-22 for all eight cases, and it makes the
+    #     fold identical on both hosts, which is a property worth having: the
+    #     word layer (`--layer word`, the IBus adapter) only DELAYS commits to a
+    #     boundary, so the total is the same and only expected_stream's ordering
+    #     differs.
+    # The previous version dropped this term on the syllable layer, on the
+    # premise that a client-side preedit never reaches the buffer. That premise
+    # is true of an UNFLUSHED composition and false once anything declined is
+    # injected -- it is what made every ibus-host expectation stop at the last
+    # space (issue #325, run 45026960367: `expected: TEXT:` against
+    # `actual: TEXT:안녕ㄴ`).
+    # tools/d3-expectation-test.sh pins all eight measured values.
     "$SIM" --data "$DATA" --layout "$1" --keys "$keys" $(sim_layer_args) --trace | \
         python3 -c '
 import json, sys
 buf = []
 word = ""
+preedit = ""
 for line in sys.stdin:
     o = json.loads(line)
+    preedit = o.get("preedit", preedit)
     if o.get("consumed", True):
         word += o.get("commit", "")
         continue
@@ -987,15 +1018,15 @@ for line in sys.stdin:
     if done:
         buf.append(done)
     ch = (o.get("in") or {}).get("ch")
-    # A GtkEntry inserts the CHARACTER of a declined key only when the widget
-    # inserts characters: space yes, Return no (it activates the single-line
-    # entry), Escape no. The XIM stream prints every forward; the buffer fold
-    # models the widget, which is what this expectation compares against.
     if ch and ch >= " " and ch != "\x7f":
         buf.append(ch)
-# Include trailing in-flight word, because the client buffer holds it.
+# The commits that were never followed by a declined key, then the preedit the
+# barrier flushes on top of them. Two ifs, not if/elif: on the syllable layer
+# both terms are non-empty (`dkssuds` commits 안 and 녕, preedit ㄴ).
 if word:
     buf.append(word)
+if preedit:
+    buf.append(preedit)
 print("TEXT:" + "".join(buf))
 '
 }
@@ -1040,8 +1071,102 @@ for line in sys.stdin:
 # are unaffected: sim_keys strips {F9} for the oracle either way.
 inject_keys() { # $1 = case keys
     local k=$1
-    if [ "$IM_HOST" = "ibus" ]; then k=${k//\{F9\}/{Control_R}}; fi
+    # The replacement is done with sed and NOT with ${k//\{F9\}/{Control_R}}.
+    # That expansion is a silent mis-parse: bash ends the parameter expansion
+    # at the `}` of the REPLACEMENT, so `kfs{F9}{Return}` became
+    # `kfs{Control_R{Return}` (the injector then reports "unknown named key
+    # {Control_R{Return}") and a case with no {F9} at all came back with a
+    # stray `}` appended -- every ibus-host case injected one extra character.
+    # Measured on the jammy dispatch run 45026960367 (issue #325):
+    #   xtest-type: unknown named key {Control_R{Return}
+    #   FAIL [candidate/sin3-p2/kfs{F9}{Return}]: key injection failed
+    #   actual: TEXT:안녕ㄴ}      <- the `}` forged here
+    # The bug is in the substitution, not in xtest-type: `{Control_R}` is a
+    # token it knows. See tools/d3-expectation-test.sh, which asserts this
+    # transformation against the shipped function.
+    if [ "$IM_HOST" = "ibus" ]; then
+        k=$(printf '%s' "$k" | sed 's/{F9}/{Control_R}/g')
+    fi
     python3 "$TYPER" "$DISP" "$k" </dev/null
+}
+
+# ------------------------------------------------- the GTK lane's case gate
+# (issue #325) CASESTART:<id> proves the fresh GtkEntry holds the X focus. It
+# does NOT prove the toolkit has finished wiring that entry's GtkIMContext to
+# the daemon, and the fixed `sleep 0.4` that used to stand in for the second
+# fact was a clock: it opens under load and on a cold daemon, and it is exactly
+# the window in which keys are dropped (an empty first case) or land in the
+# previous case's entry (`TEXT:안녕ㄴ` where the case expects `TEXT:안녕`, i.e.
+# the recorded cross-case bleed).
+#
+# fcitx5's Controller1.DebugInfo is the only daemon API that lists input
+# contexts (introspected on 5.1.19: Controller1 has no IC-count method; this is
+# what fcitx5-diagnose prints), and it answers with one line per IC carrying a
+# per-context id and its focus flag. Each fresh GtkEntry's GtkIMContext becomes
+# a NEW context with a NEW id, so "an id this run has not consumed yet, with
+# focus:1" is a per-CASE signal rather than a per-daemon one -- measured
+# 2026-11-22: case 1's IC `ab84...` -> case 2's `b6a8...` -> case 3's `a1ef...`,
+# each with focus:1, the previous one left at focus:0. Cost: 2 ms per call
+# (dbus-send, 10 calls timed), so the poll below is free against the 0.4 s it
+# replaces.
+fcitx_focused_ic_ids() {
+    local out
+    out=$(dbus-send --session --print-reply --dest=org.fcitx.Fcitx5 /controller \
+        org.fcitx.Fcitx.Controller1.DebugInfo 2>/dev/null) || return 1
+    printf '%s\n' "$out" |
+        sed 's/IC \[/\nIC [/g' |
+        grep -F 'focus:1' |
+        grep -oE '\[[0-9a-f]{32}\]' |
+        tr -d '[]'
+}
+
+# Is the gate available at all? A daemon that does not answer DebugInfo must
+# make the caller fall back to the clock rather than fail every case: the
+# addon's floor is fcitx5 5.1.7 and this was measured on 5.1.19 only.
+imctx_gate=""
+imctx_supported() {
+    if [ -z "$imctx_gate" ]; then
+        if fcitx_focused_ic_ids >/dev/null 2>&1; then imctx_gate=1; else imctx_gate=0; fi
+    fi
+    [ "$imctx_gate" = "1" ]
+}
+
+# Wait until an input context this run has not seen before is the focused one.
+# $1 = case id, $2 = timeout in seconds. 0 = the case's own IC exists.
+wait_case_im_context() {
+    local cid=$1 timeout=${2:-5} i id rc=1 start_us
+    start_us=${EPOCHREALTIME/./}
+    for i in $(seq 1 $((timeout * 10))); do
+        while read -r id; do
+            [ -n "$id" ] || continue
+            if ! grep -qx "$id" "$IC_SEEN" 2>/dev/null; then
+                printf '%s\n' "$id" >>"$IC_SEEN"
+                printf 'imctx case=%s id=%s at=%sms polls=%s\n' "$cid" "$id" \
+                    "$(( (${EPOCHREALTIME/./} - start_us) / 1000 ))" "$i" \
+                    >>"$STAGE/gate.log"
+                rc=0
+                break
+            fi
+        done < <(fcitx_focused_ic_ids 2>/dev/null)
+        [ "$rc" -eq 0 ] && break
+        sleep 0.1
+    done
+    return "$rc"
+}
+
+# Has this case's segment printed KEYSINK:<keyval>? Used as the injection
+# barrier: the harness prints the marker from an after-handler, so it runs only
+# once the entry's class handler has fed that key through the GtkIMContext. A
+# marker for the LAST key the runner injected therefore proves every earlier key
+# has been processed -- and, because the daemon answers a key synchronously, that
+# its commit is already in the buffer.
+case_has_keysink() { # $1 = case id, $2 = keyval hex
+    awk -v id="$1" -v want="$2" '
+        $0 == "CASESTART:" id { on = 1; next }
+        /^CASESTART:/         { on = 0 }
+        on && $0 == "KEYSINK:" want { found = 1 }
+        END { exit !found }
+    ' "$STAGE/commits.log" 2>/dev/null
 }
 
 run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
@@ -1114,6 +1239,17 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
 
     case_ready=1
     if [ "$reuse_harness" = "1" ]; then
+        # Snapshot BEFORE the swap, not after: every focused context at this
+        # moment belongs to a case that has already run (or to the harness's
+        # first entry), and the case's own context does not exist until the
+        # SIGUSR1 below. Without this the first case of a group accepts the
+        # primary entry's still-focused context as "new" -- measured, the gate
+        # then returned in 12 ms with the wrong id and that case's keys were
+        # lost, which is the empty first case all over again with a gate that
+        # looks satisfied.
+        if [ "$IM_HOST" = "fcitx5" ] && imctx_supported; then
+            fcitx_focused_ic_ids >>"$IC_SEEN" 2>/dev/null || true
+        fi
         # Stage this case's id where the harness will read it, then SIGUSR1 it.
         # The signal is process-to-process, so no keystroke crosses the X
         # server and the engine cannot consume or forward it -- that is why a
@@ -1169,26 +1305,63 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
         fi
         sleep 0.3
     fi
-    # Kept, and kept unconditional, because the case marker is NOT a substitute
-    # for it. The marker proves the widget holds the X focus; it does not prove
-    # the toolkit has finished connecting that widget's GtkIMContext to fcitx5,
-    # and there is no cheap signal for the second: fcitx5-remote answers in 3ms
-    # but reports the same thing for every case (measured, 2026-10-10), and
-    # fcitx5-diagnose does report contexts but costs 3.0s a call.
-    #
-    # Dropping this sleep was tried, on the reasoning that the marker subsumes
-    # it, and it is not safe: over six GTK 4 runs at zero settle, one case came
-    # back as TEXT:dㅏㄴ녕ㄴ where tier A says TEXT:안녕ㄴ -- the leading `d`
-    # reached the widget raw, with no engine behind it. It was the first case of
-    # a layout group, i.e. exactly the case whose fcitx5 daemon was one second
-    # old. Five further runs were clean, so the window is narrow and rare; it is
-    # still a green-test-that-lies failure mode and it is not worth 3 seconds.
-    sleep 0.4 # let fcitx focus round-trips settle
+    # THE 0.4 s CLOCK THIS REPLACES, AND WHY THE MARKER IS NOT ENOUGH. The
+    # case marker proves the widget holds the X focus; it does not prove the
+    # toolkit has finished wiring that widget's GtkIMContext to the daemon, and
+    # the history of this line is the measured cost of guessing:
+    #   * removing it outright, on the reasoning that the marker subsumes it,
+    #     was tried and is not safe: over six GTK 4 runs at zero settle one
+    #     case came back as TEXT:dㅏㄴ녕ㄴ where tier A says TEXT:안녕ㄴ, the
+    #     leading `d` reaching the widget raw with no engine behind it;
+    #   * fcitx5-remote is not the signal (it reports the same thing for every
+    #     case, measured 2026-10-10) and fcitx5-diagnose costs 3.0 s a call.
+    # A reused GTK harness gets the per-case context gate above instead (#325).
+    # The IBus host keeps the clock: its daemon exposes no per-context listing
+    # (the GTK IM context object is the CLIENT's, and org.freedesktop.IBus has
+    # no method that enumerates them), so there is nothing to gate on there,
+    # and the XIM client -- fresh per case, context created by its own READY --
+    # keeps it for the same "no signal" reason rather than by preference.
+    if [ "$reuse_harness" = "1" ] && [ "$IM_HOST" = "fcitx5" ] && imctx_supported; then
+        if ! wait_case_im_context "$case_id" 5; then
+            echo "FAIL [$layout/$keys]: no fcitx5 input context for this case appeared"
+            echo "  CASESTART:$case_id was printed, so the entry held the X focus;"
+            echo "  what never arrived is the GtkIMContext's context on the bus,"
+            echo "  which is the fact key injection depends on (issue #325)."
+            echo "  --- fcitx5 Controller1.DebugInfo ---"
+            dbus-send --session --print-reply --dest=org.fcitx.Fcitx5 /controller \
+                org.fcitx.Fcitx.Controller1.DebugInfo 2>&1 | sed 's/^/  /'
+            echo "  --- harness.log ---"
+            tail -20 "$STAGE/harness.log" 2>/dev/null | sed 's/^/  /'
+            kill -TERM "$hpid" 2>/dev/null
+            wait "$hpid" 2>/dev/null
+            HPID=""
+            fail=1
+            return
+        fi
+    else
+        sleep 0.4 # let fcitx focus round-trips settle
+    fi
 
     # The IM is already active (start_fcitx did fcitx5-remote -o), so do NOT
     # send the Ctrl+space trigger key here: it is a toggle and would deactivate
     # the context, sending every key to the client raw.
-    if ! inject_keys "$keys"; then
+    # The GTK reuse path appends a BARRIER key to the injection (issue #325).
+    # `Up` is declined by the engine and ignored by a single-line GtkEntry, so
+    # it changes neither the buffer nor the expectation, and the harness prints
+    # KEYSINK:ff52 only after the entry's key handler has fed it through the
+    # GtkIMContext -- which is the fence the fixed sleep could never be. It is
+    # appended to the one injector call rather than typed separately so the
+    # case costs one extra key pair, not another 100 ms injector tail.
+    if [ "$reuse_harness" = "1" ]; then
+        if ! inject_keys "$keys{Up}"; then
+            echo "FAIL [$layout/$keys]: key injection failed"
+            kill "$hpid" 2>/dev/null
+            wait "$hpid" 2>/dev/null
+            HPID=""
+            fail=1
+            return
+        fi
+    elif ! inject_keys "$keys"; then
         echo "FAIL [$layout/$keys]: key injection failed"
         kill "$hpid" 2>/dev/null
         wait "$hpid" 2>/dev/null
@@ -1199,12 +1372,41 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
     # How long to wait for the client to finish taking the keys. The two paths
     # need different answers, and each gets ONE block and ONE reason.
     if [ "$reuse_harness" = "1" ]; then
-        # GTK: one harness serves the whole layout group, so a quiet log is not a
-        # completion signal -- the settle is clock, and it is load-bearing (at
-        # zero settle a case came back TEXT:dㅏㄴ녕ㄴ, docs/TESTING.md). The two
-        # consecutive sleeps this replaces, 0.5 then 0.3 with nothing between
-        # them, were the same wait written twice.
-        sleep 0.8
+        # GTK: the completion signal is the BARRIER KEY's marker, not the clock
+        # that used to read the buffer (issue #325). The injection ended with
+        # `{Up}`; when this case's segment shows KEYSINK:ff52, the entry's key
+        # handler has fed that key through the GtkIMContext, so every key before
+        # it has been processed -- and since the daemon answers a key
+        # synchronously, the last commit is already in the buffer.
+        #
+        # WHY NOT "the buffer stopped changing": measured on this host
+        # 2026-11-22, a GtkEntry prints TEXT: per COMMIT, and the engine commits
+        # per syllable/word, so the buffer is legitimately unchanged for up to
+        # 1.1 s in the middle of a sentence. A quiet window short enough to be
+        # cheaper than the 0.8 s clock therefore exits mid-sentence, which is the
+        # truncated-last-syllable failure this issue records -- the first version
+        # of this fix did exactly that (191-201 ms settles, four cases truncated).
+        # The barrier is a fence, not a guess: it also covers the 0.22 s tail
+        # measured between the injector returning and the final commit landing.
+        barrier_seen=0
+        for _ in $(seq 1 100); do
+            if case_has_keysink "$case_id" ff52; then barrier_seen=1; break; fi
+            kill -0 "$hpid" 2>/dev/null || break
+            sleep 0.03
+        done
+        printf 'barrier case=%s seen=%s\n' "$case_id" "$barrier_seen" >>"$STAGE/gate.log"
+        if [ "$barrier_seen" -ne 1 ]; then
+            # Not a failure on its own: a host whose engine CONSUMES `Up` (the
+            # IBus engine cannot be measured on this host, so that is a real
+            # possibility), or a harness that stopped printing KEYSINK, is the
+            # old world. Fall back to exactly the settle this used to have --
+            # the literal 0.8 s, not a quiet window, because a quiet window is
+            # what truncates when the buffer is legitimately still -- and say
+            # so. The case comparison below is still the assertion; a missing
+            # marker must not become a red test that measures nothing.
+            echo "note: [$layout/$keys] barrier key never reached the client; falling back to the 0.8 s settle" >&2
+            sleep 0.8
+        fi
     else
         # XIM: a fresh client process per case, writing each line as it arrives,
         # so a log that stops growing IS the completion signal. Measured
@@ -1602,11 +1804,21 @@ CASE_SEQ=0       # monotonic case id, used as the harness marker
 # are pass-through.
 # After a layout change fcitx5 has just been restarted. start_fcitx's gate has
 # already proved readiness (~1.2 s measured 2026-11-04: @server=fcitx and the
-# xim addon appear in the same poll), so an XIM client needs no further settle;
-# GTK keeps its second, because a reused harness wires the IMContext per case and
-# gtk3/gtk4 skip on the host that measured this. The candidate loop below keeps
+# xim addon appear in the same poll), so an XIM client needs no further settle.
+# The GTK path on fcitx5 no longer needs one either (issue #325): every case,
+# including the first of a group, waits for its own input context over D-Bus
+# (wait_case_im_context), which is the fact this second used to stand in for --
+# measured 2026-11-22, the first case of a group takes its context within
+# ~0.15 s of CASESTART. The IBus host keeps it: it has no per-context signal to
+# gate on (see the gate's comment in run_case). The candidate loop below keeps
 # its own 1.0 s: its window settle was not re-measured.
-if [ "$CLIENT" = "gtk" ]; then layout_settle=1.0; else layout_settle=0.1; fi
+if [ "$CLIENT" = "gtk" ] && [ "$IM_HOST" = "fcitx5" ]; then
+    layout_settle=0.1
+elif [ "$CLIENT" = "gtk" ]; then
+    layout_settle=1.0
+else
+    layout_settle=0.1
+fi
 exec 3<"$CASES"
 if [ "$CLIENT" = "candidate" ]; then
     # CANDIDATE MODE: a dedicated case file, because its columns are not the

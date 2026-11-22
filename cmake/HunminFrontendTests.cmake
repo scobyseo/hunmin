@@ -3,6 +3,14 @@ if(NOT BUILD_TESTING OR NOT Python3_FOUND)
   return()
 endif()
 hunmin_add_test(NAME frontend-invariants COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check-frontend-invariants.py LABELS tier-D1)
+# The D3 runner's ibus-host text paths, pinned without a daemon (issue #325).
+# tools/d3-expectation-test.sh extracts sim_keys / sim_layer_args /
+# expected_text / inject_keys from tests/e2e/run-d3.sh and drives them against
+# hunmin-sim, so the two defects that only a 22.04 + IBus runner could reveal --
+# the {F9} token being truncated by a bash parameter expansion, and the word
+# layer's trailing in-flight word being dropped from the expectation -- are
+# caught on any host, in under a second, with no X server.
+hunmin_add_test(NAME d3-expectation COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/d3-expectation-test.sh $<TARGET_FILE:hunmin-sim> ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data LABELS tier-D3 TIMEOUT 60)
 if(HUNMIN_HAS_FCITX5)
   # HUNMIN_MUTATION_CACHE pins the sandbox to this tree's toolchain, not a foreign build*/CMakeCache.txt.
   hunmin_add_test(NAME frontend-mutations COMMAND ${CMAKE_COMMAND} -E env HUNMIN_MUTATION_STRATEGY=sandbox HUNMIN_MUTATION_CACHE=${CMAKE_CURRENT_BINARY_DIR}/CMakeCache.txt ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/frontend-mutations.py LABELS tier-D1 tier-D2 mutation slow TIMEOUT 900)
