@@ -255,6 +255,17 @@ package inventory in `docs/OPTIONS-MEASURED.md` §PLT-7. The list above is not n
 otherwise: the same target's package layout, the dev-distro addon, the candidate UI, the
 config store, the build host and FE11's reading are still open.
 
+**Measured 2026-11-22 (issue #288, T1-3):** the engine exists.
+`frontends/ibus/` builds against **libibus 1.5.26** (22.04's own) and 26.04's 1.5.34 from
+one source — the two header sets were diffed and differ by two symbols, neither used. D1 and
+D2 are registered and green (`engine-d1-ibus`, `engine-d1-ibus-judgement`,
+`engine-d2-ibus-ui`), the corpus lane runs every case of `tests/golden/judgement-r8.jsonl`,
+and a one-off run through a real `ibus-daemon` + GTK client delivered `안녕 ` (ad-hoc; tier
+D3, the candidate-window gate and packaging are T1-4, #292). Still open from the list
+above: the package layout, the config store (the engine runs engine defaults), the
+candidate-window gate, and FE11's reading — `tools/check-frontend-invariants.py` applies
+the existing 700-line number to this frontend as well, which pre-empts no ruling.
+
 ### Track 2 — auto-switch improvement (correctness, expectability, …)
 
 The earlier "reproduce the recorded baseline" gate (G0) is **retired** on the

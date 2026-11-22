@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- hunmin -- IBus component descriptor.
+     IBus 1.5.26 (Ubuntu 22.04) reads /usr/share/ibus/component/*.xml and, for a
+     test or unpacked install, IBUS_COMPONENT_PATH (src/ibusregistry.c). The
+     exec path is rewritten by CMake to the installed bindir. -->
+<component>
+    <name>org.freedesktop.IBus.Hunmin</name>
+    <description>hunmin Korean input engine</description>
+    <exec>@HUNMIN_IBUS_EXEC@ --ibus</exec>
+    <version>@HUNMIN_IBUS_VERSION@</version>
+    <author>hunmin contributors</author>
+    <license>LGPL-2.1-or-later</license>
+    <homepage>https://github.com/scobyseo/hunmin</homepage>
+    <textdomain>hunmin</textdomain>
+    <engines>
+        <engine>
+            <name>hunmin</name>
+            <language>ko</language>
+            <license>LGPL-2.1-or-later</license>
+            <author>hunmin contributors</author>
+            <layout>us</layout>
+            <longname>Hunmin</longname>
+            <description>hunmin Korean input engine</description>
+            <rank>1</rank>
+        </engine>
+    </engines>
+</component>

@@ -278,6 +278,24 @@ JNI cannot return a struct, so a key's answer is three reads of layer state:
 through `hunmin_buffered_preedit_external_text`, which delivers the word first
 and then the engine's pass-through, keeping invariant 5's ordering.
 
+**IBus, 0.4 T1 (issue #288).** The IBus frontend is split in two files on
+purpose. `hunmin_state.c` is the key path and includes no IBus header: it holds
+the `hunmin_buffered_preedit`, maps `hunmin_key_event` to the layer, performs the
+judgement's mode half and owns the Hanja list, and reports what happened to a
+`hunmin_state_sink` (`commit` / `preedit` / `candidates`). `hunmin_engine.c` is
+that sink over libibus plus the key translation, and nothing else. D1 drives the
+first through a recording sink with no bus; D2 builds the real `IBusEngine` on a
+private session bus and asserts the D-Bus signals a panel would see
+(`docs/TESTING.md`, "The IBus frontend's D1/D2").
+
+What the host owns here and fcitx5 owns itself: the candidate window is the
+IBus panel's (presentation of `IBusLookupTable`, page size 9 because that is what
+the panel numbers), and the Han/Eng trigger is the engine's, because IBus delivers
+the `Hangul` keyval to the engine rather than acting on it (FE13's mapping — the
+frontend says `language_key`, the layer performs the switch). Config storage is
+still an open decision; until it is ruled, the state object exposes the option
+surface and the engine runs the engine defaults.
+
 All three frontends are on the layer (§8.1): TSF keeps no `wordbuf_` — the seam exposes the layer and its two halves (commit 66a446c).
 
 ## 6. One corpus, every frontend, both TSF modes
@@ -655,6 +673,30 @@ normalisation.
 Not on this list, deliberately: the per-frontend key mapping, the presentation
 APIs, and TSF's two delivery modes. Those are the differences §3 permits, and
 normalising them would be the thing that reintroduces drift.
+
+### 8.4 The fourth frontend: IBus (0.4 T1, added 2026-11-22)
+
+§8.1 and §8.2 were measured over three frontends and are left as that dated
+record. The IBus engine's rows against them:
+
+- **Shared with all three (§8.1):** it holds a `hunmin_buffered_preedit` and no
+  word buffer of its own, asks `hunmin_buffered_preedit_classify()` for the key
+  rule, sets `caps` per key event, treats a declined key as the boundary, and
+  renders `display()`. `engine-d1-ibus` asserts those, and
+  `engine-d1-ibus-judgement` replays the FE10 corpus.
+- **Its permitted differences (§3):** the key translation is its own
+  (`hunmin_ibus_translate_key`: IBus keyvals and modifier masks), and the
+  commit unit is the engine default because the config store is an open
+  ruling.
+- **Where the HOST owns what fcitx5 owns itself:** the candidate window is the
+  IBus panel's (we publish an `IBusLookupTable`; page size 9 is what a panel
+  numbers), and the Han/Eng trigger reaches us as the `Hangul` keyval, so the
+  engine performs the layer's switch (FE13's mapping, asserted by
+  `engine-d2-ibus-ui`). fcitx5 cannot see that key at all.
+- **Not yet on the `CANDIDATE` asymmetry (8.3 item 2):** this frontend does
+  route its list keys through the classifier's answer, which is the resolution
+  that item asks for. One frontend is not a resolution for the others.
+- **No external-text path**, so 8.3 item 4 keeps its count.
 
 ## 9. Wording
 
