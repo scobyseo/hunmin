@@ -13,8 +13,18 @@ target_include_directories(hunmin_ibus_state PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/
 target_link_libraries(hunmin_ibus_state PUBLIC hunmin)
 set_target_properties(hunmin_ibus_state PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
 
+# The store's plumbing (schema, grammar, the daemon's trigger list) is its own
+# small library: the engine reads it and the settings window writes it, and
+# neither of them is where that plumbing belongs. It is deliberately outside
+# src/, which is what tools/check-frontend-invariants.py measures as the ADAPTER.
+add_library(hunmin_ibus_store STATIC store/store.c)
+target_include_directories(hunmin_ibus_store PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/store
+                                                  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+pkg_check_modules(GIO QUIET IMPORTED_TARGET GLOBAL gio-2.0)
+target_link_libraries(hunmin_ibus_store PUBLIC PkgConfig::IBUS PkgConfig::GIO)
+
 add_library(hunmin_ibus_engine STATIC src/hunmin_engine.c src/settings.c)
-target_link_libraries(hunmin_ibus_engine PUBLIC hunmin_ibus_state PkgConfig::IBUS)
+target_link_libraries(hunmin_ibus_engine PUBLIC hunmin_ibus_state hunmin_ibus_store PkgConfig::IBUS)
 
 # The five stored rows (docs/SPEC-FRONTEND.md §FE17). The schema is compiled into
 # the build tree so a test can read its defaults with no install, and installed to
@@ -72,7 +82,7 @@ install(TARGETS hunmin-ibus RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONEN
 pkg_check_modules(GTK3 QUIET IMPORTED_TARGET GLOBAL gtk+-3.0)
 if(GTK3_FOUND AND GLIB_COMPILE_SCHEMAS)
   add_executable(hunmin-ibus-settings settings/main.c)
-  target_link_libraries(hunmin-ibus-settings PRIVATE hunmin_ibus_engine PkgConfig::GTK3)
+  target_link_libraries(hunmin-ibus-settings PRIVATE hunmin_ibus_store hunmin PkgConfig::GTK3)
   add_dependencies(hunmin-ibus-settings hunmin-ibus-schema)
   install(TARGETS hunmin-ibus-settings RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
           COMPONENT ibus-settings)

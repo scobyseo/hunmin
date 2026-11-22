@@ -879,6 +879,15 @@ interface, and the split is what makes them cheap:
   - **Candidate window.** This frontend publishes IBus's **host lookup table**,
     not an own window, so the tier's own-window "window drawn" gate does not
     apply; the table's page size and contents are asserted by `engine-d2-ibus-ui`.
+  - **The engine reconciles settings at startup**, which includes removing the
+    language-key row's keys from the daemon's global trigger list — a real
+    GSettings write. A dconf store cannot be isolated by environment (§IBC-5), so
+    `run-d3.sh` runs this lane with `GSETTINGS_BACKEND=memory`: a harness run must
+    never edit the operator's IBus settings.
+  - **This lane is red on this host before the settings work.** Measured
+    2026-11-22 at `2bdde6d` (`git worktree` at that commit, its own build):
+    `engine-d3-ibus` fails identically with and without the store, so a local red
+    here is not evidence about the settings code.
   - **Both 한/영 spellings are language keys** (FE13, 2026-11-22): `Hangul`
     0xff31 on a Korean XKB layout and `Alt_R` 0xffea on `us`, where the physical
     key reports that instead. D2's `LayoutOverrideKeepsTheLanguageKeyAlive`

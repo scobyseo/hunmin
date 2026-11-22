@@ -622,12 +622,19 @@ gate_ms() { # $1 = timestamp in us (or ""), $2 = start in us
 # "the host daemon's pid" so cleanup and the layout-change loop stay common.
 start_ibus() { # $1 = layout
     local layout=$1 start_us=${EPOCHREALTIME/./} now_us listed=0
-    # The engine has no config store yet (an open ruling, recorded in
-    # docs/MILESTONES.md). The D3 seam is an env var read by
-    # hunmin_ibus_engine_init: the daemon inherits it and so does the engine
-    # it spawns. A layout change restarts the daemon below, exactly as the
-    # fcitx5 half restarts fcitx5, so each engine starts on the right layout.
+    # The layout seam is an env var read by hunmin_ibus_engine_init, applied
+    # after the store (docs/SPEC-FRONTEND.md §FE17): the daemon inherits it and
+    # so does the engine it spawns. A layout change restarts the daemon below,
+    # exactly as the fcitx5 half restarts fcitx5.
     export HUNMIN_IBUS_LAYOUT="$layout"
+    # The engine now RECONCILES settings at startup, and the fifth row removes
+    # its keys from the daemon's global trigger list — which is a real GSettings
+    # write. A dconf store cannot be isolated by environment (a write under a
+    # private bus still lands in the developer's own db, docs/OPTIONS-MEASURED.md
+    # §IBC-5), so this lane runs the engine on the memory backend: the keys path
+    # does not depend on the store, and a harness run must never edit the
+    # operator's IBus settings.
+    export GSETTINGS_BACKEND=memory
     # -x registers an XIM server as well: the XIM client harness is the one
     # that observes a COMMIT stream (its per-case teardown flushes the word in
     # flight), which is the assertion cases.tsv's COMMIT-only column describes.

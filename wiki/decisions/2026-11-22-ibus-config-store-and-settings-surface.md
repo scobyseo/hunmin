@@ -87,6 +87,14 @@ packaging trigger.
 - **The store** (`frontends/ibus/src/settings.c`, `engine-d1-ibus-settings`) and **the window**
   (`frontends/ibus/settings/main.c`, opened from the panel's Preferences through the component
   XML's `<setup>`). Five rows, no OK/Apply, key capture rather than a text field.
+- **The fifth row edits the daemon's trigger list** (`store/store.c`): the row's keys leave
+  `org.freedesktop.ibus.general.hotkey.trigger` and what was taken is recorded in the schema's
+  `managed-triggers`, so it comes back when the key stops being ours. Matching is by keysym, which
+  is what makes it work — the daemon's entry for the physical key on XKB `us` is
+  `Alt+Release+Alt_R` while the row stores `Alt_R`.
+- **The store's plumbing moved to `frontends/ibus/store/`**, shared by the engine and the window,
+  leaving `src/settings.c` as the store→engine mapping. Recorded with the measurement (827 of
+  1000) because "the number went down when the code moved" deserves to be visible, not tucked away.
 - **The default layout is `sin3-p2`**, the same as fcitx5 and TSF. The first attempt got this
   wrong in an instructive way: thirteen tier-D2 cases went red because that tier had been
   inheriting the shipped default, and reverting the default was the wrong repair — the maintainer
@@ -97,8 +105,10 @@ packaging trigger.
 
 - **#327 stays open.** A ruling authorises implementation and verification; the verification is
   now partial: the store and the capture spelling are asserted, the window's widgets are not.
-- **The trigger-list edit** (§IBC-4) is not built: the fifth row still names keysyms the daemon
-  may consume before the engine sees them.
+- **The trigger-list edit is built, and its effect on a real session is not measured here**: no
+  interactive IBus session was driven, so "한/영 now reaches the engine on `kr`" is the code's
+  shape plus the schema write, not an observed keystroke. `engine-d3-ibus` fails on this host
+  before the settings work too (measured at `2bdde6d`), so it cannot be the evidence.
 - **The key-list grammar** — keysym names, or `modifier+keysym` as IBus spells its own hotkeys —
   is not settled. It is a design detail inside FE17, and it has to be written before the capture
   widget exists.

@@ -189,7 +189,9 @@ Costs, the options and the decided shape: `docs/OPTIONS-MEASURED.md#§IBC`.
 `frontends/ibus/schema/org.freedesktop.ibus.engine.hunmin.gschema.xml` (the defaults), read
 into `hunmin_ibus_settings_apply` and applied live through `hunmin_ibus_settings_watch`; the
 window is `frontends/ibus/settings/main.c`, which the IBus panel opens from its Preferences
-item through the component XML's `<setup>` element. A captured key is spelled by
+item through the component XML's `<setup>` element; the fifth row also edits the daemon's global
+trigger list (`frontends/ibus/store/store.c#hunmin_ibus_store_reconcile_triggers`), because a key
+in that list never reaches an engine. A captured key is spelled by
 `hunmin_ibus_key_entry_from_event` and judged by `hunmin_ibus_stored_key_ok`, so the window
 holds no second opinion about what a binding means. The
 fifth row is frontend data (which keysyms count as the language key), so implementing this adds
@@ -197,7 +199,9 @@ no `hunmin_*` symbol; the append-only list in `libhunmin/tests/abi/symbols.txt` 
 *Refuted by:* `engine-d1-ibus-settings` — defaults, a stored value reaching the engine, an
 unloadable layout degrading and being reported, the stored key list driving the translation, the
 two grammar corners refused with a reason, a bad entry costing only itself, a captured key being
-spelled once, and a change arriving through the watch. **Not asserted:** the window's widgets.
+spelled once, a change arriving through the watch, and the fifth row taking its keys out of the
+daemon's trigger list — matching by KEY, so the daemon's `Alt+Release+Alt_R` goes with the row's
+`Alt_R` — and giving back what it took when the key stops being ours. **Not asserted:** the window's widgets.
 It is presentation and no ctest drives it (`engine-d2-ibus-ui` asserts the engine's surface, not
 a settings dialog), so the widget layout is a manual check; what a capture *stores* is asserted
 above, and the layout list it offers comes from the core (`tools/check-frontend-invariants.py`

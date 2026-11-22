@@ -86,5 +86,24 @@
       </description>
     </key>
 
+    <!-- Bookkeeping for the row above, not a user setting.
+
+         When switch-keys removes an entry from
+         org.freedesktop.ibus.general.hotkey.trigger, the entry is recorded here
+         so it can be put back when the key stops being ours. A key that is
+         removed and never restored is a key the person cannot get back without
+         editing dconf by hand, which is why this exists rather than being
+         recomputed: what we took is a fact, and a fact that is written down does
+         not have to be guessed. -->
+    <key name="managed-triggers" type="as">
+      <default>@as []</default>
+      <summary>Trigger entries this engine removed</summary>
+      <description>
+        Internal bookkeeping for switch-keys. Entries removed from the daemon's
+        global trigger list, restored when the corresponding key leaves
+        switch-keys.
+      </description>
+    </key>
+
   </schema>
 </schemalist>

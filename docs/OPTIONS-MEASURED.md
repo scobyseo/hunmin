@@ -2997,6 +2997,29 @@ Packaging follows §IBC-4: the schema ships in `hunmin-ibus` (the engine reads i
 `hunmin-ibus-settings` (it needs GTK3), and `hunmin-ibus` only Recommends it, so the 22.04
 artefact still installs with no toolkit. Build-Depends gains `libgtk-3-dev`, present in jammy main.
 
+**The fifth row's other half (2026-11-22).** `hunmin_ibus_store_reconcile_triggers` removes the
+row's keys from `org.freedesktop.ibus.general.hotkey.trigger` and records what it took in the
+schema's `managed-triggers`, so a key that leaves the row is given back. Two details that the
+implementation forced:
+
+- **The match is by keysym, not by (modifiers, keysym).** The daemon's entry for the physical
+  Han/Eng key on XKB `us` is `Alt+Release+Alt_R` while the row stores `Alt_R` (§IBC-1's
+  measurement), so a modifier-exact match would leave that entry in place and the row would name
+  a key the engine never receives. The cost is that a daemon binding differing only in modifiers
+  goes too — it is recorded and restored with the rest.
+- **It writes only what changed.** Every engine start runs the reconcile, and a write to the
+  daemon's schema is a write to the person's settings.
+
+**A structural consequence, stated rather than smuggled.** The store's plumbing — the schema
+handle, the grammar, the trigger list — now lives in `frontends/ibus/store/`, compiled into a
+small library that the engine and the window both link; `frontends/ibus/src/settings.c` keeps only
+the store→engine mapping. That is not a way to make a number smaller: the plumbing is shared by
+two processes and is not event mapping, which is what FE11's budget measures. The measurement, for
+whoever wants to read the budget instead of this paragraph:
+`tools/check-frontend-invariants.py` reports the IBus adapter at **827 of 1000** with `settings.c`
+down to 78; folding `store/` back into `src/` would put it near 1010 and need a budget ruling, so
+the split is the answer that does not spend one.
+
 **What the ruled shape costs, now that the budget is measured correctly.** The engine-side
 reader is inside `frontends/ibus/src/`, which `tools/check-frontend-invariants.py` counts in
 full (only the `src/trace/` subdirectory escapes, and that exclusion is documented as the

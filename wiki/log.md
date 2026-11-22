@@ -1592,3 +1592,10 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   Preferences, the capture path, and the default-layout correction — including the wrong repair
   I made first (reverting the default instead of fixing the tier) and the maintainer's sentence
   that caught it.
+
+## [2026-11-22] update | IBus 트리거 목록 편집과 저장소 분리 (#327)
+
+- [[2026-11-22-ibus-config-store-and-settings-surface]] updated: the fifth row now removes its
+  keys from the daemon's global trigger list and gives them back (matching by keysym, because the
+  daemon's physical-key entry is `Alt+Release+Alt_R`), and the store's plumbing moved to
+  `frontends/ibus/store/` with the budget measurement recorded next to the reason.

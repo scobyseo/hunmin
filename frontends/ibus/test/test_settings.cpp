@@ -29,7 +29,9 @@
 
 #include <hunmin.h>
 
+#include <algorithm>
 #include <string>
+#include <vector>
 
 extern "C" {
 #include "hunmin_engine.h"
@@ -248,6 +250,95 @@ TEST_F(SettingsTest, ABadEntryIsDroppedAndTheGoodOnesSurvive) {
     EXPECT_EQ(hunmin_ibus_settings_rejected_count(settings_), 2);
     EXPECT_STREQ(hunmin_ibus_settings_rejected(settings_), "Alt+Release+Alt_R");
     EXPECT_TRUE(hunmin_ibus_settings_is_language_key(settings_, IBUS_KEY_Hangul, 0));
+}
+
+/* The fifth row has to take its keys OUT of the daemon's global trigger list:
+ * a key in that list never reaches an engine, so a row that did not edit it would
+ * name keys it cannot receive (§IBC-4). What we take is recorded and given back
+ * when the key stops being ours — the alternative is a key a person cannot
+ * recover without editing dconf by hand.
+ *
+ * Matching is by keysym, which is what makes this work at all: the daemon's entry
+ * for the physical Han/Eng key on XKB `us` is `Alt+Release+Alt_R` while the row
+ * stores `Alt_R`. */
+class TriggerTest : public SettingsTest {
+  protected:
+    void SetUp() override {
+        SettingsTest::SetUp();
+        daemon_ = g_settings_new("org.freedesktop.ibus.general.hotkey");
+        ASSERT_NE(daemon_, nullptr);
+        const gchar *initial[] = {"Control+space", "Hangul", "Alt+Release+Alt_R",
+                                  "Zenkaku_Hankaku", NULL};
+        ASSERT_TRUE(g_settings_set_strv(daemon_, "trigger", initial));
+        ASSERT_TRUE(g_settings_set_strv(gs_, "switch-keys",
+                                        (const gchar *const *)kDefaultKeys));
+        ASSERT_EQ(hunmin_ibus_settings_apply(settings_, state_), 0);
+    }
+    void TearDown() override {
+        g_settings_reset(daemon_, "trigger");
+        g_settings_reset(gs_, "managed-triggers");
+        g_clear_object(&daemon_);
+        SettingsTest::TearDown();
+    }
+    std::vector<std::string> Triggers() {
+        gchar **v = g_settings_get_strv(daemon_, "trigger");
+        std::vector<std::string> out;
+        for (gchar **p = v; p && *p; ++p) out.emplace_back(*p);
+        g_strfreev(v);
+        return out;
+    }
+    std::vector<std::string> Managed() {
+        gchar **v = g_settings_get_strv(gs_, "managed-triggers");
+        std::vector<std::string> out;
+        for (gchar **p = v; p && *p; ++p) out.emplace_back(*p);
+        g_strfreev(v);
+        return out;
+    }
+    static constexpr const gchar *kDefaultKeys[] = {"Hangul", "Alt_R", NULL};
+    static constexpr const gchar *kEmpty[] = {NULL};
+    GSettings *daemon_ = nullptr;
+};
+
+TEST_F(TriggerTest, OurKeysLeaveTheDaemonListAndOthersStay) {
+    const auto triggers = Triggers();
+    /* Hangul and the physical key's release entry are gone; the three unrelated
+     * bindings are untouched, in their original order. */
+    ASSERT_EQ(triggers.size(), 2u);
+    EXPECT_EQ(triggers[0], "Control+space");
+    EXPECT_EQ(triggers[1], "Zenkaku_Hankaku");
+    const auto managed = Managed();
+    ASSERT_EQ(managed.size(), 2u);
+    EXPECT_EQ(managed[0], "Hangul");
+    EXPECT_EQ(managed[1], "Alt+Release+Alt_R");
+}
+
+TEST_F(TriggerTest, ASecondApplyChangesNothing) {
+    const auto before = Triggers();
+    const auto managed_before = Managed();
+    ASSERT_EQ(hunmin_ibus_settings_apply(settings_, state_), 0);
+    EXPECT_EQ(Triggers(), before);
+    EXPECT_EQ(Managed(), managed_before);
+}
+
+TEST_F(TriggerTest, AKeyThatIsNoLongerOursIsGivenBack) {
+    const gchar *only_hangul[] = {"Hangul", NULL};
+    ASSERT_TRUE(g_settings_set_strv(gs_, "switch-keys", only_hangul));
+    ASSERT_EQ(hunmin_ibus_settings_apply(settings_, state_), 0);
+    const auto triggers = Triggers();
+    /* Alt+Release+Alt_R came back where it belongs; Hangul is still ours. */
+    EXPECT_NE(std::find(triggers.begin(), triggers.end(), "Alt+Release+Alt_R"), triggers.end());
+    EXPECT_EQ(std::find(triggers.begin(), triggers.end(), "Hangul"), triggers.end());
+    EXPECT_EQ(Managed().size(), 1u);
+    EXPECT_EQ(Managed()[0], "Hangul");
+}
+
+TEST_F(TriggerTest, ClearingTheRowGivesEverythingBack) {
+    ASSERT_TRUE(g_settings_set_strv(gs_, "switch-keys", (const gchar *const *)kEmpty));
+    ASSERT_EQ(hunmin_ibus_settings_apply(settings_, state_), 0);
+    const auto triggers = Triggers();
+    EXPECT_NE(std::find(triggers.begin(), triggers.end(), "Hangul"), triggers.end());
+    EXPECT_NE(std::find(triggers.begin(), triggers.end(), "Alt+Release+Alt_R"), triggers.end());
+    EXPECT_TRUE(Managed().empty());
 }
 
 /* Live apply: the store changes, GSettings tells this process, the engine
