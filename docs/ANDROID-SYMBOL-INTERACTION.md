@@ -21,6 +21,21 @@ The pain is the **mode-switch tax**: every digit/symbol burst during Hangul
 input costs a trip to the symbol page and back. The question is how other IMEs
 reduce that tax, and whether interaction count is the right measure.
 
+### The refinement: finding the symbol, and not mis-tapping it
+
+Quoted verbatim (2026-11-22, follow-up):
+
+> "뭐든 기호 입력이 생각보다 많으니 기호가 어디 있는지 찾느라 시간을 쏟는 걸
+> 줄이고 싶다는 게 핵심이야. 안드로이드 장치는 화면이 좁고, 너무 키들이 붙어
+> 있으면 잘못된 조작이 많이 발생할 수 있으니, 그걸 고려하더라도 기호 입력이
+> 쉬웠으면 좋겠다."
+
+This sharpens the goal beyond interaction count. The core cost is **visual
+search time** — locating *where* a symbol is — and the constraint is a **narrow
+screen where crowded keys cause mis-taps**. So the measure is three axes, not
+one: interactions to reach the symbol, time to find it, and the error rate of
+the tap. A design that minimises only the first can worsen the other two.
+
 ## The ISO 25010 premise, checked
 
 ISO/IEC 25010 is a product-quality model. The relevant characteristic is
@@ -38,7 +53,12 @@ interactions yet spends screen height; a one-shot symbol page removes the return
 tap for a single symbol yet doubles the cost of a burst. The comparison below
 therefore reports interaction count **and** the trade-off each mechanism pays.
 This checks the premise rather than refusing it: the goal (less switching) is
-sound; "count alone decides it" is the part that needs the other axes.
+sound; "count alone decides it" is the part that needs the other axes. The
+refinement maps onto ISO 25010 usability directly: **appropriateness
+recognizability** and **learnability** (can the person find/recognise the
+symbol), **user error protection** (mis-taps on a crowded narrow screen), and
+**operability**; the search and movement time itself is **performance
+efficiency** (time behaviour).
 
 ## What the surveyed IMEs actually do
 
@@ -102,9 +122,82 @@ Reading the table:
 - **Context auto-switch** removes the tax entirely but only where the field is
   purely numeric; mixed Hangul+digit text gets no help from it.
 
+## Finding the symbol, and not mis-tapping it (the refined axes)
+
+### What the surveyed IMEs do for search time and target size
+
+Measured from the upstream layout assets and settings:
+
+- **Common punctuation as dedicated, always-visible keys.** HeliBoard's
+  `functional_keys.json` puts **comma and period on the main bottom row**, full
+  height, no page switch. The comma key is context-aware (`variation_selector`:
+  default `,`, email field `@`, URI field `/`) and carries a long-press popup
+  group of further punctuation. This is the direct answer to "finding the
+  symbol": the most-used ones are never hidden.
+- **The symbol page is grouped, not a flat grid.** HeliBoard `symbols.txt`
+  clusters brackets/math (`[ ] < > { } = \ |`), then currency/operators
+  (`@ # $$$ _ & - + ( ) /`), then punctuation (`* " ' : ; ! ?`). FlorisBoard
+  `symbols/western.json` is two rows (10 then 7 keys) with a currency slot, and
+  it ships a `western_samsung.json` variant. Grouping cuts the effective choice
+  set a person scans (Hick's law: decision time grows with the number of
+  alternatives), so a categorised page is faster to search than one flat grid of
+  the same symbols.
+- **Long-press clusters related variants.** HeliBoard symbol keys carry variants
+  on long-press (`-` → `– — ·`, `(` → `⁽ < { [`, `*` → `† ‡ ★`), so a family of
+  related symbols lives under one visible key instead of occupying many.
+- **User-adjustable spacing and height.** FlorisBoard exposes
+  `keyboard__key_spacing_horizontal` / `_vertical` and keyboard height;
+  HeliBoard `mKeyboardHeightScale` and horizontal/vertical gap; open-keyboard a
+  key-height setting. This is the explicit lever against mis-taps on a narrow
+  screen: the person widens gaps or raises keys rather than the design guessing.
+- **Fewer keys per row on the symbol page than on the alphabet.** FlorisBoard's
+  symbol rows are 10 and 7; the 두벌식 alphabet rows are 10/9/7. A symbol page
+  does not cram more keys than the alphabet, so its targets are no smaller.
+
+### Target size on a narrow screen (geometry-derived)
+
+Android's accessibility guidance recommends a **48 dp minimum touch target**;
+Fitts's law says movement time and error rate rise as target width shrinks
+(`MT = a + b·log2(1 + D/W)`). On a common 360 dp-wide phone, ignoring gaps, the
+per-key width is just screen width divided by keys-per-row:
+
+| keys per row | width/key on 360 dp | vs 48 dp guideline |
+|---:|---:|---|
+| 7 (두벌식 bottom row, symbol punctuation row) | ~51 dp | meets |
+| 9 (두벌식 middle row) | ~40 dp | below |
+| 10 (두벌식 top row, number row, symbol top row) | ~36 dp | below |
+| 11 (HeliBoard symbol bracket row) | ~33 dp | below |
+
+These are geometry-derived, not device-measured error rates; gaps and key height
+move them, which is exactly why the spacing/height settings exist. The reading:
+a 10-across row on a narrow phone is already below the touch-target guideline,
+so **adding more visible symbol keys to the main layout shrinks targets further
+and raises mis-taps** — the constraint the maintainer named. A separate symbol
+page keeps the alphabet keys large; putting everything on one screen does not.
+
+### The trade-off triangle
+
+The three axes pull against each other on a narrow screen:
+
+- **Discoverability** (symbol visible, no switch) wants many keys on the main
+  layout → smaller targets → more mis-taps.
+- **Target size / low error** wants few, large, well-spaced keys → symbols hidden
+  on a page or under long-press → more search and interactions.
+- **Interaction count** wants no mode switch → visible symbols or long-press →
+  crowding or hold latency.
+
+No mechanism maximises all three. The mainstream resolution is a **bundle**:
+a few high-frequency symbols always visible as large keys (comma, period,
+context `@`/`/`), digits via an optional number row, the rest on a **grouped**
+symbol page whose targets are no smaller than the alphabet, long-press variants
+clustering related symbols, and user-adjustable spacing/height. Frequency
+ordering (common symbols first) is a further search-time lever the data could
+carry; it is unmeasured here.
+
 ## What this means for a hunmin 두벌식 keypad
 
-The maintainer's goal (less switching) is supported by the evidence; the
+The maintainer's goal — less time *finding* symbols and fewer mis-taps on a
+narrow screen, not just fewer switches — is supported by the evidence; the
 mechanism is the open choice. Comparable levers, none ruled:
 
 1. **Optional number row** — digits at 1 tap, the mainstream answer to the digit
@@ -123,16 +216,27 @@ mechanism is the open choice. Comparable levers, none ruled:
 6. **Symbols on shift** — available to 세벌식 data already, but 두벌식 shift is
    doubled jamo; adopting it for 두벌식 would change the layout's shift semantics
    (a layout-data decision, not an engine one).
+7. **Grouped symbol page** — categorise symbols (brackets/math, currency,
+   punctuation) rather than a flat grid, cutting visual-search time; the
+   mainstream answer to "finding the symbol". A data-organisation decision.
+8. **User-adjustable key spacing / height** — the explicit anti-mis-tap lever
+   FlorisBoard/HeliBoard expose; lets the person fit the narrow screen rather
+   than the design guessing one geometry. A presentation/settings decision.
+9. **Frequency ordering** — common symbols first, so the frequent ones are found
+   fastest; needs usage data and is unmeasured here. A data decision.
 
-These compose: a number row + a sticky symbol page + context auto-switch is the
-mainstream bundle; long-press popups and one-shot are optional reductions on
-top. The interaction-count table is the evidence for choosing among them, with
-the trade-off column as the counterweight to "count alone decides it".
+These compose: dedicated common punctuation + a number row + a **grouped**
+symbol page + context auto-switch + adjustable spacing is the mainstream bundle
+that addresses all three axes; long-press popups, one-shot and frequency
+ordering are optional reductions on top. The interaction-count table and the
+target-size table are the evidence for choosing among them, with the trade-off
+triangle as the counterweight to "count alone decides it".
 
 ## What this analysis does not settle
 
-- Device-measured latency and error rate per mechanism (the counts here are
-  mechanism-derived; hold time and mis-taps are unmeasured).
+- Device-measured latency, visual-search time and error rate per mechanism (the
+  counts and target widths here are mechanism- and geometry-derived; hold time,
+  search time and mis-taps are unmeasured).
 - The symbol-layer data home (`#298`) — long-press popups and a symbol page both
   need a data home, which is the separate open question.
 - Geometry, number-row default, shift behaviour, accessibility — Track 3

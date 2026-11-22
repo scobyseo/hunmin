@@ -52,3 +52,16 @@ single-symbol cost. The choice stays the maintainer's
 ([[decisions-belong-to-the-maintainer]]). It complements the layout/symbol-home
 survey ([[2026-11-22-android-korean-ime-survey]]) and the symbol-layer measurement
 ([[2026-11-22-symbol-layer-options]]).
+
+## Refinement: search time and mis-taps
+
+The maintainer sharpened the goal: the core cost is *finding* where a symbol is
+(visual search), and a narrow screen with crowded keys causes mis-taps. The doc
+now carries two more axes beyond interaction count — discoverability and target
+size — with the prior art for each (HeliBoard's dedicated comma/period keys and
+grouped symbol page, FlorisBoard's adjustable key spacing, long-press variant
+clusters) and a geometry-derived target-width table against the 48 dp touch
+guideline. The reading is a trade-off triangle: visible symbols crowd the narrow
+screen and shrink targets; hidden symbols keep targets large but cost search and
+switches. The mainstream bundle addresses all three. The refined quote and the
+tables live in the doc, not here.

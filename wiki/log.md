@@ -1298,3 +1298,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   literal clause; time/space/error are the counterweight. Recorded the
   maintainer's pain verbatim. No ruling.
 
+## [2026-11-22] update | symbol interaction: search time and mis-taps
+
+- Refined [[2026-11-22-symbol-interaction-cost]] and
+  `docs/ANDROID-SYMBOL-INTERACTION.md` with the maintainer's follow-up: the core
+  cost is finding the symbol (visual search), and crowded keys on a narrow screen
+  cause mis-taps. Added two axes (discoverability, target size), the prior art
+  (HeliBoard dedicated comma/period + grouped symbol page, FlorisBoard adjustable
+  key spacing, long-press variant clusters), a geometry-derived target-width
+  table vs the 48 dp guideline, and the trade-off triangle. No ruling.
+
