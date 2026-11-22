@@ -166,6 +166,11 @@ class OverlayActivity : AppCompatActivity() {
             SettingItem("창 스타일", ImeSettings.toolbarStyle().label) {
                 showStyleSection()
             },
+            /* KP14: the long swipe-left delete unit. The badge is the stored
+             * value the gesture reads — one value, shown and written here. */
+            SettingItem("키패드", ImeSettings.swipeLeftDelete().label) {
+                showKeypadSection()
+            },
             /* ReqMode13's surface B, and the row issue #174 asks for: the value
              * and the key are the ENGINE's, read at dialog time. Nothing here
              * remembers them -- the chord writes the same option. */
@@ -318,6 +323,7 @@ class OverlayActivity : AppCompatActivity() {
             SECTION_LAYOUT_HANGUL -> showLayoutSection(LayoutMode.HANGUL)
             SECTION_LAYOUT_LATIN -> showLayoutSection(LayoutMode.LATIN)
             SECTION_STYLE -> showStyleSection()
+            SECTION_KEYPAD -> showKeypadSection()
             SECTION_KEYS -> showKeyBindingSection()
             else -> showSettingsDialog()
         }
@@ -360,6 +366,23 @@ class OverlayActivity : AppCompatActivity() {
             .setSingleChoiceItems(labels, checked) { d, which ->
                 d.dismiss()
                 ImeSettings.onToolbarStyleChosen(styles[which])
+                showSettingsDialog()
+            }
+            .setNegativeButton("뒤로") { _, _ -> showSettingsDialog() }
+            .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
+            .show()
+    }
+
+    /** KP14: the swipe-left delete unit, one choice of four. */
+    private fun showKeypadSection() {
+        val units = DeleteUnit.entries
+        val checked = units.indexOf(ImeSettings.swipeLeftDelete())
+        dialog?.dismiss()
+        dialog = AlertDialog.Builder(this)
+            .setTitle("키패드 — 스와이프 삭제 단위")
+            .setSingleChoiceItems(units.map { it.label }.toTypedArray(), checked) { d, which ->
+                d.dismiss()
+                ImeSettings.onSwipeLeftDeleteChosen(units[which])
                 showSettingsDialog()
             }
             .setNegativeButton("뒤로") { _, _ -> showSettingsDialog() }
@@ -806,6 +829,7 @@ class OverlayActivity : AppCompatActivity() {
         const val SECTION_LAYOUT_HANGUL = "layout-hangul"
         const val SECTION_LAYOUT_LATIN = "layout-latin"
         const val SECTION_STYLE = "style"
+        const val SECTION_KEYPAD = "keypad"
         const val SECTION_KEYS = "keys"
 
         const val RESULT_HANJA_SELECTED = 1

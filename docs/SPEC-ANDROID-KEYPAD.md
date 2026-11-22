@@ -60,7 +60,8 @@ Observable outcome:
 The placement that satisfies this is a geometry/presentation decision (Track 3),
 not an engine change: the engine already treats space/enter/backspace as named
 keys and shift as a per-event modifier (`docs/SPEC-FRONTEND.md#§FE6`).
-*Implementation:* none. *Refuted by:* none yet.
+*Implementation:* partial (#299) — one one-shot shift, separated compact
+functional keys: `docs/DESIGN-ANDROID-KEYPAD.md` §3–§4. *Refuted by:* none yet.
 
 ### KP3. Frequency-based placement and visual emphasis — symbols and the main keypad (endorsed directions)
 
@@ -117,7 +118,9 @@ page. This is the synthesis of KP1 (minimal touch for the frequent set) and KP3
 comma/period on the main bottom row). It is consistent with the recorded
 criteria; the **exact symbol set, its geometry, and how the separation is
 realised** (separate page vs layer) remain the open mechanism of issue #298.
-*Implementation:* none. *Refuted by:* none yet.
+*Implementation:* partial (#299) — mode pages separated; `, .` default-visible
+in every text mode: `docs/DESIGN-ANDROID-KEYPAD.md` §3. The set beyond `, .`
+is open. *Refuted by:* none yet.
 
 ### KP5. Number-row symbols by long-press AND swipe-up; accidental swipes preventable (stated direction)
 
@@ -206,7 +209,9 @@ physical pairing. This sub-decision is settled; the data home, navigation-key se
 and Tier 2 inventory remain open (#298).
 
 The navigation-key set, the Tier 2 inventory/grouping, and the data home that
-makes them inputtable are open mechanism (#298). *Implementation:* none.
+makes them inputtable are open mechanism (#298). *Implementation:* partial
+(#297/#299) — the Tier 1 page and nav row are drawn from the app-read asset
+and tap-verified: `docs/DESIGN-ANDROID-KEYPAD.md` §4; Tier 2 is #312 (KP10).
 *Refuted by:* none yet.
 
 Navigation-key order — decided (2026-11-22, verbatim): "home pgup pgdn end 순서로
@@ -296,7 +301,10 @@ just the mode-return keys (`한/영`, `기호 1`), in the same slots as Tier 1.
 A layout that follows (bottom row mirrors the text modes' `[한/영][기호]…`):
 `[한/영] [Tier 2] [←] [↑] [↓] [→]`, backspace on the navigation row. The exact
 geometry is provisional; the binding rules are positional consistency and the
-space/enter removal. *Implementation:* none. *Refuted by:* none yet.
+space/enter removal. *Implementation:* partial (#299) — no space/enter on the
+page, arrows in the space slot, 한/영 returns to the original mode (tap-verified
+on the AVD): `docs/DESIGN-ANDROID-KEYPAD.md` §4; the Tier 2 slot is #312.
+*Refuted by:* none yet.
 
 ### KP10. Symbol selection by swipe/long-press preferred over a Tier 2 button; extension split out (stated direction)
 
@@ -337,6 +345,225 @@ Consequences: the engine's Hangul/Latin composition is untouched; the symbol
 screen does not appear in the engine's layout/settings list (no visibility
 contract needed, unlike B3); the data file's format and validation are a
 frontend data contract, settled at implementation. The gesture-variant mapping
-(KP10) is #312. *Implementation:* none yet — the symbol screen build is the
-follow-up to this decision. *Refuted by:* a future need to share the symbol
-screen across frontends would reopen the data home (move toward B3).
+(KP10) is #312. *Implementation:* #297 (data + contract) and #299 (UI wiring:
+the app draws the page, flushes the pending word, then commits the symbol
+directly — `docs/DESIGN-ANDROID-KEYPAD.md` §1). *Refuted by:* a future need to
+share the symbol screen across frontends would reopen the data home (move
+toward B3).
+
+### KP12. The soft keypad auto-shows only without a physical keyboard (DECIDED)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "이 UI는 물리 키보드가 없을 때만 자동으로 뜨는 거야."
+
+Observable outcome: the soft key grid appears **automatically only when no
+physical keyboard is attached**. With a physical keyboard present and exposed,
+the input view stays the strip alone — the hardware path is the product there,
+and a key grid over it is noise. The strip itself must remain in every case:
+it is the IME window hardware key events arrive through (the B1 fact tier E2
+measures, `docs/DESIGN-FRONTEND.md` Part B §3); hiding the whole input view
+would break the hardware path this requirement protects.
+
+Mechanism (implementation, not part of the requirement): the platform's own
+`Configuration.keyboard` / `hardKeyboardHidden` answer presence, and the
+platform's standard user opt-in `show_ime_with_hard_keyboard` is an EXPLICIT
+request for the soft keyboard, not an automatic appearance — it is honoured as
+the exception it is. *Implementation:* `KeypadVisibility` (decision table),
+service wiring in `onCreateInputView` / `onConfigurationChanged`
+(`docs/DESIGN-ANDROID-KEYPAD.md` §8). *Verified by:* tier E1
+`KeypadModelTest` (decision table), tier E2 (BOTH paths measured on the AVD,
+which reports a QWERTY keyboard exposed: opt-in 0 hides the grid with the
+strip staying, opt-in 1 shows it; the maintainer's phone confirmed auto-show
+on a NOKEYS device).
+
+### KP13. The decided keypad UI is the mockup picture (DECIDED)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "T3-1에서 정한 UI가 아닌데?"
+> "/home/scoby/work/hunmin/docs/android-keypad-mockup.html 로 정했잖아?"
+> "왜 그 mockup 대로 구현하지 않았지?"
+
+**Decided:** the soft keypad's UI is `docs/android-keypad-mockup.html` AS
+DRAWN — the 두벌식 and QWERTY text screens (10-key number row with the shifted-
+symbol corner hints, 10/9/7 letter rows, the shifted-jamo sublabels, one ⇧ with
+the ⇪ hint, ⌫, and the bottom row `[한/영] [기호] [space] ,<?> .<"> [⏎]`, amended by KP15 to comma-left-of-space), the
+symbol page, and the picture's palette and proportions. The document's own
+"provisional / not a ruling" header predates this ruling and is superseded by
+it; the header is kept as the record of what was believed when the first
+implementation deviated (a generic data-driven grid with extension cells —
+overturned, recorded in `docs/DESIGN-ANDROID-KEYPAD.md`).
+
+Scope notes, so the picture and the later rulings read together:
+
+- The Hangul screen is 두벌식 and the English screen is QWERTY — the Track 3
+  goal layouts (#285: "두벌식 형태를 채용"). Keycap LABELS still come from the
+  layout data; the GEOMETRY is the picture's, not a generic physical-position
+  grid. A layout whose keys fall outside the picture's cells (sin3-p2's
+  punctuation keys) is not fully touch-reachable through this geometry — a
+  recorded consequence, and whether the keypad offers other layouts is open.
+- The corner hints are drawn as the picture draws them. The GESTURES they
+  advertise (long-press / swipe-up, KP5/KP7) remain #312; the shifted-jamo
+  sublabels and digit hints are reachable today through the one-shot shift.
+- The symbol page's Tier 2 button in the picture is superseded by KP10/#312
+  (gesture variants instead of a Tier 2 page); the shipped `symbols.json`
+  omits that slot, and the bottom row reads `[한/영] [←] [↑] [↓] [→]`.
+- The picture draws a light palette; night-mode adaptation is not drawn and
+  stays open.
+
+*Implementation:* `KeypadModel.textRows` (the picture's geometry),
+`KeypadView` (the picture's palette/proportions/hints) —
+`docs/DESIGN-ANDROID-KEYPAD.md`. *Verified by:* engine-android-e1
+(`KeypadModelTest`, `KeypadTouchGoldenTest`), engine-android-e2e (touch round).
+
+### KP14. Long swipe-left anywhere is backspace, with a configurable delete unit (REQUESTED)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "기능 하나를 추가했으면 하는 게, 어느 위치에서든 swipe-left를 (길게) 하면
+> backspace로 동작하면 좋겠다. 이 기능은 설정가능하게 해서, key단위, 음절단위,
+> 단어단위, 전체 삭제로 설정할 수 있어도 좋겠다."
+
+Observable outcome:
+
+- A **long swipe-left starting at any keycap** deletes text instead of typing
+  that key. The underlying tap must not also fire (the gesture replaces it).
+- The delete unit is **configurable**: 키(key) / 음절(syllable) / 단어(word) /
+  전체(all). A short leftward drift is still a tap — KP5's accidental-gesture
+  protection applies to this gesture too.
+
+Mechanism (implementation, provisional where noted): the gesture decision is a
+pure function (`KeypadModel.isSwipeLeftDelete` — leftward distance over a
+threshold, horizontally dominant); the threshold is provisional. Delete units:
+KEY is the backspace key's own path; SYLLABLE removes the last syllable of the
+composing display (jamo by jamo, stopping when the syllable is gone — measured,
+not guessed); WORD drops the buffered word when composing, else sends Ctrl+DEL
+to the app; ALL clears the composition and sends Ctrl+A then DEL as key events
+(no surrounding-text read, I9). The default unit is KEY (the
+least destructive) — provisional, the maintainer may choose another. The
+setting lives in the settings window's 키패드 section.
+
+Also recorded (maintainer, 2026-11-22, verbatim): "long-press도 swipe-up도
+동작하지 않아." — measured fact: those gestures are #312's scope and are not
+wired; KP13 draws their hints. This entry does not pull #312 forward; it records
+the observation so the gap between the drawn hints and the wired gestures is
+visible.
+
+*Implementation:* `KeypadModel` (gesture decision, `DeleteUnit`), `KeypadView`
+(touch handling), `HunminInputMethodService` (delete units, setting),
+`OverlayActivity` (키패드 section) — `docs/DESIGN-ANDROID-KEYPAD.md`.
+*Verified by:* engine-android-e1 (decision table, unit vocabulary),
+engine-android-e2e (swipe on the device, per-unit deletion).
+
+### KP15. Bottom row amended: comma left of space (DECIDED)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "스페이스 위치가 살짝 애매한데, ,를 스페이스 왼쪽으로 옮겨서, 스페이스가
+> 좀더 오른손쪽으로 오는 게 좋겠어."
+
+**Decided:** the text-mode bottom row reads
+`[한/영] [기호] [,] [space] [.] [⏎]` — the comma moves to the space's LEFT, so
+the space bar sits further toward the right hand. This amends the KP13 picture
+(the mockup artefacts are updated to match; the picture and the ruling must not
+drift). The period stays to the space's right; KP9's positional consistency
+holds — the row is the same in Hangul and English modes.
+
+*Implementation:* `KeypadModel.textRows` bottom row;
+`docs/android-keypad-mockup.html` / `.md` amended. *Verified by:*
+engine-android-e1 (`KeypadModelTest` row order), engine-android-e2e (taps).
+
+### KP16. Shift on the frequent , . keys yields the hinted alternate — same result as the gesture (DECIDED)
+
+The maintainer's bug report (2026-11-22, verbatim):
+
+> "comma 위에 ?, period 위에 "를 적어서 시프트 입력을 해보려고 했는데,
+> <>가 각각 입력되네?"
+
+The ruling (2026-11-22, verbatim):
+
+> "시프트를 사용해도 동일한 결과가 나와야지."
+
+**Decided:** on the touch keypad, shift+`,` yields `?` and shift+`.` yields `"`
+— the characters their drawn hints advertise, the SAME result the swipe-up
+gesture will produce (KP7: swipe-up is a substitute for shift, so the alternate
+is one character regardless of mechanism). The hint is a promise about the
+key's alternate, not about the physical keyboard's shift row.
+
+Measured cause of the defect: in a layout that does not key `,`/`.` (dubeolsik),
+the shifted tap passed through to the app, whose US KeyCharacterMap resolves
+Shift+, as `<` and Shift+. as `>`. The fix commits the hint character through
+the symbol path (pending word flushed first), for the two frequent keys only,
+in every mode and layout. Digits keep the engine/app path — their physical
+shift already matches the hints (! @ # …). The hardware key path is untouched.
+
+*Implementation:* `KeypadModel.shiftedFrequentAlternate`, `KeypadView` tap
+dispatch — `docs/DESIGN-ANDROID-KEYPAD.md`. *Verified by:* engine-android-e1
+(`KeypadModelTest`), engine-android-e2e (shift taps on the device).
+
+KP16 display rule (maintainer, 2026-11-22, verbatim):
+
+> "시프트가 입력되면 그 키가 ?"로 출력되게 하는 것도 좋은 방법이고."
+
+While shift is armed, the frequent keycaps DISPLAY the alternate they will
+type (`?` and `"`), the corner hint folded into the label — the same principle
+as the jamo keycaps showing `ㅃ` while armed (endorsed the same day: "ㅂ위에
+ㅃ이 출력되는 것도 좋은 방법인데 말이지"). Digits likewise show their symbol
+(`! @ # …`) while armed. The display and the result are one promise.
+
+Placement ruling (maintainer, 2026-11-22, verbatim): "현행 유지." — the
+shifted-jamo sublabel stays at the mockup's bottom-left; a top-corner move
+applied earlier the same day was reverted. The condition attached to the
+display proposals ("글자가 겹치지만 않는다면 내가 제안한 방식을 적용해 봐")
+is verified by measuring the keycap TextViews' bounds for overlap.
+
+### KP17. The soft keyboard uses 두벌식 only (DECIDED)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "그게 왜 필요한데? 소프트 키보드는 두벌식만 쓸건데?"
+
+**Decided:** the soft keypad's Hangul mode is 두벌식 — always, regardless of
+the 한글 배열 setting. The setting governs the HARDWARE-keyboard session; the
+keypad session (no physical keyboard, KP12) composes with dubeolsik, and the
+English keypad with us-qwerty (the picture's QWERTY). This closes the
+keypad↔layout-setting question: sin3-p2's punctuation keys being outside the
+picture's cells is moot for touch, because touch is 두벌식.
+
+The architectural ruling (maintainer, 2026-11-22, verbatim):
+
+> "소프트 키보드와 물리 키보드 구현은 전혀 관계가 없어야 하는데..."
+
+Mechanism: the soft keypad has its OWN engine pair (dubeolsik + us-qwerty,
+fixed constants), built per editor alongside the hardware pair. Touch keys
+dispatch to the touch pair; hardware keys keep the existing path and the
+configured layouts. The two implementations share only the editor
+(InputConnection) and the user's single mode indication (한/영 toggles both
+pairs' language); neither reads the other's layout or state. KP12 visibility
+is presentation only — no engine rebuild on surface change. The first draft
+of this mechanism tied the layout to visibility and rebuilt the engine on
+transition; that coupling is what the ruling rejected. The settings window
+stores the hardware choice, inert for the soft surface.
+
+*Implementation:* `KeypadModel.SOFT_HANGUL_LAYOUT` / `SOFT_LATIN_LAYOUT`,
+the service's touch engine pair and touch dispatch —
+`docs/DESIGN-ANDROID-KEYPAD.md`. *Verified by:* engine-android-e1 (constants,
+touch golden), engine-android-e2e (the touch round composes 두벌식; the
+hardware round keeps sin3-p2 — the surfaces are independent).
+
+Rationale for the independence (maintainer, 2026-11-22, verbatim):
+
+> "이 결정을 하는 이유는, 물리 키보드와 소프트 키보드의 UX가 전혀 다르기 때문이야.
+> 물리 키보드는 swipe-up이 불가능하지만 반복 입력이 쉽고, 소프트 키보드는 그 반대.
+> 이런 서로 다른 특성을 최대한 맞추어서 최적화해야 해."
+
+The two surfaces have OPPOSITE UX characteristics — hardware: no gestures,
+easy key repeat; soft: gestures available, repeat tapping hard. Each must be
+optimized for its own characteristics, which is why one shared implementation
+(the first draft's "touch is hardware" key path, and the visibility-tied layout
+switch) is the wrong shape: it compromises both. Consequences already in train:
+the soft surface gets gesture alternates (KP7/#312) and long-press word-delete
+(#312, compensating hard repeat); the hardware surface keeps OS key repeat and
+the configured layouts. Independence is the means; per-surface optimization is
+the end.

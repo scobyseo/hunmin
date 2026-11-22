@@ -1,10 +1,16 @@
-# ANDROID-KEYPAD-MOCKUP — provisional screens, and what is left to decide
+# ANDROID-KEYPAD-MOCKUP — the decided keypad UI (KP13)
 
-Status: **a provisional proposal for issue #298 / Track 3, not a ruling.** It
-draws the main keypad screens from the recorded criteria
-(`docs/SPEC-ANDROID-KEYPAD.md`, KP1–KP5) so the remaining decisions become
-concrete. The picture is a candidate to react to; every geometry choice in it is
-open until the maintainer rules. Requirements are cited by id, not restated.
+Status: **DECIDED — the maintainer ruled this picture is the UI (2026-11-22,
+verbatim: "/home/scoby/work/hunmin/docs/android-keypad-mockup.html 로 정했잖아?").
+Recorded as `docs/SPEC-ANDROID-KEYPAD.md#§KP13`.** The HTML artefact
+(`docs/android-keypad-mockup.html`) is the authoritative picture; the wireframes
+below mirror it. The original header called this "a provisional proposal, not a
+ruling" — that status predates the ruling and is kept here only as the record
+of why the first implementation deviated (it read "provisional" as permission
+and built a generic grid; overturned). The OPEN markers below are historical:
+where a later ruling settles one (KP10/#312 for Tier 2, KP11 for the data home,
+KP12 for auto-show), the later ruling wins; the rest are settled by the picture
+itself being decided.
 
 Artefacts: `docs/android-keypad-mockup.html` (source) and
 `docs/android-keypad-mockup.png` (rendered, 2400×1720). Regenerate the PNG:
@@ -37,7 +43,7 @@ Legend: `KEY` = character/symbol (진하게); `(fn)` = functional (연하게);
  ㅂ<ㅃ> ㅈ<ㅉ> ㄷ<ㄸ> ㄱ<ㄲ> ㅅ<ㅆ> ㅛ ㅕ ㅑ ㅐ<ㅒ> ㅔ<ㅖ>
  ㅁ ㄴ ㅇ ㄹ ㅎ ㅗ ㅓ ㅏ ㅣ
  (⇧) ㅋ ㅌ ㅊ ㅍ ㅠ ㅜ ㅡ (⌫)                          ← one shift; ⌫ separated
- [한/영] [기호] [   space   ] ,<?> .<"> [⏎]              ← KP4 frequent keys; ⏎ separated
+ [한/영] [기호] ,<?> [   space   ] .<"> [⏎]              ← KP4 frequent keys; ⏎ separated
 ```
 
 ### English mode (QWERTY)
@@ -47,7 +53,7 @@ Legend: `KEY` = character/symbol (진하게); `(fn)` = functional (연하게);
  q w e r t y u i o p
  a s d f g h j k l
  (⇧) z x c v b n m (⌫)
- [한/영] [기호] [   space   ] ,<?> .<"> [⏎]
+ [한/영] [기호] ,<?> [   space   ] .<"> [⏎]
 ```
 
 ### Symbol mode (Tier 1 — all 32 symbols as separate buttons, no shift)

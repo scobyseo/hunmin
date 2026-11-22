@@ -1569,3 +1569,9 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `layouts/meta.json` (no `keys` object), and the `always-consume` mutation
   anchor had drifted from the trace call's current shape. Created
   [[2026-11-22-t3-2-symbol-data-and-issue-alignment]]; index updated.
+
+## [2026-11-22] create | T3-3 soft keyboard UI session record
+
+- Created [[2026-11-22-t3-3-soft-keyboard-ui]]: issue #299's keypad build, the
+  KP12 ruling recorded verbatim, the seven measured mistakes, and the E1/E2
+  results. Index updated.

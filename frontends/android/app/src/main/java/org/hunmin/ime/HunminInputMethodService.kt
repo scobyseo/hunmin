@@ -24,12 +24,19 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
+import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
+import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.widget.LinearLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import java.io.File
 
 /** hunmin.h's HUNMIN_LANGUAGE_*: the value the judgement reports and the mode
  *  the service adopts. File-level rather than companion-private so the decision
@@ -143,6 +150,29 @@ class HunminInputMethodService : InputMethodService() {
 
     /** One engine per InputConnection; rebuilt on every onStartInput. */
     private var engine: HunminAdapter? = null
+
+    /**
+     * The soft keypad (issue #299), or null before onCreateInputView. Its
+     * visibility is KP12's: auto-shown only without a physical keyboard.
+     */
+    private var keypad: KeypadView? = null
+
+    /**
+     * The SOFT keyboard's own engine pair (KP17): dubeolsik + us-qwerty, fixed.
+     * Independent of the hardware pair ([engine]/[latinEngine]) and the layout
+     * setting — "소프트 키보드와 물리 키보드 구현은 전혀 관계가 없어야 하는데..."
+     * (maintainer 2026-11-22). Touch keys dispatch here; hardware keys keep
+     * [onKeyDown] and the configured layouts. The two share only the editor
+     * and the user's mode indication.
+     */
+    private var touchEngine: HunminAdapter? = null
+
+    /** The app-read symbol screen (KP11, #297), parsed once from the asset. */
+    private var symbolScreen: SymbolScreen? = null
+
+    /** Where HunminDataInstaller extracted the engine's tables; the keypad
+     *  reads the SAME layout files for keycap labels (design §2). */
+    private var dataDir: File? = null
 
     /**
      * The IME's input view, held so its selection survives a view recreation.
@@ -305,6 +335,16 @@ class HunminInputMethodService : InputMethodService() {
             Log.e(TAG, "hunmin: no layout tables extracted; IME is inert")
             return
         }
+        this.dataDir = dataDir
+        /* The symbol screen is app-read data (KP11): parsed once here, drawn
+         * by the keypad, never loaded by the engine. A corrupt asset fails
+         * loudly at parse; the IME keeps typing without a symbol page. */
+        symbolScreen = try {
+            SymbolScreen.parse(assets.open("keypad/symbols.json").readBytes().toString(Charsets.UTF_8))
+        } catch (e: Exception) {
+            Log.e(TAG, "hunmin: keypad/symbols.json unusable; symbol page disabled", e)
+            null
+        }
         ctx = HunminNativeBridge.nativeCtxNew(dataDir.absolutePath)
         if (ctx == 0L) {
             Log.e(TAG, "hunmin: hunmin_ctx_new found no layout in ${dataDir.absolutePath}")
@@ -343,6 +383,8 @@ class HunminInputMethodService : InputMethodService() {
         runCatching { unregisterReceiver(hanjaReceiver) }
         engine?.close()
         engine = null
+        touchEngine?.close()
+        touchEngine = null
         if (ctx != 0L) {
             HunminNativeBridge.nativeCtxFree(ctx)
             ctx = 0
@@ -370,11 +412,16 @@ class HunminInputMethodService : InputMethodService() {
         /* The latin adapter is ONE-language on purpose: it is addressed directly
          * by the voice/latin paths, and the pair lives on `engine` (FE7). */
         latinEngine = if (ctx == 0L) null else HunminAdapter(ctx, latinLayoutId, null, commitBehavior)
+        /* KP17: the soft surface's pair, built from the fixed goal layouts —
+         * never from layoutId/latinLayoutId. Independent of the hardware pair. */
+        touchEngine = if (ctx == 0L) null else HunminAdapter(
+            ctx, KeypadModel.SOFT_HANGUL_LAYOUT, KeypadModel.SOFT_LATIN_LAYOUT, commitBehavior)
         /* The special-function host (ruled 2026-10-31) is registered on BOTH
          * layers: the chord is resolved by whichever engine is composing, and a
          * host on only the hangul one would make Alt+한/영 dead in English mode. */
         engine?.registerSpecialHost(specialHost)
         latinEngine?.registerSpecialHost(specialHost)
+        touchEngine?.registerSpecialHost(specialHost)
         /* Both layers are new, so the engine's option is at its default (OFF,
          * B3) whatever the person chose before. The preference is the platform's
          * persistence for a value the ENGINE owns (ReqMode13), and a refusal --
@@ -415,6 +462,11 @@ class HunminInputMethodService : InputMethodService() {
             val synced = pair.toggleLanguage(null)
             Log.i(TAG, "hunmin: layer language synced to mode=$isHangulMode (toggled=$synced, now=${pair.isHangulLanguage()})")
         }
+        // The soft pair follows the same recalled mode (one mode indication).
+        val soft = touchEngine
+        if (soft != null && soft.isHangulLanguage() != isHangulMode) {
+            soft.toggleLanguage(null)
+        }
         currentInputConnection?.let { engine?.updatePreedit(it) }
         // The view is created once per IME window but the engine per editor, so
         // the picker's list and selection are refreshed here rather than trusted
@@ -426,6 +478,8 @@ class HunminInputMethodService : InputMethodService() {
     override fun onFinishInput() {
         engine?.close()
         engine = null
+        touchEngine?.close()
+        touchEngine = null
         super.onFinishInput()
     }
 
@@ -456,6 +510,31 @@ class HunminInputMethodService : InputMethodService() {
         // the English one in English mode — a strip that said "sin3-p2" while
         // qwerty was composing would be showing the wrong name.
         picker?.setActiveLayout(currentLayout())
+        refreshKeypad()
+    }
+
+    /**
+     * Put the active layouts' keycaps and the mode into the keypad (issue #299).
+     *
+     * The labels come from the SAME layout JSON the engine loads — the app
+     * reads it for presentation only (design §2), so a layout change through
+     * settings refreshes the grid with no second copy of the data. An
+     * unreadable file leaves that mode's grid empty rather than crashing the
+     * IME; the strip and the hardware path are unaffected.
+     */
+    private fun refreshKeypad() {
+        val pad = keypad ?: return
+        fun caps(id: String): KeypadKeycaps? {
+            val dir = dataDir ?: return null
+            return try {
+                KeypadKeycaps.parse(File(dir, "layouts/$id.json").readText())
+            } catch (e: Exception) {
+                Log.w(TAG, "hunmin: keycaps for '$id' unreadable; grid empty", e)
+                null
+            }
+        }
+        pad.setKeycaps(caps(KeypadModel.SOFT_HANGUL_LAYOUT), caps(KeypadModel.SOFT_LATIN_LAYOUT))
+        pad.setMode(isHangulMode)
     }
 
 /**
@@ -521,6 +600,12 @@ class HunminInputMethodService : InputMethodService() {
          * back (measured on a device 2026-11-07). The commit is also where the
          * judgement is TAKEN -- this branch returns before the general path, so
          * leaving it pending deferred the switch to the next keystroke. */
+        // Editor hygiene at a surface switch (see dispatchTouchKey): deliver
+        // the soft pair's word in flight before the hardware surface composes.
+        if (touchEngine?.preedit()?.isNotEmpty() == true) {
+            currentInputConnection?.let { touchEngine?.commitWord(it) }
+        }
+
         if (keyCode == KeyEvent.KEYCODE_SPACE && !isSecureEditor) {
             val e = engine ?: return super.onKeyDown(keyCode, event)
             val target: InputConnection = currentInputConnection
@@ -670,6 +755,9 @@ class HunminInputMethodService : InputMethodService() {
         val target0 = currentInputConnection
         val eng = engine
         if (eng != null && eng.toggleLanguage(target0)) {
+            // One mode indication: the soft pair follows the toggle (KP17 —
+            // the surfaces are independent in layout, not in the user's mode).
+            touchEngine?.toggleLanguage(target0)
             isHangulMode = eng.isHangulLanguage()
             modeStore.remember(KEY_HANGUL_MODE, isHangulMode)
             if (target0 != null) eng.updatePreedit(target0)
@@ -678,11 +766,16 @@ class HunminInputMethodService : InputMethodService() {
             picker?.setMicState(if (isHangulMode) VoiceState.IDLE else VoiceState.ERROR)
             picker?.setMode(isHangulMode)
             picker?.setActiveLayout(currentLayout())
+            // The keypad follows the mode too (issue #299 bug 1: the toggle
+            // updated the strip only, so the grid stayed Hangul while the
+            // engine composed English).
+            refreshKeypad()
             return
         }
         isHangulMode = !isHangulMode
         modeStore.remember(KEY_HANGUL_MODE, isHangulMode)
         val target = currentInputConnection ?: return
+        touchEngine?.toggleLanguage(target)
 
         if (isHangulMode) {
             // Switching to Hangul: commit the Latin word first (boundary)
@@ -704,6 +797,7 @@ class HunminInputMethodService : InputMethodService() {
         picker?.setMode(isHangulMode)
         // The name follows the mode: 한 shows the 한글 array, 영 the 영문 one.
         picker?.setActiveLayout(currentLayout())
+        refreshKeypad()
     }
 
     /** Show transient mode indicator (like Samsung's toast). */
@@ -771,7 +865,7 @@ class HunminInputMethodService : InputMethodService() {
      */
     private fun applyAutoswitch(on: Boolean): Int? {
         var answer: Int? = null
-        for (layer in listOfNotNull(engine, latinEngine)) {
+        for (layer in listOfNotNull(engine, latinEngine, touchEngine)) {
             val v = layer.setAutoswitch(on)
             if (v != null) answer = v
         }
@@ -1082,7 +1176,218 @@ class HunminInputMethodService : InputMethodService() {
         // means the picker's first onItemSelected -- which Spinner fires as soon as
         // it has an adapter -- cannot reach a half-built service.
         picker = view
-        return view
+
+        /* The soft keypad (issue #299) sits UNDER the strip, never instead of
+         * it: the strip is the IME window hardware keys arrive through (B1),
+         * and KP12 hides only the grid when a physical keyboard is exposed.
+         * Four callbacks, each into a path the hardware side already uses —
+         * touch is hardware (design §1). */
+        val pad = KeypadView(this)
+        pad.setSymbols(symbolScreen)
+        pad.onCharacterKey = { keyCode, metaState -> dispatchTouchKey(keyCode, metaState) }
+        pad.onSymbol = { ch -> commitSymbolFromTouch(ch) }
+        pad.onToggleLanguage = { toggleHangulEnglish() }
+        pad.onReturnToText = { hangul ->
+            // KP9: return to the mode the symbol page was entered from. A
+            // toggle only if the mode drifted while the page was up.
+            if (isHangulMode != hangul) toggleHangulEnglish()
+        }
+        pad.onSwipeLeftDelete = { deleteBySwipeUnit() }
+        keypad = pad
+        refreshKeypad()
+        updateKeypadVisibility()
+
+        val root = LinearLayout(this)
+        root.orientation = LinearLayout.VERTICAL
+        root.addView(view, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        root.addView(pad, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        /* The platform draws a navigation-bar strip OVER the bottom of the IME
+         * window (input_method_navigation_bar_view, with a Back button).
+         * Measured on the AVD: without this padding the keypad's bottom row
+         * sat under it, and a tap on 기호 landed on Back — KEYCODE_BACK hid
+         * the IME instead of opening the symbol page. Pad by the system-bar
+         * insets so every keycap is above the strip and tappable. */
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        return root
+    }
+
+    /**
+     * A keycap tap enters the SOFT surface's own key path (KP17): the touch
+     * engine pair (dubeolsik + us-qwerty, fixed), independent of the hardware
+     * path and the layout setting — the two surfaces' UX characteristics are
+     * opposite (maintainer: hardware has no gestures but easy repeat, soft the
+     * reverse), so each is optimized separately. The policies here mirror the
+     * hardware ones because they are about the EDITOR (space boundary,
+     * judgement, secure editor), not because the surfaces share an engine.
+     * A declined key is forwarded explicitly (synthesized events are dropped
+     * by the platform's default forwarding — measured, bugs 2/3).
+     */
+    private fun dispatchTouchKey(keyCode: Int, metaState: Int) {
+        val target = currentInputConnection ?: return
+        val now = SystemClock.uptimeMillis()
+        val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, metaState)
+        /* Editor policy, shared because it is about the EDITOR, not a surface:
+         * a password field gets literal keys, no composition (issue #13). */
+        if (isSecureEditor) {
+            forwardTouchToApp(target, down, keyCode, metaState)
+            return
+        }
+        val e = touchEngine
+        if (e == null) {
+            forwardTouchToApp(target, down, keyCode, metaState)
+            return
+        }
+        /* Editor hygiene at a surface switch: the hardware pair may hold a
+         * word in flight, and the editor has ONE composing region. Deliver it
+         * before the soft surface composes (the same boundary primitive the
+         * mode toggle uses). This is text order in the shared editor, not a
+         * coupling of the two implementations' layouts or state. */
+        if (engine?.preedit()?.isNotEmpty() == true) engine?.commitWord(target)
+        if (keyCode == KeyEvent.KEYCODE_SPACE) {
+            // The soft surface's own boundary: word delivered, then the space.
+            e.commitWord(target)
+            target.commitText(" ", 1)
+            adoptJudgement(e)
+            return
+        }
+        val consumed = try {
+            e.onKey(keyCode, metaState, target)
+        } catch (ex: UnsatisfiedLinkError) {
+            Log.e(TAG, "hunmin: native library unavailable (touch)", ex)
+            touchEngine = null
+            false
+        }
+        adoptJudgement(e)
+        if (!consumed) {
+            /* MEASURED (issue #299, bugs 2/3): the platform's default key
+             * forwarding does NOT deliver a SYNTHESIZED KeyEvent to the app —
+             * hardware events carry a keyboard source, ours do not. A declined
+             * touch key is forwarded EXPLICITLY, down and up. */
+            forwardTouchToApp(target, down, keyCode, metaState)
+        }
+    }
+
+    /** Explicit pass-through of a declined touch key; Enter is the editor's
+     *  action first (Done/Go/Send/Next), a newline key when there is none. */
+    private fun forwardTouchToApp(ic: InputConnection, down: KeyEvent, keyCode: Int, metaState: Int) {
+        if (keyCode == KeyEvent.KEYCODE_ENTER && sendDefaultEditorAction(true)) return
+        ic.sendKeyEvent(down)
+        ic.sendKeyEvent(KeyEvent(down.downTime, SystemClock.uptimeMillis(), KeyEvent.ACTION_UP, keyCode, 0, metaState))
+    }
+
+    /** AOSP META_CTRL_ON, javap -constants android.jar (API 35) — the same
+     *  value HunminAdapterTest pins. Ctrl+DEL is the app's own word-delete. */
+    private val metaCtrlOn = 0x00001000
+
+    /** KP14's stored delete unit; KEY is the provisional default. */
+    private fun readSwipeUnit(): DeleteUnit =
+        DeleteUnit.of(
+            try {
+                getSharedPreferences(PREFS, MODE_PRIVATE).getString(HunminPrefs.SWIPE_LEFT_DELETE, null)
+            } catch (e: Exception) {
+                null
+            },
+        )
+
+    /**
+     * KP14: the long swipe-left delete, in the configured unit. Every path
+     * goes through the same key machinery as a tap (dispatchTouchKey) or a
+     * platform action — no surrounding-text read anywhere (I9).
+     */
+    private fun deleteBySwipeUnit() {
+        val e = touchEngine
+        val ic = currentInputConnection ?: return
+        when (readSwipeUnit()) {
+            DeleteUnit.KEY ->
+                // The backspace key's own path: engine edits the composition,
+                // or the app deletes one character.
+                dispatchTouchKey(KeyEvent.KEYCODE_DEL, 0)
+            DeleteUnit.SYLLABLE -> {
+                // Remove the last syllable of the composing display, jamo by
+                // jamo, STOPPING when it is gone: one DEL too many would commit
+                // the buffered word and delete into it (measured on the AVD:
+                // ㅎ곈디 -> ㅎ곈ㄷ -> ㅎ곈, and a third DEL eats 곈). The jamo
+                // count comes from NFD of the syllable, not a guess.
+                val display = e?.preedit() ?: ""
+                if (display.isEmpty()) {
+                    dispatchTouchKey(KeyEvent.KEYCODE_DEL, 0)
+                    return
+                }
+                val target = display.dropLast(1)
+                val last = display.last()
+                val max = if (last in '\uAC00'..'\uD7A3') {
+                    java.text.Normalizer.normalize(last.toString(), java.text.Normalizer.Form.NFD).length
+                } else 1
+                var cur = display
+                var i = 0
+                while (i < max && cur.isNotEmpty() && cur != target) {
+                    dispatchTouchKey(KeyEvent.KEYCODE_DEL, 0)
+                    cur = e?.preedit() ?: ""
+                    i++
+                }
+            }
+            DeleteUnit.WORD ->
+                if (e != null && e.preedit().isNotEmpty()) {
+                    // The word is the layer's: drop it silently and clear the
+                    // composing region (reset does both).
+                    e.reset(ic)
+                } else {
+                    // Nothing composing: the app's own word-delete, Ctrl+DEL.
+                    dispatchTouchKey(KeyEvent.KEYCODE_DEL, metaCtrlOn)
+                }
+            DeleteUnit.ALL -> {
+                e?.reset(ic)
+                // Select-all + delete as KEY EVENTS through the same queue,
+                // so the selection exists before the delete arrives. MEASURED:
+                // performContextMenuAction(selectAll) did not select (only the
+                // trailing space was deleted) — the action and the key event
+                // did not order as assumed. Ctrl+A is the app's own select-all.
+                // No length is read from the client anywhere (I9).
+                dispatchTouchKey(KeyEvent.KEYCODE_A, metaCtrlOn)
+                dispatchTouchKey(KeyEvent.KEYCODE_DEL, 0)
+            }
+        }
+    }
+
+    /**
+     * A symbol-page tap: KP11's direct commit, engine uninvolved — but the
+     * pending word is flushed FIRST (design §1, DESIGN-ANDROID-SYMBOLS §4),
+     * so the symbol never lands ahead of the buffered composition, and the
+     * judgement is taken at that boundary exactly as the space branch does.
+     */
+    private fun commitSymbolFromTouch(ch: String) {
+        val screen = symbolScreen ?: return
+        val target = currentInputConnection ?: return
+        touchEngine?.commitWord(target)
+        adoptJudgement(touchEngine)
+        screen.commitSymbol(ch, target)
+    }
+
+    /**
+     * KP12: the grid auto-shows only without a physical keyboard. The strip
+     * stays in every case (B1). Re-applied on configuration changes: a keyboard
+     * attached or a lid opened mid-session is one.
+     */
+    private fun updateKeypadVisibility() {
+        val pad = keypad ?: return
+        val config = resources.configuration
+        val optIn = try {
+            Settings.Secure.getInt(contentResolver, "show_ime_with_hard_keyboard", 0) != 0
+        } catch (e: Exception) {
+            false
+        }
+        val shown = KeypadVisibility.autoShown(config.keyboard, config.hardKeyboardHidden, optIn)
+        Log.d(TAG, "keypad visibility: keyboard=${config.keyboard} hidden=${config.hardKeyboardHidden} optIn=$optIn shown=$shown")
+        pad.visibility = if (shown) View.VISIBLE else View.GONE
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateKeypadVisibility()
     }
 
     override fun onCreateExtractTextView(): View? = null
@@ -1193,6 +1498,15 @@ class HunminInputMethodService : InputMethodService() {
             // Re-render the strip now: a style the user just picked should not
             // need a field change to appear.
             picker?.applyStyle(style)
+        }
+        /* KP14's setting: the window reads and writes the stored unit; the
+         * gesture reads the same store, so there is one value, not two. */
+        ImeSettings.swipeLeftDelete = { readSwipeUnit() }
+        ImeSettings.onSwipeLeftDeleteChosen = { unit ->
+            runCatching {
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                    .putString(HunminPrefs.SWIPE_LEFT_DELETE, unit.pref).apply()
+            }.onFailure { Log.w(TAG, "hunmin: could not persist the swipe-left delete unit", it) }
         }
         /* ReqMode13's surface B: the settings window reads the value and the key
          * from the engine, and writes through the same option the chord writes.

@@ -641,15 +641,49 @@ echo "the key bindings section lists all four actions; the auto-toggle row has n
 # announces. Checking the text would have passed a keyboard whose toggle was
 # broken and failed a working one.
 mode_is() {  # mode_is 한|영 -> 0 when the input view shows that mode selected
-  local desc
+  # Retries until the IME window is in the dump: after a surface restore the
+  # window can lag the editor, and a single-shot check read that absence as a
+  # broken toggle (measured flakes in two rounds). A dump showing the OTHER
+  # mode selected is a definitive answer, returned immediately.
+  local desc other odesc i dump
   case "$1" in
-    한) desc='한글 입력' ;;
-    영) desc='영문 입력' ;;
-    *)  desc="$1" ;;
+    한) desc='한글 입력'; other=영; odesc='영문 입력' ;;
+    영) desc='영문 입력'; other=한; odesc='한글 입력' ;;
+    *)  desc="$1"; other=''; odesc='' ;;
   esac
-  dump_ui /sdcard/mode.xml | tr '>' '\n' \
-    | grep -E "(text=\"$1\"|content-desc=\"$desc\")" \
-    | grep -q 'selected="true"'
+  for i in 1 2 3 4 5 6; do
+    dump="$(dump_ui /sdcard/mode.xml)" || { sleep 1; continue; }
+    if printf '%s' "$dump" | tr '>' '\n' \
+        | grep -E "(text=\"$1\"|content-desc=\"$desc\")" \
+        | grep -q 'selected="true"'; then
+      return 0
+    fi
+    if [ -n "$other" ] && printf '%s' "$dump" | tr '>' '\n' \
+        | grep -E "(text=\"$other\"|content-desc=\"$odesc\")" \
+        | grep -q 'selected="true"'; then
+      return 1
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# Establish a mode through the keypad's own 한/영 key, with retries: after a
+# surface restore the IME window can be absent from a dump for a moment, and
+# a single-shot check read that absence as a broken toggle (measured flake).
+ensure_mode() {  # ensure_mode 한|영
+  local want="$1" other i
+  case "$want" in 한) other=영 ;; 영) other=한 ;; esac
+  for i in 1 2 3 4 5; do
+    mode_is "$want" && return 0
+    if mode_is "$other"; then
+      tap_desc 'fn:language-toggle'
+      sleep 1.5
+    else
+      sleep 1
+    fi
+  done
+  mode_is "$want" || fail "the keypad's 한/영 key did not reach mode '$want'"
 }
 
 # Capture 한/영 전환 = F9 (KEYCODE_F9 = 139, measured with javap on android.jar).
@@ -724,7 +758,279 @@ if "$ADB" shell run-as "$PKG" test -f "$KEY_PREFS" 2>/dev/null; then
 fi
 echo "the binding was removed again, so the tier is repeatable"
 
+# --- T3-3: the soft keypad, through real taps (issue #299) ------------------
+#
+# WHY THIS SECTION. Everything above drives the IME with hardware key events.
+# The soft keypad is a second input surface, and its claim is that a tap is
+# the SAME key event (design: docs/DESIGN-ANDROID-KEYPAD.md §1). Only a real
+# tap on the real view can prove the platform delivers it: tier E1 pins the
+# tap->keycode->engine decision on the JVM, this round pins view->service.
+#
+# The assertion surface is the same as the hardware round's: the EditText's
+# text read out of the platform's own view hierarchy, never a log line.
+#
+# KP12 (maintainer, 2026-11-22): the grid auto-shows only without a physical
+# keyboard. MEASURED on this running AVD: it reports keyboard=2 (QWERTY)
+# exposed, and show_ime_with_hard_keyboard=1 — so the grid shows via the
+# platform opt-in. That makes BOTH KP12 paths measurable here: opt-in 0 with
+# a keyboard exposed hides the grid; opt-in 1 shows it. The strip stays in
+# both cases (B1).
+
+tap_desc() {  # tap_desc <content-desc> — tap a keycap by its identity
+  local desc="$1" node bounds
+  node="$(dump_ui /sdcard/kp.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
+  [ -n "$node" ] || fail "no key with content-desc '$desc' in the IME view"
+  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+  [ -n "$bounds" ] || fail "key '$desc' carries no bounds"
+  set -- $(parse_bounds "$bounds")
+  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
+  "$ADB" shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )) >/dev/null 2>&1
+  sleep 0.5
+}
+
+field_text() {  # the focused EditText's text, from the platform's hierarchy
+  # uiautomator delimits the text attribute with " normally, but switches to '
+  # when the value contains a " (measured: text='?"'). Handle both forms.
+  local node
+  node="$(dump_ui /sdcard/kpf.xml | tr '>' '\n' \
+    | grep -m1 'class="android.widget.EditText"' || true)"
+  printf '%s' "$node" \
+    | sed -n -e "s/.*text='\([^']*\)'.*/\1/p" -e 's/.*text="\([^"]*\)".*/\1/p' \
+    | head -1
+}
+
+restore_surface || fail "cannot restore the test editor for the touch round"
+
+# KP12's auto-show: no physical keyboard on this AVD, so the grid is up.
+dump_ui /sdcard/kp0.xml | grep -q 'content-desc="key:q"' \
+  || fail "the soft keypad is not shown without a physical keyboard (KP12 auto-show)"
+echo "the keypad shows with the platform opt-in (KP12, keyboard exposed)"
+
+# The hide path: opt-in 0 with a keyboard exposed -> grid GONE, strip stays.
+"$ADB" shell settings put secure show_ime_with_hard_keyboard 0
+"$ADB" shell am force-stop "$PKG" >/dev/null 2>&1
+"$ADB" shell ime set "$SVC" >/dev/null 2>&1
+focus_editor || fail "cannot refocus for the KP12 hide check"
+if dump_ui /sdcard/kphide.xml | grep -q 'content-desc="key:q"'; then
+  fail "KP12: the grid is shown with a physical keyboard exposed and opt-in 0"
+fi
+dump_ui /sdcard/kphide.xml | grep -q 'content-desc="설정"' \
+  || fail "KP12: the strip vanished with the grid — hardware keys would lose their window (B1)"
+echo "KP12 hide path: grid gone with a keyboard exposed, strip stays (B1)"
+"$ADB" shell settings put secure show_ime_with_hard_keyboard 1
+"$ADB" shell am force-stop "$PKG" >/dev/null 2>&1
+"$ADB" shell ime set "$SVC" >/dev/null 2>&1
+focus_editor || fail "cannot refocus after the KP12 hide check"
+dump_ui /sdcard/kp0.xml | grep -q 'content-desc="key:q"' \
+  || fail "KP12: the grid did not return with opt-in 1"
+
+# The maintainer's condition for the hint/alternate display: no overlapping
+# text on a keycap. Measured from the platform's own hierarchy bounds.
+OVERLAP_TMP="$(mktemp)"
+"$ADB" exec-out cat /sdcard/kp0.xml > "$OVERLAP_TMP"
+python3 "$ROOT/tools/keypad-overlap-check.py" "$OVERLAP_TMP" \
+  || fail "keycap texts overlap (maintainer condition: 글자가 겹치지만 않는다면)"
+
+# English mode, deterministically: the binding round above may have left
+# either mode; tap the keypad's own 한/영 key only if we are in Hangul.
+ensure_mode '영'
+
+# Bug 1 regression (issue #299): the GRID's labels must follow the mode, not
+# just the engine. The toggle used to refresh the strip only, leaving Hangul
+# keycaps while English composed. In English mode the q keycap reads 'q'.
+# The keycap is a FrameLayout (content-desc) with the label on its child
+# TextView since the KP13 rework — read the child, not the frame.
+QTEXT="$(dump_ui /sdcard/kpq.xml | tr '>' '\n' \
+  | awk '/content-desc="key:q"/{f=1} f && /android.widget.TextView/{print; exit}' \
+  | grep -o 'text="[^"]*"' | head -1 || true)"
+[ "$QTEXT" = 'text="q"' ] \
+  || fail "the keypad labels did not follow the 한/영 toggle (bug 1): got '$QTEXT'"
+
+# An English word with a shifted letter, typed as taps. The one-shot shift
+# (fn:shift then key:w) must deliver W; each space is a word boundary.
+for k in h e l l o; do tap_desc "key:$k"; done
+tap_desc 'fn:space'
+tap_desc 'fn:shift'
+tap_desc 'key:w'
+tap_desc 'fn:space'
+TOUCH_EN="$(field_text)"
+echo "touch-typed English reads: '${TOUCH_EN}'"
+[ "$TOUCH_EN" = "hello W " ] \
+  || fail "touch round: expected 'hello W ' (one-shot shift + boundary), got '${TOUCH_EN}'"
+
+# The symbol page (KP11): 기호 opens it, a symbol tap commits directly, and
+# the flush seam means nothing composing may land after the symbol.
+tap_desc 'fn:symbols-page'
+dump_ui /sdcard/kp1.xml | grep -q 'content-desc="symbol:!"' \
+  || fail "the symbol page did not open (no symbol:! keycap)"
+tap_desc 'symbol:!'
+TOUCH_SYM="$(field_text)"
+echo "after the symbol tap the field reads: '${TOUCH_SYM}'"
+[ "$TOUCH_SYM" = "hello W !" ] \
+  || fail "symbol tap: expected 'hello W !', got '${TOUCH_SYM}'"
+
+# KP9's return key: 한/영 on the symbol page returns to the ORIGINAL mode
+# (English here), not a toggle, and the text grid is back.
+tap_desc 'fn:language-toggle'
+sleep 1
+mode_is '영' || fail "the symbol page's 한/영 key did not return to the original mode (KP9)"
+dump_ui /sdcard/kp2.xml | grep -q 'content-desc="key:q"' \
+  || fail "the text grid did not return after the symbol page"
+echo "the symbol page returns to the original mode and grid (KP9)"
+
+# A Hangul word on the DEFAULT layout (sin3-p2), typed as taps on the generic
+# grid — the same keys the hardware round typed, the same expectation.
+restore_surface || fail "cannot restore the test editor for the Hangul touch round"
+ensure_mode '한'
+for k in d k s s u d; do tap_desc "key:$k"; done
+sleep 1
+# KP17: the SOFT surface composes 두벌식 (measured: dkssud -> 안녕), while the
+# hardware round above keeps sin3-p2 (ㅎ곈디) — the surfaces are independent.
+TOUCH_KO="$(field_text)"
+echo "touch-typed Hangul reads: '${TOUCH_KO}'"
+[ "$TOUCH_KO" = "안녕" ] \
+  || fail "Hangul touch round: expected '안녕' (두벌식, KP17), got '${TOUCH_KO}'"
+echo "the soft surface composes 두벌식; the hardware surface kept sin3-p2 (KP17)"
+
+# Bug 2 regression (issue #299): backspace must edit the composition. Measured
+# on the AVD 2026-11-22 after the explicit-forwarding fix: ㅎ곈디 -> ㅎ곈ㄷ
+# (the engine deletes the last jamo; the platform's default forwarding had
+# dropped the synthesized key event entirely).
+tap_desc 'fn:backspace'
+TOUCH_BS="$(field_text)"
+echo "after one backspace tap: '${TOUCH_BS}'"
+[ "$TOUCH_BS" = "안녀" ] \
+  || fail "backspace tap did not edit the composition (bug 2): expected '안녀' (measured), got '${TOUCH_BS}'"
+
+# Bug 3 regression (issue #299): enter commits the word at the boundary and
+# inserts a newline (the fixture is multi-line). uiautomator escapes the
+# newline as &#10; in the text attribute.
+tap_desc 'fn:enter'
+TOUCH_ENTER="$(field_text)"
+echo "after the enter tap: '${TOUCH_ENTER}'"
+case "$TOUCH_ENTER" in
+  *'안녀'*'&#10;'*) : ;;
+  *) fail "enter tap did not commit + newline (bug 3): got '${TOUCH_ENTER}'" ;;
+esac
+echo "backspace and enter taps work through the platform (bugs 2/3 fixed)"
+
+# KP16 regression: shift on the frequent keys yields the HINTED alternate
+# (? and "), not the app keymap's physical shift (< >). sin3-p2 keys ',' with
+# its own shift value — the frequent-key rule overrides it on touch.
+tap_desc 'fn:shift'
+# Armed state: the keycaps now show ? " ! — check the condition again.
+"$ADB" shell uiautomator dump --windows /sdcard/kparmed.xml >/dev/null 2>&1
+"$ADB" exec-out cat /sdcard/kparmed.xml > "$OVERLAP_TMP"
+python3 "$ROOT/tools/keypad-overlap-check.py" "$OVERLAP_TMP" \
+  || fail "armed keycap texts overlap"
+tap_desc 'key:,'
+SHIFT_COMMA="$(field_text)"
+echo "shift+comma reads: '${SHIFT_COMMA}'"
+case "$SHIFT_COMMA" in
+  *'&#10;?') : ;;
+  *) fail "shift+comma: expected the hinted '?' (KP16), got '${SHIFT_COMMA}'" ;;
+esac
+tap_desc 'fn:shift'
+tap_desc 'key:.'
+SHIFT_PERIOD="$(field_text)"
+echo "shift+period reads: '${SHIFT_PERIOD}'"
+case "$SHIFT_PERIOD" in
+  *'&#10;?"'|*'&#10;?&quot;') : ;;
+  *) fail "shift+period: expected the hinted '\"' (KP16), got '${SHIFT_PERIOD}'" ;;
+esac
+echo "shift on , . yields the hinted ? \" (KP16)"
+rm -f "$OVERLAP_TMP"
+
+# --- KP14: the long swipe-left delete, per unit -----------------------------
+#
+# The maintainer's request (2026-11-22): a long swipe-left from any key is
+# backspace, configurable 키/음절/단어/전체. The gesture is a real `input swipe`
+# on a real keycap; the assertion is the field text, as everywhere else.
+
+swipe_left_on() {  # swipe_left_on <content-desc> — a long leftward swipe
+  local desc="$1" node bounds
+  node="$(dump_ui /sdcard/kps.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
+  [ -n "$node" ] || fail "no key '$desc' to swipe from"
+  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+  set -- $(parse_bounds "$bounds")
+  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
+  local cx=$(( ($1 + $3) / 2 )) cy=$(( ($2 + $4) / 2 ))
+  # ~250px leftward at this density is well over the 60dp threshold, horizontal.
+  "$ADB" shell input swipe "$cx" "$cy" $(( cx - 250 )) "$cy" 300 >/dev/null 2>&1
+  sleep 0.8
+}
+
+set_swipe_unit() {  # set_swipe_unit <pref> — write the setting, restart the IME
+  "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
+  # MEASURED: force-stopping the SELECTED IME makes the platform fall back to
+  # the next one (Gboard here) — twice in this tier's development. Re-select.
+  "$ADB" shell ime set "$SVC" >/dev/null 2>&1 || true
+  # The file exists by now (the mode recall wrote it); delete any old entry,
+  # insert the new one. One device-side shell string, single-quoted sed
+  # program, double quotes inside it for the XML attribute.
+  # Remove only the ELEMENT, not its line: the first insertion puts the entry
+  # and </map> on one line, and a line-delete took </map> with it — the next
+  # insertion then matched nothing and the unit silently stayed KEY (measured).
+  "$ADB" shell "run-as $PKG sed -i 's%<string name=\"swipe_left_delete\">[^<]*</string>%%' shared_prefs/hunmin.xml" >/dev/null 2>&1 || true
+  "$ADB" shell "run-as $PKG sed -i 's%</map>%<string name=\"swipe_left_delete\">$1</string></map>%' shared_prefs/hunmin.xml" >/dev/null 2>&1 || true
+  focus_editor || fail "cannot refocus after the swipe-unit change"
+}
+
+# Default unit KEY: one swipe deletes one jamo of the composition (두벌식,
+# measured: 안녕 -> 안녀).
+restore_surface || fail "cannot restore the surface for the swipe round"
+ensure_mode '한'
+for k in d k s s u d; do tap_desc "key:$k"; done
+swipe_left_on 'key:d'
+SWIPE_KEY="$(field_text)"
+echo "swipe-left (키 단위) reads: '${SWIPE_KEY}'"
+[ "$SWIPE_KEY" = "안녀" ] \
+  || fail "swipe-left KEY unit: expected '안녀' (one jamo, measured), got '${SWIPE_KEY}'"
+
+# WORD unit while composing: the buffered word is dropped whole.
+set_swipe_unit word
+for k in d k s s u d; do tap_desc "key:$k"; done
+swipe_left_on 'key:d'
+SWIPE_WORD="$(field_text)"
+echo "swipe-left (단어 단위) reads: '${SWIPE_WORD}'"
+[ -z "$SWIPE_WORD" ] \
+  || fail "swipe-left WORD unit: expected the word dropped (''), got '${SWIPE_WORD}'"
+
+# ALL unit with committed text: select-all + delete clears the field.
+for k in d k s s u d; do tap_desc "key:$k"; done
+tap_desc 'fn:space'
+set_swipe_unit all
+# set_swipe_unit refocused a FRESH editor; type again so there is text to clear.
+for k in d k s s u d; do tap_desc "key:$k"; done
+tap_desc 'fn:space'
+swipe_left_on 'key:d'
+SWIPE_ALL="$(field_text)"
+echo "swipe-left (전체 삭제) reads: '${SWIPE_ALL}'"
+[ -z "$SWIPE_ALL" ] \
+  || fail "swipe-left ALL unit: expected an empty field, got '${SWIPE_ALL}'"
+
+# The setting is offered in the settings window (the row and its choices).
+open_settings
+SWIPE_LIST="$(dump_ui /sdcard/kpset.xml)"
+printf '%s' "$SWIPE_LIST" | grep -q '키패드' \
+  || fail "the settings window does not offer the 키패드 section (KP14)"
+tap_node '키패드'
+sleep 1
+SWIPE_CHOICES="$(dump_ui /sdcard/kpset2.xml)"
+for choice in '키 단위' '음절 단위' '단어 단위' '전체 삭제'; do
+  printf '%s' "$SWIPE_CHOICES" | grep -q "$choice" \
+    || fail "the 키패드 section does not offer '$choice'"
+done
+"$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
+echo "the swipe-left delete unit is configurable (키패드 section, four choices)"
+
+# Leave no stored unit behind: the next run starts from the default.
+"$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
+"$ADB" shell run-as "$PKG" rm -f shared_prefs/hunmin.xml >/dev/null 2>&1 || true
+
 echo "PASS: the APK installed, the IME was enabled, keys reached the engine," &&
      echo "      and '$EXPECTED' -- byte-identical to the tier A golden -- is" &&
      echo "      in the field, read back from the platform's own view hierarchy," &&
-     echo "      and a key captured in the settings window is the key the IME fires"
+     echo "      and a key captured in the settings window is the key the IME fires," &&
+     echo "      and real taps on the soft keypad type English, a shifted letter," &&
+     echo "      a symbol-page character and the same Hangul word (issue #299)"

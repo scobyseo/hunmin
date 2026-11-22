@@ -202,6 +202,12 @@
   three host facts (compound text, stale-preedit commit, teardown routing),
   and the two shared-harness defects the new lanes exposed (`^` typed `6`,
   the edit loop's harness leak).
+- [[2026-11-22-t3-3-soft-keyboard-ui]] — #299's soft keypad: touch is hardware
+  (one key path), labels from the layout's own JSON, KP12's auto-show-only-
+  without-a-physical-keyboard ruling recorded verbatim, and the seven confident
+  first drafts the measurements refuted (NFD vs NFKD, jongseong, case values,
+  word buffering, the corpus's two shift encodings, the nav-bar Back tap, and
+  a wrong test sequence).
 - [[2026-11-22-t3-2-symbol-data-and-issue-alignment]] — #297 said "third per-key
   symbol row, no engine change"; #298's ruling (KP11) said an app-read data file
   with the engine uninvolved. The maintainer chose KP11, the three T3 issues and

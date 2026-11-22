@@ -169,6 +169,12 @@ object ImeSettings {
     /** Called when the window sets the strip style. */
     var onToolbarStyleChosen: (ToolbarStyle) -> Unit = {}
 
+    /** KP14: the long swipe-left delete unit in force. */
+    var swipeLeftDelete: () -> DeleteUnit = { DeleteUnit.KEY }
+
+    /** Called when the window sets the swipe-left delete unit. */
+    var onSwipeLeftDeleteChosen: (DeleteUnit) -> Unit = {}
+
     /**
      * The engine's automatic-switch value (1 on, 0 off, null when no engine can
      * answer) — docs/SPEC-MODES.md §ReqMode13. The window SHOWS this and never
