@@ -85,7 +85,11 @@ TEST_F(SettingsTest, DefaultsAreTheDocumentedOnes) {
     gchar *hangul = g_settings_get_string(gs_, "hangul-layout");
     gchar *latin = g_settings_get_string(gs_, "latin-layout");
     gchar *unit = g_settings_get_string(gs_, "commit-unit");
-    EXPECT_STREQ(hangul, "dubeolsik");
+    /* The default is the schema's, and it is the layout the other two frontends
+     * default to (fcitx5's config.h, the TSF DLL) — so a person moving between
+     * them types the same keys. Pinned here so a change to it is a deliberate
+     * edit to this line, not a side effect. */
+    EXPECT_STREQ(hangul, "sin3-p2");
     EXPECT_STREQ(latin, "us-qwerty");
     EXPECT_STREQ(unit, "word");
     EXPECT_FALSE(g_settings_get_boolean(gs_, "autoswitch"));
@@ -123,7 +127,7 @@ TEST_F(SettingsTest, AnUnloadableLayoutDegradesAndIsReported) {
     EXPECT_EQ(hunmin_ibus_settings_apply(settings_, state_), 1);
     /* The fallback is the SCHEMA's default, not a literal in settings.c: this
      * assertion moves when the default does. */
-    EXPECT_STREQ(hunmin_state_hangul_layout_id(state_), "dubeolsik");
+    EXPECT_STREQ(hunmin_state_hangul_layout_id(state_), "sin3-p2");
     EXPECT_STREQ(hunmin_ibus_settings_rejected(settings_), "no-such-layout/us-qwerty");
 }
 

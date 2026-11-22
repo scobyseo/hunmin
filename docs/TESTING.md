@@ -866,6 +866,12 @@ interface, and the split is what makes them cheap:
   Both are text transformations, which is why the regression test extracts the
   two shipped functions and drives them against `hunmin-sim` instead of
   pretending a 22.04 runner is available here.
+  - **The tier states its own layout.** `IbusUiTest::SetUp` sets
+    `HUNMIN_IBUS_LAYOUT=dubeolsik`, the layout its key sequences are about. It used
+    to inherit the shipped default, which made thirteen cases go red the first time
+    the store supplied `sin3-p2` (2026-11-22) — a test defect, not a behaviour
+    defect. `SettingsTest.DefaultsAreTheDocumentedOnes` is now the only case that
+    asserts the shipped default.
   - **Layouts: the store, and the seam above it.** `hunmin_ibus_engine_init` now
     applies the store (`docs/SPEC-FRONTEND.md` §FE17); `HUNMIN_IBUS_LAYOUT` is
     still read *after* it, because the D3 lane drives case-file layouts through

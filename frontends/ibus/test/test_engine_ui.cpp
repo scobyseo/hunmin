@@ -135,6 +135,14 @@ class IbusUiTest : public ::testing::Test {
 protected:
     void SetUp() override {
         setlocale(LC_ALL, "");
+        /* The layout these key sequences are about, stated by the tier that
+         * asserts them. Without this the cases inherit the SHIPPED default, and
+         * then a change to the default (or to the schema) turns them red for a
+         * reason that has nothing to do with the mapping they test — which is
+         * exactly what happened on 2026-11-22 when the store's default was
+         * first written. A case that needs another layout sets it itself
+         * (LayoutOverrideKeepsTheLanguageKeyAlive, CapsLockBlocksTheSymbolTier). */
+        setenv("HUNMIN_IBUS_LAYOUT", "dubeolsik", 1);
         dbus_ = g_test_dbus_new(G_TEST_DBUS_NONE);
         g_test_dbus_up(dbus_);
         ibus_init();

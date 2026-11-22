@@ -2953,11 +2953,19 @@ holds the five rows and their defaults; `frontends/ibus/src/settings.c` is the o
 `hunmin_engine.c` applies it at init and re-applies on GSettings' `changed`. Two facts came out of
 building it that the analysis did not contain:
 
-- **The shipped default layout is `dubeolsik`, not `sin3-p2`.** The IBus frontend ran on the
-  layer's default before the store existed, so a schema default of `sin3-p2` (what the fcitx5
-  addon and the TSF DLL default to) would have changed what every existing IBus user types. It
-  is `dubeolsik` here, and the three frontends still disagree; aligning them is a one-line
-  schema change and a ruling, not a packaging detail.
+- **The shipped default layout is `sin3-p2`, and writing it first turned thirteen tier-D2 cases
+  red.** The fcitx5 addon and the TSF DLL default to `sin3-p2`; this frontend had no store, so it
+  ran on the layer's built-in `dubeolsik`. Writing `sin3-p2` into the schema changed what the D2
+  cases composed, because that tier inherited the shipped default instead of stating the layout
+  its key sequences are about. The first repair was the wrong one — reverting the default to
+  `dubeolsik` — and the maintainer caught it ("sin3-p2에서 테스트가 깨지면 안되는데?"). The right
+  repair is in the fixture: `IbusUiTest::SetUp` now sets `HUNMIN_IBUS_LAYOUT=dubeolsik` for the
+  cases that need it, so the tier says what it asserts and the shipped default is free to move.
+  Verified both ways: with the schema default at `sin3-p2` and at `dubeolsik`, every key-path
+  case stays green; the only case that fails on a default change is
+  `SettingsTest.DefaultsAreTheDocumentedOnes`, which pins the default on purpose. The default is
+  now `sin3-p2`, so the three frontends agree, and an IBus user who was on `dubeolsik` sees a
+  change — one schema line reverts it.
 - **The fifth row costs nothing in ABI and everything in grammar.** `hunmin_*` symbols are
   unchanged (the append-only list is untouched) because the row is frontend data; what it does
   need is the two refusals §IBC-2's measurement found — `Release` (parses, can never fire here)
