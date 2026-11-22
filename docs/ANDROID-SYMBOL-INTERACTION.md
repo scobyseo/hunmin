@@ -425,6 +425,67 @@ So frequency is measurable today from raw text, and the first reading supports
 KP4's frequent set; a typed-message corpus and a password-symbol assumption are
 the next measurements if the ranking is to drive placement rather than emphasis.
 
+## Korean special symbols (Tier 2) and symbol-page functional keys (KP6)
+
+### The `~` / `` ` `` question
+
+Nothing is missing from the data: `us-qwerty` holds all 32 ASCII punctuation
+including `` ` `` and `~`, and the corpus confirms every one appears. The gap was
+in the **mockup's text-mode number row**, which showed only digits `1–0` (10 keys)
+to keep targets large on a narrow screen. The physical number row's other keys
+(`` ` ~ - _ = + ``) sit on the symbol page. Putting them on the text number row
+too makes a 13-key row (~27 dp/key on a 360 dp screen, well below the 48 dp
+guideline) — an open geometry trade-off, not an omission from input.
+
+### Symbol page: no shift, navigation keys instead
+
+KP6 drops shift from the symbol page (symbols are shown directly, so shift is
+redundant) and adds navigation/editing keys: **arrows ← ↑ → ↓, Tab, Home, End,
+PgUp, PgDn**. Prior art: HeliBoard ships a `dpad` functional layout and a
+`functional_keys` set, so a navigation cluster is a known shape, not a new
+invention. These are editing keys, so they follow KP2 (separated from space/
+enter/backspace to avoid mis-taps) and the engine treats them as named keys.
+
+### Korean-frequent special symbols — measured
+
+From the same kowiki prose reading (`tools/symbol-frequency.py`, 3000 pages), the
+non-ASCII symbols ranked by frequency per million — the data-grounded Tier 2
+candidates:
+
+| symbol | per M | name | | symbol | per M | name |
+|---|---:|---|---|---|---:|---|
+| `·` | 644 | 가운뎃점 | | `「」` | 32 | 낫표 |
+| `《》` | 525 | 겹화살괄호 | | `—` | 29 | em dash |
+| `‘ ’` | 135/132 | 작은따옴표 | | `『』` | 26 | 겹낫표 |
+| `–` | 127 | en dash | | `×` | 25 | 곱셈 |
+| `“ ”` | 73/71 | 큰따옴표 | | `←` | 12.5 | 화살표 |
+| `〈〉` | 69 | 홑화살괄호 | | `↔` | 9.7 | 화살표 |
+| `→` | 57 | 화살표 | | `…` | 9.3 | 줄임표 |
+| `°` | 54 | 도 | | `○` | 8 | 흰원 |
+| `−` | 27 | minus | | `±` | 7.5 | plus-minus |
+| `●` | 4.9 | 검은원 | | `℃` | 3.9 | 섭씨 |
+
+### A grouped candidate set (measured + curated)
+
+Grouping cuts search time (KP3). The measured high-frequency symbols lead each
+group; curated additions a Korean IME commonly offers are marked *(curated)* —
+they are not in the prose top ranks and would need a chat/usage corpus to
+confirm:
+
+- **문장부호**: `· … – — ‘ ’ “ ” 「」 『』 《》 〈〉` *(curated: `‥ ―`)*
+- **도형/표시**: `○ ●` *(curated: `□ ■ △ ▲ ◇ ◆ ※ ★ ☆ ♠ ♣ ♥ ♡`)*
+- **화살표**: `→ ← ↔` *(curated: `↑ ↓ ⇒ ⇔`)*
+- **수학/단위**: `° ± × − ≈ ℃` *(curated: `÷ ≠ ≤ ≥ ∞ √ ′ ″`)*
+- **통화**: *(curated: `₩ € £ ¥ ¢`)* — `₩` is absent from the prose top ranks but
+  is a obvious Korean need; a usage corpus would rank it.
+- **기타**: *(curated: `© ® ™ № 〃 ♪ ♩ † ‡ § ¶`)*
+
+**Caveat:** this is encyclopedia prose. `※`, `₩`, `♡`, `★` and the circled
+numbers (`①②…`) are plausibly far more frequent in chat/notes than in wiki prose;
+the curated marks say exactly that — measured here, not assumed. Making these
+inputtable is the data-home question of #298 (a Tier 2 symbol table/page); the
+inventory above is the candidate content, not a ruled layout.
+
 ## What this means for a hunmin 두벌식 keypad
 
 The maintainer's goal — less time *finding* symbols and fewer mis-taps on a

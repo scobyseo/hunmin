@@ -185,19 +185,71 @@
         <div class="key wide">…<span class="sub">Tier 2</span></div>
       </div>
       <div class="krow">
-        <div class="key fn shift">⇧</div>
-        <div class="key space">space</div>
+        <div class="key fn">Tab</div>
+        <div class="key fn">Home</div>
+        <div class="key fn">End</div>
+        <div class="key fn">PgUp</div>
+        <div class="key fn">PgDn</div>
         <div class="key fn bspace">⌫</div>
+      </div>
+      <div class="krow">
+        <div class="key fn">←</div>
+        <div class="key fn">↑</div>
+        <div class="key fn">↓</div>
+        <div class="key fn">→</div>
+        <div class="key space">space</div>
+        <div class="key enter">⏎</div>
       </div>
       <div class="krow">
         <div class="key lang">한/영</div>
         <div class="key sym">ABC/한글</div>
+      </div>
+      <div class="note">
+        기호를 물리 QWERTY 위치에 배치 (KP1). <b>shift 없음</b> — 기호를 직접 표시하므로 불필요 (KP6).
+        대신 탐색키 ←↑→↓ · Tab · Home/End/PgUp/PgDn (KP6), ⌫/⏎/space 분리 (KP2).
+        ` ~ - _ = + 는 이 페이지에 있음(텍스트 숫자행은 1–0만).<br>
+        <span class="open">OPEN</span> 기호 페이지 데이터 홈 · 탐색키 집합 · 복귀 동작.
+      </div>
+    </div>
+
+    <!-- ===================== SYMBOL TIER 2 (Korean) ===================== -->
+    <div class="phone">
+      <div class="cap">기호 모드 Tier 2 <small>(한글 특수기호 · 그룹)</small></div>
+      <div class="krow">
+        <div class="key">·</div><div class="key">…</div><div class="key">–</div>
+        <div class="key">—</div><div class="key">‘</div><div class="key">’</div>
+        <div class="key">“</div><div class="key">”</div>
+      </div>
+      <div class="krow">
+        <div class="key">「</div><div class="key">」</div><div class="key">『</div>
+        <div class="key">』</div><div class="key">《</div><div class="key">》</div>
+        <div class="key">〈</div><div class="key">〉</div>
+      </div>
+      <div class="krow">
+        <div class="key">○</div><div class="key">●</div><div class="key">□</div>
+        <div class="key">■</div><div class="key">△</div><div class="key">▲</div>
+        <div class="key">※</div><div class="key">★</div>
+      </div>
+      <div class="krow">
+        <div class="key">→</div><div class="key">←</div><div class="key">↑</div>
+        <div class="key">↓</div><div class="key">↔</div><div class="key">°</div>
+        <div class="key">±</div><div class="key">×</div>
+      </div>
+      <div class="krow">
+        <div class="key">₩</div><div class="key">€</div><div class="key">£</div>
+        <div class="key">¥</div><div class="key">©</div><div class="key">®</div>
+        <div class="key">™</div><div class="key">♡</div>
+      </div>
+      <div class="krow">
+        <div class="key lang">한/영</div>
+        <div class="key sym">기호 1</div>
+        <div class="key space">space</div>
         <div class="key enter">⏎</div>
       </div>
       <div class="note">
-        기호를 물리 QWERTY 위치에 배치, shift 변형은 코너 힌트 (KP1). 빈출 기호 강조 (KP3).
-        Tier 2(※ © ° ± → …)는 별도 그룹 페이지, 더 힘들어도 OK.<br>
-        <span class="open">OPEN</span> 기호 페이지 = 별도 레이아웃 데이터 vs 제3행 · Tier 2 그룹 · 복귀 동작.
+        빈도 측정 상위(· 《》 〈〉 「」 『』 ‘ ’ “ ” – — … → ° ± × ○ ℃) + 큐레이션(※ ₩ ♡ ★ 등).
+        그룹별 배치로 탐색 시간 단축 (KP3). 산문 빈도라 채팅/암호 레지스터와 다름 — 큐레이션은 미측정 표시.<br>
+        <span class="open">OPEN</span> Tier 2 목록·그룹 · 데이터 홈 · 빈도 데이터원(채팅).
       </div>
     </div>
 
@@ -210,11 +262,12 @@
     <span class="swatch" style="background:#2f6df6"></span>모드 전환/엔터 ·
     코너 작은 글씨 = 롱프레스/swipe-up 힌트.<br>
     <b>적용된 기준</b> — KP1 104키 기호 최소터치+물리위치·숫자연동 / KP2 기능키 분리·compact·shift 1개 /
-    KP3 빈도강조·문자 진하게 숫자 연하게 / KP4 한·영·기호 분리+빈출기호 상시 / KP5 롱프레스+swipe-up·우발스와이프 방지.<br>
+    KP3 빈도강조·문자 진하게 숫자 연하게 / KP4 한·영·기호 분리+빈출기호 상시 / KP5 롱프레스+swipe-up·우발스와이프 방지 /
+    KP6 기호창 shift 없음+탐색키(←↑→↓·Tab·Home/End/PgUp/PgDn)·한글 특수기호(Tier 2) 입력.<br>
     <b>아직 열린 결정(그림이 드러내는 것)</b> — ① 기호 데이터 홈(별도 페이지/레이아웃 vs 키별 제3행, 스키마·엔진 변경)
-    ② 빈출 기호 정확한 집합 ③ 숫자 행 기본 on/off ④ 기하학(키 폭·간격·가로모드) ⑤ shift one-shot/lock
+    ② 빈출 기호 정확한 집합 ③ 숫자 행 기본 on/off(`~ -_ =+ 포함 13키 vs 10키) ④ 기하학(키 폭·간격·가로모드) ⑤ shift one-shot/lock
     ⑥ 제스처 임계값 기본값 ⑦ 강조 대상·테마 토큰 ⑧ 빈도 데이터원(산문 측정됨, 채팅/암호 미측정)
-    ⑨ 후보창·마이크·접근성/햅틱(Track 3의 다른 결정).
+    ⑨ 탐색키 집합·Tier 2 목록/그룹 ⑩ 후보창·마이크·접근성/햅틱(Track 3의 다른 결정).
   </div>
 </body>
 </html>

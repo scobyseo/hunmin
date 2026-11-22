@@ -54,15 +54,31 @@ Legend: `KEY` = character/symbol (진하게); `(fn)` = functional (연하게);
 
 ```
  !<1> @<2> #<3> $<4> %<5> ^<6> &<7> *<8> (<9> )<0>
- -<_> =<+> [<{> ]<}> \<|> ;<:> '<"> `<~>
- ,<<> .<>> /<?> [ … Tier 2 ]                            ← Tier 2 grouped page (OPEN)
- (⇧) [   space   ] (⌫)
- [한/영] [ABC/한글] [⏎]                                 ← return to text mode
+ -<_> =<+> [<{> ]<}> \<|> ;<:> '<"> `<~>          ← `~ -_ =+ live here, not the text number row
+ ,<<> .<>> /<?> [ … Tier 2 ]
+ (Tab) (Home) (End) (PgUp) (PgDn) (⌫)              ← NO shift (KP6); navigation keys instead
+ (←) (↑) (↓) (→) [   space   ] [⏎]
+ [한/영] [ABC/한글]
+```
+
+### Symbol mode Tier 2 (Korean special symbols, grouped)
+
+```
+ · … – — ‘ ’ “ ”                          ← 문장부호 (measured top ranks)
+ 「」 『』 《》 〈〉                         ← 낫표/화살괄호
+ ○ ● □ ■ △ ▲ ※ ★                          ← 도형/표시 (※★ curated)
+ → ← ↑ ↓ ↔ ° ± ×                          ← 화살표/수학·단위
+ ₩ € £ ¥ © ® ™ ♡                          ← 통화/기타 (curated)
+ [한/영] [기호 1] [ space ] [⏎]
 ```
 
 The number row's corner hints are the KP1/KP5 pairing (digit 진하게, symbol hint
 연하게, reached by long-press or swipe-up). The symbol page mirrors `us-qwerty`'s
-physical positions, which the data already holds (all 32 ASCII punctuation).
+physical positions, which the data already holds (all 32 ASCII punctuation,
+including `` ` `` and `~`). The symbol page has **no shift** (KP6) — symbols are
+shown directly — and carries navigation keys instead. Tier 2 groups the
+Korean-frequent special symbols; the measured ranking and the curated additions
+are in `docs/ANDROID-SYMBOL-INTERACTION.md`.
 
 ## What is decided (criteria) vs what is left (mechanism)
 
@@ -70,7 +86,9 @@ physical positions, which the data already holds (all 32 ASCII punctuation).
 minimal touch + physical positions, number-row pairing; KP2 functional keys
 separated/compact/non-physical, one shift; KP3 frequency placement + visual
 emphasis + whole-keypad hierarchy; KP4 mode separation + frequent symbols
-default-visible; KP5 long-press **and** swipe-up, accidental swipes preventable.
+default-visible; KP5 long-press **and** swipe-up, accidental swipes preventable;
+KP6 symbol page no shift + navigation keys (arrows/Tab/Home/End/PgUp/PgDn) +
+Korean special symbols (Tier 2) inputtable.
 
 **The core decision still open in #298** — the symbol-layer **data home**, which
 the criteria narrow but do not settle:
@@ -103,8 +121,12 @@ in its scope):
    alone).
 7. Frequency data source: prose measured (`tools/symbol-frequency.py`); chat and
    password populations unmeasured.
-8. Symbol-page Tier 2 grouping and the return-to-text behaviour.
+8. Symbol-page Tier 2 grouping and the return-to-text behaviour; the navigation
+   -key set (KP6); the Korean special-symbol inventory (measured prose top ranks
+   plus curated additions such as `※ ₩ ♡ ★`, unmeasured in chat).
 9. Candidate window, mic button, accessibility/haptics — other Track 3 rulings.
+10. Whether the text number row carries `` ` ~ - _ = + `` too (13-key row, narrower
+    targets) or keeps digits `1–0` only.
 
 ## What would move this from provisional to ruled
 

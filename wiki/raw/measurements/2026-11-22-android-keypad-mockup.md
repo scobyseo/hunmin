@@ -29,6 +29,14 @@ digit↔symbol pairing, functional-key rules and visual hierarchy — enough for
 coherent screen. They do not fix the exact geometry, the precise frequent-symbol
 set, or the data home, so the mockup is a candidate to react to, not a spec.
 
+Updated for KP6: the symbol page now has **no shift** and carries navigation keys
+(arrows/Tab/Home/End/PgUp/PgDn) instead; a fourth panel shows the Korean Tier 2
+special symbols grouped (문장부호/낫표/도형/화살표·수학/통화). The `~`/`` ` ``
+question was a text-number-row mockup gap (digits 1–0 only); both are in
+us-qwerty and on the symbol page. The Korean Tier 2 ranking is measured from
+kowiki prose (· 《》 〈〉 「」 『』 lead); `※ ₩ ♡ ★` are curated, flagged unmeasured
+in chat. Details in `docs/ANDROID-SYMBOL-INTERACTION.md`.
+
 ## The core decision still open in #298
 
 The symbol-layer **data home**: a third per-key row (A, schema+engine cost),

@@ -138,3 +138,28 @@ Stated direction and requirement:
   defences and the corner-hint / popup-preview display). The mechanism is open.
 
 *Implementation:* none. *Refuted by:* none yet.
+
+### KP6. Symbol page: no shift, navigation keys instead; Korean special symbols inputtable (stated direction)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "왜 ~`는 누락되어 있니? 기호 창에서의 shift 사용은 필요없을 것 같고, 대신에
+> 방향키, tab이 home/end/pgup/pgdn이 있으면 유용할거야. 그 외에도 한글 사용시에
+> 많이 쓰는 특수 기호들을 다시 찾아보고 입력할 수 있게 해볼까?"
+
+Stated directions:
+
+- **The symbol page needs no shift key** — its symbols are shown directly, so
+  shift is redundant there. In its place, **navigation/editing keys** are useful:
+  arrows (← ↑ → ↓), Tab, Home, End, PgUp, PgDn.
+- **Korean-frequent special symbols** (the ones a 104-key cannot type — Tier 2)
+  are to be found and made inputtable. A first frequency reading and a grouped
+  candidate set are in `docs/ANDROID-SYMBOL-INTERACTION.md`.
+- The `~` / `` ` `` omission noted here was a **mockup gap in the text-mode number
+  row** (digits 1–0 only); both characters are in `us-qwerty` and on the symbol
+  page. Whether the text number row also carries `` ` ~ - _ = + `` (a 13-key row,
+  narrower targets) is an open geometry choice.
+
+The navigation-key set, the Tier 2 inventory/grouping, and the data home that
+makes them inputtable are open mechanism (#298). *Implementation:* none.
+*Refuted by:* none yet.

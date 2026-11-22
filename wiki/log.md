@@ -1365,3 +1365,18 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   emphasis, frequency source, Tier 2, candidate/mic). The mockup embodies
   B3 + popup data + dedicated frequent keys as one candidate. No verdict.
 
+## [2026-11-22] update | KP6 symbol-page nav keys, Korean Tier 2 symbols, ~` fix
+
+- Added KP6 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: symbol
+  page needs no shift (symbols shown directly); navigation keys instead
+  (arrows/Tab/Home/End/PgUp/PgDn); Korean-frequent special symbols (Tier 2) to be
+  found and made inputtable.
+- Measured the non-ASCII symbol ranking from kowiki prose
+  (`tools/symbol-frequency.py`): · 《》 〈〉 「」 『』 ‘ ’ “ ” – — … → ° ± × ○ ℃ lead;
+  proposed a grouped Tier 2 set with curated additions (※ ₩ ♡ ★ …) flagged
+  unmeasured in chat. In `docs/ANDROID-SYMBOL-INTERACTION.md`.
+- Clarified the ~` question: a text-number-row mockup gap (digits 1–0 only); both
+  chars are in us-qwerty and on the symbol page. Updated the mockup HTML+PNG
+  (symbol page shift removed + nav keys; 4th Tier 2 panel) and
+  `docs/ANDROID-KEYPAD-MOCKUP.md` + [[2026-11-22-android-keypad-mockup]]. No verdict.
+
