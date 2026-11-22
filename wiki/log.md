@@ -1352,3 +1352,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   swipe direction + popup preview. In `docs/ANDROID-SYMBOL-INTERACTION.md` and
   [[2026-11-22-android-keypad-criteria]]. Analysis, not a verdict.
 
+## [2026-11-22] create | provisional keypad mockup + remaining-decision inventory
+
+- Created `docs/ANDROID-KEYPAD-MOCKUP.md` + `docs/android-keypad-mockup.html` +
+  rendered PNG, and [[2026-11-22-android-keypad-mockup]]: drew Hangul/English/
+  symbol screens from KP1–KP5 (chrome headless render, NanumSquareRound). Answer
+  to "can we draw it yet": yes, provisionally — the picture surfaces the open
+  decisions rather than ruling them.
+- Inventoried #298's core open decision (symbol-layer data home: A third row / B
+  separate page / B3 layout / popup data) and the adjacent Track 3 decisions
+  (frequent set, number-row default, geometry, shift state, gesture defaults,
+  emphasis, frequency source, Tier 2, candidate/mic). The mockup embodies
+  B3 + popup data + dedicated frequent keys as one candidate. No verdict.
+

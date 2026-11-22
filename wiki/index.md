@@ -343,6 +343,9 @@
   compact/one shift, frequency + visual emphasis). Measured: us-qwerty already
   holds all 32 ASCII punctuation at physical positions; the fork vs categorised
   symbol pages.
+- [[2026-11-22-android-keypad-mockup]] — provisional Hangul/English/symbol screen
+  mockup from KP1–KP5 (HTML+PNG). Yes, mockup-level; the picture surfaces the open
+  decisions. #298's core open choice is the symbol-layer data home.
 
 ## Raw — upstream
 
