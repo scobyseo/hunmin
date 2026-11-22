@@ -1599,3 +1599,11 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   keys from the daemon's global trigger list and gives them back (matching by keysym, because the
   daemon's physical-key entry is `Alt+Release+Alt_R`), and the store's plumbing moved to
   `frontends/ibus/store/` with the budget measurement recorded next to the reason.
+
+## [2026-11-22] update | 창 위젯과 영속성 검증 (#327)
+
+- [[2026-11-22-ibus-config-store-and-settings-surface]] updated: the widget test
+  (`engine-d2-ibus-settings-ui`) and the cross-process persistence case
+  (`engine-d1-ibus-settings-persist`, scratch keyfile backend) close two rows
+  docs/TESTING.md listed as gaps. Corrected §IBC-5's "persistence is CI-only": switching the
+  test's backend, not the product's, is what buys isolation; what stays uncovered is dconf itself.

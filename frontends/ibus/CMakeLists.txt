@@ -81,8 +81,12 @@ install(TARGETS hunmin-ibus RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONEN
 # exactly as a host without libibus skips this whole directory.
 pkg_check_modules(GTK3 QUIET IMPORTED_TARGET GLOBAL gtk+-3.0)
 if(GTK3_FOUND AND GLIB_COMPILE_SCHEMAS)
+  add_library(hunmin_ibus_settings_ui STATIC settings/ui.c)
+  target_include_directories(hunmin_ibus_settings_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/settings)
+  target_link_libraries(hunmin_ibus_settings_ui PUBLIC hunmin_ibus_engine PkgConfig::GTK3)
+
   add_executable(hunmin-ibus-settings settings/main.c)
-  target_link_libraries(hunmin-ibus-settings PRIVATE hunmin_ibus_store hunmin PkgConfig::GTK3)
+  target_link_libraries(hunmin-ibus-settings PRIVATE hunmin_ibus_settings_ui)
   add_dependencies(hunmin-ibus-settings hunmin-ibus-schema)
   install(TARGETS hunmin-ibus-settings RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
           COMPONENT ibus-settings)
@@ -99,6 +103,9 @@ set(HUNMIN_IBUS_SETTINGS_EXEC ${CMAKE_INSTALL_FULL_BINDIR}/hunmin-ibus-settings)
 set(HUNMIN_IBUS_VERSION ${PROJECT_VERSION})
 configure_file(component/hunmin.xml.in ${CMAKE_CURRENT_BINARY_DIR}/hunmin.xml @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hunmin.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/ibus/component COMPONENT ibus)
+
+# gsettings(1) is the writer the persistence case drives; libglib2.0-bin ships it.
+find_program(GSETTINGS_EXEC gsettings)
 
 if(BUILD_TESTING AND TARGET GTest::gtest_main)
   add_subdirectory(test)

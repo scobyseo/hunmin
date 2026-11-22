@@ -3055,12 +3055,16 @@ So the verification splits, and the second half is the one that costs:
 
 | what | how | why it is affordable |
 |---|---|---|
-| schema loads; each row reads its default; a write is read back; a `changed` signal fires and the engine applies it without a restart | one ctest binary, `GSETTINGS_BACKEND=memory` + `GSETTINGS_SCHEMA_DIR` pointing at the build tree | in one process the memory backend round-trips and emits `changed`, and no dconf is involved |
-| the value survives an engine restart | the existing D3 lane, on a CI runner | a runner's dconf is throwaway; a developer's is not, so this case is not in the inner loop |
+| schema loads; each row reads its default; a write is read back; a `changed` signal fires and the engine applies it without a restart | one ctest binary, `GSETTINGS_BACKEND=memory` + `GSETTINGS_SCHEMA_DIR` pointing at the build tree (`engine-d1-ibus-settings`) | in one process the memory backend round-trips and emits `changed`, and no dconf is involved |
+| a stored row survives into the NEXT process | `engine-d1-ibus-settings-persist`: the built binary's `--print` reads what `gsettings(1)` wrote, both against `GSETTINGS_BACKEND=keyfile` and a scratch `XDG_CONFIG_HOME` | the keyfile backend persists to a file and honours `XDG_CONFIG_HOME`, so the store is a directory this test owns — measured: the value is in `<scratch>/glib-2.0/settings/keyfile`, and the real dconf is untouched |
+| the shipped **dconf** backend, specifically | not asserted anywhere | it cannot be isolated by environment (§IBC-5's first two bullets), so the only honest home would be a throwaway runner; the difference from keyfile is which process owns the file, not what GSettings answers |
 
-The alternative, if that split is unacceptable: option C (an ini plus an environment variable),
-which makes both halves in-process and costs the schema, the CLI and the packaging trigger. The
-ruling chose A, so this is recorded as a cost, not as an open question.
+The first two rows mean persistence does **not** have to be CI-only, which is what this section
+first claimed: switching the test's backend, not the product's, buys the isolation. What remains
+uncovered is dconf itself, and that is a smaller claim than "untestable", so it is stated as the
+narrow one. The alternative if even that is unacceptable: option C (an ini plus an environment
+variable), which makes every case in-process and costs the schema, the CLI and the packaging
+trigger. The ruling chose A, so this is recorded as a cost, not as an open question.
 
 ### IBC-6 Provenance
 

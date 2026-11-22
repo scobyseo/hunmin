@@ -103,8 +103,12 @@ packaging trigger.
 
 ## Still open
 
-- **#327 stays open.** A ruling authorises implementation and verification; the verification is
-  now partial: the store and the capture spelling are asserted, the window's widgets are not.
+- **#327 stays open.** A ruling authorises implementation and verification. The verification now
+  has three cases: the store (`engine-d1-ibus-settings`), persistence into the next process
+  (`engine-d1-ibus-settings-persist`, on a scratch keyfile store), and the window's rows and
+  capture/remove behaviour (`engine-d2-ibus-settings-ui`). The window's pixels are still a manual
+  check, and the shipped **dconf** backend itself is unasserted — keyfile buys the isolation, and
+  §IBC-5 was corrected to say the narrower thing.
 - **The trigger-list edit is built, and its effect on a real session is not measured here**: no
   interactive IBus session was driven, so "한/영 now reaches the engine on `kr`" is the code's
   shape plus the schema write, not an observed keystroke. `engine-d3-ibus` fails on this host

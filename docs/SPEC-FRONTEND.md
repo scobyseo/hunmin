@@ -201,8 +201,12 @@ unloadable layout degrading and being reported, the stored key list driving the 
 two grammar corners refused with a reason, a bad entry costing only itself, a captured key being
 spelled once, a change arriving through the watch, and the fifth row taking its keys out of the
 daemon's trigger list — matching by KEY, so the daemon's `Alt+Release+Alt_R` goes with the row's
-`Alt_R` — and giving back what it took when the key stops being ours. **Not asserted:** the window's widgets.
-It is presentation and no ctest drives it (`engine-d2-ibus-ui` asserts the engine's surface, not
-a settings dialog), so the widget layout is a manual check; what a capture *stores* is asserted
-above, and the layout list it offers comes from the core (`tools/check-frontend-invariants.py`
-I11 fails a hardcoded picker).
+`Alt_R` — and giving back what it took when the key stops being ours.
+`engine-d1-ibus-settings-persist` — a stored row survives into the *next process*, driven through
+the built binary (`--print`) and a scratch store, which is the only shape in which "the value I set
+is the value the engine gets" means anything.
+`engine-d2-ibus-settings-ui` — the window's rows and behaviour: the pickers offer exactly the
+core's layouts for their mode, the active row is the stored one, the commit picker offers the
+schema's two values, the autoswitch row follows the data gate, a capture appends once and refuses
+what cannot fire, and a removal writes the shortened list. Its pixels are not asserted — that is
+what a manual check is for.

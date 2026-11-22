@@ -44,6 +44,48 @@ if(GLIB_COMPILE_SCHEMAS)
                        ENVIRONMENT "${HUNMIN_IBUS_TEST_ENV}")
 endif()
 
+# §FE17's persistence claim is about two PROCESSES (the window writes, a later
+# engine start reads), so this case drives the built binary instead of a GSettings
+# object in its own memory. The keyfile backend makes the store a file in a
+# scratch directory: a dconf store cannot be isolated from a test by environment
+# (docs/OPTIONS-MEASURED.md §IBC-5), and a test that edits a person's input
+# method settings is not one anybody can run.
+if(GLIB_COMPILE_SCHEMAS AND TARGET hunmin-ibus-settings)
+  add_executable(testhunminibussettingspersist test_settings_persist.cpp)
+  target_link_libraries(testhunminibussettingspersist PRIVATE GTest::gtest_main PkgConfig::GIO)
+  target_compile_definitions(testhunminibussettingspersist PRIVATE
+      HUNMIN_SETTINGS_BIN="$<TARGET_FILE:hunmin-ibus-settings>"
+      HUNMIN_GSETTINGS_BIN="${GSETTINGS_EXEC}")
+  add_dependencies(testhunminibussettingspersist hunmin-ibus-settings)
+  add_test(NAME engine-d1-ibus-settings-persist COMMAND testhunminibussettingspersist)
+  set_tests_properties(engine-d1-ibus-settings-persist PROPERTIES LABELS "tier-D1"
+                       ENVIRONMENT "${HUNMIN_IBUS_TEST_ENV}")
+endif()
+
+# The window's widgets (tier D2). Presentation is not asserted for its pixels but
+# for what it OFFERS and WRITES: which layouts, which commit units, whether a
+# capture appends once and refuses what cannot fire, and that a removal reaches
+# the store. Registered only where a display can be had — xvfb-run if present,
+# otherwise the configure-time DISPLAY — because GTK has no headless mode and a
+# red that only means "no display" is a red nobody reads.
+if(GLIB_COMPILE_SCHEMAS AND TARGET hunmin-ibus-settings)
+  find_program(XVFB_RUN xvfb-run)
+  if(XVFB_RUN OR DEFINED ENV{DISPLAY})
+    add_executable(testhunminibussettingsui test_settings_ui.cpp)
+    target_link_libraries(testhunminibussettingsui PRIVATE GTest::gtest_main
+        hunmin_ibus_settings_ui)
+    add_dependencies(testhunminibussettingsui hunmin-ibus-settings)
+    if(XVFB_RUN)
+      add_test(NAME engine-d2-ibus-settings-ui
+               COMMAND ${XVFB_RUN} -a $<TARGET_FILE:testhunminibussettingsui>)
+    else()
+      add_test(NAME engine-d2-ibus-settings-ui COMMAND testhunminibussettingsui)
+    endif()
+    set_tests_properties(engine-d2-ibus-settings-ui PROPERTIES LABELS "tier-D2"
+                         ENVIRONMENT "${HUNMIN_IBUS_TEST_ENV};GDK_BACKEND=x11")
+  endif()
+endif()
+
 # FE10's corpus lane for this frontend: the same tests/golden/judgement-r8.jsonl
 # the fcitx5 and Android lanes replay. cJSON is the corpus parser, already
 # vendored for hunmin-sim.
