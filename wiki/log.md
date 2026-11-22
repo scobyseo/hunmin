@@ -1421,3 +1421,18 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   consistent cross-key mapping, a small direction cap. Mockup stays swipe-up only
   (the simple end). Direction count / functions / hints open. No verdict.
 
+## [2026-11-22] update | KP9 positional consistency, symbol-page functional keys, Tier 2 10/row
+
+- Added KP9 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: same key
+  in the same position across modes (fewer mis-taps); symbol page drops space and
+  enter, keeps backspace, a return-to-original-mode key labelled 한/영 + the Tier 2
+  button take the mode-key slots, arrows go in the space-bar slot. Tier 2 uses 10
+  keys/row by keeping the 8-key category groups and moving 2 bottom-row symbols
+  up into each (verbatim: "기존에 8개로 묶은 이유가 있을텐데, 맨 아래줄에 있는 기호
+  2개씩을 각 줄로 옮기는 방식이 더 깔끔해.").
+- Mockup HTML: symbol Tier 1 bottom row now [한/영][Tier 2][←↑↓→] (no space/enter),
+  Tier 2 button removed from the symbol row; Tier 2 panel reflowed to 4 rows of 10
+  with the same functional layout; PNG re-rendered. Mockup doc wireframes updated.
+  Exact geometry provisional; positional consistency + space/enter removal binding.
+  No verdict beyond the maintainer's stated direction.
+

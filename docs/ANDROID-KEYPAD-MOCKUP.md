@@ -55,10 +55,10 @@ Legend: `KEY` = character/symbol (진하게); `(fn)` = functional (연하게);
 ```
  ! @ # $ % ^ & * ( )                          (10)
  ` ~ - _ = + [ ] { } \ |                      (12, ` before -; brackets GROUPED []{})
- ; : ' " , . < > / ?  [Tier 2]                (10, comma/period grouped ,. <> too)
- (Tab) (Home) (PgUp) (PgDn) (End) (⌫)         ← NO shift (KP6); nav order Home·PgUp·PgDn·End
- (←) (↑) (↓) (→) [   space   ] [⏎]
- [한/영] [ABC/한글]
+ ; : ' " , . < > / ?                          (10, comma/period grouped ,. <> too)
+ (Tab) (Home) (PgUp) (PgDn) (End) (⌫)         ← nav + backspace; NO shift (KP6)
+ [한/영] [Tier 2] (←) (↑) (↓) (→)             ← KP9: no space/enter; return-mode + Tier 2
+                                                in the mode-key slots, arrows in the space slot
 ```
 
 **Decided (maintainer, 2026-11-22):** the grouped order `[]{} `, applied
@@ -69,13 +69,17 @@ row.
 ### Symbol mode Tier 2 (Korean special symbols, grouped)
 
 ```
- · … – — ‘ ’ “ ”                          ← 문장부호 (measured top ranks)
- 「」 『』 《》 〈〉                         ← 낫표/화살괄호
- ○ ● □ ■ △ ▲ ※ ★                          ← 도형/표시 (※★ curated)
- → ← ↑ ↓ ↔ ° ± ×                          ← 화살표/수학·단위
- ₩ € £ ¥ © ® ™ ♡                          ← 통화/기타 (curated)
- [한/영] [기호 1] [ space ] [⏎]
+ · … – — ‘ ’ “ ” ₩ €                      (10, 문장부호 + ₩€)
+ 「」 『』 《》 〈〉 £ ¥                      (10, 낫표/화살괄호 + £¥)
+ ○ ● □ ■ △ ▲ ※ ★ © ®                      (10, 도형/표시 + ©®)
+ → ← ↑ ↓ ↔ ° ± × ™ ♡                      (10, 화살표/수학 + ™♡)
+ (Tab) (Home) (PgUp) (PgDn) (End) (⌫)
+ [한/영] [기호 1] (←) (↑) (↓) (→)           ← KP9: same functional layout as Tier 1
 ```
+
+Tier 2 reaches 10 keys/row by **keeping the original 8-key category groups and
+moving 2 symbols from the bottom row up into each** (KP9), not by reflowing the
+categories.
 
 The number row's corner hints are the KP1/KP5 pairing (digit 진하게, symbol hint
 연하게, reached by long-press or swipe-up). The symbol page mirrors `us-qwerty`'s

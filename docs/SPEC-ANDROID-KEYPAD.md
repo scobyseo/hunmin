@@ -259,3 +259,36 @@ consistent mapping across keys (e.g. up = alternate everywhere), and a small cap
 on directions per key. How many directions, which functions, and the hint design
 are open mechanism; the constraint is that a person can use it without
 memorising a table. *Implementation:* none. *Refuted by:* none yet.
+
+### KP9. Positional consistency across modes; symbol-page functional keys (stated direction)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "Tier2 버튼의 위치가 어색하고, 기호 입력 창에 스페이스가 있어야 하는 지 의문임.
+> 백스페이스는 필요할 것 같은데, 엔터, 스페이스는 삭제하고, 남은 공간에 원래 모드로
+> (이걸 한/영이라고 표시해도 헷갈리지 않을 것 같고), Tier2 버튼이 다른 모드와
+> 동일하게 들어가고, 스페이스바 위치에 방향키가 있는 게 더 자연스러울 거 같아.
+> 모드와 상관없이 같은 키는 같은 위치에 있는 게 실수가 적어."
+> "Tier2도 10개 키를 한 줄에 배치해서 줄 수를 맞추는 게 좋겠다."
+
+Two things:
+
+- **General principle — positional consistency:** regardless of mode, the *same*
+  key sits in the *same* position, because that reduces mis-taps. Shared
+  functional keys (backspace, the mode-switch / return key) keep their places
+  across Hangul / English / symbol modes; a mode-specific slot may be repurposed
+  (the space-bar slot becomes arrows in symbol mode).
+- **Symbol-page functional layout:** drop **space and enter** (a symbol page
+  needs neither), keep **backspace**; a **return-to-original-mode** key labelled
+  **한/영** (not confusing) and the **Tier 2** button take the mode-key positions
+  used in the other modes; **arrows go in the space-bar slot**. The Tier 2 button
+  leaves its awkward inline spot on the symbol row. **Tier 2 uses 10 keys per
+  row** to match the symbol page's row structure — done by **keeping the original
+  8-key category groups and moving 2 symbols from the bottom row up into each**
+  (2026-11-22, verbatim: "기존에 8개로 묶은 이유가 있을텐데, 맨 아래줄에 있는 기호
+  2개씩을 각 줄로 옮기는 방식이 더 깔끔해."), not by reflowing the categories.
+
+A layout that follows (bottom row mirrors the text modes' `[한/영][기호]…`):
+`[한/영] [Tier 2] [←] [↑] [↓] [→]`, backspace on the navigation row. The exact
+geometry is provisional; the binding rules are positional consistency and the
+space/enter removal. *Implementation:* none. *Refuted by:* none yet.
