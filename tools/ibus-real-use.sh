@@ -158,6 +158,12 @@ do_session() {
 
     # A PRIVATE session bus. The desktop's bus is never touched; --fork gives
     # us the exact pid to kill, so no pgrep of a shared dbus-daemon.
+    # The staged XDG dirs MUST be exported before the bus forks: activated
+    # services (dconf) inherit the dbus-daemon environment, and a bus forked
+    # with the real environment wrote the engine-list seed into the REAL
+    # user dconf (measured 2026-11-22, issue #319; reverted).
+    export XDG_CONFIG_HOME="$stage/config" XDG_DATA_HOME="$stage/data" XDG_CACHE_HOME="$stage/cache"
+    mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
     dbus-daemon --session --fork --print-address=1 --print-pid=1 \
         >"$stage/bus" 2>/dev/null
     BUS_PID=$(sed -n 2p "$stage/bus" | tr -d ' ')
@@ -187,7 +193,13 @@ do_session() {
     local panel
     panel=$(command -v ibus-ui-gtk3 2>/dev/null || echo /usr/libexec/ibus-ui-gtk3)
     [ -x "$panel" ] || die "no IBus panel binary at $panel"
-    ibus-daemon -c /usr/libexec/ibus-memconf -p "$panel" \
+    # dconf backend under the STAGED config home, seeded with an engine list:
+    # the memconf panel ABORTS in panel_switch_engine on an empty engine list
+    # (assertion i >= 0, measured 2026-11-22, issue #319). The staged
+    # XDG_CONFIG_HOME keeps this off the real user settings.
+    gsettings set org.freedesktop.ibus.general engines-order "['hunmin']" 2>/dev/null || true
+    gsettings set org.freedesktop.ibus.general preload-engines "['hunmin']" 2>/dev/null || true
+    ibus-daemon -c /usr/libexec/ibus-dconf -p "$panel" \
         >"$stage/ibus.log" 2>&1 &
     IBUS_PID=$!
     for _ in $(seq 1 80); do
@@ -240,6 +252,12 @@ do_desktop() {
     }
     trap cleanup EXIT INT TERM
 
+    # The staged XDG dirs MUST be exported before the bus forks: activated
+    # services (dconf) inherit the dbus-daemon environment, and a bus forked
+    # with the real environment wrote the engine-list seed into the REAL
+    # user dconf (measured 2026-11-22, issue #319; reverted).
+    export XDG_CONFIG_HOME="$stage/config" XDG_DATA_HOME="$stage/data" XDG_CACHE_HOME="$stage/cache"
+    mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
     dbus-daemon --session --fork --print-address=1 --print-pid=1 \
         >"$stage/bus" 2>/dev/null
     BUS_PID=$(sed -n 2p "$stage/bus" | tr -d ' ')
@@ -254,7 +272,11 @@ do_desktop() {
     local panel
     panel=$(command -v ibus-ui-gtk3 2>/dev/null || echo /usr/libexec/ibus-ui-gtk3)
     [ -x "$panel" ] || die "no IBus panel binary at $panel"
-    ibus-daemon -c /usr/libexec/ibus-memconf -p "$panel" >"$stage/ibus.log" 2>&1 &
+    # Same measured fix as do_session: memconf panel aborts on an empty
+    # engine list; dconf under the staged config home, seeded (issue #319).
+    gsettings set org.freedesktop.ibus.general engines-order "['hunmin']" 2>/dev/null || true
+    gsettings set org.freedesktop.ibus.general preload-engines "['hunmin']" 2>/dev/null || true
+    ibus-daemon -c /usr/libexec/ibus-dconf -p "$panel" >"$stage/ibus.log" 2>&1 &
     IBUS_PID=$!
     for _ in $(seq 1 80); do
         ibus list-engine 2>/dev/null | grep -qi hunmin && break

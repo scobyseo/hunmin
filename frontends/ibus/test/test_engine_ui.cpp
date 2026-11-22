@@ -419,4 +419,33 @@ TEST_F(IbusUiTest, CandidateGlossRidesTheAuxiliaryTextAndTracksTheCursor) {
     EXPECT_FALSE(captured_.aux.back().visible);
 }
 
+
+/* The Hanja trigger's platform spellings (issue #319, maintainer instruction
+ * 2026-11-22): F9 is the catalogue key, Hangul_Hanja the standard XKB Hanja
+ * key (ibus-hangul's default), Control_R what the maintainer's physical Hanja
+ * key reports. Each opens the list over a composing word, toggles it closed,
+ * and with nothing composing reaches the client. */
+TEST_F(IbusUiTest, HanjaTriggerSpellingsOpenAndToggleTheList) {
+    for (guint keyval : {IBUS_KEY_Hangul_Hanja, IBUS_KEY_Control_R}) {
+        Type("rk");
+        captured_.tables.clear();
+        EXPECT_TRUE(Key(keyval)) << "trigger 0x" << std::hex << keyval << " declined";
+        ASSERT_FALSE(captured_.tables.empty());
+        EXPECT_GT(captured_.tables.back().candidates.size(), 0u);
+        EXPECT_GT(captured_.shows, 0);
+        /* Second press toggles closed, composition kept. */
+        EXPECT_TRUE(Key(keyval));
+        EXPECT_GT(captured_.hides, 0);
+        ASSERT_FALSE(captured_.preedits.empty());
+        EXPECT_EQ(captured_.preedits.back().text, "가");
+        /* Clean up for the next spelling. */
+        Key(IBUS_KEY_space);
+        captured_.commits.clear();
+        captured_.preedits.clear();
+    }
+    /* No composition: the trigger is the client's key. */
+    EXPECT_FALSE(Key(IBUS_KEY_Hangul_Hanja));
+    EXPECT_FALSE(Key(IBUS_KEY_Control_R));
+}
+
 }  // namespace
