@@ -1445,3 +1445,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   removed (bottom 한/영/기호 1 only), PNG re-rendered, mockup doc wireframe updated.
   No verdict.
 
+## [2026-11-22] update | Tier 2 remaining space — open options analysed
+
+- Question (verbatim): "Tier2의 남은 공간을 뭘로 채우면 좋을까?" Recorded comparable
+  options in `docs/ANDROID-KEYPAD-MOCKUP.md` (no ruling): a fifth symbol row (corpus
+  has 194 non-ASCII symbols but the prose tail past 40 is thin), a frequent/recent
+  row (KP3, needs state), larger keys/taller rows (KP2 error protection), category
+  tabs (KP8 complexity caution), an emoji access key. Deciding question: are 40
+  symbols enough for the target population; the measured prose tail is thin, so
+  rare symbols have diminishing returns vs ergonomics or a frequency row.
+

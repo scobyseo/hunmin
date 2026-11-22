@@ -80,6 +80,27 @@ Tier 2 reaches 10 keys/row by **keeping the original 8-key category groups and
 moving 2 symbols from the bottom row up into each** (KP9), not by reflowing the
 categories.
 
+**Tier 2 remaining space — open question.** With the editing keys removed, the
+bottom ~2 rows are free. Comparable ways to fill them (none ruled):
+
+- **A fifth symbol row** — more special symbols. The corpus has 194 non-ASCII
+  symbols, but past the first 40 the prose tail is thin (fullwidth variants,
+  box drawings, rare marks); the high-value ones are mostly already placed. A
+  chat corpus would rank more usefully (circled numbers `①②③`, `☆ † ÷ ∞ ―`).
+- **A frequent/recent symbols row** — dynamic, KP3-aligned, personalised fast
+  access; needs usage state and the layout shifts (muscle-memory cost).
+- **Larger keys / taller rows** — spend the space on touch-target size (KP2
+  error protection) rather than content; best if 40 symbols suffice.
+- **Category tabs / page switcher** — if Tier 2 paginates by group; a navigation
+  aid, but adds complexity (KP8 caution).
+- **An emoji access key** — bridge to emoji, a frequent class of special character.
+
+The deciding question is whether 40 symbols are enough for the target population:
+if yes, larger targets (ergonomics) or a frequency row serve better than rare
+symbols; if a chat corpus surfaces more high-value symbols, a fifth row earns its
+place. The prose tail measured here is thin, so filling with rare symbols has
+diminishing returns.
+
 The number row's corner hints are the KP1/KP5 pairing (digit 진하게, symbol hint
 연하게, reached by long-press or swipe-up). The symbol page mirrors `us-qwerty`'s
 physical positions, which the data already holds (all 32 ASCII punctuation,
