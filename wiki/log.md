@@ -1622,3 +1622,11 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   the three pinned registers, the three stated premises that did not hold, and
   the coverage-expansion hypothesis the measurement refuted. Figures live once
   in `docs/OPTIONS-MEASURED.md` §HPX; the page carries none.
+
+## [2026-11-23] create | 312 symbol gesture variants session record
+
+- Created [[2026-11-23-312-symbol-variants]]: issue #312's provisional Tier 2
+  variant mapping (shape-family hosts, frequency order), the comparable designs
+  in docs/DESIGN-ANDROID-SYMBOL-VARIANTS.md, the structure-only contract +
+  selfcheck in tools/symbol-data-check.py, and the E1 parse lane. The kowiki
+  reading was re-run and reproduced; no verdict recorded. Index updated.
