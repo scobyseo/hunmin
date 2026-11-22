@@ -770,9 +770,11 @@ echo "the binding was removed again, so the tier is repeatable"
 # text read out of the platform's own view hierarchy, never a log line.
 #
 # KP12 (maintainer, 2026-11-22): the grid auto-shows only without a physical
-# keyboard. This AVD has hw.keyboard=no, so the grid must be PRESENT here;
-# the hardware-present hide path is pinned by E1's decision table and needs
-# an hw.keyboard=yes device to assert on a screen (environment-bound).
+# keyboard. MEASURED on this running AVD: it reports keyboard=2 (QWERTY)
+# exposed, and show_ime_with_hard_keyboard=1 — so the grid shows via the
+# platform opt-in. That makes BOTH KP12 paths measurable here: opt-in 0 with
+# a keyboard exposed hides the grid; opt-in 1 shows it. The strip stays in
+# both cases (B1).
 
 tap_desc() {  # tap_desc <content-desc> — tap a keycap by its identity
   local desc="$1" node bounds
@@ -802,7 +804,25 @@ restore_surface || fail "cannot restore the test editor for the touch round"
 # KP12's auto-show: no physical keyboard on this AVD, so the grid is up.
 dump_ui /sdcard/kp0.xml | grep -q 'content-desc="key:q"' \
   || fail "the soft keypad is not shown without a physical keyboard (KP12 auto-show)"
-echo "the keypad auto-shows with no physical keyboard (KP12)"
+echo "the keypad shows with the platform opt-in (KP12, keyboard exposed)"
+
+# The hide path: opt-in 0 with a keyboard exposed -> grid GONE, strip stays.
+"$ADB" shell settings put secure show_ime_with_hard_keyboard 0
+"$ADB" shell am force-stop "$PKG" >/dev/null 2>&1
+"$ADB" shell ime set "$SVC" >/dev/null 2>&1
+focus_editor || fail "cannot refocus for the KP12 hide check"
+if dump_ui /sdcard/kphide.xml | grep -q 'content-desc="key:q"'; then
+  fail "KP12: the grid is shown with a physical keyboard exposed and opt-in 0"
+fi
+dump_ui /sdcard/kphide.xml | grep -q 'content-desc="설정"' \
+  || fail "KP12: the strip vanished with the grid — hardware keys would lose their window (B1)"
+echo "KP12 hide path: grid gone with a keyboard exposed, strip stays (B1)"
+"$ADB" shell settings put secure show_ime_with_hard_keyboard 1
+"$ADB" shell am force-stop "$PKG" >/dev/null 2>&1
+"$ADB" shell ime set "$SVC" >/dev/null 2>&1
+focus_editor || fail "cannot refocus after the KP12 hide check"
+dump_ui /sdcard/kp0.xml | grep -q 'content-desc="key:q"' \
+  || fail "KP12: the grid did not return with opt-in 1"
 
 # The maintainer's condition for the hint/alternate display: no overlapping
 # text on a keycap. Measured from the platform's own hierarchy bounds.
@@ -864,11 +884,13 @@ restore_surface || fail "cannot restore the test editor for the Hangul touch rou
 ensure_mode '한'
 for k in d k s s u d; do tap_desc "key:$k"; done
 sleep 1
+# KP17: the SOFT surface composes 두벌식 (measured: dkssud -> 안녕), while the
+# hardware round above keeps sin3-p2 (ㅎ곈디) — the surfaces are independent.
 TOUCH_KO="$(field_text)"
 echo "touch-typed Hangul reads: '${TOUCH_KO}'"
-[ "$TOUCH_KO" = "$EXPECTED" ] \
-  || fail "Hangul touch round: expected '$EXPECTED' (the hardware round's golden), got '${TOUCH_KO}'"
-echo "the touch path composes the same word the hardware path does"
+[ "$TOUCH_KO" = "안녕" ] \
+  || fail "Hangul touch round: expected '안녕' (두벌식, KP17), got '${TOUCH_KO}'"
+echo "the soft surface composes 두벌식; the hardware surface kept sin3-p2 (KP17)"
 
 # Bug 2 regression (issue #299): backspace must edit the composition. Measured
 # on the AVD 2026-11-22 after the explicit-forwarding fix: ㅎ곈디 -> ㅎ곈ㄷ
@@ -877,8 +899,8 @@ echo "the touch path composes the same word the hardware path does"
 tap_desc 'fn:backspace'
 TOUCH_BS="$(field_text)"
 echo "after one backspace tap: '${TOUCH_BS}'"
-[ "$TOUCH_BS" = "ㅎ곈ㄷ" ] \
-  || fail "backspace tap did not edit the composition (bug 2): expected 'ㅎ곈ㄷ', got '${TOUCH_BS}'"
+[ "$TOUCH_BS" = "안녀" ] \
+  || fail "backspace tap did not edit the composition (bug 2): expected '안녀' (measured), got '${TOUCH_BS}'"
 
 # Bug 3 regression (issue #299): enter commits the word at the boundary and
 # inserts a newline (the fixture is multi-line). uiautomator escapes the
@@ -887,7 +909,7 @@ tap_desc 'fn:enter'
 TOUCH_ENTER="$(field_text)"
 echo "after the enter tap: '${TOUCH_ENTER}'"
 case "$TOUCH_ENTER" in
-  *'ㅎ곈ㄷ'*'&#10;'*) : ;;
+  *'안녀'*'&#10;'*) : ;;
   *) fail "enter tap did not commit + newline (bug 3): got '${TOUCH_ENTER}'" ;;
 esac
 echo "backspace and enter taps work through the platform (bugs 2/3 fixed)"
@@ -954,15 +976,16 @@ set_swipe_unit() {  # set_swipe_unit <pref> — write the setting, restart the I
   focus_editor || fail "cannot refocus after the swipe-unit change"
 }
 
-# Default unit KEY: one swipe deletes one jamo of the composition.
+# Default unit KEY: one swipe deletes one jamo of the composition (두벌식,
+# measured: 안녕 -> 안녀).
 restore_surface || fail "cannot restore the surface for the swipe round"
 ensure_mode '한'
 for k in d k s s u d; do tap_desc "key:$k"; done
 swipe_left_on 'key:d'
 SWIPE_KEY="$(field_text)"
 echo "swipe-left (키 단위) reads: '${SWIPE_KEY}'"
-[ "$SWIPE_KEY" = "ㅎ곈ㄷ" ] \
-  || fail "swipe-left KEY unit: expected 'ㅎ곈ㄷ' (one jamo), got '${SWIPE_KEY}'"
+[ "$SWIPE_KEY" = "안녀" ] \
+  || fail "swipe-left KEY unit: expected '안녀' (one jamo, measured), got '${SWIPE_KEY}'"
 
 # WORD unit while composing: the buffered word is dropped whole.
 set_swipe_unit word

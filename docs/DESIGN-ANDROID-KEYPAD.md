@@ -219,11 +219,13 @@ the requirement protects the hardware path, and hiding the whole input view
 would break it. With the grid gone the input view is byte-for-byte the
 pre-keypad surface, so the hardware round of tier E2 is unaffected.
 
-Measurement boundary: the test AVD `hunmin-e2e` has `hw.keyboard=no`, so E2E
-asserts the AUTO-SHOW path and the tap round. The hide path with a keyboard
-exposed is pinned by the E1 decision table only; asserting it on a device needs
-an AVD/device with `hw.keyboard=yes` — environment-bound, named here rather
-than smoothed over.
+Measurement (updated 2026-11-23): the RUNNING `hunmin-e2e` AVD reports
+`keyboard=2` (QWERTY) exposed with `show_ime_with_hard_keyboard=1` — so E2E
+measures BOTH KP12 paths on it: opt-in 0 hides the grid (strip stays, B1),
+opt-in 1 shows it. The earlier "environment-bound, needs hw.keyboard=yes"
+note was wrong about this instance — measured, not assumed. A genuine
+NOKEYS device (a phone) exercises the auto-show arm; the maintainer's device
+confirmed it.
 
 ## 9. Measured defects found by the device round (recorded so they are not repeated)
 
@@ -337,3 +339,39 @@ Harness hardening from measured flakes: `mode_is` retries until the IME window
 is in the dump (a surface restore can lag it); `field_text` handles
 uiautomator's single-quoted text attribute (it switches delimiter when the
 value contains `"` — measured with `?"`).
+
+## 13. KP17 — two independent surfaces
+
+The maintainer's rulings (2026-11-22/23, verbatim in
+`docs/SPEC-ANDROID-KEYPAD.md#§KP17`): the soft keyboard uses 두벌식/qwerty only
+("소프트 키보드는 두벌식만 쓸건데?", "일단은"), the two implementations must
+have no relation ("소프트 키보드와 물리 키보드 구현은 전혀 관계가 없어야
+하는데..."), and the reason: their UX characteristics are OPPOSITE — hardware
+has no gestures but easy repeat, soft the reverse — so each is optimized for
+its own ("이런 서로 다른 특성을 최대한 맞추어서 최적화해야 해").
+
+Architecture:
+
+- **Soft surface**: its own `HunminAdapter` pair (`touchEngine`), built per
+  editor from the fixed constants `SOFT_HANGUL_LAYOUT=dubeolsik` /
+  `SOFT_LATIN_LAYOUT=us-qwerty`. `dispatchTouchKey` is its own path: secure
+  editor pass-through, its own space boundary + judgement adoption, explicit
+  forwarding of declined keys (the platform drops synthesized events —
+  measured). It never enters `onKeyDown` and never reads `layoutId`.
+- **Hardware surface**: unchanged — `onKeyDown`, the configured layouts, the
+  settings window's choice. The E2E hardware round still measures sin3-p2
+  (ㅎ곈디) on the same AVD where the touch round measures 두벌식 (안녕).
+- **Shared, and only this**: the editor (InputConnection), the user's single
+  mode indication (한/영 toggles both pairs' language), and editor hygiene at
+  a surface switch — the other pair's word in flight is delivered before the
+  active surface composes, because the editor has ONE composing region. That
+  is text order in the shared editor, not a coupling of layouts or state.
+- KP12 visibility is presentation only; no engine rebuild on surface change.
+
+Overturned drafts, recorded: (1) "touch is hardware" — one shared onKeyDown
+path; (2) the visibility-tied layout switch with engine rebuilds. Both coupled
+the surfaces; the rulings rejected them. The first draft of THIS section's
+mechanism also tied layout to visibility — superseded before shipping.
+
+The 두벌식/qwerty-only scope is provisional ("일단은"); expansion is a data
+and feature change on the soft surface, not a rewrite of the hardware path.

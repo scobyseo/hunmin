@@ -372,9 +372,10 @@ request for the soft keyboard, not an automatic appearance — it is honoured as
 the exception it is. *Implementation:* `KeypadVisibility` (decision table),
 service wiring in `onCreateInputView` / `onConfigurationChanged`
 (`docs/DESIGN-ANDROID-KEYPAD.md` §8). *Verified by:* tier E1
-`KeypadModelTest` (decision table), tier E2 touch round (auto-show on the
-`hw.keyboard=no` AVD); the hardware-present hide path is environment-bound
-(needs a device/AVD with `hw.keyboard=yes`).
+`KeypadModelTest` (decision table), tier E2 (BOTH paths measured on the AVD,
+which reports a QWERTY keyboard exposed: opt-in 0 hides the grid with the
+strip staying, opt-in 1 shows it; the maintainer's phone confirmed auto-show
+on a NOKEYS device).
 
 ### KP13. The decided keypad UI is the mockup picture (DECIDED)
 
@@ -516,3 +517,53 @@ shifted-jamo sublabel stays at the mockup's bottom-left; a top-corner move
 applied earlier the same day was reverted. The condition attached to the
 display proposals ("글자가 겹치지만 않는다면 내가 제안한 방식을 적용해 봐")
 is verified by measuring the keycap TextViews' bounds for overlap.
+
+### KP17. The soft keyboard uses 두벌식 only (DECIDED)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "그게 왜 필요한데? 소프트 키보드는 두벌식만 쓸건데?"
+
+**Decided:** the soft keypad's Hangul mode is 두벌식 — always, regardless of
+the 한글 배열 setting. The setting governs the HARDWARE-keyboard session; the
+keypad session (no physical keyboard, KP12) composes with dubeolsik, and the
+English keypad with us-qwerty (the picture's QWERTY). This closes the
+keypad↔layout-setting question: sin3-p2's punctuation keys being outside the
+picture's cells is moot for touch, because touch is 두벌식.
+
+The architectural ruling (maintainer, 2026-11-22, verbatim):
+
+> "소프트 키보드와 물리 키보드 구현은 전혀 관계가 없어야 하는데..."
+
+Mechanism: the soft keypad has its OWN engine pair (dubeolsik + us-qwerty,
+fixed constants), built per editor alongside the hardware pair. Touch keys
+dispatch to the touch pair; hardware keys keep the existing path and the
+configured layouts. The two implementations share only the editor
+(InputConnection) and the user's single mode indication (한/영 toggles both
+pairs' language); neither reads the other's layout or state. KP12 visibility
+is presentation only — no engine rebuild on surface change. The first draft
+of this mechanism tied the layout to visibility and rebuilt the engine on
+transition; that coupling is what the ruling rejected. The settings window
+stores the hardware choice, inert for the soft surface.
+
+*Implementation:* `KeypadModel.SOFT_HANGUL_LAYOUT` / `SOFT_LATIN_LAYOUT`,
+the service's touch engine pair and touch dispatch —
+`docs/DESIGN-ANDROID-KEYPAD.md`. *Verified by:* engine-android-e1 (constants,
+touch golden), engine-android-e2e (the touch round composes 두벌식; the
+hardware round keeps sin3-p2 — the surfaces are independent).
+
+Rationale for the independence (maintainer, 2026-11-22, verbatim):
+
+> "이 결정을 하는 이유는, 물리 키보드와 소프트 키보드의 UX가 전혀 다르기 때문이야.
+> 물리 키보드는 swipe-up이 불가능하지만 반복 입력이 쉽고, 소프트 키보드는 그 반대.
+> 이런 서로 다른 특성을 최대한 맞추어서 최적화해야 해."
+
+The two surfaces have OPPOSITE UX characteristics — hardware: no gestures,
+easy key repeat; soft: gestures available, repeat tapping hard. Each must be
+optimized for its own characteristics, which is why one shared implementation
+(the first draft's "touch is hardware" key path, and the visibility-tied layout
+switch) is the wrong shape: it compromises both. Consequences already in train:
+the soft surface gets gesture alternates (KP7/#312) and long-press word-delete
+(#312, compensating hard repeat); the hardware surface keeps OS key repeat and
+the configured layouts. Independence is the means; per-surface optimization is
+the end.

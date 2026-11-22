@@ -352,6 +352,18 @@ class KeypadModelTest {
         assertEquals("drifted mode: the return memory would be stale", KeypadState.Page.TEXT, s.page)
     }
 
+    // ------------------------------------------------------------ KP17 soft surface
+
+    @Test
+    fun `the soft surface is the Track 3 goal layouts, fixed`() {
+        // KP17: the soft keyboard supports 두벌식/qwerty only ("일단은"),
+        // independent of the hardware setting. The constants name real data.
+        assertEquals("dubeolsik", KeypadModel.SOFT_HANGUL_LAYOUT)
+        assertEquals("us-qwerty", KeypadModel.SOFT_LATIN_LAYOUT)
+        assertTrue(File(layouts, "${KeypadModel.SOFT_HANGUL_LAYOUT}.json").isFile)
+        assertTrue(File(layouts, "${KeypadModel.SOFT_LATIN_LAYOUT}.json").isFile)
+    }
+
     // ------------------------------------------------------------ KP16 shift alternate
 
     @Test

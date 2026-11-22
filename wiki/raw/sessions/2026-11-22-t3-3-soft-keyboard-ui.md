@@ -164,3 +164,22 @@ digit/hint overlap, fixed by 10sp/9sp corner texts. Two more measured first
 drafts: the alternate decision read the armed keycap's folded (null) hint, and
 the E2E text extractor missed uiautomator's single-quoted attribute when the
 field contains a double quote.
+
+## KP17: two independent surfaces (the architecture correction)
+
+Asking why sin3-p2 was on the soft keyboard at all exposed the root error: the
+keypad had been built as "a surface that draws the active layout", generalizing
+"layouts are data / no per-layout code" into "the keypad must support every
+layout" — over the Track 3 decision that the soft form IS 두벌식. The
+maintainer's rulings: soft = 두벌식/qwerty only ("일단은"); the two
+implementations must have NO relation; the reason is their opposite UX
+(hardware: no gestures, easy repeat; soft: gestures, hard repeat) — each
+optimized for its own. The architecture now: a dedicated touch engine pair
+(dubeolsik+us-qwerty) with its own dispatch; the hardware path untouched;
+shared only the editor, the mode indication, and a boundary flush at surface
+switches (one composing region). Two earlier drafts coupled the surfaces
+("touch is hardware"; visibility-tied layout rebuilds) — both overturned.
+E2E measures both surfaces on one AVD (touch 안녕 / hardware ㅎ곈디) and both
+KP12 visibility paths (the running AVD reports a QWERTY keyboard exposed, so
+the opt-in toggle measures hide AND show — the earlier "environment-bound"
+note was wrong about this instance).

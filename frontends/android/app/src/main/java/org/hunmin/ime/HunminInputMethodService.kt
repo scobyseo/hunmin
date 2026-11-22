@@ -157,6 +157,16 @@ class HunminInputMethodService : InputMethodService() {
      */
     private var keypad: KeypadView? = null
 
+    /**
+     * The SOFT keyboard's own engine pair (KP17): dubeolsik + us-qwerty, fixed.
+     * Independent of the hardware pair ([engine]/[latinEngine]) and the layout
+     * setting — "소프트 키보드와 물리 키보드 구현은 전혀 관계가 없어야 하는데..."
+     * (maintainer 2026-11-22). Touch keys dispatch here; hardware keys keep
+     * [onKeyDown] and the configured layouts. The two share only the editor
+     * and the user's mode indication.
+     */
+    private var touchEngine: HunminAdapter? = null
+
     /** The app-read symbol screen (KP11, #297), parsed once from the asset. */
     private var symbolScreen: SymbolScreen? = null
 
@@ -373,6 +383,8 @@ class HunminInputMethodService : InputMethodService() {
         runCatching { unregisterReceiver(hanjaReceiver) }
         engine?.close()
         engine = null
+        touchEngine?.close()
+        touchEngine = null
         if (ctx != 0L) {
             HunminNativeBridge.nativeCtxFree(ctx)
             ctx = 0
@@ -400,11 +412,16 @@ class HunminInputMethodService : InputMethodService() {
         /* The latin adapter is ONE-language on purpose: it is addressed directly
          * by the voice/latin paths, and the pair lives on `engine` (FE7). */
         latinEngine = if (ctx == 0L) null else HunminAdapter(ctx, latinLayoutId, null, commitBehavior)
+        /* KP17: the soft surface's pair, built from the fixed goal layouts —
+         * never from layoutId/latinLayoutId. Independent of the hardware pair. */
+        touchEngine = if (ctx == 0L) null else HunminAdapter(
+            ctx, KeypadModel.SOFT_HANGUL_LAYOUT, KeypadModel.SOFT_LATIN_LAYOUT, commitBehavior)
         /* The special-function host (ruled 2026-10-31) is registered on BOTH
          * layers: the chord is resolved by whichever engine is composing, and a
          * host on only the hangul one would make Alt+한/영 dead in English mode. */
         engine?.registerSpecialHost(specialHost)
         latinEngine?.registerSpecialHost(specialHost)
+        touchEngine?.registerSpecialHost(specialHost)
         /* Both layers are new, so the engine's option is at its default (OFF,
          * B3) whatever the person chose before. The preference is the platform's
          * persistence for a value the ENGINE owns (ReqMode13), and a refusal --
@@ -445,6 +462,11 @@ class HunminInputMethodService : InputMethodService() {
             val synced = pair.toggleLanguage(null)
             Log.i(TAG, "hunmin: layer language synced to mode=$isHangulMode (toggled=$synced, now=${pair.isHangulLanguage()})")
         }
+        // The soft pair follows the same recalled mode (one mode indication).
+        val soft = touchEngine
+        if (soft != null && soft.isHangulLanguage() != isHangulMode) {
+            soft.toggleLanguage(null)
+        }
         currentInputConnection?.let { engine?.updatePreedit(it) }
         // The view is created once per IME window but the engine per editor, so
         // the picker's list and selection are refreshed here rather than trusted
@@ -456,6 +478,8 @@ class HunminInputMethodService : InputMethodService() {
     override fun onFinishInput() {
         engine?.close()
         engine = null
+        touchEngine?.close()
+        touchEngine = null
         super.onFinishInput()
     }
 
@@ -509,7 +533,7 @@ class HunminInputMethodService : InputMethodService() {
                 null
             }
         }
-        pad.setKeycaps(caps(layoutId), caps(latinLayoutId))
+        pad.setKeycaps(caps(KeypadModel.SOFT_HANGUL_LAYOUT), caps(KeypadModel.SOFT_LATIN_LAYOUT))
         pad.setMode(isHangulMode)
     }
 
@@ -527,7 +551,7 @@ class HunminInputMethodService : InputMethodService() {
      *    swallowing them would break every shortcut behind the IME.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (event.action != KeyEvent.ACTION_DOWN) return passThrough(keyCode, event)
+        if (event.action != KeyEvent.ACTION_DOWN) return super.onKeyDown(keyCode, event)
 
         // A key the settings window is capturing comes here first and nowhere
         // else: while an IME is the current input method, hardware keys are
@@ -555,7 +579,7 @@ class HunminInputMethodService : InputMethodService() {
             if (chordEngine != null && (mods != 0 || shift != 0)) {
                 val fn = chordEngine.special(0, shift, mods)
                 if (fn > 0) return true
-                if (fn < 0) return passThrough(keyCode, event)
+                if (fn < 0) return super.onKeyDown(keyCode, event)
             }
         }
 
@@ -576,10 +600,16 @@ class HunminInputMethodService : InputMethodService() {
          * back (measured on a device 2026-11-07). The commit is also where the
          * judgement is TAKEN -- this branch returns before the general path, so
          * leaving it pending deferred the switch to the next keystroke. */
+        // Editor hygiene at a surface switch (see dispatchTouchKey): deliver
+        // the soft pair's word in flight before the hardware surface composes.
+        if (touchEngine?.preedit()?.isNotEmpty() == true) {
+            currentInputConnection?.let { touchEngine?.commitWord(it) }
+        }
+
         if (keyCode == KeyEvent.KEYCODE_SPACE && !isSecureEditor) {
-            val e = engine ?: return passThrough(keyCode, event)
+            val e = engine ?: return super.onKeyDown(keyCode, event)
             val target: InputConnection = currentInputConnection
-                ?: return passThrough(keyCode, event)
+                ?: return super.onKeyDown(keyCode, event)
             // Space is a boundary key: the WORD accumulated so far is delivered
             // once through commitWord (issue #75), then the space itself is
             // forwarded -- the space does not go through the engine. Not in a
@@ -633,7 +663,7 @@ class HunminInputMethodService : InputMethodService() {
             || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT
             || keyCode == KeyEvent.KEYCODE_META_LEFT
             || keyCode == KeyEvent.KEYCODE_META_RIGHT) {
-            return passThrough(keyCode, event)
+            return super.onKeyDown(keyCode, event)
         }
 
         // Route to correct engine based on mode.
@@ -645,7 +675,7 @@ class HunminInputMethodService : InputMethodService() {
         // read (measured 2026-10-13, issue #13). Checked before the engines
         // rather than inside them: HunminAdapter is layout-agnostic core code
         // with no notion of an editor, and the policy belongs to the adapter.
-        if (isSecureEditor) return passThrough(keyCode, event)
+        if (isSecureEditor) return super.onKeyDown(keyCode, event)
 
         /* ONE layer takes every key: the PAIR (FE7). Routing by mode sent
          * Latin-mode keys to `latinEngine`, a one-language layer that has no
@@ -657,7 +687,7 @@ class HunminInputMethodService : InputMethodService() {
          * the switch's commit), not for key input. */
         val e = engine ?: latinEngine
         val target: InputConnection = currentInputConnection
-            ?: return passThrough(keyCode, event)
+            ?: return super.onKeyDown(keyCode, event)
 
         val consumed = try {
             e?.onKey(keyCode, event.metaState, target) ?: false
@@ -681,7 +711,7 @@ class HunminInputMethodService : InputMethodService() {
          * consuming -- and the E1 gate's symmetric line ("typed in one stream,
          * both directions") could never pass on this frontend. */
         adoptJudgement(e)
-        return if (consumed) true else passThrough(keyCode, event)
+        return if (consumed) true else super.onKeyDown(keyCode, event)
     }
 
     /**
@@ -725,6 +755,9 @@ class HunminInputMethodService : InputMethodService() {
         val target0 = currentInputConnection
         val eng = engine
         if (eng != null && eng.toggleLanguage(target0)) {
+            // One mode indication: the soft pair follows the toggle (KP17 —
+            // the surfaces are independent in layout, not in the user's mode).
+            touchEngine?.toggleLanguage(target0)
             isHangulMode = eng.isHangulLanguage()
             modeStore.remember(KEY_HANGUL_MODE, isHangulMode)
             if (target0 != null) eng.updatePreedit(target0)
@@ -742,6 +775,7 @@ class HunminInputMethodService : InputMethodService() {
         isHangulMode = !isHangulMode
         modeStore.remember(KEY_HANGUL_MODE, isHangulMode)
         val target = currentInputConnection ?: return
+        touchEngine?.toggleLanguage(target)
 
         if (isHangulMode) {
             // Switching to Hangul: commit the Latin word first (boundary)
@@ -831,7 +865,7 @@ class HunminInputMethodService : InputMethodService() {
      */
     private fun applyAutoswitch(on: Boolean): Int? {
         var answer: Int? = null
-        for (layer in listOfNotNull(engine, latinEngine)) {
+        for (layer in listOfNotNull(engine, latinEngine, touchEngine)) {
             val v = layer.setAutoswitch(on)
             if (v != null) answer = v
         }
@@ -1182,48 +1216,68 @@ class HunminInputMethodService : InputMethodService() {
     }
 
     /**
-     * A keycap tap enters the SAME key path a hardware key does (design §1):
-     * a synthesized ACTION_DOWN with the tap's metaState, through onKeyDown.
-     * Space's boundary, the judgement adoption, the secure-editor guard and
-     * key capture therefore apply to touch unchanged — there is no second
-     * policy to drift. onKeyDown's own fall-through (super) delivers a declined
-     * key to the app, which is how navigation and unmapped keys reach it.
+     * A keycap tap enters the SOFT surface's own key path (KP17): the touch
+     * engine pair (dubeolsik + us-qwerty, fixed), independent of the hardware
+     * path and the layout setting — the two surfaces' UX characteristics are
+     * opposite (maintainer: hardware has no gestures but easy repeat, soft the
+     * reverse), so each is optimized separately. The policies here mirror the
+     * hardware ones because they are about the EDITOR (space boundary,
+     * judgement, secure editor), not because the surfaces share an engine.
+     * A declined key is forwarded explicitly (synthesized events are dropped
+     * by the platform's default forwarding — measured, bugs 2/3).
      */
     private fun dispatchTouchKey(keyCode: Int, metaState: Int) {
+        val target = currentInputConnection ?: return
         val now = SystemClock.uptimeMillis()
         val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, metaState)
-        inTouchDispatch = true
-        val consumed = try {
-            onKeyDown(keyCode, down)
-        } finally {
-            inTouchDispatch = false
+        /* Editor policy, shared because it is about the EDITOR, not a surface:
+         * a password field gets literal keys, no composition (issue #13). */
+        if (isSecureEditor) {
+            forwardTouchToApp(target, down, keyCode, metaState)
+            return
         }
+        val e = touchEngine
+        if (e == null) {
+            forwardTouchToApp(target, down, keyCode, metaState)
+            return
+        }
+        /* Editor hygiene at a surface switch: the hardware pair may hold a
+         * word in flight, and the editor has ONE composing region. Deliver it
+         * before the soft surface composes (the same boundary primitive the
+         * mode toggle uses). This is text order in the shared editor, not a
+         * coupling of the two implementations' layouts or state. */
+        if (engine?.preedit()?.isNotEmpty() == true) engine?.commitWord(target)
+        if (keyCode == KeyEvent.KEYCODE_SPACE) {
+            // The soft surface's own boundary: word delivered, then the space.
+            e.commitWord(target)
+            target.commitText(" ", 1)
+            adoptJudgement(e)
+            return
+        }
+        val consumed = try {
+            e.onKey(keyCode, metaState, target)
+        } catch (ex: UnsatisfiedLinkError) {
+            Log.e(TAG, "hunmin: native library unavailable (touch)", ex)
+            touchEngine = null
+            false
+        }
+        adoptJudgement(e)
         if (!consumed) {
-            /* MEASURED (issue #299, bugs 2/3): the platform's default
-             * onKeyDown forwarding does NOT deliver a SYNTHESIZED KeyEvent to
-             * the app — hardware events arrive with a keyboard source and
-             * flags, ours do not, and backspace/enter taps did nothing while
-             * the engine correctly declined them (consumed=false in logcat,
-             * field unchanged). So a declined touch key is forwarded
-             * EXPLICITLY through the InputConnection, down and up, the way
-             * every IME sends pass-through keys. passThrough() suppresses the
-             * super fallback during touch dispatch so the key is delivered
-             * exactly once. */
-            val ic = currentInputConnection ?: return
-            if (keyCode == KeyEvent.KEYCODE_ENTER) {
-                // Enter is the editor's action first (Done/Go/Send/Next); a
-                // key event alone does nothing on a single-line action editor.
-                // sendDefaultEditorAction answers false when there is no
-                // action — then Enter is a newline key like any other.
-                if (sendDefaultEditorAction(true)) return
-            }
-            ic.sendKeyEvent(down)
-            ic.sendKeyEvent(KeyEvent(now, SystemClock.uptimeMillis(), KeyEvent.ACTION_UP, keyCode, 0, metaState))
+            /* MEASURED (issue #299, bugs 2/3): the platform's default key
+             * forwarding does NOT deliver a SYNTHESIZED KeyEvent to the app —
+             * hardware events carry a keyboard source, ours do not. A declined
+             * touch key is forwarded EXPLICITLY, down and up. */
+            forwardTouchToApp(target, down, keyCode, metaState)
         }
     }
 
-    /** True while [dispatchTouchKey] is driving [onKeyDown]; see its KDoc. */
-    private var inTouchDispatch = false
+    /** Explicit pass-through of a declined touch key; Enter is the editor's
+     *  action first (Done/Go/Send/Next), a newline key when there is none. */
+    private fun forwardTouchToApp(ic: InputConnection, down: KeyEvent, keyCode: Int, metaState: Int) {
+        if (keyCode == KeyEvent.KEYCODE_ENTER && sendDefaultEditorAction(true)) return
+        ic.sendKeyEvent(down)
+        ic.sendKeyEvent(KeyEvent(down.downTime, SystemClock.uptimeMillis(), KeyEvent.ACTION_UP, keyCode, 0, metaState))
+    }
 
     /** AOSP META_CTRL_ON, javap -constants android.jar (API 35) — the same
      *  value HunminAdapterTest pins. Ctrl+DEL is the app's own word-delete. */
@@ -1245,7 +1299,7 @@ class HunminInputMethodService : InputMethodService() {
      * platform action — no surrounding-text read anywhere (I9).
      */
     private fun deleteBySwipeUnit() {
-        val e = engine ?: latinEngine
+        val e = touchEngine
         val ic = currentInputConnection ?: return
         when (readSwipeUnit()) {
             DeleteUnit.KEY ->
@@ -1300,14 +1354,6 @@ class HunminInputMethodService : InputMethodService() {
     }
 
     /**
-     * The declined-key fallback. Hardware events keep the platform's default
-     * forwarding (tier E2 measures it); touch dispatch forwards explicitly in
-     * [dispatchTouchKey] instead, because the default drops synthesized events.
-     */
-    private fun passThrough(keyCode: Int, event: KeyEvent): Boolean =
-        if (inTouchDispatch) false else super.onKeyDown(keyCode, event)
-
-    /**
      * A symbol-page tap: KP11's direct commit, engine uninvolved — but the
      * pending word is flushed FIRST (design §1, DESIGN-ANDROID-SYMBOLS §4),
      * so the symbol never lands ahead of the buffered composition, and the
@@ -1316,8 +1362,8 @@ class HunminInputMethodService : InputMethodService() {
     private fun commitSymbolFromTouch(ch: String) {
         val screen = symbolScreen ?: return
         val target = currentInputConnection ?: return
-        engine?.commitWord(target)
-        adoptJudgement(engine)
+        touchEngine?.commitWord(target)
+        adoptJudgement(touchEngine)
         screen.commitSymbol(ch, target)
     }
 
@@ -1335,6 +1381,7 @@ class HunminInputMethodService : InputMethodService() {
             false
         }
         val shown = KeypadVisibility.autoShown(config.keyboard, config.hardKeyboardHidden, optIn)
+        Log.d(TAG, "keypad visibility: keyboard=${config.keyboard} hidden=${config.hardKeyboardHidden} optIn=$optIn shown=$shown")
         pad.visibility = if (shown) View.VISIBLE else View.GONE
     }
 

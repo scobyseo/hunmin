@@ -295,6 +295,17 @@ object KeypadModel {
     }
 
     /**
+     * KP17 (maintainer 2026-11-22: "소프트 키보드는 두벌식만 쓸건데?"): the
+     * soft keypad's Hangul mode is 두벌식 and its English mode QWERTY,
+     * regardless of the layout setting — the setting governs the hardware
+     * session. The soft keypad has its OWN engine pair built from these
+     * constants; the two implementations are independent (maintainer:
+     * "소프트 키보드와 물리 키보드 구현은 전혀 관계가 없어야 하는데...").
+     */
+    const val SOFT_HANGUL_LAYOUT = "dubeolsik"
+    const val SOFT_LATIN_LAYOUT = "us-qwerty"
+
+    /**
      * KP14's gesture decision, pure: a swipe-left deletes when it is LONG
      * (leftward distance at least [thresholdPx]) and horizontally dominant
      * (at least twice the vertical drift) — a tap that drifts up or down a
