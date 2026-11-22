@@ -865,17 +865,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/ccache
-          key: jammy-ccache-${{ hashFiles('libhunmin/**', 'frontends/ibus/**', 'cmake/**', 'CMakeLists.txt', 'third_party/**', 'debian/**') }}
+          # sha key + prefix restore, NOT hashFiles: ccache validates its
+          # objects by content hash itself, so a stale restore is safe and
+          # the key only needs to be unique per run. (hashFiles over the
+          # source tree failed in the post step of dispatch 45006949777
+          # after the package build; the simpler key is the standard ccache
+          # CI pattern.)
+          key: jammy-ccache-${{ github.sha }}
           restore-keys: jammy-ccache-
       # Build-Depends with the nobilus profile (see debian/control) is exactly
       # libibus-1.0-dev + the core's own deps; the extra packages below are the
       # D3 runtime harness (Xvfb, GTK3 gi, im-ibus.so, XTEST), not build deps.
-      - name: Restore the apt archives
-        uses: actions/cache@v4
-        with:
-          path: /var/cache/apt/archives
-          key: jammy-apt-v1
-          restore-keys: jammy-apt-
       - name: Install build and D3 deps
         run: |
           sudo apt-get update
