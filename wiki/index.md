@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-11-08   (no page count: three counters disagreed, so the
+> Last updated: 2026-11-22   (no page count: three counters disagreed, so the
 > number a reader needs is the one a tool prints — `python tools/wiki-lint.py`)
 
 ## Concepts
@@ -326,6 +326,10 @@
   malformed `--keys` token, not a soak leak: the error return skipped cleanup.
   Also the `gh` argv failure, the generator's escape fix and the one check left
   to the scheduled run.
+- [[2026-11-22-symbol-layer-options]] — issue #298's third-row premise measured
+  against the built engine: the loader ignores a `symbol` row, `doctor.py`
+  rejects it, and the reserved `alt` row is accepted but ignored. The probe
+  procedure, the baseline E2/budget finding and the open doctor-doc contradiction.
 
 ## Raw — upstream
 

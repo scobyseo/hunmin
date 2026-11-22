@@ -1264,3 +1264,14 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   while the normal exit was clean. The page keeps the before/after readings,
   the generator grammar fix, and the scheduled-run verification still owed.
 
+## [2026-11-22] create | symbol-layer options for issue #298
+
+- Created [[2026-11-22-symbol-layer-options]]: the third-row "no engine change"
+  premise was measured false against the built loader and key API; the probe
+  procedure is `tools/measure-symbol-layer.py`, and the comparable designs are
+  `docs/DESIGN-ANDROID-SYMBOLS.md`. No ruling is recorded.
+- Baseline findings left open: the inner loop ran tier E2 because E2 is not
+  labelled `slow`, and one Espresso run hit an emulator disappearance race
+  before passing alone. `docs/TESTING.md`'s stale doctor-coverage warning was
+  recorded as a contradiction, not silently resolved.
+

@@ -344,9 +344,12 @@ pixel is drawn, and the honest options are comparable:
    variant, Android-style) on top of option 1.
 
 Which is the optimum is a design analysis for the lane to write, not a ruling here
-(AGENTS.md: analysis presents designs as comparable; the maintainer chooses). What
-the measurement above does settle is that **doing 0.4 as "just render the JSON" is
-not sufficient** — the third layer does not exist in the data today.
+(AGENTS.md: analysis presents designs as comparable; the maintainer chooses).
+The analysis is `docs/DESIGN-ANDROID-SYMBOLS.md` (issue #298); it separates the
+data home, the selection mechanism and the interaction, and records the measured
+engine/doctor costs. What the measurement above does settle is that **doing 0.4
+as "just render the JSON" is not sufficient** — the third layer does not exist in
+the data today.
 
 **Scope boundaries implied by the goal:**
 
