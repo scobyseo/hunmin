@@ -538,7 +538,7 @@ when it is on:
 | android-release | ubuntu-24.04 | `assembleRelease`, throwaway keystore; **gated** on `vars.HUNMIN_BUILD_RELEASE == 'true'` and a push to `master` |
 | mingw | ubuntu-24.04 | cross-build `libhunmin.dll` (`-DBUILD_TESTING=OFF`) |
 | windows | windows-latest | **disabled** (`if: false`, issue #51) — kept in the file so "was Windows built here, and why did it stop" stays answerable |
-| nightly-fuzz | ubuntu-24.04 | LeakSanitizer build + a random-key sweep; `schedule` only (03:00 UTC) |
+| nightly-fuzz | ubuntu-24.04 | LeakSanitizer build + a random-key sweep; `schedule` only (03:00 UTC). The feed is checked by ctest `fuzz-keys-selfcheck`; the 2026-11-21 LSan failure and its cause are recorded in `wiki/raw/measurements/2026-11-22-nightly-fuzz-lsan-error-path.md`. |
 
 **Listed here but still not implemented — do not plan work assuming they exist:**
 the libFuzzer 8h and differential-vs-libhangul 1h jobs (the `nightly-fuzz` job
