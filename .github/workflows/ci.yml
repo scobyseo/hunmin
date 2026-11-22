@@ -754,8 +754,8 @@ jobs:
             xvfb x11-utils x11-xkb-utils xauth dbus ibus ibus-gtk3
       # The ruling says dpkg-checkbuilddeps on jammy must succeed with only
       # the build dependencies. Run it WITHOUT -d so the claim is actually
-      # tested; the deb job needs -d only because fcitx5 there is a source
-      # build.
+      # tested. (The noble deb job no longer needs -d either: since issue #322
+      # fcitx5 is a distro package there, so its build-depends are real.)
       - name: Verify jammy Build-Depends (no -d)
         run: dpkg-checkbuilddeps -Pnobilus
       - name: Configure and build
