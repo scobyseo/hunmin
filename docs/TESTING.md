@@ -210,11 +210,35 @@ touch the full stack should select `-L 'tier-D1|tier-D2' -LE mutation` (0.09 s),
 not `-L tier-D`.
 
 **Re-measured 2026-11-22, with the IBus lanes registered** (`engine-d1-ibus`,
-`engine-d2-ibus-ui`): that selection is now **6 tests, 1.07 s** on this host, and
-`-L tier-D` grows by the same two. The IBus D2 lane starts a private session bus
-(`GTestDBus`) per case, so it costs ~0.8 s where the fcitx5 D2 lane costs
-~0.3 s — still under the `slow` cut, and it waits for the signals it expects
-rather than sleeping a fixed time, which is what keeps it there.
+`engine-d1-ibus-judgement`, `engine-d2-ibus-ui`): the selection above is now
+**7 tests, 5.7 s** in the 107-test configuration (three consecutive runs:
+5.76 / 5.64 / 5.69 s), and `-L tier-D` grows by the same three.
+
+| test | wall, on its own |
+|---|---|
+| `engine-d1-fcitx5` | 0.15 s |
+| `engine-d1-judgement` | 1.11 s |
+| `engine-d2-ui` | 0.18 s |
+| `engine-d1-ibus` | 0.47 s |
+| `engine-d1-ibus-judgement` | 0.92 s |
+| `engine-d2-ibus-ui` | **2.82 s** (five runs: 2.81–2.85) |
+| `frontend-invariants` | 0.09 s |
+
+The figure this paragraph carried earlier the same day — `6 tests, 1.07 s`, with
+the IBus D2 lane at ~0.8 s — **does not reproduce on this tree**. The lane is
+2.8 s, and the cost is its bus: one case alone is 115 ms, all eight are 2794 ms,
+and the fixture spawns a private `GTestDBus` and tears it down *per case*. A
+shared bus would be ~0.3 s for the whole lane, so ~0.8 s is consistent with a
+shared-bus number and not with a per-case one here — and the adaptive pump
+(`Key()` now waits for the signals a key published, with a 2 s miss ceiling,
+instead of a fixed sleep) landed last, after the measurement table was taken.
+That is a hypothesis about where the number came from, not a finding about the
+fixture, and the cheaper bus is one possible answer.
+
+The conclusion is unaffected: 5.7 s is far under the `slow` cut, and the inner
+loop still fits its 30 s budget (`docs/CI-TIMING.md` §5 owns those numbers).
+Whether ~0.3 s a case is worth a shared bus is a trade against per-case
+isolation, and it is not one this measurement makes.
 
 ctest also prints a **Label Time Summary** at the end of any labelled run, which
 is the cheapest way to see where a selection's time went:
