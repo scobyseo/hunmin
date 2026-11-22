@@ -483,6 +483,31 @@ is the downloaded artefact's layout on the next PR run, and the deb job's
 `pkg-config --modversion Fcitx5Core` remains the confirmation when it is
 re-enabled.
 
+### 5c. The local budgets on a host with the Android SDK and a device (measured 2026-11-22)
+
+Measured while verifying issue #306, whose change adds one ctest
+(`trace-emit-guard`, 0.2 s). `tools/ci-time-budget.sh build` reports **both**
+local budgets over on this host, and the overage is pre-existing, not the new
+test's: the inner loop is 43.4 s with the guard and 42.8 s without it.
+
+Conditions: `ANDROID_HOME`/`JAVA_HOME`/`ANDROID_NDK` exported, an emulator and
+a physical device attached, `-DHUNMIN_TRACE_BUILD=ON`, D3 present locally,
+IBus lane not registered (`ibus-1.0 >= 1.5.26` not found on this host).
+
+| tier | wall (-j16) | budget | where it goes (per-test, junit) |
+|---|---|---|---|
+| inner `-LE slow` | 43.4 s | 30 s | `engine-android-espresso` 30.6 s (tier-E2, `RUN_SERIAL`, skips 77 with no device), `builds-android` 9.4 s (gradle `--no-daemon`), `shell-lint` 6.2 s; 135 tests, 106.4 s of test time |
+| slow `-L slow` | 122.6 s | 60 s | `android-mutations` 99.3 s (registers only where `ANDROID_HOME` is set), D3 edit/x11/candidate 40.8/37.9/16.9 s (skip on the runner), `frontend-mutations` 25.5 s, `docs-lint` 11.0 s |
+
+So the 30 s / 60 s figures hold when the device-bound and SDK-bound tests skip
+or do not register; when they run, the inner loop's floor is the espresso run
+plus a cold gradle assemble, neither of which is labelled `slow`. Two shapes
+are open and the choice is the maintainer's: label the device/gradle-bound
+tests `slow` (the inner loop then measures ~12 s here, and the slow budget
+line moves with this measurement beside it), or state the budgets against the
+skip conditions explicitly. No ruling is recorded here; the guard test itself
+is cheap and stays in the inner loop either way.
+
 ---
 
 ## 6. None of this can currently be re-measured (2026-10-16)

@@ -126,7 +126,8 @@ python3 tools/docs-lint.py --build-dir build   # guards figures quoted in prose
 python3 tools/wiki-lint.py
 
 # Tier C: regenerate the conformance corpus from a tier A golden, then re-run the
-# gate. Review diffs; never blind-accept (docs/trace-spec.md).
+# gate. --emit refuses a changed .gold without --accept-changed; review diffs,
+# never blind-accept (docs/trace-spec.md).
 cmake -B build -DHUNMIN_TRACE_BUILD=ON
 python3 tools/gen-conformance.py --golden tests/golden/p2-2-1-basic.jsonl \
     --platform x11 --layout sin3-p2-basic --case basic-syllables \

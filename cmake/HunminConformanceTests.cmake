@@ -3,6 +3,9 @@ if(NOT BUILD_TESTING)
   return()
 endif()
 hunmin_add_test(NAME conformance-coverage COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/conformance-coverage.py --check LABELS tier-C guard)
+# The write path's own guard (issue #306): --emit must refuse a changed .gold
+# without --accept-changed. Self-contained -- stub runner, no frontend needed.
+hunmin_add_test(NAME trace-emit-guard COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/trace-emit-guard-test.py LABELS tier-C guard)
 if(TARGET trace-emit)
   file(GLOB HUNMIN_CONFORMANCE_TRACES "${CMAKE_CURRENT_SOURCE_DIR}/tests/conformance/x11/*.trace.in")
   set(HUNMIN_CONFORMANCE_SAFE "")
