@@ -314,9 +314,10 @@ KP6/KP9; those records stand as the history of the considered alternative.
 
 **Scope ruling:** #298 records this direction only; **extending the feature is a
 separate issue, #312** (`[android] extend symbol selection via swipe/long-press on
-symbol keys`). The variant mapping, its data home, and the per-key gesture set
-(bounded by KP8) are #312's work, not #298's. *Implementation:* none.
-*Refuted by:* none yet.
+symbol keys`). The variant mapping and the per-key gesture set (bounded by KP8)
+are #312's work, not #298's; the variant mapping's data home is already settled
+by KP11 — the app-read symbol data file, with the engine uninvolved. *Implementation:*
+none. *Refuted by:* none yet.
 
 ### KP11. Symbol screen data home — app-read data file, engine uninvolved (DECIDED)
 

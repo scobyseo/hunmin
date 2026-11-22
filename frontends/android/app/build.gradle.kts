@@ -359,6 +359,14 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
 
     testImplementation("junit:junit:4.13.2")
+    // SymbolScreen.kt parses the app-read keypad asset with the platform's
+    // org.json (no runtime dependency added). On the unit-test JVM the
+    // android.jar org.json is a stub, and isReturnDefaultValues=true would
+    // make every parse silently answer null/0 -- a green run measuring
+    // nothing, the exact shape tools/android-unit.sh exists to catch. The
+    // real implementation on the TEST classpath is what makes
+    // SymbolScreenTest parse the same bytes the device will.
+    testImplementation("org.json:json:20240303")
 
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")

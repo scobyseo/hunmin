@@ -155,7 +155,13 @@ class HunminAdapterTest {
         // the file: a regex over the whole document picks up JSON syntax and
         // Korean text in compose tables, so the "keys" it reports have nothing
         // to do with the keys a layout uses.
-        val need = dataDir.resolve("layouts").listFiles { f -> f.name.endsWith(".json") }
+        // meta.json is provenance, not a layout (FE14, issue #292): it has no
+        // "keys" object, and scanning it threw "no keys in this layout file".
+        // tools/keymap-fixture.py got this exclusion in the same commit that
+        // added the file; this parallel scan did not, and was red on master
+        // (measured 2026-11-22: baseline 159 tests / 1 failed, this test).
+        val need = dataDir.resolve("layouts")
+            .listFiles { f -> f.name.endsWith(".json") && f.name != "meta.json" }
             .orEmpty()
             .flatMap { f -> layoutKeysIn(f.readText()) }
             .toSet()

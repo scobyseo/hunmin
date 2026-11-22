@@ -1550,3 +1550,22 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   없는 것과 표시 경로가 없는 것은 다른 명제. 엔진의 현재 드롭은 선택이지
   불가능이 아니었음. [[2026-11-22-ibus-gloss-paths]]에 기록.
 - fcitx5 5.1.7 폴백도 검증: classicui가 auxDown/customLabel 렌더.
+## [2026-11-22] update | T3 issues aligned to the KP11 ruling, and #297 built
+
+- Maintainer instruction (verbatim): "T3-1의 결정과 나머지 T3 issue들의 내용이 일치하지
+  않으면 지금 고치자. T3-1의 결정으로 대체할 거야." KP11 (`#298`) replaces the
+  pre-decision text in #285, #297 and #312: no third per-key symbol row, an
+  app-read data file, no engine/ABI/schema change; #297 retitled to the app-read
+  symbol data and #312's data-home question closed against KP11.
+- Corrected three doc sentences that still called the data home open
+  (`docs/SPEC-ANDROID-KEYPAD.md` §KP10, `docs/ANDROID-KEYPAD-MOCKUP.md` closing
+  paragraph, `docs/REQ-MAP.md` KP10 row).
+- Built #297: `assets/keypad/symbols.json` (KP6's ruled rows, function ids only),
+  `tools/symbol-data-check.py` (ctest `keypad-symbol-data`, tier-B guard),
+  `SymbolScreen.kt` + `SymbolScreenTest.kt` (tier E1 commit-path golden). KP11's
+  REQ-MAP row moved from `none` to `partial` with those pointers.
+- Fixed two pre-existing reds the work uncovered, both unreachable while tier E1
+  was already failing: `HunminAdapterTest.every layout key has a keycode` scanned
+  `layouts/meta.json` (no `keys` object), and the `always-consume` mutation
+  anchor had drifted from the trace call's current shape. Created
+  [[2026-11-22-t3-2-symbol-data-and-issue-alignment]]; index updated.

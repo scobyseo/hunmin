@@ -170,8 +170,9 @@ in its scope):
 
 ## What would move this from provisional to ruled
 
-A maintainer choice of the **data home** (the #298 core) plus the **frequent-symbol
-set** and **number-row default** would fix the main screens; the geometry and
-gesture defaults can then be tuned against the narrow-screen target-size analysis
-(`docs/ANDROID-SYMBOL-INTERACTION.md`). No verdict is recorded here; the mockup is
-the concrete proposal those decisions act on.
+The **data home is decided** (KP11 / #298, B2: the app draws the symbol screen
+from a data file; the engine is uninvolved). The **frequent-symbol set** and
+**number-row default** would fix the main screens; the geometry and gesture
+defaults can then be tuned against the narrow-screen target-size analysis
+(`docs/ANDROID-SYMBOL-INTERACTION.md`). Those remaining choices are open; the
+mockup is the concrete proposal they act on.
