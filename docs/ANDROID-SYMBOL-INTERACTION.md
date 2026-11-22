@@ -270,6 +270,94 @@ through emphasis rather than repositioning (or reposition within Tier 2, where
 KP1 imposes no physical-position rule), and apply the character-vs-functional
 visual hierarchy on the main keypad.
 
+## Number-row digit↔symbol pairing: mechanism comparison (KP1)
+
+KP1 asks for the number-row symbols to be **linked to the number keys**, driven
+by password entry that interleaves digits and symbols (`1!2@3#`, `P@ssw0rd!`).
+Four mechanisms can carry that link; this compares them on the password case,
+the narrow-screen constraint, and discoverability. It is analysis, not a ruling.
+
+| mechanism | digit | its symbol | interleaved digit+symbol | screen cost | discoverability |
+|---|---|---|---|---|---|
+| **long-press digit → symbol** | 1 tap | 1 hold-release | tap / hold alternating on one row | none (same row) | corner hint label (`1` with a faint `!`) |
+| shift + digit (physical) | 1 tap | shift + key (2 taps) | shift toggling per symbol; shift-lock helps pure-symbol bursts only | a shift key | matches physical 104-key |
+| swipe-up on digit | 1 tap | 1 gesture | tap / swipe alternating | none | hint label; gesture learnability |
+| double-tap digit | 1 tap | 2 taps | ambiguity with repeated digits (`11` vs `!`) | none | poor |
+
+**Why long-press fits this row specifically.** On the jamo keys, HeliBoard and
+FlorisBoard already spend long-press on doubled jamo (ㅂ→ㅃ), so a symbol popup
+there would compete with that meaning. **The number row has no such competing
+long-press meaning** — digits have no doubled form — so long-press→symbol is
+clean there. It keeps the digit primary (one tap), links the symbol to the same
+physical key (no mode switch, satisfying "연동"), spends no extra row (the
+narrow-screen constraint), and a faint corner hint makes the symbol discoverable
+without a page — which is exactly KP3's visual hierarchy (digit 진하게, symbol
+hint 연하게). Long-press-release on a single-symbol popup is one sustained
+gesture, fewer discrete touches than shift+key.
+
+**The cost, and what would change the choice.** Long-press pays a hold latency
+(~300–500 ms) per symbol, so a symbol-heavy password accumulates it. If measured
+entry time for representative passwords shows that hold dominates, **swipe-up**
+(one gesture, no hold) is faster at the price of learnability, and **shift-lock**
+is faster for pure-symbol bursts (but not for interleaving). The deciding
+question is the digit:symbol ratio in real password entry: digit-heavy favours
+long-press (digits stay one tap), symbol-heavy favours swipe or shift-lock. That
+ratio is unmeasured here. Shift+digit also has a claim as the *physical-position*
+answer KP1 asks for elsewhere — so a keypad could offer long-press as the default
+pairing and shift as the physical-convention alternative.
+
+**Recommendation (analysis, maintainer chooses):** long-press is the best default
+for the number-row pairing, because it satisfies KP1's link without spending
+screen space or adding a mode switch, and the number row is the one place with no
+competing long-press meaning. *What would change it:* a measured password-entry
+time showing hold latency dominates, or a digit:symbol ratio skewed enough to
+favour swipe/shift-lock.
+
+## Measuring symbol frequency (KP3's data source)
+
+**Method.** `tools/symbol-frequency.py` counts Unicode `P*`/`S*` codepoints per
+character in a corpus, normalises per million characters, and ranks them; it
+writes `meta.json` provenance with `--out`. The corpus path is an argument, never
+hardcoded. A finding from running it: **the local "corpora" are mostly
+word-frequency lists** (`624-ko.txt`, `nikl-2003-freq`, `119-clean/*.txt` are
+`form<TAB>count`), which contain no symbols and are unsuitable — symbol frequency
+needs **raw text** (or a wiki dump stripped of markup).
+
+**First reading (prose).** ko.wikipedia dump `kowiki.xml` (sha256 `de25cba4…`),
+first 3000 namespace-0 pages, `read_pages` + `strip_wiki`: 12,878,249 characters,
+788,837 symbols (61,253 per million), 226 distinct. Top symbols per million:
+
+| symbol | per million | | symbol | per million |
+|---|---:|---|---|---:|
+| `.` | 18,006 | | `'` | 841 |
+| `,` | 10,885 | | `·` | 644 |
+| `)` | 8,228 | | `《` `》` | 525 each |
+| `(` | 8,225 | | `/` | 394 |
+| `-` | 4,178 | | `%` | 235 |
+| `:` | 1,896 | | `*` | 96 |
+| `"` | 1,140 | | `;` | 81 |
+
+Reproduce: `python3 tools/symbol-frequency.py --wiki-dump <kowiki.xml> --pages 3000
+--out <dir>` (needs `mwparserfromhell`, e.g. the wikicorpus venv).
+
+**What it shows, and what it does not.**
+
+- The frequent set is `. , ( ) - : " '` — exactly KP4's default-visible
+  candidates, plus parentheses and hyphen. The Korean-specific `· 《》 〈〉` are
+  real prose symbols a 104-key cannot type (Tier 2).
+- **Password symbols are low in prose**: `%` 235, `*` 96, and `! @ # $ ^ &` lower
+  still. This confirms prose understates password demand, so KP1's number-row
+  digit↔symbol pairing is justified by the **use case**, not by prose frequency.
+- **Caveats:** this is encyclopedia prose, not chat or passwords (register); the
+  first 3000 pages are dump order, not a random sample; residual table/link/
+  signature markup inflates `~` (2,228), `|` (1,012), `=` (201), so those three
+  are not clean prose readings. A chat/web corpus would shift the ranking; the
+  method is the same, the population is the variable.
+
+So frequency is measurable today from raw text, and the first reading supports
+KP4's frequent set; a typed-message corpus and a password-symbol assumption are
+the next measurements if the ranking is to drive placement rather than emphasis.
+
 ## What this means for a hunmin 두벌식 keypad
 
 The maintainer's goal — less time *finding* symbols and fewer mis-taps on a

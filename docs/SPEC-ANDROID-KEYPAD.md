@@ -95,7 +95,26 @@ These are complementary, and they interact with KP1: frequency *repositioning*
 can pull away from the physical-position familiarity KP1 asks for, whereas
 *emphasis* keeps the positions and adds salience, so it improves discoverability
 without spending screen space or shrinking targets. Both need a symbol-frequency
-source (unmeasured here; the bulk corpora live outside the repository). Emphasis
+source; a first prose measurement and its method are in
+`docs/ANDROID-SYMBOL-INTERACTION.md` (`tools/symbol-frequency.py`), and the bulk
+corpora live outside the repository. Emphasis
 must not rely on colour alone (accessibility, `docs/SPEC-FRONTEND.md` usability;
 ISO 25010 user error protection / appropriateness recognizability). The choice and
 combination are open. *Implementation:* none. *Refuted by:* none yet.
+
+### KP4. Mode separation; very frequent symbols default-visible in Hangul/English mode (stated direction)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "그래서 화면 입력기에서는 한글, 영어, 기호 입력이 분리되고, 정말 자주 사용되는
+> ,.?"등은 한글/영어 모드에 기본 표시되게 하는 방향까지는 정리된거지?"
+
+The stated direction: the soft keypad **separates Hangul, English and symbol
+input**, and the **very frequent symbols** (`, . ? "` and the like) are
+**default-visible in the Hangul/English mode**, not hidden behind the symbol
+page. This is the synthesis of KP1 (minimal touch for the frequent set) and KP3
+(emphasis/search-time), and it matches the prior art (HeliBoard's dedicated
+comma/period on the main bottom row). It is consistent with the recorded
+criteria; the **exact symbol set, its geometry, and how the separation is
+realised** (separate page vs layer) remain the open mechanism of issue #298.
+*Implementation:* none. *Refuted by:* none yet.

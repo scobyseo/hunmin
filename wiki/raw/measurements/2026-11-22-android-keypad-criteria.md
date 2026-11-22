@@ -18,9 +18,10 @@ ingested: 2026-11-22
 The maintainer set keypad criteria across several messages on 2026-11-22. They
 are requirements now, with their verbatim text in
 `docs/SPEC-ANDROID-KEYPAD.md` (KP1 symbol keys, KP2 functional keys, KP3
-frequency/emphasis directions, including the whole-keypad visual hierarchy).
-This page records the measurement that grounds them and the fork they expose;
-the quotes and tables live in the SPEC and the analysis doc, not here.
+frequency/emphasis directions including the whole-keypad visual hierarchy, KP4
+mode separation with very frequent symbols default-visible in Hangul/English
+mode). This page records the measurement that grounds them and the fork they
+expose; the quotes and tables live in the SPEC and the analysis doc, not here.
 
 ## The measurement
 
@@ -42,6 +43,24 @@ discoverability from geometry (it highlights without moving keys), and its
 whole-keypad hierarchy (characters 진하게, numbers/edit 연하게) is a theme rule
 that needs no frequency source. Frequency *placement* still needs a
 symbol-frequency table, unmeasured here.
+
+## Frequency method, and the number-row pairing
+
+`tools/symbol-frequency.py` was added to measure KP3's frequency source. A
+finding from running it: the local "corpora" (`624-ko.txt`, `nikl-2003-freq`,
+`119-clean`) are word-frequency lists with no symbols — symbol frequency needs
+raw text. The first prose reading (kowiki dump, 3000 pages stripped) ranks
+`. , ( ) - : " '` first, matching KP4's default-visible set; password symbols
+(`! @ # $ %`) are low in prose, so KP1's number-row pairing rests on the use
+case, not prose frequency. The ranking, caveats (register, markup inflation of
+`~ | =`) and reproduce command are in the analysis doc.
+
+For KP1's digit↔symbol link the maintainer proposed long-press; the analysis doc
+compares long-press / shift / swipe / double-tap on the password case. The
+number row is the one place with no competing long-press meaning (jamo keys
+spend it on doubled jamo), which is why long-press fits there; the cost is hold
+latency, and a measured password digit:symbol ratio is what would change the
+choice. Recorded as analysis, not a verdict.
 
 ## Status
 

@@ -1323,3 +1323,19 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   symbol data. Recorded the fork: prior art categorises the symbol page, KP1 asks
   for physical positions. No ruling.
 
+## [2026-11-22] update | KP4 direction, symbol-frequency tool, number-row pairing
+
+- Added KP4 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: the
+  maintainer's stated direction — Hangul/English/symbol input separated, very
+  frequent symbols (`, . ? "`) default-visible in Hangul/English mode. Exact
+  symbol set/geometry still open (#298).
+- Added `tools/symbol-frequency.py` (counts P*/S* per million, writes meta.json;
+  raw text / JSONL / wiki-dump). Finding: local corpora are word-frequency lists
+  with no symbols. First prose reading (kowiki 3000 pages stripped) ranks
+  `. , ( ) - : " '` first; password symbols low in prose. Recorded in
+  `docs/ANDROID-SYMBOL-INTERACTION.md` with caveats (register, `~ | =` markup).
+- Compared number-row digit↔symbol mechanisms (long-press/shift/swipe/double-tap)
+  on the password case; long-press fits the number row (no competing long-press
+  meaning), cost is hold latency. Analysis, not a verdict; updated
+  [[2026-11-22-android-keypad-criteria]].
+
