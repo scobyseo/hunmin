@@ -154,7 +154,13 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
 - **A soft keyboard.** The input view is a layout strip plus a mic, not keys. No priority has
   been assigned to it by anyone; that assignment is a maintainer call. **Assigned
   2026-10-11: it is release 0.4, goal 두벌식 + qwerty + 기호 입력 지원 — see
-  `docs/MILESTONES.md`.**
+  `docs/MILESTONES.md`.** **Built 2026-11-22 (#299, T3-3):** the key grid and the
+  symbol page are drawn from data, touch enters the hardware key path, and the
+  grid auto-shows only without a physical keyboard (KP12, maintainer 2026-11-22).
+  Mechanism and verification: `docs/DESIGN-ANDROID-KEYPAD.md`. Still open on this
+  lane: gesture variants / Tier 2 (#312), the candidate-window shape (#285
+  decision), the frequent-symbol set beyond `, .`, and the hardware-present
+  hide path's device assertion (needs `hw.keyboard=yes`).
 - **D4 Wayland plumbing.** `weston --backend=headless` + `zwp_input_method_v2` harness.
   `docs/TESTING.md:247-249` marks it optional and not blocking P4; fcitx5's Wayland module
   is not our code.

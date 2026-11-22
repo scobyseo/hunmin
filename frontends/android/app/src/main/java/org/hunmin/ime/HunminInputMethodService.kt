@@ -24,12 +24,19 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
+import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
+import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.widget.LinearLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import java.io.File
 
 /** hunmin.h's HUNMIN_LANGUAGE_*: the value the judgement reports and the mode
  *  the service adopts. File-level rather than companion-private so the decision
@@ -143,6 +150,19 @@ class HunminInputMethodService : InputMethodService() {
 
     /** One engine per InputConnection; rebuilt on every onStartInput. */
     private var engine: HunminAdapter? = null
+
+    /**
+     * The soft keypad (issue #299), or null before onCreateInputView. Its
+     * visibility is KP12's: auto-shown only without a physical keyboard.
+     */
+    private var keypad: KeypadView? = null
+
+    /** The app-read symbol screen (KP11, #297), parsed once from the asset. */
+    private var symbolScreen: SymbolScreen? = null
+
+    /** Where HunminDataInstaller extracted the engine's tables; the keypad
+     *  reads the SAME layout files for keycap labels (design §2). */
+    private var dataDir: File? = null
 
     /**
      * The IME's input view, held so its selection survives a view recreation.
@@ -305,6 +325,16 @@ class HunminInputMethodService : InputMethodService() {
             Log.e(TAG, "hunmin: no layout tables extracted; IME is inert")
             return
         }
+        this.dataDir = dataDir
+        /* The symbol screen is app-read data (KP11): parsed once here, drawn
+         * by the keypad, never loaded by the engine. A corrupt asset fails
+         * loudly at parse; the IME keeps typing without a symbol page. */
+        symbolScreen = try {
+            SymbolScreen.parse(assets.open("keypad/symbols.json").readBytes().toString(Charsets.UTF_8))
+        } catch (e: Exception) {
+            Log.e(TAG, "hunmin: keypad/symbols.json unusable; symbol page disabled", e)
+            null
+        }
         ctx = HunminNativeBridge.nativeCtxNew(dataDir.absolutePath)
         if (ctx == 0L) {
             Log.e(TAG, "hunmin: hunmin_ctx_new found no layout in ${dataDir.absolutePath}")
@@ -456,6 +486,31 @@ class HunminInputMethodService : InputMethodService() {
         // the English one in English mode — a strip that said "sin3-p2" while
         // qwerty was composing would be showing the wrong name.
         picker?.setActiveLayout(currentLayout())
+        refreshKeypad()
+    }
+
+    /**
+     * Put the active layouts' keycaps and the mode into the keypad (issue #299).
+     *
+     * The labels come from the SAME layout JSON the engine loads — the app
+     * reads it for presentation only (design §2), so a layout change through
+     * settings refreshes the grid with no second copy of the data. An
+     * unreadable file leaves that mode's grid empty rather than crashing the
+     * IME; the strip and the hardware path are unaffected.
+     */
+    private fun refreshKeypad() {
+        val pad = keypad ?: return
+        fun caps(id: String): KeypadKeycaps? {
+            val dir = dataDir ?: return null
+            return try {
+                KeypadKeycaps.parse(File(dir, "layouts/$id.json").readText())
+            } catch (e: Exception) {
+                Log.w(TAG, "hunmin: keycaps for '$id' unreadable; grid empty", e)
+                null
+            }
+        }
+        pad.setKeycaps(caps(layoutId), caps(latinLayoutId))
+        pad.setMode(isHangulMode)
     }
 
 /**
@@ -1082,7 +1137,92 @@ class HunminInputMethodService : InputMethodService() {
         // means the picker's first onItemSelected -- which Spinner fires as soon as
         // it has an adapter -- cannot reach a half-built service.
         picker = view
-        return view
+
+        /* The soft keypad (issue #299) sits UNDER the strip, never instead of
+         * it: the strip is the IME window hardware keys arrive through (B1),
+         * and KP12 hides only the grid when a physical keyboard is exposed.
+         * Four callbacks, each into a path the hardware side already uses —
+         * touch is hardware (design §1). */
+        val pad = KeypadView(this)
+        pad.setSymbols(symbolScreen)
+        pad.onCharacterKey = { keyCode, metaState -> dispatchTouchKey(keyCode, metaState) }
+        pad.onSymbol = { ch -> commitSymbolFromTouch(ch) }
+        pad.onToggleLanguage = { toggleHangulEnglish() }
+        pad.onReturnToText = { hangul ->
+            // KP9: return to the mode the symbol page was entered from. A
+            // toggle only if the mode drifted while the page was up.
+            if (isHangulMode != hangul) toggleHangulEnglish()
+        }
+        keypad = pad
+        refreshKeypad()
+        updateKeypadVisibility()
+
+        val root = LinearLayout(this)
+        root.orientation = LinearLayout.VERTICAL
+        root.addView(view, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        root.addView(pad, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        /* The platform draws a navigation-bar strip OVER the bottom of the IME
+         * window (input_method_navigation_bar_view, with a Back button).
+         * Measured on the AVD: without this padding the keypad's bottom row
+         * sat under it, and a tap on 기호 landed on Back — KEYCODE_BACK hid
+         * the IME instead of opening the symbol page. Pad by the system-bar
+         * insets so every keycap is above the strip and tappable. */
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        return root
+    }
+
+    /**
+     * A keycap tap enters the SAME key path a hardware key does (design §1):
+     * a synthesized ACTION_DOWN with the tap's metaState, through onKeyDown.
+     * Space's boundary, the judgement adoption, the secure-editor guard and
+     * key capture therefore apply to touch unchanged — there is no second
+     * policy to drift. onKeyDown's own fall-through (super) delivers a declined
+     * key to the app, which is how navigation and unmapped keys reach it.
+     */
+    private fun dispatchTouchKey(keyCode: Int, metaState: Int) {
+        val now = SystemClock.uptimeMillis()
+        val event = KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, metaState)
+        onKeyDown(keyCode, event)
+    }
+
+    /**
+     * A symbol-page tap: KP11's direct commit, engine uninvolved — but the
+     * pending word is flushed FIRST (design §1, DESIGN-ANDROID-SYMBOLS §4),
+     * so the symbol never lands ahead of the buffered composition, and the
+     * judgement is taken at that boundary exactly as the space branch does.
+     */
+    private fun commitSymbolFromTouch(ch: String) {
+        val screen = symbolScreen ?: return
+        val target = currentInputConnection ?: return
+        engine?.commitWord(target)
+        adoptJudgement(engine)
+        screen.commitSymbol(ch, target)
+    }
+
+    /**
+     * KP12: the grid auto-shows only without a physical keyboard. The strip
+     * stays in every case (B1). Re-applied on configuration changes: a keyboard
+     * attached or a lid opened mid-session is one.
+     */
+    private fun updateKeypadVisibility() {
+        val pad = keypad ?: return
+        val config = resources.configuration
+        val optIn = try {
+            Settings.Secure.getInt(contentResolver, "show_ime_with_hard_keyboard", 0) != 0
+        } catch (e: Exception) {
+            false
+        }
+        val shown = KeypadVisibility.autoShown(config.keyboard, config.hardKeyboardHidden, optIn)
+        pad.visibility = if (shown) View.VISIBLE else View.GONE
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateKeypadVisibility()
     }
 
     override fun onCreateExtractTextView(): View? = null

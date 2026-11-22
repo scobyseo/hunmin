@@ -204,3 +204,21 @@ asserts the AUTO-SHOW path and the tap round. The hide path with a keyboard
 exposed is pinned by the E1 decision table only; asserting it on a device needs
 an AVD/device with `hw.keyboard=yes` — environment-bound, named here rather
 than smoothed over.
+
+## 9. Measured defects found by the device round (recorded so they are not repeated)
+
+- **The keypad's bottom row sat under the platform's IME navigation bar.**
+  The platform draws `input_method_navigation_bar_view` (with a Back button)
+  over the bottom of the IME window; measured bounds on the AVD: strip
+  `[0,2274][1080,2400]`, Back `[71,2274][254,2400]`, and the `기호` keycap
+  `[166,2274][323,2400]` overlapped it. A tap on `기호` was delivered as
+  KEYCODE_BACK and HID the IME (`HIDE_SOFT_INPUT_BY_BACK_KEY` in ImeTracker)
+  instead of opening the symbol page. No JVM tier can see this: it is the
+  platform's window composition, not our logic. Fix: the input view pads itself
+  by the system-bar insets (`ViewCompat.setOnApplyWindowInsetsListener` in
+  `onCreateInputView`); re-measured, the bottom row ends exactly at the strip's
+  top (2274) and the tap opens the page. The E2E touch round is what caught it.
+- **The E2E sequence expected a space it never tapped** (`hello W ` after
+  typing `hello`, shift, `w`, space). The IME was right; the test was wrong.
+  Recorded because the failure read like a shift defect for one run.
+

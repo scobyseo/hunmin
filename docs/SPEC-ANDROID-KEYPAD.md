@@ -60,7 +60,8 @@ Observable outcome:
 The placement that satisfies this is a geometry/presentation decision (Track 3),
 not an engine change: the engine already treats space/enter/backspace as named
 keys and shift as a per-event modifier (`docs/SPEC-FRONTEND.md#§FE6`).
-*Implementation:* none. *Refuted by:* none yet.
+*Implementation:* partial (#299) — one one-shot shift, separated compact
+functional keys: `docs/DESIGN-ANDROID-KEYPAD.md` §3–§4. *Refuted by:* none yet.
 
 ### KP3. Frequency-based placement and visual emphasis — symbols and the main keypad (endorsed directions)
 
@@ -117,7 +118,9 @@ page. This is the synthesis of KP1 (minimal touch for the frequent set) and KP3
 comma/period on the main bottom row). It is consistent with the recorded
 criteria; the **exact symbol set, its geometry, and how the separation is
 realised** (separate page vs layer) remain the open mechanism of issue #298.
-*Implementation:* none. *Refuted by:* none yet.
+*Implementation:* partial (#299) — mode pages separated; `, .` default-visible
+in every text mode: `docs/DESIGN-ANDROID-KEYPAD.md` §3. The set beyond `, .`
+is open. *Refuted by:* none yet.
 
 ### KP5. Number-row symbols by long-press AND swipe-up; accidental swipes preventable (stated direction)
 
@@ -206,7 +209,9 @@ physical pairing. This sub-decision is settled; the data home, navigation-key se
 and Tier 2 inventory remain open (#298).
 
 The navigation-key set, the Tier 2 inventory/grouping, and the data home that
-makes them inputtable are open mechanism (#298). *Implementation:* none.
+makes them inputtable are open mechanism (#298). *Implementation:* partial
+(#297/#299) — the Tier 1 page and nav row are drawn from the app-read asset
+and tap-verified: `docs/DESIGN-ANDROID-KEYPAD.md` §4; Tier 2 is #312 (KP10).
 *Refuted by:* none yet.
 
 Navigation-key order — decided (2026-11-22, verbatim): "home pgup pgdn end 순서로
@@ -296,7 +301,10 @@ just the mode-return keys (`한/영`, `기호 1`), in the same slots as Tier 1.
 A layout that follows (bottom row mirrors the text modes' `[한/영][기호]…`):
 `[한/영] [Tier 2] [←] [↑] [↓] [→]`, backspace on the navigation row. The exact
 geometry is provisional; the binding rules are positional consistency and the
-space/enter removal. *Implementation:* none. *Refuted by:* none yet.
+space/enter removal. *Implementation:* partial (#299) — no space/enter on the
+page, arrows in the space slot, 한/영 returns to the original mode (tap-verified
+on the AVD): `docs/DESIGN-ANDROID-KEYPAD.md` §4; the Tier 2 slot is #312.
+*Refuted by:* none yet.
 
 ### KP10. Symbol selection by swipe/long-press preferred over a Tier 2 button; extension split out (stated direction)
 
@@ -337,9 +345,11 @@ Consequences: the engine's Hangul/Latin composition is untouched; the symbol
 screen does not appear in the engine's layout/settings list (no visibility
 contract needed, unlike B3); the data file's format and validation are a
 frontend data contract, settled at implementation. The gesture-variant mapping
-(KP10) is #312. *Implementation:* none yet — the symbol screen build is the
-follow-up to this decision. *Refuted by:* a future need to share the symbol
-screen across frontends would reopen the data home (move toward B3).
+(KP10) is #312. *Implementation:* #297 (data + contract) and #299 (UI wiring:
+the app draws the page, flushes the pending word, then commits the symbol
+directly — `docs/DESIGN-ANDROID-KEYPAD.md` §1). *Refuted by:* a future need to
+share the symbol screen across frontends would reopen the data home (move
+toward B3).
 
 ### KP12. The soft keypad auto-shows only without a physical keyboard (DECIDED)
 

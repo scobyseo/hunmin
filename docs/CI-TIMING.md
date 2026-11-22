@@ -723,3 +723,41 @@ setxkbmap installed, which is why every local run passed. The
 chased. Fix: `x11-xkb-utils` in the job's apt list. This failure predates
 issue #316's lanes: the original `engine-d3-ibus` would have hit it on the
 first nightly too — the job had never run in CI before this dispatch.
+
+---
+
+## 6. The local budgets were already over on master; the T3-3 delta (2026-11-22)
+
+Measured for issue #299 before pushing its tests, on this host (16 cores,
+ANDROID_HOME/JAVA_HOME/ANDROID_NDK set, no ANDROID_SERIAL — so tier E2 skips
+in the budget runs exactly as it does on a host with no device):
+
+| tree | inner `-LE slow` (budget 30 s) | slow `-L slow` (budget 60 s) |
+|---|---|---|
+| master `9cb066c`, green baseline | **38.0 s** (127%) | **90.7 s** (151%) |
+| task branch (T3-3 phase 1+2) | 38.1 s (+0.1 s) | 98.0 s (+7.3 s) |
+
+Two findings, neither smoothed over:
+
+- **The over-budget state is pre-existing**, not caused by #299. The first
+  baseline attempt read 44.2 s for slow — INVALID: the main checkout's host
+  JNI shim was stale (`UnsatisfiedLinkError: nativeLayerGetOption`), so E1 and
+  android-mutations failed fast and their failure time was counted as the
+  baseline. Rebuilding the shim (`tools/build-host-jni.sh`, the documented
+  remedy) produced the green baseline above. A baseline measured on a red
+  tree is not a baseline.
+- **The T3-3 delta is +0.1 s inner / +7.3 s slow**: 22 new E1 JVM tests
+  (~1 s; the lane is 7.7 s total) plus the new Kotlin compiled in each
+  android-mutations sandbox build. No inner-loop test was added. The slow
+  tier's dominant costs (android-mutations ~85 s, the D3 pair ~56 s serial)
+  are unchanged from master.
+
+The E2E touch round (#299) runs inside `engine-android-e2e`, measured at
+175.6 s total with the emulator attached (hardware round + bindings + touch
+round); it skips without a device, so it does not enter the table above. No
+master E2E baseline was measured in this session (the main checkout has no
+APK built), so no delta is claimed for it.
+
+No budget line moved. The pre-existing local overage is a finding for the
+maintainer — the levers that meet the CI ceiling (§5) are about the linux
+job, which excludes tier E1 and skips D3, not about these local numbers.

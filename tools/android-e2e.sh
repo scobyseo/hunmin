@@ -724,7 +724,106 @@ if "$ADB" shell run-as "$PKG" test -f "$KEY_PREFS" 2>/dev/null; then
 fi
 echo "the binding was removed again, so the tier is repeatable"
 
+# --- T3-3: the soft keypad, through real taps (issue #299) ------------------
+#
+# WHY THIS SECTION. Everything above drives the IME with hardware key events.
+# The soft keypad is a second input surface, and its claim is that a tap is
+# the SAME key event (design: docs/DESIGN-ANDROID-KEYPAD.md §1). Only a real
+# tap on the real view can prove the platform delivers it: tier E1 pins the
+# tap->keycode->engine decision on the JVM, this round pins view->service.
+#
+# The assertion surface is the same as the hardware round's: the EditText's
+# text read out of the platform's own view hierarchy, never a log line.
+#
+# KP12 (maintainer, 2026-11-22): the grid auto-shows only without a physical
+# keyboard. This AVD has hw.keyboard=no, so the grid must be PRESENT here;
+# the hardware-present hide path is pinned by E1's decision table and needs
+# an hw.keyboard=yes device to assert on a screen (environment-bound).
+
+tap_desc() {  # tap_desc <content-desc> — tap a keycap by its identity
+  local desc="$1" node bounds
+  node="$(dump_ui /sdcard/kp.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
+  [ -n "$node" ] || fail "no key with content-desc '$desc' in the IME view"
+  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+  [ -n "$bounds" ] || fail "key '$desc' carries no bounds"
+  set -- $(parse_bounds "$bounds")
+  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
+  "$ADB" shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )) >/dev/null 2>&1
+  sleep 0.5
+}
+
+field_text() {  # the focused EditText's text, from the platform's hierarchy
+  dump_ui /sdcard/kpf.xml | tr '>' '\n' \
+    | grep -m1 'class="android.widget.EditText"' \
+    | grep -o 'text=.[^"]*.' | sed 's/^text=//; s/"//g'
+}
+
+restore_surface || fail "cannot restore the test editor for the touch round"
+
+# KP12's auto-show: no physical keyboard on this AVD, so the grid is up.
+dump_ui /sdcard/kp0.xml | grep -q 'content-desc="key:q"' \
+  || fail "the soft keypad is not shown without a physical keyboard (KP12 auto-show)"
+echo "the keypad auto-shows with no physical keyboard (KP12)"
+
+# English mode, deterministically: the binding round above may have left
+# either mode; tap the keypad's own 한/영 key only if we are in Hangul.
+if mode_is '한'; then
+  tap_desc 'fn:language-toggle'
+  sleep 1
+fi
+mode_is '영' || fail "the keypad's 한/영 key did not reach English mode"
+
+# An English word with a shifted letter, typed as taps. The one-shot shift
+# (fn:shift then key:w) must deliver W; each space is a word boundary.
+for k in h e l l o; do tap_desc "key:$k"; done
+tap_desc 'fn:space'
+tap_desc 'fn:shift'
+tap_desc 'key:w'
+tap_desc 'fn:space'
+TOUCH_EN="$(field_text)"
+echo "touch-typed English reads: '${TOUCH_EN}'"
+[ "$TOUCH_EN" = "hello W " ] \
+  || fail "touch round: expected 'hello W ' (one-shot shift + boundary), got '${TOUCH_EN}'"
+
+# The symbol page (KP11): 기호 opens it, a symbol tap commits directly, and
+# the flush seam means nothing composing may land after the symbol.
+tap_desc 'fn:symbols-page'
+dump_ui /sdcard/kp1.xml | grep -q 'content-desc="symbol:!"' \
+  || fail "the symbol page did not open (no symbol:! keycap)"
+tap_desc 'symbol:!'
+TOUCH_SYM="$(field_text)"
+echo "after the symbol tap the field reads: '${TOUCH_SYM}'"
+[ "$TOUCH_SYM" = "hello W !" ] \
+  || fail "symbol tap: expected 'hello W !', got '${TOUCH_SYM}'"
+
+# KP9's return key: 한/영 on the symbol page returns to the ORIGINAL mode
+# (English here), not a toggle, and the text grid is back.
+tap_desc 'fn:language-toggle'
+sleep 1
+mode_is '영' || fail "the symbol page's 한/영 key did not return to the original mode (KP9)"
+dump_ui /sdcard/kp2.xml | grep -q 'content-desc="key:q"' \
+  || fail "the text grid did not return after the symbol page"
+echo "the symbol page returns to the original mode and grid (KP9)"
+
+# A Hangul word on the DEFAULT layout (sin3-p2), typed as taps on the generic
+# grid — the same keys the hardware round typed, the same expectation.
+restore_surface || fail "cannot restore the test editor for the Hangul touch round"
+if mode_is '영'; then
+  tap_desc 'fn:language-toggle'
+  sleep 1
+fi
+mode_is '한' || fail "the keypad's 한/영 key did not reach Hangul mode"
+for k in d k s s u d; do tap_desc "key:$k"; done
+sleep 1
+TOUCH_KO="$(field_text)"
+echo "touch-typed Hangul reads: '${TOUCH_KO}'"
+[ "$TOUCH_KO" = "$EXPECTED" ] \
+  || fail "Hangul touch round: expected '$EXPECTED' (the hardware round's golden), got '${TOUCH_KO}'"
+echo "the touch path composes the same word the hardware path does"
+
 echo "PASS: the APK installed, the IME was enabled, keys reached the engine," &&
      echo "      and '$EXPECTED' -- byte-identical to the tier A golden -- is" &&
      echo "      in the field, read back from the platform's own view hierarchy," &&
-     echo "      and a key captured in the settings window is the key the IME fires"
+     echo "      and a key captured in the settings window is the key the IME fires," &&
+     echo "      and real taps on the soft keypad type English, a shifted letter," &&
+     echo "      a symbol-page character and the same Hangul word (issue #299)"
