@@ -187,6 +187,11 @@
 
 ## Raw — sessions
 
+- [[2026-11-22-ibus-coverage-parity]] — issue #316: the fcitx5↔IBus evaluation
+  inventory, the D1/D2/tier-C/D3 lanes that closed the gap, the XIM probe's
+  three host facts (compound text, stale-preedit commit, teardown routing),
+  and the two shared-harness defects the new lanes exposed (`^` typed `6`,
+  the edit loop's harness leak).
 - [[2026-11-21-modes-failures-and-the-domain-mode-idea]] — the maintainer's
   distilled intent for auto-switch (zero manual presses, no wrong judgement,
   deliberate awkward words accepted), four live failures traced to code (sin3-p2

@@ -1484,3 +1484,22 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   screen build is follow-up implementation; gesture variants are #312. #298's
   decision phase is complete; closure is the maintainer's.
 
+
+## [2026-11-22] update | IBus evaluation coverage parity with fcitx5 (issue #316)
+
+- Inventoried every fcitx5 evaluation family against IBus; the table lives in
+  `docs/TESTING.md` (§IBus ↔ fcitx5 evaluation coverage), one home. Added D1
+  mode-persistence / autoswitch-rebuild / symbol-boundary cases, D2 vfunc
+  cases (focus_out, reset, candidate_clicked, paging, declines, mode property,
+  CapsLock composition), a tier-C `ibus-trace-emit` replaying the SAME x11
+  corpus and `.gold` files, and D3 `engine-d3-ibus-edit` / `-candidate` on the
+  GTK client. CI gates fail on a skipped or absent IBus lane.
+- Probed the XIM client first and dropped it on measurement: IBus's XIM server
+  sends compound text (three designations), commits a stale preedit snapshot
+  beside the real commit, and routes a teardown flush into the next case.
+  Recorded in [[2026-11-22-ibus-coverage-parity]] so the probe is not repeated.
+- Fixed two shared-harness defects the lanes exposed: `xtest-type.py` sent no
+  Shift for shifted symbols (`^` typed `6`), and the edit loop leaked the
+  reused GTK harness across a layout change. Both frontends benefit.
+- Budget: the local baseline was already over the inner/slow budgets before
+  this change; the delta is measured and reported on the issue, not ruled on.

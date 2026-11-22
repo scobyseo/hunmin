@@ -873,6 +873,78 @@ interface, and the split is what makes them cheap:
   - **Not implied by a green run:** a panel actually drawing the table, or a
     Wayland session. Neither is measured here.
 
+### IBus ↔ fcitx5 evaluation coverage (issue #316)
+
+The inventory the issue asks for: every fcitx5 evaluation family, its IBus
+counterpart, or the documented reason one does not apply. Expectations are
+single-sourced (FE10) — the same corpus files, the same `hunmin-sim` oracle,
+the same `.gold` files; a row that names a host difference says so beside the
+shared assertion rather than copying the corpus.
+
+| Tier / case family | What it asserts | fcitx5 lane | IBus lane |
+|---|---|---|---|
+| C: x11 native-trace corpus | per-event commit/preedit/consumed against the tier-A goldens, through the frontend's own key path | `conformance-tests_conformance_x11_*` (`trace-emit`) | `conformance-ibus-tests_conformance_x11_*` (`ibus-trace-emit`, same `.in`/`.gold`) |
+| C: trace opt-out | the shipped binary carries no personal-key sink | `trace-optout` | `trace-optout-ibus` |
+| D1: key routing, composition, boundary delivery | the word is delivered where it ends, preedit while composing | `engine-d1-fcitx5` | `engine-d1-ibus` |
+| D1: symbol tier + word end | sin3-p2 `jk1` composes ㅇµ and delivers at the boundary; punctuation ends the word | `engine-d1-fcitx5` | `engine-d1-ibus` (`SymbolTierComposesAndDeliversAtTheBoundary`, `PunctuationEndsTheWord`) |
+| D1: commit policy syllable/word | both policies deliver the same text at their own points; a policy change delivers the word first | `engine-d1-fcitx5` | `engine-d1-ibus` (`CommitPolicyChangeDeliversTheWordFirst`) |
+| D1: autoswitch ON/OFF identity | the judged reading and the mode half; OFF is the identity path | `engine-d1-fcitx5` | `engine-d1-ibus` (`AutoswitchDeliversTheWordInTheJudgedLanguage`, `AutoswitchOffKeepsTheHangulReading`) |
+| D1: autoswitch value survives a layer rebuild | the preference belongs to the person, not the layer | `engine-d1-fcitx5` (two config applies) | `engine-d1-ibus` (`AutoswitchValueSurvivesLayerRebuild`) |
+| D1: mode persistence across the focus cycle | flush delivers, reset drops the composition, the MODE survives both | shared-layer semantics (`hunmin_buffered_preedit_reset`); fcitx5's reset() contract | `engine-d1-ibus` (`ModeSurvivesTheFocusFlushAndReset`), `engine-d2-ibus-ui` (`FocusOutDeliversTheWordAndKeepsTheMode`, `ResetDeliversTheWordAndKeepsTheMode`) |
+| D1: judgement corpus | `tests/golden/judgement-r8.jsonl`, step_commits timing, mode_after, probe | `engine-d1-judgement` (skips the `mode: latin` starts — the initial language is the host's) | `engine-d1-ibus-judgement` (runs every case, including the latin starts: this frontend can set the starting mode) |
+| D1: CapsLock tier block/open | caps is the layout's variable, not a shifted row (sin3-p2-yet, `p2-2-4-3-caps.jsonl`) | `engine-d1-fcitx5` | `engine-d2-ibus-ui` (`CapsLockBlocksTheSymbolTier`) — the caps DETECTION lives in the IBus engine object, so the composition is asserted where the detection is |
+| D1: autoswitch config row (description/tooltip/default/data-missing) | the settings surface teaches and stores the value | `engine-d1-fcitx5` | gap, documented: the IBus config backend is an open ruling (`docs/MILESTONES.md`); the value gate (B3) is asserted by `engine-d1-ibus` instead |
+| D1: Ctrl+Hangul watcher chord | the host watcher flips the stored value | `engine-d1-fcitx5` | does not apply: FE13 — the platform delivers the trigger to the engine, there is no host watcher; the chord binding table ships empty |
+| D2: per-keystroke preedit, clear, cursor | the display the host is told, and its caret | `engine-d2-ui` (cursor is a BYTE offset, fcitx5's Text API) | `engine-d2-ibus-ui` (`PreeditIsPublishedWithACursorInCharacters` — IBus cursor_pos is a CHARACTER index; host difference, same display) |
+| D2: both preedit capability branches | `setPreedit` vs `setClientPreedit`, only one written | `engine-d2-ui` | does not apply: IBus has one preedit channel (`UpdatePreeditText`); there is no second branch to keep exclusive |
+| D2: F9 open/close, pass-through | the window opens over a candidate preedit; F9 with no candidates reaches the client | `engine-d2-ui` | `engine-d2-ibus-ui` (`LookupTableIsPublishedForTheHanjaList`, `CandidateKeyWithoutCandidatesReachesTheClient`), `engine-d1-ibus` (`CandidateKeyWithoutCandidatesIsDeclined`, `EscapeClosesTheListWithoutCommitting`) |
+| D2: candidate gloss | the comment slot carries the Unihan gloss | `engine-d2-ui` | host difference, documented: the IBus panel has no comment slot; `hunmin_state_candidate_detail()` exposes the gloss and the engine drops it today — the choice is measured, not assumed |
+| D2: candidate selection (mouse) | choosing commits the candidate, drops the source, closes the window | `engine-d2-ui` (`candidate.select`) | `engine-d2-ibus-ui` (`CandidateClickedCommitsTheChosenText`) |
+| D2: keyboard navigation | Down moves the cursor, Return commits it, Escape cancels | `engine-d2-ui` | `engine-d1-ibus` (`CandidateListOpensForTheComposingWord`), `engine-d2-ibus-ui` (`ReturnCommitsTheHighlightedCandidate`) |
+| D2: page ceiling + paging | the page the host can draw; paging moves the cursor | `engine-d2-ui` (≤ 10, fcitx5's label ceiling, issue #45) | `engine-d2-ibus-ui` (page 9, the host panel's ceiling; `PageDownAndPageUpMoveTheCursorByAPage`) |
+| D2: declined keys | a key the engine does not take reaches the client, publishes nothing | `engine-d2-ui` (F9 pass-through) | `engine-d2-ibus-ui` (`DeclinedKeyReturnsFalseAndPublishesNothing`, `ReleaseBareShiftAndChordAreDeclined` — a Ctrl chord is a boundary by the shared classify() rule) |
+| D2: 한/영 trigger translation | both spellings (Hangul 0xff31, Alt_R 0xffea) switch; Caps/Shift/backspace translate | `engine-d1-fcitx5` (the host owns the trigger) | `engine-d2-ibus-ui` (`LayoutOverrideKeepsTheLanguageKeyAlive`, `KeyTranslationKeepsTheLayoutRowAndTheCapsInversionApart`) |
+| D2: mode indicator | the panel's language label tracks the mode | fcitx5 draws the IM label in auxUp (not asserted) | `engine-d2-ibus-ui` (`ModePropertyTracksTheLanguage`) |
+| D2: layout picker rows | the combobox offers exactly the shipped layouts | `engine-d2-ui` | gap, documented: no config backend yet (open ruling); the D3 seam `HUNMIN_IBUS_LAYOUT` drives layouts instead |
+| D3: ordinary corpus (`cases.tsv`) | real daemon + real client, cultural sentences, declined space arrives | `engine-d3-x11` (XIM), `engine-d3-gtk3`, `engine-d3-gtk4` | `engine-d3-ibus` (GTK, `im-ibus.so` verified in-process) |
+| D3: edit family (`cases-edit.tsv`) | backspace mid-word, Return, the `^` boundary, F9 pick/cancel through the daemon | `engine-d3-edit` (XIM) | `engine-d3-ibus-edit` (GTK; same case file, same sim oracle `--layer word`) |
+| D3: candidate family (`cases-candidate.tsv`) | the F9 path's commits reach the client; the deep list does not kill the host | `engine-d3-candidate` (window geometry + survival, classicui) | `engine-d3-ibus-candidate` (daemon + engine survival + delivery; host difference: the HOST's lookup table, no own window to draw — the table itself is `engine-d2-ibus-ui`'s assertion) |
+| D3: display reservation | concurrent D3 runs cannot type into each other's client | `d3-reservation` | shared: the same runner and reservation primitive |
+| D3: GTK 4 client | the second GTK module's different forward mechanism | `engine-d3-gtk4` | gap, documented: the IBus lanes run GTK 3 (the jammy CI job's client); GTK 4 `im-ibus` is not measured here |
+| D1/D2 mutation | dropping a UI call turns the tier red | `frontend-mutations` (fcitx5 seams) | gap, documented: the mutation harness targets the fcitx5 adapter's seams; an IBus equivalent is roadmap, not built by this issue |
+
+**Why the IBus D3 lanes use the GTK client, measured (issue #316).** The XIM
+client was probed first, because fcitx5's edit lane uses it. Three host facts
+made its COMMIT stream a different shape from the shared oracle:
+
+1. IBus's XIM server ignores the UTF-8_STRING negotiation and sends compound
+   text — `ESC $( C` (ISO-2022-KR) for Hangul, `ESC $( A` (GB2312) for Hanja,
+   `ESC % G` (UTF-8) for characters in neither. glibc's `iconv` ISO-2022-KR
+   module passes the 7-bit form through unchanged; Xlib's
+   `Xutf8TextPropertyToTextList` decodes all three (measured).
+2. Beside a boundary or candidate commit, the server also commits a STALE
+   preedit snapshot (`dkssud^` arrived as `COMMIT:안녀ㅕ | COMMIT:안녕`, the
+   candidate pick as `COMMIT:간 | COMMIT:刊`). The engine's own stream, read
+   on the D-Bus signals at D2, is correct — this is ibus-x11's preedit
+   termination, not the frontend's delivery.
+3. A teardown flush is routed into the NEXT case's client: the engine
+   process persists across cases, and the focus-out commit lands on the next
+   XIC to take focus.
+
+The GTK immodule is the path issue #292 measured, and the one these lanes
+reuse; the findings above are recorded so the XIM probe is not repeated.
+
+**Two shared-harness defects the IBus lanes exposed, fixed for both frontends:**
+
+- `tests/e2e/xtest-type.py` sent no Shift for shifted SYMBOLS: `^` typed `6`
+  (its unshifted keycode), so `dkssud^` compared the engine's answer to `^`
+  against a `6` that was actually typed. Uppercase letters were handled;
+  the shifted-symbol row now is too.
+- `run-d3.sh`'s edit loop did not tear down the reused GTK harness on a
+  layout change (the ordinary loop does): two harnesses wrote one case log
+  (a sparse, NUL-filled file) and the old window could hold the X focus.
+  The edit loop now performs the same teardown.
+
 - **D3 full-stack X11 e2e**: launch **stock distro `fcitx5`** under Xvfb; start our harness
   app (tiny XIM client window echoing every received commit as `COMMIT:<utf8>` on stdout,
   `tests/e2e/xim-harness.c`); drive a real input path with **XTEST** (libXtst via ctypes,
