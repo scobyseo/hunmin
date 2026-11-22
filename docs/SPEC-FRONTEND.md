@@ -172,3 +172,17 @@ the verification when implemented. Analysis and the correction of the earlier
 "IBus cannot" claim:
 `wiki/raw/measurements/2026-11-22-ibus-gloss-paths.md`. The presentation choice
 (aux text vs embedded text) is the maintainer's.
+
+### FE17. The five option rows are the user's, and one of them is the language-key list
+
+A frontend stores, and lets its user change, the five rows the engine is configured by: the
+Hangul layout, the Latin layout, the commit unit, the automatic-switch value, and the list of
+keys that frontend treats as the language key. A row that cannot be changed is a default, not
+an option; a row present in the store and absent from the engine (or the reverse) is the drift
+this requirement exists to prevent. *Ruling:* the maintainer, 2026-11-22 — "3 -> a로 설정할 수
+있어야 함" (all five rows settable, the key list among them) and "나머지는 추천대로 갈게" (the
+store, the editing surface, live apply and the packaging are the analysis's recommendations).
+Costs, the options and the decided shape: `docs/OPTIONS-MEASURED.md#§IBC`. *Implementation:*
+`none` — the IBus frontend stores nothing today, and the engine exposes no setter for a key
+list. *Refuted by:* `none` — the round-trip case and the apply-without-restart case are the
+verification when implemented.

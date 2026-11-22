@@ -289,10 +289,17 @@ because `deb` needs its fcitx5 install-tree artefact. Each packaging step prints
 its own `dpkg-buildpackage` wall time; the numbers belong to the first nightly
 run, not to prose here.
 
-Still open from the list above: the config store (the engine runs engine defaults;
-`HUNMIN_IBUS_LAYOUT` is a D3 test seam, not a backend) and FE11's reading —
+Still open from the list above: FE11's reading —
 `tools/check-frontend-invariants.py` applies one budget (1000 lines since 2026-11-22, issue #322; 700 before) to each
 frontend; the opt-in trace sink lives outside the counted adapter files.
+
+**The config store is decided (2026-11-22, issue #327).** Not open any more, and not yet
+built: five rows, a GSettings schema, a separate setup binary launched from the panel's
+Preferences, live apply, and its own binary package. Pricing, the measurements behind it,
+and the one cost the ruling accepted after the fact (a dconf store cannot be isolated from a
+test by environment, so persistence is a CI-only case) are in `docs/OPTIONS-MEASURED.md`
+§IBC; the requirement is `docs/SPEC-FRONTEND.md` §FE17. Until it is built the engine still
+runs engine defaults, and `HUNMIN_IBUS_LAYOUT` is still a D3 test seam rather than a backend.
 
 ### Track 2 — auto-switch improvement (correctness, expectability, …)
 

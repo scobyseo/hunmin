@@ -1575,3 +1575,12 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Created [[2026-11-22-t3-3-soft-keyboard-ui]]: issue #299's keypad build, the
   KP12 ruling recorded verbatim, the seven measured mistakes, and the E1/E2
   results. Index updated.
+
+## [2026-11-22] create | IBus 설정 저장소·UI 판정 (#327)
+
+- Created [[2026-11-22-ibus-config-store-and-settings-surface]]: the maintainer's ruling
+  ("3 -> a로 설정할 수 있어야 함", "나머지는 추천대로 갈게") read against the decision list of
+  that session — five settable rows, a GSettings store, a separate setup binary behind the
+  panel's `<setup>`, the key list also editing the daemon's trigger list, live apply, its own
+  binary package. Requirement `docs/SPEC-FRONTEND.md` §FE17, pricing
+  `docs/OPTIONS-MEASURED.md` §IBC. Index updated.

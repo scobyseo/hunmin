@@ -9,7 +9,7 @@ document, because an issue that asks a question and leaves it open belongs in
 the file that already holds the open ones; §HEK and §E5 followed the same way.
 
 Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`,
-`HEK-`, `E5-`, `PLT-`) so a cross-document citation stays unambiguous:
+`HEK-`, `E5-`, `PLT-`, `IBC-`) so a cross-document citation stays unambiguous:
 `docs/OPTIONS-MEASURED.md §AND-4.2` is the android sandbox's §4.2. `HEK` and `E5`
 are the two halves of issue #159 and are deliberately separate, because they
 answer different questions: **§HEK** measures whether each environment can
@@ -34,6 +34,7 @@ and are not a home anybody can cite as current.
 | URM | whether `DllUnregisterServer` mirrors the Start-menu shortcut and `RemoveLanguageProfile` | **Q1 decided: option C**, shipped (#146); Q2 measured 2026-10-30 — the residue is the per-user `Enable` key, one ruling away |
 | HEK | whether the Han/Eng key can act as a held modifier in each frontend environment, and what the compound press would cost | measured per environment (Windows live, Android emulator, fcitx5 read-only); the **compound's action is decided** 2026-10-31 — `docs/SPEC-MODES.md` §E5, §E5 status below |
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
+| IBC | the IBus frontend's config store and settings surface: the five option rows, where they live, what edits them, and how a test can touch them without touching the user's | **decided 2026-11-22**, see §IBC-4 — GSettings store, separate setup app, five rows, live apply, own binary package; implementation not started |
 | PLT | a second Linux frontend: which host mechanism it plugs into (IBus engine, XIM, immodules, Wayland IME) and what each costs | open (#289); the IBus row measured end to end on this host; scoped 2026-11-09 to adding an Ubuntu 22.04 distribution, which jammy's own package inventory turned into a frontend question; **the 22.04 target is decided the same day** — IBus only, fcitx5 given up for it (§PLT-7, `wiki/decisions/2026-11-09-the-22-04-release-ships-ibus-only.md`), while the other targets and the six sub-decisions stay open |
 
 
@@ -2381,10 +2382,13 @@ Three facts inside that table that decide more than the table's shape:
   'Alt+Release+Alt_R']`. That puts an IBus engine in **FE13's** case (the platform owns the
   trigger; the frontend's duty is that the host's language reaches the engine as the layout
   slot), exactly as fcitx5 is — not in FE7's, which is the TSF/Android case.
-- **The shipped fcitx5 adapter is at 660 of FE11's 700 code LOC** —
+- **The shipped fcitx5 adapter is at 660 of FE11's then-700 code LOC** —
   `tools/check-frontend-invariants.py`: "660 code LOC across hunminadapter.cpp=542,
   hunminadapter.h=50, config.h=68 (limit 700)". A second adapter is a second budget, and the
   ruling list has to say so.
+  **Correction (2026-11-22, issue #322):** the budget is now **1000**, and the fcitx5 adapter
+  measures 715 of it. Every "700" in §PLT is what the tool printed on 2026-11-09 and is kept as
+  the measurement it was; §PLT-4's item 6 is read with the new number.
 
 ### PLT-2 The occupancy map on this host
 
@@ -2519,7 +2523,8 @@ cannot settle it by default; the last one is the issue's own verification line.
    window; and how many candidates a page holds, because the engine publishes the page size.
 5. **Config backend** for the same five option rows — GSettings (A's convention), ini, or our
    own dialog — and whether one backend can serve two frontends.
-6. **Whether a second frontend's code counts against FE11 individually** (two budgets of 700)
+6. **Whether a second frontend's code counts against FE11 individually** (two budgets — 700
+   when this was written, 1000 since 2026-11-22)
    or the Linux frontend is one budget in total, given the shipped adapter is already at 660.
 7. **D3 placement and budget** — whether the IBus lane joins `run-d3.sh` as a stack argument
    or gets its own runner, and which ctest label pays for it (`tools/ci-time-budget.sh`
@@ -2775,3 +2780,245 @@ to a fresh regeneration. 42 tier-C tests pass on this host with the new model.
 that arrives without `HUNMIN_TRACE_EXPECT` (a hand run of the binary), and delivery at
 teardown is still covered only by the cumulative-total leg, because the runner flushes the
 last word with no event to report it.
+
+---
+
+## IBC — the IBus frontend's settings: five rows, where they live, and what edits them
+
+Status: **decided 2026-11-22** (issue #327). The four choices the maintainer made are recorded
+in §IBC-4 with his words; §IBC-5 is a measurement taken *after* that ruling that changes how
+the choice is tested, not what is built. Nothing in this section is implemented yet, and the
+decisions that survive the ruling are listed in §IBC-6.
+
+The question: the IBus frontend runs on engine defaults and two environment seams
+(`HUNMIN_IBUS_LAYOUT`, `HUNMIN_IBUS_AUTOSWITCH`, both test/evaluation seams). A user cannot
+change a layout, the commit unit or the automatic switch, and `docs/TESTING.md`'s
+issue-#316 table carries the two rows this leaves empty ("no config backend yet").
+
+### IBC-0 The premises, checked first
+
+| # | premise | verdict |
+|---|---|---|
+| 1 | "the IBus engine has no config backend" (`docs/TESTING.md`, #316) | **holds**: zero stored rows; `hunmin_ibus_engine_init` reads two env vars and nothing else |
+| 2 | "a GSettings schema is the convention for an IBus engine" (`docs/OPTIONS-MEASURED.md` §PLT-3) | **holds on the target**: `ibus-hangul` 1.5.5's installed schema is `org.freedesktop.ibus.engine.hangul`, and its `src/engine.c` opens it with `g_settings_new` and reloads on `changed` — read for semantics, GPL-3, nothing copied |
+| 3 | "IBus has its own config service, so no schema is needed" | **half, and the half that fails**: shipped on jammy (`ibus-dconf` and `ibus-memconf` in `ibus` 1.5.26-4; `ibusconfig.h` in `libibus-1.0-dev`), but on this host's 1.5.34 no owner for `org.freedesktop.IBus.Config` appears — measured twice, §IBC-2 |
+| 4 | "the settings code fits inside the frontend" | **holds, with room**: the IBus frontend is at 698 of FE11's **1000** code LOC — the limit was raised from 700 on 2026-11-22 (issue #322), so ~300 lines are free for a settings reader. What does *not* fit is the settings *surface*: a capture widget and a layout picker are not adapter code (§IBC-4) |
+| 5 | "the engine can be set to all five rows" | **4 of 5**: layouts, commit unit, autoswitch and language have setters; **a key list has none** |
+
+Premise 4's measurement, `python3 tools/check-frontend-invariants.py` (after rebasing onto the
+2026-11-22 budget ruling):
+
+```
+I8 frontend stays inside the thin-adapter budget -- 715 code LOC across
+   hunminadapter.cpp=597, hunminadapter.h=50, config.h=68 (limit 1000)
+I8 the IBus frontend stays inside the thin-adapter budget -- 698 code LOC across
+   hunmin_engine.c=246, hunmin_state.c=368, main.c=22, hunmin_engine.h=20,
+   hunmin_state.h=42 (limit 1000)
+```
+
+An earlier draft of this section was written against a worktree based before that ruling and
+concluded there were two lines of headroom. The conclusion was wrong, and the error is worth
+naming because it is the cheap one to make: the base was stale, the figure was copied from a
+run of the old tree, and the *recommendation* below rested on it. It does not any more — 3(a)
+needs a capture widget, and that is what forces the surface out of the adapter (§IBC-4).
+
+### IBC-1 The five rows, and what each frontend already stores
+
+| row | engine surface | fcitx5 | TSF | Android | IBus |
+|---|---|---|---|---|---|
+| Hangul layout | `hunmin_state_set_layouts` | `HangulLayout` | `HangulLayout` | settings window | **none** (`HUNMIN_IBUS_LAYOUT`) |
+| Latin layout | same | `LatinLayout` | `LatinLayout` | settings window | **none** |
+| commit unit | `hunmin_state_set_commit_policy` | `CommitBehavior` | `CommitUnit` | — | **none** |
+| automatic switch | `hunmin_state_set_autoswitch` (data-gated) | `AutoSwitch` | — | `autoswitch` | **none** (`HUNMIN_IBUS_AUTOSWITCH`) |
+| language-key list | **none** | fcitx5 owns the trigger (FE13) | `HangulEngKeys` | `KeyAction` bindings | **none**, hardcoded |
+
+The fifth row is the one with no engine surface at all: `hunmin_ibus_translate_key` marks
+`Hangul` (0xff31) and `Alt_R` (0xffea) as the language key by literal comparison, and the Hanja
+key (`Hangul_Hanja`, `Control_R`) is a second hardcoded pair in `hunmin_process_key_event`. The
+Hanja key is deliberately **not** one of the five; TSF stores it, this frontend does not, and
+nothing in the ruling moved it.
+
+The fifth row is also the one whose meaning is not free, measured:
+
+```
+gsettings get org.freedesktop.ibus.general.hotkey trigger
+['Control+space', 'Zenkaku_Hankaku', 'Alt+Kanji', 'Alt+grave', 'Hangul', 'Alt+Release+Alt_R']
+```
+
+`Hangul` is in the daemon's trigger list, so on an XKB `kr` layout the daemon consumes the key
+and `process_key_event` never sees it; the engine's language path is reachable on `us`, where
+the physical key reports `Alt_R`. That is why `tests/manual-checklists/ibus-real-use.md` expects
+`"raw":65514`. A stored key list is therefore true in one of two ways: it also removes its keys
+from the daemon's trigger list (the row means "the 한/영 key is this"), or it only narrows what
+the engine accepts (the row means "of the keys the daemon forwards, these switch"). The ruling
+took the first (§IBC-4), which makes the setting's owner the daemon's GSettings schema as well
+as ours — a coupling recorded here rather than discovered during implementation.
+
+### IBC-2 The options
+
+**A — GSettings schema + a separate setup application.** Mechanism: one
+`.gschema.xml` under `/usr/share/glib-2.0/schemas`, `glib-compile-schemas` at install, the
+engine opens the schema and reloads on `changed`, a setup binary writes it and is launched from
+the panel's Preferences through the component XML's `<setup>` element. *Cost:* one schema file,
+one `glib-compile-schemas` packaging trigger, one binary outside the frontend's counted files,
+one `<setup>` line. *Measured availability:* `gsettings`, `dconf` and `glib-compile-schemas` are
+on this host; jammy's `libglib2.0-*` was already in §PLT-7's table; the panel binary carries
+`panel_append_preferences_menu` and `panel_show_setup_dialog`, and `ibus-hangul`'s component XML
+wires exactly that (`/usr/share/ibus/component/hangul.xml`, `<setup>` on line 26) — prior art,
+read only. *Loses:* the dconf database is a per-uid singleton, so a test cannot isolate it
+(§IBC-5).
+
+**B — IBus's own config service (`org.freedesktop.IBus.Config`).** Mechanism: the engine calls
+`ibus_bus_get_config()` / `ibus_config_get_value()`; the daemon runs a config component
+(`ibus-dconf` persists, `ibus-memconf` is in memory). *Cost:* no schema, no new file, no new
+binary, and the value arrives on the daemon's existing connection. *Measured:* shipped on jammy
+(`ibus_1.5.26-4_amd64.deb` carries both `/usr/libexec/ibus-dconf` and `/usr/libexec/ibus-memconf`;
+the dev package carries `ibusconfig.h`, `ibusconfigservice.h`, `ibusproperty.h`), but **on this
+host's 1.5.34 the service name is never owned** — measured under a private `dbus-run-session`
+twice, once with `-c /usr/libexec/ibus-memconf` and once with `-c default` (which spawns
+`ibus-dconf`): the component process exists, `gdbus` reports
+`GetNameOwner org.freedesktop.IBus.Config` → `NameHasNoOwner`, and
+`/org/freedesktop/IBus/Config` → `no object at path`. *Loses:* it is a store that works on the
+release target and not on the development distro, and `ibus read-config` on 1.5.34 reads GSettings
+directly, so the API and the tooling no longer agree about where the values are.
+
+**C — engine-owned ini/JSON + a CLI or GUI.** Mechanism: `$XDG_CONFIG_HOME/hunmin/ibus.json`,
+read at engine start, watched with `inotify` or re-read on focus for live apply; a tool writes it.
+*Cost:* we own the format, the atomic write, the schema-less validation, the file lock and the
+change notification, plus the UI. *Loses:* nothing outside the tree can edit it — no
+`gsettings` CLI, no `dconf-editor`, no distro-wide configuration management — and a test's
+isolation becomes trivial (an environment variable), which is the one thing A cannot buy.
+
+**D — IBus properties only, no store.** Mechanism: a `PROP_TYPE_MENU` property and a
+`property_activate` vfunc; the panel draws the menu. *Cost:* the API exists at both floors
+(`ibusproperty.h` `PROP_TYPE_MENU`/`PROP_TYPE_RADIO`/`PROP_TYPE_TOGGLE`, `IBusEngineClass::property_activate`),
+and the engine already registers one `PROP_TYPE_NORMAL` property for the mode indicator.
+*Loses:* a property is per-engine-process state; without a store the setting dies with the
+daemon, and a 15-row layout picker in a panel menu is a bad picker. It is a *UI channel*, not a
+backend — this is why the ruling pairs it with a store rather than choosing it.
+
+**E — do nothing.** *Cost:* zero. *Loses:* the two gap rows in `docs/TESTING.md` stay gaps, and
+the 22.04 artefact ships an IME whose layout is only changeable by editing an environment
+variable.
+
+**F — one store shared by every frontend.** *Cost:* the store would have to be readable from
+Windows (registry today), Android (`SharedPreferences`) and Linux. *Loses:* it is not one
+mechanism but three with a shared vocabulary, which is what the option *names* already are
+(`HangulLayout`/`LatinLayout`/`CommitUnit` in TSF mirror the fcitx5 addon). The vocabulary is
+the sharing that is affordable; the file is not.
+
+### IBC-3 What a ruling had to include
+
+1. **Which rows are the user's** — the five, or a subset with the rest fixed.
+2. **Where the values live**, and who owns that file.
+3. **What edits them** — a panel menu, a separate application, or a command line only.
+4. **Whether a change reaches a running engine**, or the next start.
+5. **Whether the fifth row may edit the host's own trigger list** (the `Hangul` entry above).
+6. **Packaging** — which binary package carries the surface and what dependency it may add.
+
+### IBC-4 The ruling (maintainer, 2026-11-22)
+
+> 3 -> a로 설정할 수 있어야 함.
+>
+> 나머지는 추천대로 갈게.
+
+Which is: **the five rows, all settable (option (a) of the row question)** — and the rest as
+recommended, so:
+
+- **Store: A, a GSettings schema** (`org.freedesktop.ibus.engine.hunmin`), one file, no new
+  process. Deciding reason: the same slot's prior art, a `gsettings` round trip as a test, and
+  nothing new to package. Would change it: the measurement in §IBC-5 being unacceptable.
+- **Surface: a separate setup binary**, launched by the panel's Preferences through `<setup>`,
+  with **key capture** for the fifth row rather than a typed keysym name — TSF15's rule
+  (2026-10-18: a hand-typed `v1:229:0` bound nothing) applies to any platform where a key
+  identifier can be typed by hand. Deciding reason: capture needs a real widget, and a widget
+  is not adapter code — an engine-side process would put UI in the file whose size FE11
+  measures. (The 1000-line budget would have admitted a panel menu; it would not have admitted
+  a capture dialog, so the reason survives the correction in §IBC-0.)
+- **Fifth row: the engine's list plus the daemon's trigger list.** The setting removes its keys
+  from `org.freedesktop.ibus.general.hotkey trigger`, so the row means what a user means by it.
+  Deciding reason: a row that cannot change the behaviour it names is a UI that lies.
+- **Live apply: yes.** Deciding reason: the shared layer already delivers the word in flight
+  when a policy changes (`CommitPolicyChangeDeliversTheWordFirst`), so this is a signal
+  subscription, not a new mechanism.
+- **Packaging: a separate binary package** for the surface, so an IBus-only install does not
+  pull a toolkit in. Deciding reason: the 2026-11-09 jammy ruling keeps that artefact free of
+  dependencies it does not need.
+- **Requirement: `docs/SPEC-FRONTEND.md` §FE17**, with its `docs/REQ-MAP.md` row. Deciding
+  reason: a ruling that five rows are the user's is a requirement, and a requirement has one
+  home.
+
+**What the ruled shape costs, now that the budget is measured correctly.** The engine-side
+reader is inside `frontends/ibus/src/`, which `tools/check-frontend-invariants.py` counts in
+full (only the `src/trace/` subdirectory escapes, and that exclusion is documented as the
+opt-in trace sink). At 698 of 1000, a schema lookup, four reads and a `changed` handler fit
+with room to spare; the ruling therefore does **not** need FE11's reading settled, and does not
+touch the append-only symbol list either — the fifth row is frontend data (which keysyms count
+as the language key), not engine behaviour, so no new `hunmin_*` symbol is implied.
+
+What the budget does not buy is room for the *widgets*, which is the second half of why the
+surface is a separate process. The distinction matters the moment someone proposes folding the
+settings dialog into the engine's counted files: that would be presentation code inside a file
+measured for adapter thinness, and it would need a budget ruling rather than 300 free lines.
+
+### IBC-5 Measured after the ruling: a dconf-backed store cannot be isolated by environment
+
+This changes the *test* shape, not the store. It was measured because the round-trip test the
+issue's verification line asks for has to be affordable and must not rewrite the developer's
+live settings.
+
+- **A `dconf write` inside a private session bus lands in the real database.** Under
+  `dbus-run-session -- env XDG_CONFIG_HOME=/tmp/dtest4 sh -c 'dconf write /org/hunmin/probe/w 13'`
+  the write reported success, `/tmp/dtest4` stayed empty, and `dconf dump /org/hunmin/` on the
+  developer's own bus then showed `w=13` beside every other value the probe had written. The
+  dconf service owns the database, per uid, and the client's `XDG_CONFIG_HOME` does not move it.
+- **A named database in `DCONF_PROFILE` is not a workaround**: `printf 'user-db:hunmin-test\n'`
+  makes `dconf write` abort — `assertion 'object_path != NULL && g_variant_is_object_path
+  (object_path)' failed` at `bin/dconf.c:1200`, exit 134.
+- **`GSETTINGS_BACKEND=memory` is per process**: `gsettings set` in one process and `gsettings
+  get` in the next do not agree, because each process has its own backend. It is usable only
+  in-process, which is exactly the shape a ctest binary has.
+
+So the verification splits, and the second half is the one that costs:
+
+| what | how | why it is affordable |
+|---|---|---|
+| schema loads; each row reads its default; a write is read back; a `changed` signal fires and the engine applies it without a restart | one ctest binary, `GSETTINGS_BACKEND=memory` + `GSETTINGS_SCHEMA_DIR` pointing at the build tree | in one process the memory backend round-trips and emits `changed`, and no dconf is involved |
+| the value survives an engine restart | the existing D3 lane, on a CI runner | a runner's dconf is throwaway; a developer's is not, so this case is not in the inner loop |
+
+The alternative, if that split is unacceptable: option C (an ini plus an environment variable),
+which makes both halves in-process and costs the schema, the CLI and the packaging trigger. The
+ruling chose A, so this is recorded as a cost, not as an open question.
+
+### IBC-6 Provenance
+
+- Host: Linux, worktree `~/work/hunmin/0.4-t1-6-ibus-ui`, branch `0.4-t1-6-ibus-ui`, base
+  `fa310fc`. Measured 2026-11-22 (KST).
+- **Executed, quoted as measurements:** `python3 tools/check-frontend-invariants.py` (the two
+  I8 lines above, on a base that includes the 2026-11-22 budget raise — the earlier run
+  that said `limit 700` was from a worktree seven commits behind `origin/master`, and is
+  superseded rather than kept); `gsettings get org.freedesktop.ibus.general.hotkey trigger`;
+  `dpkg -c ibus_1.5.26-4_amd64.deb` and `dpkg -c libibus-1.0-dev_1.5.26-4_amd64.deb`
+  (both fetched from `archive.ubuntu.com`'s jammy pool); the `ibus-daemon -c …` probes on
+  1.5.34 under `dbus-run-session` with `gdbus GetNameOwner`;
+  `strings /usr/libexec/ibus-ui-gtk3 | grep -i setup`;
+  `cat /usr/share/ibus/component/hangul.xml` and `memconf.xml`;
+  the `dconf`/`gsettings` isolation probes in §IBC-5, whose residue
+  (`/org/hunmin/probe/*`) was removed with `dconf reset -f /org/hunmin/` and verified with
+  `dconf dump /org/hunmin/`.
+- **Read, not executed:** `ibus-hangul-1.5.5`'s `src/engine.c` and `setup/main.py` (GPL-3, read
+  for semantics, nothing copied); ibus master's `bus/main.c` and `src/ibusbus.c` (the config
+  component is still started, `ibus_bus_get_config` still builds an `IBusConfig`, and the
+  service name is nonetheless unowned on 1.5.34 — the mechanism was not established and is not
+  claimed). The panel's Preferences path is a code-shape claim backed by `strings`, not by a
+  click on a drawn panel.
+- **Not measured, and why:** `<setup>` actually launching a binary from a live panel (needs a
+  panel under Xvfb and a click); a `kr` XKB session losing the `Hangul` key to the daemon (the
+  trigger list is the evidence, the keystroke was not driven); the 1.5.26 jammy config service
+  (the target has the packages and the headers, and no jammy host was driven here).
+- Changed files: `docs/OPTIONS-MEASURED.md` (the header table, the key list, and this section),
+  `docs/SPEC-FRONTEND.md` (§FE17), `docs/REQ-MAP.md` (the FE17 row), `docs/MILESTONES.md`
+  (Track 1's open list), `docs/TESTING.md` (the two gap rows), and the wiki decision page named
+  in §IBC-4's requirement bullet. No engine, frontend, layout or packaging change.
+- Issue #327 stays open: the ruling authorises implementation and verification, and neither
+  exists yet.

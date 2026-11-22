@@ -869,6 +869,10 @@ interface, and the split is what makes them cheap:
   - **Layouts without a config backend.** `HUNMIN_IBUS_LAYOUT` is a D3-only
     seam read by `hunmin_ibus_engine_init`; it does not choose a config store on
     the maintainer's behalf (that ruling is still open, `docs/MILESTONES.md`).
+  - **Layouts before the config store exists.** `HUNMIN_IBUS_LAYOUT` is a D3-only
+    seam read by `hunmin_ibus_engine_init`. The store is now decided
+    (`docs/OPTIONS-MEASURED.md` §IBC, `docs/SPEC-FRONTEND.md` §FE17) but not
+    built, so this seam stays until it is.
   - **Candidate window.** This frontend publishes IBus's **host lookup table**,
     not an own window, so the tier's own-window "window drawn" gate does not
     apply; the table's page size and contents are asserted by `engine-d2-ibus-ui`.
@@ -913,7 +917,7 @@ shared assertion rather than copying the corpus.
 | D1: mode persistence across the focus cycle | flush delivers, reset drops the composition, the MODE survives both | shared-layer semantics (`hunmin_buffered_preedit_reset`); fcitx5's reset() contract | `engine-d1-ibus` (`ModeSurvivesTheFocusFlushAndReset`), `engine-d2-ibus-ui` (`FocusOutDeliversTheWordAndKeepsTheMode`, `ResetDeliversTheWordAndKeepsTheMode`) |
 | D1: judgement corpus | `tests/golden/judgement-r8.jsonl`, step_commits timing, mode_after, probe | `engine-d1-judgement` (skips the `mode: latin` starts — the initial language is the host's) | `engine-d1-ibus-judgement` (runs every case, including the latin starts: this frontend can set the starting mode) |
 | D1: CapsLock tier block/open | caps is the layout's variable, not a shifted row (sin3-p2-yet, `p2-2-4-3-caps.jsonl`) | `engine-d1-fcitx5` | `engine-d2-ibus-ui` (`CapsLockBlocksTheSymbolTier`) — the caps DETECTION lives in the IBus engine object, so the composition is asserted where the detection is |
-| D1: autoswitch config row (description/tooltip/default/data-missing) | the settings surface teaches and stores the value | `engine-d1-fcitx5` | gap, documented: the IBus config backend is an open ruling (`docs/MILESTONES.md`); the value gate (B3) is asserted by `engine-d1-ibus` instead |
+| D1: autoswitch config row (description/tooltip/default/data-missing) | the settings surface teaches and stores the value | `engine-d1-fcitx5` | gap, but no longer undocumented: the backend is decided (`docs/OPTIONS-MEASURED.md` §IBC) and unbuilt, so the value gate (B3) is still asserted by `engine-d1-ibus` alone |
 | D1: Ctrl+Hangul watcher chord | the host watcher flips the stored value | `engine-d1-fcitx5` | does not apply: FE13 — the platform delivers the trigger to the engine, there is no host watcher; the chord binding table ships empty |
 | D2: per-keystroke preedit, clear, cursor | the display the host is told, and its caret | `engine-d2-ui` (cursor is a BYTE offset, fcitx5's Text API) | `engine-d2-ibus-ui` (`PreeditIsPublishedWithACursorInCharacters` — IBus cursor_pos is a CHARACTER index; host difference, same display) |
 | D2: both preedit capability branches | `setPreedit` vs `setClientPreedit`, only one written | `engine-d2-ui` | does not apply: IBus has one preedit channel (`UpdatePreeditText`); there is no second branch to keep exclusive |
@@ -925,7 +929,7 @@ shared assertion rather than copying the corpus.
 | D2: declined keys | a key the engine does not take reaches the client, publishes nothing | `engine-d2-ui` (F9 pass-through) | `engine-d2-ibus-ui` (`DeclinedKeyReturnsFalseAndPublishesNothing`, `ReleaseBareShiftAndChordAreDeclined` — a Ctrl chord is a boundary by the shared classify() rule) |
 | D2: 한/영 trigger translation | both spellings (Hangul 0xff31, Alt_R 0xffea) switch; Caps/Shift/backspace translate | `engine-d1-fcitx5` (the host owns the trigger) | `engine-d2-ibus-ui` (`LayoutOverrideKeepsTheLanguageKeyAlive`, `KeyTranslationKeepsTheLayoutRowAndTheCapsInversionApart`) |
 | D2: mode indicator | the panel's language label tracks the mode | fcitx5 draws the IM label in auxUp (not asserted) | `engine-d2-ibus-ui` (`ModePropertyTracksTheLanguage`) |
-| D2: layout picker rows | the combobox offers exactly the shipped layouts | `engine-d2-ui` | gap, documented: no config backend yet (open ruling); the D3 seam `HUNMIN_IBUS_LAYOUT` drives layouts instead |
+| D2: layout picker rows | the combobox offers exactly the shipped layouts | `engine-d2-ui` | gap, decided and unbuilt (`docs/OPTIONS-MEASURED.md` §IBC): until the settings surface exists the D3 seam `HUNMIN_IBUS_LAYOUT` drives layouts instead |
 | D3: ordinary corpus (`cases.tsv`) | real daemon + real client, cultural sentences, declined space arrives | `engine-d3-x11` (XIM), `engine-d3-gtk3`, `engine-d3-gtk4` | `engine-d3-ibus` (GTK, `im-ibus.so` verified in-process) |
 | D3: edit family (`cases-edit.tsv`) | backspace mid-word, Return, the `^` boundary, F9 pick/cancel through the daemon | `engine-d3-edit` (XIM) | `engine-d3-ibus-edit` (GTK; same case file, same sim oracle `--layer word`) |
 | D3: candidate family (`cases-candidate.tsv`) | the F9 path's commits reach the client; the deep list does not kill the host | `engine-d3-candidate` (window geometry + survival, classicui) | `engine-d3-ibus-candidate` (daemon + engine survival + delivery; host difference: the HOST's lookup table, no own window to draw — the table itself is `engine-d2-ibus-ui`'s assertion) |
