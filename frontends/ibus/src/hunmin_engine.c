@@ -195,16 +195,17 @@ static gboolean hunmin_process_key_event(IBusEngine *engine, guint keyval, guint
 
     /* The Hanja window's open/close key is outside the printable window the
      * state feeds; presentation is this object's half (fcitx5's F9 split).
-     * Three spellings of the trigger (FE13's mapping duty): F9 is the
-     * catalogue key; Hangul_Hanja is the standard XKB Hanja key (the default
-     * in ibus-hangul's hanja-keys, read for semantics); Control_R is what the
-     * maintainer's physical Hanja key reports on this keyboard (instructed
-     * 2026-11-22, issue #319). A bare Control_R press while composing opens
-     * the list even when intended as a modifier prefix -- the next chord key
-     * closes it again (the boundary path closes an open list), the same
-     * trade-off the Alt_R language trigger already carries. */
-    if (keyval == IBUS_KEY_F9 || keyval == IBUS_KEY_Hangul_Hanja ||
-        keyval == IBUS_KEY_Control_R) {
+     * Two spellings of the trigger (FE13's mapping duty): Hangul_Hanja, the
+     * standard XKB Hanja key (the default in ibus-hangul's hanja-keys, read
+     * for semantics), and Control_R, what the maintainer's physical Hanja
+     * key reports on this keyboard. F9 was EXCLUDED by the maintainer
+     * (2026-11-22, issue #319): applications map it to their own functions
+     * (gnome-text-editor), so it belongs to the client here. A bare
+     * Control_R press while composing opens the list even when intended as
+     * a modifier prefix -- the next chord key closes it again (the boundary
+     * path closes an open list), the same trade-off the Alt_R language
+     * trigger already carries. */
+    if (keyval == IBUS_KEY_Hangul_Hanja || keyval == IBUS_KEY_Control_R) {
         const int used = hunmin_state_toggle_candidates(self->state) ? TRUE : FALSE;
         const hunmin_key_event ev = { .base = keyval, .id = HUNMIN_KEY_TEXT };
         HUNMIN_TRACE_EVENT(&ev, used, keyval);

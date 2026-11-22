@@ -301,7 +301,7 @@ TEST_F(IbusUiTest, LayoutOverrideKeepsTheLanguageKeyAlive) {
 TEST_F(IbusUiTest, LookupTableIsPublishedForTheHanjaList) {
     Type("rk");
     captured_.tables.clear();
-    EXPECT_TRUE(Key(IBUS_KEY_F9));
+    EXPECT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
     ASSERT_FALSE(captured_.tables.empty());
     const TableEvent &table = captured_.tables.back();
     EXPECT_TRUE(table.visible);
@@ -323,7 +323,7 @@ TEST_F(IbusUiTest, LookupTableIsPublishedForTheHanjaList) {
 
 TEST_F(IbusUiTest, ReturnCommitsTheHighlightedCandidate) {
     Type("rk");
-    ASSERT_TRUE(Key(IBUS_KEY_F9));
+    ASSERT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
     ASSERT_FALSE(captured_.tables.empty());
     const std::string second = captured_.tables.back().candidates.at(1);
 
@@ -351,7 +351,7 @@ TEST_F(IbusUiTest, DeclinedKeyReturnsFalseAndPublishesNothing) {
 }
 
 TEST_F(IbusUiTest, CandidateKeyWithoutCandidatesReachesTheClient) {
-    EXPECT_FALSE(Key(IBUS_KEY_F9));
+    EXPECT_FALSE(Key(IBUS_KEY_Hangul_Hanja));
     EXPECT_EQ(captured_.shows, 0);
 }
 
@@ -390,7 +390,7 @@ TEST_F(IbusUiTest, CandidateGlossRidesTheAuxiliaryTextAndTracksTheCursor) {
     hunmin_state *state = hunmin_ibus_engine_state(HUNMIN_IBUS_ENGINE(engine_));
     Type("rk");
     captured_.aux.clear();
-    ASSERT_TRUE(Key(IBUS_KEY_F9));
+    ASSERT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
     ASSERT_FALSE(captured_.aux.empty()) << "opening the list published no auxiliary text";
     const std::string gloss0 = hunmin_state_candidate_detail(state, 0);
     ASSERT_FALSE(gloss0.empty()) << "가's first candidate carries a gloss in the data";
@@ -413,7 +413,7 @@ TEST_F(IbusUiTest, CandidateGlossRidesTheAuxiliaryTextAndTracksTheCursor) {
     EXPECT_EQ(captured_.aux.back().text, "");
 
     /* Re-open and commit: the gloss clears on the commit path too. */
-    ASSERT_TRUE(Key(IBUS_KEY_F9));
+    ASSERT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
     EXPECT_TRUE(Key(IBUS_KEY_Return));
     ASSERT_FALSE(captured_.aux.empty());
     EXPECT_FALSE(captured_.aux.back().visible);
@@ -446,6 +446,13 @@ TEST_F(IbusUiTest, HanjaTriggerSpellingsOpenAndToggleTheList) {
     /* No composition: the trigger is the client's key. */
     EXPECT_FALSE(Key(IBUS_KEY_Hangul_Hanja));
     EXPECT_FALSE(Key(IBUS_KEY_Control_R));
+    /* F9 is EXCLUDED (maintainer, 2026-11-22): even over a composing word it
+     * is the client's key -- applications map it to their own functions. */
+    Type("rk");
+    const int shows_before = captured_.shows;
+    EXPECT_FALSE(Key(IBUS_KEY_F9)) << "F9 must reach the client on this frontend";
+    EXPECT_EQ(captured_.shows, shows_before) << "F9 opened the list";
+    Key(IBUS_KEY_space);
 }
 
 }  // namespace

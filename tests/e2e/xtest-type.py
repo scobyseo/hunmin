@@ -36,6 +36,8 @@ NAMED_KEYSYMS = {
     "Page_Down": 0xFF56,
     "Page_Up": 0xFF55,
     "BackSpace": 0xFF08,
+    "Control_R": 0xFFE4,
+    "Hangul_Hanja": 0xFF34,
 }
 
 
@@ -134,7 +136,7 @@ def main() -> int:
             # 간|ᅟᅥᆸ|ㅋ|더 instead of 刊. The repro script settles 1.5s after
             # F9 for exactly this reason; a shorter, still-generous pause
             # keeps the case file readable without a 1.5s per-token cost.
-            if name == "F9":
+            if name in ("F9", "Control_R"):
                 time.sleep(0.8)
             continue
         ch = keys[i]
