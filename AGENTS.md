@@ -238,12 +238,14 @@ Two rules follow from this and they are not optional:
   write the full name — `국립국어원` / National Institute of Korean Language,
   never `NIKE` or `NIKL`. `docs/GLOSSARY.md` is the reference; `docs-lint`
   warns on the two wrong forms because this file names them in order to ban them.
-- **Push requires approval.** `git push` to `origin` (or any remote) requires
-  the maintainer's explicit permission before each push. Do not push multiple
-  times in one session without asking; batch related changes and push once after
-  confirmation. Tag pushes (`git push origin <tag>`) and release uploads
-  (`gh release upload`, `gh release create`) especially require confirmation,
-  since they are irreversible.
+- **Push follows the request.** "Create a PR" or "merge this" is itself
+  explicit permission to push that task branch to the remote and to update the
+  same branch/PR while the request is active; do not ask again for each push.
+  Such pushes should still be batched rather than sprayed one commit at a time.
+  Any push outside that scope needs the maintainer's explicit approval. Tag
+  pushes (`git push origin <tag>`) and release uploads (`gh release upload`,
+  `gh release create`) always need a separate confirmation, since they are
+  irreversible.
 
 ## The wiki
 
