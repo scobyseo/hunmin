@@ -450,14 +450,56 @@ def check_modes(directory: Path, vfile: V):
         vfile.err("missing -- the SCOWL notice is the attribution the licence "
                   "requires beside any redistribution")
 
+# FE14 (SPEC-FRONTEND): data and its terms travel together. Every data
+# directory must carry a LICENSE.md beside the data, and a provenance record
+# -- either meta.json (the structured form) or a "## Source" section in the
+# licence file (the form the pre-FE14 dictionaries used).
+DATA_DIRS = ("compose", "hanja", "idioms", "krdict", "layouts", "modes")
+META_KEYS = {"what", "generator", "source", "method", "counts", "licence",
+             "does_not_represent"}
+
+
+def check_terms(data: Path, vfile: V):
+    for name in DATA_DIRS:
+        d = data / name
+        if not d.is_dir():
+            continue
+        vfile.data = f"{name}/LICENSE.md"
+        lic = d / "LICENSE.md"
+        if not lic.is_file():
+            vfile.err("missing -- FE14: data and its terms travel together")
+            has_source_heading = False
+        else:
+            has_source_heading = "## Source" in lic.read_text(encoding="utf-8")
+        vfile.data = f"{name}/meta.json"
+        meta = d / "meta.json"
+        if meta.is_file():
+            try:
+                obj = json.loads(meta.read_text(encoding="utf-8"))
+            except Exception as e:
+                vfile.err(f"invalid JSON: {e}")
+                obj = None
+            if isinstance(obj, dict):
+                for key in sorted(META_KEYS - set(obj)):
+                    vfile.err(f"missing {key!r}")
+        elif not has_source_heading:
+            vfile.err("missing -- FE14 needs a provenance record here or a "
+                      "'## Source' section in LICENSE.md")
+
+
 def main():
     data = Path(sys.argv[1] if len(sys.argv) > 1 else "libhunmin/data")
     vfile = V(data)
+    check_terms(data, vfile)
     compose_ids = set()
     for p in sorted((data / "compose").glob("*.json")):
+        if p.name == "meta.json":
+            continue  # FE14 provenance record, not a composition table
         check_compose(p, vfile, compose_ids)
     aliases = {}
     for p in sorted((data / "layouts").glob("*.json")):
+        if p.name == "meta.json":
+            continue  # FE14 provenance record, not a keyboard layout
         check_layout(p, aliases, compose_ids, vfile)
     for p in sorted((data / "hanja").glob("*.json")):
         check_hanja(p, vfile)

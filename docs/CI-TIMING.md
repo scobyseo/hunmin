@@ -622,3 +622,22 @@ without knowing its own expected cost, which is the number under measurement.
 at the account level, so the two workflow edits are unexecuted and are recorded
 as such. The tool changes are measured locally (25.5 s, verdicts unchanged, the
 GAP row carrying its evidence).
+
+## 7. Local package-build timing for the nightly jobs (2026-11-22, issue #292)
+
+Both packaging jobs were moved to the nightly rung. Before the first nightly
+run, each `dpkg-buildpackage` was executed once **locally** and timed with
+`/usr/bin/time -f '%e'`, on this 26.04 / 16-core host with a warm build cache:
+
+| build | command | wall | result |
+|---|---|---|---|
+| noble | `dpkg-buildpackage -us -uc -b -d` | 116.72 s | pass — 5 binary packages |
+| jammy profile | `dpkg-buildpackage -us -uc -b -d -Pnobilus` | 117.52 s | pass — 4 binary packages, no `hunmin`/fcitx5 |
+
+Provenance and what this is **not**: the local run used `-d`, extracted IBus
+headers under `~`, and excluded the pre-existing red `engine-d3-gtk3`; the CI
+jobs use real runner packages, 4 cores, and no such exclusion. The noble job
+additionally restores the fcitx5 install tree from `linux`, which this local run
+did not do. So these figures are a **local pass and a local order of magnitude**,
+not CI numbers: the authoritative wall time is printed by each job's own
+`dpkg-buildpackage` step (`=== … wall time: … s ===`) on the first nightly run.

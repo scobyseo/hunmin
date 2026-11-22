@@ -7,10 +7,17 @@ name: ci
 #
 #   "let's disable commit test too. only pr-test is enough."
 #
-# so exactly two jobs run -- `mingw` (a cross-compile) and `linux` on a pull
-# request (the PR rung, `ctest -LE tier-E1`) -- and every other job carries
-# `if: false` with its previous condition in a comment beside it. Re-enabling one
-# is deleting that line; nothing else in the file depends on the set.
+# so exactly two jobs ran -- `mingw` (a cross-compile) and `linux` on a pull
+# request (the PR rung, `ctest -LE tier-E1`) -- and every other job carried
+# `if: false` with its previous condition in a comment beside it.
+#
+# UPDATE 2026-11-22 (issue #292, maintainer request): packaging jobs are
+# activated again, but on the NIGHTLY rung only, so a PR does not pay for them.
+# `deb` builds the noble artefact and `ibus-jammy` builds the 22.04 artefact on
+# a real ubuntu-22.04 runner and runs the IBus D1/D2/D3 lanes there. `linux`
+# runs on nightly too because `deb` needs its fcitx5 install-tree artefact.
+# The two artefacts have different dependency sets by ruling (IBus 1.5.26, no
+# fcitx5, for jammy). The other jobs stay `if: false`.
 #
 # THERE IS NO COMMIT RUNG IN CI, by the second instruction. docs/TESTING.md's
 # commit level (`ctest -L guard`, 19.4 s on the reference host) stays a LOCAL
@@ -28,10 +35,10 @@ name: ci
 # (commit < PR < nightly == release). When they are all on again, the routing is:
 #
 #   push              nothing -- the commit rung is a local selection
-#   pull_request      the PR rung -- linux (`-LE tier-E1`), mingw, android
-#                     (E0/E1 in the JVM, E2 in the emulator), deb
-#   schedule          nightly == release -- the same, plus the release APK job
-#                     and the LeakSanitizer fuzz job
+#   pull_request      the PR rung -- linux (`-LE tier-E1`) and mingw only
+#   schedule          nightly -- linux (for the fcitx5 artefact), deb (noble
+#                     artefact), ibus-jammy (22.04 artefact + IBus D1/D2/D3),
+#                     and mingw. The release APK and fuzz jobs stay disabled.
 #   workflow_dispatch everything, by hand
 #
 # Before 2026-11-01 every push paid all of it: 45 min (android), 45 min (deb) and
@@ -71,7 +78,10 @@ jobs:
     # quoted at the top of this file): `ctest -LE tier-E1` on a pull request. It
     # costs the fcitx5 source build plus the suite inside a 3-minute ceiling,
     # which is what a pull request is for; a push now runs nothing at all.
-    if: github.event_name == 'pull_request'
+    # 2026-11-22: also runs on nightly, because the re-enabled `deb` job needs
+    # the fcitx5 install tree this job uploads. Without that, a nightly-only
+    # deb job would either be skipped by `needs` or rebuild fcitx5 for 326 s.
+    if: github.event_name != 'push'
     steps:
       - uses: actions/checkout@v4
       # fcitx5-modules-dev carries Fcitx5Utils/Fcitx5Module cmake configs, which
@@ -117,7 +127,18 @@ jobs:
             libglib2.0-dev libexpat1-dev libxkbfile-dev \
             libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
             libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
-            iso-codes xkb-data
+            iso-codes xkb-data \
+            libibus-1.0-dev
+          # libibus-1.0-dev is what makes the IBus engine lanes REGISTER on
+          # this job. Measured in issue #292 (PR #311's run 44981702310): the
+          # apt list above lacked it, so pkg_check_modules(ibus-1.0>=1.5.26)
+          # failed, all of frontends/ibus/ was dropped, and the job's 142
+          # tests included no engine-d1-ibus / engine-d1-ibus-judgement /
+          # engine-d2-ibus-ui -- a green run that asserted nothing about the
+          # 22.04 release's only frontend. 1.5.29-2 in noble universe is
+          # above the tree's 1.5.26 floor; the ubuntu-24.04 image has
+          # universe enabled. The lanes must register AND pass, not skip:
+          # engine-d2-ibus-ui needs a session bus and SKIPs without one.
       # fcitx5 5.1.13, CACHED as its install tree.
       #
       # MEASURED 2026-10-15: this build is 197 s and was the single largest
@@ -340,9 +361,43 @@ jobs:
           }
           ls -la build/junit.xml
           head -100 build/Testing/Temporary/LastTest.log 2>&1 || true
-      # ctest exit code does not fail the job; only the job-level timeout-minutes does.
-      # This lets all tests run and be recorded (JUnit + timing) regardless of pass/fail,
-      # while the timeout ceiling still governs overall job duration.
+      # The IBus lanes must REGISTER and PASS, not be silently absent. ctest's
+      # exit code is suppressed above, so this reads the JUnit that step wrote.
+      # issue #292: a run with 142 green tests and zero engine-*-ibus names is
+      # not evidence about 22.04's only frontend; a SKIP of engine-d2-ibus-ui
+      # (no session bus) is likewise not a pass. Fail the job if any of the
+      # three lanes is missing, skipped or failed.
+      - name: IBus lanes registered and passed (a skip is not a pass)
+        run: |
+          python3 - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("build/junit.xml").getroot()
+          cases = {c.get("name"): c for c in root.iter("testcase")}
+          expected = [
+              "engine-d1-ibus",
+              "engine-d1-ibus-judgement",
+              "engine-d2-ibus-ui",
+          ]
+          bad = []
+          for name in expected:
+              c = cases.get(name)
+              if c is None:
+                  bad.append(name + ": not registered")
+                  continue
+              if c.get("status") != "run" or c.find("skipped") is not None or c.find("failure") is not None:
+                  bad.append(name + ": status=" + str(c.get("status")))
+          if bad:
+              print("::error::IBus lanes did not register and pass: " + "; ".join(bad))
+              sys.exit(1)
+          print("IBus lanes registered and passed: " + ", ".join(expected))
+          PY
+      # ctest's own exit code is suppressed so all tests run and are recorded
+      # (JUnit + timing) regardless of pass/fail; the IBus gate above and the
+      # job-level timeout-minutes are what can fail the job. Keeping ctest's raw
+      # status out of the job result lets the timing and failure-evidence steps
+      # below always run, so a red run still leaves its measurement behind.
       # WHERE THE TIME WENT, on every run, not only a red one. A green run that
       # took three times as long as the previous one is the finding, and the
       # ctest log answers it only in the middle of several hundred lines. This
@@ -617,10 +672,11 @@ jobs:
     # linux job with a green deb job built from its own private fcitx5 -- two
     # jobs asserting different things about the same dependency.
     needs: linux
-    # DISABLED 2026-11-01 -- see the header. Re-enable with
-    # `if: github.event_name != 'push'` (the PR rung and above:
-    # dpkg-buildpackage is packaging, not the per-commit gate).
-    if: false
+    # Re-enabled 2026-11-22 (issue #292) as a NIGHTLY job, on the maintainer's
+    # instruction: packaging is not a per-PR cost. `needs: linux` resolves on
+    # nightly because linux also runs there (see its `if` above).
+    # This is the noble artefact; ibus-jammy below is the 22.04 one.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     # NOT 5 minutes, and the reason is measured rather than cautious. This job
     # took 13 m 30 s in run 38428978810 (docs/CI-TIMING.md §1): fcitx5 source
@@ -652,7 +708,14 @@ jobs:
             libglib2.0-dev libexpat1-dev libxkbfile-dev \
             libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
             libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
-            iso-codes xkb-data
+            iso-codes xkb-data \
+            libibus-1.0-dev
+          # Without libibus-1.0-dev the frontend is dropped at configure and
+          # install(TARGETS hunmin-ibus … COMPONENT ibus) never runs, so a
+          # CI-built .deb cannot carry the 22.04 release's only frontend.
+          # (This job is currently disabled by the 2026-11-01 instruction at
+          # the top of the file; the dependency is corrected here so re-enabling
+          # it does not silently ship an engine-less package.)
       # The fcitx5 install tree, restored rather than rebuilt. Measured
       # 2026-10-14 for issue #59: this job built the same 5.1.13 from source as
       # the linux job, 326 s here against 197 s there, 523 s of workflow wall
@@ -724,7 +787,13 @@ jobs:
         # cmake configs are installed); -d tells dpkg to trust the source build
         # rather than package metadata. Safe here because the source-build step
         # above is the one that provides it.
-        run: dpkg-buildpackage -us -uc -b -d
+        # SECONDS is a bash builtin, so the wall time is printed by the step
+        # that actually builds -- no extra action, and no guess from a later
+        # summary that cannot see this segment.
+        run: |
+          start=$SECONDS
+          dpkg-buildpackage -us -uc -b -d
+          echo "=== dpkg-buildpackage (noble) wall time: $((SECONDS-start)) s ==="
       - name: What the package contains
         run: |
           deb="$(ls ../hunmin_*_*.deb)"
@@ -752,6 +821,77 @@ jobs:
         with:
           name: hunmin-deb
           path: artifacts/hunmin_*.deb
+          retention-days: 30
+
+  # The Ubuntu 22.04 release artefact (ruling 2026-11-09, issue #289): it is
+  # built on a REAL ubuntu-22.04 runner so that libibus 1.5.26 and the absence
+  # of fcitx5 are measured rather than inferred from the 26.04 host. This is
+  # also the first CI execution of the IBus D1/D2/D3 lanes on the target:
+  # 26.04 green proves the API, not the daemon/GTK/panel behaviour.
+  ibus-jammy:
+    name: ibus (.deb artefact, Ubuntu 22.04)
+    # Nightly like the noble deb job: the 22.04 artefact is a release artefact,
+    # not a PR gate. It has no `needs`, so it runs on schedule/dispatch alone.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      # Build-Depends with the nobilus profile (see debian/control) is exactly
+      # libibus-1.0-dev + the core's own deps; the extra packages below are the
+      # D3 runtime harness (Xvfb, GTK3 gi, im-ibus.so, XTEST), not build deps.
+      - name: Install build and D3 deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config python3 \
+            build-essential debhelper fakeroot \
+            libhangul-dev libibus-1.0-dev libx11-dev libxcb1-dev libxkbcommon-dev \
+            python3-gi gir1.2-gtk-3.0 python3-xlib \
+            xvfb x11-utils xauth dbus ibus ibus-gtk3
+      # The ruling says dpkg-checkbuilddeps on jammy must succeed with only
+      # those dependencies. Run it WITHOUT -d so the claim is actually tested;
+      # the deb job needs -d only because fcitx5 there is a source build.
+      - name: Verify jammy Build-Depends (no -d)
+        run: dpkg-checkbuilddeps -Pnobilus
+      - name: Configure and build
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build -j4
+      - name: IBus D1/D2/D3 on IBus 1.5.26
+        # Not a skip-tolerant selection: D3 registers here (Xvfb and im-ibus
+        # are installed above), and a skip would be the "green having measured
+        # nothing" shape this track exists to prevent.
+        run: ctest --test-dir build -j4 -R 'engine-d1-ibus|engine-d1-ibus-judgement|engine-d2-ibus-ui|engine-d3-ibus' --output-on-failure
+      - name: Build the .deb (nobilus profile)
+        run: |
+          start=$SECONDS
+          dpkg-buildpackage -us -uc -b -Pnobilus
+          echo "=== dpkg-buildpackage (jammy, nobilus) wall time: $((SECONDS-start)) s ==="
+      - name: What the package contains
+        run: |
+          deb=$(ls ../hunmin-ibus_*_*.deb)
+          dpkg-deb --contents "$deb" > /tmp/ibus-deb-contents.txt
+          head -20 /tmp/ibus-deb-contents.txt
+          # The ruling: no fcitx5 package and no fcitx5 dependency on jammy.
+          if ls ../hunmin_[0-9]*_*.deb >/dev/null 2>&1; then
+            echo "::error::the noble hunmin (fcitx5) package leaked into the jammy build"
+            exit 1
+          fi
+          if dpkg-deb --field "$deb" Depends | grep -q fcitx5; then
+            echo "::error::hunmin-ibus declares a fcitx5 dependency"
+            exit 1
+          fi
+      - name: Stage the artefacts
+        run: |
+          mkdir -p artifacts
+          cp ../libhunmin_*_*.deb ../hunmin-data_*.deb \
+             ../hunmin-ibus_*_*.deb ../hunmin-en-us_*.deb artifacts/
+          ls -la artifacts/
+      - name: Upload the jammy .debs
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunmin-ibus-jammy-deb
+          path: artifacts/*.deb
           retention-days: 30
 
   # The signed release APK, and the reason it is gated on a repository

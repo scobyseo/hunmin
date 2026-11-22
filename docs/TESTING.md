@@ -832,13 +832,46 @@ interface, and the split is what makes them cheap:
   package (the release that ships this engine), and against 26.04's 1.5.34. The
   two header sets were diffed: only `ibus_engine_send_message` and
   `ibus_bus_set_global_shortcut_keys_async` differ, and neither is used.
-- **Not measured here, and not implied by a green run:** that a daemon spawns
-  the engine, that a real client's text view receives the commit, and that a
-  panel draws the table at this page size. That is tier D3, which is issue #292.
-  Measured once by hand before D3 existed, on this host: an `ibus-daemon` spawned
-  the build-tree engine from an out-of-tree component XML, and a real GTK client
-  typing `dkssud ` held `안녕 ` — recorded on issue #288 as an ad-hoc result, not
-  as a ctest.
+- **D3 — real daemon + real client (ctest `engine-d3-ibus`, issue #292).** The
+  same `tests/e2e/run-d3.sh` runner as the fcitx5 D3, selected by
+  `HUNMIN_D3_HOST=ibus`: a real `ibus-daemon` loads the build-tree engine from a
+  staged component XML (its `<exec>` rewritten to `$<TARGET_FILE:hunmin-ibus>`),
+  a GTK 3 client loads `im-ibus.so`, and `xtest-type.py` injects the case keys.
+  The runner's case loop, private bus, X servers and harness are shared with the
+  fcitx5 path; only daemon startup and the readiness gate differ. The engine is
+  spawned lazily on the first input context, so the gate waits for the engine
+  process before injecting (otherwise the first case of every layout group is
+  lost). Expectations still come from `hunmin-sim --trace`, with `--layer word`:
+  this frontend drives `hunmin_buffered_preedit` at the commit-at-boundary
+  policy, so the word-buffered stream is its oracle (`docs/OPTIONS-MEASURED.md`
+  §PLT-8), not a hand-written expectation. The runner refuses a case whose GTK
+  module is not `im-ibus.so`, so a green run cannot be GTK's fallback.
+  - **Layouts without a config backend.** `HUNMIN_IBUS_LAYOUT` is a D3-only
+    seam read by `hunmin_ibus_engine_init`; it does not choose a config store on
+    the maintainer's behalf (that ruling is still open, `docs/MILESTONES.md`).
+  - **Candidate window.** This frontend publishes IBus's **host lookup table**,
+    not an own window, so the tier's own-window "window drawn" gate does not
+    apply; the table's page size and contents are asserted by `engine-d2-ibus-ui`.
+  - **Both 한/영 spellings are language keys** (FE13, 2026-11-22): `Hangul`
+    0xff31 on a Korean XKB layout and `Alt_R` 0xffea on `us`, where the physical
+    key reports that instead. D2's `LayoutOverrideKeepsTheLanguageKeyAlive`
+    toggles with each in turn; the real-use trace shows `raw:65514,
+    consumed:true`. No env var is needed for either.
+  - **On CI** this lane runs in the `ibus-jammy` job on `ubuntu-22.04` (issue #292),
+    so the engine is built and driven against IBus 1.5.26, not only the 26.04
+    host. That job installs Xvfb and im-ibus explicitly: a SKIP would be the
+    "green having measured nothing" shape this target exists to avoid.
+  - **Real-use evaluation** (not a harness): `tools/ibus-real-use.sh desktop`
+    opens a real GTK editor on the operator's own desktop with a private IBus
+    daemon and the built `.deb` artefacts extracted into a repo-local prefix;
+    `portable` does the same in a nested Xephyr display. The engine's layout is
+    `HUNMIN_REALUSE_LAYOUT` (default `sin3-p2`, the maintainer's layout; it is
+    exported to the daemon as `HUNMIN_IBUS_LAYOUT`). Neither mode touches the
+    session bus or the desktop's fcitx5. The driving checklist is
+    `tests/manual-checklists/ibus-real-use.md`. This is where preedit timing and
+    candidate-window feel are judged; D3 only answers whether text is delivered.
+  - **Not implied by a green run:** a panel actually drawing the table, or a
+    Wayland session. Neither is measured here.
 
 - **D3 full-stack X11 e2e**: launch **stock distro `fcitx5`** under Xvfb; start our harness
   app (tiny XIM client window echoing every received commit as `COMMIT:<utf8>` on stdout,

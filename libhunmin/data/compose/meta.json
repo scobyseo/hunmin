@@ -1,0 +1,40 @@
+{
+  "what": "jamo composition tables: (a, b) -> result, used by the engine's compose pass",
+  "generator": "tools/kbd2data.py (libhangul-derived tables); tools/ist2data.py (pat.im UnitMixTable tables); transcribed for the OHI table",
+  "source": {
+    "name": "libhangul 0.2.0 composition data + pat.im/1136 날개셋 UnitMixTable and OHI facts",
+    "vendored_inputs": [
+      "data-orig/libhangul/hangul-combination-default.xml",
+      "data-orig/libhangul/hangul-combination-full.xml",
+      "data-orig/libhangul/hangulkeyboard.h",
+      "data-orig/naraeseot/sin3-p2.basic.xml",
+      "data-orig/naraeseot/sin3-p2.symbols.xml",
+      "data-orig/naraeseot/sin3-p2.yethangul.xml",
+      "data-orig/ohi/"
+    ],
+    "notices": [
+      "data-orig/naraeseot/NOTICE (sha256 pins for the three ist files)",
+      "docs/SPEC-P2.md (normative source for the P2 mix and OHI tables)"
+    ],
+    "per_file": "each compose JSON carries its own source string"
+  },
+  "method": {
+    "conversion": "XML facts rewritten to the schema in docs/SPEC-SCHEMA.md; no upstream code copied",
+    "deterministic": true
+  },
+  "counts": {
+    "tables": 8,
+    "from_libhangul": 4,
+    "from_patim_unitmix": 3,
+    "transcribed_ohi": 1
+  },
+  "licence": {
+    "how": "derived works: libhangul composition data LGPL-2.1-or-later (2009-2016 Choe Hwanjin and contributors); pat.im ist/OHI facts freely reusable per data-orig/naraeseot/NOTICE; conversion code LGPL-2.1-or-later (2026 Seo Bon Keun). Full text: debian/copyright",
+    "redistributable": true
+  },
+  "does_not_represent": [
+    "keyboard layouts (see ../layouts/)",
+    "the engine's composition algorithm (this is only the rule table it reads)",
+    "upstream libhangul or 날개셋 code"
+  ]
+}

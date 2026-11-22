@@ -9,14 +9,45 @@ Build-Depends: debhelper-compat (= 13),
                libhangul-dev,
                libxcb1-dev,
                libxkbcommon-dev,
-               libfcitx5core-dev (>= 5.1.13),
-               fcitx5-modules-dev (>= 5.1.13),
-               fcitx5-modules
+               libfcitx5core-dev (>= 5.1.13) <!nobilus>,
+               fcitx5-modules-dev (>= 5.1.13) <!nobilus>,
+               fcitx5-modules <!nobilus>,
+               libibus-1.0-dev (>= 1.5.26)
+# The `nobilus` build profile is the Ubuntu 22.04 artefact (ruling 2026-11-09,
+# issue #289): it drops every fcitx5 build dependency and the fcitx5 binary
+# package, leaving libibus-1.0-dev + the core's own dependencies. It is used by
+# the `ibus-jammy` CI job on a real ubuntu-22.04 runner with
+# `dpkg-buildpackage -Pnobilus`, and dpkg-checkbuilddeps is asserted there
+# without -d. The default build keeps the noble package set unchanged.
 Standards-Version: 4.6.2
 
-Package: hunmin
+Package: libhunmin
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, fcitx5
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: portable Hangul input engine (shared library)
+ libhunmin is the portable Hangul input engine whose keyboard layouts are
+ data files rather than code. It composes syllables and buffers an eojeol,
+ evaluates the Hangul/English judgement, and serves Hanja candidates.
+ .
+ This package carries the shared library the frontends link against. It is
+ a separate runtime package so the fcitx5 addon and the IBus engine can be
+ installed independently -- the IBus-only Ubuntu 22.04 release must not
+ pull in fcitx5 merely to obtain the core.
+
+Package: hunmin-data
+Architecture: all
+Depends: ${misc:Depends}
+Description: keyboard layouts and dictionaries for the hunmin input engine
+ The layout tables, composition rules, Hanja dictionaries and idiom tables
+ that libhunmin reads at runtime. Kept frontend-neutral so that an IBus-only
+ installation obtains its data without bringing in a fcitx5 dependency.
+ .
+ The English word list is a separate package (hunmin-en-us), as before.
+
+Package: hunmin
+Build-Profiles: <!nobilus>
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libhunmin (= ${binary:Version}), hunmin-data (= ${binary:Version}), fcitx5
 Recommends: hunmin-en-us
 Description: Korean input method engine (libhunmin core + fcitx5 addon)
  libhunmin is a portable Hangul input engine where keyboard layouts are
@@ -55,3 +86,21 @@ Description: hunspell en_US word list for hunmin's Hangul/English switch
  Licence: SCOWL's permission notice plus the hunspell .aff's BSD, both
  reproduced in full in /usr/share/hunmin/modes/LICENSE.md and in
  /usr/share/doc/hunmin-en-us/copyright.
+
+Package: hunmin-ibus
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libhunmin (= ${binary:Version}), hunmin-data (= ${binary:Version}), ibus (>= 1.5.26)
+Description: Korean input method engine for IBus (Ubuntu 22.04 release frontend)
+ hunmin is a portable Hangul input engine where keyboard layouts are data
+ files rather than code. This package ships its IBus engine: a real IBus
+ component that composes through the shared hunmin layer and publishes
+ preedit, commits and the Hanja lookup table on IBus's own interfaces.
+ .
+ This is the frontend of the Ubuntu 22.04 release, which ships no fcitx5
+ dependency at all (decision 2026-11-09, issue #289). The existing `hunmin`
+ package keeps shipping the fcitx5 addon unchanged; the two are separate
+ binary packages so `apt install hunmin` means the same thing on every
+ target. The core library is the separate `libhunmin` runtime package.
+ .
+ The layout/compose data and its licence and provenance statements ship in
+ `hunmin-data`; this engine reads them from /usr/share/hunmin.

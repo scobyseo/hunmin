@@ -41,6 +41,19 @@
 set -u
 
 CLIENT=${HUNMIN_D3_CLIENT:-xim}
+# HOST selects the Linux input-method daemon under test, not the client.
+#   fcitx5 (default) -- the stock fcitx5 + hunmin addon path (the original D3).
+#   ibus            -- a real ibus-daemon + the hunmin IBus engine, driven through
+#                      GTK's own `im-ibus.so`. This is the 22.04 release's only
+#                      frontend, so its D3 must be a full-stack run too (issue
+#                      #292). The case loop, hunmin-sim oracle, X servers,
+#                      private bus, injector and client harness are SHARED;
+#                      only the daemon setup and readiness gate differ.
+IM_HOST=${HUNMIN_D3_HOST:-fcitx5}
+case "$IM_HOST" in
+    fcitx5 | ibus) ;;
+    *) echo "ERROR: unknown HUNMIN_D3_HOST=$IM_HOST" >&2; exit 1 ;;
+esac
 
 SIM=${1:?sim} DATA=${2:?data} HARNESS=${3:?harness} TYPER=${4:?typer}
 ADDON_DIR=${5:?addon_dir} IM_CONF=${6:?im_conf} ADDON_CONF=${7:?addon_conf}
@@ -83,8 +96,15 @@ if [ "$CLIENT" = "gtk" ]; then
         4.0) GTK_IMMODULES=/usr/lib/*/gtk-4.0/*/immodules ;;
         *) GTK_IMMODULES=/usr/lib/*/gtk-3.0/*/immodules ;;
     esac
-    ls $GTK_IMMODULES/*im-fcitx5.so >/dev/null 2>&1 || {
-        echo "SKIP: fcitx5's GTK${GTK_VER%%.*} input method module not installed"
+    # The GTK client must load the HOST's own immodule: with the wrong one the
+    # buffer still fills (both point at a daemon on the same session bus) and
+    # the run would measure nothing about the frontend it claims to.
+    case "$IM_HOST" in
+        ibus) IMMODULE_PATTERN='*im-ibus.so'; IMMODULE_NAME=ibus; IMMODULE_GREP='im-ibus.so' ;;
+        *)    IMMODULE_PATTERN='*im-fcitx5.so'; IMMODULE_NAME=fcitx5; IMMODULE_GREP='im-fcitx5.so' ;;
+    esac
+    ls $GTK_IMMODULES/$IMMODULE_PATTERN >/dev/null 2>&1 || {
+        echo "SKIP: $IMMODULE_NAME's GTK${GTK_VER%%.*} input method module not installed"
         exit 77
     }
     if [ "$GTK_VER" = "4.0" ]; then
@@ -112,7 +132,13 @@ else
 fi
 export CANDIDATE_CLASSICUI
 
-for tool in Xvfb xwininfo xprop fcitx5 python3 dbus-run-session; do
+REQUIRED_TOOLS="Xvfb xwininfo xprop python3 dbus-run-session"
+if [ "$IM_HOST" = "ibus" ]; then
+    REQUIRED_TOOLS="$REQUIRED_TOOLS ibus-daemon ibus"
+else
+    REQUIRED_TOOLS="$REQUIRED_TOOLS fcitx5"
+fi
+for tool in $REQUIRED_TOOLS; do
     command -v "$tool" >/dev/null 2>&1 || {
         echo "SKIP: $tool not available"
         exit 77
@@ -120,14 +146,26 @@ for tool in Xvfb xwininfo xprop fcitx5 python3 dbus-run-session; do
 done
 [ -x "$HARNESS" ] || { echo "SKIP: harness not built"; exit 77; }
 [ -r "$CASES" ] || { echo "SKIP: no cases"; exit 77; }
-[ -f "$IM_CONF" ] && [ -f "$ADDON_CONF" ] || {
-    echo "SKIP: fcitx conf files not generated"
-    exit 77
-}
-[ -d "$SYS_ADDON_DIR" ] && [ -d "$SYS_PKGDATADIR" ] || {
-    echo "SKIP: fcitx5 system dirs not found"
-    exit 77
-}
+if [ "$IM_HOST" = "ibus" ]; then
+    # Paths are passed in, never hard-coded to a build directory: the runner
+    # is invoked by CMake with $<TARGET_FILE:hunmin-ibus> and the configured
+    # component XML. The XML's <exec> is rewritten below to this engine.
+    IBUS_ENGINE=${HUNMIN_D3_IBUS_ENGINE:-}
+    IBUS_COMPONENT=${HUNMIN_D3_IBUS_COMPONENT:-}
+    [ -x "$IBUS_ENGINE" ] || { echo "SKIP: hunmin-ibus engine not built"; exit 77; }
+    [ -r "$IBUS_COMPONENT" ] || { echo "SKIP: hunmin.xml not generated"; exit 77; }
+    IBUS_MEMCONF=$(command -v ibus-memconf 2>/dev/null || echo /usr/libexec/ibus-memconf)
+    [ -x "$IBUS_MEMCONF" ] || { echo "SKIP: ibus-memconf not available"; exit 77; }
+else
+    [ -f "$IM_CONF" ] && [ -f "$ADDON_CONF" ] || {
+        echo "SKIP: fcitx conf files not generated"
+        exit 77
+    }
+    [ -d "$SYS_ADDON_DIR" ] && [ -d "$SYS_PKGDATADIR" ] || {
+        echo "SKIP: fcitx5 system dirs not found"
+        exit 77
+    }
+fi
 
 # Private session bus, always: the outer environment may already carry a
 # DBus address whose bus has a conflicting fcitx name owner.
@@ -381,12 +419,25 @@ fi
 mkdir -p "$STAGE/config" "$STAGE/data/fcitx5/conf" "$STAGE/pkgdata/addon" \
     "$STAGE/pkgdata/inputmethod" \
     "$STAGE/cache" "$STAGE/runtime" \
-    "$STAGE/home/.config" "$STAGE/home/.local/share"
+    "$STAGE/home/.config" "$STAGE/home/.local/share" \
+    "$STAGE/ibus-component"
 chmod 700 "$STAGE/runtime"
-cp "$IM_CONF" "$STAGE/pkgdata/inputmethod/hunmin.conf"
-cp "$ADDON_CONF" "$STAGE/pkgdata/addon/hunmin.conf"
-# fcitx5 loads the addon library from the same directory as the addon.conf
-cp "$ADDON_DIR/libhunmin.so" "$STAGE/pkgdata/addon/libhunmin.so"
+if [ "$IM_HOST" = "ibus" ]; then
+    # The generated component XML names the INSTALL path. For an out-of-tree
+    # run, point it at the built engine instead; everything else in the file
+    # (engine name, language, longname "Hunmin") is what the daemon registers.
+    sed "s|<exec>.*</exec>|<exec>$IBUS_ENGINE --ibus</exec>|" \
+        "$IBUS_COMPONENT" >"$STAGE/ibus-component/hunmin.xml"
+    grep -q "<exec>$IBUS_ENGINE --ibus</exec>" "$STAGE/ibus-component/hunmin.xml" || {
+        echo "ERROR: could not rewrite the IBus component's <exec>"
+        exit 1
+    }
+else
+    cp "$IM_CONF" "$STAGE/pkgdata/inputmethod/hunmin.conf"
+    cp "$ADDON_CONF" "$STAGE/pkgdata/addon/hunmin.conf"
+    # fcitx5 loads the addon library from the same directory as the addon.conf
+    cp "$ADDON_DIR/libhunmin.so" "$STAGE/pkgdata/addon/libhunmin.so"
+fi
 
 # Item order is load-bearing. DefaultIM=hunmin is what selects the engine, but
 # fcitx5 orders the group's list and, measured on 2026-10-03, only ever activated
@@ -467,7 +518,12 @@ export DISPLAY="$DISP"
 unset WAYLAND_DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP \
       DESKTOP_SESSION GNOME_SHELL_SESSION_MODE MUTTER_SESSION_DBUS_DISPLAY
 export LANG=C.UTF-8 LC_ALL=C.UTF-8
-export XMODIFIERS=@im=fcitx
+if [ "$IM_HOST" = "ibus" ]; then
+    # IBus's XIM server registers as @im=ibus when started with -x.
+    export XMODIFIERS=@im=ibus
+else
+    export XMODIFIERS=@im=fcitx
+fi
 # GTK selects its input method module from GTK_IM_MODULE, not from XMODIFIERS.
 # Without this a GTK client loads its own built-in fallback and the run would
 # measure GTK's default key handling rather than fcitx5's GTK frontend --
@@ -475,7 +531,14 @@ export XMODIFIERS=@im=fcitx
 # naming the im-fcitx5.so mapped into its process, and run_case REFUSES a run
 # where it is absent, so this cannot pass while measuring another input method.
 if [ "$CLIENT" = "gtk" ]; then
-    export GTK_IM_MODULE=fcitx5
+    # GTK selects its IM module from GTK_IM_MODULE, not XMODIFIERS. The module
+    # must be the HOST's or the run measures the wrong frontend (the harness
+    # prints a MODULE: line and run_case refuses a run without the right one).
+    if [ "$IM_HOST" = "ibus" ]; then
+        export GTK_IM_MODULE=ibus
+    else
+        export GTK_IM_MODULE=fcitx5
+    fi
     # X11 explicitly: a GTK client that falls back to the Wayland backend
     # would need a compositor, and there is none under Xvfb. Spelling it out
     # means a missing backend is an error, not a silent fallback.
@@ -490,6 +553,15 @@ export FCITX_CONFIG_HOME="$STAGE/config"
 export FCITX_DATA_HOME="$STAGE/data"
 export FCITX_ADDON_DIRS="$ADDON_DIR:$SYS_ADDON_DIR"
 export FCITX_DATA_DIRS="$STAGE/pkgdata:$SYS_PKGDATADIR"
+if [ "$IM_HOST" = "ibus" ]; then
+    # IBUS_COMPONENT_PATH is read by ibus-daemon at startup (src/ibusregistry.c);
+    # there is no per-user component directory in 1.5.26. The staged XML above
+    # is the only way an out-of-tree engine registers on a private bus.
+    export IBUS_COMPONENT_PATH="$STAGE/ibus-component"
+    # Keep IBus's own config off the real user's gsettings/dconf: ibus-memconf
+    # is the in-memory backend tools/ime-host-probe.sh uses for the same reason.
+    unset IBUS_ADDRESS 2>/dev/null || true
+fi
 export HUNMIN_DATA_PATH="$DATA"
 export LD_LIBRARY_PATH="$(dirname "$(realpath "$SIM")"):${LD_LIBRARY_PATH:-}"
 export FCITX_LOG_RULE="default=5,xim=5,hunmin=5"
@@ -513,7 +585,56 @@ gate_ms() { # $1 = timestamp in us (or ""), $2 = start in us
     fi
 }
 
+# ----------------------------------------------------------- IBus daemon
+# The IBus half of D3. It shares everything above X (the Xvfb/Xephyr pair, the
+# private bus, the injector, the GTK harness and the hunmin-sim expectations);
+# what differs is the daemon and its readiness gate. FCITX_PID is reused as
+# "the host daemon's pid" so cleanup and the layout-change loop stay common.
+start_ibus() { # $1 = layout
+    local layout=$1 start_us=${EPOCHREALTIME/./} now_us listed=0
+    # The engine has no config store yet (an open ruling, recorded in
+    # docs/MILESTONES.md). The D3 seam is an env var read by
+    # hunmin_ibus_engine_init: the daemon inherits it and so does the engine
+    # it spawns. A layout change restarts the daemon below, exactly as the
+    # fcitx5 half restarts fcitx5, so each engine starts on the right layout.
+    export HUNMIN_IBUS_LAYOUT="$layout"
+    # -x registers an XIM server as well: the XIM client harness is the one
+    # that observes a COMMIT stream (its per-case teardown flushes the word in
+    # flight), which is the assertion cases.tsv's COMMIT-only column describes.
+    ibus-daemon -x -c "$IBUS_MEMCONF" -p disable >"$STAGE/ibus-daemon.log" 2>&1 &
+    FCITX_PID=$!
+    for _ in $(seq 1 100); do
+        now_us=${EPOCHREALTIME/./}
+        if ibus list-engine 2>/dev/null | grep -q 'Hunmin'; then
+            listed=1
+            break
+        fi
+        kill -0 "$FCITX_PID" 2>/dev/null || break
+        sleep 0.1
+    done
+    if [ "$listed" -ne 1 ]; then
+        echo "ERROR: ibus-daemon did not register the hunmin engine (layout=$layout)"
+        echo "  list-engine output:"; ibus list-engine 2>&1 | sed 's/^/    /'
+        echo "  daemon log:"; tail -40 "$STAGE/ibus-daemon.log" 2>/dev/null | sed 's/^/    /'
+        return 1
+    fi
+    # -s takes the engine name. Unlike fcitx5-remote -o, this one really does
+    # select it; verify rather than trust the exit code.
+    ibus engine hunmin >/dev/null 2>&1 || {
+        echo "ERROR: ibus engine hunmin could not be selected"
+        tail -20 "$STAGE/ibus-daemon.log" 2>/dev/null | sed 's/^/    /'
+        return 1
+    }
+    printf 'ibus: layout=%s registered in %d ms\n' \
+        "$layout" "$(( (now_us - start_us) / 1000 ))" >>"$STAGE/gate.log"
+    return 0
+}
+
 start_fcitx() { # $1 = layout
+    if [ "$IM_HOST" = "ibus" ]; then
+        start_ibus "$1"
+        return $?
+    fi
     # NOTE: never probe with fcitx5-remote before the instance owns the
     # bus name — dbus *activates* org.fcitx.Fcitx5 from its .service file,
     # racing a second instance against ours (observed: addon unload storm).
@@ -731,6 +852,26 @@ EOF
 
 stop_fcitx() {
     [ -n "$FCITX_PID" ] || return 0
+    if [ "$IM_HOST" = "ibus" ]; then
+        # Scope the cleanup to children of OUR daemon, never a pgrep of the
+        # engine binary: that could reach an engine on the maintainer's real
+        # session bus. ibus-daemon normally reaps its engines itself; this is
+        # the belt-and-braces path for a daemon that did not.
+        local engine_children
+        engine_children=$(pgrep -P "$FCITX_PID" 2>/dev/null || true)
+        kill "$FCITX_PID" 2>/dev/null
+        for _ in $(seq 1 30); do
+            kill -0 "$FCITX_PID" 2>/dev/null || break
+            sleep 0.1
+        done
+        for p in $engine_children; do
+            kill -KILL "$p" 2>/dev/null
+        done
+        kill -KILL "$FCITX_PID" 2>/dev/null
+        wait "$FCITX_PID" 2>/dev/null
+        FCITX_PID=""
+        return 0
+    fi
     kill "$FCITX_PID" 2>/dev/null
     for _ in $(seq 1 30); do
         kill -0 "$FCITX_PID" 2>/dev/null || break
@@ -753,6 +894,16 @@ stop_fcitx() {
 # something on the way (space flushes the in-flight syllable AND is declined),
 # because both reach the client: the commit as COMMIT, the character as
 # FORWARD. Hence one trace line can produce two expected lines.
+# The IBus engine composes through hunmin_buffered_preedit with the
+# commit-at-boundary policy, so its oracle is hunmin-sim's `--layer word`
+# stream (docs/OPTIONS-MEASURED.md §PLT-8). fcitx5's adapter uses the default
+# per-syllable layer and keeps the tier A default. Both are hunmin-sim --trace;
+# the point is that the expectation matches the layer the frontend actually
+# runs, not a re-derivation by hand.
+sim_layer_args() {
+    if [ "$IM_HOST" = "ibus" ]; then printf -- '--layer word'; fi
+}
+
 sim_keys() { # $1 = case-file keys string; prints hunmin-sim-compatible keys
     printf '%s' "$1" | python3 -c '
 import sys
@@ -769,7 +920,7 @@ sys.stdout.write(s)
 expected_stream() { # $1=layout $2=keys
     local keys
     keys=$(sim_keys "$2")
-    "$SIM" --data "$DATA" --layout "$1" --keys "$keys" --trace |
+    "$SIM" --data "$DATA" --layout "$1" --keys "$keys" $(sim_layer_args) --trace |
         python3 -c '
 import json, sys
 word = ""
@@ -803,7 +954,7 @@ for line in sys.stdin:
 expected_text() { # $1=layout $2=keys
     local keys
     keys=$(sim_keys "$2")
-    "$SIM" --data "$DATA" --layout "$1" --keys "$keys" --trace | \
+    "$SIM" --data "$DATA" --layout "$1" --keys "$keys" $(sim_layer_args) --trace | \
         python3 -c '
 import json, sys
 buf = []
@@ -830,7 +981,7 @@ print("TEXT:" + "".join(buf))
 # Kept as the COMMIT-only view for the cases that predate forwarded keys; the
 # pass-through cases are compared with expected_stream instead.
 expected_commits() { # $1=layout $2=keys
-    "$SIM" --data "$DATA" --layout "$1" --keys "$2" --trace |
+    "$SIM" --data "$DATA" --layout "$1" --keys "$2" $(sim_layer_args) --trace |
         python3 -c '
 import json, sys
 for line in sys.stdin:
@@ -943,6 +1094,28 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
             return
         fi
     fi
+    # IBus spawns the engine LAZILY, on the first input context a client
+    # creates -- `ibus engine hunmin` only records the choice in the daemon.
+    # On the first case of a layout group the keys used to arrive before the
+    # engine process existed, so every first case came back with an empty
+    # buffer (measured 2026-11-22, issue #292). Gate on the engine being a
+    # child of OUR daemon, then let it attach to the private bus.
+    if [ "$IM_HOST" = "ibus" ]; then
+        engine_ready=0
+        for _ in $(seq 1 100); do
+            if ps -o args= --ppid "$FCITX_PID" 2>/dev/null | grep -Fq "$IBUS_ENGINE"; then
+                engine_ready=1
+                break
+            fi
+            sleep 0.1
+        done
+        if [ "$engine_ready" -ne 1 ]; then
+            echo "FAIL [$layout/$keys]: the IBus engine process never spawned"
+            fail=1
+            return
+        fi
+        sleep 0.3
+    fi
     # Kept, and kept unconditional, because the case marker is NOT a substitute
     # for it. The marker proves the widget holds the X focus; it does not prove
     # the toolkit has finished connecting that widget's GtkIMContext to fcitx5,
@@ -1039,6 +1212,15 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
         # the measurement is the state the user is left looking at. `tail -1`
         # rather than a stream diff, for that reason.
         actual=$(printf '%s\n' "$case_lines" | grep -E '^TEXT:' | tail -1 || true)
+        # With the word-boundary layer an IBus case can end with an untouched
+        # buffer (no key delivered a commit, e.g. `dkssuds`), and the harness
+        # prints TEXT: only on a change. The final state is still the empty
+        # buffer, so compare against the line it would have printed. CASESTART
+        # above already proves the harness was on this case and the module
+        # check below proves the right frontend was loaded.
+        if [ -z "$actual" ] && [ "$IM_HOST" = "ibus" ]; then
+            actual="TEXT:"
+        fi
         # The fcitx5 GTK IM module must actually be in this process, or the
         # run measures something else and says nothing about the GTK frontend.
         # This is a real hazard here, not a hypothetical. Measured: with
@@ -1048,8 +1230,8 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
         # fills with the right text by the XIM path this measurement exists to
         # distinguish from the GTK one. A result alone cannot tell the two
         # apart; this check can.
-        if ! grep -q '^MODULE:im-fcitx5.so=' "$STAGE/commits.log" 2>/dev/null; then
-            echo "FAIL [$layout/$keys]: fcitx5's GTK IM module is not loaded;"
+        if ! grep -q "^MODULE:$IMMODULE_GREP=" "$STAGE/commits.log" 2>/dev/null; then
+            echo "FAIL [$layout/$keys]: $IMMODULE_NAME's GTK IM module is not loaded;"
             echo "  the buffer came from some other input method, so this run"
             echo "  is not a GTK-frontend measurement."
             grep -E '^(MODULE|GTK_IM_MODULE):' "$STAGE/commits.log" 2>/dev/null |

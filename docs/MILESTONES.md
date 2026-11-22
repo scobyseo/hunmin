@@ -260,11 +260,39 @@ config store, the build host and FE11's reading are still open.
 one source — the two header sets were diffed and differ by two symbols, neither used. D1 and
 D2 are registered and green (`engine-d1-ibus`, `engine-d1-ibus-judgement`,
 `engine-d2-ibus-ui`), the corpus lane runs every case of `tests/golden/judgement-r8.jsonl`,
-and a one-off run through a real `ibus-daemon` + GTK client delivered `안녕 ` (ad-hoc; tier
-D3, the candidate-window gate and packaging are T1-4, #292). Still open from the list
-above: the package layout, the config store (the engine runs engine defaults), the
-candidate-window gate, and FE11's reading — `tools/check-frontend-invariants.py` applies
-the existing 700-line number to this frontend as well, which pre-empts no ruling.
+and a one-off run through a real `ibus-daemon` + GTK client delivered `안녕 ` (ad-hoc at
+the time).
+
+**Implemented 2026-11-22 (issue #292, T1-4).** That ad-hoc run is now a ctest:
+`engine-d3-ibus` drives a real daemon + GTK client through the shared
+`tests/e2e/run-d3.sh` with `hunmin-sim --trace --layer word` expectations, and is
+green. The candidate gate is satisfied by documentation rather than a window:
+this frontend uses IBus's host lookup table, whose page size and contents
+`engine-d2-ibus-ui` asserts. Packaging follows the 2026-11-09 ruling — a separate
+`hunmin-ibus` binary package, with the core in a shared `libhunmin` runtime
+package and the frontend-neutral data in `hunmin-data`, so the jammy artefact
+carries no fcitx5 dependency and still has its layouts — and FE14's licence
+and provenance files are now present beside every data directory, enforced by
+`schema-contract`. The IBus frontend also carries T2-1's opt-in personal key log
+(`docs/trace-spec.md`), compiled out of shipped builds.
+
+**CI activated 2026-11-22, maintainer request.** Both packaging jobs run on the
+nightly rung (not per PR). The `deb` job (noble artefact) is
+re-enabled, and a new `ibus-jammy` job builds the 22.04 artefact on a real
+`ubuntu-22.04` runner with the `nobilus` build profile — which drops the fcitx5
+Build-Depends and the `hunmin` binary package, leaving IBus 1.5.26 plus the core.
+That job runs the four IBus lanes on the target, not only on the 26.04 host:
+the header diff earlier in this section proves source compatibility, and the
+2026-11-09 jammy VM probe proves a commit path with a *probe* engine, but neither
+proves that the shipped engine behaves identically. `linux` also runs on nightly
+because `deb` needs its fcitx5 install-tree artefact. Each packaging step prints
+its own `dpkg-buildpackage` wall time; the numbers belong to the first nightly
+run, not to prose here.
+
+Still open from the list above: the config store (the engine runs engine defaults;
+`HUNMIN_IBUS_LAYOUT` is a D3 test seam, not a backend) and FE11's reading —
+`tools/check-frontend-invariants.py` applies the existing 700-line number to each
+frontend; the opt-in trace sink lives outside the counted adapter files.
 
 ### Track 2 — auto-switch improvement (correctness, expectability, …)
 

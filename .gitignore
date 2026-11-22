@@ -64,3 +64,6 @@ frontends/tsf/settings-ui/obj/
 
 # ctest writes these where it is invoked; they are per-run artefacts
 Testing/
+
+# extracted .deb prefix from tools/ibus-real-use.sh -- regenerated, never committed
+.ibus-realuse-prefix/

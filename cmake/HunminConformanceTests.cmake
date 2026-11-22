@@ -49,4 +49,9 @@ endif()
 if(TARGET hunmin_addon AND NOT HUNMIN_TRACE)
   hunmin_add_test(NAME trace-optout COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check-trace-optout.py $<TARGET_FILE:hunmin_addon> LABELS tier-C)
 endif()
+# The IBus engine carries the same opt-in sink; the shipped binary must be
+# free of it too (T2-1's personal-key dialect is frontend-independent).
+if(TARGET hunmin-ibus AND NOT HUNMIN_TRACE)
+  hunmin_add_test(NAME trace-optout-ibus COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check-trace-optout.py $<TARGET_FILE:hunmin-ibus> LABELS tier-C)
+endif()
 hunmin_add_test(NAME keymap-fixture COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/keymap-fixture.py LABELS tier-C SKIP_RETURN_CODE 77)

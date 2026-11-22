@@ -10,11 +10,16 @@
 #include <string.h>
 
 #include "hunmin_state.h"
+#include "trace/trace.h"
 
 struct _HunminIbusEngine {
     IBusEngine parent_instance;
     hunmin_state *state;
     hunmin_state_sink sink;
+    /* The host panel's language indicator. The engine has no own window; the
+     * IBus property is where "which mode am I in" belongs, and the API exists
+     * at the 1.5.26 floor (unlike ibus_engine_send_message). */
+    IBusProperty *mode_prop;
 };
 
 struct _HunminIbusEngineClass {
@@ -31,12 +36,15 @@ G_DEFINE_TYPE(HunminIbusEngine, hunmin_ibus_engine, IBUS_TYPE_ENGINE)
 /* ------------------------------------------------------------- the sink */
 
 static void sink_commit(void *user, const char *text) {
+    (void)user;
+    HUNMIN_TRACE_COMMIT(text);
     if (!text || !*text) return;
     ibus_engine_commit_text(IBUS_ENGINE(user), ibus_text_new_from_string(text));
 }
 
 static void sink_preedit(void *user, const char *text, int cursor) {
     IBusEngine *engine = IBUS_ENGINE(user);
+    HUNMIN_TRACE_PREEDIT(text);
     if (!text) text = "";
     IBusText *ibus_text = ibus_text_new_from_string(text);
     if (!*text) {
@@ -82,6 +90,14 @@ hunmin_key_event hunmin_ibus_translate_key(guint keyval, guint state, int candid
     hunmin_key_event ev;
     memset(&ev, 0, sizeof ev);
     ev.candidates_open = candidates_open;
+    /* FE13: both spellings of the Han/Eng key are ours. XKB "us" reports the
+     * physical key (keycode 108) as Alt_R 0xffea; a Korean layout reports
+     * Hangul 0xff31. Accepting both makes the engine layout-independent. A
+     * bare press only -- a chord is the same event with modifier bits. */
+    if (keyval == IBUS_KEY_Alt_R || keyval == IBUS_KEY_Hangul) {
+        ev.language_key = 1;
+        return ev;
+    }
 
     switch (keyval) {
     case IBUS_KEY_BackSpace:
@@ -119,12 +135,6 @@ hunmin_key_event hunmin_ibus_translate_key(guint keyval, guint state, int candid
     case IBUS_KEY_KP_Page_Down:
         ev.id = HUNMIN_KEY_PAGE_DOWN;
         break;
-    case IBUS_KEY_Hangul:
-        /* FE13: this platform hands the Han/Eng trigger to the engine, so the
-         * engine says it is the language key and the state performs the
-         * switch. A bare press only -- a chord is the same event with mods. */
-        ev.language_key = 1;
-        break;
     default:
         ev.id = HUNMIN_KEY_TEXT;
         /* Caps first, then case: X11 reports a Caps Locked letter as its
@@ -155,26 +165,45 @@ hunmin_key_event hunmin_ibus_translate_key(guint keyval, guint state, int candid
 
 /* ------------------------------------------------------------ the vfuncs */
 
+/* Record a key the engine did not take; the shared ev carries the raw keyval
+ * as a TEXT event, the same convention fcitx5's personal log uses for F9. */
+static int declined(guint keyval) {
+    const hunmin_key_event ev = { .base = keyval, .id = HUNMIN_KEY_TEXT };
+    HUNMIN_TRACE_EVENT(&ev, 0, keyval);
+    return FALSE;
+}
+
 static gboolean hunmin_process_key_event(IBusEngine *engine, guint keyval, guint keycode,
                                          guint state) {
     (void)keycode;
     HunminIbusEngine *self = HUNMIN_IBUS_ENGINE(engine);
-    if (self->state == NULL) return FALSE;
+    HUNMIN_TRACE_RESET();
+    if (self->state == NULL) return declined(keyval);
     /* IBus delivers releases too; the key path is press-driven. */
-    if (state & IBUS_RELEASE_MASK) return FALSE;
+    if (state & IBUS_RELEASE_MASK) return declined(keyval);
     /* A bare modifier is not composition input and must not end the word in
      * flight (fcitx5's adapter makes the same exception for Shift). */
-    if (keyval == IBUS_KEY_Shift_L || keyval == IBUS_KEY_Shift_R) return FALSE;
+    if (keyval == IBUS_KEY_Shift_L || keyval == IBUS_KEY_Shift_R)
+        return declined(keyval);
 
-    /* The Hanja window's open/close key. It is outside the printable window
-     * the state feeds, so it is intercepted here -- presentation is this
-     * object's half (the same split as fcitx5's F9 handling). */
-    if (keyval == IBUS_KEY_F9) return hunmin_state_toggle_candidates(self->state) ? TRUE : FALSE;
+    /* The Hanja window's open/close key is outside the printable window the
+     * state feeds; presentation is this object's half (fcitx5's F9 split). */
+    if (keyval == IBUS_KEY_F9) {
+        const int used = hunmin_state_toggle_candidates(self->state) ? TRUE : FALSE;
+        const hunmin_key_event ev = { .base = keyval, .id = HUNMIN_KEY_TEXT };
+        HUNMIN_TRACE_EVENT(&ev, used, keyval);
+        return used;
+    }
 
     hunmin_state_set_caps(self->state, (state & IBUS_LOCK_MASK) ? 1 : 0);
     const hunmin_key_event ev = hunmin_ibus_translate_key(
         keyval, state, hunmin_state_candidates_open(self->state));
-    return hunmin_state_key(self->state, &ev) ? TRUE : FALSE;
+    const int used = hunmin_state_key(self->state, &ev) ? TRUE : FALSE;
+    HUNMIN_TRACE_EVENT(&ev, used, keyval);
+    ibus_property_set_label(self->mode_prop, ibus_text_new_from_string(
+        hunmin_state_language(self->state) == HUNMIN_LANGUAGE_LATIN ? "영" : "한"));
+    ibus_engine_update_property(IBUS_ENGINE(self), self->mode_prop);
+    return used;
 }
 
 static void hunmin_focus_in(IBusEngine *engine) { (void)engine; }
@@ -242,6 +271,7 @@ static void hunmin_ibus_engine_dispose(GObject *object) {
         hunmin_state_free(self->state);
         self->state = NULL;
     }
+    g_clear_object(&self->mode_prop);
     G_OBJECT_CLASS(hunmin_ibus_engine_parent_class)->dispose(object);
 }
 
@@ -270,6 +300,36 @@ static void hunmin_ibus_engine_init(HunminIbusEngine *self) {
     self->sink.preedit = sink_preedit;
     self->sink.candidates = sink_candidates;
     if (self->state) hunmin_state_set_sink(self->state, &self->sink);
+
+    /* Host-visible mode indicator (IBus panel language bar). */
+    self->mode_prop = ibus_property_new("hunmin-mode", PROP_TYPE_NORMAL,
+        ibus_text_new_from_string("한"), NULL, ibus_text_new_from_string("mode"),
+        TRUE, TRUE, PROP_STATE_UNCHECKED, NULL);
+    g_object_ref_sink(self->mode_prop);  /* we keep our own ref across updates */
+    IBusPropList *props = ibus_prop_list_new();
+    ibus_prop_list_append(props, self->mode_prop);
+    ibus_engine_register_properties(IBUS_ENGINE(self), props);
+    g_object_unref(props);
+
+    /* The layout config store is still an open ruling (docs/MILESTONES.md),
+     * so the engine runs the state's defaults. HUNMIN_IBUS_LAYOUT is the D3
+     * test seam: the daemon inherits it and so does this engine process,
+     * letting the full-stack tier drive any of the case-file layouts without
+     * the test choosing a frontend config backend on the maintainer's behalf.
+     * An unset or unknown id leaves the defaults in place. */
+    const char *layout = g_getenv("HUNMIN_IBUS_LAYOUT");
+    if (layout && *layout && self->state)
+        hunmin_state_set_layouts(self->state, layout, NULL);
+    /* The opt-in log's meta states the layout the state actually resolved --
+     * not the requested env id, which may have failed to load. Available here
+     * before the first key builds a layer. */
+    HUNMIN_TRACE_SET_LAYOUT(hunmin_state_hangul_layout_id(self->state));
+
+    /* Evaluation-only switch (no config-store ruling yet): the real-use
+     * script sets HUNMIN_IBUS_AUTOSWITCH so the D1-proven judgement path can
+     * be felt by a person. Absent, the shipped default OFF is untouched. */
+    if (g_getenv("HUNMIN_IBUS_AUTOSWITCH") && self->state)
+        hunmin_state_set_autoswitch(self->state, 1);
 }
 
 struct hunmin_state *hunmin_ibus_engine_state(HunminIbusEngine *engine) {

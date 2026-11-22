@@ -25,11 +25,13 @@
 
 #include <algorithm>
 #include <clocale>
+#include <initializer_list>
 #include <string>
 #include <vector>
 
 extern "C" {
 #include "hunmin_engine.h"
+#include "hunmin_state.h"
 }
 
 namespace {
@@ -252,6 +254,37 @@ TEST_F(IbusUiTest, LanguageKeyvalSwitchesThroughTheHost) {
 /* The lookup table is the host's candidate window: these are the fields a
  * panel pages and draws. 64 entries against a page of 9 is the pagination
  * path, not a one-page list. */
+/* Regression for the HUNMIN_IBUS_LAYOUT init seam (2026-11-22, issue #292):
+ * changing ONLY the Hangul layout must keep the Latin half. Passing NULL there
+ * makes the layer single-language and the 한/영 key is silently declined while
+ * flushing the word. The real-use trace log caught it; this pins it. */
+TEST_F(IbusUiTest, LayoutOverrideKeepsTheLanguageKeyAlive) {
+    hunmin_state *state = hunmin_ibus_engine_state(HUNMIN_IBUS_ENGINE(engine_));
+    // Copy: set_layouts frees the id strings, so a borrowed pointer dangles.
+    const std::string hangul = hunmin_state_hangul_layout_id(state);
+    ASSERT_FALSE(hangul.empty());
+    // NULL latin is the engine's D3 seam call: it must KEEP the Latin half.
+    ASSERT_TRUE(hunmin_state_set_layouts(state, hangul.c_str(), NULL));
+    ASSERT_EQ(hangul, hunmin_state_hangul_layout_id(state));
+
+    /* Both spellings must work: Hangul 0xff31 on a Korean XKB layout, and
+     * Alt_R 0xffea on "us", where the physical 한/영 key reports that instead.
+     * Toggle back between the two halves so each starts from Hangul. */
+    for (guint keyval : {IBUS_KEY_Hangul, IBUS_KEY_Alt_R}) {
+        Type("rk");
+        captured_.commits.clear();
+        EXPECT_TRUE(Key(keyval))
+            << "language keyval 0x" << std::hex << keyval << " was declined";
+        ASSERT_FALSE(captured_.commits.empty());
+        EXPECT_EQ(captured_.commits.back(), "가");
+        EXPECT_EQ(hunmin_state_language(state), HUNMIN_LANGUAGE_LATIN);
+        // Return to Hangul for the next spelling without another key dependency.
+        captured_.commits.clear();
+        EXPECT_TRUE(Key(keyval));
+        ASSERT_EQ(hunmin_state_language(state), HUNMIN_LANGUAGE_HANGUL);
+    }
+}
+
 TEST_F(IbusUiTest, LookupTableIsPublishedForTheHanjaList) {
     Type("rk");
     captured_.tables.clear();

@@ -118,11 +118,14 @@ def main():
         if not args.gtk_version.startswith("4"):
             gi.require_version("Gdk", "3.0")
         from gi.repository import GLib, Gtk
+
         if not args.gtk_version.startswith("4"):
             from gi.repository import Gdk
     except Exception as exc:  # noqa: BLE001 - the runner turns this into a skip
-        out("HARNESS-ERROR: no Gtk %s via gobject-introspection: %s"
-            % (args.gtk_version, exc))
+        out(
+            "HARNESS-ERROR: no Gtk %s via gobject-introspection: %s"
+            % (args.gtk_version, exc)
+        )
         return 77
 
     gtk4 = args.gtk_version.startswith("4")
@@ -131,8 +134,13 @@ def main():
     # per case (see make_entry). Every reference below goes through cur_entry()
     # rather than closing over a name, because after the first swap the name
     # would be a different widget than the one on screen.
-    state = {"entry": None, "ready": False, "printed_text": False,
-             "pending": None, "pending_at": 0.0}
+    state = {
+        "entry": None,
+        "ready": False,
+        "printed_text": False,
+        "pending": None,
+        "pending_at": 0.0,
+    }
 
     def cur_entry():
         return state["entry"]
@@ -181,23 +189,27 @@ def main():
         return new
 
     # Which IM module library is actually mapped into this process. Without
-    # this the harness cannot tell "the fcitx5 GTK module declined the space
-    # and did nothing" from "the fcitx5 GTK module was never loaded and GTK
-    # handled the keys itself" -- which would make the run a measurement of
-    # GTK's built-in fallback rather than of the fcitx5 GTK frontend.
+    # this the harness cannot tell "the host's GTK module declined the space
+    # and did nothing" from "the module was never loaded and GTK handled the
+    # keys itself" -- which would make the run a measurement of GTK's built-in
+    # fallback rather than of the frontend under test. Both fcitx5's and
+    # IBus's modules are recognised: the runner names the one it expects, and
+    # a run with the wrong one is refused (both modules can point at a daemon
+    # on the same bus and still fill the buffer).
     def report_module():
         mapped = []
         try:
             with open("/proc/self/maps") as fh:
                 for line in fh:
-                    m = re.search(r"(\S*im-fcitx5\.so\S*)", line)
+                    m = re.search(r"(\S*im-(?:fcitx5|ibus)\.so\S*)", line)
                     if m:
                         p = m.group(1)
                         if p not in mapped:
                             mapped.append(p)
         except OSError as exc:
             out("MODULE-ERROR: %s" % exc)
-        out("MODULE:" + ("im-fcitx5.so=" + ",".join(mapped) if mapped else "none"))
+        label = "im-ibus.so" if any("im-ibus" in p for p in mapped) else "im-fcitx5.so"
+        out("MODULE:" + (label + "=" + ",".join(mapped) if mapped else "none"))
         out("GTK_IM_MODULE:" + os.environ.get("GTK_IM_MODULE", "<unset>"))
 
     if gtk4:
@@ -231,6 +243,7 @@ def main():
     # equivalent is used instead: xdotool windowfocus on this window's title,
     # which is an XSetInputFocus by another name. See take_focus().
     if not gtk4:
+
         def take_focus():
             gw = win.get_window()
             e = cur_entry()
@@ -247,11 +260,13 @@ def main():
                 return True
             found = subprocess.run(
                 ["xdotool", "search", "--name", WINDOW_TITLE],
-                capture_output=True, text=True, check=False)
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             ids = [x for x in found.stdout.split() if x.strip()]
             if ids:
-                subprocess.run(["xdotool", "windowfocus", ids[-1]],
-                               check=False)
+                subprocess.run(["xdotool", "windowfocus", ids[-1]], check=False)
             return True
 
         GLib.timeout_add(300, take_focus)

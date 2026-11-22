@@ -90,15 +90,18 @@ indirectly; no test asserts "the host's trigger reached the slot".
 
 A frontend distributes the data it needs with the terms that data is under, and
 records where generated tables came from. *Ruling:* `docs/SPEC-OVERVIEW.md#§A10`.
-*Implementation:* `libhunmin/data` + `tools/doctor.py` (the terms check is
-proposed, not yet built). *Refuted by:* `none`.
+*Implementation:* `tools/doctor.py#check_terms` (ctest `schema-contract`) and the
+`LICENSE.md`/`meta.json` pairs beside every data directory. *Refuted by:* the
+`schema-contract` test.
 
-**Measured 2026-10-25, and partial:** `hanja/`, `idioms/`, `krdict/` each carry
-`LICENSE.md`; `layouts/` (15 layouts — derived work of libhangul's kbd tables and
-pat.im's `ist.xml`) and `compose/` (ahn/modern/modern-full) carry **neither a
-licence nor a provenance `meta.json`**. The proposed fix is a `tools/doctor.py`
-terms check plus the two missing statements, so the discrepancy fails a test
-before it is resolved.
+**Resolved 2026-11-22 (issue #292).** The 2026-10-25 measurement was partial:
+`hanja/`, `idioms/`, `krdict/` carried `LICENSE.md`, while `layouts/` (15 layouts
+— derived work of libhangul's kbd tables and pat.im's `ist.xml`) and `compose/`
+carried neither a licence nor a provenance `meta.json`. `layouts/` and `compose/`
+now each carry both files, and `check_terms` fails `schema-contract` if any data
+directory loses its licence or its provenance record. The older dictionaries
+satisfy the provenance half through their `LICENSE.md`'s `## Source` section, so
+the check does not require a second copy of a statement already made there.
 
 ### FE15. The frontend/library boundary is append-only
 
