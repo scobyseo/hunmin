@@ -69,41 +69,47 @@ the file is already packaged and extracted, so a second copy would be drift.
 - No per-layout branch anywhere (FE12): the grid is one generic geometry, and
   which cells appear is answered by the layout's own key set.
 
-## 3. Geometry — provisional, and generic by construction
+## 3. Geometry — the decided picture (KP13), and the overturned deviation
 
-The physical US positions are the geometry (KP1's physical-position criterion);
-a cell is drawn when the active layout defines that key. Consequences:
+**Decided (KP13, maintainer 2026-11-22, verbatim: "docs/android-keypad-mockup.html
+로 정했잖아?"):** the UI is `docs/android-keypad-mockup.html` AS DRAWN. The grid
+is the picture's: a 10-key number row (digits only, shifted-symbol corner
+hints), 10/9/7 letter rows, one ⇧ (⇪ hint) and ⌫ on the third row, and the
+bottom row `[한/영] [기호] [space] ,<?> .<"> [⏎]`. The Hangul screen is 두벌식,
+the English screen QWERTY — Track 3's goal layouts. Labels still come from the
+layout's own JSON (§2); the GEOMETRY is the picture's, and the view transcribes
+the picture's palette and proportions (white keys, #f4f5f7 panel, accent
+한/영/⏎, 연하게 digits and functional keys, 46 dp keys, 8 dp corners, 11 sp
+corner hints, 10 sp shifted-jamo sublabels). The picture draws a light theme;
+night-mode adaptation is not drawn and stays open.
 
-- **두벌식** draws exactly the mockup's Hangul screen: 10/9/7 letter keys, no
-  punctuation cells (the layout defines none). **QWERTY** draws its extra
-  literal keys (`[ ] \ ; ' - = ` `` ` ``) at their physical positions, so every
-  one of its 47 keys is touch-reachable. **sin3-p2**, the default, is also fully
-  reachable for the same reason — the scope boundary excludes a 세벌식
-  *ergonomics block*, not the ability to type the default layout by touch.
-- **Digits are always drawn** (number row), even for dubeolsik which defines no
-  digit keys: an unmapped key is the classifier's boundary-and-pass, so a digit
-  tap inserts the digit exactly as the hardware key does. KP1's digit↔symbol
-  *pairing* (long-press/swipe-up, KP5) is #312; the digits themselves are not.
-- **`,` and `.` live in the bottom row in every text mode** (KP4's
-  default-visible frequent symbols; the mockup's bottom row). They are never
-  duplicated at their physical row-3 position: when the layout defines them
-  (sin3-p2, us-qwerty) the bottom-row key IS that layout key, fed through the
-  engine path like any character key. One key, one position, every mode — KP9's
-  positional consistency. The exact frequent-symbol set beyond `, .` remains
-  open (symbols.json `x-notes.frequent-keys`); `?` and `"` are on the symbol
-  page meanwhile.
-- **Functional keys** follow KP2: one shift (row 3 left), backspace (row 3
-  right), enter (bottom row right), space (bottom row middle) — no two of
-  space/enter/backspace adjacent, none at physical size or position. The bottom
-  row reads `[한/영] [기호] [space] , . [⏎]`, the mockup's order.
-- **Visual hierarchy (KP3, provisional):** character keycaps use the primary
-  text colour, functional keycaps the secondary one — the endorsed
-  문자는 진하게, 편집키/숫자는 연하게 direction, using the existing HudTheme tokens.
-  Frequency data and emphasis beyond this are not spent here.
+**Overturned — the first implementation's generic grid.** Before KP13 was
+recorded, this doc proposed a generic physical-position grid: a cell drawn
+wherever the active layout defines a key, extension cells ([ ] \ ; ' / ` - =)
+included, so every layout (sin3-p2 among them) was fully touch-reachable. The
+maintainer rejected it — "T3-1에서 정한 UI가 아닌데?", "왜 그 mockup 대로
+구현하지 않았지?" The deviation's cause is recorded so it is not repeated: the
+mockup document's header said "provisional, not a ruling", and the work read
+that as permission to design a different geometry instead of asking. When a
+document's status and the maintainer's intent disagree, ASK; do not pick.
 
-Row density for layouts with punctuation cells (13 keys on the top row at
-360 dp ≈ 27 dp/key) is the recorded trade-off of generic reachability; the
-in-scope 두벌식 grid is 10/9/7. Geometry sizes are provisional (mockup status).
+Consequences of the decided picture, recorded rather than smoothed over:
+
+- **sin3-p2's punctuation keys are not touch-reachable** through the picture's
+  cells (its ; ' [ ] \ ` - = keys fall outside the 두벌식/QWERTY form). The
+  letter keys draw at their positions; , . keep their bottom-row slots (they
+  ARE layout keys there). Whether the keypad should offer other layouts, or
+  force 두벌식 regardless of the setting, is OPEN (§7) — the picture fixes the
+  form, not the layout-setting interaction.
+- **The corner hints are drawn; the gestures are #312.** The digit hints and
+  shifted-jamo sublabels are reachable today through the one-shot shift; the
+  ,→? / .→" / ⇧→⇪ affordances advertise KP5/KP7 gestures that do not exist yet.
+  The picture draws them, so they are drawn (KP13); the gap is recorded here.
+- Digits are always drawn (an unmapped digit is the classifier's
+  boundary-and-pass, inserting itself exactly as the hardware key does).
+- `,` and `.` live in the bottom row in EVERY text mode (KP4/KP9): when the
+  layout defines them, the bottom-row key IS that layout key — one key, one
+  position, every mode.
 
 ## 4. Shift, pages, and the symbol page's return key
 
@@ -149,11 +155,13 @@ already exercises. No engine or ABI change is needed by either.
   javap-verified AOSP constants; one-shot shift and page state semantics.
 - **Tier E1, `KeypadTouchGoldenTest`** (real engine via the host JNI shim):
   replays `tests/golden/cultural-pangram-us-qwerty.jsonl` — the tier A corpus —
-  through the TOUCH mapping (keycap id + one-shot shift → keycode + meta →
-  `HunminAdapter.onKey`), asserting per-key commit and preedit. This is the
-  issue's golden: the Latin commit path through the engine survives touch.
-  A second case pins the flush seam: a pending dubeolsik word is delivered
-  BEFORE a symbol-page commit, in one order, with no I9 violation.
+  through BOTH touch surfaces: letters/digits via the text grid (keycap id +
+  one-shot shift → keycode + meta → `HunminAdapter.onKey`), punctuation via the
+  symbol page's KP11 direct commit (flush first), since KP13's picture has no
+  punctuation cells. Per-case totals must equal the golden text. This is the
+  issue's golden: the Latin commit path survives touch. A second case pins the
+  flush seam: a pending dubeolsik word is delivered BEFORE a symbol-page
+  commit, in one order, with no I9 violation.
 - **Tier E2, `tools/android-e2e.sh` touch round**: taps the real keycaps on the
   emulator (by content-desc, bounds from the platform's own hierarchy) — an
   English word with a shifted letter and a space, a symbol from the symbol
@@ -167,7 +175,14 @@ already exercises. No engine or ABI change is needed by either.
 - The frequent-symbol set beyond `, .` and the number-row default (KP4, mockup
   OPEN items); gesture variants and the Tier 2 mapping (#312, KP10).
 - Capslock / shift state machine beyond one-shot (KP7), swipe defences (KP5).
-- Geometry sizes, landscape, haptics, accessibility polish (#285 sub-issue).
+- The keypad ↔ layout-setting interaction: the picture's Hangul screen is
+  두벌식, but the service default is sin3-p2 (hardware parity with fcitx5).
+  Today the keypad draws the ACTIVE layout in the picture's geometry, so the
+  두벌식 screen appears when 두벌식 is chosen (settings → 한글 배열). Whether
+  the keypad should force 두벌식, or the default should change, is the
+  maintainer's — not decided here.
+- Night-mode palette (the picture draws light only), landscape, haptics,
+  accessibility polish (#285 sub-issue).
 - KP3 frequency-based placement/emphasis beyond the provisional colour
   hierarchy — needs the frequency source the symbols design names.
 
@@ -222,3 +237,64 @@ than smoothed over.
   typing `hello`, shift, `w`, space). The IME was right; the test was wrong.
   Recorded because the failure read like a shift defect for one run.
 
+
+## 10. The reported bugs and their fixes (2026-11-22, maintainer device test)
+
+The maintainer tested on the physical device and reported three functional
+bugs. Each was reproduced on the AVD with real taps, fixed, and pinned by an
+E2E assertion:
+
+1. **한/영 toggled the engine but not the grid.** `toggleHangulEnglish()`
+   refreshed the strip only; the keypad never heard the mode change, so the
+   labels stayed Hangul while English composed. Fix: `refreshKeypad()` in both
+   toggle paths. E2E asserts the q keycap's label reads `q` in English mode.
+2. **Backspace did nothing in most scenarios.** MEASURED: the engine correctly
+   declined the synthesized DEL (`consumed=false` in logcat) and the platform's
+   default `onKeyDown` forwarding DROPPED the synthesized event — hardware
+   events carry a keyboard source and flags, ours did not. Fix: a declined
+   touch key is forwarded explicitly via `InputConnection.sendKeyEvent`
+   (down+up); `passThrough()` suppresses the super fallback during touch
+   dispatch so the key lands exactly once. This also fixes every other
+   pass-through key (navigation, punctuation the layout declines).
+3. **Enter did nothing.** Same forwarding drop, plus the fixture was
+   single-line. Fix: the explicit forwarding, and Enter tries
+   `sendDefaultEditorAction(true)` first (Done/Go/Send/Next), falling back to
+   the key event (a newline in a multi-line editor). The test editor is now
+   `textMultiLine` so the newline is assertable.
+
+## 11. KP14 — long swipe-left delete, configurable unit
+
+The maintainer's request (2026-11-22, verbatim in
+`docs/SPEC-ANDROID-KEYPAD.md#§KP14`): a long swipe-left from any keycap is
+backspace, configurable 키/음절/단어/전체.
+
+- **Gesture**: `KeypadModel.isSwipeLeftDelete(dx, dy, threshold)` — leftward
+  distance ≥ threshold (provisional 60 dp ≈ two key widths) AND horizontally
+  dominant (≥ 2× the vertical drift). Recognised on MOVE once long enough; the
+  tap fires on UP only if no gesture fired, so a key is never typed AND
+  deleted. A short drift stays a tap (KP5 protection). Long-press and swipe-up
+  remain #312 — the maintainer measured them absent ("long-press도 swipe-up도
+  동작하지 않아"), recorded in KP14's entry; the hints KP13 draws advertise
+  gestures that are not wired yet.
+- **Units** (service `deleteBySwipeUnit`, all through the tap machinery or
+  platform actions, no surrounding-text read — I9):
+  - KEY: the backspace key's own path.
+  - SYLLABLE: jamo-by-jamo DEL against the composing display, STOPPING when
+    the last syllable is gone — one DEL too many commits the buffered word and
+    deletes into it (measured: ㅎ곈디 → ㅎ곈ㄷ → ㅎ곈, a third DEL eats 곈). The
+    jamo cap is NFD of the last syllable; the stop condition is the display
+    losing that whole character.
+  - WORD: `reset()` drops the buffered word when composing; else Ctrl+DEL to
+    the app (its own word-delete).
+  - ALL: `reset()` + Ctrl+A + DEL as key events through the same queue.
+    MEASURED: `performContextMenuAction(selectAll)` did not select before the
+    delete arrived (only the trailing space was deleted); the key-event pair
+    orders itself. No length is read from the client (I9).
+- **Setting**: settings window → 키패드 section, four choices; stored in
+  `hunmin.xml` (`swipe_left_delete`), read by the gesture and shown by the
+  window through the same `ImeSettings` bus as the other rows. Default KEY
+  (least destructive) — provisional.
+- **Verification**: E1 pins the gesture decision table and the unit vocabulary;
+  E2E swipes a real keycap per unit (KEY: ㅎ곈디 → ㅎ곈ㄷ; WORD: the composing
+  word dropped; ALL: a committed field cleared) and asserts the settings row
+  and its four choices.

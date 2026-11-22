@@ -103,3 +103,36 @@ preedit + the existing Hanja dialog), the frequent-symbol set beyond `, .`,
 gesture variants and Tier 2 (#312), capslock beyond one-shot (KP7), geometry
 sizes and landscape. None of these was decided here; the design doc lists
 them with the evidence that would move them.
+
+## The mockup was the decided UI (KP13) — the deviation and its overturning
+
+The maintainer tested the first build and rejected it: "T3-1에서 정한 UI가 아닌데?",
+"docs/android-keypad-mockup.html 로 정했잖아?", "왜 그 mockup 대로 구현하지 않았지?"
+The mockup picture IS the decided UI (recorded as KP13). The first implementation
+had read the mockup document's "provisional, not a ruling" header as permission
+and built a generic physical-position grid with extension cells and the HUD
+palette instead. The cause is the lesson: when a document's status and the
+maintainer's intent disagree, ASK — do not pick. The grid, palette, hints and
+sublabels were rebuilt to the picture; the deviation is recorded in
+[[2026-11-22-t3-3-soft-keyboard-ui]]'s design doc (§3) and SPEC KP13.
+
+## The device test found three functional bugs — and requested KP14
+
+The maintainer's phone test (2026-11-22): 한/영 changed the engine but not the
+grid; backspace did nothing in most scenarios; enter did nothing. All three
+reproduced on the AVD with real taps:
+
+1. the toggle refreshed the strip only — `refreshKeypad()` added to both paths;
+2. the platform's default onKeyDown forwarding DROPS synthesized key events
+   (hardware events carry a keyboard source; ours did not) — declined touch
+   keys are now forwarded explicitly via InputConnection.sendKeyEvent, with
+   the super fallback suppressed during touch dispatch so nothing lands twice;
+3. same drop, plus Enter needs `sendDefaultEditorAction` first — and the test
+   editor was single-line, now textMultiLine so the newline is assertable.
+
+Each fix carries an E2E regression assertion. The same session requested KP14
+(verbatim in SPEC): a long swipe-left from any key is backspace, configurable
+키/음절/단어/전체 — implemented with a pure gesture decision, four delete units
+through the tap machinery (no I9 read), and a 키패드 settings section. The
+maintainer also measured that long-press and swipe-up do nothing — true, they
+are #312, and KP13 draws their hints; the gap is recorded, not hidden.

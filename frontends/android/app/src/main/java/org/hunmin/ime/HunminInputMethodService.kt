@@ -527,7 +527,7 @@ class HunminInputMethodService : InputMethodService() {
      *    swallowing them would break every shortcut behind the IME.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (event.action != KeyEvent.ACTION_DOWN) return super.onKeyDown(keyCode, event)
+        if (event.action != KeyEvent.ACTION_DOWN) return passThrough(keyCode, event)
 
         // A key the settings window is capturing comes here first and nowhere
         // else: while an IME is the current input method, hardware keys are
@@ -555,7 +555,7 @@ class HunminInputMethodService : InputMethodService() {
             if (chordEngine != null && (mods != 0 || shift != 0)) {
                 val fn = chordEngine.special(0, shift, mods)
                 if (fn > 0) return true
-                if (fn < 0) return super.onKeyDown(keyCode, event)
+                if (fn < 0) return passThrough(keyCode, event)
             }
         }
 
@@ -577,9 +577,9 @@ class HunminInputMethodService : InputMethodService() {
          * judgement is TAKEN -- this branch returns before the general path, so
          * leaving it pending deferred the switch to the next keystroke. */
         if (keyCode == KeyEvent.KEYCODE_SPACE && !isSecureEditor) {
-            val e = engine ?: return super.onKeyDown(keyCode, event)
+            val e = engine ?: return passThrough(keyCode, event)
             val target: InputConnection = currentInputConnection
-                ?: return super.onKeyDown(keyCode, event)
+                ?: return passThrough(keyCode, event)
             // Space is a boundary key: the WORD accumulated so far is delivered
             // once through commitWord (issue #75), then the space itself is
             // forwarded -- the space does not go through the engine. Not in a
@@ -633,7 +633,7 @@ class HunminInputMethodService : InputMethodService() {
             || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT
             || keyCode == KeyEvent.KEYCODE_META_LEFT
             || keyCode == KeyEvent.KEYCODE_META_RIGHT) {
-            return super.onKeyDown(keyCode, event)
+            return passThrough(keyCode, event)
         }
 
         // Route to correct engine based on mode.
@@ -645,7 +645,7 @@ class HunminInputMethodService : InputMethodService() {
         // read (measured 2026-10-13, issue #13). Checked before the engines
         // rather than inside them: HunminAdapter is layout-agnostic core code
         // with no notion of an editor, and the policy belongs to the adapter.
-        if (isSecureEditor) return super.onKeyDown(keyCode, event)
+        if (isSecureEditor) return passThrough(keyCode, event)
 
         /* ONE layer takes every key: the PAIR (FE7). Routing by mode sent
          * Latin-mode keys to `latinEngine`, a one-language layer that has no
@@ -657,7 +657,7 @@ class HunminInputMethodService : InputMethodService() {
          * the switch's commit), not for key input. */
         val e = engine ?: latinEngine
         val target: InputConnection = currentInputConnection
-            ?: return super.onKeyDown(keyCode, event)
+            ?: return passThrough(keyCode, event)
 
         val consumed = try {
             e?.onKey(keyCode, event.metaState, target) ?: false
@@ -681,7 +681,7 @@ class HunminInputMethodService : InputMethodService() {
          * consuming -- and the E1 gate's symmetric line ("typed in one stream,
          * both directions") could never pass on this frontend. */
         adoptJudgement(e)
-        return if (consumed) true else super.onKeyDown(keyCode, event)
+        return if (consumed) true else passThrough(keyCode, event)
     }
 
     /**
@@ -733,6 +733,10 @@ class HunminInputMethodService : InputMethodService() {
             picker?.setMicState(if (isHangulMode) VoiceState.IDLE else VoiceState.ERROR)
             picker?.setMode(isHangulMode)
             picker?.setActiveLayout(currentLayout())
+            // The keypad follows the mode too (issue #299 bug 1: the toggle
+            // updated the strip only, so the grid stayed Hangul while the
+            // engine composed English).
+            refreshKeypad()
             return
         }
         isHangulMode = !isHangulMode
@@ -759,6 +763,7 @@ class HunminInputMethodService : InputMethodService() {
         picker?.setMode(isHangulMode)
         // The name follows the mode: 한 shows the 한글 array, 영 the 영문 one.
         picker?.setActiveLayout(currentLayout())
+        refreshKeypad()
     }
 
     /** Show transient mode indicator (like Samsung's toast). */
@@ -1153,6 +1158,7 @@ class HunminInputMethodService : InputMethodService() {
             // toggle only if the mode drifted while the page was up.
             if (isHangulMode != hangul) toggleHangulEnglish()
         }
+        pad.onSwipeLeftDelete = { deleteBySwipeUnit() }
         keypad = pad
         refreshKeypad()
         updateKeypadVisibility()
@@ -1185,9 +1191,121 @@ class HunminInputMethodService : InputMethodService() {
      */
     private fun dispatchTouchKey(keyCode: Int, metaState: Int) {
         val now = SystemClock.uptimeMillis()
-        val event = KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, metaState)
-        onKeyDown(keyCode, event)
+        val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, metaState)
+        inTouchDispatch = true
+        val consumed = try {
+            onKeyDown(keyCode, down)
+        } finally {
+            inTouchDispatch = false
+        }
+        if (!consumed) {
+            /* MEASURED (issue #299, bugs 2/3): the platform's default
+             * onKeyDown forwarding does NOT deliver a SYNTHESIZED KeyEvent to
+             * the app — hardware events arrive with a keyboard source and
+             * flags, ours do not, and backspace/enter taps did nothing while
+             * the engine correctly declined them (consumed=false in logcat,
+             * field unchanged). So a declined touch key is forwarded
+             * EXPLICITLY through the InputConnection, down and up, the way
+             * every IME sends pass-through keys. passThrough() suppresses the
+             * super fallback during touch dispatch so the key is delivered
+             * exactly once. */
+            val ic = currentInputConnection ?: return
+            if (keyCode == KeyEvent.KEYCODE_ENTER) {
+                // Enter is the editor's action first (Done/Go/Send/Next); a
+                // key event alone does nothing on a single-line action editor.
+                // sendDefaultEditorAction answers false when there is no
+                // action — then Enter is a newline key like any other.
+                if (sendDefaultEditorAction(true)) return
+            }
+            ic.sendKeyEvent(down)
+            ic.sendKeyEvent(KeyEvent(now, SystemClock.uptimeMillis(), KeyEvent.ACTION_UP, keyCode, 0, metaState))
+        }
     }
+
+    /** True while [dispatchTouchKey] is driving [onKeyDown]; see its KDoc. */
+    private var inTouchDispatch = false
+
+    /** AOSP META_CTRL_ON, javap -constants android.jar (API 35) — the same
+     *  value HunminAdapterTest pins. Ctrl+DEL is the app's own word-delete. */
+    private val metaCtrlOn = 0x00001000
+
+    /** KP14's stored delete unit; KEY is the provisional default. */
+    private fun readSwipeUnit(): DeleteUnit =
+        DeleteUnit.of(
+            try {
+                getSharedPreferences(PREFS, MODE_PRIVATE).getString(HunminPrefs.SWIPE_LEFT_DELETE, null)
+            } catch (e: Exception) {
+                null
+            },
+        )
+
+    /**
+     * KP14: the long swipe-left delete, in the configured unit. Every path
+     * goes through the same key machinery as a tap (dispatchTouchKey) or a
+     * platform action — no surrounding-text read anywhere (I9).
+     */
+    private fun deleteBySwipeUnit() {
+        val e = engine ?: latinEngine
+        val ic = currentInputConnection ?: return
+        when (readSwipeUnit()) {
+            DeleteUnit.KEY ->
+                // The backspace key's own path: engine edits the composition,
+                // or the app deletes one character.
+                dispatchTouchKey(KeyEvent.KEYCODE_DEL, 0)
+            DeleteUnit.SYLLABLE -> {
+                // Remove the last syllable of the composing display, jamo by
+                // jamo, STOPPING when it is gone: one DEL too many would commit
+                // the buffered word and delete into it (measured on the AVD:
+                // ㅎ곈디 -> ㅎ곈ㄷ -> ㅎ곈, and a third DEL eats 곈). The jamo
+                // count comes from NFD of the syllable, not a guess.
+                val display = e?.preedit() ?: ""
+                if (display.isEmpty()) {
+                    dispatchTouchKey(KeyEvent.KEYCODE_DEL, 0)
+                    return
+                }
+                val target = display.dropLast(1)
+                val last = display.last()
+                val max = if (last in '\uAC00'..'\uD7A3') {
+                    java.text.Normalizer.normalize(last.toString(), java.text.Normalizer.Form.NFD).length
+                } else 1
+                var cur = display
+                var i = 0
+                while (i < max && cur.isNotEmpty() && cur != target) {
+                    dispatchTouchKey(KeyEvent.KEYCODE_DEL, 0)
+                    cur = e?.preedit() ?: ""
+                    i++
+                }
+            }
+            DeleteUnit.WORD ->
+                if (e != null && e.preedit().isNotEmpty()) {
+                    // The word is the layer's: drop it silently and clear the
+                    // composing region (reset does both).
+                    e.reset(ic)
+                } else {
+                    // Nothing composing: the app's own word-delete, Ctrl+DEL.
+                    dispatchTouchKey(KeyEvent.KEYCODE_DEL, metaCtrlOn)
+                }
+            DeleteUnit.ALL -> {
+                e?.reset(ic)
+                // Select-all + delete as KEY EVENTS through the same queue,
+                // so the selection exists before the delete arrives. MEASURED:
+                // performContextMenuAction(selectAll) did not select (only the
+                // trailing space was deleted) — the action and the key event
+                // did not order as assumed. Ctrl+A is the app's own select-all.
+                // No length is read from the client anywhere (I9).
+                dispatchTouchKey(KeyEvent.KEYCODE_A, metaCtrlOn)
+                dispatchTouchKey(KeyEvent.KEYCODE_DEL, 0)
+            }
+        }
+    }
+
+    /**
+     * The declined-key fallback. Hardware events keep the platform's default
+     * forwarding (tier E2 measures it); touch dispatch forwards explicitly in
+     * [dispatchTouchKey] instead, because the default drops synthesized events.
+     */
+    private fun passThrough(keyCode: Int, event: KeyEvent): Boolean =
+        if (inTouchDispatch) false else super.onKeyDown(keyCode, event)
 
     /**
      * A symbol-page tap: KP11's direct commit, engine uninvolved — but the
@@ -1333,6 +1451,15 @@ class HunminInputMethodService : InputMethodService() {
             // Re-render the strip now: a style the user just picked should not
             // need a field change to appear.
             picker?.applyStyle(style)
+        }
+        /* KP14's setting: the window reads and writes the stored unit; the
+         * gesture reads the same store, so there is one value, not two. */
+        ImeSettings.swipeLeftDelete = { readSwipeUnit() }
+        ImeSettings.onSwipeLeftDeleteChosen = { unit ->
+            runCatching {
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                    .putString(HunminPrefs.SWIPE_LEFT_DELETE, unit.pref).apply()
+            }.onFailure { Log.w(TAG, "hunmin: could not persist the swipe-left delete unit", it) }
         }
         /* ReqMode13's surface B: the settings window reads the value and the key
          * from the engine, and writes through the same option the chord writes.

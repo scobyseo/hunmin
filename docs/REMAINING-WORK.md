@@ -157,10 +157,14 @@ Ordered so that each step leaves the repo in a state where the next is measurabl
   `docs/MILESTONES.md`.** **Built 2026-11-22 (#299, T3-3):** the key grid and the
   symbol page are drawn from data, touch enters the hardware key path, and the
   grid auto-shows only without a physical keyboard (KP12, maintainer 2026-11-22).
-  Mechanism and verification: `docs/DESIGN-ANDROID-KEYPAD.md`. Still open on this
-  lane: gesture variants / Tier 2 (#312), the candidate-window shape (#285
-  decision), the frequent-symbol set beyond `, .`, and the hardware-present
-  hide path's device assertion (needs `hw.keyboard=yes`).
+  Mechanism and verification: `docs/DESIGN-ANDROID-KEYPAD.md`. The UI is the
+  decided mockup picture (KP13); the long swipe-left delete with configurable
+  키/음절/단어/전체 unit is built (KP14, maintainer request 2026-11-22). Still
+  open on this lane: long-press/swipe-up variants / Tier 2 (#312 — the
+  maintainer measured them absent on the device), the candidate-window shape
+  (#285 decision), the frequent-symbol set beyond `, .`, the keypad↔layout-
+  setting interaction, and the hardware-present hide path's device assertion
+  (needs `hw.keyboard=yes`).
 - **D4 Wayland plumbing.** `weston --backend=headless` + `zwp_input_method_v2` harness.
   `docs/TESTING.md:247-249` marks it optional and not blocking P4; fcitx5's Wayland module
   is not our code.

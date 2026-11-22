@@ -773,6 +773,17 @@ if mode_is '한'; then
 fi
 mode_is '영' || fail "the keypad's 한/영 key did not reach English mode"
 
+# Bug 1 regression (issue #299): the GRID's labels must follow the mode, not
+# just the engine. The toggle used to refresh the strip only, leaving Hangul
+# keycaps while English composed. In English mode the q keycap reads 'q'.
+# The keycap is a FrameLayout (content-desc) with the label on its child
+# TextView since the KP13 rework — read the child, not the frame.
+QTEXT="$(dump_ui /sdcard/kpq.xml | tr '>' '\n' \
+  | awk '/content-desc="key:q"/{f=1} f && /android.widget.TextView/{print; exit}' \
+  | grep -o 'text="[^"]*"' | head -1 || true)"
+[ "$QTEXT" = 'text="q"' ] \
+  || fail "the keypad labels did not follow the 한/영 toggle (bug 1): got '$QTEXT'"
+
 # An English word with a shifted letter, typed as taps. The one-shot shift
 # (fn:shift then key:w) must deliver W; each space is a word boundary.
 for k in h e l l o; do tap_desc "key:$k"; done
@@ -820,6 +831,114 @@ echo "touch-typed Hangul reads: '${TOUCH_KO}'"
 [ "$TOUCH_KO" = "$EXPECTED" ] \
   || fail "Hangul touch round: expected '$EXPECTED' (the hardware round's golden), got '${TOUCH_KO}'"
 echo "the touch path composes the same word the hardware path does"
+
+# Bug 2 regression (issue #299): backspace must edit the composition. Measured
+# on the AVD 2026-11-22 after the explicit-forwarding fix: ㅎ곈디 -> ㅎ곈ㄷ
+# (the engine deletes the last jamo; the platform's default forwarding had
+# dropped the synthesized key event entirely).
+tap_desc 'fn:backspace'
+TOUCH_BS="$(field_text)"
+echo "after one backspace tap: '${TOUCH_BS}'"
+[ "$TOUCH_BS" = "ㅎ곈ㄷ" ] \
+  || fail "backspace tap did not edit the composition (bug 2): expected 'ㅎ곈ㄷ', got '${TOUCH_BS}'"
+
+# Bug 3 regression (issue #299): enter commits the word at the boundary and
+# inserts a newline (the fixture is multi-line). uiautomator escapes the
+# newline as &#10; in the text attribute.
+tap_desc 'fn:enter'
+TOUCH_ENTER="$(field_text)"
+echo "after the enter tap: '${TOUCH_ENTER}'"
+case "$TOUCH_ENTER" in
+  *'ㅎ곈ㄷ'*'&#10;'*) : ;;
+  *) fail "enter tap did not commit + newline (bug 3): got '${TOUCH_ENTER}'" ;;
+esac
+echo "backspace and enter taps work through the platform (bugs 2/3 fixed)"
+
+# --- KP14: the long swipe-left delete, per unit -----------------------------
+#
+# The maintainer's request (2026-11-22): a long swipe-left from any key is
+# backspace, configurable 키/음절/단어/전체. The gesture is a real `input swipe`
+# on a real keycap; the assertion is the field text, as everywhere else.
+
+swipe_left_on() {  # swipe_left_on <content-desc> — a long leftward swipe
+  local desc="$1" node bounds
+  node="$(dump_ui /sdcard/kps.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
+  [ -n "$node" ] || fail "no key '$desc' to swipe from"
+  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+  set -- $(parse_bounds "$bounds")
+  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
+  local cx=$(( ($1 + $3) / 2 )) cy=$(( ($2 + $4) / 2 ))
+  # ~250px leftward at this density is well over the 60dp threshold, horizontal.
+  "$ADB" shell input swipe "$cx" "$cy" $(( cx - 250 )) "$cy" 300 >/dev/null 2>&1
+  sleep 0.8
+}
+
+set_swipe_unit() {  # set_swipe_unit <pref> — write the setting, restart the IME
+  "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
+  # MEASURED: force-stopping the SELECTED IME makes the platform fall back to
+  # the next one (Gboard here) — twice in this tier's development. Re-select.
+  "$ADB" shell ime set "$SVC" >/dev/null 2>&1 || true
+  # The file exists by now (the mode recall wrote it); delete any old entry,
+  # insert the new one. One device-side shell string, single-quoted sed
+  # program, double quotes inside it for the XML attribute.
+  # Remove only the ELEMENT, not its line: the first insertion puts the entry
+  # and </map> on one line, and a line-delete took </map> with it — the next
+  # insertion then matched nothing and the unit silently stayed KEY (measured).
+  "$ADB" shell "run-as $PKG sed -i 's%<string name=\"swipe_left_delete\">[^<]*</string>%%' shared_prefs/hunmin.xml" >/dev/null 2>&1 || true
+  "$ADB" shell "run-as $PKG sed -i 's%</map>%<string name=\"swipe_left_delete\">$1</string></map>%' shared_prefs/hunmin.xml" >/dev/null 2>&1 || true
+  focus_editor || fail "cannot refocus after the swipe-unit change"
+}
+
+# Default unit KEY: one swipe deletes one jamo of the composition.
+restore_surface || fail "cannot restore the surface for the swipe round"
+if mode_is '영'; then tap_desc 'fn:language-toggle'; sleep 1; fi
+for k in d k s s u d; do tap_desc "key:$k"; done
+swipe_left_on 'key:d'
+SWIPE_KEY="$(field_text)"
+echo "swipe-left (키 단위) reads: '${SWIPE_KEY}'"
+[ "$SWIPE_KEY" = "ㅎ곈ㄷ" ] \
+  || fail "swipe-left KEY unit: expected 'ㅎ곈ㄷ' (one jamo), got '${SWIPE_KEY}'"
+
+# WORD unit while composing: the buffered word is dropped whole.
+set_swipe_unit word
+for k in d k s s u d; do tap_desc "key:$k"; done
+swipe_left_on 'key:d'
+SWIPE_WORD="$(field_text)"
+echo "swipe-left (단어 단위) reads: '${SWIPE_WORD}'"
+[ -z "$SWIPE_WORD" ] \
+  || fail "swipe-left WORD unit: expected the word dropped (''), got '${SWIPE_WORD}'"
+
+# ALL unit with committed text: select-all + delete clears the field.
+for k in d k s s u d; do tap_desc "key:$k"; done
+tap_desc 'fn:space'
+set_swipe_unit all
+# set_swipe_unit refocused a FRESH editor; type again so there is text to clear.
+for k in d k s s u d; do tap_desc "key:$k"; done
+tap_desc 'fn:space'
+swipe_left_on 'key:d'
+SWIPE_ALL="$(field_text)"
+echo "swipe-left (전체 삭제) reads: '${SWIPE_ALL}'"
+[ -z "$SWIPE_ALL" ] \
+  || fail "swipe-left ALL unit: expected an empty field, got '${SWIPE_ALL}'"
+
+# The setting is offered in the settings window (the row and its choices).
+open_settings
+SWIPE_LIST="$(dump_ui /sdcard/kpset.xml)"
+printf '%s' "$SWIPE_LIST" | grep -q '키패드' \
+  || fail "the settings window does not offer the 키패드 section (KP14)"
+tap_node '키패드'
+sleep 1
+SWIPE_CHOICES="$(dump_ui /sdcard/kpset2.xml)"
+for choice in '키 단위' '음절 단위' '단어 단위' '전체 삭제'; do
+  printf '%s' "$SWIPE_CHOICES" | grep -q "$choice" \
+    || fail "the 키패드 section does not offer '$choice'"
+done
+"$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1
+echo "the swipe-left delete unit is configurable (키패드 section, four choices)"
+
+# Leave no stored unit behind: the next run starts from the default.
+"$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
+"$ADB" shell run-as "$PKG" rm -f shared_prefs/hunmin.xml >/dev/null 2>&1 || true
 
 echo "PASS: the APK installed, the IME was enabled, keys reached the engine," &&
      echo "      and '$EXPECTED' -- byte-identical to the tier A golden -- is" &&

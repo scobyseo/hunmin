@@ -752,11 +752,13 @@ Two findings, neither smoothed over:
   tier's dominant costs (android-mutations ~85 s, the D3 pair ~56 s serial)
   are unchanged from master.
 
-The E2E touch round (#299) runs inside `engine-android-e2e`, measured at
-175.6 s total with the emulator attached (hardware round + bindings + touch
-round); it skips without a device, so it does not enter the table above. No
-master E2E baseline was measured in this session (the main checkout has no
-APK built), so no delta is claimed for it.
+The E2E touch round (#299) runs inside `engine-android-e2e`; it skips without
+a device, so it does not enter the table above. With the emulator attached it
+grew across the task's phases as regressions were added: 175.6 s (touch round),
+then the bug 1/2/3 assertions and the KP14 swipe round (three units + settings
+section) — final measured total 305.3 s. No master E2E baseline was measured in
+this session (the main checkout has no APK built), so no delta is claimed for
+it; the growth is asserted coverage, and the tier's ctest timeout is 1200 s.
 
 No budget line moved. The pre-existing local overage is a finding for the
 maintainer — the levers that meet the CI ceiling (§5) are about the linux

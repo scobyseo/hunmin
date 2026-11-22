@@ -24,6 +24,7 @@ package org.hunmin.ime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -41,9 +42,11 @@ class KeypadModelTest {
     private fun caps(id: String): KeypadKeycaps =
         KeypadKeycaps.parse(File(layouts, "$id.json").readText())
 
-    /** The CHARACTER key ids of a grid, in order. */
+    /** The engine-path key ids of a grid (CHARACTER + DIGIT), in order. */
     private fun characterIds(rows: List<List<KeypadKey>>): List<String> =
-        rows.flatten().filter { it.kind == KeypadKey.Kind.CHARACTER }.map { it.id }
+        rows.flatten()
+            .filter { it.kind == KeypadKey.Kind.CHARACTER || it.kind == KeypadKey.Kind.DIGIT }
+            .map { it.id }
 
     // ------------------------------------------------------------ labels
 
@@ -133,43 +136,81 @@ class KeypadModelTest {
     // ------------------------------------------------------------ reachability
 
     @Test
-    fun `every dubeolsik key is reachable exactly once, with digits and the frequent pair`() {
+    fun `the dubeolsik grid is the decided picture, key for key`() {
+        // KP13: the mockup HTML is the decided UI. The 두벌식 screen is the
+        // picture's number row + 10/9/7 letter rows + ⇧/⌫ + the bottom row —
+        // every dubeolsik key reachable exactly once, nothing extra.
         val c = caps("dubeolsik")
-        val ids = characterIds(KeypadModel.textRows(c, shift = false))
+        val rows = KeypadModel.textRows(c, shift = false)
+        val ids = characterIds(rows)
         for (id in c.ids) assertEquals("key '$id' reachable exactly once", 1, ids.count { it == id })
-        // Digits are always drawn (KP1's number row; an unmapped digit is the
-        // classifier's boundary-and-pass), and KP4's frequent pair is present.
         for (d in '0'..'9') assertTrue("digit $d", d.toString() in ids)
         assertTrue("," in ids && "." in ids)
-        // The mockup's 두벌식 letter rows: 10 / 9 / 7.
-        val rows = KeypadModel.textRows(c, shift = false)
+        assertEquals("five rows, as the picture draws", 5, rows.size)
+        assertEquals("number row: 10 digits", 10, rows[0].size)
+        assertTrue(rows[0].all { it.kind == KeypadKey.Kind.DIGIT })
         assertEquals(listOf(10, 9, 7), rows.drop(1).take(3).map { r -> r.count { it.kind == KeypadKey.Kind.CHARACTER } })
+        // ⇧ leads the third row, ⌫ trails it (KP2, the picture).
+        assertEquals(KeypadKey.Kind.SHIFT, rows[3].first().kind)
+        assertEquals("backspace", rows[3].last().id)
+        // The bottom row, in the picture's order.
+        assertEquals(
+            listOf("language-toggle", "symbols-page", "space", ",", ".", "enter"),
+            rows[4].map { it.id },
+        )
+        // The picture's hints and sublabels.
+        assertEquals("!", rows[0].first { it.id == "1" }.hint)
+        assertEquals(")", rows[0].first { it.id == "0" }.hint)
+        assertEquals("⇪", rows[3].first().hint)
+        assertEquals("?", rows[4].first { it.id == "," }.hint)
+        assertEquals("\"", rows[4].first { it.id == "." }.hint)
+        assertEquals("ㅃ", rows[1].first { it.id == "q" }.sub)
+        assertEquals("ㅖ", rows[1].first { it.id == "p" }.sub)
+        assertNull("ㅛ has no shifted form, no sublabel", rows[1].first { it.id == "y" }.sub)
     }
 
     @Test
-    fun `every us-qwerty key is reachable exactly once`() {
+    fun `the qwerty grid is the picture and its punctuation lives on the symbol page`() {
+        // KP13: the English screen is the picture's 10/9/7 letter rows — no
+        // extension cells. us-qwerty's 32 punctuation keys are KP1 Tier 1,
+        // reachable on the symbol page (the picture's 기호 mode), not the grid.
         val c = caps("us-qwerty")
         val rows = KeypadModel.textRows(c, shift = false)
         val ids = characterIds(rows)
-        assertEquals(47, c.ids.size)
-        for (id in c.ids) assertEquals("key '$id' reachable exactly once", 1, ids.count { it == id })
-        // KP9: the frequent pair lives in the bottom row only, never duplicated
-        // at its physical row-3 position.
+        val letters = c.ids.filter { it[0].isLetter() }
+        assertEquals(26, letters.size)
+        for (id in letters) assertEquals("letter '$id' reachable exactly once", 1, ids.count { it == id })
         assertEquals(1, ids.count { it == "," })
         assertEquals(1, ids.count { it == "." })
-        val bottom = rows.last().map { it.id }
-        assertTrue("," in bottom && "." in bottom)
+        // No extension cells: the picture's rows carry letters and digits only.
+        assertTrue("no [ ] \\ ; ' / ` - = cells in the picture's grid",
+            ids.none { it in listOf("[", "]", "\\", ";", "'", "/", "`", "-", "=") })
+        // Every punctuation key the grid omits is on the symbol page.
+        val screen = SymbolScreen.parse(symbolAsset.readText())
+        val omitted = c.ids - ids.toSet()
+        assertTrue("omitted keys are exactly the symbol page's inventory: $omitted",
+            omitted.all { it in screen.symbols })
+        // The English screen draws no shifted-letter sublabels (the picture).
+        assertNull(rows[2].first { it.id == "a" }.sub)
     }
 
     @Test
-    fun `the default sin3-p2 is fully reachable with no per-layout code`() {
-        // The scope boundary excludes a 세벌식 ergonomics block, not the ability
-        // to type the default layout by touch: the generic physical-position
-        // grid draws every key the layout defines (design §3).
+    fun `sin3-p2 draws the picture geometry and its extra keys are a recorded consequence`() {
+        // KP13 fixes the geometry to the picture (두벌식/QWERTY form). sin3-p2's
+        // letter keys draw at their positions; its punctuation keys fall outside
+        // the picture's cells and are NOT touch-reachable through this geometry.
+        // That is the decided picture's consequence, recorded in SPEC KP13 —
+        // not a licence to add extension cells back (the overturned deviation).
         val c = caps("sin3-p2")
-        val ids = characterIds(KeypadModel.textRows(c, shift = false))
-        assertEquals(47, c.ids.size)
-        for (id in c.ids) assertEquals("key '$id' reachable exactly once", 1, ids.count { it == id })
+        val rows = KeypadModel.textRows(c, shift = false)
+        val ids = characterIds(rows)
+        val letters = c.ids.filter { it[0].isLetter() }
+        for (id in letters) assertEquals("letter '$id' reachable exactly once", 1, ids.count { it == id })
+        assertEquals(listOf(10, 9, 7), rows.drop(1).take(3).map { r -> r.count { it.kind == KeypadKey.Kind.CHARACTER } })
+        assertTrue("sin3-p2's punctuation is outside the picture's cells",
+            (c.ids - ids.toSet()).containsAll(listOf(";", "'", "[", "]")))
+        // , . still drawn in the bottom row (KP4): they ARE layout keys here.
+        assertTrue("," in ids && "." in ids)
     }
 
     @Test
@@ -223,7 +264,7 @@ class KeypadModelTest {
             KeypadModel.symbolRows(SymbolScreen.parse(symbolAsset.readText()))
         for (key in rows.flatten()) {
             when (key.kind) {
-                KeypadKey.Kind.CHARACTER, KeypadKey.Kind.FUNCTION ->
+                KeypadKey.Kind.CHARACTER, KeypadKey.Kind.DIGIT, KeypadKey.Kind.FUNCTION ->
                     assertTrue("${key.id} is a key event", key.keyCode >= 0)
                 KeypadKey.Kind.SHIFT, KeypadKey.Kind.MODE,
                 KeypadKey.Kind.SYMBOLS_PAGE, KeypadKey.Kind.SYMBOL ->
@@ -309,6 +350,28 @@ class KeypadModelTest {
         assertEquals("same mode: the page stays", KeypadState.Page.SYMBOLS, s.page)
         s.modeChanged(hangulMode = false)
         assertEquals("drifted mode: the return memory would be stale", KeypadState.Page.TEXT, s.page)
+    }
+
+    // ------------------------------------------------------------ KP14 gesture
+
+    @Test
+    fun `swipe-left deletes only when long and horizontally dominant`() {
+        val t = 100f
+        assertTrue(KeypadModel.isSwipeLeftDelete(-150f, 0f, t))
+        assertTrue("some vertical drift is still a swipe", KeypadModel.isSwipeLeftDelete(-150f, 40f, t))
+        assertFalse("too diagonal: a drifting tap, not a swipe (KP5)", KeypadModel.isSwipeLeftDelete(-150f, 90f, t))
+        assertFalse("short drift stays a tap", KeypadModel.isSwipeLeftDelete(-99f, 0f, t))
+        assertFalse("rightward is not delete", KeypadModel.isSwipeLeftDelete(150f, 0f, t))
+        assertFalse("upward is not delete", KeypadModel.isSwipeLeftDelete(0f, -150f, t))
+        assertFalse("no movement is a tap", KeypadModel.isSwipeLeftDelete(0f, 0f, t))
+    }
+
+    @Test
+    fun `delete units round-trip through their stored values`() {
+        assertEquals(4, DeleteUnit.entries.size)
+        for (u in DeleteUnit.entries) assertEquals(u, DeleteUnit.of(u.pref))
+        assertEquals("the provisional default is the least destructive", DeleteUnit.KEY, DeleteUnit.of(null))
+        assertEquals(DeleteUnit.KEY, DeleteUnit.of("bogus"))
     }
 
     // ------------------------------------------------------------ KP12 visibility

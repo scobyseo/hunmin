@@ -17,4 +17,7 @@ internal object HunminPrefs {
 
     /** The last read-back of the engine's `autoswitch` option. */
     const val AUTOSWITCH = "autoswitch"
+
+    /** KP14: the long swipe-left delete unit (DeleteUnit.pref). */
+    const val SWIPE_LEFT_DELETE = "swipe_left_delete"
 }

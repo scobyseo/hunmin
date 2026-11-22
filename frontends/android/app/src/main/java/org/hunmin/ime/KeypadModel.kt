@@ -56,6 +56,10 @@ import java.text.Normalizer
 class KeypadKeycaps private constructor(
     private val plain: Map<String, String>,
     private val shifted: Map<String, String>,
+    /** The layout's `mode` (SPEC-SCHEMA): hangul or latin. Drives the picture's
+     *  shifted-jamo sublabels, which the Hangul screen draws and the English
+     *  screen does not. */
+    val mode: String,
 ) {
     /** Every key id the layout defines. */
     val ids: Set<String> get() = plain.keys
@@ -81,7 +85,7 @@ class KeypadKeycaps private constructor(
                 shifted[id] = defaultValue(key.opt("shift")) ?: plain[id]!!
             }
             require(plain.isNotEmpty()) { "layout file defines no keys" }
-            return KeypadKeycaps(plain, shifted)
+            return KeypadKeycaps(plain, shifted, root.optString("mode", "hangul"))
         }
 
         /**
@@ -146,10 +150,17 @@ data class KeypadKey(
     val label: String,
     val kind: Kind,
     val keyCode: Int,
+    /** Corner hint, top-right (the mockup's 롱프레스/swipe-up 기호 힌트). Drawn
+     *  as the picture draws it; the gestures themselves are #312 (KP13). */
+    val hint: String? = null,
+    /** Sublabel, bottom-left (the mockup's shifted-jamo small print). */
+    val sub: String? = null,
 ) {
     enum class Kind {
-        /** A layout key (or an always-drawn digit / frequent symbol): engine path. */
+        /** A layout key (or a frequent symbol): engine path, 진하게. */
         CHARACTER,
+        /** A number-row digit: engine path, 연하게 (the picture's 숫자 연하게). */
+        DIGIT,
         /** A named key the engine declines (space, enter, backspace, navigation). */
         FUNCTION,
         /** The one shift (KP2): arms the one-shot, never a key event itself. */
@@ -169,7 +180,7 @@ data class KeypadKey(
      */
     val contentDesc: String
         get() = when (kind) {
-            Kind.CHARACTER -> "key:$id"
+            Kind.CHARACTER, Kind.DIGIT -> "key:$id"
             Kind.FUNCTION -> "fn:$id"
             Kind.SHIFT -> "fn:shift"
             Kind.MODE -> "fn:language-toggle"
@@ -182,13 +193,21 @@ data class KeypadKey(
  * The grid and its state, pure: rows of [KeypadKey] for a text mode or the
  * symbol page, and the one-shot shift / page memory a tap consults.
  *
- * Geometry is PROVISIONAL (docs/ANDROID-KEYPAD-MOCKUP.md status) and generic:
- * the physical US positions, a cell drawn when the active layout defines that
- * key. Digits are always drawn (an unmapped digit is the classifier's
+ * Geometry is the DECIDED mockup picture (KP13, maintainer 2026-11-22:
+ * "docs/android-keypad-mockup.html 로 정했잖아?") — NOT a generic physical-position
+ * grid (the first implementation's deviation, overturned). The picture draws:
+ * a 10-key number row (digits only, shifted-symbol corner hints), 10/9/7 letter
+ * rows, one ⇧ (⇪ hint) and ⌫ on the third, and the bottom row
+ * `[한/영] [기호] [space] ,<?> .<"> [⏎]`. Labels come from the layout data;
+ * the Hangul screen is 두벌식 and the English screen QWERTY (Track 3's goal
+ * layouts). A layout key outside these cells (sin3-p2's punctuation) is not
+ * touch-reachable through this geometry — a recorded consequence of the
+ * decided picture, not a bug to silently "fix" by adding cells back.
+ *
+ * Digits are always drawn (an unmapped digit is the classifier's
  * boundary-and-pass, so it inserts itself exactly as the hardware key does).
- * `,` and `.` live in the bottom row in EVERY text mode (KP4) and are never
- * duplicated at their physical row-3 position: when the layout defines them,
- * the bottom-row key IS that layout key (KP9: one key, one position, every mode).
+ * `,` and `.` live in the bottom row in EVERY text mode (KP4/KP9): when the
+ * layout defines them, the bottom-row key IS that layout key.
  */
 object KeypadModel {
 
@@ -200,13 +219,24 @@ object KeypadModel {
      */
     const val META_SHIFT_ON = 0x00000001
 
-    /* Physical US positions. ` and - = lead/trail the number row; [ ] \ the
-     * top row; ; ' the home row; / the bottom row. , . are NOT here — they are
-     * the bottom-row frequent keys (KP4), in every mode. */
-    private val NUMBER_ROW = listOf("`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=")
-    private val TOP_ROW = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\")
-    private val HOME_ROW = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'")
-    private val BOTTOM_ROW = listOf("z", "x", "c", "v", "b", "n", "m", "/")
+    /* The picture's rows (docs/android-keypad-mockup.html, KP13). Digits 1–0
+     * in the picture's order; letters at their QWERTY positions, 10/9/7. No
+     * extension cells: the picture's number row has no ` - =, its letter rows
+     * no [ ] \ ; ' /. */
+    private val NUMBER_ROW = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
+    private val TOP_ROW = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
+    private val HOME_ROW = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
+    private val BOTTOM_ROW = listOf("z", "x", "c", "v", "b", "n", "m")
+
+    /** The digit's shifted-symbol corner hint, from the registry's own shift
+     *  column (the picture's 1<!> … 0<)>); derived, not transcribed. */
+    private val DIGIT_HINTS: Map<String, String> = buildMap {
+        for (key in HunminKeyRegistry.all()) {
+            if (key.unshifted.isDigit() && key.shifted != null) {
+                put(key.unshifted.toString(), key.shifted.toString())
+            }
+        }
+    }
 
     /**
      * AOSP keycodes for the named keys, javap -constants against android.jar
@@ -243,33 +273,55 @@ object KeypadModel {
     fun functionKeyCode(id: String): Int? = FUNCTION_KEYCODES[id]
 
     /**
-     * The text-mode grid for [caps]: number row, three letter rows (shift and
-     * backspace on the third, KP2), and the bottom row
-     * `[한/영] [기호] [space] , . [⏎]` (the mockup's order).
+     * KP14's gesture decision, pure: a swipe-left deletes when it is LONG
+     * (leftward distance at least [thresholdPx]) and horizontally dominant
+     * (at least twice the vertical drift) — a tap that drifts up or down a
+     * little is still a tap (KP5's accidental-gesture protection). The
+     * threshold is provisional; the decision's shape is the requirement.
+     */
+    fun isSwipeLeftDelete(dx: Float, dy: Float, thresholdPx: Float): Boolean =
+        dx <= -thresholdPx && -dx >= 2f * kotlin.math.abs(dy)
+
+    /**
+     * The text-mode grid for [caps], as the decided picture draws it (KP13):
+     * number row with corner hints, 10/9/7 letter rows (the Hangul screen's
+     * shifted-jamo sublabels when the layout's mode is hangul), ⇧/⌫ on the
+     * third, and the bottom row `[한/영] [기호] [space] ,<?> .<"> [⏎]`.
      */
     fun textRows(caps: KeypadKeycaps, shift: Boolean): List<List<KeypadKey>> {
-        fun cell(id: String): KeypadKey =
-            KeypadKey(id, caps.label(id, shift), KeypadKey.Kind.CHARACTER, keyCodeFor(id))
+        fun letter(id: String): KeypadKey {
+            val plainLabel = caps.label(id, shift = false)
+            val shiftLabel = caps.label(id, shift = true)
+            // The picture draws the shifted jamo small print on the Hangul
+            // screen only; while shift is armed the shifted form IS the label.
+            val sub = if (!shift && caps.mode == "hangul" && shiftLabel != plainLabel) shiftLabel else null
+            return KeypadKey(id, caps.label(id, shift), KeypadKey.Kind.CHARACTER, keyCodeFor(id), sub = sub)
+        }
 
         val rows = mutableListOf<List<KeypadKey>>()
-        // Digits always; the rest of the number row only when the layout keys it.
-        rows.add(NUMBER_ROW.mapNotNull { id ->
-            if (id in caps.ids || id[0].isDigit()) cell(id) else null
+        rows.add(NUMBER_ROW.map { id ->
+            KeypadKey(id, id, KeypadKey.Kind.DIGIT, keyCodeFor(id), hint = DIGIT_HINTS[id])
         })
-        rows.add(TOP_ROW.mapNotNull { id -> if (id in caps.ids) cell(id) else null })
-        rows.add(HOME_ROW.mapNotNull { id -> if (id in caps.ids) cell(id) else null })
+        rows.add(TOP_ROW.mapNotNull { id -> if (id in caps.ids) letter(id) else null })
+        rows.add(HOME_ROW.mapNotNull { id -> if (id in caps.ids) letter(id) else null })
         rows.add(
-            listOf(KeypadKey("shift", "⇧", KeypadKey.Kind.SHIFT, -1)) +
-                BOTTOM_ROW.mapNotNull { id -> if (id in caps.ids) cell(id) else null } +
+            listOf(KeypadKey("shift", "⇧", KeypadKey.Kind.SHIFT, -1, hint = "⇪")) +
+                BOTTOM_ROW.mapNotNull { id -> if (id in caps.ids) letter(id) else null } +
                 listOf(KeypadKey("backspace", "⌫", KeypadKey.Kind.FUNCTION, FUNCTION_KEYCODES.getValue("backspace")))
         )
+        // , . : the layout's own key when it defines one (sin3-p2, us-qwerty),
+        // else the classifier's boundary-and-pass inserts the character — the
+        // same key event either way. The ? " hints are the picture's KP7
+        // swipe affordances; the gestures are #312, the hints are drawn (KP13).
+        fun punct(id: String, hint: String): KeypadKey =
+            KeypadKey(id, id, KeypadKey.Kind.CHARACTER, keyCodeFor(id), hint = hint)
         rows.add(
             listOf(
                 KeypadKey("language-toggle", "한/영", KeypadKey.Kind.MODE, -1),
                 KeypadKey("symbols-page", "기호", KeypadKey.Kind.SYMBOLS_PAGE, -1),
-                KeypadKey("space", "␣", KeypadKey.Kind.FUNCTION, FUNCTION_KEYCODES.getValue("space")),
-                cell(","),
-                cell("."),
+                KeypadKey("space", "space", KeypadKey.Kind.FUNCTION, FUNCTION_KEYCODES.getValue("space")),
+                punct(",", "?"),
+                punct(".", "\""),
                 KeypadKey("enter", "⏎", KeypadKey.Kind.FUNCTION, FUNCTION_KEYCODES.getValue("enter")),
             )
         )
@@ -337,6 +389,24 @@ object KeypadVisibility {
         val physicalExposed = keyboard != KEYBOARD_NOKEYS &&
             hardKeyboardHidden == HARDKEYBOARDHIDDEN_NO
         return showImeWithHardKeyboard || !physicalExposed
+    }
+}
+
+/**
+ * KP14's delete unit for the long swipe-left gesture (maintainer 2026-11-22:
+ * "key단위, 음절단위, 단어단위, 전체 삭제로 설정할 수 있어도 좋겠다").
+ * [pref] is the stored value, [label] the settings window's Korean row.
+ */
+enum class DeleteUnit(val pref: String, val label: String) {
+    KEY("key", "키 단위"),
+    SYLLABLE("syllable", "음절 단위"),
+    WORD("word", "단어 단위"),
+    ALL("all", "전체 삭제");
+
+    companion object {
+        /** The stored value, defaulting to KEY — the least destructive unit.
+         *  Provisional default; the maintainer may choose another (KP14). */
+        fun of(pref: String?): DeleteUnit = entries.firstOrNull { it.pref == pref } ?: KEY
     }
 }
 

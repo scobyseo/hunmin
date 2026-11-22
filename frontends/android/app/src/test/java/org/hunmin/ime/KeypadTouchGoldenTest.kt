@@ -8,10 +8,14 @@
  * is a (keycap id, one-shot shift) decision that becomes the SAME
  * (keyCode, metaState) a hardware key delivers. This lane replays the tier A
  * corpus tests/golden/cultural-pangram-us-qwerty.jsonl through that decision
- * and the REAL engine (host JNI shim), asserting per-key commit and preedit —
- * the same expectations hunmin-sim --check asserts on the host. A divergence
- * between the touch mapping and the hardware path is a failure here, not a
- * discovery on a device.
+ * and the REAL engine (host JNI shim), per-case totals compared under word
+ * buffering. Since KP13 fixed the grid to the mockup picture, the corpus's
+ * punctuation keys are NOT on the text grid — they are tapped on the SYMBOL
+ * page, KP11's direct-commit path (flush first). So the replay exercises BOTH
+ * touch surfaces: letters/digits through the engine key path, punctuation
+ * through the symbol page, and the total must still equal the golden text.
+ * A divergence between either touch path and the hardware path is a failure
+ * here, not a discovery on a device.
  *
  * What only a device can prove — that the platform delivers the tap to the
  * view at all — is tier E2's touch round (tools/android-e2e.sh). Nothing here
@@ -93,7 +97,9 @@ class KeypadTouchGoldenTest {
         // hunmin-sim does; a trailing preedit never carries into the next case.
         val caps = KeypadKeycaps.parse(File(dataDir, "layouts/us-qwerty.json").readText())
         val gridIds = KeypadModel.textRows(caps, shift = false).flatten()
-            .filter { it.kind == KeypadKey.Kind.CHARACTER }.map { it.id }.toSet()
+            .filter { it.kind == KeypadKey.Kind.CHARACTER || it.kind == KeypadKey.Kind.DIGIT }
+            .map { it.id }.toSet()
+        val screen = SymbolScreen.parse(symbolAsset.readText())
 
         data class Event(val ch: Char, val shift: Boolean, val commit: String, val preedit: String)
         data class Case(val name: String, val text: String, val events: MutableList<Event> = mutableListOf())
@@ -145,11 +151,26 @@ class KeypadTouchGoldenTest {
                 }
                 val (id, needShift) =
                     if (ev.shift) ev.ch.toString() to true else touchKeyFor(ev.ch)
-                assertTrue("keycap '$id' is not on the grid — unreachable by touch", id in gridIds)
-                // The tap as the view dispatches it: arm the one-shot when the
-                // character sits on the shift row, consume it on the key tap.
-                if (needShift) state.tapShift()
-                adapter.onKey(KeypadModel.keyCodeFor(id), state.shiftMeta(), ic)
+                if (id in gridIds) {
+                    // The text-grid tap as the view dispatches it: arm the
+                    // one-shot when the character sits on the shift row,
+                    // consume it on the key tap.
+                    if (needShift) state.tapShift()
+                    adapter.onKey(KeypadModel.keyCodeFor(id), state.shiftMeta(), ic)
+                } else {
+                    // KP13: the picture's grid has no punctuation cells; this
+                    // character is tapped on the SYMBOL page — KP11's direct
+                    // commit, the pending word flushed FIRST (the service's
+                    // commitSymbolFromTouch order). A shifted event taps the
+                    // shifted form's OWN key (the page has no shift, KP6).
+                    val wanted = if (ev.shift) {
+                        HunminKeyRegistry.all().first { it.unshifted == ev.ch }.shifted
+                            ?: error("no shifted form for '${ev.ch}'")
+                    } else ev.ch
+                    assertTrue("'$wanted' is on neither touch surface", wanted.toString() in screen.symbols)
+                    adapter.commitWord(ic)
+                    screen.commitSymbol(wanted.toString(), ic)
+                }
             }
             adapter.commitWord(ic)
             adapter.close()

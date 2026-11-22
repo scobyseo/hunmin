@@ -375,3 +375,82 @@ service wiring in `onCreateInputView` / `onConfigurationChanged`
 `KeypadModelTest` (decision table), tier E2 touch round (auto-show on the
 `hw.keyboard=no` AVD); the hardware-present hide path is environment-bound
 (needs a device/AVD with `hw.keyboard=yes`).
+
+### KP13. The decided keypad UI is the mockup picture (DECIDED)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "T3-1에서 정한 UI가 아닌데?"
+> "/home/scoby/work/hunmin/docs/android-keypad-mockup.html 로 정했잖아?"
+> "왜 그 mockup 대로 구현하지 않았지?"
+
+**Decided:** the soft keypad's UI is `docs/android-keypad-mockup.html` AS
+DRAWN — the 두벌식 and QWERTY text screens (10-key number row with the shifted-
+symbol corner hints, 10/9/7 letter rows, the shifted-jamo sublabels, one ⇧ with
+the ⇪ hint, ⌫, and the bottom row `[한/영] [기호] [space] ,<?> .<"> [⏎]`), the
+symbol page, and the picture's palette and proportions. The document's own
+"provisional / not a ruling" header predates this ruling and is superseded by
+it; the header is kept as the record of what was believed when the first
+implementation deviated (a generic data-driven grid with extension cells —
+overturned, recorded in `docs/DESIGN-ANDROID-KEYPAD.md`).
+
+Scope notes, so the picture and the later rulings read together:
+
+- The Hangul screen is 두벌식 and the English screen is QWERTY — the Track 3
+  goal layouts (#285: "두벌식 형태를 채용"). Keycap LABELS still come from the
+  layout data; the GEOMETRY is the picture's, not a generic physical-position
+  grid. A layout whose keys fall outside the picture's cells (sin3-p2's
+  punctuation keys) is not fully touch-reachable through this geometry — a
+  recorded consequence, and whether the keypad offers other layouts is open.
+- The corner hints are drawn as the picture draws them. The GESTURES they
+  advertise (long-press / swipe-up, KP5/KP7) remain #312; the shifted-jamo
+  sublabels and digit hints are reachable today through the one-shot shift.
+- The symbol page's Tier 2 button in the picture is superseded by KP10/#312
+  (gesture variants instead of a Tier 2 page); the shipped `symbols.json`
+  omits that slot, and the bottom row reads `[한/영] [←] [↑] [↓] [→]`.
+- The picture draws a light palette; night-mode adaptation is not drawn and
+  stays open.
+
+*Implementation:* `KeypadModel.textRows` (the picture's geometry),
+`KeypadView` (the picture's palette/proportions/hints) —
+`docs/DESIGN-ANDROID-KEYPAD.md`. *Verified by:* engine-android-e1
+(`KeypadModelTest`, `KeypadTouchGoldenTest`), engine-android-e2e (touch round).
+
+### KP14. Long swipe-left anywhere is backspace, with a configurable delete unit (REQUESTED)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "기능 하나를 추가했으면 하는 게, 어느 위치에서든 swipe-left를 (길게) 하면
+> backspace로 동작하면 좋겠다. 이 기능은 설정가능하게 해서, key단위, 음절단위,
+> 단어단위, 전체 삭제로 설정할 수 있어도 좋겠다."
+
+Observable outcome:
+
+- A **long swipe-left starting at any keycap** deletes text instead of typing
+  that key. The underlying tap must not also fire (the gesture replaces it).
+- The delete unit is **configurable**: 키(key) / 음절(syllable) / 단어(word) /
+  전체(all). A short leftward drift is still a tap — KP5's accidental-gesture
+  protection applies to this gesture too.
+
+Mechanism (implementation, provisional where noted): the gesture decision is a
+pure function (`KeypadModel.isSwipeLeftDelete` — leftward distance over a
+threshold, horizontally dominant); the threshold is provisional. Delete units:
+KEY is the backspace key's own path; SYLLABLE removes the last syllable of the
+composing display (jamo by jamo, stopping when the syllable is gone — measured,
+not guessed); WORD drops the buffered word when composing, else sends Ctrl+DEL
+to the app; ALL clears the composition and sends Ctrl+A then DEL as key events
+(no surrounding-text read, I9). The default unit is KEY (the
+least destructive) — provisional, the maintainer may choose another. The
+setting lives in the settings window's 키패드 section.
+
+Also recorded (maintainer, 2026-11-22, verbatim): "long-press도 swipe-up도
+동작하지 않아." — measured fact: those gestures are #312's scope and are not
+wired; KP13 draws their hints. This entry does not pull #312 forward; it records
+the observation so the gap between the drawn hints and the wired gestures is
+visible.
+
+*Implementation:* `KeypadModel` (gesture decision, `DeleteUnit`), `KeypadView`
+(touch handling), `HunminInputMethodService` (delete units, setting),
+`OverlayActivity` (키패드 section) — `docs/DESIGN-ANDROID-KEYPAD.md`.
+*Verified by:* engine-android-e1 (decision table, unit vocabulary),
+engine-android-e2e (swipe on the device, per-unit deletion).
