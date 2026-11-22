@@ -1503,3 +1503,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   reused GTK harness across a layout change. Both frontends benefit.
 - Budget: the local baseline was already over the inner/slow budgets before
   this change; the delta is measured and reported on the issue, not ruled on.
+
+## [2026-11-22] update | fcitx5 퇴역 시 CI 빌드 시간 — 실측 A/B (maintainer 질문)
+
+- maintainer가 IBus 평가 충분 후 fcitx5 퇴역을 계획하며 PR 빌드 시간 변화를
+  질문. 로컬 A/B(러너 동등 조건, -j4, FCITX5 ON/OFF): 빌드 36.6→20.6s(−44%),
+  스위트 33.5→15.6s(−53%), 160→131 테스트. IBus 레인은 이미 PR 잡에 있으므로
+  교체는 거의 순수 감산. CI 스텝 실측 기반 투영: PR 잡 ~164–173s → ~90–100s,
+  그리고 캐시 미스 시 197s fcitx5 빌드 소멸 → 3분 상한이 캐시 적중에 의존하지
+  않게 됨. fcitx5에만 있는 것(mutation 티어, GTK4/XIM D3)은 퇴역 기준의
+  입력으로 사실만 기록 — [[2026-11-22-fcitx5-retirement-ci-cost]].

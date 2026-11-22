@@ -267,6 +267,8 @@
 
 ## Raw — measurements
 
+- [[2026-11-22-fcitx5-retirement-ci-cost]] — fcitx5 퇴역 시 CI 비용 실측 A/B: 빌드 −44%, PR 스위트 −53%, 콜드패스 197s 소멸 (결정 아닌 측정).
+
 - [[2026-10-16-android-e2e-keys-bypass-the-ime]] — **two findings.** Closed:
   tier E2 had been asserting nothing, because `dump_ui` was defined below its
   first call *and* its validity check (`wc -l` on a single-line XML dump) could
