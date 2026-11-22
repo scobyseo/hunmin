@@ -50,16 +50,21 @@ Legend: `KEY` = character/symbol (진하게); `(fn)` = functional (연하게);
  [한/영] [기호] [   space   ] ,<?> .<"> [⏎]
 ```
 
-### Symbol mode (Tier 1, physical QWERTY positions)
+### Symbol mode (Tier 1 — all 32 symbols as separate buttons, no shift)
 
 ```
- !<1> @<2> #<3> $<4> %<5> ^<6> &<7> *<8> (<9> )<0>
- -<_> =<+> [<{> ]<}> \<|> ;<:> '<"> `<~>          ← `~ -_ =+ live here, not the text number row
- ,<<> .<>> /<?> [ … Tier 2 ]
- (Tab) (Home) (End) (PgUp) (PgDn) (⌫)              ← NO shift (KP6); navigation keys instead
+ ! @ # $ % ^ & * ( )                          (10)
+ ` ~ - _ = + [ ] { } \ |                      (12, ` before -; brackets GROUPED []{})
+ ; : ' " , . < > / ?  [Tier 2]                (10, comma/period grouped ,. <> too)
+ (Tab) (Home) (End) (PgUp) (PgDn) (⌫)         ← NO shift (KP6); navigation keys instead
  (←) (↑) (↓) (→) [   space   ] [⏎]
  [한/영] [ABC/한글]
 ```
+
+**Decided (maintainer, 2026-11-22):** the grouped order `[]{} `, applied
+consistently to `<>` (`,. <>`). Every shifted variant is its own button (no shift,
+no corner hints). `~` / `` ` `` and `- _ = +` live here, not on the text number
+row.
 
 ### Symbol mode Tier 2 (Korean special symbols, grouped)
 

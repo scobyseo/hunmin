@@ -37,6 +37,13 @@ us-qwerty and on the symbol page. The Korean Tier 2 ranking is measured from
 kowiki prose (· 《》 〈〉 「」 『』 lead); `※ ₩ ♡ ★` are curated, flagged unmeasured
 in chat. Details in `docs/ANDROID-SYMBOL-INTERACTION.md`.
 
+**Decided (maintainer ruling, 2026-11-22):** the symbol page shows all 32 symbols
+as separate buttons (no shift), in the **grouped order `[]{} `**, applied
+consistently to `<>` (`,. <>`); `` ` `` leads row 2 before `-`. Layout:
+`!@#$%^&*()` / `` `~-_=+[]{}\| `` / `;:'",.<>/?`. The partner-adjacent alternative
+(`[{ ]}`, `,< .>`) was considered and not chosen. Recorded in
+`docs/SPEC-ANDROID-KEYPAD.md` KP6; data home / nav-key set / Tier 2 still open.
+
 ## The core decision still open in #298
 
 The symbol-layer **data home**: a third per-key row (A, schema+engine cost),

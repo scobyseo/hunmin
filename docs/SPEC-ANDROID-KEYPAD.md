@@ -160,6 +160,51 @@ Stated directions:
   page. Whether the text number row also carries `` ` ~ - _ = + `` (a 13-key row,
   narrower targets) is an open geometry choice.
 
+Clarification (2026-11-22, verbatim):
+
+> "기호 모드에서 시프트를 안 쓴다는 건, {나 \"도 버튼을 분리한다는 거야. 그리고
+> `는 첫 줄에 표시하기 힘들다면 두번째 줄 - 앞에 표시하는 게 나을 것 같아."
+
+So "no shift" means the **shifted variants are separate buttons too**: `{` and
+`"` (and every shifted form) get their own key, not a corner hint — the symbol
+page shows all 32 ASCII punctuation as individual keys, each unshifted symbol
+adjacent to its shifted partner. The maintainer gave the exact arrangement
+(2026-11-22, verbatim): row `` ` ~ - _ = + [ { ] } \ | `` (`` ` `` leading, before
+`-`) over row `! @ # $ % ^ & * ( )`. The remaining pairs follow the same rule:
+`; : ' " , < . > / ?`. So:
+
+```
+! @ # $ % ^ & * ( )          (10)
+` ~ - _ = + [ { ] } \ |      (12, ` before -)
+; : ' " , < . > / ?          (10)
+```
+
+(11–12-key rows are ~30–33 dp on a 360 dp screen — denser than the text modes,
+acceptable for an occasional-use page; the target-size trade-off is recorded,
+not ruled.)
+
+Arrangement — deliberated, then **decided** (2026-11-22, verbatim):
+
+> "살짝 고민 중인 건 []{}로 하는 게 나을까? 정도야."
+> "그건 <> 에 대해서도 동일하게 적용해야 해."
+> "[]{} 순서로 결정하자."
+
+**Ruling: the grouped order `[]{} `** — the unshifted pair, then the shifted pair
+— and the consistency rule applies it to every paired symbol, `<>` included. The
+symbol page layout is therefore:
+
+```
+! @ # $ % ^ & * ( )          (10)
+` ~ - _ = + [ ] { } \ |      (12, ` before -, brackets grouped)
+; : ' " , . < > / ?          (10, comma/period grouped the same way)
+```
+
+The alternative was partner-adjacent (`[{ ]}`, `,< .>`), which mirrors the
+physical key (KP1: `{` is Shift+`[`, `>` is Shift+`.`); the maintainer chose the
+grouped order (a symbol family clustered for visual search, KP3) over the
+physical pairing. This sub-decision is settled; the data home, navigation-key set
+and Tier 2 inventory remain open (#298).
+
 The navigation-key set, the Tier 2 inventory/grouping, and the data home that
 makes them inputtable are open mechanism (#298). *Implementation:* none.
 *Refuted by:* none yet.

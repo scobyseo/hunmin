@@ -1380,3 +1380,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   (symbol page shift removed + nav keys; 4th Tier 2 panel) and
   `docs/ANDROID-KEYPAD-MOCKUP.md` + [[2026-11-22-android-keypad-mockup]]. No verdict.
 
+## [2026-11-22] decision | symbol-page arrangement: grouped []{} order
+
+- Maintainer ruling (verbatim): "[]{} 순서로 결정하자." The symbol page shows all
+  32 ASCII punctuation as separate buttons (no shift), grouped order `[]{} `
+  applied consistently to `<>` (`,. <>`), ` leading row 2 before `-`. Layout:
+  `!@#$%^&*()` / `~-_=+[]{}\| / `;:'",.<>/?`. The partner-adjacent alternative
+  (`[{ ]}`, `,< .>`, physical-key pairing) was considered and not chosen.
+- Recorded in `docs/SPEC-ANDROID-KEYPAD.md` KP6 (deliberation quotes kept as
+  history), mockup HTML+PNG re-rendered with the decided layout,
+  `docs/ANDROID-KEYPAD-MOCKUP.md` wireframe, [[2026-11-22-android-keypad-mockup]].
+  This sub-decision is settled; data home / nav-key set / Tier 2 inventory remain
+  open (#298).
+
