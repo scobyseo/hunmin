@@ -73,8 +73,7 @@ row.
  「」 『』 《》 〈〉 £ ¥                      (10, 낫표/화살괄호 + £¥)
  ○ ● □ ■ △ ▲ ※ ★ © ®                      (10, 도형/표시 + ©®)
  → ← ↑ ↓ ↔ ° ± × ™ ♡                      (10, 화살표/수학 + ™♡)
- (Tab) (Home) (PgUp) (PgDn) (End) (⌫)
- [한/영] [기호 1] (←) (↑) (↓) (→)           ← KP9: same functional layout as Tier 1
+ [한/영] [기호 1]                            ← 편집키 없음 (Tier 2는 기호 선택 전용)
 ```
 
 Tier 2 reaches 10 keys/row by **keeping the original 8-key category groups and

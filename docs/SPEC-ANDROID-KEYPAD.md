@@ -288,6 +288,11 @@ Two things:
   (2026-11-22, verbatim: "기존에 8개로 묶은 이유가 있을텐데, 맨 아래줄에 있는 기호
   2개씩을 각 줄로 옮기는 방식이 더 깔끔해."), not by reflowing the categories.
 
+Tier 2 carries **no editing keys** (2026-11-22, verbatim: "tier2에는 편집키가
+필요없어."): it is a symbol picker, so the navigation cluster, arrows and
+backspace are absent — correction happens in the text mode. Its bottom row is
+just the mode-return keys (`한/영`, `기호 1`), in the same slots as Tier 1.
+
 A layout that follows (bottom row mirrors the text modes' `[한/영][기호]…`):
 `[한/영] [Tier 2] [←] [↑] [↓] [→]`, backspace on the navigation row. The exact
 geometry is provisional; the binding rules are positional consistency and the

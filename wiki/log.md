@@ -1436,3 +1436,12 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   Exact geometry provisional; positional consistency + space/enter removal binding.
   No verdict beyond the maintainer's stated direction.
 
+## [2026-11-22] update | Tier 2 has no editing keys
+
+- Maintainer (verbatim): "tier2에는 편집키가 필요없어." Tier 2 is a symbol picker:
+  the navigation cluster, arrows and backspace are removed; correction happens in
+  the text mode. Its bottom row is just the mode-return keys (한/영, 기호 1) in the
+  same slots as Tier 1. Recorded in SPEC KP9; mockup HTML Tier 2 nav row + arrows
+  removed (bottom 한/영/기호 1 only), PNG re-rendered, mockup doc wireframe updated.
+  No verdict.
+
