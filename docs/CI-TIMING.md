@@ -431,7 +431,7 @@ and the largest segment in it was **197 s of fcitx5 5.1.13 built from source on
 every commit with nothing cached** — the job uploaded its install tree for the
 deb job to restore, but never cached its own.
 
-So the install tree is now cached (`actions/cache@v4`, keyed on the pinned
+So the install tree is now cached (`actions/cache@v6`, keyed on the pinned
 `5.1.13` tag, `restore-keys` falling back to the newest entry). The build step
 is gated on `cache-hit != 'true'` and installs to `/tmp/fcitx5-install` rather
 than `/usr` directly, so the cached path and the freshly-built path are the
@@ -462,12 +462,26 @@ i.e. it looks for a `usr/` level the archive never contained. Its own guard
 therefore fail with "restore is missing Fcitx5Core cmake configs" — a message
 about the restore, for a cause in the upload.
 
-Naming `root: /tmp/fcitx5-install/usr` makes the layout explicit instead of
-implied by which paths happen to be listed. **Not re-measured on CI**: no run
-has executed since, so the first deb run after this lands is the confirmation.
 The commit that introduced the mismatch is `6cd5d20` ("shared fcitx5"), which
 is also the commit that made the deb job depend on the artefact at all — the
 two halves of that change did not agree with each other.
+
+**The first fix was wrong, and the warning caught it (issue #315, measured
+2026-11-22).** It named `root: /tmp/fcitx5-install` — an input upload-artifact
+does not have. The runner warned `Unexpected input(s) 'root'`, ignored it, and
+resolved the remaining `path: .` against the workspace: the artefact named
+`fcitx5-5.1.13-install` carried the repository checkout, not the install tree
+(measured — run 44993951120's artefact root held `AGENTS.md`, `CMakeLists.txt`,
+`docs/`). This section previously recorded the fix as `root:
+/tmp/fcitx5-install/usr`, a third variant that never matched the tree; all
+three are now superseded. The mechanism that actually exists is a **single
+directory as `path`**: upload-artifact makes it the archive root by the same
+least-common-ancestor rule, so `path: /tmp/fcitx5-install` gives the prefixless
+layout the deb job's restore expects. The deb job is `if: false` since
+2026-11-01, so nothing consumed the wrong artefact; the checkable confirmation
+is the downloaded artefact's layout on the next PR run, and the deb job's
+`pkg-config --modversion Fcitx5Core` remains the confirmation when it is
+re-enabled.
 
 ---
 
