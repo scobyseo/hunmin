@@ -1,0 +1,38 @@
+{
+  "what": "keyboard layout tables: key id -> jamo/literal for each supported layout",
+  "generator": "tools/kbd2data.py (libhangul-derived layouts); tools/ist2data.py (sin3-p2 layouts); hand-authored for us/colemak/dvorak",
+  "source": {
+    "name": "libhangul 0.2.0 keyboard XML + pat.im/1136 날개셋 ist XML + this project's key-id convention",
+    "vendored_inputs": [
+      "data-orig/libhangul/hangul-keyboard-*.xml",
+      "data-orig/naraeseot/sin3-p2.basic.xml",
+      "data-orig/naraeseot/sin3-p2.symbols.xml",
+      "data-orig/naraeseot/sin3-p2.yethangul.xml"
+    ],
+    "notices": [
+      "data-orig/naraeseot/NOTICE (sha256 pins for the three ist files)",
+      "docs/SPEC-P2.md (normative extraction rules for the P2 layouts)"
+    ],
+    "per_file": "each layout JSON carries its own source string"
+  },
+  "method": {
+    "conversion": "XML facts rewritten to the schema in docs/SPEC-SCHEMA.md; no upstream C or Swift code copied",
+    "deterministic": true,
+    "notes": "pat.im ist expressions parsed to an AST and rewritten canonically (tools/jamo.py); every dropped branch classified into x-notes"
+  },
+  "counts": {
+    "layouts": 15,
+    "from_libhangul_xml": 9,
+    "from_patim_ist": 3,
+    "hand_authored": 3
+  },
+  "licence": {
+    "how": "derived works: libhangul keyboard data LGPL-2.1-or-later (2009-2016 Choe Hwanjin and contributors); pat.im ist layouts freely reusable per data-orig/naraeseot/NOTICE; conversion and hand-authored tables LGPL-2.1-or-later (2026 Seo Bon Keun). Full text: debian/copyright",
+    "redistributable": true
+  },
+  "does_not_represent": [
+    "OS keyboard-driver keymaps or keycap artwork",
+    "numeric layout ids in the ABI (layouts are selected by string id)",
+    "composition rules (see ../compose/)"
+  ]
+}

@@ -303,7 +303,9 @@ void scheduleEvent(Instance *instance) {
                 std::error_code ec;
                 for (auto it = std::filesystem::directory_iterator(std::string(TESTING_SOURCE_DIR) + "/libhunmin/data/layouts", ec);
                      !ec && it != std::filesystem::directory_iterator(); ++it) {
-                    if (it->path().extension() == ".json") {
+                    // meta.json is FE14's provenance record, not a layout.
+                    if (it->path().extension() == ".json" &&
+                        it->path().filename() != "meta.json") {
                         shipped++;
                     }
                 }

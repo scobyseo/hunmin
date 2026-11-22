@@ -5,3 +5,8 @@ files
 *.debhelper.log
 hunmin/
 hunmin-dbgsym/
+hunmin-ibus/
+hunmin-ibus-dbgsym/
+hunmin-data/
+libhunmin/
+libhunmin-dbgsym/

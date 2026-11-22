@@ -156,6 +156,8 @@ def javap_keycodes(jar: pathlib.Path) -> dict[str, int]:
 def layout_keys() -> set[str]:
     keys: set[str] = set()
     for f in sorted(LAYOUTS.glob("*.json")):
+        if f.name == "meta.json":
+            continue  # FE14 provenance record, not a keyboard layout
         keys |= set(json.loads(f.read_text(encoding="utf-8"))["keys"])
     return keys
 
@@ -224,7 +226,8 @@ def main() -> int:
     live = javap_keycodes(jar) if jar is not None else {}
 
     if not a.json:
-        print(f"{len(keys)} keys used across {len(list(LAYOUTS.glob('*.json')))} layouts "
+        n_layouts = sum(1 for f in LAYOUTS.glob("*.json") if f.name != "meta.json")
+        print(f"{len(keys)} keys used across {n_layouts} layouts "
               f"({len(printable)} printable, {len(named)} named)")
         print()
 

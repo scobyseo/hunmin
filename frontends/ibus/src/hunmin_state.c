@@ -178,7 +178,10 @@ void hunmin_state_set_sink(hunmin_state *s, const hunmin_state_sink *sink) {
 bool hunmin_state_set_layouts(hunmin_state *s, const char *hangul_id, const char *latin_id) {
     if (!s || !hangul_id || !*hangul_id) return false;
     char *h = dup_or_empty(hangul_id);
-    char *l = latin_id && *latin_id ? dup_or_empty(latin_id) : NULL;
+    /* NULL means "keep the current Latin half", not "make it single-language":
+     * a caller changing only the Hangul layout must not silently kill 한/영.
+     * An empty string still requests a single-language layer. */
+    char *l = dup_or_empty(latin_id ? latin_id : (s->latin_id ? s->latin_id : ""));
     if (!h) {
         free(l);
         return false;
@@ -470,6 +473,10 @@ int hunmin_state_language(const hunmin_state *s) {
 
 const char *hunmin_state_layout_id(const hunmin_state *s) {
     return s && s->layer ? hunmin_buffered_preedit_layout_id(s->layer) : "";
+}
+
+const char *hunmin_state_hangul_layout_id(const hunmin_state *s) {
+    return s ? (s->hangul_id ? s->hangul_id : "") : "";
 }
 
 const char *hunmin_state_preedit(const hunmin_state *s) {

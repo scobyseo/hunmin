@@ -344,3 +344,10 @@ Each frontend produces this dialect only in an opt-in build or an explicitly
 enabled session; the default path writes nothing. The sink is not part of tier C's
 runner and emits no `{"kind":...}` records — those belong to the older build-flag
 sink in fcitx5 and are not used for personal logs.
+
+Producers: fcitx5 (`frontends/fcitx5/src/hunminadapter.cpp`, `-DHUNMIN_TRACE=ON`),
+Android (`HunminTraceRecorder.kt`), TSF (`frontends/tsf/src/keydispatch.cpp`) and,
+since 2026-11-22, the IBus engine (issue #292). IBus keeps the sink in
+`frontends/ibus/src/trace/` behind the same `HUNMIN_TRACE` option; a default build
+has neither the sink nor the `HUNMIN_TRACE_OUT` getenv, and ctest `trace-optout-ibus`
+asserts that. Its `meta.platform` is `x11` because the D3 host is X11.

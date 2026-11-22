@@ -282,6 +282,9 @@ def main() -> int:
     ibus_src = _COMMON_ROOT / "frontends/ibus/src"
     if ibus_src.is_dir():
         counted = 0
+        # Only the shipped adapter counts. src/trace/ is the opt-in T2-1 key
+        # log, compiled out of released engines and therefore not adapter
+        # logic; CMakeLists declares it under HUNMIN_TRACE.
         parts = {}
         for path in sorted(ibus_src.glob("*.c")) + sorted(ibus_src.glob("*.h")):
             n = len([ln for ln in strip_comments(path.read_text()).splitlines() if ln.strip()])

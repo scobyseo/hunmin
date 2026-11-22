@@ -51,3 +51,25 @@ if(X11_FOUND AND TARGET hunmin_addon AND EXISTS "${d3_addon_dir}" AND EXISTS "${
 else()
   message(STATUS "D3: skipped (X11=${X11_FOUND}, pkg-config=${PKG_CONFIG_EXECUTABLE})")
 endif()
+
+# IBus full-stack D3 (issue #292): the 22.04 release's only frontend gets the
+# same real-daemon + real-client run as fcitx5. The runner, the case file, the
+# hunmin-sim oracle and the GTK client are shared with engine-d3-x11/gtk3;
+# HUNMIN_D3_HOST=ibus switches only the daemon setup, the readiness gate and
+# the expected GTK immodule. The fcitx5-only positional arguments are still
+# supplied (the runner ignores them in ibus mode) so one runner serves both.
+# No gtest wrapper: ctest's SKIP_RETURN_CODE already turns the runner's 77
+# (missing Xvfb / ibus-gtk / gi) into a skip, which is what the fcitx5 wrapper
+# exists to do and is a ctest property here.
+if(HUNMIN_HAS_IBUS AND X11_FOUND)
+  hunmin_add_test(NAME engine-d3-ibus
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run-d3.sh
+      $<TARGET_FILE:hunmin-sim> ${CMAKE_CURRENT_SOURCE_DIR}/libhunmin/data
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/gtk-harness.py
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/xtest-type.py
+      ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}
+      ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/cases.tsv
+      ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}
+    ENVIRONMENT "HUNMIN_D3_HOST=ibus;HUNMIN_D3_CLIENT=gtk;HUNMIN_D3_IBUS_ENGINE=$<TARGET_FILE:hunmin-ibus>;HUNMIN_D3_IBUS_COMPONENT=${CMAKE_CURRENT_BINARY_DIR}/frontends/ibus/hunmin.xml"
+    LABELS tier-D3 slow SKIP_RETURN_CODE 77 TIMEOUT 300)
+endif()

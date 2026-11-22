@@ -48,6 +48,9 @@ except ImportError:  # run from outside tools/: derive from this file
 # one in debian/control, and a `git mv` of the .install file.
 WORDS_PACKAGE = "hunmin-en-us"
 BASE_PACKAGE = "hunmin"
+# T1-4 (issue #292): frontend-neutral data moved out of `hunmin` so an
+# IBus-only jammy install obtains layouts/compose without fcitx5.
+DATA_PACKAGE = "hunmin-data"
 DATA_PREFIX = "usr/share/hunmin"  # CMAKE_INSTALL_DATADIR's default
 
 
@@ -123,6 +126,7 @@ def check_debian_partition(root: Path) -> None:
         fail(f"no data directories under {data}")
     base_entries = read_install_file(root / "debian" / f"{BASE_PACKAGE}.install")
     words_entries = read_install_file(root / "debian" / f"{WORDS_PACKAGE}.install")
+    data_entries = read_install_file(root / "debian" / f"{DATA_PACKAGE}.install")
 
     def named_by(entries: list[str], name: str) -> bool:
         want = f"{DATA_PREFIX}/{name}"
@@ -130,16 +134,18 @@ def check_debian_partition(root: Path) -> None:
                    for e in entries)
 
     for name in dirs:
-        in_base, in_words = named_by(base_entries, name), named_by(words_entries, name)
-        if in_base and in_words:
-            fail(f"{DATA_PREFIX}/{name} is claimed by BOTH packages; dh_install "
-                 f"would put it in both or fail")
-        if not (in_base or in_words):
+        claims = (named_by(base_entries, name), named_by(words_entries, name),
+                  named_by(data_entries, name))
+        if sum(claims) > 1:
+            fail(f"{DATA_PREFIX}/{name} is claimed by more than one package; "
+                 f"dh_install would put it in both or fail")
+        if not any(claims):
             fail(f"{DATA_PREFIX}/{name} is claimed by NEITHER package -- it "
                  f"would be dropped from the .deb with no error. Add it to one "
-                 f"of debian/{BASE_PACKAGE}.install and debian/{WORDS_PACKAGE}.install")
-        if name == "modes" and not in_words:
-            fail(f"{DATA_PREFIX}/modes is in the base package; the split is gone")
+                 f"of debian/{BASE_PACKAGE}.install, "
+                 f"debian/{WORDS_PACKAGE}.install or debian/{DATA_PACKAGE}.install")
+        if name == "modes" and not claims[1]:
+            fail(f"{DATA_PREFIX}/modes is not in the words package; the split is gone")
 
     ok(f"debian: {len(dirs)} data directories partitioned, modes/ -> "
        f"{WORDS_PACKAGE}")
@@ -157,11 +163,16 @@ def check_control(root: Path) -> None:
             fields[key.strip()] = value.strip()
         if "Package" in fields:
             stanzas[fields["Package"]] = fields
-    for name in (BASE_PACKAGE, WORDS_PACKAGE):
+    for name in (BASE_PACKAGE, WORDS_PACKAGE, DATA_PACKAGE):
         if name not in stanzas:
             fail(f"debian/control has no Package: {name} stanza")
-    if stanzas[WORDS_PACKAGE].get("Architecture") != "all":
-        fail(f"{WORDS_PACKAGE} is not Architecture: all -- it carries data only")
+    for name in (WORDS_PACKAGE, DATA_PACKAGE):
+        if stanzas[name].get("Architecture") != "all":
+            fail(f"{name} is not Architecture: all -- it carries data only")
+    for name in (BASE_PACKAGE, "hunmin-ibus"):
+        if DATA_PACKAGE not in stanzas.get(name, {}).get("Depends", ""):
+            fail(f"{name} must Depends on {DATA_PACKAGE} -- its data is no longer "
+                 f"inside the package itself")
     # Recommends, not Suggests and not Depends: the maintainer's ruling of
     # 2026-11-01 on issue #172, verbatim "Recommends." -- a plain install has one
     # dictionary, and the package stays removable so that the absent state B3

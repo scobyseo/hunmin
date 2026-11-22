@@ -58,10 +58,9 @@ void hunmin_state_free(hunmin_state *s);
 void hunmin_state_set_sink(hunmin_state *s, const hunmin_state_sink *sink);
 
 /* The layout ids are the data's own (`dubeolsik`, `sin3-p2`, `us-qwerty`, ...).
- * A null/empty latin id keeps the layer single-language, which makes the
- * language key the frontend's business rather than ours. A change flushes the
- * word in flight before the new layer is built -- the same rule the layer
- * applies to a focus change. Returns false when the layer did not load. */
+ * A NULL latin id keeps the current Latin half; an EMPTY one makes the layer
+ * single-language. A change flushes the word in flight before the new layer is
+ * built. Returns false when the layer did not load. */
 bool hunmin_state_set_layouts(hunmin_state *s, const char *hangul_id, const char *latin_id);
 bool hunmin_state_set_commit_policy(hunmin_state *s, int policy);
 
@@ -117,6 +116,10 @@ int hunmin_state_candidate_cursor(const hunmin_state *s);
 
 int hunmin_state_language(const hunmin_state *s); /* HUNMIN_LANGUAGE_* */
 const char *hunmin_state_layout_id(const hunmin_state *s);
+/* The configured Hangul layout id, available before the first key builds a
+ * layer. Used by the opt-in trace's meta so a log states which layout it is
+ * evidence about; hunmin_state_layout_id() is empty until a layer exists. */
+const char *hunmin_state_hangul_layout_id(const hunmin_state *s);
 const char *hunmin_state_preedit(const hunmin_state *s);
 
 #ifdef __cplusplus

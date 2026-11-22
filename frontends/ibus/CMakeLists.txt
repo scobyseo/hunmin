@@ -15,6 +15,18 @@ set_target_properties(hunmin_ibus_state PROPERTIES C_STANDARD 11 C_STANDARD_REQU
 
 add_library(hunmin_ibus_engine STATIC src/hunmin_engine.c)
 target_link_libraries(hunmin_ibus_engine PUBLIC hunmin_ibus_state PkgConfig::IBUS)
+# T2-1's personal key log (docs/trace-spec.md), compiled out of the shipped
+# engine by default: no sink and no getenv on the key path unless opted in.
+# The same option name the fcitx5 and TSF frontends use.
+option(HUNMIN_TRACE "Build the opt-in personal key-log sink" OFF)
+if(HUNMIN_TRACE)
+  # trace/ is opt-in measurement infrastructure: it carries the T2-1 sink and
+  # is not part of the shipped adapter's 700-line budget (the invariant check
+  # counts only the top-level src/*.c and src/*.h files).
+  target_sources(hunmin_ibus_engine PRIVATE src/trace/trace.c)
+  target_include_directories(hunmin_ibus_engine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/trace)
+  target_compile_definitions(hunmin_ibus_engine PRIVATE HUNMIN_TRACE=1)
+endif()
 # A dev package unpacked under a prefix (no root needed) supplies the headers;
 # the runtime library is still the distribution's. docs/ENVIRONMENT.md records
 # the host this is measured on.
