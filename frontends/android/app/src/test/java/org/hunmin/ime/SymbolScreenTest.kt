@@ -15,6 +15,12 @@
  * assert is the app path: the parse of the real asset, and that a tap on each
  * symbol delivers exactly that character with nothing composing and no
  * surrounding-text violation (I9).
+ *
+ * Issue #312 adds the variants lane: the app must parse and expose the
+ * gesture-variant mapping the checker accepts (no silent ignore), variant
+ * characters must not masquerade as Tier 1 commit keys, and corrupted
+ * variants fail loudly. The assignment itself is provisional data, pinned
+ * nowhere but the file — see docs/DESIGN-ANDROID-SYMBOL-VARIANTS.md.
  */
 package org.hunmin.ime
 
@@ -87,6 +93,71 @@ class SymbolScreenTest {
             }
         }
         assertTrue(ic.commits.isEmpty())
+    }
+
+    @Test
+    fun theShippedVariantsParseAndStayConsistentWithTheRows() {
+        // Issue #312: the app must see the variant mapping the checker
+        // accepts — not silently ignore it. Which variant sits on which host
+        // is provisional data (the Python checker's scope contract), so this
+        // lane asserts only the parse-level invariants, not the assignment.
+        val screen = load()
+        assertTrue("shipped asset carries no variants", screen.variants.isNotEmpty())
+        for ((host, v) in screen.variants) {
+            assertTrue("host $host is not a symbol key", host in screen.symbols)
+            assertTrue("popup empty for $host", v.popup.isNotEmpty())
+            assertEquals("up must be popup[0] for $host", v.popup[0], v.up)
+            for (ch in v.popup) {
+                assertEquals("variant must be one character", 1, ch.length)
+                assertTrue("variant $ch must be non-ASCII (Tier 2)", ch[0].code > 0x7F)
+            }
+        }
+        // One home per variant character.
+        val all = screen.variants.values.flatMap { it.popup }
+        assertEquals(all.size, all.toSet().size)
+    }
+
+    @Test
+    fun variantCharactersAreNotTier1CommitKeys() {
+        // commitSymbol is the Tier 1 tap seam; a variant character reaches
+        // the client only through the gesture wiring (open), never by
+        // masquerading as a symbol key of the screen.
+        val screen = load()
+        val ic = RecordingInputConnection()
+        for (ch in screen.variants.values.flatMap { it.popup }) {
+            try {
+                screen.commitSymbol(ch, ic)
+                throw AssertionError("commitSymbol accepted variant $ch")
+            } catch (expected: IllegalArgumentException) {
+                // refused: not a Tier 1 key
+            }
+        }
+        assertTrue(ic.commits.isEmpty())
+    }
+
+    @Test
+    fun corruptedVariantsFailLoudlyAtParse() {
+        val rows = """"rows":[{"kind":"symbols","keys":[".","<"]}]"""
+        val bad = listOf(
+            // host not among the screen's symbol keys
+            """{"schemaVersion":1,$rows,"variants":{"!":{"up":"·","popup":["·"]}}}""",
+            // up is not the first popup member
+            """{"schemaVersion":1,$rows,"variants":{".":{"up":"…","popup":["·","…"]}}}""",
+            // empty popup
+            """{"schemaVersion":1,$rows,"variants":{".":{"up":"·","popup":[]}}}""",
+            // missing up
+            """{"schemaVersion":1,$rows,"variants":{".":{"popup":["·"]}}}""",
+            // multi-character variant
+            """{"schemaVersion":1,$rows,"variants":{".":{"up":"··","popup":["··"]}}}""",
+        )
+        for (text in bad) {
+            try {
+                SymbolScreen.parse(text)
+                throw AssertionError("parse accepted: $text")
+            } catch (expected: IllegalArgumentException) {
+                // loud failure, same as a corrupted row
+            }
+        }
     }
 
     @Test

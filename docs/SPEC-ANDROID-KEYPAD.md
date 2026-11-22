@@ -325,7 +325,11 @@ separate issue, #312** (`[android] extend symbol selection via swipe/long-press 
 symbol keys`). The variant mapping and the per-key gesture set (bounded by KP8)
 are #312's work, not #298's; the variant mapping's data home is already settled
 by KP11 — the app-read symbol data file, with the engine uninvolved. *Implementation:*
-none. *Refuted by:* none yet.
+partial (#312, 2026-11-23) — a provisional variant mapping and its structural
+contract live in the app-read file and the app parses them
+(`docs/DESIGN-ANDROID-SYMBOL-VARIANTS.md`, comparable designs and recommendation);
+the assignment and gesture set await the maintainer's ruling and the gesture UI
+is open. *Refuted by:* none yet.
 
 ### KP11. Symbol screen data home — app-read data file, engine uninvolved (DECIDED)
 

@@ -22,6 +22,13 @@
  * commit while the engine still holds a preedit would deliver the symbol
  * ahead of the buffered word (docs/DESIGN-ANDROID-SYMBOLS.md §4, FE1/FE2).
  * Function keys carry ids only; what an id does is the UI's wiring, not data.
+ *
+ * The variants section (issue #312, KP10) is parsed and exposed here so the
+ * checker and the app agree on what the file carries — a section the checker
+ * accepts but the app silently ignores is the recorded doctor/loader failure
+ * mode (docs/DESIGN-ANDROID-SYMBOLS.md §1.2). Acting on it (swipe-up, the
+ * long-press popup, KP5's defences) is gesture-UI wiring, still open; the
+ * mapping itself is provisional (docs/DESIGN-ANDROID-SYMBOL-VARIANTS.md).
  */
 package org.hunmin.ime
 
@@ -29,11 +36,22 @@ import android.view.inputmethod.InputConnection
 import org.json.JSONObject
 
 /** One parsed symbol screen: rows of symbol characters or function-key ids. */
-data class SymbolScreen(val rows: List<Row>) {
+data class SymbolScreen(
+    val rows: List<Row>,
+    /** Gesture variants by host symbol (issue #312); empty when absent. */
+    val variants: Map<String, Variants> = emptyMap(),
+) {
 
     enum class Kind { SYMBOLS, FUNCTION }
 
     data class Row(val kind: Kind, val keys: List<String>)
+
+    /**
+     * One host key's gesture family: [up] is the swipe-up target and the
+     * first popup member; [popup] is the long-press list in the file's order
+     * (frequency order — the ranking's home is the data, not the app).
+     */
+    data class Variants(val up: String, val popup: List<String>)
 
     /** Every symbol character, in screen order. */
     val symbols: List<String> =
@@ -94,7 +112,36 @@ data class SymbolScreen(val rows: List<Row>) {
                 }
                 rows.add(Row(kind, keys))
             }
-            return SymbolScreen(rows)
+            val symbolKeys = rows.filter { it.kind == Kind.SYMBOLS }
+                .flatMap { it.keys }.toSet()
+            val variants = HashMap<String, Variants>()
+            val rawVariants = root.optJSONObject("variants")
+            if (rawVariants != null) {
+                for (host in rawVariants.keys()) {
+                    require(host in symbolKeys) {
+                        "variants: host is not a symbol key of this screen: $host"
+                    }
+                    val spec = rawVariants.getJSONObject(host)
+                    val up = spec.optString("up")
+                    val rawPopup = spec.optJSONArray("popup")
+                    require(up.isNotEmpty() && rawPopup != null && rawPopup.length() > 0) {
+                        "variants[$host]: up/popup missing or empty"
+                    }
+                    val popup = ArrayList<String>(rawPopup.length())
+                    for (j in 0 until rawPopup.length()) {
+                        val ch = rawPopup.getString(j)
+                        require(ch.length == 1) {
+                            "variants[$host]: variant must be one character: $ch"
+                        }
+                        popup.add(ch)
+                    }
+                    require(up == popup[0]) {
+                        "variants[$host]: up must be the first popup member"
+                    }
+                    variants[host] = Variants(up, popup)
+                }
+            }
+            return SymbolScreen(rows, variants)
         }
     }
 }
