@@ -736,6 +736,7 @@ in the budget runs exactly as it does on a host with no device):
 |---|---|---|
 | master `9cb066c`, green baseline | **38.0 s** (127%) | **90.7 s** (151%) |
 | task branch (T3-3 phase 1+2) | 38.1 s (+0.1 s) | 98.0 s (+7.3 s) |
+| task branch FINAL (KP12–KP17, pre-PR) | 40.2 s (+2.2 s) | 116.8 s (+26.1 s) |
 
 Two findings, neither smoothed over:
 
@@ -746,11 +747,15 @@ Two findings, neither smoothed over:
   baseline. Rebuilding the shim (`tools/build-host-jni.sh`, the documented
   remedy) produced the green baseline above. A baseline measured on a red
   tree is not a baseline.
-- **The T3-3 delta is +0.1 s inner / +7.3 s slow**: 22 new E1 JVM tests
-  (~1 s; the lane is 7.7 s total) plus the new Kotlin compiled in each
-  android-mutations sandbox build. No inner-loop test was added. The slow
-  tier's dominant costs (android-mutations ~85 s, the D3 pair ~56 s serial)
-  are unchanged from master.
+- **The T3-3 delta grew to +2.2 s inner / +26.1 s slow at the final pre-PR
+  measurement**: 26 new E1 JVM tests (the lane is ~24 s total) plus ~600 lines
+  of new Kotlin compiled in EACH android-mutations sandbox build — the
+  dominant cost, inherent to adding the surface, not trimmable without
+  dropping coverage. No inner-loop test was added (the inner delta is
+  docs-lint/req-map parsing the larger map). The slow tier's other costs
+  (the D3 pair ~56 s serial) are unchanged from master. The CI linux job
+  excludes tier E1 and skips D3, so this delta does not spend its 3-minute
+  ceiling; the android job's E1 timeout is 900 s against ~24 s.
 
 The E2E touch round (#299) runs inside `engine-android-e2e`; it skips without
 a device, so it does not enter the table above. With the emulator attached it
