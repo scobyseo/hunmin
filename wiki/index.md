@@ -334,6 +334,10 @@
   Hangul: 두벌식 is the common denominator, 천지인 is rare, and the mainstream
   symbol mechanism is a separate page. The maintainer's 두벌식 clarification and
   the per-app licences; read for facts, copy nothing.
+- [[2026-11-22-symbol-interaction-cost]] — the mode-switch tax of typing
+  numbers/symbols mid-Hangul, in interaction counts: the 두벌식 keypad body is
+  jamo only, digits come from an optional number row, symbols from a separate
+  page. The ISO 25010 premise checked (count is a proxy, not the whole measure).
 
 ## Raw — upstream
 

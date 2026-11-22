@@ -316,7 +316,10 @@ measurement.
 chosen among the Korean input methods (천지인/세벌식/모아키…); the symbol-layer
 home is a separate question. Prior art: `docs/ANDROID-KOREAN-IME-SURVEY.md`
 (두벌식 is the common denominator of Hangul-supporting open-source Android IMEs;
-their mainstream symbol mechanism is a separate symbol page).
+their mainstream symbol mechanism is a separate symbol page). The usability
+problem behind 기호 입력 — the mode-switch tax of typing numbers/symbols
+mid-Hangul — is analysed in interaction counts in
+`docs/ANDROID-SYMBOL-INTERACTION.md`.
 
 **What already exists, measured against the tree:**
 

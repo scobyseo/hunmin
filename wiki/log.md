@@ -1286,3 +1286,15 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `docs/MILESTONES.md` Track 3 and the survey doc; corrected the "third row, no
   engine change" premise there to point at the measured engine cost. No ruling.
 
+## [2026-11-22] create | symbol/number interaction cost mid-Hangul
+
+- Created [[2026-11-22-symbol-interaction-cost]] and
+  `docs/ANDROID-SYMBOL-INTERACTION.md`: the 두벌식 keypad body in HeliBoard/
+  FlorisBoard is jamo only (shift/long-press = doubled jamo), digits come from an
+  optional number row, symbols from a separate page. Interaction-count table for
+  eight mechanisms, with the trade-off each pays.
+- Checked the ISO 25010 premise: usability/operability is the relevant
+  characteristic, interaction count is an efficiency proxy (ISO 9241-11), not a
+  literal clause; time/space/error are the counterweight. Recorded the
+  maintainer's pain verbatim. No ruling.
+

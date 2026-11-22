@@ -5,7 +5,9 @@ what other open-source Android IMEs do, so the symbol-layer and layout-form
 choices are made against measured practice rather than a guess. Requirement
 pointers: `docs/SPEC-OVERVIEW.md#§A1`, `docs/SPEC-OVERVIEW.md#§A2`,
 `docs/MILESTONES.md` Track 3. The symbol-layer analysis itself is
-`docs/DESIGN-ANDROID-SYMBOLS.md`.
+`docs/DESIGN-ANDROID-SYMBOLS.md`. The interaction-count cost of typing
+numbers/symbols mid-Hangul, and how the surveyed IMEs reduce it, is
+`docs/ANDROID-SYMBOL-INTERACTION.md`.
 
 **Method.** GitHub repository/code search and reading the upstream sources for
 semantics, plus the engine trees already on this machine (`libhangul-0.2.0`,
