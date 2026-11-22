@@ -297,3 +297,23 @@ A layout that follows (bottom row mirrors the text modes' `[한/영][기호]…`
 `[한/영] [Tier 2] [←] [↑] [↓] [→]`, backspace on the navigation row. The exact
 geometry is provisional; the binding rules are positional consistency and the
 space/enter removal. *Implementation:* none. *Refuted by:* none yet.
+
+### KP10. Symbol selection by swipe/long-press preferred over a Tier 2 button; extension split out (stated direction)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "심볼 키에 대한 swipe 동작이나 longpress로 어떤 기호를 입력할지 선택하는 게 tier2
+> 버튼을 두는 것보다 나아 보인다. 일단 이렇게만 정리해 두고 이 기능을 확장하는 건
+> 별도 이슈로 만들자."
+
+Stated direction: reaching alternate symbols by **swipe / long-press on a symbol
+key** is preferred over a separate **Tier 2 button/page**. The Tier 2 Korean
+special symbols become gesture variants of the Tier 1 symbol keys (KP7/KP8),
+rather than a page of their own. This deprioritises the separate Tier 2 page of
+KP6/KP9; those records stand as the history of the considered alternative.
+
+**Scope ruling:** #298 records this direction only; **extending the feature is a
+separate issue, #312** (`[android] extend symbol selection via swipe/long-press on
+symbol keys`). The variant mapping, its data home, and the per-key gesture set
+(bounded by KP8) are #312's work, not #298's. *Implementation:* none.
+*Refuted by:* none yet.

@@ -228,3 +228,4 @@ map and rerun.
 | KP7 | A2 | | |
 | KP8 | A2 | | |
 | KP9 | A2 | | |
+| KP10 | A2 | | |

@@ -1455,3 +1455,17 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   symbols enough for the target population; the measured prose tail is thin, so
   rare symbols have diminishing returns vs ergonomics or a frequency row.
 
+## [2026-11-22] decision | KP10 gesture selection over Tier 2 button; extension split to #312
+
+- Maintainer (verbatim): "심볼 키에 대한 swipe 동작이나 longpress로 어떤 기호를 입력할지
+  선택하는 게 tier2 버튼을 두는 것보다 나아 보인다. 일단 이렇게만 정리해 두고 이 기능을
+  확장하는 건 별도 이슈로 만들자."
+- Recorded KP10 in `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: swipe/
+  long-press on a symbol key preferred over a Tier 2 button/page; Tier 2 symbols
+  become gesture variants of Tier 1 keys (deprioritises the KP6/KP9 Tier 2 page).
+  #298 records the direction only.
+- Created **#312** `[android] extend symbol selection via swipe/long-press on symbol
+  keys` (labels task/enhancement) for the extension: variant mapping, data home,
+  per-key gesture set bounded by KP8. Mockup doc notes the Tier 2 panels are the
+  considered alternative, not the chosen path. No verdict beyond the stated direction.
+

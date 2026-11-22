@@ -101,6 +101,13 @@ symbols; if a chat corpus surfaces more high-value symbols, a fifth row earns it
 place. The prose tail measured here is thin, so filling with rare symbols has
 diminishing returns.
 
+**Update (KP10, 2026-11-22):** the maintainer prefers reaching these symbols by
+**swipe/long-press on a symbol key** over a separate Tier 2 button/page. So the
+Tier 2 page (and its remaining-space question) is deprioritised: the symbols
+become gesture variants of the Tier 1 keys. #298 records the direction only;
+the variant mapping, data home and per-key gesture set are **#312**'s work. The
+Tier 2 panels above stand as the considered alternative, not the chosen path.
+
 The number row's corner hints are the KP1/KP5 pairing (digit 진하게, symbol hint
 연하게, reached by long-press or swipe-up). The symbol page mirrors `us-qwerty`'s
 physical positions, which the data already holds (all 32 ASCII punctuation,
