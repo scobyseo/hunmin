@@ -39,8 +39,21 @@ HARNESS PROTOCOL (consumed by tests/e2e/run-d3.sh)
   READY              the window is mapped and the entry holds the X focus
   MODULE:...         which GTK IM module library is mapped into this process
   TEXT:<content>     the entry's buffer, on every change and once at the end
+  KEYSINK:<keyval>   one line per key press this entry received, printed AFTER
+                     the widget and its input context have handled it
   CASESTART:<id>     a case is starting, on a FRESH entry, already focused
   CASEFAIL:<id>      the fresh entry never took the X focus; the case cannot run
+
+WHY KEYSINK EXISTS (issue #325). TEXT: alone is not a completion signal: a
+GtkEntry prints it per COMMIT, and the engine commits per syllable/word, so the
+log legitimately goes quiet for up to ~1.1 s in the middle of a sentence while
+the next word is being typed. The runner used to wait a fixed 0.8 s and read
+the last TEXT:, which is the clock this replaces -- measured, the final commit
+can land after it and the case then compares a truncated buffer. KEYSINK makes
+the log grow per KEY, which is what the XIM client's COMMIT:/FORWARD: stream
+already does, so the runner's existing "the log stopped growing" settle means
+"the client has caught up with the injection" for a widget too (docs/TESTING.md,
+issue #325).
 
 READY must be unbuffered (flush after write) because the runner greps a
 redirected stdout; see the same note in xim-harness.c about setbuf.
@@ -159,7 +172,37 @@ def main():
     def on_changed(widget):
         out("TEXT:" + widget.get_text())
 
-    entry.connect("changed", on_changed)
+    # The runner's injection ends with a BARRIER key and waits for that key's
+    # marker here (issue #325): a line printed from AFTER the widget's own key
+    # handler means the widget and its GtkIMContext have finished with the key,
+    # so every key injected before it has been processed. GTK 3 uses
+    # connect_after because a plain handler runs BEFORE the class handler that
+    # filters the key through the IM context. A key the IM CONSUMES never
+    # reaches this handler at all -- which is why the barrier has to be a key
+    # the engine declines, and why "one line per key" is not what this is.
+    #
+    # GTK 3's "key-press-event" signal does not exist in GTK 4 (event signals
+    # were replaced by controllers), so the same fact comes from an
+    # EventControllerKey there. Attached to the entry, not the window, so a key
+    # that lands in a different widget cannot be reported as this case's.
+    def on_key_press(widget, event):
+        out("KEYSINK:%04x" % event.keyval)
+        return False
+
+    def on_key_pressed(controller, keyval, keycode, mods):
+        out("KEYSINK:%04x" % keyval)
+        return False
+
+    def wire_entry(e):
+        e.connect("changed", on_changed)
+        if gtk4:
+            ctrl = Gtk.EventControllerKey()
+            ctrl.connect("key-pressed", on_key_pressed)
+            e.add_controller(ctrl)
+        else:
+            e.connect_after("key-press-event", on_key_press)
+
+    wire_entry(entry)
 
     def make_entry():
         """Build a fresh GtkEntry to replace the current one.
@@ -172,7 +215,7 @@ def main():
         """
         new = Gtk.Entry()
         new.set_width_chars(40)
-        new.connect("changed", on_changed)
+        wire_entry(new)
         if gtk4:
             win.set_child(new)
         else:
