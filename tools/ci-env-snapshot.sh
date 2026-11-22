@@ -56,15 +56,17 @@ section "toolchain (what decides which tiers register)"
     done
 } 2>&1
 
-section "fcitx5 (the addon's floor is 5.1.13)"
+section "fcitx5 (the addon's floor is 5.1.7 -- Ubuntu 24.04's distro version)"
 {
     if command -v pkg-config >/dev/null 2>&1; then
         echo "Fcitx5Core: $(pkg-config --modversion Fcitx5Core 2>/dev/null || echo 'not found via pkg-config')"
     else
         echo "pkg-config: MISSING"
     fi
-    # The distro version, which is the one below the floor on Ubuntu 24.04
-    # (5.1.7) and the reason the workflow builds 5.1.13 from source.
+    # The distro version, which IS the floor on Ubuntu 24.04 (5.1.7) since
+    # issue #322, so the workflow installs it via apt rather than building from
+    # source. A version printed here below 5.1.7 means the addon lane is
+    # silently absent (the "green having measured nothing" shape).
     if command -v fcitx5 >/dev/null 2>&1; then
         echo "fcitx5 binary: $(fcitx5 --version 2>/dev/null | head -1 || echo present)"
     fi

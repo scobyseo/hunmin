@@ -20,7 +20,7 @@ Job definitions: `.github/workflows/ci.yml`. Per-job measurements:
 
 | Job | Proves | Notes |
 |---|---|---|
-| `linux` | the full `ctest` suite + `hunmin-doctor`, configured `-DHUNMIN_TRACE_BUILD=ON` | 3-minute ceiling; the fcitx5 5.1.13 install tree is cached, and on a cache miss the job cannot fit |
+| `linux` | the full `ctest` suite + `hunmin-doctor`, configured `-DHUNMIN_TRACE_BUILD=ON` | 3-minute ceiling; the distro fcitx5 (5.1.7) is installed via apt since issue #322, so there is no source build and no cache to miss |
 | `android` | engine cross-build both ABIs, `assembleDebug`, tiers E0/E1/E2 on an AVD | job-level `if:` path filter |
 | `deb` | `dpkg-buildpackage -us -uc -b -d`, with the suite run **inside** the package build; uploads the `.deb` | |
 | `android-release` | `assembleRelease` both ABIs, throwaway keystore; uploads the APK | **gated** on a push to `master` and `vars.HUNMIN_BUILD_RELEASE == 'true'`, so it is skipped by default |
@@ -144,9 +144,11 @@ dpkg -c ../hunmin_0.1.0_*.deb | grep -E 'libhunmin\.so|hunmin.*\.conf'
 - `usr/share/fcitx5/inputmethod/hunmin.conf`, `hunmin-romaja.conf`
 - `usr/share/hunmin/{layouts,compose,hanja,idioms,krdict}/…`
 
-`debian/control` requires `fcitx5-modules-dev (>= 5.1.13)` and the addon needs
-fcitx5 >= 5.1.13 for real (`FCITX_ADDON_FACTORY_V2`,
-`frontends/fcitx5/src/hunminadapter.cpp`); Ubuntu 24.04's 5.1.7 is below that floor.
+`debian/control` requires `fcitx5-modules-dev (>= 5.1.7)` and `libfcitx5core-dev
+(>= 5.1.7)` since issue #322 (2026-11-22); the addon exports the V1 factory on
+every version and version-guards `setComment` / `showCustomInputMethodInformation`
+(`frontends/fcitx5/src/hunminadapter.cpp`), so Ubuntu 24.04's 5.1.7 builds and
+installs it. (Before #322 the floor was 5.1.13 and CI built fcitx5 from source.)
 
 Install and check it loads:
 

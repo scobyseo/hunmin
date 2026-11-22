@@ -460,7 +460,7 @@ class Sandbox(Strategy):
     @classmethod
     def _parent_prefixes(cls) -> list[str]:
         """The prefixes this host actually built against, from the parent
-        cache. A dependency installed outside the system prefix (fcitx5 5.1.13
+        cache. A dependency installed outside the system prefix (a source-built fcitx5
         in $HOME on the WSL host) is reachable two ways -- CMake config files
         through CMAKE_PREFIX_PATH, pkg-config files through PKG_CONFIG_PATH --
         and a tree that needs the second fails its INITIAL BUILD in the sandbox
@@ -512,7 +512,7 @@ class Sandbox(Strategy):
         for key, opt in (("CMAKE_C_COMPILER:FILEPATH", "-DCMAKE_C_COMPILER="),
                          ("CMAKE_CXX_COMPILER:FILEPATH", "-DCMAKE_CXX_COMPILER="),
                          # A dependency installed OUTSIDE the system prefix
-                         # (fcitx5 5.1.13 in $HOME here) is found only
+                         # (a source-built fcitx5 in $HOME here) is found only
                          # through this cache value. Without it the sandbox
                          # configures, then fails its INITIAL BUILD, which
                          # reads as a code failure and is not one -- the

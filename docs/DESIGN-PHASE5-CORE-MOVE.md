@@ -213,7 +213,7 @@ runnable here), and any logic move (needs a named seam plus all three fronts).
 
 **Verification:** `cmake --build build -j8`; `engine-d1-fcitx5`,
 `engine-d1-judgement`, `frontend-invariants`, `frontend-mutations` all pass;
-`tools/check-frontend-invariants.py` holds (adapter 656 code LOC, limit 700);
+`tools/check-frontend-invariants.py` holds (adapter 656 code LOC, limit then 700, now 1000 since 2026-11-22 #322);
 `tools/req-map-check.py` passes; ctest registration/properties still match the
 Phase 0 baseline.
 

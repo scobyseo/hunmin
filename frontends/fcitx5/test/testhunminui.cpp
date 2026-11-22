@@ -18,6 +18,7 @@
  * the second is forced here via setCapabilityFlags().
  */
 #include "testdir.h"
+#include "harness_compat.h"
 #include "testfrontend_public.h"
 #include <algorithm>
 #include <cstdlib>
@@ -96,7 +97,7 @@ static void walkDump(const fcitx::RawConfig &c, const std::string &path, std::st
 }
 
 void scheduleEvent(Instance *instance) {
-    instance->eventDispatcher().schedule([instance]() {
+    hunmin_test::dispatcher(instance).schedule([instance]() {
         FCITX_ASSERT(instance->addonManager().addon("hunmin", true));
 
         auto group = instance->inputMethodManager().currentGroup();
@@ -192,8 +193,22 @@ void scheduleEvent(Instance *instance) {
         auto list = ic->inputPanel().candidateList();
         FCITX_ASSERT(list) << "F9 produced no candidate list";
         FCITX_ASSERT(list->size() > 0) << "candidate list is empty for the syllable";
-        FCITX_ASSERT(list->candidate(0).comment().toString() == "the wind blows, blown by the wind")
+        /* The gloss assertion follows the branch the build took (issue #322):
+         * 5.1.9+ carries it per candidate (CandidateWord::setComment, which
+         * classicui draws beside each row); below 5.1.9 the adapter publishes
+         * the CURSOR'S gloss through auxDown instead -- same highlighted-gloss
+         * UX as IBus FE16 option A (issue #319). The expected string is the
+         * same on both branches: U+4B0C's Unihan definition, from hanja.json. */
+        const std::string pushedGloss = "the wind blows, blown by the wind";
+#ifdef HUNMIN_FCITX_CANDIDATE_COMMENT
+        FCITX_ASSERT(list->candidate(0).comment().toString() == pushedGloss)
             << "gloss is '" << list->candidate(0).comment().toString() << "'";
+        // The comment branch must NOT also write auxDown: one gloss, one home.
+        FCITX_ASSERT(ic->inputPanel().auxDown().empty()) << "comment branch wrote auxDown too";
+#else
+        FCITX_ASSERT(ic->inputPanel().auxDown().toString() == pushedGloss)
+            << "auxDown gloss is '" << ic->inputPanel().auxDown().toString() << "'";
+#endif
         // 푸 has exactly one candidate in hanja.json, U+4B0C, and no
         // frequency data -- asserted from the file rather than remembered.
         FCITX_ASSERT(list->size() == 1) << list->size();
@@ -205,6 +220,9 @@ void scheduleEvent(Instance *instance) {
         tf->call<ITestFrontend::pushCommitExpectation>("\u4b0c");
         list->candidate(0).select(ic);
         FCITX_ASSERT(!ic->inputPanel().candidateList()) << "choosing did not close the window";
+#ifndef HUNMIN_FCITX_CANDIDATE_COMMENT
+        FCITX_ASSERT(ic->inputPanel().auxDown().empty()) << "choosing left a stale gloss in auxDown";
+#endif
         FCITX_ASSERT(panelOf(ic).toString().empty()) << "choosing left the source Hangul in the preedit";
 
         // Re-open and close with F9 instead, which must not disturb anything.
@@ -238,6 +256,39 @@ void scheduleEvent(Instance *instance) {
         accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9), false);
         FCITX_ASSERT(!accepted) << "F9 with an empty preedit must reach the client";
         FCITX_ASSERT(!ic->inputPanel().candidateList()) << "a pass-through F9 must not open a window";
+
+#ifndef HUNMIN_FCITX_CANDIDATE_COMMENT
+        /* --- auxDown branch only: the gloss TRACKS THE CURSOR. 푸 above has
+         * one candidate, so Down cannot move; 가 has many Hanja, so it can.
+         * The expectations are relational, not a second copy of hanja.json:
+         * the slot holds a non-empty gloss at the cursor's start, a DIFFERENT
+         * non-empty gloss after Down (the adapter falls back to the kind
+         * label when both glosses are empty, so no candidate's slot is
+         * empty), and the first gloss again after Up. Closing clears it. */
+        tap(uuid, Key("BackSpace")); // peel the lone ㄱ left by the pass-through case
+        tap(uuid, Key("k"));
+        tap(uuid, Key("f"));
+        FCITX_ASSERT(panelOf(ic).toString() == "\uac00");
+        accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9), false);
+        FCITX_ASSERT(accepted);
+        list = ic->inputPanel().candidateList();
+        FCITX_ASSERT(list && list->size() > 1) << "가 must offer more than one candidate for the cursor test";
+        const std::string gloss0 = ic->inputPanel().auxDown().toString();
+        FCITX_ASSERT(!gloss0.empty()) << "auxDown is empty with the cursor on candidate 0";
+        tap(uuid, Key("Down"));
+        const std::string gloss1 = ic->inputPanel().auxDown().toString();
+        FCITX_ASSERT(!gloss1.empty()) << "auxDown went empty after Down";
+        FCITX_ASSERT(gloss1 != gloss0) << "auxDown did not follow the cursor: still '" << gloss0 << "'";
+        tap(uuid, Key("Up"));
+        FCITX_ASSERT(ic->inputPanel().auxDown().toString() == gloss0) << "Up did not restore candidate 0's gloss";
+        accepted = tf->call<ITestFrontend::sendKeyEvent>(uuid, Key(FcitxKey_F9), false);
+        FCITX_ASSERT(accepted);
+        FCITX_ASSERT(!ic->inputPanel().candidateList());
+        FCITX_ASSERT(ic->inputPanel().auxDown().empty()) << "closing the window left a stale gloss in auxDown";
+        tap(uuid, Key("BackSpace"));
+        tap(uuid, Key("BackSpace"));
+        FCITX_ASSERT(panelOf(ic).toString().empty());
+#endif
 
         /* Known gap: openCandidates() also early-returns on an *empty*
          * preedit, before it ever calls hunmin_suggest_count(). Dropping that
@@ -457,12 +508,12 @@ void scheduleEvent(Instance *instance) {
         instance->deactivate();
     });
 
-    instance->eventDispatcher().schedule([instance]() { instance->exit(); });
+    hunmin_test::dispatcher(instance).schedule([instance]() { instance->exit(); });
 }
 
 int main() {
     setenv("HUNMIN_DATA_PATH", TESTING_SOURCE_DIR "/libhunmin/data", 1);
-    setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
+    hunmin_test::setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
     char arg0[] = "testhunminui";
     char arg1[] = "--disable=all";
     char arg2[] = "--enable=testim,testfrontend,hunmin";

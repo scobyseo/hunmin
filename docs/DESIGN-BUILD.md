@@ -91,14 +91,23 @@ Evidence → `docs/OPTIONS-MEASURED.md` (install-artifact measurement);
 
 ## fcitx5 floor and optional addon
 
-Decision: The addon is built only when `Fcitx5Core >= 5.1.13` (and
+Decision: The addon is built only when `Fcitx5Core >= 5.1.7` (and
 `Fcitx5Module` TestFrontend) is found. Absence is a status message, not an
-error.
+error. 5.1.7 is Ubuntu 24.04 LTS's distro fcitx5, so the .deb builds and
+installs against the distro package with no source build (issue #322; the
+floor was 5.1.13 from 2026-10-13, issue #8). The two APIs above 5.1.7 are
+version-guarded rather than required: the V1 addon factory is exported on
+every version (`FCITX_ADDON_FACTORY`), and `CandidateWord::setComment`
+(5.1.9+) has an `auxDown` gloss fallback below it.
 Affects: `HUNMIN_FCITX5`, `Fcitx5Core`, `HUNMIN_HAS_FCITX5`,
+`HUNMIN_FCITX_*` compile guards, `REQUIRED_FCITX_VERSION`,
 `frontends/fcitx5` in `CMakeLists.txt`; `frontend-mutations`,
 `builds-fcitx5-addon` in `cmake/Hunmin*.cmake`.
-Alternatives: Treating a missing addon as a configure error.
-Evidence → `docs/REMAINING-WORK.md` C3 (measured across upstream tags).
+Alternatives: Treating a missing addon as a configure error; requiring 5.1.13
+and building fcitx5 from source (the pre-#322 state).
+Evidence → `docs/REMAINING-WORK.md` C3 (measured across upstream tags); issue
+#322 (the floor lowered to 5.1.7, with the two API guards); the dual-version
+verification in `docs/CI-TIMING.md` §5.
 
 ## Data installs as two components
 

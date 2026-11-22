@@ -483,6 +483,37 @@ is the downloaded artefact's layout on the next PR run, and the deb job's
 `pkg-config --modversion Fcitx5Core` remains the confirmation when it is
 re-enabled.
 
+### 5c. The source build retired: the floor is 5.1.7 (2026-11-22, issue #322)
+
+The 197 s fcitx5 source build (§1, §5) existed only because the addon needed
+`>= 5.1.13` and Ubuntu 24.04 ships 5.1.7. Issue #322 lowered the floor to
+5.1.7 by version-guarding the two APIs above it instead of requiring them —
+`FCITX_ADDON_FACTORY` (V1) is exported on every version and 5.1.19's loader
+falls back to it, and `CandidateWord::setComment` (5.1.9+) has an `auxDown`
+gloss fallback below it. The linux, deb, nightly-fuzz and release jobs now
+install the **distro** `libfcitx5core-dev` / `fcitx5-modules-dev` /
+`fcitx5-modules` / `fcitx5` via apt, and the install-tree cache, artefact
+upload and deb-job restore are gone.
+
+**Effect on the ceilings this section is about:** the 3-minute linux ceiling
+no longer depends on a cache hit. Before, the headroom was "apt 22 s + cache
+restore ~10 s + cmake/build 9 s + ctest ~37 s" with a 197 s cold build that a
+MISS could not fit; now there is no cold/warm distinction — the cold path *is*
+the warm path, and the 197 s segment simply does not exist. The deb job's
+`needs: linux` and its artefact restore are removed with it (both jobs install
+the distro fcitx5 independently), and its `-d` on `dpkg-buildpackage` is gone
+because the distro package owns the .so, so the build-dep check is honest
+again.
+
+**Verified, not projected, on this host (26.04, fcitx5 5.1.19 in `/usr`; and a
+locally-built fcitx5 5.1.7 install tree from upstream tag `5.1.7`):** the addon
+and the full D1/D2 harness build and pass against BOTH. Number of `-LE slow`
+tests is 130 on both trees, 100% pass, with `HUNMIN_FCITX_CANDIDATE_COMMENT`
+defined against 5.1.19 (gloss via `setComment`) and absent against 5.1.7 (gloss
+via the `auxDown` fallback the D2 test asserts on that branch). The linux job's
+cold-path wall clock on a dispatch run is the remaining verification the issue
+asks for and is not claimed here.
+
 ---
 
 ## 6. None of this can currently be re-measured (2026-10-16)

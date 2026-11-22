@@ -79,12 +79,14 @@ override_dh_auto_test:
 #
 # dpkg answers that question by running `dpkg -S <library-file>` and reading the
 # owning package's /var/lib/dpkg/info/*.symbols or *.shlibs. A source-built
-# fcitx5 has no owning package: the CI job installs fcitx5 5.1.13 from source
-# into /usr (docs/ENVIRONMENT.md records the same route on this host), so the
-# headers and cmake configs are there and the addon compiles and links, while
-# nothing in dpkg's database describes those .so files. It is the same fact the
-# CI step already records by passing -d to dpkg-buildpackage: the dependency is
-# satisfied, only the package metadata is missing.
+# fcitx5 has no owning package: at the time this was measured the CI job
+# installed fcitx5 5.1.13 from source into /usr (docs/ENVIRONMENT.md records the
+# same route on this host), so the headers and cmake configs were there and the
+# addon compiled and linked, while nothing in dpkg's database described those .so
+# files. (Issue #322 moved CI to the distro fcitx5 package, so this shape is now
+# only a build-host concern -- see WHAT THIS DOES NOT ASSERT below.) It is the
+# same fact the CI step recorded by passing -d to dpkg-buildpackage: the
+# dependency was satisfied, only the package metadata was missing.
 #
 # --ignore-missing-info is dpkg-shlibdeps(1)'s documented answer to exactly this
 # ("Do not fail if dependency information can't be found for a shared library").
@@ -101,13 +103,15 @@ override_dh_auto_test:
 #   the flag costs nothing at all: the .deb still comes out with
 #   libfcitx5core7 (>= 5.1.19), libfcitx5config6 (>= ...) and libfcitx5utils2
 #   (>= ...) in shlibs:Depends, because --ignore-missing-info only skips what
-#   cannot be resolved, not what can. It is on a source-built fcitx5 -- i.e. CI
-#   -- that those three drop out of the dependency set, and that
-#   debian/control's hand-written `Depends: fcitx5` is then the whole of it.
-# - So a CI-built .deb declares fcitx5 UNVERSIONED while the addon needs
-#   >= 5.1.13 (FCITX_ADDON_FACTORY_V2 at frontends/fcitx5/src/engine.cpp). That
-#   gap is a packaging decision about what the 0.1 .deb promises, and is
-#   deliberately not decided here.
+#   cannot be resolved, not what can.
+# - Issue #322 retired the source-built-fcitx5 CI path this flag was added for:
+#   the floor is now 5.1.7 (V1 factory export + a version-guarded setComment,
+#   frontends/fcitx5/src/hunminadapter.cpp) and CI installs the DISTRO
+#   libfcitx5core-dev / fcitx5-modules-dev via apt, so dh_shlibdeps resolves
+#   fcitx5 from dpkg's database and the flag is now only a fallback for a build
+#   host whose fcitx5 is not packaged. The versioned `Depends: fcitx5 (>= 5.1.7)`
+#   in debian/control matches that floor -- the unversioned-dependency gap this
+#   comment used to record as "deliberately not decided" is closed by #322.
 # - The flag also stops the BUILD HOST from failing on any unowned NEEDED
 #   library, not only fcitx5's. On such a host that check is gone; a build
 #   where fcitx5 is packaged (via tools/build-release.sh) still resolves every

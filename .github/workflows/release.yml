@@ -33,21 +33,13 @@ jobs:
             libglib2.0-dev libexpat1-dev libxkbfile-dev \
             libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
             libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
-            iso-codes xkb-data
+            iso-codes xkb-data \
+            libfcitx5core-dev fcitx5-modules-dev fcitx5-modules fcitx5
 
-      # fcitx5 5.1.13 from source (distro ships 5.1.7, below the addon floor)
-      - name: Build fcitx5 5.1.13 from source
-        run: |
-          git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
-          cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
-            -DCMAKE_INSTALL_PREFIX=/tmp/fcitx5-install -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
-            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
-            > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
-          cmake --build /tmp/fcitx5/build --target install
-          sudo cp -a /tmp/fcitx5-install/. /usr/
-          sudo ldconfig
-          pkg-config --modversion Fcitx5Core
+      # fcitx5 comes from the distro packages above (issue #322): the addon's
+      # floor is 5.1.7, which ubuntu-24.04 ships, so the release .deb builds
+      # against the distro fcitx5 and installs against a noble user's distro
+      # fcitx5. The 5.1.13 source build is gone.
 
       # Pre-populate googletest for FETCHCONTENT_FULLY_DISCONNECTED builds.
       # $HOME copy survives dh_auto_clean of obj-x86_64-linux-gnu/_deps.

@@ -15,7 +15,9 @@ name: ci
 # activated again, but on the NIGHTLY rung only, so a PR does not pay for them.
 # `deb` builds the noble artefact and `ibus-jammy` builds the 22.04 artefact on
 # a real ubuntu-22.04 runner and runs the IBus D1/D2/D3 lanes there. `linux`
-# runs on nightly too because `deb` needs its fcitx5 install-tree artefact.
+# runs on nightly too. (Before issue #322 `deb` needed linux's fcitx5 install-tree
+# artefact and that was the nightly coupling; both jobs now install the distro
+# fcitx5 independently, so the coupling is gone.)
 # The two artefacts have different dependency sets by ruling (IBus 1.5.26, no
 # fcitx5, for jammy). The other jobs stay `if: false`.
 #
@@ -56,31 +58,27 @@ jobs:
     runs-on: ubuntu-24.04
     # 3 minutes, set 2026-10-15. The job measured 8 m 24 s before this
     # (docs/CI-TIMING.md §1); the 5-minute ceiling set the same day was met by
-    # excluding tier E1 (ctest 269 s -> ~37 s), and 3 minutes is met by ALSO
-    # caching the fcitx5 5.1.13 install tree, which was the remaining 197 s
-    # segment and ran on every commit with nothing cached.
+    # excluding tier E1 (ctest 269 s -> ~37 s). The remaining 197 s segment was
+    # the fcitx5 source build, which a cache made fit on a HIT but which made a
+    # MISS a guaranteed timeout.
     #
-    # The budget with both levers: apt install 22 s + cache restore ~10 s +
-    # cmake/build 9 s + ctest ~37 s + snapshot 0.14 s (measured, not guessed --
-    # tools/ci-env-snapshot.sh on a 16-core host) = ~78 s against 180 s of
-    # allowance, so the ceiling has real headroom rather than being a number
-    # the job barely fits. On a cache MISS the fcitx5 build returns (197 s) and
-    # the job cannot fit -- that is the cold path, paid once per tag bump, and
-    # it will show as a timeout rather than a silent slow run. If that happens,
-    # the fix is to let the cold build finish and cache it, not to raise the
-    # number.
+    # Issue #322 removed that segment outright: the addon's API floor is now
+    # 5.1.7 (V1 factory export + a version-guarded setComment), which is exactly
+    # what ubuntu-24.04 ships, so the job installs the DISTRO fcitx5 via apt and
+    # there is no source build and no cache to miss. The cold path is now the
+    # only path, and it fits: apt + cmake/build + ctest, with no 197 s build
+    # hanging off a cache hit (docs/CI-TIMING.md §5; the dispatch measurement is
+    # the verification, not a local guess).
     #
     # CI minutes are a cost, and a job with no ceiling is a job whose cost is
     # unbounded -- the same overspend shape that got CI usage suspended, one
     # level down.
     timeout-minutes: 15
     # THE PR RUNG, and the only TEST job that runs (2026-11-01, the instructions
-    # quoted at the top of this file): `ctest -LE tier-E1` on a pull request. It
-    # costs the fcitx5 source build plus the suite inside a 3-minute ceiling,
-    # which is what a pull request is for; a push now runs nothing at all.
-    # 2026-11-22: also runs on nightly, because the re-enabled `deb` job needs
-    # the fcitx5 install tree this job uploads. Without that, a nightly-only
-    # deb job would either be skipped by `needs` or rebuild fcitx5 for 326 s.
+    # quoted at the top of this file): `ctest -LE tier-E1` on a pull request.
+    # A push now runs nothing at all. Also runs on nightly (2026-11-22); the
+    # `deb` job no longer needs an install-tree artefact from this job (issue
+    # #322: both install the distro fcitx5), so the nightly coupling is gone.
     if: github.event_name != 'push'
     steps:
       - uses: actions/checkout@v7
@@ -98,14 +96,13 @@ jobs:
       #    `if: failure()` quoting fixed alongside was a real but separate
       #    latent YAML-1.1 boolean bug.
       #
-      # 2. The addon needs fcitx5 >= 5.1.13 (FCITX_ADDON_FACTORY_V2 at
-      #    hunminadapter.cpp:619, setComment at :461 -- both measured present from 5.1.13
-      #    upstream). Ubuntu 24.04's fcitx5-modules-dev is 5.1.7, below the floor,
-      #    so it neither configures nor compiles. This job therefore builds
-      #    fcitx5 5.1.13 from source -- the same route the host took
-      #    (docs/ENVIRONMENT.md) -- because there is no distro package for it.
-      #    The shipped .deb requires >= 5.1.13 too, so a 24.04 user installs this
-      #    source-built fcitx5, not the distro's.
+      # 2. The addon's API floor is 5.1.7 (issue #322): the V1 factory export
+      #    loads on every fcitx5 from 5.1.7 up, and CandidateWord::setComment
+      #    (5.1.9+) is version-guarded with an auxDown fallback below it. Ubuntu
+      #    24.04's distro fcitx5 IS 5.1.7, so the addon now configures and
+      #    compiles against the distro package -- no source build. The shipped
+      #    .deb requires fcitx5 (>= 5.1.7), so a 24.04 user installs against the
+      #    distro fcitx5, not a source-built one.
       - name: Install build deps
         run: |
           sudo apt-get update
@@ -128,7 +125,20 @@ jobs:
             libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
             libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
             iso-codes xkb-data \
-            libibus-1.0-dev
+            libibus-1.0-dev \
+            libfcitx5core-dev fcitx5-modules-dev fcitx5-modules fcitx5
+          # The distro fcitx5 (issue #322): ubuntu-24.04 ships 5.1.7, which is
+          # the addon's floor now. libfcitx5core-dev + fcitx5-modules-dev carry
+          # the cmake configs the addon and tier C link; fcitx5-modules carries
+          # TestFrontend (the D1/D2 lanes); fcitx5 pulls the runtime + data.
+          # No source build, no cache -- the cold path is the only path.
+          #
+          # The xcb/cairo/pango/wayland -dev packages above were the fcitx5
+          # SOURCE build's dependencies and are now redundant (hunmin links only
+          # the runtime libxcb.so.1 / libxcb-imdkit.so.1 for D3, and xkbcommon).
+          # They are kept for now: pruning them is an apt-time saving to confirm
+          # on a dispatch run, not blind -- a silently dropped lane is this
+          # workflow's recorded failure mode (issue #292). See docs/CI-TIMING.md §5.
           # libibus-1.0-dev is what makes the IBus engine lanes REGISTER on
           # this job. Measured in issue #292 (PR #311's run 44981702310): the
           # apt list above lacked it, so pkg_check_modules(ibus-1.0>=1.5.26)
@@ -139,103 +149,12 @@ jobs:
           # above the tree's 1.5.26 floor; the ubuntu-24.04 image has
           # universe enabled. The lanes must register AND pass, not skip:
           # engine-d2-ibus-ui needs a session bus and SKIPs without one.
-      # fcitx5 5.1.13, CACHED as its install tree.
-      #
-      # MEASURED 2026-10-15: this build is 197 s and was the single largest
-      # segment of the job, run on every commit with nothing cached -- the job
-      # could not fit the 3-minute ceiling (set the same day) without it. The
-      # ceiling is 180 s and the un-cached build alone is 197 s, so the cache
-      # is not an optimisation here, it is the precondition for the limit.
-      #
-      # Cached as the INSTALL TREE, not the build dir, for two reasons. The deb
-      # job restores this same tree as an artefact and depends on its paths:
-      # its dh_shlibdeps reads dpkg's database to resolve what the addon links,
-      # and a source-built fcitx5 owns no package -- debian/rules:82-83 works
-      # around that with --ignore-missing-info, which holds only if the restored
-      # tree lands in the same paths (/usr/lib/x86_64-linux-gnu,
-      # /usr/include/Fcitx5, /usr/lib/x86_64-linux-gnu/cmake). A cached tree
-      # that is byte-identical to the uploaded one keeps both consumers honest.
-      # And a build dir cache would key on the build path, which differs between
-      # the restore job and this one, so it would miss.
-      #
-      # Keyed on the pinned tag only: the build inputs are `git clone --depth 1
-      # --branch 5.1.13` plus the flags below, so a tag bump is the only thing
-      # that should invalidate it. restore-keys fall back to the newest cache,
-      # so an fcitx5 upgrade is a hit on the old tree rather than a cold build.
-      - name: Restore the fcitx5 5.1.13 install tree
-        id: fcitx5-cache
-        uses: actions/cache@v6
-        with:
-          path: /tmp/fcitx5-install
-          key: ${{ runner.os }}-fcitx5-5.1.13-install-v1
-          restore-keys: |
-            ${{ runner.os }}-fcitx5-5.1.13-install-
-      - name: Build fcitx5 5.1.13 from source (distro ships 5.1.7, below the floor)
-        # Built once per job and CACHED, measured 2026-10-14 for issue #59: this
-        # clone-configure-build-install is 197 s in the linux job and 326 s in
-        # the deb job -- 523 s of the workflow's wall clock for the same
-        # artefact, built twice, with nothing shared between them. The cache
-        # below is the fix: build once, upload the install tree, and every other
-        # job restores it.
-        #
-        # Why the install tree rather than the build dir: the deb job's
-        # dh_shlibdeps reads dpkg's database to resolve what the addon links, and
-        # a source-built fcitx5 owns no package -- debian/rules:82-83 already
-        # works around that with --ignore-missing-info, and that workaround holds
-        # only if the restored tree lands in the same paths (/usr/lib/x86_64-
-        # linux-gnu, /usr/include/Fcitx5, /usr/lib/x86_64-linux-gnu/cmake). A
-        # restored /usr tree is byte-identical in what it puts where, which is
-        # what makes this checkable in one run: if the deb job's
-        # Fcitx5CoreConfig.cmake resolves and the addon configures, the
-        # restore landed correctly.
-        id: fcitx5-build
-        if: steps.fcitx5-cache.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
-          cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
-            -DCMAKE_INSTALL_PREFIX=/tmp/fcitx5-install -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
-            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
-            > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
-          cmake --build /tmp/fcitx5/build --target install
-      - name: Install fcitx5 into /usr
-        # From the cache when it hit, from the build above when it did not. The
-        # install is what the addon and the D3 harness link against, so it has
-        # to be in /usr either way -- the cache only removes the 197 s build.
-        #
-        # The guard is a real check, not a formality: a cache entry that
-        # restored an empty or partial tree would otherwise fail later at
-        # "Fcitx5Core not found", which reads as a build problem rather than a
-        # restore problem.
-        run: |
-          # Copy entire install tree to /usr (works regardless of usr/ prefix in fcitx5 layout)
-          sudo cp -a /tmp/fcitx5-install/. /usr/
-          sudo ldconfig
-          pkg-config --modversion Fcitx5Core
-      # The install tree, uploaded for the deb job to restore. A SINGLE
-      # DIRECTORY as `path` makes that directory the archive root (the
-      # least-common-ancestor rule), so the archive holds the install tree's
-      # contents prefixless -- the layout the deb job's restore expects when
-      # it copies /tmp/fcitx5-install/. into /usr/.
-      #
-      # Recorded mistake (issue #315): this step briefly carried
-      # `root: /tmp/fcitx5-install` + `path: .`, intending to name the layout
-      # explicitly. upload-artifact has no `root` input; the runner warned
-      # "Unexpected input(s) 'root'", ignored it, and resolved `path: .`
-      # against the workspace -- so the artefact carried the repository
-      # checkout, not the install tree (measured: run 44993951120's artefact
-      # root held AGENTS.md, CMakeLists.txt, docs/). The latent layout bug it
-      # meant to fix was real (absolute /usr/... paths strip to lib/ and
-      # include/ at the root); the single-directory `path` below is the
-      # mechanism that actually exists for naming the root explicitly.
-      - name: Upload the fcitx5 install tree
-        if: steps.fcitx5-build.outcome == 'success' || steps.fcitx5-cache.outputs.cache-hit == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: fcitx5-5.1.13-install
-          path: /tmp/fcitx5-install
-          retention-days: 1
-          if-no-files-found: error
+      # fcitx5 comes from the distro packages installed above (issue #322).
+      # The 5.1.13 source build, its install-tree cache and the artefact upload
+      # that fed the deb job are gone: the addon's floor is 5.1.7, which noble
+      # ships, so there is nothing to build and nothing to cache. The 197 s
+      # cold-build segment that made a cache MISS a guaranteed timeout no longer
+      # exists (docs/CI-TIMING.md §5).
       # The Gradle cache, measured 2026-10-14 for issue #59. This job is the one
       # the measurement is about: its ctest ran engine-android-e1 at 148.38 s and
       # android-mutations at 84.31 s, and 126.24 s of the first of those is cold
@@ -306,11 +225,11 @@ jobs:
       # be diffed against a red one. tools/ci-env-snapshot.sh is the local
       # equivalent -- run it here and the two outputs are directly comparable.
       - name: Snapshot the environment (before ctest, always)
-        # The cache outcomes are passed in: they are the one fact that explains
-        # a job taking 197 s longer than the run before it, and they are not
-        # visible from inside the tree.
+        # The Gradle cache outcome is passed in: it is the one fact that
+        # explains a job taking ~126 s longer than the run before it, and it is
+        # not visible from inside the tree. (The fcitx5 cache outcome used to be
+        # passed too; issue #322 removed the fcitx5 source build and its cache.)
         env:
-          HUNMIN_CI_CACHE_FCITX5: ${{ steps.fcitx5-cache.outputs.cache-hit || 'miss' }}
           HUNMIN_CI_CACHE_GRADLE: ${{ steps.gradle-cache.outputs.cache-hit || 'miss' }}
         run: ./tools/ci-env-snapshot.sh build | tee ci-env-snapshot.txt
       # -j4, measured 2026-10-14 for issue #59. On this host the same suite is
@@ -419,12 +338,12 @@ jobs:
       # artefact rather than printed, because the log is where the failure
       # detail already is and the artefact is what survives to be downloaded.
       - name: Upload the failure evidence
-        # failure() OR cancelled(): the 3-minute ceiling above is the job's own
-        # stated failure mode (a cold fcitx5 cache returns the 197 s build and
-        # the job cannot fit), and on a timeout the run is CANCELLED -- where
+        # failure() OR cancelled(): on a timeout the run is CANCELLED -- where
         # `failure()` is false, so the one artefact that would explain the
         # timeout was never uploaded. Measured here: a timed-out step does not
-        # satisfy failure().
+        # satisfy failure(). (The 3-minute ceiling's old stated failure mode --
+        # a cold fcitx5 cache returning the 197 s build -- is gone with the
+        # source build, issue #322; the guard stays for any other timeout.)
         if: "failure() || cancelled()"
         uses: actions/upload-artifact@v7
         with:
@@ -652,10 +571,10 @@ jobs:
   # (debian/rules override_dh_auto_test) rather than skipping it, because the
   # issue's own verification says a packaging job must not skip the suite.
   #
-  # It builds fcitx5 5.1.13 from source first, same as the linux job: the .deb
-  # builds the addon, which needs >= 5.1.13 (FCITX_ADDON_FACTORY_V2 /
-  # setComment), and Ubuntu 24.04's distro 5.1.7 is below the floor. Without
-  # this, debian/rules fails at the addon configure/compile.
+  # It installs the DISTRO fcitx5 via apt (issue #322): the addon's floor is
+  # 5.1.7, which ubuntu-24.04 ships, so the .deb builds the addon against the
+  # distro libfcitx5core-dev / fcitx5-modules-dev -- no source build, and the
+  # resulting package installs against a noble user's distro fcitx5.
   #
   # The failure mode to expect first on a fresh checkout used to be
   # data-selfcheck red without the gitignored krdict dump (REMAINING-WORK.md
@@ -666,35 +585,22 @@ jobs:
   # logic self-contained.
   deb:
     name: debian (.deb artefact)
-    # needs: linux -- this job no longer builds fcitx5 5.1.13 from source; it
-    # restores the install tree the linux job uploads. Measured 2026-10-14 for
-    # issue #59: the two source builds were 197 s and 326 s of workflow wall
-    # clock for the same artefact, 523 s with nothing shared.
-    #
-    # The dependency is real and not just an ordering hint: a deb run without a
-    # successful linux run has no artefact to download and fails at the restore
-    # step, which is the honest failure for "the thing this needs was not
-    # built". The old independent form let a broken linux build pass as a red
-    # linux job with a green deb job built from its own private fcitx5 -- two
-    # jobs asserting different things about the same dependency.
-    needs: linux
+    # No `needs: linux` (issue #322): this job used to restore the fcitx5
+    # install tree the linux job uploaded, which made the dependency real. Both
+    # jobs now install the distro fcitx5 independently, so there is no artefact
+    # to share and no ordering to enforce -- the coupling is gone with the
+    # source build.
     # Re-enabled 2026-11-22 (issue #292) as a NIGHTLY job, on the maintainer's
-    # instruction: packaging is not a per-PR cost. `needs: linux` resolves on
-    # nightly because linux also runs there (see its `if` above).
+    # instruction: packaging is not a per-PR cost.
     # This is the noble artefact; ibus-jammy below is the 22.04 one.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     # NOT 5 minutes, and the reason is measured rather than cautious. This job
     # took 13 m 30 s in run 38428978810 (docs/CI-TIMING.md §1): fcitx5 source
-    # build 326 s + dpkg-buildpackage 460 s + apt 23 s. A 5-minute ceiling here
-    # would not constrain the job, it would kill it -- which is a different
-    # failure from a slow one and would read as a packaging regression.
-    #
-    # The path to 5 minutes is the 326 s duplicate fcitx5 build: it already
-    # restores the linux job's install tree as an artefact (see the restore
-    # step below), so that 326 s is paid only on a cache miss, and the 460 s
-    # dpkg-buildpackage is the real floor. 45 minutes stays until that floor is
-    # measured again on the cached path; the number is a budget, not a target.
+    # build 326 s + dpkg-buildpackage 460 s + apt 23 s. The 326 s source build is
+    # gone (issue #322: distro fcitx5 via apt), leaving the ~460 s
+    # dpkg-buildpackage as the real floor. 45 minutes stays until that floor is
+    # measured again on the distro path; the number is a budget, not a target.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
@@ -715,41 +621,22 @@ jobs:
             libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
             libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
             iso-codes xkb-data \
-            libibus-1.0-dev
+            libibus-1.0-dev \
+            libfcitx5core-dev fcitx5-modules-dev fcitx5-modules fcitx5
+          # The distro fcitx5 (issue #322): the addon's floor is 5.1.7, which
+          # noble ships. These satisfy debian/control's build-depends, so the
+          # package build no longer needs -d (see the Build step).
           # Without libibus-1.0-dev the frontend is dropped at configure and
           # install(TARGETS hunmin-ibus … COMPONENT ibus) never runs, so a
           # CI-built .deb cannot carry the 22.04 release's only frontend.
           # (This job is currently disabled by the 2026-11-01 instruction at
           # the top of the file; the dependency is corrected here so re-enabling
           # it does not silently ship an engine-less package.)
-      # The fcitx5 install tree, restored rather than rebuilt. Measured
-      # 2026-10-14 for issue #59: this job built the same 5.1.13 from source as
-      # the linux job, 326 s here against 197 s there, 523 s of workflow wall
-      # clock for one artefact. The linux job uploads it and this restores it.
-      #
-      # The restore is a sequence, not a cache: actions/cache is scoped to a
-      # job and cannot be shared between jobs, while an artefact can. The linux
-      # job's upload is the same tree under the same name.
-      #
-      # What the restore must preserve, because debian/rules depends on it:
-      # dh_shlibdeps reads dpkg's database to resolve what the addon links, and a
-      # source-built fcitx5 owns no package. debian/rules:82-83 already passes
-      # --ignore-missing-info, which holds only if the restored tree lands in
-      # the same paths. A restore into /usr/lib/x86_64-linux-gnu and
-      # /usr/include/Fcitx5 is byte-identical in what it puts where, so the
-      # check that it worked is the next step's own output: the addon must
-      # configure against the restored Fcitx5CoreConfig.cmake.
-      - name: Restore the fcitx5 5.1.13 install tree (built by the linux job)
-        uses: actions/download-artifact@v8
-        with:
-          name: fcitx5-5.1.13-install
-          path: /tmp/fcitx5-install
-      - name: Install the restored fcitx5 into /usr
-        run: |
-          # Copy entire install tree to /usr (works regardless of usr/ prefix in fcitx5 layout)
-          sudo cp -a /tmp/fcitx5-install/. /usr/
-          sudo ldconfig
-          pkg-config --modversion Fcitx5Core
+      # fcitx5 comes from the distro packages installed above (issue #322).
+      # The install-tree restore from the linux job is gone: there is no source
+      # build and no artefact to share. dh_shlibdeps now resolves fcitx5 from
+      # dpkg's database (the distro libfcitx5core7 owns the .so), so the
+      # dependency metadata is real -- see debian/rules' updated note.
       # Same cache as the linux job, same reason and the same measurement: this
       # job's suite carries 324 s of tier E1 (engine-android-e1 185.68 s plus
       # android-mutations 138.45 s, run 38428978810's deb job log), all of it
@@ -786,19 +673,18 @@ jobs:
         # the exact "only one machine can produce the release" property the
         # issue is about. -b binary-only, same path as the local run.
         #
-        # -d (ignore build-deps): fcitx5 was built from source into /usr above
-        # (no .deb package), so dpkg-checkbuilddeps sees no libfcitx5core-dev
-        # package and would abort with "Unmet build dependencies" -- measured on
-        # CI 2026-10-13. The dependency is genuinely satisfied (the headers and
-        # cmake configs are installed); -d tells dpkg to trust the source build
-        # rather than package metadata. Safe here because the source-build step
-        # above is the one that provides it.
+        # -d (ignore build-deps) is no longer needed (issue #322): fcitx5 now
+        # comes from the distro packages installed above, so dpkg-checkbuilddeps
+        # sees libfcitx5core-dev / fcitx5-modules-dev and the build-depends are
+        # genuinely satisfied by package metadata. It was required only while
+        # fcitx5 was a source build with no owning package (measured CI
+        # 2026-10-13); dropping it restores the honest build-dep check.
         # SECONDS is a bash builtin, so the wall time is printed by the step
         # that actually builds -- no extra action, and no guess from a later
         # summary that cannot see this segment.
         run: |
           start=$SECONDS
-          dpkg-buildpackage -us -uc -b -d
+          dpkg-buildpackage -us -uc -b
           echo "=== dpkg-buildpackage (noble) wall time: $((SECONDS-start)) s ==="
       - name: What the package contains
         run: |
@@ -1136,32 +1022,12 @@ jobs:
             libglib2.0-dev libexpat1-dev libxkbfile-dev \
             libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
             libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
-            iso-codes xkb-data libasan8 liblsan0
+            iso-codes xkb-data libasan8 liblsan0 \
+            libfcitx5core-dev fcitx5-modules-dev fcitx5-modules fcitx5
 
-      # fcitx5 5.1.13 from source (distro ships 5.1.7, below the addon floor).
-      - name: Restore the fcitx5 5.1.13 install tree
-        id: fcitx5-cache
-        uses: actions/cache@v6
-        with:
-          path: /tmp/fcitx5-install
-          key: ${{ runner.os }}-fcitx5-5.1.13-install-v1
-          restore-keys: |
-            ${{ runner.os }}-fcitx5-5.1.13-install-
-      - name: Build fcitx5 5.1.13 from source (distro ships 5.1.7, below the floor)
-        if: steps.fcitx5-cache.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch 5.1.13 https://github.com/fcitx/fcitx5.git /tmp/fcitx5
-          cmake -S /tmp/fcitx5 -B /tmp/fcitx5/build -G Ninja \
-            -DCMAKE_INSTALL_PREFIX=/tmp/fcitx5-install -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_TEST=OFF -DENABLE_X11=ON -DENABLE_WAYLAND=ON \
-            -DENABLE_DBUS=ON -DENABLE_KEYBOARD=ON -DENABLE_ENCHANT=OFF \
-            > /tmp/fcitx5-config.log 2>&1 || { tail -40 /tmp/fcitx5-config.log; exit 1; }
-          cmake --build /tmp/fcitx5/build --target install
-      - name: Install fcitx5 into /usr
-        run: |
-          sudo cp -a /tmp/fcitx5-install/. /usr/
-          sudo ldconfig
-          pkg-config --modversion Fcitx5Core
+      # fcitx5 comes from the distro packages above (issue #322): the addon's
+      # floor is 5.1.7, which noble ships. The 5.1.13 source build and its cache
+      # are gone, same as the linux and deb jobs.
 
       - name: Configure with LeakSanitizer
         run: |

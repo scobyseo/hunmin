@@ -39,7 +39,7 @@ Changes to the core engine (`libhunmin/src/`) need:
 
 ### Frontend changes
 
-Frontends stay thin (≈700 lines each). Logic that grows in a frontend belongs in
+Frontends stay thin (≈1000 lines each). Logic that grows in a frontend belongs in
 the core. The fcitx5 addon is in `frontends/fcitx5/`, the Android IME in
 `frontends/android/`.
 

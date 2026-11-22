@@ -4,7 +4,7 @@
 
 The engine's *behavior* is data + pure C logic, so it is unit-testable to near-100% on a
 plain host. The hard part — an IME only truly lives inside foreign frameworks (fcitx5,
-Android IMMS, Windows TSF) — is handled by making every frontend a thin *adapter* (<~700
+Android IMMS, Windows TSF) — is handled by making every frontend a thin *adapter* (<~1000
 LOC) whose only jobs are (1) event mapping and (2) buffer/candidate presentation. Tests
 therefore attack a pyramid: golden engine vectors (A), ABI/data contracts (B), a
 **platform-neutral conformance-trace suite** that every adapter must reproduce (C), then
@@ -70,7 +70,7 @@ Two membership facts that are not derivable from the tier name:
 
 - **The mutation sandbox inherits the parent's dependency prefixes.**
   `tools/frontend-mutations.py` configures a copy of the tree, so a dependency
-  installed outside the system prefix (fcitx5 5.1.13 under `$HOME` on the WSL
+  installed outside the system prefix (a source-built fcitx5 under `$HOME` on the WSL
   host) must reach it twice: `CMAKE_PREFIX_PATH` from the parent cache, and a
   `PKG_CONFIG_PATH` derived from it for the build. Both are handled since
   2026-10-25; a build tree that lives OUTSIDE the repo (the WSL layout keeps one
@@ -304,16 +304,17 @@ of them (§2 above, and `docs/CI-TIMING.md`):
 
    ```
    builds-fcitx5-addon: SKIPPED -- no hunmin_addon target, which means
-   Fcitx5Core >= 5.1.13 was not found when this tree was configured
+   Fcitx5Core >= 5.1.7 was not found when this tree was configured
    ```
 
-   That is the shape that makes "the cache will be warm" unnecessary. On a cold
-   Actions cache the fcitx5 addon cannot compile inside this rung at all — the
-   linux job builds fcitx5 5.1.13 from source for 197 s because Ubuntu 24.04
-   ships 5.1.7, below the addon's real floor (`docs/CI-TIMING.md`) — so on a cold
-   cache the addon leg skips, and the rung is still honest and still under a
-   minute. **A green `guard` therefore means "the guaranteed checks passed and
-   the conditional ones that could run did"; it never means "the frontends
+   That is the shape that makes "the cache will be warm" unnecessary. Since
+   issue #322 the addon's floor is 5.1.7, which Ubuntu 24.04 ships, so the
+   linux job installs the distro fcitx5 via apt and there is no 197 s source
+   build to skip over: the addon leg compiles on the runner's own packages. (A
+   host that has neither the distro packages nor a newer fcitx5 still skips this
+   leg, and `tools/ci-env-snapshot.sh` records the version that was found.) **A
+   green `guard` therefore means "the guaranteed checks passed and the
+   conditional ones that could run did"; it never means "the frontends
    compiled".**
 
    All three behaviours are verified by planting the failure, not by reading the

@@ -144,11 +144,11 @@ makes the moment observable. *Ruling:* `docs/DESIGN-FRONTEND.md#6-one-corpus-fro
 
 ### FE11. A frontend stays thin
 
-A frontend is an adapter under the ~700 code-LOC budget (comments and blanks
+A frontend is an adapter under the ~1000 code-LOC budget (comments and blanks
 excluded); logic that grows past event mapping and presentation belongs in the
 core. *Ruling:* `AGENTS.md#§Guidelines` (maintainer: "~700 is okay",
-2026-10-25). *Implementation:* `tools/check-frontend-invariants.py`.
-*Refuted by:* `frontend-invariants`.
+2026-10-25; raised to 1000 on 2026-11-22, issue #322). *Implementation:*
+`tools/check-frontend-invariants.py`. *Refuted by:* `frontend-invariants`.
 
 ### FE12. No per-layout anything in a frontend
 

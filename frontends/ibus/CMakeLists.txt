@@ -21,7 +21,7 @@ target_link_libraries(hunmin_ibus_engine PUBLIC hunmin_ibus_state PkgConfig::IBU
 option(HUNMIN_TRACE "Build the opt-in personal key-log sink" OFF)
 if(HUNMIN_TRACE)
   # trace/ is opt-in measurement infrastructure: it carries the T2-1 sink and
-  # is not part of the shipped adapter's 700-line budget (the invariant check
+  # is not part of the shipped adapter's 1000-line budget (the invariant check
   # counts only the top-level src/*.c and src/*.h files).
   target_sources(hunmin_ibus_engine PRIVATE src/trace/trace.c)
   target_include_directories(hunmin_ibus_engine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/trace)
