@@ -336,7 +336,9 @@ below; no new harness is needed for G1–G2. Issue #307 carries the domain-mode 
 
 Every run uses a sha256-pinned corpus artefact (provenance in `meta.json`, bulk
 corpora stay outside the repo per AGENTS.md) and is stratified by direction,
-guard class, and token class. Issue #239 (옛한글 byte-exact) stays a separate
+guard class, and token class. `tools/autoswitch-gates.py` grades G1/G2 from the
+`tools/modes-metrics.py` report; `docs/MODES-GATES.md` records its inputs,
+arithmetic and current finding. Issue #239 (옛한글 byte-exact) stays a separate
 SPEC decision and is not folded into these gates.
 
 **Decisions (earlier issues):** target corpus population (typed messages vs broad

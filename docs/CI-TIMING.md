@@ -483,7 +483,32 @@ is the downloaded artefact's layout on the next PR run, and the deb job's
 `pkg-config --modversion Fcitx5Core` remains the confirmation when it is
 re-enabled.
 
-### 5c. The source build retired: the floor is 5.1.7 (2026-11-22, issue #322)
+### 5c. The local budgets on a host with the Android SDK and a device (measured 2026-11-22)
+
+Measured while verifying issue #306, whose change adds one ctest
+(`trace-emit-guard`, 0.2 s). `tools/ci-time-budget.sh build` reports **both**
+local budgets over on this host, and the overage is pre-existing, not the new
+test's: the inner loop is 43.4 s with the guard and 42.8 s without it.
+
+Conditions: `ANDROID_HOME`/`JAVA_HOME`/`ANDROID_NDK` exported, an emulator and
+a physical device attached, `-DHUNMIN_TRACE_BUILD=ON`, D3 present locally,
+IBus lane not registered (`ibus-1.0 >= 1.5.26` not found on this host).
+
+| tier | wall (-j16) | budget | where it goes (per-test, junit) |
+|---|---|---|---|
+| inner `-LE slow` | 43.4 s | 30 s | `engine-android-espresso` 30.6 s (tier-E2, `RUN_SERIAL`, skips 77 with no device), `builds-android` 9.4 s (gradle `--no-daemon`), `shell-lint` 6.2 s; 135 tests, 106.4 s of test time |
+| slow `-L slow` | 122.6 s | 60 s | `android-mutations` 99.3 s (registers only where `ANDROID_HOME` is set), D3 edit/x11/candidate 40.8/37.9/16.9 s (skip on the runner), `frontend-mutations` 25.5 s, `docs-lint` 11.0 s |
+
+So the 30 s / 60 s figures hold when the device-bound and SDK-bound tests skip
+or do not register; when they run, the inner loop's floor is the espresso run
+plus a cold gradle assemble, neither of which is labelled `slow`. Two shapes
+are open and the choice is the maintainer's: label the device/gradle-bound
+tests `slow` (the inner loop then measures ~12 s here, and the slow budget
+line moves with this measurement beside it), or state the budgets against the
+skip conditions explicitly. No ruling is recorded here; the guard test itself
+is cheap and stays in the inner loop either way.
+
+### 5d. The source build retired: the floor is 5.1.7 (2026-11-22, issue #322)
 
 The 197 s fcitx5 source build (§1, §5) existed only because the addon needed
 `>= 5.1.13` and Ubuntu 24.04 ships 5.1.7. Issue #322 lowered the floor to
@@ -505,14 +530,35 @@ the distro fcitx5 independently), and its `-d` on `dpkg-buildpackage` is gone
 because the distro package owns the .so, so the build-dep check is honest
 again.
 
-**Verified, not projected, on this host (26.04, fcitx5 5.1.19 in `/usr`; and a
-locally-built fcitx5 5.1.7 install tree from upstream tag `5.1.7`):** the addon
-and the full D1/D2 harness build and pass against BOTH. Number of `-LE slow`
-tests is 130 on both trees, 100% pass, with `HUNMIN_FCITX_CANDIDATE_COMMENT`
-defined against 5.1.19 (gloss via `setComment`) and absent against 5.1.7 (gloss
-via the `auxDown` fallback the D2 test asserts on that branch). The linux job's
-cold-path wall clock on a dispatch run is the remaining verification the issue
-asks for and is not claimed here.
+**Verified on this host** (26.04, fcitx5 5.1.19 in `/usr`; and a locally-built
+fcitx5 5.1.7 install tree from upstream tag `5.1.7`): the addon and the full
+D1/D2 harness build and pass against BOTH. `-LE slow` is 130/130 on each tree,
+with `HUNMIN_FCITX_CANDIDATE_COMMENT` defined against 5.1.19 (gloss via
+`setComment`) and absent against 5.1.7 (gloss via the `auxDown` fallback the D2
+test asserts on that branch).
+
+**Measured on the runner** (dispatch run 45026960367, `workflow_dispatch` on
+this branch, 2026-11-22): the `linux` job completed in **212 s**, with no fcitx5
+source-build segment in its steps — `Install build deps` 37 s, `cmake --build
+-j4` 31 s, `ctest -j4 -LE tier-E1` 124 s. The 197 s source build is **gone**
+(no clone/configure/build step exists), which was the point of the change. But
+**212 s is still over the 180 s target**, and the overage is not fcitx5: ctest
+is dominated by the **Android conformance tier-C tests**
+(`engine-android-conformance-*`, ~51 s each through Gradle, which register on
+the linux job because the runner image ships the Android SDK), and `apt` pulls
+the frontend-heavy `fcitx5` recommends. So removing the source build does not
+by itself meet "cold path <= 180 s"; the remaining levers are the
+Android-conformance duplication (§3 option E) and `--no-install-recommends` on
+the fcitx5 install, and both are separate decisions. Two earlier runner
+comparisons (`pull_request` 45020698685, 45018050862) were 176-196 s warm with
+the old source build cached, so the runner's ctest floor was already ~100 s+,
+not the ~37 s the older budget note assumed.
+
+**Not a regression from this branch:** the nightly-only `deb` and `ibus-jammy`
+jobs were red on this dispatch, but `schedule` runs have been red since
+2026-11-15, and the `deb` configure failure is a googletest
+`FETCHCONTENT_FULLY_DISCONNECTED` target-not-found in
+`cmake/HunminLibhunminTests.cmake`, which this branch does not touch.
 
 ---
 

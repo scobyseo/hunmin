@@ -3,13 +3,19 @@
 """Tier C gate: replay a platform-native trace through a frontend and diff it
 against the expectation tier A implies (docs/trace-spec.md).
 
-    tools/trace-check.py <case>.trace.in [--emit] [--runner <cmd>]
+    tools/trace-check.py <case>.trace.in [--emit [--accept-changed]] [--runner <cmd>]
 
 Exit 0 diff-clean, 1 mismatch, 77 skip (frontend not built for this platform).
 
 `--emit` writes the `.gold` from the runner's own output rather than comparing.
 That is the "make retrace" path: it must never be the way a red test becomes
-green. Review the diff line by line.
+green, so it is a mechanism, not a request (issue #306): when the runner's
+output differs from the committed `.gold`, `--emit` prints the unified diff,
+leaves the file untouched and exits 1. Overwriting a changed expectation
+requires `--emit --accept-changed`, so every expectation change lands in a
+commit as a reviewed diff. A `.gold` that does not exist yet is written
+directly -- there is no prior expectation to re-baseline. Review the diff
+line by line.
 
 Two things are checked, and the second is the one that matters:
 
@@ -20,6 +26,7 @@ Check 2 is why this is not just "run the adapter and eyeball it". A stale `.gold
 -- one left over from before an engine change -- would make check 1 pass forever.
 """
 import argparse
+import difflib
 import json
 import os
 import pathlib
@@ -215,6 +222,13 @@ def main() -> int:
     ap.add_argument("trace", type=pathlib.Path)
     ap.add_argument("--emit", action="store_true")
     ap.add_argument(
+        "--accept-changed",
+        action="store_true",
+        help="with --emit: overwrite a .gold whose content differs from the "
+             "runner's output (the diff is printed either way); without this "
+             "flag a changed expectation is a refusal, not a write",
+    )
+    ap.add_argument(
         "--runner",
         default="frontends/fcitx5/build/trace-emit",
         help="command that reads a .trace.in on stdin and writes a trace on stdout",
@@ -227,6 +241,8 @@ def main() -> int:
              "(default: build/hunmin-sim, build-*/hunmin-sim)",
     )
     a = ap.parse_args()
+    if a.accept_changed and not a.emit:
+        ap.error("--accept-changed only means something with --emit")
 
     recs = load(a.trace)
     check_invariants(recs, a.trace)
@@ -290,8 +306,25 @@ def main() -> int:
     got = load_text_as_records(proc.stdout, a.trace)
 
     if a.emit:
-        gold.write_text(proc.stdout if proc.stdout.endswith("\n") else proc.stdout + "\n",
-                        encoding="utf-8")
+        text = proc.stdout if proc.stdout.endswith("\n") else proc.stdout + "\n"
+        if gold.exists():
+            old = gold.read_text(encoding="utf-8")
+            if old == text:
+                print(f"unchanged: {gold}", file=sys.stderr)
+                return 0
+            # A silent re-baseline is the cheapest way to turn a red gate
+            # green, and then the gate asserts that the tool agrees with
+            # itself (issue #306). Print the diff and refuse; writing a
+            # changed expectation is an explicit act.
+            sys.stderr.write("".join(difflib.unified_diff(
+                old.splitlines(keepends=True), text.splitlines(keepends=True),
+                fromfile=str(gold), tofile=f"{gold} (runner output)")))
+            if not a.accept_changed:
+                print(f"{gold} differs from the runner's output -- review the diff "
+                      "above; the file is unchanged. To accept it, re-run with "
+                      "--emit --accept-changed", file=sys.stderr)
+                return 1
+        gold.write_text(text, encoding="utf-8")
         print(f"wrote {gold} -- review the diff, do not blind-accept", file=sys.stderr)
         return 0
 

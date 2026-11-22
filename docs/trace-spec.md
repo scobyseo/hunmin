@@ -207,9 +207,37 @@ tests/conformance/
 be a way to make a red test green — the same rule as tier A's `tools/regen-goldens.sh`: diffs are
 reviewed line by line, never blind-accepted (docs/TESTING.md "Tier G").
 
+That rule is a mechanism, not a request (issue #306). `tools/trace-check.py --emit`
+compares the runner's output with the committed `.gold`; when they differ it prints the
+unified diff, leaves the file untouched and exits 1. Overwriting a changed expectation
+requires `--emit --accept-changed`, so every expectation change lands in a commit as a
+reviewed diff instead of being the cheapest way to turn a red gate green. A `.gold` that
+does not exist yet is written directly — there is no prior expectation to re-baseline.
+ctest `trace-emit-guard` (`tools/trace-emit-guard-test.py`) asserts the refusal, the
+explicit write and the no-op on an unchanged file.
+
 A platform is engine-correct iff its traces diff-clean against `.gold`, *and* the `.gold`
 it diffs against is the one tier A implies. The runner therefore verifies the runner, not
 just the adapter.
+
+### What tier C evaluates, and what the other tests pin
+
+Tier C is **adapter conformance**: does the frontend relay what the shared layer
+delivered, event for event, in the platform's native vocabulary. It is not where the
+delivery rules themselves are asserted. Those are pinned by name in
+`libhunmin/tests/buffered-preedit-test.cpp` —
+`LayerTest.ASymbolEndsTheWordInHangulModeToo`,
+`LayerTest.TheSymbolEndsTheWordSoTheJudgementRunsBeforeIt`,
+`LayerTest.ASymbolDoesNotSplitTheDigitRun` — and the characters are pinned by the
+tier-A goldens and ctest `engine-off-identity` (`tools/off-identity-check.py`), which
+replays the same corpus through the layer. The measurement that forced this split is
+docs/OPTIONS-MEASURED.md §PLT-8; the figures live there, not here.
+
+So a simultaneous layer + adapter change, re-baselined with `--accept-changed`, leaves
+tier C green — deliberately: tier C asserts the relay, and what catches that change is
+the named layer tests and tier A, provided nobody regenerates those expectations too.
+The guard above makes the tier-C half of that regeneration a reviewed act; it does not
+make tier C a second home for the delivery rules.
 
 ### Multi-case batch files
 

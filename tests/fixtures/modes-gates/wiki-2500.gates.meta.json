@@ -1,0 +1,72 @@
+{
+  "meta": {
+    "schema": "hunmin.autoswitch-gates/1",
+    "tool": "tools/autoswitch-gates.py",
+    "invocation": "tools/autoswitch-gates.py check --step wiki-2500 tests/fixtures/modes-gates/wiki-2500.run.meta.json --pin tests/fixtures/modes-gates/wiki-2500.pin.json --report-out tests/fixtures/modes-gates/wiki-2500.gates.meta.json",
+    "generated_at": "2026-11-22T07:41:52+00:00",
+    "inputs": [
+      {
+        "step": "wiki-2500",
+        "path": "tests/fixtures/modes-gates/wiki-2500.run.meta.json",
+        "sha256": "1bad333adcc0cbdf06eaf3b46a28001738f18863c282afa3810ba9f1e3e33c84"
+      }
+    ],
+    "pin": {
+      "path": "tests/fixtures/modes-gates/wiki-2500.pin.json",
+      "sha256": "8a667e227a76e0adf157618d831493373a87efec0d2a102232e2a9b9ae6e5056"
+    }
+  },
+  "steps": [
+    {
+      "name": "wiki-2500",
+      "pin": {
+        "pin": "tests/fixtures/modes-gates/wiki-2500.pin.json",
+        "pin_sha256": "8a667e227a76e0adf157618d831493373a87efec0d2a102232e2a9b9ae6e5056",
+        "corpus_sha256": "1d3b6e3583f74fb425b6394675a3ec20f9a21831608063942107f2cef869cb27",
+        "provenance_sha256": "42119ac29e815f87ca10011b71fd34f946f402f0ab3f9a8b12cd88e4eda0ee98"
+      },
+      "g1": "fail",
+      "wrong_direction": "pass",
+      "metrics": {
+        "transitions": 2126.0,
+        "q_pool_share_measured": -6.320790216368768,
+        "q_pool_share_model": -6.349952963311384,
+        "u_manual_intervention": 0.5540921919096895,
+        "k_mean_backspaces": 4.742380261248186,
+        "r_misfires": 0.6481655691439323,
+        "r_budget_at_k": 0.6481655691439323,
+        "r_within_budget": true,
+        "ruled_lines": []
+      },
+      "by_direction": [
+        {
+          "direction": "hangul->latin",
+          "transitions": 1171,
+          "switches": 251,
+          "wrong_switches": 0,
+          "wrong_direction_rate": 0.0,
+          "status": "pass"
+        },
+        {
+          "direction": "latin->hangul",
+          "transitions": 955,
+          "switches": 697,
+          "wrong_switches": 0,
+          "wrong_direction_rate": 0.0,
+          "status": "pass"
+        }
+      ],
+      "problems": [
+        "G1: q_pool_share_measured -6.320790 < 0"
+      ]
+    }
+  ],
+  "problems": [
+    "[wiki-2500] G1: q_pool_share_measured -6.320790 < 0"
+  ],
+  "status": "fail",
+  "G2_lines": {
+    "ruled": [],
+    "graded": false
+  }
+}
