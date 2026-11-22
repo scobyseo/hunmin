@@ -833,49 +833,25 @@ jobs:
           path: artifacts/hunmin_*.deb
           retention-days: 30
 
-  # The Ubuntu 22.04 release artefact (ruling 2026-11-09, issue #289): it is
-  # built on a REAL ubuntu-22.04 runner so that libibus 1.5.26 and the absence
-  # of fcitx5 are measured rather than inferred from the 26.04 host. This is
-  # also the first CI execution of the IBus D1/D2/D3 lanes on the target:
-  # 26.04 green proves the API, not the daemon/GTK/panel behaviour.
+  # The Ubuntu 22.04 evaluation and release artefact (ruling 2026-11-09,
+  # issue #289), built on a REAL ubuntu-22.04 runner so that libibus 1.5.26
+  # and the absence of fcitx5 are measured rather than inferred from the
+  # 26.04 host. Split into TWO jobs, each under the 3-minute ceiling
+  # (maintainer instruction 2026-11-22, issue #316): the evaluation and the
+  # package build. Measured on dispatch runs 45006949777 / 45007358427:
+  # evaluation ~90-120 s, package ~70-105 s, but their SUM varied 122-187 s
+  # across identical code -- one job at 180 s was a coin flip on runner
+  # load. Two jobs give each half its own margin; no coverage is dropped
+  # (the lanes gate below is unchanged) and no ceiling is raised. The full
+  # measurement history is docs/CI-TIMING.md §8.
   ibus-jammy:
-    name: ibus (.deb artefact, Ubuntu 22.04)
-    # Nightly like the noble deb job: the 22.04 artefact is a release artefact,
-    # not a PR gate. It has no `needs`, so it runs on schedule/dispatch alone.
+    name: ibus (D1/D2/D3 on Ubuntu 22.04)
+    # Nightly like the noble deb job: a release evaluation, not a PR gate.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
-    # 3 min, the same ceiling as the linux job (maintainer instruction
-    # 2026-11-22, issue #316). The 45 it carried before was the noble deb
-    # job's generous default, copied at creation and never measured. What
-    # makes 3 min possible is recorded in docs/CI-TIMING.md: the package
-    # build no longer re-runs the whole suite (nocheck -- the IBus lanes run
-    # in their own gated step below, the full suite in the linux job), builds
-    # at parallel=4, reuses the googletest the main build already fetched,
-    # and both builds share one ccache with matching Release flags (the
-    # package build is a SECOND full build; without the cache it alone ran
-    # past the ceiling, measured on dispatch run 45005522905).
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Set up ccache
-        run: |
-          echo "/usr/lib/ccache" >> "$GITHUB_PATH"
-          echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
-      - name: Restore the compiler cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/ccache
-          # sha key + prefix restore, NOT hashFiles: ccache validates its
-          # objects by content hash itself, so a stale restore is safe and
-          # the key only needs to be unique per run. (hashFiles over the
-          # source tree failed in the post step of dispatch 45006949777
-          # after the package build; the simpler key is the standard ccache
-          # CI pattern.)
-          key: jammy-ccache-${{ github.sha }}
-          restore-keys: jammy-ccache-
-      # Build-Depends with the nobilus profile (see debian/control) is exactly
-      # libibus-1.0-dev + the core's own deps; the extra packages below are the
-      # D3 runtime harness (Xvfb, GTK3 gi, im-ibus.so, XTEST), not build deps.
       - name: Install build and D3 deps
         run: |
           sudo apt-get update
@@ -885,30 +861,25 @@ jobs:
           # GSettings use-system-keyboard-layout default of false). Without
           # setxkbmap the selection command exits nonzero even though the
           # engine WAS selected -- measured on the first dispatch run of this
-          # job (issue #316): all three D3 lanes failed at "ibus engine hunmin
-          # could not be selected". 1.5.34 on the 26.04 host has setxkbmap
+          # job (issue #316). 1.5.34 on the 26.04 host has setxkbmap
           # installed, which is why local runs never saw it. The portal
           # activation error in the same log is non-fatal (bus/server.c only
           # prints it) and is not the cause.
           sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config python3 \
-            build-essential debhelper fakeroot ccache \
+            build-essential debhelper \
             libhangul-dev libibus-1.0-dev libx11-dev libxcb1-dev libxkbcommon-dev \
             python3-gi gir1.2-gtk-3.0 python3-xlib \
             xvfb x11-utils x11-xkb-utils xauth dbus ibus ibus-gtk3
       # The ruling says dpkg-checkbuilddeps on jammy must succeed with only
-      # those dependencies. Run it WITHOUT -d so the claim is actually tested;
-      # the deb job needs -d only because fcitx5 there is a source build.
+      # the build dependencies. Run it WITHOUT -d so the claim is actually
+      # tested; the deb job needs -d only because fcitx5 there is a source
+      # build.
       - name: Verify jammy Build-Depends (no -d)
         run: dpkg-checkbuilddeps -Pnobilus
       - name: Configure and build
-        # Release, the SAME type debian/rules builds the package with: ccache
-        # keys on the compile flags, so matching types are what let the
-        # package build below hit this build's objects instead of recompiling
-        # the tree a second time.
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
           cmake --build build -j4
-          ccache -s | head -8
       - name: IBus D1/D2/D3 on IBus 1.5.26
         # Not a skip-tolerant selection: D3 registers here (Xvfb and im-ibus
         # are installed above), and a skip would be the "green having measured
@@ -946,34 +917,36 @@ jobs:
               sys.exit(1)
           print("IBus lanes registered and passed: " + ", ".join(expected))
           PY
+
+  ibus-jammy-package:
+    name: ibus (.deb artefact, Ubuntu 22.04)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    # 3 min, measured ~70-105 s (docs/CI-TIMING.md §8). The package build
+    # runs no tests (nocheck): the jammy evaluation is the ibus-jammy job
+    # above, the full suite is the linux job, and the noble package build
+    # keeps its own in-build suite. debian/rules turns BUILD_TESTING=OFF
+    # under nocheck, so no googletest/test binaries are built here at all.
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config python3 \
+            build-essential debhelper fakeroot \
+            libhangul-dev libibus-1.0-dev libx11-dev libxcb1-dev libxkbcommon-dev
+      - name: Verify jammy Build-Depends (no -d)
+        run: dpkg-checkbuilddeps -Pnobilus
       - name: Build the .deb (nobilus profile)
         # parallel=4: the runner's core count; without it debhelper builds at
-        # -j1. nocheck: debian/rules' override_dh_auto_test runs the WHOLE
-        # ctest suite inside the package build -- on jammy that re-runs the
-        # IBus D3 lanes the gated step above already ran, plus the slow
-        # mutation tiers, a second full-suite run the 3 min ceiling cannot
-        # carry. What nocheck leaves out is named here so the exclusion is
-        # visible: the jammy-specific evaluation (IBus D1/D2/D3 on 1.5.26)
-        # runs in the step above with a skip-is-failure gate; the full suite
-        # runs in the linux job; the noble package build keeps its own
-        # in-build suite (45 min job, unchanged). Nothing jammy-specific is
-        # dropped. FETCHCONTENT_SOURCE_DIR_GOOGLETEST reuses the source the
-        # main build already fetched instead of downloading it a second time.
-        #
-        # optimize=-lto was tried and dropped: with BUILD_TESTING=OFF under
-        # nocheck (debian/rules) the package build compiles only what ships,
-        # so the distro LTO default stays -- the jammy artefact keeps the
-        # same flags as noble. The segment that actually broke the ceiling
-        # was googletest/gmock + test binaries built for a suite nocheck
-        # never runs (~30 s, dispatch 45006560489); debian/rules now skips
-        # them when nocheck is set.
+        # -j1. nocheck: see the job comment -- what it leaves out is named
+        # there, and debian/rules skips building the test binaries under it.
         run: |
           start=$SECONDS
           DEB_BUILD_OPTIONS="parallel=4 nocheck" \
-          FETCHCONTENT_SOURCE_DIR_GOOGLETEST="$PWD/build/_deps/googletest-src" \
             dpkg-buildpackage -us -uc -b -Pnobilus
           echo "=== dpkg-buildpackage (jammy, nobilus) wall time: $((SECONDS-start)) s ==="
-          ccache -s | head -8
       - name: What the package contains
         run: |
           deb=$(ls ../hunmin-ibus_*_*.deb)
