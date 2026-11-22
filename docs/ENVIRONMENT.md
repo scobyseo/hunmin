@@ -1047,3 +1047,22 @@ why only its presence is asserted here.)
 A host that installs `libgtk-3-dev` needs none of this; the CMake target is
 optional (`pkg_check_modules(GTK3 QUIET …)`), so a host without it still builds the
 engine and its store.
+
+**But a PACKAGE build on such a host fails, and the message does not say why.**
+`debian/rules` runs `dpkg-buildpackage -d` (build-dependencies unchecked), so
+`pkg_check_modules(IBUS …)` and `pkg_check_modules(GTK3 …)` both miss, the IBus
+engine and the window are simply not built, and `dh_install` then dies on
+`debian/hunmin-ibus.install` / `debian/hunmin-ibus-settings.install` naming files
+that do not exist. Two ways out, in order of preference:
+
+1. install the two development packages (`sudo apt install libgtk-3-dev
+   libibus-1.0-dev`) — then the packaging needs no environment at all, and the
+   private prefix below is only for a shell that cannot install anything;
+2. export `PKG_CONFIG_PATH` with the prefixes this document describes *before*
+   `tools/build-release.sh deb`, which is what the 2026-11-22 build in this
+   session did.
+
+Either way the in-package ctest still decides the exit code, and `engine-d3-ibus`
+is red on this host for a reason that has its own issue, so a local package build
+needs `DEB_BUILD_OPTIONS=nocheck` until that lands — visibly, not silently: the
+option also switches `BUILD_TESTING=OFF`, so the artefact carries no test binaries.
