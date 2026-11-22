@@ -545,14 +545,26 @@ source-build segment in its steps — `Install build deps` 37 s, `cmake --build
 **212 s is still over the 180 s target**, and the overage is not fcitx5: ctest
 is dominated by the **Android conformance tier-C tests**
 (`engine-android-conformance-*`, ~51 s each through Gradle, which register on
-the linux job because the runner image ships the Android SDK), and `apt` pulls
+the linux job because the runner image ships the Android SDK), and `apt` pulled
 the frontend-heavy `fcitx5` recommends. So removing the source build does not
-by itself meet "cold path <= 180 s"; the remaining levers are the
-Android-conformance duplication (§3 option E) and `--no-install-recommends` on
-the fcitx5 install, and both are separate decisions. Two earlier runner
-comparisons (`pull_request` 45020698685, 45018050862) were 176-196 s warm with
-the old source build cached, so the runner's ctest floor was already ~100 s+,
-not the ~37 s the older budget note assumed.
+by itself meet "cold path <= 180 s".
+
+**The apt prune (applied, issue #322, maintainer-directed 2026-11-22).** The
+~25 fcitx5-source-build `-dev` packages were removed from the linux, deb,
+nightly-fuzz and release apt lists, and the fcitx5 stack is installed with
+`--no-install-recommends` (scoped to its own line so it cannot drop the dbus
+session bus the IBus D2 lane needs). What makes this safe, measured rather than
+assumed: `fcitx5-modules`' Depends already supplies every runtime D3's
+`find_file REQUIRED` needs (`libxcb-imdkit1`, `libxcb1`, `libxkbcommon0`, the
+xcb/cairo/pango runtimes); `Fcitx5CompilerSettings.cmake` is pure flag-setting
+(no ECM/gettext) and the fcitx headers include no `fmt/`. The linux
+registration gate now also requires the fcitx5 D1/D2 and tier-C x11 lanes, so a
+silently dropped lane fails the job instead of reading green. The remaining
+lever for the 180 s target is the Android-conformance duplication (§3 option
+E), a separate decision. Two earlier runner comparisons (`pull_request`
+45020698685, 45018050862) were 176-196 s warm with the old source build cached,
+so the runner's ctest floor was already ~100 s+, not the ~37 s the older budget
+note assumed.
 
 **Not a regression from this branch:** the nightly-only `deb` and `ibus-jammy`
 jobs were red on this dispatch, but `schedule` runs have been red since

@@ -22,18 +22,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
             build-essential dpkg-dev debhelper fakeroot python3 \
-            extra-cmake-modules gettext \
-            libxkbcommon-dev libxkbcommon-x11-dev \
-            libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
-            libxcb-icccm4-dev libxcb-xinerama0-dev libxcb-randr0-dev \
-            libxcb-ewmh-dev libxcb-keysyms1-dev libxcb-imdkit-dev \
-            libxcb-util0-dev libxcb-image0-dev libxcb-render0-dev \
-            libxcb-shape0-dev libxcb-cursor-dev \
-            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev \
-            libglib2.0-dev libexpat1-dev libxkbfile-dev \
-            libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
-            libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
-            iso-codes xkb-data \
+            libxkbcommon-dev
+          # Distro fcitx5 without recommends (issue #322 prune); the source-build
+          # -dev deps are gone with the source build. fcitx5-modules' Depends
+          # supplies the runtimes; ECM/gettext/libfmt-dev are not needed.
+          sudo apt-get install -y --no-install-recommends \
             libfcitx5core-dev fcitx5-modules-dev fcitx5-modules fcitx5
 
       # fcitx5 comes from the distro packages above (issue #322): the addon's

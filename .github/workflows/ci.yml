@@ -113,32 +113,33 @@ jobs:
           # `Import "PIL" could not be resolved` at tools/gen-android-icons.py:33.
           # With this package the import resolves.
           sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
-            python3 python3-pil extra-cmake-modules gettext \
-            libxkbcommon-dev libxkbcommon-x11-dev \
-            libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
-            libxcb-icccm4-dev libxcb-xinerama0-dev libxcb-randr0-dev \
-            libxcb-ewmh-dev libxcb-keysyms1-dev libxcb-imdkit-dev \
-            libxcb-util0-dev libxcb-image0-dev libxcb-render0-dev \
-            libxcb-shape0-dev libxcb-cursor-dev \
-            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev \
-            libglib2.0-dev libexpat1-dev libxkbfile-dev \
-            libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
-            libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
-            iso-codes xkb-data \
-            libibus-1.0-dev \
+            python3 python3-pil libxkbcommon-dev libibus-1.0-dev
+          # The distro fcitx5 (issue #322), installed WITHOUT recommends: the
+          # frontend stack (fcitx5-frontend-all -> gtk2/3/4/qt5/6, config-qt) is
+          # a Recommends of `fcitx5` and no lane that runs here needs it (D3
+          # skips on the headless runner). --no-install-recommends is scoped to
+          # THIS line so it cannot drop, e.g., the dbus session bus the IBus D2
+          # lane needs from the line above.
+          sudo apt-get install -y --no-install-recommends \
             libfcitx5core-dev fcitx5-modules-dev fcitx5-modules fcitx5
-          # The distro fcitx5 (issue #322): ubuntu-24.04 ships 5.1.7, which is
-          # the addon's floor now. libfcitx5core-dev + fcitx5-modules-dev carry
-          # the cmake configs the addon and tier C link; fcitx5-modules carries
-          # TestFrontend (the D1/D2 lanes); fcitx5 pulls the runtime + data.
-          # No source build, no cache -- the cold path is the only path.
-          #
-          # The xcb/cairo/pango/wayland -dev packages above were the fcitx5
-          # SOURCE build's dependencies and are now redundant (hunmin links only
-          # the runtime libxcb.so.1 / libxcb-imdkit.so.1 for D3, and xkbcommon).
-          # They are kept for now: pruning them is an apt-time saving to confirm
-          # on a dispatch run, not blind -- a silently dropped lane is this
-          # workflow's recorded failure mode (issue #292). See docs/CI-TIMING.md §5.
+          # Why this is the whole list (issue #322 prune; the rest of the old
+          # list was the fcitx5 SOURCE build's deps, removed with the source
+          # build). Each kept package is load-bearing:
+          #   libhangul-dev      core + parity tests
+          #   libxkbcommon-dev   xkbcommon.pc for the D3 XIM harness (D3_XKB)
+          #   libibus-1.0-dev    IBus frontend lanes (the #292 note below)
+          #   python3-pil        pyright resolves PIL against system python3
+          #   fcitx5 stack       cmake configs (addon + tier C), TestFrontend
+          #                      (D1/D2), runtime + data. fcitx5-modules'
+          #                      Depends already pulls libxcb-imdkit1, libxcb1,
+          #                      libxkbcommon0 and the xcb/cairo/pango runtimes
+          #                      that D3's find_file needs, so no -dev versions
+          #                      of those are required.
+          # ECM / gettext / libfmt-dev are NOT needed: Fcitx5CompilerSettings
+          # is pure flag-setting and the fcitx headers include no fmt/ (the
+          # 5.1.7 addon build compiled with no fmt include path). The prune is
+          # verified by the registration gate below (a silently dropped lane is
+          # this workflow's recorded failure mode, issue #292), not assumed.
           # libibus-1.0-dev is what makes the IBus engine lanes REGISTER on
           # this job. Measured in issue #292 (PR #311's run 44981702310): the
           # apt list above lacked it, so pkg_check_modules(ibus-1.0>=1.5.26)
@@ -282,7 +283,7 @@ jobs:
       # not evidence about 22.04's only frontend; a SKIP of engine-d2-ibus-ui
       # (no session bus) is likewise not a pass. Fail the job if any of the
       # three lanes is missing, skipped or failed.
-      - name: IBus lanes registered and passed (a skip is not a pass)
+      - name: IBus + fcitx5 lanes registered and passed (a skip is not a pass)
         run: |
           python3 - <<'PY'
           import sys
@@ -294,6 +295,12 @@ jobs:
               "engine-d1-ibus",
               "engine-d1-ibus-judgement",
               "engine-d2-ibus-ui",
+              # fcitx5 lanes (issue #322): the apt prune must not silently drop
+              # them. If Fcitx5Core were not found the addon would be disabled
+              # at configure and these would vanish from a still-green run.
+              "engine-d1-fcitx5",
+              "engine-d1-judgement",
+              "engine-d2-ui",
           ]
           bad = []
           for name in expected:
@@ -313,10 +320,17 @@ jobs:
           for c in ibus_c:
               if c.get("status") != "run" or c.find("skipped") is not None or c.find("failure") is not None:
                   bad.append(c.get("name") + ": status=" + str(c.get("status")))
+          # The tier-C fcitx5/x11 lanes, same rationale (issue #322 prune guard).
+          fcitx_c = [c for n, c in cases.items() if n.startswith("conformance-tests_conformance_x11")]
+          if not fcitx_c:
+              bad.append("conformance-tests_conformance_x11*: not registered")
+          for c in fcitx_c:
+              if c.get("status") != "run" or c.find("skipped") is not None or c.find("failure") is not None:
+                  bad.append(c.get("name") + ": status=" + str(c.get("status")))
           if bad:
-              print("::error::IBus lanes did not register and pass: " + "; ".join(bad))
+              print("::error::IBus + fcitx5 lanes did not register and pass: " + "; ".join(bad))
               sys.exit(1)
-          print("IBus lanes registered and passed: " + ", ".join(expected))
+          print("IBus + fcitx5 lanes registered and passed: " + ", ".join(expected))
           PY
       # ctest's own exit code is suppressed so all tests run and are recorded
       # (JUnit + timing) regardless of pass/fail; the IBus gate above and the
@@ -608,21 +622,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
-            build-essential \
-            python3 python3-pil debhelper fakeroot extra-cmake-modules gettext \
-            libxkbcommon-dev libxkbcommon-x11-dev \
-            libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
-            libxcb-icccm4-dev libxcb-xinerama0-dev libxcb-randr0-dev \
-            libxcb-ewmh-dev libxcb-keysyms1-dev libxcb-imdkit-dev \
-            libxcb-util0-dev libxcb-image0-dev libxcb-render0-dev \
-            libxcb-shape0-dev libxcb-cursor-dev \
-            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev \
-            libglib2.0-dev libexpat1-dev libxkbfile-dev \
-            libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
-            libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
-            iso-codes xkb-data \
-            libibus-1.0-dev \
+            build-essential python3 python3-pil debhelper fakeroot \
+            libxkbcommon-dev libibus-1.0-dev
+          # The distro fcitx5 (issue #322), without recommends -- same rationale
+          # as the linux job: the frontend stack is a Recommends no lane here
+          # needs, and scoping --no-install-recommends to this line keeps the
+          # dbus session bus the in-build IBus D2 lane uses.
+          sudo apt-get install -y --no-install-recommends \
             libfcitx5core-dev fcitx5-modules-dev fcitx5-modules fcitx5
+          # Pruned to the load-bearing set (issue #322): the xcb/cairo/pango/
+          # wayland/-dev packages were the fcitx5 SOURCE build's deps and go with
+          # it; fcitx5-modules' Depends supplies the runtimes D3's find_file
+          # needs. ECM/gettext/libfmt-dev are not needed by the addon. The deb
+          # job runs the suite in-build, so it keeps the linux job's test deps
+          # (libxkbcommon-dev, libibus-1.0-dev, python3-pil) plus the packaging
+          # tools (build-essential, debhelper, fakeroot).
           # The distro fcitx5 (issue #322): the addon's floor is 5.1.7, which
           # noble ships. These satisfy debian/control's build-depends, so the
           # package build no longer needs -d (see the Build step).
@@ -1011,18 +1025,12 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y \
             cmake ninja-build pkg-config libhangul-dev python3 \
-            extra-cmake-modules gettext \
-            libxkbcommon-dev libxkbcommon-x11-dev \
-            libxcb1-dev libxcb-util-dev libxcb-xkb-dev libxcb-xfixes0-dev \
-            libxcb-icccm4-dev libxcb-xinerama0-dev libxcb-randr0-dev \
-            libxcb-ewmh-dev libxcb-keysyms1-dev libxcb-imdkit-dev \
-            libxcb-util0-dev libxcb-image0-dev libxcb-render0-dev \
-            libxcb-shape0-dev libxcb-cursor-dev \
-            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev \
-            libglib2.0-dev libexpat1-dev libxkbfile-dev \
-            libjson-c-dev libdbus-1-dev libuv1-dev uuid-dev \
-            libwayland-dev wayland-protocols libxdo-dev libevent-dev libfmt-dev \
-            iso-codes xkb-data libasan8 liblsan0 \
+            libxkbcommon-dev libasan8 liblsan0
+          # Distro fcitx5 without recommends (issue #322 prune); the fuzz loop
+          # only drives hunmin-sim, but the tree still builds the addon, so the
+          # fcitx5 stack stays. The source-build -dev deps are gone with the
+          # source build; fcitx5-modules' Depends supplies the D3 runtimes.
+          sudo apt-get install -y --no-install-recommends \
             libfcitx5core-dev fcitx5-modules-dev fcitx5-modules fcitx5
 
       # fcitx5 comes from the distro packages above (issue #322): the addon's
