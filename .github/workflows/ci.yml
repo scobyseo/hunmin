@@ -850,10 +850,23 @@ jobs:
     # makes 3 min possible is recorded in docs/CI-TIMING.md: the package
     # build no longer re-runs the whole suite (nocheck -- the IBus lanes run
     # in their own gated step below, the full suite in the linux job), builds
-    # at parallel=4, and reuses the googletest the main build already fetched.
+    # at parallel=4, reuses the googletest the main build already fetched,
+    # and both builds share one ccache with matching Release flags (the
+    # package build is a SECOND full build; without the cache it alone ran
+    # past the ceiling, measured on dispatch run 45005522905).
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
+      - name: Set up ccache
+        run: |
+          echo "/usr/lib/ccache" >> "$GITHUB_PATH"
+          echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
+      - name: Restore the compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: jammy-ccache-${{ hashFiles('libhunmin/**', 'frontends/ibus/**', 'cmake/**', 'CMakeLists.txt', 'third_party/**', 'debian/**') }}
+          restore-keys: jammy-ccache-
       # Build-Depends with the nobilus profile (see debian/control) is exactly
       # libibus-1.0-dev + the core's own deps; the extra packages below are the
       # D3 runtime harness (Xvfb, GTK3 gi, im-ibus.so, XTEST), not build deps.
@@ -872,7 +885,7 @@ jobs:
           # activation error in the same log is non-fatal (bus/server.c only
           # prints it) and is not the cause.
           sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config python3 \
-            build-essential debhelper fakeroot \
+            build-essential debhelper fakeroot ccache \
             libhangul-dev libibus-1.0-dev libx11-dev libxcb1-dev libxkbcommon-dev \
             python3-gi gir1.2-gtk-3.0 python3-xlib \
             xvfb x11-utils x11-xkb-utils xauth dbus ibus ibus-gtk3
@@ -882,9 +895,14 @@ jobs:
       - name: Verify jammy Build-Depends (no -d)
         run: dpkg-checkbuilddeps -Pnobilus
       - name: Configure and build
+        # Release, the SAME type debian/rules builds the package with: ccache
+        # keys on the compile flags, so matching types are what let the
+        # package build below hit this build's objects instead of recompiling
+        # the tree a second time.
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build -j4
+          ccache -s | head -8
       - name: IBus D1/D2/D3 on IBus 1.5.26
         # Not a skip-tolerant selection: D3 registers here (Xvfb and im-ibus
         # are installed above), and a skip would be the "green having measured
@@ -941,6 +959,7 @@ jobs:
           FETCHCONTENT_SOURCE_DIR_GOOGLETEST="$PWD/build/_deps/googletest-src" \
             dpkg-buildpackage -us -uc -b -Pnobilus
           echo "=== dpkg-buildpackage (jammy, nobilus) wall time: $((SECONDS-start)) s ==="
+          ccache -s | head -8
       - name: What the package contains
         run: |
           deb=$(ls ../hunmin-ibus_*_*.deb)
