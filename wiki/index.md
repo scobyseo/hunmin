@@ -267,6 +267,8 @@
 
 ## Raw — measurements
 
+- [[2026-11-22-ibus-gloss-paths]] — IBus 글로스 표시 검증 경로(aux text, 1.5.26 패널 소스까지 확인)와 "IBus는 못 한다" 주장의 정정. FE16의 분석 홈.
+
 - [[2026-11-22-fcitx5-retirement-ci-cost]] — fcitx5 퇴역 시 CI 비용 실측 A/B: 빌드 −44%, PR 스위트 −53%, 콜드패스 197s 소멸 (결정 아닌 측정).
 
 - [[2026-10-16-android-e2e-keys-bypass-the-ime]] — **two findings.** Closed:

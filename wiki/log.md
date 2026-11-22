@@ -1513,3 +1513,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   그리고 캐시 미스 시 197s fcitx5 빌드 소멸 → 3분 상한이 캐시 적중에 의존하지
   않게 됨. fcitx5에만 있는 것(mutation 티어, GTK4/XIM D3)은 퇴역 기준의
   입력으로 사실만 기록 — [[2026-11-22-fcitx5-retirement-ci-cost]].
+
+## [2026-11-22] update | IBus 글로스 표시 경로 검증 + "못 한다" 정정 (FE16)
+
+- maintainer 요구: "ibus로 전환하기 위해서는 그 기능을 지원할 방법을 찾아야 해"
+  → SPEC-FRONTEND FE16 + REQ-MAP 행(roadmap)으로 기록.
+- 1.5.26 소스 검증: ibus_engine_update_auxiliary_text 존재, panelbinding이
+  candidate panel로 라우팅, candidatepanel의 m_aux_label이 실제 렌더.
+  데이터 경로는 이미 존재(hunmin_state_candidate_detail + cursor 변경 시
+  candidates 콜백). 대안 B(후보 텍스트에 풀이 삽입)와 비교 표 제시.
+- 정정: 앞선 "IBus는 comment 슬롯이 없어 못 한다"는 주장은 틀렸음 — 슬롯이
+  없는 것과 표시 경로가 없는 것은 다른 명제. 엔진의 현재 드롭은 선택이지
+  불가능이 아니었음. [[2026-11-22-ibus-gloss-paths]]에 기록.
+- fcitx5 5.1.7 폴백도 검증: classicui가 auxDown/customLabel 렌더.

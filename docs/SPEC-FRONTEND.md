@@ -156,3 +156,19 @@ Layout behaviour is data: a frontend names layouts and their ids, never their
 keys or rules, and a new layout needs no frontend code. *Ruling:* `AGENTS.md#§The one idea`.
 *Implementation:* `tools/check-frontend-invariants.py`.
 *Refuted by:* `frontend-invariants`.
+
+### FE16. Candidate gloss display survives the IBus switch
+
+The maintainer, 2026-11-22: "ibus로 전환하기 위해서는 그 기능을 지원할 방법을
+찾아야 해" — the feature being the candidate gloss (뜻풀이) fcitx5 shows beside
+each Hanja candidate. Switching the Linux frontend to IBus requires a way to
+show the gloss; silently dropping it is not the requirement. *Implementation:*
+none yet — verified paths (2026-11-22, from the 1.5.26 source): IBus auxiliary
+text (`ibus_engine_update_auxiliary_text`, drawn by the GTK3 candidate panel's
+`m_aux_label`) or gloss embedded in the candidate text; on fcitx5 5.1.7,
+`auxDown`/`customLabel` (classicui draws both) where `setComment` (5.1.9+) is
+absent. *Refuted by:* none — the D2 assertion on the chosen presentation is
+the verification when implemented. Analysis and the correction of the earlier
+"IBus cannot" claim:
+`wiki/raw/measurements/2026-11-22-ibus-gloss-paths.md`. The presentation choice
+(aux text vs embedded text) is the maintainer's.
