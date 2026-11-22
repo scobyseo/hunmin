@@ -90,6 +90,20 @@ if(HUNMIN_FCITX5)
     message(STATUS "Fcitx5Core not found: fcitx5 addon disabled")
   endif()
 endif()
+# IBus floor: 1.5.26 is Ubuntu 22.04's own libibus (the target that ships this
+# engine, wiki/decisions/2026-11-09-the-22-04-release-ships-ibus-only.md); the
+# same sources build against 26.04's 1.5.34. Skipped when unavailable, like the
+# fcitx5 addon below.
+option(HUNMIN_IBUS "Build the IBus engine" ON)
+if(HUNMIN_IBUS AND PkgConfig_FOUND)
+  pkg_check_modules(IBUS QUIET IMPORTED_TARGET GLOBAL ibus-1.0>=1.5.26)
+  if(IBUS_FOUND)
+    add_subdirectory(frontends/ibus)
+    set(HUNMIN_HAS_IBUS TRUE)
+  else()
+    message(STATUS "ibus-1.0 >= 1.5.26 not found: IBus engine disabled")
+  endif()
+endif()
 # Windows TIP is MSVC-only; POSIX configures add nothing.
 if(WIN32 AND MSVC)
   add_subdirectory(frontends/tsf)
