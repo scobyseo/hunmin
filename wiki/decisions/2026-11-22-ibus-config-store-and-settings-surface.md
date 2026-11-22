@@ -116,6 +116,14 @@ Two things the live session showed that the test lanes could not:
   the engine took `Alt+Release+Alt_R` out of `org.freedesktop.ibus.general.hotkey.trigger` and
   recorded it in `managed-triggers` — the behaviour §IBC-4 describes, happening on a real session
   rather than in a memory backend.
+- **The D3 lane went green under it.** `engine-d3-ibus` was red on this host for a
+  reason of its own (issue #325's two ibus-host-only defects: the truncated `{F9}`
+  substitution producing `actual: TEXT:안녕ㄴ}`, and the expectation dropping the
+  trailing in-flight word). After rebasing onto #325's fixes it passes here (40.3 s),
+  so the claim "a local red is not evidence about the settings code" is now history
+  rather than a live excuse. The lane still runs the engine with
+  `GSETTINGS_BACKEND=memory`, so what it does not assert is the store's effect on a
+  real database — that half is the live-session observation below.
 - **A narrowed row is a trap on the other layout.** That same row leaves `Hangul` in the daemon's
   list, so on XKB `kr` — where the physical key reports `Hangul` (0xff31) — the daemon consumes
   it and the engine never sees it. It works today only because the session's layout is `us`

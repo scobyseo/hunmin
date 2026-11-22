@@ -887,10 +887,14 @@ interface, and the split is what makes them cheap:
     GSettings write. A dconf store cannot be isolated by environment (§IBC-5), so
     `run-d3.sh` runs this lane with `GSETTINGS_BACKEND=memory`: a harness run must
     never edit the operator's IBus settings.
-  - **This lane is red on this host before the settings work.** Measured
-    2026-11-22 at `2bdde6d` (`git worktree` at that commit, its own build):
-    `engine-d3-ibus` fails identically with and without the store, so a local red
-    here is not evidence about the settings code.
+  - **This lane was red on this host for a reason that had its own issue, and is
+    green now.** Measured 2026-11-22: at `2bdde6d` (a throwaway `git worktree`, its
+    own build) `engine-d3-ibus` failed identically with and without the store — so a
+    local red was not evidence about the settings code, which is why it was written
+    down here. Issue #325 then fixed the two ibus-host-only defects above (the
+    `{F9}` substitution and the dropped trailing word), and after rebasing onto it
+    the lane passes on this host (40.3 s). The note is kept as the history of a red
+    that looked like ours and was not.
   - **Both 한/영 spellings are language keys** (FE13, 2026-11-22): `Hangul`
     0xff31 on a Korean XKB layout and `Alt_R` 0xffea on `us`, where the physical
     key reports that instead. D2's `LayoutOverrideKeepsTheLanguageKeyAlive`
