@@ -663,27 +663,38 @@ set it to the linux job's 3 min on 2026-11-22. What makes that possible:
    source the main build already fetched; no second download.
 4. **`--no-install-recommends`** on the apt step.
 
-Estimate before the first measured run (runner = 4 cores; calibrated from
-the linux job's step timings, run 45002302838: checkout 5 s, noble's larger
-apt list 36 s, full `-j4` build 23 s):
+**Measured, final shape (dispatch 45007863936, both jobs green):** the
+jammy work is TWO jobs, each under the 3-minute ceiling:
 
-| segment | estimate |
-|---|---|
-| setup + checkout | ~8 s |
-| apt install (smaller list, no recommends) | ~25–35 s |
-| dpkg-checkbuilddeps | ~2 s |
-| configure + build -j4 (no fcitx5/android/trace) | ~15–20 s |
-| ctest 6 IBus lanes -j4 (D3 wall ≈ slowest lane, ~51 s local) | ~55–65 s |
-| dpkg-buildpackage parallel=4 nocheck | ~25–40 s |
-| contents + stage + upload | ~10 s |
-| **total** | **~140–180 s** |
+| job | steps | wall | ceiling |
+|---|---|---|---|
+| `ibus-jammy` (evaluation) | checkout 2 + apt 21 + checkbuilddeps 0 + build 27 + **6 IBus lanes 50** | **100 s** | 180 s |
+| `ibus-jammy-package` (artefact) | checkout 2 + apt 16 + checkbuilddeps 0 + **dpkg-buildpackage 51** + checks/upload 1 | **71 s** | 180 s |
 
-Tight against 180 s by construction; the authoritative numbers are the
-job's own step timings on the first dispatch run, recorded here when it
-lands. If a segment overruns, the fix is to make that segment cheaper, not
-to raise the ceiling (AGENTS.md) — and not to drop a lane.
+Why two jobs: on identical code the single job's segments summed to
+122–187 s across runs (45006949777: 122 s; 45007358427: cancelled at
+187 s) — apt varied 16–40 s and the package build 30–66 s with runner
+load, so one 180 s job was a coin flip. Each half fits cold with margin;
+no coverage is dropped (the six-lane skip-is-failure gate is unchanged)
+and no ceiling is raised. The ccache/apt-cache machinery tried along the
+way was dropped with the split — each half fits without it.
 
-### The first dispatch run: a 1.5.26-only failure, found and fixed
+**The iteration history, so it is not repeated** (all dispatch runs on
+this branch, issue #316):
+
+| run | finding | fix |
+|---|---|---|
+| 45004403626 | all D3 lanes: `ibus engine hunmin could not be selected` | 1.5.26's CLI runs `setxkbmap` after selecting; runner lacked it → `x11-xkb-utils` |
+| 45004965034 | same error, now with setxkbmap installed | CLI stderr was swallowed; runner now keeps it |
+| 45005242703 | `Cannot open display :95`, engine read-back = hunmin | the bare-Xvfb fallback kept DISPLAY on the reserved nested number with no server; `DISP="$HOST"` |
+| 45005522905 | lanes green (50 s); job cancelled inside dpkg-buildpackage at 95 s | the package build is a second full build; nocheck/parallel=4 already applied |
+| 45006013950 | ccache 0 hits (dpkg flags ≠ CMake flags), cancelled at 80 s | LTO opt-out tried |
+| 45006560489 | still 98 s: googletest/gmock + test binaries built for a suite nocheck never runs | `debian/rules`: BUILD_TESTING=OFF under nocheck; LTO opt-out dropped (artefact keeps noble's flags) |
+| 45006949777 | **122 s, all steps green**; post steps failed (apt cache root-owned lock; hashFiles failed after the package build) | sha-keyed ccache, apt cache dropped |
+| 45007358427 | cancelled at 187 s — runner-load variance, cold cache (cancelled runs never save it) | the split |
+| 45007863936 | **both jobs green: 100 s + 71 s** | final |
+
+### The first dispatch run: a 1.5.26-only failure, found and fixed (superseded by the history table above; kept for the source-level detail)
 
 The first dispatch of the 3-min job (run 45004403626) failed all three D3
 lanes in 0.83 s each at `ibus engine hunmin could not be selected`. Cause,
