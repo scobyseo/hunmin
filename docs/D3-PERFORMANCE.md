@@ -321,3 +321,93 @@ the flake into 20 s of lost time but would also hide a daemon that was never
 going to connect; or gate on a readiness marker the addon writes after the XIM
 server is registered, which changes what the tier waits for rather than what it
 reports.
+## 2026-11-22 — the GTK lane's two clocks replaced by signals (issue #325)
+
+The lane was red every time it ran standalone on this host (48.4–49.0 s, and
+the issue records the same), with three signatures: an **empty first case** of
+a layout group, a **truncated last syllable** of a long case, and **cross-case
+bleed** (`TEXT:안녕ㄴ)` where the case expects `TEXT:안녕`). Two of those were
+clock, and both clocks are gone.
+
+**What was measured, and with what.** A temporary copy of `run-d3.sh` with
+`MARK inject_start/inject_end` lines plus a timestamped copy of
+`gtk-harness.py` (both throwaway, not committed) and `HUNMIN_D3_KEEP=1` for the
+stage:
+
+- The final commit of a long case lands **0.22 s after the injector returns**.
+  That is inside the old 0.8 s read *on an idle host*, which is why the
+  truncation was intermittent rather than constant.
+- A `GtkEntry` prints `TEXT:` per **buffer change**, and the engine commits per
+  syllable/word, so the buffer is legitimately unchanged for **up to 1.12 s in
+  the middle of a sentence**. A quiet-window settle over `TEXT:` therefore
+  cannot be both cheap and correct — the first version of this fix used 150 ms
+  and truncated four of the eight cases at 189–201 ms. Measured, not assumed.
+- Each case's `GtkIMContext` becomes a **new** fcitx5 input context:
+  `Controller1.DebugInfo` reported ids `ab84… → b6a8… → a1ef… → 716c…` with
+  `focus:1` on the new one and `focus:0` on the one before, ~0.12 s after the
+  case marker. A `DebugInfo` call costs **2 ms** (`dbus-send`, 10 calls timed),
+  so a 30 ms poll is free against the 400 ms clock it replaces.
+
+**What replaced them.**
+
+| was | now | resolution measured |
+|---|---|---|
+| `sleep 0.4` before injection | wait for a focused input-context id this run has not consumed (snapshot taken before the entry swap) | 10–124 ms per case, 10–17 ms for 7 of 8 |
+| `sleep 0.8` then read the last `TEXT:` | inject `{Up}` as a barrier; wait for the harness's `KEYSINK:ff52` for it | 8/8 cases, every run |
+| `layout_settle=1.0` for the GTK client | 0.1 s, the XIM value — the per-case gate is what that sleep stood in for | — |
+
+The barrier key is declined by the engine and ignored by a single-line
+`GtkEntry`, so it moves neither the buffer nor the expectation; the harness
+prints `KEYSINK:<keyval>` from an **after**-handler (GTK 3) or from a
+`Gtk.EventControllerKey` (GTK 4 — the event signal does not exist there), which
+is what makes the marker mean "that key has been through the widget's
+`GtkIMContext`". A declined key flushes the composition, so the expectation fold
+now ends with the trace's trailing `preedit`.
+
+**What it costs, measured on this host (16 cores).**
+
+- `engine-d3-gtk3` standalone: **48.7 s → 36.0–36.9 s**. The saving is the
+  clocks, not the harness: 4 × 0.4 s pre-inject, 4 × 1.0 s layout settle and
+  the part of each 0.8 s settle the barrier does not need.
+- Parallel D3 selection at **`-j3`** (`ctest -j3 -L tier-D3 -E
+  engine-d3-gtk4`): **52.36, 52.28, 52.47, 52.21, 52.08 s**, green 5/5 with
+  **zero skips**. Three is the pool's capacity, not a tuning choice — see the
+  finding below.
+- The same selection at `-j16` is **faster (39.7–39.9 s) and wrong**: ctest
+  starts all four display-hungry lanes at once, the reservation pool holds six
+  numbers and each lane claims **two**, so `engine-d3-gtk3` — the lane this
+  section is about — **SKIPS** in 0.45 s. Green, having measured nothing, which
+  is the failure shape this repository keeps recording. `SKIP_RETURN_CODE` is
+  what makes it invisible: ctest still prints "100% tests passed".
+- Standalone: **46 of 48 runs green**. The two reds were *not* this lane's
+  clocks: both were the startup gate of `start_fcitx` (`@server=fcitx` never
+  appeared in 200 polls; `gate-failure.log` carries the full dump, the daemon
+  had logged no `Connecting to X11 display`, and it was alive in `ep_poll`) —
+  the #253 defect, here on a **sequential** run, which widens its scope beyond
+  "one start in eight parallel runs". Recorded, not fixed here.
+
+**What was NOT fixed and must not be read as fixed.**
+
+- **`engine-d3-gtk4` does not run anywhere.** Its text comparison now passes
+  (8/8 cases match, the barrier and the fold are exercised), and then the lane
+  fails its own immodule check: GIO loads *every* GTK immodule listed in the
+  v4 cache to enumerate the extension point, so both `libim-ibus.so` and
+  `libim-fcitx5.so` are mapped, and the harness labels the process `ibus` when
+  any `im-ibus` path is mapped. Reproduced identically on `HEAD`, so it
+  predates this change. The measurable claim under GTK 4 is "`im-fcitx5` is
+  mapped and `im-xim` is not"; the label logic is what is wrong.
+- **The display pool cannot host the D3 tier at `-j16`, and that is a separate
+  defect.** `reserve_display` claims a host server number from `99 98 97` and a
+  Xephyr number from `96 95 94`, i.e. two per lane, so three lanes fit and a
+  fourth exits 77 ("no free X display"). The numbers below 94 belong to
+  `tools/d3-reservation-test.sh`'s own probe, which is why the pool stops
+  there. Not changed here: widening the pool or making the claim *wait* instead
+  of skipping are both plausible and both change what a red run means.
+- **The pre-inject gate is not proven to be what makes the lane green.** With
+  the gate forced off (the old `sleep 0.4`) and the barrier in place, 5 of 5
+  runs passed: the empty-first-case signature did not come back, because the
+  barrier's 3 s bound covers a slow first commit as well. So the gate's case
+  here is what it *is* — a per-case signal that resolves in 10–17 ms, replaces
+  400 ms of clock, and fails with a clear message naming the missing context —
+  and not a demonstrated fix for the recorded red. A run under heavier load
+  than this host could produce would be the measurement that separates them.

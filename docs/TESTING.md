@@ -847,6 +847,25 @@ interface, and the split is what makes them cheap:
   policy, so the word-buffered stream is its oracle (`docs/OPTIONS-MEASURED.md`
   §PLT-8), not a hand-written expectation. The runner refuses a case whose GTK
   module is not `im-ibus.so`, so a green run cannot be GTK's fallback.
+  ⚠️ **Two ibus-host-only defects made every one of these lanes red on the 22.04
+  runner, and neither could be seen on a fcitx5 host** (measured 2026-11-22,
+  issue #325, dispatch run 45026960367 / job 137221976486; both fixed, both
+  pinned by ctest `d3-expectation`, which needs no daemon):
+  1. **The `{F9}` translation was truncated.** `inject_keys` used
+     `${k//\{F9\}/{Control_R}}`, and bash ends that expansion at the `}` of the
+     *replacement*, so `kfs{F9}{Return}` became `kfs{Control_R{Return}` (the
+     injector reported `unknown named key {Control_R{Return}`) and a case with
+     no `{F9}` at all came back with a stray `}` appended — the log's
+     `actual: TEXT:안녕ㄴ}`. The substitution is `sed` now.
+  2. **The expectation dropped the trailing in-flight word.** `expected_text`
+     folded only commits, so a case with no space produced `expected: TEXT:`
+     against `actual: TEXT:안녕ㄴ`, and a long case stopped at its last space.
+     The buffer holds it (a declined key flushes the composition), so the fold
+     appends the trace's final `preedit`; see the GTK section for the same fact
+     from the fcitx5 side.
+  Both are text transformations, which is why the regression test extracts the
+  two shipped functions and drives them against `hunmin-sim` instead of
+  pretending a 22.04 runner is available here.
   - **Layouts without a config backend.** `HUNMIN_IBUS_LAYOUT` is a D3-only
     seam read by `hunmin_ibus_engine_init`; it does not choose a config store on
     the maintainer's behalf (that ruling is still open, `docs/MILESTONES.md`).
@@ -1142,14 +1161,47 @@ event's own modifiers.
   of. Two measured facts behind it: `Gtk.Window.get_focus()` under GTK 4 is
   **never** the `GtkEntry` — it is the `GtkText` the entry is built on, parent
   chain `Text → Entry → Window` — so the check walks up from the focus widget,
-  and asking for the entry directly makes every case time out. And the settle
-  `sleep 0.4` is still required: the marker proves focus, not that the toolkit
-  has finished connecting that entry's `GtkIMContext` to fcitx5, and there is no
-  cheap signal for the second (`fcitx5-remote` answers in 3ms and reports the
-  same thing every case; `fcitx5-diagnose` does report contexts and costs 3.0s a
-  call). Removing it was tried and is not safe: over six GTK 4 runs at zero
-  settle, one case returned `TEXT:dㅏㄴ녕ㄴ` where tier A says `TEXT:안녕ㄴ`, the
-  leading `d` having reached the widget with no engine behind it.
+  and asking for the entry directly makes every case time out. The
+  `sleep 0.4` that used to follow it is gone (issue #325): the marker proves
+  focus, not that the toolkit finished connecting that entry's `GtkIMContext` to
+  fcitx5, and fcitx5 *does* expose that fact — `Controller1.DebugInfo` lists
+  every input context with an id and its focus flag (this is what
+  `fcitx5-diagnose` prints; `fcitx5-remote` is not it, it answers the same thing
+  for every case). Each fresh `GtkEntry`'s context becomes a **new** id, so the
+  runner snapshots the focused ids *before* the entry swap and gates injection
+  on a new one: measured 2026-11-22, every case resolved its own context in
+  10–124 ms where the clock was 400 ms. Injecting before it exists is the
+  measured failure this prevents — an empty first case, or keys landing in the
+  previous case's entry. The IBus host keeps the clock, because it exposes no
+  per-context listing (the `GtkIMContext` object belongs to the client and
+  `org.freedesktop.IBus` has no method that enumerates contexts); that is a
+  gap in the signal, not a preference.
+  ⚠️ **The 0.8 s post-injection read is gone too, and a clock was not what it
+  should have been.** The harness prints `TEXT:` per **buffer change**, and the
+  engine commits per syllable/word, so the buffer is legitimately unchanged for
+  up to ~1.1 s in the middle of a sentence — a quiet-window detector over
+  `TEXT:` therefore exits mid-sentence, which was measured (191–201 ms settles,
+  four of eight cases truncated). The replacement is a **barrier key**: the
+  injection ends with `{Up}`, which the engine declines and a single-line
+  `GtkEntry` ignores (so neither the buffer nor the expectation moves), and the
+  harness prints `KEYSINK:<keyval>` from an after-handler, i.e. only once that
+  key has been through the widget's `GtkIMContext`. `KEYSINK:ff52` for the last
+  injected key is then a fence: every earlier key has been processed, and since
+  the daemon answers a key synchronously, its commit is already in the buffer.
+  GTK 4 has no `key-press-event` signal (event signals became controllers), so
+  the same line comes from a `Gtk.EventControllerKey` there. The falsifier is
+  the recorded history rather than a knob: with the 0.8 s read the case compared
+  truncated buffers, and a settle that reads before the barrier truncates again.
+  The whole change moves `engine-d3-gtk3` from 48.7 s to ~36 s; the parallel
+  selection, the `-j16` skip that hides this lane, and the numbers are in
+  `docs/D3-PERFORMANCE.md` (§2026-11-22).
+  ⚠️ **The expectation gained the trailing in-flight word, and that is a
+  modelling change with a measurement behind it.** A declined key flushes the
+  composition, so the buffer after the barrier holds every commit *and* the
+  trace's final `preedit`: `dkssuds` ends `TEXT:안녕ㄴ`, not `TEXT:안녕`. The
+  fold is now identical on both hosts (the IBus adapter's `--layer word` only
+  delays commits to a boundary, so the total is the same), which is pinned by
+  ctest `d3-expectation`.
   Falsified by construction as well as by comparison: with `make_entry()`
   stubbed out to keep the existing entry, every case that is not first in its
   layout group fails on both GTK versions (4 of 8), and with the reset in place
