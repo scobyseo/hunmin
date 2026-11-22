@@ -37,7 +37,11 @@ Not measurable from inside a GTK client, and therefore NOT claimed here:
 
 HARNESS PROTOCOL (consumed by tests/e2e/run-d3.sh)
   READY              the window is mapped and the entry holds the X focus
-  MODULE:...         which GTK IM module library is mapped into this process
+  MODULE:...         which GTK IM module libraries are mapped into this process
+  IMCTX:<id>         the module id GTK actually SELECTED (fcitx5/ibus/xim/simple),
+                     probed from a focused Gtk.IMMulticontext -- the fact the
+                     runner refuses a run on (see report_module for why the
+                     mapped libraries alone are not it)
   TEXT:<content>     the entry's buffer, on every change and once at the end
   KEYSINK:<keyval>   one line per key press this entry received, printed AFTER
                      the widget and its input context have handled it
@@ -231,15 +235,41 @@ def main():
         state["entry"] = new
         return new
 
-    # Which IM module library is actually mapped into this process. Without
-    # this the harness cannot tell "the host's GTK module declined the space
-    # and did nothing" from "the module was never loaded and GTK handled the
-    # keys itself" -- which would make the run a measurement of GTK's built-in
-    # fallback rather than of the frontend under test. Both fcitx5's and
-    # IBus's modules are recognised: the runner names the one it expects, and
-    # a run with the wrong one is refused (both modules can point at a daemon
-    # on the same bus and still fill the buffer).
+    # Which input method module GTK actually SELECTED, and which immodule
+    # libraries are mapped into this process. Two different facts, and the
+    # runner needs both:
+    #
+    #   IMCTX:<id>  the id a focused Gtk.IMMulticontext resolves to -- "fcitx5",
+    #               "ibus", "xim" or "gtk-im-context-simple". This is the
+    #               selection, so `GTK_IM_MODULE=xim` in the environment is
+    #               refused by it even though the buffer would still fill (the
+    #               measured hazard: XMODIFIERS=@im=fcitx points GTK's xim
+    #               module at the same fcitx5, and every case passes by the XIM
+    #               path the tier exists to distinguish from).
+    #   MODULE:<paths>  every im-(fcitx5|ibus).so mapped into the process. A
+    #               COMPLEMENT, not the answer: under GTK 4 GIO loads every
+    #               immodule in the cache to enumerate the extension point, so
+    #               both libim-ibus.so and libim-fcitx5.so are mapped and a
+    #               "which library won" label is a guess (that guess is what
+    #               made engine-d4-gtk4 fail its own module check, issue #325;
+    #                   MODULE:im-ibus.so=.../libim-ibus.so,.../libim-fcitx5.so
+    #               reproduced identically on a clean HEAD). The expected
+    #               library being mapped AND IMCTX naming it is the strong
+    #               form of the check.
+    # The probe context is focused only long enough to read the id, then
+    # focused out and dropped: focusing it is a GTK-level fact and does not
+    # move the X focus, and leaving it focused would leave a stray input
+    # context on the daemon's list for the rest of the run.
     def report_module():
+        ctx_id = "probe-error"
+        try:
+            probe = Gtk.IMMulticontext()
+            probe.focus_in()
+            ctx_id = probe.get_context_id() or "none"
+            probe.focus_out()
+            del probe
+        except Exception as exc:  # noqa: BLE001 - reported, never fatal
+            ctx_id = "probe-error:%s" % exc
         mapped = []
         try:
             with open("/proc/self/maps") as fh:
@@ -251,8 +281,8 @@ def main():
                             mapped.append(p)
         except OSError as exc:
             out("MODULE-ERROR: %s" % exc)
-        label = "im-ibus.so" if any("im-ibus" in p for p in mapped) else "im-fcitx5.so"
-        out("MODULE:" + (label + "=" + ",".join(mapped) if mapped else "none"))
+        out("IMCTX:" + ctx_id)
+        out("MODULE:" + (",".join(mapped) if mapped else "none"))
         out("GTK_IM_MODULE:" + os.environ.get("GTK_IM_MODULE", "<unset>"))
 
     if gtk4:

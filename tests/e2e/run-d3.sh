@@ -104,8 +104,8 @@ if [ "$CLIENT" = "gtk" ] || { [ "$CLIENT" = "candidate" ] && [ "$IM_HOST" = "ibu
     # buffer still fills (both point at a daemon on the same session bus) and
     # the run would measure nothing about the frontend it claims to.
     case "$IM_HOST" in
-        ibus) IMMODULE_PATTERN='*im-ibus.so'; IMMODULE_NAME=ibus; IMMODULE_GREP='im-ibus.so' ;;
-        *)    IMMODULE_PATTERN='*im-fcitx5.so'; IMMODULE_NAME=fcitx5; IMMODULE_GREP='im-fcitx5.so' ;;
+        ibus) IMMODULE_PATTERN='*im-ibus.so'; IMMODULE_NAME=ibus; IMMODULE_GREP='im-ibus.so'; IMCTX_EXPECT=ibus ;;
+        *)    IMMODULE_PATTERN='*im-fcitx5.so'; IMMODULE_NAME=fcitx5; IMMODULE_GREP='im-fcitx5.so'; IMCTX_EXPECT=fcitx5 ;;
     esac
     ls $GTK_IMMODULES/$IMMODULE_PATTERN >/dev/null 2>&1 || {
         echo "SKIP: $IMMODULE_NAME's GTK${GTK_VER%%.*} input method module not installed"
@@ -224,6 +224,10 @@ fail=0
 # never reused, and the stale ones are exactly what must not be re-accepted.
 IC_SEEN="$STAGE/ic-seen"
 : >"$IC_SEEN"
+# How many start_fcitx attempts SUCCEEDED in this run. The retry in
+# start_fcitx is gated on this being >= 1 (a RESTART), which is the shape both
+# recorded #253 failures had; a first-start failure never retried.
+FCITX_STARTS_OK=0
 
 XEPHYR_PID=""
 Xephyr=""
@@ -355,13 +359,23 @@ reserve_display() { # $1 = candidates, highest preference first; sets RES_DISP
 }
 # Not $(reserve_display ...): command substitution runs in a subshell, so the
 # RESERVED bookkeeping would be discarded and every reservation would leak.
-reserve_display "99 98 97" || {
+#
+# POOL SIZE, AND WHY IT IS FIVE LANES. Each D3 lane claims TWO numbers (a host
+# server and a Xephyr), and `ctest -j16 -L tier-D3` starts FIVE display-hungry
+# lanes at once (x11, gtk3, gtk4, edit, candidate), so the pools below hold five
+# numbers each: 99..90. With the old 3+3 pool the fourth lane exit-77'd in
+# 0.45 s and ctest printed "100% tests passed" with the lane SKIPPED -- the
+# green-having-measured-nothing shape this tier exists to prevent, measured
+# 2026-11-23 (issue #325). d3-reservation-test.sh and d3-gate-failure-test.sh
+# claim below 90 for the same reason this comment exists: their numbers must
+# stay outside these pools or a tool's cleanup deletes a live tier claim.
+reserve_display "99 98 97 96 95" || {
     echo "SKIP: no free X display for the host server"
     fail=0
     exit 77
 }
 HOST="$RES_DISP"
-reserve_display "96 95 94" || {
+reserve_display "94 93 92 91 90" || {
     echo "SKIP: no free X display for Xephyr"
     fail=0
     exit 77
@@ -542,9 +556,10 @@ fi
 # GTK selects its input method module from GTK_IM_MODULE, not from XMODIFIERS.
 # Without this a GTK client loads its own built-in fallback and the run would
 # measure GTK's default key handling rather than fcitx5's GTK frontend --
-# which is exactly the thing being measured. The harness prints MODULE: lines
-# naming the im-fcitx5.so mapped into its process, and run_case REFUSES a run
-# where it is absent, so this cannot pass while measuring another input method.
+# which is exactly the thing being measured. The harness prints IMCTX:/MODULE:
+# lines naming the module id GTK SELECTED and the immodules mapped into its
+# process, and run_case REFUSES a run where the selection is not the expected
+# module, so this cannot pass while measuring another input method.
 if [ "$CLIENT" = "gtk" ] || { [ "$CLIENT" = "candidate" ] && [ "$IM_HOST" = "ibus" ]; }; then
     # GTK selects its IM module from GTK_IM_MODULE, not XMODIFIERS. The module
     # must be the HOST's or the run measures the wrong frontend (the harness
@@ -699,101 +714,132 @@ Layout=$layout
 0=Default
 EOF
     }
-    rewrite_profile_layout "$1"
-    local gate_layout=$1
-    fcitx5 >"$STAGE/fcitx5.log" 2>&1 &
-    FCITX_PID=$!
-    # Two gates, not one, and the order matters. The XIM server registration
-    # is necessary but NOT sufficient: the xim addon loads early and hunmin
-    # loads a second later (measured 2026-10-03: "Loaded addon xim" at t+0.02s,
-    # "Loaded addon hunmin" at t+1.08s). Returning as soon as @server=fcitx
-    # appears let the first keys be injected while no input method engine was
-    # loaded, so they were forwarded to the server and dropped: the case failed
-    # with an empty commit stream and the loss was invisible in the output.
-    #
-    # The hunmin addon must be loaded before any key is injected. The xim
-    # addon loads early and hunmin loads a second later (measured 2026-10-03:
-    # "Loaded addon xim" at t+0.02s, "Loaded addon hunmin" at t+1.08s), and
-    # returning as soon as @server=fcitx appears let the first keys be
-    # injected while no engine was loaded: they were forwarded to the server
-    # and dropped, and the case failed with an empty commit stream.
-    #
-    # Do NOT gate on fcitx5-remote answering. Measured here: it reports state
-    # 0 and an empty current-IM name for this whole run, including long after
-    # fcitx5 owns its bus name and fcitx5-diagnose reports a live InputContext.
-    # Gating on it makes the test fail to start for a reason unrelated to the
-    # engine, so its report is not treated as a readiness signal here.
-    # The gate ALSO records when each of its three facts becomes true, not only
-    # that they eventually are. Issue #253: one start in eight parallel runs had
-    # "Loaded addon hunmin" at +1.09 s and no @server=fcitx for the rest of the
-    # 19 s gate, and the shipped poll kept nothing that said which half was
-    # missing -- the log's tail did not even carry "Loaded addon xim". Timing
-    # the facts costs three greps and one xprop per 0.1 s poll, and the result
-    # is appended to $STAGE/gate.log on every start, so a passing run's timings
-    # are readable afterwards (HUNMIN_D3_KEEP=1) instead of needing an
-    # instrumented copy of this script.
-    local start_us=${EPOCHREALTIME/./}
-    local now_us xim_us="" hunmin_us="" prop_us="" polls=0 xprop_ok=0 xprop_bad=0
-    local xprop_out
-    for _ in $(seq 1 200); do
-        polls=$((polls + 1))
-        now_us=${EPOCHREALTIME/./}
-        # Named separately because the xim addon is what publishes
-        # @server=fcitx, and the gate does not otherwise ask whether it loaded
-        # at all. Recorded, never gated on: a new condition would change what
-        # the tier waits for.
-        if [ -z "$xim_us" ] &&
-            grep -q 'Loaded addon xim' "$STAGE/fcitx5.log" 2>/dev/null; then
-            xim_us=$now_us
-        fi
-        if [ -z "$hunmin_us" ] &&
-            grep -q 'Loaded addon hunmin' "$STAGE/fcitx5.log" 2>/dev/null; then
-            hunmin_us=$now_us
-        fi
-        # One xprop per poll, kept: whether the GATE could reach the display at
-        # all is the fact that separates "the server never published" from "the
-        # server was unreachable from here too", and it is otherwise thrown
-        # away with stderr.
-        if xprop_out=$(xprop -root -display "$DISP" 2>/dev/null); then
-            xprop_ok=$((xprop_ok + 1))
-            if [ -z "$prop_us" ] && printf '%s' "$xprop_out" | grep -q '@server=fcitx'; then
-                prop_us=$now_us
+    local _attempt gate_layout start_us now_us xim_us hunmin_us prop_us \
+        polls xprop_ok xprop_bad xprop_out
+    for _attempt in 1 2; do
+        local gate_layout=$1
+        start_us=${EPOCHREALTIME/./}
+        now_us="" xim_us="" hunmin_us="" prop_us="" polls=0 xprop_ok=0 xprop_bad=0
+        rewrite_profile_layout "$1"
+        gate_layout=$1
+        fcitx5 >"$STAGE/fcitx5.log" 2>&1 &
+        FCITX_PID=$!
+        # Two gates, not one, and the order matters. The XIM server registration
+        # is necessary but NOT sufficient: the xim addon loads early and hunmin
+        # loads a second later (measured 2026-10-03: "Loaded addon xim" at t+0.02s,
+        # "Loaded addon hunmin" at t+1.08s). Returning as soon as @server=fcitx
+        # appears let the first keys be injected while no input method engine was
+        # loaded, so they were forwarded to the server and dropped: the case failed
+        # with an empty commit stream and the loss was invisible in the output.
+        #
+        # The hunmin addon must be loaded before any key is injected. The xim
+        # addon loads early and hunmin loads a second later (measured 2026-10-03:
+        # "Loaded addon xim" at t+0.02s, "Loaded addon hunmin" at t+1.08s), and
+        # returning as soon as @server=fcitx appears let the first keys be
+        # injected while no engine was loaded: they were forwarded to the server
+        # and dropped, and the case failed with an empty commit stream.
+        #
+        # Do NOT gate on fcitx5-remote answering. Measured here: it reports state
+        # 0 and an empty current-IM name for this whole run, including long after
+        # fcitx5 owns its bus name and fcitx5-diagnose reports a live InputContext.
+        # Gating on it makes the test fail to start for a reason unrelated to the
+        # engine, so its report is not treated as a readiness signal here.
+        # The gate ALSO records when each of its three facts becomes true, not only
+        # that they eventually are. Issue #253: one start in eight parallel runs had
+        # "Loaded addon hunmin" at +1.09 s and no @server=fcitx for the rest of the
+        # 19 s gate, and the shipped poll kept nothing that said which half was
+        # missing -- the log's tail did not even carry "Loaded addon xim". Timing
+        # the facts costs three greps and one xprop per 0.1 s poll, and the result
+        # is appended to $STAGE/gate.log on every start, so a passing run's timings
+        # are readable afterwards (HUNMIN_D3_KEEP=1) instead of needing an
+        # instrumented copy of this script.
+        for _ in $(seq 1 200); do
+            polls=$((polls + 1))
+            now_us=${EPOCHREALTIME/./}
+            # Named separately because the xim addon is what publishes
+            # @server=fcitx, and the gate does not otherwise ask whether it loaded
+            # at all. Recorded, never gated on: a new condition would change what
+            # the tier waits for.
+            if [ -z "$xim_us" ] &&
+                grep -q 'Loaded addon xim' "$STAGE/fcitx5.log" 2>/dev/null; then
+                xim_us=$now_us
             fi
-        else
-            xprop_bad=$((xprop_bad + 1))
-        fi
-        if [ -n "$prop_us" ] && [ -n "$hunmin_us" ]; then
-            printf 'layout=%s prop=%s xim_addon=%s hunmin=%s polls=%s\n' \
-                "$gate_layout" \
-                "$(gate_ms "$prop_us" "$start_us")" \
-                "$(gate_ms "$xim_us" "$start_us")" \
-                "$(gate_ms "$hunmin_us" "$start_us")" \
-                "$polls" >>"$STAGE/gate.log"
-            # Activate the hunmin IM: -s takes the IM name and switches to it.
-            # (-o is a bare flag meaning "activate the application"; passing
-            # it an imname argument silently does nothing but activate, which
-            # left the context on keyboard-us and every key passing through raw.)
-            # NOTE: no `fcitx5-remote -s hunmin` here. Measured: it returns
-            # rc=0 (success) and yet the active IM stays keyboard-us, because
-            # Instance::setCurrentInputMethod looks the name up in the current
-            # group's list and the context has none focused at this point. It
-            # looks like it works and is not doing anything; DefaultIM in the
-            # profile above is what actually selects the engine.
-            echo "Activating the input method via fcitx5-remote -o..."
-            fcitx5-remote -o 2>&1 | tee -a "$STAGE/fcitx5.log"
-            fcitx5-remote 2>&1 | tee -a "$STAGE/fcitx5.log"
-            # The gate above already proves readiness: measured 2026-11-04, the
-            # root-window @server=fcitx property and "Loaded addon xim" become
-            # true in the same poll at 1.20-1.35 s (24 starts), 1.44-1.76 s under
-            # 16 CPU hogs, and "Loaded addon hunmin" is there 0.1 s earlier. So
-            # this is a settling allowance, not a wait for a signal -- 0.1 s
-            # instead of 0.3 s, which the post-gate dead time used to spend
-            # three times a tier (docs/D3-PERFORMANCE.md).
-            sleep 0.1
-            return 0
-        fi
+            if [ -z "$hunmin_us" ] &&
+                grep -q 'Loaded addon hunmin' "$STAGE/fcitx5.log" 2>/dev/null; then
+                hunmin_us=$now_us
+            fi
+            # One xprop per poll, kept: whether the GATE could reach the display at
+            # all is the fact that separates "the server never published" from "the
+            # server was unreachable from here too", and it is otherwise thrown
+            # away with stderr.
+            if xprop_out=$(xprop -root -display "$DISP" 2>/dev/null); then
+                xprop_ok=$((xprop_ok + 1))
+                if [ -z "$prop_us" ] && printf '%s' "$xprop_out" | grep -q '@server=fcitx'; then
+                    prop_us=$now_us
+                fi
+            else
+                xprop_bad=$((xprop_bad + 1))
+            fi
+            if [ -n "$prop_us" ] && [ -n "$hunmin_us" ]; then
+                printf 'layout=%s prop=%s xim_addon=%s hunmin=%s polls=%s\n' \
+                    "$gate_layout" \
+                    "$(gate_ms "$prop_us" "$start_us")" \
+                    "$(gate_ms "$xim_us" "$start_us")" \
+                    "$(gate_ms "$hunmin_us" "$start_us")" \
+                    "$polls" >>"$STAGE/gate.log"
+                FCITX_STARTS_OK=$((FCITX_STARTS_OK + 1))
+                # Activate the hunmin IM: -s takes the IM name and switches to it.
+                # (-o is a bare flag meaning "activate the application"; passing
+                # it an imname argument silently does nothing but activate, which
+                # left the context on keyboard-us and every key passing through raw.)
+                # NOTE: no `fcitx5-remote -s hunmin` here. Measured: it returns
+                # rc=0 (success) and yet the active IM stays keyboard-us, because
+                # Instance::setCurrentInputMethod looks the name up in the current
+                # group's list and the context has none focused at this point. It
+                # looks like it works and is not doing anything; DefaultIM in the
+                # profile above is what actually selects the engine.
+                echo "Activating the input method via fcitx5-remote -o..."
+                fcitx5-remote -o 2>&1 | tee -a "$STAGE/fcitx5.log"
+                fcitx5-remote 2>&1 | tee -a "$STAGE/fcitx5.log"
+                # The gate above already proves readiness: measured 2026-11-04, the
+                # root-window @server=fcitx property and "Loaded addon xim" become
+                # true in the same poll at 1.20-1.35 s (24 starts), 1.44-1.76 s under
+                # 16 CPU hogs, and "Loaded addon hunmin" is there 0.1 s earlier. So
+                # this is a settling allowance, not a wait for a signal -- 0.1 s
+                # instead of 0.3 s, which the post-gate dead time used to spend
+                # three times a tier (docs/D3-PERFORMANCE.md).
+                sleep 0.1
+                return 0
+            fi
         kill -0 "$FCITX_PID" 2>/dev/null || break
         sleep 0.1
+    done
+    # ONE retry, and only for the recorded signature (issue #325, the #253
+    # shape now seen on a SEQUENTIAL run too): the daemon is ALIVE, this is a
+    # RESTART (FCITX_STARTS_OK >= 1 -- both recorded occurrences were later
+    # starts in a stage that had already served one or three good ones, and a
+    # first start failing here means something genuinely broken that a second
+    # start will not fix), and the log carries no "Connecting to X11 display"
+    # line -- a failed X connection is silent in fcitx5 (measured 2026-11-05),
+    # so a daemon without that line never had a display to register on. In
+    # that exact case kill it and start once more: the alternative was a red
+    # tier for a daemon-side flake the tier cannot influence. Anything else
+    # (first start, dead daemon, an X connection that opened and failed to
+    # publish) falls through to the evidence dump below unchanged.
+    if [ "${_attempt:-1}" -eq 1 ] && [ "${FCITX_STARTS_OK:-0}" -ge 1 ] &&
+        kill -0 "$FCITX_PID" 2>/dev/null &&
+        ! grep -q 'Connecting to X11 display' "$STAGE/fcitx5.log" 2>/dev/null; then
+        mv "$STAGE/fcitx5.log" "$STAGE/fcitx5.log.attempt1" 2>/dev/null || true
+        printf 'retry layout=%s restart=%s: daemon alive, no X connection\n' \
+            "$gate_layout" "$FCITX_STARTS_OK" >>"$STAGE/gate.log"
+        echo "start_fcitx: restart #$FCITX_STARTS_OK never opened an X connection; retrying once (issue #325)"
+        kill "$FCITX_PID" 2>/dev/null
+        wait "$FCITX_PID" 2>/dev/null
+        FCITX_PID=""
+        sleep 0.3
+        continue
+    fi
+    break
     done
     # The gate now names WHICH half was missing, because "did not come up" is
     # the wrong sentence for a daemon that is running and serving (#253), and
@@ -1485,11 +1531,23 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
         # fills with the right text by the XIM path this measurement exists to
         # distinguish from the GTK one. A result alone cannot tell the two
         # apart; this check can.
-        if ! grep -q "^MODULE:$IMMODULE_GREP=" "$STAGE/commits.log" 2>/dev/null; then
-            echo "FAIL [$layout/$keys]: $IMMODULE_NAME's GTK IM module is not loaded;"
+        #
+        # TWO facts, and both must hold (issue #325):
+        #   IMCTX:$IMCTX_EXPECT   the module id GTK actually SELECTED, probed
+        #                          from a focused Gtk.IMMulticontext by the
+        #                          harness. This is the fact that refuses
+        #                          GTK_IM_MODULE=xim.
+        #   MODULE:...im-...so    the expected module library is mapped. Under
+        #                          GTK 4 GIO maps EVERY immodule in the cache
+        #                          (both im-ibus and im-fcitx5), so a "winner"
+        #                          label was a guess -- the label is gone and
+        #                          the expected path merely has to be present.
+        if ! grep -q "^IMCTX:$IMCTX_EXPECT" "$STAGE/commits.log" 2>/dev/null ||
+            ! grep -E '^MODULE:' "$STAGE/commits.log" 2>/dev/null | grep -q "$IMMODULE_GREP"; then
+            echo "FAIL [$layout/$keys]: $IMMODULE_NAME's GTK IM module is not selected;"
             echo "  the buffer came from some other input method, so this run"
             echo "  is not a GTK-frontend measurement."
-            grep -E '^(MODULE|GTK_IM_MODULE):' "$STAGE/commits.log" 2>/dev/null |
+            grep -E '^(MODULE|GTK_IM_MODULE|IMCTX):' "$STAGE/commits.log" 2>/dev/null |
                 sed 's/^/  /'
             fail=1
             return
@@ -1514,7 +1572,7 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
         # too -- a green run that never loaded im-fcitx5.so would otherwise
         # read as a measurement of fcitx5 when it measured GTK's fallback.
         if [ "$CLIENT" = "gtk" ]; then
-            grep -E '^(MODULE|GTK_IM_MODULE):' "$STAGE/commits.log" |
+            grep -E '^(MODULE|GTK_IM_MODULE|IMCTX):' "$STAGE/commits.log" |
                 sed 's/^/  /'
         fi
     fi
@@ -1649,8 +1707,8 @@ run_candidate_case() { # $1=layout $2=keys $3=expectation text or empty
         # expectation into the same shape (fold_stream_to_text).
         actual=$(grep -E '^TEXT:' "$STAGE/commits.log" | tail -1 || true)
         if [ -z "$actual" ]; then actual="TEXT:"; fi
-        if ! grep -q "^MODULE:$IMMODULE_GREP=" "$STAGE/commits.log" 2>/dev/null; then
-            echo "FAIL [candidate/$layout/$keys]: $IMMODULE_NAME's GTK IM module is not loaded"
+        if ! grep -q "^IMCTX:$IMCTX_EXPECT" "$STAGE/commits.log" 2>/dev/null; then
+            echo "FAIL [candidate/$layout/$keys]: $IMMODULE_NAME's GTK IM module is not selected"
             fail=1
             return
         fi
@@ -1752,8 +1810,8 @@ run_edit_handwritten_case() { # $1=layout $2=keys $3=expected transcript
         actual=$(grep -E '^TEXT:' "$STAGE/commits.log" | tail -1 || true)
         if [ -z "$actual" ] && [ "$IM_HOST" = "ibus" ]; then actual="TEXT:"; fi
         expect=$(fold_stream_to_text "$expect")
-        if ! grep -q "^MODULE:$IMMODULE_GREP=" "$STAGE/commits.log" 2>/dev/null; then
-            echo "FAIL [edit/$layout/$keys]: $IMMODULE_NAME's GTK IM module is not loaded"
+        if ! grep -q "^IMCTX:$IMCTX_EXPECT" "$STAGE/commits.log" 2>/dev/null; then
+            echo "FAIL [edit/$layout/$keys]: $IMMODULE_NAME's GTK IM module is not selected"
             fail=1
             kill -TERM "$hpid" 2>/dev/null
             wait "$hpid" 2>/dev/null

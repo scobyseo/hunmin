@@ -67,9 +67,16 @@ bool python_can_import_gi() {
 }
 
 bool gtk_im_module_present(const std::string& gtk_ver) {
+    // GTK 4 names its immodules libim-*.so; GTK 3 uses im-*.so (both are on
+    // this host, measured). One pattern per version: a shared "*im-fcitx5.so"
+    // would also match, but spelling the real names is what makes a RENAME
+    // fail here rather than silently skip the lane. The GTK 3 pattern was the
+    // only one before (issue #325), so engine-d3-gtk4 always skipped at this
+    // check on hosts that DO ship the module -- a lane that read as "not
+    // installed" while it was.
     std::string pattern =
         gtk_ver == "4.0"
-            ? "/usr/lib/*/gtk-4.0/*/immodules/im-fcitx5.so"
+            ? "/usr/lib/*/gtk-4.0/*/immodules/libim-fcitx5.so"
             : "/usr/lib/*/gtk-3.0/*/immodules/im-fcitx5.so";
     std::string cmd = "ls " + pattern + " >/dev/null 2>&1";
     return std::system(cmd.c_str()) == 0;
