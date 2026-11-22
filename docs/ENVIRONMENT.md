@@ -1040,7 +1040,9 @@ configure that ran before the prefix existed needs `cmake -U "GTK3_*"`.
 **Running it needs `GDK_BACKEND=x11`.** With `DISPLAY=:98` set and a Wayland
 session present, GDK picks Wayland and the window never maps — the same trap
 `docs/FCITX5-ADDON-NOTES.md` §8 records for the harness. Measured: without it
-`xwininfo -root -children` lists nothing; with it, `"hunmin 설정" 460x521`.
+`xwininfo -root -children` lists nothing; with it, `"hunmin 설정"` appears with a size.
+(The window is 360×352 as of 2026-11-22; the number moves with the content, which is
+why only its presence is asserted here.)
 
 A host that installs `libgtk-3-dev` needs none of this; the CMake target is
 optional (`pkg_check_modules(GTK3 QUIET …)`), so a host without it still builds the

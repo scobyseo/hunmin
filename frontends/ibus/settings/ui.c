@@ -151,6 +151,7 @@ static void refresh_keys(hunmin_ibus_ui *a) {
     g_list_free(children);
 
     gsize n = 0;
+    int bad = 0;
     char **keys = stored_keys(a, &n);
     for (gsize i = 0; i < n; ++i) {
         /* Each entry is validated as it is SHOWN, so a value that would never
@@ -164,6 +165,7 @@ static void refresh_keys(hunmin_ibus_ui *a) {
         gtk_widget_set_halign(label, GTK_ALIGN_START);
         gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
         if (!ok) {
+            ++bad;
             GtkWidget *why = gtk_label_new(reason ? reason : "invalid");
             gtk_style_context_add_class(gtk_widget_get_style_context(why), "dim-label");
             gtk_box_pack_start(GTK_BOX(hbox), why, FALSE, FALSE, 0);
@@ -177,6 +179,16 @@ static void refresh_keys(hunmin_ibus_ui *a) {
         gtk_widget_show_all(row);
     }
     g_strfreev(keys);
+
+    if (!a->status) return;
+    if (bad > 0) {
+        char *text = g_strdup_printf("%d개 항목은 사용할 수 없어 무시됩니다.", bad);
+        gtk_label_set_text(GTK_LABEL(a->status), text);
+        g_free(text);
+        gtk_widget_set_visible(a->status, TRUE);
+    } else {
+        gtk_widget_set_visible(a->status, FALSE);
+    }
 }
 
 /* Capture: the user presses a key and the gesture becomes the entry. TSF15's
@@ -272,7 +284,12 @@ static GtkWidget *labelled_row(GtkGrid *grid, int row, const char *text, GtkWidg
 static void build_window(hunmin_ibus_ui *a) {
     a->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(a->window), "hunmin 설정");
-    gtk_window_set_default_size(GTK_WINDOW(a->window), 460, -1);
+    /* Tall content is what makes a settings window feel heavy: the five rows fit
+     * in a small window, and an explanation belongs on the control as a tooltip
+     * rather than as a paragraph beside it. Only a STATE keeps a visible note
+     * (the autoswitch row when its data is absent), because that one is a fact
+     * the person cannot discover by hovering. */
+    gtk_window_set_default_size(GTK_WINDOW(a->window), 360, -1);
     g_signal_connect(a->window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
     GtkWidget *outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
@@ -294,8 +311,9 @@ static void build_window(hunmin_ibus_ui *a) {
     a->commit_combo = gtk_combo_box_text_new();
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(a->commit_combo), "word", "단어 단위");
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(a->commit_combo), "syllable", "음절 단위");
-    labelled_row(GTK_GRID(grid), 2, "커밋 단위", a->commit_combo,
-                 "두 값의 차이는 언제 전달되는가이고, 전달되는 글자는 같습니다.");
+    gtk_widget_set_tooltip_text(a->commit_combo,
+                                "두 값의 차이는 언제 전달되는가이고, 전달되는 글자는 같습니다.");
+    labelled_row(GTK_GRID(grid), 2, "커밋 단위", a->commit_combo, NULL);
 
     /* Row 4: the automatic switch. Its value is a REQUEST: the engine refuses ON
      * without the English word list (B3), and the schema's description says so —
@@ -311,16 +329,29 @@ static void build_window(hunmin_ibus_ui *a) {
     a->keys_list = gtk_list_box_new();
     gtk_list_box_set_selection_mode(GTK_LIST_BOX(a->keys_list), GTK_SELECTION_NONE);
     GtkWidget *keys_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-    gtk_box_pack_start(GTK_BOX(keys_box), a->keys_list, FALSE, FALSE, 0);
+    /* The list is capped, not the window: a person may add several keys, and a
+     * window that grows with them moves the buttons out from under the pointer. */
+    GtkWidget *keys_view = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(keys_view), GTK_POLICY_NEVER,
+                                   GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(keys_view), 96);
+    gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(keys_view), TRUE);
+    gtk_widget_set_size_request(keys_view, -1, 72);
+    gtk_container_add(GTK_CONTAINER(keys_view), a->keys_list);
+    gtk_box_pack_start(GTK_BOX(keys_box), keys_view, TRUE, TRUE, 0);
     GtkWidget *add = gtk_button_new_with_label("키 추가");
     g_signal_connect(add, "clicked", G_CALLBACK(on_add_clicked), a);
     gtk_widget_set_halign(add, GTK_ALIGN_START);
     gtk_box_pack_start(GTK_BOX(keys_box), add, FALSE, FALSE, 0);
-    labelled_row(GTK_GRID(grid), 6, "한/영 키", keys_box,
-                 "한 물리 키가 배열에 따라 다른 키심으로 오므로 보통 두 개가 필요합니다"
-                 " (us: Alt_R, kr: Hangul). 이 키들은 IBus의 전역 트리거에서도 빠집니다.");
+    gtk_widget_set_tooltip_text(keys_box,
+                                "한 물리 키가 배열에 따라 다른 키심으로 오므로 보통 두 개가 필요합니다"
+                                " (us: Alt_R, kr: Hangul). 여기 있는 키는 IBus의 전역 트리거에서도"
+                                " 빠집니다.");
+    labelled_row(GTK_GRID(grid), 6, "한/영 키", keys_box, NULL);
 
     a->status = gtk_label_new("");
+    gtk_widget_set_no_show_all(a->status, TRUE);
+    gtk_widget_set_visible(a->status, FALSE);
     gtk_widget_set_halign(a->status, GTK_ALIGN_START);
     gtk_label_set_line_wrap(GTK_LABEL(a->status), TRUE);
     gtk_box_pack_start(GTK_BOX(outer), a->status, FALSE, FALSE, 0);
