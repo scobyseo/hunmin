@@ -623,12 +623,20 @@ start_ibus() { # $1 = layout
         return 1
     fi
     # -s takes the engine name. Unlike fcitx5-remote -o, this one really does
-    # select it; verify rather than trust the exit code.
-    ibus engine hunmin >/dev/null 2>&1 || {
+    # select it; verify rather than trust the exit code. The CLI's own stderr
+    # is kept on failure: 1.5.26's `ibus engine` also runs setxkbmap after the
+    # selection (tools/main.vala), and "could not be selected" alone cannot
+    # tell the selection apart from that side effect (issue #316, measured on
+    # the first jammy dispatch runs).
+    local sel_out
+    if ! sel_out=$(ibus engine hunmin 2>&1); then
         echo "ERROR: ibus engine hunmin could not be selected"
+        printf '%s\n' "$sel_out" | sed 's/^/    cli: /'
+        echo "  read-back: $(ibus engine 2>&1 | head -2)"
+        echo "  setxkbmap: $(command -v setxkbmap || echo MISSING)"
         tail -20 "$STAGE/ibus-daemon.log" 2>/dev/null | sed 's/^/    /'
         return 1
-    }
+    fi
     printf 'ibus: layout=%s registered in %d ms\n' \
         "$layout" "$(( (now_us - start_us) / 1000 ))" >>"$STAGE/gate.log"
     return 0
