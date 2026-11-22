@@ -860,11 +860,22 @@ jobs:
       - name: Install build and D3 deps
         run: |
           sudo apt-get update
+          # x11-xkb-utils (setxkbmap): IBus 1.5.26's `ibus engine <name>` runs
+          # `setxkbmap -layout <engine layout>` after selecting the engine
+          # (tools/main.vala get_set_engine -> exec_setxkbmap, gated on the
+          # GSettings use-system-keyboard-layout default of false). Without
+          # setxkbmap the selection command exits nonzero even though the
+          # engine WAS selected -- measured on the first dispatch run of this
+          # job (issue #316): all three D3 lanes failed at "ibus engine hunmin
+          # could not be selected". 1.5.34 on the 26.04 host has setxkbmap
+          # installed, which is why local runs never saw it. The portal
+          # activation error in the same log is non-fatal (bus/server.c only
+          # prints it) and is not the cause.
           sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config python3 \
             build-essential debhelper fakeroot \
             libhangul-dev libibus-1.0-dev libx11-dev libxcb1-dev libxkbcommon-dev \
             python3-gi gir1.2-gtk-3.0 python3-xlib \
-            xvfb x11-utils xauth dbus ibus ibus-gtk3
+            xvfb x11-utils x11-xkb-utils xauth dbus ibus ibus-gtk3
       # The ruling says dpkg-checkbuilddeps on jammy must succeed with only
       # those dependencies. Run it WITHOUT -d so the claim is actually tested;
       # the deb job needs -d only because fcitx5 there is a source build.

@@ -682,3 +682,19 @@ Tight against 180 s by construction; the authoritative numbers are the
 job's own step timings on the first dispatch run, recorded here when it
 lands. If a segment overruns, the fix is to make that segment cheaper, not
 to raise the ceiling (AGENTS.md) — and not to drop a lane.
+
+### The first dispatch run: a 1.5.26-only failure, found and fixed
+
+The first dispatch of the 3-min job (run 45004403626) failed all three D3
+lanes in 0.83 s each at `ibus engine hunmin could not be selected`. Cause,
+from the 1.5.26 source (`tools/main.vala get_set_engine`): after selecting
+the engine the CLI runs `setxkbmap -layout us` (our component's declared
+layout), gated on the GSettings `use-system-keyboard-layout` default of
+false. The runner image had no `setxkbmap` (x11-xkb-utils), so the command
+exited nonzero although the engine WAS selected. The 26.04 host has
+setxkbmap installed, which is why every local run passed. The
+`org.freedesktop.portal.IBus` activation error in the same log is non-fatal
+(`bus/server.c` only prints it) — a red herring, recorded so it is not
+chased. Fix: `x11-xkb-utils` in the job's apt list. This failure predates
+issue #316's lanes: the original `engine-d3-ibus` would have hit it on the
+first nightly too — the job had never run in CI before this dispatch.
