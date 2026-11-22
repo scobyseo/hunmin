@@ -62,13 +62,11 @@ static void sink_preedit(void *user, const char *text, int cursor) {
 static void sink_candidates(void *user, int open) {
     IBusEngine *engine = IBUS_ENGINE(user);
     HunminIbusEngine *self = HUNMIN_IBUS_ENGINE(user);
-    if (!open) {
-        ibus_engine_hide_lookup_table(engine);
-        return;
-    }
-    const int count = hunmin_state_candidate_count(self->state);
+    const int count = open ? hunmin_state_candidate_count(self->state) : 0;
     if (count <= 0) {
         ibus_engine_hide_lookup_table(engine);
+        /* FE16: the gloss goes away with the list. */
+        ibus_engine_update_auxiliary_text(engine, ibus_text_new_from_string(""), FALSE);
         return;
     }
     /* cursor_pos is the index in the whole table, not on the page:
@@ -82,6 +80,15 @@ static void sink_candidates(void *user, int open) {
             table, ibus_text_new_from_string(hunmin_state_candidate_text(self->state, i)));
     ibus_engine_update_lookup_table(engine, table, TRUE);
     ibus_engine_show_lookup_table(engine);
+    /* FE16, option A (issue #319): the highlighted candidate's gloss rides
+     * the panel's auxiliary label -- verified drawn at the 1.5.26 floor
+     * (candidatepanel.c m_aux_label). This sink fires on every cursor
+     * change, so the gloss tracks the cursor; the candidate TEXT stays bare
+     * Hanja. An empty detail hides the label. */
+    const char *detail =
+        hunmin_state_candidate_detail(self->state, hunmin_state_candidate_cursor(self->state));
+    ibus_engine_update_auxiliary_text(engine, ibus_text_new_from_string(detail),
+                                      *detail ? TRUE : FALSE);
 }
 
 /* --------------------------------------------------------- key translation */

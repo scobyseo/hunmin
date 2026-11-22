@@ -53,6 +53,7 @@ struct Captured {
     std::vector<std::string> commits;
     std::vector<PreeditEvent> preedits;
     std::vector<TableEvent> tables;
+    std::vector<PreeditEvent> aux; /* FE16: auxiliary text events, same shape */
     int shows = 0;
     int hides = 0;
 };
@@ -104,6 +105,17 @@ void on_signal(GDBusConnection *, const gchar *, const gchar *, const gchar *, c
         ++cap->shows;
     } else if (g_strcmp0(member, "HideLookupTable") == 0) {
         ++cap->hides;
+    } else if (g_strcmp0(member, "UpdateAuxiliaryText") == 0) {
+        GVariant *serialized = nullptr;
+        gboolean visible = FALSE;
+        g_variant_get(params, "(vb)", &serialized, &visible);
+        IBusSerializable *object = ibus_serializable_deserialize_object(serialized);
+        PreeditEvent ev;
+        if (object && IBUS_IS_TEXT(object)) ev.text = IBUS_TEXT(object)->text;
+        ev.visible = visible != FALSE;
+        cap->aux.push_back(ev);
+        if (object) g_object_unref(object);
+        g_variant_unref(serialized);
     }
 }
 
@@ -172,7 +184,8 @@ protected:
 
     size_t Events() const {
         return captured_.commits.size() + captured_.preedits.size() + captured_.tables.size() +
-               static_cast<size_t>(captured_.shows) + static_cast<size_t>(captured_.hides);
+               captured_.aux.size() + static_cast<size_t>(captured_.shows) +
+               static_cast<size_t>(captured_.hides);
     }
 
     /* Setup-time drain: no key has been sent, so wait for whatever the engine
@@ -365,6 +378,45 @@ TEST_F(IbusUiTest, KeyTranslationKeepsTheLayoutRowAndTheCapsInversionApart) {
 
     hunmin_key_event hangul = hunmin_ibus_translate_key(IBUS_KEY_Hangul, 0, 0);
     EXPECT_EQ(hangul.language_key, 1);
+}
+
+/* FE16, option A (issue #319, maintainer ruling 2026-11-22): the highlighted
+ * candidate's gloss is published as auxiliary text, tracks the cursor, and
+ * clears with the list. The expectation is the STATE's own detail accessor,
+ * not a hardcoded string -- one source for the gloss, the signal is what is
+ * asserted. The candidate text itself must stay bare Hanja: option A's whole
+ * point is that the shared candidate expectations do not move. */
+TEST_F(IbusUiTest, CandidateGlossRidesTheAuxiliaryTextAndTracksTheCursor) {
+    hunmin_state *state = hunmin_ibus_engine_state(HUNMIN_IBUS_ENGINE(engine_));
+    Type("rk");
+    captured_.aux.clear();
+    ASSERT_TRUE(Key(IBUS_KEY_F9));
+    ASSERT_FALSE(captured_.aux.empty()) << "opening the list published no auxiliary text";
+    const std::string gloss0 = hunmin_state_candidate_detail(state, 0);
+    ASSERT_FALSE(gloss0.empty()) << "가's first candidate carries a gloss in the data";
+    EXPECT_EQ(captured_.aux.back().text, gloss0);
+    EXPECT_TRUE(captured_.aux.back().visible);
+    /* The candidate text is unchanged by the gloss presentation. */
+    ASSERT_FALSE(captured_.tables.empty());
+    EXPECT_EQ(captured_.tables.back().candidates[0], "可");
+
+    EXPECT_TRUE(Key(IBUS_KEY_Down));
+    const std::string gloss1 = hunmin_state_candidate_detail(state, 1);
+    ASSERT_FALSE(captured_.aux.empty());
+    EXPECT_EQ(captured_.aux.back().text, gloss1) << "the gloss must track the cursor";
+    EXPECT_NE(gloss1, gloss0) << "the case must distinguish the two candidates' glosses";
+
+    /* Escape closes the list: the gloss goes with it. */
+    EXPECT_TRUE(Key(IBUS_KEY_Escape));
+    ASSERT_FALSE(captured_.aux.empty());
+    EXPECT_FALSE(captured_.aux.back().visible);
+    EXPECT_EQ(captured_.aux.back().text, "");
+
+    /* Re-open and commit: the gloss clears on the commit path too. */
+    ASSERT_TRUE(Key(IBUS_KEY_F9));
+    EXPECT_TRUE(Key(IBUS_KEY_Return));
+    ASSERT_FALSE(captured_.aux.empty());
+    EXPECT_FALSE(captured_.aux.back().visible);
 }
 
 }  // namespace
