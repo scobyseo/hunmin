@@ -641,3 +641,44 @@ additionally restores the fcitx5 install tree from `linux`, which this local run
 did not do. So these figures are a **local pass and a local order of magnitude**,
 not CI numbers: the authoritative wall time is printed by each job's own
 `dpkg-buildpackage` step (`=== … wall time: … s ===`) on the first nightly run.
+
+## 8. The jammy job's 3-minute ceiling (2026-11-22, issue #316)
+
+The `ibus-jammy` job carried `timeout-minutes: 45` from its creation (#292):
+the noble deb job's generous default, copied, never measured. The maintainer
+set it to the linux job's 3 min on 2026-11-22. What makes that possible:
+
+1. **`nocheck` on the package build.** `debian/rules`' `override_dh_auto_test`
+   runs the WHOLE ctest suite inside `dpkg-buildpackage` — on jammy that
+   re-runs the IBus D3 lanes the job's own gated step already ran, plus the
+   slow mutation tiers. §7's local 117.52 s package build includes that
+   second suite. The jammy-specific evaluation (IBus D1/D2/D3 on 1.5.26)
+   runs in the dedicated step with a skip-is-failure JUnit gate; the full
+   suite runs in the linux job; the noble package build keeps its in-build
+   suite (45 min, unchanged). Nothing jammy-specific is dropped — the
+   exclusion is named in the step comment, per the "a filtered run cannot
+   prove what it left out" rule.
+2. **`parallel=4`** — without it debhelper builds at -j1.
+3. **googletest reuse** — `FETCHCONTENT_SOURCE_DIR_GOOGLETEST` points at the
+   source the main build already fetched; no second download.
+4. **`--no-install-recommends`** on the apt step.
+
+Estimate before the first measured run (runner = 4 cores; calibrated from
+the linux job's step timings, run 45002302838: checkout 5 s, noble's larger
+apt list 36 s, full `-j4` build 23 s):
+
+| segment | estimate |
+|---|---|
+| setup + checkout | ~8 s |
+| apt install (smaller list, no recommends) | ~25–35 s |
+| dpkg-checkbuilddeps | ~2 s |
+| configure + build -j4 (no fcitx5/android/trace) | ~15–20 s |
+| ctest 6 IBus lanes -j4 (D3 wall ≈ slowest lane, ~51 s local) | ~55–65 s |
+| dpkg-buildpackage parallel=4 nocheck | ~25–40 s |
+| contents + stage + upload | ~10 s |
+| **total** | **~140–180 s** |
+
+Tight against 180 s by construction; the authoritative numbers are the
+job's own step timings on the first dispatch run, recorded here when it
+lands. If a segment overruns, the fix is to make that segment cheaper, not
+to raise the ceiling (AGENTS.md) — and not to drop a lane.

@@ -844,7 +844,14 @@ jobs:
     # not a PR gate. It has no `needs`, so it runs on schedule/dispatch alone.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    # 3 min, the same ceiling as the linux job (maintainer instruction
+    # 2026-11-22, issue #316). The 45 it carried before was the noble deb
+    # job's generous default, copied at creation and never measured. What
+    # makes 3 min possible is recorded in docs/CI-TIMING.md: the package
+    # build no longer re-runs the whole suite (nocheck -- the IBus lanes run
+    # in their own gated step below, the full suite in the linux job), builds
+    # at parallel=4, and reuses the googletest the main build already fetched.
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
       # Build-Depends with the nobilus profile (see debian/control) is exactly
@@ -853,7 +860,7 @@ jobs:
       - name: Install build and D3 deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build pkg-config python3 \
+          sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config python3 \
             build-essential debhelper fakeroot \
             libhangul-dev libibus-1.0-dev libx11-dev libxcb1-dev libxkbcommon-dev \
             python3-gi gir1.2-gtk-3.0 python3-xlib \
@@ -905,9 +912,23 @@ jobs:
           print("IBus lanes registered and passed: " + ", ".join(expected))
           PY
       - name: Build the .deb (nobilus profile)
+        # parallel=4: the runner's core count; without it debhelper builds at
+        # -j1. nocheck: debian/rules' override_dh_auto_test runs the WHOLE
+        # ctest suite inside the package build -- on jammy that re-runs the
+        # IBus D3 lanes the gated step above already ran, plus the slow
+        # mutation tiers, a second full-suite run the 3 min ceiling cannot
+        # carry. What nocheck leaves out is named here so the exclusion is
+        # visible: the jammy-specific evaluation (IBus D1/D2/D3 on 1.5.26)
+        # runs in the step above with a skip-is-failure gate; the full suite
+        # runs in the linux job; the noble package build keeps its own
+        # in-build suite (45 min job, unchanged). Nothing jammy-specific is
+        # dropped. FETCHCONTENT_SOURCE_DIR_GOOGLETEST reuses the source the
+        # main build already fetched instead of downloading it a second time.
         run: |
           start=$SECONDS
-          dpkg-buildpackage -us -uc -b -Pnobilus
+          DEB_BUILD_OPTIONS="parallel=4 nocheck" \
+          FETCHCONTENT_SOURCE_DIR_GOOGLETEST="$PWD/build/_deps/googletest-src" \
+            dpkg-buildpackage -us -uc -b -Pnobilus
           echo "=== dpkg-buildpackage (jammy, nobilus) wall time: $((SECONDS-start)) s ==="
       - name: What the package contains
         run: |
