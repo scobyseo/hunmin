@@ -23,6 +23,9 @@ hunmin_add_test(NAME docs-lint COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOU
 hunmin_add_test(NAME req-map COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/req-map-check.py --build-dir ${CMAKE_CURRENT_BINARY_DIR} LABELS tier-G)
 hunmin_add_test(NAME modes-corpus-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/build-modes-corpus.py --selfcheck --out ${CMAKE_CURRENT_SOURCE_DIR}/tests/modes-corpus LABELS tier-G SKIP_RETURN_CODE 77)
 hunmin_add_test(NAME modes-metrics-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/modes-metrics.py --selfcheck --lib $<TARGET_FILE:hunmin> --sim $<TARGET_FILE:hunmin-sim> --keytable ${CMAKE_CURRENT_BINARY_DIR}/sin3-p2.keytable.json LABELS tier-G)
+# G1/G2 are graded from a metrics report by autoswitch-gates.py; the checker's
+# own guards need no corpus and no built engine (issue #291).
+hunmin_add_test(NAME modes-gates-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/autoswitch-gates.py --selfcheck LABELS tier-G)
 # The nightly fuzz feed must stay inside hunmin-sim's --keys grammar. A bare
 # backslash used to abort the replay with an error-path leak (issue #309).
 hunmin_add_test(NAME fuzz-keys-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/fuzz-generate-keys.py --selfcheck --sim $<TARGET_FILE:hunmin-sim> --layout sin3-p2 LABELS tier-G)
