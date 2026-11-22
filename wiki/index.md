@@ -26,6 +26,8 @@
 
 ## Decisions
 
+- [[2026-11-22-ibus-gloss-option-a]] — maintainer ruled option A (aux text) for the IBus candidate gloss (FE16); implemented and evaluated on the real daemon bus + drawn GTK3 panel; B remains the fallback, usability verdict is the maintainer's.
+
 - [[2026-11-22-symbol-screen-app-read-data-file]] — #298 ruled: the Android symbol
   screen is drawn by the app from a data file, engine uninvolved (B2). No engine/
   schema change; gesture-variant extension split to #312.
@@ -184,6 +186,14 @@
   CI builds the release artefacts and development runs in a VM shaped like the
   runner. The tier-C model those tools carry is `docs/OPTIONS-MEASURED.md` §PLT-8
   (the measurement and the repair that was chosen), not a second copy here.
+
+## Raw — measurements
+
+- [[2026-11-22-fcitx5-retirement-ci-cost]] — measured A/B (fcitx5 ON/OFF):
+  build −44%, PR suite −53%; the 197 s cold-path build disappears. A
+  measurement, not a verdict.
+
+- [[2026-11-22-ibus-gloss-paths]] — IBus 글로스 표시 검증 경로(aux text, 1.5.26 패널 소스까지 확인)와 "IBus는 못 한다" 주장의 정정. FE16의 분석 홈.
 
 ## Raw — sessions
 

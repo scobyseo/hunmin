@@ -1033,6 +1033,17 @@ for line in sys.stdin:
 '
 }
 
+# The shared case files spell the Hanja trigger {F9} -- fcitx5's catalogue
+# key. The IBus engine EXCLUDED F9 (maintainer, 2026-11-22, issue #319):
+# applications own it there. Inject the IBus spelling instead; Control_R,
+# because Hangul_Hanja has no keycode under the us Xvfb keymap. Expectations
+# are unaffected: sim_keys strips {F9} for the oracle either way.
+inject_keys() { # $1 = case keys
+    local k=$1
+    if [ "$IM_HOST" = "ibus" ]; then k=${k//\{F9\}/{Control_R}}; fi
+    python3 "$TYPER" "$DISP" "$k" </dev/null
+}
+
 run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
     local layout=$1 keys=$2 expect_fn=${3:-expected_stream}
     local expected actual case_lines hpid i case_ready case_id=$CASE_SEQ
@@ -1177,7 +1188,7 @@ run_case() { # $1=layout $2=keys $3=expectation-fn (default expected_stream)
     # The IM is already active (start_fcitx did fcitx5-remote -o), so do NOT
     # send the Ctrl+space trigger key here: it is a toggle and would deactivate
     # the context, sending every key to the client raw.
-    if ! python3 "$TYPER" "$DISP" "$keys" </dev/null; then
+    if ! inject_keys "$keys"; then
         echo "FAIL [$layout/$keys]: key injection failed"
         kill "$hpid" 2>/dev/null
         wait "$hpid" 2>/dev/null
@@ -1380,7 +1391,7 @@ run_candidate_case() { # $1=layout $2=keys $3=expectation text or empty
     fi
     sleep 0.4
 
-    if ! python3 "$TYPER" "$DISP" "$keys" </dev/null; then
+    if ! inject_keys "$keys"; then
         echo "FAIL [candidate/$layout/$keys]: key injection failed"
         kill "$hpid" 2>/dev/null
         wait "$hpid" 2>/dev/null
@@ -1525,7 +1536,7 @@ run_edit_handwritten_case() { # $1=layout $2=keys $3=expected transcript
         fi
         sleep 0.3
     fi
-    if ! python3 "$TYPER" "$DISP" "$keys" </dev/null; then
+    if ! inject_keys "$keys"; then
         echo "FAIL [edit/$layout/$keys]: key injection failed"
         kill "$hpid" 2>/dev/null
         wait "$hpid" 2>/dev/null

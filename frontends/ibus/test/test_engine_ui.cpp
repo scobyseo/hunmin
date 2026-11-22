@@ -53,6 +53,7 @@ struct Captured {
     std::vector<std::string> commits;
     std::vector<PreeditEvent> preedits;
     std::vector<TableEvent> tables;
+    std::vector<PreeditEvent> aux; /* FE16: auxiliary text events, same shape */
     std::vector<std::string> prop_labels;
     int shows = 0;
     int hides = 0;
@@ -105,7 +106,18 @@ void on_signal(GDBusConnection *, const gchar *, const gchar *, const gchar *, c
         ++cap->shows;
     } else if (g_strcmp0(member, "HideLookupTable") == 0) {
         ++cap->hides;
-    } else if (g_strcmp0(member, "UpdateProperty") == 0) {
+    } else if (g_strcmp0(member, "UpdateAuxiliaryText") == 0) {
+        GVariant *serialized = nullptr;
+        gboolean visible = FALSE;
+        g_variant_get(params, "(vb)", &serialized, &visible);
+        IBusSerializable *object = ibus_serializable_deserialize_object(serialized);
+        PreeditEvent ev;
+        if (object && IBUS_IS_TEXT(object)) ev.text = IBUS_TEXT(object)->text;
+        ev.visible = visible != FALSE;
+        cap->aux.push_back(ev);
+        if (object) g_object_unref(object);
+        g_variant_unref(serialized);
+        } else if (g_strcmp0(member, "UpdateProperty") == 0) {
         GVariant *serialized = nullptr;
         g_variant_get(params, "(v)", &serialized);
         IBusSerializable *object = ibus_serializable_deserialize_object(serialized);
@@ -188,7 +200,7 @@ protected:
 
     size_t Events() const {
         return captured_.commits.size() + captured_.preedits.size() + captured_.tables.size() +
-               captured_.prop_labels.size() + static_cast<size_t>(captured_.shows) +
+               captured_.aux.size() + captured_.prop_labels.size() + static_cast<size_t>(captured_.shows) +
                static_cast<size_t>(captured_.hides);
     }
 
@@ -305,7 +317,7 @@ TEST_F(IbusUiTest, LayoutOverrideKeepsTheLanguageKeyAlive) {
 TEST_F(IbusUiTest, LookupTableIsPublishedForTheHanjaList) {
     Type("rk");
     captured_.tables.clear();
-    EXPECT_TRUE(Key(IBUS_KEY_F9));
+    EXPECT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
     ASSERT_FALSE(captured_.tables.empty());
     const TableEvent &table = captured_.tables.back();
     EXPECT_TRUE(table.visible);
@@ -327,7 +339,7 @@ TEST_F(IbusUiTest, LookupTableIsPublishedForTheHanjaList) {
 
 TEST_F(IbusUiTest, ReturnCommitsTheHighlightedCandidate) {
     Type("rk");
-    ASSERT_TRUE(Key(IBUS_KEY_F9));
+    ASSERT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
     ASSERT_FALSE(captured_.tables.empty());
     const std::string second = captured_.tables.back().candidates.at(1);
 
@@ -355,7 +367,7 @@ TEST_F(IbusUiTest, DeclinedKeyReturnsFalseAndPublishesNothing) {
 }
 
 TEST_F(IbusUiTest, CandidateKeyWithoutCandidatesReachesTheClient) {
-    EXPECT_FALSE(Key(IBUS_KEY_F9));
+    EXPECT_FALSE(Key(IBUS_KEY_Hangul_Hanja));
     EXPECT_EQ(captured_.shows, 0);
 }
 
@@ -382,6 +394,81 @@ TEST_F(IbusUiTest, KeyTranslationKeepsTheLayoutRowAndTheCapsInversionApart) {
 
     hunmin_key_event hangul = hunmin_ibus_translate_key(IBUS_KEY_Hangul, 0, 0);
     EXPECT_EQ(hangul.language_key, 1);
+}
+
+/* FE16, option A (issue #319, maintainer ruling 2026-11-22): the highlighted
+ * candidate's gloss is published as auxiliary text, tracks the cursor, and
+ * clears with the list. The expectation is the STATE's own detail accessor,
+ * not a hardcoded string -- one source for the gloss, the signal is what is
+ * asserted. The candidate text itself must stay bare Hanja: option A's whole
+ * point is that the shared candidate expectations do not move. */
+TEST_F(IbusUiTest, CandidateGlossRidesTheAuxiliaryTextAndTracksTheCursor) {
+    hunmin_state *state = hunmin_ibus_engine_state(HUNMIN_IBUS_ENGINE(engine_));
+    Type("rk");
+    captured_.aux.clear();
+    ASSERT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
+    ASSERT_FALSE(captured_.aux.empty()) << "opening the list published no auxiliary text";
+    const std::string gloss0 = hunmin_state_candidate_detail(state, 0);
+    ASSERT_FALSE(gloss0.empty()) << "가's first candidate carries a gloss in the data";
+    EXPECT_EQ(captured_.aux.back().text, gloss0);
+    EXPECT_TRUE(captured_.aux.back().visible);
+    /* The candidate text is unchanged by the gloss presentation. */
+    ASSERT_FALSE(captured_.tables.empty());
+    EXPECT_EQ(captured_.tables.back().candidates[0], "可");
+
+    EXPECT_TRUE(Key(IBUS_KEY_Down));
+    const std::string gloss1 = hunmin_state_candidate_detail(state, 1);
+    ASSERT_FALSE(captured_.aux.empty());
+    EXPECT_EQ(captured_.aux.back().text, gloss1) << "the gloss must track the cursor";
+    EXPECT_NE(gloss1, gloss0) << "the case must distinguish the two candidates' glosses";
+
+    /* Escape closes the list: the gloss goes with it. */
+    EXPECT_TRUE(Key(IBUS_KEY_Escape));
+    ASSERT_FALSE(captured_.aux.empty());
+    EXPECT_FALSE(captured_.aux.back().visible);
+    EXPECT_EQ(captured_.aux.back().text, "");
+
+    /* Re-open and commit: the gloss clears on the commit path too. */
+    ASSERT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
+    EXPECT_TRUE(Key(IBUS_KEY_Return));
+    ASSERT_FALSE(captured_.aux.empty());
+    EXPECT_FALSE(captured_.aux.back().visible);
+}
+
+
+/* The Hanja trigger's platform spellings (issue #319, maintainer instruction
+ * 2026-11-22): F9 is the catalogue key, Hangul_Hanja the standard XKB Hanja
+ * key (ibus-hangul's default), Control_R what the maintainer's physical Hanja
+ * key reports. Each opens the list over a composing word, toggles it closed,
+ * and with nothing composing reaches the client. */
+TEST_F(IbusUiTest, HanjaTriggerSpellingsOpenAndToggleTheList) {
+    for (guint keyval : {IBUS_KEY_Hangul_Hanja, IBUS_KEY_Control_R}) {
+        Type("rk");
+        captured_.tables.clear();
+        EXPECT_TRUE(Key(keyval)) << "trigger 0x" << std::hex << keyval << " declined";
+        ASSERT_FALSE(captured_.tables.empty());
+        EXPECT_GT(captured_.tables.back().candidates.size(), 0u);
+        EXPECT_GT(captured_.shows, 0);
+        /* Second press toggles closed, composition kept. */
+        EXPECT_TRUE(Key(keyval));
+        EXPECT_GT(captured_.hides, 0);
+        ASSERT_FALSE(captured_.preedits.empty());
+        EXPECT_EQ(captured_.preedits.back().text, "가");
+        /* Clean up for the next spelling. */
+        Key(IBUS_KEY_space);
+        captured_.commits.clear();
+        captured_.preedits.clear();
+    }
+    /* No composition: the trigger is the client's key. */
+    EXPECT_FALSE(Key(IBUS_KEY_Hangul_Hanja));
+    EXPECT_FALSE(Key(IBUS_KEY_Control_R));
+    /* F9 is EXCLUDED (maintainer, 2026-11-22): even over a composing word it
+     * is the client's key -- applications map it to their own functions. */
+    Type("rk");
+    const int shows_before = captured_.shows;
+    EXPECT_FALSE(Key(IBUS_KEY_F9)) << "F9 must reach the client on this frontend";
+    EXPECT_EQ(captured_.shows, shows_before) << "F9 opened the list";
+    Key(IBUS_KEY_space);
 }
 
 /* --- issue #316: the fcitx5-pinned behaviours this lane was missing ------- */
@@ -440,7 +527,7 @@ TEST_F(IbusUiTest, ResetDeliversTheWordAndKeepsTheMode) {
  * is dropped, and the host window is told to hide. */
 TEST_F(IbusUiTest, CandidateClickedCommitsTheChosenText) {
     Type("rk");
-    ASSERT_TRUE(Key(IBUS_KEY_F9));
+    ASSERT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
     ASSERT_FALSE(captured_.tables.empty());
     const std::string second = captured_.tables.back().candidates.at(1);
     captured_.commits.clear();
@@ -459,7 +546,7 @@ TEST_F(IbusUiTest, CandidateClickedCommitsTheChosenText) {
  * candidates against a page of 9, so this is the pagination path. */
 TEST_F(IbusUiTest, PageDownAndPageUpMoveTheCursorByAPage) {
     Type("rk");
-    ASSERT_TRUE(Key(IBUS_KEY_F9));
+    ASSERT_TRUE(Key(IBUS_KEY_Hangul_Hanja));
     ASSERT_FALSE(captured_.tables.empty());
     ASSERT_GT(captured_.tables.back().candidates.size(), 9u);
 

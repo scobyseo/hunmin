@@ -62,13 +62,11 @@ static void sink_preedit(void *user, const char *text, int cursor) {
 static void sink_candidates(void *user, int open) {
     IBusEngine *engine = IBUS_ENGINE(user);
     HunminIbusEngine *self = HUNMIN_IBUS_ENGINE(user);
-    if (!open) {
-        ibus_engine_hide_lookup_table(engine);
-        return;
-    }
-    const int count = hunmin_state_candidate_count(self->state);
+    const int count = open ? hunmin_state_candidate_count(self->state) : 0;
     if (count <= 0) {
         ibus_engine_hide_lookup_table(engine);
+        /* FE16: the gloss goes away with the list. */
+        ibus_engine_update_auxiliary_text(engine, ibus_text_new_from_string(""), FALSE);
         return;
     }
     /* cursor_pos is the index in the whole table, not on the page:
@@ -82,6 +80,15 @@ static void sink_candidates(void *user, int open) {
             table, ibus_text_new_from_string(hunmin_state_candidate_text(self->state, i)));
     ibus_engine_update_lookup_table(engine, table, TRUE);
     ibus_engine_show_lookup_table(engine);
+    /* FE16, option A (issue #319): the highlighted candidate's gloss rides
+     * the panel's auxiliary label -- verified drawn at the 1.5.26 floor
+     * (candidatepanel.c m_aux_label). This sink fires on every cursor
+     * change, so the gloss tracks the cursor; the candidate TEXT stays bare
+     * Hanja. An empty detail hides the label. */
+    const char *detail =
+        hunmin_state_candidate_detail(self->state, hunmin_state_candidate_cursor(self->state));
+    ibus_engine_update_auxiliary_text(engine, ibus_text_new_from_string(detail),
+                                      *detail ? TRUE : FALSE);
 }
 
 /* --------------------------------------------------------- key translation */
@@ -187,8 +194,18 @@ static gboolean hunmin_process_key_event(IBusEngine *engine, guint keyval, guint
         return declined(keyval);
 
     /* The Hanja window's open/close key is outside the printable window the
-     * state feeds; presentation is this object's half (fcitx5's F9 split). */
-    if (keyval == IBUS_KEY_F9) {
+     * state feeds; presentation is this object's half (fcitx5's F9 split).
+     * Two spellings of the trigger (FE13's mapping duty): Hangul_Hanja, the
+     * standard XKB Hanja key (the default in ibus-hangul's hanja-keys, read
+     * for semantics), and Control_R, what the maintainer's physical Hanja
+     * key reports on this keyboard. F9 was EXCLUDED by the maintainer
+     * (2026-11-22, issue #319): applications map it to their own functions
+     * (gnome-text-editor), so it belongs to the client here. A bare
+     * Control_R press while composing opens the list even when intended as
+     * a modifier prefix -- the next chord key closes it again (the boundary
+     * path closes an open list), the same trade-off the Alt_R language
+     * trigger already carries. */
+    if (keyval == IBUS_KEY_Hangul_Hanja || keyval == IBUS_KEY_Control_R) {
         const int used = hunmin_state_toggle_candidates(self->state) ? TRUE : FALSE;
         const hunmin_key_event ev = { .base = keyval, .id = HUNMIN_KEY_TEXT };
         HUNMIN_TRACE_EVENT(&ev, used, keyval);

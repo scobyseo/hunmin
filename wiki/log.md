@@ -1485,6 +1485,30 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   decision phase is complete; closure is the maintainer's.
 
 
+## [2026-11-22] decision | IBus candidate gloss option A ruled + implemented (FE16, #319)
+
+- maintainer: "A로 구현해서 평가해 보자. 못 쓰겠으면 B로 바꾸자." →
+  [[2026-11-22-ibus-gloss-option-a]] 기록. sink_candidates가 aux text로
+  하이라이트 후보 글로스를 커서 따라 게시(빈 글로스/닫힘 시 숨김). 후보
+  텍스트는 bare 한자 유지 — 공유 기대값 불변, ABI 변경 없음.
+- 평가: D2 aux 시그널 assertion green(내용=state自身の detail accessor,
+  커서 추적, Escape/커밋 시 클리어). 실데몬 버스 프로브(tools/ibus-gloss-probe.sh,
+  패널 활성화): engine→daemon→Panel UpdateAuxiliaryText에 실제 글로스 문자열
+  ("회의 등에서…" / "옳을 가 | may, can…"), GTK3 패널 창 렌더(xwininfo),
+  Down+Return이 candidate 1 정상 커밋. D3 회귀 green.
+- 프로브 발견: 데몬 기본 panel/config 경로 실패→명시 지정, memconf 패널
+  빈 엔진 목록 abort→gsettings 시드, IBus 프라이빗 버스→주소 파일 모니터,
+  Xvfb 킵맵 모델 필요(pc105), stray ']'는 프로브 아티팩트(엔진 커밋 이후,
+  D3 게이트는 클린). 사용성 판정은 maintainer 몫 — 스크린샷 첨부.
+
+## [2026-11-22] decision | IBus 글로스 A 사용성 판정: "잘 동작하네" (maintainer)
+
+- 실사용 세션(Xephyr+gnome-text-editor+패널, sin3-p2)에서 maintainer 직접
+  평가 → A(aux text) 사용 가능 확정. B는 불필요(명의된 폴백으로 유지).
+- 평가는 물리 한자 키로 수행 — 트리거를 F9+Hangul_Hanja+Control_R 3종으로
+  확장한 당일 지시 반영. 물리 키의 keysym은 버스 캡처로 격리하지 못함
+  (패널 트래픽만 캡처) — 3종 모두 지원·D2 고정이라 판정은 유효.
+- [[2026-11-22-ibus-gloss-option-a]]에 판정 절 추가, REQ-MAP FE16 갱신.
 ## [2026-11-22] update | IBus evaluation coverage parity with fcitx5 (issue #316)
 
 - Inventoried every fcitx5 evaluation family against IBus; the table lives in
