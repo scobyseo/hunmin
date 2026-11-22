@@ -5,10 +5,11 @@
     "en": "Symbol screen (Tier 1)",
     "ko": "기호 화면 (1단계)"
   },
-  "source": "Arrangement ruled by the maintainer 2026-11-22, recorded in docs/SPEC-ANDROID-KEYPAD.md (KP6: the three symbol rows verbatim, grouped []{} and ,.<>, ` before -; nav order Home PgUp PgDn End; KP9: no space/enter, arrows in the space slot). Data home ruled in KP11 (issue #298): the app draws the symbol screen from this file; the engine is not involved. This file is app-read frontend data, NOT engine data: it never enters libhunmin/data and the engine never loads it.",
+  "source": "Arrangement ruled by the maintainer 2026-11-22, recorded in docs/SPEC-ANDROID-KEYPAD.md (KP6: the three symbol rows verbatim, grouped []{} and ,.<>, ` before -; nav order Home PgUp PgDn End; KP9: no space/enter, arrows in the space slot). Data home ruled in KP11 (issue #298): the app draws the symbol screen from this file; the engine is not involved. This file is app-read frontend data, NOT engine data: it never enters libhunmin/data and the engine never loads it. The variants section is a PROVISIONAL mapping for issue #312 (KP10), not a ruling: shape-family hosts, frequency order within the family, analysis and alternatives in docs/DESIGN-ANDROID-SYMBOL-VARIANTS.md; the maintainer rules it by accepting or changing it.",
   "x-notes": {
     "contract": "tools/symbol-data-check.py (ctest keypad-symbol-data) is the data contract checker; SymbolScreen.kt parses this file and SymbolScreenTest.kt pins the commit path. Format is a frontend data contract per KP11, settled at implementation (issue #297).",
-    "tier2-slot": "KP9 puts a second mode key beside the language toggle; KP10 prefers swipe/long-press variants over a Tier 2 button, so that slot is deliberately absent here. The gesture entry and the Tier 2 variant mapping are issue #312's work, on this same file.",
+    "tier2-slot": "KP9 puts a second mode key beside the language toggle; KP10 prefers swipe/long-press variants over a Tier 2 button, so that slot is deliberately absent here. The Tier 2 variant mapping now lives in this file's variants section (issue #312, provisional); the gesture UI that acts on it is still open wiring.",
+    "variants": "Per-host gesture variants (issue #312, KP10/KP7/KP8): 'up' is the swipe-up target and popup[0]; 'popup' is the long-press family list in frequency order (measured reading: docs/ANDROID-SYMBOL-INTERACTION.md; register caveats and the shape-vs-frequency fork: docs/DESIGN-ANDROID-SYMBOL-VARIANTS.md). Structural contract (hosts are Tier 1 keys, up == popup[0], single non-ASCII P*/S* chars, one home per variant, popup cap 4, coverage of the issue's twelve) is tools/symbol-data-check.py; the assignment itself is provisional, so the checker does not pin it.",
     "frequent-keys": "The main keypads' frequent-symbol keys (KP4) are NOT here: the frequent-symbol set and the number-row default are still open (docs/ANDROID-KEYPAD-MOCKUP.md). This file is the symbol screen only.",
     "function-keys": "Function keys carry ids, not characters; what an id DOES (sendKeyEvent, mode return) is the soft-keyboard UI sub-issue's wiring, not this data. The id vocabulary is fixed by the checker."
   },
@@ -18,5 +19,14 @@
     { "kind": "symbols", "keys": [";", ":", "'", "\"", ",", ".", "<", ">", "/", "?"] },
     { "kind": "function", "keys": ["tab", "home", "page-up", "page-down", "end", "backspace"] },
     { "kind": "function", "keys": ["language-toggle", "left", "up", "down", "right"] }
-  ]
+  ],
+  "variants": {
+    "$": { "up": "₩", "popup": ["₩"] },
+    "*": { "up": "※", "popup": ["※"] },
+    "[": { "up": "「", "popup": ["「", "『"] },
+    "]": { "up": "」", "popup": ["」", "』"] },
+    ".": { "up": "·", "popup": ["·", "…"] },
+    "<": { "up": "《", "popup": ["《", "〈"] },
+    ">": { "up": "》", "popup": ["》", "〉"] }
+  }
 }
