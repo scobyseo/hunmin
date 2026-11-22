@@ -968,19 +968,23 @@ jobs:
               > /tmp/fuzz-$i.trace 2>&1 || {
                 echo "FAIL: fuzz iteration $i crashed"
                 cat /tmp/fuzz-$i.trace
-                # Create GitHub issue with reproduction steps
-                gh issue create --title "Fuzz crash: iteration $i" \
-                  --body "$(cat /tmp/fuzz-$i.trace)" \
-                  --label "fuzz,crash,auto-filed" || true
+                # Create GitHub issue with reproduction steps. Keep the body in
+                # a FILE: a full LSan stack overflowed argv on 2026-11-21
+                # (`/usr/bin/gh: Argument list too long`) and lost the report.
+                # `bug` is an existing label; the old fuzz/crash/auto-filed
+                # names do not exist in this repository, so gh cannot add them.
+                gh issue create --title "[ci] Fuzz crash: iteration $i" \
+                  --body-file /tmp/fuzz-$i.trace \
+                  --label "bug" || true
                 exit 1
               }
             # Check for LeakSanitizer reports in stderr
             if grep -q "LeakSanitizer" /tmp/fuzz-$i.trace; then
               echo "FAIL: LeakSanitizer reported leak in iteration $i"
               cat /tmp/fuzz-$i.trace
-              gh issue create --title "LeakSanitizer leak: iteration $i" \
-                --body "$(cat /tmp/fuzz-$i.trace)" \
-                --label "fuzz,leak,auto-filed" || true
+              gh issue create --title "[ci] LeakSanitizer leak: iteration $i" \
+                --body-file /tmp/fuzz-$i.trace \
+                --label "bug" || true
               exit 1
             fi
           done

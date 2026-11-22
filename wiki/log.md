@@ -1257,3 +1257,10 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Created [[2026-11-21-modes-failures-and-the-domain-mode-idea]]: distilled intent, four live failures with code paths, four corrective principles, five QAS scenarios, a dictionary-coverage probe, and the domain-mode options (recorded, not ruled).
 - Updated [[2026-10-05-closed-questions]] with the maintainer's 2026-11-21 request to re-review the closed coding-corpus question; the exclusion stands and no new verdict is recorded.
 
+## [2026-11-22] create | nightly fuzz LSan error path
+
+- Created [[2026-11-22-nightly-fuzz-lsan-error-path]] from the run 44895832326
+  artifact: one malformed `--keys` token produced the whole reported leak set,
+  while the normal exit was clean. The page keeps the before/after readings,
+  the generator grammar fix, and the scheduled-run verification still owed.
+

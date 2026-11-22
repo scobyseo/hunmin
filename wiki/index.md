@@ -322,6 +322,10 @@
   determine, and why a document can be accurate about a feature with no code.
 - [[2026-10-10-orca-worktree-probe]] — **superseded** →
   `docs/ENVIRONMENT.md` §Orca GUI. Kept for the reasoning behind the retraction.
+- [[2026-11-22-nightly-fuzz-lsan-error-path]] — the nightly LSan report was one
+  malformed `--keys` token, not a soak leak: the error return skipped cleanup.
+  Also the `gh` argv failure, the generator's escape fix and the one check left
+  to the scheduled run.
 
 ## Raw — upstream
 

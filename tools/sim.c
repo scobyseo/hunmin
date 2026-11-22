@@ -1107,10 +1107,27 @@ int main(int argc, char **argv) {
         fprintf(stderr, "no layouts loaded from %s\n", data);
         return 2;
     }
+    /* Every return after the load goes through `done`. A bad --keys escape
+     * used to return straight out of the replay with both the context and the
+     * ic still live: LeakSanitizer reported the whole startup data set after
+     * one malformed key, and the nightly fuzz job stopped there (issue #309).
+     * The leak was the error path, not the data loader's normal lifetime. */
+    int rc = 0;
+    hunmin_ic *ic = NULL;
+    hunmin_buffered_preedit *bl = NULL;
 
-    if (judgecheck) return check_judge_file(ctx, judgecheck, layout, latin, autoswitch);
-    if (noff) return check_off_files(ctx, offcheck, noff);
-    if (checkp) return check_file(ctx, checkp, layout);
+    if (judgecheck) {
+        rc = check_judge_file(ctx, judgecheck, layout, latin, autoswitch);
+        goto done;
+    }
+    if (noff) {
+        rc = check_off_files(ctx, offcheck, noff);
+        goto done;
+    }
+    if (checkp) {
+        rc = check_file(ctx, checkp, layout);
+        goto done;
+    }
 
     if (batch) {
         /* One keystroke string per input line; print the rendered result as JSON.
@@ -1123,7 +1140,8 @@ int main(int argc, char **argv) {
          * other, and an empty line resets. */
         if (!layout) {
             fprintf(stderr, "need --layout for --batch\n");
-            return 2;
+            rc = 2;
+            goto done;
         }
         char linebuf[4096];
         char *line = linebuf;
@@ -1134,7 +1152,8 @@ int main(int argc, char **argv) {
             hunmin_ic *bic = hunmin_ic_new(ctx, layout);
             if (!bic) {
                 fprintf(stderr, "layout %s unavailable\n", layout);
-                return 2;
+                rc = 2;
+                goto done;
             }
             if (caps) hunmin_ic_set_option(bic, "caps", 1);
             /* Accumulate the commit after EVERY key, not once at the end:
@@ -1147,7 +1166,11 @@ int main(int argc, char **argv) {
             size_t acclen = 0;
             for (const char *kp = line; *kp;) {
                 uint32_t key = 0, shift = 0;
-                if (keys_step(&kp, &key, &shift, "--batch")) return 2;
+                if (keys_step(&kp, &key, &shift, "--batch")) {
+                    hunmin_ic_free(bic);
+                    rc = 2;
+                    goto done;
+                }
                 if (shift) hunmin_ic_process_key(bic, key, 1); /* explicit-modifier entry */
                 else hunmin_ic_process(bic, key);
                 const char *c = hunmin_ic_commit(bic);
@@ -1168,7 +1191,7 @@ int main(int argc, char **argv) {
         /* line aliases linebuf (a stack array): free()ing it was heap corruption
          * that aborted the process before stdout's buffer ever flushed, so
          * --batch silently exited 127/rc-0xC0000409 under msvcrt. */
-        return 0;
+        goto done;
     }
 
     if (judge) {
@@ -1176,19 +1199,25 @@ int main(int argc, char **argv) {
          * after every key the judgement read and acted on. Requires --keys. */
         if (!layout || !keys) {
             fprintf(stderr, "need --layout and --keys for --judge\n");
-            return 2;
+            rc = 2;
+            goto done;
         }
         judge_case c;
         memset(&c, 0, sizeof c);
         c.l = judge_layer(ctx, layout, latin, autoswitch, start_latin);
-        if (!c.l) {
+        bl = c.l; /* owned by `done`, on error and on success alike */
+        if (!bl) {
             fprintf(stderr, "cannot build a layer for %s/%s\n", layout, latin ? latin : "(no latin layout)");
-            return 2;
+            rc = 2;
+            goto done;
         }
         for (const char *s = keys; *s;) {
             uint32_t key = 0, shift = 0;
             int judged = -1;
-            if (keys_step(&s, &key, &shift, "--judge")) return 2;
+            if (keys_step(&s, &key, &shift, "--judge")) {
+                rc = 2;
+                goto done;
+            }
             const int consumed = judge_step(&c, key, shift, &judged);
             if (trace) {
                 char kbuf[8], cbuf[1024], pbuf[1024];
@@ -1225,33 +1254,34 @@ int main(int argc, char **argv) {
             }
         }
         printf("{\"delivered\":\"%s\",\"judged\":[%s],\"mode_after\":\"%s\"}\n", dbuf, jbuf, lang_name(hunmin_buffered_preedit_language(c.l)));
-        hunmin_buffered_preedit_free(c.l);
-        return 0;
+        goto done;
     }
 
     if (!layout || !keys) {
         fprintf(stderr, "need --layout and --keys\n");
-        return 2;
+        rc = 2;
+        goto done;
     }
     /* Two ways to replay the same keys. The default is the per-syllable engine
      * API (hunmin_ic) -- tier A's stream, unchanged since it was recorded. With
      * --layer, the replay goes through hunmin_buffered_preedit at the requested
      * policy, which is the object every frontend actually drives: its per-key
      * answer IS the delivery a frontend owes, with no projection in between. */
-    hunmin_ic *ic = layer_policy < 0 ? hunmin_ic_new(ctx, layout) : NULL;
-    hunmin_buffered_preedit *bl = NULL;
+    ic = layer_policy < 0 ? hunmin_ic_new(ctx, layout) : NULL;
     if (layer_policy >= 0) {
         bl = hunmin_buffered_preedit_new(ctx, layout, NULL, layer_policy);
         if (!bl) {
             fprintf(stderr, "cannot build a %s layer for %s\n",
                     layer_policy == HUNMIN_COMMIT_AT_BOUNDARY ? "word" : "syllable", layout);
-            return 2;
+            rc = 2;
+            goto done;
         }
         if (caps) hunmin_buffered_preedit_set_option(bl, "caps", 1);
     } else {
         if (!ic) {
             fprintf(stderr, "layout %s unavailable\n", layout);
-            return 2;
+            rc = 2;
+            goto done;
         }
         if (caps) hunmin_ic_set_option(ic, "caps", 1);
     }
@@ -1272,7 +1302,10 @@ int main(int argc, char **argv) {
      * case-encoding call, byte-for-byte. */
     for (const char *s = keys; *s;) {
         uint32_t key = 0, shift = 0;
-        if (keys_step(&s, &key, &shift, "--keys")) return 2;
+        if (keys_step(&s, &key, &shift, "--keys")) {
+            rc = 2;
+            goto done;
+        }
         bool consumed;
         const char *commit_text;
         const char *preedit_text;
@@ -1312,8 +1345,9 @@ int main(int argc, char **argv) {
                    kbuf, shift ? ",\"shift\":true" : "", cbuf, pbuf, consumed ? "true" : "false");
         } else printf("[%c%s] commit='%s' preedit='%s'\n", (unsigned char)key, shift ? "+" : "", commit_text, preedit_text);
     }
+done:
     if (bl) hunmin_buffered_preedit_free(bl);
-    else hunmin_ic_free(ic);
+    if (ic) hunmin_ic_free(ic);
     hunmin_ctx_free(ctx);
-    return 0;
+    return rc;
 }
