@@ -401,6 +401,12 @@ if [ -n "$Xephyr" ]; then
     }
 else
     echo "NOTE: Xephyr not installed; running on a bare Xvfb display"
+    # The display everything below targets must be the server that EXISTS.
+    # Without Xephyr the nested number has no server, and the first thing to
+    # touch it fails with "Cannot open display" -- measured on the jammy
+    # runner: 1.5.26's `ibus engine` setxkbmap side effect (issue #316).
+    # The unused Xephyr reservation is released by cleanup like any other.
+    DISP="$HOST"
 fi
 
 # ---------------------------------------------------------------- env
