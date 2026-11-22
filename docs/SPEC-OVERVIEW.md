@@ -28,7 +28,7 @@ ids is a second place to edit per layout).
 
 Discharged by putting the behaviour in the library and leaving each frontend an
 adapter: one key rule, one word buffer, one delivery rule, one corpus.
-*Children:* `docs/SPEC-FRONTEND.md` (FE1–FE12, the common requirements),
+*Children:* `docs/SPEC-FRONTEND.md` (FE1–FE17, the common requirements),
 `docs/SPEC-TSF.md` (TSF1–TSF18, where only TSF differs), and the fcitx5/Android
 adapters. *Implemented by:* `libhunmin/src/buffered_preedit.c`,
 `frontends/fcitx5/src/hunminadapter.cpp`, `frontends/tsf/src/keydispatch.cpp`,
@@ -194,6 +194,7 @@ map and rerun.
 | TSF2 | A2 | FE3 | A2 |
 | FE6 | A2 | FE9 | A2 |
 | FE11 | A2 | TSF9 | A3 |
+| FE16 | A2 | FE17 | A2 |
 | TSF10 | A3 | TSF11 | A3 |
 | TSF1 | A4 | TSF3 | A4 |
 | FE4 | A4 | TSF4 | A4 |
