@@ -73,7 +73,7 @@ jobs:
     # which is what a pull request is for; a push now runs nothing at all.
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # fcitx5-modules-dev carries Fcitx5Utils/Fcitx5Module cmake configs, which
       # the addon and tier C's trace emitter both need; without it the fcitx5
       # frontend is silently dropped and 104 conformance tests never register,
@@ -143,7 +143,7 @@ jobs:
       # so an fcitx5 upgrade is a hit on the old tree rather than a cold build.
       - name: Restore the fcitx5 5.1.13 install tree
         id: fcitx5-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: /tmp/fcitx5-install
           key: ${{ runner.os }}-fcitx5-5.1.13-install-v1
@@ -191,32 +191,28 @@ jobs:
           sudo cp -a /tmp/fcitx5-install/. /usr/
           sudo ldconfig
           pkg-config --modversion Fcitx5Core
-      # The install tree, uploaded for the deb job to restore. Prefixless paths
-      # inside the archive, restored under / by the consumer with sudo.
+      # The install tree, uploaded for the deb job to restore. A SINGLE
+      # DIRECTORY as `path` makes that directory the archive root (the
+      # least-common-ancestor rule), so the archive holds the install tree's
+      # contents prefixless -- the layout the deb job's restore expects when
+      # it copies /tmp/fcitx5-install/. into /usr/.
       #
-      # The `root:` below is load-bearing, and it fixes a latent bug that
-      # predates the cache. Before this line the upload listed absolute
-      # `/usr/lib/...` and `/usr/include/...` paths; upload-artifact@v4 strips
-      # their least common ancestor (`/usr`), so the archive held `lib/` and
-      # `include/` at its root. The deb job restores into `/tmp/fcitx5-install`
-      # and then copies `/tmp/fcitx5-install/usr/.` into `/usr/` -- a `usr/`
-      # level the archive never contained -- so its `test -d .../usr/lib/.../
-      # cmake/Fcitx5Core` guard would fail, and fail with "restore is missing
-      # Fcitx5Core cmake configs", which reads as a restore problem while the
-      # cause is the upload's layout. Naming `root:` makes the layout explicit
-      # instead of implied by which paths happen to be listed, so the guard
-      # checks the thing it names.
-      #
-      # Not re-measured on CI: no run has executed since. The first deb run
-      # after this lands is the confirmation, and docs/CI-TIMING.md records the
-      # same caveat.
+      # Recorded mistake (issue #315): this step briefly carried
+      # `root: /tmp/fcitx5-install` + `path: .`, intending to name the layout
+      # explicitly. upload-artifact has no `root` input; the runner warned
+      # "Unexpected input(s) 'root'", ignored it, and resolved `path: .`
+      # against the workspace -- so the artefact carried the repository
+      # checkout, not the install tree (measured: run 44993951120's artefact
+      # root held AGENTS.md, CMakeLists.txt, docs/). The latent layout bug it
+      # meant to fix was real (absolute /usr/... paths strip to lib/ and
+      # include/ at the root); the single-directory `path` below is the
+      # mechanism that actually exists for naming the root explicitly.
       - name: Upload the fcitx5 install tree
         if: steps.fcitx5-build.outcome == 'success' || steps.fcitx5-cache.outputs.cache-hit == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fcitx5-5.1.13-install
-          root: /tmp/fcitx5-install
-          path: .
+          path: /tmp/fcitx5-install
           retention-days: 1
           if-no-files-found: error
       # The Gradle cache, measured 2026-10-14 for issue #59. This job is the one
@@ -243,7 +239,7 @@ jobs:
       # bump is a hit rather than a miss.
       - name: Restore the Gradle cache
         id: gradle-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -365,7 +361,7 @@ jobs:
         # timeout was never uploaded. Measured here: a timed-out step does not
         # satisfy failure().
         if: "failure() || cancelled()"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-failure-evidence
           path: |
@@ -416,9 +412,9 @@ jobs:
     # 45 minutes is the measured budget for that whole sequence.
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -440,7 +436,7 @@ jobs:
       # version, which is what makes a single dependency bump a hit rather than
       # a miss.
       - name: Restore the Gradle cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -635,7 +631,7 @@ jobs:
     # measured again on the cached path; the number is a budget, not a target.
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install build deps
         run: |
           sudo apt-get update
@@ -658,7 +654,7 @@ jobs:
       # the linux job, 326 s here against 197 s there, 523 s of workflow wall
       # clock for one artefact. The linux job uploads it and this restores it.
       #
-      # The restore is a sequence, not a cache: actions/cache@v4 is scoped to a
+      # The restore is a sequence, not a cache: actions/cache is scoped to a
       # job and cannot be shared between jobs, while an artefact can. The linux
       # job's upload is the same tree under the same name.
       #
@@ -671,7 +667,7 @@ jobs:
       # check that it worked is the next step's own output: the addon must
       # configure against the restored Fcitx5CoreConfig.cmake.
       - name: Restore the fcitx5 5.1.13 install tree (built by the linux job)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: fcitx5-5.1.13-install
           path: /tmp/fcitx5-install
@@ -694,7 +690,7 @@ jobs:
       # revisited, at which point this is what makes the difference between
       # 324 s and 25 s.
       - name: Restore the Gradle cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -748,7 +744,7 @@ jobs:
           cp ../hunmin_*_*.deb artifacts/
           ls -la artifacts/
       - name: Upload the .deb
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hunmin-deb
           path: artifacts/hunmin_*.deb
@@ -778,8 +774,8 @@ jobs:
     # ceiling exists so a hung Gradle cannot bill indefinitely.
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -822,7 +818,7 @@ jobs:
           cd frontends/android
           ./gradlew --no-daemon :app:assembleRelease
       - name: Upload the release APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hunmin-release-apk
           # The APK names itself hunmin-<versionName>.apk (app/build.gradle.kts).
@@ -841,7 +837,7 @@ jobs:
     # not to make it fit.
     timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build mingw-w64
       - run: cmake -B build -G Ninja --toolchain cmake/toolchain-mingw-w64.cmake -DBUILD_TESTING=OFF
       - run: cmake --build build --target hunmin
@@ -881,7 +877,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: cmake -B build -A x64 -DBUILD_TESTING=OFF
       - run: cmake --build build --target hunmin --config RelWithDebInfo
 
@@ -903,7 +899,7 @@ jobs:
     # a hang in iteration 1 bills until GitHub kills it.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
@@ -925,7 +921,7 @@ jobs:
       # fcitx5 5.1.13 from source (distro ships 5.1.7, below the addon floor).
       - name: Restore the fcitx5 5.1.13 install tree
         id: fcitx5-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: /tmp/fcitx5-install
           key: ${{ runner.os }}-fcitx5-5.1.13-install-v1
@@ -998,7 +994,7 @@ jobs:
 
       - name: Upload fuzz artifacts on failure
         if: "${{ failure() }}"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fuzz-crash-artifacts
           path: /tmp/fuzz-*.trace
