@@ -126,3 +126,33 @@ Verified green after the work: `ctest -LE slow` (110 tests), `-L slow` (11,
 mutation 10 caught / 1 known gap), `engine-android-e2e` (88.9 s, real APK on the
 emulator), `engine-android-e1` (164 tests, 0 skipped, 0 failed),
 `keypad-symbol-data`, `schema-contract`, `req-map`, `docs-lint`, `wiki-lint`.
+
+## On-device check, 2026-11-22 (physical phone, SM-S938N / aarch64)
+
+`tools/android-symbol-screen.sh` (written for this) installs the debug APK,
+enables and selects the IME, then proves the data from the device rather than
+from the build tree:
+
+- the asset is **packaged in the installed apk** (`assets/keypad/symbols.json`
+  read out of a pulled copy), not merely present in `src/main/assets`;
+- the device copy's sha256 equals the committed file's
+  (`24e998a9…7b65b19f`);
+- the screen is rendered as text from the device copy — KP6's three rows, the
+  navigation row, the KP9 bottom row.
+
+Typed through the real IME on that phone: `dkssud rks` → the field read
+`ㅎ곈디 ㅌ계`, and `hunmin-sim --layout sin3-p2 --keys 'dkssud rks '` delivers
+`ㅎ곈디ㅌ계` on the host. The space is the one the script typed, so the device and
+the oracle agree character for character.
+
+One defect in the first draft, found by running it rather than reading it:
+`am force-stop` ran *after* `ime set`, and stopping the selected IME makes the
+platform fall back — the emulator reverted to Gboard, the phone to Honeyboard,
+while the script reported success because `ime list -s | grep -qx` had been
+satisfied a moment earlier. The order is now force-stop → enable → set → ask
+`settings get secure default_input_method` and compare. "Success" is the
+platform's answer, not our own log line.
+
+The symbol screen still has no UI: drawing it is the keypad-UI sub-issue of
+#285, so what a person can exercise on a device today is the data and the IME's
+health, not a tappable grid.
