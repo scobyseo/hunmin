@@ -930,6 +930,7 @@ shared assertion rather than copying the corpus.
 | D3: edit family (`cases-edit.tsv`) | backspace mid-word, Return, the `^` boundary, F9 pick/cancel through the daemon | `engine-d3-edit` (XIM) | `engine-d3-ibus-edit` (GTK; same case file, same sim oracle `--layer word`) |
 | D3: candidate family (`cases-candidate.tsv`) | the F9 path's commits reach the client; the deep list does not kill the host | `engine-d3-candidate` (window geometry + survival, classicui) | `engine-d3-ibus-candidate` (daemon + engine survival + delivery; host difference: the HOST's lookup table, no own window to draw — the table itself is `engine-d2-ibus-ui`'s assertion) |
 | D3: display reservation | concurrent D3 runs cannot type into each other's client | `d3-reservation` | shared: the same runner and reservation primitive |
+| D3: the ibus-host text paths | `{F9}` → the host's Hanja key, and the expected buffer after the trailing in-flight word | `d3-expectation` (extracts both functions from `run-d3.sh`, no daemon, no X) | shared: the same two functions, so the IBus lanes' expectations are guarded on a host that cannot run them |
 | D3: GTK 4 client | the second GTK module's different forward mechanism | `engine-d3-gtk4` | gap, documented: the IBus lanes run GTK 3 (the jammy CI job's client); GTK 4 `im-ibus` is not measured here |
 | D1/D2 mutation | dropping a UI call turns the tier red | `frontend-mutations` (fcitx5 seams) | gap, documented: the mutation harness targets the fcitx5 adapter's seams; an IBus equivalent is roadmap, not built by this issue |
 
