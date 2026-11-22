@@ -234,9 +234,28 @@ substitute for long-press or shift. Instances:
 This is the press/swipe key-value model of Unexpected Keyboard ("what a key does
 when pressed or swiped"), and the shift→capslock gesture is an alternative to
 FlorisBoard's `CAPSLOCK_BY_DOUBLE_TAP` / `CAPSLOCK_BY_CYCLE`. The KP5
-accidental-swipe defences apply to every such swipe. One trade-off to record: on
-letter/jamo keys swipe-up-for-shifted competes with **glide typing** — hunmin has
-no glide typing today so the gesture is free, but adding glide later (a Track 3
-question) would conflict and need disambiguation or a choice. The shift state
-machine (how capslock unlocks) and whether swipe-up-on-letters is enabled are open
-mechanism. *Implementation:* none. *Refuted by:* none yet.
+accidental-swipe defences apply to every such swipe. The glide-typing conflict
+is **resolved by ruling**: the maintainer will not add glide typing (2026-11-22,
+verbatim: "글라이드 기능은 불편하기만 해서 추가할 생각이 없어."), so swipe-up on
+letter/jamo keys has no competing gesture. The shift state machine (how capslock
+unlocks) and whether swipe-up-on-letters is enabled are open mechanism.
+*Implementation:* none. *Refuted by:* none yet.
+
+### KP8. Per-key swipe directions may vary, bounded by learnability (stated direction + constraint)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> "한 키에 대해 swipe 방향에 따라 기능을 다양하게 할 생각은 있지만, 이것도 너무
+> 복잡하면 사람이 기억하고 쓸 수 없더라."
+
+Stated direction with a guardrail: a key **may** carry different functions per
+swipe direction (up/down/left/right), but the scheme must stay **simple enough to
+remember and use**. Complexity that defeats memory is a failure, not a feature
+(ISO 25010 learnability / appropriateness recognizability). The extreme to avoid
+is Unexpected Keyboard's 16-direction + circle/roundtrip gesture set — capable
+but a power-user memorisation burden. The way to have several directions without
+the burden is **recognition over recall**: visible per-direction hints (KP3), a
+consistent mapping across keys (e.g. up = alternate everywhere), and a small cap
+on directions per key. How many directions, which functions, and the hint design
+are open mechanism; the constraint is that a person can use it without
+memorising a table. *Implementation:* none. *Refuted by:* none yet.

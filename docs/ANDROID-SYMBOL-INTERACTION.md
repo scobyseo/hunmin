@@ -512,17 +512,53 @@ swipe-up again) is an open detail. With swipe-up-on-letters available, a single
 capital or 겹자모 needs no shift press at all — shift stays for lock and for runs of
 shifted characters.
 
-**The one conflict to record.** On letter/jamo keys, swipe-up-for-shifted competes
-with **glide typing** (a word-glide also begins as a swipe on a letter).
-hunmin has no glide typing today, so the gesture is free; if glide is added later
-(a Track 3 question, currently out of scope) the two would need disambiguation
-(a vertical short swipe-up vs a longer glide path) or a user choice. On number,
-punctuation and shift keys there is no glide, so swipe-up is unambiguous there.
+**The glide conflict — resolved by ruling.** On letter/jamo keys,
+swipe-up-for-shifted would compete with glide typing. The maintainer ruled glide
+out (2026-11-22: "글라이드 기능은 불편하기만 해서 추가할 생각이 없어."), so there
+is no competing gesture and swipe-up-on-letters is free. On number, punctuation
+and shift keys there was never a glide conflict.
 
 The KP5 accidental-swipe defences (distance/direction/velocity gate,
 return-to-cancel, commit-on-release) apply to **every** such swipe, not just the
 number row. The net effect: shift and long-press become optional shortcuts rather
 than required mode switches, which is the interaction-count goal of KP1/KP3.
+
+## Per-key swipe directions, bounded by learnability (KP8)
+
+KP8 allows different functions per swipe direction on a key, **but caps the
+complexity at what a person can remember and use**. This is a usability
+constraint, not a suggestion: ISO 25010 learnability and appropriateness
+recognizability, and the cognitive-load limit behind Hick's law (decision time
+grows with the number of alternatives). A gesture scheme that requires
+memorising a per-key direction table fails even if it is capable.
+
+**The two ends of the range:**
+
+- *Complex extreme (to avoid):* Unexpected Keyboard's 16 directions plus
+  circle / anticircle / roundtrip gestures. Very capable — a key carries many
+  functions — but a power-user memorisation burden. The maintainer's constraint
+  explicitly rejects this end.
+- *Simple end:* swipe-up only (KP7), one alternate per key, shown as a corner
+  hint. Nothing to memorise: the hint is read, not recalled.
+
+**How to have several directions without the burden — recognition over recall:**
+
+- **Visible per-direction hints** (KP3): show what each direction does on the
+  key, so the user *recognises* the target rather than *recalling* a mapping.
+  This is the single biggest lever — it converts a memory task into a reading
+  task.
+- **Consistent mapping across keys**: e.g. up = the alternate everywhere
+  (shifted form / symbol / capslock), so one rule generalises instead of N
+  per-key facts.
+- **A small cap on directions per key** (e.g. up only now; up/down at most
+  later), adding a direction only where its function is memorable and hinted.
+- **Group related functions** on the directions of one key (a symbol family),
+  rather than unrelated actions.
+
+So the direction count, the per-direction functions and the hint design are open
+mechanism; the binding constraint is that the scheme stays usable without
+memorisation. The current mockup deliberately shows **swipe-up only** — the
+simple end — and any extra direction must earn its place against this constraint.
 
 ## What this means for a hunmin 두벌식 keypad
 

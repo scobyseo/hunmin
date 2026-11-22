@@ -1408,3 +1408,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   [[2026-11-22-android-keypad-mockup]] updated. No verdict beyond the maintainer's
   stated rulings.
 
+## [2026-11-22] decision | glide ruled out; KP8 swipe directions bounded by learnability
+
+- Maintainer ruling (verbatim): "글라이드 기능은 불편하기만 해서 추가할 생각이 없어."
+  Glide typing will not be added, so the KP7 swipe-up-on-letters glide conflict is
+  resolved (no competing gesture). Updated SPEC KP7 + REQ-MAP status.
+- Added KP8 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: a key may
+  carry different functions per swipe direction, but bounded by learnability
+  (verbatim: "너무 복잡하면 사람이 기억하고 쓸 수 없더라"). Analysis in
+  `docs/ANDROID-SYMBOL-INTERACTION.md`: avoid the Unexpected Keyboard 16-direction
+  extreme; recognition over recall via visible per-direction hints (KP3),
+  consistent cross-key mapping, a small direction cap. Mockup stays swipe-up only
+  (the simple end). Direction count / functions / hints open. No verdict.
+
