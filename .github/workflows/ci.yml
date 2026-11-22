@@ -870,6 +870,12 @@ jobs:
       # Build-Depends with the nobilus profile (see debian/control) is exactly
       # libibus-1.0-dev + the core's own deps; the extra packages below are the
       # D3 runtime harness (Xvfb, GTK3 gi, im-ibus.so, XTEST), not build deps.
+      - name: Restore the apt archives
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: jammy-apt-v1
+          restore-keys: jammy-apt-
       - name: Install build and D3 deps
         run: |
           sudo apt-get update
@@ -953,8 +959,19 @@ jobs:
         # in-build suite (45 min job, unchanged). Nothing jammy-specific is
         # dropped. FETCHCONTENT_SOURCE_DIR_GOOGLETEST reuses the source the
         # main build already fetched instead of downloading it a second time.
+        #
+        # optimize=-lto: dpkg-buildflags' distro default (-flto=auto
+        # -ffat-lto-objects) made this second build the segment that broke
+        # the ceiling -- measured 80 s+ and cancelled at the ceiling on
+        # dispatch runs 45005522905 / 45006013950, with ccache at 0 hits
+        # because the dpkg flags differ from the main build's CMake flags.
+        # The opt-out is dpkg-buildflags(1)'s own documented mechanism
+        # (DEB_BUILD_MAINT_OPTIONS). CONSEQUENCE, recorded rather than
+        # hidden: the jammy artefact is built without LTO while the noble
+        # one keeps it; behaviour is unchanged, optimisation differs.
         run: |
           start=$SECONDS
+          DEB_BUILD_MAINT_OPTIONS="optimize=-lto" \
           DEB_BUILD_OPTIONS="parallel=4 nocheck" \
           FETCHCONTENT_SOURCE_DIR_GOOGLETEST="$PWD/build/_deps/googletest-src" \
             dpkg-buildpackage -us -uc -b -Pnobilus
