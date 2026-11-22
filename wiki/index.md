@@ -330,6 +330,10 @@
   against the built engine: the loader ignores a `symbol` row, `doctor.py`
   rejects it, and the reserved `alt` row is accepted but ignored. The probe
   procedure, the baseline E2/budget finding and the open doctor-doc contradiction.
+- [[2026-11-22-android-korean-ime-survey]] — how open-source Android IMEs compose
+  Hangul: 두벌식 is the common denominator, 천지인 is rare, and the mainstream
+  symbol mechanism is a separate page. The maintainer's 두벌식 clarification and
+  the per-app licences; read for facts, copy nothing.
 
 ## Raw — upstream
 

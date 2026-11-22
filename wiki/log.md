@@ -1275,3 +1275,14 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   before passing alone. `docs/TESTING.md`'s stale doctor-coverage warning was
   recorded as a contradiction, not silently resolved.
 
+## [2026-11-22] create | Android Korean IME prior-art survey
+
+- Created [[2026-11-22-android-korean-ime-survey]] and
+  `docs/ANDROID-KOREAN-IME-SURVEY.md`: HeliBoard/FlorisBoard/fcitx5-android/
+  Unexpected Keyboard/open-keyboard compose Hangul; 두벌식 is universal, 천지인 is
+  rare, and the mainstream symbol mechanism is a separate symbol page. Read for
+  facts, copied nothing (GPL-3/Apache-2.0/LGPL-2.1/MIT recorded per app).
+- Recorded the maintainer's verbatim 두벌식 clarification in
+  `docs/MILESTONES.md` Track 3 and the survey doc; corrected the "third row, no
+  engine change" premise there to point at the measured engine cost. No ruling.
+

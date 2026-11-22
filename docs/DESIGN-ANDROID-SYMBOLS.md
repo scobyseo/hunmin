@@ -18,6 +18,11 @@ The tool writes scratch copies under `build/`, never under `libhunmin/data/`.
 With `--out-dir` it writes `measurements.json` and `meta.json` beside it. No
 shipped layout, engine source, ABI symbol or golden is changed by this analysis.
 
+Prior art: `docs/ANDROID-KOREAN-IME-SURVEY.md` surveys how open-source Android
+IMEs compose Hangul and where they put symbols. Its measured mainstream pattern
+is a **separate symbol page** (option B below), not a third per-key layer; the
+Hangul shift row is doubled jamo on 두벌식 and may carry symbols on 세벌식.
+
 ## 1. What the tree measures today
 
 ### 1.1 The two goal layouts carry two rows, not three
@@ -174,7 +179,9 @@ after `commitWord`, or sends ordinary key events to the Latin layout. No engine
 or schema change. The symbol inventory lives in Kotlin constants or a frontend
 asset. This is the smallest Android-only change, but adding a symbol requires a
 frontend edit, and a direct commit bypasses the shared key path unless the
-boundary is modelled explicitly.
+boundary is modelled explicitly. The surveyed IMEs (HeliBoard, FlorisBoard,
+fcitx5-android, open-keyboard) all use a separate symbol page; see
+`docs/ANDROID-KOREAN-IME-SURVEY.md`.
 
 **B2: data-owned symbol table.** A new `data/symbols/` JSON file carries the
 page inventory; Android reads it from assets; `doctor.py` validates it. The

@@ -310,6 +310,14 @@ measurement.
 
 ### Track 3 — Android virtual keypads (original 0.4 lane)
 
+**The Korean keypad form is 두벌식.** The maintainer clarified the goal
+(2026-11-22, quoted verbatim): *"그 입력기들이 제공하는 레이아웃을 보면 천지인 등의
+다양한 입력 방식이 있는데, 그 중에서 두벌식 형태를 채용하자는 거였어."* So 두벌식 is
+chosen among the Korean input methods (천지인/세벌식/모아키…); the symbol-layer
+home is a separate question. Prior art: `docs/ANDROID-KOREAN-IME-SURVEY.md`
+(두벌식 is the common denominator of Hangul-supporting open-source Android IMEs;
+their mainstream symbol mechanism is a separate symbol page).
+
 **What already exists, measured against the tree:**
 
 - **Layouts as data.** `dubeolsik.json` (26 keys) and `us-qwerty.json` (47 keys)
@@ -332,7 +340,9 @@ carry both, nothing carries a third). So 기호 입력 needs a decision before a
 pixel is drawn, and the honest options are comparable:
 
 1. **A symbol layer in the layout data** — a third per-key entry (e.g. `alt` or
-   `symbol`), still data, still no engine change; the engine already takes key
+   `symbol`), still data — but **not** engine-free: the loader and key API select
+   only `plain`/`shift` today, so an engine change is required (measured in
+   `docs/DESIGN-ANDROID-SYMBOLS.md`). The engine already takes key
    primitives (`Literal | SlotJamo | Ambiguous | Sequence`). Cost: a schema change
    to `docs/SPEC-SCHEMA.md` territory and `doctor.py` validation, and every layout
    file grows.
