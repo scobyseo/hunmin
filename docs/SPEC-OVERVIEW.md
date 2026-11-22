@@ -220,4 +220,5 @@ map and rerun.
 | REL9 | A11 | REL10 | A11 |
 | REL11 | A11 | REL12 | A11 |
 | TSF17 | A11 | FE8 | A12 |
-| FE15 | A13 | | |
+| FE15 | A13 | KP1 | A1 |
+| KP2 | A2 | KP3 | A2 |

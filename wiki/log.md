@@ -1308,3 +1308,18 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   key spacing, long-press variant clusters), a geometry-derived target-width
   table vs the 48 dp guideline, and the trade-off triangle. No ruling.
 
+## [2026-11-22] create | Android keypad criteria KP1–KP3 moved into a SPEC
+
+- Created `docs/SPEC-ANDROID-KEYPAD.md` and [[2026-11-22-android-keypad-criteria]]:
+  the maintainer's keypad criteria are now requirements KP1 (104-key symbols at
+  minimal touch + physical positions, number-row digit↔symbol pairing for
+  passwords), KP2 (space/enter/backspace separated, compact, non-physical; one
+  shift), KP3 (frequency placement + visual emphasis, extended to a whole-keypad
+  hierarchy: characters 진하게, numbers/edit 연하게). Verbatim quotes in the SPEC.
+- Added KP1–KP3 rows to `docs/REQ-MAP.md` (parents A1/A2) and the SPEC-OVERVIEW
+  child index; implementation/verification `none` (mechanism open, #298).
+- Measured: `us-qwerty.json` already holds all 32 ASCII punctuation at physical
+  key ids and the number-row digit→shift-symbol pairs, so KP1 Tier 1 needs no new
+  symbol data. Recorded the fork: prior art categorises the symbol page, KP1 asks
+  for physical positions. No ruling.
+

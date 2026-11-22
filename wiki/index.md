@@ -338,6 +338,11 @@
   numbers/symbols mid-Hangul, in interaction counts: the 두벌식 keypad body is
   jamo only, digits come from an optional number row, symbols from a separate
   page. The ISO 25010 premise checked (count is a proxy, not the whole measure).
+- [[2026-11-22-android-keypad-criteria]] — the maintainer's keypad criteria
+  KP1–KP3 (104-key symbols at physical positions, functional keys separated/
+  compact/one shift, frequency + visual emphasis). Measured: us-qwerty already
+  holds all 32 ASCII punctuation at physical positions; the fork vs categorised
+  symbol pages.
 
 ## Raw — upstream
 

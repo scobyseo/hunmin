@@ -194,6 +194,82 @@ clustering related symbols, and user-adjustable spacing/height. Frequency
 ordering (common symbols first) is a further search-time lever the data could
 carry; it is unmeasured here.
 
+## The maintainer's keypad criteria, and what the data already holds
+
+The criteria are requirements now, with their text in
+`docs/SPEC-ANDROID-KEYPAD.md` (**KP1** symbol keys, **KP2** functional keys,
+**KP3** frequency/emphasis directions). This section cites them and measures how
+the existing data and the surveyed designs map onto them; it does not restate
+them and rules nothing.
+
+### KP1 — Tier 1 is already in the layout data, at physical positions
+
+Measured from `libhunmin/data/layouts/us-qwerty.json`: the standard 104-key
+symbol set is exactly the 32 ASCII punctuation characters, and **all 32 are
+present, each at its physical key id** (the symbol is the shift row of the key
+it sits on physically). The number row pairs each digit with its shifted symbol,
+which is the password clause of KP1:
+
+| digit | shift symbol | | digit | shift symbol |
+|---:|---|---|---:|---|
+| 1 | ! | | 6 | ^ |
+| 2 | @ | | 7 | & |
+| 3 | # | | 8 | * |
+| 4 | $ | | 9 | ( |
+| 5 | % | | 0 | ) |
+
+plus `-`→`_`, `=`→`+`, `` ` ``→`~`. So **Tier 1 needs no new symbol data** — a
+keypad surface that mirrors `us-qwerty`'s positions inherits it. Tier 2 (the
+special characters a 104-key cannot type: `※ © ° ± →`, emoji, …) is not in
+`us-qwerty` and is the part KP1 allows to cost more touches.
+
+**The divergence from prior art.** The surveyed IMEs organise the symbol page by
+*category* (brackets/math, currency, punctuation — HeliBoard `symbols.txt`,
+FlorisBoard `western.json`). KP1 asks for *physical positions* for Tier 1, which
+a categorised grid does **not** provide. A QWERTY-positioned symbol page (reusing
+`us-qwerty`) satisfies KP1; a categorised grid satisfies the search-time goal but
+not the physical-position clause. This is a genuine fork, recorded not resolved:
+the maintainer's criterion prioritises touch-typist muscle memory over
+categorisation for the 104-key set. The number-row pairing is satisfied by
+surfacing `us-qwerty`'s existing digit→shift-symbol relation through shift or a
+long-press on the digit key.
+
+### KP2 — functional keys: prior art already separates them
+
+HeliBoard `functional_keys.json` places shift (width 0.15, bottom-left), delete
+(0.15), space (centre, expanding) and enter (right) as **separate** keys, with
+**one** shift — already the shape KP2 asks for. The widths are compact, not
+physical-keyboard-sized, and the positions are the soft keyboard's own, not the
+physical board's. hunmin's engine treats space/enter/backspace as named keys and
+shift as a per-event bit (`FE6`), so KP2 is a geometry/presentation choice with no
+engine change.
+
+### KP3 — frequency and emphasis: one needs data, one decouples the triangle
+
+- **Frequency placement** needs a symbol-frequency source. None is measured here;
+  the bulk corpora live outside the repository (`AGENTS.md`), and deriving a
+  symbol-frequency table from them is its own measurement, not run in this
+  analysis. It also pulls against KP1: repositioning frequent symbols away from
+  their physical keys trades muscle memory for reach.
+- **Visual emphasis** (colour/bold on frequent symbols) cuts search time
+  *without moving keys*, so it improves discoverability **without** the crowding
+  or target-shrinkage cost in the trade-off triangle — it decouples
+  discoverability from geometry. It is not a standard feature of the surveyed
+  IMEs (a gap, not a verdict). It must not rely on colour alone (accessibility),
+  and it needs the same frequency source to know what to emphasise.
+- **Whole-keypad hierarchy** — the maintainer generalised emphasis beyond
+  symbols: in Hangul/English mode the character keys are shown prominently
+  (진하게) and numbers/editing keys faintly (연하게), so the eye goes to the
+  current mode's primary targets. This is a theme/presentation rule (key role →
+  visual weight), independent of the frequency source: even without frequency
+  data, "characters dark, numbers/edit faint" is a fixed hierarchy the theme can
+  apply. It is the same search-time goal as KP1/KP3, applied to the main keypad.
+
+The directions compose: keep KP1's physical positions, express symbol frequency
+through emphasis rather than repositioning (or reposition within Tier 2, where
+KP1 imposes no physical-position rule), and apply the character-vs-functional
+visual hierarchy on the main keypad.
+
 ## What this means for a hunmin 두벌식 keypad
 
 The maintainer's goal — less time *finding* symbols and fewer mis-taps on a
