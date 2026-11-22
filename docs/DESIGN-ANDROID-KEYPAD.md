@@ -303,3 +303,37 @@ backspace, configurable 키/음절/단어/전체.
   E2E swipes a real keycap per unit (KEY: ㅎ곈디 → ㅎ곈ㄷ; WORD: the composing
   word dropped; ALL: a committed field cleared) and asserts the settings row
   and its four choices.
+
+## 12. KP16 — the hint is a promise about the shift result
+
+The maintainer tried shift+, and shift+. following the drawn hints and got
+`<` `>` ("comma 위에 ?, period 위에 "를 적어서 시프트 입력을 해보려고 했는데,
+<>가 각각 입력되네?"). Measured cause: an unmapped shifted key passes to the
+app, whose US KeyCharacterMap resolves Shift+, as `<`. The ruling: "시프트를
+사용해도 동일한 결과가 나와야지." — shift on the frequent keys yields the
+hinted alternate (? "), committed through the symbol path (flush first), in
+every mode and layout; digits and the hardware path unchanged.
+
+Display rule (endorsed the same day): while shift is armed the keycaps SHOW
+the alternate they will type — ? " on the frequent keys, ! @ # … on digits,
+ㅃ on jamo (already the engine's shift row). The corner hint folds into the
+label while armed. One bug found by the E2E assertion: the armed keycap's
+`hint` is null (folded), so the alternate decision must read a constant map
+(`FREQUENT_HINTS`), not the keycap's current hint — fixed and pinned.
+
+Placement: a top-corner move of the jamo sublabel was applied and REVERTED the
+same day — "현행 유지": the sublabel stays bottom-left as the picture draws.
+
+The no-overlap condition ("글자가 겹치지만 않는다면") is MEASURED, not assumed:
+the main label is WRAP_CONTENT-centered so its hierarchy bounds are the text
+box, and `tools/keypad-overlap-check.py` asserts pairwise disjoint text bounds
+per keycap, run by E2E in both plain and armed states. It caught a real overlap
+(digit `2` vs hint `@` at the mockup's 11px hint size); the corner texts are
+10sp/9sp with tightened margins — a recorded deviation from the picture's
+11px/10px, forced by the condition. 44 keycaps, 13 text pairs plain / 1 armed,
+no overlap.
+
+Harness hardening from measured flakes: `mode_is` retries until the IME window
+is in the dump (a surface restore can lag it); `field_text` handles
+uiautomator's single-quoted text attribute (it switches delimiter when the
+value contains `"` — measured with `?"`).

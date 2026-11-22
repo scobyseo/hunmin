@@ -228,6 +228,11 @@ object KeypadModel {
     private val HOME_ROW = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
     private val BOTTOM_ROW = listOf("z", "x", "c", "v", "b", "n", "m")
 
+    /** The frequent keys' hinted alternates (KP16): one source for the corner
+     *  hint AND the shift result — the armed keycap folds the hint into its
+     *  label, so the decision must not read the keycap's current hint. */
+    private val FREQUENT_HINTS = mapOf("," to "?", "." to "\"")
+
     /** The digit's shifted-symbol corner hint, from the registry's own shift
      *  column (the picture's 1<!> … 0<)>); derived, not transcribed. */
     private val DIGIT_HINTS: Map<String, String> = buildMap {
@@ -273,6 +278,23 @@ object KeypadModel {
     fun functionKeyCode(id: String): Int? = FUNCTION_KEYCODES[id]
 
     /**
+     * The shifted alternate of a FREQUENT punctuation key (`, .`): its drawn
+     * hint (? and "), when the symbol page can commit it. Bug fix measured
+     * 2026-11-22 (maintainer: "시프트 입력을 해보려고 했는데, <>가 각각
+     * 입력되네?"): an unmapped shifted key passed to the app is resolved by
+     * the app's KeyCharacterMap — US physical Shift+, is <, not the ? the
+     * hint advertises. The frequent keys' touch-shift alternate is therefore
+     * the hint (KP7's direction: the alternate is the same character whether
+     * reached by shift or swipe), committed through the symbol path (flush
+     * first). Digits keep the engine/app path: their physical shift already
+     * matches the hint (! @ # …). Hardware keys are untouched.
+     */
+    fun shiftedFrequentAlternate(key: KeypadKey, symbols: SymbolScreen?): String? {
+        val hint = FREQUENT_HINTS[key.id] ?: return null
+        return if (symbols != null && hint in symbols.symbols) hint else null
+    }
+
+    /**
      * KP14's gesture decision, pure: a swipe-left deletes when it is LONG
      * (leftward distance at least [thresholdPx]) and horizontally dominant
      * (at least twice the vertical drift) — a tap that drifts up or down a
@@ -300,7 +322,11 @@ object KeypadModel {
 
         val rows = mutableListOf<List<KeypadKey>>()
         rows.add(NUMBER_ROW.map { id ->
-            KeypadKey(id, id, KeypadKey.Kind.DIGIT, keyCodeFor(id), hint = DIGIT_HINTS[id])
+            // Armed shift shows what the tap will type (KP16 display rule):
+            // the digit's symbol, with the corner hint folded into the label.
+            val hint = DIGIT_HINTS[id]
+            KeypadKey(id, if (shift) hint ?: id else id, KeypadKey.Kind.DIGIT,
+                keyCodeFor(id), hint = if (shift) null else hint)
         })
         rows.add(TOP_ROW.mapNotNull { id -> if (id in caps.ids) letter(id) else null })
         rows.add(HOME_ROW.mapNotNull { id -> if (id in caps.ids) letter(id) else null })
@@ -313,16 +339,22 @@ object KeypadModel {
         // else the classifier's boundary-and-pass inserts the character — the
         // same key event either way. The ? " hints are the picture's KP7
         // swipe affordances; the gestures are #312, the hints are drawn (KP13).
-        fun punct(id: String, hint: String): KeypadKey =
-            KeypadKey(id, id, KeypadKey.Kind.CHARACTER, keyCodeFor(id), hint = hint)
+        // KP16 display rule: armed shift shows the alternate the tap will
+        // type (? and "), the hint folded into the label — same principle as
+        // the jamo keycaps showing ㅃ while armed.
+        fun punct(id: String): KeypadKey {
+            val hint = FREQUENT_HINTS.getValue(id)
+            return KeypadKey(id, if (shift) hint else id, KeypadKey.Kind.CHARACTER,
+                keyCodeFor(id), hint = if (shift) null else hint)
+        }
         rows.add(
             listOf(
                 KeypadKey("language-toggle", "한/영", KeypadKey.Kind.MODE, -1),
                 KeypadKey("symbols-page", "기호", KeypadKey.Kind.SYMBOLS_PAGE, -1),
                 // KP15: comma LEFT of space — the space sits further right.
-                punct(",", "?"),
+                punct(","),
                 KeypadKey("space", "space", KeypadKey.Kind.FUNCTION, FUNCTION_KEYCODES.getValue("space")),
-                punct(".", "\""),
+                punct("."),
                 KeypadKey("enter", "⏎", KeypadKey.Kind.FUNCTION, FUNCTION_KEYCODES.getValue("enter")),
             )
         )

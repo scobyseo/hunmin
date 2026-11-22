@@ -151,3 +151,16 @@ two follow-ups:
    좋겠어") — the bottom row is now `[한/영] [기호] , [space] . [⏎]`. The mockup
    artefacts were amended WITH the ruling so the picture and the SPEC do not
    drift; the model test pins the new order.
+
+## KP16: the hint is a promise about the shift result
+
+The maintainer tried shift+, / shift+. and got < > — the app's KeyCharacterMap,
+not the hinted ? ". Ruling: "시프트를 사용해도 동일한 결과가 나와야지." Fixed
+via the symbol path; armed keycaps now display the alternate (? " ! ㅃ); the
+jamo sublabel placement stayed as-is ("현행 유지") after a top-corner move was
+applied and reverted. The no-overlap condition is measured by
+tools/keypad-overlap-check.py from the hierarchy bounds — it caught a real
+digit/hint overlap, fixed by 10sp/9sp corner texts. Two more measured first
+drafts: the alternate decision read the armed keycap's folded (null) hint, and
+the E2E text extractor missed uiautomator's single-quoted attribute when the
+field contains a double quote.

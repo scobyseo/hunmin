@@ -756,7 +756,7 @@ The E2E touch round (#299) runs inside `engine-android-e2e`; it skips without
 a device, so it does not enter the table above. With the emulator attached it
 grew across the task's phases as regressions were added: 175.6 s (touch round),
 then the bug 1/2/3 assertions and the KP14 swipe round (three units + settings
-section) — final measured total 305.3 s. No master E2E baseline was measured in
+section) — measured 305.3 s at the KP14 stage; the KP16 assertions and the overlap guard were added afterwards (tier green within its 1200 s timeout). No master E2E baseline was measured in
 this session (the main checkout has no APK built), so no delta is claimed for
 it; the growth is asserted coverage, and the tier's ctest timeout is 1200 s.
 

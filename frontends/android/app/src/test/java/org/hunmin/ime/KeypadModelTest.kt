@@ -352,6 +352,38 @@ class KeypadModelTest {
         assertEquals("drifted mode: the return memory would be stale", KeypadState.Page.TEXT, s.page)
     }
 
+    // ------------------------------------------------------------ KP16 shift alternate
+
+    @Test
+    fun `the frequent keys shift alternate is their hint, not the physical shift`() {
+        val screen = SymbolScreen.parse(symbolAsset.readText())
+        val rows = KeypadModel.textRows(caps("dubeolsik"), shift = false)
+        val comma = rows.flatten().first { it.id == "," }
+        val period = rows.flatten().first { it.id == "." }
+        assertEquals("?", KeypadModel.shiftedFrequentAlternate(comma, screen))
+        assertEquals("\"", KeypadModel.shiftedFrequentAlternate(period, screen))
+        val q = rows.flatten().first { it.id == "q" }
+        assertNull("letters keep the engine's shift row", KeypadModel.shiftedFrequentAlternate(q, screen))
+        assertNull("no symbol page: fall back to the key path",
+            KeypadModel.shiftedFrequentAlternate(comma, null))
+        // The armed keycap folds the hint into its label (hint=null) — the
+        // decision must still answer ? (measured bug: it read key.hint).
+        val armedComma = KeypadModel.textRows(caps("dubeolsik"), shift = true)
+            .flatten().first { it.id == "," }
+        assertNull(armedComma.hint)
+        assertEquals("?", KeypadModel.shiftedFrequentAlternate(armedComma, screen))
+        // KP16 display rule: armed shift shows the alternate on the keycap.
+        val armed = KeypadModel.textRows(caps("dubeolsik"), shift = true).flatten()
+        assertEquals("?", armed.first { it.id == "," }.label)
+        assertEquals("\"", armed.first { it.id == "." }.label)
+        assertNull("hint folded into the label while armed", armed.first { it.id == "," }.hint)
+        assertEquals("!", armed.first { it.id == "1" }.label)
+        assertEquals("ㅃ", armed.first { it.id == "q" }.label)
+        val plain = KeypadModel.textRows(caps("dubeolsik"), shift = false).flatten()
+        assertEquals(",", plain.first { it.id == "," }.label)
+        assertEquals("?", plain.first { it.id == "," }.hint)
+    }
+
     // ------------------------------------------------------------ KP14 gesture
 
     @Test

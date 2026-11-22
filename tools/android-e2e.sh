@@ -641,15 +641,49 @@ echo "the key bindings section lists all four actions; the auto-toggle row has n
 # announces. Checking the text would have passed a keyboard whose toggle was
 # broken and failed a working one.
 mode_is() {  # mode_is 한|영 -> 0 when the input view shows that mode selected
-  local desc
+  # Retries until the IME window is in the dump: after a surface restore the
+  # window can lag the editor, and a single-shot check read that absence as a
+  # broken toggle (measured flakes in two rounds). A dump showing the OTHER
+  # mode selected is a definitive answer, returned immediately.
+  local desc other odesc i dump
   case "$1" in
-    한) desc='한글 입력' ;;
-    영) desc='영문 입력' ;;
-    *)  desc="$1" ;;
+    한) desc='한글 입력'; other=영; odesc='영문 입력' ;;
+    영) desc='영문 입력'; other=한; odesc='한글 입력' ;;
+    *)  desc="$1"; other=''; odesc='' ;;
   esac
-  dump_ui /sdcard/mode.xml | tr '>' '\n' \
-    | grep -E "(text=\"$1\"|content-desc=\"$desc\")" \
-    | grep -q 'selected="true"'
+  for i in 1 2 3 4 5 6; do
+    dump="$(dump_ui /sdcard/mode.xml)" || { sleep 1; continue; }
+    if printf '%s' "$dump" | tr '>' '\n' \
+        | grep -E "(text=\"$1\"|content-desc=\"$desc\")" \
+        | grep -q 'selected="true"'; then
+      return 0
+    fi
+    if [ -n "$other" ] && printf '%s' "$dump" | tr '>' '\n' \
+        | grep -E "(text=\"$other\"|content-desc=\"$odesc\")" \
+        | grep -q 'selected="true"'; then
+      return 1
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# Establish a mode through the keypad's own 한/영 key, with retries: after a
+# surface restore the IME window can be absent from a dump for a moment, and
+# a single-shot check read that absence as a broken toggle (measured flake).
+ensure_mode() {  # ensure_mode 한|영
+  local want="$1" other i
+  case "$want" in 한) other=영 ;; 영) other=한 ;; esac
+  for i in 1 2 3 4 5; do
+    mode_is "$want" && return 0
+    if mode_is "$other"; then
+      tap_desc 'fn:language-toggle'
+      sleep 1.5
+    else
+      sleep 1
+    fi
+  done
+  mode_is "$want" || fail "the keypad's 한/영 key did not reach mode '$want'"
 }
 
 # Capture 한/영 전환 = F9 (KEYCODE_F9 = 139, measured with javap on android.jar).
@@ -753,9 +787,14 @@ tap_desc() {  # tap_desc <content-desc> — tap a keycap by its identity
 }
 
 field_text() {  # the focused EditText's text, from the platform's hierarchy
-  dump_ui /sdcard/kpf.xml | tr '>' '\n' \
-    | grep -m1 'class="android.widget.EditText"' \
-    | grep -o 'text=.[^"]*.' | sed 's/^text=//; s/"//g'
+  # uiautomator delimits the text attribute with " normally, but switches to '
+  # when the value contains a " (measured: text='?"'). Handle both forms.
+  local node
+  node="$(dump_ui /sdcard/kpf.xml | tr '>' '\n' \
+    | grep -m1 'class="android.widget.EditText"' || true)"
+  printf '%s' "$node" \
+    | sed -n -e "s/.*text='\([^']*\)'.*/\1/p" -e 's/.*text="\([^"]*\)".*/\1/p' \
+    | head -1
 }
 
 restore_surface || fail "cannot restore the test editor for the touch round"
@@ -765,13 +804,16 @@ dump_ui /sdcard/kp0.xml | grep -q 'content-desc="key:q"' \
   || fail "the soft keypad is not shown without a physical keyboard (KP12 auto-show)"
 echo "the keypad auto-shows with no physical keyboard (KP12)"
 
+# The maintainer's condition for the hint/alternate display: no overlapping
+# text on a keycap. Measured from the platform's own hierarchy bounds.
+OVERLAP_TMP="$(mktemp)"
+"$ADB" exec-out cat /sdcard/kp0.xml > "$OVERLAP_TMP"
+python3 "$ROOT/tools/keypad-overlap-check.py" "$OVERLAP_TMP" \
+  || fail "keycap texts overlap (maintainer condition: 글자가 겹치지만 않는다면)"
+
 # English mode, deterministically: the binding round above may have left
 # either mode; tap the keypad's own 한/영 key only if we are in Hangul.
-if mode_is '한'; then
-  tap_desc 'fn:language-toggle'
-  sleep 1
-fi
-mode_is '영' || fail "the keypad's 한/영 key did not reach English mode"
+ensure_mode '영'
 
 # Bug 1 regression (issue #299): the GRID's labels must follow the mode, not
 # just the engine. The toggle used to refresh the strip only, leaving Hangul
@@ -819,11 +861,7 @@ echo "the symbol page returns to the original mode and grid (KP9)"
 # A Hangul word on the DEFAULT layout (sin3-p2), typed as taps on the generic
 # grid — the same keys the hardware round typed, the same expectation.
 restore_surface || fail "cannot restore the test editor for the Hangul touch round"
-if mode_is '영'; then
-  tap_desc 'fn:language-toggle'
-  sleep 1
-fi
-mode_is '한' || fail "the keypad's 한/영 key did not reach Hangul mode"
+ensure_mode '한'
 for k in d k s s u d; do tap_desc "key:$k"; done
 sleep 1
 TOUCH_KO="$(field_text)"
@@ -853,6 +891,33 @@ case "$TOUCH_ENTER" in
   *) fail "enter tap did not commit + newline (bug 3): got '${TOUCH_ENTER}'" ;;
 esac
 echo "backspace and enter taps work through the platform (bugs 2/3 fixed)"
+
+# KP16 regression: shift on the frequent keys yields the HINTED alternate
+# (? and "), not the app keymap's physical shift (< >). sin3-p2 keys ',' with
+# its own shift value — the frequent-key rule overrides it on touch.
+tap_desc 'fn:shift'
+# Armed state: the keycaps now show ? " ! — check the condition again.
+"$ADB" shell uiautomator dump --windows /sdcard/kparmed.xml >/dev/null 2>&1
+"$ADB" exec-out cat /sdcard/kparmed.xml > "$OVERLAP_TMP"
+python3 "$ROOT/tools/keypad-overlap-check.py" "$OVERLAP_TMP" \
+  || fail "armed keycap texts overlap"
+tap_desc 'key:,'
+SHIFT_COMMA="$(field_text)"
+echo "shift+comma reads: '${SHIFT_COMMA}'"
+case "$SHIFT_COMMA" in
+  *'&#10;?') : ;;
+  *) fail "shift+comma: expected the hinted '?' (KP16), got '${SHIFT_COMMA}'" ;;
+esac
+tap_desc 'fn:shift'
+tap_desc 'key:.'
+SHIFT_PERIOD="$(field_text)"
+echo "shift+period reads: '${SHIFT_PERIOD}'"
+case "$SHIFT_PERIOD" in
+  *'&#10;?"'|*'&#10;?&quot;') : ;;
+  *) fail "shift+period: expected the hinted '\"' (KP16), got '${SHIFT_PERIOD}'" ;;
+esac
+echo "shift on , . yields the hinted ? \" (KP16)"
+rm -f "$OVERLAP_TMP"
 
 # --- KP14: the long swipe-left delete, per unit -----------------------------
 #
@@ -891,7 +956,7 @@ set_swipe_unit() {  # set_swipe_unit <pref> — write the setting, restart the I
 
 # Default unit KEY: one swipe deletes one jamo of the composition.
 restore_surface || fail "cannot restore the surface for the swipe round"
-if mode_is '영'; then tap_desc 'fn:language-toggle'; sleep 1; fi
+ensure_mode '한'
 for k in d k s s u d; do tap_desc "key:$k"; done
 swipe_left_on 'key:d'
 SWIPE_KEY="$(field_text)"

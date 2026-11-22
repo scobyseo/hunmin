@@ -472,3 +472,47 @@ holds — the row is the same in Hangul and English modes.
 *Implementation:* `KeypadModel.textRows` bottom row;
 `docs/android-keypad-mockup.html` / `.md` amended. *Verified by:*
 engine-android-e1 (`KeypadModelTest` row order), engine-android-e2e (taps).
+
+### KP16. Shift on the frequent , . keys yields the hinted alternate — same result as the gesture (DECIDED)
+
+The maintainer's bug report (2026-11-22, verbatim):
+
+> "comma 위에 ?, period 위에 "를 적어서 시프트 입력을 해보려고 했는데,
+> <>가 각각 입력되네?"
+
+The ruling (2026-11-22, verbatim):
+
+> "시프트를 사용해도 동일한 결과가 나와야지."
+
+**Decided:** on the touch keypad, shift+`,` yields `?` and shift+`.` yields `"`
+— the characters their drawn hints advertise, the SAME result the swipe-up
+gesture will produce (KP7: swipe-up is a substitute for shift, so the alternate
+is one character regardless of mechanism). The hint is a promise about the
+key's alternate, not about the physical keyboard's shift row.
+
+Measured cause of the defect: in a layout that does not key `,`/`.` (dubeolsik),
+the shifted tap passed through to the app, whose US KeyCharacterMap resolves
+Shift+, as `<` and Shift+. as `>`. The fix commits the hint character through
+the symbol path (pending word flushed first), for the two frequent keys only,
+in every mode and layout. Digits keep the engine/app path — their physical
+shift already matches the hints (! @ # …). The hardware key path is untouched.
+
+*Implementation:* `KeypadModel.shiftedFrequentAlternate`, `KeypadView` tap
+dispatch — `docs/DESIGN-ANDROID-KEYPAD.md`. *Verified by:* engine-android-e1
+(`KeypadModelTest`), engine-android-e2e (shift taps on the device).
+
+KP16 display rule (maintainer, 2026-11-22, verbatim):
+
+> "시프트가 입력되면 그 키가 ?"로 출력되게 하는 것도 좋은 방법이고."
+
+While shift is armed, the frequent keycaps DISPLAY the alternate they will
+type (`?` and `"`), the corner hint folded into the label — the same principle
+as the jamo keycaps showing `ㅃ` while armed (endorsed the same day: "ㅂ위에
+ㅃ이 출력되는 것도 좋은 방법인데 말이지"). Digits likewise show their symbol
+(`! @ # …`) while armed. The display and the result are one promise.
+
+Placement ruling (maintainer, 2026-11-22, verbatim): "현행 유지." — the
+shifted-jamo sublabel stays at the mockup's bottom-left; a top-corner move
+applied earlier the same day was reverted. The condition attached to the
+display proposals ("글자가 겹치지만 않는다면 내가 제안한 방식을 적용해 봐")
+is verified by measuring the keycap TextViews' bounds for overlap.

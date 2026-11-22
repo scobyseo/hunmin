@@ -169,27 +169,36 @@ class KeypadView(context: Context) : LinearLayout(context) {
         main.setTextColor(foreground)
         main.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize)
         main.paint.isFakeBoldText = true   // the picture: font-weight 700
-        frame.addView(main, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        // WRAP_CONTENT + center: the view's bounds are the text box, so the
+        // no-overlap condition (maintainer: "글자가 겹치지만 않는다면") is
+        // measurable from the platform hierarchy (tools/keypad-overlap-check.py).
+        frame.addView(main, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
 
         // Corner hint, top-right (the picture's .hint: 11px, 롱프레스/swipe-up).
         key.hint?.let { h ->
             val tv = TextView(context)
             tv.text = h
             tv.setTextColor(hintInk)
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            // 10sp (mockup 11px): measured overlap with the 19sp main label
+            // at 11sp — the no-overlap condition wins (keypad-overlap-check).
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
             tv.paint.isFakeBoldText = true
             frame.addView(tv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
-                setMargins(0, dp(2), dp(5), 0)
+                setMargins(0, dp(1), dp(3), 0)
             })
         }
         // Sublabel, bottom-left (the picture's .sub: 10px, shifted jamo).
+        // Placement KEPT AS-IS by the maintainer (2026-11-22: "현행 유지"),
+        // after a top-corner move was applied and reverted the same day.
+        // Non-overlap with the main label is measured from the hierarchy
+        // bounds (the maintainer's condition: "글자가 겹치지만 않는다면").
         key.sub?.let { s ->
             val tv = TextView(context)
             tv.text = s
             tv.setTextColor(hintInk)
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
             frame.addView(tv, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.START).apply {
-                setMargins(dp(5), 0, 0, dp(1))
+                setMargins(dp(4), 0, 0, 0)
             })
         }
         frame.setOnClickListener { tap(key) }
@@ -229,7 +238,14 @@ class KeypadView(context: Context) : LinearLayout(context) {
                 // The one-shot shift rides the metaState, exactly as a hardware
                 // Shift+key does; consuming it re-renders the plain labels.
                 val meta = state.shiftMeta()
-                onCharacterKey?.invoke(key.keyCode, meta)
+                val alternate = if (meta != 0) KeypadModel.shiftedFrequentAlternate(key, symbols) else null
+                if (alternate != null) {
+                    // The frequent keys' shift alternate is their hint (? "),
+                    // not the app keymap's physical shift (< >) — measured bug.
+                    onSymbol?.invoke(alternate)
+                } else {
+                    onCharacterKey?.invoke(key.keyCode, meta)
+                }
                 if (meta != 0) rebuild()
             }
             KeypadKey.Kind.FUNCTION ->
