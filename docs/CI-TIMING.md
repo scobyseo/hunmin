@@ -508,6 +508,82 @@ line moves with this measurement beside it), or state the budgets against the
 skip conditions explicitly. No ruling is recorded here; the guard test itself
 is cheap and stays in the inner loop either way.
 
+### 5d. The source build retired: the floor is 5.1.7 (2026-11-22, issue #322)
+
+The 197 s fcitx5 source build (§1, §5) existed only because the addon needed
+`>= 5.1.13` and Ubuntu 24.04 ships 5.1.7. Issue #322 lowered the floor to
+5.1.7 by version-guarding the two APIs above it instead of requiring them —
+`FCITX_ADDON_FACTORY` (V1) is exported on every version and 5.1.19's loader
+falls back to it, and `CandidateWord::setComment` (5.1.9+) has an `auxDown`
+gloss fallback below it. The linux, deb, nightly-fuzz and release jobs now
+install the **distro** `libfcitx5core-dev` / `fcitx5-modules-dev` /
+`fcitx5-modules` / `fcitx5` via apt, and the install-tree cache, artefact
+upload and deb-job restore are gone.
+
+**Effect on the ceilings this section is about:** the 3-minute linux ceiling
+no longer depends on a cache hit. Before, the headroom was "apt 22 s + cache
+restore ~10 s + cmake/build 9 s + ctest ~37 s" with a 197 s cold build that a
+MISS could not fit; now there is no cold/warm distinction — the cold path *is*
+the warm path, and the 197 s segment simply does not exist. The deb job's
+`needs: linux` and its artefact restore are removed with it (both jobs install
+the distro fcitx5 independently), and its `-d` on `dpkg-buildpackage` is gone
+because the distro package owns the .so, so the build-dep check is honest
+again.
+
+**Verified on this host** (26.04, fcitx5 5.1.19 in `/usr`; and a locally-built
+fcitx5 5.1.7 install tree from upstream tag `5.1.7`): the addon and the full
+D1/D2 harness build and pass against BOTH. `-LE slow` is 130/130 on each tree,
+with `HUNMIN_FCITX_CANDIDATE_COMMENT` defined against 5.1.19 (gloss via
+`setComment`) and absent against 5.1.7 (gloss via the `auxDown` fallback the D2
+test asserts on that branch).
+
+**Measured on the runner** (dispatch run 45026960367, `workflow_dispatch` on
+this branch, 2026-11-22): the `linux` job completed in **212 s**, with no fcitx5
+source-build segment in its steps — `Install build deps` 37 s, `cmake --build
+-j4` 31 s, `ctest -j4 -LE tier-E1` 124 s. The 197 s source build is **gone**
+(no clone/configure/build step exists), which was the point of the change. But
+**212 s is still over the 180 s target**, and the overage is not fcitx5: ctest
+is dominated by the **Android conformance tier-C tests**
+(`engine-android-conformance-*`, ~51 s each through Gradle, which register on
+the linux job because the runner image ships the Android SDK), and `apt` pulled
+the frontend-heavy `fcitx5` recommends. So removing the source build does not
+by itself meet "cold path <= 180 s".
+
+**The apt prune (applied, issue #322, maintainer-directed 2026-11-22).** The
+~25 fcitx5-source-build `-dev` packages were removed from the linux, deb,
+nightly-fuzz and release apt lists, and the fcitx5 stack is installed with
+`--no-install-recommends` (scoped to its own line so it cannot drop the dbus
+session bus the IBus D2 lane needs). What makes this safe, measured rather than
+assumed: `fcitx5-modules`' Depends already supplies every runtime D3's
+`find_file REQUIRED` needs (`libxcb-imdkit1`, `libxcb1`, `libxkbcommon0`, the
+xcb/cairo/pango runtimes); `Fcitx5CompilerSettings.cmake` is pure flag-setting
+(no ECM/gettext) and the fcitx headers include no `fmt/`. The linux
+registration gate now also requires the fcitx5 D1/D2 and tier-C x11 lanes, so a
+silently dropped lane fails the job instead of reading green. The remaining
+lever for the 180 s target is the Android-conformance duplication (§3 option
+E), a separate decision.
+
+**One catch the first prune run exposed (and fixed).** Dropping the
+source-build `-dev` packages also dropped `libx11-dev`, which had been arriving
+transitively; `find_package(X11)` then failed and the **9 D3 tests stopped
+registering** (176 -> 167 on the runner, where D3 skips at runtime anyway).
+That is the silent-drop shape this workflow exists to prevent, so `libx11-dev`
+is now explicit in the list — it is genuinely needed for D3 registration, not
+an optional extra. The first prune run (D3 unregistered, 167 tests) measured
+**144 s** on the PR path; with `libx11-dev` restored the follow-up PR run
+(45030208426) measured **159 s** (apt 26 s, build 23 s, ctest 91 s), **176/176
+tests pass**, D3 registers again, and the IBus + fcitx5 gate is green — under
+the 180 s target with no source build and no cache dependence. Two earlier runner comparisons (`pull_request`
+45020698685, 45018050862) were 176-196 s warm with the old source build cached,
+so the runner's ctest floor was already ~100 s+, not the ~37 s the older budget
+note assumed.
+
+**Not a regression from this branch:** the nightly-only `deb` and `ibus-jammy`
+jobs were red on this dispatch, but `schedule` runs have been red since
+2026-11-15, and the `deb` configure failure is a googletest
+`FETCHCONTENT_FULLY_DISCONNECTED` target-not-found in
+`cmake/HunminLibhunminTests.cmake`, which this branch does not touch.
+
 ---
 
 ## 6. None of this can currently be re-measured (2026-10-16)

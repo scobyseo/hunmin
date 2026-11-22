@@ -78,10 +78,10 @@ if(BUILD_TESTING AND Python3_FOUND)
     set(HUNMIN_TEST_LINK_OPTS -static)
   endif()
 endif()
-# fcitx5 floor: Fcitx5Core >= 5.1.13 (DESIGN-BUILD.md); skipped when unavailable.
+# fcitx5 floor: Fcitx5Core >= 5.1.7 (DESIGN-BUILD.md); skipped when unavailable.
 option(HUNMIN_FCITX5 "Build the fcitx5 addon" ON)
 if(HUNMIN_FCITX5)
-  find_package(Fcitx5Core 5.1.13 QUIET)
+  find_package(Fcitx5Core 5.1.7 QUIET)
   find_package(Fcitx5Module QUIET COMPONENTS TestFrontend)
   if(Fcitx5Core_FOUND)
     add_subdirectory(frontends/fcitx5)

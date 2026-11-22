@@ -291,7 +291,7 @@ run, not to prose here.
 
 Still open from the list above: the config store (the engine runs engine defaults;
 `HUNMIN_IBUS_LAYOUT` is a D3 test seam, not a backend) and FE11's reading —
-`tools/check-frontend-invariants.py` applies the existing 700-line number to each
+`tools/check-frontend-invariants.py` applies one budget (1000 lines since 2026-11-22, issue #322; 700 before) to each
 frontend; the opt-in trace sink lives outside the counted adapter files.
 
 ### Track 2 — auto-switch improvement (correctness, expectability, …)

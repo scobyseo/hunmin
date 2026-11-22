@@ -135,10 +135,16 @@ public:
 
     const std::string &hanja() const { return hanja_; }
 
+    /* The gloss, kept here on EVERY version: below 5.1.9 CandidateWord has
+     * no comment slot at all, and updateUI() reads this to publish the
+     * cursor's gloss through auxDown instead (issue #322). */
+    const Text &gloss() const { return comment_; }
+
 private:
     HunminAdapter *engine_;
     InputContext *ic_;
     std::string hanja_;
+    Text comment_;
 };
 
 class HunminState : public InputContextProperty {
@@ -589,6 +595,23 @@ private:
                 ic_->inputPanel().setPreedit(text);
             }
         }
+#ifndef HUNMIN_FCITX_CANDIDATE_COMMENT
+        /* fcitx5 5.1.7/5.1.8: CandidateWord has no setComment (5.1.9+), so
+         * the gloss cannot ride the candidate. It rides auxDown instead --
+         * classicui draws that below the candidate page (verified in 5.1.7
+         * src/ui/classic/inputwindow.cpp, issue #322). Only the CURSOR'S
+         * candidate has a gloss slot this way: the same highlighted-gloss UX
+         * as IBus FE16 option A (issue #319). Every cursor move (the
+         * Up/Down/Page handlers in keyEvent) lands here, so the gloss tracks
+         * the cursor; an empty Text clears the slot when the window closes. */
+        Text aux;
+        if (auto list = ic_->inputPanel().candidateList()) {
+            const int idx = list->cursorIndex();
+            const auto *word = (idx >= 0 && idx < list->size()) ? dynamic_cast<const HunminCandidateWord *>(&list->candidate(idx)) : nullptr;
+            if (word) { aux = word->gloss(); }
+        }
+        ic_->inputPanel().setAuxDown(aux);
+#endif
         ic_->updatePreedit();
         ic_->updateUserInterface(UserInterfaceComponent::InputPanel);
     }
@@ -603,8 +626,13 @@ private:
 };
 
 HunminCandidateWord::HunminCandidateWord(Text text, Text comment, HunminAdapter *engine, InputContext *ic, std::string hanja)
-    : CandidateWord(std::move(text)), engine_(engine), ic_(ic), hanja_(std::move(hanja)) {
-    setComment(std::move(comment));
+    : CandidateWord(std::move(text)), engine_(engine), ic_(ic), hanja_(std::move(hanja)), comment_(std::move(comment)) {
+#ifdef HUNMIN_FCITX_CANDIDATE_COMMENT
+    /* 5.1.9+: classicui draws the comment beside each candidate on the page
+     * (5.1.7's inputwindow.cpp has no such read -- verified against the tag,
+     * issue #322). Below 5.1.9 the gloss rides auxDown, see updateUI(). */
+    setComment(comment_);
+#endif
 }
 
 void HunminCandidateWord::select(InputContext *inputContext) const {
@@ -777,7 +805,14 @@ HunminAdapter::HunminAdapter(Instance *instance) : instance_(instance), factory_
             (void)held;
             safeSaveAsIni(this->config_, "conf/hunmin.conf");
             refreshAutoswitchRow();
+#ifdef HUNMIN_FCITX_CUSTOM_IM_INFO
+            /* The custom-message popup is @since 5.1.11 (issue #322 found this
+             * gap beyond the two the issue listed). Below it the toggle still
+             * works and is logged; only the popup is absent -- the predecessor
+             * showInputMethodInformation() shows the IM name, not the autoswitch
+             * state, which would mislead, so there is no fallback popup. */
             instance_->showCustomInputMethodInformation(ke->inputContext(), *config_.autoswitch ? "Autoswitch enabled" : "Autoswitch disabled");
+#endif
             FCITX_INFO() << "hunmin: Ctrl+Hangul autoswitch toggled, value=" << (*config_.autoswitch ? "ON" : "OFF");
             ke->filterAndAccept();
         }
@@ -926,4 +961,12 @@ HunminState *HunminAdapter::state(InputContext *ic) { return ic->propertyFor(&fa
 
 } // namespace fcitx
 
-FCITX_ADDON_FACTORY_V2(hunmin, fcitx::HunminAdapterFactory);
+/* Factory export: V1 on every version (issue #322). V1 is the only symbol
+ * fcitx5 5.1.7's loader resolves (addonloader_p.h), and 5.1.19's loader tries
+ * the V2 name first and falls back to V1 (SharedLibraryFactory, verified
+ * against both tags) -- so this one export loads on every fcitx5 from 5.1.7
+ * up. V2 is deliberately not exported additionally: a binary built against
+ * 5.1.9+ headers links CandidateWord::setComment and cannot run on 5.1.7
+ * regardless of its factory symbol, so the dual export would buy no
+ * cross-version compatibility the setComment guard does not already decide. */
+FCITX_ADDON_FACTORY(fcitx::HunminAdapterFactory);

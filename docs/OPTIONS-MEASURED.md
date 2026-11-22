@@ -2646,6 +2646,14 @@ jammy distribution is therefore not a port of today's package; it is a package w
 frontend jammy can host.** That is why this subsection belongs to this section rather than
 to a packaging checklist: the distro target decides the frontend question.
 
+> **Note added 2026-11-22 (issue #322), not a rewrite of the measurement above.**
+> The floor is now **5.1.7**, not 5.1.13, and the two APIs are version-guarded
+> (`frontends/fcitx5/CMakeLists.txt`). The finding for jammy is unchanged and
+> in fact stronger — jammy's 5.0.14 is below 5.1.7 as well — so a jammy package
+> still cannot carry the fcitx5 addon; but the *reason* now reads "below 5.1.7",
+> and the "5.1.13 floor" in the paragraph above is the state at the time it was
+> measured, kept as the record of that run.
+
 **The 22.04 target is decided (2026-11-09).** The maintainer answered the paths above with
 one sentence:
 

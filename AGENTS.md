@@ -50,7 +50,7 @@ compose syllables and buffer an eojeol; it does not know what a keyboard is.
 Not hard rules, and they bend when the case demands — a rule you cannot weigh
 is a rule you stop reading.
 
-- **Frontends stay thin**, under roughly 700 lines: event mapping and
+- **Frontends stay thin**, under roughly 1000 lines: event mapping and
   presentation. Logic that grows in a frontend belongs in the core. The number is
   a smell, not a budget to shave a test to fit.
 
@@ -87,14 +87,11 @@ down. So the budgets are enforced, not aspirational:
 
 The 3-minute job ceiling is met by two levers, both measured in
 `docs/CI-TIMING.md` §5: excluding tier E1 from the linux job's suite (ctest
-269 s → ~37 s, because the `android` job already runs those tests) and caching
-the fcitx5 5.1.13 install tree (197 s on every commit with nothing cached →
-~10 s on a cache hit). Together the job is ~78 s against 180 s.
-
-**On a cache MISS the job cannot fit** — the fcitx5 build alone is 197 s. That
-is the cold path, paid once per tag bump, and it surfaces as a timeout rather
-than a silent slow run. The fix then is to let the cold build finish and cache
-it, not to raise the number.
+269 s → ~37 s, because the `android` job already runs those tests) and, since
+issue #322, installing the **distro** fcitx5 via apt instead of building 5.1.13
+from source (the floor is now 5.1.7, which Ubuntu 24.04 ships). The 197 s
+source build and its cache are gone, so the cold path and the warm path are the
+same path and the ceiling no longer depends on a cache hit.
 
 `tools/ci-time-budget.sh` measures all three and fails when one is over. Run
 it before pushing anything that **adds a test**, because that is the change

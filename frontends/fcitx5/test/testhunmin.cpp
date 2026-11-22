@@ -7,6 +7,7 @@
  * commit strings, caps handling (docs/TESTING.md).
  */
 #include "testdir.h"
+#include "harness_compat.h"
 #include "testfrontend_public.h"
 #include "../src/config.h"
 #include <cstdlib>
@@ -35,7 +36,7 @@ static void press(ICUUID uuid, const Key &key, bool expectAccepted = true) {
 }
 
 void scheduleEvent(Instance *instance) {
-    instance->eventDispatcher().schedule([instance]() {
+    hunmin_test::dispatcher(instance).schedule([instance]() {
         auto *hunmin = instance->addonManager().addon("hunmin", true);
         FCITX_ASSERT(hunmin);
 
@@ -290,12 +291,12 @@ void scheduleEvent(Instance *instance) {
         instance->deactivate();
     });
 
-    instance->eventDispatcher().schedule([instance]() { instance->exit(); });
+    hunmin_test::dispatcher(instance).schedule([instance]() { instance->exit(); });
 }
 
 int main() {
     setenv("HUNMIN_DATA_PATH", TESTING_SOURCE_DIR "/libhunmin/data", 1);
-    setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
+    hunmin_test::setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
     char arg0[] = "testhunmin";
     char arg1[] = "--disable=all";
     char arg2[] = "--enable=testim,testfrontend,hunmin";

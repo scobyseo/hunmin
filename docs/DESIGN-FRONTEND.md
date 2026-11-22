@@ -860,8 +860,10 @@ no test noticing, because a number in prose cannot fail. The budget is now
 invariant **I8** in `tools/check-frontend-invariants.py` (ctest
 `frontend-invariants`): it counts code lines across every translation unit the
 adapter owns — `hunminadapter.{h,cpp}`, `config.h` — comments and blanks
-excluded, and fails above **700** — the maintainer's 2026-10-25 ruling; the 545
-this line used to carry was a pre-ruling figure the checker never enforced.
+excluded, and fails above **1000** — the maintainer's 2026-10-25 ruling was
+~700, raised to 1000 on 2026-11-22 (issue #322) so the fcitx5 5.1.7 gloss
+fallback had honest room; the 545 this line used to carry was a pre-ruling
+figure the checker never enforced.
 (`language_detect.{h,cpp}` left that list with
 the detector on 2026-11-01, #164.) Do not add counts back to this table;
 add a rule to the checker instead. Reading the current number:
@@ -1153,18 +1155,24 @@ showed that a prose rule nobody can execute catches nothing. Run
    `I5-layout-override-ignored` anchor name it, so both move with it.
 8. **The adapter stays inside the thin-adapter budget (rule #4).**
    Check: code lines across `hunminadapter.{h,cpp}`, `config.h`
-   ≤ **700**, comments and blanks excluded. This is a measurement, not a
+   ≤ **1000**, comments and blanks excluded. This is a measurement, not a
    description — see §1. Exceeding it means composition logic or per-layout
    knowledge has crept into the frontend, which is the failure mode rule #4
    exists to prevent. The count is of *every* translation unit the adapter
    owns, not just `hunminadapter.{h,cpp}`, because splitting logic into a new file
    would otherwise walk straight past the budget while the adapter grew. The
-   limit has moved twice, each time for work that is frontend by nature and
-   cannot live in the core: the F9/candidate presentation (400 → 465), and
+   limit has moved four times, each time for work that is frontend by nature and
+   cannot live in the core: the F9/candidate presentation (400 → 465),
    keyboard selection in the candidate window (465 → 545, 2026-10-11), which
    exists because fcitx5 does not intercept Up/Down/Return for a
    `CursorMovableCandidateList` — it only offers `prevCandidate()`/
-   `nextCandidate()` and calling them is the input method's job.
+   `nextCandidate()` and calling them is the input method's job, the
+   fcitx5 < 5.1.9 gloss fallback (700 → raised, issue #322): below 5.1.9
+   `CandidateWord` has no `setComment`, so the gloss rides `auxDown` —
+   presentation that cannot move to a core that knows nothing of fcitx5's
+   comment/auxDown split — and the maintainer's 2026-11-22 ruling raising the
+   budget to 1000 so that fallback did not have to be shaved to fit (the fcitx5
+   adapter measured 713, the IBus adapter 698, against the old 700).
 9. **The Hanja window never reads or rewrites surrounding text.**
    Check (I9): no `SurroundingText` / `getSurroundingText` /
    `deleteSurroundingText` / `setCursorPos` call anywhere in `hunminadapter.cpp`;

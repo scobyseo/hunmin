@@ -124,7 +124,7 @@ than assumed.
   modes exit 2, `keytool` not on PATH, keystore in four places,
   `cygpath -m` present in nine scripts and missing from three more that
   need it, vcvars quoting, VS-generator pin on VS18 hosts,
-  fcitx5 ≥5.1.13 floor.
+  fcitx5 floor (5.1.7 since 2026-11-22, issue #322; 5.1.13 before).
 - **Output-path mismatch:** `../hunmin_*.deb` vs `build/release-*/` vs
   `artifacts/` (0.1 stale-byte incident).
 - **Silent green:** mutation sandbox hardcodes Linux lib names;

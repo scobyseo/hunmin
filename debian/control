@@ -9,8 +9,8 @@ Build-Depends: debhelper-compat (= 13),
                libhangul-dev,
                libxcb1-dev,
                libxkbcommon-dev,
-               libfcitx5core-dev (>= 5.1.13) <!nobilus>,
-               fcitx5-modules-dev (>= 5.1.13) <!nobilus>,
+               libfcitx5core-dev (>= 5.1.7) <!nobilus>,
+               fcitx5-modules-dev (>= 5.1.7) <!nobilus>,
                fcitx5-modules <!nobilus>,
                libibus-1.0-dev (>= 1.5.26)
 # The `nobilus` build profile is the Ubuntu 22.04 artefact (ruling 2026-11-09,
@@ -47,7 +47,7 @@ Description: keyboard layouts and dictionaries for the hunmin input engine
 Package: hunmin
 Build-Profiles: <!nobilus>
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libhunmin (= ${binary:Version}), hunmin-data (= ${binary:Version}), fcitx5
+Depends: ${shlibs:Depends}, ${misc:Depends}, libhunmin (= ${binary:Version}), hunmin-data (= ${binary:Version}), fcitx5 (>= 5.1.7)
 Recommends: hunmin-en-us
 Description: Korean input method engine (libhunmin core + fcitx5 addon)
  libhunmin is a portable Hangul input engine where keyboard layouts are

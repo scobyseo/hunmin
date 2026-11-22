@@ -8,7 +8,7 @@ add_test(NAME builds-fcitx5-addon
     "if cmake --build ${CMAKE_BINARY_DIR} --target help 2>/dev/null | grep -q hunmin_addon; then
        cmake --build ${CMAKE_BINARY_DIR} --target hunmin_addon;
      else
-       echo 'builds-fcitx5-addon: SKIPPED -- no hunmin_addon target, which means Fcitx5Core >= 5.1.13 was not found when this tree was configured (CMakeLists.txt printed \"Fcitx5Core not found: fcitx5 addon disabled\"). The addon was NOT compiled and NOT checked here; the tier-C/D rows that need it did not run either.';
+       echo 'builds-fcitx5-addon: SKIPPED -- no hunmin_addon target, which means Fcitx5Core >= 5.1.7 was not found when this tree was configured (CMakeLists.txt printed \"Fcitx5Core not found: fcitx5 addon disabled\"). The addon was NOT compiled and NOT checked here; the tier-C/D rows that need it did not run either.';
        exit 77;
      fi")
 set_tests_properties(builds-fcitx5-addon PROPERTIES LABELS "guard" SKIP_RETURN_CODE 77 TIMEOUT 600)

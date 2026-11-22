@@ -10,6 +10,7 @@
  * Usage: trace-emit <case>.trace.in
  */
 #include "testdir.h"
+#include "harness_compat.h"
 #include "testfrontend_public.h"
 #include <cstdio>
 #include <cstdlib>
@@ -209,7 +210,7 @@ int main(int argc, char **argv) {
         return 2;
     }
     setenv("HUNMIN_DATA_PATH", TESTING_SOURCE_DIR "/libhunmin/data", 1);
-    setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
+    hunmin_test::setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
 
     const auto lines = readLines(argv[1]);
     if (lines.empty() || lines[0].find("\"meta\"") == std::string::npos) {
@@ -228,7 +229,7 @@ int main(int argc, char **argv) {
     instance.addonManager().registerDefaultLoader(nullptr);
     g_instance = &instance;
 
-    instance.eventDispatcher().schedule([&lines, &layout, inst = &instance]() {
+    hunmin_test::dispatcher(instance).schedule([&lines, &layout, inst = &instance]() {
         auto *hunmin = inst->addonManager().addon("hunmin", true);
         FCITX_ASSERT(hunmin);
 
@@ -433,7 +434,7 @@ int main(int argc, char **argv) {
         inst->deactivate();
     });
 
-    instance.eventDispatcher().schedule([&instance]() { instance.exit(); });
+    hunmin_test::dispatcher(instance).schedule([&instance]() { instance.exit(); });
     instance.exec();
     return 0;
 }

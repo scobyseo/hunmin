@@ -176,18 +176,21 @@ def main() -> int:
                and not re.search(r"deleteSurrounding|setCursorPos|Surrounding", commit)),
           "commitCandidate() commits and resets, no re-insertion")
 
-    # I8 -- the "frontends stay thin" budget (PLAN.md invariant 4, <~700 LOC).
+    # I8 -- the "frontends stay thin" budget (PLAN.md invariant 4, <~1000 LOC).
     # This is a *rule*, not a description, so it is measured rather than written
     # down: docs/DESIGN-FRONTEND.md Part B used to carry exact per-file LOC counts,
     # which rotted on every commit that added a line and were never checked.
     # Counting code lines (comments and blanks excluded) rather than raw lines
     # keeps the budget about logic.
     #
-    # The number is the MAINTAINER'S ruling (2026-10-25, "~700 is okay"), and it
-    # is enforced here at the value the documents state. This gate used to
-    # enforce 560 while AGENTS.md, PLAN.md and docs/TESTING.md all said ~700 --
-    # a reader tuning a file to the doc was 140 lines inside the real limit, and
-    # nothing said so. One number, one home (AGENTS.md), enforced.
+    # The number is the MAINTAINER'S ruling. It was ~700 (2026-10-25, "~700 is
+    # okay"); raised to 1000 on 2026-11-22 (issue #322), so the fcitx5 adapter's
+    # 5.1.7 gloss fallback and the IBus adapter had honest room rather than the
+    # budget being shaved to fit. It is enforced here at the value the documents
+    # state. This gate used to enforce 560 while AGENTS.md, PLAN.md and
+    # docs/TESTING.md all said ~700 -- a reader tuning a file to the doc was 140
+    # lines inside the real limit, and nothing said so. One number, one home
+    # (AGENTS.md), enforced.
     # Every file the adapter owns is counted, not just hunminadapter.{h,cpp}.
     #
     # Two moves forced this. language_detect.* is the ReqMode8 detector's own translation
@@ -212,6 +215,16 @@ def main() -> int:
     # and its comment. Raising the limit is a decision with a reason recorded,
     # not a shave: the alternative was splitting the window into its own
     # translation unit, which keeps the same total and only hides it.
+    #
+    # 700 -> 1000 (2026-11-22, issue #322, maintainer ruling): the thin-adapter
+    # budget was raised rather than shaved for the fcitx5 5.1.7 gloss fallback.
+    # That change measured 713 code LOC (hunminadapter.cpp 595 + .h 50 +
+    # config.h 68) against a baseline that sat at exactly 700 -- presentation
+    # work (the setComment version guard, the gloss stored on the candidate and
+    # its accessor, and the auxDown publish block in updateUI) that cannot move
+    # to a core which knows nothing of fcitx5's comment/auxDown split. The IBus
+    # adapter was likewise at 698 of the old 700, so the same ruling gives both
+    # honest room. 1000 is the maintainer's number, not this file's.
     counted = 0
     parts = {}
     # language_detect.{cpp,h} left the budget on 2026-11-01 (#164): the detector
@@ -224,9 +237,9 @@ def main() -> int:
         counted += n
         parts[name] = n
     check("I8 frontend stays inside the thin-adapter budget",
-          counted <= 700,
+          counted <= 1000,
           f"{counted} code LOC across " + ", ".join(f"{k}={v}" for k, v in parts.items())
-          + " (limit 700)")
+          + " (limit 1000)")
 
     # I11 -- the layout picker's list comes from the core, and the picker keeps
     # it. AGENTS.md rule 1 ("layouts are data, never code") holds at the UI
@@ -273,7 +286,7 @@ def main() -> int:
               "add_dependencies(copy-addon hunmin_addon)" in body,
               "without it the tests assert against a stale libhunmin.so")
 
-    # The IBus frontend (issue #288) is held to the same 700-line ceiling. That
+    # The IBus frontend (issue #288) is held to the same 1000-line ceiling. That
     # is the conservative reading of FE11 with two Linux frontends: the ruling
     # on "one budget per frontend or one for the Linux frontend" is still open
     # (docs/MILESTONES.md §0.4 Track 1), and applying the existing number twice
@@ -291,9 +304,9 @@ def main() -> int:
             counted += n
             parts[path.name] = n
         check("I8 the IBus frontend stays inside the thin-adapter budget",
-              counted <= 700,
+              counted <= 1000,
               f"{counted} code LOC across "
-              + ", ".join(f"{k}={v}" for k, v in parts.items()) + " (limit 700)")
+              + ", ".join(f"{k}={v}" for k, v in parts.items()) + " (limit 1000)")
 
     print()
     if failures:

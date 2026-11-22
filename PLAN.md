@@ -97,7 +97,7 @@ frontend gets it.
    tiers via j+k/l/;, 초성체 compat-jamo mode, CapsLock/W modes, ssang finals) expresses
    through these + rule tables + per-layout flags.
 3. ABI is append-only; layout identity is a string, never a number; symbol list is tested.
-4. Frontends stay thin (< ~700 LOC each): map platform events ↔ hunmin key ids, render
+4. Frontends stay thin (< ~1000 LOC each): map platform events ↔ hunmin key ids, render
    commit/preedit/candidates, nothing else.
 5. Voice/external text enters via the pass-through, never through the jamo
    pipeline. Candidate/suggest seam (built for hanja) is the future host of a

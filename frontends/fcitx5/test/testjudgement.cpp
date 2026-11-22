@@ -48,6 +48,7 @@
  * engine-d1, which is where it belongs.
  */
 #include "testdir.h"
+#include "harness_compat.h"
 #include "testfrontend_public.h"
 
 #include <cstdio>
@@ -282,7 +283,7 @@ bool runCase(ICUUID uuid, const Case &c, int &skipped) {
 } // namespace
 
 static void scheduleEvent(Instance *instance) {
-    instance->eventDispatcher().schedule([instance]() {
+    hunmin_test::dispatcher(instance).schedule([instance]() {
         auto *hunmin = instance->addonManager().addon("hunmin", true);
         FCITX_ASSERT(hunmin);
 
@@ -317,12 +318,12 @@ static void scheduleEvent(Instance *instance) {
         g_failed = failed;
         instance->deactivate();
     });
-    instance->eventDispatcher().schedule([instance]() { instance->exit(); });
+    hunmin_test::dispatcher(instance).schedule([instance]() { instance->exit(); });
 }
 
 int main() {
     setenv("HUNMIN_DATA_PATH", TESTING_SOURCE_DIR "/libhunmin/data", 1);
-    setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
+    hunmin_test::setupTestingEnvironmentPath(TESTING_BINARY_DIR, {TEST_ADDON_DIR}, {TEST_DATA_DIR});
     char arg0[] = "testjudgement";
     char arg1[] = "--disable=all";
     char arg2[] = "--enable=testim,testfrontend,hunmin";

@@ -28,6 +28,15 @@ attempts plus local builds.
 Unmet build dependencies: libfcitx5core-dev (>= 5.1.13) fcitx5-modules-dev (>= 5.1.13) fcitx5-modules
 ```
 
+> **Note added 2026-11-22 (issue #322).** This section is a record of the
+> 0.1/0.2 incident; the `>= 5.1.13` in the quoted output is the `debian/control`
+> of that time. The floor is now 5.1.7 and the release workflow installs the
+> **distro** fcitx5 via apt, so the dependency is a real package and
+> `dpkg-checkbuilddeps` passes without `-d`. The `-d` remains in
+> `tools/build-release.sh` as a harmless fallback for a build host whose fcitx5
+> is not packaged; `--ignore-missing-info` in `debian/rules` is the same
+> fallback on the shlibdeps side.
+
 **Root cause:** The `.deb` job builds fcitx5 5.1.13 from source into `/usr`
 (no `.deb` package), so `dpkg-checkbuilddeps` sees no owning package and
 aborts. This is a known shape from the 0.1/0.2 deb jobs (issue #8):
