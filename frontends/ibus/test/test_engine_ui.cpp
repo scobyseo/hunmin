@@ -32,6 +32,7 @@
 extern "C" {
 #include "hunmin_engine.h"
 #include "hunmin_state.h"
+#include "settings.h"
 }
 
 namespace {
@@ -134,6 +135,14 @@ class IbusUiTest : public ::testing::Test {
 protected:
     void SetUp() override {
         setlocale(LC_ALL, "");
+        /* The layout these key sequences are about, stated by the tier that
+         * asserts them. Without this the cases inherit the SHIPPED default, and
+         * then a change to the default (or to the schema) turns them red for a
+         * reason that has nothing to do with the mapping they test — which is
+         * exactly what happened on 2026-11-22 when the store's default was
+         * first written. A case that needs another layout sets it itself
+         * (LayoutOverrideKeepsTheLanguageKeyAlive, CapsLockBlocksTheSymbolTier). */
+        setenv("HUNMIN_IBUS_LAYOUT", "dubeolsik", 1);
         dbus_ = g_test_dbus_new(G_TEST_DBUS_NONE);
         g_test_dbus_up(dbus_);
         ibus_init();
@@ -374,26 +383,33 @@ TEST_F(IbusUiTest, CandidateKeyWithoutCandidatesReachesTheClient) {
 /* The translation itself, asserted where it lives: one rule for Caps Lock,
  * Shift and the keys that carry no character. */
 TEST_F(IbusUiTest, KeyTranslationKeepsTheLayoutRowAndTheCapsInversionApart) {
-    hunmin_key_event shifted = hunmin_ibus_translate_key('P', IBUS_SHIFT_MASK, 0);
+    hunmin_key_event shifted = hunmin_ibus_translate_key('P', IBUS_SHIFT_MASK, 0, nullptr);
     EXPECT_EQ(shifted.base, static_cast<uint32_t>('p'));
     EXPECT_EQ(shifted.shift, 1u) << "case selects the row; Shift is not a chord bit";
     EXPECT_EQ(shifted.mods, 0u);
 
-    hunmin_key_event caps = hunmin_ibus_translate_key('P', IBUS_LOCK_MASK, 0);
+    hunmin_key_event caps = hunmin_ibus_translate_key('P', IBUS_LOCK_MASK, 0, nullptr);
     EXPECT_EQ(caps.base, static_cast<uint32_t>('p'));
     EXPECT_EQ(caps.shift, 0u) << "Caps Lock is the layout's `caps` variable, not a shifted row";
     EXPECT_EQ(caps.mods, 0u);
 
-    hunmin_key_event backspace = hunmin_ibus_translate_key(IBUS_KEY_BackSpace, 0, 0);
+    hunmin_key_event backspace = hunmin_ibus_translate_key(IBUS_KEY_BackSpace, 0, 0, nullptr);
     EXPECT_EQ(backspace.id, HUNMIN_KEY_TEXT);
     EXPECT_EQ(backspace.base, 0x08u);
 
-    hunmin_key_event ctrl_a = hunmin_ibus_translate_key('a', IBUS_CONTROL_MASK, 0);
+    hunmin_key_event ctrl_a = hunmin_ibus_translate_key('a', IBUS_CONTROL_MASK, 0, nullptr);
     EXPECT_EQ(ctrl_a.mods, HUNMIN_MOD_CTRL);
     EXPECT_EQ(ctrl_a.base, static_cast<uint32_t>('a'));
 
-    hunmin_key_event hangul = hunmin_ibus_translate_key(IBUS_KEY_Hangul, 0, 0);
+    /* The language key is a STORED row, so this needs the schema's compiled
+     * default (§FE17). Read it through the same reader the engine uses rather
+     * than restating the pair here. */
+    hunmin_ibus_settings *settings = hunmin_ibus_settings_new();
+    ASSERT_NE(settings, nullptr);
+    hunmin_key_event hangul = hunmin_ibus_translate_key(
+        IBUS_KEY_Hangul, 0, 0, hunmin_ibus_settings_keys(settings));
     EXPECT_EQ(hangul.language_key, 1);
+    hunmin_ibus_settings_free(settings);
 }
 
 /* FE16, option A (issue #319, maintainer ruling 2026-11-22): the highlighted

@@ -46,8 +46,15 @@ struct hunmin_state *hunmin_ibus_engine_state(HunminIbusEngine *engine);
 
 /* The IBus key translation, exposed so tier D2 asserts the mapping itself
  * rather than a copy of it. Returns the shared vocabulary's event; the caller
- * sets `candidates_open` because only the state knows whether its list is up. */
-hunmin_key_event hunmin_ibus_translate_key(guint keyval, guint state, int candidates_open);
+ * sets `candidates_open` because only the state knows whether its list is up.
+ *
+ * `keys` is the stored fifth row (docs/SPEC-FRONTEND.md §FE17) compiled by
+ * settings.c. NULL means "no language keys are configured", which is what a
+ * build with no schema installed gets: the engine then composes but never
+ * switches on 한/영, rather than carrying a compiled-in second default that
+ * could disagree with the schema's. */
+hunmin_key_event hunmin_ibus_translate_key(guint keyval, guint state, int candidates_open,
+                                           IBusHotkeyProfile *keys);
 
 #ifdef __cplusplus
 }

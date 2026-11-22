@@ -63,6 +63,10 @@ void hunmin_state_set_sink(hunmin_state *s, const hunmin_state_sink *sink);
  * built. Returns false when the layer did not load. */
 bool hunmin_state_set_layouts(hunmin_state *s, const char *hangul_id, const char *latin_id);
 bool hunmin_state_set_commit_policy(hunmin_state *s, int policy);
+/* The policy the live layer was built with (HUNMIN_COMMIT_*). A getter exists so
+ * a settings round trip can be asserted on the engine's answer instead of on the
+ * value the store claims. */
+int hunmin_state_commit_policy(const hunmin_state *s);
 
 /* Set the active language (HUNMIN_LANGUAGE_*), not toggle it. The layer exposes
  * a toggle; this performs it only when the state differs, so a caller stating a

@@ -996,3 +996,73 @@ in the 2026-10-16 audit table above, and any MSVC-target compiler discovery
 on this host can now pick it. The mingw tiers must not reach it; that is
 what resolution order 2 guarantees for the shim.
 
+
+## The IBus settings window's toolkit (measured 2026-11-22)
+
+`frontends/ibus/settings/` needs GTK3 **development** files, and this host has the
+GTK3 runtime (3.24.52) without them. `sudo -n` always fails here, so the headers
+were extracted from Ubuntu **jammy**'s dev packages into a private prefix —
+jammy because that is the release the IBus artefact targets, and because
+`gdk-pixbuf` 2.44's `.pc` on the newer archive pulls a loader (`glycin-2`) that
+has no bearing on GTK3 3.24:
+
+```
+mkdir -p ~/toolchains/gtk3/usr && cd ~/toolchains
+# dev packages from archive.ubuntu.com jammy (main + universe), extracted, NOT installed
+#   libgtk-3-dev libpango1.0-dev libcairo2-dev libgdk-pixbuf-2.0-dev libatk1.0-dev
+#   libepoxy-dev libharfbuzz-dev libfribidi-dev libthai-dev libdatrie-dev libxft-dev
+#   libgraphite2-dev libfreetype6-dev libfontconfig1-dev libpng-dev libpixman-1-dev
+#   libx11-dev libxext-dev libxrender-dev libxcb1-dev libxcb-render0-dev libxcb-shm0-dev
+#   libxi-dev libxcursor-dev libxdamage-dev libxfixes-dev libxrandr-dev libxinerama-dev
+#   libxcomposite-dev libwayland-dev libxkbcommon-dev libjpeg-dev libjpeg-turbo8-dev
+#   libtiff-dev libwebp-dev libatk-bridge2.0-dev libatspi2.0-dev libdbus-1-dev
+for f in /tmp/gtkj/*.deb; do dpkg -x "$f" ~/toolchains/gtk3/; done
+```
+
+Three things have to be patched in the prefix, because a `.pc` from the archive
+hardcodes `/usr/include` and points at a versioned library the prefix does not
+hold. The rewrite is a property of the *prefix*, not of this repository, so it is
+a command here rather than a CMake flag:
+
+- every `.pc` under the prefix gets `includedir=<prefix>/usr/include` and
+  `libdir=<prefix>/usr/lib/x86_64-linux-gnu`;
+- every `lib*.so` symlink in the prefix that dangles is re-pointed at the host's
+  versioned library (`~/toolchains/gtk3/usr/lib/x86_64-linux-gnu/libgtk-3.so` →
+  `/usr/lib/x86_64-linux-gnu/libgtk-3.so.0`), which is what makes `-lgtk-3`
+  resolve against a runtime that is already installed;
+- the glib/pcre/ffi dev packages are deliberately **not** extracted: the prefix
+  would shadow the host's newer glib.
+
+Then configure with `PKG_CONFIG_PATH=$(find ~/toolchains/gtk3 -name pkgconfig -type d
+| tr '\n' ':')$PKG_CONFIG_PATH`. `pkg_check_modules` caches its verdict, so a
+configure that ran before the prefix existed needs `cmake -U "GTK3_*"`.
+
+**Running it needs `GDK_BACKEND=x11`.** With `DISPLAY=:98` set and a Wayland
+session present, GDK picks Wayland and the window never maps — the same trap
+`docs/FCITX5-ADDON-NOTES.md` §8 records for the harness. Measured: without it
+`xwininfo -root -children` lists nothing; with it, `"hunmin 설정"` appears with a size.
+(The window is 360×352 as of 2026-11-22; the number moves with the content, which is
+why only its presence is asserted here.)
+
+A host that installs `libgtk-3-dev` needs none of this; the CMake target is
+optional (`pkg_check_modules(GTK3 QUIET …)`), so a host without it still builds the
+engine and its store.
+
+**But a PACKAGE build on such a host fails, and the message does not say why.**
+`debian/rules` runs `dpkg-buildpackage -d` (build-dependencies unchecked), so
+`pkg_check_modules(IBUS …)` and `pkg_check_modules(GTK3 …)` both miss, the IBus
+engine and the window are simply not built, and `dh_install` then dies on
+`debian/hunmin-ibus.install` / `debian/hunmin-ibus-settings.install` naming files
+that do not exist. Two ways out, in order of preference:
+
+1. install the two development packages (`sudo apt install libgtk-3-dev
+   libibus-1.0-dev`) — then the packaging needs no environment at all, and the
+   private prefix below is only for a shell that cannot install anything;
+2. export `PKG_CONFIG_PATH` with the prefixes this document describes *before*
+   `tools/build-release.sh deb`, which is what the 2026-11-22 build in this
+   session did.
+
+Either way the in-package ctest still decides the exit code, and `engine-d3-ibus`
+is red on this host for a reason that has its own issue, so a local package build
+needs `DEB_BUILD_OPTIONS=nocheck` until that lands — visibly, not silently: the
+option also switches `BUILD_TESTING=OFF`, so the artefact carries no test binaries.

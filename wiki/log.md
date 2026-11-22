@@ -1575,3 +1575,43 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
 - Created [[2026-11-22-t3-3-soft-keyboard-ui]]: issue #299's keypad build, the
   KP12 ruling recorded verbatim, the seven measured mistakes, and the E1/E2
   results. Index updated.
+
+## [2026-11-22] create | IBus 설정 저장소·UI 판정 (#327)
+
+- Created [[2026-11-22-ibus-config-store-and-settings-surface]]: the maintainer's ruling
+  ("3 -> a로 설정할 수 있어야 함", "나머지는 추천대로 갈게") read against the decision list of
+  that session — five settable rows, a GSettings store, a separate setup binary behind the
+  panel's `<setup>`, the key list also editing the daemon's trigger list, live apply, its own
+  binary package. Requirement `docs/SPEC-FRONTEND.md` §FE17, pricing
+  `docs/OPTIONS-MEASURED.md` §IBC. Index updated.
+
+## [2026-11-22] update | IBus 설정 저장소·창 구현 (#327)
+
+- [[2026-11-22-ibus-config-store-and-settings-surface]] updated with what was built: the store
+  (`settings.c`, ctest `engine-d1-ibus-settings`), the window opened from the panel's
+  Preferences, the capture path, and the default-layout correction — including the wrong repair
+  I made first (reverting the default instead of fixing the tier) and the maintainer's sentence
+  that caught it.
+
+## [2026-11-22] update | IBus 트리거 목록 편집과 저장소 분리 (#327)
+
+- [[2026-11-22-ibus-config-store-and-settings-surface]] updated: the fifth row now removes its
+  keys from the daemon's global trigger list and gives them back (matching by keysym, because the
+  daemon's physical-key entry is `Alt+Release+Alt_R`), and the store's plumbing moved to
+  `frontends/ibus/store/` with the budget measurement recorded next to the reason.
+
+## [2026-11-22] update | 창 위젯과 영속성 검증 (#327)
+
+- [[2026-11-22-ibus-config-store-and-settings-surface]] updated: the widget test
+  (`engine-d2-ibus-settings-ui`) and the cross-process persistence case
+  (`engine-d1-ibus-settings-persist`, scratch keyfile backend) close two rows
+  docs/TESTING.md listed as gaps. Corrected §IBC-5's "persistence is CI-only": switching the
+  test's backend, not the product's, is what buys isolation; what stays uncovered is dconf itself.
+
+## [2026-11-22] update | 설치 후 실사용 확인 (#327)
+
+- [[2026-11-22-ibus-config-store-and-settings-surface]] updated with the post-install state: the
+  engine is the active one in the maintainer's session, his verdict on real typing ("잘 동작",
+  한자 입력 포함), and the two things only a live session could show — the trigger list being
+  edited in a real database, and a narrowed fifth row leaving `Hangul` to the daemon on a `kr`
+  layout.

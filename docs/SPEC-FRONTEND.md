@@ -162,13 +162,51 @@ keys or rules, and a new layout needs no frontend code. *Ruling:* `AGENTS.md#§T
 The maintainer, 2026-11-22: "ibus로 전환하기 위해서는 그 기능을 지원할 방법을
 찾아야 해" — the feature being the candidate gloss (뜻풀이) fcitx5 shows beside
 each Hanja candidate. Switching the Linux frontend to IBus requires a way to
-show the gloss; silently dropping it is not the requirement. *Implementation:*
-none yet — verified paths (2026-11-22, from the 1.5.26 source): IBus auxiliary
-text (`ibus_engine_update_auxiliary_text`, drawn by the GTK3 candidate panel's
-`m_aux_label`) or gloss embedded in the candidate text; on fcitx5 5.1.7,
-`auxDown`/`customLabel` (classicui draws both) where `setComment` (5.1.9+) is
-absent. *Refuted by:* none — the D2 assertion on the chosen presentation is
-the verification when implemented. Analysis and the correction of the earlier
-"IBus cannot" claim:
-`wiki/raw/measurements/2026-11-22-ibus-gloss-paths.md`. The presentation choice
-(aux text vs embedded text) is the maintainer's.
+show the gloss; silently dropping it is not the requirement. *Ruling:* option A,
+2026-11-22 — the gloss rides the host's auxiliary text, which the GTK3 candidate
+panel draws beside the list. The paths that were rejected and the correction of
+the earlier "IBus cannot" claim are
+`wiki/raw/measurements/2026-11-22-ibus-gloss-paths.md`; the ruling with the
+maintainer's words is `wiki/decisions/2026-11-22-ibus-gloss-option-a.md`.
+*Implementation:* `frontends/ibus/src/hunmin_engine.c#sink_candidates` — the
+highlighted candidate's gloss is published with the list and tracks the cursor
+as it moves. *Refuted by:* `engine-d2-ibus-ui`.
+
+### FE17. The five option rows are the user's, and one of them is the language-key list
+
+A frontend stores, and lets its user change, the rows of the shared option vocabulary it
+can express: the Hangul layout, the Latin layout, the commit unit, the automatic-switch value,
+and the list of keys that frontend treats as the language key. A row that cannot be changed is
+a default, not an option; a row present in the store and absent from the engine (or the
+reverse) is the drift this requirement exists to prevent. The vocabulary is what is shared —
+which rows a given platform can express is not, and a frontend that cannot express one records
+which and why in its own SPEC (this file's opening paragraph). The IBus frontend stores none
+today, so this binds it as all five. *Ruling:* the maintainer, 2026-11-22 — "3 -> a로 설정할 수
+있어야 함" (all five rows settable, the key list among them) and "나머지는 추천대로 갈게" (the
+store, the editing surface, live apply and the packaging are the analysis's recommendations).
+Costs, the options and the decided shape: `docs/OPTIONS-MEASURED.md#§IBC`.
+*Implementation:* `frontends/ibus/src/settings.c` (the store) with
+`frontends/ibus/schema/org.freedesktop.ibus.engine.hunmin.gschema.xml` (the defaults), read
+into `hunmin_ibus_settings_apply` and applied live through `hunmin_ibus_settings_watch`; the
+window is `frontends/ibus/settings/main.c`, which the IBus panel opens from its Preferences
+item through the component XML's `<setup>` element; the fifth row also edits the daemon's global
+trigger list (`frontends/ibus/store/store.c#hunmin_ibus_store_reconcile_triggers`), because a key
+in that list never reaches an engine. A captured key is spelled by
+`hunmin_ibus_key_entry_from_event` and judged by `hunmin_ibus_stored_key_ok`, so the window
+holds no second opinion about what a binding means. The
+fifth row is frontend data (which keysyms count as the language key), so implementing this adds
+no `hunmin_*` symbol; the append-only list in `libhunmin/tests/abi/symbols.txt` is untouched.
+*Refuted by:* `engine-d1-ibus-settings` — defaults, a stored value reaching the engine, an
+unloadable layout degrading and being reported, the stored key list driving the translation, the
+two grammar corners refused with a reason, a bad entry costing only itself, a captured key being
+spelled once, a change arriving through the watch, and the fifth row taking its keys out of the
+daemon's trigger list — matching by KEY, so the daemon's `Alt+Release+Alt_R` goes with the row's
+`Alt_R` — and giving back what it took when the key stops being ours.
+`engine-d1-ibus-settings-persist` — a stored row survives into the *next process*, driven through
+the built binary (`--print`) and a scratch store, which is the only shape in which "the value I set
+is the value the engine gets" means anything.
+`engine-d2-ibus-settings-ui` — the window's rows and behaviour: the pickers offer exactly the
+core's layouts for their mode, the active row is the stored one, the commit picker offers the
+schema's two values, the autoswitch row follows the data gate, a capture appends once and refuses
+what cannot fire, and a removal writes the shortened list. Its pixels are not asserted — that is
+what a manual check is for.
