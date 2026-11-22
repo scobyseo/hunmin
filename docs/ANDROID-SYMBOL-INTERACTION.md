@@ -486,6 +486,44 @@ the curated marks say exactly that — measured here, not assumed. Making these
 inputtable is the data-home question of #298 (a Tier 2 symbol table/page); the
 inventory above is the candidate content, not a ruled layout.
 
+## Swipe-up as a universal substitute for long-press / shift (KP7)
+
+KP7 generalises KP5: **swipe-up on any key reaches that key's alternate**, standing
+in for long-press or shift. The model is `tap = base`, `swipe-up = alternate`,
+`long-press = popup of variants`:
+
+| key | tap | swipe-up | substitutes for |
+|---|---|---|---|
+| number `1` | `1` | `!` | shift+1 / long-press |
+| `,` | `,` | `?` | long-press |
+| `.` | `.` | `"` | long-press |
+| shift | one-shot shift | **capslock** | double-tap shift |
+| letter `q` / jamo `ㅂ` | `q` / `ㅂ` | `Q` / `ㅃ` | shift+key (single char) |
+
+**Prior art.** Unexpected Keyboard defines a key by "what it does when pressed or
+swiped" — exactly this press/swipe alternate model. FlorisBoard's
+`ShiftKeyBehavior` is `CAPSLOCK_BY_DOUBLE_TAP` or `CAPSLOCK_BY_CYCLE`; swipe-up on
+shift is a gesture alternative to those for reaching capslock. So the principle
+is established practice, not a new invention.
+
+**The shift state machine.** Tap = one-shot shift (next key shifted, then revert);
+swipe-up = capslock (locked). How capslock *unlocks* (tap shift while locked, or
+swipe-up again) is an open detail. With swipe-up-on-letters available, a single
+capital or 겹자모 needs no shift press at all — shift stays for lock and for runs of
+shifted characters.
+
+**The one conflict to record.** On letter/jamo keys, swipe-up-for-shifted competes
+with **glide typing** (a word-glide also begins as a swipe on a letter).
+hunmin has no glide typing today, so the gesture is free; if glide is added later
+(a Track 3 question, currently out of scope) the two would need disambiguation
+(a vertical short swipe-up vs a longer glide path) or a user choice. On number,
+punctuation and shift keys there is no glide, so swipe-up is unambiguous there.
+
+The KP5 accidental-swipe defences (distance/direction/velocity gate,
+return-to-cancel, commit-on-release) apply to **every** such swipe, not just the
+number row. The net effect: shift and long-press become optional shortcuts rather
+than required mode switches, which is the interaction-count goal of KP1/KP3.
+
 ## What this means for a hunmin 두벌식 keypad
 
 The maintainer's goal — less time *finding* symbols and fewer mis-taps on a

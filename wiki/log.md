@@ -1393,3 +1393,18 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   This sub-decision is settled; data home / nav-key set / Tier 2 inventory remain
   open (#298).
 
+## [2026-11-22] update | KP7 swipe-up universal substitute; nav-key order decided
+
+- Added KP7 to `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP + overview index: swipe-up
+  on a key reaches its alternate, substituting for long-press/shift (number→symbol,
+  ,→?, .→", shift→capslock, letter/jamo→shifted). Grounded in Unexpected Keyboard's
+  press/swipe key-value model and FlorisBoard ShiftKeyBehavior (capslock by
+  double-tap/cycle). Recorded the glide-typing conflict on letter keys (hunmin has
+  no glide today) and the open shift-unlock detail. In
+  `docs/ANDROID-SYMBOL-INTERACTION.md`.
+- Nav-key order decided (verbatim): "home pgup pgdn end 순서로 변경." Editing
+  cluster now Home·PgUp·PgDn·End (Tab leading, ⌫ trailing). Mockup shift keys show
+  a ⇪ capslock swipe hint; HTML+PNG re-rendered; mockup doc +
+  [[2026-11-22-android-keypad-mockup]] updated. No verdict beyond the maintainer's
+  stated rulings.
+

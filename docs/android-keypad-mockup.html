@@ -84,7 +84,7 @@
         <div class="key">ㅓ</div><div class="key">ㅏ</div><div class="key">ㅣ</div>
       </div>
       <div class="krow">
-        <div class="key fn shift">⇧</div>
+        <div class="key fn shift">⇧<span class="hint">⇪</span></div>
         <div class="key">ㅋ</div><div class="key">ㅌ</div><div class="key">ㅊ</div>
         <div class="key">ㅍ</div><div class="key">ㅠ</div><div class="key">ㅜ</div>
         <div class="key">ㅡ</div>
@@ -132,7 +132,7 @@
         <div class="key">j</div><div class="key">k</div><div class="key">l</div>
       </div>
       <div class="krow">
-        <div class="key fn shift">⇧</div>
+        <div class="key fn shift">⇧<span class="hint">⇪</span></div>
         <div class="key">z</div><div class="key">x</div><div class="key">c</div>
         <div class="key">v</div><div class="key">b</div><div class="key">n</div>
         <div class="key">m</div>
@@ -177,9 +177,9 @@
       <div class="krow">
         <div class="key fn">Tab</div>
         <div class="key fn">Home</div>
-        <div class="key fn">End</div>
         <div class="key fn">PgUp</div>
         <div class="key fn">PgDn</div>
+        <div class="key fn">End</div>
         <div class="key fn bspace">⌫</div>
       </div>
       <div class="krow">
@@ -253,7 +253,8 @@
     코너 작은 글씨 = 롱프레스/swipe-up 힌트.<br>
     <b>적용된 기준</b> — KP1 104키 기호 최소터치+물리위치·숫자연동 / KP2 기능키 분리·compact·shift 1개 /
     KP3 빈도강조·문자 진하게 숫자 연하게 / KP4 한·영·기호 분리+빈출기호 상시 / KP5 롱프레스+swipe-up·우발스와이프 방지 /
-    KP6 기호창 shift 없음+탐색키(←↑→↓·Tab·Home/End/PgUp/PgDn)·한글 특수기호(Tier 2) 입력.<br>
+    KP6 기호창 shift 없음+탐색키(←↑→↓·Tab·Home/PgUp/PgDn/End)·한글 특수기호(Tier 2) 입력 /
+    KP7 swipe-up = long-press/shift 대체제(키의 변형 도달: 숫자→기호, ,→?, shift→capslock ⇪, 문자→대문자/겹자모).<br>
     <b>아직 열린 결정(그림이 드러내는 것)</b> — ① 기호 데이터 홈(별도 페이지/레이아웃 vs 키별 제3행, 스키마·엔진 변경)
     ② 빈출 기호 정확한 집합 ③ 숫자 행 기본 on/off(`~ -_ =+ 포함 13키 vs 10키) ④ 기하학(키 폭·간격·가로모드) ⑤ shift one-shot/lock
     ⑥ 제스처 임계값 기본값 ⑦ 강조 대상·테마 토큰 ⑧ 빈도 데이터원(산문 측정됨, 채팅/암호 미측정)

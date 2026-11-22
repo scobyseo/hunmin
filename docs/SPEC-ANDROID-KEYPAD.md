@@ -208,3 +208,35 @@ and Tier 2 inventory remain open (#298).
 The navigation-key set, the Tier 2 inventory/grouping, and the data home that
 makes them inputtable are open mechanism (#298). *Implementation:* none.
 *Refuted by:* none yet.
+
+Navigation-key order — decided (2026-11-22, verbatim): "home pgup pgdn end 순서로
+변경." So the editing cluster reads **Home · PgUp · PgDn · End** (Tab leading,
+⌫ trailing), not Home/End/PgUp/PgDn. The exact key set is still open; this fixes
+the order of those four.
+
+### KP7. Swipe-up as a universal substitute for long-press / shift (stated direction)
+
+The maintainer's words (2026-11-22, verbatim):
+
+> ",? 키에 swipe-up을 써서 ?를 입력하게 할 수 있을까? 그리고 shift도 swipe-up으로
+> capslock 처럼 동작하게 할 수 있니?"
+> "즉 swipe-up을 long-press 혹은 shift 대체제로 쓸 수 있게 하는 것."
+
+The general principle: **swipe-up on a key reaches that key's alternate**, as a
+substitute for long-press or shift. Instances:
+
+- punctuation `,` swipe-up → `?` (and `.` swipe-up → `"`);
+- number key swipe-up → its symbol (KP1/KP5);
+- **shift swipe-up → capslock** (tap = one-shot shift);
+- by extension a letter/jamo key swipe-up → its shifted form (`q`→`Q`,
+  `ㅂ`→`ㅃ`), substituting for shift+key on a single character.
+
+This is the press/swipe key-value model of Unexpected Keyboard ("what a key does
+when pressed or swiped"), and the shift→capslock gesture is an alternative to
+FlorisBoard's `CAPSLOCK_BY_DOUBLE_TAP` / `CAPSLOCK_BY_CYCLE`. The KP5
+accidental-swipe defences apply to every such swipe. One trade-off to record: on
+letter/jamo keys swipe-up-for-shifted competes with **glide typing** — hunmin has
+no glide typing today so the gesture is free, but adding glide later (a Track 3
+question) would conflict and need disambiguation or a choice. The shift state
+machine (how capslock unlocks) and whether swipe-up-on-letters is enabled are open
+mechanism. *Implementation:* none. *Refuted by:* none yet.

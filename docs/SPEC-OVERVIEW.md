@@ -225,3 +225,4 @@ map and rerun.
 | KP4 | A2 | | |
 | KP5 | A2 | | |
 | KP6 | A2 | | |
+| KP7 | A2 | | |

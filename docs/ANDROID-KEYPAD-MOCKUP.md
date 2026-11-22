@@ -56,7 +56,7 @@ Legend: `KEY` = character/symbol (진하게); `(fn)` = functional (연하게);
  ! @ # $ % ^ & * ( )                          (10)
  ` ~ - _ = + [ ] { } \ |                      (12, ` before -; brackets GROUPED []{})
  ; : ' " , . < > / ?  [Tier 2]                (10, comma/period grouped ,. <> too)
- (Tab) (Home) (End) (PgUp) (PgDn) (⌫)         ← NO shift (KP6); navigation keys instead
+ (Tab) (Home) (PgUp) (PgDn) (End) (⌫)         ← NO shift (KP6); nav order Home·PgUp·PgDn·End
  (←) (↑) (↓) (→) [   space   ] [⏎]
  [한/영] [ABC/한글]
 ```
@@ -92,8 +92,10 @@ minimal touch + physical positions, number-row pairing; KP2 functional keys
 separated/compact/non-physical, one shift; KP3 frequency placement + visual
 emphasis + whole-keypad hierarchy; KP4 mode separation + frequent symbols
 default-visible; KP5 long-press **and** swipe-up, accidental swipes preventable;
-KP6 symbol page no shift + navigation keys (arrows/Tab/Home/End/PgUp/PgDn) +
-Korean special symbols (Tier 2) inputtable.
+KP6 symbol page no shift + navigation keys (arrows/Tab/Home/PgUp/PgDn/End) +
+Korean special symbols (Tier 2) inputtable; KP7 swipe-up as a universal
+substitute for long-press/shift (number→symbol, `,`→`?`, shift→capslock ⇪,
+letter/jamo→shifted form).
 
 **The core decision still open in #298** — the symbol-layer **data home**, which
 the criteria narrow but do not settle:
