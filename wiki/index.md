@@ -26,6 +26,9 @@
 
 ## Decisions
 
+- [[2026-11-22-symbol-screen-app-read-data-file]] — #298 ruled: the Android symbol
+  screen is drawn by the app from a data file, engine uninvolved (B2). No engine/
+  schema change; gesture-variant extension split to #312.
 - [[2026-11-02-spec-modes-4-splits-into-an-invariant-and-a-metric]] — §4 read as two claims of different kinds: the decidable half became ReqMode14
   (A2's child, oracle = the recorded corpus, verified by `engine-off-identity`),
   and the ON half points at ③ unrepresentability instead of restating it; why

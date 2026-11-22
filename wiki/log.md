@@ -1469,3 +1469,18 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   per-key gesture set bounded by KP8. Mockup doc notes the Tier 2 panels are the
   considered alternative, not the chosen path. No verdict beyond the stated direction.
 
+## [2026-11-22] decision | symbol screen data home ruled: app-read data file (B2)
+
+- Maintainer ruling (verbatim): "앱이 데이터 파일로 그리기. 엔진은 관여 안함."
+  #298's core question is settled: the Android symbol screen is drawn by the app
+  from a data file, engine uninvolved (option B2). No engine/composition-schema
+  change; the symbol list stays data (app-read), format/validation a frontend
+  contract at implementation. Avoids A's engine cost and B3's settings-list
+  visibility contract.
+- Recorded KP11 in `docs/SPEC-ANDROID-KEYPAD.md` + REQ-MAP (parent A1) + overview
+  index; Decision section in `docs/DESIGN-ANDROID-SYMBOLS.md`; mockup doc core
+  decision marked decided (B2); created
+  [[2026-11-22-symbol-screen-app-read-data-file]] (wiki/decisions). The symbol
+  screen build is follow-up implementation; gesture variants are #312. #298's
+  decision phase is complete; closure is the maintainer's.
+

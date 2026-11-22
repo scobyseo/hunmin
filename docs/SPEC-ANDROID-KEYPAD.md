@@ -317,3 +317,25 @@ separate issue, #312** (`[android] extend symbol selection via swipe/long-press 
 symbol keys`). The variant mapping, its data home, and the per-key gesture set
 (bounded by KP8) are #312's work, not #298's. *Implementation:* none.
 *Refuted by:* none yet.
+
+### KP11. Symbol screen data home — app-read data file, engine uninvolved (DECIDED)
+
+The maintainer's ruling (2026-11-22, verbatim):
+
+> "앱이 데이터 파일로 그리기. 엔진은 관여 안함."
+
+**Decided:** the symbol screen is drawn by the **Android app from a data file**;
+the composition **engine is not involved**. This is option **B2** of
+`docs/DESIGN-ANDROID-SYMBOLS.md` — a separate symbol inventory, read by the
+frontend, not a third per-key row (A) and not an engine-loaded layout (B3). It
+settles #298's core question: **no engine or composition-schema change** for the
+symbol screen. The symbol list is still *data* (honouring "layout behaviour is
+data"), just data the app reads rather than the engine.
+
+Consequences: the engine's Hangul/Latin composition is untouched; the symbol
+screen does not appear in the engine's layout/settings list (no visibility
+contract needed, unlike B3); the data file's format and validation are a
+frontend data contract, settled at implementation. The gesture-variant mapping
+(KP10) is #312. *Implementation:* none yet — the symbol screen build is the
+follow-up to this decision. *Refuted by:* a future need to share the symbol
+screen across frontends would reopen the data home (move toward B3).

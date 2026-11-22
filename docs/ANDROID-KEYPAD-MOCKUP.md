@@ -128,8 +128,10 @@ Korean special symbols (Tier 2) inputtable; KP7 swipe-up as a universal
 substitute for long-press/shift (number→symbol, `,`→`?`, shift→capslock ⇪,
 letter/jamo→shifted form).
 
-**The core decision still open in #298** — the symbol-layer **data home**, which
-the criteria narrow but do not settle:
+**The core decision — DECIDED (maintainer, 2026-11-22): B2.** "앱이 데이터 파일로
+그리기. 엔진은 관여 안함." The symbol screen is drawn by the Android app from a
+data file; the engine is not involved (KP11). No engine/composition-schema change.
+The options below are the considered record, not open choices:
 
 | option | what it means | schema/engine cost |
 |---|---|---|
@@ -138,10 +140,10 @@ the criteria narrow but do not settle:
 | B3 — symbol page as a layout | reuse `us-qwerty`-style literal layout | loads with no engine change; needs a visibility/mode contract |
 | popup data for the number row | per-key long-press/swipe targets | a data home for popup hints (A-like or a side table) |
 
-The mockup embodies **B3 + number-row popup data + dedicated frequent keys**; it
-is one coherent candidate, not the ruled answer. If A is chosen, the schema and
-engine work in `docs/DESIGN-ANDROID-SYMBOLS.md` §3.A is the path; if B/B3, the
-data home and the Android visibility contract are the path.
+The mockup was drawn as a **B3 candidate** (symbol page as a layout) to make the
+choices concrete; the **ruled answer is B2** (app-read data file, engine
+uninvolved), which avoids B3's settings-list visibility contract. The symbol
+screen build is the follow-up implementation; the gesture-variant mapping is #312.
 
 **Adjacent Track 3 decisions the picture surfaces** (siblings of #298, not all
 in its scope):

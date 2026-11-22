@@ -279,8 +279,23 @@ that into a data home, a selection mechanism and an interaction. The deciding
 question is whether symbols are **per-key layout behaviour** (A), a **separate
 page inventory** (B), or an **interaction over an existing inventory** (C/D).
 
-No verdict is recorded here. If the maintainer chooses A, the schema contract
-and `REQ-MAP` rows must be written before implementation, and the engine costs
-in §3.A are the work. If the maintainer chooses B, the data home and the
-Android visibility/mode contract are the work. If the maintainer chooses C, the
-data home it reads from still has to be chosen.
+## Decision (maintainer, 2026-11-22)
+
+**Chosen: B2 — the Android app draws the symbol screen from a data file; the
+engine is not involved.** Verbatim: "앱이 데이터 파일로 그리기. 엔진은 관여 안함."
+Recorded as `docs/SPEC-ANDROID-KEYPAD.md#§KP11`.
+
+This settles #298's core question: the symbol screen is a **separate symbol
+inventory read by the frontend**, not a third per-key row (A) and not an
+engine-loaded layout (B3). **No engine or composition-schema change.** The symbol
+list stays data (the app reads a data file, not hardcoded constants), honouring
+"layout behaviour is data"; its format/validation is a frontend data contract
+settled at implementation. The engine's layout/settings list is unaffected (no
+visibility contract, unlike B3). The gesture-variant extension is #312 (KP10).
+
+The analysis above stands as the comparable record; the options not chosen (A,
+B1, B3, C, D) remain the evidence for why B2 fits. What would reopen it: a future
+need to share the symbol screen across frontends (move toward B3).
+
+The symbol-screen build itself is the follow-up implementation to this decision,
+not part of #298 (the decision issue).
