@@ -31,3 +31,17 @@ target_link_libraries(testhunminibusjudgement PRIVATE GTest::gtest_main hunmin_i
 add_test(NAME engine-d1-ibus-judgement COMMAND testhunminibusjudgement)
 set_tests_properties(engine-d1-ibus-judgement PROPERTIES LABELS "tier-D1"
                      ENVIRONMENT "${HUNMIN_IBUS_TEST_ENV};HUNMIN_JUDGEMENT_CORPUS=${CMAKE_SOURCE_DIR}/tests/golden/judgement-r8.jsonl")
+
+# Tier C (issue #316): the SAME x11 corpus the fcitx5 lane replays, through
+# this frontend's own translation + key path. The .gold files are shared --
+# one expectation, two frontends -- and tools/trace-check.py derives a
+# word-buffered case's deliveries from hunmin-sim, not from a second copy.
+# Off by default, like the fcitx5 emitter: a packaged build carries no trace
+# reader.
+option(HUNMIN_TRACE_BUILD "Build the tier-C trace emitter" OFF)
+if(HUNMIN_TRACE_BUILD)
+  add_executable(ibus-trace-emit trace-emit.cpp
+      ${CMAKE_SOURCE_DIR}/third_party/cJSON/cJSON.c)
+  target_include_directories(ibus-trace-emit PRIVATE ${CMAKE_SOURCE_DIR}/third_party/cJSON)
+  target_link_libraries(ibus-trace-emit PRIVATE hunmin_ibus_engine)
+endif()

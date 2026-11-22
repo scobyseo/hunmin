@@ -267,4 +267,80 @@ TEST_F(IbusStateTest, CommitPolicyChangeDeliversTheWordFirst) {
     EXPECT_EQ(rec_.committed, "가") << "per-syllable policy delivers as it finalises";
 }
 
+/* --- issue #316: the behaviours fcitx5's D1 pins, asserted here too ------- */
+
+/* Mode persistence across the focus cycle. fcitx5's reset() contract keeps the
+ * mode (the layer's reset does not touch hangul_mode); a focus change that
+ * silently returned the user to Hangul would type the next word in the wrong
+ * language. The flush delivers the word, the reset drops the composition, and
+ * the MODE is what survives both. */
+TEST_F(IbusStateTest, ModeSurvivesTheFocusFlushAndReset) {
+    ASSERT_EQ(Language(), 1);
+    ASSERT_EQ(hunmin_state_language(state_), HUNMIN_LANGUAGE_LATIN);
+    Type("r");
+    ASSERT_EQ(rec_.preedit, "r");
+    rec_.Clear();
+    hunmin_state_flush(state_);
+    EXPECT_EQ(rec_.committed, "r");
+    hunmin_state_reset(state_);
+    EXPECT_EQ(hunmin_state_language(state_), HUNMIN_LANGUAGE_LATIN)
+        << "the focus cycle must not reset the mode to Hangul";
+    rec_.Clear();
+    EXPECT_EQ(Key('k'), 1);
+    EXPECT_EQ(rec_.preedit, "k") << "the next word is still typed in Latin";
+    /* And back: the trigger is a toggle, not a one-way door. */
+    rec_.Clear();
+    EXPECT_EQ(Language(), 1);
+    EXPECT_EQ(hunmin_state_language(state_), HUNMIN_LANGUAGE_HANGUL);
+    EXPECT_EQ(std::string(hunmin_state_layout_id(state_)), "dubeolsik");
+}
+
+/* The autoswitch VALUE belongs to the person, not to the layer: a rebuilt
+ * layer starts at the engine default OFF, so the requested value has to be
+ * re-applied. fcitx5 pins this through two config applies (engine-d1-fcitx5);
+ * the IBus counterpart is the policy change that frees and rebuilds the layer,
+ * and the discriminator is the same judged word. */
+TEST_F(IbusStateTest, AutoswitchValueSurvivesLayerRebuild) {
+    ASSERT_EQ(hunmin_state_set_autoswitch(state_, 1), 1);
+    ASSERT_TRUE(hunmin_state_set_commit_policy(state_, HUNMIN_COMMIT_PER_SYLLABLE));
+    ASSERT_TRUE(hunmin_state_set_commit_policy(state_, HUNMIN_COMMIT_AT_BOUNDARY));
+    int held = -1;
+    ASSERT_TRUE(hunmin_state_get_autoswitch(state_, &held));
+    EXPECT_EQ(held, 1) << "the rebuilt layer fell back to the engine default OFF";
+    rec_.Clear();
+    Type("hello");
+    rec_.Clear();
+    EXPECT_EQ(Key(' '), 0);
+    EXPECT_EQ(rec_.committed, "hello") << "the judgement still runs after the rebuild";
+    EXPECT_EQ(hunmin_state_language(state_), HUNMIN_LANGUAGE_LATIN);
+}
+
+/* The symbol tier and the word boundary, the case fcitx5's D1 types as
+ * `j k 1 space` on sin3-p2: the tier opens, the symbol composes, and the
+ * buffered word is delivered where it ends -- not per syllable. The corpus
+ * (engine-d1-ibus-judgement, r4-symbol-*) asserts the judgement half of the
+ * same rule; this is the delivery half, on the layout the tier belongs to. */
+TEST_F(IbusStateTest, SymbolTierComposesAndDeliversAtTheBoundary) {
+    ASSERT_TRUE(hunmin_state_set_layouts(state_, "sin3-p2", nullptr));
+    Type("jk1");
+    EXPECT_EQ(rec_.preedit, "ㅇµ") << "j opens the tier, k selects, 1 composes";
+    EXPECT_TRUE(rec_.committed.empty());
+    rec_.Clear();
+    EXPECT_EQ(Key(' '), 0) << "the boundary key belongs to the client";
+    EXPECT_EQ(rec_.committed, "ㅇµ");
+    EXPECT_EQ(rec_.preedit, "");
+}
+
+/* Word end at punctuation: a period is not a layout key, so it ends the word
+ * and reaches the client -- the same boundary rule as space, on the key a
+ * sentence actually ends with. */
+TEST_F(IbusStateTest, PunctuationEndsTheWord) {
+    Type("dkssud");
+    ASSERT_EQ(rec_.preedit, "안녕");
+    rec_.Clear();
+    EXPECT_EQ(Key('.'), 0);
+    EXPECT_EQ(rec_.committed, "안녕");
+    EXPECT_EQ(rec_.preedit, "");
+}
+
 }  // namespace

@@ -655,3 +655,71 @@ additionally restores the fcitx5 install tree from `linux`, which this local run
 did not do. So these figures are a **local pass and a local order of magnitude**,
 not CI numbers: the authoritative wall time is printed by each job's own
 `dpkg-buildpackage` step (`=== … wall time: … s ===`) on the first nightly run.
+
+## 8. The jammy job's 3-minute ceiling (2026-11-22, issue #316)
+
+The `ibus-jammy` job carried `timeout-minutes: 45` from its creation (#292):
+the noble deb job's generous default, copied, never measured. The maintainer
+set it to the linux job's 3 min on 2026-11-22. What makes that possible:
+
+1. **`nocheck` on the package build.** `debian/rules`' `override_dh_auto_test`
+   runs the WHOLE ctest suite inside `dpkg-buildpackage` — on jammy that
+   re-runs the IBus D3 lanes the job's own gated step already ran, plus the
+   slow mutation tiers. §7's local 117.52 s package build includes that
+   second suite. The jammy-specific evaluation (IBus D1/D2/D3 on 1.5.26)
+   runs in the dedicated step with a skip-is-failure JUnit gate; the full
+   suite runs in the linux job; the noble package build keeps its in-build
+   suite (45 min, unchanged). Nothing jammy-specific is dropped — the
+   exclusion is named in the step comment, per the "a filtered run cannot
+   prove what it left out" rule.
+2. **`parallel=4`** — without it debhelper builds at -j1.
+3. **googletest reuse** — `FETCHCONTENT_SOURCE_DIR_GOOGLETEST` points at the
+   source the main build already fetched; no second download.
+4. **`--no-install-recommends`** on the apt step.
+
+**Measured, final shape (dispatch 45007863936, both jobs green):** the
+jammy work is TWO jobs, each under the 3-minute ceiling:
+
+| job | steps | wall | ceiling |
+|---|---|---|---|
+| `ibus-jammy` (evaluation) | checkout 2 + apt 21 + checkbuilddeps 0 + build 27 + **6 IBus lanes 50** | **100 s** | 180 s |
+| `ibus-jammy-package` (artefact) | checkout 2 + apt 16 + checkbuilddeps 0 + **dpkg-buildpackage 51** + checks/upload 1 | **71 s** | 180 s |
+
+Why two jobs: on identical code the single job's segments summed to
+122–187 s across runs (45006949777: 122 s; 45007358427: cancelled at
+187 s) — apt varied 16–40 s and the package build 30–66 s with runner
+load, so one 180 s job was a coin flip. Each half fits cold with margin;
+no coverage is dropped (the six-lane skip-is-failure gate is unchanged)
+and no ceiling is raised. The ccache/apt-cache machinery tried along the
+way was dropped with the split — each half fits without it.
+
+**The iteration history, so it is not repeated** (all dispatch runs on
+this branch, issue #316):
+
+| run | finding | fix |
+|---|---|---|
+| 45004403626 | all D3 lanes: `ibus engine hunmin could not be selected` | 1.5.26's CLI runs `setxkbmap` after selecting; runner lacked it → `x11-xkb-utils` |
+| 45004965034 | same error, now with setxkbmap installed | CLI stderr was swallowed; runner now keeps it |
+| 45005242703 | `Cannot open display :95`, engine read-back = hunmin | the bare-Xvfb fallback kept DISPLAY on the reserved nested number with no server; `DISP="$HOST"` |
+| 45005522905 | lanes green (50 s); job cancelled inside dpkg-buildpackage at 95 s | the package build is a second full build; nocheck/parallel=4 already applied |
+| 45006013950 | ccache 0 hits (dpkg flags ≠ CMake flags), cancelled at 80 s | LTO opt-out tried |
+| 45006560489 | still 98 s: googletest/gmock + test binaries built for a suite nocheck never runs | `debian/rules`: BUILD_TESTING=OFF under nocheck; LTO opt-out dropped (artefact keeps noble's flags) |
+| 45006949777 | **122 s, all steps green**; post steps failed (apt cache root-owned lock; hashFiles failed after the package build) | sha-keyed ccache, apt cache dropped |
+| 45007358427 | cancelled at 187 s — runner-load variance, cold cache (cancelled runs never save it) | the split |
+| 45007863936 | **both jobs green: 100 s + 71 s** | final |
+
+### The first dispatch run: a 1.5.26-only failure, found and fixed (superseded by the history table above; kept for the source-level detail)
+
+The first dispatch of the 3-min job (run 45004403626) failed all three D3
+lanes in 0.83 s each at `ibus engine hunmin could not be selected`. Cause,
+from the 1.5.26 source (`tools/main.vala get_set_engine`): after selecting
+the engine the CLI runs `setxkbmap -layout us` (our component's declared
+layout), gated on the GSettings `use-system-keyboard-layout` default of
+false. The runner image had no `setxkbmap` (x11-xkb-utils), so the command
+exited nonzero although the engine WAS selected. The 26.04 host has
+setxkbmap installed, which is why every local run passed. The
+`org.freedesktop.portal.IBus` activation error in the same log is non-fatal
+(`bus/server.c` only prints it) — a red herring, recorded so it is not
+chased. Fix: `x11-xkb-utils` in the job's apt list. This failure predates
+issue #316's lanes: the original `engine-d3-ibus` would have hit it on the
+first nightly too — the job had never run in CI before this dispatch.
