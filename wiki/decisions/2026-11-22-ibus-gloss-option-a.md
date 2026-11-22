@@ -28,6 +28,21 @@ fallback if A proves unusable. The requirement itself is FE16
 찾아야 해". The usability verdict stays with the maintainer; this page
 records what was implemented and measured.
 
+## The verdict (maintainer, 2026-11-22, live evaluation)
+
+> "잘 동작하네."
+
+Option A is confirmed usable in the real-use session (nested Xephyr +
+gnome-text-editor + panel, sin3-p2). B (embedded text) is not needed at
+this time; it remains the named fallback if a later usage finds a problem.
+The evaluation used the PHYSICAL Hanja key: the trigger was extended the
+same day to accept Hangul_Hanja and Control_R alongside F9 (maintainer
+instruction: "한자키로 평가할 수 있게 해 주자", "right ctrl이 들어오고 있으면
+그것도 지원해줘"; gnome-text-editor maps F9 to another function). Which
+keysym the physical key sends was not isolated on the bus capture (it saw
+only panel app-state traffic) -- all three spellings are supported and
+D2-pinned, so the evaluation is valid regardless.
+
 ## What was implemented
 
 `frontends/ibus/src/hunmin_engine.c#sink_candidates`: on open and on every

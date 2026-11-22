@@ -1500,3 +1500,12 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   빈 엔진 목록 abort→gsettings 시드, IBus 프라이빗 버스→주소 파일 모니터,
   Xvfb 킵맵 모델 필요(pc105), stray ']'는 프로브 아티팩트(엔진 커밋 이후,
   D3 게이트는 클린). 사용성 판정은 maintainer 몫 — 스크린샷 첨부.
+
+## [2026-11-22] decision | IBus 글로스 A 사용성 판정: "잘 동작하네" (maintainer)
+
+- 실사용 세션(Xephyr+gnome-text-editor+패널, sin3-p2)에서 maintainer 직접
+  평가 → A(aux text) 사용 가능 확정. B는 불필요(명의된 폴백으로 유지).
+- 평가는 물리 한자 키로 수행 — 트리거를 F9+Hangul_Hanja+Control_R 3종으로
+  확장한 당일 지시 반영. 물리 키의 keysym은 버스 캡처로 격리하지 못함
+  (패널 트래픽만 캡처) — 3종 모두 지원·D2 고정이라 판정은 유효.
+- [[2026-11-22-ibus-gloss-option-a]]에 판정 절 추가, REQ-MAP FE16 갱신.
