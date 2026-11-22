@@ -113,7 +113,7 @@ jobs:
           # `Import "PIL" could not be resolved` at tools/gen-android-icons.py:33.
           # With this package the import resolves.
           sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
-            python3 python3-pil libxkbcommon-dev libibus-1.0-dev
+            python3 python3-pil libxkbcommon-dev libx11-dev libibus-1.0-dev
           # The distro fcitx5 (issue #322), installed WITHOUT recommends: the
           # frontend stack (fcitx5-frontend-all -> gtk2/3/4/qt5/6, config-qt) is
           # a Recommends of `fcitx5` and no lane that runs here needs it (D3
@@ -127,6 +127,12 @@ jobs:
           # build). Each kept package is load-bearing:
           #   libhangul-dev      core + parity tests
           #   libxkbcommon-dev   xkbcommon.pc for the D3 XIM harness (D3_XKB)
+          #   libx11-dev         find_package(X11) so D3 REGISTERS (then skips on
+          #                      the headless runner). It used to arrive
+          #                      transitively via the removed -dev packages;
+          #                      without it X11 is not found and the 9 D3 tests
+          #                      silently vanish from the count (measured:
+          #                      176 -> 167). Explicit is the honest form.
           #   libibus-1.0-dev    IBus frontend lanes (the #292 note below)
           #   python3-pil        pyright resolves PIL against system python3
           #   fcitx5 stack       cmake configs (addon + tier C), TestFrontend
@@ -623,7 +629,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
             build-essential python3 python3-pil debhelper fakeroot \
-            libxkbcommon-dev libibus-1.0-dev
+            libxkbcommon-dev libx11-dev libibus-1.0-dev
           # The distro fcitx5 (issue #322), without recommends -- same rationale
           # as the linux job: the frontend stack is a Recommends no lane here
           # needs, and scoping --no-install-recommends to this line keeps the
@@ -1025,7 +1031,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y \
             cmake ninja-build pkg-config libhangul-dev python3 \
-            libxkbcommon-dev libasan8 liblsan0
+            libxkbcommon-dev libx11-dev libasan8 liblsan0
           # Distro fcitx5 without recommends (issue #322 prune); the fuzz loop
           # only drives hunmin-sim, but the tree still builds the addon, so the
           # fcitx5 stack stays. The source-build -dev deps are gone with the

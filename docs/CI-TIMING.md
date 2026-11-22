@@ -561,7 +561,18 @@ xcb/cairo/pango runtimes); `Fcitx5CompilerSettings.cmake` is pure flag-setting
 registration gate now also requires the fcitx5 D1/D2 and tier-C x11 lanes, so a
 silently dropped lane fails the job instead of reading green. The remaining
 lever for the 180 s target is the Android-conformance duplication (§3 option
-E), a separate decision. Two earlier runner comparisons (`pull_request`
+E), a separate decision.
+
+**One catch the first prune run exposed (and fixed).** Dropping the
+source-build `-dev` packages also dropped `libx11-dev`, which had been arriving
+transitively; `find_package(X11)` then failed and the **9 D3 tests stopped
+registering** (176 -> 167 on the runner, where D3 skips at runtime anyway).
+That is the silent-drop shape this workflow exists to prevent, so `libx11-dev`
+is now explicit in the list — it is genuinely needed for D3 registration, not
+an optional extra. The first prune run (D3 unregistered, 167 tests) measured
+**144 s** on the PR path (apt 19 s, build 20 s, ctest 91 s), already under the
+180 s target; the wall clock with D3 registration restored is recorded from the
+follow-up run. Two earlier runner comparisons (`pull_request`
 45020698685, 45018050862) were 176-196 s warm with the old source build cached,
 so the runner's ctest floor was already ~100 s+, not the ~37 s the older budget
 note assumed.
