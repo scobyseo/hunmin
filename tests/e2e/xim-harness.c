@@ -212,7 +212,13 @@ static void on_forward(xcb_xim_t *im_, xcb_xic_t ic_, xcb_key_press_event_t *ev,
         fflush(stdout);
         return;
     }
-    xkb_state_update_mask(xkb_state, keycode, ev->state, 0, 0, 0, 0);
+    /* The event's own modifier state, not the keycode: the second argument is
+     * mods_depressed, and passing the keycode there once made keycode 15 (the
+     * 6/^ key) read as Shift|Lock|Control|Mod1 -- so a `6` typed without Shift
+     * resolved to `^`, masking the injector's missing-Shift defect in the one
+     * case that could see it (issue #316; measured with the old injector: the
+     * fcitx5 edit lane passed for the wrong reason until this was fixed). */
+    xkb_state_update_mask(xkb_state, ev->state, 0, 0, 0, 0, 0);
     xkb_keysym_t sym = xkb_state_key_get_one_sym(xkb_state, keycode);
     uint32_t cp = xkb_keysym_to_utf32(sym);
     /* A forwarded key that resolves to no character is not a character: the

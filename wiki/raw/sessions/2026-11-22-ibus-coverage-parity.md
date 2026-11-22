@@ -80,6 +80,19 @@ reuse it. The probe is recorded so it is not repeated.
   the old window could hold the X focus. The ordinary loop's teardown now
   runs in the edit loop too.
 
+## The mask: why the injector defect stayed hidden
+
+A SECOND harness defect cancelled the first. `xim-harness.c`'s `on_forward`
+passed the keycode as `mods_depressed` to `xkb_state_update_mask`; keycode 15
+(the 6/^ key) is the bit pattern Shift|Lock|Control|Mod1, so a `6` typed
+without Shift resolved to `^`. The fcitx5 edit lane passed for the wrong
+reason — the [[the-rules-keep-breaking]] shape exactly. The IBus GTK lane
+resolves keys correctly and exposed the injector; fixing the injector alone
+would then have turned the fcitx5 XIM lane red. Falsification pair, measured:
+fixed harness + old injector → `FAIL ... FORWARD:6`; fixed harness + fixed
+injector → green, whole XIM D3 set re-run green (one documented start-gate
+flake on the way, passed on re-run). The mask is now `ev->state`.
+
 ## What was wrong in this session's own first cut
 
 - The D2 chord test asserted a Ctrl chord leaves the word in flight alone.

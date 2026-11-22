@@ -945,6 +945,18 @@ reuse; the findings above are recorded so the XIM probe is not repeated.
   (a sparse, NUL-filled file) and the old window could hold the X focus.
   The edit loop now performs the same teardown.
 
+**And the reason the first defect stayed hidden: a second one masked it.**
+`xim-harness.c`'s `on_forward` passed the KEYCODE as `mods_depressed` to
+`xkb_state_update_mask`. Keycode 15 (the 6/^ key) is the bit pattern
+Shift|Lock|Control|Mod1, so a `6` typed WITHOUT Shift resolved to `^` — the
+fcitx5 edit lane's `dkssud^` case passed for the wrong reason, two defects
+cancelling. The IBus GTK lane resolves keys correctly, so it exposed the
+injector; fixing the injector alone would then have turned the fcitx5 XIM
+lane red. Measured falsification pair (issue #316): fixed harness + old
+injector → `FAIL ... FORWARD:6`; fixed harness + fixed injector → green,
+and the whole XIM D3 set re-run green. The mask is now `ev->state`, the
+event's own modifiers.
+
 - **D3 full-stack X11 e2e**: launch **stock distro `fcitx5`** under Xvfb; start our harness
   app (tiny XIM client window echoing every received commit as `COMMIT:<utf8>` on stdout,
   `tests/e2e/xim-harness.c`); drive a real input path with **XTEST** (libXtst via ctypes,
