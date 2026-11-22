@@ -1607,3 +1607,11 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   (`engine-d1-ibus-settings-persist`, scratch keyfile backend) close two rows
   docs/TESTING.md listed as gaps. Corrected §IBC-5's "persistence is CI-only": switching the
   test's backend, not the product's, is what buys isolation; what stays uncovered is dconf itself.
+
+## [2026-11-22] update | 설치 후 실사용 확인 (#327)
+
+- [[2026-11-22-ibus-config-store-and-settings-surface]] updated with the post-install state: the
+  engine is the active one in the maintainer's session, his verdict on real typing ("잘 동작",
+  한자 입력 포함), and the two things only a live session could show — the trigger list being
+  edited in a real database, and a narrowed fifth row leaving `Hangul` to the daemon on a `kr`
+  layout.

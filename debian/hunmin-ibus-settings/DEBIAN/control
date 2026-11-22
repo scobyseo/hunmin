@@ -1,0 +1,21 @@
+Package: hunmin-ibus-settings
+Source: hunmin
+Version: 0.3.0
+Architecture: amd64
+Maintainer: Seo Bon Keun <scobyseo@gmail.com>
+Installed-Size: 56
+Depends: libc6 (>= 2.34), libglib2.0-0t64 (>= 2.76.0), libgtk-3-0t64 (>= 3.9.12), libhunmin (>= 0.3.0), libibus-1.0-5 (>= 1.5.26), hunmin-ibus (= 0.3.0)
+Recommends: hunmin-en-us
+Section: utils
+Priority: optional
+Description: settings window for the hunmin IBus engine
+ The five option rows the IBus engine is configured by — the Hangul and Latin
+ layouts, the commit unit, the automatic Hangul/English switch, and the keys
+ that switch the language — as a window the IBus panel opens from its
+ Preferences item.
+ .
+ It is a separate package because it needs a toolkit: an installation that only
+ runs the engine pulls none of that in, which is what the Ubuntu 22.04 artefact
+ requires (decision 2026-11-09, issue #289). The rows are stored in a GSettings
+ schema, the same one the engine reads, so a change takes effect without
+ restarting anything.

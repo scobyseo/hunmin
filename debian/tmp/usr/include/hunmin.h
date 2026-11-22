@@ -1,0 +1,501 @@
+#ifndef HUNMIN_H
+#define HUNMIN_H
+
+/* libhunmin — portable Hangul input engine. LGPL-2.1+ (see LICENSE).
+ * ABI policy: append-only; layout identity is always a string. */
+#include <stdbool.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define HUNMIN_ABI_VERSION 1
+
+/* Export macros for shared library visibility.
+ * On Windows, symbols are NOT exported by default — an explicit
+ * __declspec(dllexport) is required when building the DLL and
+ * __declspec(dllimport) when consuming it. On Linux/gcc, default
+ * visibility already exports everything, but the attribute makes
+ * the intent explicit and survives a -fvisibility=hidden build. */
+/* A static consumer defines HUNMIN_STATIC so HUNMIN_EXPORT is empty.
+ * dllimport on a symbol defined in the archive asks the linker for the
+ * __imp_ thunks the archive does not contain. */
+#if defined(_WIN32) || defined(__CYGWIN__)
+#ifdef HUNMIN_STATIC
+#define HUNMIN_EXPORT
+#elif defined(HUNMIN_BUILDING_DLL)
+#define HUNMIN_EXPORT __declspec(dllexport)
+#else
+#define HUNMIN_EXPORT __declspec(dllimport)
+#endif
+#else
+#define HUNMIN_EXPORT __attribute__((visibility("default")))
+#endif
+
+HUNMIN_EXPORT const char *hunmin_version_string(void);
+HUNMIN_EXPORT int hunmin_abi_version(void);
+
+typedef struct hunmin_ctx hunmin_ctx;
+typedef struct hunmin_ic hunmin_ic;
+
+/* Create a context scanning layout/compose JSON from ndirs search paths
+ * (each dir contains layouts and compose json files, see docs/SPEC-SCHEMA.md).
+ * dirs may be NULL/empty -> env HUNMIN_DATA_PATH (colon-separated).
+ * Returns NULL if no valid layout is found. */
+hunmin_ctx *hunmin_ctx_new(const char *const *dirs, int ndirs);
+void hunmin_ctx_free(hunmin_ctx *ctx);
+
+int hunmin_ctx_layout_count(const hunmin_ctx *ctx);
+const char *hunmin_ctx_layout_id(const hunmin_ctx *ctx, int i);
+/* lang: "en"|"ko"|NULL(=en). */
+const char *hunmin_ctx_layout_name(const hunmin_ctx *ctx, int i, const char *lang);
+/* Whether the MODES JUDGEMENT can decide on this layout at all. 1 when the
+ * layout composes Hangul — i.e. its keys emit conjoining jamo — and 0 for the
+ * ones that do not (the Latin half: us-qwerty, dvorak, colemak), where a buffer
+ * has no syllables for the judgement to be right or wrong about.
+ *
+ * Derived at load time from the layout's own keys and combination table, never
+ * declared in the file: a new layout cannot forget to say so, and the answer
+ * cannot drift from the data it is about. */
+HUNMIN_EXPORT bool hunmin_ctx_layout_autoswitch_capable(const hunmin_ctx *ctx, int i);
+
+/* B3 data gate for enabling autoswitch (SPEC-MODES ReqMode13;
+ * DESIGN-CORE.md#b3-autoswitch-data-gate-and-default). 1 if hm_data_dirs finds
+ * a usable modes word list (cached), else 0. Distinct from
+ * hunmin_ctx_layout_autoswitch_capable() (layout emits jamo; no data). Pair
+ * with get_option("autoswitch") for "off, chosen" vs "off, data missing". */
+HUNMIN_EXPORT bool hunmin_ctx_autoswitch_data_present(const hunmin_ctx *ctx);
+
+/* 1 when this layout can emit a jamo outside the modern 19/21/28 — the 옛글
+ * layouts. Judge those with hunmin_hangul_valid_old() and everything else with
+ * hunmin_hangul_valid(); using the wide rule where the layout cannot produce
+ * such a buffer only makes the check weaker.
+ *
+ * Two routes reach the archaic jamo and both are measured from the data, not
+ * assumed: a key row that maps straight to one (dubeolsik-yet's shift row,
+ * sin3-p2-basic's 아래아 ᆞ) and a combination table that produces one
+ * (sin3-p2-yet, whose keys are modern). */
+HUNMIN_EXPORT bool hunmin_ctx_layout_old_hangul(const hunmin_ctx *ctx, int i);
+
+/* true when this build's engine can instantiate the layout. */
+HUNMIN_EXPORT bool hunmin_ctx_layout_supported(const hunmin_ctx *ctx, int i);
+/* "hangul" | "latin" — which half of a two-mode IME this layout belongs to,
+ * read from the layout JSON's "mode" field (docs/SPEC-SCHEMA.md). NULL for an
+ * out-of-range index. A layout without the field reports "hangul", and so does
+ * one whose value is not one of the two; tools/doctor.py is what makes a
+ * misspelling fail the build instead. */
+const char *hunmin_ctx_layout_mode(const hunmin_ctx *ctx, int i);
+
+/* Returns NULL for unknown id or unsupported engine (e.g. romaja until P1b+). */
+hunmin_ic *hunmin_ic_new(hunmin_ctx *ctx, const char *layout_id);
+void hunmin_ic_free(hunmin_ic *ic);
+
+/* Feed one US-QWERTY character event: case encodes shift, 0x08 is
+ * backspace (identical convention to libhangul / tests/golden traces).
+ * Returns true when consumed by the engine. */
+bool hunmin_ic_process(hunmin_ic *ic, uint32_t ch);
+
+/* Feed one key event as the unshifted US-QWERTY base plus the Shift bit; the
+ * engine owns the case endpoint, including the dual-convention rule for a
+ * caller that already resolved the character. The rule is specified once in
+ * `docs/SPEC-P2.md` §IC input entry points; `hunmin_ic_process` stays
+ * byte-for-byte valid for the callers that hand over a resolved character. */
+bool hunmin_ic_process_key(hunmin_ic *ic, uint32_t base, uint32_t shift);
+
+/* Predicts whether hunmin_ic_process_key(ic, base, shift) would be consumed,
+ * WITHOUT changing ic: the return value is the same, and the commit, preedit,
+ * tier and option state are left exactly as they were. A frontend that must
+ * answer a platform "test" phase before the real key event uses this; it is a
+ * read of the engine state, not a second engine and not a queued event. */
+HUNMIN_EXPORT bool hunmin_ic_peek_key(const hunmin_ic *ic, uint32_t base, uint32_t shift);
+
+/* UTF-8 of what the last hunmin_ic_process produced; a destructive read
+ * (cleared on read — deliver it once, it will not repeat), "" if none.
+ * Valid until the next hunmin_ic_* call on this ic.
+ * preedit is non-destructive (state display, re-readable). */
+const char *hunmin_ic_commit(hunmin_ic *ic);
+const char *hunmin_ic_preedit(hunmin_ic *ic);
+
+/* "caps" -> Caps Lock state for expression var P (yethangul modes).
+ * "w"/"W"/"z"/"h"/"H" -> 전처리수식 override (pat.im/1136 §2-6), cleared by
+ * hunmin_ic_reset (layout defaults return).
+ * "autoswitch" -> ReqMode13 automatic Hangul/English switch state (SPEC-MODES
+ * ReqMode13): OFF on a fresh ic, NOT cleared by hunmin_ic_reset (preference).
+ * ON is refused (false, value left 0) when hunmin_ctx_autoswitch_data_present()
+ * is 0 (B3 gate; DESIGN-CORE.md#b3-autoswitch-data-gate-and-default); OFF is
+ * always accepted. Distinguish refusal from unknown name via get_option(). */
+bool hunmin_ic_set_option(hunmin_ic *ic, const char *name, int value);
+
+/* Reads back what hunmin_ic_set_option() writes; the same names, one home. The
+ * frontends' settings surfaces read the value through this instead of keeping a
+ * copy (ReqMode13: a per-frontend settings store is what this state exists to
+ * avoid). Returns false for a name the engine does not know and leaves *out
+ * untouched; the w/W/z/H/h overrides answer -1 for "not overridden, the layout
+ * default", which is a value and not an unknown name. */
+bool hunmin_ic_get_option(const hunmin_ic *ic, const char *name, int *out);
+
+void hunmin_ic_reset(hunmin_ic *ic); /* drop composition silently */
+const char *hunmin_ic_flush(hunmin_ic *ic); /* commit in-flight syllable */
+
+/* --- External text pass-through (PLAN.md invariant 5) ---
+ *
+ * Text from outside the keyboard reaches the client as-is: not composed, no
+ * buffer/tier/전처리수식 state touched, and any in-flight composition is
+ * committed first so the two arrive in the order they were produced.
+ *
+ * Unlike hunmin_ic_commit() the text is neither routed through the 64-char
+ * engine buffer nor truncated (STR_CAP is a libhangul-parity artefact of
+ * single-keystroke composition). The returned string is owned by the ic and
+ * stays valid until the next hunmin_ic_* call on it. Returns "" (never NULL) for
+ * a NULL ic, empty text, or malformed UTF-8 — rejected, not committed. */
+const char *hunmin_ic_commit_text(hunmin_ic *ic, const char *text);
+
+/* --- Hanja candidates (P3) ---
+ *
+ * Lookup is by the whole Hangul syllable or word, never by a single
+ * character, and never reads surrounding text: the three tables are
+ * keyed by the committed Hangul itself (docs/SPEC-SCHEMA.md "Hanja
+ * files"). Order is upstream frequency order, not re-derived.
+ *
+ * Returns the number of candidates now visible, 0 when the input is not
+ * in any table or no table was loaded. Candidates are addressed by
+ * index, 0-based, and stay valid until the next hunmin_suggest_* call on
+ * this ctx -- the same lifetime rule as hunmin_ic_commit(). The ic is not
+ * consulted: a candidate list depends only on ctx and the lookup text. */
+
+int hunmin_suggest_count(hunmin_ctx *ctx, const char *hangul);
+
+/* i in [0, count). Out of range, or NULL ctx -> "" (never NULL), so a
+ * frontend can render unconditionally. */
+const char *hunmin_suggest_text(hunmin_ctx *ctx, int i);
+const char *hunmin_suggest_detail(hunmin_ctx *ctx, int i);
+
+/* "hanja" | "idiom" | "word" -- which table a candidate came from, or
+ * "" if out of range. Lets a frontend label the list without inferring it
+ * from the text. */
+const char *hunmin_suggest_kind(hunmin_ctx *ctx, int i);
+
+/* --- Shared buffered / syllable preedit object (issue #128)
+ *
+ * One level above hunmin_ic, not a second engine: it owns the word buffer and
+ * answers the three questions `docs/DESIGN-FRONTEND.md` Part A §1 is stated
+ * over (consumed / committed / preedit). Frontends map a physical key to
+ * (base, shift) and render what this layer hands them.
+ *
+ * Two commit policies with identical text — BUFFERED commits the whole word at
+ * the boundary, SYLLABLE commits each finalised syllable. The boundary is not
+ * part of the contract; the concatenation is, and a declined key *is* the
+ * boundary, so a frontend never needs to know when a word ends.
+ */
+typedef struct hunmin_buffered_preedit hunmin_buffered_preedit;
+
+#define HUNMIN_COMMIT_AT_BOUNDARY 0
+#define HUNMIN_COMMIT_PER_SYLLABLE 1
+
+/* Which layout the layer is composing with (docs/DESIGN-FRONTEND.md Part A §4). */
+#define HUNMIN_LANGUAGE_HANGUL 0
+#define HUNMIN_LANGUAGE_LATIN 1
+
+/* What one key produced. commit is what to insert now ("" if nothing), preedit
+ * is what to display ("" if nothing). Both strings are owned by the layer and
+ * stay valid until the next hunmin_buffered_preedit_* call on it - the same lifetime rule
+ * as hunmin_ic_commit(). */
+typedef struct hunmin_key_result {
+    int consumed;
+    const char *commit;
+    const char *preedit;
+} hunmin_key_result;
+
+/* hangul_layout_id is required; latin_layout_id may be NULL for a frontend
+ * with one language (then hunmin_buffered_preedit_toggle_language reports "not ours").
+ * Returns NULL for an unknown/unsupported layout or a bad commit_policy. */
+HUNMIN_EXPORT hunmin_buffered_preedit *hunmin_buffered_preedit_new(hunmin_ctx *ctx, const char *hangul_layout_id, const char *latin_layout_id, int commit_policy);
+HUNMIN_EXPORT void hunmin_buffered_preedit_free(hunmin_buffered_preedit *l);
+
+/* Feed one key. Returns 1 when consumed. out may be NULL when the caller only
+ * needs the decision (a platform "test" phase). */
+HUNMIN_EXPORT int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t base, uint32_t shift, hunmin_key_result *out);
+
+/* Predict hunmin_buffered_preedit_process_key()'s consumed answer without changing any state. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_peek_key(const hunmin_buffered_preedit *l, uint32_t base, uint32_t shift);
+
+/* Commit the buffered word and the in-flight syllable now (focus loss, a
+ * language toggle, an edit key). Returns the text to insert, "" if none. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_commit_word(hunmin_buffered_preedit *l);
+
+/* The display string for the word in flight, without consuming a key: a
+ * candidate window or a Hanja lookup asks between keys. Same lifetime rule as
+ * above. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_display(hunmin_buffered_preedit *l);
+
+/* The text the LAST hunmin_buffered_preedit_* call delivered for the client,
+ * "" when nothing. It is the out.commit field of that call, kept readable so a
+ * binding that cannot return a struct through its own ABI (JNI: the Android
+ * adapter) reads the same answer a C frontend gets. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_delivered(const hunmin_buffered_preedit *l);
+HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
+
+/* The layer's options. The ic's own names ("caps", "autoswitch") pass through;
+ * two are the layer's, each specified in the SPEC: "word_cap" (bytes of UTF-8,
+ * 0 = no cap; an overflow commits the word's first half and the tail keeps
+ * composing — §ReqMode4) and "judge_timing" (1 = judge at every key, the
+ * flicker default; 0 = at the boundary only — §E6). judge_timing changes the
+ * display and never the delivered text. A lowered word_cap applies from the next
+ * key. Returns false for an unknown name or an out-of-range value. */
+HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);
+
+/* The layer's read of the same options: ReqMode13's settings surface asks this for
+ * "autoswitch" and shows the answer, instead of keeping a copy of a state the
+ * engine owns. Same contract as hunmin_ic_get_option() -- false for an unknown
+ * name, *out untouched. The key that toggles it is
+ * hunmin_buffered_preedit_special_chord(l, HUNMIN_SPECIAL_AUTOSWITCH), which is
+ * also the engine's (a frontend never spells the chord itself). */
+HUNMIN_EXPORT bool hunmin_buffered_preedit_get_option(const hunmin_buffered_preedit *l, const char *name, int *out);
+
+/* Why autoswitch is off on this layer, if it is off for a reason the engine
+ * itself imposes (issue #207): under HUNMIN_COMMIT_PER_SYLLABLE the buffer
+ * delivers per syllable and autoswitch has nothing to hold, so the state is
+ * forced off and this returns a string naming the policy. Returns NULL when
+ * autoswitch is off for some other reason (a choice, or missing data) or when
+ * it is on, so a frontend logs the line only where the reason applies. The
+ * string is owned by the engine and lives as long as the process. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_autoswitch_reason(const hunmin_buffered_preedit *l);
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_get_autoswitch_reason(const hunmin_buffered_preedit *l);
+
+/* External text (voice input, per PLAN.md invariant 5) through the layer: the
+ * buffered word is delivered first, then the engine's pass-through appends the
+ * text, so the order is "typed, then spoken" and nothing is composed twice.
+ * Returns the concatenation. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_external_text(hunmin_buffered_preedit *l, const char *text);
+
+/* Key rule (issue #128): precedence is behaviour in core; frontends map platform
+ * keys/mods and report candidate ownership (DESIGN-FRONTEND.md Part A/B, FE*). */
+typedef enum hunmin_key_action {
+    HUNMIN_KEY_FEED = 0,           /* feed; consume commit/preedit */
+    HUNMIN_KEY_BOUNDARY_PASS = 1,  /* deliver word; pass key to client */
+    HUNMIN_KEY_LANGUAGE_TOGGLE = 2,/* boundary, then other language */
+    HUNMIN_KEY_CANDIDATE = 3,     /* frontend routes key to open candidate list */
+    /* Han/Eng + chord modifier: special function (SPEC-MODES E5). Appended for ABI.
+     * SHIFT is admitted only here (Shift+Han/Eng special; char Shift selects row;
+     * SHIFT not a chord mod). Unbound chord remains plain toggle. */
+    HUNMIN_KEY_LANGUAGE_CHORD = 4
+} hunmin_key_action;
+
+/* The modifier vocabulary a frontend maps its own state onto. SHIFT is
+ * deliberately separate from the chord set: it selects a layout row, it does
+ * not make the key the application's. */
+#define HUNMIN_MOD_CTRL (1u << 0)
+#define HUNMIN_MOD_ALT (1u << 1)
+#define HUNMIN_MOD_GUI (1u << 2) /* Super / Win / Command */
+#define HUNMIN_MOD_SHIFT (1u << 3)
+#define HUNMIN_MOD_CHORD (HUNMIN_MOD_CTRL | HUNMIN_MOD_ALT | HUNMIN_MOD_GUI)
+
+/* Keys that carry no text character. The layer names them so the candidate
+ * list's key set can be shared instead of re-spelled per frontend; everything
+ * else travels as `base` (the unshifted US-QWERTY character, 0x08 for
+ * BackSpace, 0 when the platform key maps to nothing). */
+typedef enum hunmin_key_id {
+    HUNMIN_KEY_TEXT = 0, /* a character: read base */
+    HUNMIN_KEY_UP = 1,
+    HUNMIN_KEY_DOWN = 2,
+    HUNMIN_KEY_LEFT = 3,
+    HUNMIN_KEY_RIGHT = 4,
+    HUNMIN_KEY_PAGE_UP = 5,
+    HUNMIN_KEY_PAGE_DOWN = 6,
+    HUNMIN_KEY_ENTER = 7,
+    HUNMIN_KEY_ESCAPE = 8
+} hunmin_key_id;
+
+/* One key event, already translated into the shared vocabulary. */
+typedef struct hunmin_key_event {
+    uint32_t base; /* unshifted US-QWERTY character; 0 = the platform mapped nothing */
+    uint32_t shift; /* nonzero when Shift is held (the engine's shift bit) */
+    uint32_t mods; /* HUNMIN_MOD_* */
+    hunmin_key_id id; /* HUNMIN_KEY_TEXT for a character event */
+    /* The one thing only the frontend knows: whether ITS candidate window is
+     * open. The keys that window consumes are named here, not there. */
+    int candidates_open;
+    /* The frontend matched its Han/Eng binding for this key. */
+    int language_key;
+} hunmin_key_event;
+
+/* The precedence, in one place: language key, then the open candidate list's
+ * keys, then a chord, then an unmapped key, then feed. */
+HUNMIN_EXPORT hunmin_key_action hunmin_buffered_preedit_classify(const hunmin_buffered_preedit *l, const hunmin_key_event *ev);
+
+/* ------------------------------------------------------- special functions */
+/* The compound press (a chord modifier held with the Han/Eng key) carries a
+ * named function instead of switching languages. The maintainer's words, which
+ * this shape implements (2026-10-31): "each frontend can have default key code
+ * and custom ones and provide it to engine. then engine processes them and
+ * invoke frontend side interface which implements the feature or processes by
+ * itself. if the feature is not supported at the platform, it can just refuse
+ * to service."
+ *
+ * So the split is: the FRONTEND owns the platform key codes and the feature
+ * implementations; the ENGINE owns the binding (function -> chord bits), the
+ * resolution of one key event to one function, and the refusal. The engine
+ * never sees a key code: it sees hunmin_key_event, already translated. */
+
+typedef enum hunmin_special_function {
+    /* Not a function: the event was not a bound compound press. */
+    HUNMIN_SPECIAL_NONE = 0,
+    /* Start voice input. Engine-blind: whoever can record implements it. */
+    HUNMIN_SPECIAL_VOICE = 1,
+    /* Flip the automatic Hangul/English switch (ReqMode13's state). */
+    HUNMIN_SPECIAL_AUTOSWITCH = 2,
+    /* Bound for the table; append new functions ABOVE this line and bump it,
+     * because the values are ABI and the table is sized by it. */
+    HUNMIN_SPECIAL_LIMIT = 3
+} hunmin_special_function;
+
+/* What a frontend must provide for the engine to service a function: whether it
+ * can (0 = refuse, and that is a legal answer -- a platform without a recorder
+ * refuses VOICE rather than pretending) and how to do it. Either may be NULL;
+ * a NULL supports means "yes", a NULL perform means "resolved, nothing done". */
+typedef struct hunmin_special_host {
+    void *user;
+    int (*supports)(void *user, hunmin_special_function fn);
+    void (*perform)(void *user, hunmin_special_function fn);
+} hunmin_special_host;
+
+/* Bind fn to a chord (HUNMIN_MOD_CTRL/ALT/GUI, or SHIFT for the Shift+한/영
+ * combination -- Shift is a layout row for characters but a special combination
+ * with the language key, by the 2026-10-31 ruling). mods == 0 unbinds. The engine
+ * ships the ruled defaults (Table A: VOICE = Alt, AUTOSWITCH = Ctrl) so the three
+ * frontends cannot disagree about a table nobody seeded; a frontend calls this
+ * only to apply its own store, which is what keeps the value in ONE place on both
+ * sides -- the platform keeps its key codes, the engine keeps the assignment. */
+HUNMIN_EXPORT bool hunmin_buffered_preedit_special_bind(hunmin_buffered_preedit *l, hunmin_special_function fn, unsigned mods);
+/* The chord currently bound to fn, or 0. This is what a settings dialog shows,
+ * and on a fresh layer it is the engine's default. */
+HUNMIN_EXPORT unsigned hunmin_buffered_preedit_special_chord(const hunmin_buffered_preedit *l, hunmin_special_function fn);
+/* Register the implementation. NULL withdraws it (and then nothing is serviced). */
+HUNMIN_EXPORT void hunmin_buffered_preedit_special_host(hunmin_buffered_preedit *l, const hunmin_special_host *host);
+
+/* Resolve one key event and service it. Returns the function performed (> 0),
+ * 0 when the event is not a bound compound press, or -1 when it IS one and
+ * nothing could service it -- no host, or the host refused. The frontend passes
+ * the key through on -1, which is how an unsupported platform degrades instead
+ * of swallowing the press. Pure resolution first: the classifier stays pure, and
+ * this is the one call that can invoke the host. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_special(hunmin_buffered_preedit *l, const hunmin_key_event *ev);
+
+/* Predicts hunmin_buffered_preedit_special() WITHOUT calling the host: the same
+ * three answers (function > 0, 0 not a chord, -1 bound but nothing would service
+ * it), and no state changes. A frontend that must answer a platform "test" phase
+ * before the real key event uses this, because test and down are one decision:
+ * claiming a key in the test and passing it in the down loses it, which is a
+ * measured defect class here (`dkssud1`, the interim default-sink host). Same
+ * role as hunmin_ic_peek_key() and hunmin_buffered_preedit_peek_key(). */
+HUNMIN_EXPORT int hunmin_buffered_preedit_special_peek(const hunmin_buffered_preedit *l, const hunmin_key_event *ev);
+
+/* Stable identifier for a function ("voice", "autoswitch", "" for NONE). The
+ * dialogs and the logs use this instead of spelling a name per frontend. */
+HUNMIN_EXPORT const char *hunmin_special_name(hunmin_special_function fn);
+
+/* The finished syllables alone, REMOVED from the layer (the in-flight syllable
+ * stays composing). The interim delivery keeps the finished word as document
+ * text and appends only what has newly finished, so it needs the two halves
+ * separately and needs this one to advance. */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_take_word(hunmin_buffered_preedit *l);
+
+/* The syllable in flight alone, without the finished word and without a key.
+ * The interim delivery mode keeps the finished word as document text and
+ * rewrites only this, so the two halves the display joins have to be readable
+ * separately (docs/DESIGN-FRONTEND.md Part A §3 item 3). */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_composing(hunmin_buffered_preedit *l);
+
+/* The Han/Eng action (docs/DESIGN-FRONTEND.md Part A §4): one abstract event, so
+ * an adapter's raw platform code never reaches the engine. It is a boundary -
+ * whatever was composing in the old language is committed before the switch.
+ * Returns 1 when the mode changed; 0 when this frontend has one language only
+ * (the boundary commit still lands in out). */
+HUNMIN_EXPORT int hunmin_buffered_preedit_toggle_language(hunmin_buffered_preedit *l, hunmin_key_result *out);
+HUNMIN_EXPORT int hunmin_buffered_preedit_language(const hunmin_buffered_preedit *l); /* HUNMIN_LANGUAGE_* */
+
+/* Engine answer / frontend action (SPEC-MODES ReqMode8/ReqMode10, issue #164).
+ * Read immediately after the key that ended a word: HUNMIN_LANGUAGE_* = adopt mode,
+ * -1 = no action. Triggering word is already delivered in judged language
+ * (out->commit or commit_word); adapter delivers handed text, then switches if needed.
+ * Returns -1 (delivery identity when off/unavailable) when: autoswitch off (B3);
+ * no word finished; < ReqMode9 guard (3 key inputs); Hangul layout cannot compose
+ * syllables; no English dictionary loaded (B3); both readings agree (keep mode);
+ * HUNMIN_COMMIT_PER_SYLLABLE (earlier syllables already in client).
+ * Consuming/read-once: second read -1; each boundary replaces answer. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_take_judgement(hunmin_buffered_preedit *l);
+HUNMIN_EXPORT int hunmin_buffered_preedit_commit_policy(const hunmin_buffered_preedit *l);
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_layout_id(const hunmin_buffered_preedit *l); /* active layout id */
+
+/* Latin reading of the last finished word: keys replayed through latin_layout_id
+ * (ReqMode8 english_valid). Hangul layouts cannot produce Latin (measured). Read at
+ * boundary and pass to english_valid. Empty => nothing to look up (composing, no
+ * word finished, or one-language layer; fail-closed, not error). Decides nothing
+ * (no switch/delivery/mode change, ReqMode10). Valid until next call on this layer.
+ * Cost: one replay per finished word (~0.5-0.9 us measured overhead). */
+HUNMIN_EXPORT const char *hunmin_buffered_preedit_latin_text(const hunmin_buffered_preedit *l);
+
+/* English words for ReqMode8 (SPEC-MODES §ReqMode8): shipped hunspell
+ * en_US-derived list + optional user dictionary, looked up as one set. Lazy load
+ * (B3: absent base is normal; judgement answers "not english", not fail). User
+ * file is plain text (one word/line, # comments), not shipped JSON. Caller owns
+ * reload (no watch/stat per lookup); runtime add via add_user_word is frontend
+ * store/editing path. Lookup data only; mode decision is engine judgement. */
+
+/* Load shipped list by path. Returns 1 loaded, -1 absent, 0 malformed (absent => empty/not ready). */
+HUNMIN_EXPORT int hunmin_buffered_preedit_load_english(hunmin_buffered_preedit *l, const char *path);
+
+/* Find+load shipped list via hm_data_dirs (same search as hanja/krdict/idioms/modes).
+ * Returns 1 loaded, -1 absent in searched dirs (normal/B3), 0 found but malformed
+ * (error, not "no words"). Path-taking load remains for explicit paths. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_load_english_shipped(hunmin_buffered_preedit *l);
+
+/* Merge user words from text file (one/line, # comments). Returns 1 loaded, -1 absent (normal), 0 error. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_load_user_words(hunmin_buffered_preedit *l, const char *path);
+
+/* Add one user word at runtime. Returns 1 accepted. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_add_user_word(hunmin_buffered_preedit *l, const char *word);
+
+/* 1 when the word is in the shipped list or the user's words, 0 otherwise --
+ * including while no dictionary is loaded, so a caller can ask before it has
+ * decided whether the feature is available. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_english_valid(const hunmin_buffered_preedit *l, const char *word);
+
+/* 1 when the shipped list is loaded, i.e. when the feature's data is present
+ * (B3's gate). -1 is never reported here: audit that with the load call. */
+HUNMIN_EXPORT int hunmin_buffered_preedit_english_ready(const hunmin_buffered_preedit *l);
+
+/* ------------------------------------------- hangul validity (ReqMode8)
+ *
+ * The other half of the modes judgement: the buffer composes as Korean
+ * syllables of the shape (cho+jung) or (cho+jung+jong), and nothing else
+ * (`docs/SPEC-MODES.md` §ReqMode8). It takes TEXT rather than the layer because
+ * there is nothing to look up — a predicate over the composition rule, with no
+ * data behind it, so every frontend and every test gets the same answer.
+ *
+ * Pass a finished buffer, not a sentence: a space, digit, latin letter,
+ * punctuation or an in-flight jamo answers 0. Old Hangul answers 0 by
+ * construction — the syllable step accepts only the modern 19/21/28, so an
+ * archaic jongseong renders as jamo (the widened rule for those layouts is
+ * `hunmin_hangul_valid_old`, and `docs/DESIGN-CORE.md` §ReqMode8/3 readings and
+ * validity records why the judgement picks per layout).
+ *
+ * 0 for NULL and for malformed UTF-8. 1 for one syllable or a run of them.
+ */
+HUNMIN_EXPORT int hunmin_hangul_valid(const char *text);
+
+/* The same shape rule over the EXTENDED (옛한글) jamo sets, for the layouts that
+ * compose them — ask `hunmin_ctx_layout_old_hangul` which rule applies, and use
+ * this one exactly there. The rule is unchanged; only the sets widen, so a
+ * leading choseong is still required and an in-flight syllable is still
+ * invalid. Modern precomposed syllables are accepted too (a superset), so a
+ * caller that always used this one would only lose the check that a modern
+ * layout cannot produce jamo buffers at all. 0 for NULL, empty, malformed
+ * UTF-8, or any latin letter, digit, space or punctuation. */
+HUNMIN_EXPORT int hunmin_hangul_valid_old(const char *text);
+
+#ifdef __cplusplus
+}
+#endif
+#endif

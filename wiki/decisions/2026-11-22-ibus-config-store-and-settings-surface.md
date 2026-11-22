@@ -101,6 +101,27 @@ packaging trigger.
   caught it ("sin3-p2에서 테스트가 깨지면 안되는데?"). The fixture now states the layout its key
   sequences belong to, and exactly one case pins the default. Both directions measured.
 
+## Installed and in use (2026-11-22)
+
+The maintainer built the five packages with `tools/build-release.sh deb`, installed them with
+`dpkg -i`, and the engine is the ACTIVE one in his session (`ibus engine` → `hunmin`, an engine
+process alive on the real session bus, `preload-engines` = `['hunmin']`). His own verdict, after
+typing in it: "그냥 잘 동작하고 있으면 괜찮아. 漢字입력도 잘 되네." Hanja input is the part that was
+rebuilt inside this frontend rather than inherited from fcitx5, so that sentence is the only
+evidence FE16 and the Hanja path have from real use.
+
+Two things the live session showed that the test lanes could not:
+
+- **The fifth row's effect is observable in the daemon's database.** With `switch-keys = ['Alt_R']`
+  the engine took `Alt+Release+Alt_R` out of `org.freedesktop.ibus.general.hotkey.trigger` and
+  recorded it in `managed-triggers` — the behaviour §IBC-4 describes, happening on a real session
+  rather than in a memory backend.
+- **A narrowed row is a trap on the other layout.** That same row leaves `Hangul` in the daemon's
+  list, so on XKB `kr` — where the physical key reports `Hangul` (0xff31) — the daemon consumes
+  it and the engine never sees it. It works today only because the session's layout is `us`
+  (`Alt_R`, 0xffea). The default's two entries are the fix; recorded so a bug report about "한/영
+  does nothing after I changed the key" has an answer.
+
 ## Still open
 
 - **#327 stays open.** A ruling authorises implementation and verification. The verification now
