@@ -2948,6 +2948,26 @@ recommended, so:
   reason: a ruling that five rows are the user's is a requirement, and a requirement has one
   home.
 
+**Implemented 2026-11-22 (store only).** `frontends/ibus/schema/org.freedesktop.ibus.engine.hunmin.gschema.xml`
+holds the five rows and their defaults; `frontends/ibus/src/settings.c` is the only reader, and
+`hunmin_engine.c` applies it at init and re-applies on GSettings' `changed`. Two facts came out of
+building it that the analysis did not contain:
+
+- **The shipped default layout is `dubeolsik`, not `sin3-p2`.** The IBus frontend ran on the
+  layer's default before the store existed, so a schema default of `sin3-p2` (what the fcitx5
+  addon and the TSF DLL default to) would have changed what every existing IBus user types. It
+  is `dubeolsik` here, and the three frontends still disagree; aligning them is a one-line
+  schema change and a ruling, not a packaging detail.
+- **The fifth row costs nothing in ABI and everything in grammar.** `hunmin_*` symbols are
+  unchanged (the append-only list is untouched) because the row is frontend data; what it does
+  need is the two refusals §IBC-2's measurement found — `Release` (parses, can never fire here)
+  and `Meta` (IBus logs `IBUS-CRITICAL` and returns FALSE). Both are refused in
+  `hunmin_ibus_key_entry_reason` before IBus is asked, and `engine-d1-ibus-settings` pins them.
+
+The IBus frontend now measures 923 of FE11's 1000 code LOC
+(`settings.c=176`), which is what the 2026-11-22 budget raise bought: the same work against the
+old 700 would have needed a budget ruling first.
+
 **What the ruled shape costs, now that the budget is measured correctly.** The engine-side
 reader is inside `frontends/ibus/src/`, which `tools/check-frontend-invariants.py` counts in
 full (only the `src/trace/` subdirectory escapes, and that exclusion is documented as the

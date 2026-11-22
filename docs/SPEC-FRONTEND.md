@@ -184,8 +184,15 @@ which and why in its own SPEC (this file's opening paragraph). The IBus frontend
 today, so this binds it as all five. *Ruling:* the maintainer, 2026-11-22 — "3 -> a로 설정할 수
 있어야 함" (all five rows settable, the key list among them) and "나머지는 추천대로 갈게" (the
 store, the editing surface, live apply and the packaging are the analysis's recommendations).
-Costs, the options and the decided shape: `docs/OPTIONS-MEASURED.md#§IBC`. *Implementation:*
-`none` — the IBus frontend stores nothing today. The fifth row is frontend data (which keysyms
-count as the language key), so implementing this adds no `hunmin_*` symbol and leaves the
-append-only list in `libhunmin/tests/abi/symbols.txt` untouched. *Refuted by:* `none` — the
-round-trip case and the apply-without-restart case are the verification when implemented.
+Costs, the options and the decided shape: `docs/OPTIONS-MEASURED.md#§IBC`.
+*Implementation:* `frontends/ibus/src/settings.c` (the store) with
+`frontends/ibus/schema/org.freedesktop.ibus.engine.hunmin.gschema.xml` (the defaults), read
+into `hunmin_ibus_settings_apply` and applied live through `hunmin_ibus_settings_watch`. The
+fifth row is frontend data (which keysyms count as the language key), so implementing this adds
+no `hunmin_*` symbol; the append-only list in `libhunmin/tests/abi/symbols.txt` is untouched.
+*Refuted by:* `engine-d1-ibus-settings` — defaults, a stored value reaching the engine, an
+unloadable layout degrading and being reported, the stored key list driving the translation, the
+two grammar corners refused with a reason, a bad entry costing only itself, and a change
+arriving through the watch. **Not yet built:** the settings window the ruling pairs with the
+store (it needs a toolkit this host does not build), so the *rows* are settable and the *surface*
+is still the five `gsettings` keys.

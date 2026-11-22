@@ -13,8 +13,34 @@ target_include_directories(hunmin_ibus_state PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/
 target_link_libraries(hunmin_ibus_state PUBLIC hunmin)
 set_target_properties(hunmin_ibus_state PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
 
-add_library(hunmin_ibus_engine STATIC src/hunmin_engine.c)
+add_library(hunmin_ibus_engine STATIC src/hunmin_engine.c src/settings.c)
 target_link_libraries(hunmin_ibus_engine PUBLIC hunmin_ibus_state PkgConfig::IBUS)
+
+# The five stored rows (docs/SPEC-FRONTEND.md §FE17). The schema is compiled into
+# the build tree so a test can read its defaults with no install, and installed to
+# the same place every other GSettings schema lives. glib-compile-schemas ships
+# with libglib2.0-bin, which gio-2.0 already requires here; a host without it gets
+# a warning rather than a configure failure, and the tests that need the schema
+# are then skipped by name rather than silently passing.
+find_program(GLIB_COMPILE_SCHEMAS glib-compile-schemas)
+set(HUNMIN_IBUS_SCHEMA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/schema/org.freedesktop.ibus.engine.hunmin.gschema.xml)
+set(HUNMIN_IBUS_SCHEMA_DIR ${CMAKE_CURRENT_BINARY_DIR}/glib-2.0/schemas)
+if(GLIB_COMPILE_SCHEMAS)
+  add_custom_command(
+    OUTPUT ${HUNMIN_IBUS_SCHEMA_DIR}/gschemas.compiled
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${HUNMIN_IBUS_SCHEMA_DIR}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${HUNMIN_IBUS_SCHEMA_SRC} ${HUNMIN_IBUS_SCHEMA_DIR}/
+    COMMAND ${GLIB_COMPILE_SCHEMAS} ${HUNMIN_IBUS_SCHEMA_DIR}
+    DEPENDS ${HUNMIN_IBUS_SCHEMA_SRC}
+    COMMENT "Compiling the hunmin IBus GSettings schema")
+  add_custom_target(hunmin-ibus-schema ALL DEPENDS ${HUNMIN_IBUS_SCHEMA_DIR}/gschemas.compiled)
+  add_dependencies(hunmin_ibus_engine hunmin-ibus-schema)
+  install(FILES ${HUNMIN_IBUS_SCHEMA_SRC}
+          DESTINATION ${CMAKE_INSTALL_DATADIR}/glib-2.0/schemas COMPONENT ibus)
+else()
+  message(WARNING "glib-compile-schemas not found: the IBus settings store is not built "
+                  "(the engine then runs the layer's own defaults)")
+endif()
 # T2-1's personal key log (docs/trace-spec.md), compiled out of the shipped
 # engine by default: no sink and no getenv on the key path unless opted in.
 # The same option name the fcitx5 and TSF frontends use.

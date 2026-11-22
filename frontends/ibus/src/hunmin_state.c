@@ -215,6 +215,8 @@ bool hunmin_state_set_commit_policy(hunmin_state *s, int policy) {
     return ok;
 }
 
+int hunmin_state_commit_policy(const hunmin_state *s) { return s ? s->policy : 0; }
+
 int hunmin_state_set_language(hunmin_state *s, int language) {
     if (!s) return language == HUNMIN_LANGUAGE_LATIN ? HUNMIN_LANGUAGE_LATIN
                                                      : HUNMIN_LANGUAGE_HANGUL;

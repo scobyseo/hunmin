@@ -172,7 +172,12 @@ int main(int argc, char **argv) {
              * Caps Lock is the layout's variable, detected from the lock bit. */
             hunmin_state_set_caps(state, (stateBits & IBUS_LOCK_MASK) ? 1 : 0);
             const hunmin_key_event ev =
-                hunmin_ibus_translate_key(keyval, stateBits, hunmin_state_candidates_open(state));
+                /* No store in the emitter: the corpus cases carry no 한/영 key
+                 * (measured: no tests/conformance/x11/*.in event does), and a
+                 * compiled-in default here would be a second home for the
+                 * schema's value. */
+                hunmin_ibus_translate_key(keyval, stateBits, hunmin_state_candidates_open(state),
+                                          nullptr);
             used = hunmin_state_key(state, &ev);
         }
         const char *preedit = hunmin_state_preedit(state);

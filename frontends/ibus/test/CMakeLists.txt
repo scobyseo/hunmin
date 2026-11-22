@@ -7,7 +7,18 @@
 # engine object and captures what it publishes on IBus's own D-Bus interface
 # over a private session bus (GTestDBus), which is the analog of fcitx5's
 # InputPanel assertions.
+# The settings store is read through GSettings. Tests use the memory backend:
+# a dconf-backed store cannot be isolated from a test by environment — a write
+# under dbus-run-session with a redirected XDG_CONFIG_HOME lands in the
+# developer's own ~/.config/dconf/user (measured, docs/OPTIONS-MEASURED.md
+# §IBC-5) — so the round-trip lives in one process and the persistence case
+# belongs to CI.
 set(HUNMIN_IBUS_TEST_ENV "HUNMIN_DATA_PATH=${CMAKE_SOURCE_DIR}/libhunmin/data")
+if(GLIB_COMPILE_SCHEMAS)
+  list(APPEND HUNMIN_IBUS_TEST_ENV
+       "GSETTINGS_BACKEND=memory"
+       "GSETTINGS_SCHEMA_DIR=${HUNMIN_IBUS_SCHEMA_DIR}")
+endif()
 
 add_executable(testhunminibusstate test_state.cpp)
 target_link_libraries(testhunminibusstate PRIVATE GTest::gtest_main hunmin_ibus_state)
@@ -20,6 +31,18 @@ target_link_libraries(testhunminibusui PRIVATE GTest::gtest_main hunmin_ibus_eng
 add_test(NAME engine-d2-ibus-ui COMMAND testhunminibusui)
 set_tests_properties(engine-d2-ibus-ui PROPERTIES LABELS "tier-D2"
                      ENVIRONMENT "${HUNMIN_IBUS_TEST_ENV}")
+
+# §FE17: the store and the fifth row's grammar. Links the engine target (the
+# reader is engine-side code, not the host-independent state object) but needs no
+# bus, no daemon and no display.
+if(GLIB_COMPILE_SCHEMAS)
+  add_executable(testhunminibussettings test_settings.cpp)
+  target_link_libraries(testhunminibussettings PRIVATE GTest::gtest_main hunmin_ibus_engine)
+  add_dependencies(testhunminibussettings hunmin-ibus-schema)
+  add_test(NAME engine-d1-ibus-settings COMMAND testhunminibussettings)
+  set_tests_properties(engine-d1-ibus-settings PROPERTIES LABELS "tier-D1"
+                       ENVIRONMENT "${HUNMIN_IBUS_TEST_ENV}")
+endif()
 
 # FE10's corpus lane for this frontend: the same tests/golden/judgement-r8.jsonl
 # the fcitx5 and Android lanes replay. cJSON is the corpus parser, already

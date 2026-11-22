@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "hunmin_state.h"
+#include "settings.h"
 #include "trace/trace.h"
 
 struct _HunminIbusEngine {
@@ -20,6 +21,10 @@ struct _HunminIbusEngine {
      * IBus property is where "which mode am I in" belongs, and the API exists
      * at the 1.5.26 floor (unlike ibus_engine_send_message). */
     IBusProperty *mode_prop;
+    /* The five stored rows. NULL when the schema is not installed, in which
+     * case every row keeps the layer's default — the behaviour this frontend
+     * had before the store existed. */
+    hunmin_ibus_settings *settings;
 };
 
 struct _HunminIbusEngineClass {
@@ -93,15 +98,19 @@ static void sink_candidates(void *user, int open) {
 
 /* --------------------------------------------------------- key translation */
 
-hunmin_key_event hunmin_ibus_translate_key(guint keyval, guint state, int candidates_open) {
+hunmin_key_event hunmin_ibus_translate_key(guint keyval, guint state, int candidates_open,
+                                           IBusHotkeyProfile *keys) {
     hunmin_key_event ev;
     memset(&ev, 0, sizeof ev);
     ev.candidates_open = candidates_open;
-    /* FE13: both spellings of the Han/Eng key are ours. XKB "us" reports the
-     * physical key (keycode 108) as Alt_R 0xffea; a Korean layout reports
-     * Hangul 0xff31. Accepting both makes the engine layout-independent. A
-     * bare press only -- a chord is the same event with modifier bits. */
-    if (keyval == IBUS_KEY_Alt_R || keyval == IBUS_KEY_Hangul) {
+    /* FE13 and §FE17: which keysyms are the language key is a stored row, not a
+     * literal here. Its default holds both spellings of the physical key --
+     * XKB "us" reports Alt_R (0xffea) and a Korean layout reports Hangul
+     * (0xff31) -- so the engine stays layout-independent without carrying the
+     * pair in code. `state` is passed whole: IBus's matcher ignores Caps Lock
+     * and MOD5, and a stored Shift+한/영 needs the shift bit, which the shared
+     * event keeps out of `mods`. */
+    if (keys && ibus_hotkey_profile_lookup_hotkey(keys, keyval, state) != 0) {
         ev.language_key = 1;
         return ev;
     }
@@ -170,6 +179,16 @@ hunmin_key_event hunmin_ibus_translate_key(guint keyval, guint state, int candid
     return ev;
 }
 
+/* The panel's language indicator, in one place: the key path and a settings
+ * change both move it, and two copies of this call are two chances to forget
+ * it. */
+static void publish_mode(HunminIbusEngine *self) {
+    if (!self->state || !self->mode_prop) return;
+    ibus_property_set_label(self->mode_prop, ibus_text_new_from_string(
+        hunmin_state_language(self->state) == HUNMIN_LANGUAGE_LATIN ? "영" : "한"));
+    ibus_engine_update_property(IBUS_ENGINE(self), self->mode_prop);
+}
+
 /* ------------------------------------------------------------ the vfuncs */
 
 /* Record a key the engine did not take; the shared ev carries the raw keyval
@@ -214,13 +233,26 @@ static gboolean hunmin_process_key_event(IBusEngine *engine, guint keyval, guint
 
     hunmin_state_set_caps(self->state, (state & IBUS_LOCK_MASK) ? 1 : 0);
     const hunmin_key_event ev = hunmin_ibus_translate_key(
-        keyval, state, hunmin_state_candidates_open(self->state));
+        keyval, state, hunmin_state_candidates_open(self->state),
+        hunmin_ibus_settings_keys(self->settings));
     const int used = hunmin_state_key(self->state, &ev) ? TRUE : FALSE;
     HUNMIN_TRACE_EVENT(&ev, used, keyval);
-    ibus_property_set_label(self->mode_prop, ibus_text_new_from_string(
-        hunmin_state_language(self->state) == HUNMIN_LANGUAGE_LATIN ? "영" : "한"));
-    ibus_engine_update_property(IBUS_ENGINE(self), self->mode_prop);
+    publish_mode(self);
     return used;
+}
+
+/* §FE17's live apply: a settings window writes the schema, GSettings tells this
+ * process, and the engine re-reads every row. No restart, and no second copy of
+ * "which row changed" to keep in step with settings.c.
+ *
+ * A layout or commit-unit change delivers the word in flight first — the layer
+ * treats it as a boundary, exactly as it does for a focus change — so a person
+ * who changes the layout mid-word gets the word rather than losing it. */
+static void settings_changed(void *user) {
+    HunminIbusEngine *self = user;
+    if (!self->state || !self->settings) return;
+    hunmin_ibus_settings_apply(self->settings, self->state);
+    publish_mode(self);
 }
 
 static void hunmin_focus_in(IBusEngine *engine) { (void)engine; }
@@ -288,6 +320,8 @@ static void hunmin_ibus_engine_dispose(GObject *object) {
         hunmin_state_free(self->state);
         self->state = NULL;
     }
+    hunmin_ibus_settings_free(self->settings);
+    self->settings = NULL;
     g_clear_object(&self->mode_prop);
     G_OBJECT_CLASS(hunmin_ibus_engine_parent_class)->dispose(object);
 }
@@ -328,12 +362,21 @@ static void hunmin_ibus_engine_init(HunminIbusEngine *self) {
     ibus_engine_register_properties(IBUS_ENGINE(self), props);
     g_object_unref(props);
 
-    /* The layout config store is still an open ruling (docs/MILESTONES.md),
-     * so the engine runs the state's defaults. HUNMIN_IBUS_LAYOUT is the D3
-     * test seam: the daemon inherits it and so does this engine process,
-     * letting the full-stack tier drive any of the case-file layouts without
-     * the test choosing a frontend config backend on the maintainer's behalf.
-     * An unset or unknown id leaves the defaults in place. */
+    /* The five stored rows (docs/SPEC-FRONTEND.md §FE17, priced in
+     * docs/OPTIONS-MEASURED.md §IBC). A build or an install without the schema
+     * leaves `settings` NULL and every row on the layer's own default, which is
+     * exactly what this frontend did before the store existed — a missing store
+     * is a normal state, not an error (the B3 shape). */
+    self->settings = hunmin_ibus_settings_new();
+    if (self->settings && self->state) {
+        hunmin_ibus_settings_apply(self->settings, self->state);
+        hunmin_ibus_settings_watch(self->settings, settings_changed, self);
+    }
+
+    /* HUNMIN_IBUS_LAYOUT overrides the stored Hangul layout. It is the D3 test
+     * seam: the daemon inherits it and so does this engine process, letting the
+     * full-stack tier drive any case-file layout without the test writing the
+     * store. A store value is the shipped path; this is the harness's. */
     const char *layout = g_getenv("HUNMIN_IBUS_LAYOUT");
     if (layout && *layout && self->state)
         hunmin_state_set_layouts(self->state, layout, NULL);
@@ -342,9 +385,9 @@ static void hunmin_ibus_engine_init(HunminIbusEngine *self) {
      * before the first key builds a layer. */
     HUNMIN_TRACE_SET_LAYOUT(hunmin_state_hangul_layout_id(self->state));
 
-    /* Evaluation-only switch (no config-store ruling yet): the real-use
-     * script sets HUNMIN_IBUS_AUTOSWITCH so the D1-proven judgement path can
-     * be felt by a person. Absent, the shipped default OFF is untouched. */
+    /* The same seam for the automatic switch, used by the real-use script so a
+     * person can feel the D1-proven judgement path. Absent, the store's value
+     * (OFF by default) stands. */
     if (g_getenv("HUNMIN_IBUS_AUTOSWITCH") && self->state)
         hunmin_state_set_autoswitch(self->state, 1);
 }

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  hunmin — the IBus frontend's settings.
+
+  Five rows, and the schema is their only home: the engine reads this file's
+  defaults and nothing in the C code carries a literal default layout, commit
+  unit or key list. `docs/SPEC-FRONTEND.md` §FE17 is the requirement;
+  `docs/OPTIONS-MEASURED.md` §IBC is why a schema rather than an ini or IBus's
+  own config service, and why the fifth row is spelled the way it is.
+
+  The key names mirror the fcitx5 addon's where the row exists on both
+  (`HangulLayout`, `LatinLayout`, `CommitBehavior`, `AutoSwitch`), so a reader
+  moving between frontends is not learning a second vocabulary. The values are
+  the engine's own ids, never a frontend's numbering (AGENTS.md rule 2).
+
+  switch-keys uses IBus's own hotkey grammar — the same spelling as
+  org.freedesktop.ibus.general.hotkey trigger, which this row also edits:
+  `keysym` or `modifier+…+keysym`, modifiers out of {Shift, Control, Alt,
+  Super, Hyper}, names case-sensitive, `+` separated. Two spellings of the one
+  physical Han/Eng key are the default because XKB decides which keysym the key
+  reports: `Alt_R` (0xffea) on `us`, `Hangul` (0xff31) on `kr`
+  (tests/manual-checklists/ibus-real-use.md).
+-->
+<schemalist>
+  <schema id="org.freedesktop.ibus.engine.hunmin"
+          path="/org/freedesktop/ibus/engine/hunmin/">
+
+    <key name="hangul-layout" type="s">
+      <!-- dubeolsik, not sin3-p2: this is the layout the IBus frontend already
+           ran on (the layer's own default), so adding the store changes nothing
+           a user sees. The fcitx5 addon and the TSF DLL default to sin3-p2, so
+           the three frontends disagree here — aligning them is a one-line change
+           that needs the maintainer's ruling, not a packaging detail. -->
+      <default>'dubeolsik'</default>
+      <summary>Hangul layout</summary>
+      <description>
+        A layout id from libhunmin/data/layouts (a layout whose mode is
+        "hangul"). An id the engine cannot load degrades to the default and is
+        reported, never silently mispaired.
+      </description>
+    </key>
+
+    <key name="latin-layout" type="s">
+      <default>'us-qwerty'</default>
+      <summary>Latin layout</summary>
+      <description>A layout id whose mode is "latin".</description>
+    </key>
+
+    <key name="commit-unit" type="s">
+      <choices>
+        <choice value="word"/>
+        <choice value="syllable"/>
+      </choices>
+      <default>'word'</default>
+      <summary>Commit unit</summary>
+      <description>
+        word: deliver the whole word at the boundary, keeping the finished
+        syllables visible as preedit until then. syllable: deliver each syllable
+        as the engine finalises it. The delivered TEXT is identical either way,
+        which is what makes this a preference rather than a behaviour fork.
+      </description>
+    </key>
+
+    <key name="autoswitch" type="b">
+      <default>false</default>
+      <summary>Automatic Hangul/English switch</summary>
+      <description>
+        The engine holds the value and the key; this is only the store. The
+        engine refuses ON when the English word list is not installed (B3), so a
+        store reading true does not promise the feature is active — read the
+        engine's answer back instead of trusting this value.
+      </description>
+    </key>
+
+    <key name="switch-keys" type="as">
+      <default>['Hangul', 'Alt_R']</default>
+      <summary>Keys that switch the language</summary>
+      <description>
+        Keysyms this engine treats as the 언어 전환 key, in IBus hotkey grammar.
+        Setting this row also removes these keysyms from
+        org.freedesktop.ibus.general.hotkey trigger: the daemon consumes a key
+        that is in that list before an engine ever sees it, so a row that did not
+        edit it would name keys it cannot receive. Entries containing Release are
+        dropped (this engine acts on presses only) and entries containing Meta are
+        dropped (IBus cannot parse that modifier).
+      </description>
+    </key>
+
+  </schema>
+</schemalist>
