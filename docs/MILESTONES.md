@@ -480,6 +480,18 @@ selection on fcitx5/TSF/Android, so the presentation half is mostly reuse; the
 open half is the lookup contract and what happens to the remainder of the
 buffer (re-compose as Hangul, commit as-is, or keep in preedit).
 
+**Measured 2026-11-23 (issue #300, T4-1):** the measurement exists —
+`tools/measure-hanja-prefix.py` (guard: ctest `hanja-prefix-selfcheck`) on three
+sha256-pinned frequency lists (kowiki, AIHub 119, AIHub 624), engine-cross-checked
+via `hunmin_suggest_count`. Figures, model assumptions, corpus pins and the
+priced options live once in `docs/OPTIONS-MEASURED.md` §HPX; the artefacts and
+their tool-written provenance are outside the repository. Two findings change
+the decision shape: greedy longest-prefix is within 0.1% of the minimum-rounds
+segmentation (the match-rule decision has almost no round-count headroom), and
+the single-char fallback is already frontend-drifted (TSF retries the last
+syllable; fcitx5/Android offer nothing on an OOV buffer). The pass-line
+population and numeric line remain rulings, not measurements.
+
 **Decisions (earlier issues):** longest-prefix vs frequency-ranked match;
 whether single-char candidates stay as fallback below the prefix; consumed-length
 representation in the ABI (`hunmin_suggest_*` extension vs new entry point);

@@ -773,6 +773,11 @@ IBUS-FLOOR-288 | grep | CMakeLists.txt:ibus-1.0>=1.5.26 | present | the compile-
 IBUS-D1-288 | ctest | engine-d1-ibus | registered | tier D1, 11 cases through a recording sink: boundary delivery, backspace over a syllable and on empty, the language key, autoswitch ON and OFF, the Hanja list and Return, Escape, flush/reset, a policy change
 IBUS-D1-CORPUS-288 | ctest | engine-d1-ibus-judgement | registered | FE10: replays every case of `tests/golden/judgement-r8.jsonl` (20 cases, including the two `mode: latin` ones fcitx5's lane skips, because this frontend can SET the starting mode) and asserts `step_commits`, `mode_after` and each probe
 IBUS-D2-288 | ctest | engine-d2-ibus-ui | registered | tier D2: the real engine on a private session bus (GTestDBus), asserting `CommitText`, `UpdatePreeditText` (text, character-index cursor, visibility), `UpdateLookupTable` (page size, candidates, cursor) and show/hide, plus that a declined key returns FALSE
+# -------------------------------------------  issue #300 (0.4 T4-1: prefix-match measurement)
+# The measurement is recorded, not ruled on: figures and provenance live once in
+# docs/OPTIONS-MEASURED.md §HPX; the corpus artefacts are sha256-pinned outside the
+# repository. The row asserts the tool's guard, which needs no corpus and no engine.
+T4-PREFIX-300 | ctest | hanja-prefix-selfcheck | registered | issue #300: fixture aggregates computed by hand, the greedy-vs-optimal segmentation gap, a negative-savings case, and a negative control that must fail; the bulk pass cross-checks the engine oracle via --verify at run time
 <!-- end docs-lint -->
 
 ---

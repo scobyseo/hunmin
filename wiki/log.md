@@ -1615,3 +1615,10 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   한자 입력 포함), and the two things only a live session could show — the trigger list being
   edited in a real database, and a narrowed fifth row leaving `Hangul` to the daemon on a `kr`
   layout.
+
+## [2026-11-23] create | T4-1 prefix-match measurement session (#300)
+
+- `raw/sessions/2026-11-23-t4-1-prefix-match-measurement.md` — the instrument,
+  the three pinned registers, the three stated premises that did not hold, and
+  the coverage-expansion hypothesis the measurement refuted. Figures live once
+  in `docs/OPTIONS-MEASURED.md` §HPX; the page carries none.
