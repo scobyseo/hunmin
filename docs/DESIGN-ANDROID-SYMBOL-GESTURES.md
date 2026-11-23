@@ -96,6 +96,33 @@ Mostly settled by the ruling; what remains is mechanism:
   tunable without a decision change. E1 pins the table and gates
   (`KeypadGestureTest`); the device round and the picker popup are the next
   phases.
+- **Two device findings (2026-11-23, E2E gesture round)**:
+  (A) in Hangul mode the soft 두벌식 pair has no digit keys, so the engine's
+  boundary-and-pass dropped the shift bit — shift+1 typed `1`, breaking the
+  corner hint's promise; fixed by KP16's decided rule (the digit's touch-shift
+  alternate is its drawn hint, via the symbol path — `shiftedDigitAlternate`,
+  E1-pinned, Hangul-mode E2E round added). (B) A fast 2-key-height swipe-up
+  from the NUMBER row can leave the IME window and be stolen by a system
+  gesture (observed once: systemui came forward); 1.5 key heights at 150 ms
+  stays over the gate and inside the window. The top row has little headroom
+  above it — gate tuning or a direction-aware threshold is a measurement
+  item, recorded not decided. (C) The picker path TEXT→EXTENDED bypassed
+  `enterSymbols`, so the KP9 return memory kept its stale default and 한/영
+  toggled instead of restoring — fixed in `KeypadState.enterExtended`, E1 +
+  E2E pinned. (D) `commitSymbolFromTouch` validated against the Tier 1 screen
+  only and rejected the extended panel's own symbols — fixed to validate
+  against the page the key belongs to. (E) The picker popup is NON-focusable:
+  a focusable popup steals the IME's input focus (the standard IME pattern);
+  the mode bug measured in the same round was (C), not this — recorded so the
+  two are not confused.
+- **Phase 2 implemented (2026-11-23)**: the popup picker above the 기호 key
+  (DECIDED), the extended page as app-read data (the designed 40-panel,
+  checker-contracted), the 기호 slot restored on Tier 1 (KP9), page state
+  TEXT→SYMBOLS→EXTENDED with the KP9 returns. The picker is data-driven: it
+  lists the pages that have data — 확장 기호 today; 수식 기호 / 이모지 / 카모지
+  appear when their inventories are ruled and shipped, not as disabled
+  placeholders. Full E2E green on the AVD (553 s, all rounds incl. the
+  gesture round); E1 pins the contracts and the state.
 
 ## 4. Gesture 2 — open mechanisms, comparable
 
@@ -270,5 +297,16 @@ ctest --test-dir build -R engine-android-e2e  # gesture rounds on the AVD (KP5)
 
 Gesture 1's regression surface is the existing shifted-tap goldens plus a
 swipe-up round per key class (digit, letter, frequent punctuation); gesture 2
-adds picker-open / pick / page-commit / return rounds. Test cost is measured
-against the budgets before push (`tools/ci-time-budget.sh`).
+adds picker-open / pick / page-commit / return rounds — all landed in
+`tools/android-e2e.sh` (the gesture round; `HUNMIN_E2E_SKIP_TO_GESTURE=1` is
+a selection lever for iterating on it, the default runs every round).
+
+**Budget measurement (2026-11-23, `tools/ci-time-budget.sh`)**: inner loop
+602.4 s / slow 115.8 s locally — both over, dominated by the PRE-EXISTING
+structural fact that tier E2 is not labelled `slow` and runs inside the inner
+loop (recorded in the wiki's symbol-layer-options page); the gesture round
+adds ~2 min to E2 (553 s full, was ~305 s at T3-3). The CI linux job excludes
+the android tiers; the android job carries them. Labelling E2 `slow` (or a
+CI-side split of the gesture round) is a CI-structure decision for the
+maintainer — recorded, not decided; the round's sleeps are tuned for emulator
+reliability and were not shaved to fit a budget the lane already exceeded.

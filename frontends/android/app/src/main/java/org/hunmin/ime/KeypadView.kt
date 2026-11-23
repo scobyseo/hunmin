@@ -27,6 +27,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.TextView
 
 class KeypadView(context: Context) : LinearLayout(context) {
@@ -49,8 +50,6 @@ class KeypadView(context: Context) : LinearLayout(context) {
     /** KP14/KP7: one WORD-unit delete tick (backspace long-press repeat). */
     var onWordDelete: (() -> Unit)? = null
 
-    /** KP10: the 기호 mode-key gesture opens the page picker above [anchor]. */
-    var onSymbolPicker: ((anchor: View) -> Unit)? = null
 
     /* Gesture timing lives here (the view owns the pointer); every DECISION
      * is KeypadModel's pure table. One handler for all keycaps; rebuild()
@@ -61,6 +60,7 @@ class KeypadView(context: Context) : LinearLayout(context) {
     private var hangulCaps: KeypadKeycaps? = null
     private var latinCaps: KeypadKeycaps? = null
     private var symbols: SymbolScreen? = null
+    private var extended: SymbolScreen? = null
     private var hangulMode = true
 
     /* The mockup's palette (docs/android-keypad-mockup.html :root). The picture
@@ -98,6 +98,12 @@ class KeypadView(context: Context) : LinearLayout(context) {
         rebuild()
     }
 
+    /** KP10's extended-symbols page (the designed Tier 2 panel, #312). */
+    fun setExtended(screen: SymbolScreen?) {
+        extended = screen
+        rebuild()
+    }
+
     /** The service's mode changed (toggle, judgement, new editor). */
     fun setMode(hangul: Boolean) {
         hangulMode = hangul
@@ -115,6 +121,8 @@ class KeypadView(context: Context) : LinearLayout(context) {
             }
             KeypadState.Page.SYMBOLS ->
                 symbols?.let { KeypadModel.symbolRows(it) } ?: emptyList()
+            KeypadState.Page.EXTENDED ->
+                extended?.let { KeypadModel.symbolRows(it) } ?: emptyList()
         }
         for (row in rows) addView(rowView(row))
     }
@@ -245,7 +253,7 @@ class KeypadView(context: Context) : LinearLayout(context) {
             if (gestureFired || swipeUpArmed || !frame.isAttachedToWindow) return@Runnable
             when (KeypadModel.gestureAction(key.kind, key.id, GestureKind.LONG_PRESS)) {
                 GestureAction.SHIFTED_KEY -> { gestureFired = true; fireShifted(key) }
-                GestureAction.SYMBOL_PICKER -> { gestureFired = true; onSymbolPicker?.invoke(frame) }
+                GestureAction.SYMBOL_PICKER -> { gestureFired = true; showPicker(frame) }
                 GestureAction.WORD_DELETE_REPEAT -> {
                     gestureFired = true
                     onWordDelete?.invoke()   // first tick at the timeout
@@ -295,7 +303,7 @@ class KeypadView(context: Context) : LinearLayout(context) {
                     if (swipeUpArmed && !gestureFired) {
                         when (KeypadModel.gestureAction(key.kind, key.id, GestureKind.SWIPE_UP)) {
                             GestureAction.SHIFTED_KEY -> fireShifted(key)
-                            GestureAction.SYMBOL_PICKER -> onSymbolPicker?.invoke(frame)
+                            GestureAction.SYMBOL_PICKER -> showPicker(frame)
                             else -> Unit   // NONE cells are open (backspace swipe-up)
                         }
                     } else if (!gestureFired) {
@@ -321,6 +329,7 @@ class KeypadView(context: Context) : LinearLayout(context) {
      */
     private fun fireShifted(key: KeypadKey) {
         val alternate = KeypadModel.shiftedFrequentAlternate(key, symbols)
+            ?: KeypadModel.shiftedDigitAlternate(key)
         if (alternate != null) {
             onSymbol?.invoke(alternate)
         } else {
@@ -334,7 +343,10 @@ class KeypadView(context: Context) : LinearLayout(context) {
                 // The one-shot shift rides the metaState, exactly as a hardware
                 // Shift+key does; consuming it re-renders the plain labels.
                 val meta = state.shiftMeta()
-                val alternate = if (meta != 0) KeypadModel.shiftedFrequentAlternate(key, symbols) else null
+                val alternate = if (meta != 0) {
+                    KeypadModel.shiftedFrequentAlternate(key, symbols)
+                        ?: KeypadModel.shiftedDigitAlternate(key)
+                } else null
                 if (alternate != null) {
                     // The frequent keys' shift alternate is their hint (? "),
                     // not the app keymap's physical shift (< >) — measured bug.
@@ -352,20 +364,88 @@ class KeypadView(context: Context) : LinearLayout(context) {
                 rebuild()
             }
             KeypadKey.Kind.MODE ->
-                if (state.page == KeypadState.Page.SYMBOLS) {
+                if (state.page != KeypadState.Page.TEXT) {
+                    // 한/영 on either symbol page: return to the mode the pages
+                    // were entered from (KP9).
                     val hangul = state.returnToText()
                     onReturnToText?.invoke(hangul)
                     rebuild()
                 } else {
                     onToggleLanguage?.invoke()
                 }
-            KeypadKey.Kind.SYMBOLS_PAGE -> {
-                if (symbols == null) return  // no asset: the page cannot be drawn
-                state.enterSymbols(hangulMode)
-                rebuild()
+            KeypadKey.Kind.SYMBOLS_PAGE -> when (state.page) {
+                KeypadState.Page.TEXT -> {
+                    if (symbols == null) return  // no asset: the page cannot be drawn
+                    state.enterSymbols(hangulMode)
+                    rebuild()
+                }
+                // 기호 on its own page: tap stays (the gesture opens the picker).
+                KeypadState.Page.SYMBOLS -> Unit
+                // 기호 1 on the extended page: back to Tier 1 (KP9's mode row).
+                KeypadState.Page.EXTENDED -> {
+                    state.returnToSymbols()
+                    rebuild()
+                }
             }
             KeypadKey.Kind.SYMBOL -> onSymbol?.invoke(key.id)
         }
+    }
+
+    /**
+     * KP10's page picker (DECIDED 2026-11-23: "페이지 선택은 기호 키 위에
+     * 팝업하자"): a popup ABOVE the 기호 key, one labelled item per page that
+     * has data. Data-driven — the math/emoji/kaomoji items appear when their
+     * inventories are ruled and shipped, not as disabled placeholders. Tap an
+     * item to open its page; tap outside to dismiss (non-focusable popup,
+     * outside-touch interceptor — KP5's abort path; a focusable popup would
+     * steal the IME's input focus and reset the mode, measured).
+     */
+    private fun showPicker(anchor: View) {
+        val pages = buildList {
+            if (extended != null) add("확장 기호" to { state.enterExtended(hangulMode); rebuild() })
+        }
+        if (pages.isEmpty()) return
+        val list = LinearLayout(context)
+        list.orientation = VERTICAL
+        list.background = GradientDrawable().apply {
+            cornerRadius = dp(8).toFloat()
+            setColor(keyBg)
+            setStroke(dp(1), keyBorder)
+        }
+        /* NON-focusable, the standard IME popup pattern: a focusable popup
+         * steals the IME window's focus and can restart the input session.
+         * (The mode bug measured in the picker round was the stale entry
+         * memory in KeypadState.enterExtended, not this — recorded so the
+         * two are not confused.) Outside touches dismiss via the interceptor
+         * — KP5's abort path. */
+        val popup = PopupWindow(list, kotlin.math.max(dp(160), anchor.width),
+            LinearLayout.LayoutParams.WRAP_CONTENT, false)
+        popup.isOutsideTouchable = true
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        popup.elevation = dp(8).toFloat()
+        popup.setTouchInterceptor { _, ev ->
+            if (ev.actionMasked == android.view.MotionEvent.ACTION_OUTSIDE) {
+                popup.dismiss(); true
+            } else false
+        }
+        for ((label, open) in pages) {
+            val item = TextView(context)
+            item.text = label
+            item.setTextColor(ink)
+            item.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            item.paint.isFakeBoldText = true
+            item.gravity = Gravity.CENTER
+            item.setPadding(dp(16), dp(12), dp(16), dp(12))
+            item.setOnClickListener { popup.dismiss(); open() }
+            list.addView(item, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+        list.measure(
+            View.MeasureSpec.makeMeasureSpec(popup.width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        // Above the anchor: the 기호 key sits on the bottom row, so the popup
+        // opens upward over the row above (its known, recorded cost).
+        popup.showAsDropDown(anchor, 0, -(anchor.height + list.measuredHeight))
     }
 
     private fun dp(v: Int): Int =

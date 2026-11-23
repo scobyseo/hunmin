@@ -281,9 +281,11 @@ per-key fact, not a new gesture vocabulary. *Implementation:* partial (#312,
 exception table), `isSwipeUp`/`returnedToOrigin` (KP5 gates), `KeypadView`'s
 pointer state machine (swipe-up commits on release, long-press at the system
 timeout, movement-vs-time separation), the per-event shift bit leaving the
-one-shot untouched. The picker popup and the capslock state machine are not
-wired yet. *Verified by:* engine-android-e1 (`KeypadGestureTest`); the device
-gesture round is pending. *Refuted by:* none yet.
+one-shot untouched. The capslock state machine is not wired yet. *Verified
+by:* engine-android-e1 (`KeypadGestureTest`); engine-android-e2e (gesture
+round: swipe-up=shift on digits/letters/jamo, the KP5 short-drift tap,
+long-press equivalence, the KP16 hint promise in both modes).
+*Refuted by:* none yet.
 
 ### KP8. Per-key swipe directions may vary, bounded by learnability (stated direction + constraint)
 
@@ -390,9 +392,16 @@ settled with reference to `https://symbl.cc/kr/collections/` (maintainer,
 separate issue, #312** (`[android] extend symbol selection via swipe/long-press on
 symbol keys`). The gesture wiring, the page picker and the symbol pages are
 #312's work; the pages' data home is KP11's app-read symbol data file, with the
-engine uninvolved. *Implementation:* none — the 2026-11-23 variant-mapping
-implementation was removed as off-target (drift record above); the corrected
-design is `docs/DESIGN-ANDROID-SYMBOL-GESTURES.md`. *Refuted by:* none yet.
+engine uninvolved. *Implementation:* partial (#312, 2026-11-23) — the 기호
+mode-key gesture opens a non-focusable popup above the key; the extended page
+ships the designed Tier 2 panel as app-read data (`keypad/symbols-extended.json`);
+the 기호 slot is restored on the Tier 1 screen (KP9); page navigation and the
+KP9 returns are device-verified. The math/emoji/kaomoji pages await their
+inventory rulings — the picker is data-driven and grows with them. The
+off-target variant-mapping implementation was removed (drift record above);
+design: `docs/DESIGN-ANDROID-SYMBOL-GESTURES.md`. *Verified by:*
+keypad-symbol-data; engine-android-e1; engine-android-e2e (picker round).
+*Refuted by:* none yet.
 
 ### KP11. Symbol screen data home — app-read data file, engine uninvolved (DECIDED)
 

@@ -169,6 +169,7 @@ class HunminInputMethodService : InputMethodService() {
 
     /** The app-read symbol screen (KP11, #297), parsed once from the asset. */
     private var symbolScreen: SymbolScreen? = null
+    private var extendedScreen: SymbolScreen? = null
 
     /** Where HunminDataInstaller extracted the engine's tables; the keypad
      *  reads the SAME layout files for keycap labels (design §2). */
@@ -343,6 +344,14 @@ class HunminInputMethodService : InputMethodService() {
             SymbolScreen.parse(assets.open("keypad/symbols.json").readBytes().toString(Charsets.UTF_8))
         } catch (e: Exception) {
             Log.e(TAG, "hunmin: keypad/symbols.json unusable; symbol page disabled", e)
+            null
+        }
+        /* KP10's extended page (#312): the designed Tier 2 panel, same app-read
+         * pattern. The picker lists it only when it parsed. */
+        extendedScreen = try {
+            SymbolScreen.parse(assets.open("keypad/symbols-extended.json").readBytes().toString(Charsets.UTF_8))
+        } catch (e: Exception) {
+            Log.e(TAG, "hunmin: keypad/symbols-extended.json unusable; extended page disabled", e)
             null
         }
         ctx = HunminNativeBridge.nativeCtxNew(dataDir.absolutePath)
@@ -1184,6 +1193,7 @@ class HunminInputMethodService : InputMethodService() {
          * touch is hardware (design §1). */
         val pad = KeypadView(this)
         pad.setSymbols(symbolScreen)
+        pad.setExtended(extendedScreen)
         pad.onCharacterKey = { keyCode, metaState -> dispatchTouchKey(keyCode, metaState) }
         pad.onSymbol = { ch -> commitSymbolFromTouch(ch) }
         pad.onToggleLanguage = { toggleHangulEnglish() }
@@ -1367,8 +1377,13 @@ class HunminInputMethodService : InputMethodService() {
      * judgement is taken at that boundary exactly as the space branch does.
      */
     private fun commitSymbolFromTouch(ch: String) {
-        val screen = symbolScreen ?: return
         val target = currentInputConnection ?: return
+        // KP11: validate against the page the key belongs to — Tier 1 or the
+        // extended panel (#312). A character in neither is a caller bug, not
+        // something to silently type. MEASURED: validating against Tier 1 only
+        // rejected the extended panel's own symbols (the picker round read '').
+        val screen = listOfNotNull(symbolScreen, extendedScreen)
+            .firstOrNull { ch in it.symbols } ?: return
         touchEngine?.commitWord(target)
         adoptJudgement(touchEngine)
         screen.commitSymbol(ch, target)

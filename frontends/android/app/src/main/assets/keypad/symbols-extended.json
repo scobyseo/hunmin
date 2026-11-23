@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "keypad-symbols-extended",
+  "name": {
+    "en": "Extended symbols (the designed Tier 2 panel)",
+    "ko": "확장 기호"
+  },
+  "source": "The Tier 2 panel designed under KP6/KP9 (maintainer 2026-11-22: 10 keys per row, the original 8-key category groups kept, 2 symbols moved up into each; no editing keys; bottom row [한/영] [기호 1]), verbatim from docs/ANDROID-KEYPAD-MOCKUP.md §Symbol mode Tier 2. Entry is the 기호 mode-key gesture (KP10, clarified 2026-11-23): swipe-up/long-press opens the page picker, picking this page opens it. App-read frontend data (KP11): the engine never loads this file. The 25 proposed additions (docs/DESIGN-ANDROID-SYMBOL-GESTURES.md §5) are NOT here: the geometry fork and the additions await the maintainer's ruling.",
+  "x-notes": {
+    "contract": "tools/symbol-data-check.py (ctest keypad-symbol-data) checks this file beside symbols.json; SymbolScreen.parse reads it and the E1 commit golden pins the app path.",
+    "remaining-space": "The panel is 4x10 + the mode row; the mockup's remaining-space question (fifth row / frequency row / larger keys / tabs / emoji) stays open for this page.",
+    "function-keys": "language-toggle returns to the text mode the symbol pages were entered from (KP9); symbols-tier1 returns to the Tier 1 symbol screen. Ids only -- the wiring is the view's."
+  },
+  "rows": [
+    { "kind": "symbols", "keys": ["·", "…", "–", "—", "‘", "’", "“", "”", "₩", "€"] },
+    { "kind": "symbols", "keys": ["「", "」", "『", "』", "《", "》", "〈", "〉", "£", "¥"] },
+    { "kind": "symbols", "keys": ["○", "●", "□", "■", "△", "▲", "※", "★", "©", "®"] },
+    { "kind": "symbols", "keys": ["→", "←", "↑", "↓", "↔", "°", "±", "×", "™", "♡"] },
+    { "kind": "function", "keys": ["language-toggle", "symbols-tier1"] }
+  ]
+}

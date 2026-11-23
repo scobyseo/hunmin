@@ -96,6 +96,22 @@ class KeypadGestureTest {
     }
 
     @Test
+    fun theDigitAlternateIsTheDrawnHintInBothModes() {
+        // MEASURED 2026-11-23: in Hangul mode the soft 두벌식 pair has no digit
+        // keys, so the engine path dropped the shift bit and shift+1 typed '1'
+        // — the corner hint promises '!'. The alternate is the hint (KP16's
+        // rule), derived from the registry, not transcribed.
+        val caps = KeypadModel.textRows(
+            KeypadKeycaps.parse(java.io.File(
+                System.getenv("HUNMIN_REPO_ROOT")?.let { java.io.File(it) } ?: java.io.File("../..").canonicalFile,
+                "libhunmin/data/layouts/us-qwerty.json").readText()), shift = false)
+        val digit = caps.flatten().first { it.kind == KeypadKey.Kind.DIGIT && it.id == "1" }
+        assertEquals("!", KeypadModel.shiftedDigitAlternate(digit))
+        val letter = caps.flatten().first { it.kind == KeypadKey.Kind.CHARACTER }
+        assertEquals(null, KeypadModel.shiftedDigitAlternate(letter))
+    }
+
+    @Test
     fun wordRepeatIntervalIsTheMaintainersEstimate() {
         // SPEC KP14 (2026-11-23): "0.2초 정도 간격" — provisional, pinned so a
         // tuning change is a deliberate edit with the SPEC moved too.

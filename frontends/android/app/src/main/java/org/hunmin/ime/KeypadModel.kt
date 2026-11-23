@@ -184,7 +184,7 @@ data class KeypadKey(
             Kind.FUNCTION -> "fn:$id"
             Kind.SHIFT -> "fn:shift"
             Kind.MODE -> "fn:language-toggle"
-            Kind.SYMBOLS_PAGE -> "fn:symbols-page"
+            Kind.SYMBOLS_PAGE -> "fn:$id"   // symbols-page (기호) / symbols-tier1 (기호 1)
             Kind.SYMBOL -> "symbol:$id"
         }
 }
@@ -293,6 +293,19 @@ object KeypadModel {
         val hint = FREQUENT_HINTS[key.id] ?: return null
         return if (symbols != null && hint in symbols.symbols) hint else null
     }
+
+    /**
+     * The shifted alternate of a DIGIT key: its drawn corner hint (! @ # …),
+     * committed through the symbol path like the frequent keys' alternate.
+     * MEASURED 2026-11-23 (#312 gesture round): in Hangul mode the soft 두벌식
+     * pair has no digit keys, so the classifier's boundary-and-pass delivers
+     * the bare digit and DROPS the shift bit — shift+1 typed '1', not the '!'
+     * the corner hint promises (KP16's hint-is-a-promise rule). The English
+     * pair's shift row already matches the hint; routing digits through the
+     * hint makes both modes keep the promise. Hardware keys are untouched.
+     */
+    fun shiftedDigitAlternate(key: KeypadKey): String? =
+        if (key.kind == KeypadKey.Kind.DIGIT) DIGIT_HINTS[key.id] else null
 
     /**
      * KP17 (maintainer 2026-11-22: "소프트 키보드는 두벌식만 쓸건데?"): the
@@ -434,10 +447,15 @@ object KeypadModel {
                     SymbolScreen.Kind.SYMBOLS ->
                         KeypadKey(id, id, KeypadKey.Kind.SYMBOL, -1)
                     SymbolScreen.Kind.FUNCTION ->
-                        if (id == "language-toggle") {
-                            KeypadKey(id, "한/영", KeypadKey.Kind.MODE, -1)
-                        } else {
-                            KeypadKey(
+                        when (id) {
+                            "language-toggle" -> KeypadKey(id, "한/영", KeypadKey.Kind.MODE, -1)
+                            // KP9's mode-key slots (#312): 기호 on the Tier 1 screen
+                            // (tap stays, gesture opens the picker), 기호 1 on the
+                            // extended page (tap returns to Tier 1). Page actions,
+                            // not key events — the view's tap() reads the page.
+                            "symbols-page" -> KeypadKey(id, "기호", KeypadKey.Kind.SYMBOLS_PAGE, -1)
+                            "symbols-tier1" -> KeypadKey(id, "기호 1", KeypadKey.Kind.SYMBOLS_PAGE, -1)
+                            else -> KeypadKey(
                                 id, functionLabel(id), KeypadKey.Kind.FUNCTION,
                                 functionKeyCode(id)
                                     ?: throw IllegalArgumentException("unknown function id: $id"),
@@ -519,7 +537,7 @@ enum class DeleteUnit(val pref: String, val label: String) {
  * No capslock — the state machine beyond one-shot is open (KP7).
  */
 class KeypadState {
-    enum class Page { TEXT, SYMBOLS }
+    enum class Page { TEXT, SYMBOLS, EXTENDED }
 
     var page: Page = Page.TEXT
         private set
@@ -547,7 +565,25 @@ class KeypadState {
         shiftArmed = false
     }
 
-    /** Leave the symbol page; returns the mode to restore (KP9). */
+    /**
+     * KP10's page picker picked the extended page (#312). From the SYMBOL
+     * screen the 한/영 return memory (KP9) is kept; from TEXT (the picker on
+     * the text keypad's 기호 key) this IS the entry, so the memory is set —
+     * MEASURED 2026-11-23: skipping that left the stale default and the
+     * return key toggled to 한 instead of restoring 영.
+     */
+    fun enterExtended(hangulMode: Boolean) {
+        if (page == Page.TEXT) symbolsEnteredHangul = hangulMode
+        page = Page.EXTENDED
+        shiftArmed = false
+    }
+
+    /** 기호 1 on the extended page: back to the Tier 1 symbol screen. */
+    fun returnToSymbols() {
+        page = Page.SYMBOLS
+    }
+
+    /** Leave the symbol pages; returns the mode to restore (KP9). */
     fun returnToText(): Boolean {
         page = Page.TEXT
         return symbolsEnteredHangul
@@ -561,6 +597,6 @@ class KeypadState {
      */
     fun modeChanged(hangulMode: Boolean) {
         shiftArmed = false
-        if (page == Page.SYMBOLS && hangulMode != symbolsEnteredHangul) page = Page.TEXT
+        if (page != Page.TEXT && hangulMode != symbolsEnteredHangul) page = Page.TEXT
     }
 }
