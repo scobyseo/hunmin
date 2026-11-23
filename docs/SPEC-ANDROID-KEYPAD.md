@@ -265,7 +265,11 @@ So **long-press behaves identically to swipe-up on every key**: shift+key on
 the text keypads, the page picker on the 기호 mode key (KP10). One meaning per
 gesture pair is the KP8-consistent choice; the equivalence is deliberate and
 may be split later if a need arises — the maintainer's words name that exit
-explicitly. *Implementation:* none. *Refuted by:* none yet.
+explicitly. Note: KP17's rationale anticipated a long-press word-delete on the
+soft surface (#312, compensating hard repeat); under this ruling that is a
+**later differentiation** through the named exit, not part of the equivalence
+— flagged for the maintainer, not silently dropped. *Implementation:* none.
+*Refuted by:* none yet.
 
 ### KP8. Per-key swipe directions may vary, bounded by learnability (stated direction + constraint)
 
@@ -616,3 +620,19 @@ the soft surface gets gesture alternates (KP7/#312) and long-press word-delete
 (#312, compensating hard repeat); the hardware surface keeps OS key repeat and
 the configured layouts. Independence is the means; per-surface optimization is
 the end.
+
+### KP18. Kaomoji (카모지) input support (REQUESTED)
+
+The maintainer's words (2026-11-23, verbatim):
+
+> "https://snskeyboard.com/emoticon/ 같은 카모지도 지원하면 좋겠는데."
+
+Stated direction: **kaomoji** — multi-character emoticon strings like the
+reference site's — should also be inputtable. The reference collection was
+extracted and measured (9,419 entries; a font-safety heuristic; a
+classic-coverage gap): the findings, the comparable designs and the
+recommendation are in `docs/DESIGN-ANDROID-SYMBOL-GESTURES.md` §6. The entry
+mechanism is KP10's picker; the data home is KP11's app-read pattern. Kaomoji
+are **strings, not single-character keys**, so the symbol data contract needs
+a string-page kind — a frontend data-contract extension, no engine change.
+*Implementation:* none. *Refuted by:* none yet.

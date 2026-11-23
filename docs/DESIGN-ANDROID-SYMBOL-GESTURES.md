@@ -178,15 +178,65 @@ starting set (~48 emoji), but the scope choice is unchanged and open:
 recorded); (iii) full bundled panel — a data-licence and size decision.
 Recommendation: **(i) or (ii)**; a Korean chat corpus would re-rank either.
 
-## 6. What this does not settle
+## 6. Kaomoji (카모지) — requested 2026-11-23 (KP18)
+
+The maintainer's request (verbatim in `docs/SPEC-ANDROID-KEYPAD.md#§KP18`)
+names `https://snskeyboard.com/emoticon/` as the reference. The page was
+extracted on 2026-11-23 (all `<pre>` entries; artefact + `meta.json` outside
+the repository at `~/work/hunmin-measurements/snskeyboard-kaomoji-312/`).
+Findings, measured:
+
+- **9,419 entries** (9,413 unique), a flat list with no category headings —
+  the site is a copy-paste catalog, not a taxonomy.
+- **Font risk is real**: a codepoint-block heuristic flags **2,968 entries**
+  containing characters outside commonly-rendered blocks (Egyptian
+  hieroglyphs, rare combining sequences, syllabics). The heuristic is not a
+  device measurement — Android font coverage must be verified on the AVD
+  before any subset ships; tofu in a kaomoji breaks the whole emoticon.
+- **Register gap**: the collection skews decorative SNS-style; classics like
+  `(´・ω・｀)`, `(╯°□°)╯︵ ┻━┻`, `(^_^)` are absent while `¯\_(ツ)_/¯` is
+  present. A curated set would add the classics from the community repertoire
+  (provenance recorded), not mirror the site's skew.
+- **Licence**: the strings are community/folk creations, but the site's
+  compilation is editorial (ⓒSNS.KEYBOARD). Reference only — curate our own
+  set with the source and date recorded, do not mirror the list wholesale.
+
+**What kaomoji change structurally**: they are **multi-character strings**
+(average ~15 characters, some 50+), so the single-character symbol contract
+does not fit. A string-page kind is needed: entries are whole strings,
+committed through the existing direct-commit seam (flush the pending
+composition first, then `commitText` — the #297 ordering rule). KP11 holds:
+app-read JSON under `assets/keypad/`, engine uninvolved, no ABI change.
+Display cannot be a 10-across grid — a kaomoji is wider than a key; the
+natural shape is a **scrollable list of full-width rows**, tap to commit
+(the reference site's own shape, and Simeji-style kaomoji panels).
+
+Comparable decisions (none ruled):
+
+| question | options | reading |
+|---|---|---|
+| picker slot | 4th item 카모지 / a tab inside the emoji page | a 4th item keeps the picker→page model uniform and the emoji page single-purpose; 4 items still fit a glance (KP8). A tab hides kaomoji one level deeper |
+| inventory | curated subset (~100–300, font-verified, classics included) / full 9.4K + search / categorized tabs | 9.4K is ~400 KB of JSON — bundleable, but scrolling it is unusable without search; a curated set is the shippable first step, growth is data-only |
+| issue scope | rides #312 / a separate task issue after #312's mechanism lands | #312 is already large; one PR closes at most one issue. The mechanism (picker, string pages) is #312's; the kaomoji inventory is its own deliverable |
+
+Recommendation: **4th picker item, curated font-verified subset first, a
+separate task issue** — because the picker model stays uniform and the
+curation (font verification + classics + provenance) is work independent of
+the gesture wiring. *What would change it:* a maintainer preference for
+kaomoji inside the emoji page, or a usage measurement showing the full list
+with search is what users want.
+
+## 7. What this does not settle
 
 The extended-page geometry fork (grow / swap / paginate); the math inventory
-ruling; the emoji scope and source; swipe-up's meaning on symbol-screen keys;
-the shift state machine (capslock unlock, KP7); device-measured gesture
-thresholds and error rates (KP5's defences are requirements, their tuning is
-measurement).
+ruling; the emoji scope and source; the kaomoji picker slot, inventory and
+issue scope; device font coverage for kaomoji; swipe-up's meaning on
+symbol-screen keys; the shift state machine (capslock unlock, KP7); the
+KP17 long-press word-delete expectation vs the KP7 equivalence (flagged in
+the SPEC); device-measured gesture thresholds and error rates (KP5's
+defences are requirements, their tuning is measurement).
 
-## 7. Verification plan
+## 8. Verification plan
 
 ```sh
 python3 tools/symbol-data-check.py            # extended per page (tier-B)
