@@ -115,6 +115,15 @@ Mostly settled by the ruling; what remains is mechanism:
   a focusable popup steals the IME's input focus (the standard IME pattern);
   the mode bug measured in the same round was (C), not this — recorded so the
   two are not confused.
+- **Shift state machine + symbol-screen navigation implemented (2026-11-23,
+  decided)**: shift's swipe-up/long-press LOCK capslock, a tap while locked
+  releases (`KeypadState.capsLocked`, the bit holds across keys); on the
+  symbol screen swipe-up/down on a symbol key cycle the symbol SETS (the
+  pages that have data, wrapping — the recorded reading of "기호 조합"),
+  long-press follows the equivalence, swipe-left stays KP14 backspace.
+  Swipe-down on text keys and the 기호 key is UNRULED — a NONE cell, not a
+  silent copy of swipe-up. E1 pins the table + state; the E2E gesture round
+  verifies capslock lock/release and the set cycle on the AVD.
 - **Phase 2 implemented (2026-11-23)**: the popup picker above the 기호 key
   (DECIDED), the extended page as app-read data (the designed 40-panel,
   checker-contracted), the 기호 slot restored on Tier 1 (KP9), page state
@@ -227,6 +236,51 @@ starting set (~48 emoji), but the scope choice is unchanged and open:
 (ii) bundled curated set (symbl popular as a candidate source, licence terms
 recorded); (iii) full bundled panel — a data-licence and size decision.
 Recommendation: **(i) or (ii)**; a Korean chat corpus would re-rank either.
+
+### Selection criteria — a proposal (2026-11-23, maintainer asked for one)
+
+"기호 데이터 선정 기준을 한번 제안해 볼래?" — the criteria below are a
+proposal for the pending inventory rulings (extended additions, math, emoji,
+kaomoji), not a ruling. Three hard gates, then ranked evidence:
+
+**Hard gates — a candidate must pass all three:**
+
+| gate | test | why |
+|---|---|---|
+| G1 font-renderable | device-verified on the AVD, no tofu | a missing glyph breaks the whole symbol (kaomoji: 2,968/9,419 flagged by the block heuristic — the heuristic is a screen, the device is the test) |
+| G2 licence + provenance | shippable terms, source + date recorded beside the artefact | the catalog sites are reference only; an artefact without retrievable provenance is not evidence (AGENTS) |
+| G3 geometry budget | 10 per row (KP9), page height vs the narrow-screen target size (KP2) | the extended-page fork (grow/swap/paginate) is this gate applied — a ruling, not a criterion |
+
+**Ranked evidence — a candidate ships if any source supports it, strongest
+first:**
+
+1. **R1 measured usage** — the kowiki reading (`tools/symbol-frequency.py`).
+   The strongest evidence available; register caveat: encyclopedia prose, not
+   chat/passwords. Example: `《》` 525/M, `†‡` 1.6/0.4/M (footnotes) ship on R1.
+2. **R2 use-case necessity** — registers prose understates: passwords (KP1's
+   number row), chat/notes (`※ ₩ ✓ ♡ ★`), maintainer-named items. Marked
+   *curated* with the use case stated. Example: `✓✘` (chat), the kaomoji
+   classics `(´・ω・｀)` (community use, absent from the reference site).
+3. **R3 reference commonness** — symbl collections (incl. `popular`) and the
+   surveyed IMEs' pages: the "일반적으로 많이 제공하는" signal. Register
+   caveat: Western-centric — the Korean core is absent from symbl, so R3
+   alone never drops an R1/R2 item. Example: `¢` (currency collection),
+   emoji from `popular` as a starting curation.
+
+**Ordering within a page**: category groups (KP3 search time), frequency
+order inside a group where measured — the same rule the variant analysis
+used, now applied to page rows.
+
+**Applying it to the open lists**: the 25 extended additions all pass G1
+(pending device verification) and G2; `№ ♬ ⇔ ‥ ✗` are the weakest on R1–R3
+(the trim candidates for 6×10). The math 40 are R1/R3-supported except
+`′ ″ ℃` (R1, Korean needs). Emoji: R3 starting set, a Korean chat corpus
+would re-rank. Kaomoji: G1 is the binding gate; curate font-safe classics +
+the site's safe subset, provenance recorded.
+
+*What would change the criteria:* a Korean chat/notes corpus measurement
+(promotes R2 items to R1), the device font survey (G1 results), or a
+maintainer weighting (e.g. R3 above R2 for "commonness first").
 
 ## 6. Kaomoji (카모지) — requested 2026-11-23 (KP18)
 

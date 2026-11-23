@@ -253,8 +253,17 @@ So swipe-up is not an arbitrary per-key "alternate": it is **identical to
 shift+key**, on any key, and the number-row symbol input (KP1/KP5) follows from
 that — the shifted form is whatever the layout's shift row already defines.
 This settles "whether swipe-up-on-letters is enabled" (yes — any key) and
-sharpens "alternate" to "the shifted form itself". The shift state machine
-(how capslock unlocks) remains open mechanism.
+sharpens "alternate" to "the shifted form itself".
+
+The shift state machine — decided (2026-11-23, verbatim):
+
+> "shift를 longpress 혹은 swipe up하면 capslock으로 동작하고 다시 shift를 누르면
+> 해제되는 걸로 하자."
+
+So **long-press or swipe-up on the shift key locks capslock; a tap on shift
+while locked releases it**. Tap while unlocked stays the one-shot (KP2). The
+exception table gains the shift row: both gestures → capslock, not a shifted
+character.
 
 Long-press equivalence — decided (2026-11-23, verbatim):
 
@@ -281,10 +290,11 @@ per-key fact, not a new gesture vocabulary. *Implementation:* partial (#312,
 exception table), `isSwipeUp`/`returnedToOrigin` (KP5 gates), `KeypadView`'s
 pointer state machine (swipe-up commits on release, long-press at the system
 timeout, movement-vs-time separation), the per-event shift bit leaving the
-one-shot untouched. The capslock state machine is not wired yet. *Verified
-by:* engine-android-e1 (`KeypadGestureTest`); engine-android-e2e (gesture
-round: swipe-up=shift on digits/letters/jamo, the KP5 short-drift tap,
-long-press equivalence, the KP16 hint promise in both modes).
+one-shot untouched. The decided shift state machine is wired: shift's
+gestures lock capslock, a tap while locked releases it. *Verified by:*
+engine-android-e1 (`KeypadGestureTest`); engine-android-e2e (gesture round:
+swipe-up=shift on digits/letters/jamo, the KP5 short-drift tap, long-press
+equivalence, the KP16 hint promise in both modes, capslock lock/release).
 *Refuted by:* none yet.
 
 ### KP8. Per-key swipe directions may vary, bounded by learnability (stated direction + constraint)
@@ -378,6 +388,21 @@ KP10 update paragraph and this section, and was built on (2026-11-23) before
 the correction; that implementation was removed. The wiki session
 `2026-11-23-312-symbol-variants` records the drift and its correction.
 
+Symbol-screen navigation — decided (2026-11-23, verbatim):
+
+> "기호 화면에서 swipe-up / down으로 다음 기호 조합으로 이동하게 하자. swipe left
+> 는 backspace 동작 유지."
+
+So on the symbol screen, **swipe-up / swipe-down move to the next / previous
+symbol set**, and KP14's swipe-left delete is unchanged there. Reading
+(recorded, flag for correction): "기호 조합" = the symbol PAGES of the picker
+model (Tier 1 ↔ 확장 기호 ↔ …, wrapping over the pages that have data) — the
+gesture cycles sets without opening the picker; the 기호 mode key's own
+gesture still opens the picker (above). Long-press on a symbol key follows
+the KP7 equivalence (next set). If "기호 조합" meant the row-groups WITHIN a
+page, the mechanism is the same shape over a different list — the ruling's
+words are recorded either way.
+
 Picker presentation — decided (2026-11-23, verbatim):
 
 > "페이지 선택은 기호 키 위에 팝업하자."
@@ -396,8 +421,11 @@ engine uninvolved. *Implementation:* partial (#312, 2026-11-23) — the 기호
 mode-key gesture opens a non-focusable popup above the key; the extended page
 ships the designed Tier 2 panel as app-read data (`keypad/symbols-extended.json`);
 the 기호 slot is restored on the Tier 1 screen (KP9); page navigation and the
-KP9 returns are device-verified. The math/emoji/kaomoji pages await their
-inventory rulings — the picker is data-driven and grows with them. The
+KP9 returns are device-verified. The decided symbol-screen navigation is
+wired: swipe-up/down on a symbol key cycle the symbol sets (the recorded
+reading of "기호 조합"), swipe-left stays KP14 backspace. The math/emoji/
+kaomoji pages await their inventory rulings — the picker is data-driven and
+grows with them; the selection criteria are proposed in the design doc. The
 off-target variant-mapping implementation was removed (drift record above);
 design: `docs/DESIGN-ANDROID-SYMBOL-GESTURES.md`. *Verified by:*
 keypad-symbol-data; engine-android-e1; engine-android-e2e (picker round).

@@ -117,7 +117,7 @@ class KeypadView(context: Context) : LinearLayout(context) {
         val rows: List<List<KeypadKey>> = when (state.page) {
             KeypadState.Page.TEXT -> {
                 val caps = if (hangulMode) hangulCaps else latinCaps
-                if (caps == null) emptyList() else KeypadModel.textRows(caps, state.shiftArmed)
+                if (caps == null) emptyList() else KeypadModel.textRows(caps, state.shiftActive)
             }
             KeypadState.Page.SYMBOLS ->
                 symbols?.let { KeypadModel.symbolRows(it) } ?: emptyList()
@@ -153,7 +153,7 @@ class KeypadView(context: Context) : LinearLayout(context) {
         frame.isClickable = true
         frame.isFocusable = true
 
-        val armedShift = key.kind == KeypadKey.Kind.SHIFT && state.shiftArmed
+        val armedShift = key.kind == KeypadKey.Kind.SHIFT && state.shiftActive
         val background = when {
             armedShift -> accent
             key.kind == KeypadKey.Kind.MODE -> accent
@@ -239,7 +239,7 @@ class KeypadView(context: Context) : LinearLayout(context) {
         var downX = 0f
         var downY = 0f
         var gestureFired = false
-        var swipeUpArmed = false
+        var armed: GestureKind? = null   // SWIPE_UP / SWIPE_DOWN, commit on UP
         var wordRepeat: Runnable? = null
         val threshold = dp(60).toFloat()   // provisional (KP14); ~two key widths
         val jitter = dp(10).toFloat()      // provisional: hold-cancelling movement
@@ -250,31 +250,31 @@ class KeypadView(context: Context) : LinearLayout(context) {
             wordRepeat = null
         }
         val longPress = Runnable {
-            if (gestureFired || swipeUpArmed || !frame.isAttachedToWindow) return@Runnable
-            when (KeypadModel.gestureAction(key.kind, key.id, GestureKind.LONG_PRESS)) {
-                GestureAction.SHIFTED_KEY -> { gestureFired = true; fireShifted(key) }
-                GestureAction.SYMBOL_PICKER -> { gestureFired = true; showPicker(frame) }
-                GestureAction.WORD_DELETE_REPEAT -> {
-                    gestureFired = true
-                    onWordDelete?.invoke()   // first tick at the timeout
-                    val tick = object : Runnable {
-                        override fun run() {
-                            if (!frame.isAttachedToWindow) return
-                            onWordDelete?.invoke()
-                            handler.postDelayed(this, KeypadModel.WORD_REPEAT_INTERVAL_MS)
-                        }
+            if (gestureFired || armed != null || !frame.isAttachedToWindow) return@Runnable
+            if (KeypadModel.gestureAction(key.kind, key.id, GestureKind.LONG_PRESS)
+                == GestureAction.WORD_DELETE_REPEAT) {
+                gestureFired = true
+                onWordDelete?.invoke()   // first tick at the timeout
+                val tick = object : Runnable {
+                    override fun run() {
+                        if (!frame.isAttachedToWindow) return
+                        onWordDelete?.invoke()
+                        handler.postDelayed(this, KeypadModel.WORD_REPEAT_INTERVAL_MS)
                     }
-                    wordRepeat = tick
-                    handler.postDelayed(tick, KeypadModel.WORD_REPEAT_INTERVAL_MS)
                 }
-                GestureAction.NONE -> Unit   // open cell, not a verdict
+                wordRepeat = tick
+                handler.postDelayed(tick, KeypadModel.WORD_REPEAT_INTERVAL_MS)
+            } else if (KeypadModel.gestureAction(key.kind, key.id, GestureKind.LONG_PRESS)
+                != GestureAction.NONE) {
+                gestureFired = true
+                fireGesture(key, GestureKind.LONG_PRESS, frame)
             }
         }
         frame.setOnTouchListener { v, ev ->
             when (ev.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     downX = ev.x; downY = ev.y
-                    gestureFired = false; swipeUpArmed = false
+                    gestureFired = false; armed = null
                     handler.postDelayed(longPress, longPressTimeout)
                     true
                 }
@@ -286,10 +286,13 @@ class KeypadView(context: Context) : LinearLayout(context) {
                             handler.removeCallbacks(longPress)
                             onSwipeLeftDelete?.invoke()
                         } else if (KeypadModel.isSwipeUp(dx, dy, threshold)) {
-                            if (!swipeUpArmed) handler.removeCallbacks(longPress)
-                            swipeUpArmed = true   // commit on UP (KP5)
-                        } else if (swipeUpArmed && KeypadModel.returnedToOrigin(dx, dy, returnRadius)) {
-                            swipeUpArmed = false  // aborted: back to a tap
+                            if (armed == null) handler.removeCallbacks(longPress)
+                            armed = GestureKind.SWIPE_UP   // commit on UP (KP5)
+                        } else if (KeypadModel.isSwipeDown(dx, dy, threshold)) {
+                            if (armed == null) handler.removeCallbacks(longPress)
+                            armed = GestureKind.SWIPE_DOWN
+                        } else if (armed != null && KeypadModel.returnedToOrigin(dx, dy, returnRadius)) {
+                            armed = null      // aborted: back to a tap
                         }
                         if (kotlin.math.abs(dx) > jitter || kotlin.math.abs(dy) > jitter) {
                             handler.removeCallbacks(longPress)   // moved, not held
@@ -300,12 +303,9 @@ class KeypadView(context: Context) : LinearLayout(context) {
                 android.view.MotionEvent.ACTION_UP -> {
                     handler.removeCallbacks(longPress)
                     stopWordRepeat()
-                    if (swipeUpArmed && !gestureFired) {
-                        when (KeypadModel.gestureAction(key.kind, key.id, GestureKind.SWIPE_UP)) {
-                            GestureAction.SHIFTED_KEY -> fireShifted(key)
-                            GestureAction.SYMBOL_PICKER -> showPicker(frame)
-                            else -> Unit   // NONE cells are open (backspace swipe-up)
-                        }
+                    val a = armed
+                    if (a != null && !gestureFired) {
+                        fireGesture(key, a, frame)
                     } else if (!gestureFired) {
                         v.performClick()
                     }
@@ -319,6 +319,28 @@ class KeypadView(context: Context) : LinearLayout(context) {
             }
         }
         return frame
+    }
+
+    /**
+     * The exception table's action for a recognised gesture (KP7/KP10).
+     * WORD_DELETE_REPEAT is handled by the long-press timer, not here; NONE
+     * cells are open questions, not verdicts.
+     */
+    private fun fireGesture(key: KeypadKey, gesture: GestureKind, anchor: View) {
+        when (KeypadModel.gestureAction(key.kind, key.id, gesture)) {
+            GestureAction.SHIFTED_KEY -> fireShifted(key)
+            GestureAction.SYMBOL_PICKER -> showPicker(anchor)
+            GestureAction.CAPSLOCK -> { state.capsLock(); rebuild() }
+            GestureAction.NEXT_SYMBOL_SET -> {
+                state.cycleSymbolSet(forward = true, extendedAvailable = extended != null)
+                rebuild()
+            }
+            GestureAction.PREV_SYMBOL_SET -> {
+                state.cycleSymbolSet(forward = false, extendedAvailable = extended != null)
+                rebuild()
+            }
+            else -> Unit
+        }
     }
 
     /**

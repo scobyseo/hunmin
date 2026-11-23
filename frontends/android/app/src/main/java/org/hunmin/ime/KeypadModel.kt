@@ -340,6 +340,10 @@ object KeypadModel {
     fun isSwipeUp(dx: Float, dy: Float, thresholdPx: Float): Boolean =
         dy <= -thresholdPx && -dy >= 2f * kotlin.math.abs(dx)
 
+    /** KP10's symbol-screen swipe-down gate: the mirror of [isSwipeUp]. */
+    fun isSwipeDown(dx: Float, dy: Float, thresholdPx: Float): Boolean =
+        dy >= thresholdPx && dy >= 2f * kotlin.math.abs(dx)
+
     /**
      * KP5's return-to-cancel: the pointer is back within [radiusPx] of the
      * origin key, so a begun swipe-up is aborted. Provisional radius.
@@ -370,9 +374,22 @@ object KeypadModel {
      * table — it starts from any keycap.
      */
     fun gestureAction(kind: KeypadKey.Kind, id: String, gesture: GestureKind): GestureAction = when {
-        kind == KeypadKey.Kind.CHARACTER || kind == KeypadKey.Kind.DIGIT ->
-            GestureAction.SHIFTED_KEY
-        kind == KeypadKey.Kind.SYMBOLS_PAGE -> GestureAction.SYMBOL_PICKER
+        // Swipe-DOWN on text keys and the 기호 key is UNRULED — a NONE cell,
+        // not a silent copy of swipe-up (KP8: a direction earns its meaning).
+        (kind == KeypadKey.Kind.CHARACTER || kind == KeypadKey.Kind.DIGIT) &&
+            gesture != GestureKind.SWIPE_DOWN -> GestureAction.SHIFTED_KEY
+        kind == KeypadKey.Kind.SYMBOLS_PAGE && gesture != GestureKind.SWIPE_DOWN ->
+            GestureAction.SYMBOL_PICKER
+        // KP7 (decided 2026-11-23): shift's gestures lock capslock; a tap
+        // while locked releases it (KeypadState.tapShift).
+        kind == KeypadKey.Kind.SHIFT && gesture != GestureKind.SWIPE_DOWN ->
+            GestureAction.CAPSLOCK
+        // KP10 (decided 2026-11-23): on the symbol screen, swipe-up/down move
+        // to the next/previous symbol set; long-press follows the equivalence.
+        kind == KeypadKey.Kind.SYMBOL -> when (gesture) {
+            GestureKind.SWIPE_DOWN -> GestureAction.PREV_SYMBOL_SET
+            else -> GestureAction.NEXT_SYMBOL_SET
+        }
         kind == KeypadKey.Kind.FUNCTION && id == "backspace" &&
             gesture == GestureKind.LONG_PRESS -> GestureAction.WORD_DELETE_REPEAT
         else -> GestureAction.NONE
@@ -504,11 +521,14 @@ object KeypadVisibility {
     }
 }
 
-/** The two gestures of #312's general-equivalence rule (KP7). */
-enum class GestureKind { SWIPE_UP, LONG_PRESS }
+/** The gestures of #312's general-equivalence rule (KP7) and KP10's sets. */
+enum class GestureKind { SWIPE_UP, SWIPE_DOWN, LONG_PRESS }
 
 /** What a gesture does on a key — see [KeypadModel.gestureAction]. */
-enum class GestureAction { SHIFTED_KEY, SYMBOL_PICKER, WORD_DELETE_REPEAT, NONE }
+enum class GestureAction {
+    SHIFTED_KEY, SYMBOL_PICKER, WORD_DELETE_REPEAT, CAPSLOCK,
+    NEXT_SYMBOL_SET, PREV_SYMBOL_SET, NONE
+}
 
 /**
  * KP14's delete unit for the long swipe-left gesture (maintainer 2026-11-22:
@@ -544,25 +564,67 @@ class KeypadState {
     var shiftArmed: Boolean = false
         private set
 
+    /** KP7 (decided 2026-11-23): capslock, locked by shift's gestures. */
+    var capsLocked: Boolean = false
+        private set
+
+    /** What the keycaps render: one-shot armed OR capslock locked. */
+    val shiftActive: Boolean get() = shiftArmed || capsLocked
+
     /** The mode the symbol page was entered from (KP9's return-to-original-mode). */
     var symbolsEnteredHangul: Boolean = true
         private set
 
+    /**
+     * KP7's decided state machine: a tap while LOCKED releases capslock; a
+     * tap while unlocked arms/cancels the one-shot (KP2). The gestures lock
+     * ([capsLock]); "다시 shift를 누르면 해제" is the tap branch.
+     */
     fun tapShift() {
-        shiftArmed = !shiftArmed
+        if (capsLocked) {
+            capsLocked = false
+        } else {
+            shiftArmed = !shiftArmed
+        }
     }
 
-    /** The metaState a CHARACTER tap carries; consumes the one-shot. */
+    /** Shift's swipe-up/long-press: lock capslock (KP7, decided 2026-11-23). */
+    fun capsLock() {
+        capsLocked = true
+        shiftArmed = false
+    }
+
+    /**
+     * The metaState a CHARACTER tap carries: capslock holds the bit across
+     * keys; the one-shot is consumed by the first character tap.
+     */
     fun shiftMeta(): Int {
+        if (capsLocked) return KeypadModel.META_SHIFT_ON
         val meta = if (shiftArmed) KeypadModel.META_SHIFT_ON else 0
         shiftArmed = false
         return meta
+    }
+
+    /**
+     * KP10's symbol-screen set navigation (decided 2026-11-23: "기호 화면에서
+     * swipe-up / down으로 다음 기호 조합으로 이동"). Cycles the symbol PAGES
+     * that have data, wrapping; a no-op when only one set exists. The reading
+     * (pages, not row-groups) is recorded in SPEC KP10 for correction.
+     */
+    fun cycleSymbolSet(forward: Boolean, extendedAvailable: Boolean) {
+        if (page != Page.SYMBOLS && page != Page.EXTENDED) return
+        val sets = if (extendedAvailable) listOf(Page.SYMBOLS, Page.EXTENDED)
+                   else listOf(Page.SYMBOLS)
+        if (sets.size < 2) return
+        val i = sets.indexOf(page)
+        page = sets[(i + (if (forward) 1 else sets.size - 1)) % sets.size]
     }
 
     fun enterSymbols(hangulMode: Boolean) {
         page = Page.SYMBOLS
         symbolsEnteredHangul = hangulMode
         shiftArmed = false
+        capsLocked = false
     }
 
     /**
@@ -576,6 +638,7 @@ class KeypadState {
         if (page == Page.TEXT) symbolsEnteredHangul = hangulMode
         page = Page.EXTENDED
         shiftArmed = false
+        capsLocked = false
     }
 
     /** 기호 1 on the extended page: back to the Tier 1 symbol screen. */
@@ -597,6 +660,7 @@ class KeypadState {
      */
     fun modeChanged(hangulMode: Boolean) {
         shiftArmed = false
+        capsLocked = false
         if (page != Page.TEXT && hangulMode != symbolsEnteredHangul) page = Page.TEXT
     }
 }

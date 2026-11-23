@@ -51,19 +51,101 @@ class KeypadGestureTest {
     @Test
     fun theGeneralRuleIsEquivalenceOnCharacterKeys() {
         for (kind in listOf(KeypadKey.Kind.CHARACTER, KeypadKey.Kind.DIGIT)) {
-            for (g in GestureKind.entries) {
+            for (g in listOf(GestureKind.SWIPE_UP, GestureKind.LONG_PRESS)) {
                 assertEquals(
                     "$kind/$g", GestureAction.SHIFTED_KEY,
                     KeypadModel.gestureAction(kind, "a", g),
                 )
             }
+            // Swipe-down on text keys is UNRULED: a NONE cell, not a copy of up.
+            assertEquals(
+                GestureAction.NONE,
+                KeypadModel.gestureAction(kind, "a", GestureKind.SWIPE_DOWN),
+            )
         }
     }
 
     @Test
+    fun shiftGesturesLockCapslockAndSymbolGesturesCycleSets() {
+        // KP7 (decided 2026-11-23): shift's gestures -> capslock.
+        for (g in listOf(GestureKind.SWIPE_UP, GestureKind.LONG_PRESS)) {
+            assertEquals(GestureAction.CAPSLOCK,
+                KeypadModel.gestureAction(KeypadKey.Kind.SHIFT, "shift", g))
+        }
+        assertEquals(GestureAction.NONE,
+            KeypadModel.gestureAction(KeypadKey.Kind.SHIFT, "shift", GestureKind.SWIPE_DOWN))
+        // KP10 (decided 2026-11-23): symbol-screen up/down cycle the sets;
+        // long-press follows the equivalence (next set).
+        assertEquals(GestureAction.NEXT_SYMBOL_SET,
+            KeypadModel.gestureAction(KeypadKey.Kind.SYMBOL, ".", GestureKind.SWIPE_UP))
+        assertEquals(GestureAction.PREV_SYMBOL_SET,
+            KeypadModel.gestureAction(KeypadKey.Kind.SYMBOL, ".", GestureKind.SWIPE_DOWN))
+        assertEquals(GestureAction.NEXT_SYMBOL_SET,
+            KeypadModel.gestureAction(KeypadKey.Kind.SYMBOL, ".", GestureKind.LONG_PRESS))
+        // The 기호 mode key's swipe-down is unruled.
+        assertEquals(GestureAction.NONE,
+            KeypadModel.gestureAction(KeypadKey.Kind.SYMBOLS_PAGE, "symbols-page", GestureKind.SWIPE_DOWN))
+    }
+
+    @Test
+    fun swipeDownGateIsTheMirrorOfSwipeUp() {
+        assertTrue(KeypadModel.isSwipeDown(0f, t, t))
+        assertFalse(KeypadModel.isSwipeDown(0f, t - 1, t))
+        assertTrue(KeypadModel.isSwipeDown(30f, t, t))
+        assertFalse(KeypadModel.isSwipeDown(31f, t, t))
+        assertFalse(KeypadModel.isSwipeDown(0f, -t, t))
+    }
+
+    @Test
+    fun capslockHoldsTheBitUntilATapReleasesIt() {
+        val s = KeypadState()
+        s.capsLock()
+        assertTrue(s.capsLocked)
+        // The bit holds across keys (not consumed like the one-shot).
+        assertEquals(KeypadModel.META_SHIFT_ON, s.shiftMeta())
+        assertEquals(KeypadModel.META_SHIFT_ON, s.shiftMeta())
+        assertTrue(s.shiftActive)
+        // "다시 shift를 누르면 해제": a tap while locked releases.
+        s.tapShift()
+        assertTrue(!s.capsLocked)
+        assertEquals(0, s.shiftMeta())
+        // A tap while unlocked is still the one-shot (KP2).
+        s.tapShift()
+        assertTrue(s.shiftArmed)
+        assertEquals(KeypadModel.META_SHIFT_ON, s.shiftMeta())
+        assertEquals(0, s.shiftMeta())
+        // Page entry and mode changes clear the lock with the one-shot.
+        s.capsLock()
+        s.enterSymbols(hangulMode = true)
+        assertTrue(!s.capsLocked)
+    }
+
+    @Test
+    fun symbolSetCyclingWrapsOverThePagesThatHaveData() {
+        val s = KeypadState()
+        s.enterSymbols(hangulMode = true)
+        s.cycleSymbolSet(forward = true, extendedAvailable = true)
+        assertEquals(KeypadState.Page.EXTENDED, s.page)
+        s.cycleSymbolSet(forward = true, extendedAvailable = true)   // wraps
+        assertEquals(KeypadState.Page.SYMBOLS, s.page)
+        s.cycleSymbolSet(forward = false, extendedAvailable = true)  // back wraps
+        assertEquals(KeypadState.Page.EXTENDED, s.page)
+        // One set only: a no-op, not a jump to text.
+        s.cycleSymbolSet(forward = true, extendedAvailable = false)
+        assertEquals(KeypadState.Page.EXTENDED, s.page)
+        s.returnToSymbols()
+        s.cycleSymbolSet(forward = true, extendedAvailable = false)
+        assertEquals(KeypadState.Page.SYMBOLS, s.page)
+        // From TEXT the cycle does nothing (the gesture lives on symbol keys).
+        s.returnToText()
+        s.cycleSymbolSet(forward = true, extendedAvailable = true)
+        assertEquals(KeypadState.Page.TEXT, s.page)
+    }
+
+    @Test
     fun theRecordedExceptionsArePerKeyFacts() {
-        // 기호 mode key: both gestures open the picker (KP10).
-        for (g in GestureKind.entries) {
+        // 기호 mode key: swipe-up/long-press open the picker (KP10).
+        for (g in listOf(GestureKind.SWIPE_UP, GestureKind.LONG_PRESS)) {
             assertEquals(
                 GestureAction.SYMBOL_PICKER,
                 KeypadModel.gestureAction(KeypadKey.Kind.SYMBOLS_PAGE, "symbols-page", g),
@@ -83,11 +165,7 @@ class KeypadGestureTest {
 
     @Test
     fun openCellsStayOpenUntilTheSpecSaysOtherwise() {
-        // shift→capslock: the shift state machine is open (KP7).
         for (g in GestureKind.entries) {
-            assertEquals(GestureAction.NONE, KeypadModel.gestureAction(KeypadKey.Kind.SHIFT, "shift", g))
-            // Symbol-screen character keys: no shift meaning (KP6), open.
-            assertEquals(GestureAction.NONE, KeypadModel.gestureAction(KeypadKey.Kind.SYMBOL, ".", g))
             // 한/영 and the other function keys: no stated gesture meaning.
             assertEquals(GestureAction.NONE, KeypadModel.gestureAction(KeypadKey.Kind.MODE, "language-toggle", g))
             assertEquals(GestureAction.NONE, KeypadModel.gestureAction(KeypadKey.Kind.FUNCTION, "space", g))

@@ -296,6 +296,19 @@ field_text() {  # the focused EditText's text, from the platform's hierarchy
     | head -1
 }
 
+swipe_left_on() {  # swipe_left_on <content-desc> — a long leftward swipe
+  local desc="$1" node bounds
+  node="$(dump_ui /sdcard/kps.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
+  [ -n "$node" ] || fail "no key '$desc' to swipe from"
+  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+  set -- $(parse_bounds "$bounds")
+  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
+  local cx=$(( ($1 + $3) / 2 )) cy=$(( ($2 + $4) / 2 ))
+  # ~250px leftward at this density is well over the 60dp threshold, horizontal.
+  "$ADB" shell input swipe "$cx" "$cy" $(( cx - 250 )) "$cy" 300 >/dev/null 2>&1
+  sleep 0.8
+}
+
 # The field must start EMPTY or the comparison below proves nothing: it would be
 # comparing the IME's output against another run's leftovers.
 "$ADB" shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
@@ -957,18 +970,6 @@ rm -f "$OVERLAP_TMP"
 # backspace, configurable 키/음절/단어/전체. The gesture is a real `input swipe`
 # on a real keycap; the assertion is the field text, as everywhere else.
 
-swipe_left_on() {  # swipe_left_on <content-desc> — a long leftward swipe
-  local desc="$1" node bounds
-  node="$(dump_ui /sdcard/kps.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
-  [ -n "$node" ] || fail "no key '$desc' to swipe from"
-  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
-  set -- $(parse_bounds "$bounds")
-  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
-  local cx=$(( ($1 + $3) / 2 )) cy=$(( ($2 + $4) / 2 ))
-  # ~250px leftward at this density is well over the 60dp threshold, horizontal.
-  "$ADB" shell input swipe "$cx" "$cy" $(( cx - 250 )) "$cy" 300 >/dev/null 2>&1
-  sleep 0.8
-}
 
 set_swipe_unit() {  # set_swipe_unit <pref> — write the setting, restart the IME
   "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
@@ -1171,6 +1172,48 @@ mode_is '영' || fail "한/영 on the symbol screen did not return to the origin
 dump_ui /sdcard/kptxt.xml | grep -q 'content-desc="key:q"' \
   || fail "the text grid did not return after the picker round"
 echo "기호 swipe-up -> picker -> extended panel -> commit -> 기호 1 -> 한/영 (KP10/KP9)"
+
+# KP7's decided shift state machine: swipe-up on shift LOCKS capslock (the
+# bit holds across keys), a tap on shift releases it.
+restore_surface || fail "cannot restore for the capslock round"
+ensure_mode '영'
+swipe_up_on 'fn:shift'
+tap_desc 'key:q'
+tap_desc 'key:w'
+GC1="$(field_text)"
+[ "$GC1" = "QW" ] || fail "capslock: expected 'QW' (locked across keys), got '$GC1'"
+tap_desc 'fn:shift'   # 다시 shift를 누르면 해제
+tap_desc 'key:e'
+GC2="$(field_text)"
+[ "$GC2" = "QWe" ] || fail "capslock release: expected 'QWe', got '$GC2'"
+echo "shift swipe-up locks capslock, a tap releases it (KP7 decided)"
+
+# KP10's decided symbol-screen navigation: swipe-up/down on a SYMBOL key
+# cycles the symbol sets (Tier 1 <-> extended); swipe-left stays backspace.
+restore_surface || fail "cannot restore for the set-navigation round"
+ensure_mode '영'
+tap_desc 'fn:symbols-page'
+swipe_up_on 'symbol:!'
+dump_ui /sdcard/kpnav1.xml | grep -q 'content-desc="symbol:·"' \
+  || fail "swipe-up on a symbol key did not move to the next set (KP10)"
+swipe_down_on() {  # the mirror of swipe_up_on, downward
+  set -- $(key_bounds "$1")
+  "$ADB" shell input swipe "$1" "$2" "$1" $(( $2 + 3 * $3 / 2 )) 150 >/dev/null 2>&1
+  sleep 0.6
+}
+swipe_down_on 'symbol:·'
+dump_ui /sdcard/kpnav2.xml | grep -q 'content-desc="symbol:!"' \
+  || fail "swipe-down on a symbol key did not move to the previous set (KP10)"
+# swipe-left on the symbol screen is still backspace (KP14 유지).
+tap_desc 'symbol:!'
+GN1="$(field_text)"
+[ "$GN1" = "!" ] || fail "symbol tap before swipe-left: expected '!', got '$GN1'"
+swipe_left_on 'symbol:@'
+GN2="$(field_text)"
+[ -z "$GN2" ] || fail "swipe-left on the symbol screen must stay backspace (KP14), got '$GN2'"
+tap_desc 'fn:language-toggle'
+sleep 1
+echo "symbol-screen swipe-up/down cycle the sets; swipe-left stays backspace (KP10/KP14)"
 
 if [ "${HUNMIN_E2E_SKIP_TO_GESTURE:-0}" = 1 ]; then
   echo "PASS (gesture round only): the #312 gestures work — swipe-up=shift,"
