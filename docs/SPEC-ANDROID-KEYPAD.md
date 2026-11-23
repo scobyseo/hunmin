@@ -265,11 +265,10 @@ So **long-press behaves identically to swipe-up on every key**: shift+key on
 the text keypads, the page picker on the 기호 mode key (KP10). One meaning per
 gesture pair is the KP8-consistent choice; the equivalence is deliberate and
 may be split later if a need arises — the maintainer's words name that exit
-explicitly. Note: KP17's rationale anticipated a long-press word-delete on the
-soft surface (#312, compensating hard repeat); under this ruling that is a
-**later differentiation** through the named exit, not part of the equivalence
-— flagged for the maintainer, not silently dropped. *Implementation:* none.
-*Refuted by:* none yet.
+explicitly. The named exception: **long-press on backspace is word deletion** (KP14,
+decided 2026-11-23) — KP17's anticipated word-delete is thereby resolved, not
+deferred. The equivalence holds on the character keys and the 기호 mode key.
+*Implementation:* none. *Refuted by:* none yet.
 
 ### KP8. Per-key swipe directions may vary, bounded by learnability (stated direction + constraint)
 
@@ -502,6 +501,18 @@ Also recorded (maintainer, 2026-11-22, verbatim): "long-press도 swipe-up도
 wired; KP13 draws their hints. This entry does not pull #312 forward; it records
 the observation so the gap between the drawn hints and the wired gestures is
 visible.
+
+Backspace long-press — decided (2026-11-23, verbatim):
+
+> "swipe-left 는 backspace로 사용할 거고, backspace에서 long press는 단어 삭제야."
+
+So swipe-left as backspace is reconfirmed (this entry), and **long-press on
+the backspace key deletes a word** — the WORD unit path above (drop the
+buffered word when composing, else Ctrl+DEL). This is the named exception to
+KP7's long-press = swipe-up equivalence: backspace is a function key with its
+own gesture meaning, not a shifted character key. Whether the swipe-left unit
+setting also governs this gesture is not stated; the ruling names 단어 삭제,
+so WORD is the recorded behavior.
 
 *Implementation:* `KeypadModel` (gesture decision, `DeleteUnit`), `KeypadView`
 (touch handling), `HunminInputMethodService` (delete units, setting),

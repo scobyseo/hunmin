@@ -70,6 +70,11 @@ Mostly settled by the ruling; what remains is mechanism:
   verbatim in `docs/SPEC-ANDROID-KEYPAD.md#§KP7`: "long press도 swipe up과
   동일하게 구현해 두자. 나중에 필요하면 기능을 다르게 만들지 뭐."). One
   implementation of the gesture pair; a later split is the named exit.
+- **The named exception: backspace.** Long-press on backspace deletes a word
+  (KP14, decided 2026-11-23, verbatim in the SPEC: "swipe-left 는 backspace로
+  사용할 거고, backspace에서 long press는 단어 삭제야.") — the WORD unit of
+  the existing swipe-left delete mechanism; swipe-left as backspace is
+  reconfirmed by the same ruling.
 - **Symbol-screen keys have no shift meaning** (KP6: every symbol is its own
   button, direct commit). Swipe-up/long-press there is undefined for now —
   recorded open, not decided.
@@ -231,10 +236,9 @@ with search is what users want.
 The extended-page geometry fork (grow / swap / paginate); the math inventory
 ruling; the emoji scope and source; the kaomoji picker slot, inventory and
 issue scope; device font coverage for kaomoji; swipe-up's meaning on
-symbol-screen keys; the shift state machine (capslock unlock, KP7); the
-KP17 long-press word-delete expectation vs the KP7 equivalence (flagged in
-the SPEC); device-measured gesture thresholds and error rates (KP5's
-defences are requirements, their tuning is measurement).
+symbol-screen keys; the shift state machine (capslock unlock, KP7);
+device-measured gesture thresholds and error rates (KP5's defences are
+requirements, their tuning is measurement).
 
 ## 8. Verification plan
 
