@@ -242,9 +242,20 @@ FlorisBoard's `CAPSLOCK_BY_DOUBLE_TAP` / `CAPSLOCK_BY_CYCLE`. The KP5
 accidental-swipe defences apply to every such swipe. The glide-typing conflict
 is **resolved by ruling**: the maintainer will not add glide typing (2026-11-22,
 verbatim: "글라이드 기능은 불편하기만 해서 추가할 생각이 없어."), so swipe-up on
-letter/jamo keys has no competing gesture. The shift state machine (how capslock
-unlocks) and whether swipe-up-on-letters is enabled are open mechanism.
-*Implementation:* none. *Refuted by:* none yet.
+letter/jamo keys has no competing gesture.
+
+Clarification (2026-11-23, verbatim) — the gesture IS shift, on every key:
+
+> "어느 키에서든 swipe up을 하면 shift 를 누른 상태로 입력하는 것과 동일한 동작으로
+> 구현하자는 거였고. 그 방식으로 숫자키로 기호 입력을 할 수 있게 한다는 거였어."
+
+So swipe-up is not an arbitrary per-key "alternate": it is **identical to
+shift+key**, on any key, and the number-row symbol input (KP1/KP5) follows from
+that — the shifted form is whatever the layout's shift row already defines.
+This settles "whether swipe-up-on-letters is enabled" (yes — any key) and
+sharpens "alternate" to "the shifted form itself". The shift state machine
+(how capslock unlocks) remains open mechanism. *Implementation:* none.
+*Refuted by:* none yet.
 
 ### KP8. Per-key swipe directions may vary, bounded by learnability (stated direction + constraint)
 
@@ -314,22 +325,36 @@ The maintainer's words (2026-11-22, verbatim):
 > 버튼을 두는 것보다 나아 보인다. 일단 이렇게만 정리해 두고 이 기능을 확장하는 건
 > 별도 이슈로 만들자."
 
-Stated direction: reaching alternate symbols by **swipe / long-press on a symbol
-key** is preferred over a separate **Tier 2 button/page**. The Tier 2 Korean
-special symbols become gesture variants of the Tier 1 symbol keys (KP7/KP8),
-rather than a page of their own. This deprioritises the separate Tier 2 page of
-KP6/KP9; those records stand as the history of the considered alternative.
+Clarification (2026-11-23, verbatim) — what "심볼 키" meant, and the mechanism:
 
-**Scope ruling:** #298 records this direction only; **extending the feature is a
+> "기호 모드 키를 swipe up 하면 기존에 tier 2라고 설계했던 layout을 포함해서 다양한
+> 심볼 입력을 할 수 있게 하자고 한 거였어."
+> "기호 모드 키를 swipe up 했을 때는 일반적으로 많이 제공하는 이모지, 확장 기호,
+> 수식 기호 페이지를 고를 수 있게 하고, 그걸 고르면 실제 기호 선택 창이 뜨는 방식으로
+> 구현하고 싶은 거야."
+
+So the key is the **기호 (symbol) mode key**, not the symbol-character keys.
+Swipe-up on it opens a **page picker** — the commonly provided pages: **emoji,
+extended symbols, math symbols** — and picking one opens that symbol page. The
+designed Tier 2 panel (KP6/KP9, `docs/ANDROID-KEYPAD-MOCKUP.md`) is **content
+reached this way, not a deprioritised alternative**; what the gesture replaces
+is the Tier 2 *button*. Positional consistency (KP9) holds: the 기호 key keeps
+its mode-key slot in every mode; tap = Tier 1, swipe-up = the picker.
+
+**Drift record.** The 2026-11-22 reading of the quote above — "Tier 2 symbols
+become gesture variants of the Tier 1 symbol keys" — was agent paraphrase, not
+the maintainer's meaning. It propagated into the #312 issue body, the mockup's
+KP10 update paragraph and this section, and was built on (2026-11-23) before
+the correction; that implementation was removed. The wiki session
+`2026-11-23-312-symbol-variants` records the drift and its correction.
+
+**Scope ruling:** #298 records the direction only; **extending the feature is a
 separate issue, #312** (`[android] extend symbol selection via swipe/long-press on
-symbol keys`). The variant mapping and the per-key gesture set (bounded by KP8)
-are #312's work, not #298's; the variant mapping's data home is already settled
-by KP11 — the app-read symbol data file, with the engine uninvolved. *Implementation:*
-partial (#312, 2026-11-23) — a provisional variant mapping and its structural
-contract live in the app-read file and the app parses them
-(`docs/DESIGN-ANDROID-SYMBOL-VARIANTS.md`, comparable designs and recommendation);
-the assignment and gesture set await the maintainer's ruling and the gesture UI
-is open. *Refuted by:* none yet.
+symbol keys`). The gesture wiring, the page picker and the symbol pages are
+#312's work; the pages' data home is KP11's app-read symbol data file, with the
+engine uninvolved. *Implementation:* none — the 2026-11-23 variant-mapping
+implementation was removed as off-target (drift record above); the corrected
+design is `docs/DESIGN-ANDROID-SYMBOL-GESTURES.md`. *Refuted by:* none yet.
 
 ### KP11. Symbol screen data home — app-read data file, engine uninvolved (DECIDED)
 
