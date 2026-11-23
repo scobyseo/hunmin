@@ -66,15 +66,21 @@ Mostly settled by the ruling; what remains is mechanism:
   return-to-cancel, commit-on-release with preview, adjustable sensitivity.
   Cited, not restated. The corner hints (digits, shifted jamo, frequent keys)
   are already drawn, so the gesture's target is visible before it is used.
-- **Long-press is identical to swipe-up** — decided (maintainer 2026-11-23,
-  verbatim in `docs/SPEC-ANDROID-KEYPAD.md#§KP7`: "long press도 swipe up과
-  동일하게 구현해 두자. 나중에 필요하면 기능을 다르게 만들지 뭐."). One
-  implementation of the gesture pair; a later split is the named exit.
-- **The named exception: backspace.** Long-press on backspace deletes a word
-  (KP14, decided 2026-11-23, verbatim in the SPEC: "swipe-left 는 backspace로
-  사용할 거고, backspace에서 long press는 단어 삭제야.") — the WORD unit of
-  the existing swipe-left delete mechanism; swipe-left as backspace is
-  reconfirmed by the same ruling.
+- **Long-press = swipe-up is the general rule, with per-key exceptions** —
+  decided (maintainer 2026-11-23, verbatim in
+  `docs/SPEC-ANDROID-KEYPAD.md#§KP7`: "long press도 swipe up과 동일하게 구현해
+  두자" and "long press와 swipe up은 일반적으로 동일하지만, 기호 키나, backspace
+  등 일부 키에서 동작이 달라지는 거야."). One implementation of the gesture
+  pair plus a per-key exception table: 기호 mode key → picker (KP10),
+  backspace → word-delete repeat (KP14), further exceptions open ("등").
+- **The backspace exception.** Long-press deletes a word, repeating at ~0.2 s
+  intervals while held (KP14; the request's stated reason — repeat tapping to
+  erase many characters is hard — and all three verbatim rulings are in the
+  SPEC). Mechanism: the WORD unit of the existing swipe-left delete path.
+  Prior-art premise checked: the surveyed open-source IMEs repeat CHARACTER
+  deletion (`docs/ANDROID-KOREAN-IME-SURVEY.md` §5) — word-unit repeat is
+  hunmin's differentiating choice; the ~0.2 s interval is a provisional
+  tuning constant, not a measured optimum.
 - **Symbol-screen keys have no shift meaning** (KP6: every symbol is its own
   button, direct commit). Swipe-up/long-press there is undefined for now —
   recorded open, not decided.

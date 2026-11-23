@@ -115,3 +115,29 @@ is present in HeliBoard, fcitx5-android/libhangul and kime.
 
 No verdict is recorded. The maintainer's 두벌식 clarification is quoted above as
 the requirement; the symbol-layer decision remains open.
+
+## 5. Backspace long-press repeat (checked 2026-11-23, KP14's premise)
+
+KP14's request carries the premise "다른 ime는 그런 기능을 제공할 거야" (other
+IMEs provide word-unit delete on backspace long-press). Checked against
+upstream sources (read for semantics, no code copied):
+
+- **HeliBoard** (`PointerTracker.java`): generic key repeat — the first repeat
+  fires after `keyRepeatStartTimeout`, later repeats at a constant
+  `keyRepeatInterval` (the two `MainKeyboardView` attrs); no acceleration ramp
+  in that path. The repeat re-sends the pressed key code, so backspace repeats
+  `KEYCODE_DEL` — **character unit**, not word.
+- **FlorisBoard** (`keyboard3/ImeActions.kt`,
+  `keyboard3/interaction/AndroidInteractionController.kt`): Backspace is in the
+  `Repeatable` action list; repeat timing comes from the **system**
+  `keyRepeatTimeout` / `keyRepeatDelay`. The repeated action is the Backspace
+  action — **character unit**; no word-unit repeat path found.
+- **Closed-source IMEs** (Gboard, Samsung Keyboard): word/block deletion on
+  backspace long-press is widely reported, but not verifiable from code here —
+  **unverified**, recorded as such.
+
+Finding: the surveyed open-source IMEs repeat character deletion; hunmin's
+ruled word-unit repeat (~0.2 s, KP14) is a differentiating choice, not a copy
+of the surveyed open-source behavior. The premise is partially supported
+(closed-source, unverified) and not supported by the open-source survey. This
+is a finding, not a verdict — the ruling stands in the SPEC.

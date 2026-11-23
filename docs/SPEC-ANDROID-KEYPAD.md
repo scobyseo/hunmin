@@ -265,10 +265,19 @@ So **long-press behaves identically to swipe-up on every key**: shift+key on
 the text keypads, the page picker on the 기호 mode key (KP10). One meaning per
 gesture pair is the KP8-consistent choice; the equivalence is deliberate and
 may be split later if a need arises — the maintainer's words name that exit
-explicitly. The named exception: **long-press on backspace is word deletion** (KP14,
-decided 2026-11-23) — KP17's anticipated word-delete is thereby resolved, not
-deferred. The equivalence holds on the character keys and the 기호 mode key.
-*Implementation:* none. *Refuted by:* none yet.
+explicitly. The equivalence is the **general rule with per-key exceptions** (2026-11-23,
+verbatim):
+
+> "long press와 swipe up은 일반적으로 동일하지만, 기호 키나, backspace 등 일부
+> 키에서 동작이 달라지는 거야."
+
+So the model is: default equivalence on the character keys, and a per-key
+exception table — the 기호 mode key opens the page picker on both gestures
+(KP10), backspace long-press is word-delete repeat (KP14, resolving KP17's
+anticipated word-delete), and "등" leaves further exceptions open (the shift
+key's capslock above is the earlier candidate). An exception is a recorded
+per-key fact, not a new gesture vocabulary. *Implementation:* none.
+*Refuted by:* none yet.
 
 ### KP8. Per-key swipe directions may vary, bounded by learnability (stated direction + constraint)
 
@@ -502,17 +511,44 @@ wired; KP13 draws their hints. This entry does not pull #312 forward; it records
 the observation so the gap between the drawn hints and the wired gestures is
 visible.
 
-Backspace long-press — decided (2026-11-23, verbatim):
+Backspace long-press — the original request, with its reasoning (2026-11-22,
+verbatim, from the T3-3 session; tracked in the #312 comment of 2026-11-22):
+
+> "long press는 별도 task로 진행한다고 했으니, 그 task에 이 내용 추가해 줘."
+> "뭐냐면, backspace를 길게 누르면 적당한 시간간격으로 단어 단위로 삭제를 해주면
+> 좋겠어. 많은 글자를 지우기 위해 반복해서 누르는 게 쉬운 일이 아니거든? 그래서
+> 다른 ime는 그런 기능을 제공할 거야."
+
+The stated reason: **erasing many characters by repeated tapping is hard on a
+soft keyboard**, so the hold should delete word-by-word at a reasonable
+interval. The prior-art premise ("다른 ime는 그런 기능을 제공할 거야") was
+checked 2026-11-23: the surveyed open-source IMEs repeat CHARACTER deletion,
+not word — the finding and its sources are in
+`docs/ANDROID-KOREAN-IME-SURVEY.md` §Backspace long-press repeat; word-unit
+repeat is hunmin's differentiating choice, closed-source behavior unverified.
+
+Confirmed and sharpened (2026-11-23, verbatim):
 
 > "swipe-left 는 backspace로 사용할 거고, backspace에서 long press는 단어 삭제야."
 
 So swipe-left as backspace is reconfirmed (this entry), and **long-press on
 the backspace key deletes a word** — the WORD unit path above (drop the
-buffered word when composing, else Ctrl+DEL). This is the named exception to
-KP7's long-press = swipe-up equivalence: backspace is a function key with its
-own gesture meaning, not a shifted character key. Whether the swipe-left unit
-setting also governs this gesture is not stated; the ruling names 단어 삭제,
-so WORD is the recorded behavior.
+buffered word when composing, else Ctrl+DEL). This is a named exception to
+KP7's general long-press = swipe-up equivalence: backspace is a function key
+with its own gesture meaning, not a shifted character key. Whether the
+swipe-left unit setting also governs this gesture is not stated; the ruling
+names 단어 삭제, so WORD is the recorded behavior.
+
+Repeat while held (2026-11-23, verbatim):
+
+> "backspace에서 long-press는 단어 삭제인데, 0.2초 정도 간격으로 단어 삭제를
+> 반복하면 될 것 같아."
+
+So the hold **repeats the WORD deletion at roughly 0.2 s intervals** until
+release, each tick through the same WORD path — the soft surface's answer to
+the stated reason above (repeat tapping is hard), consistent with KP17's
+opposite-UX rationale. The interval is the maintainer's estimate ("정도",
+"같아"): a provisional tuning constant, not a measured optimum.
 
 *Implementation:* `KeypadModel` (gesture decision, `DeleteUnit`), `KeypadView`
 (touch handling), `HunminInputMethodService` (delete units, setting),

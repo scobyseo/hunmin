@@ -88,6 +88,14 @@ written by an agent is not the maintainer's words, and a design built on it
 inherits its drift — the failure mode [[where-the-practices-came-from]] names
 ("the maintainer's words are the requirement, not your paraphrase"). The
 cheap defence that was skipped: re-read the originating session before
-building, not after being challenged. See also
+building, not after being challenged. A second gap of the same family,
+2026-11-23: the KP14 decision record quoted only the short confirmation and
+paraphrased the reason, while the maintainer's full explanation (2026-11-22,
+"많은 글자를 지우기 위해 반복해서 누르는 게 쉬운 일이 아니거든?") sat in the #312
+comment and the T3-3 wiki page — "이것도 왜 그렇게 결정했는지 설명을 한참 했는데?"
+Corrected by recording the origin verbatim in SPEC KP14 and checking the
+prior-art premise it carries (survey §5: open-source IMEs repeat characters,
+not words). A decision record must carry the reasoning the maintainer gave,
+found in the tracked request — not a paraphrase of it. See also
 [[2026-11-22-t3-2-symbol-data-and-issue-alignment]], the previous round where
 issue bodies had drifted from a ruling and were corrected.
