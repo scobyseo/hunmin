@@ -84,6 +84,18 @@ Mostly settled by the ruling; what remains is mechanism:
 - **Symbol-screen keys have no shift meaning** (KP6: every symbol is its own
   button, direct commit). Swipe-up/long-press there is undefined for now —
   recorded open, not decided.
+- **Implemented 2026-11-23 (phase 1)**: the pure decision layer
+  (`KeypadModel.gestureAction`, `isSwipeUp`, `returnedToOrigin`,
+  `WORD_REPEAT_INTERVAL_MS`) and `KeypadView`'s pointer state machine —
+  swipe-up arms past the gate and commits on release, return-to-origin
+  aborts back to a tap (provisional), long-press fires at the **system**
+  timeout, movement past jitter cancels the hold, backspace repeats WORD
+  deletion until release. The shift bit is per-event; the one-shot state is
+  untouched. Provisional tuning constants: the 60 dp gate (shared with
+  KP14), 10 dp jitter, 12 dp return radius — all named in the view, all
+  tunable without a decision change. E1 pins the table and gates
+  (`KeypadGestureTest`); the device round and the picker popup are the next
+  phases.
 
 ## 4. Gesture 2 — open mechanisms, comparable
 

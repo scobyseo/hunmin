@@ -1180,7 +1180,7 @@ class HunminInputMethodService : InputMethodService() {
         /* The soft keypad (issue #299) sits UNDER the strip, never instead of
          * it: the strip is the IME window hardware keys arrive through (B1),
          * and KP12 hides only the grid when a physical keyboard is exposed.
-         * Four callbacks, each into a path the hardware side already uses —
+         * Each callback into a path the hardware side already uses —
          * touch is hardware (design §1). */
         val pad = KeypadView(this)
         pad.setSymbols(symbolScreen)
@@ -1193,6 +1193,9 @@ class HunminInputMethodService : InputMethodService() {
             if (isHangulMode != hangul) toggleHangulEnglish()
         }
         pad.onSwipeLeftDelete = { deleteBySwipeUnit() }
+        // KP14/KP7: backspace long-press repeats WORD deletion (~0.2 s, the
+        // view owns the timer); the unit is the ruling's, not the setting's.
+        pad.onWordDelete = { deleteByUnit(DeleteUnit.WORD) }
         keypad = pad
         refreshKeypad()
         updateKeypadVisibility()
@@ -1298,10 +1301,14 @@ class HunminInputMethodService : InputMethodService() {
      * goes through the same key machinery as a tap (dispatchTouchKey) or a
      * platform action — no surrounding-text read anywhere (I9).
      */
-    private fun deleteBySwipeUnit() {
+    private fun deleteBySwipeUnit() = deleteByUnit(readSwipeUnit())
+
+    /** One delete in [unit]; the swipe-left setting and the backspace
+     *  long-press ruling (WORD, KP14) share this machinery. */
+    private fun deleteByUnit(unit: DeleteUnit) {
         val e = touchEngine
         val ic = currentInputConnection ?: return
-        when (readSwipeUnit()) {
+        when (unit) {
             DeleteUnit.KEY ->
                 // The backspace key's own path: engine edits the composition,
                 // or the app deletes one character.

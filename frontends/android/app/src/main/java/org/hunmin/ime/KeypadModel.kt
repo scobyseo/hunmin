@@ -316,6 +316,56 @@ object KeypadModel {
         dx <= -thresholdPx && -dx >= 2f * kotlin.math.abs(dy)
 
     /**
+     * KP7's swipe-up gate, pure — the mirror of [isSwipeLeftDelete]: upward
+     * distance at least [thresholdPx] and vertically dominant (at least twice
+     * the horizontal drift). A tap that drifts sideways a little is still a
+     * tap (KP5). Recognition only; the commit is on release, and a return to
+     * the origin cancels ([returnedToOrigin]) — the layered defences recorded
+     * in docs/ANDROID-SYMBOL-INTERACTION.md §Avoiding the accidental swipe.
+     * The threshold is provisional, shared with KP14's.
+     */
+    fun isSwipeUp(dx: Float, dy: Float, thresholdPx: Float): Boolean =
+        dy <= -thresholdPx && -dy >= 2f * kotlin.math.abs(dx)
+
+    /**
+     * KP5's return-to-cancel: the pointer is back within [radiusPx] of the
+     * origin key, so a begun swipe-up is aborted. Provisional radius.
+     */
+    fun returnedToOrigin(dx: Float, dy: Float, radiusPx: Float): Boolean =
+        kotlin.math.abs(dx) <= radiusPx && kotlin.math.abs(dy) <= radiusPx
+
+    /**
+     * KP14's backspace long-press repeat interval: the maintainer's estimate
+     * (2026-11-23, verbatim in SPEC KP14: "0.2초 정도 간격으로 단어 삭제를
+     * 반복하면 될 것 같아") — a provisional tuning constant, not a measured
+     * optimum.
+     */
+    const val WORD_REPEAT_INTERVAL_MS = 200L
+
+    /**
+     * The per-key gesture exception table (KP7, maintainer 2026-11-23:
+     * "long press와 swipe up은 일반적으로 동일하지만, 기호 키나, backspace 등
+     * 일부 키에서 동작이 달라지는 거야"). The GENERAL rule is equivalence —
+     * both gestures reach [GestureAction.SHIFTED_KEY] on character keys — and
+     * the exceptions are recorded per-key facts: the 기호 mode key opens the
+     * page picker (KP10), backspace long-press repeats word deletion (KP14).
+     *
+     * [GestureAction.NONE] cells are OPEN, not verdicts: shift→capslock (the
+     * shift state machine is open, KP7), swipe-up on backspace (the ruling
+     * names long-press), symbol-screen keys (no shift meaning, KP6), and the
+     * other function keys. KP14's swipe-left delete is independent of this
+     * table — it starts from any keycap.
+     */
+    fun gestureAction(kind: KeypadKey.Kind, id: String, gesture: GestureKind): GestureAction = when {
+        kind == KeypadKey.Kind.CHARACTER || kind == KeypadKey.Kind.DIGIT ->
+            GestureAction.SHIFTED_KEY
+        kind == KeypadKey.Kind.SYMBOLS_PAGE -> GestureAction.SYMBOL_PICKER
+        kind == KeypadKey.Kind.FUNCTION && id == "backspace" &&
+            gesture == GestureKind.LONG_PRESS -> GestureAction.WORD_DELETE_REPEAT
+        else -> GestureAction.NONE
+    }
+
+    /**
      * The text-mode grid for [caps], as the decided picture draws it (KP13):
      * number row with corner hints, 10/9/7 letter rows (the Hangul screen's
      * shifted-jamo sublabels when the layout's mode is hangul), ⇧/⌫ on the
@@ -435,6 +485,12 @@ object KeypadVisibility {
         return showImeWithHardKeyboard || !physicalExposed
     }
 }
+
+/** The two gestures of #312's general-equivalence rule (KP7). */
+enum class GestureKind { SWIPE_UP, LONG_PRESS }
+
+/** What a gesture does on a key — see [KeypadModel.gestureAction]. */
+enum class GestureAction { SHIFTED_KEY, SYMBOL_PICKER, WORD_DELETE_REPEAT, NONE }
 
 /**
  * KP14's delete unit for the long swipe-left gesture (maintainer 2026-11-22:

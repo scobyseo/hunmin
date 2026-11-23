@@ -276,8 +276,14 @@ exception table — the 기호 mode key opens the page picker on both gestures
 (KP10), backspace long-press is word-delete repeat (KP14, resolving KP17's
 anticipated word-delete), and "등" leaves further exceptions open (the shift
 key's capslock above is the earlier candidate). An exception is a recorded
-per-key fact, not a new gesture vocabulary. *Implementation:* none.
-*Refuted by:* none yet.
+per-key fact, not a new gesture vocabulary. *Implementation:* partial (#312,
+2026-11-23) — the gesture layer is wired: `KeypadModel.gestureAction` (the
+exception table), `isSwipeUp`/`returnedToOrigin` (KP5 gates), `KeypadView`'s
+pointer state machine (swipe-up commits on release, long-press at the system
+timeout, movement-vs-time separation), the per-event shift bit leaving the
+one-shot untouched. The picker popup and the capslock state machine are not
+wired yet. *Verified by:* engine-android-e1 (`KeypadGestureTest`); the device
+gesture round is pending. *Refuted by:* none yet.
 
 ### KP8. Per-key swipe directions may vary, bounded by learnability (stated direction + constraint)
 
@@ -553,8 +559,12 @@ opposite-UX rationale. The interval is the maintainer's estimate ("정도",
 *Implementation:* `KeypadModel` (gesture decision, `DeleteUnit`), `KeypadView`
 (touch handling), `HunminInputMethodService` (delete units, setting),
 `OverlayActivity` (키패드 section) — `docs/DESIGN-ANDROID-KEYPAD.md`.
-*Verified by:* engine-android-e1 (decision table, unit vocabulary),
-engine-android-e2e (swipe on the device, per-unit deletion).
+Backspace long-press repeat wired 2026-11-23 (#312): `KeypadView`'s word-repeat
+timer (`WORD_REPEAT_INTERVAL_MS`) into `HunminInputMethodService#deleteByUnit`
+(WORD, the ruling's unit, not the swipe-left setting's). *Verified by:*
+engine-android-e1 (decision table, unit vocabulary, gesture table + interval),
+engine-android-e2e (swipe on the device, per-unit deletion; the long-press
+repeat round pending).
 
 ### KP15. Bottom row amended: comma left of space (DECIDED)
 

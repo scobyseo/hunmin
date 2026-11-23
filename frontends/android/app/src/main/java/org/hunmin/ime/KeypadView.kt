@@ -46,6 +46,17 @@ class KeypadView(context: Context) : LinearLayout(context) {
     /** KP14: a long swipe-left from any keycap — delete, not type. */
     var onSwipeLeftDelete: (() -> Unit)? = null
 
+    /** KP14/KP7: one WORD-unit delete tick (backspace long-press repeat). */
+    var onWordDelete: (() -> Unit)? = null
+
+    /** KP10: the 기호 mode-key gesture opens the page picker above [anchor]. */
+    var onSymbolPicker: ((anchor: View) -> Unit)? = null
+
+    /* Gesture timing lives here (the view owns the pointer); every DECISION
+     * is KeypadModel's pure table. One handler for all keycaps; rebuild()
+     * drops pending callbacks so a removed keycap never fires. */
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
     private val state = KeypadState()
     private var hangulCaps: KeypadKeycaps? = null
     private var latinCaps: KeypadKeycaps? = null
@@ -95,6 +106,7 @@ class KeypadView(context: Context) : LinearLayout(context) {
     }
 
     private fun rebuild() {
+        handler.removeCallbacksAndMessages(null)
         removeAllViews()
         val rows: List<List<KeypadKey>> = when (state.page) {
             KeypadState.Page.TEXT -> {
@@ -202,34 +214,118 @@ class KeypadView(context: Context) : LinearLayout(context) {
             })
         }
         frame.setOnClickListener { tap(key) }
-        /* KP14: a long swipe-left deletes instead of typing. The gesture is
-         * recognised on MOVE once it is long enough (immediate feedback); the
-         * tap fires on UP only when no gesture fired, so the key is never
-         * typed AND deleted. A short drift stays a tap (KP5 protection). */
+        /* The gesture state machine (#312, KP5/KP7/KP14). One pointer, three
+         * outcomes, separated by moved-vs-held-vs-released:
+         *  - swipe-LEFT deletes on MOVE once long enough (KP14, immediate);
+         *  - swipe-UP ARMS on MOVE past the gate, commits on UP, and a return
+         *    to the origin cancels it back to a tap (KP5's layered defences);
+         *  - a still hold past the system long-press timeout fires the SAME
+         *    action as swipe-up (KP7's general equivalence) — except the
+         *    recorded per-key exceptions (KeypadModel.gestureAction): the
+         *    기호 key opens the picker, backspace repeats WORD deletion at
+         *    ~0.2 s until release. Movement past jitter cancels the hold.
+         * The tap fires on UP only when no gesture fired, so a key is never
+         * typed AND gestured. Thresholds are provisional (KP14's shared
+         * 60dp; jitter/return radii below), the decision shape is the
+         * requirement. */
         var downX = 0f
         var downY = 0f
-        var swiped = false
+        var gestureFired = false
+        var swipeUpArmed = false
+        var wordRepeat: Runnable? = null
         val threshold = dp(60).toFloat()   // provisional (KP14); ~two key widths
+        val jitter = dp(10).toFloat()      // provisional: hold-cancelling movement
+        val returnRadius = dp(12).toFloat() // provisional: return-to-cancel radius
+        val longPressTimeout = android.view.ViewConfiguration.getLongPressTimeout().toLong()
+        fun stopWordRepeat() {
+            wordRepeat?.let { handler.removeCallbacks(it) }
+            wordRepeat = null
+        }
+        val longPress = Runnable {
+            if (gestureFired || swipeUpArmed || !frame.isAttachedToWindow) return@Runnable
+            when (KeypadModel.gestureAction(key.kind, key.id, GestureKind.LONG_PRESS)) {
+                GestureAction.SHIFTED_KEY -> { gestureFired = true; fireShifted(key) }
+                GestureAction.SYMBOL_PICKER -> { gestureFired = true; onSymbolPicker?.invoke(frame) }
+                GestureAction.WORD_DELETE_REPEAT -> {
+                    gestureFired = true
+                    onWordDelete?.invoke()   // first tick at the timeout
+                    val tick = object : Runnable {
+                        override fun run() {
+                            if (!frame.isAttachedToWindow) return
+                            onWordDelete?.invoke()
+                            handler.postDelayed(this, KeypadModel.WORD_REPEAT_INTERVAL_MS)
+                        }
+                    }
+                    wordRepeat = tick
+                    handler.postDelayed(tick, KeypadModel.WORD_REPEAT_INTERVAL_MS)
+                }
+                GestureAction.NONE -> Unit   // open cell, not a verdict
+            }
+        }
         frame.setOnTouchListener { v, ev ->
             when (ev.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    downX = ev.x; downY = ev.y; swiped = false; true
+                    downX = ev.x; downY = ev.y
+                    gestureFired = false; swipeUpArmed = false
+                    handler.postDelayed(longPress, longPressTimeout)
+                    true
                 }
                 android.view.MotionEvent.ACTION_MOVE -> {
-                    if (!swiped && KeypadModel.isSwipeLeftDelete(ev.x - downX, ev.y - downY, threshold)) {
-                        swiped = true
-                        onSwipeLeftDelete?.invoke()
+                    val dx = ev.x - downX; val dy = ev.y - downY
+                    if (!gestureFired) {
+                        if (KeypadModel.isSwipeLeftDelete(dx, dy, threshold)) {
+                            gestureFired = true
+                            handler.removeCallbacks(longPress)
+                            onSwipeLeftDelete?.invoke()
+                        } else if (KeypadModel.isSwipeUp(dx, dy, threshold)) {
+                            if (!swipeUpArmed) handler.removeCallbacks(longPress)
+                            swipeUpArmed = true   // commit on UP (KP5)
+                        } else if (swipeUpArmed && KeypadModel.returnedToOrigin(dx, dy, returnRadius)) {
+                            swipeUpArmed = false  // aborted: back to a tap
+                        }
+                        if (kotlin.math.abs(dx) > jitter || kotlin.math.abs(dy) > jitter) {
+                            handler.removeCallbacks(longPress)   // moved, not held
+                        }
                     }
                     true
                 }
                 android.view.MotionEvent.ACTION_UP -> {
-                    if (!swiped) v.performClick()
+                    handler.removeCallbacks(longPress)
+                    stopWordRepeat()
+                    if (swipeUpArmed && !gestureFired) {
+                        when (KeypadModel.gestureAction(key.kind, key.id, GestureKind.SWIPE_UP)) {
+                            GestureAction.SHIFTED_KEY -> fireShifted(key)
+                            GestureAction.SYMBOL_PICKER -> onSymbolPicker?.invoke(frame)
+                            else -> Unit   // NONE cells are open (backspace swipe-up)
+                        }
+                    } else if (!gestureFired) {
+                        v.performClick()
+                    }
                     true
                 }
-                else -> true   // CANCEL: neither type nor delete
+                else -> {   // CANCEL: neither type nor gesture
+                    handler.removeCallbacks(longPress)
+                    stopWordRepeat()
+                    true
+                }
             }
         }
         return frame
+    }
+
+    /**
+     * KP7's gesture result: the shifted form, as a PER-EVENT shift bit — the
+     * one-shot state is untouched (the gesture is shift+key, not the soft
+     * arming). The frequent keys' alternate is their hint (? "), the same
+     * KP16 rule a shifted tap follows, committed through the symbol path.
+     */
+    private fun fireShifted(key: KeypadKey) {
+        val alternate = KeypadModel.shiftedFrequentAlternate(key, symbols)
+        if (alternate != null) {
+            onSymbol?.invoke(alternate)
+        } else {
+            onCharacterKey?.invoke(key.keyCode, KeypadModel.META_SHIFT_ON)
+        }
     }
 
     private fun tap(key: KeypadKey) {
