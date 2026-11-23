@@ -348,6 +348,16 @@ KP10 update paragraph and this section, and was built on (2026-11-23) before
 the correction; that implementation was removed. The wiki session
 `2026-11-23-312-symbol-variants` records the drift and its correction.
 
+Picker presentation — decided (2026-11-23, verbatim):
+
+> "페이지 선택은 기호 키 위에 팝업하자."
+
+So the picker is a **popup above the 기호 key**. The page inventories are to be
+settled with reference to `https://symbl.cc/kr/collections/` (maintainer,
+2026-11-23: "symbl.cc/kr/collections/ 를 참조해서 어떤 기호를 제공하면 좋을지
+정해보자"); the grounded proposal and its register finding are in
+`docs/DESIGN-ANDROID-SYMBOL-GESTURES.md`.
+
 **Scope ruling:** #298 records the direction only; **extending the feature is a
 separate issue, #312** (`[android] extend symbol selection via swipe/long-press on
 symbol keys`). The gesture wiring, the page picker and the symbol pages are
