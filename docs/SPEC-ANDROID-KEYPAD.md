@@ -254,8 +254,18 @@ shift+key**, on any key, and the number-row symbol input (KP1/KP5) follows from
 that — the shifted form is whatever the layout's shift row already defines.
 This settles "whether swipe-up-on-letters is enabled" (yes — any key) and
 sharpens "alternate" to "the shifted form itself". The shift state machine
-(how capslock unlocks) remains open mechanism. *Implementation:* none.
-*Refuted by:* none yet.
+(how capslock unlocks) remains open mechanism.
+
+Long-press equivalence — decided (2026-11-23, verbatim):
+
+> "long press도 swipe up과 동일하게 구현해 두자. 나중에 필요하면 기능을 다르게
+> 만들지 뭐."
+
+So **long-press behaves identically to swipe-up on every key**: shift+key on
+the text keypads, the page picker on the 기호 mode key (KP10). One meaning per
+gesture pair is the KP8-consistent choice; the equivalence is deliberate and
+may be split later if a need arises — the maintainer's words name that exit
+explicitly. *Implementation:* none. *Refuted by:* none yet.
 
 ### KP8. Per-key swipe directions may vary, bounded by learnability (stated direction + constraint)
 

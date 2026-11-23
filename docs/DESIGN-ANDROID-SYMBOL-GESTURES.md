@@ -66,9 +66,13 @@ Mostly settled by the ruling; what remains is mechanism:
   return-to-cancel, commit-on-release with preview, adjustable sensitivity.
   Cited, not restated. The corner hints (digits, shifted jamo, frequent keys)
   are already drawn, so the gesture's target is visible before it is used.
+- **Long-press is identical to swipe-up** — decided (maintainer 2026-11-23,
+  verbatim in `docs/SPEC-ANDROID-KEYPAD.md#§KP7`: "long press도 swipe up과
+  동일하게 구현해 두자. 나중에 필요하면 기능을 다르게 만들지 뭐."). One
+  implementation of the gesture pair; a later split is the named exit.
 - **Symbol-screen keys have no shift meaning** (KP6: every symbol is its own
-  button, direct commit). Swipe-up there is undefined for now — recorded
-  open, not decided.
+  button, direct commit). Swipe-up/long-press there is undefined for now —
+  recorded open, not decided.
 
 ## 4. Gesture 2 — open mechanisms, comparable
 
@@ -80,9 +84,8 @@ chooser) remain in the branch history as the comparison; the popup's known
 cost — it occludes the row above while held — is a presentation detail to
 verify on the narrow screen, not a reopen.
 
-**Long-press on the 기호 key:** the same picker (KP10 names swipe *or*
-long-press) vs a distinct meaning. Recommendation: **same picker** — one
-meaning per key is the KP8-consistent choice.
+**Long-press on the 기호 key — DECIDED:** the same picker, by the KP7
+long-press-equivalence ruling (2026-11-23, verbatim in the SPEC).
 
 **Page content and data home** (KP11: app-read data, engine uninvolved):
 the inventories are proposed in §5 with reference to symbl.cc, as the
@@ -178,10 +181,10 @@ Recommendation: **(i) or (ii)**; a Korean chat corpus would re-rank either.
 ## 6. What this does not settle
 
 The extended-page geometry fork (grow / swap / paginate); the math inventory
-ruling; the emoji scope and source; long-press equivalence; swipe-up's
-meaning on symbol-screen keys; the shift state machine (capslock unlock,
-KP7); device-measured gesture thresholds and error rates (KP5's defences are
-requirements, their tuning is measurement).
+ruling; the emoji scope and source; swipe-up's meaning on symbol-screen keys;
+the shift state machine (capslock unlock, KP7); device-measured gesture
+thresholds and error rates (KP5's defences are requirements, their tuning is
+measurement).
 
 ## 7. Verification plan
 
