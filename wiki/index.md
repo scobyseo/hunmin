@@ -209,11 +209,11 @@
   three host facts (compound text, stale-preedit commit, teardown routing),
   and the two shared-harness defects the new lanes exposed (`^` typed `6`,
   the edit loop's harness leak).
-- [[2026-11-23-312-symbol-variants]] — #312's Tier 2 gesture variants: the
-  frequency reading re-run and reproduced, comparable mapping rules and gesture
-  sets bounded by KP8, a provisional variants section in the app-read symbol
-  file with a structure-only contract + negative selfcheck, and the app parse
-  pinned in E1 — the assignment and gesture set left for the maintainer.
+- [[2026-11-23-312-symbol-variants]] — **superseded**: #312's variant-mapping
+  implementation was built on an agent-paraphrased issue body, not the
+  maintainer's words; three verbatim rulings corrected it (swipe-up = shift+key
+  on any key; 기호 mode-key swipe-up opens an emoji/extended/math page picker).
+  Records the drift chain, the removal, and the surviving frequency measurement.
 - [[2026-11-22-t3-3-soft-keyboard-ui]] — #299's soft keypad: touch is hardware
   (one key path), labels from the layout's own JSON, KP12's auto-show-only-
   without-a-physical-keyboard ruling recorded verbatim, and the seven confident
