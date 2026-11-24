@@ -96,6 +96,9 @@ comment and the T3-3 wiki page — "이것도 왜 그렇게 결정했는지 설�
 Corrected by recording the origin verbatim in SPEC KP14 and checking the
 prior-art premise it carries (survey §5: open-source IMEs repeat characters,
 not words). A decision record must carry the reasoning the maintainer gave,
-found in the tracked request — not a paraphrase of it. See also
+found in the tracked request — not a paraphrase of it. A wording correction
+the same day: the maintainer does not use the Sino-Korean word 축자
+("한국인은 축자라는 표현을 안써") — in Korean prose say 원문 그대로, not 축자 인용;
+the committed documents use English "verbatim" per the prose rule. See also
 [[2026-11-22-t3-2-symbol-data-and-issue-alignment]], the previous round where
 issue bodies had drifted from a ruling and were corrected.
