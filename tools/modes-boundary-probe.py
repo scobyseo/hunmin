@@ -33,7 +33,10 @@ WHAT IT MEASURES, and the unit each number is in:
           how often the displayed language changes inside the word -- the 도깨비
           flicker. ReqMode9's three-key guard is applied, because a buffer under it is
           judged by nothing; the unguarded figure is 94.18% and the guarded one
-          64.05%, so the guard is quoted as part of the measurement. Counted over
+          64.05%, so the guard is quoted as part of the measurement. The count is taken
+          at the shipped display setting (`judge_hold` 0, SPEC-MODES §E6); the same
+          word list at a stability setting above 0 flips far less, which is measured
+          on corpora by `tools/modes-metrics.py` and is not claimed here. Counted over
           the whole shipped list, not a sample.
   buffer  where the buffer actually ends today (E2), measured, not read: the
           shared layer is driven key by key past its cap (256 B since ReqMode4,
