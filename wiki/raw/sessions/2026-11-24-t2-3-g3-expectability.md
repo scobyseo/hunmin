@@ -105,3 +105,29 @@ gate grades the pair and says nothing about the feature's overall worth.
 
 Also not done: no frontend exposes the new row (E6 already states that no frontend
 exposes `judge_timing` either), and the felt experience remains unmeasurable here.
+## 6. What it cost, measured before pushing
+
+The rule is `tools/ci-time-budget.sh build` before anything that adds a test. Run
+on this host it reports both local budgets over — **pre-existing**, the state
+`docs/CI-TIMING.md` §6 records for master, and this host's attached emulator ran
+tier E2 for ~400 s in one of the runs and skipped in another, which is the
+documented local/CI delta rather than anything the change did.
+
+So the number that belongs to this work is the delta on the tests it touched,
+measured against a detached worktree at `master` (`731633c`) on the same host,
+with `ANDROID_HOME`/`JAVA_HOME`/`ANDROID_NDK` exported and the keytable cache
+removed first so both sides rebuilt it:
+
+| test | master | this branch | delta |
+|---|---|---|---|
+| `engine-buffered-preedit` | 0.33 s | 0.29 s | noise |
+| `engine-golden-judgement` | 0.65 s | 0.72 s | +0.07 s (4 more cases) |
+| `modes-metrics-selfcheck` | 7.70 s | 7.68 s | noise |
+| `modes-gates-selfcheck` | 0.07 s | 0.07 s | — |
+| `docs-lint` | 8.05 s | 8.67 s | noise |
+| `req-map` | 1.29 s | 1.40 s | noise |
+
+No budget line moves. What is added is 4 golden cases, 4 tier-A cases and two
+selfcheck assertions; what is *not* added is a test that replays a corpus, because
+the corpus lives outside the repository and a ctest that needed one would be red
+in a fresh worktree.
