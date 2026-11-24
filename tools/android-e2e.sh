@@ -1173,6 +1173,37 @@ dump_ui /sdcard/kptxt.xml | grep -q 'content-desc="key:q"' \
   || fail "the text grid did not return after the picker round"
 echo "기호 swipe-up -> picker -> extended panel -> commit -> 기호 1 -> 한/영 (KP10/KP9)"
 
+# #312's provisional pages: the picker lists all four; math and kaomoji
+# commit through the same seam (kaomoji = whole strings, the multiChar path).
+swipe_up_on 'fn:symbols-page'
+PICK="$(dump_ui /sdcard/kppick2.xml)"
+for item in '확장 기호' '수식 기호' '이모지' '카모지'; do
+  printf '%s' "$PICK" | grep -q "$item" \
+    || fail "the picker does not list '$item' (provisional pages shipped)"
+done
+tap_node '수식 기호'
+sleep 0.5
+dump_ui /sdcard/kpmath.xml | grep -q 'content-desc="symbol:−"' \
+  || fail "the math page did not open"
+tap_desc 'symbol:−'
+GM="$(field_text)"
+case "$GM" in *'−') : ;; *) fail "math tap: expected a trailing '−', got '$GM'" ;; esac
+tap_desc 'fn:symbols-tier1'
+tap_desc 'fn:language-toggle'
+sleep 1
+swipe_up_on 'fn:symbols-page'
+tap_node '카모지'
+sleep 0.5
+dump_ui /sdcard/kpkao.xml | grep -q 'content-desc="symbol:(´・ω・｀)"' \
+  || fail "the kaomoji list did not open (classics present)"
+tap_desc 'symbol:(´・ω・｀)'
+GK="$(field_text)"
+case "$GK" in *'(´・ω・｀)') : ;; *) fail "kaomoji tap: expected the whole string committed, got '$GK'" ;; esac
+tap_desc 'fn:symbols-tier1'
+tap_desc 'fn:language-toggle'
+sleep 1
+echo "picker lists 4 pages; math and kaomoji commit whole entries (provisional lists)"
+
 # KP7's decided shift state machine: swipe-up on shift LOCKS capslock (the
 # bit holds across keys), a tap on shift releases it.
 restore_surface || fail "cannot restore for the capslock round"

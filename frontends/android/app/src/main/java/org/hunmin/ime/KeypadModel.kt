@@ -482,6 +482,24 @@ object KeypadModel {
             }
         }
 
+    /**
+     * KP18's kaomoji page: a full-width LIST, one string per row — a kaomoji
+     * is wider than a grid key. Same Kind.SYMBOL commit path (the whole
+     * string commits through the flush-then-commit seam, KP11).
+     */
+    fun kaomojiRows(screen: SymbolScreen): List<List<KeypadKey>> =
+        screen.rows.map { row ->
+            row.keys.map { id ->
+                when (row.kind) {
+                    SymbolScreen.Kind.SYMBOLS ->
+                        KeypadKey(id, id, KeypadKey.Kind.SYMBOL, -1)
+                    SymbolScreen.Kind.FUNCTION ->
+                        if (id == "language-toggle") KeypadKey(id, "한/영", KeypadKey.Kind.MODE, -1)
+                        else KeypadKey(id, "기호 1", KeypadKey.Kind.SYMBOLS_PAGE, -1)
+                }
+            }
+        }
+
     private fun functionLabel(id: String): String = when (id) {
         "backspace" -> "⌫"
         "tab" -> "⇥"
@@ -557,7 +575,7 @@ enum class DeleteUnit(val pref: String, val label: String) {
  * No capslock — the state machine beyond one-shot is open (KP7).
  */
 class KeypadState {
-    enum class Page { TEXT, SYMBOLS, EXTENDED }
+    enum class Page { TEXT, SYMBOLS, EXTENDED, MATH, EMOJI, KAOMOJI }
 
     var page: Page = Page.TEXT
         private set
@@ -611,10 +629,9 @@ class KeypadState {
      * that have data, wrapping; a no-op when only one set exists. The reading
      * (pages, not row-groups) is recorded in SPEC KP10 for correction.
      */
-    fun cycleSymbolSet(forward: Boolean, extendedAvailable: Boolean) {
-        if (page != Page.SYMBOLS && page != Page.EXTENDED) return
-        val sets = if (extendedAvailable) listOf(Page.SYMBOLS, Page.EXTENDED)
-                   else listOf(Page.SYMBOLS)
+    fun cycleSymbolSet(forward: Boolean, available: List<Page>) {
+        if (page == Page.TEXT || page !in available) return
+        val sets = available.filter { it != Page.TEXT }
         if (sets.size < 2) return
         val i = sets.indexOf(page)
         page = sets[(i + (if (forward) 1 else sets.size - 1)) % sets.size]
@@ -634,9 +651,16 @@ class KeypadState {
      * MEASURED 2026-11-23: skipping that left the stale default and the
      * return key toggled to 한 instead of restoring 영.
      */
-    fun enterExtended(hangulMode: Boolean) {
+    fun enterExtended(hangulMode: Boolean) = enterSymbolPage(Page.EXTENDED, hangulMode)
+
+    /**
+     * KP10's picker opened a symbol page (#312). From TEXT this IS the entry,
+     * so the KP9 return memory is set; from a symbol page it is kept.
+     */
+    fun enterSymbolPage(target: Page, hangulMode: Boolean) {
+        require(target != Page.TEXT) { "a symbol page, not TEXT" }
         if (page == Page.TEXT) symbolsEnteredHangul = hangulMode
-        page = Page.EXTENDED
+        page = target
         shiftArmed = false
         capsLocked = false
     }

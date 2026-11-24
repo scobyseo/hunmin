@@ -122,24 +122,31 @@ class KeypadGestureTest {
 
     @Test
     fun symbolSetCyclingWrapsOverThePagesThatHaveData() {
+        val two = listOf(KeypadState.Page.SYMBOLS, KeypadState.Page.EXTENDED)
         val s = KeypadState()
         s.enterSymbols(hangulMode = true)
-        s.cycleSymbolSet(forward = true, extendedAvailable = true)
+        s.cycleSymbolSet(forward = true, available = two)
         assertEquals(KeypadState.Page.EXTENDED, s.page)
-        s.cycleSymbolSet(forward = true, extendedAvailable = true)   // wraps
+        s.cycleSymbolSet(forward = true, available = two)   // wraps
         assertEquals(KeypadState.Page.SYMBOLS, s.page)
-        s.cycleSymbolSet(forward = false, extendedAvailable = true)  // back wraps
+        s.cycleSymbolSet(forward = false, available = two)  // back wraps
         assertEquals(KeypadState.Page.EXTENDED, s.page)
         // One set only: a no-op, not a jump to text.
-        s.cycleSymbolSet(forward = true, extendedAvailable = false)
+        s.cycleSymbolSet(forward = true, available = listOf(KeypadState.Page.SYMBOLS))
         assertEquals(KeypadState.Page.EXTENDED, s.page)
-        s.returnToSymbols()
-        s.cycleSymbolSet(forward = true, extendedAvailable = false)
-        assertEquals(KeypadState.Page.SYMBOLS, s.page)
         // From TEXT the cycle does nothing (the gesture lives on symbol keys).
         s.returnToText()
-        s.cycleSymbolSet(forward = true, extendedAvailable = true)
+        s.cycleSymbolSet(forward = true, available = two)
         assertEquals(KeypadState.Page.TEXT, s.page)
+        // All five sets cycle in picker order (#312 provisional pages).
+        val all = listOf(KeypadState.Page.SYMBOLS, KeypadState.Page.EXTENDED,
+            KeypadState.Page.MATH, KeypadState.Page.EMOJI, KeypadState.Page.KAOMOJI)
+        s.enterSymbols(hangulMode = true)
+        for (expected in listOf(KeypadState.Page.EXTENDED, KeypadState.Page.MATH,
+            KeypadState.Page.EMOJI, KeypadState.Page.KAOMOJI, KeypadState.Page.SYMBOLS)) {
+            s.cycleSymbolSet(forward = true, available = all)
+            assertEquals(expected, s.page)
+        }
     }
 
     @Test

@@ -170,6 +170,9 @@ class HunminInputMethodService : InputMethodService() {
     /** The app-read symbol screen (KP11, #297), parsed once from the asset. */
     private var symbolScreen: SymbolScreen? = null
     private var extendedScreen: SymbolScreen? = null
+    private var mathScreen: SymbolScreen? = null
+    private var emojiScreen: SymbolScreen? = null
+    private var kaomojiScreen: SymbolScreen? = null
 
     /** Where HunminDataInstaller extracted the engine's tables; the keypad
      *  reads the SAME layout files for keycap labels (design §2). */
@@ -352,6 +355,27 @@ class HunminInputMethodService : InputMethodService() {
             SymbolScreen.parse(assets.open("keypad/symbols-extended.json").readBytes().toString(Charsets.UTF_8))
         } catch (e: Exception) {
             Log.e(TAG, "hunmin: keypad/symbols-extended.json unusable; extended page disabled", e)
+            null
+        }
+        /* #312's provisional pages (2026-11-23 '일단 구현' direction): math,
+         * emoji (strings: U+FE0F), kaomoji (strings). Same app-read pattern;
+         * each disables itself loudly at parse, the picker lists what loaded. */
+        mathScreen = try {
+            SymbolScreen.parse(assets.open("keypad/symbols-math.json").readBytes().toString(Charsets.UTF_8))
+        } catch (e: Exception) {
+            Log.e(TAG, "hunmin: keypad/symbols-math.json unusable; math page disabled", e)
+            null
+        }
+        emojiScreen = try {
+            SymbolScreen.parse(assets.open("keypad/symbols-emoji.json").readBytes().toString(Charsets.UTF_8), multiChar = true)
+        } catch (e: Exception) {
+            Log.e(TAG, "hunmin: keypad/symbols-emoji.json unusable; emoji page disabled", e)
+            null
+        }
+        kaomojiScreen = try {
+            SymbolScreen.parse(assets.open("keypad/kaomoji.json").readBytes().toString(Charsets.UTF_8), multiChar = true)
+        } catch (e: Exception) {
+            Log.e(TAG, "hunmin: keypad/kaomoji.json unusable; kaomoji page disabled", e)
             null
         }
         ctx = HunminNativeBridge.nativeCtxNew(dataDir.absolutePath)
@@ -1194,6 +1218,9 @@ class HunminInputMethodService : InputMethodService() {
         val pad = KeypadView(this)
         pad.setSymbols(symbolScreen)
         pad.setExtended(extendedScreen)
+        pad.setMath(mathScreen)
+        pad.setEmoji(emojiScreen)
+        pad.setKaomoji(kaomojiScreen)
         pad.onCharacterKey = { keyCode, metaState -> dispatchTouchKey(keyCode, metaState) }
         pad.onSymbol = { ch -> commitSymbolFromTouch(ch) }
         pad.onToggleLanguage = { toggleHangulEnglish() }
@@ -1382,7 +1409,7 @@ class HunminInputMethodService : InputMethodService() {
         // extended panel (#312). A character in neither is a caller bug, not
         // something to silently type. MEASURED: validating against Tier 1 only
         // rejected the extended panel's own symbols (the picker round read '').
-        val screen = listOfNotNull(symbolScreen, extendedScreen)
+        val screen = listOfNotNull(symbolScreen, extendedScreen, mathScreen, emojiScreen, kaomojiScreen)
             .firstOrNull { ch in it.symbols } ?: return
         touchEngine?.commitWord(target)
         adoptJudgement(touchEngine)

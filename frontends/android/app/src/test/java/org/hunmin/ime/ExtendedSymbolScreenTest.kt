@@ -33,11 +33,14 @@ class ExtendedSymbolScreenTest {
     @Test
     fun everyExtendedSymbolCommitsExactlyItsCharacter() {
         val screen = load()
-        // The designed panel is 4x10 (KP9); the arrangement itself is the
-        // Python checker's contract, not restated here.
+        // 10 per row (KP9); the ruled base is the first four rows, the rest
+        // are the provisional additions (2026-11-23 '일단 구현' direction).
+        // The arrangement itself is the Python checker's contract, not
+        // restated here.
         val symbolRows = screen.rows.filter { it.kind == SymbolScreen.Kind.SYMBOLS }
-        assertEquals(listOf(10, 10, 10, 10), symbolRows.map { it.keys.size })
-        assertEquals(40, screen.symbols.size)
+        assertTrue(symbolRows.size >= 4)
+        for (row in symbolRows) assertEquals(10, row.keys.size)
+        assertEquals(60, screen.symbols.size)
         for (key in screen.symbols) {
             val ic = RecordingInputConnection()
             screen.commitSymbol(key, ic)

@@ -124,6 +124,21 @@ Mostly settled by the ruling; what remains is mechanism:
   Swipe-down on text keys and the 기호 key is UNRULED — a NONE cell, not a
   silent copy of swipe-up. E1 pins the table + state; the E2E gesture round
   verifies capslock lock/release and the set cycle on the AVD.
+- **Provisional lists shipped (2026-11-23)** — under the maintainer's
+  direction "심볼 목록은 일단 구현해 보고 사용성을 평가하면서 개선해보자" and
+  "다른 ime가 제공하는 심볼 목록도 참조해 보자" (verbatim in SPEC KP10):
+  확장 기호 = the ruled 40 base + 20 additions (6×10, weakest five trimmed);
+  수식 기호 = the proposed 40; 이모지 = curated 40 from symbl popular (emoji
+  subset, U+FE0F kept); 카모지 = curated 30 (classics the site lacks +
+  font-safe site members), a full-width scrollable list with the mode row
+  FIXED below (measured: inside the scroll it took 30 rows to reach 기호 1).
+  Other IMEs' lists surveyed (`docs/ANDROID-KOREAN-IME-SURVEY.md` §6): the
+  shape families match FlorisBoard/HeliBoard popups, no surveyed IME has a
+  dedicated math page or kaomoji, bundled curated emoji is shippable prior
+  art. Every list is marked PROVISIONAL in its own `source`; the checker
+  pins structure + the ruled base, never the unruled assignment. **The
+  usability evaluation is the next step** (device use, font verification,
+  a Korean chat register would re-rank) — improvements are data edits.
 - **Phase 2 implemented (2026-11-23)**: the popup picker above the 기호 key
   (DECIDED), the extended page as app-read data (the designed 40-panel,
   checker-contracted), the 기호 slot restored on Tier 1 (KP9), page state

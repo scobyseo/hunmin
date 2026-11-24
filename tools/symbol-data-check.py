@@ -33,6 +33,9 @@ from pathlib import Path
 DEFAULT = (Path(__file__).resolve().parent.parent
            / "frontends/android/app/src/main/assets/keypad/symbols.json")
 DEFAULT_EXTENDED = DEFAULT.with_name("symbols-extended.json")
+DEFAULT_MATH = DEFAULT.with_name("symbols-math.json")
+DEFAULT_EMOJI = DEFAULT.with_name("symbols-emoji.json")
+DEFAULT_KAOMOJI = DEFAULT.with_name("kaomoji.json")
 
 # KP6, ruled 2026-11-22 (verbatim arrangement; grouped []{} and ,.<>, ` first).
 RULED_SYMBOL_ROWS = [
@@ -147,8 +150,48 @@ def validate(data):
     return errors
 
 
-def validate_extended(data):
-    """Contract errors for the extended page (the designed Tier 2 panel)."""
+def _font_safe(ch):
+    """The commonly-rendered-block heuristic (a SCREEN, not a device test).
+
+    Shared with the snskeyboard extraction: basic Latin..Latin extensions,
+    general punctuation/arrows/math/misc symbols/dingbats, CJK+kana+Hangul,
+    fullwidth forms, variation selectors + CJK compatibility forms, emoji.
+    Device font verification is the usability evaluation's job (G1).
+    """
+    cp = ord(ch)
+    return (cp < 0x2000 or 0x2000 <= cp <= 0x2BFF
+            or 0x3000 <= cp <= 0x30FF
+            or 0x3130 <= cp <= 0x318F or 0xAC00 <= cp <= 0xD7A3
+            or 0x4E00 <= cp <= 0x9FFF or 0xFF00 <= cp <= 0xFFEF
+            or 0xFE00 <= cp <= 0xFE4F or 0x1F000 <= cp <= 0x1FAFF)
+
+
+def _single_cat(cats):
+    def ok(k):
+        return (isinstance(k, str) and len(k) == 1 and ord(k) > 0x7F
+                and unicodedata.category(k)[0] in cats)
+    return ok
+
+
+def _emoji_entry(k):
+    # 1-2 codepoints; U+FE0F (emoji presentation) the only allowed second.
+    return (isinstance(k, str) and 1 <= len(k) <= 2
+            and unicodedata.category(k[0])[0] in ("P", "S")
+            and (len(k) == 1 or k[1] == "\uFE0F"))
+
+
+def _kaomoji_entry(k):
+    return isinstance(k, str) and len(k) >= 2 and all(_font_safe(c) for c in k)
+
+
+def validate_page(data, expected_id, key_ok, row_len=None, ruled_rows=None,
+                  one_per_row=False):
+    """Generic symbol-page contract (KP11 app-read pages, #312).
+
+    Structure is pinned; CONTENT is pinned only where ruled (ruled_rows —
+    the extended page's designed Tier 2 base). Provisional rows/lists are
+    checked structurally, never pinned to an unruled assignment.
+    """
     errors = []
 
     def err(msg):
@@ -164,8 +207,8 @@ def validate_extended(data):
             err(f"missing required key {req!r}")
     if data.get("schemaVersion") != 1:
         err(f"schemaVersion must be 1, got {data.get('schemaVersion')!r}")
-    if data.get("id") != "keypad-symbols-extended":
-        err(f"id must be 'keypad-symbols-extended', got {data.get('id')!r}")
+    if data.get("id") != expected_id:
+        err(f"id must be {expected_id!r}, got {data.get('id')!r}")
     for banned in ("engine", "mode", "compose", "keys", "libhangulType", "variants"):
         if banned in data:
             err(f"engine-layout field {banned!r} must not appear in app-read data (KP11)")
@@ -186,9 +229,12 @@ def validate_extended(data):
             continue
         if kind == "symbols":
             for k in keys:
-                if not (isinstance(k, str) and len(k) == 1 and ord(k) > 0x7F
-                        and unicodedata.category(k)[0] in ("P", "S")):
-                    err(f"{where}: {k!r} is not a single non-ASCII punctuation/symbol character")
+                if not key_ok(k):
+                    err(f"{where}: {k!r} fails the page's character contract")
+            if row_len is not None and len(keys) != row_len:
+                err(f"{where}: expected {row_len} keys per row (KP9), got {len(keys)}")
+            if one_per_row and len(keys) != 1:
+                err(f"{where}: the kaomoji list is one entry per row, got {len(keys)}")
             symbol_rows.append(keys)
         elif kind == "function":
             for k in keys:
@@ -197,9 +243,11 @@ def validate_extended(data):
             function_keys.extend(keys)
         else:
             err(f"{where}: unknown kind {kind!r}")
-    if symbol_rows != RULED_EXTENDED_ROWS:
-        err("symbol rows do not match the designed Tier 2 panel "
-            f"(expected {RULED_EXTENDED_ROWS!r}, got {symbol_rows!r})")
+    if ruled_rows is not None:
+        base = symbol_rows[:len(ruled_rows)]
+        if base != ruled_rows:
+            err("the ruled base rows do not match the designed Tier 2 panel "
+                f"(expected {ruled_rows!r}, got {base!r})")
     flat = [k for r in symbol_rows for k in r if isinstance(k, str)]
     if len(flat) != len(set(flat)):
         err("duplicate symbol keys")
@@ -207,8 +255,30 @@ def validate_extended(data):
         err("duplicate function ids")
     for banned in ("space", "enter", "backspace"):
         if banned in function_keys:
-            err(f"KP9: {banned!r} must not appear on the extended page (no editing keys)")
+            err(f"KP9: {banned!r} must not appear on a symbol page (no editing keys)")
     return errors
+
+
+def validate_extended(data):
+    # The first four rows are the RULED Tier 2 panel (pinned); rows beyond
+    # are provisional additions (2026-11-23 '일단 구현' direction), checked
+    # structurally: 10 per row, non-ASCII P*/S*, no duplicates.
+    return validate_page(data, "keypad-symbols-extended", _single_cat(("P", "S")),
+                         row_len=10, ruled_rows=RULED_EXTENDED_ROWS)
+
+
+def validate_math(data):
+    # Content provisional; N* allowed (superscripts/fractions are numbers).
+    return validate_page(data, "keypad-symbols-math", _single_cat(("P", "S", "N")),
+                         row_len=10)
+
+
+def validate_emoji(data):
+    return validate_page(data, "keypad-symbols-emoji", _emoji_entry, row_len=10)
+
+
+def validate_kaomoji(data):
+    return validate_page(data, "keypad-kaomoji", _kaomoji_entry, one_per_row=True)
 
 
 def selfcheck():
@@ -282,13 +352,75 @@ def selfcheck():
                lambda d: d["rows"][4].__setitem__("keys", ["language-toggle", "tier3"]))
     mutate_ext("duplicate symbol across rows",
                lambda d: d["rows"][1].__setitem__("keys", list("·」『』《》〈〉£¥")))
+    mutate_ext("provisional row with 9 keys",
+               lambda d: d["rows"].insert(4, {"kind": "symbols", "keys": list("―«»§¶†‡⇒✓")}))
+    mutate_ext("duplicate between ruled base and provisional row",
+               lambda d: d["rows"].insert(4, {"kind": "symbols", "keys": list("·―«»§¶†‡⇒✓✔")}))
+
+    def page_fixture(pid, rows):
+        return {"schemaVersion": 1, "id": pid, "name": {"en": "fixture"},
+                "source": "selfcheck fixture, not shipped data",
+                "rows": rows + [{"kind": "function",
+                                 "keys": ["language-toggle", "symbols-tier1"]}]}
+
+    math = page_fixture("keypad-symbols-math",
+                        [{"kind": "symbols", "keys": list(r)} for r in
+                         ["−±÷×∗≠≈≡≤≥", "≪≫∈∉⊂⊃∪∩∧∨", "¬∀∃∴∵∞√∫∂∑", "°′″‰²³¼½¾℃"]])
+    if validate_math(math):
+        failures.append(f"minimal math document rejected: {validate_math(math)}")
+
+    def mutate_math(name, fn):
+        doc = json.loads(json.dumps(math))
+        fn(doc)
+        if not validate_math(doc):
+            failures.append(f"negative math fixture accepted: {name}")
+
+    mutate_math("letter on the math page",
+                lambda d: d["rows"][0].__setitem__("keys", list("a±÷×∗≠≈≡≤≥")))
+    mutate_math("nine keys in a math row",
+                lambda d: d["rows"][0].__setitem__("keys", list("−±÷×∗≠≈≡≤")))
+
+    emoji = page_fixture("keypad-symbols-emoji",
+                         [{"kind": "symbols", "keys": ["😂", "❤️", "😍", "🤣", "😊", "🙏", "💕", "😭", "🔥", "😘"]}])
+    if validate_emoji(emoji):
+        failures.append(f"minimal emoji document rejected: {validate_emoji(emoji)}")
+
+    def mutate_emoji(name, fn):
+        doc = json.loads(json.dumps(emoji))
+        fn(doc)
+        if not validate_emoji(doc):
+            failures.append(f"negative emoji fixture accepted: {name}")
+
+    mutate_emoji("three-codepoint entry",
+               lambda d: d["rows"][0]["keys"].__setitem__(1, "❤️‍🔥"))
+    mutate_emoji("ZWJ sequence not in the curated contract",
+               lambda d: d["rows"][0]["keys"].__setitem__(0, "👩‍💻"))
+
+    kao = page_fixture("keypad-kaomoji",
+                       [{"kind": "symbols", "keys": ["(´・ω・｀)"]},
+                        {"kind": "symbols", "keys": ["¯\\_(ツ)_/¯"]}])
+    if validate_kaomoji(kao):
+        failures.append(f"minimal kaomoji document rejected: {validate_kaomoji(kao)}")
+
+    def mutate_kao(name, fn):
+        doc = json.loads(json.dumps(kao))
+        fn(doc)
+        if not validate_kaomoji(doc):
+            failures.append(f"negative kaomoji fixture accepted: {name}")
+
+    mutate_kao("rare-block character (Egyptian hieroglyph)",
+               lambda d: d["rows"][0].__setitem__("keys", ["(𓈒◕‿◕)"]))
+    mutate_kao("two entries in one list row",
+               lambda d: d["rows"][0].__setitem__("keys", ["(^_^)", "(T_T)"]))
     return failures
 
 
 def main():
     # No args: both shipped files. One arg: the Tier 1 screen only (the
     # historical CLI); two: both, explicitly.
-    targets = [(DEFAULT, validate), (DEFAULT_EXTENDED, validate_extended)]
+    targets = [(DEFAULT, validate), (DEFAULT_EXTENDED, validate_extended),
+               (DEFAULT_MATH, validate_math), (DEFAULT_EMOJI, validate_emoji),
+               (DEFAULT_KAOMOJI, validate_kaomoji)]
     if len(sys.argv) == 2:
         targets = [(Path(sys.argv[1]), validate)]
     elif len(sys.argv) == 3:

@@ -393,6 +393,17 @@ Symbol-screen navigation — decided (2026-11-23, verbatim):
 > "기호 화면에서 swipe-up / down으로 다음 기호 조합으로 이동하게 하자. swipe left
 > 는 backspace 동작 유지."
 
+The lists' lifecycle — direction (2026-11-23, verbatim):
+
+> "심볼 목록은 일단 구현해 보고 사용성을 평가하면서 개선해보자."
+> "다른 ime가 제공하는 심볼 목록도 참조해 보자"
+
+So the symbol lists ship PROVISIONALLY, are evaluated in use, and improved;
+other IMEs' lists are a reference (measured in
+`docs/ANDROID-KOREAN-IME-SURVEY.md` §6). A provisional list is data marked as
+such in its own `source`, not a ruling — the checker pins structure and the
+ruled base, never the unruled assignment.
+
 So on the symbol screen, **swipe-up / swipe-down move to the next / previous
 symbol set**, and KP14's swipe-left delete is unchanged there. Reading
 (recorded, flag for correction): "기호 조합" = the symbol PAGES of the picker
@@ -423,9 +434,11 @@ ships the designed Tier 2 panel as app-read data (`keypad/symbols-extended.json`
 the 기호 slot is restored on the Tier 1 screen (KP9); page navigation and the
 KP9 returns are device-verified. The decided symbol-screen navigation is
 wired: swipe-up/down on a symbol key cycle the symbol sets (the recorded
-reading of "기호 조합"), swipe-left stays KP14 backspace. The math/emoji/
-kaomoji pages await their inventory rulings — the picker is data-driven and
-grows with them; the selection criteria are proposed in the design doc. The
+reading of "기호 조합"), swipe-left stays KP14 backspace. The four symbol
+pages ship PROVISIONALLY under the 2026-11-23 direction above: 확장 기호
+(the ruled 40 base + 20 additions, 6×10), 수식 기호 (40), 이모지 (curated 40),
+카모지 (curated 30, a full-width list) — picker data-driven, usability
+evaluation is the next step; selection criteria proposed in the design doc. The
 off-target variant-mapping implementation was removed (drift record above);
 design: `docs/DESIGN-ANDROID-SYMBOL-GESTURES.md`. *Verified by:*
 keypad-symbol-data; engine-android-e1; engine-android-e2e (picker round).
@@ -729,4 +742,10 @@ recommendation are in `docs/DESIGN-ANDROID-SYMBOL-GESTURES.md` §6. The entry
 mechanism is KP10's picker; the data home is KP11's app-read pattern. Kaomoji
 are **strings, not single-character keys**, so the symbol data contract needs
 a string-page kind — a frontend data-contract extension, no engine change.
-*Implementation:* none. *Refuted by:* none yet.
+*Implementation:* partial (#312, 2026-11-23) — a provisional curated page
+(30: the classics the reference site lacks + font-safe members of its
+9,419) ships as `keypad/kaomoji.json`, a scrollable full-width list with the
+mode row fixed below (KP9); whole strings commit through the flush-then-
+commit seam; E1 commit golden + E2E picker round verify. Device font
+verification and the inventory's growth are the usability evaluation's work.
+*Refuted by:* none yet.

@@ -28,6 +28,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.PopupWindow
+import android.widget.ScrollView
 import android.widget.TextView
 
 class KeypadView(context: Context) : LinearLayout(context) {
@@ -61,6 +62,9 @@ class KeypadView(context: Context) : LinearLayout(context) {
     private var latinCaps: KeypadKeycaps? = null
     private var symbols: SymbolScreen? = null
     private var extended: SymbolScreen? = null
+    private var math: SymbolScreen? = null
+    private var emoji: SymbolScreen? = null
+    private var kaomoji: SymbolScreen? = null
     private var hangulMode = true
 
     /* The mockup's palette (docs/android-keypad-mockup.html :root). The picture
@@ -98,10 +102,19 @@ class KeypadView(context: Context) : LinearLayout(context) {
         rebuild()
     }
 
-    /** KP10's extended-symbols page (the designed Tier 2 panel, #312). */
-    fun setExtended(screen: SymbolScreen?) {
-        extended = screen
-        rebuild()
+    /** KP10's symbol pages (#312): extended / math / emoji / kaomoji. */
+    fun setExtended(screen: SymbolScreen?) { extended = screen; rebuild() }
+    fun setMath(screen: SymbolScreen?) { math = screen; rebuild() }
+    fun setEmoji(screen: SymbolScreen?) { emoji = screen; rebuild() }
+    fun setKaomoji(screen: SymbolScreen?) { kaomoji = screen; rebuild() }
+
+    /** The symbol sets that have data — the picker lists and cycle order. */
+    private fun availableSets(): List<KeypadState.Page> = buildList {
+        add(KeypadState.Page.SYMBOLS)
+        if (extended != null) add(KeypadState.Page.EXTENDED)
+        if (math != null) add(KeypadState.Page.MATH)
+        if (emoji != null) add(KeypadState.Page.EMOJI)
+        if (kaomoji != null) add(KeypadState.Page.KAOMOJI)
     }
 
     /** The service's mode changed (toggle, judgement, new editor). */
@@ -123,6 +136,34 @@ class KeypadView(context: Context) : LinearLayout(context) {
                 symbols?.let { KeypadModel.symbolRows(it) } ?: emptyList()
             KeypadState.Page.EXTENDED ->
                 extended?.let { KeypadModel.symbolRows(it) } ?: emptyList()
+            KeypadState.Page.MATH ->
+                math?.let { KeypadModel.symbolRows(it) } ?: emptyList()
+            KeypadState.Page.EMOJI ->
+                emoji?.let { KeypadModel.symbolRows(it) } ?: emptyList()
+            KeypadState.Page.KAOMOJI -> {
+                // KP18: a scrollable full-width LIST (a kaomoji is wider than
+                // a grid key); a 5-row viewport keeps the IME window bounded.
+                val scr = kaomoji
+                if (scr != null) {
+                    val all = KeypadModel.kaomojiRows(scr)
+                    val inner = LinearLayout(context)
+                    inner.orientation = VERTICAL
+                    // Only the kaomoji rows scroll; the MODE row stays fixed
+                    // below (KP9: the mode keys keep their slots, always
+                    // visible — measured: inside the scroll it took 30 rows
+                    // of scrolling to reach 기호 1).
+                    for (row in all.filter { r -> r.any { it.kind == KeypadKey.Kind.SYMBOL } }) {
+                        inner.addView(rowView(row))
+                    }
+                    val scroll = ScrollView(context)
+                    scroll.addView(inner, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+                    addView(scroll, LayoutParams(LayoutParams.MATCH_PARENT, dp(255)))
+                    for (row in all.filter { r -> r.none { it.kind == KeypadKey.Kind.SYMBOL } }) {
+                        addView(rowView(row))
+                    }
+                }
+                emptyList()   // the scroll view + fixed mode row carry the page
+            }
         }
         for (row in rows) addView(rowView(row))
     }
@@ -332,11 +373,11 @@ class KeypadView(context: Context) : LinearLayout(context) {
             GestureAction.SYMBOL_PICKER -> showPicker(anchor)
             GestureAction.CAPSLOCK -> { state.capsLock(); rebuild() }
             GestureAction.NEXT_SYMBOL_SET -> {
-                state.cycleSymbolSet(forward = true, extendedAvailable = extended != null)
+                state.cycleSymbolSet(forward = true, available = availableSets())
                 rebuild()
             }
             GestureAction.PREV_SYMBOL_SET -> {
-                state.cycleSymbolSet(forward = false, extendedAvailable = extended != null)
+                state.cycleSymbolSet(forward = false, available = availableSets())
                 rebuild()
             }
             else -> Unit
@@ -403,8 +444,8 @@ class KeypadView(context: Context) : LinearLayout(context) {
                 }
                 // 기호 on its own page: tap stays (the gesture opens the picker).
                 KeypadState.Page.SYMBOLS -> Unit
-                // 기호 1 on the extended page: back to Tier 1 (KP9's mode row).
-                KeypadState.Page.EXTENDED -> {
+                // 기호 1 on any other symbol page: back to Tier 1 (KP9's mode row).
+                else -> {
                     state.returnToSymbols()
                     rebuild()
                 }
@@ -424,7 +465,10 @@ class KeypadView(context: Context) : LinearLayout(context) {
      */
     private fun showPicker(anchor: View) {
         val pages = buildList {
-            if (extended != null) add("확장 기호" to { state.enterExtended(hangulMode); rebuild() })
+            if (extended != null) add("확장 기호" to { state.enterSymbolPage(KeypadState.Page.EXTENDED, hangulMode); rebuild() })
+            if (math != null) add("수식 기호" to { state.enterSymbolPage(KeypadState.Page.MATH, hangulMode); rebuild() })
+            if (emoji != null) add("이모지" to { state.enterSymbolPage(KeypadState.Page.EMOJI, hangulMode); rebuild() })
+            if (kaomoji != null) add("카모지" to { state.enterSymbolPage(KeypadState.Page.KAOMOJI, hangulMode); rebuild() })
         }
         if (pages.isEmpty()) return
         val list = LinearLayout(context)
