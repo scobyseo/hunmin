@@ -26,6 +26,9 @@ hunmin_add_test(NAME modes-metrics-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMA
 # G1/G2 are graded from a metrics report by autoswitch-gates.py; the checker's
 # own guards need no corpus and no built engine (issue #291).
 hunmin_add_test(NAME modes-gates-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/autoswitch-gates.py --selfcheck LABELS tier-G)
+# Track 4 prefix-match measurement guard (issue #300): fixture aggregates,
+# greedy-vs-optimal gap, negative control. No corpus, no engine needed.
+hunmin_add_test(NAME hanja-prefix-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/measure-hanja-prefix.py --selfcheck LABELS tier-G)
 # The nightly fuzz feed must stay inside hunmin-sim's --keys grammar. A bare
 # backslash used to abort the replay with an error-path leak (issue #309).
 hunmin_add_test(NAME fuzz-keys-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/fuzz-generate-keys.py --selfcheck --sim $<TARGET_FILE:hunmin-sim> --layout sin3-p2 LABELS tier-G)

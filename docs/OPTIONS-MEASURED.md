@@ -1,4 +1,4 @@
-# OPTIONS-MEASURED — eight cost questions, measured
+# OPTIONS-MEASURED — ten cost questions, measured
 
 Four documents that were one genre: a question nobody had priced, the options
 priced against each other, and the maintainer left to choose. They are one file
@@ -9,7 +9,7 @@ document, because an issue that asks a question and leaves it open belongs in
 the file that already holds the open ones; §HEK and §E5 followed the same way.
 
 Section keys are prefixed by subject (`MUT-`, `AND-`, `TST-`, `IC-`, `URM-`,
-`HEK-`, `E5-`, `PLT-`, `IBC-`) so a cross-document citation stays unambiguous:
+`HEK-`, `E5-`, `PLT-`, `IBC-`, `HPX-`) so a cross-document citation stays unambiguous:
 `docs/OPTIONS-MEASURED.md §AND-4.2` is the android sandbox's §4.2. `HEK` and `E5`
 are the two halves of issue #159 and are deliberately separate, because they
 answer different questions: **§HEK** measures whether each environment can
@@ -36,6 +36,7 @@ and are not a home anybody can cite as current.
 | E5 | the 한/영 key: what each single-press / compound-press assignment costs, and its premises | **assignment decided 2026-10-31**: single = manual switch, modifier + 한/영 = special-function namespace, default, remappable in the config dialog, all three frontends; per-function modifier still open (#159) |
 | IBC | the IBus frontend's config store and settings surface: the five option rows, where they live, what edits them, and how a test can touch them without touching the user's | **decided 2026-11-22**, see §IBC-4 — GSettings store, separate setup app, five rows, live apply, own binary package; implementation not started |
 | PLT | a second Linux frontend: which host mechanism it plugs into (IBus engine, XIM, immodules, Wayland IME) and what each costs | open (#289); the IBus row measured end to end on this host; scoped 2026-11-09 to adding an Ubuntu 22.04 distribution, which jammy's own package inventory turned into a frontend question; **the 22.04 target is decided the same day** — IBus only, fcitx5 given up for it (§PLT-7, `wiki/decisions/2026-11-09-the-22-04-release-ships-ibus-only.md`), while the other targets and the six sub-decisions stay open |
+| HPX | partial-match Hanja: how often a typed buffer has a dictionary prefix, and what recommending it saves in keystrokes against the single-syllable fallback | measured 2026-11-23 (#300, Track 4); the mechanism, the reopen behaviour and the pass line are #286's rulings, open |
 
 
 Why they were written this way: `AGENTS.md` — "the purpose of an analysis is to
@@ -3098,3 +3099,239 @@ trigger. The ruling chose A, so this is recorded as a cost, not as an open quest
   in §IBC-4's requirement bullet. No engine, frontend, layout or packaging change.
 - Issue #327 stays open: the ruling authorises implementation and verification, and neither
   exists yet.
+
+## HPX — partial-match Hanja: what prefix recommendation buys
+
+**Status: measured 2026-11-23 (issue #300, 0.4 Track 4); open.** The mechanism
+(engine-side vs frontend-side vs manual retype), the window re-open behaviour,
+the match rule and the keystroke-saved pass line are #286's rulings and belong
+to the maintainer. This section is the measurement those rulings asked for
+before any code: on the shipped tables, how often a typed Hangul buffer has a
+dictionary prefix, how long the prefix is, how many selection rounds an
+out-of-dictionary eojeol needs, and what that prices in keystrokes against the
+single-syllable fallback.
+
+Reproduce: `tools/measure-hanja-prefix.py` (guard: ctest `hanja-prefix-selfcheck`,
+tier-G — fixture aggregates computed by hand, the greedy-vs-optimal gap, a
+negative-savings case, and a negative control that must fail). The bulk pass
+reads the same JSON tables `candidate_tables.c` loads; `--verify` cross-checks
+the table view against `hunmin_suggest_count` on a frequency-ordered sample and
+times the probe. All three runs below verified 5,000 forms each with zero
+mismatches.
+
+### HPX-0 The premises, checked first
+
+- **The "single-char fallback" is not the same on every frontend.** TSF retries
+  the last syllable on a whole-word miss (`docs/SPEC-TSF.md` §TSF10,
+  `LastSyllableOf`). fcitx5 (`openCandidates`) and Android
+  (`HunminInputMethodService`, the Hanja lookup path) pass the whole preedit to
+  `hunmin_suggest_count`, which is exact-match only: on an out-of-dictionary
+  multi-syllable buffer F9 offers **nothing**, and the user converts
+  syllable-by-syllable while typing. The rounds model below is the same either
+  way — one selection per syllable — but the drift that option 2 fears is
+  already real: the fallback itself differs per frontend today.
+- **The shipped tables, counted from the files (not quoted from prose):**
+  krdict 33,184 entries, 31,253 distinct keys, of which 1,275 carry non-syllable
+  characters (affix markers like `-가`, spaces) and can never match a
+  pure-Hangul buffer; idioms 2,318 readings, all exactly four syllables; hanja
+  555 syllables, 19,236 entries — mean 34.7 candidates per syllable.
+  `libhunmin/data/krdict/LICENSE.md` still says 34,142 entries, stale since the
+  dedupe (issue #272); recorded here as drift, not edited here.
+- **The candidate page ceiling is 10 labels** — fcitx5 `kMaxCandidatePageSize`
+  (ruled 2026-10-13, issue #45, `tools/repro-f9-candidates.sh` settles it), TSF
+  the same 10-row page. Paging past it costs keys this model reports as
+  exposure, not as a priced term (HPX-1 assumption 6).
+- **The "window already re-opens" premise does not hold on fcitx5 today.**
+  #286 says the candidate window already re-opens per selection, so the
+  presentation half is mostly reuse. Read from the code: `commitCandidate`
+  resets the preedit and closes the window — nothing remains, and re-opening
+  takes a fresh composition and F9. The 1-key-per-round line (assumption 5) is
+  therefore **new behaviour to build, not reuse**, and the ~2× gain difference
+  between the two saved-keys rows is conditional on building it. The TSF and
+  Android post-selection paths were not audited here; the discrepancy with
+  #286's wording is recorded, not resolved — the older wording may encode an
+  intent the code has not caught up with.
+
+### HPX-1 The model — assumptions, parameterised, not rulings
+
+1. A "typed buffer" is one eojeol form from a frequency list, weighted by its
+   token count; form-weighted figures are reported beside them because the two
+   diverge by orders of magnitude (HPX-3).
+2. Only pure precomposed-syllable forms (가..힣) are measurable; exclusions are
+   counted in every report.
+3. "Has a dictionary prefix" means a **proper prefix of ≥2 syllables** that is
+   a krdict key or an idiom reading. A 1-syllable prefix is the existing
+   fallback, not a gain. The engine's ≥4-syllable idiom gate applies.
+4. **Full-conversion intent:** every syllable with a hanja reading gets
+   converted. Baseline rounds = one selection per hanja-capable syllable.
+   Prefix rounds = greedy longest dictionary match (≥2 syllables) per step,
+   else one syllable — a hanja selection if the syllable has a reading, a free
+   Hangul commit if not. A dynamic program computes the minimum-rounds
+   segmentation, so the greedy rule's gap to the best possible rule is
+   measured, not assumed away.
+5. Keystrokes: typing cost is identical under every option and drops out. A
+   baseline round costs F9 + one selection key (2). A prefix round costs one
+   selection key **if the window re-opens on the remainder by itself**, or
+   F9 + one key if it does not; both are reported, because the re-open
+   behaviour is an open #286 decision and it roughly doubles the benefit.
+6. Candidate paging is rank-dependent — which candidate the user wants is not
+   in a frequency list — so it is reported as exposure (candidates per round
+   vs the 10-label page), never folded into the headline.
+7. **Josa caveat:** the model converts every hanja-capable syllable, including
+   particles (`대한민국의` segments as `[대한민국](word) + [의](single)`). A user
+   who leaves the particle in Hangul pays one round less under **both** models,
+   so the saving delta is robust to that intent; the absolute round counts are
+   an upper bound. A josa-aware model needs morphology and was not built.
+
+### HPX-2 The corpora, pinned
+
+Three frequency lists, three registers, each sha256-pinned; none is "the"
+population — choosing the pass-line population is a ruling (#286). Bulk stays
+outside the repository; each report carries a tool-written `.meta.json` with
+the input pins, the command, the exclusions and the assumptions. Artefacts:
+`~/work/hunmin-measurements/t4-1-prefix/{kowiki,119,624}.json` (+ `.meta.json`).
+
+| corpus | register | forms | tokens | sha256 |
+|---|---|---|---|---|
+| `~/work/wikicorpus/full/hangul.txt` (count-form) | ko.wikipedia, CC BY-SA 4.0, shippable | 7,495,250 | 191,498,857 | `f8f7923523de7b456786b777a47e34e2ac1f8cb7de3464ba6cd833fbfa3c086a` |
+| `~/work/wikicorpus/119-clean/hangul.txt` (count-form) | AIHub 119 국가기록물, use/training only, byte-identical reproducible | 7,592,702 | 238,721,031 | `c05b26c5db9a7ef74c0dda63cb8952b6e187813e968400e58a550acfbc2ccca8` |
+| `~/work/aihub-records-corpus/624-ko.txt` (form-count) | AIHub 624 웹데이터, use/training only, **not reproducible** (original extraction unrecorded) | 12,588,072 | 1,016,338,031 | `e66aaa4f13102abab005db1468a81fea37313225d6441034fe1b490e91656b14` |
+
+The tables measured against (identical in all three runs): krdict
+`cbc651bc29d0e6b4bdf6673d0e63980a32e2335425e70a7b9fa27eb46c463b99`, idioms
+`9cb00e6403352d7af2d244d2c47f30ffd235797604374434438c76f79318c872`, hanja
+`e0f1f0d513c52c8e2f62ee799197f8c75cb0e3b95236a65ab8580197e3db0922`.
+
+Each register's bias is recorded in its own provenance and is not smoothed
+over here: the kowiki head is encyclopedia metalanguage (년/분류/월/일), 119 is
+official administrative prose (및/제/대한 connectives), 624 is web prose — the
+closest available proxy for typed text, and the one whose extraction cannot be
+reproduced. The token-weighted head is heavy: the top 200,000 kowiki forms
+alone carry 86% of its tokens, which is why form-weighted figures sit beside
+every token-weighted one.
+
+Commands (run from the checkout; `--verify` needs `build/libhunmin.so`):
+
+```sh
+tools/measure-hanja-prefix.py --corpus ~/work/wikicorpus/full/hangul.txt \
+    --format count-form --verify 5000 --out ~/work/hunmin-measurements/t4-1-prefix/kowiki.json
+tools/measure-hanja-prefix.py --corpus ~/work/wikicorpus/119-clean/hangul.txt \
+    --format count-form --verify 5000 --out ~/work/hunmin-measurements/t4-1-prefix/119.json
+tools/measure-hanja-prefix.py --corpus ~/work/aihub-records-corpus/624-ko.txt \
+    --format form-count --verify 5000 --out ~/work/hunmin-measurements/t4-1-prefix/624.json
+```
+
+### HPX-3 What was measured
+
+Token-weighted, over the multi-syllable population (single-syllable tokens are
+12–14% of each corpus and are reported in the artefacts, excluded here because
+no prefix mechanism can act on them):
+
+| quantity | kowiki | 119 | 624 |
+|---|---|---|---|
+| multi-syllable tokens | 164,666,438 | 207,538,428 | 893,110,612 |
+| exact dictionary hit, tokens | 22.27% | 23.95% | 17.88% |
+| exact dictionary hit, **forms** | 0.34% | 0.29% | 0.21% |
+| OOV tokens with a ≥2-syllable proper prefix | 38.29% | 63.12% | 46.28% |
+| mean longest proper prefix (syllables) | 2.13 | 2.11 | 2.13 |
+| prefix tokens whose longest prefix is exactly 2 | 88.8% | 90.1% | 88.2% |
+| rounds per OOV token: baseline → greedy → optimal | 2.71 → 2.16 → 2.16 | 3.30 → 2.27 → 2.27 | 2.81 → 2.13 → 2.13 |
+| greedy = optimal, token share | 99.93% | 99.92% | 99.93% |
+| OOV tokens saving ≥1 round | 43.2% | 67.3% | 50.2% |
+| selection keys per OOV token: baseline | 5.43 | 6.59 | 5.61 |
+| saved keys per 1,000 multi tokens, window re-opens | 2,542 | 3,288 | 2,861 |
+| saved keys per 1,000 multi tokens, F9 each round | 866 | 1,561 | 1,113 |
+
+Candidate exposure (the 10-label page, assumption 6):
+
+| round class | mean candidates | rounds over the page |
+|---|---|---|
+| baseline single-syllable rounds | 50–52 | 89.7–91.0% |
+| prefix single-syllable rounds (the remainder) | 44.6–47.5 | 81.2–84.8% |
+| prefix **dictionary** rounds (word/idiom) | 1.23–1.24 | **0%** |
+
+Lookup cost: the warm exact-match probe — the operation a prefix search
+repeats per candidate length — measures **1.9–2.0 µs** per
+`hunmin_suggest_count` call (5,000 timed probes per corpus, first call excluded
+because the tables load lazily). A longest-prefix search is at most one probe
+per syllable of the buffer per round: microseconds per F9. The existing sorted
+array + binary search is a viable starting structure; no new index is urgent.
+
+Worked examples from the artefacts (rounds baseline → greedy): `대한민국의`
+5 → 2 (`[대한민국] + [의]`), `일반적으로` 4 → 2 (`[일반적] + [으] + [로]`, 으 has
+no hanja reading and commits free), `국가대표팀` 4 → 1 (`[국가대표] + [팀]`),
+624's `관계자는` 3 → 1 (`[관계자] + [는]`).
+
+**Findings, not rulings:**
+
+- Prefix coverage is substantial and register-dependent: administrative prose
+  (119) has the most Sino-Korean compounds and the highest prefix rate; the
+  exact-hit rate's token/form divergence (22% vs 0.3%) says the dictionary
+  covers the frequent head and almost none of the long tail — which is exactly
+  the population a prefix mechanism acts on.
+- Prefixes are short: ~90% of covered OOV tokens match exactly a 2-syllable
+  stem. The mechanism is "convert the stem, leave the rest", not "convert most
+  of the word".
+- **Greedy longest-prefix is within 0.1% of the DP optimum on tokens.** The
+  longest-vs-frequency-ranked match decision (#286) has almost no round-count
+  headroom; frequency ranking would be about candidate quality, not rounds.
+- Between a third and a half of OOV tokens save nothing (no ≥2 prefix, or a
+  prefix that covers no extra hanja-capable syllable). The gain concentrates
+  in josa-attached and compound eojeol.
+- The fallback's hidden cost is paging, not just rounds: ~90% of its rounds
+  face more candidates than the page holds (mean ~50 homophones), while
+  dictionary rounds face 1–2 and never page. Which candidate the user wants is
+  unmeasured, so this stays exposure — but it is where the fallback hurts
+  beyond the round count, and it is rank-dependent data a pass line would need.
+- **Coverage expansion is negligible, measured:** tokens whose syllables have
+  no hanja reading at all (4.3M / 3.6M / 17.2M) almost never gain a conversion
+  from the dictionary either — 12 / 0 / 9 tokens across the three corpora.
+  The mechanism is a keystroke saving, not a coverage fix; the zero-candidate
+  F9 population stays zero-candidate.
+- Negative savings (greedy takes a word where the fallback had nothing to
+  convert) exist and are negligible: 80 / 1 / 1,580 tokens.
+
+### HPX-4 The three options, priced
+
+The gain above is **common to options 1 and 2** — both segment the buffer the
+same way; the measurement cannot distinguish them and does not try. What
+differs is where the segmentation lives and what it costs to build:
+
+1. **Engine-side longest-prefix match** (`candidate_tables.c`): one
+   implementation, a consumed-length contract appended to the ABI (append-only
+   rule), lookup cost measured above (µs per F9, existing structure viable).
+   The re-open decision is worth ~2× the keystroke gain (HPX-3's two saved-keys
+   rows): with F9 pressed every round the saving shrinks to 866–1,561 keys per
+   1,000 multi tokens; with automatic re-open it is 2,542–3,288.
+2. **Frontend-side segmentation**: the same gain, three implementations of the
+   split. HPX-0's first bullet is the measured precedent: the *existing*
+   fallback already drifted (TSF retries the last syllable, fcitx5/Android do
+   not), which is the drift class `docs/FRONTEND-EQUIVALENCE.md` exists to
+   prevent.
+3. **No engine change, manual retype**: zero ABI work; keeps the baseline
+   column of HPX-3 (5.4–6.6 selection keys per OOV token, ~90% of rounds
+   paging). It is the line the other two must beat, and the measurement says
+   the beatable margin is 0.56–1.03 rounds per OOV token before paging is
+   priced.
+
+What this measurement does **not** settle, and no reading of it should pretend
+to: the pass-line population and numeric line (a ruling, shaped like Track 2's
+G1/G2 on a pinned corpus); candidate rank and therefore the paging term; the
+re-open behaviour per frontend; gloss coverage for partial candidates
+(`docs/HANJA-GLOSS-DESIGN.md`, separate open item); and the engine-side
+implementation cost beyond the probe timing (the consumed-length ABI shape is
+#286's decision list).
+
+### HPX-5 What would change the reading
+
+- **A typed-message corpus.** All three lists are prose projections; their
+  heads are measured biases (HPX-2). A pass line on a different population
+  needs its own pin and its own run — the tool takes any count-form/form-count
+  list as an argument.
+- **A josa-aware intent model** (assumption 7): the saving delta is robust to
+  it, the absolute rounds are not. Morphology is not in this tree.
+- **Candidate-rank data** — which candidate users actually pick — would turn
+  the paging exposure into a priced term and could move the options' ordering.
+- **A different match rule**: the DP bound says round-count headroom is ≤0.1%,
+  so a rule change would have to justify itself on candidate quality, which
+  this instrument does not measure.

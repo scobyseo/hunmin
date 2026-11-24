@@ -2,7 +2,7 @@
 
 > Content catalog. Every page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-11-22   (no page count: three counters disagreed, so the
+> Last updated: 2026-11-23   (no page count: three counters disagreed, so the
 > number a reader needs is the one a tool prints — `python tools/wiki-lint.py`)
 
 ## Concepts
@@ -199,6 +199,11 @@
 
 ## Raw — sessions
 
+- [[2026-11-23-t4-1-prefix-match-measurement]] — #300's measure-before-code:
+  the prefix instrument and its engine cross-check, three pinned registers,
+  and the three stated premises that did not hold (the fallback already
+  drifted per frontend, fcitx5's window does not re-open, the krdict licence
+  count is stale). Figures live in docs/OPTIONS-MEASURED.md §HPX.
 - [[2026-11-22-ibus-coverage-parity]] — issue #316: the fcitx5↔IBus evaluation
   inventory, the D1/D2/tier-C/D3 lanes that closed the gap, the XIM probe's
   three host facts (compound text, stale-preedit commit, teardown routing),
