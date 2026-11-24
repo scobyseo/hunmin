@@ -1641,6 +1641,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   implementation was removed; the corrected design is
   docs/DESIGN-ANDROID-SYMBOL-GESTURES.md. Index updated.
 
+## [2026-11-24] create | T2-3 G3 expectability (#295)
+
+- Created [[2026-11-24-t2-3-g3-expectability]]: the unit a mid-word display flip
+  needed (`docs/MODES-MEASUREMENT.md` §2.5 — rendered language, raw ON arm, no
+  language on delimiter/digit keys), the 37% gap between the repaired and raw arms
+  that caught the first counter, E6's `judge_hold` option and why the default was
+  not moved ([[2026-11-01-the-judgement-timing-is-per-key-by-default]]), and the two
+  pinned-corpus runs: 2,546 → 477 and 1,687 → 304 flips at an identical `q`, with
+  the digit-flip-back count falling 94%. Index updated.
+
 ## [2026-11-26] create | the first usability session, and what the trace found
 
 - Created [[2026-11-26-first-usability-session]]: one phone session with the new

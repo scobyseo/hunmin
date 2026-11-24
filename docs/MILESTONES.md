@@ -345,7 +345,16 @@ Every run uses a sha256-pinned corpus artefact (provenance in `meta.json`, bulk
 corpora stay outside the repo per AGENTS.md) and is stratified by direction,
 guard class, and token class. `tools/autoswitch-gates.py` grades G1/G2 from the
 `tools/modes-metrics.py` report; `docs/MODES-GATES.md` records its inputs,
-arithmetic and current finding. Issue #239 (옛한글 byte-exact) stays a separate
+arithmetic and current finding.
+
+**Measured 2026-11-24 (issue #295, G3).** The report now emits the mid-word display
+flips (`docs/MODES-MEASUREMENT.md` §2.5) and the checker grades a pair of runs at
+an equal pool share. On the pinned corpora one key of display stability cuts the
+flips by roughly 80–82% with `q` unchanged to the digit; the mechanism is E6's
+`judge_hold` option, which ships at its `0` (the ruled rendering) because the
+default is a ruling and not an optimisation. The numbers, the option's contract
+and the open default question are in `docs/SPEC-MODES.md` §E6; the gate's inputs
+and fixture are in `docs/MODES-GATES.md`. Issue #239 (옛한글 byte-exact) stays a separate
 SPEC decision and is not folded into these gates.
 
 **Decisions (earlier issues):** target corpus population (typed messages vs broad

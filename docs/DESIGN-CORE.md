@@ -129,6 +129,23 @@ Implementation: `buffered_preedit.c#judged_display`, `judge_timing` option.
   cap) and can flicker (counted by `tools/modes-boundary-probe.py`; the ruling is
   `docs/SPEC-MODES.md` §E6).
 - Option: `judge_timing` 1 = per key (default), 0 = boundary only.
+- Option: `judge_hold` (issue #295, G3). `0` = the per-key display adopts a
+  changed verdict at once (the ruled default's rendering); `N>0` = it waits until
+  the verdict has held for `N+1` consecutive keys. State is three fields, and
+  exactly one call per consumed key advances them: `build_preedit_adv(l, true)`
+  from `process_key`. `display()` and the toggle's re-render pass `false`, so a
+  re-render cannot count as a second agreeing key.
+  - `judge_verdict` (1 other language / 0 the mode's / −1 no vote) and
+    `judge_run` (consecutive keys agreeing with it) are reset by `boundary()`,
+    `reset()`, and any `judge_timing`/`judge_hold` write: a held verdict belongs to
+    the word that ended, never to the next one.
+  - `judge_shown` is what the last render showed; a rejected change renders the
+    other language's reading of the current word, so the hold keeps showing a
+    live reading rather than a stale string.
+  - Keys under ReqMode9's guard record no vote (`judge_verdict = -1`), so two
+    guarded keys cannot be mistaken for agreement.
+  - It changes the display only: `judge_boundary` never reads it, which is why the
+    pool share is unchanged at every value (`docs/MODES-MEASUREMENT.md` §2.5).
 
 ## ReqMode4 cap (word_flush_half)
 

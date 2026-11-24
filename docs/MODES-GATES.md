@@ -1,4 +1,4 @@
-# MODES-GATES — G1/G2 checker
+# MODES-GATES — G1/G2/G3 checker
 
 `tools/autoswitch-gates.py` grades a `tools/modes-metrics.py` report. It does
 not replay text itself and sets no numeric G2 line (E4/B2 owns those numbers).
@@ -11,6 +11,14 @@ not replay text itself and sets no numeric G2 line (E4/B2 owns those numbers).
   still need a manual press (`u`, T3). A ruled pair implies a misfire budget
   `r <= (1-u-q)/(2k+1)` at the run's measured repair cost `k`. Wrong-direction
   switches are checked separately in each direction.
+- **G3 — expectability:** mid-word display flips reduced at an EQUAL pool share
+  (E6). Graded only when a baseline step is named: every other step must carry the
+  same corpus sha256, the same `q_pool_share_measured` to the digit, strictly
+  fewer `flips.total`, no more `words_with_a_flip`, and zero
+  `flips_below_the_guard`. The unit is `docs/MODES-MEASUREMENT.md` §2.5: a change
+  of the language a preedit renders, inside one eojeol, measured on the raw ON
+  arm. Equal `q` is not a formality — a flip reduction bought by switching less
+  is not the comparison G3 asks for, and that mutation turns the checker red.
 
 A result belongs to its pinned corpus. K2/T3 are corpus-invariant shapes, but
 G1's sign and the overall-keystroke reading are not: changing the population
@@ -25,7 +33,9 @@ The ids' wording is in `docs/MILESTONES.md` §0.4 Track 2; the units are in
   sha256 and the hash of its `meta.json`, not the corpus. Both are checked again
   against the run and, if present, the file on disk.
 - **Report:** `tools/modes-metrics.py --corpus … --json-out …`. The checker uses
-  the sibling `.meta.json` (engine/data hashes, cross-check, totals).
+  the sibling `.meta.json` (engine/data hashes, cross-check, totals, and the
+  `flips` block G3 reads). The display setting a run measured is recorded there as
+  `flips.judge_hold` — `tools/modes-metrics.py --judge-hold N`.
 
 Paths are arguments. Bulk corpora stay outside the repository (AGENTS.md).
 
@@ -43,6 +53,23 @@ Failure still writes a report. It is a finding, not a decision to change the
 judgement.
 
 ## Current finding
+
+### G3 — measured 2026-11-24 (issue #295)
+
+`tests/fixtures/modes-gates/g3/` holds the pair: one `wiki-2500` run at
+`judge_hold` 0 (the shipped rendering) and one at 1, plus the graded report. 1,687
+mid-word flips become 304 at the same `q_pool_share_measured` (−6.320790 in both),
+and the words that flip back inside themselves (the 도깨비 shape) fall from 432 to
+35. It is a checker smoke run on Wikipedia prose, like the G1/G2 fixture: not
+evidence for the target population, and G1 still fails on this corpus — G3 grades
+the pair, not the feature's overall worth.
+
+The same comparison on the 772-sentence KLDP rating corpus (outside the
+repository, unsuited to redistribution) reads 2,546 → 477 at an identical
+−4.379396; the figures and their provenance are in `docs/SPEC-MODES.md` §E6.
+
+The knob is an option, not the default: `judge_hold` ships at 0, so this gate
+grades a maintainer-visible choice rather than a behaviour change.
 
 `tests/fixtures/modes-gates/` holds the pin, the metrics meta, and the generated
 gate report. This is a checker smoke run on broad Wikipedia prose, **not evidence
@@ -127,10 +154,13 @@ tools/modes-metrics.py --corpus <corpus>.jsonl --lib build/libhunmin.so \
     --sim build/hunmin-sim --keytable build/sin3-p2.keytable.json \
     --json-out <run>.jsonl
 tools/autoswitch-gates.py check --step <name> <run>.jsonl.meta.json \
-    --pin <pin>.json [--line Q U]... [--report-out <gates>.meta.json]
+    --pin <pin>.json [--line Q U]... [--flip-baseline <step>] \
+    [--report-out <gates>.meta.json]
 ```
 
 `ctest modes-gates-selfcheck` proves the guards bite: a negative pool share, a
 wrong-direction switch in either direction alone, a stale pin, broken harness
-arithmetic and an unmet G2 line each turn the checker red. It needs no corpus
-and no build.
+arithmetic, an unmet G2 line, and five wrong ways to buy a G3 flip drop (no drop,
+a drop at a different pool share, more flickering words, a flip below the guard,
+a report with no `flips` block) each turn the checker red. It needs no corpus and
+no build.

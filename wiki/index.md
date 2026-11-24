@@ -204,6 +204,11 @@
   and the three stated premises that did not hold (the fallback already
   drifted per frontend, fcitx5's window does not re-open, the krdict licence
   count is stale). Figures live in docs/OPTIONS-MEASURED.md §HPX.
+- [[2026-11-24-t2-3-g3-expectability]] — issue #295 (G3): the mid-word display
+  flip gets a unit (`docs/MODES-MEASUREMENT.md` §2.5), `modes-metrics` counts it on
+  the raw ON arm, `autoswitch-gates` grades a pair at an equal pool share, and E6's
+  `judge_hold` option cuts the flips ~80% at an unchanged `q`. Ships at 0: the
+  default stays a ruling.
 - [[2026-11-22-ibus-coverage-parity]] — issue #316: the fcitx5↔IBus evaluation
   inventory, the D1/D2/tier-C/D3 lanes that closed the gap, the XIM probe's
   three host facts (compound text, stale-preedit commit, teardown routing),

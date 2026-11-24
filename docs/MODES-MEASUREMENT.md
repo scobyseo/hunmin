@@ -192,7 +192,45 @@ measured value:
    present — B3's data gate). A metric that can be met by not switching needs the
    OFF-by-default state stated as a precondition, not silently averaged in.
 
-## 2.5 Status
+## 2.5 What G3 counts: a mid-word display flip
+
+G3 (`docs/MILESTONES.md` §0.4 Track 2) asks for fewer mid-word display flips **at an
+equal pool share**, i.e. while §2.1's `q` does not move. The two halves fix the
+unit: it has to be a quantity that can change while `a`, `r`, `u` and `q` cannot,
+and that quantity is the screen.
+
+- **Unit.** A mid-word display flip is a change, between two consecutive keys of
+  one eojeol, of the language the layer's preedit RENDERS. The language is read
+  from the rendered text: Hangul when it carries Hangul syllables or jamo and no
+  ASCII letter, Latin when the reverse. A key whose preedit carries neither (the
+  empty preedit after a delimiter, a digit run) renders no language: it is not a
+  change and it does not clear the previous answer — otherwise a held digit would
+  read as a flip.
+- **Population and strata.** `tools/modes-metrics.py` counts the flips over the
+  corpus's eojeol and stratifies by the eojeol's own script: a Hangul eojeol
+  flickering into Latin is E6's complaint, a Latin eojeol flickering back is its
+  E1 mirror. The unit is a change, not a word, so `words_with_a_flip` and
+  `words_with_a_flip_back` (two or more changes — the 도깨비 shape) are reported
+  beside the total.
+- **The arm.** The RAW ON arm: the replay performs every judgement as a frontend
+  does and applies no repair. The repaired arm is a keystroke model that moves the
+  mode to the script a person would have pressed, so a display counted after it
+  would be counting the model.
+- **Guards.** `flips_below_the_guard` must be 0: ReqMode9 refuses to judge under
+  three key inputs, so a flip inside a shorter eojeol would be a display that
+  judged without the guard. `modes-metrics-selfcheck` fails when the detector
+  cannot see a known flicker (`alphabetically` on the Hangul layout) or when
+  E6's display-stability setting stops reducing it.
+- **What it is not.** A count of how often a person meets the flicker: unweighted
+  by token frequency, exactly like §1.1's dictionary figures. The felt experience
+  stays E6's own question.
+
+The display setting that moves this count is E6's `judge_hold`
+(`docs/SPEC-MODES.md` §E6). `q` comes out of the same run, so "at an equal pool
+share" is a property of one pair of runs, and `tools/autoswitch-gates.py
+--flip-baseline NAME` grades it (`docs/MODES-GATES.md`).
+
+## 2.6 Status
 
 | Metric | Measures | Pass line |
 |---|---|---|
