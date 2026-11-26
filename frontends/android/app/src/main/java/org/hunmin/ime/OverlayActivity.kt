@@ -171,6 +171,12 @@ class OverlayActivity : AppCompatActivity() {
             SettingItem("키패드", ImeSettings.swipeLeftDelete().label) {
                 showKeypadSection()
             },
+            /* #312 (maintainer 2026-11-26: "설정할 수 있게 하는 게 제일 좋아"):
+             * the long-press hold timeout. The badge is the stored value the
+             * gesture reads — one value, shown and written here. */
+            SettingItem("길게 누르기", "${ImeSettings.longPressTimeoutMs()}ms") {
+                showLongPressSection()
+            },
             /* ReqMode13's surface B, and the row issue #174 asks for: the value
              * and the key are the ENGINE's, read at dialog time. Nothing here
              * remembers them -- the chord writes the same option. */
@@ -374,6 +380,22 @@ class OverlayActivity : AppCompatActivity() {
     }
 
     /** KP14: the swipe-left delete unit, one choice of four. */
+    private fun showLongPressSection() {
+        val choices = KeypadModel.LONG_PRESS_CHOICES_MS
+        val checked = choices.indexOf(ImeSettings.longPressTimeoutMs())
+        dialog?.dismiss()
+        dialog = AlertDialog.Builder(this)
+            .setTitle("길게 누르기 — 대기 시간")
+            .setSingleChoiceItems(choices.map { "${it}ms" }.toTypedArray(), checked) { d, which ->
+                d.dismiss()
+                ImeSettings.onLongPressTimeoutChosen(choices[which])
+                showSettingsDialog()
+            }
+            .setNegativeButton("뒤로") { _, _ -> showSettingsDialog() }
+            .setOnDismissListener { if (!isChangingConfigurations) dialog = null }
+            .show()
+    }
+
     private fun showKeypadSection() {
         val units = DeleteUnit.entries
         val checked = units.indexOf(ImeSettings.swipeLeftDelete())

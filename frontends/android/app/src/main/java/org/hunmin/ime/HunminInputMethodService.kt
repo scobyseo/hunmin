@@ -127,6 +127,9 @@ class HunminInputMethodService : InputMethodService() {
         /** Where the trace is written, inside filesDir so `run-as` can read it. */
         const val TRACE_FILE = "e3.trace"
 
+        /** The UI-layer trace (#312 evaluation): gestures, symbols, pages. */
+        const val UI_TRACE_FILE = "ui.trace"
+
         private const val PREFS = HunminPrefs.FILE
         /**
          * The pre-two-mode key. Read once for migration and never written
@@ -1005,11 +1008,21 @@ class HunminInputMethodService : InputMethodService() {
                         java.io.File(filesDir, TRACE_FILE),
                         layoutId,
                     )
+                    // #312 evaluation: the UI-layer sink (gestures, symbol
+                    // commits, pages, shift) rides the same toggle, its own file.
+                    UiTraceRecorder.enable(
+                        java.io.File(filesDir, UI_TRACE_FILE),
+                        HunminTraceRecorder.caseLabel,
+                    )
                     Log.i(TAG, "hunmin: trace enabled (case=${HunminTraceRecorder.caseLabel})")
                 }
                 "disable" -> {
                     HunminTraceRecorder.close()
+                    UiTraceRecorder.disable()
                     Log.i(TAG, "hunmin: trace closed")
+                }
+                "mark" -> {
+                    UiTraceRecorder.mark(intent.getStringExtra("label") ?: "")
                 }
             }
         }
@@ -1233,6 +1246,7 @@ class HunminInputMethodService : InputMethodService() {
         // KP14/KP7: backspace long-press repeats WORD deletion (~0.2 s, the
         // view owns the timer); the unit is the ruling's, not the setting's.
         pad.onWordDelete = { deleteByUnit(DeleteUnit.WORD) }
+        pad.longPressTimeoutMs = readLongPressTimeout()
         keypad = pad
         refreshKeypad()
         updateKeypadVisibility()
@@ -1338,6 +1352,15 @@ class HunminInputMethodService : InputMethodService() {
      * goes through the same key machinery as a tap (dispatchTouchKey) or a
      * platform action — no surrounding-text read anywhere (I9).
      */
+    /** #312: the stored long-press timeout, defaulting to the provisional 200 ms. */
+    private fun readLongPressTimeout(): Long =
+        try {
+            getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getLong(HunminPrefs.LONG_PRESS_TIMEOUT, KeypadModel.LONG_PRESS_TIMEOUT_MS)
+        } catch (e: Exception) {
+            KeypadModel.LONG_PRESS_TIMEOUT_MS
+        }
+
     private fun deleteBySwipeUnit() = deleteByUnit(readSwipeUnit())
 
     /** One delete in [unit]; the swipe-left setting and the backspace
@@ -1414,6 +1437,7 @@ class HunminInputMethodService : InputMethodService() {
         touchEngine?.commitWord(target)
         adoptJudgement(touchEngine)
         screen.commitSymbol(ch, target)
+        UiTraceRecorder.symbol(screen.id, ch)
     }
 
     /**
@@ -1556,6 +1580,17 @@ class HunminInputMethodService : InputMethodService() {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                     .putString(HunminPrefs.SWIPE_LEFT_DELETE, unit.pref).apply()
             }.onFailure { Log.w(TAG, "hunmin: could not persist the swipe-left delete unit", it) }
+        }
+        /* #312's setting (maintainer 2026-11-26: "설정할 수 있게 하는 게 제일
+         * 좋아"): the window reads/writes the stored timeout; the view reads
+         * the same value — one value, not two. Applies immediately. */
+        ImeSettings.longPressTimeoutMs = { readLongPressTimeout() }
+        ImeSettings.onLongPressTimeoutChosen = { ms ->
+            runCatching {
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                    .putLong(HunminPrefs.LONG_PRESS_TIMEOUT, ms).apply()
+            }.onFailure { Log.w(TAG, "hunmin: could not persist the long-press timeout", it) }
+            keypad?.longPressTimeoutMs = ms
         }
         /* ReqMode13's surface B: the settings window reads the value and the key
          * from the engine, and writes through the same option the chord writes.

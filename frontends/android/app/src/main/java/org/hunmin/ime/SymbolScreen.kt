@@ -29,7 +29,11 @@ import android.view.inputmethod.InputConnection
 import org.json.JSONObject
 
 /** One parsed symbol screen: rows of symbol characters or function-key ids. */
-data class SymbolScreen(val rows: List<Row>) {
+data class SymbolScreen(
+    val rows: List<Row>,
+    /** The file's own id — names the page in the UI trace (#312 evaluation). */
+    val id: String = "",
+) {
 
     enum class Kind { SYMBOLS, FUNCTION }
 
@@ -96,7 +100,7 @@ data class SymbolScreen(val rows: List<Row>) {
                 }
                 rows.add(Row(kind, keys))
             }
-            return SymbolScreen(rows)
+            return SymbolScreen(rows, root.optString("id"))
         }
     }
 }

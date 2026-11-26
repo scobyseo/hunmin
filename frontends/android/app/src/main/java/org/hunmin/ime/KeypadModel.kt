@@ -360,6 +360,29 @@ object KeypadModel {
     const val WORD_REPEAT_INTERVAL_MS = 200L
 
     /**
+     * The long-press hold timeout. PROVISIONAL tuning (maintainer 2026-11-26:
+     * "long-press가 너무 긴데. 200ms 이하로 테스트해보고 싶어") — the system
+     * value (ViewConfiguration.getLongPressTimeout(), 500 ms on the test
+     * phone, 400 ms on the AVD) was too slow in use. 200 ms is the upper bound
+     * the maintainer named, the starting point of the experiment.
+     *
+     * The trade-off to watch in the evaluation: a SLOW swipe that has not yet
+     * passed the distance gate can fire long-press first (the movement-vs-time
+     * race); the jitter cancel (movement > 10 dp kills the hold) is the
+     * defence. If the evaluation shows slow swipes becoming shifts, the gate
+     * or this timeout moves — recorded, not decided.
+     */
+    const val LONG_PRESS_TIMEOUT_MS = 200L
+
+    /**
+     * The settings window's choices for the hold timeout (maintainer
+     * 2026-11-26: "설정할 수 있게 하는 게 제일 좋아"). Covers the "200ms 이하"
+     * experiment and slower values; the default [LONG_PRESS_TIMEOUT_MS] is
+     * among them.
+     */
+    val LONG_PRESS_CHOICES_MS = listOf(100L, 150L, 200L, 300L, 400L, 500L)
+
+    /**
      * The per-key gesture exception table (KP7, maintainer 2026-11-23:
      * "long press와 swipe up은 일반적으로 동일하지만, 기호 키나, backspace 등
      * 일부 키에서 동작이 달라지는 거야"). The GENERAL rule is equivalence —

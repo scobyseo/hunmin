@@ -274,7 +274,20 @@ So **long-press behaves identically to swipe-up on every key**: shift+key on
 the text keypads, the page picker on the 기호 mode key (KP10). One meaning per
 gesture pair is the KP8-consistent choice; the equivalence is deliberate and
 may be split later if a need arises — the maintainer's words name that exit
-explicitly. The equivalence is the **general rule with per-key exceptions** (2026-11-23,
+explicitly.
+
+The long-press wait — configurable (2026-11-26, verbatim):
+
+> "long-press가 너무 긴데. 200ms 이하로 테스트해보고 싶어."
+> "설정할 수 있게 하는 게 제일 좋아. 일단 그 값으로 테스트해 보려고 해."
+
+So the hold timeout is a **setting** (설정 → 길게 누르기, presets 100–500 ms),
+default **200 ms provisional** — the system value
+(`ViewConfiguration.getLongPressTimeout()`, 500 ms on the test phone, 400 ms
+on the AVD) was too slow in use. The trade-off recorded for the evaluation:
+a slow swipe can fire long-press before passing the distance gate; the
+jitter cancel is the defence. Tuning record:
+`docs/DESIGN-ANDROID-SYMBOL-GESTURES.md` §6.5. The equivalence is the **general rule with per-key exceptions** (2026-11-23,
 verbatim):
 
 > "long press와 swipe up은 일반적으로 동일하지만, 기호 키나, backspace 등 일부

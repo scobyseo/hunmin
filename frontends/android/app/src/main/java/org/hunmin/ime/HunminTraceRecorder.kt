@@ -117,8 +117,8 @@ object HunminTraceRecorder {
         }
     }
 
-    /** JSON string escaping, for the text fields. */
-    private fun escape(s: String): String {
+    /** JSON string escaping, for the text fields. Shared with [UiTraceRecorder]. */
+    internal fun escape(s: String): String {
         val sb = StringBuilder(s.length + 8)
         for (c in s) {
             when (c) {

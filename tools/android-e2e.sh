@@ -1025,6 +1025,8 @@ open_settings
 SWIPE_LIST="$(dump_ui /sdcard/kpset.xml)"
 printf '%s' "$SWIPE_LIST" | grep -q '키패드' \
   || fail "the settings window does not offer the 키패드 section (KP14)"
+printf '%s' "$SWIPE_LIST" | grep -q '길게 누르기' \
+  || fail "the settings window does not offer the 길게 누르기 row (#312 configurable timeout)"
 tap_node '키패드'
 sleep 1
 SWIPE_CHOICES="$(dump_ui /sdcard/kpset2.xml)"
@@ -1122,11 +1124,13 @@ G6B="$(field_text)"
 [ "$G6B" = "!" ] || fail "swipe-up digit in Hangul mode: expected the hinted '!' (KP16), got '$G6B'"
 echo "swipe-up on a digit keeps the hint promise in Hangul mode too (KP16)"
 
-# KP14: backspace long-press deletes a WORD per tick. The hold timeout is the
-# system's (read, not guessed); one tick = hold just past it, the ~0.2s repeat
-# (provisional) fires further ticks on a longer hold.
-LP_TIMEOUT="$("$ADB" shell settings get secure long_press_timeout 2>/dev/null | tr -d '\r')"
-case "$LP_TIMEOUT" in (''|*[!0-9]*) LP_TIMEOUT=400 ;; esac
+# KP14: backspace long-press deletes a WORD per tick. The hold timeout is
+# hunmin's provisional constant (200 ms, maintainer 2026-11-26 — the system
+# value was too slow in use); DERIVED from the source, not transcribed, so a
+# tuning change moves the test with it. One tick = hold just past it, the
+# ~0.2s repeat fires further ticks on a longer hold.
+LP_TIMEOUT="$(grep -o 'LONG_PRESS_TIMEOUT_MS = [0-9]*' "$ROOT/frontends/android/app/src/main/java/org/hunmin/ime/KeypadModel.kt" | grep -o '[0-9]*')"
+case "$LP_TIMEOUT" in (''|*[!0-9]*) LP_TIMEOUT=200 ;; esac
 restore_surface || fail "cannot restore for the word-delete round"
 ensure_mode '영'
 for k in h e l l o; do tap_desc "key:$k"; done

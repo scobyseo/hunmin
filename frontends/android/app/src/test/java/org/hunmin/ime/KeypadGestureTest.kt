@@ -202,4 +202,16 @@ class KeypadGestureTest {
         // tuning change is a deliberate edit with the SPEC moved too.
         assertEquals(200L, KeypadModel.WORD_REPEAT_INTERVAL_MS)
     }
+
+    @Test
+    fun longPressTimeoutIsTheProvisionalTuningValue() {
+        // Maintainer 2026-11-26: "long-press가 너무 긴데. 200ms 이하로 테스트해보고
+        // 싶어" — the system value (500 ms phone / 400 ms AVD) was too slow.
+        // Pinned so a tuning change is a deliberate edit with the record moved.
+        assertEquals(200L, KeypadModel.LONG_PRESS_TIMEOUT_MS)
+        // Configurable (maintainer 2026-11-26): the default is among the
+        // settings window's choices, and the "200ms 이하" experiment is covered.
+        assertTrue(KeypadModel.LONG_PRESS_TIMEOUT_MS in KeypadModel.LONG_PRESS_CHOICES_MS)
+        assertTrue(KeypadModel.LONG_PRESS_CHOICES_MS.any { it < 200L })
+    }
 }

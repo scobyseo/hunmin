@@ -345,6 +345,59 @@ the gesture wiring. *What would change it:* a maintainer preference for
 kaomoji inside the emoji page, or a usage measurement showing the full list
 with search is what users want.
 
+## 6.5 Usability evaluation — the instrument (2026-11-26)
+
+The maintainer is evaluating the shipped lists in real use: "쓰다 보니 입력이
+기대대로 안되는 경우가 많이 나타나서, 로깅을 통해 내가 어떤 기대를 했다가 입력이
+안되고 수정했는지, 그 이유는 뭔지 파악해 보고 싶네?" Two findings and the
+instrument:
+
+- **The existing trace was not enough, and not reachable.** The E3 sink
+  (`HunminTraceRecorder`, `tools/e3-trace.sh`) records ENGINE key events only,
+  is OFF by default, and its broadcast is debuggable-guarded — the release
+  build on the phone had no logging channel at all. The expectation mismatches
+  live ABOVE the engine: a swipe recognised as a tap, a symbol from the wrong
+  page, a drifted mode — none of those become engine events (KP11 commits are
+  direct).
+- **The long-press wait was the system's** (`ViewConfiguration`): 500 ms on
+  the test phone, 400 ms on the AVD. Maintainer (2026-11-26, verbatim):
+  "long-press가 너무 긴데. 200ms 이하로 테스트해보고 싶어." and "설정할 수 있게
+  하는 게 제일 좋아. 일단 그 값으로 테스트해 보려고 해." → DECIDED: a setting
+  (설정 → 길게 누르기, presets `LONG_PRESS_CHOICES_MS` 100–500 ms, default
+  `KeypadModel.LONG_PRESS_TIMEOUT_MS = 200` provisional; E1-pinned, E2E
+  derives the default from the source). The view reads the stored value the
+  window writes — one value, not two (the KP14 pattern). The trade-off to
+  watch: a SLOW swipe can fire long-press before it passes the distance gate;
+  the jitter cancel is the defence. If slow swipes become shifts in the
+  evaluation, the gate or the timeout moves — recorded, not decided.
+
+**The instrument**: `UiTraceRecorder` → `ui.trace` (a SECOND sink, its own
+JSONL dialect; the normative engine trace format is untouched). Rides the
+same debuggable-guarded broadcast. Events:
+
+| line | records |
+|---|---|
+| `gesture` | page, key, kind, dx/dy/duration, recognized (tap/swipe_up/swipe_down/swipe_left/long_press/cancel), action, the gate values — "my swipe-up became a tap" is reconstructable |
+| `symbol` | the page id and the whole entry committed (KP11 direct path) |
+| `page` | from/to/trigger (tap/picker/cycle/return) |
+| `shift` | armed/locked after each change |
+| `mark` | a free-form annotation at the moment of interest |
+
+Procedure (debug build on the device; `ANDROID_SERIAL` selects it):
+
+```sh
+tools/e3-trace.sh start eval-1        # both sinks on
+tools/e3-trace.sh mark "기대: !"       # annotate a moment (optional)
+# ... use the keyboard, reproduce the mismatch ...
+tools/e3-trace.sh stop
+tools/e3-trace.sh pull eval-1         # tests/conformance/eval-1.trace + .ui.trace
+```
+
+The expectation itself lives in the evaluator's head; the log captures what
+the finger did, what the recognizer decided, and what the app delivered —
+the mismatch is the difference. Evaluation pulls are session records, not
+tier-C conformance data.
+
 ## 7. What this does not settle
 
 The extended-page geometry fork (grow / swap / paginate); the math inventory

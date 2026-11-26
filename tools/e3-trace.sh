@@ -4,7 +4,15 @@
 #   tools/e3-trace.sh start [case-label] [source]   begin a trace
 #   tools/e3-trace.sh stop                         close it
 #   tools/e3-trace.sh pull <name>                  fetch to tests/conformance/<name>.trace
+#                                                  (+ <name>.ui.trace, #312 evaluation)
+#   tools/e3-trace.sh mark <label>                 annotate the open UI trace
 #   tools/e3-trace.sh status                       is one open?
+#
+# TWO SINKS, ONE TOGGLE (#312 usability evaluation): the engine key trace
+# (e3.trace, docs/trace-spec.md) and the UI-layer trace (ui.trace — gesture
+# decisions with trajectory+gates, symbol commits, page transitions, shift
+# state). The UI sink exists because expectation mismatches happen ABOVE the
+# engine: a swipe recognised as a tap never becomes an engine event.
 #
 # Exits 0, 1 on failure, 77 when there is no device.
 #
@@ -67,42 +75,65 @@ status)
     echo "no trace sink visible in dumpsys (it is off unless enabled)"
   fi
   ;;
+mark)
+  label="${2:?usage: e3-trace.sh mark <label>}"
+  require_debuggable
+  "$ADB" shell am broadcast -a "$ACTION" --es op mark --es label "$label" "$PKG" >/dev/null
+  echo "marked: $label"
+  ;;
 pull)
   name="${2:?usage: e3-trace.sh pull <name>}"
   require_debuggable
   out_dir="$ROOT/tests/conformance"
   mkdir -p "$out_dir"
-  # The path is fixed by HunminInputMethodService, so a pull is unambiguous.
+  # The paths are fixed by HunminInputMethodService, so a pull is unambiguous.
   remote="/data/data/$PKG/files/e3.trace"
-  if ! "$ADB" shell run-as "$PKG" test -f "$remote"; then
+  ui_remote="/data/data/$PKG/files/ui.trace"
+  dest="$out_dir/${name}.trace"
+  ui_dest="$out_dir/${name}.ui.trace"
+  have_engine=0; have_ui=0
+  "$ADB" shell run-as "$PKG" test -f "$remote" && have_engine=1
+  "$ADB" shell run-as "$PKG" test -f "$ui_remote" && have_ui=1
+  if [ "$have_engine" = 0 ] && [ "$have_ui" = 0 ]; then
     echo "FAIL: no trace at $remote -- did the session run 'start' first?" >&2
     exit 1
   fi
-  dest="$out_dir/${name}.trace"
-  "$ADB" shell run-as "$PKG" cat "$remote" > "$dest"
+  events=0; ui_events=0
+  if [ "$have_engine" = 1 ]; then
+    "$ADB" shell run-as "$PKG" cat "$remote" > "$dest"
+    events=$(grep -c '"in"' "$dest" || true)
+  fi
+  if [ "$have_ui" = 1 ]; then
+    "$ADB" shell run-as "$PKG" cat "$ui_remote" > "$ui_dest"
+    ui_events=$(grep -c '"ui"' "$ui_dest" || true)
+  fi
 
   # A trace with a meta line and NO events is not a result, it is an empty
   # session, and archiving it would be worse than archiving nothing: the next
   # person to read tests/conformance/ would take "no quirks found" from a
   # session in which the sink was never actually bound to the field. Measured:
   # enabling the sink writes meta immediately, so this file exists and looks
-  # plausible even when zero keys were recorded.
-  events=$(grep -c '"in"' "$dest" || true)
-  if [ "$events" -lt 1 ]; then
-    rm -f "$dest"
-    echo "FAIL: the trace holds a meta line and no events -- the sink was" >&2
-    echo "      enabled but never received a key, which is what happens when" >&2
-    echo "      it is opened before the IME owns the field. Nothing archived." >&2
+  # plausible even when zero keys were recorded. A UI-only session (symbol
+  # commits never reach the engine) counts via its own events.
+  if [ "$((events + ui_events))" -lt 1 ]; then
+    rm -f "$dest" "$ui_dest"
+    echo "FAIL: the traces hold meta lines and no events -- the sinks were" >&2
+    echo "      enabled but never received input, which is what happens when" >&2
+    echo "      opened before the IME owns the field. Nothing archived." >&2
     exit 1
   fi
 
-  lines=$(grep -c . "$dest" || true)
-  echo "pulled $lines line(s), $events event(s) -> ${dest#"$ROOT"/}"
-  # A trace whose meta is missing is rejected by every runner, so say so here
-  # rather than leaving it to fail later in a conformance test.
-  head -1 "$dest" | grep -q '^{"meta":' \
-    || { echo "FAIL: the first line is not a meta object" >&2; exit 1; }
-  echo "  meta: $(head -1 "$dest")"
+  if [ "$have_engine" = 1 ]; then
+    lines=$(grep -c . "$dest" || true)
+    echo "pulled $lines line(s), $events engine event(s) -> ${dest#"$ROOT"/}"
+    head -1 "$dest" | grep -q '^{"meta":' \
+      || { echo "FAIL: the first line is not a meta object" >&2; exit 1; }
+    echo "  meta: $(head -1 "$dest")"
+  fi
+  if [ "$have_ui" = 1 ]; then
+    ui_lines=$(grep -c . "$ui_dest" || true)
+    echo "pulled $ui_lines line(s), $ui_events UI event(s) -> ${ui_dest#"$ROOT"/}"
+  fi
   ;;
 *)
   sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
