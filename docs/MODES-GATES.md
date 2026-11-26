@@ -54,6 +54,23 @@ judgement.
 
 ## Current finding
 
+### G1/G2 — the smoke fixture
+
+`tests/fixtures/modes-gates/` holds the pin, the metrics meta, and the generated
+gate report. This is a checker smoke run on broad Wikipedia prose, **not evidence
+for the target population**: it shows the checker runs end-to-end, and that G1 is
+not met on this corpus while both direction guards pass. Do not cite it as a
+general G1 result. A target corpus needs its own pin and its own run.
+
+Both pinned corpora (this one and kldp-772) were re-run on the build that carries
+G3's display change: every G1/G2 total is identical to the 2026-11-22 runs, down
+to the last digit, and only the new `flips` block differs. That is the strong form
+of "at an equal pool share" — not merely equal within the pair, but equal to the
+runs already recorded. (On an unruled run `r_within_budget` is true by
+construction: the budget line is `(1-u-q)/(2k+1)` and `q` is defined as
+`1-u-(2k+1)r`, so `r_max = r`. It is a consistency check, not a pass; a ruled
+`(q, u)` line is what makes it bind.)
+
 ### G3 — measured 2026-11-24 (issue #295)
 
 `tests/fixtures/modes-gates/g3/` holds the pair: one `wiki-2500` run at
@@ -70,12 +87,6 @@ repository, unsuited to redistribution) reads 2,546 → 477 at an identical
 
 The knob is an option, not the default: `judge_hold` ships at 0, so this gate
 grades a maintainer-visible choice rather than a behaviour change.
-
-`tests/fixtures/modes-gates/` holds the pin, the metrics meta, and the generated
-gate report. This is a checker smoke run on broad Wikipedia prose, **not evidence
-for the target population**: it shows the checker runs end-to-end, and that G1 is
-not met on this corpus while both direction guards pass. Do not cite it as a
-general G1 result. A target corpus needs its own pin and its own run.
 
 ### Candidate populations — licence probe, 2026-11-22
 
