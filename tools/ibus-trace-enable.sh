@@ -60,7 +60,15 @@ INSTALL_BIN="$INSTALL_DIR/hunmin-ibus-trace"
 INSTALL_LIB="$INSTALL_DIR/libhunmin.so.0"
 ENGINE=/usr/bin/hunmin-ibus
 BACKUP=/usr/bin/hunmin-ibus.pkg
-LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/hunmin"
+# HOME is root's under sudo/pkexec; the log belongs to the person who ran this.
+if [ -n "${SUDO_USER:-}" ]; then
+    TARGET_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+elif [ -n "${PKEXEC_UID:-}" ]; then
+    TARGET_HOME=$(getent passwd "$PKEXEC_UID" | cut -d: -f6)
+else
+    TARGET_HOME=$HOME
+fi
+LOG_DIR="${XDG_STATE_HOME:-$TARGET_HOME/.local/state}/hunmin"
 # Where the DATA is. A dev build's libhunmin defaults HUNMIN_DEFAULT_DATA_DIR to
 # its own install prefix (/usr/local/share/hunmin), which does not exist here —
 # and with no layouts the engine builds no state and declines EVERY key, i.e. the
@@ -136,9 +144,17 @@ enable)
     [ -x "$TRACE_BUILD" ] || die "no trace build at $TRACE_BUILD — build it first (see status)"
     [ -f "$TRACE_LIB" ] || die "no $TRACE_LIB — the trace build links libhunmin; build it"
     [ -d "$TRACE_DATA/layouts" ] || die "no layouts in $TRACE_DATA — install hunmin-data or pass HUNMIN_TRACE_DATA=<dir with layouts/>"
-    is_wrapper && { say "already enabled"; exit 0; }
+    # NOT a shortcut when a wrapper is already installed: an earlier version of
+    # this script installed one too, and "already enabled" then silently kept the
+    # old wrapper — which is exactly how a fixed wrapper failed to reach the
+    # machine (2026-11-28). Re-installing is idempotent: put() renames and the
+    # preflight validates.
     [ -f "$ENGINE" ] || die "$ENGINE is missing; is hunmin-ibus installed?"
-    if [ ! -f "$BACKUP" ]; then
+    if is_wrapper; then
+        say "replacing the installed wrapper"
+    elif [ -f "$BACKUP" ]; then
+        say "keeping the packaged engine already saved at $BACKUP"
+    else
         cp -p "$ENGINE" "$BACKUP"
         say "kept the packaged engine at $BACKUP"
     fi
@@ -152,6 +168,8 @@ enable)
     install -d -m 0700 "$LOG_DIR" || true
     if [ -n "${SUDO_USER:-}" ]; then
         chown "$SUDO_USER" "$LOG_DIR" 2>/dev/null || true
+    elif [ -n "${PKEXEC_UID:-}" ]; then
+        chown "$PKEXEC_UID" "$LOG_DIR" 2>/dev/null || true
     fi
     # The wrapper is the only way to give the engine an environment: IBus starts
     # it with the daemon's, and a running daemon cannot be re-inherited.
