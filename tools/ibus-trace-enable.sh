@@ -15,6 +15,11 @@
 # installs the trace engine under /usr/local and replaces /usr/bin/hunmin-ibus
 # with a wrapper that sets the log path and execs it.
 #
+# Every file this script installs is written beside its target and renamed over
+# it: a plain write fails with ETXTBSY while an engine is running (measured
+# 2026-11-27 on the first real run), and the running engine keeps the old inode
+# either way.
+#
 # What that costs, stated because it is the user's input method:
 #   - until `disable`, every key goes through a LOCALLY BUILT engine;
 #   - the packaged binary is kept at /usr/bin/hunmin-ibus.pkg and `disable`
@@ -55,6 +60,20 @@ MARK="# hunmin trace wrapper"
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+# Install a file WITHOUT writing through the target: a running engine (and a
+# mapped shared library) refuses an in-place write with ETXTBSY, which is what
+# `cat > /usr/bin/hunmin-ibus` did on the first real run. Writing beside the
+# target and renaming over it replaces the directory entry; the process that is
+# already running keeps the old inode and is unaffected.
+#   put SRC MODE DEST
+put() {
+    src=$1; mode=$2; dest=$3
+    tmp="$dest.new.$$"
+    cp -f "$src" "$tmp" && chmod "$mode" "$tmp" && mv -f "$tmp" "$dest" && return 0
+    rm -f "$tmp"
+    return 1
+}
 
 is_wrapper() { [ -f "$ENGINE" ] && grep -q -- "$MARK" "$ENGINE" 2>/dev/null; }
 
@@ -112,17 +131,20 @@ enable)
         say "kept the packaged engine at $BACKUP"
     fi
     install -d -m 0755 "$INSTALL_DIR"
-    install -m 0755 "$TRACE_BUILD" "$INSTALL_BIN"
+    # A re-enable runs while the installed engine may still be alive: put()
+    # renames instead of writing through it (see its comment).
+    put "$TRACE_BUILD" 0755 "$INSTALL_BIN" || die "cannot install $INSTALL_BIN"
     # The engine's RUNPATH points into the checkout; install the matching
     # libhunmin beside it so the checkout can go away.
-    install -m 0644 "$TRACE_LIB" "$INSTALL_LIB"
+    put "$TRACE_LIB" 0644 "$INSTALL_LIB" || die "cannot install $INSTALL_LIB"
     install -d -m 0700 "$LOG_DIR" || true
     if [ -n "${SUDO_USER:-}" ]; then
         chown "$SUDO_USER" "$LOG_DIR" 2>/dev/null || true
     fi
     # The wrapper is the only way to give the engine an environment: IBus starts
     # it with the daemon's, and a running daemon cannot be re-inherited.
-    cat >"$ENGINE" <<WRAPPER
+    wrapper_tmp="$ENGINE.new.$$"
+    cat >"$wrapper_tmp" <<WRAPPER
 #!/bin/sh
 $MARK — installed by tools/ibus-trace-enable.sh; 'disable' restores the packaged
 # engine from $BACKUP. One file per engine process, mode 600, under
@@ -142,7 +164,8 @@ LD_LIBRARY_PATH="$INSTALL_DIR\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
 export LD_LIBRARY_PATH
 exec $INSTALL_BIN "\$@"
 WRAPPER
-    chmod 0755 "$ENGINE"
+    chmod 0755 "$wrapper_tmp"
+    mv -f "$wrapper_tmp" "$ENGINE" || die "cannot install the wrapper at $ENGINE"
     say "installed $INSTALL_BIN + $(basename "$INSTALL_LIB") beside it, wrapped $ENGINE"
     say "log: $LOG_DIR/key-log-<date>-<time>-<pid>.jsonl (mode 600, one file per engine process)"
     say ""
@@ -161,7 +184,7 @@ disable)
     if is_wrapper; then
         [ -f "$BACKUP" ] || die "$BACKUP is missing — reinstall instead: apt-get install --reinstall hunmin-ibus"
         if package_intact; then
-            install -m 0755 "$BACKUP" "$ENGINE"
+            put "$BACKUP" 0755 "$ENGINE" || die "cannot restore $ENGINE (is it busy?)"
             rm -f "$INSTALL_BIN" "$INSTALL_LIB"
             say "restored the packaged engine from $BACKUP and removed the installed copies"
         else
