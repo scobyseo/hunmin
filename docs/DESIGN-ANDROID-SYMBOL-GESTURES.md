@@ -398,6 +398,25 @@ the finger did, what the recognizer decided, and what the app delivered —
 the mismatch is the difference. Evaluation pulls are session records, not
 tier-C conformance data.
 
+### Evaluation session 2026-11-26 — what the trace found, and the rulings
+
+One phone session (SM-F971N, release-signed debuggable build, case
+`usability-eval`): 316 UI gestures, 272 engine keys. Artefacts outside the
+repo (`~/work/hunmin-measurements/usability-eval-312-2026-11-26/`, with
+`meta.json`).
+
+| # | measured in the trace | maintainer's ruling | outcome |
+|---|---|---|---|
+| 1 | backspace **committed** the composing word: 9 of 34 backspaces (26%) returned `consumed=false` with a commit; 8 of 39 typed characters were leftover jamo (`ㅅ`, `ㅈㅇ`, `ㅓ`, `ㄱ`, `ㅅㅍㅣ`). Reproduced deterministically: `hunmin-sim --layer word --keys $'rkrk\b\b\b'` → `commit '가'`; the ic path deletes normally | engine fix, both surfaces alike, its own issue | **issue #332**, requirement `docs/SPEC-FRONTEND.md#§FE17` — not fixed here (the Android gesture work is #312) |
+| 2 | swipe-left on the **space bar** deleted text (2×, `dx ≈ -161`) | "커서 이동으로 수정하자" | implemented: `KeypadModel.swipeLeftAction` → `CURSOR_LEFT` on space, `DELETE` elsewhere; E1 pins the exception, the E2E round asserts `ab` + swipe-left + `x` → `axb` |
+| 3 | two upward-left swipes on `t` (`dx = -63 / -117`) were read as swipe-up and typed `ㅆ` | "이건 시프트를 의도한 게 맞아" | no change: the recognition was correct; recorded so a future reader does not re-open it |
+
+Gesture health in the same session: 300 taps, 3 long-press, 6 swipe-up, 1
+swipe-down, 2 swipe-left — every non-tap mapped to its ruled action, all four
+symbol pages cycled, symbols and `$` committed. The three long-press events
+(`t`, `p`, `w`) each produced the doubled jamo the session needed (ㅆ·ㅖ·ㅉ), so
+the 200 ms default was not the problem in that session.
+
 ## 7. What this does not settle
 
 The extended-page geometry fork (grow / swap / paginate); the math inventory

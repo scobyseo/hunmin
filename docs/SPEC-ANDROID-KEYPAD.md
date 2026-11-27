@@ -580,6 +580,19 @@ wired; KP13 draws their hints. This entry does not pull #312 forward; it records
 the observation so the gap between the drawn hints and the wired gestures is
 visible.
 
+The space bar is an exception — decided (2026-11-26, verbatim):
+
+> "발견 2 - 커서 이동으로 수정하자."
+
+the usability evaluation's input, not "any key" without exception: when a left
+swipe on the **space bar** was measured deleting text (`dx ≈ -161`, twice in one
+session), the maintainer ruled it to **move the cursor** instead. So
+`KeypadModel.swipeLeftAction` gives `CURSOR_LEFT` on space and `DELETE` on every
+other key; the cursor move is a `KEYCODE_DPAD_LEFT` key event through the same
+path (the composing word lands at the boundary first, then the client moves).
+Swipe-left on a non-space key keeps KP14's delete, and the delete unit setting
+still governs only the delete (the cursor step is one, not a unit).
+
 Backspace long-press — the original request, with its reasoning (2026-11-22,
 verbatim, from the T3-3 session; tracked in the #312 comment of 2026-11-22):
 

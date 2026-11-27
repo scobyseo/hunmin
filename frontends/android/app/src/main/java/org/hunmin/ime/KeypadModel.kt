@@ -396,6 +396,20 @@ object KeypadModel {
      * other function keys. KP14's swipe-left delete is independent of this
      * table — it starts from any keycap.
      */
+    /**
+     * The swipe-LEFT sentence for a key (KP14 vs the space exception).
+     *
+     * KP14 makes a long left swipe delete "from any key", and the usability
+     * evaluation (2026-11-26) found the SPACE bar carrying it: a leftward drag
+     * on the space bar is what other IMEs use to MOVE THE CURSOR, so the same
+     * gesture deleted text there. Maintainer's ruling (verbatim in SPEC KP14):
+     * "발견 2 - 커서 이동으로 수정하자." So space is a recorded exception and
+     * every other key keeps the delete.
+     */
+    fun swipeLeftAction(kind: KeypadKey.Kind, id: String): GestureAction =
+        if (kind == KeypadKey.Kind.FUNCTION && id == "space") GestureAction.CURSOR_LEFT
+        else GestureAction.DELETE
+
     fun gestureAction(kind: KeypadKey.Kind, id: String, gesture: GestureKind): GestureAction = when {
         // Swipe-DOWN on text keys and the 기호 key is UNRULED — a NONE cell,
         // not a silent copy of swipe-up (KP8: a direction earns its meaning).
@@ -568,7 +582,12 @@ enum class GestureKind { SWIPE_UP, SWIPE_DOWN, LONG_PRESS }
 /** What a gesture does on a key — see [KeypadModel.gestureAction]. */
 enum class GestureAction {
     SHIFTED_KEY, SYMBOL_PICKER, WORD_DELETE_REPEAT, CAPSLOCK,
-    NEXT_SYMBOL_SET, PREV_SYMBOL_SET, NONE
+    NEXT_SYMBOL_SET, PREV_SYMBOL_SET,
+    /** KP14's swipe-left delete, the default meaning of that gesture. */
+    DELETE,
+    /** Swipe-left on the SPACE bar: move the cursor, not delete (2026-11-26). */
+    CURSOR_LEFT,
+    NONE
 }
 
 /**

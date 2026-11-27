@@ -48,6 +48,9 @@ class KeypadView(context: Context) : LinearLayout(context) {
     /** KP14: a long swipe-left from any keycap — delete, not type. */
     var onSwipeLeftDelete: (() -> Unit)? = null
 
+    /** Swipe-left on the SPACE bar: move the cursor one step left (#312). */
+    var onCursorLeft: (() -> Unit)? = null
+
     /** KP14/KP7: one WORD-unit delete tick (backspace long-press repeat). */
     var onWordDelete: (() -> Unit)? = null
 
@@ -355,10 +358,12 @@ class KeypadView(context: Context) : LinearLayout(context) {
                         if (KeypadModel.isSwipeLeftDelete(dx, dy, threshold)) {
                             gestureFired = true
                             handler.removeCallbacks(longPress)
+                            val action = KeypadModel.swipeLeftAction(key.kind, key.id)
                             UiTraceRecorder.gesture(state.page.name, key.id, key.kind.name,
-                                dx, dy, ev.eventTime - ev.downTime, "swipe_left", "DELETE",
+                                dx, dy, ev.eventTime - ev.downTime, "swipe_left", action.name,
                                 threshold, jitter, returnRadius)
-                            onSwipeLeftDelete?.invoke()
+                            if (action == GestureAction.CURSOR_LEFT) onCursorLeft?.invoke()
+                            else onSwipeLeftDelete?.invoke()
                         } else if (KeypadModel.isSwipeUp(dx, dy, threshold)) {
                             if (armed == null) handler.removeCallbacks(longPress)
                             armed = GestureKind.SWIPE_UP   // commit on UP (KP5)

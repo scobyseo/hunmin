@@ -1640,3 +1640,11 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   math page picker → symbol page) are now in SPEC KP7/KP10. The variant
   implementation was removed; the corrected design is
   docs/DESIGN-ANDROID-SYMBOL-GESTURES.md. Index updated.
+
+## [2026-11-26] create | the first usability session, and what the trace found
+
+- Created [[2026-11-26-first-usability-session]]: one phone session with the new
+  UI trace sink (316 gestures / 272 engine keys). Backspace committing the
+  composing word (9/34, reproduced in the oracle, split to #332 / FE17), the
+  space bar's swipe-left deleting instead of moving the cursor (ruled, fixed,
+  E1 + E2E), and a swipe-up whose "failure" was the intended shift. Index updated.

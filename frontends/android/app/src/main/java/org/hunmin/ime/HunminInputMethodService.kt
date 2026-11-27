@@ -1243,6 +1243,12 @@ class HunminInputMethodService : InputMethodService() {
             if (isHangulMode != hangul) toggleHangulEnglish()
         }
         pad.onSwipeLeftDelete = { deleteBySwipeUnit() }
+        // Space's swipe-left moves the cursor instead of deleting (2026-11-26
+        // usability evaluation: the drag other IMEs use for the cursor was
+        // deleting text here). A key event through the same path, so the
+        // boundary rule applies — the composing word lands first, then the
+        // cursor moves in the client.
+        pad.onCursorLeft = { dispatchTouchKey(KeyEvent.KEYCODE_DPAD_LEFT, 0) }
         // KP14/KP7: backspace long-press repeats WORD deletion (~0.2 s, the
         // view owns the timer); the unit is the ruling's, not the setting's.
         pad.onWordDelete = { deleteByUnit(DeleteUnit.WORD) }

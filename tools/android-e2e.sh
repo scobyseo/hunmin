@@ -1250,6 +1250,29 @@ tap_desc 'fn:language-toggle'
 sleep 1
 echo "symbol-screen swipe-up/down cycle the sets; swipe-left stays backspace (KP10/KP14)"
 
+# #312 evaluation, finding 2 (maintainer 2026-11-26: "발견 2 - 커서 이동으로 수정하자"):
+# swipe-left on the SPACE BAR moves the cursor instead of deleting. Typed text
+# is the oracle: "ab", cursor left, then x lands between them -> "axb".
+restore_surface || fail "cannot restore for the space-cursor round"
+ensure_mode '영'
+tap_desc 'key:a'
+tap_desc 'key:b'
+swipe_left_on 'fn:space'
+tap_desc 'key:x'
+CUR="$(field_text)"
+echo "space swipe-left then X reads: '${CUR}'"
+[ "$CUR" = "axb" ] \
+  || fail "space swipe-left must MOVE the cursor (expected 'axb'), got '${CUR}'"
+# And the ordinary keys still delete: the same swipe on a letter key removes
+# the composing 'x' (KEY unit), leaving "ab".
+swipe_left_on 'key:q'
+GONE="$(field_text)"
+[ "$GONE" = "ab" ] \
+  || fail "swipe-left on a non-space key must keep deleting (KP14), got '${GONE}'"
+# Repair the field for the rounds after this one.
+tap_desc 'key:x'
+echo "swipe-left moves the cursor on space and still deletes elsewhere (KP14 exception)"
+
 if [ "${HUNMIN_E2E_SKIP_TO_GESTURE:-0}" = 1 ]; then
   echo "PASS (gesture round only): the #312 gestures work — swipe-up=shift,"
   echo "      long-press equivalence, KP5 short-drift tap, backspace word-repeat,"

@@ -204,6 +204,25 @@ class KeypadGestureTest {
     }
 
     @Test
+    fun swipeLeftDeletesOnEveryKeyExceptSpace() {
+        // Maintainer 2026-11-26 (SPEC KP14, verbatim): "발견 2 - 커서 이동으로
+        // 수정하자." A leftward drag on the SPACE bar is what other IMEs use to
+        // move the cursor; here it was deleting text.
+        assertEquals(GestureAction.CURSOR_LEFT,
+            KeypadModel.swipeLeftAction(KeypadKey.Kind.FUNCTION, "space"))
+        for ((kind, id) in listOf(
+            KeypadKey.Kind.CHARACTER to "q",
+            KeypadKey.Kind.DIGIT to "1",
+            KeypadKey.Kind.FUNCTION to "enter",
+            KeypadKey.Kind.FUNCTION to "backspace",
+            KeypadKey.Kind.SYMBOL to "·",
+        )) {
+            assertEquals("$kind/$id", GestureAction.DELETE,
+                KeypadModel.swipeLeftAction(kind, id))
+        }
+    }
+
+    @Test
     fun longPressTimeoutIsTheProvisionalTuningValue() {
         // Maintainer 2026-11-26: "long-press가 너무 긴데. 200ms 이하로 테스트해보고
         // 싶어" — the system value (500 ms phone / 400 ms AVD) was too slow.
