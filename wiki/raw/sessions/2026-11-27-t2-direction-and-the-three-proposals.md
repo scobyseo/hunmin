@@ -326,3 +326,29 @@ overwrites the wrapper — logging stops silently and `enable` must be re-run.
 maintainer's three proposals into a measurement programme (the purpose paragraph
 in `docs/MILESTONES.md` §0.4 Track 2 and §2.2 here), and do not let a gate on the
 shipped design stand in for choosing a design (D8).
+
+### The first real `enable` broke typing entirely — cause and fix (2026-11-28)
+
+What happened: after `enable`, Korean could not be typed at all. The log recorded
+it exactly — `"layout":""` in meta and **every** event `consumed:false`, 0 preedits,
+~1,300 of them — and the engine declined every key because it had no state.
+
+Cause, reproduced without a bus: a **dev build** compiles
+`HUNMIN_DEFAULT_DATA_DIR=${CMAKE_INSTALL_FULL_DATADIR}/hunmin`, which for the
+worktree's default prefix is `/usr/local/share/hunmin` — a directory that does not
+exist. With no data, `hunmin_ctx_new` returns NULL, `hunmin_state_new` returns NULL,
+and `hunmin_state_key` answers `declined()` for every event. The packaged lib has
+`/usr/share/hunmin` compiled in, which is why the packaged engine never showed it.
+Check: the installed lib with no `HUNMIN_DATA_PATH` → ctx NULL; with
+`HUNMIN_DATA_PATH=/usr/share/hunmin` → `sin3-p2-basic` loads and composes.
+
+Three fixes (commit `5043157`): the wrapper exports `HUNMIN_DATA_PATH`
+(`HUNMIN_TRACE_DATA` overrides); `enable` refuses to install without a data dir
+that has `layouts/`, and **preflights** the installed lib the way the engine
+starts (`hunmin_ctx_new(NULL, 0)` must be non-NULL), restoring the packaged engine
+before dying if it is not; and the engine now warns in the journal when no layouts
+loaded instead of declining everything silently.
+
+The lesson for a hand-off: an installed dev engine is not the packaged one — its
+compiled paths are the build's, and `status` should have been read as
+`"layout":""` the first time. The three log files from that window are void.

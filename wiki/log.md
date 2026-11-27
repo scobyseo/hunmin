@@ -1716,3 +1716,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   Also fixed the enable script's first real failure: it wrote through a running
   engine ("Text file busy"); every install now writes beside the target and
   renames over it.
+
+## [2026-11-28] update | enable이 한글 입력을 죽인 원인과 수정
+
+- [[2026-11-27-t2-direction-and-the-three-proposals]] §10 updated: the first real
+  `enable` lost Korean entirely — the dev lib's compiled data dir is
+  `/usr/local/share/hunmin` (absent), so `hunmin_ctx_new` returned NULL and every
+  key was declined (log: `"layout":""`, 1,300 events, 0 preedits). Fixes in
+  `5043157`: wrapper exports `HUNMIN_DATA_PATH`, `enable` preflights the installed
+  lib and restores the packaged engine if it fails, and the engine warns in the
+  journal instead of failing silently.
