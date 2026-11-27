@@ -22,7 +22,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
             build-essential dpkg-dev debhelper fakeroot python3 \
-            libxkbcommon-dev libx11-dev
+            libxkbcommon-dev libx11-dev libgtk-3-dev
           # Distro fcitx5 without recommends (issue #322 prune); the source-build
           # -dev deps are gone with the source build. fcitx5-modules' Depends
           # supplies the runtimes; ECM/gettext/libfmt-dev are not needed.
