@@ -113,7 +113,7 @@ jobs:
           # `Import "PIL" could not be resolved` at tools/gen-android-icons.py:33.
           # With this package the import resolves.
           sudo apt-get install -y cmake ninja-build pkg-config libhangul-dev \
-            python3 python3-pil libxkbcommon-dev libx11-dev libibus-1.0-dev
+            python3 python3-pil libxkbcommon-dev libx11-dev libibus-1.0-dev ibus
           # The distro fcitx5 (issue #322), installed WITHOUT recommends: the
           # frontend stack (fcitx5-frontend-all -> gtk2/3/4/qt5/6, config-qt) is
           # a Recommends of `fcitx5` and no lane that runs here needs it (D3
@@ -156,6 +156,8 @@ jobs:
           # above the tree's 1.5.26 floor; the ubuntu-24.04 image has
           # universe enabled. The lanes must register AND pass, not skip:
           # engine-d2-ibus-ui needs a session bus and SKIPs without one.
+          # ibus supplies org.freedesktop.ibus.general.hotkey, which the
+          # settings tests read; libibus-1.0-dev alone does not install it.
       # fcitx5 comes from the distro packages installed above (issue #322).
       # The 5.1.13 source build, its install-tree cache and the artefact upload
       # that fed the deb job are gone: the addon's floor is 5.1.7, which noble
@@ -854,12 +856,15 @@ jobs:
     name: ibus (.deb artefact, Ubuntu 22.04)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
-    # 3 min, measured ~70-105 s (docs/CI-TIMING.md §8). The package build
-    # runs no tests (nocheck): the jammy evaluation is the ibus-jammy job
-    # above, the full suite is the linux job, and the noble package build
-    # keeps its own in-build suite. debian/rules turns BUILD_TESTING=OFF
-    # under nocheck, so no googletest/test binaries are built here at all.
-    timeout-minutes: 3
+    # 5 min, raised from 3 after dispatch 46019257406: the build produced
+    # every .deb in about 63 s, then dpkg-genbuildinfo was still running when
+    # the 180 s ceiling cancelled it. The former 71 s measurement predates the
+    # GTK3 settings package (docs/CI-TIMING.md §8). The package build runs
+    # no tests (nocheck): the jammy evaluation is the ibus-jammy job above,
+    # the full suite is the linux job, and the noble package build keeps its
+    # own in-build suite. debian/rules turns BUILD_TESTING=OFF under nocheck,
+    # so no googletest/test binaries are built here at all.
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - name: Install build deps
