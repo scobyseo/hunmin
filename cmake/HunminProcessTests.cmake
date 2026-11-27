@@ -32,6 +32,9 @@ hunmin_add_test(NAME modes-mixed-tokens-selfcheck COMMAND ${Python3_EXECUTABLE} 
 # The rewrite collector (Track 2): must record a judgement-driven rewrite and
 # stay silent on a kept word. Needs the built layer, no corpus.
 hunmin_add_test(NAME modes-rewrites-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/modes-rewrites.py --selfcheck --lib $<TARGET_FILE:hunmin> LABELS tier-G)
+# The personal-log analyser (Track 2): a synthetic log must read, and the SAME
+# keys at judge_hold 1 must flicker less. Needs the layer, no corpus.
+hunmin_add_test(NAME personal-log-flips-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/personal-log-flips.py --selfcheck --lib $<TARGET_FILE:hunmin> LABELS tier-G)
 # Track 4 prefix-match measurement guard (issue #300): fixture aggregates,
 # greedy-vs-optimal gap, negative control. No corpus, no engine needed.
 hunmin_add_test(NAME hanja-prefix-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/measure-hanja-prefix.py --selfcheck LABELS tier-G)

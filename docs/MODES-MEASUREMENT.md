@@ -383,6 +383,17 @@ harness keeps them, or it will produce the same confident zeros.
    opposite tendencies giving the same ratio is evidence the conclusion is not
    sample bias. A corpus that may not be distributed is a valid instrument
    precisely because it can correct the bias of one that may.
+7. **Every claim carries its evidence grade, and the four are not
+   interchangeable.** Recorded 2026-11-27 after a compressed sentence in
+   `AGENTS.md` was read back as "the commercial behaviour is false", which is not
+   what any measurement had found:
+   `engine-measured` (reproduced through the built engine — a fact about this
+   engine), `readable-prior-art` (checked against implementations we can read
+   here: a finding of "no precedent in that set", never a claim about software we
+   cannot inspect), `reported` (the maintainer's experience: a phenomenon, valid
+   as a phenomenon, with the engine's side still to reproduce), and
+   `unverifiable-here` (commercial software and other people's environments —
+   recorded as an open question, never as a refutation).
 
 ---
 

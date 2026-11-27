@@ -93,9 +93,10 @@ class TraceJudged : public ::testing::Test {
     }
     /* One key, in the order hunmin_engine.c drives it (the sequence IS the
      * contract: RESET clears the previous key's judgement, the state takes it,
-     * the event line prints it). Reproducing the three calls here is what lets
-     * the state path and the sink be tested without an IBus bus; the engine's
-     * own call sites are the three lines in hunmin_process_key_event(). */
+     * MODE records the layer's language after it, the event line prints both).
+     * Reproducing the four calls here is what lets the state path and the sink
+     * be tested without an IBus bus; the engine's own call sites are the four
+     * lines in hunmin_process_key_event(). */
     void type(const char *keys) {
         for (const char *p = keys; *p; ++p) {
             hunmin_key_event ev = {};
@@ -103,6 +104,7 @@ class TraceJudged : public ::testing::Test {
             ev.id = HUNMIN_KEY_TEXT;
             hunmin_ibus_trace_reset();
             const int used = hunmin_state_key(s_, &ev);
+            hunmin_ibus_trace_mode(hunmin_state_language(s_));
             hunmin_ibus_trace_event(&ev, used, ev.base);
         }
     }
@@ -128,6 +130,41 @@ TEST_F(TraceJudged, TheBoundaryLineCarriesTheJudgementTheEngineActedOn) {
     const std::string line = log.substr(line_start, log.find('\n', line_start) - line_start);
     EXPECT_NE(std::string::npos, line.find("\"preedit\":\"\""))
         << "the judged line is the boundary key (nothing left composing): " << line;
+    /* The two fields that make a flip readable: the mode after the key, and a
+     * clock. Without `mode` a preedit cannot say which language rendered it;
+     * without `t` "the person noticed and stopped" is invisible. */
+    EXPECT_NE(std::string::npos, line.find("\"mode\":\"latin\"")) << line;
+    EXPECT_NE(std::string::npos, line.find("\"t\":")) << line;
+    EXPECT_NE(std::string::npos, log.find("\"started\":\""))
+        << "the meta line carries wall-clock start, so a log can be aligned with a session";
+}
+
+/* The mode is on every key, and the clock is monotone: those are the two
+ * fields a 도깨비 analysis needs (a flip is the SAME text rendered by the other
+ * mode, and a repair is a DEL gap followed by the same keys). */
+TEST_F(TraceJudged, EveryKeyCarriesTheModeAndAMonotoneClock) {
+    type("gksrmf ");
+    const std::string log = own_log();
+    ASSERT_FALSE(log.empty());
+    int hangul = 0, clocks = 0;
+    long long last = -1;
+    bool ordered = true;
+    size_t pos = 0;
+    while ((pos = log.find("\"t\":", pos)) != std::string::npos) {
+        const long long t = atoll(log.c_str() + pos + 4);
+        if (last >= 0 && t < last) ordered = false;
+        last = t;
+        ++clocks;
+        pos += 4;
+    }
+    pos = 0;
+    while ((pos = log.find("\"mode\":\"hangul\"", pos)) != std::string::npos) {
+        ++hangul;
+        pos += 15;
+    }
+    EXPECT_EQ(7, clocks) << "one clock per key (gksrmf + space): " << log;
+    EXPECT_TRUE(ordered) << "the clock must not go backwards";
+    EXPECT_EQ(7, hangul) << "한글 keys stay in Hangul mode: " << log;
 }
 
 /* A word that keeps its mode logs no judgement at all: the field marks a

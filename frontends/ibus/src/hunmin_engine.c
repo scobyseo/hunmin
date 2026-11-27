@@ -195,6 +195,7 @@ static void publish_mode(HunminIbusEngine *self) {
  * as a TEXT event, the same convention fcitx5's personal log uses for F9. */
 static int declined(guint keyval) {
     const hunmin_key_event ev = { .base = keyval, .id = HUNMIN_KEY_TEXT };
+    HUNMIN_TRACE_MODE(-1); /* no state change follows a declined key */
     HUNMIN_TRACE_EVENT(&ev, 0, keyval);
     return FALSE;
 }
@@ -236,6 +237,10 @@ static gboolean hunmin_process_key_event(IBusEngine *engine, guint keyval, guint
         keyval, state, hunmin_state_candidates_open(self->state),
         hunmin_ibus_settings_keys(self->settings));
     const int used = hunmin_state_key(self->state, &ev) ? TRUE : FALSE;
+    /* The mode AFTER the key: with the preedit this is what makes a flip
+     * readable, and with `judged` it separates "the person was in Latin" from
+     * "the engine switched". */
+    HUNMIN_TRACE_MODE(hunmin_state_language(self->state));
     HUNMIN_TRACE_EVENT(&ev, used, keyval);
     publish_mode(self);
     return used;

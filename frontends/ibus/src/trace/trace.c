@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 /* T2-1's personal key log for the IBus frontend: the same dialect fcitx5,
  * Android and TSF emit (docs/trace-spec.md §"Personal key log"). This lives
@@ -21,12 +22,26 @@ static char preedit_buf[512];
  * HUNMIN_LANGUAGE_*. Set between HUNMIN_TRACE_RESET() and HUNMIN_TRACE_EVENT()
  * by the key path, so one line = one key = at most one rewrite. */
 static int judged_lang = -1;
+/* The layer's language AFTER the traced key (HUNMIN_LANGUAGE_*), -1 = unknown.
+ * Preedit + mode is what makes a "도깨비" readable: the same text rendered by
+ * the other language is the flip. */
+static int mode_lang = -1;
+/* Milliseconds since the log opened. "Noticed and stopped" (a long gap before a
+ * repair) is only visible with a clock, and telling a typo from a repair needs
+ * it — docs/trace-spec.md §"Personal key log". */
+static long long opened_ms = -1;
 /* The engine tells us the layout it actually resolved (not the requested env
  * id, which may have failed to load). The meta line is written on the first
  * key, after init, so this is always populated for a real run. */
 static char layout_buf[64] = "";
 
 static void trace_json(FILE *f, const char *s);
+
+static long long now_ms(void) {
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) return 0;
+    return (long long)ts.tv_sec * 1000LL + (long long)(ts.tv_nsec / 1000000);
+}
 
 void hunmin_ibus_trace_set_layout(const char *id) {
     snprintf(layout_buf, sizeof layout_buf, "%s", id ? id : "");
@@ -36,9 +51,17 @@ static FILE *trace_sink(void) {
     if (!sink) {
         const char *path = getenv("HUNMIN_TRACE_OUT");
         sink = (path && *path) ? fopen(path, "a") : stderr;
+        opened_ms = now_ms();
         fputs("{\"meta\":{\"platform\":\"x11\",\"layout\":", sink);
         trace_json(sink, layout_buf);
-        fputs(",\"case\":\"personal\",\"dialect\":\"personal-key\"}}\n", sink);
+        char started[32] = "";
+        const time_t wall = time(NULL);
+        struct tm tm_utc;
+        if (gmtime_r(&wall, &tm_utc) != NULL)
+            strftime(started, sizeof started, "%Y-%m-%dT%H:%M:%SZ", &tm_utc);
+        fputs(",\"case\":\"personal\",\"dialect\":\"personal-key\",\"started\":\"", sink);
+        fputs(started, sink);
+        fputs("\"}}\n", sink);
         fflush(sink);
     }
     return sink;
@@ -72,6 +95,10 @@ void hunmin_ibus_trace_judged(int language) {
     judged_lang = language;
 }
 
+void hunmin_ibus_trace_mode(int language) {
+    mode_lang = language;
+}
+
 void hunmin_ibus_trace_event(const hunmin_key_event *ev, int consumed, unsigned int raw) {
     FILE *f = trace_sink();
     fprintf(f,
@@ -90,6 +117,10 @@ void hunmin_ibus_trace_event(const hunmin_key_event *ev, int consumed, unsigned 
     if (judged_lang >= 0)
         fprintf(f, ",\"judged\":\"%s\"",
                 judged_lang == HUNMIN_LANGUAGE_LATIN ? "latin" : "hangul");
+    if (mode_lang >= 0)
+        fprintf(f, ",\"mode\":\"%s\"",
+                mode_lang == HUNMIN_LANGUAGE_LATIN ? "latin" : "hangul");
+    if (opened_ms >= 0) fprintf(f, ",\"t\":%lld", now_ms() - opened_ms);
     fprintf(f, ",\"consumed\":%s}\n", consumed ? "true" : "false");
     fflush(f);
 }

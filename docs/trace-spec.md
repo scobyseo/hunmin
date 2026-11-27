@@ -332,7 +332,9 @@ the mapping, and personal logs keep shared events because their job is to measur
 behaviour after the mapping.
 
 One line per event, UTF-8, LF-terminated. Line 1 is a `meta` object with the same
-fields as tier C's `meta`, plus `dialect: "personal-key"`. Each event line is:
+fields as tier C's `meta`, plus `dialect: "personal-key"` and (since 2026-11-27)
+`started: "<UTC ISO-8601>"`, the wall clock at the log's first line, so a log can
+be lined up against a session or a journal. Each event line is:
 
 ```json
 {"in": {"base": 97, "shift": 0, "mods": 0, "id": 1}, "char": "a", "commit": "", "preedit": "ㄱ", "consumed": true}
@@ -347,6 +349,8 @@ fields as tier C's `meta`, plus `dialect: "personal-key"`. Each event line is:
 | `in.id` | `hunmin_key_event.id` — `HUNMIN_KEY_*`, so a BackSpace or Han/Eng key is named without a platform constant |
 | `char` | optional adapter-chosen character, for readability; not the input |
 | `commit` / `preedit` / `consumed` | the same output fields as tier C |
+| `mode` | **added 2026-11-27:** the layer's language AFTER this key, `"latin"` or `"hangul"`. With `preedit` it is what makes a flicker readable — the same text rendered by the other language is the flip (`docs/MODES-MEASUREMENT.md` §2.5), and with `judged` it separates "the person was in Latin" from "the engine switched" |
+| `t` | **added 2026-11-27:** milliseconds since the log opened (monotonic). "The person noticed and stopped" is only visible with a clock; it is also the first half of telling a typo from a repair (the second half is the key relation, which no field can supply) |
 | `judged` | **added 2026-11-27:** the language the engine's judgement acted on for THIS key, `"latin"` or `"hangul"`; absent when the key was not judged. It is the rewrite itself — a `commit` of Hangul cannot tell "the person typed Hangul" from "the engine replaced it", which is the only event Track 2 exists to measure (`docs/MILESTONES.md` §0.4 Track 2 purpose). Spelled exactly as `hunmin-sim --judge --trace` spells it, so one vocabulary reads both |
 
 Because `in.id` names the key and `in.mods` uses shared bits, analysis need no

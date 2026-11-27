@@ -197,9 +197,16 @@ Two rules follow from this and they are not optional:
   a ruling is not closure — it authorises implementation and verification, not
   the end of measuring what it did not cover.
 - **Check the maintainer's claims as carefully as your own.** Stated premises get
-  verified too. Twice a stated premise did not hold — that commercial software
-  works a particular way, and that a symbol ends composition — and both were
-  worth checking.
+  verified too. Twice a stated premise did not hold — and both records name what was
+  actually checked, which is narrower than "it was false": the commercial-software
+  premise was checked against the implementations readable here (kime, ibus-hangul,
+  fcitx5-hangul), so the finding is *no precedent in the readable set*, not a claim
+  about software nobody can inspect; the symbol one was reproduced in the engine
+  (`hunmin-sim --keys 'rk,rmf'` composes after the comma), where the conclusion was
+  right for a different reason. `docs/MODES-MEASUREMENT.md` §5 rule 7 is the
+  vocabulary: `engine-measured`, `readable-prior-art`, `reported`,
+  `unverifiable-here`. A maintainer's experience is a phenomenon, never a premise to
+  be refuted.
 - **The maintainer's words are the requirement, not your paraphrase.** Quote them
   where the exact wording matters, and check the quotation against what was
   actually said. A paraphrase drifts, and the drift is what gets built.
