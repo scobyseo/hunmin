@@ -77,6 +77,32 @@ The offenders are ordinary commands and paths, not typos:
 engine switches. `hunmin-sim --judge --start-latin --keys 'pwd '` answers `퍟`,
 `judged=hangul`, which is the oracle agreeing with the collector.
 
+## Why it fired: 100% of these words are missing from the dictionary
+
+Every one of the 149 judgement rewrites is a token the shipped English list does
+not contain (`libhunmin/data/modes/en-US.json`, 118,150 entries): 149 of 149, and
+none of them a word the list knew. The corpus's harm is therefore **coverage
+first, rule second** — the judgement said "not a word of mine, but its Hangul
+reading is valid syllables, so switch", and that is the rule working as ruled.
+
+| rank | token | rewrites | cumulative |
+|---|---|---|---|
+| 1 | `opencode` | 60 | 40% |
+| 2 | `kime` | 10 | 47% |
+| 3 | `pwd` | 8 | 52% |
+| 4 | `mpv` | 8 | 58% |
+| 5 | `~/.config/kime/config.yaml` | 5 | 61% |
+| 6 | `ibus-hangul` | 3 | 63% |
+| 7-10 | `nano`, `lsusb`, `https://pi.dev/install.sh`, `libdbus-1-dev` | 2 each | 68% |
+
+Ten tokens account for 68% of the rewrites, and the mechanism to fix them already
+ships: `hunmin_buffered_preedit_add_user_word`. Verified on this build — `pwd`
+alone still judges `hangul` and delivers `퍟`; with `pwd` added as a user word the
+engine keeps it and delivers `pwd`. So one experiment Track 2 can run before any
+design change is "the same corpus with the top ten words in a user dictionary":
+it prices the coverage lever against the design levers on the same text
+(`hunmin_buffered_preedit_add_user_word` + `tools/modes-rewrites.py`).
+
 ## Korean side: the engine abstains, and the word is lost anyway
 
 105 quoted Korean sentences (940 tokens) → **6 rewrites (0.64%)**, and **none of
