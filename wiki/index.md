@@ -48,7 +48,10 @@
   measurements are the agent's and rulings are the maintainer's, and the three
   later instances where it bound.
 - [[the-outstanding-decisions]] — D1 hangul judgement method, D2 E1 symmetry,
-  D3 whether 119 may inform a shipped list, D4 whether this wiki stays.
+  D3 whether 119 may inform a shipped list, D4 whether this wiki stays, and
+  D5–D9 Track 2's design questions (what "more data" means, which design is
+  prototyped first, whether the user dictionary is a lever, what #295 becomes,
+  whether a live session may be logged).
 - [[2026-11-01-b1-retired-the-hangul-judgement-needs-no-source]] — B1 retired by the
   maintainer's "want to select A": the Hangul half is a structure test and the
   English half is shipped, so board §2 waits on implementation, not on a source.

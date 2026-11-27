@@ -73,6 +73,41 @@ justify dropping it:
 The thing that would justify keeping it: a decision made this month that cites
 a `raw/` record and would otherwise have been re-derived.
 
+## D5–D9. Track 2: the automatic switch's design (opened 2026-11-27)
+
+Track 2's purpose is recorded in `docs/MILESTONES.md` §0.4 Track 2 (the track has
+to *find the design*, not grade the shipped one), the three proposals are quoted in
+[[2026-11-27-t2-direction-and-the-three-proposals]], the prior art is
+`docs/MODES-PRIOR-ART.md`, and the maintainer's own typing is measured in
+[[2026-11-27-personal-rewrites]]. What is open, in dependency order:
+
+- **D5. What "more data" means, and when it is enough.** Decided 2026-11-27 that
+  more has to be collected; not decided *which* sources, *how much*, or what makes
+  a dataset sufficient (a fixed count, or a coverage curve that stops moving). The
+  candidates on this machine are the maintainer's own typing at scale (session
+  store, prompt history), a typed-web frequency list (AIHub 624 — licence: use
+  only, never redistributable), or a live key log from a real session
+  (`docs/trace-spec.md` §"Personal key log", now carrying `judged`).
+- **D6. Which design is prototyped first** — the hint (show the alternative as a
+  candidate), the explicit trigger (convert only when a key asks), or the mixed
+  token (English stem + Korean particle). Each has a unit
+  `docs/MODES-MEASUREMENT.md` does not yet define for it.
+- **D7. Whether the user dictionary is a Track 2 lever.** Every rewrite on the
+  recorded typing was a word the shipped list does not know, and
+  `hunmin_buffered_preedit_add_user_word` fixes the verified case — but who
+  supplies the words (a frontend row, a shipped list, a personal file) is a data
+  and UX decision, not an engine one.
+- **D8. What #295 is from now on** — a gate on whichever display ships, a
+  regression line only, or retired in favour of D6's comparison — and what happens
+  to `judge_hold` (keep at its 0 default, make 1 the default — an E6 ruling — or
+  delete it with the display it steadies).
+- **D9. Whether a live session may be logged** — a trace build behind the
+  maintainer's real typing means replacing `/usr/bin/hunmin-ibus` (or a runtime
+  option); the private nested session `tools/ibus-real-use.sh` needs nothing.
+
+Nothing here is answered; each is a ruling, and **D5 blocks the rest** — the
+experiments D6/D7 need a corpus whose sufficiency D5 defines.
+
 ## Open measurements (findings, not decisions)
 
 - Stemming on 119, completing the three-way comparison.

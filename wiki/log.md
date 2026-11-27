@@ -1698,3 +1698,11 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   where the engine acts on a judgement, compiled out of shipped builds, asserted by
   `engine-d1-ibus-trace-judged`; `trace-optout-ibus` still proves a shipped engine
   carries neither the sink nor its env var.
+
+## [2026-11-27] update | T2의 열린 결정을 한 곳에 (D5–D9)
+
+- [[the-outstanding-decisions]] gained D5–D9, in dependency order, for the
+  automatic switch: what "more data" means and when it is enough (D5, blocks the
+  rest), which design is prototyped first, whether the user dictionary is a Track 2
+  lever, what #295 is from now on (and `judge_hold`'s disposal), and whether a live
+  session may be logged. Recorded, not answered — each is the maintainer's.
