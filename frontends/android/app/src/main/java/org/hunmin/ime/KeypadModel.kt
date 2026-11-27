@@ -184,7 +184,7 @@ data class KeypadKey(
             Kind.FUNCTION -> "fn:$id"
             Kind.SHIFT -> "fn:shift"
             Kind.MODE -> "fn:language-toggle"
-            Kind.SYMBOLS_PAGE -> "fn:symbols-page"
+            Kind.SYMBOLS_PAGE -> "fn:$id"   // symbols-page (기호) / symbols-tier1 (기호 1)
             Kind.SYMBOL -> "symbol:$id"
         }
 }
@@ -295,6 +295,19 @@ object KeypadModel {
     }
 
     /**
+     * The shifted alternate of a DIGIT key: its drawn corner hint (! @ # …),
+     * committed through the symbol path like the frequent keys' alternate.
+     * MEASURED 2026-11-23 (#312 gesture round): in Hangul mode the soft 두벌식
+     * pair has no digit keys, so the classifier's boundary-and-pass delivers
+     * the bare digit and DROPS the shift bit — shift+1 typed '1', not the '!'
+     * the corner hint promises (KP16's hint-is-a-promise rule). The English
+     * pair's shift row already matches the hint; routing digits through the
+     * hint makes both modes keep the promise. Hardware keys are untouched.
+     */
+    fun shiftedDigitAlternate(key: KeypadKey): String? =
+        if (key.kind == KeypadKey.Kind.DIGIT) DIGIT_HINTS[key.id] else null
+
+    /**
      * KP17 (maintainer 2026-11-22: "소프트 키보드는 두벌식만 쓸건데?"): the
      * soft keypad's Hangul mode is 두벌식 and its English mode QWERTY,
      * regardless of the layout setting — the setting governs the hardware
@@ -314,6 +327,110 @@ object KeypadModel {
      */
     fun isSwipeLeftDelete(dx: Float, dy: Float, thresholdPx: Float): Boolean =
         dx <= -thresholdPx && -dx >= 2f * kotlin.math.abs(dy)
+
+    /**
+     * KP7's swipe-up gate, pure — the mirror of [isSwipeLeftDelete]: upward
+     * distance at least [thresholdPx] and vertically dominant (at least twice
+     * the horizontal drift). A tap that drifts sideways a little is still a
+     * tap (KP5). Recognition only; the commit is on release, and a return to
+     * the origin cancels ([returnedToOrigin]) — the layered defences recorded
+     * in docs/ANDROID-SYMBOL-INTERACTION.md §Avoiding the accidental swipe.
+     * The threshold is provisional, shared with KP14's.
+     */
+    fun isSwipeUp(dx: Float, dy: Float, thresholdPx: Float): Boolean =
+        dy <= -thresholdPx && -dy >= 2f * kotlin.math.abs(dx)
+
+    /** KP10's symbol-screen swipe-down gate: the mirror of [isSwipeUp]. */
+    fun isSwipeDown(dx: Float, dy: Float, thresholdPx: Float): Boolean =
+        dy >= thresholdPx && dy >= 2f * kotlin.math.abs(dx)
+
+    /**
+     * KP5's return-to-cancel: the pointer is back within [radiusPx] of the
+     * origin key, so a begun swipe-up is aborted. Provisional radius.
+     */
+    fun returnedToOrigin(dx: Float, dy: Float, radiusPx: Float): Boolean =
+        kotlin.math.abs(dx) <= radiusPx && kotlin.math.abs(dy) <= radiusPx
+
+    /**
+     * KP14's backspace long-press repeat interval: the maintainer's estimate
+     * (2026-11-23, verbatim in SPEC KP14: "0.2초 정도 간격으로 단어 삭제를
+     * 반복하면 될 것 같아") — a provisional tuning constant, not a measured
+     * optimum.
+     */
+    const val WORD_REPEAT_INTERVAL_MS = 200L
+
+    /**
+     * The long-press hold timeout. PROVISIONAL tuning (maintainer 2026-11-26:
+     * "long-press가 너무 긴데. 200ms 이하로 테스트해보고 싶어") — the system
+     * value (ViewConfiguration.getLongPressTimeout(), 500 ms on the test
+     * phone, 400 ms on the AVD) was too slow in use. 200 ms is the upper bound
+     * the maintainer named, the starting point of the experiment.
+     *
+     * The trade-off to watch in the evaluation: a SLOW swipe that has not yet
+     * passed the distance gate can fire long-press first (the movement-vs-time
+     * race); the jitter cancel (movement > 10 dp kills the hold) is the
+     * defence. If the evaluation shows slow swipes becoming shifts, the gate
+     * or this timeout moves — recorded, not decided.
+     */
+    const val LONG_PRESS_TIMEOUT_MS = 200L
+
+    /**
+     * The settings window's choices for the hold timeout (maintainer
+     * 2026-11-26: "설정할 수 있게 하는 게 제일 좋아"). Covers the "200ms 이하"
+     * experiment and slower values; the default [LONG_PRESS_TIMEOUT_MS] is
+     * among them.
+     */
+    val LONG_PRESS_CHOICES_MS = listOf(100L, 150L, 200L, 300L, 400L, 500L)
+
+    /**
+     * The per-key gesture exception table (KP7, maintainer 2026-11-23:
+     * "long press와 swipe up은 일반적으로 동일하지만, 기호 키나, backspace 등
+     * 일부 키에서 동작이 달라지는 거야"). The GENERAL rule is equivalence —
+     * both gestures reach [GestureAction.SHIFTED_KEY] on character keys — and
+     * the exceptions are recorded per-key facts: the 기호 mode key opens the
+     * page picker (KP10), backspace long-press repeats word deletion (KP14).
+     *
+     * [GestureAction.NONE] cells are OPEN, not verdicts: shift→capslock (the
+     * shift state machine is open, KP7), swipe-up on backspace (the ruling
+     * names long-press), symbol-screen keys (no shift meaning, KP6), and the
+     * other function keys. KP14's swipe-left delete is independent of this
+     * table — it starts from any keycap.
+     */
+    /**
+     * The swipe-LEFT sentence for a key (KP14 vs the space exception).
+     *
+     * KP14 makes a long left swipe delete "from any key", and the usability
+     * evaluation (2026-11-26) found the SPACE bar carrying it: a leftward drag
+     * on the space bar is what other IMEs use to MOVE THE CURSOR, so the same
+     * gesture deleted text there. Maintainer's ruling (verbatim in SPEC KP14):
+     * "발견 2 - 커서 이동으로 수정하자." So space is a recorded exception and
+     * every other key keeps the delete.
+     */
+    fun swipeLeftAction(kind: KeypadKey.Kind, id: String): GestureAction =
+        if (kind == KeypadKey.Kind.FUNCTION && id == "space") GestureAction.CURSOR_LEFT
+        else GestureAction.DELETE
+
+    fun gestureAction(kind: KeypadKey.Kind, id: String, gesture: GestureKind): GestureAction = when {
+        // Swipe-DOWN on text keys and the 기호 key is UNRULED — a NONE cell,
+        // not a silent copy of swipe-up (KP8: a direction earns its meaning).
+        (kind == KeypadKey.Kind.CHARACTER || kind == KeypadKey.Kind.DIGIT) &&
+            gesture != GestureKind.SWIPE_DOWN -> GestureAction.SHIFTED_KEY
+        kind == KeypadKey.Kind.SYMBOLS_PAGE && gesture != GestureKind.SWIPE_DOWN ->
+            GestureAction.SYMBOL_PICKER
+        // KP7 (decided 2026-11-23): shift's gestures lock capslock; a tap
+        // while locked releases it (KeypadState.tapShift).
+        kind == KeypadKey.Kind.SHIFT && gesture != GestureKind.SWIPE_DOWN ->
+            GestureAction.CAPSLOCK
+        // KP10 (decided 2026-11-23): on the symbol screen, swipe-up/down move
+        // to the next/previous symbol set; long-press follows the equivalence.
+        kind == KeypadKey.Kind.SYMBOL -> when (gesture) {
+            GestureKind.SWIPE_DOWN -> GestureAction.PREV_SYMBOL_SET
+            else -> GestureAction.NEXT_SYMBOL_SET
+        }
+        kind == KeypadKey.Kind.FUNCTION && id == "backspace" &&
+            gesture == GestureKind.LONG_PRESS -> GestureAction.WORD_DELETE_REPEAT
+        else -> GestureAction.NONE
+    }
 
     /**
      * The text-mode grid for [caps], as the decided picture draws it (KP13):
@@ -384,15 +501,38 @@ object KeypadModel {
                     SymbolScreen.Kind.SYMBOLS ->
                         KeypadKey(id, id, KeypadKey.Kind.SYMBOL, -1)
                     SymbolScreen.Kind.FUNCTION ->
-                        if (id == "language-toggle") {
-                            KeypadKey(id, "한/영", KeypadKey.Kind.MODE, -1)
-                        } else {
-                            KeypadKey(
+                        when (id) {
+                            "language-toggle" -> KeypadKey(id, "한/영", KeypadKey.Kind.MODE, -1)
+                            // KP9's mode-key slots (#312): 기호 on the Tier 1 screen
+                            // (tap stays, gesture opens the picker), 기호 1 on the
+                            // extended page (tap returns to Tier 1). Page actions,
+                            // not key events — the view's tap() reads the page.
+                            "symbols-page" -> KeypadKey(id, "기호", KeypadKey.Kind.SYMBOLS_PAGE, -1)
+                            "symbols-tier1" -> KeypadKey(id, "기호 1", KeypadKey.Kind.SYMBOLS_PAGE, -1)
+                            else -> KeypadKey(
                                 id, functionLabel(id), KeypadKey.Kind.FUNCTION,
                                 functionKeyCode(id)
                                     ?: throw IllegalArgumentException("unknown function id: $id"),
                             )
                         }
+                }
+            }
+        }
+
+    /**
+     * KP18's kaomoji page: a full-width LIST, one string per row — a kaomoji
+     * is wider than a grid key. Same Kind.SYMBOL commit path (the whole
+     * string commits through the flush-then-commit seam, KP11).
+     */
+    fun kaomojiRows(screen: SymbolScreen): List<List<KeypadKey>> =
+        screen.rows.map { row ->
+            row.keys.map { id ->
+                when (row.kind) {
+                    SymbolScreen.Kind.SYMBOLS ->
+                        KeypadKey(id, id, KeypadKey.Kind.SYMBOL, -1)
+                    SymbolScreen.Kind.FUNCTION ->
+                        if (id == "language-toggle") KeypadKey(id, "한/영", KeypadKey.Kind.MODE, -1)
+                        else KeypadKey(id, "기호 1", KeypadKey.Kind.SYMBOLS_PAGE, -1)
                 }
             }
         }
@@ -436,6 +576,20 @@ object KeypadVisibility {
     }
 }
 
+/** The gestures of #312's general-equivalence rule (KP7) and KP10's sets. */
+enum class GestureKind { SWIPE_UP, SWIPE_DOWN, LONG_PRESS }
+
+/** What a gesture does on a key — see [KeypadModel.gestureAction]. */
+enum class GestureAction {
+    SHIFTED_KEY, SYMBOL_PICKER, WORD_DELETE_REPEAT, CAPSLOCK,
+    NEXT_SYMBOL_SET, PREV_SYMBOL_SET,
+    /** KP14's swipe-left delete, the default meaning of that gesture. */
+    DELETE,
+    /** Swipe-left on the SPACE bar: move the cursor, not delete (2026-11-26). */
+    CURSOR_LEFT,
+    NONE
+}
+
 /**
  * KP14's delete unit for the long swipe-left gesture (maintainer 2026-11-22:
  * "key단위, 음절단위, 단어단위, 전체 삭제로 설정할 수 있어도 좋겠다").
@@ -463,35 +617,102 @@ enum class DeleteUnit(val pref: String, val label: String) {
  * No capslock — the state machine beyond one-shot is open (KP7).
  */
 class KeypadState {
-    enum class Page { TEXT, SYMBOLS }
+    enum class Page { TEXT, SYMBOLS, EXTENDED, MATH, EMOJI, KAOMOJI }
 
     var page: Page = Page.TEXT
         private set
     var shiftArmed: Boolean = false
         private set
 
+    /** KP7 (decided 2026-11-23): capslock, locked by shift's gestures. */
+    var capsLocked: Boolean = false
+        private set
+
+    /** What the keycaps render: one-shot armed OR capslock locked. */
+    val shiftActive: Boolean get() = shiftArmed || capsLocked
+
     /** The mode the symbol page was entered from (KP9's return-to-original-mode). */
     var symbolsEnteredHangul: Boolean = true
         private set
 
+    /**
+     * KP7's decided state machine: a tap while LOCKED releases capslock; a
+     * tap while unlocked arms/cancels the one-shot (KP2). The gestures lock
+     * ([capsLock]); "다시 shift를 누르면 해제" is the tap branch.
+     */
     fun tapShift() {
-        shiftArmed = !shiftArmed
+        if (capsLocked) {
+            capsLocked = false
+        } else {
+            shiftArmed = !shiftArmed
+        }
     }
 
-    /** The metaState a CHARACTER tap carries; consumes the one-shot. */
+    /** Shift's swipe-up/long-press: lock capslock (KP7, decided 2026-11-23). */
+    fun capsLock() {
+        capsLocked = true
+        shiftArmed = false
+    }
+
+    /**
+     * The metaState a CHARACTER tap carries: capslock holds the bit across
+     * keys; the one-shot is consumed by the first character tap.
+     */
     fun shiftMeta(): Int {
+        if (capsLocked) return KeypadModel.META_SHIFT_ON
         val meta = if (shiftArmed) KeypadModel.META_SHIFT_ON else 0
         shiftArmed = false
         return meta
+    }
+
+    /**
+     * KP10's symbol-screen set navigation (decided 2026-11-23: "기호 화면에서
+     * swipe-up / down으로 다음 기호 조합으로 이동"). Cycles the symbol PAGES
+     * that have data, wrapping; a no-op when only one set exists. The reading
+     * (pages, not row-groups) is recorded in SPEC KP10 for correction.
+     */
+    fun cycleSymbolSet(forward: Boolean, available: List<Page>) {
+        if (page == Page.TEXT || page !in available) return
+        val sets = available.filter { it != Page.TEXT }
+        if (sets.size < 2) return
+        val i = sets.indexOf(page)
+        page = sets[(i + (if (forward) 1 else sets.size - 1)) % sets.size]
     }
 
     fun enterSymbols(hangulMode: Boolean) {
         page = Page.SYMBOLS
         symbolsEnteredHangul = hangulMode
         shiftArmed = false
+        capsLocked = false
     }
 
-    /** Leave the symbol page; returns the mode to restore (KP9). */
+    /**
+     * KP10's page picker picked the extended page (#312). From the SYMBOL
+     * screen the 한/영 return memory (KP9) is kept; from TEXT (the picker on
+     * the text keypad's 기호 key) this IS the entry, so the memory is set —
+     * MEASURED 2026-11-23: skipping that left the stale default and the
+     * return key toggled to 한 instead of restoring 영.
+     */
+    fun enterExtended(hangulMode: Boolean) = enterSymbolPage(Page.EXTENDED, hangulMode)
+
+    /**
+     * KP10's picker opened a symbol page (#312). From TEXT this IS the entry,
+     * so the KP9 return memory is set; from a symbol page it is kept.
+     */
+    fun enterSymbolPage(target: Page, hangulMode: Boolean) {
+        require(target != Page.TEXT) { "a symbol page, not TEXT" }
+        if (page == Page.TEXT) symbolsEnteredHangul = hangulMode
+        page = target
+        shiftArmed = false
+        capsLocked = false
+    }
+
+    /** 기호 1 on the extended page: back to the Tier 1 symbol screen. */
+    fun returnToSymbols() {
+        page = Page.SYMBOLS
+    }
+
+    /** Leave the symbol pages; returns the mode to restore (KP9). */
     fun returnToText(): Boolean {
         page = Page.TEXT
         return symbolsEnteredHangul
@@ -505,6 +726,7 @@ class KeypadState {
      */
     fun modeChanged(hangulMode: Boolean) {
         shiftArmed = false
-        if (page == Page.SYMBOLS && hangulMode != symbolsEnteredHangul) page = Page.TEXT
+        capsLocked = false
+        if (page != Page.TEXT && hangulMode != symbolsEnteredHangul) page = Page.TEXT
     }
 }

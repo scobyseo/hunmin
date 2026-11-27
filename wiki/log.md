@@ -1622,3 +1622,29 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   the three pinned registers, the three stated premises that did not hold, and
   the coverage-expansion hypothesis the measurement refuted. Figures live once
   in `docs/OPTIONS-MEASURED.md` §HPX; the page carries none.
+
+## [2026-11-23] create | 312 symbol gesture variants session record
+
+- Created [[2026-11-23-312-symbol-variants]]: issue #312's provisional Tier 2
+  variant mapping (shape-family hosts, frequency order), the comparable designs
+  in docs/DESIGN-ANDROID-SYMBOL-VARIANTS.md, the structure-only contract +
+  selfcheck in tools/symbol-data-check.py, and the E1 parse lane. The kowiki
+  reading was re-run and reproduced; no verdict recorded. Index updated.
+
+## [2026-11-23] update | 312 drift corrected — variant mapping removed, rulings recorded
+
+- [[2026-11-23-312-symbol-variants]] marked superseded and rewritten as the
+  drift record: the issue body's "variants on symbol-character keys" reading
+  was agent paraphrase; the maintainer's three verbatim clarifications
+  (swipe-up = shift+key on any key; 기호 mode-key swipe-up → emoji/extended/
+  math page picker → symbol page) are now in SPEC KP7/KP10. The variant
+  implementation was removed; the corrected design is
+  docs/DESIGN-ANDROID-SYMBOL-GESTURES.md. Index updated.
+
+## [2026-11-26] create | the first usability session, and what the trace found
+
+- Created [[2026-11-26-first-usability-session]]: one phone session with the new
+  UI trace sink (316 gestures / 272 engine keys). Backspace committing the
+  composing word (9/34, reproduced in the oracle, split to #332 / FE18), the
+  space bar's swipe-left deleting instead of moving the cursor (ruled, fixed,
+  E1 + E2E), and a swipe-up whose "failure" was the intended shift. Index updated.

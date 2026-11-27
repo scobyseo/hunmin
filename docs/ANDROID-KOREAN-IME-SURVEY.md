@@ -115,3 +115,72 @@ is present in HeliBoard, fcitx5-android/libhangul and kime.
 
 No verdict is recorded. The maintainer's 두벌식 clarification is quoted above as
 the requirement; the symbol-layer decision remains open.
+
+## 5. Backspace long-press repeat (checked 2026-11-23, KP14's premise)
+
+KP14's request carries the premise "다른 ime는 그런 기능을 제공할 거야" (other
+IMEs provide word-unit delete on backspace long-press). Checked against
+upstream sources (read for semantics, no code copied):
+
+- **HeliBoard** (`PointerTracker.java`): generic key repeat — the first repeat
+  fires after `keyRepeatStartTimeout`, later repeats at a constant
+  `keyRepeatInterval` (the two `MainKeyboardView` attrs); no acceleration ramp
+  in that path. The repeat re-sends the pressed key code, so backspace repeats
+  `KEYCODE_DEL` — **character unit**, not word.
+- **FlorisBoard** (`keyboard3/ImeActions.kt`,
+  `keyboard3/interaction/AndroidInteractionController.kt`): Backspace is in the
+  `Repeatable` action list; repeat timing comes from the **system**
+  `keyRepeatTimeout` / `keyRepeatDelay`. The repeated action is the Backspace
+  action — **character unit**; no word-unit repeat path found.
+- **Closed-source IMEs** (Gboard, Samsung Keyboard): word/block deletion on
+  backspace long-press is widely reported, but not verifiable from code here —
+  **unverified**, recorded as such.
+
+Finding: the surveyed open-source IMEs repeat character deletion; hunmin's
+ruled word-unit repeat (~0.2 s, KP14) is a differentiating choice, not a copy
+of the surveyed open-source behavior. The premise is partially supported
+(closed-source, unverified) and not supported by the open-source survey. This
+is a finding, not a verdict — the ruling stands in the SPEC.
+
+## 6. Symbol lists the surveyed IMEs actually ship (checked 2026-11-23, #312)
+
+The maintainer asked to reference other IMEs' symbol lists ("다른 ime가
+제공하는 심볼 목록도 참조해 보자"). Upstream layout assets read for semantics
+(no code copied); artefacts + `meta.json` outside the repository at
+`~/work/hunmin-measurements/ime-symbol-lists-312/`.
+
+- **FlorisBoard** (`layouts/symbols/western.json`, `symbols2/western.json`):
+  page 1 is the ASCII punctuation set with **long-press popup families** on
+  the symbol keys: `- → _ (⁻ — – ·)`, `+ → ± (⁺)`, `* → † (★ ‡)`,
+  `" → ” („ “ « »)`, `' → ’ (‚ ‘ ‹ ›)`, `% → ‰ (℅)`, `# → №`, `! → ¡`,
+  `? → ¿ (‽)`, `: → ⋮`, plus a locale-driven **currency slot**. Page 2
+  (`symbols2`) carries `~ ` | • √ π ÷ × ¶ ∆`, currencies, `^ ° =`, `_ © ® ™ ✓`
+  — **math symbols live on page 2, there is no dedicated math page**. A
+  `cjk` variant swaps in fullwidth forms and `〄 々 〆 〇`; the Korean core
+  (`《》 「」 ※`) is not in the western or cjk sets.
+- **HeliBoard** (`layouts/symbols/symbols.txt`): the same popup-family
+  pattern — `( ⁽ < { [`, `) ⁾ > } ]`, `- – ⁻ — ·`, `+ ± ⁺`, `* † ‡ ★`,
+  `% ‰`. Emoji ship as **bundled per-category text files** (SMILEYS 170,
+  PEOPLE 387, SYMBOLS 224 lines…); EMOTICONS.txt is ASCII emoticons
+  (`:-) ;-) :-(`), not kaomoji.
+- **open-keyboard** (`EmojiCatalog.kt`): "a fixed, local emoji list; the
+  keyboard never downloads emoji data" — **6 categories × ~60 emoji**
+  (people/nature/food/activities/objects/symbols), bundled.
+
+Findings for hunmin's provisional lists (recorded, not rulings):
+
+1. **Shape-family popups on symbol keys are the mainstream prior art** —
+   the same families the removed variant analysis proposed (`†‡`, `«»`,
+   `–—·`, curly quotes). hunmin's ruled model is different (picker + pages +
+   shift gestures); the convergence is evidence the FAMILIES are right,
+   whatever the entry mechanism.
+2. **No surveyed IME has a dedicated math page** (FlorisBoard mixes math
+   into page 2) — hunmin's 수식 기호 page is a differentiating choice.
+3. **Bundled curated emoji is shippable prior art** (open-keyboard ~360,
+   HeliBoard full categories) — the curated option needs no download
+   infrastructure; the bridge option remains the thinnest.
+4. **The Korean core is absent from the western/cjk sets** — the measured
+   kowiki set stays hunmin's own evidence, as with symbl (§register).
+5. **Kaomoji: none of the three ships them** (HeliBoard's EMOTICONS are
+   ASCII emoticons) — KP18's curated kaomoji page is a gap-filler, with the
+   snskeyboard reference and the classics the site lacks.

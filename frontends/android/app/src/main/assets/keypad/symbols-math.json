@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "keypad-symbols-math",
+  "name": {
+    "en": "Math symbols",
+    "ko": "수식 기호"
+  },
+  "source": "PROVISIONAL list (40, 4x10), shipped under the maintainer's 2026-11-23 direction '심볼 목록은 일단 구현해 보고 사용성을 평가하면서 개선해보자' — evaluate in use, then improve; not a final ruling. Proposal and grounding: docs/DESIGN-ANDROID-SYMBOL-GESTURES.md §5 (the common subset of symbl's 332 mathematical signs plus the measured Korean needs ′ ″ ℃; criteria R1/R3). Prior art: no surveyed IME has a dedicated math page (FlorisBoard mixes math into symbols2) — this page is a differentiating choice (docs/ANDROID-KOREAN-IME-SURVEY.md §6). App-read frontend data (KP11): the engine never loads this file.",
+  "x-notes": {
+    "contract": "tools/symbol-data-check.py checks structure (10 per row, P*/S*/N* characters — superscripts/fractions are numbers, no duplicates, the mode row); the CONTENT is provisional, so the checker does not pin the assignment. The E1 commit golden pins the app path.",
+    "categories": "연산/관계, 비교/집합, 논리/미적분, 단위/분수 — the row groups; near-misses for the remaining-space question: ∏ ∇ ⊕ ⊗ ∛ ∜ ℉ π."
+  },
+  "rows": [
+    { "kind": "symbols", "keys": ["−", "±", "÷", "×", "∗", "≠", "≈", "≡", "≤", "≥"] },
+    { "kind": "symbols", "keys": ["≪", "≫", "∈", "∉", "⊂", "⊃", "∪", "∩", "∧", "∨"] },
+    { "kind": "symbols", "keys": ["¬", "∀", "∃", "∴", "∵", "∞", "√", "∫", "∂", "∑"] },
+    { "kind": "symbols", "keys": ["°", "′", "″", "‰", "²", "³", "¼", "½", "¾", "℃"] },
+    { "kind": "function", "keys": ["language-toggle", "symbols-tier1"] }
+  ]
+}

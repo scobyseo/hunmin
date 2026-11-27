@@ -3,6 +3,10 @@
 #
 #   tools/android-e2e.sh [abi]
 #
+# HUNMIN_E2E_SKIP_TO_GESTURE=1 runs install + the #312 gesture round only — a
+# selection lever like ctest -R, for iterating on the gesture round when an
+# earlier round is environment-bound; the default (and ctest) runs every round.
+#
 # Exit 0 pass, 1 fail, 77 skip (no SDK / no device / no APK). Registered as ctest
 # `engine-android-e2e`; see docs/TESTING.md tier E.
 #
@@ -203,6 +207,108 @@ focus_editor() {
 "$ADB" shell run-as "$PKG" rm -f "shared_prefs/hunmin_keys.xml" >/dev/null 2>&1 || true
 focus_editor || skip "cannot launch and focus the test editor ($EDITOR_ACTIVITY)"
 
+# --- shared helpers (also used by the #312 gesture round; defined here so
+# HUNMIN_E2E_SKIP_TO_GESTURE=1 can skip the earlier rounds and still run it) ---
+EXPECTED="ㅎ곈디"
+restore_surface() {
+  "$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+  sleep 1
+  focus_editor
+}
+# Tap the node whose text contains $1. Bounds come from the dump, never from
+# hardcoded pixels: a fixed coordinate is a test that passes on one image and
+# misses on another, and this suite runs on whatever AVD the host has.
+tap_node() {  # tap_node <text>
+  local node bounds x1 y1 x2 y2
+  node="$(dump_ui /sdcard/tap.xml | tr '>' '\n' | grep -m1 "text=\"[^\"]*$1" || true)"
+  [ -n "$node" ] || fail "no node with text matching '$1' in the current window"
+  bounds="$(printf '%s' "$node" | grep -o 'bounds="[^"]*"' | head -1 | tr -d '"')"
+  [ -n "$bounds" ] || fail "node '$1' carries no bounds: $node"
+  x1=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\1/')
+  y1=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\2/')
+  x2=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\3/')
+  y2=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\4/')
+  "$ADB" shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 )) >/dev/null 2>&1
+}
+mode_is() {  # mode_is 한|영 -> 0 when the input view shows that mode selected
+  # Retries until the IME window is in the dump: after a surface restore the
+  # window can lag the editor, and a single-shot check read that absence as a
+  # broken toggle (measured flakes in two rounds). A dump showing the OTHER
+  # mode selected is a definitive answer, returned immediately.
+  local desc other odesc i dump
+  case "$1" in
+    한) desc='한글 입력'; other=영; odesc='영문 입력' ;;
+    영) desc='영문 입력'; other=한; odesc='한글 입력' ;;
+    *)  desc="$1"; other=''; odesc='' ;;
+  esac
+  for i in 1 2 3 4 5 6; do
+    dump="$(dump_ui /sdcard/mode.xml)" || { sleep 1; continue; }
+    if printf '%s' "$dump" | tr '>' '\n' \
+        | grep -E "(text=\"$1\"|content-desc=\"$desc\")" \
+        | grep -q 'selected="true"'; then
+      return 0
+    fi
+    if [ -n "$other" ] && printf '%s' "$dump" | tr '>' '\n' \
+        | grep -E "(text=\"$other\"|content-desc=\"$odesc\")" \
+        | grep -q 'selected="true"'; then
+      return 1
+    fi
+    sleep 1
+  done
+  return 1
+}
+# Establish a mode through the keypad's own 한/영 key, with retries: after a
+# surface restore the IME window can be absent from a dump for a moment, and
+# a single-shot check read that absence as a broken toggle (measured flake).
+ensure_mode() {  # ensure_mode 한|영
+  local want="$1" other i
+  case "$want" in 한) other=영 ;; 영) other=한 ;; esac
+  for i in 1 2 3 4 5; do
+    mode_is "$want" && return 0
+    if mode_is "$other"; then
+      tap_desc 'fn:language-toggle'
+      sleep 1.5
+    else
+      sleep 1
+    fi
+  done
+  mode_is "$want" || fail "the keypad's 한/영 key did not reach mode '$want'"
+}
+tap_desc() {  # tap_desc <content-desc> — tap a keycap by its identity
+  local desc="$1" node bounds
+  node="$(dump_ui /sdcard/kp.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
+  [ -n "$node" ] || fail "no key with content-desc '$desc' in the IME view"
+  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+  [ -n "$bounds" ] || fail "key '$desc' carries no bounds"
+  set -- $(parse_bounds "$bounds")
+  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
+  "$ADB" shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )) >/dev/null 2>&1
+  sleep 0.5
+}
+field_text() {  # the focused EditText's text, from the platform's hierarchy
+  # uiautomator delimits the text attribute with " normally, but switches to '
+  # when the value contains a " (measured: text='?"'). Handle both forms.
+  local node
+  node="$(dump_ui /sdcard/kpf.xml | tr '>' '\n' \
+    | grep -m1 'class="android.widget.EditText"' || true)"
+  printf '%s' "$node" \
+    | sed -n -e "s/.*text='\([^']*\)'.*/\1/p" -e 's/.*text="\([^"]*\)".*/\1/p' \
+    | head -1
+}
+
+swipe_left_on() {  # swipe_left_on <content-desc> — a long leftward swipe
+  local desc="$1" node bounds
+  node="$(dump_ui /sdcard/kps.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
+  [ -n "$node" ] || fail "no key '$desc' to swipe from"
+  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+  set -- $(parse_bounds "$bounds")
+  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
+  local cx=$(( ($1 + $3) / 2 )) cy=$(( ($2 + $4) / 2 ))
+  # ~250px leftward at this density is well over the 60dp threshold, horizontal.
+  "$ADB" shell input swipe "$cx" "$cy" $(( cx - 250 )) "$cy" 300 >/dev/null 2>&1
+  sleep 0.8
+}
+
 # The field must start EMPTY or the comparison below proves nothing: it would be
 # comparing the IME's output against another run's leftovers.
 "$ADB" shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
@@ -215,6 +321,9 @@ if [ -n "$INITIAL" ]; then
        "would be meaningless"
 fi
 
+# HUNMIN_E2E_SKIP_TO_GESTURE=1 runs install + the #312 gesture round only
+# (a selection lever like ctest -R; the default runs every round).
+if [ "${HUNMIN_E2E_SKIP_TO_GESTURE:-0}" != 1 ]; then
 # --- type ------------------------------------------------------------------
 # Per-key `input keyevent`, not `input text`. The adapter maps KEYCODE_* to
 # engine characters; `input text` injects characters through a different path
@@ -294,7 +403,9 @@ esac
 # consumes, is what makes the trace non-empty. This is the same round trip
 # tools/e3-trace.sh drives for a human on a physical keyboard.
 if [ "${HUNMIN_SKIP_TRACE:-0}" != "1" ]; then
-  "$ADB" shell am broadcast -a org.hunmin.ime.TRACE \
+  # -f 0x20 (FLAG_INCLUDE_STOPPED_PACKAGES): a package in the stopped state
+  # otherwise never sees the toggle (measured 2026-11-27).
+  "$ADB" shell am broadcast -a org.hunmin.ime.TRACE -f 0x20 \
       --es op enable --es case "e2-probe" org.hunmin.ime >/dev/null 2>&1 || true
   sleep 1
   echo "trace sink enabled (after the warm-up, so the IME owns this field)"
@@ -344,7 +455,6 @@ fi
 # preedit. An earlier revision asserted "곈" and failed with
 # `expected 곈 ... got ㅎ곈디`, which reads like the adapter emitting an extra
 # character when in fact every character is accounted for by tier A.
-EXPECTED="ㅎ곈디"
 if [ "$TYPED" != "$EXPECTED" ]; then
   fail "expected '$EXPECTED' (hunmin-sim --layout sin3-p2 --keys dkssud), " \
        "got '$TYPED'"
@@ -404,11 +514,6 @@ MIC_DESC="음성 입력"
 # so the mic is unfindable (bounds=[]) and `input tap` goes to 0,0; and
 # KEYCODE_BACK dismisses the dialog but also backgrounds the fixture, so the
 # field is gone. What works is re-establishing the whole surface.
-restore_surface() {
-  "$ADB" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
-  sleep 1
-  focus_editor
-}
 
 find_mic() {
   "$ADB" shell uiautomator dump --windows /sdcard/ui3.xml >/dev/null 2>&1
@@ -540,21 +645,6 @@ KEY_PREFS="shared_prefs/hunmin_keys.xml"
 # `--windows`, because the thing being tapped is often in the IME's own window
 # rather than the app's -- the same reason find_mic above needs it.
 
-# Tap the node whose text contains $1. Bounds come from the dump, never from
-# hardcoded pixels: a fixed coordinate is a test that passes on one image and
-# misses on another, and this suite runs on whatever AVD the host has.
-tap_node() {  # tap_node <text>
-  local node bounds x1 y1 x2 y2
-  node="$(dump_ui /sdcard/tap.xml | tr '>' '\n' | grep -m1 "text=\"[^\"]*$1" || true)"
-  [ -n "$node" ] || fail "no node with text matching '$1' in the current window"
-  bounds="$(printf '%s' "$node" | grep -o 'bounds="[^"]*"' | head -1 | tr -d '"')"
-  [ -n "$bounds" ] || fail "node '$1' carries no bounds: $node"
-  x1=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\1/')
-  y1=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\2/')
-  x2=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\3/')
-  y2=$(printf '%s' "$bounds" | sed 's/.*\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\].*/\4/')
-  "$ADB" shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 )) >/dev/null 2>&1
-}
 
 # Open it the way a user does -- by tapping the gear in the IME's own view.
 # NOT `am start -n org.hunmin.ime/.OverlayActivity`, which is refused:
@@ -640,51 +730,7 @@ echo "the key bindings section lists all four actions; the auto-toggle row has n
 # design may change. The filled half is the state, and it is what a screen reader
 # announces. Checking the text would have passed a keyboard whose toggle was
 # broken and failed a working one.
-mode_is() {  # mode_is 한|영 -> 0 when the input view shows that mode selected
-  # Retries until the IME window is in the dump: after a surface restore the
-  # window can lag the editor, and a single-shot check read that absence as a
-  # broken toggle (measured flakes in two rounds). A dump showing the OTHER
-  # mode selected is a definitive answer, returned immediately.
-  local desc other odesc i dump
-  case "$1" in
-    한) desc='한글 입력'; other=영; odesc='영문 입력' ;;
-    영) desc='영문 입력'; other=한; odesc='한글 입력' ;;
-    *)  desc="$1"; other=''; odesc='' ;;
-  esac
-  for i in 1 2 3 4 5 6; do
-    dump="$(dump_ui /sdcard/mode.xml)" || { sleep 1; continue; }
-    if printf '%s' "$dump" | tr '>' '\n' \
-        | grep -E "(text=\"$1\"|content-desc=\"$desc\")" \
-        | grep -q 'selected="true"'; then
-      return 0
-    fi
-    if [ -n "$other" ] && printf '%s' "$dump" | tr '>' '\n' \
-        | grep -E "(text=\"$other\"|content-desc=\"$odesc\")" \
-        | grep -q 'selected="true"'; then
-      return 1
-    fi
-    sleep 1
-  done
-  return 1
-}
 
-# Establish a mode through the keypad's own 한/영 key, with retries: after a
-# surface restore the IME window can be absent from a dump for a moment, and
-# a single-shot check read that absence as a broken toggle (measured flake).
-ensure_mode() {  # ensure_mode 한|영
-  local want="$1" other i
-  case "$want" in 한) other=영 ;; 영) other=한 ;; esac
-  for i in 1 2 3 4 5; do
-    mode_is "$want" && return 0
-    if mode_is "$other"; then
-      tap_desc 'fn:language-toggle'
-      sleep 1.5
-    else
-      sleep 1
-    fi
-  done
-  mode_is "$want" || fail "the keypad's 한/영 key did not reach mode '$want'"
-}
 
 # Capture 한/영 전환 = F9 (KEYCODE_F9 = 139, measured with javap on android.jar).
 tap_node '한/영 전환'
@@ -776,28 +822,7 @@ echo "the binding was removed again, so the tier is repeatable"
 # a keyboard exposed hides the grid; opt-in 1 shows it. The strip stays in
 # both cases (B1).
 
-tap_desc() {  # tap_desc <content-desc> — tap a keycap by its identity
-  local desc="$1" node bounds
-  node="$(dump_ui /sdcard/kp.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
-  [ -n "$node" ] || fail "no key with content-desc '$desc' in the IME view"
-  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
-  [ -n "$bounds" ] || fail "key '$desc' carries no bounds"
-  set -- $(parse_bounds "$bounds")
-  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
-  "$ADB" shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )) >/dev/null 2>&1
-  sleep 0.5
-}
 
-field_text() {  # the focused EditText's text, from the platform's hierarchy
-  # uiautomator delimits the text attribute with " normally, but switches to '
-  # when the value contains a " (measured: text='?"'). Handle both forms.
-  local node
-  node="$(dump_ui /sdcard/kpf.xml | tr '>' '\n' \
-    | grep -m1 'class="android.widget.EditText"' || true)"
-  printf '%s' "$node" \
-    | sed -n -e "s/.*text='\([^']*\)'.*/\1/p" -e 's/.*text="\([^"]*\)".*/\1/p' \
-    | head -1
-}
 
 restore_surface || fail "cannot restore the test editor for the touch round"
 
@@ -947,18 +972,6 @@ rm -f "$OVERLAP_TMP"
 # backspace, configurable 키/음절/단어/전체. The gesture is a real `input swipe`
 # on a real keycap; the assertion is the field text, as everywhere else.
 
-swipe_left_on() {  # swipe_left_on <content-desc> — a long leftward swipe
-  local desc="$1" node bounds
-  node="$(dump_ui /sdcard/kps.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
-  [ -n "$node" ] || fail "no key '$desc' to swipe from"
-  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
-  set -- $(parse_bounds "$bounds")
-  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
-  local cx=$(( ($1 + $3) / 2 )) cy=$(( ($2 + $4) / 2 ))
-  # ~250px leftward at this density is well over the 60dp threshold, horizontal.
-  "$ADB" shell input swipe "$cx" "$cy" $(( cx - 250 )) "$cy" 300 >/dev/null 2>&1
-  sleep 0.8
-}
 
 set_swipe_unit() {  # set_swipe_unit <pref> — write the setting, restart the IME
   "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
@@ -1014,6 +1027,8 @@ open_settings
 SWIPE_LIST="$(dump_ui /sdcard/kpset.xml)"
 printf '%s' "$SWIPE_LIST" | grep -q '키패드' \
   || fail "the settings window does not offer the 키패드 section (KP14)"
+printf '%s' "$SWIPE_LIST" | grep -q '길게 누르기' \
+  || fail "the settings window does not offer the 길게 누르기 row (#312 configurable timeout)"
 tap_node '키패드'
 sleep 1
 SWIPE_CHOICES="$(dump_ui /sdcard/kpset2.xml)"
@@ -1028,9 +1043,261 @@ echo "the swipe-left delete unit is configurable (키패드 section, four choice
 "$ADB" shell am force-stop "$PKG" >/dev/null 2>&1 || true
 "$ADB" shell run-as "$PKG" rm -f shared_prefs/hunmin.xml >/dev/null 2>&1 || true
 
-echo "PASS: the APK installed, the IME was enabled, keys reached the engine," &&
-     echo "      and '$EXPECTED' -- byte-identical to the tier A golden -- is" &&
-     echo "      in the field, read back from the platform's own view hierarchy," &&
-     echo "      and a key captured in the settings window is the key the IME fires," &&
-     echo "      and real taps on the soft keypad type English, a shifted letter," &&
-     echo "      a symbol-page character and the same Hangul word (issue #299)"
+fi
+
+# --- #312: the gesture round (KP7 swipe-up=shift, KP10 picker, KP14 repeat) --
+#
+# The ruled general model: long-press = swipe-up on character keys (the
+# per-event shift bit), with the per-key exceptions — 기호 mode key opens the
+# page picker, backspace long-press repeats WORD deletion. Real `input swipe`
+# on real keycaps; the assertion is the field text, as everywhere else.
+
+# The KP14 round above ends with a force-stop (to clear the stored unit), and
+# the platform then falls back to the NEXT IME — Gboard here. `ime set` alone
+# raced that fallback once and the round tapped a keyboard that was not ours
+# (measured 2026-11-27: "the keypad's 한/영 key did not reach mode 영" while the
+# field was bound to Gboard). Select, then WAIT until the platform agrees.
+"$ADB" shell ime set "$SVC" >/dev/null 2>&1 || true
+for _i in 1 2 3 4 5 6 7 8 9 10; do
+  [ "$("$ADB" shell settings get secure default_input_method 2>/dev/null | tr -d '\r')" = "$SVC" ] && break
+  sleep 1
+  "$ADB" shell ime set "$SVC" >/dev/null 2>&1 || true
+done
+[ "$("$ADB" shell settings get secure default_input_method 2>/dev/null | tr -d '\r')" = "$SVC" ] \
+  || fail "the gesture round could not make hunmin the active IME (platform stayed on another)"
+restore_surface || fail "cannot restore the surface for the gesture round"
+ensure_mode '영'
+
+key_bounds() {  # key_bounds <content-desc> — echo "cx cy h" from the dump
+  local desc="$1" node bounds
+  node="$(dump_ui /sdcard/kpg.xml | tr '>' '\n' | grep -F "content-desc=\"$desc\"" | head -1 || true)"
+  [ -n "$node" ] || fail "no key '$desc' for the gesture round"
+  bounds="$(printf '%s' "$node" | grep -o 'bounds=..[0-9]*,[0-9]*..[0-9]*,[0-9]*..' | head -1 || true)"
+  set -- $(parse_bounds "$bounds")
+  [ $# -eq 4 ] || fail "cannot parse bounds for '$desc'"
+  echo $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )) $(( $4 - $2 ))
+}
+
+swipe_up_on() {  # swipe_up_on <content-desc> — past the 60dp gate, vertical
+  # MEASURED 2026-11-23: a 2-key-height 120ms swipe from the NUMBER row can
+  # leave the IME window and be stolen by a system gesture (observed once:
+  # systemui came forward). 1.5 key heights at 150ms stays over the gate
+  # (~157px at this density) and inside the window; the interference is
+  # recorded in docs/DESIGN-ANDROID-SYMBOL-GESTURES.md as a tuning finding.
+  set -- $(key_bounds "$1")
+  "$ADB" shell input swipe "$1" "$2" "$1" $(( $2 - 3 * $3 / 2 )) 150 >/dev/null 2>&1
+  sleep 0.6
+}
+
+long_press_on() {  # long_press_on <content-desc> <hold-ms> — a still hold
+  local hold="$2"
+  set -- $(key_bounds "$1")
+  "$ADB" shell input swipe "$1" "$2" "$1" "$2" "$hold" >/dev/null 2>&1
+  sleep 0.6
+}
+
+# KP7: swipe-up on a digit is shift+digit — the layout's own shift row.
+swipe_up_on 'key:1'
+G1="$(field_text)"
+[ "$G1" = "!" ] || fail "swipe-up digit: expected '!' (shift+1), got '$G1'"
+# A letter: swipe-up q is Q.
+swipe_up_on 'key:q'
+G2="$(field_text)"
+[ "$G2" = "!Q" ] || fail "swipe-up letter: expected '!Q', got '$G2'"
+# KP5: a short upward drift (half a key, under the gate) stays a TAP.
+set -- $(key_bounds 'key:2')
+"$ADB" shell input swipe "$1" "$2" "$1" $(( $2 - $3 / 2 )) 150 >/dev/null 2>&1
+sleep 0.6
+G3="$(field_text)"
+[ "$G3" = "!Q2" ] || fail "KP5: a short drift must stay a tap, expected '!Q2', got '$G3'"
+# Long-press equivalence on a digit (KP7): same shifted result as swipe-up.
+long_press_on 'key:3' 700
+G4="$(field_text)"
+[ "$G4" = "!Q2#" ] || fail "long-press digit: expected '!Q2#' (equivalence), got '$G4'"
+# KP16: the frequent keys' gesture alternate is the hint (? not <).
+swipe_up_on 'key:,'
+G5="$(field_text)"
+[ "$G5" = '!Q2#?' ] || fail "swipe-up comma: expected the hinted '?' (KP16), got '$G5'"
+echo "swipe-up = shift+key on digits/letters, short drift stays a tap, long-press equivalent (KP7/KP5/KP16)"
+
+# Hangul: swipe-up on the ㅂ key (두벌식 q position) is the doubled jamo ㅃ.
+restore_surface || fail "cannot restore for the Hangul gesture round"
+ensure_mode '한'
+swipe_up_on 'key:q'
+G6="$(field_text)"
+[ "$G6" = "ㅃ" ] || fail "swipe-up jamo: expected 'ㅃ' (shift+ㅂ, 두벌식), got '$G6'"
+echo "swipe-up on a jamo key composes the doubled jamo (KP7)"
+
+# KP16's hint promise in HANGUL mode: the soft 두벌식 pair has no digit keys,
+# so the engine path dropped the shift bit (measured: shift+1 typed '1').
+# The digit's gesture alternate is its drawn hint, via the symbol path.
+restore_surface || fail "cannot restore for the Hangul digit round"
+ensure_mode '한'
+swipe_up_on 'key:1'
+G6B="$(field_text)"
+[ "$G6B" = "!" ] || fail "swipe-up digit in Hangul mode: expected the hinted '!' (KP16), got '$G6B'"
+echo "swipe-up on a digit keeps the hint promise in Hangul mode too (KP16)"
+
+# KP14: backspace long-press deletes a WORD per tick. The hold timeout is
+# hunmin's provisional constant (200 ms, maintainer 2026-11-26 — the system
+# value was too slow in use); DERIVED from the source, not transcribed, so a
+# tuning change moves the test with it. One tick = hold just past it, the
+# ~0.2s repeat fires further ticks on a longer hold.
+LP_TIMEOUT="$(grep -o 'LONG_PRESS_TIMEOUT_MS = [0-9]*' "$ROOT/frontends/android/app/src/main/java/org/hunmin/ime/KeypadModel.kt" | grep -o '[0-9]*')"
+case "$LP_TIMEOUT" in (''|*[!0-9]*) LP_TIMEOUT=200 ;; esac
+restore_surface || fail "cannot restore for the word-delete round"
+ensure_mode '영'
+for k in h e l l o; do tap_desc "key:$k"; done
+tap_desc 'fn:space'
+for k in w o r l d; do tap_desc "key:$k"; done
+long_press_on 'fn:backspace' $(( LP_TIMEOUT + 100 ))
+G7="$(field_text)"
+[ "$G7" = "hello " ] || fail "backspace long-press: expected one WORD deleted ('hello '), got '$G7'"
+# The repeat: three words, a hold spanning three ticks -> the field empties.
+restore_surface || fail "cannot restore for the repeat round"
+for k in a; do tap_desc "key:$k"; done
+tap_desc 'fn:space'
+for k in b; do tap_desc "key:$k"; done
+tap_desc 'fn:space'
+for k in c; do tap_desc "key:$k"; done
+tap_desc 'fn:space'
+long_press_on 'fn:backspace' $(( LP_TIMEOUT + 500 ))
+G8="$(field_text)"
+[ -z "$G8" ] || fail "backspace repeat: expected three words gone (''), got '$G8'"
+echo "backspace long-press deletes a word per ~0.2s tick while held (KP14)"
+
+# KP10: swipe-up on the 기호 MODE key opens the page picker ABOVE the key;
+# picking 확장 기호 opens the designed Tier 2 panel; a symbol tap commits;
+# 기호 1 returns to Tier 1; 한/영 returns to the text mode (KP9).
+restore_surface || fail "cannot restore for the picker round"
+ensure_mode '영'
+swipe_up_on 'fn:symbols-page'
+dump_ui /sdcard/kppick.xml | grep -q '확장 기호' \
+  || fail "the 기호-key swipe-up did not open the page picker (KP10)"
+tap_node '확장 기호'
+sleep 0.5
+dump_ui /sdcard/kpext.xml | grep -q 'content-desc="symbol:·"' \
+  || fail "picking 확장 기호 did not open the extended panel"
+tap_desc 'symbol:·'
+G9="$(field_text)"
+[ "$G9" = "·" ] || fail "extended symbol tap: expected '·', got '$G9'"
+tap_desc 'fn:symbols-tier1'
+dump_ui /sdcard/kpt1.xml | grep -q 'content-desc="symbol:!"' \
+  || fail "기호 1 did not return to the Tier 1 symbol screen"
+tap_desc 'fn:language-toggle'
+sleep 1
+mode_is '영' || fail "한/영 on the symbol screen did not return to the original mode (KP9)"
+dump_ui /sdcard/kptxt.xml | grep -q 'content-desc="key:q"' \
+  || fail "the text grid did not return after the picker round"
+echo "기호 swipe-up -> picker -> extended panel -> commit -> 기호 1 -> 한/영 (KP10/KP9)"
+
+# #312's provisional pages: the picker lists all four; math and kaomoji
+# commit through the same seam (kaomoji = whole strings, the multiChar path).
+swipe_up_on 'fn:symbols-page'
+PICK="$(dump_ui /sdcard/kppick2.xml)"
+for item in '확장 기호' '수식 기호' '이모지' '카모지'; do
+  printf '%s' "$PICK" | grep -q "$item" \
+    || fail "the picker does not list '$item' (provisional pages shipped)"
+done
+tap_node '수식 기호'
+sleep 0.5
+dump_ui /sdcard/kpmath.xml | grep -q 'content-desc="symbol:−"' \
+  || fail "the math page did not open"
+tap_desc 'symbol:−'
+GM="$(field_text)"
+case "$GM" in *'−') : ;; *) fail "math tap: expected a trailing '−', got '$GM'" ;; esac
+tap_desc 'fn:symbols-tier1'
+tap_desc 'fn:language-toggle'
+sleep 1
+swipe_up_on 'fn:symbols-page'
+tap_node '카모지'
+sleep 0.5
+dump_ui /sdcard/kpkao.xml | grep -q 'content-desc="symbol:(´・ω・｀)"' \
+  || fail "the kaomoji list did not open (classics present)"
+tap_desc 'symbol:(´・ω・｀)'
+GK="$(field_text)"
+case "$GK" in *'(´・ω・｀)') : ;; *) fail "kaomoji tap: expected the whole string committed, got '$GK'" ;; esac
+tap_desc 'fn:symbols-tier1'
+tap_desc 'fn:language-toggle'
+sleep 1
+echo "picker lists 4 pages; math and kaomoji commit whole entries (provisional lists)"
+
+# KP7's decided shift state machine: swipe-up on shift LOCKS capslock (the
+# bit holds across keys), a tap on shift releases it.
+restore_surface || fail "cannot restore for the capslock round"
+ensure_mode '영'
+swipe_up_on 'fn:shift'
+tap_desc 'key:q'
+tap_desc 'key:w'
+GC1="$(field_text)"
+[ "$GC1" = "QW" ] || fail "capslock: expected 'QW' (locked across keys), got '$GC1'"
+tap_desc 'fn:shift'   # 다시 shift를 누르면 해제
+tap_desc 'key:e'
+GC2="$(field_text)"
+[ "$GC2" = "QWe" ] || fail "capslock release: expected 'QWe', got '$GC2'"
+echo "shift swipe-up locks capslock, a tap releases it (KP7 decided)"
+
+# KP10's decided symbol-screen navigation: swipe-up/down on a SYMBOL key
+# cycles the symbol sets (Tier 1 <-> extended); swipe-left stays backspace.
+restore_surface || fail "cannot restore for the set-navigation round"
+ensure_mode '영'
+tap_desc 'fn:symbols-page'
+swipe_up_on 'symbol:!'
+dump_ui /sdcard/kpnav1.xml | grep -q 'content-desc="symbol:·"' \
+  || fail "swipe-up on a symbol key did not move to the next set (KP10)"
+swipe_down_on() {  # the mirror of swipe_up_on, downward
+  set -- $(key_bounds "$1")
+  "$ADB" shell input swipe "$1" "$2" "$1" $(( $2 + 3 * $3 / 2 )) 150 >/dev/null 2>&1
+  sleep 0.6
+}
+swipe_down_on 'symbol:·'
+dump_ui /sdcard/kpnav2.xml | grep -q 'content-desc="symbol:!"' \
+  || fail "swipe-down on a symbol key did not move to the previous set (KP10)"
+# swipe-left on the symbol screen is still backspace (KP14 유지).
+tap_desc 'symbol:!'
+GN1="$(field_text)"
+[ "$GN1" = "!" ] || fail "symbol tap before swipe-left: expected '!', got '$GN1'"
+swipe_left_on 'symbol:@'
+GN2="$(field_text)"
+[ -z "$GN2" ] || fail "swipe-left on the symbol screen must stay backspace (KP14), got '$GN2'"
+tap_desc 'fn:language-toggle'
+sleep 1
+echo "symbol-screen swipe-up/down cycle the sets; swipe-left stays backspace (KP10/KP14)"
+
+# #312 evaluation, finding 2 (maintainer 2026-11-26: "발견 2 - 커서 이동으로 수정하자"):
+# swipe-left on the SPACE BAR moves the cursor instead of deleting. Typed text
+# is the oracle: "ab", cursor left, then x lands between them -> "axb".
+restore_surface || fail "cannot restore for the space-cursor round"
+ensure_mode '영'
+tap_desc 'key:a'
+tap_desc 'key:b'
+swipe_left_on 'fn:space'
+tap_desc 'key:x'
+CUR="$(field_text)"
+echo "space swipe-left then X reads: '${CUR}'"
+[ "$CUR" = "axb" ] \
+  || fail "space swipe-left must MOVE the cursor (expected 'axb'), got '${CUR}'"
+# And the ordinary keys still delete: the same swipe on a letter key removes
+# the composing 'x' (KEY unit), leaving "ab".
+swipe_left_on 'key:q'
+GONE="$(field_text)"
+[ "$GONE" = "ab" ] \
+  || fail "swipe-left on a non-space key must keep deleting (KP14), got '${GONE}'"
+# Repair the field for the rounds after this one.
+tap_desc 'key:x'
+echo "swipe-left moves the cursor on space and still deletes elsewhere (KP14 exception)"
+
+if [ "${HUNMIN_E2E_SKIP_TO_GESTURE:-0}" = 1 ]; then
+  echo "PASS (gesture round only): the #312 gestures work — swipe-up=shift,"
+  echo "      long-press equivalence, KP5 short-drift tap, backspace word-repeat,"
+  echo "      and the 기호-key picker -> extended panel -> returns (KP10/KP9)"
+else
+  echo "PASS: the APK installed, the IME was enabled, keys reached the engine," &&
+       echo "      and '$EXPECTED' -- byte-identical to the tier A golden -- is" &&
+       echo "      in the field, read back from the platform's own view hierarchy," &&
+       echo "      and a key captured in the settings window is the key the IME fires," &&
+       echo "      and real taps on the soft keypad type English, a shifted letter," &&
+       echo "      a symbol-page character and the same Hangul word (issue #299)," &&
+       echo "      and the #312 gestures work: swipe-up=shift, long-press equivalence," &&
+       echo "      backspace word-repeat, and the 기호-key picker -> extended panel"
+fi

@@ -27,6 +27,8 @@ import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.PopupWindow
+import android.widget.ScrollView
 import android.widget.TextView
 
 class KeypadView(context: Context) : LinearLayout(context) {
@@ -46,10 +48,30 @@ class KeypadView(context: Context) : LinearLayout(context) {
     /** KP14: a long swipe-left from any keycap — delete, not type. */
     var onSwipeLeftDelete: (() -> Unit)? = null
 
+    /** Swipe-left on the SPACE bar: move the cursor one step left (#312). */
+    var onCursorLeft: (() -> Unit)? = null
+
+    /** KP14/KP7: one WORD-unit delete tick (backspace long-press repeat). */
+    var onWordDelete: (() -> Unit)? = null
+
+    /** #312: the long-press hold timeout, set by the service from the setting
+     *  (default [KeypadModel.LONG_PRESS_TIMEOUT_MS], provisional 200 ms). */
+    var longPressTimeoutMs: Long = KeypadModel.LONG_PRESS_TIMEOUT_MS
+
+
+    /* Gesture timing lives here (the view owns the pointer); every DECISION
+     * is KeypadModel's pure table. One handler for all keycaps; rebuild()
+     * drops pending callbacks so a removed keycap never fires. */
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
     private val state = KeypadState()
     private var hangulCaps: KeypadKeycaps? = null
     private var latinCaps: KeypadKeycaps? = null
     private var symbols: SymbolScreen? = null
+    private var extended: SymbolScreen? = null
+    private var math: SymbolScreen? = null
+    private var emoji: SymbolScreen? = null
+    private var kaomoji: SymbolScreen? = null
     private var hangulMode = true
 
     /* The mockup's palette (docs/android-keypad-mockup.html :root). The picture
@@ -87,6 +109,21 @@ class KeypadView(context: Context) : LinearLayout(context) {
         rebuild()
     }
 
+    /** KP10's symbol pages (#312): extended / math / emoji / kaomoji. */
+    fun setExtended(screen: SymbolScreen?) { extended = screen; rebuild() }
+    fun setMath(screen: SymbolScreen?) { math = screen; rebuild() }
+    fun setEmoji(screen: SymbolScreen?) { emoji = screen; rebuild() }
+    fun setKaomoji(screen: SymbolScreen?) { kaomoji = screen; rebuild() }
+
+    /** The symbol sets that have data — the picker lists and cycle order. */
+    private fun availableSets(): List<KeypadState.Page> = buildList {
+        add(KeypadState.Page.SYMBOLS)
+        if (extended != null) add(KeypadState.Page.EXTENDED)
+        if (math != null) add(KeypadState.Page.MATH)
+        if (emoji != null) add(KeypadState.Page.EMOJI)
+        if (kaomoji != null) add(KeypadState.Page.KAOMOJI)
+    }
+
     /** The service's mode changed (toggle, judgement, new editor). */
     fun setMode(hangul: Boolean) {
         hangulMode = hangul
@@ -94,15 +131,58 @@ class KeypadView(context: Context) : LinearLayout(context) {
         rebuild()
     }
 
+    private var lastShiftLogged: Pair<Boolean, Boolean>? = null
+
+    /** #312 evaluation: page transitions with their trigger (one place per change). */
+    private fun logPage(from: KeypadState.Page, trigger: String) {
+        if (state.page != from) UiTraceRecorder.page(from.name, state.page.name, trigger)
+    }
+
     private fun rebuild() {
+        handler.removeCallbacksAndMessages(null)
+        val sh = state.shiftArmed to state.capsLocked
+        if (sh != lastShiftLogged) {
+            UiTraceRecorder.shift(sh.first, sh.second)
+            lastShiftLogged = sh
+        }
         removeAllViews()
         val rows: List<List<KeypadKey>> = when (state.page) {
             KeypadState.Page.TEXT -> {
                 val caps = if (hangulMode) hangulCaps else latinCaps
-                if (caps == null) emptyList() else KeypadModel.textRows(caps, state.shiftArmed)
+                if (caps == null) emptyList() else KeypadModel.textRows(caps, state.shiftActive)
             }
             KeypadState.Page.SYMBOLS ->
                 symbols?.let { KeypadModel.symbolRows(it) } ?: emptyList()
+            KeypadState.Page.EXTENDED ->
+                extended?.let { KeypadModel.symbolRows(it) } ?: emptyList()
+            KeypadState.Page.MATH ->
+                math?.let { KeypadModel.symbolRows(it) } ?: emptyList()
+            KeypadState.Page.EMOJI ->
+                emoji?.let { KeypadModel.symbolRows(it) } ?: emptyList()
+            KeypadState.Page.KAOMOJI -> {
+                // KP18: a scrollable full-width LIST (a kaomoji is wider than
+                // a grid key); a 5-row viewport keeps the IME window bounded.
+                val scr = kaomoji
+                if (scr != null) {
+                    val all = KeypadModel.kaomojiRows(scr)
+                    val inner = LinearLayout(context)
+                    inner.orientation = VERTICAL
+                    // Only the kaomoji rows scroll; the MODE row stays fixed
+                    // below (KP9: the mode keys keep their slots, always
+                    // visible — measured: inside the scroll it took 30 rows
+                    // of scrolling to reach 기호 1).
+                    for (row in all.filter { r -> r.any { it.kind == KeypadKey.Kind.SYMBOL } }) {
+                        inner.addView(rowView(row))
+                    }
+                    val scroll = ScrollView(context)
+                    scroll.addView(inner, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+                    addView(scroll, LayoutParams(LayoutParams.MATCH_PARENT, dp(255)))
+                    for (row in all.filter { r -> r.none { it.kind == KeypadKey.Kind.SYMBOL } }) {
+                        addView(rowView(row))
+                    }
+                }
+                emptyList()   // the scroll view + fixed mode row carry the page
+            }
         }
         for (row in rows) addView(rowView(row))
     }
@@ -133,7 +213,7 @@ class KeypadView(context: Context) : LinearLayout(context) {
         frame.isClickable = true
         frame.isFocusable = true
 
-        val armedShift = key.kind == KeypadKey.Kind.SHIFT && state.shiftArmed
+        val armedShift = key.kind == KeypadKey.Kind.SHIFT && state.shiftActive
         val background = when {
             armedShift -> accent
             key.kind == KeypadKey.Kind.MODE -> accent
@@ -202,34 +282,177 @@ class KeypadView(context: Context) : LinearLayout(context) {
             })
         }
         frame.setOnClickListener { tap(key) }
-        /* KP14: a long swipe-left deletes instead of typing. The gesture is
-         * recognised on MOVE once it is long enough (immediate feedback); the
-         * tap fires on UP only when no gesture fired, so the key is never
-         * typed AND deleted. A short drift stays a tap (KP5 protection). */
+        /* The gesture state machine (#312, KP5/KP7/KP14). One pointer, three
+         * outcomes, separated by moved-vs-held-vs-released:
+         *  - swipe-LEFT deletes on MOVE once long enough (KP14, immediate);
+         *  - swipe-UP ARMS on MOVE past the gate, commits on UP, and a return
+         *    to the origin cancels it back to a tap (KP5's layered defences);
+         *  - a still hold past the system long-press timeout fires the SAME
+         *    action as swipe-up (KP7's general equivalence) — except the
+         *    recorded per-key exceptions (KeypadModel.gestureAction): the
+         *    기호 key opens the picker, backspace repeats WORD deletion at
+         *    ~0.2 s until release. Movement past jitter cancels the hold.
+         * The tap fires on UP only when no gesture fired, so a key is never
+         * typed AND gestured. Thresholds are provisional (KP14's shared
+         * 60dp; jitter/return radii below), the decision shape is the
+         * requirement. */
         var downX = 0f
         var downY = 0f
-        var swiped = false
+        /* Whether THIS keycap owns a live pointer. A rebuild (shift arm, page
+         * move) makes the platform CANCEL the detached keycap's stream, and
+         * that CANCEL carries a fresh MotionEvent — eventTime == downTime and
+         * coordinates unrelated to the original touch. MEASURED 2026-11-26 in
+         * the first UI trace: phantom "cancel dx=-174 dy=-60 0ms" rows after
+         * every capslock/page change, which would read as failed gestures
+         * during the usability evaluation. Only a live pointer's cancel is
+         * an event. */
+        var pointerDown = false
+        var gestureFired = false
+        var armed: GestureKind? = null   // SWIPE_UP / SWIPE_DOWN, commit on UP
+        var wordRepeat: Runnable? = null
         val threshold = dp(60).toFloat()   // provisional (KP14); ~two key widths
+        val jitter = dp(10).toFloat()      // provisional: hold-cancelling movement
+        val returnRadius = dp(12).toFloat() // provisional: return-to-cancel radius
+        // Configurable hunmin tuning (default 200 ms, maintainer 2026-11-26),
+        // NOT the system value — see KeypadModel.LONG_PRESS_TIMEOUT_MS.
+        val longPressTimeout = longPressTimeoutMs
+        fun stopWordRepeat() {
+            wordRepeat?.let { handler.removeCallbacks(it) }
+            wordRepeat = null
+        }
+        val longPress = Runnable {
+            if (gestureFired || armed != null || !frame.isAttachedToWindow) return@Runnable
+            val lpAction = KeypadModel.gestureAction(key.kind, key.id, GestureKind.LONG_PRESS)
+            UiTraceRecorder.gesture(state.page.name, key.id, key.kind.name,
+                0f, 0f, longPressTimeout, "long_press", lpAction.name,
+                threshold, jitter, returnRadius)
+            if (lpAction == GestureAction.WORD_DELETE_REPEAT) {
+                gestureFired = true
+                onWordDelete?.invoke()   // first tick at the timeout
+                val tick = object : Runnable {
+                    override fun run() {
+                        if (!frame.isAttachedToWindow) return
+                        onWordDelete?.invoke()
+                        handler.postDelayed(this, KeypadModel.WORD_REPEAT_INTERVAL_MS)
+                    }
+                }
+                wordRepeat = tick
+                handler.postDelayed(tick, KeypadModel.WORD_REPEAT_INTERVAL_MS)
+            } else if (lpAction != GestureAction.NONE) {
+                gestureFired = true
+                fireGesture(key, GestureKind.LONG_PRESS, frame)
+            }
+        }
         frame.setOnTouchListener { v, ev ->
             when (ev.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    downX = ev.x; downY = ev.y; swiped = false; true
+                    downX = ev.x; downY = ev.y
+                    pointerDown = true
+                    gestureFired = false; armed = null
+                    handler.postDelayed(longPress, longPressTimeout)
+                    true
                 }
                 android.view.MotionEvent.ACTION_MOVE -> {
-                    if (!swiped && KeypadModel.isSwipeLeftDelete(ev.x - downX, ev.y - downY, threshold)) {
-                        swiped = true
-                        onSwipeLeftDelete?.invoke()
+                    val dx = ev.x - downX; val dy = ev.y - downY
+                    if (!gestureFired) {
+                        if (KeypadModel.isSwipeLeftDelete(dx, dy, threshold)) {
+                            gestureFired = true
+                            handler.removeCallbacks(longPress)
+                            val action = KeypadModel.swipeLeftAction(key.kind, key.id)
+                            UiTraceRecorder.gesture(state.page.name, key.id, key.kind.name,
+                                dx, dy, ev.eventTime - ev.downTime, "swipe_left", action.name,
+                                threshold, jitter, returnRadius)
+                            if (action == GestureAction.CURSOR_LEFT) onCursorLeft?.invoke()
+                            else onSwipeLeftDelete?.invoke()
+                        } else if (KeypadModel.isSwipeUp(dx, dy, threshold)) {
+                            if (armed == null) handler.removeCallbacks(longPress)
+                            armed = GestureKind.SWIPE_UP   // commit on UP (KP5)
+                        } else if (KeypadModel.isSwipeDown(dx, dy, threshold)) {
+                            if (armed == null) handler.removeCallbacks(longPress)
+                            armed = GestureKind.SWIPE_DOWN
+                        } else if (armed != null && KeypadModel.returnedToOrigin(dx, dy, returnRadius)) {
+                            armed = null      // aborted: back to a tap
+                        }
+                        if (kotlin.math.abs(dx) > jitter || kotlin.math.abs(dy) > jitter) {
+                            handler.removeCallbacks(longPress)   // moved, not held
+                        }
                     }
                     true
                 }
                 android.view.MotionEvent.ACTION_UP -> {
-                    if (!swiped) v.performClick()
+                    handler.removeCallbacks(longPress)
+                    stopWordRepeat()
+                    pointerDown = false
+                    val a = armed
+                    if (!gestureFired) {
+                        // #312 evaluation: the pointer outcome with its trajectory
+                        // and gates — "my swipe-up became a tap" is reconstructable.
+                        val dx = ev.x - downX; val dy = ev.y - downY
+                        UiTraceRecorder.gesture(state.page.name, key.id, key.kind.name,
+                            dx, dy, ev.eventTime - ev.downTime,
+                            a?.name?.lowercase() ?: "tap",
+                            if (a != null) KeypadModel.gestureAction(key.kind, key.id, a).name else "TAP",
+                            threshold, jitter, returnRadius)
+                        if (a != null) fireGesture(key, a, frame) else v.performClick()
+                    }
                     true
                 }
-                else -> true   // CANCEL: neither type nor delete
+                else -> {   // CANCEL: neither type nor gesture
+                    handler.removeCallbacks(longPress)
+                    stopWordRepeat()
+                    if (pointerDown) {
+                        UiTraceRecorder.gesture(state.page.name, key.id, key.kind.name,
+                            ev.x - downX, ev.y - downY, ev.eventTime - ev.downTime,
+                            "cancel", "NONE", threshold, jitter, returnRadius)
+                    }
+                    pointerDown = false
+                    true
+                }
             }
         }
         return frame
+    }
+
+    /**
+     * The exception table's action for a recognised gesture (KP7/KP10).
+     * WORD_DELETE_REPEAT is handled by the long-press timer, not here; NONE
+     * cells are open questions, not verdicts.
+     */
+    private fun fireGesture(key: KeypadKey, gesture: GestureKind, anchor: View) {
+        when (KeypadModel.gestureAction(key.kind, key.id, gesture)) {
+            GestureAction.SHIFTED_KEY -> fireShifted(key)
+            GestureAction.SYMBOL_PICKER -> showPicker(anchor)
+            GestureAction.CAPSLOCK -> { state.capsLock(); rebuild() }
+            GestureAction.NEXT_SYMBOL_SET -> {
+                val from = state.page
+                state.cycleSymbolSet(forward = true, available = availableSets())
+                logPage(from, "cycle")
+                rebuild()
+            }
+            GestureAction.PREV_SYMBOL_SET -> {
+                val from = state.page
+                state.cycleSymbolSet(forward = false, available = availableSets())
+                logPage(from, "cycle")
+                rebuild()
+            }
+            else -> Unit
+        }
+    }
+
+    /**
+     * KP7's gesture result: the shifted form, as a PER-EVENT shift bit — the
+     * one-shot state is untouched (the gesture is shift+key, not the soft
+     * arming). The frequent keys' alternate is their hint (? "), the same
+     * KP16 rule a shifted tap follows, committed through the symbol path.
+     */
+    private fun fireShifted(key: KeypadKey) {
+        val alternate = KeypadModel.shiftedFrequentAlternate(key, symbols)
+            ?: KeypadModel.shiftedDigitAlternate(key)
+        if (alternate != null) {
+            onSymbol?.invoke(alternate)
+        } else {
+            onCharacterKey?.invoke(key.keyCode, KeypadModel.META_SHIFT_ON)
+        }
     }
 
     private fun tap(key: KeypadKey) {
@@ -238,7 +461,10 @@ class KeypadView(context: Context) : LinearLayout(context) {
                 // The one-shot shift rides the metaState, exactly as a hardware
                 // Shift+key does; consuming it re-renders the plain labels.
                 val meta = state.shiftMeta()
-                val alternate = if (meta != 0) KeypadModel.shiftedFrequentAlternate(key, symbols) else null
+                val alternate = if (meta != 0) {
+                    KeypadModel.shiftedFrequentAlternate(key, symbols)
+                        ?: KeypadModel.shiftedDigitAlternate(key)
+                } else null
                 if (alternate != null) {
                     // The frequent keys' shift alternate is their hint (? "),
                     // not the app keymap's physical shift (< >) — measured bug.
@@ -256,20 +482,103 @@ class KeypadView(context: Context) : LinearLayout(context) {
                 rebuild()
             }
             KeypadKey.Kind.MODE ->
-                if (state.page == KeypadState.Page.SYMBOLS) {
+                if (state.page != KeypadState.Page.TEXT) {
+                    // 한/영 on either symbol page: return to the mode the pages
+                    // were entered from (KP9).
+                    val from = state.page
                     val hangul = state.returnToText()
+                    logPage(from, "tap")
                     onReturnToText?.invoke(hangul)
                     rebuild()
                 } else {
                     onToggleLanguage?.invoke()
                 }
-            KeypadKey.Kind.SYMBOLS_PAGE -> {
-                if (symbols == null) return  // no asset: the page cannot be drawn
-                state.enterSymbols(hangulMode)
-                rebuild()
+            KeypadKey.Kind.SYMBOLS_PAGE -> when (state.page) {
+                KeypadState.Page.TEXT -> {
+                    if (symbols == null) return  // no asset: the page cannot be drawn
+                    val from = state.page
+                    state.enterSymbols(hangulMode)
+                    logPage(from, "tap")
+                    rebuild()
+                }
+                // 기호 on its own page: tap stays (the gesture opens the picker).
+                KeypadState.Page.SYMBOLS -> Unit
+                // 기호 1 on any other symbol page: back to Tier 1 (KP9's mode row).
+                else -> {
+                    val from = state.page
+                    state.returnToSymbols()
+                    logPage(from, "tap")
+                    rebuild()
+                }
             }
             KeypadKey.Kind.SYMBOL -> onSymbol?.invoke(key.id)
         }
+    }
+
+    /**
+     * KP10's page picker (DECIDED 2026-11-23: "페이지 선택은 기호 키 위에
+     * 팝업하자"): a popup ABOVE the 기호 key, one labelled item per page that
+     * has data. Data-driven — the math/emoji/kaomoji items appear when their
+     * inventories are ruled and shipped, not as disabled placeholders. Tap an
+     * item to open its page; tap outside to dismiss (non-focusable popup,
+     * outside-touch interceptor — KP5's abort path; a focusable popup would
+     * steal the IME's input focus and reset the mode, measured).
+     */
+    private fun showPicker(anchor: View) {
+        fun openPage(target: KeypadState.Page) {
+            val from = state.page
+            state.enterSymbolPage(target, hangulMode)
+            logPage(from, "picker")
+            rebuild()
+        }
+        val pages = buildList {
+            if (extended != null) add("확장 기호" to { openPage(KeypadState.Page.EXTENDED) })
+            if (math != null) add("수식 기호" to { openPage(KeypadState.Page.MATH) })
+            if (emoji != null) add("이모지" to { openPage(KeypadState.Page.EMOJI) })
+            if (kaomoji != null) add("카모지" to { openPage(KeypadState.Page.KAOMOJI) })
+        }
+        if (pages.isEmpty()) return
+        val list = LinearLayout(context)
+        list.orientation = VERTICAL
+        list.background = GradientDrawable().apply {
+            cornerRadius = dp(8).toFloat()
+            setColor(keyBg)
+            setStroke(dp(1), keyBorder)
+        }
+        /* NON-focusable, the standard IME popup pattern: a focusable popup
+         * steals the IME window's focus and can restart the input session.
+         * (The mode bug measured in the picker round was the stale entry
+         * memory in KeypadState.enterExtended, not this — recorded so the
+         * two are not confused.) Outside touches dismiss via the interceptor
+         * — KP5's abort path. */
+        val popup = PopupWindow(list, kotlin.math.max(dp(160), anchor.width),
+            LinearLayout.LayoutParams.WRAP_CONTENT, false)
+        popup.isOutsideTouchable = true
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        popup.elevation = dp(8).toFloat()
+        popup.setTouchInterceptor { _, ev ->
+            if (ev.actionMasked == android.view.MotionEvent.ACTION_OUTSIDE) {
+                popup.dismiss(); true
+            } else false
+        }
+        for ((label, open) in pages) {
+            val item = TextView(context)
+            item.text = label
+            item.setTextColor(ink)
+            item.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            item.paint.isFakeBoldText = true
+            item.gravity = Gravity.CENTER
+            item.setPadding(dp(16), dp(12), dp(16), dp(12))
+            item.setOnClickListener { popup.dismiss(); open() }
+            list.addView(item, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+        list.measure(
+            View.MeasureSpec.makeMeasureSpec(popup.width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        // Above the anchor: the 기호 key sits on the bottom row, so the popup
+        // opens upward over the row above (its known, recorded cost).
+        popup.showAsDropDown(anchor, 0, -(anchor.height + list.measuredHeight))
     }
 
     private fun dp(v: Int): Int =

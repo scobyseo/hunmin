@@ -107,12 +107,16 @@ symbols; if a chat corpus surfaces more high-value symbols, a fifth row earns it
 place. The prose tail measured here is thin, so filling with rare symbols has
 diminishing returns.
 
-**Update (KP10, 2026-11-22):** the maintainer prefers reaching these symbols by
-**swipe/long-press on a symbol key** over a separate Tier 2 button/page. So the
-Tier 2 page (and its remaining-space question) is deprioritised: the symbols
-become gesture variants of the Tier 1 keys. #298 records the direction only;
-the variant mapping, data home and per-key gesture set are **#312**'s work. The
-Tier 2 panels above stand as the considered alternative, not the chosen path.
+**Update (KP10, corrected 2026-11-23):** swipe-up on the **기호 mode key** opens
+a page picker — emoji / extended symbols / math symbols — and picking one opens
+that symbol page (maintainer's clarifications, verbatim in
+`docs/SPEC-ANDROID-KEYPAD.md#§KP10`). The Tier 2 panel above is **content
+reached this way**, not a deprioritised alternative; the gesture replaces the
+Tier 2 *button*. The 2026-11-22 version of this paragraph ("symbols become
+gesture variants of the Tier 1 keys") was agent drift, corrected; the
+remaining-space question above stays open for the extended-symbols page.
+#298 records the direction only; the gesture wiring, picker and pages are
+**#312**'s work (`docs/DESIGN-ANDROID-SYMBOL-GESTURES.md`).
 
 The number row's corner hints are the KP1/KP5 pairing (digit 진하게, symbol hint
 연하게, reached by long-press or swipe-up). The symbol page mirrors `us-qwerty`'s

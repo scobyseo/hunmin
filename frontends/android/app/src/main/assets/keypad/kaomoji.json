@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "keypad-kaomoji",
+  "name": {
+    "en": "Kaomoji (curated)",
+    "ko": "카모지"
+  },
+  "source": "PROVISIONAL curated set (30, full-width list), shipped under the maintainer's 2026-11-23 direction '심볼 목록은 일단 구현해 보고 사용성을 평가하면서 개선해보자' — evaluate in use, then improve; not a final ruling. KP18 request: 'https://snskeyboard.com/emoticon/ 같은 카모지도 지원하면 좋겠는데.' Curation: the classics the reference site LACKS ((´・ω・｀), the table flip, (^_^), (T_T)…) plus font-safe members of the site's 9,419 (extraction + heuristic at ~/work/hunmin-measurements/snskeyboard-kaomoji-312/; 2,968 flagged rare-block entries excluded). Every character here is in a commonly-rendered block; device font verification is part of the usability evaluation (tofu breaks a whole kaomoji). Prior art: none of the three surveyed IMEs ships kaomoji (HeliBoard EMOTICONS is ASCII :-) — docs/ANDROID-KOREAN-IME-SURVEY.md §6); this page is a gap-filler. Strings are community/folk creations; the site's compilation is editorial, referenced not mirrored. App-read frontend data (KP11): the engine never loads this file.",
+  "x-notes": {
+    "contract": "tools/symbol-data-check.py checks structure (non-empty strings, commonly-rendered blocks only, no duplicates, the mode row); content provisional. Entries are STRINGS — SymbolScreen.parse(multiChar=true); the page renders as a scrollable full-width list, not a grid.",
+    "display": "One kaomoji per row, tap commits the whole string through the same flush-then-commit seam (KP11). Row order: classics first, then the site-derived safe set."
+  },
+  "rows": [
+    { "kind": "symbols", "keys": ["(´・ω・｀)"] },
+    { "kind": "symbols", "keys": ["¯\\_(ツ)_/¯"] },
+    { "kind": "symbols", "keys": ["(╯°□°)╯︵ ┻━┻"] },
+    { "kind": "symbols", "keys": ["┬─┬ ノ( ゜-゜ノ)"] },
+    { "kind": "symbols", "keys": ["(^_^)"] },
+    { "kind": "symbols", "keys": ["(T_T)"] },
+    { "kind": "symbols", "keys": ["(◕‿◕)"] },
+    { "kind": "symbols", "keys": ["ʕ•ᴥ•ʔ"] },
+    { "kind": "symbols", "keys": ["(≧∇≦)"] },
+    { "kind": "symbols", "keys": ["(・_・)"] },
+    { "kind": "symbols", "keys": ["(¬_¬)"] },
+    { "kind": "symbols", "keys": ["(╥_╥)"] },
+    { "kind": "symbols", "keys": ["(✿◠‿◠)"] },
+    { "kind": "symbols", "keys": ["(▰˘◡˘▰)"] },
+    { "kind": "symbols", "keys": ["(•‿•)"] },
+    { "kind": "symbols", "keys": ["(｡♥‿♥｡)"] },
+    { "kind": "symbols", "keys": ["(￣▽￣)"] },
+    { "kind": "symbols", "keys": ["(⌐■_■)"] },
+    { "kind": "symbols", "keys": ["(•_•)"] },
+    { "kind": "symbols", "keys": ["( •_•)>⌐■-■"] },
+    { "kind": "symbols", "keys": ["┌(・。・)┘"] },
+    { "kind": "symbols", "keys": ["♪(┌・。・)┌"] },
+    { "kind": "symbols", "keys": ["(✖╭╮✖)"] },
+    { "kind": "symbols", "keys": ["(ɔ◔‿◔)ɔ"] },
+    { "kind": "symbols", "keys": ["(｡•̀ᴗ-)✧"] },
+    { "kind": "symbols", "keys": ["(˶ᵔᵕᵔ˶)"] },
+    { "kind": "symbols", "keys": ["(ᵔᵕᵔ)"] },
+    { "kind": "symbols", "keys": ["ʕ•̫͡•ʔ"] },
+    { "kind": "symbols", "keys": ["(´｡• ᵕ •｡`)"] },
+    { "kind": "symbols", "keys": ["♡(◡‿◡)"] },
+    { "kind": "function", "keys": ["language-toggle", "symbols-tier1"] }
+  ]
+}

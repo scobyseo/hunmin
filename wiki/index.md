@@ -209,6 +209,15 @@
   three host facts (compound text, stale-preedit commit, teardown routing),
   and the two shared-harness defects the new lanes exposed (`^` typed `6`,
   the edit loop's harness leak).
+- [[2026-11-26-first-usability-session]] — the first phone session with the UI trace:
+  backspace committed the word (26% of deletes, reproduced in the oracle, split to
+  #332/FE18), the space bar's swipe-left deleted instead of moving the cursor
+  (ruled and fixed), and the swipe-up-to-shift that looked wrong was intended.
+- [[2026-11-23-312-symbol-variants]] — **superseded**: #312's variant-mapping
+  implementation was built on an agent-paraphrased issue body, not the
+  maintainer's words; three verbatim rulings corrected it (swipe-up = shift+key
+  on any key; 기호 mode-key swipe-up opens an emoji/extended/math page picker).
+  Records the drift chain, the removal, and the surviving frequency measurement.
 - [[2026-11-22-t3-3-soft-keyboard-ui]] — #299's soft keypad: touch is hardware
   (one key path), labels from the layout's own JSON, KP12's auto-show-only-
   without-a-physical-keyboard ruling recorded verbatim, and the seven confident

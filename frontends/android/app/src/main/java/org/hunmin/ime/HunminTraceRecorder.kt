@@ -46,18 +46,25 @@ object HunminTraceRecorder {
      * Tracing must never be the reason an IME misbehaves, so every failure here
      * ends with tracing off rather than an exception.
      */
-    fun enable(file: File?, layout: String, platform: String = "android") {
+    fun enable(file: File?, layout: String, platform: String = "android",
+               append: Boolean = false) {
         disable()
         if (file == null) return
         try {
             file.parentFile?.mkdirs()
-            file.writeText("")
+            /* append=true is the RESUMED case (#312 evaluation): the IME
+             * service is killed and recreated often, and a truncating re-open
+             * threw away the session so far (measured: 21 hours of a day's
+             * typing lost when the sink closed with the service). A resumed
+             * trace keeps the earlier lines and marks the seam. */
+            if (!append) file.writeText("")
             sink = file
             open = true
             val src = if (source.isEmpty()) "" else """, "source": "$source""""
             write(
                 """{"meta": {"platform": "$platform", "layout": "$layout", """ +
-                    """"case": "$caseLabel", "dialect": "personal-key"$src}}"""
+                    """"case": "$caseLabel", "dialect": "personal-key"$src""" +
+                    (if (append) """, "resumed": true""" else "") + "}}"
             )
         } catch (e: Exception) {
             Log.w(TAG, "cannot open a trace at $file; continuing without it", e)
@@ -117,8 +124,8 @@ object HunminTraceRecorder {
         }
     }
 
-    /** JSON string escaping, for the text fields. */
-    private fun escape(s: String): String {
+    /** JSON string escaping, for the text fields. Shared with [UiTraceRecorder]. */
+    internal fun escape(s: String): String {
         val sb = StringBuilder(s.length + 8)
         for (c in s) {
             when (c) {

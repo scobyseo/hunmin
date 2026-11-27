@@ -248,6 +248,20 @@ android {
         debug {
             // debuggable so that tier E can drive the engine via logcat/IM
             isJniDebuggable = true
+            /* #312 usability evaluation on a daily-driver phone: the trace
+             * sinks are debuggable-guarded (a released IME must not accept a
+             * broadcast that turns on file writing), so evaluation needs a
+             * DEBUG build — but the phone carries the release-signed install,
+             * and a signature change means uninstall, which wipes the
+             * evaluator's settings on every iteration. Opt-in: sign the
+             * debuggable build with the release key so it updates in place.
+             * Default unchanged; the guard stays (this build IS debuggable).
+             *
+             *   HUNMIN_DEBUG_RELEASE_SIGNED=1 ./gradlew :app:assembleDebug
+             */
+            if (System.getenv("HUNMIN_DEBUG_RELEASE_SIGNED") == "1") {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

@@ -210,3 +210,29 @@ core's layouts for their mode, the active row is the stored one, the commit pick
 schema's two values, the autoswitch row follows the data gate, a capture appends once and refuses
 what cannot fire, and a removal writes the shortened list. Its pixels are not asserted — that is
 what a manual check is for.
+
+### FE18. Backspace edits the composing word; it never commits it
+
+The maintainer's words (2026-11-26, verbatim):
+
+> "백스페이스는 단어를 유지한 채 삭제하는 동작으로 물리/화면 키보드 모두 동일
+> 동작으로 바꾸고 싶어. 이건 엔진 수정이고, 모든 엔진에 반영되어야 할 것 같으니,
+> 별도 이슈를 만드는 게 나을 것 같아."
+
+Stated requirement: **backspace removes the last unit of the composing word,
+crossing syllable boundaries, and keeps the word composing.** It never turns
+the composing word into committed text. The rule lives in the engine, so a
+physical keyboard and a soft keyboard produce the same result for the same
+keystrokes (`FE1`, `FE2`).
+
+Measured before the ruling (usability-eval session, 2026-11-26, issue #312):
+on the `--layer word` path — the one Android touch uses — a backspace on a
+multi-syllable composition was declined by the engine and the layer committed
+the whole word instead: 9 of 34 backspaces in one session left text behind
+(`ㅅ`, `ㅈㅇ`, `ㅓ`, `ㄱ`, `ㅅㅍㅣ`), and `hunmin-sim --layer word --keys
+$'rkrk\b\b\b'` deterministically yields `commit '가'`. The same keys on the ic
+path delete fully, which is the divergence this requirement removes.
+
+*Implementation:* none — issue #332 (engine, every frontend).
+*Refuted by:* none yet.
+

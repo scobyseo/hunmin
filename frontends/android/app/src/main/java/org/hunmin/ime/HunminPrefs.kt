@@ -20,4 +20,7 @@ internal object HunminPrefs {
 
     /** KP14: the long swipe-left delete unit (DeleteUnit.pref). */
     const val SWIPE_LEFT_DELETE = "swipe_left_delete"
+
+    /** #312: the long-press hold timeout in ms (configurable, default 200). */
+    const val LONG_PRESS_TIMEOUT = "long_press_timeout_ms"
 }

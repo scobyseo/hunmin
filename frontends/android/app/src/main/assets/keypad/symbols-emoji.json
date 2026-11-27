@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "keypad-symbols-emoji",
+  "name": {
+    "en": "Emoji (curated)",
+    "ko": "이모지"
+  },
+  "source": "PROVISIONAL curated set (40, 4x10), shipped under the maintainer's 2026-11-23 direction '심볼 목록은 일단 구현해 보고 사용성을 평가하면서 개선해보자' — evaluate in use, then improve; not a final ruling. Starting curation: the emoji subset of symbl.cc's popular collection (site register, NOT Korean chat — a Korean chat corpus would re-rank; docs/DESIGN-ANDROID-SYMBOL-GESTURES.md §5). Prior art for the bundled-curated option: open-keyboard's fixed local catalog (6 categories, no downloads), HeliBoard's bundled category files (docs/ANDROID-KOREAN-IME-SURVEY.md §6). The system-picker bridge and a full panel remain the open alternatives. Variation selectors (U+FE0F) kept for emoji presentation. App-read frontend data (KP11): the engine never loads this file.",
+  "x-notes": {
+    "contract": "tools/symbol-data-check.py checks structure (10 per row, 1-2 codepoints with U+FE0F the only allowed second, no duplicates, the mode row); content provisional. Entries are STRINGS (❤️ is two codepoints) — SymbolScreen.parse(multiChar=true).",
+    "register": "symbl popular is a site-usage curation; ※-style Korean chat favorites may differ. The usability evaluation is the next measurement."
+  },
+  "rows": [
+    { "kind": "symbols", "keys": ["😂", "❤️", "😍", "🤣", "😊", "🙏", "💕", "😭", "🔥", "😘"] },
+    { "kind": "symbols", "keys": ["👍", "🥰", "😎", "😆", "😁", "😉", "🤔", "😅", "😔", "🙄"] },
+    { "kind": "symbols", "keys": ["😜", "😒", "😩", "👌", "👏", "💔", "💖", "💙", "😢", "💪"] },
+    { "kind": "symbols", "keys": ["🤗", "💜", "😇", "🌹", "😱", "😌", "🌸", "🙌", "😋", "✨"] },
+    { "kind": "function", "keys": ["language-toggle", "symbols-tier1"] }
+  ]
+}

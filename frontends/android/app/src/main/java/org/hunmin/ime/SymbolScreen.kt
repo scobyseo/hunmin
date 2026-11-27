@@ -29,7 +29,11 @@ import android.view.inputmethod.InputConnection
 import org.json.JSONObject
 
 /** One parsed symbol screen: rows of symbol characters or function-key ids. */
-data class SymbolScreen(val rows: List<Row>) {
+data class SymbolScreen(
+    val rows: List<Row>,
+    /** The file's own id — names the page in the UI trace (#312 evaluation). */
+    val id: String = "",
+) {
 
     enum class Kind { SYMBOLS, FUNCTION }
 
@@ -56,7 +60,7 @@ data class SymbolScreen(val rows: List<Row>) {
          * drawing code could not safely show; the content contract beyond
          * that is the Python checker's, run in ctest before this ever ships.
          */
-        fun parse(text: String): SymbolScreen {
+        fun parse(text: String, multiChar: Boolean = false): SymbolScreen {
             val root = try {
                 JSONObject(text)
             } catch (e: org.json.JSONException) {
@@ -84,17 +88,19 @@ data class SymbolScreen(val rows: List<Row>) {
                 for (j in 0 until rawKeys.length()) {
                     val key = rawKeys.getString(j)
                     require(key.isNotEmpty()) { "rows[$i]: empty key" }
-                    if (kind == Kind.SYMBOLS) {
+                    if (kind == Kind.SYMBOLS && !multiChar) {
                         require(key.length == 1) {
                             "rows[$i]: symbol key must be one character: $key"
                         }
                     }
+                    // multiChar pages (#312): emoji carry U+FE0F, kaomoji are
+                    // whole strings — the content contract is the checker's.
                     require(seen.add(key)) { "duplicate key: $key" }
                     keys.add(key)
                 }
                 rows.add(Row(kind, keys))
             }
-            return SymbolScreen(rows)
+            return SymbolScreen(rows, root.optString("id"))
         }
     }
 }

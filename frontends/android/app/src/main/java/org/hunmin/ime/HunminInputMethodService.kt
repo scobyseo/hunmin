@@ -127,7 +127,15 @@ class HunminInputMethodService : InputMethodService() {
         /** Where the trace is written, inside filesDir so `run-as` can read it. */
         const val TRACE_FILE = "e3.trace"
 
-        private const val PREFS = HunminPrefs.FILE
+        /** The UI-layer trace (#312 evaluation): gestures, symbols, pages. */
+        const val UI_TRACE_FILE = "ui.trace"
+
+        /** Remembered while a trace is wanted, so a recreated service resumes it. */
+        const val TRACE_PREF_CASE = "trace_case"
+        const val TRACE_PREF_SOURCE = "trace_source"
+
+        /** Shared prefs file: also read by TraceToggleReceiver (#312). */
+        const val PREFS = HunminPrefs.FILE
         /**
          * The pre-two-mode key. Read once for migration and never written
          * again: a device that stored `layout = sin3-p2-yet` under the old
@@ -169,6 +177,10 @@ class HunminInputMethodService : InputMethodService() {
 
     /** The app-read symbol screen (KP11, #297), parsed once from the asset. */
     private var symbolScreen: SymbolScreen? = null
+    private var extendedScreen: SymbolScreen? = null
+    private var mathScreen: SymbolScreen? = null
+    private var emojiScreen: SymbolScreen? = null
+    private var kaomojiScreen: SymbolScreen? = null
 
     /** Where HunminDataInstaller extracted the engine's tables; the keypad
      *  reads the SAME layout files for keycap labels (design §2). */
@@ -325,7 +337,6 @@ class HunminInputMethodService : InputMethodService() {
 
     override fun onCreate() {
         super.onCreate()
-        registerTraceReceiver()
         registerHanjaReceiver()
         val dataDir = HunminDataInstaller.install(this)
         if (dataDir == null) {
@@ -343,6 +354,35 @@ class HunminInputMethodService : InputMethodService() {
             SymbolScreen.parse(assets.open("keypad/symbols.json").readBytes().toString(Charsets.UTF_8))
         } catch (e: Exception) {
             Log.e(TAG, "hunmin: keypad/symbols.json unusable; symbol page disabled", e)
+            null
+        }
+        /* KP10's extended page (#312): the designed Tier 2 panel, same app-read
+         * pattern. The picker lists it only when it parsed. */
+        extendedScreen = try {
+            SymbolScreen.parse(assets.open("keypad/symbols-extended.json").readBytes().toString(Charsets.UTF_8))
+        } catch (e: Exception) {
+            Log.e(TAG, "hunmin: keypad/symbols-extended.json unusable; extended page disabled", e)
+            null
+        }
+        /* #312's provisional pages (2026-11-23 '일단 구현' direction): math,
+         * emoji (strings: U+FE0F), kaomoji (strings). Same app-read pattern;
+         * each disables itself loudly at parse, the picker lists what loaded. */
+        mathScreen = try {
+            SymbolScreen.parse(assets.open("keypad/symbols-math.json").readBytes().toString(Charsets.UTF_8))
+        } catch (e: Exception) {
+            Log.e(TAG, "hunmin: keypad/symbols-math.json unusable; math page disabled", e)
+            null
+        }
+        emojiScreen = try {
+            SymbolScreen.parse(assets.open("keypad/symbols-emoji.json").readBytes().toString(Charsets.UTF_8), multiChar = true)
+        } catch (e: Exception) {
+            Log.e(TAG, "hunmin: keypad/symbols-emoji.json unusable; emoji page disabled", e)
+            null
+        }
+        kaomojiScreen = try {
+            SymbolScreen.parse(assets.open("keypad/kaomoji.json").readBytes().toString(Charsets.UTF_8), multiChar = true)
+        } catch (e: Exception) {
+            Log.e(TAG, "hunmin: keypad/kaomoji.json unusable; kaomoji page disabled", e)
             null
         }
         ctx = HunminNativeBridge.nativeCtxNew(dataDir.absolutePath)
@@ -374,12 +414,10 @@ class HunminInputMethodService : InputMethodService() {
     }
 
     override fun onDestroy() {
-        // Close the trace before anything else: a sink left open past onDestroy
-        // would keep appending to a file nothing can pull, because the service
-        // that could answer the pull is gone.
-        HunminTraceRecorder.close()
-        traceReceiver?.let { runCatching { unregisterReceiver(it) } }
-        traceReceiver = null
+        // Close both sinks before anything else. A trace the person still wants
+        // is not lost: TraceToggleReceiver stored the case label, so the next
+        // service creation resumes it (appending) — see resumeTraceIfEnabled().
+        closeTrace()
         runCatching { unregisterReceiver(hanjaReceiver) }
         engine?.close()
         engine = null
@@ -428,6 +466,10 @@ class HunminInputMethodService : InputMethodService() {
          * the data gate -- is stored as the engine's answer rather than as the
          * request. */
         restoreAutoswitch()
+        /* A trace the last session left on resumes here, appending: the service
+         * is recreated often, and truncating on the re-open lost a day of an
+         * evaluation session (measured 2026-11-27). */
+        resumeTraceIfEnabled()
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
@@ -948,41 +990,42 @@ class HunminInputMethodService : InputMethodService() {
         startActivity(intent)
     }
 
+
+    /** The stored case label while a trace is wanted; absent = off. */
+    private fun storedTraceCase(): String? =
+        getSharedPreferences(PREFS, MODE_PRIVATE).getString(TRACE_PREF_CASE, null)
+
     /**
-     * Toggle the tier E3 trace sink, from `tools/e3-trace.sh`.
-     *
-     * A broadcast is the only channel that reaches an IME from outside: its
-     * service is bound by the platform and cannot be started with `am start`,
-     * and it receives neither activity results nor permission results
-     * (DESIGN-FRONTEND.md Part B B5), so there is no callback path. Guarded on the
-     * app being debuggable, because a released IME must not accept a broadcast
-     * that turns on file writing.
-     *
-     * @suppress Registered in the manifest, not here.
+     * Open both sinks (engine key trace + the #312 UI trace). [resume] appends
+     * instead of truncating, for a service restart inside one session.
      */
-    private inner class TraceReceiver : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action != ACTION_TRACE) return
-            when (intent.getStringExtra("op")) {
-                "enable" -> {
-                    HunminTraceRecorder.caseLabel =
-                        intent.getStringExtra("case") ?: "manual"
-                    HunminTraceRecorder.source = intent.getStringExtra("source") ?: ""
-                    HunminTraceRecorder.enable(
-                        java.io.File(filesDir, TRACE_FILE),
-                        layoutId,
-                    )
-                    Log.i(TAG, "hunmin: trace enabled (case=${HunminTraceRecorder.caseLabel})")
-                }
-                "disable" -> {
-                    HunminTraceRecorder.close()
-                    Log.i(TAG, "hunmin: trace closed")
-                }
-            }
-        }
+    private fun openTrace(case: String, source: String, resume: Boolean) {
+        HunminTraceRecorder.caseLabel = case
+        HunminTraceRecorder.source = source
+        HunminTraceRecorder.enable(java.io.File(filesDir, TRACE_FILE), layoutId, append = resume)
+        // #312 evaluation: the UI-layer sink (gestures, symbol commits, pages,
+        // shift) rides the same toggle, its own file.
+        UiTraceRecorder.enable(java.io.File(filesDir, UI_TRACE_FILE), case, resume = resume)
     }
 
-    private var traceReceiver: TraceReceiver? = null
+    private fun closeTrace() {
+        HunminTraceRecorder.close()
+        UiTraceRecorder.disable()
+    }
+
+    /**
+     * Re-open a trace the last session left on (only where tracing is allowed
+     * at all: a released IME has no receiver, so the pref is never set).
+     */
+    private fun resumeTraceIfEnabled() {
+        val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (!debuggable) return
+        val case = storedTraceCase() ?: return
+        val source = getSharedPreferences(PREFS, MODE_PRIVATE)
+            .getString(TRACE_PREF_SOURCE, "") ?: ""
+        openTrace(case, source, resume = true)
+        Log.i(TAG, "hunmin: trace resumed after a service restart (case=$case)")
+    }
 
     /**
      * Receive the Hanja picked in OverlayActivity and commit it.
@@ -1022,33 +1065,6 @@ class HunminInputMethodService : InputMethodService() {
         }
     }
 
-    /**
-     * Register the receiver only on a debuggable build.
-     *
-     * `applicationInfo.flags and FLAG_DEBUGGABLE` is the check, not a build
-     * variant name: a release APK must not accept a broadcast that turns on
-     * file writing, and that has to hold for any packaging, not just the one
-     * Gradle calls "release".
-     */
-    private fun registerTraceReceiver() {
-        val debuggable =
-            (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
-        if (!debuggable) return
-        val r = TraceReceiver()
-        // The platform overload changed at API 33 (a RECEIVER_EXPORTED flag was
-        // added and the old one deprecated), so both are called by version
-        // rather than through a compat shim: this module has no AndroidX
-        // dependency and adding one for a single call would be worse than four
-        // lines here. minSdk is 24, so the guard is genuinely needed.
-        @Suppress("DEPRECATION")
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(r, IntentFilter(ACTION_TRACE),
-                             Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(r, IntentFilter(ACTION_TRACE))
-        }
-        traceReceiver = r
-    }
 
     /**
      * Ask for speech, then commit whatever comes back verbatim.
@@ -1180,10 +1196,14 @@ class HunminInputMethodService : InputMethodService() {
         /* The soft keypad (issue #299) sits UNDER the strip, never instead of
          * it: the strip is the IME window hardware keys arrive through (B1),
          * and KP12 hides only the grid when a physical keyboard is exposed.
-         * Four callbacks, each into a path the hardware side already uses —
+         * Each callback into a path the hardware side already uses —
          * touch is hardware (design §1). */
         val pad = KeypadView(this)
         pad.setSymbols(symbolScreen)
+        pad.setExtended(extendedScreen)
+        pad.setMath(mathScreen)
+        pad.setEmoji(emojiScreen)
+        pad.setKaomoji(kaomojiScreen)
         pad.onCharacterKey = { keyCode, metaState -> dispatchTouchKey(keyCode, metaState) }
         pad.onSymbol = { ch -> commitSymbolFromTouch(ch) }
         pad.onToggleLanguage = { toggleHangulEnglish() }
@@ -1193,6 +1213,16 @@ class HunminInputMethodService : InputMethodService() {
             if (isHangulMode != hangul) toggleHangulEnglish()
         }
         pad.onSwipeLeftDelete = { deleteBySwipeUnit() }
+        // Space's swipe-left moves the cursor instead of deleting (2026-11-26
+        // usability evaluation: the drag other IMEs use for the cursor was
+        // deleting text here). A key event through the same path, so the
+        // boundary rule applies — the composing word lands first, then the
+        // cursor moves in the client.
+        pad.onCursorLeft = { dispatchTouchKey(KeyEvent.KEYCODE_DPAD_LEFT, 0) }
+        // KP14/KP7: backspace long-press repeats WORD deletion (~0.2 s, the
+        // view owns the timer); the unit is the ruling's, not the setting's.
+        pad.onWordDelete = { deleteByUnit(DeleteUnit.WORD) }
+        pad.longPressTimeoutMs = readLongPressTimeout()
         keypad = pad
         refreshKeypad()
         updateKeypadVisibility()
@@ -1298,10 +1328,23 @@ class HunminInputMethodService : InputMethodService() {
      * goes through the same key machinery as a tap (dispatchTouchKey) or a
      * platform action — no surrounding-text read anywhere (I9).
      */
-    private fun deleteBySwipeUnit() {
+    /** #312: the stored long-press timeout, defaulting to the provisional 200 ms. */
+    private fun readLongPressTimeout(): Long =
+        try {
+            getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getLong(HunminPrefs.LONG_PRESS_TIMEOUT, KeypadModel.LONG_PRESS_TIMEOUT_MS)
+        } catch (e: Exception) {
+            KeypadModel.LONG_PRESS_TIMEOUT_MS
+        }
+
+    private fun deleteBySwipeUnit() = deleteByUnit(readSwipeUnit())
+
+    /** One delete in [unit]; the swipe-left setting and the backspace
+     *  long-press ruling (WORD, KP14) share this machinery. */
+    private fun deleteByUnit(unit: DeleteUnit) {
         val e = touchEngine
         val ic = currentInputConnection ?: return
-        when (readSwipeUnit()) {
+        when (unit) {
             DeleteUnit.KEY ->
                 // The backspace key's own path: engine edits the composition,
                 // or the app deletes one character.
@@ -1360,11 +1403,17 @@ class HunminInputMethodService : InputMethodService() {
      * judgement is taken at that boundary exactly as the space branch does.
      */
     private fun commitSymbolFromTouch(ch: String) {
-        val screen = symbolScreen ?: return
         val target = currentInputConnection ?: return
+        // KP11: validate against the page the key belongs to — Tier 1 or the
+        // extended panel (#312). A character in neither is a caller bug, not
+        // something to silently type. MEASURED: validating against Tier 1 only
+        // rejected the extended panel's own symbols (the picker round read '').
+        val screen = listOfNotNull(symbolScreen, extendedScreen, mathScreen, emojiScreen, kaomojiScreen)
+            .firstOrNull { ch in it.symbols } ?: return
         touchEngine?.commitWord(target)
         adoptJudgement(touchEngine)
         screen.commitSymbol(ch, target)
+        UiTraceRecorder.symbol(screen.id, ch)
     }
 
     /**
@@ -1507,6 +1556,17 @@ class HunminInputMethodService : InputMethodService() {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                     .putString(HunminPrefs.SWIPE_LEFT_DELETE, unit.pref).apply()
             }.onFailure { Log.w(TAG, "hunmin: could not persist the swipe-left delete unit", it) }
+        }
+        /* #312's setting (maintainer 2026-11-26: "설정할 수 있게 하는 게 제일
+         * 좋아"): the window reads/writes the stored timeout; the view reads
+         * the same value — one value, not two. Applies immediately. */
+        ImeSettings.longPressTimeoutMs = { readLongPressTimeout() }
+        ImeSettings.onLongPressTimeoutChosen = { ms ->
+            runCatching {
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                    .putLong(HunminPrefs.LONG_PRESS_TIMEOUT, ms).apply()
+            }.onFailure { Log.w(TAG, "hunmin: could not persist the long-press timeout", it) }
+            keypad?.longPressTimeoutMs = ms
         }
         /* ReqMode13's surface B: the settings window reads the value and the key
          * from the engine, and writes through the same option the chord writes.

@@ -242,9 +242,73 @@ FlorisBoard's `CAPSLOCK_BY_DOUBLE_TAP` / `CAPSLOCK_BY_CYCLE`. The KP5
 accidental-swipe defences apply to every such swipe. The glide-typing conflict
 is **resolved by ruling**: the maintainer will not add glide typing (2026-11-22,
 verbatim: "글라이드 기능은 불편하기만 해서 추가할 생각이 없어."), so swipe-up on
-letter/jamo keys has no competing gesture. The shift state machine (how capslock
-unlocks) and whether swipe-up-on-letters is enabled are open mechanism.
-*Implementation:* none. *Refuted by:* none yet.
+letter/jamo keys has no competing gesture.
+
+Clarification (2026-11-23, verbatim) — the gesture IS shift, on every key:
+
+> "어느 키에서든 swipe up을 하면 shift 를 누른 상태로 입력하는 것과 동일한 동작으로
+> 구현하자는 거였고. 그 방식으로 숫자키로 기호 입력을 할 수 있게 한다는 거였어."
+
+So swipe-up is not an arbitrary per-key "alternate": it is **identical to
+shift+key**, on any key, and the number-row symbol input (KP1/KP5) follows from
+that — the shifted form is whatever the layout's shift row already defines.
+This settles "whether swipe-up-on-letters is enabled" (yes — any key) and
+sharpens "alternate" to "the shifted form itself".
+
+The shift state machine — decided (2026-11-23, verbatim):
+
+> "shift를 longpress 혹은 swipe up하면 capslock으로 동작하고 다시 shift를 누르면
+> 해제되는 걸로 하자."
+
+So **long-press or swipe-up on the shift key locks capslock; a tap on shift
+while locked releases it**. Tap while unlocked stays the one-shot (KP2). The
+exception table gains the shift row: both gestures → capslock, not a shifted
+character.
+
+Long-press equivalence — decided (2026-11-23, verbatim):
+
+> "long press도 swipe up과 동일하게 구현해 두자. 나중에 필요하면 기능을 다르게
+> 만들지 뭐."
+
+So **long-press behaves identically to swipe-up on every key**: shift+key on
+the text keypads, the page picker on the 기호 mode key (KP10). One meaning per
+gesture pair is the KP8-consistent choice; the equivalence is deliberate and
+may be split later if a need arises — the maintainer's words name that exit
+explicitly.
+
+The long-press wait — configurable (2026-11-26, verbatim):
+
+> "long-press가 너무 긴데. 200ms 이하로 테스트해보고 싶어."
+> "설정할 수 있게 하는 게 제일 좋아. 일단 그 값으로 테스트해 보려고 해."
+
+So the hold timeout is a **setting** (설정 → 길게 누르기, presets 100–500 ms),
+default **200 ms provisional** — the system value
+(`ViewConfiguration.getLongPressTimeout()`, 500 ms on the test phone, 400 ms
+on the AVD) was too slow in use. The trade-off recorded for the evaluation:
+a slow swipe can fire long-press before passing the distance gate; the
+jitter cancel is the defence. Tuning record:
+`docs/DESIGN-ANDROID-SYMBOL-GESTURES.md` §6.5. The equivalence is the **general rule with per-key exceptions** (2026-11-23,
+verbatim):
+
+> "long press와 swipe up은 일반적으로 동일하지만, 기호 키나, backspace 등 일부
+> 키에서 동작이 달라지는 거야."
+
+So the model is: default equivalence on the character keys, and a per-key
+exception table — the 기호 mode key opens the page picker on both gestures
+(KP10), backspace long-press is word-delete repeat (KP14, resolving KP17's
+anticipated word-delete), and "등" leaves further exceptions open (the shift
+key's capslock above is the earlier candidate). An exception is a recorded
+per-key fact, not a new gesture vocabulary. *Implementation:* partial (#312,
+2026-11-23) — the gesture layer is wired: `KeypadModel.gestureAction` (the
+exception table), `isSwipeUp`/`returnedToOrigin` (KP5 gates), `KeypadView`'s
+pointer state machine (swipe-up commits on release, long-press at the system
+timeout, movement-vs-time separation), the per-event shift bit leaving the
+one-shot untouched. The decided shift state machine is wired: shift's
+gestures lock capslock, a tap while locked releases it. *Verified by:*
+engine-android-e1 (`KeypadGestureTest`); engine-android-e2e (gesture round:
+swipe-up=shift on digits/letters/jamo, the KP5 short-drift tap, long-press
+equivalence, the KP16 hint promise in both modes, capslock lock/release).
+*Refuted by:* none yet.
 
 ### KP8. Per-key swipe directions may vary, bounded by learnability (stated direction + constraint)
 
@@ -314,18 +378,84 @@ The maintainer's words (2026-11-22, verbatim):
 > 버튼을 두는 것보다 나아 보인다. 일단 이렇게만 정리해 두고 이 기능을 확장하는 건
 > 별도 이슈로 만들자."
 
-Stated direction: reaching alternate symbols by **swipe / long-press on a symbol
-key** is preferred over a separate **Tier 2 button/page**. The Tier 2 Korean
-special symbols become gesture variants of the Tier 1 symbol keys (KP7/KP8),
-rather than a page of their own. This deprioritises the separate Tier 2 page of
-KP6/KP9; those records stand as the history of the considered alternative.
+Clarification (2026-11-23, verbatim) — what "심볼 키" meant, and the mechanism:
 
-**Scope ruling:** #298 records this direction only; **extending the feature is a
+> "기호 모드 키를 swipe up 하면 기존에 tier 2라고 설계했던 layout을 포함해서 다양한
+> 심볼 입력을 할 수 있게 하자고 한 거였어."
+> "기호 모드 키를 swipe up 했을 때는 일반적으로 많이 제공하는 이모지, 확장 기호,
+> 수식 기호 페이지를 고를 수 있게 하고, 그걸 고르면 실제 기호 선택 창이 뜨는 방식으로
+> 구현하고 싶은 거야."
+
+So the key is the **기호 (symbol) mode key**, not the symbol-character keys.
+Swipe-up on it opens a **page picker** — the commonly provided pages: **emoji,
+extended symbols, math symbols** — and picking one opens that symbol page. The
+designed Tier 2 panel (KP6/KP9, `docs/ANDROID-KEYPAD-MOCKUP.md`) is **content
+reached this way, not a deprioritised alternative**; what the gesture replaces
+is the Tier 2 *button*. Positional consistency (KP9) holds: the 기호 key keeps
+its mode-key slot in every mode; tap = Tier 1, swipe-up = the picker.
+
+**Drift record.** The 2026-11-22 reading of the quote above — "Tier 2 symbols
+become gesture variants of the Tier 1 symbol keys" — was agent paraphrase, not
+the maintainer's meaning. It propagated into the #312 issue body, the mockup's
+KP10 update paragraph and this section, and was built on (2026-11-23) before
+the correction; that implementation was removed. The wiki session
+`2026-11-23-312-symbol-variants` records the drift and its correction.
+
+Symbol-screen navigation — decided (2026-11-23, verbatim):
+
+> "기호 화면에서 swipe-up / down으로 다음 기호 조합으로 이동하게 하자. swipe left
+> 는 backspace 동작 유지."
+
+The lists' lifecycle — direction (2026-11-23, verbatim):
+
+> "심볼 목록은 일단 구현해 보고 사용성을 평가하면서 개선해보자."
+> "다른 ime가 제공하는 심볼 목록도 참조해 보자"
+
+So the symbol lists ship PROVISIONALLY, are evaluated in use, and improved;
+other IMEs' lists are a reference (measured in
+`docs/ANDROID-KOREAN-IME-SURVEY.md` §6). A provisional list is data marked as
+such in its own `source`, not a ruling — the checker pins structure and the
+ruled base, never the unruled assignment.
+
+So on the symbol screen, **swipe-up / swipe-down move to the next / previous
+symbol set**, and KP14's swipe-left delete is unchanged there. Reading
+(recorded, flag for correction): "기호 조합" = the symbol PAGES of the picker
+model (Tier 1 ↔ 확장 기호 ↔ …, wrapping over the pages that have data) — the
+gesture cycles sets without opening the picker; the 기호 mode key's own
+gesture still opens the picker (above). Long-press on a symbol key follows
+the KP7 equivalence (next set). If "기호 조합" meant the row-groups WITHIN a
+page, the mechanism is the same shape over a different list — the ruling's
+words are recorded either way.
+
+Picker presentation — decided (2026-11-23, verbatim):
+
+> "페이지 선택은 기호 키 위에 팝업하자."
+
+So the picker is a **popup above the 기호 key**. The page inventories are to be
+settled with reference to `https://symbl.cc/kr/collections/` (maintainer,
+2026-11-23: "symbl.cc/kr/collections/ 를 참조해서 어떤 기호를 제공하면 좋을지
+정해보자"); the grounded proposal and its register finding are in
+`docs/DESIGN-ANDROID-SYMBOL-GESTURES.md`.
+
+**Scope ruling:** #298 records the direction only; **extending the feature is a
 separate issue, #312** (`[android] extend symbol selection via swipe/long-press on
-symbol keys`). The variant mapping and the per-key gesture set (bounded by KP8)
-are #312's work, not #298's; the variant mapping's data home is already settled
-by KP11 — the app-read symbol data file, with the engine uninvolved. *Implementation:*
-none. *Refuted by:* none yet.
+symbol keys`). The gesture wiring, the page picker and the symbol pages are
+#312's work; the pages' data home is KP11's app-read symbol data file, with the
+engine uninvolved. *Implementation:* partial (#312, 2026-11-23) — the 기호
+mode-key gesture opens a non-focusable popup above the key; the extended page
+ships the designed Tier 2 panel as app-read data (`keypad/symbols-extended.json`);
+the 기호 slot is restored on the Tier 1 screen (KP9); page navigation and the
+KP9 returns are device-verified. The decided symbol-screen navigation is
+wired: swipe-up/down on a symbol key cycle the symbol sets (the recorded
+reading of "기호 조합"), swipe-left stays KP14 backspace. The four symbol
+pages ship PROVISIONALLY under the 2026-11-23 direction above: 확장 기호
+(the ruled 40 base + 20 additions, 6×10), 수식 기호 (40), 이모지 (curated 40),
+카모지 (curated 30, a full-width list) — picker data-driven, usability
+evaluation is the next step; selection criteria proposed in the design doc. The
+off-target variant-mapping implementation was removed (drift record above);
+design: `docs/DESIGN-ANDROID-SYMBOL-GESTURES.md`. *Verified by:*
+keypad-symbol-data; engine-android-e1; engine-android-e2e (picker round).
+*Refuted by:* none yet.
 
 ### KP11. Symbol screen data home — app-read data file, engine uninvolved (DECIDED)
 
@@ -450,11 +580,67 @@ wired; KP13 draws their hints. This entry does not pull #312 forward; it records
 the observation so the gap between the drawn hints and the wired gestures is
 visible.
 
+The space bar is an exception — decided (2026-11-26, verbatim):
+
+> "발견 2 - 커서 이동으로 수정하자."
+
+the usability evaluation's input, not "any key" without exception: when a left
+swipe on the **space bar** was measured deleting text (`dx ≈ -161`, twice in one
+session), the maintainer ruled it to **move the cursor** instead. So
+`KeypadModel.swipeLeftAction` gives `CURSOR_LEFT` on space and `DELETE` on every
+other key; the cursor move is a `KEYCODE_DPAD_LEFT` key event through the same
+path (the composing word lands at the boundary first, then the client moves).
+Swipe-left on a non-space key keeps KP14's delete, and the delete unit setting
+still governs only the delete (the cursor step is one, not a unit).
+
+Backspace long-press — the original request, with its reasoning (2026-11-22,
+verbatim, from the T3-3 session; tracked in the #312 comment of 2026-11-22):
+
+> "long press는 별도 task로 진행한다고 했으니, 그 task에 이 내용 추가해 줘."
+> "뭐냐면, backspace를 길게 누르면 적당한 시간간격으로 단어 단위로 삭제를 해주면
+> 좋겠어. 많은 글자를 지우기 위해 반복해서 누르는 게 쉬운 일이 아니거든? 그래서
+> 다른 ime는 그런 기능을 제공할 거야."
+
+The stated reason: **erasing many characters by repeated tapping is hard on a
+soft keyboard**, so the hold should delete word-by-word at a reasonable
+interval. The prior-art premise ("다른 ime는 그런 기능을 제공할 거야") was
+checked 2026-11-23: the surveyed open-source IMEs repeat CHARACTER deletion,
+not word — the finding and its sources are in
+`docs/ANDROID-KOREAN-IME-SURVEY.md` §Backspace long-press repeat; word-unit
+repeat is hunmin's differentiating choice, closed-source behavior unverified.
+
+Confirmed and sharpened (2026-11-23, verbatim):
+
+> "swipe-left 는 backspace로 사용할 거고, backspace에서 long press는 단어 삭제야."
+
+So swipe-left as backspace is reconfirmed (this entry), and **long-press on
+the backspace key deletes a word** — the WORD unit path above (drop the
+buffered word when composing, else Ctrl+DEL). This is a named exception to
+KP7's general long-press = swipe-up equivalence: backspace is a function key
+with its own gesture meaning, not a shifted character key. Whether the
+swipe-left unit setting also governs this gesture is not stated; the ruling
+names 단어 삭제, so WORD is the recorded behavior.
+
+Repeat while held (2026-11-23, verbatim):
+
+> "backspace에서 long-press는 단어 삭제인데, 0.2초 정도 간격으로 단어 삭제를
+> 반복하면 될 것 같아."
+
+So the hold **repeats the WORD deletion at roughly 0.2 s intervals** until
+release, each tick through the same WORD path — the soft surface's answer to
+the stated reason above (repeat tapping is hard), consistent with KP17's
+opposite-UX rationale. The interval is the maintainer's estimate ("정도",
+"같아"): a provisional tuning constant, not a measured optimum.
+
 *Implementation:* `KeypadModel` (gesture decision, `DeleteUnit`), `KeypadView`
 (touch handling), `HunminInputMethodService` (delete units, setting),
 `OverlayActivity` (키패드 section) — `docs/DESIGN-ANDROID-KEYPAD.md`.
-*Verified by:* engine-android-e1 (decision table, unit vocabulary),
-engine-android-e2e (swipe on the device, per-unit deletion).
+Backspace long-press repeat wired 2026-11-23 (#312): `KeypadView`'s word-repeat
+timer (`WORD_REPEAT_INTERVAL_MS`) into `HunminInputMethodService#deleteByUnit`
+(WORD, the ruling's unit, not the swipe-left setting's). *Verified by:*
+engine-android-e1 (decision table, unit vocabulary, gesture table + interval),
+engine-android-e2e (swipe on the device, per-unit deletion; the long-press
+repeat round pending).
 
 ### KP15. Bottom row amended: comma left of space (DECIDED)
 
@@ -567,3 +753,25 @@ the soft surface gets gesture alternates (KP7/#312) and long-press word-delete
 (#312, compensating hard repeat); the hardware surface keeps OS key repeat and
 the configured layouts. Independence is the means; per-surface optimization is
 the end.
+
+### KP18. Kaomoji (카모지) input support (REQUESTED)
+
+The maintainer's words (2026-11-23, verbatim):
+
+> "https://snskeyboard.com/emoticon/ 같은 카모지도 지원하면 좋겠는데."
+
+Stated direction: **kaomoji** — multi-character emoticon strings like the
+reference site's — should also be inputtable. The reference collection was
+extracted and measured (9,419 entries; a font-safety heuristic; a
+classic-coverage gap): the findings, the comparable designs and the
+recommendation are in `docs/DESIGN-ANDROID-SYMBOL-GESTURES.md` §6. The entry
+mechanism is KP10's picker; the data home is KP11's app-read pattern. Kaomoji
+are **strings, not single-character keys**, so the symbol data contract needs
+a string-page kind — a frontend data-contract extension, no engine change.
+*Implementation:* partial (#312, 2026-11-23) — a provisional curated page
+(30: the classics the reference site lacks + font-safe members of its
+9,419) ships as `keypad/kaomoji.json`, a scrollable full-width list with the
+mode row fixed below (KP9); whole strings commit through the flush-then-
+commit seam; E1 commit golden + E2E picker round verify. Device font
+verification and the inventory's growth are the usability evaluation's work.
+*Refuted by:* none yet.

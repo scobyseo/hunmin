@@ -8,7 +8,7 @@
   "source": "Arrangement ruled by the maintainer 2026-11-22, recorded in docs/SPEC-ANDROID-KEYPAD.md (KP6: the three symbol rows verbatim, grouped []{} and ,.<>, ` before -; nav order Home PgUp PgDn End; KP9: no space/enter, arrows in the space slot). Data home ruled in KP11 (issue #298): the app draws the symbol screen from this file; the engine is not involved. This file is app-read frontend data, NOT engine data: it never enters libhunmin/data and the engine never loads it.",
   "x-notes": {
     "contract": "tools/symbol-data-check.py (ctest keypad-symbol-data) is the data contract checker; SymbolScreen.kt parses this file and SymbolScreenTest.kt pins the commit path. Format is a frontend data contract per KP11, settled at implementation (issue #297).",
-    "tier2-slot": "KP9 puts a second mode key beside the language toggle; KP10 prefers swipe/long-press variants over a Tier 2 button, so that slot is deliberately absent here. The gesture entry and the Tier 2 variant mapping are issue #312's work, on this same file.",
+    "tier2-slot": "KP9 keeps the mode keys in the same slots across modes: the 기호 key sits beside 한/영 here as in the text modes (restored 2026-11-23, #312 — its absence was a drift artefact). Tap stays on Tier 1; swipe-up/long-press opens the page picker (KP10, clarified 2026-11-23). The gesture replaces the Tier 2 BUTTON, not the content: the designed Tier 2 panel ships as keypad/symbols-extended.json (KP11 app-read data). The 2026-11-22 reading 'variants on the symbol-character keys' was agent drift, corrected; see docs/SPEC-ANDROID-KEYPAD.md KP10.",
     "frequent-keys": "The main keypads' frequent-symbol keys (KP4) are NOT here: the frequent-symbol set and the number-row default are still open (docs/ANDROID-KEYPAD-MOCKUP.md). This file is the symbol screen only.",
     "function-keys": "Function keys carry ids, not characters; what an id DOES (sendKeyEvent, mode return) is the soft-keyboard UI sub-issue's wiring, not this data. The id vocabulary is fixed by the checker."
   },
@@ -17,6 +17,6 @@
     { "kind": "symbols", "keys": ["`", "~", "-", "_", "=", "+", "[", "]", "{", "}", "\\", "|"] },
     { "kind": "symbols", "keys": [";", ":", "'", "\"", ",", ".", "<", ">", "/", "?"] },
     { "kind": "function", "keys": ["tab", "home", "page-up", "page-down", "end", "backspace"] },
-    { "kind": "function", "keys": ["language-toggle", "left", "up", "down", "right"] }
+    { "kind": "function", "keys": ["language-toggle", "symbols-page", "left", "up", "down", "right"] }
   ]
 }

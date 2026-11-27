@@ -175,6 +175,12 @@ object ImeSettings {
     /** Called when the window sets the swipe-left delete unit. */
     var onSwipeLeftDeleteChosen: (DeleteUnit) -> Unit = {}
 
+    /** #312: the long-press hold timeout in force (ms). */
+    var longPressTimeoutMs: () -> Long = { KeypadModel.LONG_PRESS_TIMEOUT_MS }
+
+    /** Called when the window sets the long-press hold timeout. */
+    var onLongPressTimeoutChosen: (Long) -> Unit = {}
+
     /**
      * The engine's automatic-switch value (1 on, 0 off, null when no engine can
      * answer) — docs/SPEC-MODES.md §ReqMode13. The window SHOWS this and never
