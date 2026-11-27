@@ -36,6 +36,11 @@
 #   NOT       an apt upgrade or reinstall of hunmin-ibus: dpkg overwrites
 #             /usr/bin/hunmin-ibus, the wrapper disappears, logging stops and the
 #             input method is simply the packaged one again. Re-run `enable`.
+#   NOT       a dev build's default data dir: libhunmin compiled with prefix
+#             /usr/local looks in /usr/local/share/hunmin, which has no layouts,
+#             and an engine with no layouts declines EVERY key. The wrapper
+#             exports HUNMIN_DATA_PATH (TRACE_DATA) for that reason, and `enable`
+#             refuses to install without a data directory that has layouts/.
 #   NOT       the build tree: the engine is installed with its own libhunmin and
 #             the wrapper puts that directory first, because the build has a
 #             RUNPATH into the checkout and a deleted worktree would otherwise
@@ -56,6 +61,12 @@ INSTALL_LIB="$INSTALL_DIR/libhunmin.so.0"
 ENGINE=/usr/bin/hunmin-ibus
 BACKUP=/usr/bin/hunmin-ibus.pkg
 LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/hunmin"
+# Where the DATA is. A dev build's libhunmin defaults HUNMIN_DEFAULT_DATA_DIR to
+# its own install prefix (/usr/local/share/hunmin), which does not exist here —
+# and with no layouts the engine builds no state and declines EVERY key, i.e. the
+# person cannot type at all (measured 2026-11-27, this exact failure). The
+# installed data is the package's, so the wrapper points at it.
+TRACE_DATA=${HUNMIN_TRACE_DATA:-/usr/share/hunmin}
 MARK="# hunmin trace wrapper"
 
 say() { printf '%s\n' "$*"; }
@@ -124,6 +135,7 @@ enable)
     [ "$(id -u)" -eq 0 ] || die "run as root: sudo $0 enable"
     [ -x "$TRACE_BUILD" ] || die "no trace build at $TRACE_BUILD — build it first (see status)"
     [ -f "$TRACE_LIB" ] || die "no $TRACE_LIB — the trace build links libhunmin; build it"
+    [ -d "$TRACE_DATA/layouts" ] || die "no layouts in $TRACE_DATA — install hunmin-data or pass HUNMIN_TRACE_DATA=<dir with layouts/>"
     is_wrapper && { say "already enabled"; exit 0; }
     [ -f "$ENGINE" ] || die "$ENGINE is missing; is hunmin-ibus installed?"
     if [ ! -f "$BACKUP" ]; then
@@ -160,12 +172,40 @@ umask 077
 : "\${HUNMIN_TRACE_OUT:=\$dir/key-log-\$(date +%Y%m%d-%H%M%S)-\$\$.jsonl}"
 export HUNMIN_TRACE_OUT
 export HUNMIN_TRACE_RAW=1
+# Without this the engine finds no layouts and silently declines every key: the
+# lib is a /usr/local build whose compiled default data dir is empty here.
+: "\${HUNMIN_DATA_PATH:=$TRACE_DATA}"
+export HUNMIN_DATA_PATH
 LD_LIBRARY_PATH="$INSTALL_DIR\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
 export LD_LIBRARY_PATH
 exec $INSTALL_BIN "\$@"
 WRAPPER
     chmod 0755 "$wrapper_tmp"
     mv -f "$wrapper_tmp" "$ENGINE" || die "cannot install the wrapper at $ENGINE"
+    # Preflight the thing that broke the first time: the installed lib must find
+    # layouts in the wrapper's environment. No bus needed -- hunmin_ctx_new is
+    # the engine's own first call and returns NULL with no layouts.
+    if command -v python3 >/dev/null 2>&1; then
+        if HUNMIN_DATA_PATH="$TRACE_DATA" LD_LIBRARY_PATH="$INSTALL_DIR" python3 - "$INSTALL_LIB" <<'PYCHECK'
+import ctypes, sys
+lib = ctypes.CDLL(sys.argv[1])
+lib.hunmin_ctx_new.restype = ctypes.c_void_p
+lib.hunmin_ctx_new.argtypes = [ctypes.POINTER(ctypes.c_char_p), ctypes.c_int]
+sys.exit(0 if lib.hunmin_ctx_new(None, 0) else 1)
+PYCHECK
+        then
+            say "preflight: the installed engine loads layouts from $TRACE_DATA"
+        else
+            # Never leave a wrapper that would eat every key: put the packaged
+            # engine back before failing.
+            if [ -f "$BACKUP" ]; then
+                put "$BACKUP" 0755 "$ENGINE" && say "preflight failed — the packaged engine was restored"
+            fi
+            die "preflight FAILED: the installed lib finds no layouts in $TRACE_DATA (the engine would decline every key)"
+        fi
+    else
+        say "preflight skipped (python3 not found) — if typing stops, run: $0 disable"
+    fi
     say "installed $INSTALL_BIN + $(basename "$INSTALL_LIB") beside it, wrapped $ENGINE"
     say "log: $LOG_DIR/key-log-<date>-<time>-<pid>.jsonl (mode 600, one file per engine process)"
     say ""
