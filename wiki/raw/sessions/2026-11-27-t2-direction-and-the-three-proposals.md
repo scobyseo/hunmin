@@ -273,3 +273,56 @@ asserting it.
 
 Nothing above is applied: `#295`'s body still carries its original verification, and
 the re-scope is the maintainer's to make.
+
+## 10. Hand-off: what a new session needs to continue
+
+The maintainer paused this lane to type for a while and collect the log; this
+section is what a fresh session reads first. (The measurements live in
+[[2026-11-27-personal-rewrites]]; the open decisions are D5–D9 in
+`wiki/decisions/the-outstanding-decisions.md`.)
+
+**Where the work is.** Branch `0.4-t2-3-g3-expectability`, worktree
+`~/work/hunmin/0.4-t2-3-g3-expectability`, 16 commits on `master` (G3's engine
+option and gates at the bottom, then the trace work, the collectors, the intent
+model, the enable script). `git status` is clean.
+
+**What is runnable now.**
+
+| piece | command | state |
+|---|---|---|
+| flip counter on a corpus | `tools/modes-metrics.py … ` / `--judge-hold N` | green (G3) |
+| G3 gate | `tools/autoswitch-gates.py check --flip-baseline` | green; fixture in `tests/fixtures/modes-gates/g3/` |
+| rewrites on text (a corpus or shell history) | `tools/modes-rewrites.py --history … --mode latin` | 214/3,379 on the maintainer's history |
+| flakes of the *screen* from a live log | `tools/personal-log-flips.py --log LOG` | ready, waits for a log |
+| intent classes from a live log | `tools/personal-log-words.py --log LOG` | ready, waits for a log |
+| enable the live log | `tools/ibus-trace-enable.sh enable` | fixed (rename, not write-through) |
+
+**What is blocked, and on what.** Nothing in the code: the log only needs the
+maintainer to run
+
+```sh
+sudo tools/ibus-trace-enable.sh enable     # installs /usr/local/lib/hunmin/* and wraps /usr/bin/hunmin-ibus
+ibus restart                               # spawns the wrapper; logging starts with the first key
+```
+
+and then their typing lands in `~/.local/state/hunmin/key-log-<date>-<time>-<pid>.jsonl`
+(one file per engine process, mode 600). The first run failed on "Text file busy"
+because the engine being replaced was the engine running; `put()` now renames over
+it, and the partial state is re-runnable. An apt upgrade of `hunmin-ibus`
+overwrites the wrapper — logging stops silently and `enable` must be re-run.
+
+**What the new session does first, when logs exist.**
+
+1. `tools/ibus-trace-enable.sh status` — is logging on, which files, how many lines.
+2. `tools/personal-log-words.py --log <newest>` — the intent table: how many words
+   were clean, how many the engine rewrote and the person kept, how many they
+   **undid** (the discomfort the model names), and the examples per class.
+3. `tools/personal-log-flips.py --log <newest>` — the flicker count and the same
+   keys replayed at `judge_hold` 0/1/2.
+4. Bring the per-class word lists to the maintainer for review — they are the
+   failure set the three proposals are then measured against, case by case.
+
+**What NOT to repeat** (the two drifts this lane already made): do not turn the
+maintainer's three proposals into a measurement programme (the purpose paragraph
+in `docs/MILESTONES.md` §0.4 Track 2 and §2.2 here), and do not let a gate on the
+shipped design stand in for choosing a design (D8).

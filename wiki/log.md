@@ -1706,3 +1706,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   rest), which design is prototyped first, whether the user dictionary is a Track 2
   lever, what #295 is from now on (and `judge_hold`'s disposal), and whether a live
   session may be logged. Recorded, not answered — each is the maintainer's.
+
+## [2026-11-27] update | 트레이스 작업과 핸드오프
+
+- [[2026-11-27-t2-direction-and-the-three-proposals]] §10 added: what a new
+  session needs to continue — branch/worktree, the six runnable pieces, the one
+  blocked step (`sudo tools/ibus-trace-enable.sh enable` + `ibus restart`), where
+  the log lands, what to run when it does, and the two drifts not to repeat.
+  Also fixed the enable script's first real failure: it wrote through a running
+  engine ("Text file busy"); every install now writes beside the target and
+  renames over it.
