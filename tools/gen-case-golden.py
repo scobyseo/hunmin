@@ -136,6 +136,15 @@ CASES = {
              note="0-9 are not this layout's (it maps 26 letters), so each is DECLINED and reaches the client; "
                   "the space ends the word and the BackSpace that follows it finds an empty buffer and is "
                   "declined too -- tier A records commit/preedit only, so consumption is asserted here"),
+        # FE18 (issue #332): BackSpace inside a composition. The physical path
+        # always deleted (the engine pops the in-flight syllable's jamo); the
+        # buffered layer used to answer the same key with the whole word instead.
+        # This pins the ic half, which is the reference the layer must match.
+        dict(case="backspace-edits-the-word", feature="BackSpace inside a composition deletes",
+             keys="rkrk\\b\\b\\b\\b",
+             note="가가 then four BackSpaces: the in-flight syllable loses its ㅏ, then its ㄱ, then the finished "
+                  "가; the fourth BackSpace finds an empty buffer and is DECLINED, so the client receives it "
+                  "(docs/SPEC-FRONTEND.md §FE18)"),
     ],
     # 신세벌식 P2 (normative source: pat.im/1136, docs/SPEC-P2.md). Three keys
     # assemble a syllable, but where 세벌식 최종 puts jongseong on the number row,

@@ -193,6 +193,40 @@ TEST_F(LayerTest, SyllableModeCommitsEachFinalisedSyllable) {
     hunmin_buffered_preedit_free(l);
 }
 
+/* FE18 (docs/SPEC-FRONTEND.md#§FE18, issue #332): a BackSpace deletes into the
+ * composing word and keeps it composing. Before this, the engine declined the
+ * key (its own syllable buffer was empty, the finished syllables were in the
+ * layer's word) and a declined key is a boundary -- so the first BackSpace on a
+ * two-syllable word committed it instead of deleting, and 9 of 34 backspaces in
+ * one session left jamo in the client (issue #332).
+ *
+ * The walk asserted here is the ic path's walk on the same keys, which is what
+ * FE1/FE2 require: the in-flight syllable loses its jamo first, then the
+ * finished syllables leave the layer's word one character at a time, and only
+ * the BackSpace AFTER the word is empty is declined -- that is the one the
+ * client receives. Nothing is committed at any point. */
+TEST_F(LayerTest, BackspaceEditsTheComposingWordAndNeverCommitsIt) {
+    /* Four keys type 가가, then four BackSpaces walk it back down. */
+    const char *kExpectedPreedit[] = {"ㄱ", "가", "각", "가가", "가ㄱ", "가", "", ""};
+    const int kExpectedEaten[] = {1, 1, 1, 1, 1, 1, 1, 0};
+
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    const std::string kSequence = std::string("rkrk") + std::string(4, '\b');
+    for (size_t i = 0; i < kSequence.size(); ++i) {
+        const uint32_t base = (uint32_t)(unsigned char)kSequence[i];
+        hunmin_key_result out{};
+        const int eaten = hunmin_buffered_preedit_process_key(l, base, 0, &out);
+        EXPECT_EQ(eaten, kExpectedEaten[i]) << "key " << i << " (base 0x" << std::hex << base << ")";
+        EXPECT_STREQ(out.commit, "") << "the composing word was committed at key " << i;
+        EXPECT_STREQ(out.preedit, kExpectedPreedit[i]) << "preedit at key " << i;
+    }
+    /* The word is gone and the layer has nothing left to deliver: the commit on
+     * the next boundary must be empty, not the word the deletes removed. */
+    EXPECT_STREQ(hunmin_buffered_preedit_commit_word(l), "");
+    hunmin_buffered_preedit_free(l);
+}
+
 TEST_F(LayerTest, PeekAgreesWithKeyAndChangesNothing) {
     hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
     ASSERT_NE(l, nullptr);

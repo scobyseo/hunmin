@@ -97,3 +97,12 @@
 {"in": {"keysym": 57, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
 {"in": {"keysym": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
 {"in": {"keysym": 65288, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 32, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 114, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"keysym": 107, "mods": 0}, "commit": "", "preedit": "가", "consumed": true}
+{"in": {"keysym": 114, "mods": 0}, "commit": "", "preedit": "각", "consumed": true}
+{"in": {"keysym": 107, "mods": 0}, "commit": "가", "preedit": "가", "consumed": true}
+{"in": {"keysym": 65288, "mods": 0}, "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"keysym": 65288, "mods": 0}, "commit": "", "preedit": "", "consumed": true}
+{"in": {"keysym": 65288, "mods": 0}, "commit": "", "preedit": "", "consumed": false}
+{"in": {"keysym": 65288, "mods": 0}, "commit": "", "preedit": "", "consumed": false}

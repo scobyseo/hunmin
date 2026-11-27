@@ -453,13 +453,15 @@ class HunminAdapterTest {
     }
 
     @Test
-    fun `backspace past empty preedit commits the buffered word`() {
-        // TSF case 11d. Three backspaces empty the engine's preedit (11a-c,
-        // above); the fourth finds nothing to edit, so the engine declines, the
-        // LAYER turns the decline into the word boundary, and the key passes to
-        // the client. The word is 안 and not 안녕 because the user deleted the
-        // in-flight 녕 -- TSF asserts the same end state with
-        // AssertCompositionEnded(kAnchorAn).
+    fun `backspace deletes the buffered word instead of committing it`() {
+        // FE18 (docs/SPEC-FRONTEND.md §FE18, issue #332). Three backspaces
+        // empty the engine's preedit (11a-c above) while the buffered word 안
+        // stays composing; the FOURTH now deletes 안 from that buffer instead
+        // of flushing it into the client. The old expectation here was the
+        // measured defect: it turned the composing word into committed text,
+        // and 9 of 34 backspaces in one session left jamo behind on the phone.
+        // Only the backspace AFTER the word is empty is declined and passed
+        // through, which is where the client's own delete happens.
         val ic = RecordingInputConnection()
         val engine = HunminAdapter(ctx, "dubeolsik")
         for (k in "dkssud") engine.typeChar(k, ic)
@@ -471,12 +473,15 @@ class HunminAdapterTest {
             "안", ic.composing())
         assertEquals("setup: nothing has been delivered yet", emptyList<String>(), ic.commits)
 
-        assertFalse("backspace past the empty preedit must pass through",
+        assertTrue("the fourth backspace must edit the buffered word",
             engine.onKey(67 /* KEYCODE_DEL */, 0, ic))
-        assertEquals("the buffered word must reach the client once",
-            listOf("안"), ic.commits)
-        assertEquals("after the flush the composing region must be cleared",
-            "", ic.composing())
+        assertEquals("the word was deleted, not committed", "", ic.composing())
+        assertEquals("an edit of the buffered word delivers nothing",
+            emptyList<String>(), ic.commits)
+
+        assertFalse("backspace past the emptied word passes through",
+            engine.onKey(67 /* KEYCODE_DEL */, 0, ic))
+        assertEquals("a pass-through still delivers no word", emptyList<String>(), ic.commits)
         engine.close()
     }
 

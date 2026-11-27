@@ -642,6 +642,22 @@ static int off_join(char *dst, size_t cap, const char *a, const char *b) {
     return 0;
 }
 
+/* FE18 (docs/SPEC-FRONTEND.md §FE18): a BackSpace a driver DECLINES is passed
+ * to the client, and the client deletes the character before the caret. This
+ * model of "the text the person ends up with" accumulates delivered commits
+ * only, so without this a declined BackSpace left text on the engine side that
+ * the layer -- still holding those syllables as preedit -- deleted itself: the
+ * engine path ended with `...입니다가`, the boundary path with `...입니다`. The
+ * two are the same text to the person, which is the invariant §4 is about.
+ * Applied only to the side that declined: a consumed BackSpace is that driver's
+ * own edit and already shows in its preedit. */
+static void off_client_delete(char *s) {
+    size_t n = strlen(s);
+    while (n > 0 && ((unsigned char)s[n - 1] & 0xc0) == 0x80) n--;
+    if (n > 0) n--; /* the lead byte, or the single byte of an ASCII character */
+    s[n] = 0;
+}
+
 static void off_free(off_case *c) {
     if (c->ic) hunmin_ic_free(c->ic);
     if (c->boundary) hunmin_buffered_preedit_free(c->boundary);
@@ -758,9 +774,25 @@ static int off_key(off_case *c, const char *path, int line, uint32_t base, uint3
     snprintf(spre, sizeof spre, "%s", sres.preedit ? sres.preedit : "");
 
     (*checks)++;
-    if (ocons != bcons || ocons != scons)
+    /* FE18: WHICH side holds the finished syllables decides who eats the key.
+     * The engine delivered its earlier syllable, so it declines and the client
+     * deletes; the boundary layer still holds that syllable, so it consumes and
+     * deletes it itself; the syllable layer delivered it and declines. The
+     * text comparison below is the assertion -- for a BackSpace the consumption
+     * flag is a routing detail, and a layer that swallowed a key with nothing to
+     * delete still shows up as a text difference. */
+    const bool backspace = (base == 0x08);
+    if (!backspace && (ocons != bcons || ocons != scons)) {
         fprintf(stderr, "%s:%d: key 0x%02x: consumed engine=%d boundary=%d syllable=%d\n", path, line, base, ocons, bcons, scons);
-    fails += (ocons != bcons) + (ocons != scons);
+        fails += (ocons != bcons) + (ocons != scons);
+    }
+
+    /* FE18: the client's delete, on the side that declined the BackSpace. */
+    if (backspace) {
+        if (!ocons) off_client_delete(c->odel);
+        if (!bcons) off_client_delete(c->bdel);
+        if (!scons) off_client_delete(c->sdel);
+    }
 
     if (off_append(c->odel, sizeof c->odel, ocopy) || off_append(c->bdel, sizeof c->bdel, bcommit) || off_append(c->sdel, sizeof c->sdel, scommit)) {
         fprintf(stderr, "%s:%d: accumulated text passed %d bytes -- raise OFF_TEXT_CAP\n", path, line, OFF_TEXT_CAP);

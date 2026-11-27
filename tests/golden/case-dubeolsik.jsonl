@@ -98,3 +98,12 @@
 {"in": {"ch": "9"}, "commit": "", "preedit": ""}
 {"in": {"ch": " "}, "commit": "", "preedit": ""}
 {"in": {"ch": "\b"}, "commit": "", "preedit": ""}
+{"in": {"ch": " "}, "commit": "", "preedit": ""}
+{"in": {"ch": "r"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "k"}, "commit": "", "preedit": "가"}
+{"in": {"ch": "r"}, "commit": "", "preedit": "각"}
+{"in": {"ch": "k"}, "commit": "가", "preedit": "가"}
+{"in": {"ch": "\b"}, "commit": "", "preedit": "ㄱ"}
+{"in": {"ch": "\b"}, "commit": "", "preedit": ""}
+{"in": {"ch": "\b"}, "commit": "", "preedit": ""}
+{"in": {"ch": "\b"}, "commit": "", "preedit": ""}
