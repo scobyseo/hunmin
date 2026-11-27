@@ -809,6 +809,25 @@ this branch, issue #316):
 | 45007358427 | cancelled at 187 s — runner-load variance, cold cache (cancelled runs never save it) | the split |
 | 45007863936 | **both jobs green: 100 s + 71 s** | final |
 
+### GTK3 settings changes the package measurement (2026-11-27, issue #335)
+
+The 71 s artefact row above predates `hunmin-ibus-settings`. Dispatch
+46019257406, with `libgtk-3-dev` present and the GLib 2.72 link fixed, measured:
+
+| segment | wall |
+|---|---:|
+| checkout + apt + `dpkg-checkbuilddeps -Pnobilus` | 26 s |
+| configure, compile, install, and all five binary `.deb`s | 37 s |
+| `dpkg-genbuildinfo` before cancellation | 130 s, incomplete |
+| whole job | cancelled at 193 s |
+
+The build itself completed; the 180 s job ceiling interrupted build-info
+generation. The package job's ceiling is therefore **300 s**, while the
+evaluation job stays at 180 s and measured **122 s** on the same dispatch.
+This is a measured budget change, not a skipped test: the package still uses
+`nocheck`, and the dedicated evaluation still requires all six IBus lanes to
+register and pass.
+
 ### The first dispatch run: a 1.5.26-only failure, found and fixed (superseded by the history table above; kept for the source-level detail)
 
 The first dispatch of the 3-min job (run 45004403626) failed all three D3

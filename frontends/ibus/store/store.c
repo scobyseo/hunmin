@@ -116,7 +116,15 @@ static void write_if_changed(GSettings *gs, const char *key, GPtrArray *list) {
         differs = g_strcmp0(cur[i], g_ptr_array_index(list, i)) != 0;
     /* Only what changed is written: every engine start runs this, and a write to
      * the daemon's schema is a write to the person's settings. */
-    if (differs) g_settings_set_strv(gs, key, (const gchar *const *)list->pdata);
+    if (differs) {
+        /* GPtrArray is not a GStrv. Supply the terminator g_settings_set_strv()
+         * requires without depending on GLib 2.74's null-terminated array API. */
+        const gchar **values = g_new0(const gchar *, list->len + 1);
+        for (gsize i = 0; i < list->len; ++i)
+            values[i] = g_ptr_array_index(list, i);
+        g_settings_set_strv(gs, key, values);
+        g_free(values);
+    }
     g_strfreev(cur);
 }
 
@@ -133,8 +141,10 @@ void hunmin_ibus_store_reconcile_triggers(hunmin_ibus_settings *s, char **const 
 
     GSettings *daemon = g_settings_new(HUNMIN_DAEMON_SCHEMA_ID);
     if (!daemon) return;
-    GPtrArray *trigger = g_ptr_array_new_null_terminated(0, g_free, TRUE);
-    GPtrArray *managed = g_ptr_array_new_null_terminated(0, g_free, TRUE);
+    /* g_ptr_array_new_null_terminated() is GLib 2.74+, while the supported
+     * Ubuntu 22.04 target ships GLib 2.72. */
+    GPtrArray *trigger = g_ptr_array_new_with_free_func(g_free);
+    GPtrArray *managed = g_ptr_array_new_with_free_func(g_free);
     char **v = g_settings_get_strv(daemon, HUNMIN_DAEMON_TRIGGER_KEY);
     for (gsize i = 0; v && v[i]; ++i) g_ptr_array_add(trigger, g_strdup(v[i]));
     g_strfreev(v);

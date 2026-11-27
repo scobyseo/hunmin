@@ -25,6 +25,11 @@ command -v cygpath >/dev/null 2>&1 && ROOT="$(cygpath -m "$ROOT")"
 : "${ANDROID_NDK:?export ANDROID_NDK=~/Android/Sdk/ndk/27.3.13750724}"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
 
+# dpkg-buildpackage exports host distro hardening flags. They are cached by the
+# first Android configure, but NDK clang rejects x86-only -fcf-protection. Keep
+# those flags on the host package build; this child configures for Android.
+unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
+
 OUT="$ROOT/build-android/$ABI"
 cmake -S "$ROOT" -B "$OUT" -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="$ROOT/cmake/android.toolchain.cmake" \

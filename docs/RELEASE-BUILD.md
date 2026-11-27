@@ -36,6 +36,24 @@ Unmet build dependencies: libfcitx5core-dev (>= 5.1.13) fcitx5-modules-dev (>= 5
 > `tools/build-release.sh` as a harmless fallback for a build host whose fcitx5
 > is not packaged; `--ignore-missing-info` in `debian/rules` is the same
 > fallback on the shlibdeps side.
+>
+> **Follow-up 2026-11-27 (issue #335).** The IBus settings window added
+> `libgtk-3-dev` to `debian/control`. The nightly `deb`, `ibus-jammy`, and
+> `ibus-jammy-package` jobs omitted it, so all three stopped at
+> `dpkg-checkbuilddeps` before compiling. The release `.deb` job also omitted
+> it; `tools/build-release.sh` passes `-d`, which bypasses the dependency
+> check but does not make the GTK3 headers available. All four jobs now install
+> `libgtk-3-dev`. Runtime packages such as `gir1.2-gtk-3.0` and `libgtk-3-0`
+> are not substitutes for the development package in Build-Depends.
+>
+> **Dispatch follow-up (run 46018240874).** With the dependency check
+> cleared, the same run reached three later packaging-path failures: jammy's
+> GLib 2.72 does not export `g_ptr_array_new_null_terminated()` (added in
+> 2.74); the noble in-build suite and PR linux lane lacked the installed IBus
+> schema; and Debian's `-fcf-protection` flags leaked into the nested Android
+> build. The compatibility, test-runtime, and environment fixes are recorded
+> beside their implementation so the next packaging run exercises the build
+> rather than stopping at its first newly visible prerequisite.
 
 **Root cause:** The `.deb` job builds fcitx5 5.1.13 from source into `/usr`
 (no `.deb` package), so `dpkg-checkbuilddeps` sees no owning package and
