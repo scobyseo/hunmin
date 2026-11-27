@@ -75,6 +75,41 @@ At each script transition record whether a switch fired, whether it landed on
 the script that was typed, and whether the text arrived correct. Report
 `wrong_direction_rate` with both directions broken out.
 
+## 1.6 Intent in a personal key log: the accepted word, and the path to it
+
+A corpus metric answers "does method X reduce problem Y" for a text that nobody in
+particular typed. A personal log has to answer a different question — *what did
+this person mean, and what did it cost them to get it* — and the maintainer's
+model of typing (2026-11-27, quoted in `tools/personal-log-words.py`) fixes the
+unit:
+
+- A person types holding **one assumption** — "I am entering Korean" / "I am
+  entering English" — which is *independent of the mode the IME is actually in*,
+  and they do not perceive that the same keys could be read the other way.
+- Therefore **intent is only observable in the word finally accepted**: the text
+  the person kept and moved past. Not the mode (they were not tracking it), not
+  the first attempt (it may have been wrong).
+- **Discomfort is the path between the attempts and that accepted word**: deletions,
+  mode presses, keys spent, and above all an **engine rewrite the person then
+  undid**. That last one is the case the model exists to isolate, and it is the
+  one a corpus metric cannot name.
+
+`tools/personal-log-words.py` reads a key log on those terms: one record per word
+slot, classified as `clean`, `judged_kept` (the engine rewrote it and the person
+kept it), `judged_then_reverted` (the engine rewrote it, the person deleted it and
+typed the other script — the rewrite and its `replacement` are one intent, two
+slots, and the replacement's keys and deletions are folded into the rewrite's
+cost), `repaired_typo` (their own error, no engine involvement) or `emptied`
+(abandoned). The headline is the ratio a person feels: of the engine's rewrites,
+**how many were undone**.
+
+Two assumptions are recorded rather than hidden, because the log cannot observe
+them: a declined BackSpace/Delete removes **one character** of the application's
+text (surrounding text would replace the assumption where a host provides it), and
+a boundary key's commit belongs to the slot **before** it (ReqMode4: a delimiter
+terminates the word). `lang` on the language key exists so the toggle is not glued
+into the next word: it is the person changing their assumption, not typing.
+
 ## 1.5 A Latin stem with a Korean particle (`IBM은`, `API를`)
 
 The judgement reads one eojeol as one language, so a token that is a Latin word

@@ -120,6 +120,11 @@ void hunmin_ibus_trace_event(const hunmin_key_event *ev, int consumed, unsigned 
     if (mode_lang >= 0)
         fprintf(f, ",\"mode\":\"%s\"",
                 mode_lang == HUNMIN_LANGUAGE_LATIN ? "latin" : "hangul");
+    /* The Han/Eng key: it is CONSUMED (the engine toggles), so a reader that
+     * segmented words by `consumed` would glue it onto the next word. It is not
+     * typing — it is the person changing their assumption — and the intent model
+     * (docs/MODES-MEASUREMENT.md §1.6) needs it named. */
+    if (ev->language_key) fputs(",\"lang\":true", f);
     if (opened_ms >= 0) fprintf(f, ",\"t\":%lld", now_ms() - opened_ms);
     fprintf(f, ",\"consumed\":%s}\n", consumed ? "true" : "false");
     fflush(f);
