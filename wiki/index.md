@@ -236,6 +236,10 @@
   backspace committed the word (26% of deletes, reproduced in the oracle, split to
   #332/FE18), the space bar's swipe-left deleted instead of moving the cursor
   (ruled and fixed), and the swipe-up-to-shift that looked wrong was intended.
+- [[2026-11-27-fe18-backspace-edits-the-word]] — #332's fix: the buffered
+  layer deletes its own word when the engine declines a BackSpace, so the word
+  stays composing on both surfaces; the checklist's predicted walk was off by
+  one (measured), and the ReqMode8 readings abstain for an edited word.
 - [[2026-11-23-312-symbol-variants]] — **superseded**: #312's variant-mapping
   implementation was built on an agent-paraphrased issue body, not the
   maintainer's words; three verbatim rulings corrected it (swipe-up = shift+key

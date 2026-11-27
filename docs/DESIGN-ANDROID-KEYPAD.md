@@ -287,10 +287,12 @@ backspace, configurable 키/음절/단어/전체.
   platform actions, no surrounding-text read — I9):
   - KEY: the backspace key's own path.
   - SYLLABLE: jamo-by-jamo DEL against the composing display, STOPPING when
-    the last syllable is gone — one DEL too many commits the buffered word and
-    deletes into it (measured: ㅎ곈디 → ㅎ곈ㄷ → ㅎ곈, a third DEL eats 곈). The
-    jamo cap is NFD of the last syllable; the stop condition is the display
-    losing that whole character.
+    the last syllable is gone (measured: ㅎ곈디 → ㅎ곈ㄷ → ㅎ곈). The jamo cap is
+    NFD of the last syllable; the stop condition is the display losing that
+    whole character. One DEL too many used to commit the buffered word and
+    delete into it; since FE18 (#332, docs/SPEC-FRONTEND.md §FE18) that DEL
+    edits the layer's word instead, so the guard is no longer load-bearing — it
+    stays because SYLLABLE must remove one syllable, not the whole word.
   - WORD: `reset()` drops the buffered word when composing; else Ctrl+DEL to
     the app (its own word-delete).
   - ALL: `reset()` + Ctrl+A + DEL as key events through the same queue.

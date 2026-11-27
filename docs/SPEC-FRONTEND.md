@@ -233,6 +233,39 @@ the whole word instead: 9 of 34 backspaces in one session left text behind
 $'rkrk\b\b\b'` deterministically yields `commit '가'`. The same keys on the ic
 path delete fully, which is the divergence this requirement removes.
 
-*Implementation:* none — issue #332 (engine, every frontend).
-*Refuted by:* none yet.
+*Implementation:* `libhunmin/src/buffered_preedit.c#hunmin_buffered_preedit_process_key`
+(`backspace_deletes_word`, `word_pop_char`) for the buffered path, and
+`libhunmin/src/ic.c#hunmin_ic_process` for the per-syllable path. In
+`HUNMIN_COMMIT_AT_BOUNDARY` mode the layer answers a BackSpace the engine
+declined — its own syllable buffer is empty, the earlier syllables are the
+layer's word — by deleting the last code point of that word and consuming the
+key. Measured after the fix, `dubeolsik --layer word --keys
+$'rkrk\b\b\b\b'`: the preedit walks `가가 → 가ㄱ → 가 → (empty)`, no key
+commits anything, and the fourth BackSpace is the declined one the client
+receives. This is the ic path's own walk on the same keys, which is what FE1
+and FE2 require. The issue's verification checklist expected
+`가가 → 가 → ㄱ → (empty)`; measurement shows the in-flight syllable loses its
+jamo first because it is the engine's, and only the finished syllable is
+removed whole from the layer's word — the checklist's endpoints (no commit, the
+fourth key passed through) hold, its two middle states were a guess.
+A `HUNMIN_COMMIT_PER_SYLLABLE` layer is unchanged: its finished syllables are
+already in the client, so a declined BackSpace is the client's own delete.
+One consequence, also measured: a delete breaks the correspondence between the
+key log and the word, so the `ReqMode8` readings are not taken for the rest of
+that word (`keys_unreliable`) and the automatic switch abstains instead of
+judging text that is no longer on screen. One conflict is recorded rather than
+resolved: `docs/SPEC-MODES.md#§ReqMode4` constrains the consumed/declined answer
+for every key, and this requirement makes the buffered layer consume a BackSpace
+the engine declines; `hunmin-sim --off-check` now compares the text a person ends
+with (applying the client's delete on the side that declined the key), and
+which clause yields is an open ruling recorded in ReqMode4, not decided here.
+*Refuted by:* `engine-buffered-preedit`
+(`BackspaceEditsTheComposingWordAndNeverCommitsIt` — the walk above, no commit,
+and the declined key only after the word is empty); `engine-golden-case-dubeolsik`
+(`backspace-edits-the-word`, the ic half of the same walk, and
+`conformance-tests_conformance_x11_case-dubeolsik.trace.in` replays it through a
+real adapter); `engine-android-e1`
+(`HunminAdapterTest.backspace deletes the buffered word instead of committing
+it`). The TSF half (`frontends/tsf/test/tsf-candidate-test.cpp` cases 11d-11e)
+is updated to the same contract but needs a Windows host, so it is not run here.
 

@@ -1726,3 +1726,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `5043157`: wrapper exports `HUNMIN_DATA_PATH`, `enable` preflights the installed
   lib and restores the packaged engine if it fails, and the engine warns in the
   journal instead of failing silently.
+
+## [2026-11-27] update | FE18 implemented — backspace edits the composing word
+
+- Created [[2026-11-27-fe18-backspace-edits-the-word]]: #332's engine fix
+  (`buffered_preedit` deletes its own word when the engine declines a
+  BackSpace), the measured walk that corrected the issue checklist's middle
+  states, the `keys_unreliable` abstain for the ReqMode8 readings, and what is
+  unverified here (TSF on Windows, the phone / espresso round). Docs: FE18
+  implementation + `docs/REQ-MAP.md` row; tier-A golden case and layer test
+  added. Index updated.

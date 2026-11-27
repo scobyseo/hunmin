@@ -796,6 +796,17 @@ and the price of turning it off mid-word.)
   consumed/declined decision for each key.** How a frontend draws that text is
   an allowed difference (`docs/DESIGN-FRONTEND.md` Part A §3) and is not covered
   by this item.
+- **One conflict with FE18 is measured and left for a ruling (2026-11-27).**
+  `docs/SPEC-FRONTEND.md#§FE18` requires a BackSpace that crosses a finished
+  syllable to keep the word composing, so the buffered layer CONSUMES that key
+  while `hunmin_ic` declines it (its syllable is already in the client) — the
+  consumed/declined clause above and FE18 answer differently for that one key.
+  `hunmin-sim --off-check` now applies the client's delete on the side that
+  declined a BackSpace and compares the text a person ends with; the divergence
+  it no longer reports is exactly that flag, and the text comparison still fails
+  when a layer swallows a BackSpace it had nothing to delete. Which clause yields
+  is the maintainer's; the measurement is recorded here and in FE18 rather than
+  resolved by a test edit.
 - **It covers the Latin layouts too**, by the same equality: the corpus carries
   `dvorak`, `colemak` and `romaja`, and what they deliver is compared the same
   way. OFF + English mode's per-character delivery is ReqMode5's rule, not this one's.
