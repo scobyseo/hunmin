@@ -1683,3 +1683,18 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   into issues #284 (the track), #295 (G3) and #293 (G4): each issue names the design
   it serves, carries its cost and falsifier, and leaves the ruling to the maintainer.
 - Created `docs/MODES-PRIOR-ART.md`.
+
+## [2026-11-27] create | 자동 변환이 내 타이핑을 재작성한 사례 (#295 후속)
+
+- Created [[2026-11-27-personal-rewrites]]: `tools/modes-rewrites.py` (the rewrite
+  collector, ctest `modes-rewrites-selfcheck`) driven over `~/.zsh_history` and the
+  maintainer's quoted Korean. 214 rewritten tokens of 3,379 (6.33%) in 1,608
+  commands, 138 commands affected (8.6%), 149 judgement rewrites from 52 distinct
+  tokens (`opencode` 60, `kime` 10, `pwd` 8 → 퍟), plus 65 downstream tokens typed in
+  the wrong mode after a switch — 65/65 follow an earlier rewrite on the same line.
+  Korean side: 6/940 (0.64%) and **none** carried a judgement, i.e. abstention, not
+  rewriting.
+- The IBus personal key log gained the `judged` field (`docs/trace-spec.md`), set
+  where the engine acts on a judgement, compiled out of shipped builds, asserted by
+  `engine-d1-ibus-trace-judged`; `trace-optout-ibus` still proves a shipped engine
+  carries neither the sink nor its env var.

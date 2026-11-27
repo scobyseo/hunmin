@@ -26,6 +26,20 @@ add_test(NAME engine-d1-ibus COMMAND testhunminibusstate)
 set_tests_properties(engine-d1-ibus PROPERTIES LABELS "tier-D1"
                      ENVIRONMENT "${HUNMIN_IBUS_TEST_ENV}")
 
+# The personal key log's `judged` field (Track 2). The sink is #ifdef'd out of
+# the shipped engine, so this target compiles hunmin_state.c and trace.c WITH
+# -DHUNMIN_TRACE=1: it is the one place on the host where the key path and the
+# sink are exercised together without a daemon (D3 covers the daemon).
+add_executable(testhunminibustracejudged test_trace_judged.cpp
+    ../src/hunmin_state.c ../src/trace/trace.c)
+target_include_directories(testhunminibustracejudged PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src ${CMAKE_CURRENT_SOURCE_DIR}/../src/trace)
+target_compile_definitions(testhunminibustracejudged PRIVATE HUNMIN_TRACE=1)
+target_link_libraries(testhunminibustracejudged PRIVATE GTest::gtest_main hunmin)
+add_test(NAME engine-d1-ibus-trace-judged COMMAND testhunminibustracejudged)
+set_tests_properties(engine-d1-ibus-trace-judged PROPERTIES LABELS "tier-D1"
+                     ENVIRONMENT "${HUNMIN_IBUS_TEST_ENV}")
+
 add_executable(testhunminibusui test_engine_ui.cpp)
 target_link_libraries(testhunminibusui PRIVATE GTest::gtest_main hunmin_ibus_engine)
 add_test(NAME engine-d2-ibus-ui COMMAND testhunminibusui)

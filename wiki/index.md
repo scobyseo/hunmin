@@ -197,6 +197,14 @@
 
 - [[2026-11-22-ibus-gloss-paths]] — IBus 글로스 표시 검증 경로(aux text, 1.5.26 패널 소스까지 확인)와 "IBus는 못 한다" 주장의 정정. FE16의 분석 홈.
 
+## Raw — measurements
+
+- [[2026-11-27-personal-rewrites]] — Track 2 measured on the maintainer's own
+  text: 214 rewritten tokens in 1,608 shell commands (138 commands, 8.6%), 149 of
+  them replaced by a judgement, `opencode` alone 60; the Korean side loses 0.6% to
+  *abstention* instead. Also the new `judged` field in the personal key log, tested
+  by `engine-d1-ibus-trace-judged`.
+
 ## Raw — sessions
 
 - [[2026-11-23-t4-1-prefix-match-measurement]] — #300's measure-before-code:

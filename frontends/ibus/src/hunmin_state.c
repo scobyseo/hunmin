@@ -7,6 +7,8 @@
 
 #include "hunmin_state.h"
 
+#include "trace/trace.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -265,7 +267,14 @@ static void apply_judgement(hunmin_state *s, char **switched_out) {
     *switched_out = NULL;
     if (!s->layer) return;
     const int judged = hunmin_buffered_preedit_take_judgement(s->layer);
-    if (judged < 0 || judged == hunmin_buffered_preedit_language(s->layer)) return;
+    if (judged < 0) return;
+    /* The personal key log records the rewrite itself (docs/trace-spec.md
+     * §"Personal key log"): the commit shows Hangul and Latin alike, so without
+     * this field a log cannot tell "the person typed it" from "the engine
+     * replaced it" — which is the only event Track 2 is about. No-op unless the
+     * engine was built with -DHUNMIN_TRACE=ON. */
+    HUNMIN_TRACE_JUDGED(judged);
+    if (judged == hunmin_buffered_preedit_language(s->layer)) return;
     hunmin_key_result out = {0};
     if (!hunmin_buffered_preedit_toggle_language(s->layer, &out)) return;
     /* out.commit is borrowed until the next engine call; copy it now. */

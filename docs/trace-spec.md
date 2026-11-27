@@ -336,6 +336,7 @@ fields as tier C's `meta`, plus `dialect: "personal-key"`. Each event line is:
 
 ```json
 {"in": {"base": 97, "shift": 0, "mods": 0, "id": 1}, "char": "a", "commit": "", "preedit": "ㄱ", "consumed": true}
+{"in": {"base": 32, "shift": 0, "mods": 0, "id": 1}, "commit": "hello", "preedit": "", "judged": "latin", "consumed": false}
 ```
 
 | field | meaning |
@@ -346,6 +347,7 @@ fields as tier C's `meta`, plus `dialect: "personal-key"`. Each event line is:
 | `in.id` | `hunmin_key_event.id` — `HUNMIN_KEY_*`, so a BackSpace or Han/Eng key is named without a platform constant |
 | `char` | optional adapter-chosen character, for readability; not the input |
 | `commit` / `preedit` / `consumed` | the same output fields as tier C |
+| `judged` | **added 2026-11-27:** the language the engine's judgement acted on for THIS key, `"latin"` or `"hangul"`; absent when the key was not judged. It is the rewrite itself — a `commit` of Hangul cannot tell "the person typed Hangul" from "the engine replaced it", which is the only event Track 2 exists to measure (`docs/MILESTONES.md` §0.4 Track 2 purpose). Spelled exactly as `hunmin-sim --judge --trace` spells it, so one vocabulary reads both |
 
 Because `in.id` names the key and `in.mods` uses shared bits, analysis need no
 platform table. The BackSpace key is `id == HUNMIN_KEY_TEXT, base == 0x08` on every
@@ -378,4 +380,8 @@ Android (`HunminTraceRecorder.kt`), TSF (`frontends/tsf/src/keydispatch.cpp`) an
 since 2026-11-22, the IBus engine (issue #292). IBus keeps the sink in
 `frontends/ibus/src/trace/` behind the same `HUNMIN_TRACE` option; a default build
 has neither the sink nor the `HUNMIN_TRACE_OUT` getenv, and ctest `trace-optout-ibus`
-asserts that. Its `meta.platform` is `x11` because the D3 host is X11.
+asserts that. Its `meta.platform` is `x11` because the D3 host is X11. The `judged`
+field is set at the one place the engine acts on a judgement
+(`apply_judgement`, `frontends/ibus/src/hunmin_state.c`) and asserted by ctest
+`engine-d1-ibus-trace-judged`, which compiles the state object with
+`-DHUNMIN_TRACE=1` and reads the line back.

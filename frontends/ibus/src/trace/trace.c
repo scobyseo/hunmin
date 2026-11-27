@@ -17,6 +17,10 @@
 static FILE *sink;
 static char commit_buf[512];
 static char preedit_buf[512];
+/* The judgement the engine acted on for the key being traced: -1 none, else
+ * HUNMIN_LANGUAGE_*. Set between HUNMIN_TRACE_RESET() and HUNMIN_TRACE_EVENT()
+ * by the key path, so one line = one key = at most one rewrite. */
+static int judged_lang = -1;
 /* The engine tells us the layout it actually resolved (not the requested env
  * id, which may have failed to load). The meta line is written on the first
  * key, after init, so this is always populated for a real run. */
@@ -51,6 +55,7 @@ static void trace_json(FILE *f, const char *s) {
 
 void hunmin_ibus_trace_reset(void) {
     commit_buf[0] = preedit_buf[0] = '\0';
+    judged_lang = -1;
 }
 
 void hunmin_ibus_trace_commit(const char *text) {
@@ -61,6 +66,10 @@ void hunmin_ibus_trace_commit(const char *text) {
 
 void hunmin_ibus_trace_preedit(const char *text) {
     snprintf(preedit_buf, sizeof preedit_buf, "%s", text ? text : "");
+}
+
+void hunmin_ibus_trace_judged(int language) {
+    judged_lang = language;
 }
 
 void hunmin_ibus_trace_event(const hunmin_key_event *ev, int consumed, unsigned int raw) {
@@ -76,6 +85,11 @@ void hunmin_ibus_trace_event(const hunmin_key_event *ev, int consumed, unsigned 
      * without this a Hangul press and a Right Alt press are indistinguishable
      * in the log. Off unless HUNMIN_TRACE_RAW is set. */
     if (getenv("HUNMIN_TRACE_RAW")) fprintf(f, ",\"raw\":%u", raw);
+    /* The rewrite, spelled the way hunmin-sim's --judge --trace spells it, so a
+     * reader (and tools/gen-conformance.py's consumer) needs one vocabulary. */
+    if (judged_lang >= 0)
+        fprintf(f, ",\"judged\":\"%s\"",
+                judged_lang == HUNMIN_LANGUAGE_LATIN ? "latin" : "hangul");
     fprintf(f, ",\"consumed\":%s}\n", consumed ? "true" : "false");
     fflush(f);
 }
