@@ -143,6 +143,19 @@ Affects: `HUNMIN_SH`, `hunmin_android_shell_command`, `HUNMIN_TESTS` in
 Alternatives: Spawning shebang scripts directly (fails on Windows hosts).
 Evidence → `docs/ENVIRONMENT.md`; `tools/_hostcompat.py`.
 
+## Android cross-build environment
+
+Decision: `tools/build-android.sh` clears host `CFLAGS`, `CXXFLAGS`,
+`CPPFLAGS`, and `LDFLAGS` before configuring its per-ABI build. Those variables
+describe the host package compiler when exported by `dpkg-buildpackage`; they
+are not Android flags, and the NDK clang rejects the Debian x86 hardening
+option `-fcf-protection`. The host package itself keeps dpkg's hardening flags.
+Affects: `tools/build-android.sh`, `debian/rules` `override_dh_auto_test`,
+`builds-android`, `engine-android-e2e`.
+Alternatives: Dropping hardening from the whole package build, or teaching the
+Android toolchain to accept a host-only flag.
+Evidence → `docs/RELEASE-BUILD.md` problem 1, dispatch run 46018240874.
+
 ## Android sandbox mutations
 
 Decision: `frontend-mutations` and `android-mutations` name their strategy
