@@ -36,7 +36,7 @@ text instead of edited; 8 of 39 typed characters were leftover jamo. The oracle
 reproduced it deterministically on the layer path Android uses
 (`hunmin-sim --layer word --keys $'rkrk\b\b\b'` → `commit '가'`), while the ic
 path deletes normally. Ruling: engine fix, both surfaces alike, its own issue →
-#332, requirement `docs/SPEC-FRONTEND.md#§FE17`. This is the finding that
+#332, requirement `docs/SPEC-FRONTEND.md#§FE18`. This is the finding that
 [[the-rules-keep-breaking]] would call a behaviour nobody had asserted, not a
 bug someone forgot: the SYLLABLE delete unit's "one DEL too many commits the
 buffered word" was documented (`docs/DESIGN-ANDROID-KEYPAD.md`) as a property,
