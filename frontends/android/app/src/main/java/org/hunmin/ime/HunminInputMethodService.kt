@@ -130,7 +130,12 @@ class HunminInputMethodService : InputMethodService() {
         /** The UI-layer trace (#312 evaluation): gestures, symbols, pages. */
         const val UI_TRACE_FILE = "ui.trace"
 
-        private const val PREFS = HunminPrefs.FILE
+        /** Remembered while a trace is wanted, so a recreated service resumes it. */
+        const val TRACE_PREF_CASE = "trace_case"
+        const val TRACE_PREF_SOURCE = "trace_source"
+
+        /** Shared prefs file: also read by TraceToggleReceiver (#312). */
+        const val PREFS = HunminPrefs.FILE
         /**
          * The pre-two-mode key. Read once for migration and never written
          * again: a device that stored `layout = sin3-p2-yet` under the old
@@ -332,7 +337,6 @@ class HunminInputMethodService : InputMethodService() {
 
     override fun onCreate() {
         super.onCreate()
-        registerTraceReceiver()
         registerHanjaReceiver()
         val dataDir = HunminDataInstaller.install(this)
         if (dataDir == null) {
@@ -410,12 +414,10 @@ class HunminInputMethodService : InputMethodService() {
     }
 
     override fun onDestroy() {
-        // Close the trace before anything else: a sink left open past onDestroy
-        // would keep appending to a file nothing can pull, because the service
-        // that could answer the pull is gone.
-        HunminTraceRecorder.close()
-        traceReceiver?.let { runCatching { unregisterReceiver(it) } }
-        traceReceiver = null
+        // Close both sinks before anything else. A trace the person still wants
+        // is not lost: TraceToggleReceiver stored the case label, so the next
+        // service creation resumes it (appending) — see resumeTraceIfEnabled().
+        closeTrace()
         runCatching { unregisterReceiver(hanjaReceiver) }
         engine?.close()
         engine = null
@@ -464,6 +466,10 @@ class HunminInputMethodService : InputMethodService() {
          * the data gate -- is stored as the engine's answer rather than as the
          * request. */
         restoreAutoswitch()
+        /* A trace the last session left on resumes here, appending: the service
+         * is recreated often, and truncating on the re-open lost a day of an
+         * evaluation session (measured 2026-11-27). */
+        resumeTraceIfEnabled()
         if (engine?.isUsable != true) {
             Log.e(TAG, "hunmin: layout '$layoutId' unsupported; keys will pass through")
         }
@@ -984,51 +990,42 @@ class HunminInputMethodService : InputMethodService() {
         startActivity(intent)
     }
 
+
+    /** The stored case label while a trace is wanted; absent = off. */
+    private fun storedTraceCase(): String? =
+        getSharedPreferences(PREFS, MODE_PRIVATE).getString(TRACE_PREF_CASE, null)
+
     /**
-     * Toggle the tier E3 trace sink, from `tools/e3-trace.sh`.
-     *
-     * A broadcast is the only channel that reaches an IME from outside: its
-     * service is bound by the platform and cannot be started with `am start`,
-     * and it receives neither activity results nor permission results
-     * (DESIGN-FRONTEND.md Part B B5), so there is no callback path. Guarded on the
-     * app being debuggable, because a released IME must not accept a broadcast
-     * that turns on file writing.
-     *
-     * @suppress Registered in the manifest, not here.
+     * Open both sinks (engine key trace + the #312 UI trace). [resume] appends
+     * instead of truncating, for a service restart inside one session.
      */
-    private inner class TraceReceiver : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action != ACTION_TRACE) return
-            when (intent.getStringExtra("op")) {
-                "enable" -> {
-                    HunminTraceRecorder.caseLabel =
-                        intent.getStringExtra("case") ?: "manual"
-                    HunminTraceRecorder.source = intent.getStringExtra("source") ?: ""
-                    HunminTraceRecorder.enable(
-                        java.io.File(filesDir, TRACE_FILE),
-                        layoutId,
-                    )
-                    // #312 evaluation: the UI-layer sink (gestures, symbol
-                    // commits, pages, shift) rides the same toggle, its own file.
-                    UiTraceRecorder.enable(
-                        java.io.File(filesDir, UI_TRACE_FILE),
-                        HunminTraceRecorder.caseLabel,
-                    )
-                    Log.i(TAG, "hunmin: trace enabled (case=${HunminTraceRecorder.caseLabel})")
-                }
-                "disable" -> {
-                    HunminTraceRecorder.close()
-                    UiTraceRecorder.disable()
-                    Log.i(TAG, "hunmin: trace closed")
-                }
-                "mark" -> {
-                    UiTraceRecorder.mark(intent.getStringExtra("label") ?: "")
-                }
-            }
-        }
+    private fun openTrace(case: String, source: String, resume: Boolean) {
+        HunminTraceRecorder.caseLabel = case
+        HunminTraceRecorder.source = source
+        HunminTraceRecorder.enable(java.io.File(filesDir, TRACE_FILE), layoutId, append = resume)
+        // #312 evaluation: the UI-layer sink (gestures, symbol commits, pages,
+        // shift) rides the same toggle, its own file.
+        UiTraceRecorder.enable(java.io.File(filesDir, UI_TRACE_FILE), case, resume = resume)
     }
 
-    private var traceReceiver: TraceReceiver? = null
+    private fun closeTrace() {
+        HunminTraceRecorder.close()
+        UiTraceRecorder.disable()
+    }
+
+    /**
+     * Re-open a trace the last session left on (only where tracing is allowed
+     * at all: a released IME has no receiver, so the pref is never set).
+     */
+    private fun resumeTraceIfEnabled() {
+        val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (!debuggable) return
+        val case = storedTraceCase() ?: return
+        val source = getSharedPreferences(PREFS, MODE_PRIVATE)
+            .getString(TRACE_PREF_SOURCE, "") ?: ""
+        openTrace(case, source, resume = true)
+        Log.i(TAG, "hunmin: trace resumed after a service restart (case=$case)")
+    }
 
     /**
      * Receive the Hanja picked in OverlayActivity and commit it.
@@ -1068,33 +1065,6 @@ class HunminInputMethodService : InputMethodService() {
         }
     }
 
-    /**
-     * Register the receiver only on a debuggable build.
-     *
-     * `applicationInfo.flags and FLAG_DEBUGGABLE` is the check, not a build
-     * variant name: a release APK must not accept a broadcast that turns on
-     * file writing, and that has to hold for any packaging, not just the one
-     * Gradle calls "release".
-     */
-    private fun registerTraceReceiver() {
-        val debuggable =
-            (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
-        if (!debuggable) return
-        val r = TraceReceiver()
-        // The platform overload changed at API 33 (a RECEIVER_EXPORTED flag was
-        // added and the old one deprecated), so both are called by version
-        // rather than through a compat shim: this module has no AndroidX
-        // dependency and adding one for a single call would be worse than four
-        // lines here. minSdk is 24, so the guard is genuinely needed.
-        @Suppress("DEPRECATION")
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(r, IntentFilter(ACTION_TRACE),
-                             Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(r, IntentFilter(ACTION_TRACE))
-        }
-        traceReceiver = r
-    }
 
     /**
      * Ask for speech, then commit whatever comes back verbatim.

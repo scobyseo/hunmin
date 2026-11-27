@@ -69,6 +69,30 @@ class UiTraceRecorderTest {
     }
 
     @Test
+    fun resumeAppendsInsteadOfTruncating() {
+        // #312 evaluation (2026-11-27): the IME service is recreated often; a
+        // truncating re-open threw away a day of the session. A resumed trace
+        // keeps the earlier lines and marks the seam.
+        val f = File.createTempFile("ui-trace-test", ".jsonl")
+        try {
+            UiTraceRecorder.enable(f, "eval")
+            UiTraceRecorder.symbol("p1", "before")
+            UiTraceRecorder.disable()
+            UiTraceRecorder.enable(f, "eval", resume = true)
+            UiTraceRecorder.symbol("p2", "after")
+            UiTraceRecorder.disable()
+            val lines = f.readLines().filter { it.isNotBlank() }.map { JSONObject(it) }
+            val entries = lines.filter { it.optString("ui") == "symbol" }.map { it.getString("entry") }
+            assertEquals(listOf("before", "after"), entries)
+            assertTrue("the resumed meta must mark the seam",
+                lines.any { it.optJSONObject("meta")?.optBoolean("resumed") == true })
+        } finally {
+            UiTraceRecorder.disable()
+            f.delete()
+        }
+    }
+
+    @Test
     fun offMeansNoWritesAndNoFile() {
         val f = File.createTempFile("ui-trace-test", ".jsonl")
         f.delete()   // the sink must not create it while off

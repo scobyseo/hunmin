@@ -56,15 +56,25 @@ source="${3:-}"
 case "${1:-}" in
 start)
   require_debuggable
-  "$ADB" shell am broadcast -a "$ACTION" \
-      --es op enable --es case "$case_label" --es source "$source" \
-      "$PKG" >/dev/null
+  # An EMPTY `--es source ""` makes the device's sh hand `am` a bare word that
+  # swallows the trailing package argument, so the broadcast goes out with no
+  # target and no receiver sees it (measured 2026-11-27: the script said
+  # "enabled" while the app never received it). Omit the extra when empty.
+  if [ -n "$source" ]; then
+    "$ADB" shell am broadcast -a "$ACTION" -f 0x20 \
+        --es op enable --es case "$case_label" --es source "$source" \
+        "$PKG" >/dev/null
+  else
+    "$ADB" shell am broadcast -a "$ACTION" -f 0x20 \
+        --es op enable --es case "$case_label" \
+        "$PKG" >/dev/null
+  fi
   echo "trace enabled (case=$case_label)"
   echo "  -> pull it with: tools/e3-trace.sh pull <name>"
   ;;
 stop)
   require_debuggable
-  "$ADB" shell am broadcast -a "$ACTION" --es op disable "$PKG" >/dev/null
+  "$ADB" shell am broadcast -a "$ACTION" -f 0x20 --es op disable "$PKG" >/dev/null
   echo "trace closed"
   ;;
 status)
@@ -78,7 +88,7 @@ status)
 mark)
   label="${2:?usage: e3-trace.sh mark <label>}"
   require_debuggable
-  "$ADB" shell am broadcast -a "$ACTION" --es op mark --es label "$label" "$PKG" >/dev/null
+  "$ADB" shell am broadcast -a "$ACTION" -f 0x20 --es op mark --es label "$label" "$PKG" >/dev/null
   echo "marked: $label"
   ;;
 pull)

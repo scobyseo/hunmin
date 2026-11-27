@@ -45,6 +45,22 @@
         android:supportsRtl="true"
         android:extractNativeLibs="false">
 
+        <!--
+          Tier-E3 / #312-evaluation trace toggle. Exported so `adb shell am
+          broadcast` (uid shell) can reach it, and harmless in a release build:
+          the receiver returns immediately unless this APK is debuggable. It is
+          a MANIFEST receiver because the IME service exists only while an
+          editor has focus, so a broadcast to the service's dynamic receiver
+          while the phone was locked reached nothing (measured 2026-11-27).
+        -->
+        <receiver
+            android:name=".TraceToggleReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.hunmin.ime.TRACE" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".HunminInputMethodService"
             android:exported="true"

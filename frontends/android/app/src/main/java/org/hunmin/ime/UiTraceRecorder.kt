@@ -32,15 +32,23 @@ object UiTraceRecorder {
     @Volatile private var sink: File? = null
     @Volatile private var open = false
 
-    fun enable(file: File?, caseLabel: String) {
+    fun enable(file: File?, caseLabel: String, resume: Boolean = false) {
         disable()
         if (file == null) return
         try {
             file.parentFile?.mkdirs()
-            file.writeText("")
+            /* resume=true continues a session after an IME-service restart
+             * (#312 evaluation) instead of truncating it — see the engine
+             * sink's enable() for the measurement. */
+            if (!resume) file.writeText("")
             sink = file
             open = true
-            write("""{"meta": {"platform": "android-ui", "case": "${HunminTraceRecorder.escape(caseLabel)}"}}""")
+            val meta = StringBuilder(160)
+            meta.append("{\"meta\": {\"platform\": \"android-ui\", \"case\": \"")
+            meta.append(HunminTraceRecorder.escape(caseLabel)).append('"')
+            if (resume) meta.append(", \"resumed\": true")
+            meta.append("}}")
+            write(meta.toString())
         } catch (e: Exception) {
             Log.w(TAG, "cannot open a ui trace at $file; continuing without it", e)
             disable()

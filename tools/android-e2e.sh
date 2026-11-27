@@ -403,7 +403,9 @@ esac
 # consumes, is what makes the trace non-empty. This is the same round trip
 # tools/e3-trace.sh drives for a human on a physical keyboard.
 if [ "${HUNMIN_SKIP_TRACE:-0}" != "1" ]; then
-  "$ADB" shell am broadcast -a org.hunmin.ime.TRACE \
+  # -f 0x20 (FLAG_INCLUDE_STOPPED_PACKAGES): a package in the stopped state
+  # otherwise never sees the toggle (measured 2026-11-27).
+  "$ADB" shell am broadcast -a org.hunmin.ime.TRACE -f 0x20 \
       --es op enable --es case "e2-probe" org.hunmin.ime >/dev/null 2>&1 || true
   sleep 1
   echo "trace sink enabled (after the warm-up, so the IME owns this field)"
@@ -1050,7 +1052,19 @@ fi
 # page picker, backspace long-press repeats WORD deletion. Real `input swipe`
 # on real keycaps; the assertion is the field text, as everywhere else.
 
+# The KP14 round above ends with a force-stop (to clear the stored unit), and
+# the platform then falls back to the NEXT IME — Gboard here. `ime set` alone
+# raced that fallback once and the round tapped a keyboard that was not ours
+# (measured 2026-11-27: "the keypad's 한/영 key did not reach mode 영" while the
+# field was bound to Gboard). Select, then WAIT until the platform agrees.
 "$ADB" shell ime set "$SVC" >/dev/null 2>&1 || true
+for _i in 1 2 3 4 5 6 7 8 9 10; do
+  [ "$("$ADB" shell settings get secure default_input_method 2>/dev/null | tr -d '\r')" = "$SVC" ] && break
+  sleep 1
+  "$ADB" shell ime set "$SVC" >/dev/null 2>&1 || true
+done
+[ "$("$ADB" shell settings get secure default_input_method 2>/dev/null | tr -d '\r')" = "$SVC" ] \
+  || fail "the gesture round could not make hunmin the active IME (platform stayed on another)"
 restore_surface || fail "cannot restore the surface for the gesture round"
 ensure_mode '영'
 
