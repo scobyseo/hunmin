@@ -224,3 +224,52 @@ none of it. Re-scoping T2 (from "grade the judgement" to "compare judgement
 designs") is the maintainer's call, as is which experiment runs first, and the
 `judge_hold` work already committed stays as the design it was asked to steady
 until that call is made.
+## 8. Prior art, and what it changed (later the same day)
+
+The maintainer asked for the cases, so `docs/MODES-PRIOR-ART.md` now records six,
+read from sources rather than blogs: Mozc's `ms-ime` keymap, Rime's
+`recognizer/patterns`, and the Korean IMEs on this machine. Three facts from it
+change §6's plan:
+
+- **Mozc only converts when asked** (`Space`/`Henkan`/`Tab` = `Convert`/
+  `PredictAndConvert`), and it can re-render the *composing* run in another script
+  with one key (`F9`/`F10` = full/half-width alphanumeric). Proposals (1) and (2)
+  are shipped practice, not inventions.
+- **The mechanism (2) needs already exists in our own tree for the Hanja
+  question**: one key, the composing word, a candidate list, in-place replacement
+  (`hunmin_suggest_*` → `commitCandidate`; `ibus-hangul`'s `hanja_list` is the same
+  shape). So (1)/(2) are a *re-wiring* of a built path, which is cheaper than §6
+  priced them.
+- **Reconverting committed text is the expensive variant** (surrounding text, which
+  this tree's notes already record as unreliable across applications). Converting
+  while the word is composing needs nothing extra.
+- **No Korean IME on this machine has an automatic script switch** — so this
+  feature has no Korean precedent to match, and its shape is a design decision.
+- **Rime handles mixed Latin/Chinese with a pattern**, offered as a candidate, not
+  with segmentation — the cheaper shape for (3).
+
+One premise was corrected before it became prose: `Tab`'s meaning in *our* Linux
+hosts while a candidate list is open is **not measured anywhere in the tree**, so
+the survey says so and names the capture that would settle it, instead of
+asserting it.
+
+## 9. What this lane's issue should become (proposal, not a ruling)
+
+`#295` as written grades one design. The proposal, for the maintainer:
+
+1. **Keep the measurement, drop the pass line**: `tools/modes-metrics.py`'s `flips`
+   block and `autoswitch-gates.py --flip-baseline` are design-independent — they
+   measure any display, including "nothing is shown". They stay.
+2. **Make G3 a regression line, not the track's success**: it binds whichever
+   display ships. `#295`'s verification becomes "the display the shipped design has
+   does not flicker more than the recorded run", not "flips fall".
+3. **`judge_hold` is held, not shipped**: it stays as an option at its 0 default,
+   and if proposals (1)/(2) win it is deleted rather than carried. Its run counter
+   is the one part worth keeping in view (a possible confidence signal).
+4. **A new issue for the comparison**, whose verification is per design, not per
+   gate: offers shown / accepted / ignored for the hint; presses and wrong
+   deliveries for the explicit trigger; mixed-token accuracy for the pattern — and
+   each prototype built on the Hanja candidate path (`docs/MODES-PRIOR-ART.md` §4).
+
+Nothing above is applied: `#295`'s body still carries its original verification, and
+the re-scope is the maintainer's to make.

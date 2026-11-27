@@ -1671,3 +1671,15 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   priced experiments. Also lands `tools/modes-mixed-tokens.py` and
   `docs/MODES-MEASUREMENT.md` §1.5 for proposal 3's population, which the sentence
   corpora drop by construction. Index updated.
+
+## [2026-11-27] update | T2 목적을 기록하고 선행 사례를 조사
+
+- [[2026-11-27-t2-direction-and-the-three-proposals]] updated with §8 (prior art:
+  Mozc's keymap, Rime's `recognizer/patterns`, the Korean IMEs on this machine — and
+  the premise that got corrected before it became prose: `Tab`'s meaning in our Linux
+  hosts is unmeasured) and §9 (what #295 should become: keep the measurement, make G3
+  a regression line, hold `judge_hold`, file the comparison as its own issue).
+- Recorded Track 2's **purpose** in `docs/MILESTONES.md` §0.4 Track 2 and mirrored it
+  into issues #284 (the track), #295 (G3) and #293 (G4): each issue names the design
+  it serves, carries its cost and falsifier, and leaves the ruling to the maintainer.
+- Created `docs/MODES-PRIOR-ART.md`.

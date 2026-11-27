@@ -310,6 +310,37 @@ definition changed, so there is nothing left to reproduce and no pass line to co
 against. The retirement and its reason are recorded in
 `wiki/raw/sessions/2026-11-21-modes-failures-and-the-domain-mode-idea.md`.
 
+**Purpose (recorded 2026-11-27).** The maintainer stopped the G3 lane on this,
+verbatim:
+
+> "내가 기대하는 건 이런 아이디어들을 제안하고, 구현해서 실험해 보는 걸 T2의 주요
+> 태스크로 생각하고 있었는데 그 방향으로 진행하지 않는 것 같아서, 작업을 다 마쳤을
+> 때, 엉뚱한 결론을 내고 있을까 걱정된다."
+
+So this track's task is to **find the design** the feature should have — proposing
+alternatives, building them, and measuring them against each other — not to keep
+grading the shipped one. The harm it exists to remove is the mid-word conversion
+itself, in the same session's words:
+
+> "자동 변환 기능이 제공했으면 하는 기능 중, 중간 변환이 적었으면 하는 건, 이런
+> 방식으로 개선할 수 있지 않을까 생각하고 있어."
+
+The three alternatives named that day — show the alternative instead of replacing
+the input; convert only when a key asks; allow an English word + Korean particle —
+are quoted in `wiki/raw/sessions/2026-11-27-t2-direction-and-the-three-proposals.md`
+§1 with their costs, and the shipped practice they are compared against is
+`docs/MODES-PRIOR-ART.md`. What that binds every issue in this track to:
+
+- **Name the design the issue serves.** G1–G4 grade the shipped judgement (deliver,
+  then let the person repair), so an issue that only tightens a gate keeps that
+  design and has to say so.
+- **A proposal carries its cost and what would falsify it** in the track's own
+  measurement terms (`docs/MODES-MEASUREMENT.md`); a gate passing is not a design
+  being chosen.
+- **A ruling stays the maintainer's.** Issues carry measurements and options.
+- The track exits on **a comparison the maintainer can choose from**, not on a
+  greener number for one design.
+
 Problems felt in actual use, collected to feed the next ruling rather than graded by
 a reproduced number (findings, not rulings — same session page carries the detail):
 
