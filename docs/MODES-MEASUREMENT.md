@@ -75,6 +75,47 @@ At each script transition record whether a switch fired, whether it landed on
 the script that was typed, and whether the text arrived correct. Report
 `wrong_direction_rate` with both directions broken out.
 
+## 1.5 A Latin stem with a Korean particle (`IBM은`, `API를`)
+
+The judgement reads one eojeol as one language, so a token that is a Latin word
+plus a particle has no reading: `IBM은` is `ibmdms` on the Latin layout (not a
+word) and gibberish on the Hangul one, and the word keeps the mode it was typed
+in. Whether that population is worth a mechanism is a count, and the sentence
+corpora cannot supply it — `tools/build-modes-sentences.py` drops every sentence
+carrying a mixed-script word (the `mixed_word` drop in its `meta.json`), which is
+this population exactly.
+
+`tools/modes-mixed-tokens.py` counts it from the same dump, before that filter,
+using the builders' own reader, stripper and word classifier (imported, never
+copied). The particle list is the National Institute of Korean Language 2003
+survey's 조사 table (품사 == 조, Hangul only, ≤3 syllables), so `PC방` (a compound
+noun) is not counted and `PC방은` is — as a Latin stem whose Hangul run ends in a
+particle, reported separately from `IBM은` where the particle sits on the stem.
+
+Measured 2026-11-27 on 300 pages of `~/work/kowiki-dump/kowiki.xml` (39,982
+sentences, 465,857 words), with the survey file from
+`~/work/nikl-2003-freq/`:
+
+| what | count | share |
+|---|---|---|
+| tokens starting with a Latin stem and ending with a listed particle | 1,241 | 0.27% of words |
+| … with the particle on the stem itself (`IBM은`) | 1,045 | 0.22% |
+| unique such tokens | 776 | — |
+| sentences carrying at least one | 1,103 | 2.8% |
+| mixed-script tokens by the builder's class (mostly `\|`, `=`, `-` furniture) | 24,405 | — |
+
+Five particles — 는 449, 를 224, 가 193, 은 188, 이 89 — cover 1,143 of the 1,241
+occurrences (92%); 도 adds 29. So the mechanism a split would need knows a
+handful of suffixes for most of its traffic, and the survey's 73 short entries
+cover everything this window found.
+
+**What the number is not.** Wikipedia prose, so a lower bound on typed text
+where the stem+particle shape is far more common; the page window is the dump's
+own order, not a sample; unweighted by any frequency table. It counts text, not
+engine behaviour — there is no mixed-token path in the engine to compare against,
+which is the design question this count feeds
+(`wiki/raw/sessions/2026-11-27-t2-direction-and-the-three-proposals.md`).
+
 ---
 
 # 2. Pass line — none [E]

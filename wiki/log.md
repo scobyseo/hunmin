@@ -1658,3 +1658,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   composing word (9/34, reproduced in the oracle, split to #332 / FE18), the
   space bar's swipe-left deleting instead of moving the cursor (ruled, fixed,
   E1 + E2E), and a swipe-up whose "failure" was the intended shift. Index updated.
+## [2026-11-27] create | T2 방향: 세 가지 제안과 이슈 트리와의 간극
+
+- Created [[2026-11-27-t2-direction-and-the-three-proposals]]: the maintainer's
+  worry that T2 is grading the shipped design instead of proposing, building and
+  testing alternatives, checked against #284's scope and Decisions list (eleven
+  measurement decisions, no design proposals) and #295's verification line. Records
+  the three proposals verbatim (hint / explicit trigger / stem+particle), which of
+  the committed G3 pieces survive each, the T1/T3 surfaces they would reuse (host
+  candidates + FE16 gloss, FE17's five rows, the E5 chord namespace, KP14
+  gestures), the repair-cost arithmetic showing `k` is not the lever, and three
+  priced experiments. Also lands `tools/modes-mixed-tokens.py` and
+  `docs/MODES-MEASUREMENT.md` §1.5 for proposal 3's population, which the sentence
+  corpora drop by construction. Index updated.

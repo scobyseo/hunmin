@@ -204,6 +204,13 @@
   and the three stated premises that did not hold (the fallback already
   drifted per frontend, fcitx5's window does not re-open, the krdict licence
   count is stale). Figures live in docs/OPTIONS-MEASURED.md §HPX.
+- [[2026-11-27-t2-direction-and-the-three-proposals]] — T2's direction,
+  checked against the issue tree: #284 asked for "fire more correctly" and every
+  child is a gate, so the three design proposals (hint / explicit trigger /
+  stem+particle) were never written down and never prototyped. Records them
+  verbatim, inventories the T1/T3 surfaces they would reuse, prices repair cost
+  out of the recorded runs (the misfire *rate* is the lever, not `k`), and gives
+  three priced experiments.
 - [[2026-11-24-t2-3-g3-expectability]] — issue #295 (G3): the mid-word display
   flip gets a unit (`docs/MODES-MEASUREMENT.md` §2.5), `modes-metrics` counts it on
   the raw ON arm, `autoswitch-gates` grades a pair at an equal pool share, and E6's

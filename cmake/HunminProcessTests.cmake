@@ -26,6 +26,9 @@ hunmin_add_test(NAME modes-metrics-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMA
 # G1/G2 are graded from a metrics report by autoswitch-gates.py; the checker's
 # own guards need no corpus and no built engine (issue #291).
 hunmin_add_test(NAME modes-gates-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/autoswitch-gates.py --selfcheck LABELS tier-G)
+# The stem+particle probe (docs/MODES-MEASUREMENT.md §1.5): its tokeniser must
+# keep splitting IBM은 and refusing PC방, and needs no dump or engine to say so.
+hunmin_add_test(NAME modes-mixed-tokens-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/modes-mixed-tokens.py --selfcheck LABELS tier-G)
 # Track 4 prefix-match measurement guard (issue #300): fixture aggregates,
 # greedy-vs-optimal gap, negative control. No corpus, no engine needed.
 hunmin_add_test(NAME hanja-prefix-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/measure-hanja-prefix.py --selfcheck LABELS tier-G)
