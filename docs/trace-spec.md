@@ -334,7 +334,11 @@ behaviour after the mapping.
 One line per event, UTF-8, LF-terminated. Line 1 is a `meta` object with the same
 fields as tier C's `meta`, plus `dialect: "personal-key"` and (since 2026-11-27)
 `started: "<UTC ISO-8601>"`, the wall clock at the log's first line, so a log can
-be lined up against a session or a journal. Each event line is:
+be lined up against a session or a journal, and (since 2026-11-28) `data: "<dir>"`,
+the `HUNMIN_DATA_PATH` the engine ran with. **A replay of the same keys is only
+faithful against the same data**: a dev build defaults to its own install prefix and
+the packaged one to `/usr/share/hunmin`, and the two layout files differ — a replay
+against the wrong one produced 229 flips where the log showed 18. Each event line is:
 
 ```json
 {"in": {"base": 97, "shift": 0, "mods": 0, "id": 1}, "char": "a", "commit": "", "preedit": "ㄱ", "consumed": true}

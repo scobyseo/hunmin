@@ -59,6 +59,15 @@ static FILE *trace_sink(void) {
         struct tm tm_utc;
         if (gmtime_r(&wall, &tm_utc) != NULL)
             strftime(started, sizeof started, "%Y-%m-%dT%H:%M:%SZ", &tm_utc);
+        /* Which DATA this log was produced with. A replay of the same keys is only
+         * faithful against the same layouts and dictionary: the dev lib defaults to
+         * its own install prefix and the packaged one to /usr/share/hunmin, and the
+         * two files differ (measured 2026-11-28, personal-log-flips found 18 flips in
+         * the log and 229 in a replay that read the checkout's data). */
+        const char *data_env = getenv("HUNMIN_DATA_PATH");
+        fputs(",\"data\":\"", sink);
+        trace_json(sink, data_env && *data_env ? data_env : "");
+        fputs("\"", sink);
         fputs(",\"case\":\"personal\",\"dialect\":\"personal-key\",\"started\":\"", sink);
         fputs(started, sink);
         fputs("\"}}\n", sink);
