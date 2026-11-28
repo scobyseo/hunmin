@@ -75,7 +75,11 @@ goes at the top, in this shape, or not at all.
 
 ## 3. Premise check — at the start, and after any fetch or rebase
 
-1. Re-read the issue; write down its premises (what it assumed about the tree).
+1. Run `tools/agent-brief.sh <issue>`: it prints the issue and (if stated) its
+   premises and out-of-scope lines, the paths it names and whether they exist, the
+   commits on `origin/master` since it was filed, whether this branch already
+   carries work for it, the pending queue, and the local state. Read it before
+   anything else.
 2. `git log --oneline origin/master -20` and `git diff --stat` since the issue was
    filed.
 3. If a premise changed, say so **before** executing, and say which line of the
@@ -116,18 +120,43 @@ Recorded in the reply, not in a new document.
 A one-word or numbered answer is enough ("1 yes, 2 no"). The agent asks at most one
 question per reply, and never asks the maintainer to restate an intent that was
 already written down — it re-reads instead.
-## 8. Proposals — write them, do not implement them
+## 8. Proposals — about the method, applied or asked
 
-The maintainer's standing permission (2026-11-28): when the agent sees an
-improvement, it may write it up so that it can be proposed.
+The maintainer's standing permission (2026-11-28), in their own framing: *"일하는
+방식에 대해, 일하는 과정에서 뭔가 문제가 생겼을 때, 이런 식으로 수정해보면 어떨까요?
+하고 제안할 수 있게"* — the working method is not fixed, and friction is the signal
+that changes it.
 
-A proposal is a file in `docs/` named `PROPOSAL-<topic>.md`, whose first line is
-`Status: **proposal, not ruled.**` It carries: the problem with its measured
-instance; the change in one paragraph; what it costs the person and the agent; what
-it does not fix; the alternatives; and a decision request in §2b's six slots. The
-agent does not implement it, does not put it in `docs/REQ-MAP.md`, and does not
-merge it into a SPEC — a proposal that edits the thing it proposes has decided for
-the maintainer.
+Two kinds, and only two:
 
-A rejected proposal stays in the tree marked rejected, like a retracted wiki page:
-the evidence that the idea was considered is what stops it being re-proposed.
+- **A change to the agent's own behaviour** (how it writes, what it checks, which
+  tool it runs, when it asks) is adopted **immediately** and written into this file
+  with a changelog line. The maintainer reads the diff and can revert it. No
+  question, because the cost of the change lands on the agent.
+- **A change to the maintainer's habits, the repository's conventions, an issue
+  template, a gate or a requirement** is **one question**, in §2b's shape.
+
+A proposal is a line in the changelog, or (when it needs more than a line) a file
+`docs/PROPOSAL-<topic>.md` whose first line is `Status: **proposal, not ruled.**`
+and which carries no decision request of its own — the request, if the maintainer
+wants one, is a separate §2b message. A rejected proposal stays marked rejected:
+the evidence that it was considered is what stops it being re-proposed.
+
+
+## 9. Changelog — friction, change, revert
+
+One line per change to how the agent works: `date / friction / change / how to
+revert`. The friction is what someone would have to rediscover if the line were
+missing.
+
+- **2026-11-28 / friction:** a permission to propose *method* changes was read as a
+  permission to file *project* proposals, and it produced one more decision request.
+  **Change:** §8 limits proposals to the working method and splits "agent's own
+  behaviour" (immediate) from "the maintainer's or the repository's" (one question).
+  **Revert:** delete §8 and this section.
+- **2026-11-28 / friction:** an issue's premises had moved before the work started
+  (121 commits on `origin/master` since #295 was filed, and the issue states no
+  premises at all) — the pattern that produced three wrong-direction units this
+  session. **Change:** §3 starts with `tools/agent-brief.sh <issue>`, which prints
+  exactly that comparison. **Revert:** delete the tool's line from §3; the tool is
+  read-only and harmless if left.
