@@ -10,6 +10,32 @@ machine* — toolchain locations, host quirks, what lives outside the repository
 works here (task contract, density, premise check, checkpoints) is
 `docs/AGENT-WORKING-PROTOCOL.md`.
 
+## How an agent works here
+
+The formats, the rationale and the changelog are `docs/AGENT-WORKING-PROTOCOL.md`.
+**These are the rules, and they bind every task:**
+
+1. **Contract first** — five lines before working: the request, the kind of work
+   (design / implementation / measurement / documentation / decision-support), the
+   deliverable, **what will not be done**, and the one question — only if it cannot
+   be collected.
+2. **Collect before asking** — a question whose answer is in the tree, the issue,
+   `git log`, `tools/agent-brief.sh` or a run artefact is pure cost. Ask only for
+   intent, preference or a ruling; a question asked twice is a collection step that
+   was skipped.
+3. **Premise check** — start with `tools/agent-brief.sh <issue>`, which prints the
+   issue, its stated premises, the paths it names, the commits since it was filed and
+   the pending queue. A premise that moved is reported **before** the work.
+4. **Decision requests** — six slots, one screen, one decision (protocol §2b); never
+   a question at the end of a long analysis.
+5. **Checkpoints** — ask before behaviour-changing code, before docs/wiki, and
+   before anything touching `/usr`, a daemon, a force-push or an issue body.
+6. **Revert first** — on the input, authentication or session path, restore the last
+   known-good state before diagnosing.
+7. **Friction is a changelog line** — `date / friction / missing information
+   (collected: source, or asked) / change / revert`, in the protocol's §9. If the
+   same gap recurs, the next version collects it instead of asking again.
+
 ## The one idea
 
 **Layout behaviour is data, never code.** Adding a keyboard layout means adding a

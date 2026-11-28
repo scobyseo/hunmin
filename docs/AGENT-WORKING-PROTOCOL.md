@@ -4,6 +4,11 @@ Status: **adopted 2026-11-28** on the maintainer's instruction ("일하는 방�
 있어"). It governs the agent's *behaviour*, not the project's requirements: no REQ
 row, and nothing here overrides `AGENTS.md` or a SPEC.
 
+**Where the rules live.** `AGENTS.md` §"How an agent works here" carries the seven
+rules, because that is the file an agent reads first; this file carries the formats,
+the rationale and the changelog that make them usable. If the two disagree, AGENTS.md
+wins and this file is corrected.
+
 ## Why this exists (the cost it is paying for)
 
 One session's measured losses, all recorded in
