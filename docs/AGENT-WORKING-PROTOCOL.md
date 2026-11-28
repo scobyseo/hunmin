@@ -116,3 +116,18 @@ Recorded in the reply, not in a new document.
 A one-word or numbered answer is enough ("1 yes, 2 no"). The agent asks at most one
 question per reply, and never asks the maintainer to restate an intent that was
 already written down — it re-reads instead.
+## 8. Proposals — write them, do not implement them
+
+The maintainer's standing permission (2026-11-28): when the agent sees an
+improvement, it may write it up so that it can be proposed.
+
+A proposal is a file in `docs/` named `PROPOSAL-<topic>.md`, whose first line is
+`Status: **proposal, not ruled.**` It carries: the problem with its measured
+instance; the change in one paragraph; what it costs the person and the agent; what
+it does not fix; the alternatives; and a decision request in §2b's six slots. The
+agent does not implement it, does not put it in `docs/REQ-MAP.md`, and does not
+merge it into a SPEC — a proposal that edits the thing it proposes has decided for
+the maintainer.
+
+A rejected proposal stays in the tree marked rejected, like a retracted wiki page:
+the evidence that the idea was considered is what stops it being re-proposed.
