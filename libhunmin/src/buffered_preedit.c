@@ -63,6 +63,10 @@ struct hunmin_buffered_preedit {
     /* ReqMode8/3 readings (DESIGN-CORE.md#r8-정정-23-readings-and-validity). */
     uint32_t *keys; /* (base,shift) slots, word in flight */
     size_t keylen, keycap;
+    /* FE18: a BackSpace removed a finished syllable from `word`, so the key log
+     * no longer describes the word on screen (a delete cannot un-press the keys
+     * that produced the text). Readings are not taken for the rest of the word. */
+    bool keys_unreliable;
     /* E6 judge_timing (DESIGN-CORE.md#e6-judged-display-judge_timing):
      * 1=per key (default), 0=boundary only. */
     int judge_timing;
@@ -115,6 +119,33 @@ static void word_append(hunmin_buffered_preedit *l, const char *s) {
 }
 
 static void keys_clear(hunmin_buffered_preedit *l) { l->keylen = 0; }
+
+/* Drop the last code point of the buffered word (FE18). UTF-8 aware, so
+ * deleting a syllable never leaves half of its bytes behind. */
+static bool word_pop_char(hunmin_buffered_preedit *l) {
+    if (!l->word || !l->wordlen) return false;
+    size_t i = l->wordlen;
+    while (i > 0 && ((unsigned char)l->word[i - 1] & 0xc0) == 0x80) i--;
+    if (i > 0) i--; /* the lead byte, or the single byte of an ASCII character */
+    l->wordlen = i;
+    l->word[i] = 0;
+    return true;
+}
+
+/* FE18 (docs/SPEC-FRONTEND.md#§FE18). The engine declines a BackSpace once its
+ * own syllable buffer is empty -- it knows nothing of the syllables this layer
+ * holds. In buffered mode those earlier syllables belong to the SAME composing
+ * word, so the layer deletes the last of them and keeps the word composing
+ * instead of treating the declined key as a boundary (which committed the word
+ * and handed the key to the client). In syllable mode there is nothing to do:
+ * those syllables are already in the client, whose own delete the key reaches. */
+static bool backspace_deletes_word(hunmin_buffered_preedit *l, uint32_t base) {
+    if (base != 0x08) return false;
+    if (l->commit_policy != HUNMIN_COMMIT_AT_BOUNDARY) return false;
+    if (!word_pop_char(l)) return false;
+    l->keys_unreliable = true;
+    return true;
+}
 
 static bool keys_reserve(hunmin_buffered_preedit *l, size_t want) {
     size_t cap = l->keycap ? l->keycap : 32;
@@ -260,6 +291,16 @@ static const char *judged_display(hunmin_buffered_preedit *l, const char *shown_
         return NULL;
     }
     if (!l->latin_id) return NULL; /* one-language layer: no second reading */
+    if (l->keys_unreliable) {
+        /* FE18: a delete broke the key log's correspondence with the word, so
+         * there is no reading to show and no vote to cast; a held reading of the
+         * text before the delete must not survive it. */
+        if (advance) {
+            l->judge_verdict = -1;
+            l->judge_shown = 0;
+        }
+        return NULL;
+    }
     if (l->keylen / 2 < JUDGE_MIN_KEYS) { /* ReqMode9's guard, both directions */
         if (advance) l->judge_verdict = -1; /* no vote: two guarded keys are not agreement */
         return NULL;
@@ -463,10 +504,20 @@ static const char *judge_boundary(hunmin_buffered_preedit *l, size_t keys) {
 static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
     const char *flushed = hunmin_ic_flush(l->ic);
     if (!flushed) flushed = "";
-    latin_reading(l);
-    if (!l->hangul_mode) hangul_reading(l);
+    /* FE18: after the layer deleted into the word, the key log no longer spells
+     * it, so neither reading is taken -- a reading from deleted keys would let
+     * the inference act on text that is not on screen. The rest of the word is
+     * still delivered normally; only the judgement abstains (fail-closed). */
+    if (l->keys_unreliable) {
+        if (l->latin_out) l->latin_out[0] = 0;
+        if (l->hangul_out) l->hangul_out[0] = 0;
+    } else {
+        latin_reading(l);
+        if (!l->hangul_mode) hangul_reading(l);
+    }
     const size_t keys = l->keylen / 2; /* slots are (base, shift) pairs */
     keys_clear(l);
+    l->keys_unreliable = false;
     /* Every boundary replaces the previous judgement: a finished word must not
      * be acted on after the next one starts, and a boundary that judges nothing
      * (a chord, a mode toggle, an abandoned word) clears the answer. */
@@ -584,7 +635,7 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
         if (pb && *pb) pre_before = dup_or_null(pb);
     }
 
-    const bool consumed = hunmin_ic_process_key(l->ic, base, shift);
+    bool consumed = hunmin_ic_process_key(l->ic, base, shift);
     if (consumed) {
         const char *c = drain_engine_commit(l);
         bool ended_by_symbol = false;
@@ -631,6 +682,11 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
             }
         }
         if (!ended_by_symbol) keys_push(l, base, shift); /* the Latin reading's raw material */
+    } else if (backspace_deletes_word(l, base)) {
+        /* FE18: the key is OURS -- it edited the composing word, so nothing is
+         * committed and nothing reaches the client. */
+        set_commit(l, "");
+        consumed = true;
     } else {
         /* A declined key IS the boundary: the engine finalises the syllable it
          * was holding, and the frontend passes the key to its client. Every
@@ -678,6 +734,7 @@ void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
     hunmin_ic_reset(l->ic);
     word_clear(l);
     keys_clear(l);
+    l->keys_unreliable = false;
     l->judged = -1;
     l->judge_run = 0;
     l->judge_verdict = -1;

@@ -792,10 +792,20 @@ and the price of turning it off mid-word.)
   and still asserted against `hunmin_ic` (issue #179). A build with the feature
   and a build without it answer that corpus identically — the same bytes, at
   whichever commit policy a frontend is set to, not "the suite is still green".
-- **What it constrains is delivery: the text handed to the client, and the
-  consumed/declined decision for each key.** How a frontend draws that text is
-  an allowed difference (`docs/DESIGN-FRONTEND.md` Part A §3) and is not covered
-  by this item.
+- **What it constrains is the TEXT.** How a frontend draws that text is an
+  allowed difference (`docs/DESIGN-FRONTEND.md` Part A §3) and is not covered by
+  this item.
+- **The consumed/declined answer is not a contract.** Ruled 2026-11-27, verbatim:
+  "consumed는 계약으로 보지 않는 게 맞다고 생각해." The reason is the one FE18
+  (#332) measured: a key is consumed by whichever side still holds the text it
+  would edit, so the same user-visible result has a different answer when the
+  commit unit holds the word than when the syllables are already in the client.
+  `hunmin-sim --off-check` and ctest `engine-buffered-preedit` therefore compare
+  the text (the projection, `docs/DESIGN-FRONTEND.md` §5.2) and not the flag; a
+  layer that swallows a key which would have produced text, or invents text, still
+  fails on the comparison. Tier C still records `consumed` per event — as the
+  expectation for what an adapter RELAYS, not as a mode-independent rule. Before
+  this ruling the two were one sentence here, and FE18 exposed the contradiction.
 - **It covers the Latin layouts too**, by the same equality: the corpus carries
   `dvorak`, `colemak` and `romaja`, and what they deliver is compared the same
   way. OFF + English mode's per-character delivery is ReqMode5's rule, not this one's.

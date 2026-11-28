@@ -1,100 +1,109 @@
-{"meta": {"source": "designed", "spec": "the libhangul 0.2.0 두벌식 table this repository ships (libhunmin/data/layouts/dubeolsik.json)", "layout": "dubeolsik", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "note": "expected commit/preedit per key are the engine's answers, never typed; a diff here is a change to the layout or the composer and must be reviewed"}}
+{"meta": {"source": "designed", "spec": "the libhangul 0.2.0 두벌식 table this repository ships (libhunmin/data/layouts/dubeolsik.json)", "layout": "dubeolsik", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "assert": "projection", "note": "expected `visible` per key is the text a person ends up with (the engine's delivered text that survives, plus what is composing, with the client's own insert/delete on a declined key). The commit/preedit split is NOT asserted here: it is the commit unit, and tier C asserts it per event (docs/DESIGN-FRONTEND.md §5.2, §6). A diff here is a change to the layout or the composer and must be reviewed"}}
 {"meta": {"case": "case-dubeolsik-merged"}}
-{"in": {"ch": "d"}, "commit": "", "preedit": "ㅇ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "아"}
-{"in": {"ch": "s"}, "commit": "", "preedit": "안"}
-{"in": {"ch": "s"}, "commit": "안", "preedit": "ㄴ"}
-{"in": {"ch": "u"}, "commit": "", "preedit": "녀"}
-{"in": {"ch": "d"}, "commit": "", "preedit": "녕"}
-{"in": {"ch": " "}, "commit": "녕", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "g"}, "commit": "", "preedit": "ㅎ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "하"}
-{"in": {"ch": "s"}, "commit": "", "preedit": "한"}
-{"in": {"ch": "r"}, "commit": "한", "preedit": "ㄱ"}
-{"in": {"ch": "m"}, "commit": "", "preedit": "그"}
-{"in": {"ch": "f"}, "commit": "", "preedit": "글"}
-{"in": {"ch": " "}, "commit": "글", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "r"}, "commit": "", "preedit": "ㄱ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "가"}
-{"in": {"ch": "q"}, "commit": "", "preedit": "갑"}
-{"in": {"ch": "t"}, "commit": "", "preedit": "값"}
-{"in": {"ch": " "}, "commit": "값", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "R"}, "commit": "", "preedit": "ㄲ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "까"}
-{"in": {"ch": "Q"}, "commit": "까", "preedit": "ㅃ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "빠"}
-{"in": {"ch": "T"}, "commit": "", "preedit": "빴"}
-{"in": {"ch": "k"}, "commit": "빠", "preedit": "싸"}
-{"in": {"ch": "W"}, "commit": "싸", "preedit": "ㅉ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "짜"}
-{"in": {"ch": "E"}, "commit": "짜", "preedit": "ㄸ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "따"}
-{"in": {"ch": " "}, "commit": "따", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "d"}, "commit": "", "preedit": "ㅇ"}
-{"in": {"ch": "O"}, "commit": "", "preedit": "얘"}
-{"in": {"ch": "d"}, "commit": "", "preedit": "얭"}
-{"in": {"ch": "P"}, "commit": "얘", "preedit": "예"}
-{"in": {"ch": " "}, "commit": "예", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "1"}, "commit": "", "preedit": ""}
-{"in": {"ch": "2"}, "commit": "", "preedit": ""}
-{"in": {"ch": "3"}, "commit": "", "preedit": ""}
-{"in": {"ch": "0"}, "commit": "", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "!"}, "commit": "", "preedit": ""}
-{"in": {"ch": "@"}, "commit": "", "preedit": ""}
-{"in": {"ch": "#"}, "commit": "", "preedit": ""}
-{"in": {"ch": "$"}, "commit": "", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "r"}, "commit": "", "preedit": "ㄱ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "가"}
-{"in": {"ch": "."}, "commit": "가", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "r"}, "commit": "", "preedit": "ㄱ"}
-{"in": {"ch": "s"}, "commit": "ㄱ", "preedit": "ㄴ"}
-{"in": {"ch": " "}, "commit": "ㄴ", "preedit": ""}
-{"in": {"ch": "d"}, "commit": "", "preedit": "ㅇ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "아"}
-{"in": {"ch": "s"}, "commit": "", "preedit": "안"}
-{"in": {"ch": "s"}, "commit": "안", "preedit": "ㄴ"}
-{"in": {"ch": "u"}, "commit": "", "preedit": "녀"}
-{"in": {"ch": "d"}, "commit": "", "preedit": "녕"}
-{"in": {"ch": "g"}, "commit": "녕", "preedit": "ㅎ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "하"}
-{"in": {"ch": "t"}, "commit": "", "preedit": "핫"}
-{"in": {"ch": "p"}, "commit": "하", "preedit": "세"}
-{"in": {"ch": "d"}, "commit": "", "preedit": "셍"}
-{"in": {"ch": "y"}, "commit": "세", "preedit": "요"}
-{"in": {"ch": " "}, "commit": "요", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "g"}, "commit": "", "preedit": "ㅎ"}
-{"in": {"ch": "k"}, "commit": "", "preedit": "하"}
-{"in": {"ch": "s"}, "commit": "", "preedit": "한"}
-{"in": {"ch": "r"}, "commit": "한", "preedit": "ㄱ"}
-{"in": {"ch": "m"}, "commit": "", "preedit": "그"}
-{"in": {"ch": "f"}, "commit": "", "preedit": "글"}
-{"in": {"ch": "d"}, "commit": "글", "preedit": "ㅇ"}
-{"in": {"ch": "l"}, "commit": "", "preedit": "이"}
-{"in": {"ch": "q"}, "commit": "", "preedit": "입"}
-{"in": {"ch": "s"}, "commit": "입", "preedit": "ㄴ"}
-{"in": {"ch": "l"}, "commit": "", "preedit": "니"}
-{"in": {"ch": "e"}, "commit": "", "preedit": "닏"}
-{"in": {"ch": "k"}, "commit": "니", "preedit": "다"}
-{"in": {"ch": " "}, "commit": "다", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "0"}, "commit": "", "preedit": ""}
-{"in": {"ch": "1"}, "commit": "", "preedit": ""}
-{"in": {"ch": "2"}, "commit": "", "preedit": ""}
-{"in": {"ch": "3"}, "commit": "", "preedit": ""}
-{"in": {"ch": "4"}, "commit": "", "preedit": ""}
-{"in": {"ch": "5"}, "commit": "", "preedit": ""}
-{"in": {"ch": "6"}, "commit": "", "preedit": ""}
-{"in": {"ch": "7"}, "commit": "", "preedit": ""}
-{"in": {"ch": "8"}, "commit": "", "preedit": ""}
-{"in": {"ch": "9"}, "commit": "", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "\b"}, "commit": "", "preedit": ""}
+{"in": {"ch": "d"}, "visible": "ㅇ"}
+{"in": {"ch": "k"}, "visible": "아"}
+{"in": {"ch": "s"}, "visible": "안"}
+{"in": {"ch": "s"}, "visible": "안ㄴ"}
+{"in": {"ch": "u"}, "visible": "안녀"}
+{"in": {"ch": "d"}, "visible": "안녕"}
+{"in": {"ch": " "}, "visible": "안녕 "}
+{"in": {"ch": " "}, "visible": "안녕  "}
+{"in": {"ch": "g"}, "visible": "안녕  ㅎ"}
+{"in": {"ch": "k"}, "visible": "안녕  하"}
+{"in": {"ch": "s"}, "visible": "안녕  한"}
+{"in": {"ch": "r"}, "visible": "안녕  한ㄱ"}
+{"in": {"ch": "m"}, "visible": "안녕  한그"}
+{"in": {"ch": "f"}, "visible": "안녕  한글"}
+{"in": {"ch": " "}, "visible": "안녕  한글 "}
+{"in": {"ch": " "}, "visible": "안녕  한글  "}
+{"in": {"ch": "r"}, "visible": "안녕  한글  ㄱ"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  가"}
+{"in": {"ch": "q"}, "visible": "안녕  한글  갑"}
+{"in": {"ch": "t"}, "visible": "안녕  한글  값"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값 "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  "}
+{"in": {"ch": "R"}, "visible": "안녕  한글  값  ㄲ"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까"}
+{"in": {"ch": "Q"}, "visible": "안녕  한글  값  까ㅃ"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠"}
+{"in": {"ch": "T"}, "visible": "안녕  한글  값  까빴"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠싸"}
+{"in": {"ch": "W"}, "visible": "안녕  한글  값  까빠싸ㅉ"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠싸짜"}
+{"in": {"ch": "E"}, "visible": "안녕  한글  값  까빠싸짜ㄸ"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠싸짜따"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따 "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  "}
+{"in": {"ch": "d"}, "visible": "안녕  한글  값  까빠싸짜따  ㅇ"}
+{"in": {"ch": "O"}, "visible": "안녕  한글  값  까빠싸짜따  얘"}
+{"in": {"ch": "d"}, "visible": "안녕  한글  값  까빠싸짜따  얭"}
+{"in": {"ch": "P"}, "visible": "안녕  한글  값  까빠싸짜따  얘예"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예 "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  "}
+{"in": {"ch": "1"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1"}
+{"in": {"ch": "2"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  12"}
+{"in": {"ch": "3"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  123"}
+{"in": {"ch": "0"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 "}
+{"in": {"ch": "!"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !"}
+{"in": {"ch": "@"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@"}
+{"in": {"ch": "#"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#"}
+{"in": {"ch": "$"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ "}
+{"in": {"ch": "r"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ ㄱ"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가"}
+{"in": {"ch": "."}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가."}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. "}
+{"in": {"ch": "r"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱ"}
+{"in": {"ch": "s"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ "}
+{"in": {"ch": "d"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ ㅇ"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 아"}
+{"in": {"ch": "s"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안"}
+{"in": {"ch": "s"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안ㄴ"}
+{"in": {"ch": "u"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녀"}
+{"in": {"ch": "d"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕"}
+{"in": {"ch": "g"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕ㅎ"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하"}
+{"in": {"ch": "t"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕핫"}
+{"in": {"ch": "p"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세"}
+{"in": {"ch": "d"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하셍"}
+{"in": {"ch": "y"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요 "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  "}
+{"in": {"ch": "g"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  ㅎ"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  하"}
+{"in": {"ch": "s"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한"}
+{"in": {"ch": "r"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한ㄱ"}
+{"in": {"ch": "m"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한그"}
+{"in": {"ch": "f"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글"}
+{"in": {"ch": "d"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글ㅇ"}
+{"in": {"ch": "l"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글이"}
+{"in": {"ch": "q"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입"}
+{"in": {"ch": "s"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입ㄴ"}
+{"in": {"ch": "l"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니"}
+{"in": {"ch": "e"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입닏"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다 "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  "}
+{"in": {"ch": "0"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0"}
+{"in": {"ch": "1"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  01"}
+{"in": {"ch": "2"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  012"}
+{"in": {"ch": "3"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123"}
+{"in": {"ch": "4"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  01234"}
+{"in": {"ch": "5"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  012345"}
+{"in": {"ch": "6"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456"}
+{"in": {"ch": "7"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  01234567"}
+{"in": {"ch": "8"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  012345678"}
+{"in": {"ch": "9"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789 "}
+{"in": {"ch": "\b"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789 "}
+{"in": {"ch": "r"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789 ㄱ"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789 가"}
+{"in": {"ch": "r"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789 각"}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789 가가"}
+{"in": {"ch": "\b"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789 가ㄱ"}
+{"in": {"ch": "\b"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789 가"}
+{"in": {"ch": "\b"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789 "}
+{"in": {"ch": "\b"}, "visible": "안녕  한글  값  까빠싸짜따  얘예  1230 !@#$ 가. ㄱㄴ 안녕하세요  한글입니다  0123456789"}

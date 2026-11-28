@@ -214,11 +214,50 @@ static char *next_line(char **cursor) {
     return s;
 }
 
+/* --------------------------------------------------------------- projection
+ *
+ * `visible` is the text a person ends up with -- the engine's delivered text
+ * that survives, plus what is composing -- and it is the one quantity that does
+ * not depend on the commit unit (docs/DESIGN-FRONTEND.md §5.2, FE1/FE18).
+ * A key the engine DECLINES changes the document the way the CLIENT would,
+ * because the engine never sees that edit: a BackSpace deletes the last code
+ * point, a printable key is inserted. tools/_projection.py is the other
+ * implementation of the same rule, and the two are each other's cross-check.
+ *
+ * A corpus opts in with {"meta": {"assert": "projection"}}, and then every
+ * event line carries `visible` and NOT commit/preedit: a line asserting both
+ * would leave the reader unsure which one is the contract. */
+#define VISIBLE_CAP 8192
+
+static bool vis_add(char *dst, size_t *len, const char *s) {
+    if (!s || !*s) return true;
+    size_t n = strlen(s);
+    if (*len + n + 1 > VISIBLE_CAP) return false;
+    memcpy(dst + *len, s, n);
+    *len += n;
+    dst[*len] = 0;
+    return true;
+}
+
+static void vis_drop_last(char *dst, size_t *len) {
+    size_t i = *len;
+    while (i > 0 && ((unsigned char)dst[i - 1] & 0xc0) == 0x80) i--;
+    if (i > 0) i--;
+    *len = i;
+    dst[i] = 0;
+}
+
 static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layout) {
     char *txt = read_file(path, NULL);
     if (!txt) return 2;
     int line = 0, fails = 0;
     hunmin_ic *ic = NULL;
+    /* Per-case projection state, reset at every `meta` line (a multi-case
+     * golden is a sequence of independent replays). */
+    char projection[VISIBLE_CAP];
+    size_t plen = 0;
+    int projection_file = 0;
+    projection[0] = 0;
 
     for (char *cursor = txt;;) {
         char *s = next_line(&cursor);
@@ -233,6 +272,17 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
         }
         const cJSON *meta = cJSON_GetObjectItemCaseSensitive(j, "meta");
         if (meta) {
+            plen = 0;
+            projection[0] = 0;
+            const cJSON *ass = cJSON_GetObjectItemCaseSensitive(meta, "assert");
+            if (cJSON_IsString(ass)) {
+                if (strcmp(ass->valuestring, "projection") != 0) {
+                    fprintf(stderr, "%s:%d: unknown meta.assert '%s' (only 'projection')\n", path, line, ass->valuestring);
+                    fails++;
+                } else {
+                    projection_file = 1;
+                }
+            }
             const cJSON *ca = cJSON_GetObjectItemCaseSensitive(meta, "caps");
             static const char *ovrs[] = {"w", "W", "z", "h", "H"};
             if (ic) {
@@ -296,9 +346,75 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
             continue;
         }
 
-        if (shift) hunmin_ic_process_key(ic, ch, 1); /* explicit-modifier entry */
-        else hunmin_ic_process(ic, ch);
+        const bool eaten = shift ? hunmin_ic_process_key(ic, ch, 1) : hunmin_ic_process(ic, ch);
         const char *ac = hunmin_ic_commit(ic), *ap = hunmin_ic_preedit(ic);
+        const cJSON *wvis = cJSON_GetObjectItemCaseSensitive(j, "visible");
+        if (wvis && !cJSON_IsString(wvis)) {
+            fprintf(stderr, "%s:%d: visible must be a string\n", path, line);
+            fails++;
+            cJSON_Delete(j);
+            continue;
+        }
+        if (cJSON_IsString(wvis)) {
+            if (cJSON_IsString(wcommit) || cJSON_IsString(wpre)) {
+                fprintf(stderr, "%s:%d: a line carries visible AND commit/preedit; a projection corpus asserts one\n",
+                        path, line);
+                fails++;
+                cJSON_Delete(j);
+                continue;
+            }
+            if (!vis_add(projection, &plen, ac)) {
+                fprintf(stderr, "%s:%d: projection passed %d bytes; raise VISIBLE_CAP\n", path, line, VISIBLE_CAP);
+                cJSON_Delete(j);
+                return fails + 1;
+            }
+            if (!eaten) {
+                if (ch == 0x08) {
+                    vis_drop_last(projection, &plen);
+                } else if (shift || ch >= 0x80) {
+                    fprintf(stderr,
+                            "%s:%d: a declined %s key needs its resolved character; projection corpora "
+                            "spell shifted and non-ASCII keys resolved (docs/SPEC-SCHEMA.md)\n",
+                            path, line, shift ? "shifted" : "non-ASCII");
+                    fails++;
+                    cJSON_Delete(j);
+                    continue;
+                } else if (ch >= 0x20 && ch < 0x7f) {
+                    char one[2] = {(char)ch, 0};
+                    vis_add(projection, &plen, one);
+                }
+            }
+            char got[VISIBLE_CAP];
+            size_t glen = plen;
+            memcpy(got, projection, plen + 1);
+            if (!vis_add(got, &glen, ap)) {
+                fprintf(stderr, "%s:%d: projection passed %d bytes; raise VISIBLE_CAP\n", path, line, VISIBLE_CAP);
+                cJSON_Delete(j);
+                return fails + 1;
+            }
+            /* Canonicalised for the same reason `total` is: an NFC syllable and
+             * its jamo sequence are the same text to a person. */
+            char a_c[4 * VISIBLE_CAP], b_c[4 * VISIBLE_CAP];
+            hangul_canon(got, a_c, sizeof a_c);
+            hangul_canon(wvis->valuestring, b_c, sizeof b_c);
+            if (strcmp(a_c, b_c)) {
+                fprintf(stderr, "%s:%d: VISIBLE FAIL in=%s expected=%s got=%s\n", path, line,
+                        jc && cJSON_IsString(jc) ? jc->valuestring : "bksp", wvis->valuestring, got);
+                fails++;
+                if (fails > 8) {
+                    cJSON_Delete(j);
+                    break;
+                }
+            }
+            cJSON_Delete(j);
+            continue;
+        }
+        if (projection_file) {
+            fprintf(stderr, "%s:%d: meta.assert=projection but this event has no visible\n", path, line);
+            fails++;
+            cJSON_Delete(j);
+            continue;
+        }
         const cJSON *wtotal = cJSON_GetObjectItemCaseSensitive(j, "total");
         if (cJSON_IsString(wtotal)) { /* oracle mode: assert the rendered result of
                                        * this step: composing buffer, else the commit
@@ -642,6 +758,22 @@ static int off_join(char *dst, size_t cap, const char *a, const char *b) {
     return 0;
 }
 
+/* FE18 (docs/SPEC-FRONTEND.md §FE18): a BackSpace a driver DECLINES is passed
+ * to the client, and the client deletes the character before the caret. This
+ * model of "the text the person ends up with" accumulates delivered commits
+ * only, so without this a declined BackSpace left text on the engine side that
+ * the layer -- still holding those syllables as preedit -- deleted itself: the
+ * engine path ended with `...입니다가`, the boundary path with `...입니다`. The
+ * two are the same text to the person, which is the invariant §4 is about.
+ * Applied only to the side that declined: a consumed BackSpace is that driver's
+ * own edit and already shows in its preedit. */
+static void off_client_delete(char *s) {
+    size_t n = strlen(s);
+    while (n > 0 && ((unsigned char)s[n - 1] & 0xc0) == 0x80) n--;
+    if (n > 0) n--; /* the lead byte, or the single byte of an ASCII character */
+    s[n] = 0;
+}
+
 static void off_free(off_case *c) {
     if (c->ic) hunmin_ic_free(c->ic);
     if (c->boundary) hunmin_buffered_preedit_free(c->boundary);
@@ -757,10 +889,21 @@ static int off_key(off_case *c, const char *path, int line, uint32_t base, uint3
     snprintf(scommit, sizeof scommit, "%s", sres.commit ? sres.commit : "");
     snprintf(spre, sizeof spre, "%s", sres.preedit ? sres.preedit : "");
 
-    (*checks)++;
-    if (ocons != bcons || ocons != scons)
-        fprintf(stderr, "%s:%d: key 0x%02x: consumed engine=%d boundary=%d syllable=%d\n", path, line, base, ocons, bcons, scons);
-    fails += (ocons != bcons) + (ocons != scons);
+    /* The consumed/declined answer is NOT compared: the maintainer ruled
+     * 2026-11-27 that it is not a contract (docs/SPEC-MODES.md §ReqMode14 —
+     * "consumed는 계약으로 보지 않는 게 맞다고 생각해"), because which side holds
+     * the text decides who can eat the key. The text is the contract, and it
+     * still fails when a driver swallows a key that would have produced text or
+     * invents text it did not produce.
+     *
+     * FE18: a BackSpace either side DECLINES is the client's delete, and the
+     * client is not in this loop, so the model applies it on that side alone. */
+    const bool backspace = (base == 0x08);
+    if (backspace) {
+        if (!ocons) off_client_delete(c->odel);
+        if (!bcons) off_client_delete(c->bdel);
+        if (!scons) off_client_delete(c->sdel);
+    }
 
     if (off_append(c->odel, sizeof c->odel, ocopy) || off_append(c->bdel, sizeof c->bdel, bcommit) || off_append(c->sdel, sizeof c->sdel, scommit)) {
         fprintf(stderr, "%s:%d: accumulated text passed %d bytes -- raise OFF_TEXT_CAP\n", path, line, OFF_TEXT_CAP);

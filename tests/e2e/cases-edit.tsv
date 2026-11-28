@@ -19,7 +19,9 @@ dubeolsik	ehdgoanfrhk qorentksdl akfmrhe{BackSpace} kfgehfhr gksmsladl qhdngktk 
 dubeolsik	wnrsms skfRkwlg{BackSpace} ksmfdmf dnfjfj gks wja qnRmfjadl djqtrlfmf	stream
 # Enter after 서시: pass-through newline follows the final committed word
 dubeolsik	wnrsms skfRkwlg ksmfdmf dnfjfj gks wja qnRmfjadl djqtrlfmf{Return}	stream
-# backspace mid-word: one more backspace past empty preedit commits the buffered word
+# backspace mid-word: a further backspace past the emptied preedit is declined by the
+# syllable-policy lanes (fcitx5/IBus) and reaches the client; a word-buffered layer
+# deletes its own word instead (FE18, docs/SPEC-FRONTEND.md §FE18)
 dubeolsik	dkssud{BackSpace}ud{BackSpace}	stream
 # mode toggle is a boundary: 한/영 switch flushes the buffered word
 dubeolsik	dkssud^	stream

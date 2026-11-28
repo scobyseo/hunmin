@@ -218,9 +218,12 @@ TEST_F(CandidateTest, ModeToggleIsABoundaryWithTheWindowOpen) {
 /* 11. Backspace edits the pending composition (the buffered-edit
  * contract), engine-measured: `녕` -> `녀` -> `ㄴ` -> empty, the last one
  * still consumed by the engine (no insert, the key never reaches the
- * app while the engine deletes). One MORE backspace hits the empty
- * preedit: the engine declines, the boundary inserts the buffered word
- * once, and the key passes. */
+ * app while the engine deletes). The NEXT backspace edits the buffered
+ * word itself -- 안 loses its syllable and the word stays composing
+ * (FE18, docs/SPEC-FRONTEND.md §FE18, issue #332); only the backspace
+ * after the word is empty is declined and passed through. Before FE18
+ * that fourth press COMMITTED 안, the divergence from the physical path
+ * FE18 removes. */
 TEST_F(CandidateTest, BackspaceEditsThePendingComposition) {
     Begin();
     TypeAnNyeng(*this);
@@ -237,8 +240,13 @@ TEST_F(CandidateTest, BackspaceEditsThePendingComposition) {
     AssertPreedit(nullptr, "case 11c");
     AssertNoInsert("case 11c");
     Key(VK_BACK, &eat);
-    EXPECT_EQ(eat, FALSE) << "case 11d: BS past the empty preedit eaten anyway";
-    AssertCompositionEnded(kAnchorAn, "case 11d");
+    EXPECT_EQ(eat, TRUE) << "case 11d: BS on an emptied preedit must edit the buffered word";
+    AssertWordbuf(nullptr, "case 11d");
+    AssertPreedit(nullptr, "case 11d");
+    AssertNoInsert("case 11d");
+    Key(VK_BACK, &eat);
+    EXPECT_EQ(eat, FALSE) << "case 11e: BS past the emptied word eaten anyway";
+    AssertNoInsert("case 11e");
     Teardown();
 }
 

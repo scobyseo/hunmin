@@ -52,69 +52,79 @@ std::vector<Key> keys_of(const std::string &s) {
     return v;
 }
 
-/* What the user sees for the current word: the text already committed for this
- * word plus the composing preedit. This is the quantity the invariant is stated
- * over, because the commit boundary is a frontend choice. */
-std::string rendered(const std::string &word_committed, const char *preedit) { return word_committed + std::string(preedit ? preedit : ""); }
+/* The projection both drivers are compared on: the text a person ends up with
+ * (docs/DESIGN-FRONTEND.md §5.2, tools/_projection.py). It is the one quantity
+ * that does not depend on the commit unit, so the invariant is stated over it
+ * instead of over the commit/preedit split. A key a driver DECLINES is the
+ * CLIENT's edit, because the engine never sees it: a BackSpace removes the last
+ * code point, a printable key is inserted. */
+void drop_last_code_point(std::string &s) {
+    if (s.empty()) return;
+    size_t i = s.size();
+    while (i > 0 && ((unsigned char)s[i - 1] & 0xC0) == 0x80) i--;
+    if (i > 0) i--;
+    s.erase(i);
+}
+
+void client_edit(std::string &document, uint32_t base) {
+    if (base == 0x08) drop_last_code_point(document);
+    else if (base >= 0x20 && base < 0x7f) document.push_back((char)base);
+}
 
 struct RunResult {
     std::string total; /* every commit the frontend would have inserted */
-    std::vector<int> eaten; /* consumed answer per key */
-    std::vector<std::string> shown; /* rendered text after each key */
+    std::vector<std::string> commits; /* this key's commit, for FE18's "a DEL commits nothing" */
+    std::vector<std::string> shown; /* the projection after each key */
 };
 
-/* Drive the layer over a key sequence. `word_committed` accumulates the text
- * that belongs to the current word; a boundary clears it, which is exactly the
- * rule the frontend applies (commit text, then it is in the client). */
+/* Drive the layer over a key sequence. */
 RunResult drive_layer(hunmin_ctx *ctx, const std::string &sequence, int mode, const char *layout = "dubeolsik") {
     RunResult r;
     hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx, layout, nullptr, mode);
     EXPECT_NE(l, nullptr);
     if (!l) return r;
-    std::string word;
+    std::string document;
     for (const Key &k : keys_of(sequence)) {
         hunmin_key_result out{};
         const int eaten = hunmin_buffered_preedit_process_key(l, k.base, k.shift, &out);
-        r.eaten.push_back(eaten);
+        r.commits.push_back(out.commit ? out.commit : "");
         if (out.commit && out.commit[0]) {
             r.total += out.commit;
-            word += out.commit;
-            /* A boundary delivers the whole word, so the word is done. A
-             * syllable-mode delivery keeps the word open (the next syllable
-             * belongs to the same word) - the distinction the layer owns and
-             * the frontends no longer do. */
-            if (!eaten) word.clear();
+            document += out.commit;
         }
-        r.shown.push_back(rendered(word, out.preedit));
+        if (!eaten) client_edit(document, k.base);
+        r.shown.push_back(document + std::string(out.preedit ? out.preedit : ""));
     }
     const char *tail = hunmin_buffered_preedit_commit_word(l);
-    if (tail && *tail) {
-        r.total += tail;
-        r.shown.push_back(r.total);
-    }
+    if (tail && *tail) r.total += tail;
     hunmin_buffered_preedit_free(l);
     return r;
 }
 
-/* The oracle: the engine alone, no layer. Its output is the reference text the
- * layer must reproduce in both modes. */
-std::string drive_engine(hunmin_ctx *ctx, const std::string &sequence, const char *layout = "dubeolsik") {
+/* The oracle: the engine alone, no layer, projected the same way. Its sequence of
+ * projections is the reference the layer must reproduce in BOTH modes. */
+RunResult drive_engine(hunmin_ctx *ctx, const std::string &sequence, const char *layout = "dubeolsik") {
+    RunResult r;
     hunmin_ic *ic = hunmin_ic_new(ctx, layout);
-    std::string total;
+    EXPECT_NE(ic, nullptr);
+    if (!ic) return r;
+    std::string document;
     for (const Key &k : keys_of(sequence)) {
         const bool eaten = hunmin_ic_process_key(ic, k.base, k.shift);
-        if (eaten) {
-            const char *c = hunmin_ic_commit(ic);
-            if (c) total += c;
-        } else {
-            const char *c = hunmin_ic_flush(ic);
-            if (c) total += c;
+        const char *c = hunmin_ic_commit(ic);
+        r.commits.push_back(c ? c : "");
+        if (c) {
+            r.total += c;
+            document += c;
         }
+        if (!eaten) client_edit(document, k.base);
+        const char *pre = hunmin_ic_preedit(ic);
+        r.shown.push_back(document + std::string(pre ? pre : ""));
     }
     const char *tail = hunmin_ic_flush(ic);
-    if (tail) total += tail;
+    if (tail) r.total += tail;
     hunmin_ic_free(ic);
-    return total;
+    return r;
 }
 
 class LayerTest : public hunmin_test::CtxTest {
@@ -130,28 +140,48 @@ class LayerTest : public hunmin_test::CtxTest {
 /* The sequences below are chosen for the shapes that used to differ between the
  * three adapters: a word continued across a syllable boundary, a space and an
  * Enter, a digit (the interim dubeolsik defect's key class), a backspace inside
- * a composition, and a backspace over an empty composition (the decline path). */
+ * a composition, and a backspace over an empty composition (the decline path).
+ * The last two are FE18's (#332): a BackSpace that crosses a FINISHED syllable,
+ * which is the key the two modes answer differently (one owns the text, the
+ * other has already delivered it). The projection makes them equal anyway, and
+ * that equality is the assertion. */
 const char *kSequences[] = {"dkssud",    "dkssud ", "dkssud gksrmf", "dkssud1",  "dkssu", "dkssud\bd",
-                            "dkssud \b", "rkqt",    "gksrmf",        "dkssud\n", "qk",    "0"};
+                            "dkssud \b", "rkqt",    "gksrmf",        "dkssud\n", "qk",    "0",
+                            "rkrk\b\b\b\b", "dkssud\b\b\b\b", "dkssud\b\btm"};
 
 TEST_F(LayerTest, BothCommitModesAgreeWithTheEngine) {
     for (const char *seq : kSequences) {
-        const std::string oracle = drive_engine(ctx_, seq);
+        const RunResult oracle = drive_engine(ctx_, seq);
         const RunResult buffered = drive_layer(ctx_, seq, HUNMIN_COMMIT_AT_BOUNDARY);
         const RunResult syllable = drive_layer(ctx_, seq, HUNMIN_COMMIT_PER_SYLLABLE);
-        EXPECT_EQ(buffered.total, oracle) << "sequence: " << seq;
-        EXPECT_EQ(syllable.total, oracle) << "sequence: " << seq;
+        ASSERT_EQ(oracle.shown.size(), buffered.shown.size()) << "sequence: " << seq;
+        for (size_t i = 0; i < oracle.shown.size(); i++) {
+            EXPECT_EQ(buffered.shown[i], oracle.shown[i]) << "sequence: " << seq << " key " << i << " (boundary policy)";
+            EXPECT_EQ(syllable.shown[i], oracle.shown[i]) << "sequence: " << seq << " key " << i << " (syllable policy)";
+        }
     }
 }
 
-TEST_F(LayerTest, BothCommitModesAgreeOnConsumptionAndDisplay) {
+TEST_F(LayerTest, BothCommitModesAgreeOnTheProjection) {
     for (const char *seq : kSequences) {
         const RunResult buffered = drive_layer(ctx_, seq, HUNMIN_COMMIT_AT_BOUNDARY);
         const RunResult syllable = drive_layer(ctx_, seq, HUNMIN_COMMIT_PER_SYLLABLE);
-        ASSERT_EQ(buffered.eaten.size(), keys_of(seq).size()) << "sequence: " << seq;
-        EXPECT_EQ(buffered.eaten, syllable.eaten) << "sequence: " << seq;
-        const size_t n = std::min(buffered.shown.size(), syllable.shown.size());
-        for (size_t i = 0; i < n; i++) { EXPECT_EQ(buffered.shown[i], syllable.shown[i]) << "sequence: " << seq << " key " << i; }
+        const std::vector<Key> keys = keys_of(seq);
+        ASSERT_EQ(buffered.shown.size(), keys.size()) << "sequence: " << seq;
+        for (size_t i = 0; i < keys.size(); i++) {
+            EXPECT_EQ(buffered.shown[i], syllable.shown[i]) << "sequence: " << seq << " key " << i;
+            /* The consumed/declined answer is NOT compared: the maintainer ruled
+             * 2026-11-27 that it is not a contract (docs/SPEC-MODES.md §ReqMode14),
+             * because which mode holds the text decides who can eat the key. The
+             * projection above is the contract, and FE18 still needs its own
+             * assertion: a BackSpace commits nothing, in either mode. Before the
+             * fix the buffered mode committed its whole word on the first DEL
+             * past the in-flight syllable (measured 9/34 DELs on the phone). */
+            if (keys[i].base == 0x08) {
+                EXPECT_EQ(buffered.commits[i], "") << "sequence: " << seq << " key " << i << " (boundary policy)";
+                EXPECT_EQ(syllable.commits[i], "") << "sequence: " << seq << " key " << i << " (syllable policy)";
+            }
+        }
     }
 }
 
@@ -189,7 +219,41 @@ TEST_F(LayerTest, SyllableModeCommitsEachFinalisedSyllable) {
     /* The point of this mode: text reaches the client before the boundary. */
     EXPECT_TRUE(delivered_mid_word) << "syllable mode held the text until the end";
     got += hunmin_buffered_preedit_commit_word(l);
-    EXPECT_EQ(got, drive_engine(ctx_, "dkssu"));
+    EXPECT_EQ(got, drive_engine(ctx_, "dkssu").total);
+    hunmin_buffered_preedit_free(l);
+}
+
+/* FE18 (docs/SPEC-FRONTEND.md#§FE18, issue #332): a BackSpace deletes into the
+ * composing word and keeps it composing. Before this, the engine declined the
+ * key (its own syllable buffer was empty, the finished syllables were in the
+ * layer's word) and a declined key is a boundary -- so the first BackSpace on a
+ * two-syllable word committed it instead of deleting, and 9 of 34 backspaces in
+ * one session left jamo in the client (issue #332).
+ *
+ * The walk asserted here is the ic path's walk on the same keys, which is what
+ * FE1/FE2 require: the in-flight syllable loses its jamo first, then the
+ * finished syllables leave the layer's word one character at a time, and only
+ * the BackSpace AFTER the word is empty is declined -- that is the one the
+ * client receives. Nothing is committed at any point. */
+TEST_F(LayerTest, BackspaceEditsTheComposingWordAndNeverCommitsIt) {
+    /* Four keys type 가가, then four BackSpaces walk it back down. */
+    const char *kExpectedPreedit[] = {"ㄱ", "가", "각", "가가", "가ㄱ", "가", "", ""};
+    const int kExpectedEaten[] = {1, 1, 1, 1, 1, 1, 1, 0};
+
+    hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx_, "dubeolsik", nullptr, HUNMIN_COMMIT_AT_BOUNDARY);
+    ASSERT_NE(l, nullptr);
+    const std::string kSequence = std::string("rkrk") + std::string(4, '\b');
+    for (size_t i = 0; i < kSequence.size(); ++i) {
+        const uint32_t base = (uint32_t)(unsigned char)kSequence[i];
+        hunmin_key_result out{};
+        const int eaten = hunmin_buffered_preedit_process_key(l, base, 0, &out);
+        EXPECT_EQ(eaten, kExpectedEaten[i]) << "key " << i << " (base 0x" << std::hex << base << ")";
+        EXPECT_STREQ(out.commit, "") << "the composing word was committed at key " << i;
+        EXPECT_STREQ(out.preedit, kExpectedPreedit[i]) << "preedit at key " << i;
+    }
+    /* The word is gone and the layer has nothing left to deliver: the commit on
+     * the next boundary must be empty, not the word the deletes removed. */
+    EXPECT_STREQ(hunmin_buffered_preedit_commit_word(l), "");
     hunmin_buffered_preedit_free(l);
 }
 
@@ -354,7 +418,7 @@ TEST_F(LayerTest, TheCapIsConfigurableAndZeroMeansNoCap) {
     size_t flushes_small = 0, largest_small = 0, flushes_none = 0, largest_none = 0;
     const std::string text_small = run(64, &flushes_small, &largest_small);
     const std::string text_none = run(0, &flushes_none, &largest_none);
-    const std::string oracle = drive_engine(ctx_, sequence);
+    const std::string oracle = drive_engine(ctx_, sequence).total;
 
     EXPECT_EQ(text_small, oracle) << "a 64 B cap lost text";
     EXPECT_EQ(text_none, oracle) << "no-cap mode lost text";
@@ -394,7 +458,7 @@ TEST_F(LayerTest, EachFlushedHalfIsTheNextPrefixAndTheRemainderFlushesCleanly) {
     const char *groups[] = {"dks", "rk", "dl", "tj", "gks"}; /* 안 가 이 서 핫 */
     std::string sequence;
     for (int i = 0; sequence.size() < 1200; ++i) sequence += groups[i % 5];
-    const std::string expected = drive_engine(ctx_, sequence);
+    const std::string expected = drive_engine(ctx_, sequence).total;
     ASSERT_EQ(expected.size() % 3, 0u);
     ASSERT_GE(expected.size(), 600u) << "the oracle is shorter than the typed bytes";
 
@@ -512,7 +576,7 @@ TEST_F(LayerTest, DigitResolvedAtASymbolTierIsHeldToo) {
 TEST_F(LayerTest, DigitRunsAgreeWithTheEngineInBothCommitModes) {
     for (const char *layout : {"sin3-p2", "sebeolsik-final"}) {
         for (const char *seq : {"1234567890", "dks123", "dks12", "jk1", "1"}) {
-            const std::string oracle = drive_engine(ctx_, seq, layout);
+            const std::string oracle = drive_engine(ctx_, seq, layout).total;
             const RunResult buffered = drive_layer(ctx_, seq, HUNMIN_COMMIT_AT_BOUNDARY, layout);
             const RunResult syllable = drive_layer(ctx_, seq, HUNMIN_COMMIT_PER_SYLLABLE, layout);
             EXPECT_EQ(buffered.total, oracle) << layout << " " << seq << " (buffered)";
@@ -552,7 +616,7 @@ TEST_F(LayerTest, TheCapCountsDigitRunsInBytesLikeSyllables) {
  * without it this test would pass on any build where nothing ever switches. */
 TEST_F(LayerTest, TurningTheSwitchOffMidWordLosesNothing) {
     const std::string seq = "hello ";
-    const std::string oracle = drive_engine(ctx_, seq);
+    const std::string oracle = drive_engine(ctx_, seq).total;
 
     /* flip_after = index of the key at which the person turns the switch off;
      * -1 keeps it on for the whole word (the control). */

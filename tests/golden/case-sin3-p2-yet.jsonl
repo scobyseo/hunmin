@@ -1,14 +1,14 @@
-{"meta": {"source": "designed", "spec": "pat.im/1136's 옛한글 tier (docs/SPEC-P2.md, gate corpus manual-sin3-p2-yet.jsonl); ReqMode6 for the number row (docs/SPEC-MODES.md)", "layout": "sin3-p2-yet", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "note": "expected commit/preedit per key are the engine's answers, never typed; a diff here is a change to the layout or the composer and must be reviewed"}}
+{"meta": {"source": "designed", "spec": "pat.im/1136's 옛한글 tier (docs/SPEC-P2.md, gate corpus manual-sin3-p2-yet.jsonl); ReqMode6 for the number row (docs/SPEC-MODES.md)", "layout": "sin3-p2-yet", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "assert": "projection", "note": "expected `visible` per key is the text a person ends up with (the engine's delivered text that survives, plus what is composing, with the client's own insert/delete on a declined key). The commit/preedit split is NOT asserted here: it is the commit unit, and tier C asserts it per event (docs/DESIGN-FRONTEND.md §5.2, §6). A diff here is a change to the layout or the composer and must be reviewed"}}
 {"meta": {"case": "digit-row-and-empty-backspace", "feature": "the number row, and the declined key after the word", "note": "same row as the base P2 -- the 옛한글 tables change the jamo, not the digits; the space ends the word and the BackSpace after it is declined on the empty buffer (issue #229)"}}
-{"in": {"ch": "0"}, "commit": "0", "preedit": ""}
-{"in": {"ch": "1"}, "commit": "1", "preedit": ""}
-{"in": {"ch": "2"}, "commit": "2", "preedit": ""}
-{"in": {"ch": "3"}, "commit": "3", "preedit": ""}
-{"in": {"ch": "4"}, "commit": "4", "preedit": ""}
-{"in": {"ch": "5"}, "commit": "5", "preedit": ""}
-{"in": {"ch": "6"}, "commit": "6", "preedit": ""}
-{"in": {"ch": "7"}, "commit": "7", "preedit": ""}
-{"in": {"ch": "8"}, "commit": "8", "preedit": ""}
-{"in": {"ch": "9"}, "commit": "9", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "\b"}, "commit": "", "preedit": ""}
+{"in": {"ch": "0"}, "visible": "0"}
+{"in": {"ch": "1"}, "visible": "01"}
+{"in": {"ch": "2"}, "visible": "012"}
+{"in": {"ch": "3"}, "visible": "0123"}
+{"in": {"ch": "4"}, "visible": "01234"}
+{"in": {"ch": "5"}, "visible": "012345"}
+{"in": {"ch": "6"}, "visible": "0123456"}
+{"in": {"ch": "7"}, "visible": "01234567"}
+{"in": {"ch": "8"}, "visible": "012345678"}
+{"in": {"ch": "9"}, "visible": "0123456789"}
+{"in": {"ch": " "}, "visible": "0123456789 "}
+{"in": {"ch": "\b"}, "visible": "0123456789"}

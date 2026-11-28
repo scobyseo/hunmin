@@ -1726,3 +1726,32 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   `5043157`: wrapper exports `HUNMIN_DATA_PATH`, `enable` preflights the installed
   lib and restores the packaged engine if it fails, and the engine warns in the
   journal instead of failing silently.
+
+## [2026-11-27] update | FE18 implemented — backspace edits the composing word
+
+- Created [[2026-11-27-fe18-backspace-edits-the-word]]: #332's engine fix
+  (`buffered_preedit` deletes its own word when the engine declines a
+  BackSpace), the measured walk that corrected the issue checklist's middle
+  states, the `keys_unreliable` abstain for the ReqMode8 readings, and what is
+  unverified here (TSF on Windows, the phone / espresso round). Docs: FE18
+  implementation + `docs/REQ-MAP.md` row; tier-A golden case and layer test
+  added. Index updated.
+
+## [2026-11-27] update | tier A asserts the projection; tier C keeps the split
+
+- Created [[2026-11-27-projection-goldens-and-the-trace-pipeline]]: five designed
+  corpora moved from `commit`/`preedit` to `visible` (`meta.assert =
+  "projection"`), the rule implemented twice (`sim.c` checker and
+  `tools/_projection.py`) as each other's cross-check, and the trace pipeline
+  proved unchanged by regenerating four families byte-identically. Records the
+  mutation finding: the projection alone does not catch FE18, so the
+  commits-nothing assertion stays beside it. Index updated.
+
+## [2026-11-27] decision | consumed/declined is not a contract
+
+- Created [[2026-11-27-consumed-is-not-a-contract]]: maintainer ruling
+  "consumed는 계약으로 보지 않는 게 맞다고 생각해" recorded in
+  `docs/SPEC-MODES.md#§ReqMode14`. `hunmin-sim --off-check` and
+  `engine-buffered-preedit` now compare the projection and not the flag; tier C
+  keeps `consumed` as what an adapter must relay. Also corrects the id the
+  earlier FE18 note used (ReqMode4 → ReqMode14). Index updated.

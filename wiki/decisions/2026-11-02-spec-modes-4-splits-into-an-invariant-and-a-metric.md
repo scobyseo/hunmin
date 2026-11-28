@@ -14,6 +14,12 @@ confidence: high
 
 # SPEC-MODES §4 splits into an invariant and a metric, and the invariant gets ReqMode14
 
+> **Amended 2026-11-27.** The "consumed/declined decision per key" half of the
+> scope described below was narrowed out by a later ruling — "consumed는 계약으로
+> 보지 않는 게 맞다고 생각해" — recorded in `docs/SPEC-MODES.md#§ReqMode14` and
+> [[2026-11-27-consumed-is-not-a-contract]]. What this page records (the split,
+> the id, the oracle) stands; only that half of "delivery" does not.
+
 **Ruling (2026-11-02, issue #179).** The maintainer's words, verbatim:
 
 > "§4 는 뭐니? 요구사항이 누락된 이유는 뭘까?"

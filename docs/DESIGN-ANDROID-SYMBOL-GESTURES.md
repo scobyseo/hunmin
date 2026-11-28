@@ -407,7 +407,7 @@ repo (`~/work/hunmin-measurements/usability-eval-312-2026-11-26/`, with
 
 | # | measured in the trace | maintainer's ruling | outcome |
 |---|---|---|---|
-| 1 | backspace **committed** the composing word: 9 of 34 backspaces (26%) returned `consumed=false` with a commit; 8 of 39 typed characters were leftover jamo (`ㅅ`, `ㅈㅇ`, `ㅓ`, `ㄱ`, `ㅅㅍㅣ`). Reproduced deterministically: `hunmin-sim --layer word --keys $'rkrk\b\b\b'` → `commit '가'`; the ic path deletes normally | engine fix, both surfaces alike, its own issue | **issue #332**, requirement `docs/SPEC-FRONTEND.md#§FE18` — not fixed here (the Android gesture work is #312) |
+| 1 | backspace **committed** the composing word: 9 of 34 backspaces (26%) returned `consumed=false` with a commit; 8 of 39 typed characters were leftover jamo (`ㅅ`, `ㅈㅇ`, `ㅓ`, `ㄱ`, `ㅅㅍㅣ`). Reproduced deterministically: `hunmin-sim --layer word --keys $'rkrk\b\b\b'` → `commit '가'`; the ic path deletes normally | engine fix, both surfaces alike, its own issue | **issue #332**, requirement `docs/SPEC-FRONTEND.md#§FE18` — fixed in #332, not here (the Android gesture work is #312); the post-fix walk is in FE18 |
 | 2 | swipe-left on the **space bar** deleted text (2×, `dx ≈ -161`) | "커서 이동으로 수정하자" | implemented: `KeypadModel.swipeLeftAction` → `CURSOR_LEFT` on space, `DELETE` elsewhere; E1 pins the exception, the E2E round asserts `ab` + swipe-left + `x` → `axb` |
 | 3 | two upward-left swipes on `t` (`dx = -63 / -117`) were read as swipe-up and typed `ㅆ` | "이건 시프트를 의도한 게 맞아" | no change: the recognition was correct; recorded so a future reader does not re-open it |
 

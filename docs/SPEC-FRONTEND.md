@@ -14,7 +14,10 @@ hold and records which differences are permitted. It does not restate them.
 ### FE1. Same layout and keys give the same committed text
 
 Given the same layout, the same options and the same key sequence, every
-frontend produces the same committed text. *Ruling:* the equivalence invariant,
+frontend produces the same committed text. What is asserted per key is the
+**projection** — the text a person ends up with, through the engine and both
+commit units — not the commit/preedit split, which is the commit unit's
+(`docs/DESIGN-FRONTEND.md` §5.2). *Ruling:* the equivalence invariant,
 `docs/DESIGN-FRONTEND.md#part-a--equivalence-formerly-frontend-equivalencemd`. *Implementation:*
 `libhunmin/src/buffered_preedit.c#hunmin_buffered_preedit_process_key`.
 *Refuted by:* `engine-buffered-preedit`, `engine-key-rule`,
@@ -233,6 +236,42 @@ the whole word instead: 9 of 34 backspaces in one session left text behind
 $'rkrk\b\b\b'` deterministically yields `commit '가'`. The same keys on the ic
 path delete fully, which is the divergence this requirement removes.
 
-*Implementation:* none — issue #332 (engine, every frontend).
-*Refuted by:* none yet.
+*Implementation:* `libhunmin/src/buffered_preedit.c#hunmin_buffered_preedit_process_key`
+(`backspace_deletes_word`, `word_pop_char`) for the buffered path, and
+`libhunmin/src/ic.c#hunmin_ic_process` for the per-syllable path. In
+`HUNMIN_COMMIT_AT_BOUNDARY` mode the layer answers a BackSpace the engine
+declined — its own syllable buffer is empty, the earlier syllables are the
+layer's word — by deleting the last code point of that word and consuming the
+key. Measured after the fix, `dubeolsik --layer word --keys
+$'rkrk\b\b\b\b'`: the preedit walks `가가 → 가ㄱ → 가 → (empty)`, no key
+commits anything, and the fourth BackSpace is the declined one the client
+receives. This is the ic path's own walk on the same keys, which is what FE1
+and FE2 require. The issue's verification checklist expected
+`가가 → 가 → ㄱ → (empty)`; measurement shows the in-flight syllable loses its
+jamo first because it is the engine's, and only the finished syllable is
+removed whole from the layer's word — the checklist's endpoints (no commit, the
+fourth key passed through) hold, its two middle states were a guess.
+A `HUNMIN_COMMIT_PER_SYLLABLE` layer is unchanged: its finished syllables are
+already in the client, so a declined BackSpace is the client's own delete.
+One consequence, also measured: a delete breaks the correspondence between the
+key log and the word, so the `ReqMode8` readings are not taken for the rest of
+that word (`keys_unreliable`) and the automatic switch abstains instead of
+judging text that is no longer on screen. The consumed/declined answer this
+requirement changes is **not a contract** (maintainer ruling 2026-11-27, recorded
+in `docs/SPEC-MODES.md#§ReqMode14`), so the OFF path compares the text and not the
+flag. Measured 2026-11-27, and it decides how this requirement is refuted: the
+projection is identical with the defect and without it (a commit followed by the
+client's delete is text-equivalent), so the assertion that catches a regression
+is the one that a BackSpace **commits nothing** in either mode —
+`engine-buffered-preedit` asserts both, and disabling FE18 turns the second red
+while the projection comparison stays green.
+*Refuted by:* `engine-buffered-preedit`
+(`BackspaceEditsTheComposingWordAndNeverCommitsIt` — the walk above, no commit,
+and the declined key only after the word is empty); `engine-golden-case-dubeolsik`
+(`backspace-edits-the-word`, the ic half of the same walk, and
+`conformance-tests_conformance_x11_case-dubeolsik.trace.in` replays it through a
+real adapter); `engine-android-e1`
+(`HunminAdapterTest.backspace deletes the buffered word instead of committing
+it`). The TSF half (`frontends/tsf/test/tsf-candidate-test.cpp` cases 11d-11e)
+is updated to the same contract but needs a Windows host, so it is not run here.
 

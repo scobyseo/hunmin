@@ -234,16 +234,41 @@ Tier A asserts the property the layer exists for, as equalities rather than
 golden text: mode vs mode per key, and layer vs the engine driven directly
 (`engine-buffered-preedit`, `libhunmin/tests/buffered-preedit-test.cpp`).
 
-### 5.2 A wording question this implementation exposes
+### 5.2 The quantity tier A asserts, and what is allowed to differ
 
 §1 says "the same preedit string after each key", but §1 and §5 also make the
 commit boundary a frontend choice — and those two cannot both hold literally: a
 buffered frontend shows the finished syllables of the word as preedit while a
 syllable frontend has already committed them, so their preedit strings differ by
-exactly the text one of them has delivered. The implementation therefore asserts
-the observable quantity: **committed-so-far + preedit is equal per key**, and
-the concatenation is equal. Whether the rule should be worded that way is the
-maintainer's call; it is recorded here rather than silently rewritten.
+exactly the text one of them has delivered.
+
+The quantity that survives that difference is the **projection**: the text a
+person ends up with — the engine's delivered text that survives, plus what is
+composing — with the client's own edit for a key the driver declines (a
+BackSpace removes the last code point, a printable key is inserted). It is
+identical per key through `hunmin_ic`, the boundary layer and the syllable layer,
+including FE18's walk `rkrk\b\b\b\b` (가가 → 가ㄱ → 가 → "" → ""), where
+per-key `consumed` differs. Measured 2026-11-27 (ctest `engine-buffered-preedit`).
+
+That is why the corpus is split by what each tier owns:
+
+| tier | asserts | why there |
+|---|---|---|
+| A (`visible`) | the projection, per key | it is the one mode-invariant quantity; the layout data and the composer are what a corpus is for |
+| A (`commit`/`preedit`, unchanged files) | the split | where the split itself is the subject (ref-* parity, patim's `total`, judgement) |
+| C (`commit`/`preedit`/`consumed`) | what an adapter must RELAY per event | the corpus is generated from the engine, so `consumed` there is the expectation for the relay, not a mode-independent rule |
+
+**The consumed/declined answer is not a contract** (maintainer ruling 2026-11-27:
+"consumed는 계약으로 보지 않는 게 맞다고 생각해", recorded in
+`docs/SPEC-MODES.md#§ReqMode14`). For a BackSpace that crosses a FINISHED
+syllable, the mode that still holds the text consumes the key and the mode whose
+text is already in the client declines it; the same user-visible result therefore
+has different answers, and neither tier A nor the OFF path compares the flag any
+more. `engine-buffered-preedit` asserts the projection is equal there and that a
+BackSpace **commits nothing in either mode** — the assertion that catches FE18's
+defect. The projection alone does not: a commit followed by the client's delete is
+text-equivalent (mutation-measured 2026-11-27 — disabling FE18 leaves the
+projection test green and turns the no-commit assertion red).
 
 ### 5.3 Frontends on the layer
 

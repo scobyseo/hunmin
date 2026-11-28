@@ -269,6 +269,37 @@ the word "backspace". A converter that knows only one refuses the other outright
 2026-11-03, `tools/gen-conformance.py` answered `no X11 keysym known for '\x08'` and
 refused a whole golden whose only unusual key was an empty-buffer BackSpace (issue #229).
 
+### Projection corpora (`meta.assert = "projection"`)
+
+A designed corpus may assert **`visible` instead of the commit/preedit split**:
+
+```
+{"meta": {"layout": "dubeolsik", "assert": "projection"}}
+{"in": {"ch": "r"}, "visible": "ㄱ"}
+{"in": {"ch": "\b"}, "visible": ""}
+```
+
+`visible` is the text a person ends up with: every commit the engine has delivered
+that still survives, the in-flight preedit on top, and — because the engine never
+sees it — the CLIENT's own edit for a key the driver DECLINES (a BackSpace removes
+the last code point, a printable key is inserted). It is the one quantity that does
+not depend on the commit unit (docs/DESIGN-FRONTEND.md §5.2), which is why tier A
+asserts it per key. The two implementations are `tools/sim.c`'s checker and
+`tools/_projection.py`, so a generator and a checker cannot silently agree on a
+wrong rule.
+
+A line carries `visible` **or** `commit`/`preedit`, never both: an assertion that
+offers two answers leaves the reader unsure which one is the contract. Under
+`assert: projection` a line without `visible` is an error, not a fallback.
+
+The per-key `commit`/`preedit`/`consumed` split is still asserted — by tier C
+(`docs/trace-spec.md`), whose traces are generated from the engine
+(`tools/gen-conformance.py --sim`) rather than copied from a projection corpus,
+and cross-checked against that corpus's `visible`. A corpus that keeps the split
+(ref-*, patim's `mode: "total"`, the judgement corpus) is unchanged; `total` is
+NOT `visible`: it is patim's per-step composing-else-commit, not the cumulative
+user text.
+
 ## Provenance / licensing
 `data-orig/libhangul/` vendors libhangul 0.2.0's kbd/combination XML + `hangulkeyboard.h`
 (LGPL-2.1+, © Choe Hwanjin et al.) as converter inputs. Keyboard **arrangements** are

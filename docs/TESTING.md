@@ -563,10 +563,15 @@ keys — was asserted only at tier A). Those ten were then merged into ONE file 
 nine interior boundaries are the merge's declined spaces, not labels, so the merge kept
 them rather than erasing them.
 The same day, 두벌식 and 신세벌식 P2 got designed families of the same shape
-(`tests/golden/case-dubeolsik.jsonl`, `case-sin3-p2.jsonl`, eleven cases each, merged to
-one trace — twelve since #229 added the digit row): one jamo per key with Shift-is-된소리 and a number row the layout does **not**
+(`tests/golden/case-dubeolsik.jsonl`, `case-sin3-p2.jsonl`, merged to one trace each —
+twelve cases since #229 added the digit row, thirteen in 두벌식 since FE18 added the
+BackSpace walk): one jamo per key with Shift-is-된소리 and a number row the layout does **not**
 map for 두벌식, and for P2 the 갈마들이 pairs, 종성 on its own letter key, the 2024 받침
-rule and a number row spent on literal digits. Both families' `.in` equals their `.gold`
+rule and a number row spent on literal digits. Those five designed families are
+**projection corpora** (`meta.assert = "projection"`, `docs/SPEC-SCHEMA.md`): tier A
+asserts `visible` per key and the traces' per-key split is generated from the engine,
+byte-identically to what the corpora carried before (measured 2026-11-27).
+Both families' `.in` equals their `.gold`
 event by event: they replay under tier A's own policy, because what they add is the
 layout's key table and its declined characters, not a delivery model — that is the
 `sebeolsik-final` family's job and doing both here would blur them.
