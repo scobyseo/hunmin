@@ -714,6 +714,153 @@ TEST_F(WordSetTest, PerKeyTimingInLatinModeShowsHangulForEnglishThenReturns) {
     EXPECT_EQ(per_key, boundary);
 }
 
+/* E6's stability knob (issue #295, G3 expectability). `judge_hold` is how many
+ * EXTRA keys the per-key display waits for before it adopts a changed judgement;
+ * 0 is the ruled default's rendering (adopt at once). What must hold at every
+ * value is the E6 property the ruling already pins: the display moves, the text
+ * and the recorded judgement do not -- which is why a lower flip count is a G3
+ * result at an equal pool share rather than a change of behaviour. */
+namespace {
+
+/* The preedit after each key -- the whole display sequence, so a test can say
+ * where a flip happened, not only how many there were. */
+std::vector<std::string> display_run(hunmin_buffered_preedit *l, const char *keys,
+                                     std::string *delivered = nullptr) {
+    std::vector<std::string> shown;
+    for (const char *p = keys; *p; ++p) {
+        hunmin_key_result out{};
+        hunmin_buffered_preedit_process_key(l, static_cast<uint32_t>(*p), 0, &out);
+        shown.push_back(out.preedit ? out.preedit : "");
+        if (delivered && out.commit) *delivered += out.commit;
+    }
+    return shown;
+}
+
+/* Flips: rendered-language changes inside the word, the unit
+ * docs/MODES-MEASUREMENT.md §2.5 counts (`tools/modes-metrics.py`). */
+int display_changes_of(const std::vector<std::string> &shown) {
+    bool was_latin = false, have = false;
+    int changes = 0;
+    for (const std::string &text : shown) {
+        bool has_h = false, has_l = false;
+        for (char c : text) {
+            unsigned char u = static_cast<unsigned char>(c);
+            if (u >= 0x80) has_h = true; /* only Hangul is >= 0x80 here */
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) has_l = true;
+        }
+        if (has_h == has_l) continue; /* neither (delimiter) or both: not a language */
+        const bool latin = has_l;
+        if (!have) {
+            was_latin = latin;
+            have = true;
+        } else if (latin != was_latin) {
+            changes++;
+            was_latin = latin;
+        }
+    }
+    return changes;
+}
+
+} // namespace
+
+TEST_F(WordSetTest, JudgeHoldIsAnOptionWhoseDefaultIsTheShippedRendering) {
+    hunmin_buffered_preedit *l = pair_layer(ctx_, 1);
+    ASSERT_NE(l, nullptr);
+    int hold = -1;
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l, "judge_hold", &hold));
+    EXPECT_EQ(0, hold) << "the ruled default's rendering is unchanged: the knob is opt-in";
+    EXPECT_TRUE(hunmin_buffered_preedit_set_option(l, "judge_hold", 1));
+    ASSERT_TRUE(hunmin_buffered_preedit_get_option(l, "judge_hold", &hold));
+    EXPECT_EQ(1, hold);
+    EXPECT_FALSE(hunmin_buffered_preedit_set_option(l, "judge_hold", -1)) << "a negative hold would mean nothing";
+    EXPECT_FALSE(hunmin_buffered_preedit_set_option(l, "judge_hold", 17)) << "the bound is the word cap's question, not a stability one";
+    hunmin_buffered_preedit_free(l);
+}
+
+TEST_F(WordSetTest, TheHoldReducesTheFlickerAndNeverMovesTheText) {
+    /* One key of agreement removes the flash-and-return shape entirely: at 0
+     * `alphabetically` renders the other language at alternating keys, and at 1
+     * never. That is the whole E6 complaint (도깨비) in one word. */
+    hunmin_buffered_preedit *immediate = pair_layer(ctx_, 1);
+    hunmin_buffered_preedit *held = pair_layer(ctx_, 1);
+    ASSERT_NE(immediate, nullptr);
+    ASSERT_NE(held, nullptr);
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(held, "judge_hold", 1));
+
+    std::string commit_a, commit_b;
+    const std::vector<std::string> a = display_run(immediate, "alphabetically ", &commit_a);
+    const std::vector<std::string> b = display_run(held, "alphabetically ", &commit_b);
+    EXPECT_GT(display_changes_of(a), 1) << "the shipped rendering flickers on a long English word";
+    EXPECT_EQ(0, display_changes_of(b)) << "one key of agreement is enough to keep this word's screen still";
+    /* Same delivered text and same judgement, which is what makes this a G3
+     * result at an equal pool share and not a behaviour change (E6's ruling). */
+    EXPECT_EQ(commit_a, commit_b);
+    const int judged_a = hunmin_buffered_preedit_take_judgement(immediate);
+    const int judged_b = hunmin_buffered_preedit_take_judgement(held);
+    EXPECT_EQ(judged_a, judged_b) << "the hold changed the judgement, not only the display";
+    EXPECT_EQ(HUNMIN_LANGUAGE_LATIN, judged_b);
+    hunmin_buffered_preedit_free(immediate);
+    hunmin_buffered_preedit_free(held);
+}
+
+TEST_F(WordSetTest, TheHoldDelaysAGenuineFlipAndKeepsTheFlashOutOfTheE1Direction) {
+    /* A word that really is the other language still gets there -- one key later:
+     * `hello` shows `hell` at key 4 at hold 0 and the Hangul rendering until key
+     * 5 at hold 1. The count is 1 either way; what moves is where it arrives. */
+    hunmin_buffered_preedit *immediate = pair_layer(ctx_, 1);
+    hunmin_buffered_preedit *held = pair_layer(ctx_, 1);
+    ASSERT_NE(immediate, nullptr);
+    ASSERT_NE(held, nullptr);
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(held, "judge_hold", 1));
+
+    const std::vector<std::string> a = display_run(immediate, "hello ");
+    const std::vector<std::string> b = display_run(held, "hello ");
+    ASSERT_GT(a.size(), 3u);
+    ASSERT_GT(b.size(), 4u);
+    EXPECT_EQ("hell", a[3]) << "hold 0 shows the Latin reading at the key the judgement first says so";
+    EXPECT_EQ("ㅗ디ㅣ", b[3]) << "hold 1 keeps the mode's rendering at that key";
+    EXPECT_EQ("hello", b[4]) << "and adopts it at the next agreeing key";
+    EXPECT_EQ(1, display_changes_of(a));
+    EXPECT_EQ(1, display_changes_of(b)) << "the genuine flip is not lost, only delayed";
+
+    /* issue #221's flash, E1 direction: at hold 0 `english` in Latin mode renders
+     * the Hangul reading at key 4 and returns at 5; at hold 1 it never does. */
+    hunmin_buffered_preedit *latin_immediate = pair_layer(ctx_, 1);
+    hunmin_buffered_preedit *latin_held = pair_layer(ctx_, 1);
+    ASSERT_NE(latin_immediate, nullptr);
+    ASSERT_NE(latin_held, nullptr);
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(latin_held, "judge_hold", 1));
+    hunmin_key_result toggled{};
+    EXPECT_EQ(1, hunmin_buffered_preedit_toggle_language(latin_immediate, &toggled));
+    EXPECT_EQ(1, hunmin_buffered_preedit_toggle_language(latin_held, &toggled));
+    const std::vector<std::string> c = display_run(latin_immediate, "english ");
+    const std::vector<std::string> d = display_run(latin_held, "english ");
+    ASSERT_GT(c.size(), 3u);
+    ASSERT_GT(d.size(), 3u);
+    EXPECT_EQ("두히", c[3]) << "the flash issue #221 observed (lower-case keys; the shifted "
+                                "first key of that test's `English` reads 뚜히)";
+    EXPECT_EQ("engl", d[3]) << "held: the screen stays in the mode's language";
+    EXPECT_EQ(0, display_changes_of(d));
+
+    hunmin_buffered_preedit_free(latin_immediate);
+    hunmin_buffered_preedit_free(latin_held);
+    hunmin_buffered_preedit_free(immediate);
+    hunmin_buffered_preedit_free(held);
+}
+
+TEST_F(WordSetTest, TheHoldBelongsToTheWordThatEnded) {
+    /* The agreement run is the word's, not the layer's: a boundary clears it, so
+     * the next word starts unheld instead of inheriting the previous verdict. */
+    hunmin_buffered_preedit *l = pair_layer(ctx_, 1);
+    ASSERT_NE(l, nullptr);
+    ASSERT_TRUE(hunmin_buffered_preedit_set_option(l, "judge_hold", 1));
+    const std::vector<std::string> first = display_run(l, "hello ");
+    const std::vector<std::string> second = display_run(l, "hello ");
+    ASSERT_EQ(first.size(), second.size());
+    EXPECT_EQ(first, second) << "two identical words render identically: nothing carries across the boundary";
+    hunmin_buffered_preedit_free(l);
+}
+
 TEST_F(WordSetTest, AutoswitchOffIsTheIdentityPath) {
     hunmin_buffered_preedit *off = pair_layer(ctx_, 0);
     ASSERT_NE(off, nullptr);

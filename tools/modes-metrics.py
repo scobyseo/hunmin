@@ -67,10 +67,18 @@ repairs        counted, not replayed. The mode is corrected on the layer so
 ③-bis is reported as a RATE over switches, never as a switch count (§1.4), and
 with both directions separately: `hangul_typed_to_latin` and its reverse.
 
+The report also carries G3's quantity (SPEC-MODES E6, §2.5): the mid-word DISPLAY
+flips — changes of the language a preedit renders inside one eojeol, counted on
+the raw ON arm and stratified by the eojeol's own script. They are a display
+quantity, so every `a r s u q k` figure above is unchanged by the setting that
+moves them (`--judge-hold`), which is what makes "flips reduced at an equal pool
+share" checkable from a pair of runs.
+
 USAGE
   tools/modes-metrics.py --corpus ~/work/hunmin-sentences/wiki-150.jsonl
   tools/modes-metrics.py --corpus CORPUS --json                 # JSONL to stdout
   tools/modes-metrics.py --corpus CORPUS --json-out run.jsonl   # + run.jsonl.meta.json
+  tools/modes-metrics.py --corpus CORPUS --judge-hold 1         # E6 display stability
   tools/modes-metrics.py --selfcheck                            # the guards bite
 
 The corpus is an argument, never a default: a bulk corpus lives outside the
@@ -100,6 +108,27 @@ SIM = REPO / "build" / "hunmin-sim"
 HANGUL, LATIN, OTHER = "hangul", "latin", "other"
 LANG_NAME = {0: HANGUL, 1: LATIN}
 COMMIT_AT_BOUNDARY = 0
+# G3's unit (docs/MODES-MEASUREMENT.md §2.5): the language a preedit RENDERS.
+_HANGUL_RANGES = ((0xAC00, 0xD7A3), (0x1100, 0x11FF), (0x3130, 0x318F),
+                  (0xA960, 0xA97F), (0xD7B0, 0xD7FF))
+
+
+def display_language(text):
+    """Which language a rendered preedit is IN, or None when it shows neither.
+
+    The layer's display is whole-language: `judged_display` either hands back the
+    other layout's reading or the mode's own text, so the scripts do not mix.
+    Digits (ReqMode6's runs), punctuation and the empty string are neither
+    language -- they leave the previous answer standing rather than counting as a
+    change, which is what keeps `1` in a digit run from reading as a flip.
+    """
+    has_h = any(lo <= ord(c) <= hi for c in text for lo, hi in _HANGUL_RANGES)
+    has_l = any(c.isascii() and c.isalpha() for c in text)
+    if has_h and not has_l:
+        return HANGUL
+    if has_l and not has_h:
+        return LATIN
+    return None
 
 
 # --------------------------------------------------------------- the engine
@@ -383,7 +412,8 @@ def plan_sentence(text, table, literals=None):
     return plan
 
 
-def replay(engine, plan, hangul_id, latin_id, autoswitch, repairs, layer=None):
+def replay(engine, plan, hangul_id, latin_id, autoswitch, repairs, layer=None,
+           judge_hold=0):
     """Drive one sentence through one layer; attribute delivery per eojeol.
 
     Returns (tokens, delivered, commit_only, judged_all, mode_after).
@@ -391,6 +421,11 @@ def replay(engine, plan, hangul_id, latin_id, autoswitch, repairs, layer=None):
     the engine declined, which a frontend forwards); `commit_only` is the
     commits alone — the same quantity hunmin-sim --judge reports, which is what
     makes the cross-check exact.
+
+    Each token also carries its mid-word DISPLAY flips (G3, MODES-MEASUREMENT
+    §2.5): `flips` counts changes of the language `out.preedit` renders between
+    consecutive consumed keys of that eojeol, and `display_keys` how many keys
+    rendered a language at all (so a zero can be told from a blind detector).
     """
     own = layer is None
     if own:
@@ -407,6 +442,8 @@ def replay(engine, plan, hangul_id, latin_id, autoswitch, repairs, layer=None):
             if spilled:
                 raise SystemExit(f"reset delivered {spilled!r} while returning to "
                                  f"Hangul mode")
+    if judge_hold:
+        layer.set_option("judge_hold", judge_hold)
     out, commit_only, judged_all = [], [], []
     try:
         prev_script = HANGUL          # the layer starts in Hangul mode
@@ -423,12 +460,21 @@ def replay(engine, plan, hangul_id, latin_id, autoswitch, repairs, layer=None):
                         f"toggle before '{token}' delivered {pre!r} — text escaped at a "
                         f"mode boundary, which is not a case this model can price")
             commits, forwarded, judged = [], [], []
+            shown, flips, display_keys = None, 0, 0
             for base, shift in events + [item["space"]]:
-                consumed, commit, _ = layer.key(base, shift)
+                consumed, commit, preedit = layer.key(base, shift)
                 if commit:
                     commits.append(commit)
                 if not consumed:
                     forwarded.append(chr(base))
+                rendered = display_language(preedit)
+                if rendered is not None:
+                    display_keys += 1
+                    if shown is None:
+                        shown = rendered
+                    elif rendered != shown:
+                        flips += 1
+                        shown = rendered
                 j = layer.judgement()
                 if j >= 0:
                     judged.append(LANG_NAME.get(j, "?"))
@@ -446,6 +492,7 @@ def replay(engine, plan, hangul_id, latin_id, autoswitch, repairs, layer=None):
                    "correct": chunk == token + " ",
                    "judged": judged, "presses": presses,
                    "mode_after": mode, "keys": len(events) + 1,
+                   "flips": flips, "display_keys": display_keys,
                    "missing": item["missing"], "backspaces": 0, "repair": 0}
             if repairs and not rec["correct"]:
                 # MODES-MEASUREMENT §2.1's repair, counted: delete what arrived (the space stays),
@@ -549,13 +596,57 @@ def summarise(cases):
             "manual_presses_on": presses_on, "switches": switches}
 
 
+def summarise_flips(tokens):
+    """G3's quantity: mid-word display flips, counted per eojeol and stratified.
+
+    The arm is the RAW ON arm -- autoswitch on, every judgement performed as a
+    frontend performs it, no repair applied -- because that is the display the
+    feature produces and the one the two stability settings differ in. The
+    repaired arm is a keystroke model, not a screen: it moves the mode to the
+    script a person would have pressed, and a display counted after that would be
+    counting the model.
+
+    A flip is a change of the language the layer RENDERS between two consecutive
+    keys of one eojeol (`display_language`). It is a display quantity by
+    construction: `judged_display` never delivers, so the pool share q and the
+    delivered text are the same whatever this counts. The strata are the
+    eojeol's own script, because the two directions ask different questions --
+    a Hangul eojeol flickering into Latin is the E6 complaint, a Latin eojeol
+    flickering back into Hangul is its E1 mirror.
+
+    `flips_below_the_guard` is the cross-check that the unit means what it says:
+    ReqMode9 refuses to judge under three key inputs, so a flip in a shorter
+    eojeol would be a display that judged without the guard.
+    """
+    strata = {s: {"words": 0, "flips": 0, "words_with_a_flip": 0,
+                  "words_with_a_flip_back": 0, "display_keys": 0}
+              for s in (HANGUL, LATIN, OTHER)}
+    below_guard = 0
+    for rec in tokens:
+        row = strata[rec["script"]]
+        row["words"] += 1
+        row["flips"] += rec["flips"]
+        row["display_keys"] += rec["display_keys"]
+        if rec["flips"] >= 1:
+            row["words_with_a_flip"] += 1
+        if rec["flips"] >= 2:
+            row["words_with_a_flip_back"] += 1
+        if rec["flips"] and rec["keys"] - 1 < 3:
+            below_guard += 1
+    total = {key: sum(row[key] for row in strata.values())
+             for key in ("words", "flips", "words_with_a_flip",
+                         "words_with_a_flip_back", "display_keys")}
+    return {**total, "by_script": strata, "flips_below_the_guard": below_guard}
+
+
 def ratio(num, den):
     return (num / den) if den else None
 
 
 def build_report(cases, sentences_total, not_inputtable, layout, latin,
-                 table_blob, cross, corpus_meta, args):
+                 table_blob, cross, corpus_meta, flip_tokens, args):
     agg = summarise(cases)
+    f = summarise_flips(flip_tokens)
     tab = agg["table"]
     t = sum(sum(row.values()) for row in tab.values())
     switched_typed = sum(tab["switched_to_typed"].values())
@@ -615,6 +706,23 @@ def build_report(cases, sentences_total, not_inputtable, layout, latin,
         "outcomes_by_direction": agg["outcomes_by_direction"],
         "wrong_direction_by_direction": agg["wrong_direction_by_direction"],
         "cross_check": cross,
+        "flips": {
+            "unit": "a change of the language one key's preedit renders, inside one "
+                    "eojeol; keys that render neither language (delimiter, digit-only "
+                    "run) neither count nor clear the previous answer",
+            "judge_hold": args.judge_hold,
+            "total": f["flips"],
+            "words": f["words"],
+            "words_with_a_flip": f["words_with_a_flip"],
+            "words_with_a_flip_back": f["words_with_a_flip_back"],
+            "share_of_words_with_a_flip": ratio(f["words_with_a_flip"], f["words"]),
+            "share_of_words_with_a_flip_back": ratio(f["words_with_a_flip_back"], f["words"]),
+            "mean_flips_per_word_with_a_flip":
+                ratio(f["flips"], f["words_with_a_flip"]),
+            "display_keys": f["display_keys"],
+            "flips_below_the_guard": f["flips_below_the_guard"],
+            "by_script": f["by_script"],
+        },
         "notes": [
             "③-bis is wrong_direction_rate over switches, both directions — never a "
             "switch count (MODES-MEASUREMENT.md §1.4)",
@@ -659,6 +767,12 @@ def build_report(cases, sentences_total, not_inputtable, layout, latin,
                           "mode differs from the script typed + the eojeol's keys",
                 "match": "a eojeol arrived as typed when its delivery, including the "
                          "separator the replay typed, equals token + ' '",
+                "judge_hold": args.judge_hold,
+                "judge_hold_meaning": "E6 display stability (issue #295): 0 = the display "
+                                      "adopts a changed per-key judgement at once, N>0 = "
+                                      "after N+1 consecutive agreeing keys. Display only; "
+                                      "the boundary judgement and the delivered text do not "
+                                      "read it, so q is unchanged by it",
             },
             "generated_at": datetime.datetime.now(datetime.timezone.utc)
                                     .isoformat(timespec="seconds"),
@@ -719,7 +833,7 @@ def run(args):
     if args.limit:
         rows = rows[:args.limit]
 
-    cases, not_inputtable, mismatches = [], [], []
+    cases, not_inputtable, mismatches, flip_tokens = [], [], [], []
     checked = 0
     every = max(1, args.cross_check_every)
     for index, row in enumerate(rows):
@@ -728,7 +842,8 @@ def run(args):
         keys_all = sim_keys([e for item in plan for e in item["events"] + [item["space"]]])
         # The OFF arm is the control: the text must be typeable as written.
         off_tokens, off_text, _, _, _ = replay(engine, plan, args.layout,
-                                               args.latin, 0, False, shared)
+                                               args.latin, 0, False, shared,
+                                               args.judge_hold)
         if off_text != text + " ":
             not_inputtable.append({
                 "id": row["id"], "text": text, "delivered": off_text,
@@ -738,8 +853,10 @@ def run(args):
             continue
         # Raw ON replay (no repairs) — this is the arm hunmin-sim --judge replays,
         # so it is the one the cross-check can compare byte for byte.
-        _, _, raw_commit, raw_judged, raw_mode = replay(
-            engine, plan, args.layout, args.latin, 1, False, shared)
+        raw_tokens, _, raw_commit, raw_judged, raw_mode = replay(
+            engine, plan, args.layout, args.latin, 1, False, shared,
+            args.judge_hold)
+        flip_tokens.extend(raw_tokens)
         # Every Nth sentence by default: hunmin-sim reloads the English list per
         # process, ~130 ms a spawn, so a full corpus of them would dominate the
         # run. The sample is deterministic (every Nth), not random, and one
@@ -756,7 +873,8 @@ def run(args):
                                "mode_after": raw_mode},
                 })
         on_tokens, _, _, on_judged, on_mode = replay(
-            engine, plan, args.layout, args.latin, 1, True, shared)
+            engine, plan, args.layout, args.latin, 1, True, shared,
+            args.judge_hold)
         keys_typed = sum(r["keys"] for r in on_tokens)
         presses_off = sum(r["presses"] for r in off_tokens)
         repair_keys = sum(r["repair"] for r in on_tokens)
@@ -784,7 +902,8 @@ def run(args):
              "method": "hunmin-sim --judge vs the ctypes replay, same key string, "
                        "before any repair is applied; every Nth sentence"}
     report = build_report(cases, len(rows), not_inputtable, args.layout,
-                          args.latin, table_blob, cross, corpus_meta, args)
+                          args.latin, table_blob, cross, corpus_meta,
+                          flip_tokens, args)
     return report, cases
 
 
@@ -828,6 +947,25 @@ def selfcheck(args):
         prev = item["script"]
     if t != 2:
         problems.append(f"transition count {t}, hand count 2")
+    # G3's unit must bite (MODES-MEASUREMENT §2.5): an English word typed on the
+    # Hangul layout renders the other language at some keys, the stability knob
+    # has to reduce those changes, and the delivered text must not move with it.
+    flicker = plan_sentence("alphabetically", table, literals)
+    hold0 = replay(engine, flicker, args.layout, args.latin, 1, False)
+    hold1 = replay(engine, flicker, args.layout, args.latin, 1, False, judge_hold=1)
+    f0 = sum(r["flips"] for r in hold0[0])
+    f1 = sum(r["flips"] for r in hold1[0])
+    keys0 = sum(r["display_keys"] for r in hold0[0])
+    if keys0 < 10:
+        problems.append(f"the display-language detector saw only {keys0} keys of "
+                        "'alphabetically' — a flip count over that is blind")
+    if f0 < 2:
+        problems.append(f"'alphabetically' flipped {f0} times at judge_hold 0; a "
+                        "counter that cannot see the E6 flicker measures nothing")
+    if not f1 < f0:
+        problems.append(f"judge_hold 1 did not reduce the flips ({f0} -> {f1})")
+    if hold0[1] != hold1[1]:
+        problems.append("judge_hold changed the delivered text")
     # The RAW arm (no repairs): that is the arm hunmin-sim --judge replays, so it
     # is the only one the cross-check can compare. A repairs=True run toggles the
     # layer and legitimately diverges from the CLI — comparing it was a false
@@ -844,7 +982,8 @@ def selfcheck(args):
         return 1
     print(f"OK  keytable {table_blob['layout']}, OFF arm round-trips a mixed "
           f"sentence, {t} transitions by hand and by the counter, "
-          f"sim and ctypes agree (judged={judged})")
+          f"sim and ctypes agree (judged={judged}), flips {f0} -> {f1} at "
+          f"judge_hold 1 with the text unmoved")
     return 0
 
 
@@ -856,6 +995,11 @@ def main():
     ap.add_argument("--data", type=pathlib.Path, default=DATA)
     ap.add_argument("--lib", type=pathlib.Path, default=LIB)
     ap.add_argument("--sim", type=pathlib.Path, default=SIM)
+    ap.add_argument("--judge-hold", type=int, default=0, metavar="N",
+                    help="E6 display stability for the ON arm: 0 = adopt a changed "
+                         "per-key judgement at once (the shipped default), N>0 = wait "
+                         "for N+1 agreeing keys. Display only; q and the delivered "
+                         "text are unchanged by it (docs/SPEC-MODES.md §E6)")
     ap.add_argument("--keytable", type=pathlib.Path,
                     help="read/write the jamo table here instead of probing each run")
     ap.add_argument("--limit", type=int, default=0)

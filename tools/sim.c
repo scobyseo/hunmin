@@ -403,11 +403,14 @@ static int judge_step(judge_case *c, uint32_t base, uint32_t shift, int *judged_
  * (B3: absent data answers "not ready", and then nothing switches — which is
  * why --judge reports that state instead of pretending), and the ruling's
  * default OFF overridden only when the caller asked for a value. */
-static hunmin_buffered_preedit *judge_layer(hunmin_ctx *ctx, const char *layout, const char *latin, int autoswitch, int start_latin) {
+static hunmin_buffered_preedit *judge_layer(hunmin_ctx *ctx, const char *layout, const char *latin, int autoswitch, int start_latin, int judge_hold) {
     hunmin_buffered_preedit *l = hunmin_buffered_preedit_new(ctx, layout, (latin && latin[0]) ? latin : NULL, HUNMIN_COMMIT_AT_BOUNDARY);
     if (!l) return NULL;
     hunmin_buffered_preedit_load_english_shipped(l);
     if (autoswitch >= 0) hunmin_buffered_preedit_set_option(l, "autoswitch", autoswitch ? 1 : 0);
+    /* E6 display stability (issue #295). Only the per-key display reads it, so a
+     * corpus that does not name it gets the shipped default: 0. */
+    if (judge_hold > 0) hunmin_buffered_preedit_set_option(l, "judge_hold", judge_hold);
     if (start_latin) {
         hunmin_key_result out = {0, NULL, NULL};
         hunmin_buffered_preedit_toggle_language(l, &out);
@@ -422,6 +425,12 @@ static hunmin_buffered_preedit *judge_layer(hunmin_ctx *ctx, const char *layout,
  *    "autoswitch":1,"mode":"hangul","keys":"hello ",
  *    "commit":"hello","judged":["latin"],"mode_after":"latin"}
  *
+ * Optional fields, each asserted only when present:
+ *   "judge_hold": N       E6 display stability for this case (default 0)
+ *   "step_preedits": [..] the preedit RENDERED at each key -- the display
+ *                         gate, for the cases whose delivered text is the same
+ *                         at every setting (E6's flicker, issue #295)
+ *
  * The first four fields are the INPUT a person is replaying; the last three are
  * what the engine answered and are what the checker asserts. `mode` is the mode
  * the case starts in (ReqMode8's symmetric line needs latin), `judged` is the
@@ -430,7 +439,7 @@ static hunmin_buffered_preedit *judge_layer(hunmin_ctx *ctx, const char *layout,
  * layer is left in. Comparing the last two as well as the first is what stops
  * a corpus from asserting a switch no adapter would perform.
  */
-static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force_layout, const char *force_latin, int force_autoswitch) {
+static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force_layout, const char *force_latin, int force_autoswitch, int force_judge_hold) {
     char *txt = read_file(path, NULL);
     if (!txt) return 2;
     int line = 0, fails = 0;
@@ -455,12 +464,14 @@ static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force
         const cJSON *jlat = cJSON_GetObjectItemCaseSensitive(j, "latin");
         const cJSON *jas = cJSON_GetObjectItemCaseSensitive(j, "autoswitch");
         const cJSON *jmode = cJSON_GetObjectItemCaseSensitive(j, "mode");
+        const cJSON *jhold = cJSON_GetObjectItemCaseSensitive(j, "judge_hold");
         const cJSON *jkeys = cJSON_GetObjectItemCaseSensitive(j, "keys");
         const char *name = cJSON_IsString(jc) ? jc->valuestring : "?";
         const char *layout = force_layout ? force_layout : (cJSON_IsString(jl) ? jl->valuestring : NULL);
         const char *latin = force_latin ? force_latin : (cJSON_IsString(jlat) ? jlat->valuestring : "us-qwerty");
         const int autoswitch = force_autoswitch >= 0 ? force_autoswitch : (cJSON_IsNumber(jas) ? jas->valueint : 1);
         const int start_latin = cJSON_IsString(jmode) && !strcmp(jmode->valuestring, "latin");
+        const int judge_hold = force_judge_hold >= 0 ? force_judge_hold : (cJSON_IsNumber(jhold) ? jhold->valueint : 0);
         if (!layout || !cJSON_IsString(jkeys)) {
             fprintf(stderr, "%s:%d: case '%s' has no layout or keys\n", path, line, name);
             cJSON_Delete(j);
@@ -470,7 +481,7 @@ static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force
 
         judge_case c;
         memset(&c, 0, sizeof c);
-        c.l = judge_layer(ctx, layout, latin, autoswitch, start_latin);
+        c.l = judge_layer(ctx, layout, latin, autoswitch, start_latin, judge_hold);
         if (!c.l) {
             fprintf(stderr, "%s:%d: case '%s': cannot build a layer for %s/%s\n", path, line, name, layout, latin);
             cJSON_Delete(j);
@@ -478,6 +489,7 @@ static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force
             continue;
         }
         const cJSON *wsteps = cJSON_GetObjectItemCaseSensitive(j, "step_commits");
+        const cJSON *wshown = cJSON_GetObjectItemCaseSensitive(j, "step_preedits");
         int si = 0;
         for (const char *kp = jkeys->valuestring; *kp;) {
             uint32_t key = 0, shift = 0;
@@ -497,10 +509,26 @@ static int check_judge_file(hunmin_ctx *ctx, const char *path, const char *force
                     fails++;
                 }
             }
+            /* The DISPLAY, per key, when a case is about the display. E6's
+             * flicker (and its stability knob) lives here: the delivered text is
+             * identical at every judge_timing/judge_hold value, so the final
+             * commit cannot tell a stable screen from a flickering one. */
+            if (cJSON_IsArray(wshown)) {
+                const cJSON *want = cJSON_GetArrayItem(wshown, si);
+                if (!cJSON_IsString(want) || strcmp(want->valuestring, c.key_preedit)) {
+                    fprintf(stderr, "%s:%d: CASE FAIL '%s' step %d preedit: expected '%s' got '%s'\n", path, line, name, si,
+                            cJSON_IsString(want) ? want->valuestring : "(missing)", c.key_preedit);
+                    fails++;
+                }
+            }
             si++;
         }
         if (cJSON_IsArray(wsteps) && cJSON_GetArraySize(wsteps) != si) {
             fprintf(stderr, "%s:%d: CASE FAIL '%s': step_commits has %d entries for %d keys\n", path, line, name, cJSON_GetArraySize(wsteps), si);
+            fails++;
+        }
+        if (cJSON_IsArray(wshown) && cJSON_GetArraySize(wshown) != si) {
+            fprintf(stderr, "%s:%d: CASE FAIL '%s': step_preedits has %d entries for %d keys\n", path, line, name, cJSON_GetArraySize(wshown), si);
             fails++;
         }
 
@@ -1062,6 +1090,8 @@ int main(int argc, char **argv) {
     const char *offcheck[256];
     int noff = 0;
     int trace = 0, caps = 0, batch = 0, judge = 0, start_latin = 0, autoswitch = -1;
+    /* -1 = a --judge-check case's own `judge_hold`, else this one. */
+    int judge_hold = -1;
     /* --layer switches the --keys replay from the per-syllable engine API
      * (hunmin_ic, what tier A records) to the SHARED LAYER the frontends drive
      * (hunmin_buffered_preedit), at the policy asked for. Tier C needs the
@@ -1080,6 +1110,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--off-check")) {
             while (i + 1 < argc && strncmp(argv[i + 1], "--", 2) && noff < 256) offcheck[noff++] = argv[++i];
         } else if (!strcmp(argv[i], "--autoswitch") && ++i < argc) autoswitch = atoi(argv[i]);
+        else if (!strcmp(argv[i], "--judge-hold") && ++i < argc) judge_hold = atoi(argv[i]);
         else if (!strcmp(argv[i], "--caps")) caps = 1;
         else if (!strcmp(argv[i], "--judge")) judge = 1;
         else if (!strcmp(argv[i], "--start-latin")) start_latin = 1;
@@ -1097,7 +1128,7 @@ int main(int argc, char **argv) {
     if (!data) {
         fprintf(stderr, "usage: hunmin-sim --data DIR (--layout ID --keys STR | --batch | --check FILE"
                         " | --judge-check FILE | --off-check FILE... "
-                        "| --layout ID --latin LATIN --judge --keys STR)\n"
+                        "| --layout ID --latin LATIN --judge [--judge-hold N] --keys STR)\n"
                         "       [--layer word|syllable]   replay through the shared layer, not the ic\n");
         return 2;
     }
@@ -1117,7 +1148,7 @@ int main(int argc, char **argv) {
     hunmin_buffered_preedit *bl = NULL;
 
     if (judgecheck) {
-        rc = check_judge_file(ctx, judgecheck, layout, latin, autoswitch);
+        rc = check_judge_file(ctx, judgecheck, layout, latin, autoswitch, judge_hold);
         goto done;
     }
     if (noff) {
@@ -1204,7 +1235,7 @@ int main(int argc, char **argv) {
         }
         judge_case c;
         memset(&c, 0, sizeof c);
-        c.l = judge_layer(ctx, layout, latin, autoswitch, start_latin);
+        c.l = judge_layer(ctx, layout, latin, autoswitch, start_latin, judge_hold);
         bl = c.l; /* owned by `done`, on error and on success alike */
         if (!bl) {
             fprintf(stderr, "cannot build a layer for %s/%s\n", layout, latin ? latin : "(no latin layout)");

@@ -66,6 +66,16 @@ struct hunmin_buffered_preedit {
     /* E6 judge_timing (DESIGN-CORE.md#e6-judged-display-judge_timing):
      * 1=per key (default), 0=boundary only. */
     int judge_timing;
+    /* E6 display stability (issue #295): how many EXTRA keys of the same verdict
+     * the per-key display waits for before it adopts a changed judgement. 0 =
+     * adopt at once (the ruled default's rendering), N>0 = wait for N+1 agreeing
+     * keys. Display only: the boundary judgement and the delivered text are the
+     * same at every value, which is why the flip count can move at an equal pool
+     * share. */
+    int judge_hold;
+    int judge_run;     /* consecutive keys whose verdict equalled judge_verdict */
+    int judge_verdict; /* last key's verdict: 1 = the other language, 0 = the mode's, -1 = none */
+    int judge_shown;   /* what the last render showed: 1 = the other language, 0 = the mode's */
     char *judged_out; /* the per-key display's reading, owned */
     size_t judgedcap;
     /* E1/ReqMode8 replayed readings (DESIGN-CORE.md#r8-정정-23-readings-and-validity). */
@@ -234,38 +244,78 @@ static const char *word_flush_half(hunmin_buffered_preedit *l) {
 
 /* E6 per-key judged display (SPEC-MODES E6). Multi-place rationale:
  * docs/DESIGN-CORE.md#e6-judged-display-judge_timing. Display only; no
- * delivery/switch/recorded judgement (ReqMode10). */
-static const char *judged_display(hunmin_buffered_preedit *l, const char *shown_text) {
-    if (l->judge_timing != 1) return NULL;
-    if (!l->ic || !l->ic->autoswitch) return NULL;
+ * delivery/switch/recorded judgement (ReqMode10).
+ *
+ * `advance` is true for exactly one call per consumed key: the one inside
+ * process_key(). Every other caller (display() re-rendering, a toggle that just
+ * cleared the word) asks what is already shown, so the stability counter below
+ * must not move twice for one key. */
+static const char *judged_display(hunmin_buffered_preedit *l, const char *shown_text, bool advance) {
+    if (l->judge_timing != 1) {
+        if (advance) l->judge_shown = 0;
+        return NULL;
+    }
+    if (!l->ic || !l->ic->autoswitch) {
+        if (advance) l->judge_shown = 0;
+        return NULL;
+    }
     if (!l->latin_id) return NULL; /* one-language layer: no second reading */
-    if (l->keylen / 2 < JUDGE_MIN_KEYS) return NULL; /* ReqMode9's guard, both directions */
-    if (!hm_wordset_ready(l->english)) return NULL;
+    if (l->keylen / 2 < JUDGE_MIN_KEYS) { /* ReqMode9's guard, both directions */
+        if (advance) l->judge_verdict = -1; /* no vote: two guarded keys are not agreement */
+        return NULL;
+    }
+    if (!hm_wordset_ready(l->english)) {
+        if (advance) l->judge_verdict = -1;
+        return NULL;
+    }
 
+    const char *reading;
+    bool verdict;
     if (l->hangul_mode) {
         /* The word on screen is Hangul; the other half is its Latin reading. */
         if (!l->ic->L || !l->ic->L->composes_hangul) return NULL;
-        const char *reading = replay_reading(l, l->latin_id, &l->judged_out, &l->judgedcap);
-        if (!reading || !*reading) return NULL;
-        if (!hm_wordset_has(l->english, reading)) return NULL;
-        if (hangul_valid_for(l, shown_text)) return NULL; /* both valid: keep the mode */
-        return reading;
+        reading = replay_reading(l, l->latin_id, &l->judged_out, &l->judgedcap);
+        verdict = reading && *reading && hm_wordset_has(l->english, reading) &&
+                  !hangul_valid_for(l, shown_text); /* both valid: keep the mode */
+    } else {
+        /* E1: the word on screen is Latin; the other half is its Hangul reading,
+         * and the judgement fires when that reads as syllables and the Latin does
+         * not read as a word. */
+        reading = replay_reading(l, l->hangul_id, &l->judged_out, &l->judgedcap);
+        verdict = reading && *reading && !hm_wordset_has(l->english, shown_text) &&
+                  hangul_valid_for(l, reading); /* english_valid on the typed prefix */
     }
-    /* E1: the word on screen is Latin; the other half is its Hangul reading, and
-     * the judgement fires when that reads as syllables and the Latin does not read
-     * as a word. */
-    const char *reading = replay_reading(l, l->hangul_id, &l->judged_out, &l->judgedcap);
-    if (!reading || !*reading) return NULL;
-    if (hm_wordset_has(l->english, shown_text)) return NULL; /* english_valid */
-    if (!hangul_valid_for(l, reading)) return NULL;
-    return reading;
+    if (!advance) return l->judge_shown ? reading : NULL;
+    if (!reading || !*reading) {
+        /* Nothing to show in the other language, so the hold cannot keep it. */
+        l->judge_verdict = -1;
+        l->judge_run = 0;
+        l->judge_shown = 0;
+        return NULL;
+    }
+
+    /* E6 stability (issue #295). A changed verdict is ADOPTED only after it has
+     * held for `judge_hold + 1` consecutive keys, so a one-key flash never
+     * reaches the screen while a word that really is the other language still
+     * gets there, one key later. The rejected keys count toward the run, so the
+     * adoption key is (first key of the new verdict + judge_hold). */
+    if (verdict == (l->judge_verdict == 1)) {
+        l->judge_run++;
+    } else {
+        l->judge_verdict = verdict ? 1 : 0;
+        l->judge_run = 1;
+    }
+    int shown = verdict ? 1 : 0;
+    if (shown != l->judge_shown && l->judge_run <= l->judge_hold) shown = l->judge_shown;
+    l->judge_shown = shown;
+    return shown ? reading : NULL;
 }
 
 /* What the frontend shows. In buffered mode that is the finished word plus the
  * in-flight syllable, which is exactly what the TSF adapter rendered before
  * (wordbuf_ + engine preedit); in syllable mode the finished syllables are
  * already in the client, so only the in-flight one is left to show. */
-static const char *build_preedit(hunmin_buffered_preedit *l) {
+static const char *build_preedit_adv(hunmin_buffered_preedit *l, bool advance) {
     const char *pre = hunmin_ic_preedit(l->ic);
     if (!pre) pre = "";
     const char *word = (l->commit_policy == HUNMIN_COMMIT_AT_BOUNDARY && l->word) ? l->word : "";
@@ -273,9 +323,12 @@ static const char *build_preedit(hunmin_buffered_preedit *l) {
     if (!reserve(&l->preedit_out, &l->preeditcap, wn + pn + 1)) return "";
     memcpy(l->preedit_out, word, wn);
     memcpy(l->preedit_out + wn, pre, pn + 1);
-    const char *judged = judged_display(l, l->preedit_out);
+    const char *judged = judged_display(l, l->preedit_out, advance);
     return judged ? judged : l->preedit_out;
 }
+
+/* A render that does not follow a key: it asks what is already shown. */
+static const char *build_preedit(hunmin_buffered_preedit *l) { return build_preedit_adv(l, false); }
 
 /* The engine's commit read is destructive: whatever it produced since the last
  * read is delivered now, or it is lost. Both modes therefore read it on every
@@ -328,6 +381,9 @@ hunmin_buffered_preedit *hunmin_buffered_preedit_new(hunmin_ctx *ctx, const char
     l->ctx = ctx;
     l->cap = WORD_CAP;
     l->judge_timing = 1; /* E6 ruled 2026-11-01: per key by default */
+    l->judge_hold = 0;   /* E6's stability knob is opt-in (issue #295: the ruled
+                          * default's rendering is unchanged until it is ruled) */
+    l->judge_verdict = -1;
     l->hangul_id = dup_or_null(hangul_layout_id);
     l->latin_id = dup_or_null(latin_layout_id);
     l->commit_policy = commit_policy;
@@ -415,6 +471,11 @@ static const char *boundary(hunmin_buffered_preedit *l, bool judge) {
      * be acted on after the next one starts, and a boundary that judges nothing
      * (a chord, a mode toggle, an abandoned word) clears the answer. */
     l->judged = -1;
+    /* The display's stability run belongs to the word that just ended (E6, issue
+     * #295): the next word starts from its mode's own language, unheld. */
+    l->judge_run = 0;
+    l->judge_verdict = -1;
+    l->judge_shown = 0;
     if (l->commit_policy == HUNMIN_COMMIT_PER_SYLLABLE) return set_commit(l, flushed);
     word_append(l, flushed);
     /* Judged while the word is still whole. PER_SYLLABLE mode cannot reach this
@@ -580,7 +641,7 @@ int hunmin_buffered_preedit_process_key(hunmin_buffered_preedit *l, uint32_t bas
     if (out) {
         out->consumed = consumed ? 1 : 0;
         out->commit = l->commit_out ? l->commit_out : "";
-        out->preedit = build_preedit(l);
+        out->preedit = build_preedit_adv(l, true);
     }
     return consumed ? 1 : 0;
 }
@@ -618,6 +679,9 @@ void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l) {
     word_clear(l);
     keys_clear(l);
     l->judged = -1;
+    l->judge_run = 0;
+    l->judge_verdict = -1;
+    l->judge_shown = 0;
     if (l->latin_out) l->latin_out[0] = 0;
     if (l->commit_out) l->commit_out[0] = 0;
     if (l->preedit_out) l->preedit_out[0] = 0;
@@ -643,6 +707,22 @@ bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *
     if (!strcmp(name, "judge_timing")) {
         if (value != 0 && value != 1) return false;
         l->judge_timing = value;
+        /* The display rule changed under the word: the stability run restarts. */
+        l->judge_run = 0;
+        l->judge_verdict = -1;
+        l->judge_shown = 0;
+        return true;
+    }
+    /* E6's stability knob (issue #295): 0 = a changed judgement is shown at once
+     * (the ruled default's rendering), N>0 = the display waits until N+1
+     * consecutive keys agree. It changes the display only; the boundary
+     * judgement and the delivered text do not read it. */
+    if (!strcmp(name, "judge_hold")) {
+        if (value < 0 || value > 16) return false;
+        l->judge_hold = value;
+        l->judge_run = 0;
+        l->judge_verdict = -1;
+        l->judge_shown = 0;
         return true;
     }
     return hunmin_ic_set_option(l->ic, name, value);
@@ -656,6 +736,10 @@ bool hunmin_buffered_preedit_get_option(const hunmin_buffered_preedit *l, const 
     }
     if (!strcmp(name, "judge_timing")) {
         *out = l->judge_timing;
+        return true;
+    }
+    if (!strcmp(name, "judge_hold")) {
+        *out = l->judge_hold;
         return true;
     }
     /* Issue #207: syllable commit off-switches autoswitch. A layer built with

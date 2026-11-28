@@ -26,6 +26,18 @@ hunmin_add_test(NAME modes-metrics-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMA
 # G1/G2 are graded from a metrics report by autoswitch-gates.py; the checker's
 # own guards need no corpus and no built engine (issue #291).
 hunmin_add_test(NAME modes-gates-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/autoswitch-gates.py --selfcheck LABELS tier-G)
+# The stem+particle probe (docs/MODES-MEASUREMENT.md §1.5): its tokeniser must
+# keep splitting IBM은 and refusing PC방, and needs no dump or engine to say so.
+hunmin_add_test(NAME modes-mixed-tokens-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/modes-mixed-tokens.py --selfcheck LABELS tier-G)
+# The rewrite collector (Track 2): must record a judgement-driven rewrite and
+# stay silent on a kept word. Needs the built layer, no corpus.
+hunmin_add_test(NAME modes-rewrites-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/modes-rewrites.py --selfcheck --lib $<TARGET_FILE:hunmin> LABELS tier-G)
+# The personal-log analyser (Track 2): a synthetic log must read, and the SAME
+# keys at judge_hold 1 must flicker less. Needs the layer, no corpus.
+hunmin_add_test(NAME personal-log-flips-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/personal-log-flips.py --selfcheck --lib $<TARGET_FILE:hunmin> LABELS tier-G)
+# The intent model (docs/MODES-MEASUREMENT.md §1.6): a kept rewrite, an UNDONE
+# rewrite and a plain typo must be three different classes. No build needed.
+hunmin_add_test(NAME personal-log-words-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/personal-log-words.py --selfcheck LABELS tier-G)
 # Track 4 prefix-match measurement guard (issue #300): fixture aggregates,
 # greedy-vs-optimal gap, negative control. No corpus, no engine needed.
 hunmin_add_test(NAME hanja-prefix-selfcheck COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/measure-hanja-prefix.py --selfcheck LABELS tier-G)

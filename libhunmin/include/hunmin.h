@@ -237,12 +237,17 @@ HUNMIN_EXPORT const char *hunmin_buffered_preedit_delivered(const hunmin_buffere
 HUNMIN_EXPORT void hunmin_buffered_preedit_reset(hunmin_buffered_preedit *l);
 
 /* The layer's options. The ic's own names ("caps", "autoswitch") pass through;
- * two are the layer's, each specified in the SPEC: "word_cap" (bytes of UTF-8,
+ * three are the layer's, each specified in the SPEC: "word_cap" (bytes of UTF-8,
  * 0 = no cap; an overflow commits the word's first half and the tail keeps
- * composing — §ReqMode4) and "judge_timing" (1 = judge at every key, the
- * flicker default; 0 = at the boundary only — §E6). judge_timing changes the
- * display and never the delivered text. A lowered word_cap applies from the next
- * key. Returns false for an unknown name or an out-of-range value. */
+ * composing — §ReqMode4), "judge_timing" (1 = judge at every key, the
+ * flicker default; 0 = at the boundary only — §E6) and "judge_hold" (issue #295,
+ * §E6: 0 = the per-key display adopts a changed judgement at once, the shipped
+ * default; N>0 = it waits until the judgement has agreed for N+1 consecutive
+ * keys, which removes one-key flashes at the cost of one key of display
+ * latency). judge_timing and judge_hold change the display and never the
+ * delivered text or the mode: a value of either moves no pool share. A lowered
+ * word_cap applies from the next key. Returns false for an unknown name or an
+ * out-of-range value. */
 HUNMIN_EXPORT bool hunmin_buffered_preedit_set_option(hunmin_buffered_preedit *l, const char *name, int value);
 
 /* The layer's read of the same options: ReqMode13's settings surface asks this for

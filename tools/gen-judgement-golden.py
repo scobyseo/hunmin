@@ -28,6 +28,12 @@ plus ReqMode9's three-key guard (both sides of it), ReqMode6's digit run (which 
 delivery TIMING is asserted as well as the text), ReqMode4's "judged once, at the
 boundary", ReqMode13's off-is-the-identity state, and ReqMode8's widened shape rule on
 a layout that composes archaic jamo.
+
+E6 (issue #295) has cases of its own, and they are the reason `step_preedits` exists:
+the mid-word display changes at every `judge_timing`/`judge_hold` value while the
+delivered text does not, so a corpus that asserted only the commit could not tell a
+stable screen from a flickering one. A case marked `display=True` records the preedit
+the layer RENDERED at each key, read back from `hunmin-sim --judge --trace`.
 """
 
 import argparse
@@ -112,6 +118,19 @@ CASES = [
     dict(case="r8-mixed-sentence-gate", req="ReqMode8", layout="dubeolsik", mode="hangul",
          autoswitch=1, keys="\\senglish sms whgdms \\slanguage dlqslek ",
          note="'English는 좋은 Language입니다' typed as one stream (E1's release gate)"),
+    # --- E6: the per-key display, and its stability knob (issue #295) ----------
+    dict(case="e6-flicker-at-every-key", req="E6", layout="dubeolsik", mode="hangul",
+         autoswitch=1, keys="hello ", display=True,
+         note="E6 per key, judge_hold 0 (the shipped rendering): the screen shows the Latin reading from the third key and the word still commits whole at the space"),
+    dict(case="e6-hold-and-the-screen-stays-hangul", req="E6", layout="dubeolsik",
+         mode="hangul", autoswitch=1, keys="hello ", judge_hold=1, display=True,
+         note="the same keys at judge_hold 1: the display waits for a second agreeing key, so nothing is shown in the other language -- and the commit is the same 'hello', which is G3's equal-pool-share property in one case"),
+    dict(case="e6-e1-flash-in-latin-mode", req="E6", layout="dubeolsik", mode="latin",
+         autoswitch=1, keys="english ", display=True,
+         note="issue #221's observed flash, per key: 'Engl' renders as the Hangul reading 두히 at the fourth key and returns one key later; the commit is 'English' either way"),
+    dict(case="e6-hold-drops-the-e1-flash", req="E6", layout="dubeolsik", mode="latin",
+         autoswitch=1, keys="english ", judge_hold=1, display=True,
+         note="judge_hold 1 on the same word: one key of agreement is not enough, so the flash never reaches the screen. Text identical to the case above"),
     # --- ReqMode4: a symbol is a termination condition too ---------------------
     dict(case="r4-symbol-ends-the-word-in-latin-mode", req="ReqMode4", layout="sin3-p2", mode="latin",
          autoswitch=1, keys="jgz.",
@@ -170,6 +189,8 @@ def trace(sim, case: dict[str, Any]) -> dict[str, Any]:
            "--autoswitch", str(case["autoswitch"])]
     if case.get("mode") == "latin":
         cmd.append("--start-latin")
+    if case.get("judge_hold"):
+        cmd += ["--judge-hold", str(case["judge_hold"])]
     cmd += ["--keys", case["keys"], "--trace"]
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
@@ -189,6 +210,11 @@ def trace(sim, case: dict[str, Any]) -> dict[str, Any]:
     # delivered text; a language toggle can deliver a syllable of its own, and a
     # case where that happens says so rather than carrying an unexplained gap.
     case["step_commits"] = per_key if "".join(per_key) == case["commit"] else None
+    # The display, per key (E6): what the layer RENDERED, not what it delivered.
+    # A flicker is exactly a change here with the commit unchanged, so a case that
+    # asks for it records one entry per key and no summarised count -- the count
+    # is derivable, and a second copy of it would drift.
+    case["step_preedits"] = [r.get("preedit", "") for r in steps] if case.get("display") else None
     return case
 
 
@@ -199,9 +225,11 @@ def render(cases):
             "req": "ReqMode8; ReqMode9; ReqMode10; ReqMode4; ReqMode6 (issue #178)",
             "spec": "docs/SPEC-MODES.md ReqMode8 formula and its guards",
             "tool": "tools/gen-judgement-golden.py",
-            "sim": "hunmin-sim --judge --autoswitch N --trace",
+            "sim": "hunmin-sim --judge --autoswitch N [--judge-hold N] --trace",
             "note": "expected values are the engine's own answers, never hand-typed; "
-                    "delivered text excludes delimiter keys, which the client receives",
+                    "delivered text excludes delimiter keys, which the client receives. "
+                    "step_preedits is the display per key (E6): the same text at every "
+                    "judge_timing/judge_hold, so only this field can pin the flicker",
         }
     }
     lines = [json.dumps(head, ensure_ascii=False)]
@@ -223,8 +251,12 @@ def render(cases):
         # Optional fields are spread in rather than assigned: a dict literal
         # narrowed from its own contents does not accept a later setitem for a
         # differently typed key, and pyright is part of the gate here.
+        if c.get("judge_hold"):
+            row = {**row, "judge_hold": c["judge_hold"]}
         if c.get("step_commits") is not None:
             row = {**row, "step_commits": c["step_commits"]}
+        if c.get("step_preedits") is not None:
+            row = {**row, "step_preedits": c["step_preedits"]}
         if c.get("probe"):
             row = {**row, "probe": c["probe"]}
         lines.append(json.dumps(row, ensure_ascii=False))

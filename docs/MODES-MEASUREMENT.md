@@ -75,6 +75,82 @@ At each script transition record whether a switch fired, whether it landed on
 the script that was typed, and whether the text arrived correct. Report
 `wrong_direction_rate` with both directions broken out.
 
+## 1.6 Intent in a personal key log: the accepted word, and the path to it
+
+A corpus metric answers "does method X reduce problem Y" for a text that nobody in
+particular typed. A personal log has to answer a different question — *what did
+this person mean, and what did it cost them to get it* — and the maintainer's
+model of typing (2026-11-27, quoted in `tools/personal-log-words.py`) fixes the
+unit:
+
+- A person types holding **one assumption** — "I am entering Korean" / "I am
+  entering English" — which is *independent of the mode the IME is actually in*,
+  and they do not perceive that the same keys could be read the other way.
+- Therefore **intent is only observable in the word finally accepted**: the text
+  the person kept and moved past. Not the mode (they were not tracking it), not
+  the first attempt (it may have been wrong).
+- **Discomfort is the path between the attempts and that accepted word**: deletions,
+  mode presses, keys spent, and above all an **engine rewrite the person then
+  undid**. That last one is the case the model exists to isolate, and it is the
+  one a corpus metric cannot name.
+
+`tools/personal-log-words.py` reads a key log on those terms: one record per word
+slot, classified as `clean`, `judged_kept` (the engine rewrote it and the person
+kept it), `judged_then_reverted` (the engine rewrote it, the person deleted it and
+typed the other script — the rewrite and its `replacement` are one intent, two
+slots, and the replacement's keys and deletions are folded into the rewrite's
+cost), `repaired_typo` (their own error, no engine involvement) or `emptied`
+(abandoned). The headline is the ratio a person feels: of the engine's rewrites,
+**how many were undone**.
+
+Two assumptions are recorded rather than hidden, because the log cannot observe
+them: a declined BackSpace/Delete removes **one character** of the application's
+text (surrounding text would replace the assumption where a host provides it), and
+a boundary key's commit belongs to the slot **before** it (ReqMode4: a delimiter
+terminates the word). `lang` on the language key exists so the toggle is not glued
+into the next word: it is the person changing their assumption, not typing.
+
+## 1.5 A Latin stem with a Korean particle (`IBM은`, `API를`)
+
+The judgement reads one eojeol as one language, so a token that is a Latin word
+plus a particle has no reading: `IBM은` is `ibmdms` on the Latin layout (not a
+word) and gibberish on the Hangul one, and the word keeps the mode it was typed
+in. Whether that population is worth a mechanism is a count, and the sentence
+corpora cannot supply it — `tools/build-modes-sentences.py` drops every sentence
+carrying a mixed-script word (the `mixed_word` drop in its `meta.json`), which is
+this population exactly.
+
+`tools/modes-mixed-tokens.py` counts it from the same dump, before that filter,
+using the builders' own reader, stripper and word classifier (imported, never
+copied). The particle list is the National Institute of Korean Language 2003
+survey's 조사 table (품사 == 조, Hangul only, ≤3 syllables), so `PC방` (a compound
+noun) is not counted and `PC방은` is — as a Latin stem whose Hangul run ends in a
+particle, reported separately from `IBM은` where the particle sits on the stem.
+
+Measured 2026-11-27 on 300 pages of `~/work/kowiki-dump/kowiki.xml` (39,982
+sentences, 465,857 words), with the survey file from
+`~/work/nikl-2003-freq/`:
+
+| what | count | share |
+|---|---|---|
+| tokens starting with a Latin stem and ending with a listed particle | 1,241 | 0.27% of words |
+| … with the particle on the stem itself (`IBM은`) | 1,045 | 0.22% |
+| unique such tokens | 776 | — |
+| sentences carrying at least one | 1,103 | 2.8% |
+| mixed-script tokens by the builder's class (mostly `\|`, `=`, `-` furniture) | 24,405 | — |
+
+Five particles — 는 449, 를 224, 가 193, 은 188, 이 89 — cover 1,143 of the 1,241
+occurrences (92%); 도 adds 29. So the mechanism a split would need knows a
+handful of suffixes for most of its traffic, and the survey's 73 short entries
+cover everything this window found.
+
+**What the number is not.** Wikipedia prose, so a lower bound on typed text
+where the stem+particle shape is far more common; the page window is the dump's
+own order, not a sample; unweighted by any frequency table. It counts text, not
+engine behaviour — there is no mixed-token path in the engine to compare against,
+which is the design question this count feeds
+(`wiki/raw/sessions/2026-11-27-t2-direction-and-the-three-proposals.md`).
+
 ---
 
 # 2. Pass line — none [E]
@@ -192,7 +268,45 @@ measured value:
    present — B3's data gate). A metric that can be met by not switching needs the
    OFF-by-default state stated as a precondition, not silently averaged in.
 
-## 2.5 Status
+## 2.5 What G3 counts: a mid-word display flip
+
+G3 (`docs/MILESTONES.md` §0.4 Track 2) asks for fewer mid-word display flips **at an
+equal pool share**, i.e. while §2.1's `q` does not move. The two halves fix the
+unit: it has to be a quantity that can change while `a`, `r`, `u` and `q` cannot,
+and that quantity is the screen.
+
+- **Unit.** A mid-word display flip is a change, between two consecutive keys of
+  one eojeol, of the language the layer's preedit RENDERS. The language is read
+  from the rendered text: Hangul when it carries Hangul syllables or jamo and no
+  ASCII letter, Latin when the reverse. A key whose preedit carries neither (the
+  empty preedit after a delimiter, a digit run) renders no language: it is not a
+  change and it does not clear the previous answer — otherwise a held digit would
+  read as a flip.
+- **Population and strata.** `tools/modes-metrics.py` counts the flips over the
+  corpus's eojeol and stratifies by the eojeol's own script: a Hangul eojeol
+  flickering into Latin is E6's complaint, a Latin eojeol flickering back is its
+  E1 mirror. The unit is a change, not a word, so `words_with_a_flip` and
+  `words_with_a_flip_back` (two or more changes — the 도깨비 shape) are reported
+  beside the total.
+- **The arm.** The RAW ON arm: the replay performs every judgement as a frontend
+  does and applies no repair. The repaired arm is a keystroke model that moves the
+  mode to the script a person would have pressed, so a display counted after it
+  would be counting the model.
+- **Guards.** `flips_below_the_guard` must be 0: ReqMode9 refuses to judge under
+  three key inputs, so a flip inside a shorter eojeol would be a display that
+  judged without the guard. `modes-metrics-selfcheck` fails when the detector
+  cannot see a known flicker (`alphabetically` on the Hangul layout) or when
+  E6's display-stability setting stops reducing it.
+- **What it is not.** A count of how often a person meets the flicker: unweighted
+  by token frequency, exactly like §1.1's dictionary figures. The felt experience
+  stays E6's own question.
+
+The display setting that moves this count is E6's `judge_hold`
+(`docs/SPEC-MODES.md` §E6). `q` comes out of the same run, so "at an equal pool
+share" is a property of one pair of runs, and `tools/autoswitch-gates.py
+--flip-baseline NAME` grades it (`docs/MODES-GATES.md`).
+
+## 2.6 Status
 
 | Metric | Measures | Pass line |
 |---|---|---|
@@ -304,6 +418,17 @@ harness keeps them, or it will produce the same confident zeros.
    opposite tendencies giving the same ratio is evidence the conclusion is not
    sample bias. A corpus that may not be distributed is a valid instrument
    precisely because it can correct the bias of one that may.
+7. **Every claim carries its evidence grade, and the four are not
+   interchangeable.** Recorded 2026-11-27 after a compressed sentence in
+   `AGENTS.md` was read back as "the commercial behaviour is false", which is not
+   what any measurement had found:
+   `engine-measured` (reproduced through the built engine — a fact about this
+   engine), `readable-prior-art` (checked against implementations we can read
+   here: a finding of "no precedent in that set", never a claim about software we
+   cannot inspect), `reported` (the maintainer's experience: a phenomenon, valid
+   as a phenomenon, with the engine's side still to reproduce), and
+   `unverifiable-here` (commercial software and other people's environments —
+   recorded as an open question, never as a refutation).
 
 ---
 

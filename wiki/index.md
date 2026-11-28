@@ -48,7 +48,10 @@
   measurements are the agent's and rulings are the maintainer's, and the three
   later instances where it bound.
 - [[the-outstanding-decisions]] — D1 hangul judgement method, D2 E1 symmetry,
-  D3 whether 119 may inform a shipped list, D4 whether this wiki stays.
+  D3 whether 119 may inform a shipped list, D4 whether this wiki stays, and
+  D5–D9 Track 2's design questions (what "more data" means, which design is
+  prototyped first, whether the user dictionary is a lever, what #295 becomes,
+  whether a live session may be logged).
 - [[2026-11-01-b1-retired-the-hangul-judgement-needs-no-source]] — B1 retired by the
   maintainer's "want to select A": the Hangul half is a structure test and the
   English half is shipped, so board §2 waits on implementation, not on a source.
@@ -197,6 +200,14 @@
 
 - [[2026-11-22-ibus-gloss-paths]] — IBus 글로스 표시 검증 경로(aux text, 1.5.26 패널 소스까지 확인)와 "IBus는 못 한다" 주장의 정정. FE16의 분석 홈.
 
+## Raw — measurements
+
+- [[2026-11-27-personal-rewrites]] — Track 2 measured on the maintainer's own
+  text: 214 rewritten tokens in 1,608 shell commands (138 commands, 8.6%), 149 of
+  them replaced by a judgement, `opencode` alone 60; the Korean side loses 0.6% to
+  *abstention* instead. Also the new `judged` field in the personal key log, tested
+  by `engine-d1-ibus-trace-judged`.
+
 ## Raw — sessions
 
 - [[2026-11-23-t4-1-prefix-match-measurement]] — #300's measure-before-code:
@@ -204,6 +215,18 @@
   and the three stated premises that did not hold (the fallback already
   drifted per frontend, fcitx5's window does not re-open, the krdict licence
   count is stale). Figures live in docs/OPTIONS-MEASURED.md §HPX.
+- [[2026-11-27-t2-direction-and-the-three-proposals]] — T2's direction,
+  checked against the issue tree: #284 asked for "fire more correctly" and every
+  child is a gate, so the three design proposals (hint / explicit trigger /
+  stem+particle) were never written down and never prototyped. Records them
+  verbatim, inventories the T1/T3 surfaces they would reuse, prices repair cost
+  out of the recorded runs (the misfire *rate* is the lever, not `k`), and gives
+  three priced experiments.
+- [[2026-11-24-t2-3-g3-expectability]] — issue #295 (G3): the mid-word display
+  flip gets a unit (`docs/MODES-MEASUREMENT.md` §2.5), `modes-metrics` counts it on
+  the raw ON arm, `autoswitch-gates` grades a pair at an equal pool share, and E6's
+  `judge_hold` option cuts the flips ~80% at an unchanged `q`. Ships at 0: the
+  default stays a ruling.
 - [[2026-11-22-ibus-coverage-parity]] — issue #316: the fcitx5↔IBus evaluation
   inventory, the D1/D2/tier-C/D3 lanes that closed the gap, the XIM probe's
   three host facts (compound text, stale-preedit commit, teardown routing),

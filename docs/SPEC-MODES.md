@@ -1121,6 +1121,51 @@ flicker, not the quiet boundary.
   Latin (`sms`, `whdms`, `dlqkTek`). That is the symmetric rule — E1 — and it is
   still unruled (measured by `tools/modes-boundary-probe.py`).
 
+### Measured 2026-11-24 (issue #295) — the flips, and a stability knob
+
+G3 (`docs/MILESTONES.md` §0.4 Track 2) asks for the flips **reduced at an equal
+pool share**. The unit is `docs/MODES-MEASUREMENT.md` §2.5: a change of the language
+a preedit renders, inside one eojeol. Because it is a display quantity, the pool
+share is unchanged by construction, and the two runs below report the same `q` to
+the digit — that equality is the "at equal pool share" half, not an assumption.
+
+The mechanism is a second engine option, `judge_hold` (issue #295):
+`hunmin_buffered_preedit_set_option(l, "judge_hold", N)` keeps the per-key
+display from adopting a changed judgement until it has agreed for `N+1`
+consecutive keys. `0` — the shipped default — is the ruled rendering exactly
+(every key adopts at once); `N>0` trades one key of display latency for the
+removal of the one-key flash. It is not `judge_timing`: the judgement still runs
+at every key, `take_judgement` still answers once per word at the boundary, and
+the delivered text is byte-identical at every value (tier-A
+`engine-buffered-preedit`, and the golden cases `e6-*` in
+`tests/golden/judgement-r8.jsonl` pin the per-key display beside an unchanged
+commit).
+
+Measured on two pinned corpora, one run each at `judge_hold` 0 and 1
+(`tools/modes-metrics.py --judge-hold N`; the corpora and their pins live outside
+the repository per AGENTS.md, and both runs cross-checked against `hunmin-sim
+--judge` with zero mismatches):
+
+| corpus | words | flips at 0 | flips at 1 | words with a flip-back at 0 → 1 | `q` (both runs) |
+|---|---|---|---|---|---|
+| kldp-772 (sha256 `c073e8e1ec8a…`) | 6,690 | 2,546 | **477** | 591 → 37 | −4.379396 |
+| wiki-2500 (sha256 `1d3b6e3583f7…`) | 8,927 | 1,687 | **304** | 432 → 35 | −6.320790 |
+
+The Hangul-typed stratum (E6's own complaint) falls from 1,513 to 273 flips on
+kldp-772 and 1,031 to 198 on wiki-2500; the Latin-typed stratum (its E1 mirror)
+from 1,033 to 204 and 656 to 106. Nothing below ReqMode9's guard flipped in
+either run. The dictionary population of `tools/modes-boundary-probe.py` (64.05%
+of forms flipping at least once) is measured at the shipped default and is
+unchanged by this.
+
+**The default is not settled here.** `judge_hold` ships at `0`, so the ruled
+rendering is untouched; whether the default becomes `1` (fewer flashes, a genuine
+mid-word flip shown one key later) is a ruling on E6, and the measurement above
+is what it would be made from. The gate fixture
+`tests/fixtures/modes-gates/g3/` holds both runs and the graded report;
+`tools/autoswitch-gates.py --flip-baseline` grades the pair (G1 still reads as a
+finding on those corpora, unchanged by this work).
+
 ## E7. How to prove identical behaviour on Android/Windows [E]
 ReqMode3 was a decision and the implementation direction is fixed too (an engine rule).
 What remains is **how to prove it.** With an engine rule a single golden file

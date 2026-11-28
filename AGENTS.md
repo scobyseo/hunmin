@@ -6,7 +6,35 @@ exist yet).
 
 **Read this before contributing.** It is short on purpose. Anything about *this
 machine* — toolchain locations, host quirks, what lives outside the repository
-— is not here; it is in the workspace file named at the bottom.
+— is not here; it is in the workspace file named at the bottom. How an *agent*
+works here (task contract, density, premise check, checkpoints) is
+`docs/AGENT-WORKING-PROTOCOL.md`.
+
+## How an agent works here
+
+The formats, the rationale and the changelog are `docs/AGENT-WORKING-PROTOCOL.md`.
+**These are the rules, and they bind every task:**
+
+1. **Contract first** — five lines before working: the request, the kind of work
+   (design / implementation / measurement / documentation / decision-support), the
+   deliverable, **what will not be done**, and the one question — only if it cannot
+   be collected.
+2. **Collect before asking** — a question whose answer is in the tree, the issue,
+   `git log`, `tools/agent-brief.sh` or a run artefact is pure cost. Ask only for
+   intent, preference or a ruling; a question asked twice is a collection step that
+   was skipped.
+3. **Premise check** — start with `tools/agent-brief.sh <issue>`, which prints the
+   issue, its stated premises, the paths it names, the commits since it was filed and
+   the pending queue. A premise that moved is reported **before** the work.
+4. **Decision requests** — six slots, one screen, one decision (protocol §2b); never
+   a question at the end of a long analysis.
+5. **Checkpoints** — ask before behaviour-changing code, before docs/wiki, and
+   before anything touching `/usr`, a daemon, a force-push or an issue body.
+6. **Revert first** — on the input, authentication or session path, restore the last
+   known-good state before diagnosing.
+7. **Friction is a changelog line** — `date / friction / missing information
+   (collected: source, or asked) / change / revert`, in the protocol's §9. If the
+   same gap recurs, the next version collects it instead of asking again.
 
 ## The one idea
 
@@ -197,9 +225,16 @@ Two rules follow from this and they are not optional:
   a ruling is not closure — it authorises implementation and verification, not
   the end of measuring what it did not cover.
 - **Check the maintainer's claims as carefully as your own.** Stated premises get
-  verified too. Twice a stated premise did not hold — that commercial software
-  works a particular way, and that a symbol ends composition — and both were
-  worth checking.
+  verified too. Twice a stated premise did not hold — and both records name what was
+  actually checked, which is narrower than "it was false": the commercial-software
+  premise was checked against the implementations readable here (kime, ibus-hangul,
+  fcitx5-hangul), so the finding is *no precedent in the readable set*, not a claim
+  about software nobody can inspect; the symbol one was reproduced in the engine
+  (`hunmin-sim --keys 'rk,rmf'` composes after the comma), where the conclusion was
+  right for a different reason. `docs/MODES-MEASUREMENT.md` §5 rule 7 is the
+  vocabulary: `engine-measured`, `readable-prior-art`, `reported`,
+  `unverifiable-here`. A maintainer's experience is a phenomenon, never a premise to
+  be refuted.
 - **The maintainer's words are the requirement, not your paraphrase.** Quote them
   where the exact wording matters, and check the quotation against what was
   actually said. A paraphrase drifts, and the drift is what gets built.

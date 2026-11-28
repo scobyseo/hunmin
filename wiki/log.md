@@ -1641,6 +1641,16 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   implementation was removed; the corrected design is
   docs/DESIGN-ANDROID-SYMBOL-GESTURES.md. Index updated.
 
+## [2026-11-24] create | T2-3 G3 expectability (#295)
+
+- Created [[2026-11-24-t2-3-g3-expectability]]: the unit a mid-word display flip
+  needed (`docs/MODES-MEASUREMENT.md` §2.5 — rendered language, raw ON arm, no
+  language on delimiter/digit keys), the 37% gap between the repaired and raw arms
+  that caught the first counter, E6's `judge_hold` option and why the default was
+  not moved ([[2026-11-01-the-judgement-timing-is-per-key-by-default]]), and the two
+  pinned-corpus runs: 2,546 → 477 and 1,687 → 304 flips at an identical `q`, with
+  the digit-flip-back count falling 94%. Index updated.
+
 ## [2026-11-26] create | the first usability session, and what the trace found
 
 - Created [[2026-11-26-first-usability-session]]: one phone session with the new
@@ -1648,3 +1658,71 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   composing word (9/34, reproduced in the oracle, split to #332 / FE18), the
   space bar's swipe-left deleting instead of moving the cursor (ruled, fixed,
   E1 + E2E), and a swipe-up whose "failure" was the intended shift. Index updated.
+## [2026-11-27] create | T2 방향: 세 가지 제안과 이슈 트리와의 간극
+
+- Created [[2026-11-27-t2-direction-and-the-three-proposals]]: the maintainer's
+  worry that T2 is grading the shipped design instead of proposing, building and
+  testing alternatives, checked against #284's scope and Decisions list (eleven
+  measurement decisions, no design proposals) and #295's verification line. Records
+  the three proposals verbatim (hint / explicit trigger / stem+particle), which of
+  the committed G3 pieces survive each, the T1/T3 surfaces they would reuse (host
+  candidates + FE16 gloss, FE17's five rows, the E5 chord namespace, KP14
+  gestures), the repair-cost arithmetic showing `k` is not the lever, and three
+  priced experiments. Also lands `tools/modes-mixed-tokens.py` and
+  `docs/MODES-MEASUREMENT.md` §1.5 for proposal 3's population, which the sentence
+  corpora drop by construction. Index updated.
+
+## [2026-11-27] update | T2 목적을 기록하고 선행 사례를 조사
+
+- [[2026-11-27-t2-direction-and-the-three-proposals]] updated with §8 (prior art:
+  Mozc's keymap, Rime's `recognizer/patterns`, the Korean IMEs on this machine — and
+  the premise that got corrected before it became prose: `Tab`'s meaning in our Linux
+  hosts is unmeasured) and §9 (what #295 should become: keep the measurement, make G3
+  a regression line, hold `judge_hold`, file the comparison as its own issue).
+- Recorded Track 2's **purpose** in `docs/MILESTONES.md` §0.4 Track 2 and mirrored it
+  into issues #284 (the track), #295 (G3) and #293 (G4): each issue names the design
+  it serves, carries its cost and falsifier, and leaves the ruling to the maintainer.
+- Created `docs/MODES-PRIOR-ART.md`.
+
+## [2026-11-27] create | 자동 변환이 내 타이핑을 재작성한 사례 (#295 후속)
+
+- Created [[2026-11-27-personal-rewrites]]: `tools/modes-rewrites.py` (the rewrite
+  collector, ctest `modes-rewrites-selfcheck`) driven over `~/.zsh_history` and the
+  maintainer's quoted Korean. 214 rewritten tokens of 3,379 (6.33%) in 1,608
+  commands, 138 commands affected (8.6%), 149 judgement rewrites from 52 distinct
+  tokens (`opencode` 60, `kime` 10, `pwd` 8 → 퍟), plus 65 downstream tokens typed in
+  the wrong mode after a switch — 65/65 follow an earlier rewrite on the same line.
+  Korean side: 6/940 (0.64%) and **none** carried a judgement, i.e. abstention, not
+  rewriting.
+- The IBus personal key log gained the `judged` field (`docs/trace-spec.md`), set
+  where the engine acts on a judgement, compiled out of shipped builds, asserted by
+  `engine-d1-ibus-trace-judged`; `trace-optout-ibus` still proves a shipped engine
+  carries neither the sink nor its env var.
+
+## [2026-11-27] update | T2의 열린 결정을 한 곳에 (D5–D9)
+
+- [[the-outstanding-decisions]] gained D5–D9, in dependency order, for the
+  automatic switch: what "more data" means and when it is enough (D5, blocks the
+  rest), which design is prototyped first, whether the user dictionary is a Track 2
+  lever, what #295 is from now on (and `judge_hold`'s disposal), and whether a live
+  session may be logged. Recorded, not answered — each is the maintainer's.
+
+## [2026-11-27] update | 트레이스 작업과 핸드오프
+
+- [[2026-11-27-t2-direction-and-the-three-proposals]] §10 added: what a new
+  session needs to continue — branch/worktree, the six runnable pieces, the one
+  blocked step (`sudo tools/ibus-trace-enable.sh enable` + `ibus restart`), where
+  the log lands, what to run when it does, and the two drifts not to repeat.
+  Also fixed the enable script's first real failure: it wrote through a running
+  engine ("Text file busy"); every install now writes beside the target and
+  renames over it.
+
+## [2026-11-28] update | enable이 한글 입력을 죽인 원인과 수정
+
+- [[2026-11-27-t2-direction-and-the-three-proposals]] §10 updated: the first real
+  `enable` lost Korean entirely — the dev lib's compiled data dir is
+  `/usr/local/share/hunmin` (absent), so `hunmin_ctx_new` returned NULL and every
+  key was declined (log: `"layout":""`, 1,300 events, 0 preedits). Fixes in
+  `5043157`: wrapper exports `HUNMIN_DATA_PATH`, `enable` preflights the installed
+  lib and restores the packaged engine if it fails, and the engine warns in the
+  journal instead of failing silently.

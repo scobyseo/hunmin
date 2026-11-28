@@ -1,0 +1,505 @@
+{
+ "instrument": {
+  "tool": "tools/modes-metrics.py",
+  "invocation": "tools/modes-metrics.py --corpus /home/scoby/work/hunmin-sentences/wiki-2500.jsonl --lib build/libhunmin.so --sim build/hunmin-sim --keytable /home/scoby/work/hunmin-sentences/sin3-p2.keytable.json --judge-hold 1 --json-out /home/scoby/work/hunmin-sentences/wiki-2500.t23-hold1.run.jsonl",
+  "engine": {
+   "lib": "build/libhunmin.so",
+   "sha256": "a89aa767a1c3a2c809c0975dcc8b3e328101e5905152b0c998283c148ad943d9",
+   "sim": "build/hunmin-sim",
+   "data": "/home/scoby/work/hunmin/0.4-t2-3-g3-expectability/libhunmin/data"
+  },
+  "layouts": {
+   "hangul": "sin3-p2",
+   "latin": "us-qwerty"
+  },
+  "keytable": {
+   "layout": "sin3-p2",
+   "layout_sha256": "6734411d0c601bcaba089e7591688458ad56a0d7734266a8d619646f5d9c56eb",
+   "jamo_mapped": 137,
+   "not_found": {
+    "cho": [
+     "ᄓ",
+     "ᄔ",
+     "ᄕ",
+     "ᄖ",
+     "ᄗ",
+     "ᄘ",
+     "ᄙ",
+     "ᄚ",
+     "ᄛ",
+     "ᄜ",
+     "ᄝ",
+     "ᄞ",
+     "ᄟ",
+     "ᄠ",
+     "ᄡ",
+     "ᄢ",
+     "ᄣ",
+     "ᄤ",
+     "ᄥ",
+     "ᄦ",
+     "ᄧ",
+     "ᄨ",
+     "ᄩ",
+     "ᄪ",
+     "ᄫ",
+     "ᄬ",
+     "ᄭ",
+     "ᄮ",
+     "ᄯ",
+     "ᄰ",
+     "ᄱ",
+     "ᄲ",
+     "ᄳ",
+     "ᄴ",
+     "ᄵ",
+     "ᄶ",
+     "ᄷ",
+     "ᄸ",
+     "ᄹ",
+     "ᄺ",
+     "ᄻ",
+     "ᄼ",
+     "ᄽ",
+     "ᄾ",
+     "ᄿ",
+     "ᅀ",
+     "ᅁ",
+     "ᅂ",
+     "ᅃ",
+     "ᅄ",
+     "ᅅ",
+     "ᅆ",
+     "ᅇ",
+     "ᅈ",
+     "ᅉ",
+     "ᅊ",
+     "ᅋ",
+     "ᅌ",
+     "ᅍ",
+     "ᅎ",
+     "ᅏ",
+     "ᅐ",
+     "ᅑ",
+     "ᅒ",
+     "ᅓ",
+     "ᅔ",
+     "ᅕ",
+     "ᅖ",
+     "ᅗ",
+     "ᅘ",
+     "ᅙ",
+     "ᅚ",
+     "ᅛ",
+     "ᅜ",
+     "ᅝ",
+     "ᅞ",
+     "ᅟ"
+    ],
+    "jung": [
+     "ᅶ",
+     "ᅷ",
+     "ᅸ",
+     "ᅹ",
+     "ᅺ",
+     "ᅻ",
+     "ᅼ",
+     "ᅽ",
+     "ᅾ",
+     "ᅿ",
+     "ᆀ",
+     "ᆁ",
+     "ᆂ",
+     "ᆃ",
+     "ᆄ",
+     "ᆅ",
+     "ᆆ",
+     "ᆇ",
+     "ᆈ",
+     "ᆉ",
+     "ᆊ",
+     "ᆋ",
+     "ᆌ",
+     "ᆍ",
+     "ᆎ",
+     "ᆏ",
+     "ᆐ",
+     "ᆑ",
+     "ᆒ",
+     "ᆓ",
+     "ᆔ",
+     "ᆕ",
+     "ᆖ",
+     "ᆗ",
+     "ᆘ",
+     "ᆙ",
+     "ᆚ",
+     "ᆛ",
+     "ᆜ",
+     "ᆝ",
+     "ᆟ",
+     "ᆠ",
+     "ᆣ",
+     "ᆤ",
+     "ᆥ",
+     "ᆦ",
+     "ᆧ"
+    ],
+    "jong": [
+     "ᇃ",
+     "ᇄ",
+     "ᇅ",
+     "ᇆ",
+     "ᇇ",
+     "ᇈ",
+     "ᇉ",
+     "ᇊ",
+     "ᇋ",
+     "ᇌ",
+     "ᇍ",
+     "ᇎ",
+     "ᇏ",
+     "ᇐ",
+     "ᇑ",
+     "ᇒ",
+     "ᇓ",
+     "ᇔ",
+     "ᇕ",
+     "ᇖ",
+     "ᇗ",
+     "ᇘ",
+     "ᇙ",
+     "ᇚ",
+     "ᇛ",
+     "ᇜ",
+     "ᇝ",
+     "ᇞ",
+     "ᇟ",
+     "ᇠ",
+     "ᇡ",
+     "ᇢ",
+     "ᇣ",
+     "ᇤ",
+     "ᇥ",
+     "ᇦ",
+     "ᇧ",
+     "ᇨ",
+     "ᇩ",
+     "ᇪ",
+     "ᇫ",
+     "ᇬ",
+     "ᇭ",
+     "ᇮ",
+     "ᇯ",
+     "ᇰ",
+     "ᇱ",
+     "ᇲ",
+     "ᇳ",
+     "ᇴ",
+     "ᇵ",
+     "ᇶ",
+     "ᇷ",
+     "ᇸ",
+     "ᇹ",
+     "ᇺ",
+     "ᇻ",
+     "ᇼ",
+     "ᇽ",
+     "ᇾ",
+     "ᇿ"
+    ]
+   },
+   "jung_twins": {
+    "ㅗ": {
+     "candidates": {
+      "/": 3,
+      "V": 0,
+      "v": 0
+     },
+     "chosen": "v",
+     "rule": "fewest compound-vowel extensions (standalone over connecting)"
+    },
+    "ㅜ": {
+     "candidates": {
+      "B": 0,
+      "b": 0,
+      "o": 3
+     },
+     "chosen": "b",
+     "rule": "fewest compound-vowel extensions (standalone over connecting)"
+    },
+    "ㅡ": {
+     "candidates": {
+      "G": 0,
+      "g": 0,
+      "i": 1
+     },
+     "chosen": "g",
+     "rule": "fewest compound-vowel extensions (standalone over connecting)"
+    },
+    "ᅩ": {
+     "candidates": {
+      "/": 3,
+      "V": 0,
+      "v": 0
+     },
+     "chosen": "v",
+     "rule": "fewest compound-vowel extensions (standalone over connecting)"
+    },
+    "ᅮ": {
+     "candidates": {
+      "B": 0,
+      "b": 0,
+      "o": 3
+     },
+     "chosen": "b",
+     "rule": "fewest compound-vowel extensions (standalone over connecting)"
+    },
+    "ᅳ": {
+     "candidates": {
+      "G": 0,
+      "g": 0,
+      "i": 1
+     },
+     "chosen": "g",
+     "rule": "fewest compound-vowel extensions (standalone over connecting)"
+    },
+    "ᆞ": {
+     "candidates": {
+      "Z": 0,
+      "p": 2,
+      "z": 0
+     },
+     "chosen": "z",
+     "rule": "fewest compound-vowel extensions (standalone over connecting)"
+    }
+   },
+   "literals_probed": 41,
+   "literals": {
+    "!": "!",
+    "/": "\"",
+    "#": "#",
+    "$": "$",
+    "%": "%",
+    "&": "&",
+    "(": "(",
+    ")": ")",
+    "*": "*",
+    "+": "+",
+    ",": ",",
+    "-": "-",
+    ".": ".",
+    "0": "0",
+    "1": "1",
+    "2": "2",
+    "3": "3",
+    "4": "4",
+    "5": "5",
+    "6": "6",
+    "7": "7",
+    "8": "8",
+    "9": "9",
+    ":": ":",
+    "<": "<",
+    "=": "=",
+    ">": ">",
+    "?": "?",
+    "@": "@",
+    "'": "J",
+    "\"": "K",
+    ";": "P",
+    "[": "[",
+    "]": "]",
+    "^": "^",
+    "_": "_",
+    "`": "`",
+    "{": "{",
+    "|": "|",
+    "}": "}",
+    "~": "~"
+   },
+   "provenance": "tools/jamo-keytable.py build_table(), probed against build/hunmin-sim --batch; twins recorded by the tool"
+  },
+  "model": {
+   "tokenisation": "whitespace eojeol, punctuation attached; a token is hangul / latin / other by its own characters",
+   "keys": "Hangul eojeol via tools/jamo-keytable.py, Latin eojeol as its own characters (shift encodes case), one space after each",
+   "transitions": "each eojeol whose script differs from the previous eojeol's, initial mode hangul as position 0",
+   "off_arm": "autoswitch 0, 한/영 pressed by the replayer at each transition",
+   "on_arm": "autoswitch 1, judgement read after every key and the switch performed as tools/sim.c judge_step() does",
+   "repair": "counted, not replayed: backspaces + one 한/영 press if the mode differs from the script typed + the eojeol's keys",
+   "match": "a eojeol arrived as typed when its delivery, including the separator the replay typed, equals token + ' '",
+   "judge_hold": 1,
+   "judge_hold_meaning": "E6 display stability (issue #295): 0 = the display adopts a changed per-key judgement at once, N>0 = after N+1 consecutive agreeing keys. Display only; the boundary judgement and the delivered text do not read it, so q is unchanged by it"
+  },
+  "generated_at": "2026-11-24T15:01:52+00:00"
+ },
+ "corpus": {
+  "path": "/home/scoby/work/hunmin-sentences/wiki-2500.jsonl",
+  "sha256": "1d3b6e3583f74fb425b6394675a3ec20f9a21831608063942107f2cef869cb27",
+  "meta": {
+   "tool": "tools/build-modes-sentences.py",
+   "invocation": "tools/build-modes-sentences.py --dump /home/scoby/work/kowiki-dump/kowiki.xml --pages 2500 --limit 1000 --out /home/scoby/work/hunmin-sentences/wiki-2500.jsonl",
+   "source": {
+    "path": "/home/scoby/work/kowiki-dump/kowiki.xml",
+    "sha256": "de25cba437dd9fba9333a8d3ffbcc220b17185a6d07643945722298d055c752f",
+    "pages_read": 2500,
+    "reader": "tools/build-modes-corpus.py:read_pages",
+    "stripper": "tools/build-modes-corpus.py:strip_wiki"
+   },
+   "licence": "CC BY-SA 4.0 (ko.wikipedia dump); this corpus is derived text",
+   "method": {
+    "sentences": "split on [.!?] followed by whitespace, after collapsing whitespace and stripping wiki markup",
+    "filters": {
+     "min_chars": 12,
+     "max_chars": 160,
+     "max_words": 14,
+     "allowed": "Hangul syllables, ASCII letters/digits, space, !\"'(),-.:;?[]",
+     "needs": ">=1 hangul word and >=1 latin word, no word mixing the two scripts in itself"
+    },
+    "drops": {
+     "line_short": 63512,
+     "charset": 9411,
+     "length": 3868,
+     "too_many_words": 15772,
+     "no_latin": 18494,
+     "mixed_word": 5192,
+     "no_hangul": 474,
+     "duplicate": 30
+    },
+    "window": "first 2500 namespace-0 pages in dump order, not a random sample"
+   },
+   "sentences_kept": 1000,
+   "does_not_represent": [
+    "encyclopedia prose, not typed messages — MODES-DATA §4 records this genre understates how often people switch scripts, so the transition density here is a lower bound on the target population",
+    "the dump's page order is not a random sample of Wikipedia",
+    "sentences the layout cannot serialise are kept here and counted as not-inputtable by tools/modes-metrics.py, not dropped"
+   ],
+   "generated_at": "2026-11-04T13:53:59+00:00"
+  }
+ },
+ "totals": {
+  "sentences_in_corpus": 1000,
+  "sentences_graded": 1000,
+  "sentences_not_inputtable": 0,
+  "characters": 40241,
+  "keys_typed": 74830,
+  "keys_off": 76956,
+  "keys_on": 90394,
+  "keystroke_delta": -13438,
+  "sentences_unchanged": 92,
+  "saving_over_off": -0.17461926295545507,
+  "manual_presses_off": 2126,
+  "manual_presses_on": 1180,
+  "backspaces": 6535,
+  "retype_keys": 7849,
+  "transitions": 2126,
+  "transition_density_d": 0.05283168907333317,
+  "keys_saved_per_1000_chars": -333.938023408961,
+  "manual_presses_on_per_10_sentences": 11.8,
+  "outcomes": {
+   "switched_to_typed": {
+    "delivered_correct": 748,
+    "delivered_wrong": 200
+   },
+   "switched_to_other": {
+    "delivered_correct": 0,
+    "delivered_wrong": 0
+   },
+   "no_switch": {
+    "delivered_correct": 0,
+    "delivered_wrong": 1178
+   }
+  },
+  "counts": {
+   "transitions": 2126,
+   "switched_to_typed": 948,
+   "switched_to_other": 0,
+   "no_switch": 1178,
+   "delivered_wrong": 1378
+  },
+  "a_switched_correctly": 0.44590780809031044,
+  "r_misfires": 0.6481655691439323,
+  "s_no_switch": 0.5540921919096896,
+  "u_manual_intervention": 0.5540921919096895,
+  "k_mean_backspaces": 4.742380261248186,
+  "q_pool_share_model": -6.349952963311384,
+  "q_pool_share_measured": -6.320790216368768,
+  "wrong_direction_switches": 0,
+  "switches": 950,
+  "wrong_direction_rate": 0.0,
+  "transitions_by_direction": {
+   "hangul->latin": 1171,
+   "latin->hangul": 955
+  },
+  "outcomes_by_direction": {
+   "hangul->latin": {
+    "switched_to_typed": 251,
+    "switched_to_other": 0,
+    "no_switch": 920,
+    "delivered_wrong": 972,
+    "wrong_below_guard": 268,
+    "wrong_at_or_above_guard": 704
+   },
+   "latin->hangul": {
+    "switched_to_typed": 697,
+    "switched_to_other": 0,
+    "no_switch": 258,
+    "delivered_wrong": 406,
+    "wrong_below_guard": 14,
+    "wrong_at_or_above_guard": 392
+   }
+  },
+  "wrong_direction_by_direction": {
+   "hangul->latin": 0,
+   "latin->hangul": 0
+  },
+  "cross_check": {
+   "sentences_compared": 100,
+   "mismatches": 0,
+   "every": 10,
+   "method": "hunmin-sim --judge vs the ctypes replay, same key string, before any repair is applied; every Nth sentence"
+  },
+  "flips": {
+   "unit": "a change of the language one key's preedit renders, inside one eojeol; keys that render neither language (delimiter, digit-only run) neither count nor clear the previous answer",
+   "judge_hold": 1,
+   "total": 304,
+   "words": 8927,
+   "words_with_a_flip": 266,
+   "words_with_a_flip_back": 35,
+   "share_of_words_with_a_flip": 0.02979724431499944,
+   "share_of_words_with_a_flip_back": 0.0039206900414472945,
+   "mean_flips_per_word_with_a_flip": 1.1428571428571428,
+   "display_keys": 60780,
+   "flips_below_the_guard": 0,
+   "by_script": {
+    "hangul": {
+     "words": 7363,
+     "flips": 198,
+     "words_with_a_flip": 187,
+     "words_with_a_flip_back": 10,
+     "display_keys": 55536
+    },
+    "latin": {
+     "words": 1564,
+     "flips": 106,
+     "words_with_a_flip": 79,
+     "words_with_a_flip_back": 25,
+     "display_keys": 5244
+    },
+    "other": {
+     "words": 0,
+     "flips": 0,
+     "words_with_a_flip": 0,
+     "words_with_a_flip_back": 0,
+     "display_keys": 0
+    }
+   }
+  },
+  "notes": [
+   "③-bis is wrong_direction_rate over switches, both directions — never a switch count (MODES-MEASUREMENT.md §1.4)",
+   "②b is u = 1 - a: transitions that were not switched correctly, one manual press each (§2.3's strict reading). Whether a repair also counts is §2.4 item 4 and is not decided here",
+   "a, r and s are three different partitions of the same t and overlap where the judgement abstained: r counts delivered_wrong, s counts no_switch, and a word can be both. q_pool_share_model applies MODES-MEASUREMENT §2.1's formula as written; q_pool_share_measured is the replay's own answer",
+   "the model charges s like a misfire when it delivers the wrong script, because the judgement runs at the boundary and the word is already in the client (ReqMode10) — MODES-MEASUREMENT §2.1's s costs one 한/영 press instead"
+  ]
+ }
+}
