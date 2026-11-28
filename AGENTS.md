@@ -6,7 +6,9 @@ exist yet).
 
 **Read this before contributing.** It is short on purpose. Anything about *this
 machine* — toolchain locations, host quirks, what lives outside the repository
-— is not here; it is in the workspace file named at the bottom.
+— is not here; it is in the workspace file named at the bottom. How an *agent*
+works here (task contract, density, premise check, checkpoints) is
+`docs/AGENT-WORKING-PROTOCOL.md`.
 
 ## The one idea
 
