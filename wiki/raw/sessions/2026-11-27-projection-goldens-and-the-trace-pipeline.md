@@ -96,9 +96,11 @@ the diff a reviewer checks instead of trusting the migration.
 
 ## What is still open
 
-- `ReqMode4`'s "consumed/declined for each key" and FE18 answer differently for one
-  BackSpace; the measurement is in `docs/SPEC-MODES.md#§ReqMode4` and
-  `docs/SPEC-FRONTEND.md#§FE18`, the ruling is the maintainer's.
+- ~~The ReqMode14/Fe18 consumed clash~~ — **resolved 2026-11-27**: the maintainer
+  ruled that consumed is not a contract ("consumed는 계약으로 보지 않는 게 맞다고
+  생각해"), recorded in `docs/SPEC-MODES.md#§ReqMode14` and
+  [[2026-11-27-consumed-is-not-a-contract]]; the OFF path and the differential test
+  now compare the text only.
 - The other corpora (`coverage-*`, `cultural-*`, `words-*`) could take the projection
   next; they were left alone so the diff stayed one change with one proof.
 - A post-fix usability session is the only evidence for the user-level outcome

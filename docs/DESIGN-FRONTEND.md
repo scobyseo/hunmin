@@ -256,18 +256,19 @@ That is why the corpus is split by what each tier owns:
 |---|---|---|
 | A (`visible`) | the projection, per key | it is the one mode-invariant quantity; the layout data and the composer are what a corpus is for |
 | A (`commit`/`preedit`, unchanged files) | the split | where the split itself is the subject (ref-* parity, patim's `total`, judgement) |
-| C (`commit`/`preedit`/`consumed`) | the protocol per event | an adapter relays events, and tier C is where a key eaten in one mode and passed in another is visible |
+| C (`commit`/`preedit`/`consumed`) | what an adapter must RELAY per event | the corpus is generated from the engine, so `consumed` there is the expectation for the relay, not a mode-independent rule |
 
-**The one declared difference.** For a BackSpace that crosses a FINISHED
+**The consumed/declined answer is not a contract** (maintainer ruling 2026-11-27:
+"consumed는 계약으로 보지 않는 게 맞다고 생각해", recorded in
+`docs/SPEC-MODES.md#§ReqMode14`). For a BackSpace that crosses a FINISHED
 syllable, the mode that still holds the text consumes the key and the mode whose
-text is already in the client declines it; `consumed` therefore differs between
-commit units, and only for that key. `engine-buffered-preedit` asserts the
-projection is equal there and that a BackSpace **commits nothing in either mode**
-— the assertion that catches FE18's defect. The projection alone does not: a
-commit followed by the client's delete is text-equivalent (mutation-measured
-2026-11-27 — disabling FE18 leaves the projection test green and turns the
-no-commit assertion red). Which clause of `ReqMode4` that difference sits under
-is recorded in `docs/SPEC-MODES.md#§ReqMode4` and is the maintainer's ruling.
+text is already in the client declines it; the same user-visible result therefore
+has different answers, and neither tier A nor the OFF path compares the flag any
+more. `engine-buffered-preedit` asserts the projection is equal there and that a
+BackSpace **commits nothing in either mode** — the assertion that catches FE18's
+defect. The projection alone does not: a commit followed by the client's delete is
+text-equivalent (mutation-measured 2026-11-27 — disabling FE18 leaves the
+projection test green and turns the no-commit assertion red).
 
 ### 5.3 Frontends on the layer
 

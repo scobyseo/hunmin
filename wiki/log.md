@@ -1746,3 +1746,12 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   proved unchanged by regenerating four families byte-identically. Records the
   mutation finding: the projection alone does not catch FE18, so the
   commits-nothing assertion stays beside it. Index updated.
+
+## [2026-11-27] decision | consumed/declined is not a contract
+
+- Created [[2026-11-27-consumed-is-not-a-contract]]: maintainer ruling
+  "consumed는 계약으로 보지 않는 게 맞다고 생각해" recorded in
+  `docs/SPEC-MODES.md#§ReqMode14`. `hunmin-sim --off-check` and
+  `engine-buffered-preedit` now compare the projection and not the flag; tier C
+  keeps `consumed` as what an adapter must relay. Also corrects the id the
+  earlier FE18 note used (ReqMode4 → ReqMode14). Index updated.

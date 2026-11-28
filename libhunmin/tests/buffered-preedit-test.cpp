@@ -73,7 +73,6 @@ void client_edit(std::string &document, uint32_t base) {
 
 struct RunResult {
     std::string total; /* every commit the frontend would have inserted */
-    std::vector<int> eaten; /* consumed answer per key */
     std::vector<std::string> commits; /* this key's commit, for FE18's "a DEL commits nothing" */
     std::vector<std::string> shown; /* the projection after each key */
 };
@@ -88,7 +87,6 @@ RunResult drive_layer(hunmin_ctx *ctx, const std::string &sequence, int mode, co
     for (const Key &k : keys_of(sequence)) {
         hunmin_key_result out{};
         const int eaten = hunmin_buffered_preedit_process_key(l, k.base, k.shift, &out);
-        r.eaten.push_back(eaten);
         r.commits.push_back(out.commit ? out.commit : "");
         if (out.commit && out.commit[0]) {
             r.total += out.commit;
@@ -114,7 +112,6 @@ RunResult drive_engine(hunmin_ctx *ctx, const std::string &sequence, const char 
     for (const Key &k : keys_of(sequence)) {
         const bool eaten = hunmin_ic_process_key(ic, k.base, k.shift);
         const char *c = hunmin_ic_commit(ic);
-        r.eaten.push_back(eaten ? 1 : 0);
         r.commits.push_back(c ? c : "");
         if (c) {
             r.total += c;
@@ -170,14 +167,14 @@ TEST_F(LayerTest, BothCommitModesAgreeOnTheProjection) {
         const RunResult buffered = drive_layer(ctx_, seq, HUNMIN_COMMIT_AT_BOUNDARY);
         const RunResult syllable = drive_layer(ctx_, seq, HUNMIN_COMMIT_PER_SYLLABLE);
         const std::vector<Key> keys = keys_of(seq);
-        ASSERT_EQ(buffered.eaten.size(), keys.size()) << "sequence: " << seq;
+        ASSERT_EQ(buffered.shown.size(), keys.size()) << "sequence: " << seq;
         for (size_t i = 0; i < keys.size(); i++) {
             EXPECT_EQ(buffered.shown[i], syllable.shown[i]) << "sequence: " << seq << " key " << i;
-            /* The consumed answer is the protocol, not the projection: a key
-             * that edits text one mode has not yet delivered belongs to that
-             * mode. Everything else must agree. */
-            if (keys[i].base != 0x08) EXPECT_EQ(buffered.eaten[i], syllable.eaten[i]) << "sequence: " << seq << " key " << i;
-            /* FE18 (#332): a BackSpace never commits in either mode. Before the
+            /* The consumed/declined answer is NOT compared: the maintainer ruled
+             * 2026-11-27 that it is not a contract (docs/SPEC-MODES.md §ReqMode14),
+             * because which mode holds the text decides who can eat the key. The
+             * projection above is the contract, and FE18 still needs its own
+             * assertion: a BackSpace commits nothing, in either mode. Before the
              * fix the buffered mode committed its whole word on the first DEL
              * past the in-flight syllable (measured 9/34 DELs on the phone). */
             if (keys[i].base == 0x08) {

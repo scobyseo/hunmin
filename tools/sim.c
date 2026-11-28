@@ -889,21 +889,16 @@ static int off_key(off_case *c, const char *path, int line, uint32_t base, uint3
     snprintf(scommit, sizeof scommit, "%s", sres.commit ? sres.commit : "");
     snprintf(spre, sizeof spre, "%s", sres.preedit ? sres.preedit : "");
 
-    (*checks)++;
-    /* FE18: WHICH side holds the finished syllables decides who eats the key.
-     * The engine delivered its earlier syllable, so it declines and the client
-     * deletes; the boundary layer still holds that syllable, so it consumes and
-     * deletes it itself; the syllable layer delivered it and declines. The
-     * text comparison below is the assertion -- for a BackSpace the consumption
-     * flag is a routing detail, and a layer that swallowed a key with nothing to
-     * delete still shows up as a text difference. */
+    /* The consumed/declined answer is NOT compared: the maintainer ruled
+     * 2026-11-27 that it is not a contract (docs/SPEC-MODES.md §ReqMode14 —
+     * "consumed는 계약으로 보지 않는 게 맞다고 생각해"), because which side holds
+     * the text decides who can eat the key. The text is the contract, and it
+     * still fails when a driver swallows a key that would have produced text or
+     * invents text it did not produce.
+     *
+     * FE18: a BackSpace either side DECLINES is the client's delete, and the
+     * client is not in this loop, so the model applies it on that side alone. */
     const bool backspace = (base == 0x08);
-    if (!backspace && (ocons != bcons || ocons != scons)) {
-        fprintf(stderr, "%s:%d: key 0x%02x: consumed engine=%d boundary=%d syllable=%d\n", path, line, base, ocons, bcons, scons);
-        fails += (ocons != bcons) + (ocons != scons);
-    }
-
-    /* FE18: the client's delete, on the side that declined the BackSpace. */
     if (backspace) {
         if (!ocons) off_client_delete(c->odel);
         if (!bcons) off_client_delete(c->bdel);

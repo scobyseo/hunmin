@@ -63,16 +63,18 @@ BackSpace reaches the client — hold; the two middle states were a guess. The
 corrected walk is in FE18's implementation note, and the issue body is not
 edited (it is the request record, not the result).
 
-## The conflict ReqMode4 now carries
+## The conflict that became a ruling
 
-`docs/SPEC-MODES.md` §ReqMode4 constrains "the consumed/declined decision for
-each key", and FE18 makes the boundary layer consume a BackSpace the engine
-declines. Those two clauses answer differently for that one key.
-`hunmin-sim --off-check` was changed to apply the client's delete on the side
-that declined a BackSpace and compare the text a person ends with; the text
-comparison still fails if a layer swallows a BackSpace it had nothing to
-delete. The measurement is recorded in §ReqMode4 and in FE18 with the ruling
-left open — a test edit is not where that gets settled.
+`docs/SPEC-MODES.md` §ReqMode14 (then written as one sentence with the text)
+constrained both "the text handed to the client" and "the consumed/declined
+decision for each key", and FE18 makes the boundary layer consume a BackSpace
+the engine declines. Those two clauses answered differently for that one key.
+
+The maintainer ruled 2026-11-27 — "consumed는 계약으로 보지 않는 게 맞다고
+생각해" — and the ruling is recorded in §ReqMode14 and
+[[2026-11-27-consumed-is-not-a-contract]]. `hunmin-sim --off-check` and
+`engine-buffered-preedit` now compare the text only; tier C still records
+`consumed` as the expectation for what an adapter relays.
 
 ## The abstain, and what it costs
 

@@ -26,6 +26,9 @@
 
 ## Decisions
 
+- [[2026-11-27-consumed-is-not-a-contract]] — maintainer ruled 2026-11-27:
+  consumed/declined is not a contract, the text is. Off-path and tier-A
+  comparisons dropped the flag; tier C keeps it as the adapter relay expectation.
 - [[2026-11-22-ibus-config-store-and-settings-surface]] — #327 ruled: the five option rows are all settable, stored in a GSettings schema, edited by a separate setup binary the panel launches, applied live, shipped in its own package (FE17). Implementation not started; §IBC-5 records the cost the ruling accepted after the fact — a dconf store cannot be isolated from a test by environment, so persistence is a CI-only case.
 
 - [[2026-11-22-ibus-gloss-option-a]] — maintainer ruled option A (aux text) for the IBus candidate gloss (FE16); implemented and evaluated on the real daemon bus + drawn GTK3 panel; B remains the fallback, usability verdict is the maintainer's.

@@ -792,21 +792,20 @@ and the price of turning it off mid-word.)
   and still asserted against `hunmin_ic` (issue #179). A build with the feature
   and a build without it answer that corpus identically — the same bytes, at
   whichever commit policy a frontend is set to, not "the suite is still green".
-- **What it constrains is delivery: the text handed to the client, and the
-  consumed/declined decision for each key.** How a frontend draws that text is
-  an allowed difference (`docs/DESIGN-FRONTEND.md` Part A §3) and is not covered
-  by this item.
-- **One conflict with FE18 is measured and left for a ruling (2026-11-27).**
-  `docs/SPEC-FRONTEND.md#§FE18` requires a BackSpace that crosses a finished
-  syllable to keep the word composing, so the buffered layer CONSUMES that key
-  while `hunmin_ic` declines it (its syllable is already in the client) — the
-  consumed/declined clause above and FE18 answer differently for that one key.
-  `hunmin-sim --off-check` now applies the client's delete on the side that
-  declined a BackSpace and compares the text a person ends with; the divergence
-  it no longer reports is exactly that flag, and the text comparison still fails
-  when a layer swallows a BackSpace it had nothing to delete. Which clause yields
-  is the maintainer's; the measurement is recorded here and in FE18 rather than
-  resolved by a test edit.
+- **What it constrains is the TEXT.** How a frontend draws that text is an
+  allowed difference (`docs/DESIGN-FRONTEND.md` Part A §3) and is not covered by
+  this item.
+- **The consumed/declined answer is not a contract.** Ruled 2026-11-27, verbatim:
+  "consumed는 계약으로 보지 않는 게 맞다고 생각해." The reason is the one FE18
+  (#332) measured: a key is consumed by whichever side still holds the text it
+  would edit, so the same user-visible result has a different answer when the
+  commit unit holds the word than when the syllables are already in the client.
+  `hunmin-sim --off-check` and ctest `engine-buffered-preedit` therefore compare
+  the text (the projection, `docs/DESIGN-FRONTEND.md` §5.2) and not the flag; a
+  layer that swallows a key which would have produced text, or invents text, still
+  fails on the comparison. Tier C still records `consumed` per event — as the
+  expectation for what an adapter RELAYS, not as a mode-independent rule. Before
+  this ruling the two were one sentence here, and FE18 exposed the contradiction.
 - **It covers the Latin layouts too**, by the same equality: the corpus carries
   `dvorak`, `colemak` and `romaja`, and what they deliver is compared the same
   way. OFF + English mode's per-character delivery is ReqMode5's rule, not this one's.

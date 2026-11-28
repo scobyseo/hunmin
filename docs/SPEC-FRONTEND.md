@@ -256,13 +256,10 @@ already in the client, so a declined BackSpace is the client's own delete.
 One consequence, also measured: a delete breaks the correspondence between the
 key log and the word, so the `ReqMode8` readings are not taken for the rest of
 that word (`keys_unreliable`) and the automatic switch abstains instead of
-judging text that is no longer on screen. One conflict is recorded rather than
-resolved: `docs/SPEC-MODES.md#§ReqMode4` constrains the consumed/declined answer
-for every key, and this requirement makes the buffered layer consume a BackSpace
-the engine declines; `hunmin-sim --off-check` now compares the text a person ends
-with (applying the client's delete on the side that declined the key), and
-which clause yields is an open ruling recorded in ReqMode4, not decided here.
-Measured 2026-11-27, and it decides how this requirement is refuted: the
+judging text that is no longer on screen. The consumed/declined answer this
+requirement changes is **not a contract** (maintainer ruling 2026-11-27, recorded
+in `docs/SPEC-MODES.md#§ReqMode14`), so the OFF path compares the text and not the
+flag. Measured 2026-11-27, and it decides how this requirement is refuted: the
 projection is identical with the defect and without it (a commit followed by the
 client's delete is text-equivalent), so the assertion that catches a regression
 is the one that a BackSpace **commits nothing** in either mode —
