@@ -46,6 +46,33 @@ work waits for one word.
 - Reply in the language the maintainer used; repository prose stays English
   (`AGENTS.md`).
 
+## 2b. Decision requests — six slots, one screen, one decision
+
+Never ask a decision in prose. The maintainer's recurring cost was the opposite of
+too little information: the options carried *what the agent would build* and dropped
+*what the person would feel and give up*, which is the axis a decision is made on.
+
+Every request has these six slots, in this order:
+
+1. **What is being decided · why now** — two lines, and what it blocks.
+2. **Options, two to four.** For each: a one-line definition; **what the person
+   feels** (the screen, the hand — not what will be measured); the cost (what must
+   be built / what they must do / whether it is reversible); what it forecloses.
+3. **What happens if nothing is decided** — the status quo, and what stays broken.
+4. **A recommendation and the single deciding fact**, plus the evidence that would
+   flip it.
+5. **The answer needed** — a number or one word.
+6. **Confidence** — which figures are measured (`engine-measured`) and which are the
+   agent's estimates.
+
+A request is incomplete if an option has no "what you would feel" line, if the
+recommendation has no flip condition, or if there is no "do nothing" row. **If the
+options cannot be filled in, the missing thing is a measurement**: ask which
+measurement first, not which design.
+
+One decision per message. A long analysis may not end with a question — the question
+goes at the top, in this shape, or not at all.
+
 ## 3. Premise check — at the start, and after any fetch or rebase
 
 1. Re-read the issue; write down its premises (what it assumed about the tree).
