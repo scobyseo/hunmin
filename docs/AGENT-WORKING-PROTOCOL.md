@@ -28,7 +28,12 @@ In the reply, before executing:
 3. the deliverable (files, commands);
 4. **what will not be done** (the out-of-scope line, which is what the three
    wrong turns lacked);
-5. **the one question whose answer would change the plan** — or "none".
+5. **the one question whose answer would change the plan** — or "none", **after
+   checking that it cannot be collected**. Ask only for what the tree cannot hold:
+   intent, preference, a ruling. Everything else has a source: `git log`, the issue
+   body, `tools/agent-brief.sh`, a run artefact, the engine itself. A question whose
+   answer was already written down is pure cost, and a question asked twice is a
+   collection step that was skipped.
 
 Cheap, reversible work then proceeds in the same reply. Expensive or hard-to-reverse
 work waits for one word.
@@ -145,18 +150,32 @@ the evidence that it was considered is what stops it being re-proposed.
 
 ## 9. Changelog — friction, change, revert
 
-One line per change to how the agent works: `date / friction / change / how to
-revert`. The friction is what someone would have to rediscover if the line were
-missing.
+One line per change to how the agent works, with five fields:
+`date / friction / missing information → how it was obtained / change / how to
+revert`. The middle field is the point: **a gap that was closed by information must
+name where the information came from** — `collected: <source>` or `asked`. If the
+same gap recurs with the same answer, the next version collects it instead of
+asking again.
 
 - **2026-11-28 / friction:** a permission to propose *method* changes was read as a
   permission to file *project* proposals, and it produced one more decision request.
-  **Change:** §8 limits proposals to the working method and splits "agent's own
-  behaviour" (immediate) from "the maintainer's or the repository's" (one question).
-  **Revert:** delete §8 and this section.
+  **Missing information:** what "제안" covered — *asked*, and it was already answerable
+  from the two preceding turns' subject (the cost of asking). **Change:** §8 limits
+  proposals to the working method. **Revert:** delete §8 and this section.
 - **2026-11-28 / friction:** an issue's premises had moved before the work started
   (121 commits on `origin/master` since #295 was filed, and the issue states no
   premises at all) — the pattern that produced three wrong-direction units this
-  session. **Change:** §3 starts with `tools/agent-brief.sh <issue>`, which prints
-  exactly that comparison. **Revert:** delete the tool's line from §3; the tool is
-  read-only and harmless if left.
+  session. **Missing information:** which commits changed the issue's world —
+  *collected* (`git log`, now `tools/agent-brief.sh`). **Change:** §3 starts with the
+  tool. **Revert:** delete the tool's line from §3; the tool is read-only.
+- **2026-11-28 / friction:** an installed dev engine declined every key, and the input
+  method was dead for three round-trips. **Missing information:** whether the engine
+  could find layouts in the wrapper's environment — *collectable all along* by
+  starting it the way the engine starts (`hunmin_ctx_new(NULL,0)`), which is now a
+  preflight in `tools/ibus-trace-enable.sh`. **Change:** §5's revert-first rule plus
+  that preflight. **Revert:** remove the preflight; the wrapper's data path stays.
+- **2026-11-28 / friction:** the same question to the maintainer twice (what the
+  working method should do), both times answered from material already in the
+  session. **Missing information:** none — the failure was asking before reading.
+  **Change:** §1 requires the question to be checked for collectability first.
+  **Revert:** delete that sentence from §1.
