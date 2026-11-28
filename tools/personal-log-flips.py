@@ -95,6 +95,13 @@ def words_of(events):
     """
     words, cur = [], []
     for ev in events:
+        if ev.get("lang"):
+            # The Han/Eng key is CONSUMED (the engine toggles) but it is not
+            # typing: it ends the word rather than joining it.
+            if len(cur) > 1:
+                words.append(cur)
+            cur = []
+            continue
         cur.append(ev)
         if not ev.get("consumed"):
             if len(cur) > 1:  # the boundary key alone is not a word
@@ -162,8 +169,21 @@ def replay(mm, engine, events, meta, hold):
     layer = engine.layer(hungul, "us-qwerty", 1)
     if hold:
         layer.set_option("judge_hold", hold)
+    # The person's START MODE is part of the input: a log that began in Latin
+    # mode flickers differently from one that began in Hangul, and the counter-
+    # factual must start where they did.
+    first_mode = next((e.get("mode") for e in events if e.get("mode") in (HANGUL, LATIN)), HANGUL)
+    if first_mode == LATIN:
+        layer.toggle()
     words, cur = [], []
     for ev in events:
+        if ev.get("lang"):
+            # They pressed 한/영: the engine toggled, and the word ends here.
+            layer.toggle()
+            if len(cur) > 1:
+                words.append(cur)
+            cur = []
+            continue
         in_ = ev.get("in") or {}
         consumed, _commit, _preedit = layer.key(int(in_.get("base", 0)),
                                                 int(in_.get("shift", 0)))
@@ -244,10 +264,31 @@ def selfcheck(args):
         if layer.judgement() >= 0:
             ev["judged"] = "latin"
             layer.toggle()
+    # A language-key press, then a Hangul word in the other mode: the replay has
+    # to follow it, or the counterfactual compares two different inputs (this is
+    # the bug the faithfulness check below exists for).
+    layer.toggle()
+    last_t += 90
+    events.append({"in": {"base": 0xFFEA, "shift": 0}, "consumed": 1, "preedit": "",
+                   "mode": layer.language(), "lang": True, "t": last_t})
+    for base in (ord(c) for c in "gksrmf "):
+        consumed, _commit, preedit = layer.key(base, 0)
+        last_t += 90
+        events.append({"in": {"base": base, "shift": 0},
+                       "consumed": 1 if consumed else 0, "preedit": preedit,
+                       "mode": layer.language(), "t": last_t})
+        if layer.judgement() >= 0:
+            layer.toggle()
     layer.close()
     meta = {"layout": "dubeolsik", "platform": "x11", "started": "synthetic"}
     problems = []
     live = summarise(mm, words_of(events))
+    same = replay(mm, mm.Engine(lib, args.data), events, meta, 0)
+    if same["flips"] != live["flips"] or same["words"] != live["words"]:
+        problems.append(f"the counterfactual is not faithful: the log reads "
+                        f"{live['flips']} flips in {live['words']} words, the same keys "
+                        f"replayed at judge_hold 0 read {same['flips']} in {same['words']} "
+                        f"-- the comparator is comparing two different inputs")
     if live["flips"] < 2:
         problems.append(f"the synthetic log should flicker; it reports {live}")
     engine = mm.Engine(lib, args.data)
