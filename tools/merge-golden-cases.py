@@ -19,7 +19,11 @@ So the merge is:
     case A events | space | case B events | space | ...
 
 with each space line carrying `commit: <A's last preedit>, preedit: ""` (or
-`total: <A's last total>`), and every other line copied verbatim. Cases whose
+`total: <A's last total>`), and every other line copied verbatim. A projection
+corpus (`meta.assert = "projection"`, docs/SPEC-SCHEMA.md) recomputes `visible`
+for the merged stream from the engine instead: its values are cumulative, so
+shifting them would need an offset the merge cannot verify, while re-running the
+same oracle the corpus was generated from can be checked by `hunmin-sim --check`. Cases whose
 per-case meta differs in an ENGINE OPTION (`caps`, `w`, `W`, `z`, `h`, `H`,
 `mode`) cannot share a case -- one case has one engine state -- so they are
 grouped, one merged case per distinct option set.
@@ -45,6 +49,9 @@ import tempfile
 OPTION_KEYS = frozenset({"caps", "w", "W", "z", "h", "H", "mode"})
 SPACE = {"ch": " "}
 
+sys.path.insert(0, str(ROOT / "tools"))
+from _projection import keys_from_events, project, run_trace  # noqa: E402  (path set above)
+
 
 def parse(golden: pathlib.Path):
     lines = golden.read_text(encoding="utf-8").splitlines()
@@ -61,31 +68,56 @@ def parse(golden: pathlib.Path):
     return head, cases
 
 
-def space_line(prev: dict) -> dict:
+def space_line(prev: dict, projection: bool) -> dict:
     """The boundary between two cases: a declined key that finalises the buffer."""
+    if projection:
+        # A projection corpus lets the rule speak: the space is declined, so the
+        # CLIENT inserts it, and `visible` is recomputed for the merged stream
+        # below instead of being copied from the case's last line.
+        return {"in": dict(SPACE)}
     if "total" in prev:
         return {"in": dict(SPACE), "total": prev["total"]}
     return {"in": dict(SPACE), "commit": prev.get("preedit", ""), "preedit": ""}
 
 
-def merge(head: dict, cases: list[dict], stem: str) -> tuple[list[str], list[str]]:
+def merge(head: dict, cases: list[dict], stem: str, sim: pathlib.Path):
     groups: dict[tuple, list[dict]] = {}
     for c in cases:
         opt = tuple(sorted((k, v) for k, v in c["meta"].items() if k in OPTION_KEYS))
         groups.setdefault(opt, []).append(c)
 
-    out: list[str] = [json.dumps(head, ensure_ascii=False)]
+    projection = head.get("meta", {}).get("assert") == "projection"
+    # Objects until the end: a projection line is mutated after the stream is
+    # known, and a string serialised early would keep the stale value.
+    out: list = [head]
+    events: list[dict] = []  # the merged event stream, in order (projection)
     mapping: list[str] = []
     for n, (opt, group) in enumerate(groups.items(), 1):
         label = f"{stem}-merged" if len(groups) == 1 else f"{stem}-merged-{n}"
         meta = {"case": label, **{k: v for k, v in opt}}
-        out.append(json.dumps({"meta": meta}, ensure_ascii=False))
+        out.append({"meta": meta})
         for i, c in enumerate(group):
             if i:
-                out.append(json.dumps(space_line(group[i - 1]["ev"][-1]), ensure_ascii=False))
+                line = space_line(group[i - 1]["ev"][-1], projection)
+                out.append(line)
+                if projection:
+                    events.append(line)
             mapping.append(f"  {c['meta']['case']!r} -> event {len(out) - 1} of case {label!r}")
-            out.extend(json.dumps(r, ensure_ascii=False) for r in c["ev"])
-    return out, mapping
+            for r in c["ev"]:
+                # A projection case's `visible` is cumulative from ITS start; the
+                # merged stream is one replay, so the value is recomputed below
+                # from the engine rather than shifted by an offset.
+                line = {"in": r["in"]} if projection else r
+                out.append(line)
+                if projection:
+                    events.append(line)
+    if projection:
+        expected = project(run_trace(sim, head["meta"]["layout"], keys_from_events(events)))
+        if len(expected) != len(events):
+            raise SystemExit("projection recomputed %d values for %d events" % (len(expected), len(events)))
+        for line, visible in zip(events, expected):
+            line["visible"] = visible
+    return [json.dumps(o, ensure_ascii=False) for o in out], mapping
 
 
 def main() -> int:
@@ -100,7 +132,7 @@ def main() -> int:
         print(f"{a.golden.name}: {len(cases)} case -- nothing to merge")
         return 0
 
-    merged, mapping = merge(head, cases, a.golden.stem)
+    merged, mapping = merge(head, cases, a.golden.stem, pathlib.Path(a.sim))
     body = "\n".join(merged) + "\n"
 
     with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8") as f:

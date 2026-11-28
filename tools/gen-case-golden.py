@@ -14,11 +14,15 @@ rather than a word list: `세벌식 최종` (sebeolsik-final, alias 3f), `두벌
 hand-authored half is the INPUT — a case name, the feature it pins, and the keys,
 in the same `hunmin-sim --keys` alphabet the other tier-A goldens use (an
 uppercase letter or a shifted symbol is that key with Shift held, so `!` is
-Shift+1). The EXPECTED half — the commit and preedit after every key — is read
-back from the engine. `HEAD_SPEC` names the provenance each layout's `meta`
-carries: two-beolsik ships beside libhangul, P2 is normative from pat.im.
+Shift+1). The EXPECTED half — `visible`, the text a person ends up with after
+each key — is read back from the engine. It is NOT the commit/preedit split:
+that is the delivery schedule, a commit-unit choice, and tier C asserts it per
+event (docs/DESIGN-FRONTEND.md §5.2, §6). `HEAD_SPEC` names the provenance each
+layout's `meta` carries: two-beolsik ships beside libhangul, P2 is normative
+from pat.im.
 
-Schema: the existing tier-A one, so `hunmin-sim --check` runs it unchanged.
+Schema: the tier-A one with `meta.assert = "projection"`, so `hunmin-sim
+--check` asserts `visible` and nothing else (docs/SPEC-SCHEMA.md).
 
     python3 tools/gen-case-golden.py --sim build/hunmin-sim            # rewrite
     python3 tools/gen-case-golden.py --sim build/hunmin-sim --check
@@ -48,6 +52,9 @@ try:
 except ImportError:  # run from elsewhere: derive from this file
     REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(REPO, "libhunmin", "data")
+
+sys.path.insert(0, os.path.join(REPO, "tools"))
+from _projection import project  # noqa: E402  (tools/ on the path just above)
 
 # The layout's defining facts, one case each. Keys only — no expectations here.
 #   세벌식 최종 (3f) in one paragraph, because every case below is a piece of it:
@@ -257,17 +264,21 @@ def render(layout, cases):
             "layout": layout,
             "tool": "tools/gen-case-golden.py",
             "sim": "hunmin-sim --keys … --trace",
-            "note": "expected commit/preedit per key are the engine's answers, never typed; "
-                    "a diff here is a change to the layout or the composer and must be reviewed",
+            "assert": "projection",
+            "note": "expected `visible` per key is the text a person ends up with (the engine's "
+                    "delivered text that survives, plus what is composing, with the client's own "
+                    "insert/delete on a declined key). The commit/preedit split is NOT asserted "
+                    "here: it is the commit unit, and tier C asserts it per event "
+                    "(docs/DESIGN-FRONTEND.md §5.2, §6). A diff here is a change to the layout or "
+                    "the composer and must be reviewed",
         }
     }
     lines = [json.dumps(head, ensure_ascii=False)]
     for c, evs in cases:
         lines.append(json.dumps({"meta": {"case": c["case"], "feature": c["feature"], "note": c["note"]}},
                                 ensure_ascii=False))
-        for e in evs:
-            row = {"in": e["in"], "commit": e["commit"], "preedit": e["preedit"]}
-            lines.append(json.dumps(row, ensure_ascii=False))
+        for e, v in zip(evs, project(evs)):
+            lines.append(json.dumps({"in": e["in"], "visible": v}, ensure_ascii=False))
     return "\n".join(lines) + "\n"
 
 

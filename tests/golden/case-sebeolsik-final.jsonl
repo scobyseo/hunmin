@@ -1,77 +1,77 @@
-{"meta": {"source": "designed", "spec": "the layout's own key arrangement; ReqMode6 for the number row (docs/SPEC-MODES.md)", "layout": "sebeolsik-final", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "note": "expected commit/preedit per key are the engine's answers, never typed; a diff here is a change to the layout or the composer and must be reviewed"}}
+{"meta": {"source": "designed", "spec": "the layout's own key arrangement; ReqMode6 for the number row (docs/SPEC-MODES.md)", "layout": "sebeolsik-final", "tool": "tools/gen-case-golden.py", "sim": "hunmin-sim --keys … --trace", "assert": "projection", "note": "expected `visible` per key is the text a person ends up with (the engine's delivered text that survives, plus what is composing, with the client's own insert/delete on a declined key). The commit/preedit split is NOT asserted here: it is the commit unit, and tier C asserts it per event (docs/DESIGN-FRONTEND.md §5.2, §6). A diff here is a change to the layout or the composer and must be reviewed"}}
 {"meta": {"case": "case-sebeolsik-final-merged"}}
-{"in": {"ch": "j"}, "commit": "", "preedit": "ㅇ"}
-{"in": {"ch": "f"}, "commit": "", "preedit": "아"}
-{"in": {"ch": "s"}, "commit": "", "preedit": "안"}
-{"in": {"ch": "h"}, "commit": "안", "preedit": "ㄴ"}
-{"in": {"ch": "e"}, "commit": "", "preedit": "녀"}
-{"in": {"ch": "a"}, "commit": "", "preedit": "녕"}
-{"in": {"ch": " "}, "commit": "녕", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "m"}, "commit": "", "preedit": "ㅎ"}
-{"in": {"ch": "f"}, "commit": "", "preedit": "하"}
-{"in": {"ch": "s"}, "commit": "", "preedit": "한"}
-{"in": {"ch": "k"}, "commit": "한", "preedit": "ㄱ"}
-{"in": {"ch": "g"}, "commit": "", "preedit": "그"}
-{"in": {"ch": "w"}, "commit": "", "preedit": "글"}
-{"in": {"ch": " "}, "commit": "글", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
-{"in": {"ch": "f"}, "commit": "", "preedit": "가"}
-{"in": {"ch": "X"}, "commit": "", "preedit": "값"}
-{"in": {"ch": " "}, "commit": "값", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "i"}, "commit": "", "preedit": "ㅁ"}
-{"in": {"ch": "f"}, "commit": "", "preedit": "마"}
-{"in": {"ch": "S"}, "commit": "", "preedit": "많"}
-{"in": {"ch": " "}, "commit": "많", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "1"}, "commit": "", "preedit": "ㅎ"}
-{"in": {"ch": "2"}, "commit": "ㅎ", "preedit": "ㅆ"}
-{"in": {"ch": "3"}, "commit": "ㅆ", "preedit": "ㅂ"}
-{"in": {"ch": "4"}, "commit": "ㅂ", "preedit": "ㅛ"}
-{"in": {"ch": "5"}, "commit": "ㅛ", "preedit": "ㅠ"}
-{"in": {"ch": "6"}, "commit": "ㅠ", "preedit": "ㅑ"}
-{"in": {"ch": "7"}, "commit": "ㅑ", "preedit": "ㅖ"}
-{"in": {"ch": "8"}, "commit": "ㅖ", "preedit": "ㅢ"}
-{"in": {"ch": "9"}, "commit": "ㅢ", "preedit": "ㅜ"}
-{"in": {"ch": "0"}, "commit": "ㅜ", "preedit": "ㅋ"}
-{"in": {"ch": " "}, "commit": "ㅋ", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "!"}, "commit": "", "preedit": "ㄲ"}
-{"in": {"ch": "@"}, "commit": "ㄲ", "preedit": "ㄺ"}
-{"in": {"ch": "#"}, "commit": "ㄺ", "preedit": "ㅈ"}
-{"in": {"ch": "$"}, "commit": "ㅈ", "preedit": "ㄿ"}
-{"in": {"ch": "%"}, "commit": "ㄿ", "preedit": "ㄾ"}
-{"in": {"ch": " "}, "commit": "ㄾ", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "J"}, "commit": "1", "preedit": ""}
-{"in": {"ch": "K"}, "commit": "2", "preedit": ""}
-{"in": {"ch": "L"}, "commit": "3", "preedit": ""}
-{"in": {"ch": "H"}, "commit": "0", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
-{"in": {"ch": "s"}, "commit": "", "preedit": "ᄀᅠᆫ"}
-{"in": {"ch": " "}, "commit": "ᄀᅠᆫ", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "k"}, "commit": "", "preedit": "ㄱ"}
-{"in": {"ch": "f"}, "commit": "", "preedit": "가"}
-{"in": {"ch": "."}, "commit": "가.", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": ":"}, "commit": "4", "preedit": ""}
-{"in": {"ch": "M"}, "commit": "\"", "preedit": ""}
-{"in": {"ch": ")"}, "commit": "~", "preedit": ""}
-{"in": {"ch": " "}, "commit": "", "preedit": ""}
-{"in": {"ch": "0"}, "commit": "", "preedit": "ㅋ"}
-{"in": {"ch": "1"}, "commit": "", "preedit": "ᄏᅠᇂ"}
-{"in": {"ch": "2"}, "commit": "ᄏᅠᇂ", "preedit": "ㅆ"}
-{"in": {"ch": "3"}, "commit": "ㅆ", "preedit": "ㅂ"}
-{"in": {"ch": "4"}, "commit": "ㅂ", "preedit": "ㅛ"}
-{"in": {"ch": "5"}, "commit": "ㅛ", "preedit": "ㅠ"}
-{"in": {"ch": "6"}, "commit": "ㅠ", "preedit": "ㅑ"}
-{"in": {"ch": "7"}, "commit": "ㅑ", "preedit": "ㅖ"}
-{"in": {"ch": "8"}, "commit": "ㅖ", "preedit": "ㅢ"}
-{"in": {"ch": "9"}, "commit": "ㅢ", "preedit": "ㅜ"}
-{"in": {"ch": " "}, "commit": "ㅜ", "preedit": ""}
-{"in": {"ch": "\b"}, "commit": "", "preedit": ""}
+{"in": {"ch": "j"}, "visible": "ㅇ"}
+{"in": {"ch": "f"}, "visible": "아"}
+{"in": {"ch": "s"}, "visible": "안"}
+{"in": {"ch": "h"}, "visible": "안ㄴ"}
+{"in": {"ch": "e"}, "visible": "안녀"}
+{"in": {"ch": "a"}, "visible": "안녕"}
+{"in": {"ch": " "}, "visible": "안녕 "}
+{"in": {"ch": " "}, "visible": "안녕  "}
+{"in": {"ch": "m"}, "visible": "안녕  ㅎ"}
+{"in": {"ch": "f"}, "visible": "안녕  하"}
+{"in": {"ch": "s"}, "visible": "안녕  한"}
+{"in": {"ch": "k"}, "visible": "안녕  한ㄱ"}
+{"in": {"ch": "g"}, "visible": "안녕  한그"}
+{"in": {"ch": "w"}, "visible": "안녕  한글"}
+{"in": {"ch": " "}, "visible": "안녕  한글 "}
+{"in": {"ch": " "}, "visible": "안녕  한글  "}
+{"in": {"ch": "k"}, "visible": "안녕  한글  ㄱ"}
+{"in": {"ch": "f"}, "visible": "안녕  한글  가"}
+{"in": {"ch": "X"}, "visible": "안녕  한글  값"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값 "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  "}
+{"in": {"ch": "i"}, "visible": "안녕  한글  값  ㅁ"}
+{"in": {"ch": "f"}, "visible": "안녕  한글  값  마"}
+{"in": {"ch": "S"}, "visible": "안녕  한글  값  많"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많 "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  "}
+{"in": {"ch": "1"}, "visible": "안녕  한글  값  많  ㅎ"}
+{"in": {"ch": "2"}, "visible": "안녕  한글  값  많  ㅎㅆ"}
+{"in": {"ch": "3"}, "visible": "안녕  한글  값  많  ㅎㅆㅂ"}
+{"in": {"ch": "4"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛ"}
+{"in": {"ch": "5"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠ"}
+{"in": {"ch": "6"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑ"}
+{"in": {"ch": "7"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖ"}
+{"in": {"ch": "8"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢ"}
+{"in": {"ch": "9"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜ"}
+{"in": {"ch": "0"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  "}
+{"in": {"ch": "!"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲ"}
+{"in": {"ch": "@"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺ"}
+{"in": {"ch": "#"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈ"}
+{"in": {"ch": "$"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿ"}
+{"in": {"ch": "%"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  "}
+{"in": {"ch": "J"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1"}
+{"in": {"ch": "K"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  12"}
+{"in": {"ch": "L"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  123"}
+{"in": {"ch": "H"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230 "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  "}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ㄱ"}
+{"in": {"ch": "s"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ "}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  "}
+{"in": {"ch": "k"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  ㄱ"}
+{"in": {"ch": "f"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가"}
+{"in": {"ch": "."}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가."}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. "}
+{"in": {"ch": ":"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4"}
+{"in": {"ch": "M"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\""}
+{"in": {"ch": ")"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ "}
+{"in": {"ch": "0"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ㅋ"}
+{"in": {"ch": "1"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂ"}
+{"in": {"ch": "2"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂㅆ"}
+{"in": {"ch": "3"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂㅆㅂ"}
+{"in": {"ch": "4"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂㅆㅂㅛ"}
+{"in": {"ch": "5"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂㅆㅂㅛㅠ"}
+{"in": {"ch": "6"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂㅆㅂㅛㅠㅑ"}
+{"in": {"ch": "7"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂㅆㅂㅛㅠㅑㅖ"}
+{"in": {"ch": "8"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂㅆㅂㅛㅠㅑㅖㅢ"}
+{"in": {"ch": "9"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂㅆㅂㅛㅠㅑㅖㅢㅜ"}
+{"in": {"ch": " "}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂㅆㅂㅛㅠㅑㅖㅢㅜ "}
+{"in": {"ch": "\b"}, "visible": "안녕  한글  값  많  ㅎㅆㅂㅛㅠㅑㅖㅢㅜㅋ  ㄲㄺㅈㄿㄾ  1230  ᄀᅠᆫ  가. 4\"~ ᄏᅠᇂㅆㅂㅛㅠㅑㅖㅢㅜ"}

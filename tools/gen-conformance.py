@@ -10,8 +10,13 @@ the same expectations, and the day they disagreed nobody could say which was rig
     python3 tools/gen-conformance.py --golden tests/golden/p2-2-1-basic.jsonl \\
         --platform x11 --layout sin3-p2-basic --case basic-syllables
 
-Expectations are copied verbatim from tier A. This script never computes what the
-answer *should* be -- that is tier A's job, and inventing it here would defeat the
+Expectations are copied verbatim from tier A for a per-key corpus. A corpus that
+declares `meta.assert = "projection"` (docs/DESIGN-FRONTEND.md §5.2) stores only
+the text a person ends up with, so the per-key split tier C needs is read from the
+engine (`hunmin-sim --trace`, the same oracle tier A was generated from) and
+cross-checked against the corpus's `visible`: the trace can never assert a split
+the corpus's own text disagrees with. This script never computes what the answer
+*should* be -- that is tier A's job, and inventing it here would defeat the
 purpose of the tier.
 
 Only the keys the layouts actually use are mapped. A key with no known native encoding
@@ -26,6 +31,9 @@ try:  # issue #272 phase 2: one ROOT derivation, with a file-relative fallback
     from _common import ROOT as _COMMON_ROOT
 except ImportError:  # run from outside tools/: derive from this file
     _COMMON_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
+
+sys.path.insert(0, str(_COMMON_ROOT / "tools"))
+from _projection import keys_from_events, project, run_trace  # noqa: E402  (path set above)
 
 # US-QWERTY character -> X11 keysym. Only printable ASCII plus the control keys the
 # goldens use; XKB keysym values for those are their ASCII codes by definition
@@ -274,6 +282,34 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
     OPTION_KEYS = ("w", "W", "z", "h", "H")
     X_LOCK_MASK = 0x02
 
+    # A projection corpus stores `visible` only, so the per-key split tier C
+    # emits is read from the engine. One sim run per CASE: a case is an
+    # independent replay, and running the whole file at once would carry state
+    # across a case boundary the goldens reset.
+    projection = head.get("meta", {}).get("assert") == "projection"
+    proj_rows: list[dict] = []
+    if projection:
+        segments: list[list[dict]] = []
+        for line in src[1:]:
+            rec = json.loads(line)
+            if "meta" in rec and "case" in rec["meta"]:
+                segments.append([])
+            else:
+                if not segments:
+                    segments.append([])
+                segments[-1].append(rec)
+        for evs in segments:
+            rows = run_trace(a.sim, a.layout, keys_from_events(evs), data=a.data)
+            want = project(rows)
+            have = [ev.get("visible", "") for ev in evs]
+            if want != have:
+                bad = next(i for i, (w, h) in enumerate(zip(want, have)) if w != h)
+                raise SystemExit(
+                    f"{golden}: visible disagrees with the engine at case event {bad}: "
+                    f"corpus={have[bad]!r} engine={want[bad]!r}")
+            proj_rows.extend(rows)
+    proj_i = 0
+
     current: dict = {}
     unsupported: set[str] = set()
     # (name, body, total, mid_stream_commit). `total` is the case's cumulative
@@ -385,19 +421,28 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
             # shipped TIP, which feeds the engine caps option per event.
             mask = X_LOCK_MASK if a.platform == "x11" else WIN32_CAPS_LOCK
             event["mods"] = event.get("mods", 0) | mask
-        previous_preedit = rec.get("preedit", "")
-        cumulative_commits += rec.get("commit", "")
-        last_preedit = rec.get("preedit", "")
+        if projection:
+            row = proj_rows[proj_i]
+            proj_i += 1
+            got_commit = row.get("commit", "")
+            got_preedit = row.get("preedit", "")
+            consumed = bool(row.get("consumed"))
+        else:
+            got_commit = rec.get("commit", "")
+            got_preedit = rec.get("preedit", "")
+        previous_preedit = got_preedit
+        cumulative_commits += got_commit
+        last_preedit = got_preedit
         line = json.dumps(
                 {
                     "in": event,
-                    "commit": rec.get("commit", ""),
-                    "preedit": rec.get("preedit", ""),
+                    "commit": got_commit,
+                    "preedit": got_preedit,
                     "consumed": consumed,
                 },
                 ensure_ascii=False,
             )
-        if consumed and rec.get("commit"):
+        if consumed and got_commit:
             mid_stream_commit = True
         if refused:
             continue  # excluded case: its events are not emitted at all
@@ -415,6 +460,11 @@ def parse_golden(golden: pathlib.Path, a, build, build_named):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--golden", required=True, type=pathlib.Path)
+    ap.add_argument("--sim", default=str(_COMMON_ROOT / "build" / "hunmin-sim"),
+                    help="hunmin-sim, for a projection corpus's per-key split "
+                         "(default: build/hunmin-sim)")
+    ap.add_argument("--data", default=str(_COMMON_ROOT / "libhunmin" / "data"),
+                    help="data directory for --sim (default: libhunmin/data)")
     ap.add_argument("--extra-golden", action="append", type=pathlib.Path, default=[],
                     help="further goldens whose cases join the SAME output; "
                          "requires --batch")

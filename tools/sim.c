@@ -214,11 +214,50 @@ static char *next_line(char **cursor) {
     return s;
 }
 
+/* --------------------------------------------------------------- projection
+ *
+ * `visible` is the text a person ends up with -- the engine's delivered text
+ * that survives, plus what is composing -- and it is the one quantity that does
+ * not depend on the commit unit (docs/DESIGN-FRONTEND.md §5.2, FE1/FE18).
+ * A key the engine DECLINES changes the document the way the CLIENT would,
+ * because the engine never sees that edit: a BackSpace deletes the last code
+ * point, a printable key is inserted. tools/_projection.py is the other
+ * implementation of the same rule, and the two are each other's cross-check.
+ *
+ * A corpus opts in with {"meta": {"assert": "projection"}}, and then every
+ * event line carries `visible` and NOT commit/preedit: a line asserting both
+ * would leave the reader unsure which one is the contract. */
+#define VISIBLE_CAP 8192
+
+static bool vis_add(char *dst, size_t *len, const char *s) {
+    if (!s || !*s) return true;
+    size_t n = strlen(s);
+    if (*len + n + 1 > VISIBLE_CAP) return false;
+    memcpy(dst + *len, s, n);
+    *len += n;
+    dst[*len] = 0;
+    return true;
+}
+
+static void vis_drop_last(char *dst, size_t *len) {
+    size_t i = *len;
+    while (i > 0 && ((unsigned char)dst[i - 1] & 0xc0) == 0x80) i--;
+    if (i > 0) i--;
+    *len = i;
+    dst[i] = 0;
+}
+
 static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layout) {
     char *txt = read_file(path, NULL);
     if (!txt) return 2;
     int line = 0, fails = 0;
     hunmin_ic *ic = NULL;
+    /* Per-case projection state, reset at every `meta` line (a multi-case
+     * golden is a sequence of independent replays). */
+    char projection[VISIBLE_CAP];
+    size_t plen = 0;
+    int projection_file = 0;
+    projection[0] = 0;
 
     for (char *cursor = txt;;) {
         char *s = next_line(&cursor);
@@ -233,6 +272,17 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
         }
         const cJSON *meta = cJSON_GetObjectItemCaseSensitive(j, "meta");
         if (meta) {
+            plen = 0;
+            projection[0] = 0;
+            const cJSON *ass = cJSON_GetObjectItemCaseSensitive(meta, "assert");
+            if (cJSON_IsString(ass)) {
+                if (strcmp(ass->valuestring, "projection") != 0) {
+                    fprintf(stderr, "%s:%d: unknown meta.assert '%s' (only 'projection')\n", path, line, ass->valuestring);
+                    fails++;
+                } else {
+                    projection_file = 1;
+                }
+            }
             const cJSON *ca = cJSON_GetObjectItemCaseSensitive(meta, "caps");
             static const char *ovrs[] = {"w", "W", "z", "h", "H"};
             if (ic) {
@@ -296,9 +346,75 @@ static int check_file(hunmin_ctx *ctx, const char *path, const char *force_layou
             continue;
         }
 
-        if (shift) hunmin_ic_process_key(ic, ch, 1); /* explicit-modifier entry */
-        else hunmin_ic_process(ic, ch);
+        const bool eaten = shift ? hunmin_ic_process_key(ic, ch, 1) : hunmin_ic_process(ic, ch);
         const char *ac = hunmin_ic_commit(ic), *ap = hunmin_ic_preedit(ic);
+        const cJSON *wvis = cJSON_GetObjectItemCaseSensitive(j, "visible");
+        if (wvis && !cJSON_IsString(wvis)) {
+            fprintf(stderr, "%s:%d: visible must be a string\n", path, line);
+            fails++;
+            cJSON_Delete(j);
+            continue;
+        }
+        if (cJSON_IsString(wvis)) {
+            if (cJSON_IsString(wcommit) || cJSON_IsString(wpre)) {
+                fprintf(stderr, "%s:%d: a line carries visible AND commit/preedit; a projection corpus asserts one\n",
+                        path, line);
+                fails++;
+                cJSON_Delete(j);
+                continue;
+            }
+            if (!vis_add(projection, &plen, ac)) {
+                fprintf(stderr, "%s:%d: projection passed %d bytes; raise VISIBLE_CAP\n", path, line, VISIBLE_CAP);
+                cJSON_Delete(j);
+                return fails + 1;
+            }
+            if (!eaten) {
+                if (ch == 0x08) {
+                    vis_drop_last(projection, &plen);
+                } else if (shift || ch >= 0x80) {
+                    fprintf(stderr,
+                            "%s:%d: a declined %s key needs its resolved character; projection corpora "
+                            "spell shifted and non-ASCII keys resolved (docs/SPEC-SCHEMA.md)\n",
+                            path, line, shift ? "shifted" : "non-ASCII");
+                    fails++;
+                    cJSON_Delete(j);
+                    continue;
+                } else if (ch >= 0x20 && ch < 0x7f) {
+                    char one[2] = {(char)ch, 0};
+                    vis_add(projection, &plen, one);
+                }
+            }
+            char got[VISIBLE_CAP];
+            size_t glen = plen;
+            memcpy(got, projection, plen + 1);
+            if (!vis_add(got, &glen, ap)) {
+                fprintf(stderr, "%s:%d: projection passed %d bytes; raise VISIBLE_CAP\n", path, line, VISIBLE_CAP);
+                cJSON_Delete(j);
+                return fails + 1;
+            }
+            /* Canonicalised for the same reason `total` is: an NFC syllable and
+             * its jamo sequence are the same text to a person. */
+            char a_c[4 * VISIBLE_CAP], b_c[4 * VISIBLE_CAP];
+            hangul_canon(got, a_c, sizeof a_c);
+            hangul_canon(wvis->valuestring, b_c, sizeof b_c);
+            if (strcmp(a_c, b_c)) {
+                fprintf(stderr, "%s:%d: VISIBLE FAIL in=%s expected=%s got=%s\n", path, line,
+                        jc && cJSON_IsString(jc) ? jc->valuestring : "bksp", wvis->valuestring, got);
+                fails++;
+                if (fails > 8) {
+                    cJSON_Delete(j);
+                    break;
+                }
+            }
+            cJSON_Delete(j);
+            continue;
+        }
+        if (projection_file) {
+            fprintf(stderr, "%s:%d: meta.assert=projection but this event has no visible\n", path, line);
+            fails++;
+            cJSON_Delete(j);
+            continue;
+        }
         const cJSON *wtotal = cJSON_GetObjectItemCaseSensitive(j, "total");
         if (cJSON_IsString(wtotal)) { /* oracle mode: assert the rendered result of
                                        * this step: composing buffer, else the commit
