@@ -236,6 +236,11 @@
   backspace committed the word (26% of deletes, reproduced in the oracle, split to
   #332/FE18), the space bar's swipe-left deleted instead of moving the cursor
   (ruled and fixed), and the swipe-up-to-shift that looked wrong was intended.
+- [[2026-11-27-projection-goldens-and-the-trace-pipeline]] — tier A now
+  asserts `visible` (the text a person ends up with) instead of the
+  commit/preedit split; tier C keeps the split and `consumed`, and the
+  regenerated traces were byte-identical. Records the mutation that shows the
+  projection alone does not catch FE18.
 - [[2026-11-27-fe18-backspace-edits-the-word]] — #332's fix: the buffered
   layer deletes its own word when the engine declines a BackSpace, so the word
   stays composing on both surfaces; the checklist's predicted walk was off by

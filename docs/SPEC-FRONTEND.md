@@ -14,7 +14,10 @@ hold and records which differences are permitted. It does not restate them.
 ### FE1. Same layout and keys give the same committed text
 
 Given the same layout, the same options and the same key sequence, every
-frontend produces the same committed text. *Ruling:* the equivalence invariant,
+frontend produces the same committed text. What is asserted per key is the
+**projection** — the text a person ends up with, through the engine and both
+commit units — not the commit/preedit split, which is the commit unit's
+(`docs/DESIGN-FRONTEND.md` §5.2). *Ruling:* the equivalence invariant,
 `docs/DESIGN-FRONTEND.md#part-a--equivalence-formerly-frontend-equivalencemd`. *Implementation:*
 `libhunmin/src/buffered_preedit.c#hunmin_buffered_preedit_process_key`.
 *Refuted by:* `engine-buffered-preedit`, `engine-key-rule`,
@@ -259,6 +262,12 @@ for every key, and this requirement makes the buffered layer consume a BackSpace
 the engine declines; `hunmin-sim --off-check` now compares the text a person ends
 with (applying the client's delete on the side that declined the key), and
 which clause yields is an open ruling recorded in ReqMode4, not decided here.
+Measured 2026-11-27, and it decides how this requirement is refuted: the
+projection is identical with the defect and without it (a commit followed by the
+client's delete is text-equivalent), so the assertion that catches a regression
+is the one that a BackSpace **commits nothing** in either mode —
+`engine-buffered-preedit` asserts both, and disabling FE18 turns the second red
+while the projection comparison stays green.
 *Refuted by:* `engine-buffered-preedit`
 (`BackspaceEditsTheComposingWordAndNeverCommitsIt` — the walk above, no commit,
 and the declined key only after the word is empty); `engine-golden-case-dubeolsik`

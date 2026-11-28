@@ -1736,3 +1736,13 @@ Verified: `python3 tools/docs-lint.py --build-dir build-msvc` (0 errors) and
   unverified here (TSF on Windows, the phone / espresso round). Docs: FE18
   implementation + `docs/REQ-MAP.md` row; tier-A golden case and layer test
   added. Index updated.
+
+## [2026-11-27] update | tier A asserts the projection; tier C keeps the split
+
+- Created [[2026-11-27-projection-goldens-and-the-trace-pipeline]]: five designed
+  corpora moved from `commit`/`preedit` to `visible` (`meta.assert =
+  "projection"`), the rule implemented twice (`sim.c` checker and
+  `tools/_projection.py`) as each other's cross-check, and the trace pipeline
+  proved unchanged by regenerating four families byte-identically. Records the
+  mutation finding: the projection alone does not catch FE18, so the
+  commits-nothing assertion stays beside it. Index updated.
